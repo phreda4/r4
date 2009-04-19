@@ -1,0 +1,447 @@
+| compilador token code :R4
+| PHREDA 2008
+|---------------------------
+^reda4.txt
+|^gui.txt
+^parse.txt
+^trace.txt
+
+#:prog		#:prog>		|---- codigo&variables
+#:cte		#:cte>		|---- constantes
+#:str		#:str>		|---- strings
+#:<<boot
+#:cntword
+#:cntvars
+#salto 0		| es salto el anterior ?
+#estado 0		| 0-nada 1-dato 2-accion  3-boot
+#:msg 0
+#:error> 0
+#:inisrc 0
+
+|---- macros
+| 'string |
+#:indicemac )( 1024		#indicemac> 'indicemac	| 256 macros
+|---- includes
+| 'string | 'mem | first | last		16 bytes (32 includes)
+#:indiceinc )( 1024		#:indiceinc> 'indiceinc
+|---- palabras
+| 'string | 'exec | info | stat |    16 bytes por palabra
+#:indicepal )( 32768	#:indicepal> 'indicepal	| 2048 palabras
+#:indicepal<
+
+::pal@nom | n -- n s
+	dup 4 << 'indicepal + @ ;
+::pal@tok | n -- n t
+	dup 4 << 'indicepal + 4+ @ ;
+::pal@inf | n -- n i
+	dup 4 << 'indicepal + 8 + @ ;
+::pal@lar | n -- n l
+	dup 4 << 'indicepal + 12 + @ ;
+
+
+#pilac )( 128	#pilac> 'pilac	|----- pila de compilador
+
+:c.ini 'pilac 'pilac> ! ;
+:c.push pilac> !+ 'pilac> ! ;
+:c.pop -4 'pilac> +! pilac> @ ;
+:c.cnt pilac> 'pilac - ;
+
+#pinc )( 128 #pinc> 'pinc	 | pila de nombres de includes para saber donde esta el error
+#auxstr )( 64
+
+:armastr | "a b" -- "a"
+	'auxstr swap copynom 'auxstr ;
+
+#macros
+";" "(" ")(" ")" "[" "]"
+"0?" "+?" "-?" "1?"
+"=?" "<?" ">?" "<=?" ">=?" "<>?" "AND?" "NAND?"
+"EXEC"
+"DUP" "DROP" "OVER" "PICK2" "PICK3" "PICK4" "SWAP" "NIP"	|--- pila
+"ROT" "2DUP" "2DROP" "3DROP" "4DROP" "2OVER" "2SWAP"
+">R" "R>" "R" "R+" "R@+" "R!+" "RDROP"					|--- pila direcciones
+"AND" "OR" "XOR" "NOT"  								|--- logicas
+"+" "-" "*" "/" "*/" "*>>" "/MOD" "MOD" "ABS"  			|--- aritmeticas
+"NEG" "1+" "4+" "1-" "2/" "2*" "<<" ">>"
+"@" "C@" "W@" "!" "C!" "W!" "+!" "C+!" "W+!"  			|--- memoria
+"@+" "!+" "C@+" "C!+" "W@+" "W!+"
+"MSEC" "TIME" "DATE" "END" "RUN" 						|--- sistema
+"BPP" "SW" "SH" "CLS" "REDRAW" "FRAMEV" "UPDATE" 		|--- pantalla
+"XYMOUSE" "BMOUSE" "KEY" "CNTJOY" "GETJOY"
+"IPEN!" "IKEY!"
+"SETXY" "PX+!" "PX!+" "PX@"
+"PAPER" "INK" "INK@" "ALPHA"							|--- color
+"OP" "CP" "LINE" "CURVE" "PLINE" "PCURVE" "POLI"		|--- dibujo
+"FCOL" "FCEN" "FMAT" "SFILL" "LFILL" "RFILL"
+"MEM" "DIR" "FILE" "FSIZE" "VOL" "LOAD" "SAVE"			|--- memoria bloques
+"MOVE" "MOVE>" "CMOVE" "CMOVE>"
+"SLOAD" "SPLAY"	"MLOAD" "MPLAY"								|--- Sonido
+( 0 )
+
+|---- Compila programa
+:,, | n --
+	prog> !+ 'prog> ! ;
+
+:,cte | n -- d
+	cte> swap over !+ 'cte> ! cte - ;
+
+:rstr | c --
+	str> c!+ 'str> ! ;
+
+:realstr | cad -- cad'
+	( 1+ dup c@ 1? )(
+		34 =? ( drop 1+ dup c@ 34 <>? ( drop 0 rstr ; ) )
+		rstr ) rstr ;
+
+:,str | a -- a' d
+	str> swap realstr swap str - ;
+
+:dicc>nro | w -- n
+	'indicepal - 4 >> ;
+
+:src>nro
+	inisrc - ;
+
+|----------- compilar codigo
+:,,defc | n --  define codigo
+	src>nro 8 << 1 or ,, ;
+:,,defv | n --  define variable
+	src>nro 8 << 2 or ,, ;
+:,,litd | n --	numero decimal
+	,cte 8 << 3 or ,, ;
+:,,lith | n --	numero hexa
+	,cte 8 << 4 or ,, ;
+:,,litb | n --	numero binario
+	,cte 8 << 5 or ,, ;
+:,,litf | n --	numero punto fijo
+	,cte 8 << 6 or ,, ;
+:,,lits | n --	string
+	,str 8 << 7 or ,, ;
+:,,word | n --  word
+	dicc>nro 8 << 8 or ,, ;
+:,,var | n --  var
+	dicc>nro 8 << 9 or ,, ;
+:,,dword | n --  dir word
+	dicc>nro 8 << 10 or ,, ;
+:,,dvar | n --  dir var
+	dicc>nro 8 << 11 or ,, ;
+
+:,,mac  | n --  macro
+	12 + ,, ;
+::nro>macro | n -- s
+	12 -
+	2 << 'indicemac + @ ;
+
+|--------- busqueda
+::?macro | str -- nro+1/0
+	'indicemac ( @+ 1? )( 			| str w pal
+		pick2 =word= 1? (			| str maindic dir 1
+			drop rot drop swap 		| dir maindic
+			'indicemac - 2 >> ; )		| para que 0 sea invalido el primer macro es 1
+		drop ) nip nip ;				| str md+4 pal'
+
+::?palabra | str -- str dir / str 0
+	'indicepal >r
+	( r@+ 1? )( 					| str ind pal
+		over =s 1? ( drop r> 4 -	| dirpal
+			dup 8 + @			| dirpal info
+			%10 and? ( drop ; )( drop indicepal< >=? ( ; ) )
+			16 + >r	)( drop 12 r+ )
+		) drop rdrop 0 ;
+
+|---  includes
+:escom		( c@+ 1? )( 14 <? ( drop ; ) drop ) drop 1- ;
+:escad		( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( drop ; ) ) drop ) drop 1- ;
+:pasapal	( c@+ 1? )( 33 <? ( drop ; ) drop ) drop 1- ;
+
+:include? | s -- adr/0
+	'indiceinc ( indiceinc> <? )(
+		@+ pick2 =s 1? ( drop nip 4 - ; ) drop
+		12 + ) 2drop 0 ;
+
+:esinc 	| a -- a' incluye codigo
+	1+ dup include? 1? ( drop ; ) drop
+	'auxstr over copynom
+	here over indiceinc> !+ !+ 0 0 rot !+ !+ 'indiceinc> !
+	here 'auxstr load	| carga include
+	here =? ( " no existe" 'auxstr strcat 'auxstr 'msg ! 	drop 0 ; )
+	0 swap c!+ 'here !
+	pasapal ;
+
+:includepal | str -- str'
+	( dup c@ 33 <? )( 0? ( ; ) drop 1+ ) | quitar espacios
+	$7c =? ( drop escom ; )		| $7c |	 Comentario
+	$22 =? ( drop escad ; )		| $22 "	 Cadena
+	$5e =? ( drop esinc ; )		| $5e ^  Include
+	drop pasapal ;
+
+|----------ERROR
+::seterror | adr "" -- adr
+	over armastr drop 'auxstr strcat 'auxstr 'msg ! ;
+
+|--- Compila saltos
+:hole	prog>  4 - c.push ;
+:label	prog> c.push ;
+:holefix	prog> c.pop dup @ rot 8 << or swap  ! ;
+:labelfix	c.pop prog> 4 - dup @ rot 8 << or swap ! ;
+
+:finpalabra
+	prog> indicepal> 12 - @ prog + - 2 >>
+	indicepal> 4 - ! | falta palabra anterior
+	;
+
+:c;     c.cnt 0? ( dup 'estado ! finpalabra ) drop ;
+:c(     salto 1? ( hole 1 )( label 2 ) c.push drop ;
+:c)(    c.pop salto 0? ( drop
+				1 =? ( drop hole c.pop holefix c.push 1 c.push ; )
+			)( drop
+				2 =? ( drop c.pop hole c.push 3 c.push ; ) ) drop
+			")( error" 'msg ! 	0 ;
+:c)     c.pop salto 0? ( drop
+				1 =? ( drop holefix ; )
+				2 =? ( drop labelfix ; )
+				3 =? ( drop labelfix holefix ; )
+			)( drop
+				2 =? ( drop labelfix ; ) ) drop
+			") error" 'msg ! 0 ;
+:c[     hole label 4 c.push ;
+:c]     c.pop 4 <>? ( "] error" 'msg ! 0 nip ; ) drop
+		c.pop holefix  drop ; | agrega lit direccion
+
+#amacro 'c; 'c( 'c)( 'c) 'c[ 'c]
+
+:d;		0 'estado !  ;
+:d(		; |unidad c.push 'm8 'unidad ! ;
+:d)(	; |'mcnt 'unidad !  ;
+:d)		; |c.pop 'unidad ! ;
+:d[		; |unidad c.push 'm16 'unidad ! ;
+:d]		; |c.pop 'unidad ! ;
+
+#dmacro 'd; 'd( 'd)( 'd) 'd[ 'd]
+
+:esmacro | nro --
+	dup 1- ,,mac	| resto 1...
+	estado 1 =? ( 'dmacro )( 'amacro ) nip
+	over | nro 'dir nro
+	7 <? ( 1- 2 << + @ exec 0? ( nip ; ) )( 2drop )
+	6 >? ( 19 <? ( 1 )( 0 ) )( 0 ) 'salto ! | al final siempre !!!
+	drop ;
+
+:escomentario | a -- a' saltea comentario
+	( c@+ 1? )( 13 =? ( drop ; ) drop ) drop 1- ;
+
+:cerrarpalabra | -- guardar info de ultima definicion
+	c.cnt 1? ( "Bloque mal cerrado" 'msg ! 0 rdrop ; ) drop |	testear el c.pila... debe estar en 0
+	0 'salto ! ;
+
+:+dic | tipo mem nombre  --
+	indicepal> !+ !+ !+ 0 swap !+ | nombre | mem | info | stat
+	0 over ! 'indicepal> ! ;
+
+:esboot
+	prog> prog - '<<boot ! 3 'estado ! "" ,,defc
+	0 prog> prog - "" +dic
+	1+ ;
+
+:esdefinicion | adr -- adr
+	1 'cntword +!
+	cerrarpalabra 2 'estado !
+	1+ dup c@ | adr adr+1 c
+	33 <? ( drop esboot ; ) | boot
+	$3A =? ( swap 1+ swap %10 )( 0 ) nip | exporta bit 2
+	over ,,defc
+	over
+	dup ?macro 1? ( 2drop " es reservado" seterror drop 0 ; ) drop
+	?palabra 1? ( 3drop " ya existe" seterror 2 - 0 ; ) drop
+	swap 0 or prog> prog - rot +dic
+	pasapal ;
+
+:esvariable | adr -- adr'
+	1 'cntvars +!
+	cerrarpalabra 1 'estado !
+	1+ dup c@
+	33 <? ( drop "# solo" 'msg ! 0 ; )
+	$3A =? ( swap 1+ swap %10 )( 0 ) nip | exporta bit 2
+	over ,,defv
+	over
+	dup ?macro 1? ( 4drop "base no definible" 'msg ! 0 ; ) drop
+	?palabra 1? ( 3drop " ya existe" seterror 2 - 0 ; ) drop
+	swap 1 or prog> prog - rot +dic
+	pasapal ;
+
+:escadena | a -- 'a
+	0 'salto !
+	estado  | 0-nada 1-dato 2-accion 3-boot
+	0? ( 2drop dup " afuera s" seterror 0 ; )
+	drop
+	,,lits ;
+
+:datoaccion?	| adr -- adr f
+	dup 8 + @ 1 and? ( 0 )( 1 ) nip ;
+
+:espalabra | str n -- str
+	0 'salto !
+	estado | 0-nada 1-dato 2-accion 3-boot
+	0? ( 2drop dup " afuera" seterror 0 ; )
+	drop
+	datoaccion? 1? ( drop ,,word )( drop ,,var )
+	pasapal ;
+
+:esdir | str n -- str
+	0 'salto !
+	estado | 0-nada 1-dato 2-accion 3-boot
+	0? ( 2drop dup " afuera" seterror 0 ; )
+	drop
+	datoaccion? 1? ( drop ,,dword )( drop ,,dvar )
+	pasapal ;
+
+:esnumero | nro --
+	0 'salto !
+	estado | 0-nada 1-dato 2-accion 3-boot
+	0? ( 2drop dup " afuera n" seterror 0 ; )
+	drop basen
+	2 =? ( drop ,,litb ; )
+	10 =? ( drop ,,litd ; )
+	16 =? ( drop ,,lith ; )
+	-1 =? ( drop ,,litf ; )
+	2drop
+	dup " base?" seterror 0 ;
+
+|------------------------------------------------------------
+:esinclude | a -- a' b'
+	1+ dup ( c@+ 32 >? )( drop ) drop 1-
+	swap
+	include? 1? (
+		4+ dup @	| inc+4 cod
+		1? ( over 4 - dup @ pinc> !+ !+ 'pinc> !	| guarda nombre y dir include
+			0 rot !	dup  ; ) drop
+		) drop ;
+
+|--- busca palabra
+:palabra | str -- str'
+	( dup c@ 33 <? )( 0? ( ; ) drop 1+ )		| quitar espacios
+	$5e =? ( drop esinclude ; )			| $5e ^  Include
+	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
+	$3A =? ( drop esdefinicion ; )			| $3a :  Definicion
+	$23 =? ( drop esvariable ; )			| $23 #  Variable
+	$22 =? ( drop escadena ; )			| $22 "	 Cadena
+	$27 =? ( drop 1+ dup 				| $27 ' Direccion
+		dup ?macro 1? ( 3drop " no tiene direccion" seterror |'msg !
+			3 - 0 ; ) drop
+		?palabra 1? ( nip esdir ; ) 2drop
+		" no existe direccion" seterror 3 - 0 ; )
+	drop
+|	dup "%w" trace
+	dup ?numero  1? ( drop rot drop esnumero ; ) drop | numero
+	dup ?fnumero  1? ( drop rot drop -1 'basen ! esnumero ; ) drop | numero
+	dup ?macro 1? ( rot drop esmacro ; ) drop		| macro
+	dup	?palabra  1? ( nip espalabra ; ) drop		| palabra
+	" no existe" seterror drop
+	2 - 0 ;
+
+|---- inicializa
+:clearall
+	'macros 'indicemac |	haceindice
+	( over c@ 1? )(
+		drop over swap !+ swap
+		( c@+ 1? )( drop ) drop swap
+		) drop 'indicemac> !
+	0 indicemac> ! drop
+	'indicepal 'indicepal> !
+	'indiceinc 'indiceinc> !
+	0 indicepal> !
+	0 'cntword !
+	0 'cntvars !
+	0  dup 'msg ! 'error> !
+	;
+
+:loadincludes | fuente --
+	( includepal 0? ) drop	 'error> !
+	msg 1? ( drop ; ) drop
+	0 ( drop indiceinc>
+		'indiceinc ( indiceinc> <? )(
+			4+ @+
+			( includepal 0? ) drop 'error> !
+			msg 1? ( 4drop ; ) drop
+			8 + ) drop
+		indiceinc> =? )
+	drop ;
+
+|--------- COMPILA ARCHIVO
+::tokencomp | "nombre" --
+	clearall
+	mem over load 0 swap c!+ 'here !
+	'indicepal dup 'indicepal< !
+	swap 'pinc !+ !+ 'pinc> !	| 1er include es el codigo
+	mem dup 'inisrc !
+	dup loadincludes			| carga todos los includes
+	msg 1? ( 2drop ; ) drop	| error en include
+	0 'estado !
+	here
+	|--- mapa de memoria
+	dup dup 'prog ! 'prog> ! $7ffff +
+	dup dup 'cte ! 'cte> ! $fffff +
+	dup 'str ! 'str> !
+
+	c.ini
+	0 swap	| 0 corta los includes
+	dup		| 0 com act
+	( ( palabra 0? ) drop
+		'error> ! 'inisrc !
+		msg 1? ( ( 1? )( drop ) drop ; ) drop | corta si hay error
+		1? ( indicepal> indicepal< pinc> 4 - @ 8 + !+ !
+			indicepal> 'indicepal< ! )	| ignorar locales si es un include
+		-8 'pinc> +!					| desapila includes
+		0? )
+	,, ;
+
+|------------------------------------
+::ubicarerror | -- car lin
+	1 inisrc ( error> <? )( c@+ 13 =? ( rot 1+ rot rot ) drop ) | cuenta lineas
+	( dup c@ 13 <>? )( drop 1- ) drop | cuenta caracters a inicio de linea
+	error> swap - swap
+	;
+
+::fuenteerror | -- ".txt"
+	pinc> 8 - @ 0? ( "N/A?" nip )
+	dup ( c@+ 32 >? )( drop ) drop 0 swap 1- c!
+	;
+
+::dumperror
+	fuenteerror "%s" verde print
+	ubicarerror "|%d|%d|" blanco print
+	msg print cr
+|	indicemac> 'indicemac - 2 >> "macros:%d" print cr
+	indicepal> 'indicepal - 4 >> "pal:%d" print cr
+	indiceinc> 'indiceinc - 4 >> "inc:%d" print cr
+	prog> prog - "code: %d bytes" print cr
+	'indiceinc ( indiceinc> <? )( @+ "%w " print 12 + ) drop
+	;
+
+::saverror
+	fuenteerror ,s ubicarerror "|%d|%d|" ,print msg ,s ,eol ;
+
+|------------------------------------
+#inia
+::savestat
+	here 'inia !
+	'indicepal ( indicepal> <? )(
+		@+ >r | "%w " ,print
+		@+ drop | " %h  " ,print  -- direccion no me interesa
+		@+ r> swap %10 and? ( ":" )( "" ) swap %1 and? ( "#" )( ":" ) swap >r  "%s%s%w " ,print | tipo y nombre
+		r> dup 24 >> swap 8 << 24 >> ";%d;%d" ,print
+		@+ |	dup 24 >> swap dup 8 << 24 >> swap 16 << 16 >> | d r l
+		" ;  %d  " ,print ,cr ) drop
+|	largo "%d%." print
+	indiceinc> 'indiceinc - 4 >> "%d includes %." ,print | 3..4
+	indicepal> 'indicepal - 4 >> "%d palabras %." ,print
+	"---- MEMORIA ----%." ,print
+	prog> prog - "%d codigo%." ,print
+	cte> cte - "%d constante%." ,print
+	str> str - "%d string%." ,print
+|	<<boot 2 >> "%d%." ,print
+
+	|graba archivo
+	inia here over - "stat.inf" save
+	;
+

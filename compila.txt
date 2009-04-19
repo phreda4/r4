@@ -1,0 +1,606 @@
+| 2do compilador :R4 a FASM
+| PHREDA
+|--------------------------------------------
+^gui.txt
+^parse.txt
+^fontj.txt
+|^trace.txt
+
+#msgserr "sin errores" 
+#error 'msgserr
+#error> 0
+
+#salto	0
+#modo 	0 | codigo/dato
+#locales
+#codesec	#hcode
+#datasec 	#hdata
+
+#d1 "dd " #d2 "dw " #d3	"db " #d4 "rb "
+#dtipo 'd1
+#dini 0
+|----- pila de compilador
+#pilac )( 256	#pilac> 'pilac
+
+:>pilac pilac> ! 4 'pilac> +! ;
+:<pilac -4 'pilac> +! pilac> @ ;
+
+#etiqueta 0	| etiquetas
+#cadena 0	| cadenas
+
+:+etiqueta	| -- nueva   // y agrega a pila
+	etiqueta 1+ dup 'etiqueta ! dup >pilac ;
+
+|------ optimizador
+:label	"_" ,s ,h 	;
+:jmp,	"jmp " ,s label ,cr ;
+:dup,	"lea esi,[esi-4]" ,ln "mov [esi],eax" ,ln ;
+:drop,	"lodsd" ,ln ;
+:nip,		"lea esi,[esi+4]" ,ln ;
+
+#optipo  0 | 0,nro,var,dir,cad,call
+#optnro 
+
+| nro --
+:*nro	dup, 
+		0? ( drop "xor eax,eax" ,ln ; )
+		1 =? ( drop "xor eax,eax" ,ln "inc eax" ,ln ; )
+		-1 =? ( drop "xor eax,eax" ,ln "dec eax" ,ln ; )
+		"mov eax,$" ,s ,h ,cr  ;
+:*var	dup, "mov eax,[w" ,s ,n "]" ,ln ;
+:*dir	dup, "mov eax,w" ,s ,n ,cr ;
+:*cad	dup, "mov eax,s" ,s ,n ,cr ;
+:*call	"call w" ,s ,n ,cr ;
+#jopt  0 *nro *var *dir *cad *call
+:optfin optipo 1? ( 2 << 'jopt + @ optnro swap exec 0 'optipo ! dup ) drop ;
+
+:optset | nro clase --
+	optfin 'optipo ! 'optnro ! ;
+	
+:*jump  "jmp w" ,s optnro ,n ,cr 0 'optipo ! ;
+
+| nro --
+:**nro 	"$" ,s ,h  ;
+:**var    "dword [w" ,s ,n "]" ,s ;
+:**dir	"w" ,s ,n ;
+:**cad 	"s" ,s ,n ;
+:**error drop ;
+#wopt **error **nro **var **dir **cad **error
+:**write		optipo 2 << 'wopt + @ optnro swap exec	0 'optipo ! ,cr ;
+:**write1	optipo 2 << 'wopt + @ optnro swap exec	0 'optipo ! ;
+	
+:optcall | --
+	optipo 5 =? ( optfin drop 0 ) ;
+
+|---------------------------------------------------	
+:,;
+	optipo 5 =? ( *jump )( optfin "ret" ,ln ) drop ;
+:,( 
+	optfin +etiqueta salto 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
+:,)(	
+	optfin <pilac salto 0? ( drop
+			1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac drop ; )
+			)( drop 
+			2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac drop ; ) ) drop
+	"**)( error **" 'msgserr ! ; | 1 'error !
+:,)	
+	optfin
+	<pilac salto 0? ( drop 
+			1 =? ( <pilac label ":" ,ln drop ; ) 
+			2 =? ( <pilac jmp, drop ; ) 
+			3 =? ( <pilac jmp, <pilac label ":" ,ln drop ; )
+		)( drop	
+			2 =? ( <pilac label ,cr drop ; ) ) drop
+	"**) error **"  'msgserr ! ;
+:,[ 	
+	optfin dup, +etiqueta +etiqueta "mov eax," ,s label ,cr jmp, <pilac label ":" ,ln ;
+:,]	
+	optfin <pilac label ":" ,ln ;
+
+:,0?	optfin "or eax,eax" ,ln "jnz " ,s ;
+:,+?	optfin "or eax,eax" ,ln "js " ,s ;
+:,-?	optfin "or eax,eax" ,ln "jns " ,s ;
+:,1?	optfin "or eax,eax" ,ln "jz " ,s ;
+:,=?	optcall
+		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jnz " ,s )(
+			"cmp eax," ,s **write "jnz " ,s ) drop ;
+:,<?	optcall
+		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jge " ,s )(
+			"cmp eax," ,s **write "jge " ,s ) drop ;
+:,>?	optcall
+		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jle " ,s )(
+			"cmp eax," ,s **write "jle " ,s ) drop ;
+:,<=?	optcall
+		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jg " ,s )(
+			"cmp eax," ,s **write "jg " ,s ) drop ;
+:,>=?	optcall
+		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jl " ,s )(
+			"cmp eax," ,s **write "jl " ,s ) drop ;
+:,<>?	optcall
+		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jz " ,s )(
+			"cmp eax," ,s **write "jz " ,s ) drop ;
+:,and?	optcall
+		0? ( "mov ecx,eax" ,ln drop, "test eax,ecx" ,ln "jz " ,s )(
+			"test eax," ,s **write "jz " ,s ) drop ;
+
+:,nand?	optcall
+		0? ( "mov ecx,eax" ,ln drop, "test eax,ecx" ,ln "jnz " ,s )(
+			"test eax," ,s **write "jnz " ,s ) drop ;
+
+:,EXEC	optfin "mov ecx,eax" ,ln drop, "or ecx,ecx" ,ln "jz @f" ,ln "call ecx" ,ln  "@@:" ,ln ;
+
+:,DUP	optfin dup, ;
+:,OVER	optfin dup, "mov eax,[esi+4]" ,ln ;
+:,PICK2 optfin dup, "mov eax,[esi+4*2]" ,ln ;
+:,PICK3 optfin dup, "mov eax,[esi+4*3]" ,ln ;
+:,PICK4 optfin dup, "mov eax,[esi+4*4]" ,ln ;
+:,SWAP	optcall 0? ( "mov edx,eax" ,ln "mov eax,[esi]" ,ln "mov [esi],edx" ,ln )( |"xchg eax,[esi]" ,ln ;|ggrr
+		2 =? ( "lea esi,[esi-4]" ,ln "mov edx," ,s **write "mov [esi],edx" ,ln )(
+			"lea esi,[esi-4]" ,ln "mov dword [esi]," ,s **write ) ) drop ;
+:,ROT	optcall 0? ( "mov ecx,[esi+4]" ,ln "mov edx,[esi]" ,ln "mov [esi],eax" ,ln 
+					"mov [esi+4],edx" ,ln "mov eax,ecx" ,ln )(
+				"mov ecx,[esi]" ,ln "mov [esi],eax" ,ln "lea esi,[esi-4]" ,ln "mov eax," ,s **write 
+					"mov [esi],eax" ,ln "mov eax,ecx" ,ln ) drop ;
+:,2DUP	optfin ,over ,over ;
+:,2OVER optfin "mov [esi-4],eax" ,ln "lea esi,[esi-8]" ,ln
+		"mov edx,[esi+16]" ,ln "mov [esi],edx" ,ln "mov eax,[esi+12]" ,ln ;
+:,2SWAP optfin "mov ecx,[esi+4]" ,ln "mov [esi+4],eax" ,ln "mov edx,[esi+8]" ,ln 
+		"mov eax,[esi]" ,ln "mov [esi+8],eax" ,ln "mov [esi],edx" ,ln "mov eax,ecx" ,ln ;
+:,DROP	optfin drop, ;
+:,2DROP	optfin nip, drop, ;
+:,3DROP	optfin "lea esi,[esi+8]" ,ln drop, ;
+:,4DROP	optfin "lea esi,[esi+12]" ,ln drop, ;
+:,NIP	optfin nip, ;
+
+:,>R		optfin "push eax" ,ln drop, ;
+:,R>		optfin dup, "pop eax" ,ln ;
+:,R 		optfin dup, "mov eax,[esp]" ,ln ;
+:,R+ 	optfin "add [esp],eax" ,ln drop, ;
+:,R!+ 	optcall
+		0? ( "pop edx" ,ln "mov [edx],eax" ,ln "add edx,4" ,ln "push edx" ,ln drop, )(
+			2 =? ( "pop edx" ,ln "mov ecx," ,s **write "mov [edx],ecx" ,ln "add edx,4" ,ln "push edx" ,ln )(
+			"pop edx" ,ln "mov dword [edx]," ,s **write "add edx,4" ,ln "push edx" ,ln ) ) drop ;
+:,R@+   optfin dup, "pop edx" ,ln "mov eax,[edx]" ,ln "add edx,4" ,ln "push edx" ,ln ;
+:,RDROP optfin "pop edx" ,ln ;
+
+:,AND 	optcall	0? ( "and eax,[esi]" ,ln nip, )( "and eax," ,s **write ) drop ;
+:,OR 	optcall	0? ( "or eax,[esi]" ,ln nip, )( "or eax," ,s **write ) drop ;
+:,XOR 	optcall	0? ( "xor eax,[esi]" ,ln nip, )( "xor eax," ,s **write ) drop ;
+:,NOT 	optfin "not eax" ,ln ;
+
+
+:,+ 	optcall
+		0? ( "add eax,[esi]" ,ln nip, )( "add eax," ,s **write ) drop ;
+:,- 	optcall
+		0? ( "neg eax" ,ln "add eax,[esi]" ,ln nip, )( "sub eax," ,s **write ) drop ;
+:,* 	optcall
+		0? ( "cdq" ,ln "imul dword [esi]" ,ln nip, )( "mov ecx," ,s **write "cdq" ,ln "imul ecx" ,ln ) drop ;
+:,/ 	optcall
+		0? ( "mov ecx,eax" ,ln drop, "cdq" ,ln "idiv ecx" ,ln )(
+			"mov ecx," ,s **write "cdq" ,ln "idiv ecx" ,ln ) drop ;
+:,*/ 	optcall
+		0? ( "mov ecx,eax" ,ln drop, "cdq" ,ln "imul dword [esi]" ,ln "idiv ecx" ,ln nip, )(
+			"mov ecx," ,s **write "cdq" ,ln "imul dword [esi]" ,ln "idiv ecx" ,ln nip, ) drop ;
+
+:,*>> optcall
+		0? ( "mov ecx,eax" ,ln drop, "cdq" ,ln "imul dword [esi]" ,ln "shrd eax,edx,cl" ,ln nip, )(
+					2 =? ( "mov ecx," ,s **write  "cdq" ,ln "imul dword [esi]" ,ln "shrd eax,edx,cl" ,ln nip,  )( 
+					"cdq" ,ln "imul dword [esi]" ,ln "shrd eax,edx," ,s **write nip, ) ) drop ;
+
+:,/MOD 	optfin
+		"mov ecx,eax" ,ln "mov eax,[esi]"  ,ln "cdq" ,ln "idiv ecx" ,ln "mov [esi],eax" ,ln "mov eax,edx" ,ln ;
+
+:,MOD 	optcall
+		0? ( "mov ecx,eax" ,ln drop, "cdq" ,ln "idiv ecx" ,ln "mov eax,edx" ,ln )(
+			"mov ecx," ,s **write "cdq" ,ln "idiv ecx" ,ln "mov eax,edx" ,ln ) drop ;
+:,<< 	optcall
+		0? ( "mov ecx,eax" ,ln drop, "sal eax,cl" ,ln )(
+			1 =? ( "sal eax," ,s **write )(
+			"mov ecx," ,s **write "sal eax,cl" ,ln ) ) drop ;
+:,>> 	optcall
+		0? ( "mov ecx,eax" ,ln drop, "sar eax,cl" ,ln )(
+			1 =? ( "sar eax," ,s **write )(
+			"mov ecx," ,s **write "sar eax,cl" ,ln ) ) drop ;
+:,ABS 	optfin "cdq" ,ln "add eax,edx" ,ln "xor eax,edx" ,ln ;
+:,NEG 	optfin "neg eax" ,ln ;
+:,1+ 	optfin "inc eax" ,ln ;
+:,4+ 	optfin "add eax,4" ,ln ;
+:,1-		optfin "dec eax" ,ln ;
+:,2/		optfin "sar eax,1" ,ln ;
+:,2*		optfin "sal eax,1" ,ln ; | "add eax,eax" ,ln
+
+:,@		optfin "mov eax,dword [eax]" ,ln ;
+:,C@ 	optfin "movsx eax,byte [eax]" ,ln ;
+:,W@ 	optfin "movsx eax,word [eax]" ,ln ;
+:,! 	optcall 0? ( "mov ecx,[esi]" ,ln "mov [eax],ecx" ,ln nip, drop, )(
+			2 =? ( "mov ecx," ,s **write  "mov [ecx],eax" ,ln drop, )(
+			"mov dword [" ,s **write1 "],eax" ,ln drop, ) ) drop ;
+:,C! 	optcall 0? ( "mov ecx,[esi]" ,ln "mov byte [eax],cl" ,ln nip, drop, )(
+			2 =? ( "mov ecx," ,s **write "mov byte [ecx],al" ,ln drop, )(
+			"mov byte [" ,s **write1 "],al" ,ln drop, ) ) drop ;
+:,W! 	optcall 0? ( "mov ecx,[esi]" ,ln "mov word [eax],cx" ,ln nip, drop, )(
+			2 =? ( "mov ecx," ,s **write "mov word [ecx],ax" ,ln drop, )(
+			"mov word [" ,s **write1 "],ax" ,ln drop, ) ) drop ;
+:,+! 	optcall 0? ( "mov ecx,[esi]" ,ln "add [eax],ecx" ,ln nip, drop, )(
+			2 =? ( "mov ecx," ,s **write "add [ecx],eax" ,ln drop, )(
+			"add dword [" ,s **write1 "],eax" ,ln drop, ) ) drop ;
+:,W+! 	optcall 0? ( "mov ecx,[esi]" ,ln "add word [eax],cx" ,ln nip, drop, )(
+			2 =? ( "mov ecx," ,s **write "add word [ecx],ax" ,ln drop, )(
+			"add word [" ,s **write1 "],ax" ,ln drop, ) ) drop ;
+:,C+! 	optcall 0? ( "mov ecx,[esi]" ,ln "add byte [eax],cl" ,ln nip, drop, )(
+			2 =? ( "mov ecx," ,s **write "add byte [ecx],al" ,ln drop, )(
+			"add byte [" ,s **write1 "],al" ,ln drop, ) ) drop ;
+:,!+  	optfin "mov ecx,[esi]" ,ln "mov [eax],ecx" ,ln nip, "add eax,4" ,ln ;
+:,W!+ 	optfin "movsx ecx,word [esi]" ,ln "mov [eax],cx" ,ln nip, "add eax,2" ,ln ;
+:,C!+  	optfin "movsx ecx,byte [esi]" ,ln "mov [eax],cl" ,ln nip, "inc eax" ,ln ;
+:,@+ 	optfin "mov ecx,[eax]" ,ln "add eax,4" ,ln "lea esi,[esi-4]" ,ln
+		"mov [esi],eax" ,ln "mov eax,ecx" ,ln ;
+:,W@+  	optfin "movsx ecx,word [eax]" ,ln "add eax,2" ,ln "lea esi,[esi-4]" ,ln
+		"mov [esi],eax" ,ln "mov eax,ecx" ,ln ;
+:,C@+  	optfin "movsx ecx,byte [eax]" ,ln "inc eax" ,ln "lea esi,[esi-4]" ,ln
+		"mov [esi],eax" ,ln "mov eax,ecx" ,ln ;
+:,MOVE	;
+:,MOVE>	;
+:,CMOVE	;
+:,CMOVE>	;
+:,MEM 		optfin dup, "mov eax,FREE_MEM" ,ln ;
+:,DIR 		optfin "call SYSDIR" ,ln ;
+:,FILE 		optfin "call SYSFILE" ,ln ;
+:,FSIZE	;
+:,VOL	;
+:,LOAD 		optfin "call SYSLOAD" ,ln ;
+:,SAVE 		optfin "call SYSSAVE" ,ln ;
+:,UPDATE 	optfin "call SYSUPDATE" ,ln ;
+:,MSEC 		optfin "call SYSMSEC" ,ln ;
+:,TIME 		optfin "call SYSTIME" ,ln ;
+:,DATE 		optfin "call SYSDATE" ,ln ;
+:,END		optfin "jmp SYSEND" ,ln ;
+:,RUN 		optfin "call SYSRUN" ,ln ;
+:,SW 	optfin dup, "mov eax,[SYSW]" ,ln ;
+:,SH	optfin dup, "mov eax,[SYSH]" ,ln ;
+:,CLS	;
+:,REDRAW 	optfin "call SYSREDRAW" ,ln ;
+:,FRAMEV 	optfin dup, "mov eax,SYSFRAME" ,ln ;
+
+:,SETXY
+:,PX+!
+:,PX!+
+:,PX@
+	;
+
+:,iPEN!	optcall
+		0? ( "mov [SYSiPEN],eax" ,ln drop, )( "mov ecx," ,s **write "mov [SYSiPEN],ecx" ,ln ) drop ;
+
+:,XYMOUSE	optfin "lea esi,[esi-8]" ,ln "mov eax,[SYSXYM]" ,ln "mov ecx,eax" ,ln
+			"and ecx,$ffff" ,ln "shr eax,16" ,ln "mov [esi],ecx" ,ln ;
+:,BMOUSE	optfin dup, "mov eax,[SYSBM]" ,ln ;
+
+:,iKEY!	optcall
+		0? ( "mov [SYSiKEY],eax" ,ln drop, )( "mov ecx," ,s **write "mov [SYSiKEY],ecx" ,ln ) drop ;
+:,KEY	optfin dup, "mov eax,[SYSKEY]" ,ln ;
+
+:,IJOY!
+:,CNTJOY
+:,GETJOY
+:,SLOAD
+:,SPLAY
+:,MLOAD
+:,MPLAY
+:,INET!
+:,LISTEN
+:,CONECT
+:,SEND
+:,RECV
+:,NBI
+	;
+
+#fmacros ',; ',( ',)( ',) ',[ ',] ',EXEC
+',0? ',+? ',-? ',1? ',=? ',<? ',>? ',<=? ',>=? ',<>? ',and? ',nand?
+',DUP ',DROP ',OVER ',PICK2 ',PICK3 ',PICK4 ',SWAP ',NIP ',ROT
+',2DUP ',2DROP ',3DROP ',4DROP ',2OVER ',2SWAP
+',>R ',R> ',R ',R+ ',R@+ ',R!+ ',RDROP
+',AND ',OR ',XOR ',NOT
+',+ ',- ',* ',/ ',*/ ',*>> ',/MOD ',MOD ',ABS
+',NEG ',1+ ',4+ ',1- ',2/ ',2* ',<< ',>>
+',@ ',C@ ',W@ ',! ',C! ',W! ',+! ',C+! ',W+!
+',@+ ',!+ ',C@+ ',C!+ ',W@+ ',W!+
+',MOVE ',MOVE> ',CMOVE ',CMOVE>
+',MEM ',DIR ',FILE ',FSIZE ',VOL ',LOAD ',SAVE
+',UPDATE ',MSEC ',TIME ',DATE ',END ',RUN
+',SW ',SH ',CLS ',REDRAW ',FRAMEV
+',SETXY ',PX+! ',PX!+ ',PX@
+',IPEN! ',XYMOUSE ',BMOUSE
+',IKEY! ',KEY
+',IJOY! ',CNTJOY ',GETJOY
+',SLOAD ',SPLAY ',MLOAD ',MPLAY
+',INET!
+',LISTEN ',CONECT ',SEND ',RECV ',NBI
+
+:,d; ;
+:,d( dtipo >pilac 'd3 'dtipo ! ;
+:,d)( 'd4 'dtipo ! ;
+:,d) <pilac 'dtipo ! ;
+:,d[ dtipo >pilac 'd2 'dtipo ! ;
+:,d] <pilac 'dtipo ! ;
+
+#dmacros ',d; ',d( ',d)( ',d) ',d[ ',d]
+
+|--- Macros
+#macros
+";" "(" ")" ")(" "[" "]" "EXEC"
+"0?" "+?" "-?" "1?" "=?" "<?" ">?" "<=?" ">=?" "<>?" "AND?" "NAND?"
+"DUP" "DROP" "OVER" "PICK2" "PICK3" "PICK4" "SWAP" "NIP" "ROT"  |--- pila
+"2DUP" "2DROP" "3DROP" "4DROP" "2OVER" "2SWAP"
+">R" "R>" "R" "R+" "R@+" "R!+" "RDROP" |--- pila direcciones
+"AND" "OR" "XOR" "NOT"                 |--- logicas
+"+" "-" "*" "/" "*/" "*>>" "/MOD" "MOD" "ABS"  |--- aritmeticas
+"NEG" "1+" "4+" "1-" "2/" "2*" "<<" ">>"
+"@" "C@" "W@" "!" "C!" "W!" "+!" "C+!" "W+!"  |--- memoria
+"@+" "!+" "C@+" "C!+" "W@+" "W!+"
+"MOVE" "MOVE>" "CMOVE" "CMOVE>" |-- movimiento de memoria
+"MEM" "DIR" "FILE" "FSIZE" "VOL" "LOAD" "SAVE" |--- memoria bloques
+"UPDATE" "MSEC" "TIME" "DATE" "END" "RUN" |--- sistema
+"SW" "SH" "CLS" "REDRAW" "FRAMEV" |--- pantalla
+"SETXY" "PX+!" "PX!+" "PX@"
+"IPEN!" "XYMOUSE" "BMOUSE" |-------- mouse
+"IKEY!" "KEY"           |-------- teclado
+"IJOY!" "CNTJOY" "GETJOY"      |-------- joystick
+"SLOAD" "SPLAY" "MLOAD" "MPLAY"     |-------- sonido
+"INET!"                 |-------- red
+"LISTEN" "CONECT" "SEND" "RECV" "NBI"
+( 0 )
+
+#indicemac )( 512
+#indicemac> 'indicemac
+
+|--- palabras
+#palabras )( 16384
+#lastpal 'palabras
+|--- indice de palabras
+#indicepal )( 16384
+#indice> 'indicepal
+|--- info palabras
+#infopal )( 16384
+
+#cntpal 0	| palabras
+
+:wtipo | n -- n info
+	dup 2 <<  'infopal + @ ;
+	
+|--- includes
+#includes )( 2048
+#includes> 'includes
+#indexinc )( 512
+#indexinc> 'indexinc
+#incmem )( 512
+#incmem> 'incmem
+
+:ghere	here modo 0? ( 'hcode )( 'hdata ) nip ! ;
+
+|---- Agrega palabra al diccionario	
+:copyn | src buf -- src' buf'
+    swap ( c@+ 32 >? )( toupp rot c!+ swap ) drop 0 rot c!+ ;
+
+:dfin	dini 1? ( dtipo )( "," ) ,s drop 0 'dini ! ;
+:dfini	dini 1? ( dtipo ,s 0 ,n ) ,cr drop 0 'dini ! ;
+:dfins	dini 1? ( "db " )( "," ) ,s drop 0 'dini ! ;
+:dfind	dini 1? ( "dd " )( "," ) ,s drop 0 'dini ! ;
+
+:definep | an --
+	swap 1+ dup c@ $3a =? ( drop 1+ swap 2 or swap )( drop )
+	swap indice> 'indicepal - 'infopal + !
+	lastpal indice> !+ 'indice> ! 0 indice> !
+	lastpal copyn 'lastpal ! ;
+	
+:esdefinicion | a -- a' define palabra
+	dfini ghere 0 'modo ! hcode 'here ! optfin 
+	dup 1+ c@ 33 <? ( drop 2 + "inicio:" ,ln ; ) drop
+	"w" ,s cntpal ,n ": " ,s 1 'cntpal +! 
+	" ;" ,s dup ( c@+ 32 >? )( ,c ) 2drop ,cr 
+	0 definep ;
+	
+:esvariable | a -- a' define variable
+	optfin dfini
+	ghere 1 'modo ! hdata 'here !
+	"w" ,s cntpal ,n " " ,s 1 'cntpal +!
+	1 definep 
+	'd1 'dtipo !
+	1 'dini ! ;
+
+|----------------------------------------------------------------
+:copydat | a -- a'
+	34 ,c 1+ 
+	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( drop 34 ,c ",0" ,s ; ) """,34," ,s ) ,c ) 
+	34 ,c drop ",0" ,s  1- ; 
+	
+:escadena | a -- a' graba cadena  "....."",..."
+	modo 0? ( drop
+		here 'hcode ! hdata 'here !
+		"s" ,s cadena ,n " db " ,s copydat ,cr
+		here 'hdata ! hcode 'here !
+		cadena 4 optset |******optipo  0 | 0,nro,var,dir,cad,call
+		1 'cadena +!
+	)( drop dfins copydat ) ;
+
+:esnumero | adr nro -- adr
+	0 'salto !
+	modo 0? ( drop
+		1 optset |******optipo  0 | 0,nro,var,dir,cad,call
+	)( drop	dfin ,n ) ;
+		
+:espalabra | adr nro -- adr
+	0 'salto !
+	modo 0? ( drop
+		wtipo 1 and 0? ( drop
+			5 optset |******optipo  0 | 0,nro,var,dir,cad,call	
+		)( drop
+			2 optset |******optipo  0 | 0,nro,var,dir,cad,call			
+			)
+	)( drop dfind "w" ,s ,n  ) ;
+	
+:esdir	| adr nro -- adr
+	0 'salto !
+	modo 0? ( drop
+		3 optset |******optipo  0 | 0,nro,var,dir,cad,call	
+	)( drop dfind "w" ,s ,n ) ;
+	
+:esmacro | adr nro -- adr
+	dup modo 0? ( 'fmacros )( 'dmacros ) nip swap 2 << + @ exec
+	5 >? ( 18 <? ( 1 )( 0 ) )( 0 ) nip 'salto ! ;
+
+|----------------------------------------------------------------
+:?palabra | str -- str' nro 1 / str 0
+	'indicepal ( @+ 1? )( 			| str ind pal
+		pick2 =word= 1? (										| str ind dir 1
+			drop over 'indicepal - 'infopal + 4 - @ $2 and 		| str ind dir infop
+			0? ( drop over locales >? ( 1 )( 0 ) nip )		| es local ? esta adentro ?
+			1? ( drop rot drop swap 							| dir ind
+				'indicepal - 2 >> 1- 1 ; )( nip )
+			) drop ) nip nip ;					| str md+4 pal'
+	
+:?macro
+	'indicemac ( @+ 1? )( 			| str w pal
+		pick2 =word= 1? (				| str maindic dir 1
+			drop rot drop swap 		| dir maindic
+			'indicemac - 2 >> 1- 1 ; )
+		drop ) nip nip ;					| str md+4 pal'
+		
+|---  includes
+:include? | s -- adr/0
+	'indexinc ( indexinc> <? )(
+		@+ pick2 = 1? ( drop nip 4 - ; ) drop 
+		) 2drop 0 ;
+		
+:esinclude | a -- a' b'
+	1+ dup ( c@+ 32 >? )( drop ) drop 1-
+	swap include? 1? (
+		'indexinc - 'incmem + 
+		dup @ 1? ( 0 rot ! ; ) drop
+		) drop ;
+	
+|---- Includes
+:i,	includes> c!+ 'includes> ! ;
+:cpy, 	
+	( c@+ 1? )( 33 <? ( drop 0 i, ; ) toupp i, ) i, ;
+
+:escomentario
+    ( c@+ 1? )( 13 =? ( drop ; ) drop ) drop 1- ;
+
+:escad
+    ( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( drop ; ) ) drop ) drop 1- ;
+:esnad
+    ( c@+ 1? )( 33 <? ( drop ; ) drop ) drop 1- ;
+:esinc 	| a -- a' incluye codigo
+	1+ dup include? 1? ( drop esnad ; ) drop
+	includes> indexinc> !+ 'indexinc> ! 
+	cpy, here dup incmem> !+ 'incmem> !
+	indexinc> 4 - @ load 0 swap c!+ 'here !	;
+	
+:includepal | str -- str'
+	( dup c@ 33 <? )( 0? ( ; ) drop 1+ ) | quitar espacios
+	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
+	$22 =? ( drop escad ; )		| $22 "	 Cadena		
+	$5e =? ( drop esinc ; )		| $5e ^  Include	
+	drop esnad ;
+
+|---- inicializa
+:clearall
+	'macros 'indicemac |	haceindice 
+	( over c@ 1? )(
+		drop over swap !+ swap
+		( c@+ 1? )( drop ) drop swap 
+		) drop 'indicemac> ! 
+	0 indicemac> ! drop 
+	'palabras 'lastpal  ! 
+	'indicepal 'indice> ! 
+	0 indice> ! 0 'cntpal !
+	0 'etiqueta	! 0 'cadena ! ;
+	
+:loadincludes | fuente --
+	dup ( c@+ 1? )( drop ) drop 1+ 'here ! | saltear 1er fuente
+	'indexinc 'indexinc> !
+	'incmem 'incmem> !
+	'includes 'includes> !
+
+	"^asmbase.txt" ( includepal 0? ) 2drop
+
+	( includepal 0? ) 2drop |c@ ,n |1? ( error ) 
+	0 ( drop indexinc>
+		'incmem ( incmem> <? )( @+ ( includepal 0? ) 2drop ) drop
+		indexinc> =? ) drop	
+	here dup dup 'codesec ! 'hcode !
+	1024 1024 * + dup 'datasec ! 'hdata ! | 1MB de asm source
+	0 codesec ! 0 datasec ! 0 'modo !
+	;
+
+|--- busca palabra
+:palabra | str -- str' tipo \finOk-0/com/cad/def/var/inc/dir/num/pal/error
+	( dup c@ 33 <? )( 0? ( ; ) drop 1+ )		| quitar espacios
+	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
+	$22 =? ( drop escadena ; )			| $22 "	 Cadena		
+	$3A =? ( drop esdefinicion ; )			| $3a :  Definicion  
+	$23 =? ( drop esvariable ; )			| $23 #  Variable
+	$5e =? ( drop esinclude ; )			| $5e ^  Include
+	$27 =? ( drop 1+ dup 				| $27 ' Direccion  -- adr nro 6	
+		?palabra 1? ( drop rot drop esdir ; ) ; )
+	drop dup ?macro 1? ( drop rot drop esmacro ; )
+	drop dup ?palabra 1? ( drop rot drop espalabra ; )
+	drop dup ?numero  1? ( drop rot drop esnumero ; )
+	drop dup ?fnumero  1? ( drop rot drop esnumero ; )
+	 0 ;
+
+
+::dumpcompila
+	":r4 compiler (:R4v1-FASM-386)" print cr
+	'indexinc ( indexinc> <? )( dup
+		'indexinc - 'incmem + @ 
+		1? ( naranja )( amarillo ) drop
+		@+ amarillo "%s " print 
+		) drop	
+	cr
+	verde 'indicepal ( @+ 1? )( over 
+		'indicepal - 'infopal + 4 - @ 
+		2 and? ( verde )( azul  ) drop
+		"%s " print 
+		) 2drop 
+	cr  
+|	'pilac ( <pilac <? )( @+ "%d " print ) drop 
+	error>  1? ( blanco "%s" )( rojo " %d" ) print	
+	blanco
+	indice> 'indicepal - 2 >> 
+	0? ( drop ; )
+	"%.%. %d Palabras compiladas %.%." print
+	hdata datasec - 10 >>
+	hcode codesec - 10 >>
+	"%dkb Codigo%.%dkb Dato%." print
+	lastpal 'palabras - 10 >> "%. %dkb Espacio de Nombres %." print
+|	blanco codesec print
+|	azul datasec print
+	;
+
+
+:pausa
+	.page
+	'exit <esc>
+	.show
+		cls dumpcompila ;
+
+|-------------------------------------------
+::compila | addr --  addr'
+	fontj cls
+	cr "Compilando..." print redraw 
+	clearall 
+	dup loadincludes 
+	0 swap 		| 0 corta los includes
+	0 'error !
+	0 'optipo !
+	'indicepal 'locales ! 
+	"^asmbase.txt" ( palabra 0? ) 3drop
+	( ( palabra 0? ) 
+		indice> 'locales ! | ignorar locales
+|		pausa
+		drop 0? ( drop dup  'error> ! ; ) drop 0? ) drop
+	ghere 0 ,c
+	codesec hcode over - "r4asm/cod.asm" save
+	datasec hdata over - "r4asm/dat.asm" save
+	0 ;

@@ -1,0 +1,364 @@
+| HERSHEY
+| MCORNES/PHREDA 2009
+|------------------------------
+^reda4.txt
+^libgui.txt
+^dlgfile.txt
+
+#dat #index
+#numero #nverts
+#nombre )( 64
+
+| ( char - int )
+| 48 = '0', como se escribe un caracter ?
+:ascii 32 =? ( drop 0 )( 48 - ) ;
+
+| ( @ cnt -- val )
+:num 0 >r ( +? )( swap c@+ ascii r> 10* + >r swap 1- ) 2drop r> ;
+
+:start dup 5 num 'numero ! 5 + 3 num 'nverts ! ;
+
+| problem here !!
+#inc
+:next dat 8 + nverts 2* + 1+ inc + 'dat ! ;
+
+:lfremove c@+ 10 =? ( 1 'inc +! drop ; ) drop 1- ;
+
+| ( @ -- dx dy @+2 )
+:offset
+	lfremove c@+ 82 - |20 *
+	swap
+	lfremove c@+ 82 - |20 *
+	swap ;
+
+:center_ | -- x y
+	yc + swap xc + swap ;
+
+#state | 0:up, 1:down ( x y -- )
+:step center_ state 0 =? ( drop op 1 'state ! )( drop line ) ;
+
+| ( x y -- )
+| -50 0 -> lift pen
+:pencmd 0? ( swap -50 =? ( 2drop 0 'state ! )( swap step ) )( step ) ;
+
+| ignore left right limits
+:draw
+0 'state !
+0 'inc !
+dat 10 + nverts 1-
+( +? )( swap offset >r pencmd r> swap 1- ) 2drop ;
+
+|----- indice de letras
+:num2 | @ cant -- @++ v
+	0 >r
+	( +? )(	swap
+		c@+ ascii r> 10* + >r
+		swap 1- )
+	drop r> ;
+
+:otro.. | adr -- adr++ ..(x y)..
+	( c@+ 32 <? )( drop ) drop
+	( c@+ 32 <? )( drop ) drop
+	;
+
+| pasar los n-vertices
+:next.. | cnt adr -- adr
+	swap ( +? )( swap
+		otro..
+		swap 1- ) drop
+	;
+
+|----- compilado a memoria
+#index>
+:,index | v --
+	index> !+ 'index> ! ;
+
+:makeindex
+	index 'index> !
+	dat
+	( index <? )(
+		( dup c@ 32 <? )( drop 1+ ) drop
+		5 num2 drop | 0..4  nro char no lo uso
+		3 num2 1- dup ,index | cntvertices
+		swap 2 + | saltea bordes
+		dup ,index | cnt adr
+		next..
+		) drop
+	;
+
+:drawnro | nro --
+	0 'state !
+	0 'inc !
+	3 << index +
+	@+ swap @ swap
+	( +? )( swap offset >r pencmd r> swap 1- )
+	2drop ;
+
+
+|------------------------------------------
+:toxy
+	cch 5 *>> ccy + swap
+	ccw 5 *>> ccx + swap ;
+
+:otroxy | adr -- adr++ x y
+	c@+ ( 32 <? )( drop c@+ )
+	82 - swap
+	c@+ 82 -
+	rot swap  ;
+
+:sigxy | addr -- addr++
+	otroxy 0 =? ( drop
+		-50 =? ( drop otroxy
+				toxy op swap 2 - ; )( 0 )
+		)
+	toxy line swap 1- ;
+
+:draw2nro | nro --
+	3 << index + @+ swap @
+	otroxy
+	toxy op swap 1-
+	( +? )( swap sigxy )
+	2drop ;
+
+|------------------------------------------
+#htoascii )( 1024 | 256 chars
+#hojaini 0
+#cursorn
+
+#temp )( 1024
+#temp> 'temp
+
+:,temp | byte --
+	temp> c!+ 'temp> ! ;
+
+#ancholetra
+
+:getotroxy | adr -- adr++ x y
+	c@+ ( 32 <? )( drop c@+ )
+	82 -
+|	-50 <>? ( dup abs ancholetra max 'ancholetra ! )
+	swap c@+ 82 -
+	rot swap ;
+
+:getsigxy | addr -- addr++
+	getotroxy 0 =? ( drop
+		-50 =? ( drop getotroxy
+				swap 2 << ,temp 2 << ,temp
+				swap 2 -
+			; )( 0 )
+		)
+	swap 2 << %11 or ,temp 2 << ,temp
+	swap 1- ;
+
+:savecar | n --
+	0 'ancholetra !
+	'temp 'temp> !
+	3 << index +
+	dup @+
+	swap @
+	getotroxy
+	swap 2 << ,temp 2 << ,temp
+	swap 1-
+	( +? )( swap getsigxy )
+	2drop
+
+	2 -
+    c@+ 82 - neg swap
+	c@ 82 - + 3 >>
+
+|	ancholetra
+
+	8 <<	| ancho de letra
+	temp> 'temp - 2/ | cantidad
+	or
+	"%d ( " ,print
+	'temp
+	( temp> <? )( c@+ "%d " ,print )
+	drop
+	;
+
+
+:saveinc
+	index> 'here !
+	'htoascii
+	256 ( 1? )( 1-
+		255 over - "#hchar%d " ,print
+		>r
+		@+     |		" %d " ,print
+		savecar
+		") " ,print
+		,cr
+		r> )
+	2drop
+
+	"#:hfntd1 " ,print ,cr
+	256 ( 1? )( 1-
+		%1111 nand? ( ,cr )
+		255 over - "hchar%d " ,print
+		) drop
+
+	index> here over - "inc/fnthershey.inc" save
+
+	;
+
+:showdicc
+	'htoascii
+	256 ( 1? )( 1- >r
+		@+ "%d " print
+		r> )
+	2drop
+	;
+
+|------------------------------------------
+:loadfnt
+	"./hershey/" dir
+	'htoascii 'nombre load drop
+	0 'cursorn !
+	"./" dir
+	;
+
+:savefnt
+	"./hershey/" dir
+	'htoascii 1024 'nombre save
+	"./" dir
+	;
+
+
+
+|------------------------------------------
+#acther
+#herini
+
+:setdicc
+	dup cursorn 2 << 'htoascii + !
+	cursorn 1+ dup 'cursorn !
+	2 << 'htoascii + @
+	'acther !
+    ;
+
+:cadahers
+	azul
+	[ 1.1 fzoom ; ] onIn
+
+	2dup 3 << + herini 80 * +
+	acther =? ( 0.1 pinpon 0.9 + fzoom gc.box )( 0.9 fzoom )
+	'setdicc onUp
+	drawnro
+	;
+
+
+:hojaher
+	8 10 'cadahers .table ;
+
+|------------------------------------------------
+:btnpaghe
+	[ dup 'herini ! ; ] onUp
+	herini =? ( amarillo )( gris 0.8 fzoom )
+	5 sfont  cr cr
+	dup 80 * "%d" printc
+	;
+
+:pagcarhe
+	20 'btnpaghe .hlist ;
+
+|------------------------------------------
+:setascii
+	dup 'cursorn !
+	dup 2 << 'htoascii + @ 	'acther !
+	;
+
+:cadacar
+	verde
+	[ 1.1 fzoom ; ] onIn
+	2dup 3 << + hojaini 64 * +
+	cursorn =? ( 0.1 pinpon 0.9 + fzoom gc.box )( 0.9 fzoom )
+	'setascii onUp
+	dup
+	2 << 'htoascii + @
+	drawnro
+	fonti dup "%d " print emit
+	;
+
+:hojacar
+	8 8 'cadacar .table ;
+
+|------------------------------------------------
+:btnpag
+	[ dup 'hojaini ! ; ] onUp
+	hojaini =? ( amarillo )( gris 0.8 fzoom )
+	3 sfont  cr
+	dup 64 * "%d" printc
+	;
+
+:pagcar
+	4 'btnpag .hlist ;
+
+|------------------------------------------------
+:elijearchivo
+	 key.push
+	savefnt
+	"./hershey/" dir
+	'nombre dlgfile
+	"./" dir
+	loadfnt
+	key.pop
+	;
+
+:accnombre
+	'elijearchivo onUp
+	$ff00 0 vbtn
+	blanco 1 font
+	'nombre printc
+	;
+
+
+
+#boton1 8
+$ff0000	'ifin		'exit
+$00ff00	'irecicla	'saveinc
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+
+:botonera
+	'boton1 .hbtns
+	;
+
+#guiedita
+0.5 0.6 -0.25 -0.1 'hojacar
+0.5 0.1 -0.25 0.3 'pagcar
+
+0.5 0.6 0.25 -0.1 'hojaher
+0.5 0.1 0.25 0.3 'pagcarhe
+
+0.8 0.1 0.0 -0.45 'accnombre
+0.8 0.1 0.0 0.45 'botonera
+0
+
+:editascii
+	mem dup 'dat !
+	"hershey/hershey_roman.txt"
+|	"hershey/hershey_japan.txt"
+	load 'index !
+	makeindex
+	inikey
+	'exit <esc>
+	show cls home verde scr fonti
+		showdicc
+		scr 'guiedita gui
+		cmano ;
+
+:main
+	'nombre "./nom/hershey.nom" load drop
+|	'nombre c@ 0? ( elijearchivo ) drop
+|	'nombre c@ 0? ( drop ; ) drop
+	loadfnt
+	editascii
+	savefnt
+	'nombre count "./nom/hershey.nom" save
+	;
+
+: main "main.txt" run ;

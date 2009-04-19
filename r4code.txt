@@ -1,0 +1,484 @@
+| Interprete de R4
+| PHREDA 2007
+|---------------------------------
+^reda4.txt
+^libprint.txt
+^r4post.txt
+^trace.txt
+
+|--- Pilas
+#dpila )( 1024	#dpila> 'dpila
+
+:d.cnt dpila> 'dpila - ;
+:d.ini 'dpila 'dpila> ! ;
+
+:d.push dpila> !+ 'dpila> ! ;
+
+:d.pop  -4 'dpila> +! dpila> @ ;
+:d.pop2 dpila> 8 - dup 'dpila> ! @+ swap @ ;
+
+:d.get dpila> 4 - @ ;
+:d.get2 dpila> 8 - @ ;
+
+#rpila )( 1024	#rpila> 'rpila
+
+:r.ini	'rpila 'rpila> ! ;
+:r.push	rpila> !+ 'rpila> ! ;
+:r.pop	-4 'rpila> +! rpila> @ ;
+:r.cnt	rpila> 'rpila - ;
+
+
+#:<<ip
+
+#freemem
+#diccexe	| var -> memoria cod->
+
+#inter )( 64
+#inter> 'inter
+
+#irqkey 0
+#irqmou 0
+
+
+
+:+interrupcion | inter --
+	0? ( drop ; )
+	inter> !+ 'inter> >=? ( "Bucle infinito" 'msg ! 0 ; )
+	'inter> ! ;
+
+|------------ test
+:pila?	'dpila <? ( "Pila vacia" 'msg ! 0 nip rdrop ; ) ;
+:?pila	'dpila> >=? ( "Pila llena" 'msg ! 0 nip rdrop ; ) ;
+:pilar?	'rpila <? ( "Pila R vacia" 'msg ! 0 nip rdrop ; ) ;
+:?pilar	'rpila> >=? ( "Pila R llena" 'msg ! 0 nip rdrop ; ) ;
+
+:pmem? | adr -- adr/0
+	prog >=? ( prog> <=? ( ; ) )
+	"fuera de mem" 'msg ! 0 nip rdrop ;
+
+
+|-------------------------------
+::dibujapila
+	d.cnt 1? ( amarillo "(" print 'dpila ( dpila> <? )( @+ " %h" print  ) drop ) drop ;
+
+::dibujapilar
+	r.cnt 1? ( cyan "(" print 'rpila ( rpila> <? )( @+ " %h" print  ) drop ) drop ;
+
+
+:i0 drop ;
+:i:
+:i#
+	drop ;
+:idec
+:ihex
+:ibin
+:ifix
+	8 >> 2 << 'diccexe + @
+	d.push ;
+:istr
+	8 >> str +
+	d.push ;
+:iwor
+	8 >> 2 << 'diccexe + @
+	swap r.push ;
+:ivar
+	8 >> 2 << 'diccexe + @
+	d.push ;
+:idwor
+	8 >> 2 << 'diccexe + @
+	d.push ;
+:idvar
+	8 >> 2 << 'diccexe +
+	d.push ;
+:i;
+	r.cnt 0? ( nip ; ) 2drop
+	r.pop ;
+:i)(
+:i)
+	8 >> + ;
+:i(
+	drop ;
+:i[             |*********
+	8 >> @ 1? ( swap d.push )( drop ) ;
+:i]             |*********
+	drop ; | api
+:i0?
+	d.get 0? ( drop 8 >> + ; ) drop ;
+:i+?
+	d.get +? ( drop 8 >> + ; ) drop ;
+:i-?
+	d.get -? ( drop 8 >> + ; ) drop ;
+:i1?
+	d.get 1? ( drop 8 >> + ; ) drop ;
+:i=?
+	d.get2 d.pop =? ( drop 8 >> + ; ) drop ;
+:i<?
+	d.get2 d.pop <? ( drop 8 >> + ; ) drop ;
+:i>?
+	d.get2 d.pop >? ( drop 8 >> + ; ) drop ;
+:i<=?
+	d.get2 d.pop <=? ( drop 8 >> + ; ) drop ;
+:i>=?
+	d.get2 d.pop >=? ( drop 8 >> + ; ) drop ;
+:i<>?
+	d.get2 d.pop <>? ( drop 8 >> + ; ) drop ;
+:iAND?
+	d.get2 d.pop AND? ( drop 8 >> + ; ) drop ;
+:iNAND?
+	d.get2 d.pop NAND? ( drop 8 >> + ; ) drop ;
+:iEXEC
+	drop
+	d.pop 1? ( swap r.push ; ) drop
+	;
+:iDROP
+	drop
+	-4 'dpila> +! ;
+:i2DROP
+	drop
+	-8 'dpila> +! ;
+:i3DROP
+	drop
+	-12 'dpila> +! ;
+:i4DROP
+	drop
+	-16 'dpila> +! ;
+:iDUP
+	drop
+	dpila> 4 - @+ swap !+ 'dpila> ! ;
+:i2DUP
+	drop
+	dpila> 8 - @+ swap @+ rot rot !+ !+ 'dpila> ! ;
+:iOVER
+	drop
+	dpila> 8 - @+ swap 4+ !+ 'dpila> ! ;
+:iPICK2
+	drop
+	dpila> 12 - @+ swap 8 + !+ 'dpila> ! ;
+:iPICK3
+	drop
+	dpila> 16 - @+ swap 12 + !+ 'dpila> ! ;
+:iPICK4
+	drop
+	dpila> 20 - @+ swap 16 + !+ 'dpila> ! ;
+:iSWAP
+	drop
+	dpila> 8 - dup @+ swap @ rot !+ ! ;
+:iNIP
+	drop
+	dpila> 8 - dup 4+ @ swap !+ 'dpila> ! ;
+:iROT
+	drop
+	dpila> 12 - dup >r @+ swap @+ r!+ @ r!+ r> ! ;
+:i2OVER
+	drop
+	dpila> 16 - @+ swap @+ rot rot 8 + !+ !+ 'dpila> ! ;
+:i2SWAP
+	drop
+	dpila> 16 - >r r@+ r@+ r@+ r@+ -16 r+ swap r!+ r!+ swap r!+ r> ! ;
+
+:i>R
+	drop
+	dpila> 4 -  dup 'dpila> ! @ rpila> !+  'rpila> ! ;		|--- pila de direccion
+:iR>
+	drop
+	rpila> 4 -  dup 'rpila> ! @ dpila> !+  'dpila> ! ;
+:iR
+	drop		rpila> 4 -  @ dpila> !+  'dpila> ! ;
+:iR+
+	drop	dpila> 4 -  dup 'dpila> ! @ rpila> 4 - +! ;
+:iR@+
+	drop	rpila> 4 -  dup @ @ dpila> !+ 'dpila> ! 4 swap +! ;
+:iR!+
+	drop	dpila> 4 -  dup 'dpila> ! @ rpila> 4 - 4 over +! @ ! ;
+:iRDROP
+	drop	rpila> 4 -  'rpila> ! ;
+:iAND
+	drop	dpila> 8 -  dup @+ swap @ and swap !+ 'dpila> ! ;			|--- logica y aritmetica
+:iOR
+	drop	dpila> 8 -  dup @+ swap @ or swap !+ 'dpila> ! ;
+:iXOR
+	drop	dpila> 8 -  dup @+ swap @ xor swap !+ 'dpila> ! ;
+:iNOT
+	drop	dpila> 4 -  dup @ not swap ! ;
+:i+
+	drop		dpila> 8 -  dup @+ swap @ + swap !+ 'dpila> ! ;
+:i-
+	drop		dpila> 8 -  dup @+ swap @ - swap !+ 'dpila> ! ;
+:i*
+	drop		dpila> 8 -  dup @+ swap @ * swap !+ 'dpila> ! ;
+:i/
+	drop		dpila> 8 -  dup @+ swap @ / swap !+ 'dpila> ! ; | "division por 0"
+:i*/
+	drop	dpila> 12 -  dup @+ swap @+ swap @ */ swap !+ 'dpila> ! ; | "division por 0"
+:i*>>
+	drop	dpila> 12 -  dup @+ swap @+ swap @ *>> swap !+ 'dpila> ! ;
+:i/MOD
+	drop	dpila> 8 -  dup @+ swap @ /mod swap rot !+ !+ 'dpila> ! ;
+:iMOD
+	drop	dpila> 8 -  dup @+ swap @ mod swap !+ 'dpila> ! ;
+:iABS
+	drop	dpila> 4 -  dup @ abs swap ! ;
+:iNEG
+	drop	dpila> 4 -  dup @ neg swap ! ;
+:i2/
+	drop	dpila> 4 -  dup @ 2/ swap ! ;
+:i2*
+	drop	dpila> 4 -  dup @ 2* swap ! ;
+:i<<
+	drop	dpila> 8 -  dup @+ swap @ << swap !+ 'dpila> ! ;
+:i>>
+	drop	dpila> 8 -  dup @+ swap @ >> swap !+ 'dpila> ! ;
+:i1-
+	drop	dpila> 4 -  dup @ 1- swap ! ;
+:i1+
+	drop	dpila> 4 -  dup @ 1+ swap ! ;
+:i4+
+	drop	dpila> 4 -  dup @ 4+ swap ! ;
+:i@
+	drop		dpila> 4 -  dup @ @ swap ! ;			|--- mem
+:iC@
+	drop	dpila> 4 -  dup @ c@ swap ! ;
+:iW@
+	drop	dpila> 4 -  dup @ w@ swap ! ;
+:i!
+	drop		dpila> 8 -  dup 'dpila> ! @+ swap @ ! ;
+:iC!
+	drop	dpila> 8 -  dup 'dpila> ! @+ swap @ c! ;
+:iW!
+	drop	dpila> 8 -  dup 'dpila> ! @+ swap @ w! ;
+:i+!
+	drop	dpila> 8 -  dup 'dpila> ! @+ swap @ +! ;
+:iC+!
+	drop	dpila> 8 -  dup 'dpila> ! @+ swap @ c+! ;
+:iW+!
+	drop	dpila> 8 -  dup 'dpila> ! @+ swap @ w+! ;
+:i@+
+	drop	dpila> 4 -  dup @+ @ swap !+ 'dpila> ! 4 swap +! ; | no test
+:iC@+
+	drop	dpila> 4 -  dup @+ c@ swap !+ 'dpila> ! 1 swap +! ; | no test
+:iW@+
+	drop	dpila> 4 -  dup @+ w@ swap !+ 'dpila> ! 2 swap +! ; | no test
+:i!+
+	drop	dpila> 8 -  dup @+ swap @ !+ swap !+ 'dpila> ! ; | nose
+:iC!+
+	drop	dpila> 8 -  dup @+ swap @ c!+ swap !+ 'dpila> ! ; | nose
+:iW!+
+	drop	dpila> 8 -  dup @+ swap @ w!+ swap !+ 'dpila> ! ; | nose
+
+|---- pantalla
+|:iXYFRAME
+	drop
+	;
+:iSW
+	drop sw d.push  ;
+:iSH
+	drop sh d.push ;
+:iFRAMEV
+	drop framev d.push ;
+:iREDRAW
+	drop redraw ;
+:iUPDATE
+	drop	|update | hace interrupciones
+	inter> 'inter =? ( drop ; )
+	4 - dup 'inter> ! @ |0? ( drop ; )
+	swap rpila> !+ 'rpila> !
+	;
+|---- dibujo
+:iOP
+	drop d.pop2 op ;
+:iCP
+	drop d.pop2 cp ;
+:iLINE
+	drop d.pop2 line ;
+:iCURVE
+	drop d.pop2 curve ;
+:iPLINE
+	drop d.pop2 pline ;
+:iPCURVE
+	drop d.pop2 pcurve ;
+:iPOLI
+	drop poli ;
+:iFCOL
+	drop d.pop2 fcol ;
+:iFCEN
+	drop d.pop2 fcen ;
+:iFMAT
+	drop d.pop2 fmat ;
+:iSFILL
+	drop sfill ;
+:iLFILL
+	drop lfill ;
+:iRFILL
+	drop rfill ;
+:iSETXY
+	drop d.pop2 setxy ;
+:iPX+!
+	drop d.pop px+! ;
+:iPX!+
+	drop d.pop px!+ ;
+:iPX@
+	drop px@ d.push ;
+:iPAPER
+	drop d.pop paper ;
+:iINK
+	drop d.pop ink ;
+:iINKF
+	drop ink@ d.push ;
+:iALPHA
+	drop d.pop ALPHA ;
+:iCLS
+	drop cls ;
+|----- sis
+:iMSEC
+	drop msec d.push ;
+:iTIME
+	drop time rot d.push swap d.push d.push ;
+:iDATE
+	drop date rot d.push swap d.push d.push ;
+:iEND
+	2drop 0 ;
+:iRUNi
+	2drop 0 ;
+|-----  Interrupciones
+:iRPEN!
+	drop dpila> 4 -  dup 'dpila> ! @ 'irqkey ! ; | n --
+:iRKEY!
+	drop dpila> 4 -  dup 'dpila> ! @ 'irqmou ! ; | n --
+|-----mouse
+:iXYMOUSE
+	drop xymouse swap d.push d.push ;
+:iBMOUSE
+	drop bmouse d.push ;
+|-----teclado
+:iKEY
+	drop		key d.push ;
+|-----joystick
+:iCNTJOY
+	drop cntjoy d.push ;
+:iGETJOY
+	drop d.pop GETJOY d.push ;
+|--- archivos
+:iDIR
+	drop d.pop dir ;	| "path" --
+:iVOL
+	drop d.pop VOL d.push ;  | nro -- "nombre" o 0
+:iFILE
+	drop d.pop file d.push ;  | nro -- "nombre" o 0
+:iFSIZE
+	drop d.pop FSIZE d.push ;  | nro --  size o 0
+:iLOAD
+	drop dpila> 8 -  dup @+ swap @ load swap !+ 'dpila> ! ;  | 'from "filename" -- 'to
+:iSAVE
+	drop dpila> 12 -  dup @+ swap @+ swap @ save 'dpila> ! ;   |  'from cnt "filename" --
+:iMEM
+	drop mem dpila> !+  'dpila> ! ; | mem
+|--- mueve mem
+:iMOVE
+	drop dpila> 12 -  dup @+ swap @+ swap @ move 'dpila> ! ;
+:iMOVE>
+	drop dpila> 12 -  dup @+ swap @+ swap @ move> 'dpila> ! ;
+:iCMOVE
+	drop dpila> 12 -  dup @+ swap @+ swap @ cmove 'dpila> ! ;
+:iCMOVE>
+	drop dpila> 12 -  dup @+ swap @+ swap @ cmove> 'dpila> ! ;
+|--- sonido
+:iSLOAD
+	drop d.pop SLOAD d.push ;  | "" -- n
+:iSPLAY
+	drop d.pop SPLAY drop ;  | n/0 --
+:iMLOAD
+	drop d.pop MLOAD d.push ;  | "" -- n
+:iMPLAY
+	drop d.pop MPLAY drop ;  | n/0 --
+
+
+|---------- tabla de saltos
+#tablai	| tabla de saltos de inctrucciones
+i0
+i: i#
+idec ihex ibin ifix istr
+iwor ivar idwor idvar
+ i;
+i(		i)(		i)		i[		i]
+i0?		i+?		i-?		i1?
+i=?		i<?		i>?		i<=?	i>=?	i<>?	iAND?	iNAND?	iEXEC
+iDUP	iDROP	iOVER	iPICK2	iPICK3	iPICK4	iSWAP	iNIP	iROT
+i2DUP	i2DROP	i3DROP	i4DROP	i2OVER	i2SWAP
+i>R		iR>		iR		iR+		iR@+	iR!+	iRDROP
+iAND	iOR		iXOR	iNOT	i+		i-		i*		i/		i*/
+i*>>	i/MOD	iMOD	iABS	iNEG	i1+		i4+		i1-		i2/		i2*		i<<		i>>
+i@		iC@		iW@		i!		iC!		iW!		i+!		iC+!	iW+!	i@+		i!+		iC@+	iC!+	iW@+	iW!+
+iMSEC	iTIME	iDATE	iEND	iRUNi	0
+iSW		iSH		iCLS	iREDRAW	iFRAMEV	iUPDATE
+
+iXYMOUSE	iBMOUSE	iKEY
+iCNTJOY	iGETJOY		iRPEN!
+
+iRKEY!	iSETXY	iPX+!	iPX!+	iPX@
+iPAPER	iINK	iINKF	iALPHA
+iOP		iCP		iLINE	iCURVE	iPLINE	iPCURVE	iPOLI
+iFCOL  iFCEN	iFMAT	iSFILL	iLFILL	iRFILL
+iMEM	iDIR	iFILE	iFSIZE	iVOL	iLOAD	iSAVE
+iMOVE	iMOVE>	iCMOVE	iCMOVE>
+iSLOAD	iSPLAY	iMLOAD	iMPLAY
+
+::stepvm | --
+	<<ip 0? ( drop ; )
+	@+ dup $ff and 2 << 'tablai + @ exec
+	'<<ip ! ;
+
+::playvm | --
+	key.push
+|	[ "a" trace key 0? ( ; ) drop irqkey +interrupcion ; ] ikey!
+|	[ irqmou +interrupcion ; ] ipen!
+	[ 0 ; ] >esc<
+	<<ip ( update 1? )(
+|		c@+ $ff and 2 << 'tablai + @ exec
+		) drop
+|	'<<ip !
+	key.pop
+	;
+
+::dumpvmaa
+	dibujapila cr
+	dibujapilar cr
+	blanco
+|	<<ip prog + tokenprint drop
+	;
+
+::dumpvm | --
+	<<ip 0? ( drop ; )
+	"%h" print  ;
+:l
+	dup @
+	dup $ff and swap 8 >>
+	"val:%d op:%h adr:%h" print
+	;
+|------- funcionamiento
+::resetvm | --
+	0 dup 'irqmou ! 'irqkey !  | interrupciones
+	'inter 'inter> !
+	d.ini
+	r.ini
+	<<boot '<<ip !
+	;
+
+|------- asigna memoria a variables
+:addmem | asigna memoria a variables
+	drop
+	;
+
+:cadapal
+	dup 8 + @
+	1 and? ( drop 16 + ; ) drop | solo variables
+	freemem over 'indicepal - 2 << diccexe + !
+	dup 4+ @ addmem
+	16 +
+	;
+
+:memvars | --
+	'indicepal ( indicepal> <? )( cadapal ) drop ;
+
+::startvm
+|	memvars
+	resetvm ;

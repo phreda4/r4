@@ -1,0 +1,216 @@
+| Crayon - dibujador simple
+| PHREDA
+|---------------------
+^reda4.txt
+^gui.txt
+^libgraf.txt
+
+#tinta $ff00
+
+#tecla 
+#fondo 0
+#skip
+
+|----------------------------------------
+#sizebm
+:copybm	framev mem sizebm move ; | de sr cnt --	; de mem a video
+:copymm	mem framev sizebm move ; | de sr cnt --	; de video a mem
+
+|------------ Grabar simple RLE
+#memc
+#memc>
+
+:,comp | v --
+	memc> !+ 'memc> ! ;
+
+#cnt
+#colact
+
+:scanlast | --
+	colact cnt ( 255 >? )( over $ff000000 or ,comp 255 - )
+	24 << or ,comp ;
+
+:scanconv | adr -- adr+
+	@+ $ffffff and | adr+ color
+	colact =? ( 1 'cnt +! drop ; )
+	scanlast
+:scanini | color --
+	$ffffff and 'colact ! 1 'cnt ! ;
+
+:grabar
+	mem @+ scanini
+	sizebm 2dup 2 << + dup 'memc ! 'memc> !
+	( 1- 1? )( >r scanconv r> ) 2drop
+	scanlast
+	memc memc> over - "bmr/test.bmr" save
+	;
+
+|-------------- Cargar simple RLE
+:cargar
+	mem sizebm 2 << + 'memc !
+	memc "bmr/test.bmr" load 'memc> !
+	mem >r
+	memc ( memc> <? )( @+ 
+		dup $ffffff and swap 24 >> $ff and | color cant
+		( 1? )( over r!+ 1- ) 2drop
+		) drop
+	rdrop
+	copybm ;
+
+
+|-------------- vectorizar 0.1
+#vect
+#vect>
+#vectl> 
+#coloract
+
+:,,  | nro --
+	vect> !+ 'vect> ! ;
+	
+:clearvec | --
+	mem sizebm 2 << + dup dup 'vect ! 'vect> ! 'vectl> ! 
+	$ff000000 'coloract !
+	;
+
+:addvec | color --
+	$ffffff and 
+	coloract =? ( 1 'cnt +! drop ; )
+	cnt 1 >? ( coloract ,, ) drop
+	'coloract ! 1 'cnt !
+	;
+:closevec | --
+	$ff000000 'coloract !
+	;
+
+:vectorizar
+	mem >r
+	clearvec
+	sh ( 1? )( 1-
+		sw ( 1? )( 1-
+			r@+ addvec
+			) drop
+		closevec
+		) drop
+	rdrop
+	.page
+	'exit >esc<
+	.show cls
+		32 font azul
+		vect vect> "%d %d" print
+	;
+
+|-----------------------------------------
+#testimg
+	$ff0000
+	$ff0000
+	$ff0000
+	$ff0000
+	0
+
+:dibujovect | addr --
+	mem >r 
+	( @+ 1? )(
+
+		r!+
+		) 2drop rdrop
+	copybm ;
+|-----------------------------------------------
+#color.r #color.g #color.b
+
+:2.h | n --
+	$10 <? ( "0" print ) "%h" print ;
+
+:clcolor
+	*? 1? ( -2 )( -1 ) nip dup +dim
+	tinta ink gc.fbox 
+	8 6 ttext 2 5 at |negro 4 1 ptofill	negro "." prints 
+	color.r rojo 2.h color.g verde 2.h color.b azul 2.h ;
+
+:elijecolor
+	.page
+	tinta dup $ff and 'color.b ! dup 8 >> $ff and 'color.g ! 16 >> $ff and 'color.r !
+	12 12 .table
+	0 6 .at 8 6 .to 'clcolor 0 .xbtn 
+|	1 7 .at 6 1 .to 'coldraw 'colclick 15 1 .btabla
+	0 11 .at 
+	rojo oscuro 'ifin 'exit dup >esc< .sbtn .>
+	1 8 .at 6 1 .to 
+	rojo $ff 'color.r .hsli .\ verde $ff 'color.g .hsli .\ azul $ff 'color.b .hsli
+	.show cls | drawmem
+		color.r 16 << color.g 8 << color.b or or 
+		'tinta ! |4 << 4 or poini 1? ( ! )( 2drop ) ;
+		;
+
+:xcolor
+	elijecolor 
+|	poini 1? ( tinta 4 << 4 or swap ! ; ) drop
+|	dibujo> 4 - @ $f and 4 =? ( -4 'dibujo> +! ) drop
+|	tinta 4 << 4 or ++trazo 
+	; 
+
+
+|----------------------------------------
+#x1 #y1
+#linegro 8
+
+#trazo )( 2048
+#trazo> 'trazo
+
+:++trazo | 
+	trazo> @ =? ( drop ; )
+:+trazo | u --
+	trazo> !+ 'trazo> ! ;
+:-trazo
+	'trazo 'trazo> ! ;
+
+:trazo.draw
+	linegro dup gg gg
+	tinta ink 
+	'trazo @+ 0? ( 2drop ; ) >xy gop 
+	( trazo> <? )( @+ >xy gline ) drop ;
+
+:refresca
+	copybm
+	scr trazo.draw
+	copymm ;
+
+:trazo.cal | x y ev --  | 0=up 1=move 2=down
+	0? ( 3drop refresca -trazo ; ) | up
+	1- 0? ( drop xy> ++trazo ; )   | move
+	drop xy> +trazo ; | down
+
+:barra
+	.page
+	[ rand 'tinta ! ; ] <esp>
+	[ cls ; ] <enter>
+	1 1 .table 0 0 .at
+	'trazo.cal 'trazo.draw .ug
+	11 11 .table 0 10 .at 
+	rojo  'ifin 'exit dup >esc< .sbtn .>
+	tinta ink
+	'clcolor 'xcolor dup <f1> .xbtn .> 
+	"F2" "Grabar" 'grabar dup <f2> .fbtn .>
+	"F3" "Cargar" 'cargar dup <f3> .fbtn .> 
+	"F4" "Vector" 'vectorizar dup <f4> .fbtn .> 
+	"F5" "test" [ 'testimg dibujovect ; ] dup <f5> .fbtn .>
+	violeta oscuro
+	5 1 .to 80 'linegro .hsli
+	.show
+		copybm
+		blink 1? ( blanco )( tinta ink ) drop
+		xymouse linegro gcursor
+
+		scr
+		16 font
+		azul
+		dup "%d" print cr
+		trazo> 'trazo - "%d" print
+		;
+
+:inicio
+	sw sh *	| 2/ | wince
+	'sizebm !
+	cls copymm
+	barra ;
+
+: $ffffff paper 33 inicio "main.txt" run ;

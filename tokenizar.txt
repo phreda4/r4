@@ -1,0 +1,352 @@
+| Editor de :R4
+| PHREDA 2007
+|---------------------------------------
+^reda4.txt
+^gui.txt
+^fontj.txt
+^tokencode.txt
+^medit.txt
+
+#nombre )( 32
+#memoria
+#cursor
+#error
+#linea )( 1024	| error y mem aux
+#pad )( 1024	| entrada texto
+#linea>
+
+|----- Vista Diccionario 
+:listwor | adr -- adr+
+	@+ >r  @+ >r | nombre | direccion
+	@+ 1 and? ( violeta )( verde ) 2 nand? ( oscuro ) >r | info
+	@+ r> r> r> | largo info direccion nombre
+	"%w " print 3drop ;
+
+:vocview | hasta desde --
+	verde 
+	( over <? )( listwor ) 2drop ;
+
+:diccview | --	; show the dictionary
+	amarillo "BASE " print cr
+	verde
+	'indicemac ( @+ 1? )( "%s " print ) 2drop cr | base
+
+	'indiceinc ( @+ 1? )( 
+		amarillo "%w " print 
+		4+ @+ swap @+ swap >r  | hasta desde 
+		swap vocview cr	cr
+		r> ) 2drop 
+	amarillo 'nombre "%s " print
+
+	indicepal> indicepal< vocview
+	;
+
+|----- Imprime codigo tokenizado
+:codenro	amarillo @+ "%d" print ;
+:codenb		amarillo @+ "%%%b" print ;
+:codenh		amarillo @+ "$%h" print ;
+:codecad	azul @+  34 emit "%s" print 34 emit ;
+:codevar	verde @+  @ "%w"  print ; |"%h" print ; |
+:codepal		verde @+  @ "%w" print ; |"%h" print ; |
+:codedir		cyan @+ @ "'%w" print ;
+
+#codei 'codenro 'codenb 'codenh 'codecad 'codevar 'codepal 'codedir 
+
+:nombremacro | nro -- "nombre"
+	2 << 'indicemac + @ ;
+
+:linecod | a --a.
+	c@+ -? ( neg 1- 2 << 'codei + @ exec ; )
+	blanco nombremacro "%s" print
+	4+ ;
+
+::lineacod | a -- a.
+	dup "%h : " blanco print
+	c@+ dup "%d " blanco print
+	-? ( neg 1- 2 << 'codei + @ exec ; )
+	verde oscuro
+	nombremacro "%s " print
+	@+ 1? ( " %h" blanco print )( drop ) ;
+
+:listmem | cnt adr --
+	( swap 1? )( 1- swap
+		c@+ "%d " print ) 2drop ;
+
+:listcod | cnt adr ---
+	( swap 1? )( 1- swap | cnt adr
+		<<ip =? ( vidi linecod vidi )( linecod ) 
+		32 emit 	) 2drop ;
+
+:listpal | adr -- adr+
+	@+ >r @+ >r	| nombre| direccion
+	@+ 	1 and? ( violeta "#" )( rojo ":" )  print | 2 nand? ( claro )(  ":" print ) 
+		>r | info
+	@+ $ffff and r> r> r> | largo info direccion nombre
+	"%w " print 
+	swap 
+	1 and? ( 3drop cr ; ) drop
+	listcod 
+	cr ;
+
+:printcod | adr --
+	@+ >r @+ >r @+
+	1 and? ( violeta "#" )( rojo ":" ) print >r
+	@+ $ffff and r> r> r> "%w " print
+	swap
+	1 and? ( drop listmem )( drop listcod cr )
+	;
+
+|------ lista palabras
+:exporta? | adr -- adr f
+	dup 8 + @ 2 nand? ( 0 )( 1 ) nip ;
+
+::listawords | hasta desde --
+	( over <? )(
+|	'indicepal ( indicepal> <? )( 
+		exporta? 1? ( drop listwor )( drop 16 + ) 
+		) drop ;
+
+|::listapalabras
+|	'indicepal ( indicepal> <? )( listpal ) drop 
+|	amarillo ": " print largo <<boot listcod 
+|	;
+
+|::listaincludes
+|	amarillo
+|	'indiceinc ( indiceinc> <? )( @+ armastr "%s " print cr 12 + ) drop ;
+
+|----- Vista Definicion
+:wordview
+	'pilaexe ( pilaexe> <? )( @+ listpal drop ) drop ;
+
+|----- Vista Watch
+#:pilawat )( 1024	 | 256 palabras
+#:pilawat> 'pilawat
+
+:addwat
+	d.pop
+:addwatch
+	pilawat> !+ 'pilawat> ! ;
+
+:wordwatch
+	'pilawat (  pilawat> <? )( @+ printcod drop ) drop ;
+
+|---- Palabras de sistema
+#systema "BYE" "RESET" "SEE" "STEP" 0
+
+#indexe 'exit 'resetvm 0 'stepvm 0
+#indsys )( 256
+#indsys> 'indsys
+
+:hacesys
+	'systema 'indsys |	haceindice 
+	( over c@ 1? )(
+		drop over swap !+ swap 
+		( c@+ 1? )( drop ) drop swap 
+		) drop 'indsys> ! 
+	drop ;
+
+|----- Interprete
+:exvar | dir --
+	4+ @ @ d.push ;
+
+:avanza	   
+	( c@+ 1? )( 33 <? ( drop ; ) drop ) drop 1- ;
+
+:,aux | b --
+	linea> c!+ 'linea> ! ;
+
+:copycad
+	linea> swap
+	( 1+ dup c@ 1? )(
+		34 =? ( drop 1+ dup c@ 34 <>? ( drop 0 ,aux swap ; ) )
+		 ,aux ) ,aux swap ;
+
+:intercomp  | "2 3" -- "3"/0
+	( dup c@ 33 <? )( 0? ( nip ; ) drop 1+ )			| quitar espacios 
+|	over trace
+ 	$5e =? ( drop "^ solo en codigo" 'msg ! 0 ; )	| $5e ^  Include
+	$7c =? ( drop "| solo en codigo" 'msg ! 0 ; )	| $7c |	Comentario
+ 	$3A =? ( drop ": solo en codigo" 'msg ! 0 ; )		| $3a :	Definicion
+ 	$23 =? ( drop "# solo en codigo" 'msg ! 0 ; )	| $23 #  Variable
+	$22 =? ( drop copycad d.push ; )				| $22 "	Cadena
+	$27 =? ( drop 1+ dup 						| $27  '	Direccion
+		dup ?macro 1? ( 3drop "base no tiene direccion" 'msg ! 0 ; ) drop | 'base 
+		?palabra 1? ( 4+ @ d.push drop avanza ; ) 2drop
+		"No existe" 'msg ! 0 ; )
+	drop
+	dup ?numero 1? ( drop rot drop d.push ; ) drop
+	dup ?fnumero 1? ( drop rot drop d.push ; ) drop	 |<---
+	dup ?macro 1? ( rot drop 0 swap exmacro drop ; ) drop
+	?palabra  1? ( 
+|		dup h2str trace
+		dup 8 + @ 1 and? ( drop  exvar )( drop expalabra )
+		1? ( avanza ) ; ) drop
+	| palabra interactiva
+	'indsys ?lista 1? (
+		4 - 'indsys - 'indexe + @ exec ;	
+		) drop
+	"No existe" 'msg ! 0 ;
+
+:interpreta 
+	0 'msg !
+	'linea 'linea> !
+	'pad ( intercomp 0? ) drop
+	msg 0? ( m.clear )( drop ) drop
+	;
+
+|----- Sistema
+:llamaeditor
+	'linea dup >, saverror count "debug.err" save
+	"debug.txt" run ;
+
+:llamaeditor1
+	.page
+	16 16 .table 0 15 .at
+	rojo		
+	"ESC" 'ifin 'exit dup >esc< .fsbtn .>
+	.show cls
+|		48 font
+		fontj
+		verde
+
+		diccview
+|		dumptoken2
+|		dumperror
+|		wordview
+		;
+
+|-- que esta pasando
+#actualf 0
+#ac 'indiceinc
+:llamaeditor3
+	.page
+	16 16 .table 0 15 .at
+	rojo		
+	"ESC" 'ifin 'exit dup >esc< .fsbtn .>
+	[ 16 'ac +! ; ] <aba>
+	[ -16 'ac +! ; ] <arr>
+	.show cls
+		fontj
+		'indiceinc ( indiceinc> <? )( 
+			ac =? ( rojo )( verde )
+			>r
+			r@+ r@+ r@+ r@+ "%h %h %h %h " print cr 
+			r> ) drop 
+		azul
+		ac dup @ "%w" print
+|		drop ;
+		4+ @ 
+		amarillo
+		0? ( drop ; )
+		( c@+ 1? )( $7f and
+
+			emitout? 1? ( 2drop ; ) drop | corta cuando sale de ventana
+			emit 
+			) 2drop 
+|		diccview
+|		dumptoken2
+|		dumperror
+|		wordview
+		;	
+
+|--------------------------------------------------
+:haceerror
+	.page
+	'exit >esc<
+	'llamaeditor <f1>
+	.show cls
+		25 font
+		dumperror cr
+|		msg print cr
+		dup "(%d)" print
+|		dumps
+		;
+
+:dumpprog | --
+	cr
+	prog 
+	blanco ( <<ip <? )( lineacod cr ) 
+	lineacod 
+	blink 1? ( negro )( blanco ) drop " <<IP" print cr
+	blanco ( prog> <? )( lineacod cr ) 
+	drop ;
+
+:dumpmemory
+	dato 'cursor !
+	.page
+	'exit >esc<
+	[ -46 'cursor +! ; ] <arr>
+	[ 46 'cursor +! ; ] <aba>
+	.show cls
+		48 font
+		blanco
+		cursor
+|		0 0 at c@ $7f and charo
+		1 ( 47 <? )( 
+			1 ( 47 <? )( 
+			dup pick2 at
+			>r >r c@+ $7f and 
+			emit r> r> 
+			1+ ) drop
+		1+ ) 2drop
+		;
+
+:codexplore
+	.page
+	'exit >esc<
+	.show cls
+		;
+
+:ayuda
+	;
+
+:tokenizar
+	clear
+	'nombre tokencomp
+|	msg 1? ( drop haceerror ; ) drop | error
+	msg 1? ( drop llamaeditor ; ) drop | error
+	resetvm
+	.page
+	16 16 .table 0 15 .at
+	rojo		
+	"ESC" 'ifin 'exit dup >esc< .fsbtn .>
+	cyan
+	"F1" "?" 'ayuda dup <f1> .fbtn .>
+
+	"F2" ">"  [ |'playvm 
+		; ] dup <f2> .fbtn .>
+	"F3" ">." 'stepvm dup <f3> .fbtn .>
+	"F4" ">-" 'wordvm dup <f4> .fbtn .>
+	"F5" "Reset" 'resetvm dup <f5> .fbtn .>
+	"F6" "Watch" 'addwat dup <f6> .fbtn .>
+	"F8" "M" 'dumpmemory dup <f8> .fbtn .>
+	"F9" "Stat" 'savestat dup <f9> .fbtn
+	'llamaeditor3 <f10>
+	'pad 1024 m.input
+	'interpreta <enter>
+	.show cls
+|		48 font
+		fontj
+		verde
+
+|		diccview
+|		dumptoken2
+|		dumperror
+		wordview
+
+		wordwatch
+		24 sfont
+		0 17 at blanco dumpvm
+		msg 1? ( cr rojo print )( drop )
+		0 21 at blanco dup "%d>" print
+		m.draw	;
+
+|----------- principal
+:main
+	hacesys
+	'nombre "./r4nom/editor.nom" load drop
+	tokenizar
+	;
+
+: 4 main "debug.txt" run  ;

@@ -1,0 +1,229 @@
+| menu.txt
+| menu de opciones
+| PHREDA 2009
+|----------------------------------
+^reda4.txt
+^libgui.txt
+^font.txt
+^libsprite.txt
+
+|------------ cursor
+^inc/punteros.inc
+
+:cmano
+	xymouse 'yc ! 'xc !
+	sw 3 >>	bmouse 2 << + dup 'w ! 'h !
+	'dib2 nsprite ;
+
+#inicioarch 0
+#cntarch 20
+#vuelta 0
+
+#cant 0
+#iniprog 0
+#hayarr 0
+#hayaba 0
+
+#indice	)( 2048
+
+#sndclick
+
+#juegos "Juegos"
+"escena"
+0
+
+#apps "Apps"
+"peleador" "slimeatlet" "invasion"
+"clickotron"
+"pong" "memoria" "carucha"
+"carrera" "xe" "cartonman"
+"sraceituna" "lagranjita" "funciones" "personaje"
+"clock"   0
+
+#tests "Test"
+"basicomp"
+"test-zonas" "test-gui2" "test-bmps"
+"test-gui" "test-font" "test-sprite"
+"test-c2gl" "test-yuvrgb" "test-joy"
+"test-table" "test-render" "test-atan"  0
+
+#devs "Devs"
+"planedef" "hershey" "crayon"  "bitmap" "mapa"
+"3dlatr"  "pizarra"  "adentro" |"rmation2"
+"rmation" "mys" "render"
+0
+
+#edits "Editores"
+"edit-code" "edit-spr" "edit-font"
+"edit-fontl" "edit-font32"
+"edit-fnther"
+0
+
+#sistemas "Sistema"
+"fps" "garabator" "debug" "runtime"
+"scancode" 0
+
+#dominios  'apps 'edits 'devs 'tests 'sistemas 'juegos 0
+#actuald 'dominios
+
+:calbotons
+	iniprog 0 >? ( 1 )( 0 ) nip 'hayarr !
+	iniprog 3 9 * + cant <? ( 1 )( 0 ) nip 'hayaba ! ;
+
+:nextpag
+	iniprog  3 9 * +  cant >=? ( drop ; )
+	'iniprog ! calbotons ;
+:prevpag
+	iniprog 3 9 * - 0 <? ( drop ; )
+	'iniprog ! calbotons ;
+
+:haceindice |'lista --
+	'indice swap
+	0 'cant !
+	( c@+ 1? )( drop
+		dup 1-  rot !+ swap
+		1 'cant +!
+		( c@+ 1? )( drop ) drop
+		) drop
+	swap !  ;
+
+:nextdom | --
+	actuald 4+
+:hacedom  | adr --
+	dup @ 0? ( 2drop 'dominios dup @ )
+	( c@+ 1? )( drop ) drop haceindice
+	'actuald !
+	iniprog (  cant >? )( 4 6 * - ) 'iniprog !
+	calbotons ;
+
+:grabadom
+	"./" dir
+	'actuald 4 "nom/main.nom" save
+	;
+
+:testdominio | --
+	'dominios ( actuald =? ( drop ; ) @+ 1? )( drop ) 2drop
+	'dominios 'actuald ! ;
+
+:restauradom
+	".//" dir
+	'actuald "nom/main.nom" load drop
+	testdominio
+	actuald hacedom ;
+
+|--------------------------------------------------------------------------------------------
+#actual 0
+#fileact 0
+#compnombre )( 128
+#nombre )( 32
+
+:compone | "ext" n -- "n.ext"
+	2 << 'indice + @ 'compnombre swap
+	( c@+ 1? )( rot c!+ swap )  2drop
+	swap
+	( c@+ 1? )( rot c!+ swap ) rot c!
+	drop 'compnombre
+	;
+
+:runactual
+	grabadom
+	".txt" actual compone run ;
+
+|---------------------------------------
+:drawbot
+	$ff00 $2200 gc.vdeg
+	lfill gc.frod sfill ;
+
+:cadaentrada | a -- a
+	2dup 3 * + iniprog +
+	cant >=? ( drop ; )
+	actual =? ( 1.2 fzoom drawbot )
+	[ dup 'actual ! ; ] onMove
+	'runactual onUp
+	2 << 'indice + @
+	blanco 1 font printc
+;
+
+:filelist
+	3 9 'cadaentrada .table ;
+
+
+|---------------------------------------
+:botoneracc
+	[ dup 2 << 'dominios + hacedom sndclick splay ; ] onUp
+	actuald 'dominios - 2 >>
+	=? ( $ff 0 )( 0 $ff ) vbtn
+	dup 2 << 'dominios + @ 0? ( drop ; )
+	2 font cr2 blanco printc ;
+
+:botonera
+	6 'botoneracc .hlist ;
+
+|---------------------------------------
+:btsalir
+    'exit 'ifin $ff0000 .btns ;
+
+:editarcodigo
+	"" 1 "debug.err" save
+	"edit-code.txt" run ;
+
+:editargrafico
+	"edit-spr.txt" run ;
+
+:editarprojecto
+	"edit-1spr.txt" run ;
+|	"r4proj.txt" run ;
+
+:editabitmap
+	"r4bit.txt" run ;
+
+#btnf 3
+|$ff 'editarprojecto "R4Proj"
+$ff00 'editarcodigo "R4Edit"
+$ff0000 'editargrafico "R4Draw"
+$ff00ff 'editabitmap "R4Bit"
+
+:btfunc
+	'btnf .hbtnt ;
+
+
+#guimenu
+0.9 0.7 0.0 0.0 'filelist
+0.9 0.1 -0.05 -0.45 'botonera
+0.1 0.1 0.45 -0.45 'btsalir
+0.5 0.1 0 0.45 'btfunc
+0
+
+
+:main
+	inikey
+	[ actual cant 1- <? ( 1+ ) 'actual ! ; ] <der>
+	[ actual 1? ( 1- ) 'actual ! ; ] <izq>
+	[ actual 3 + cant 1- min  'actual ! ; ] <aba>
+	[ actual 3 - 0 max 'actual ! ; ] <arr>
+	'exit <esc>
+	'nextdom <esp>
+	'runactual <enter>
+
+|	'editarprojecto <f1>
+	'editarcodigo <f1>
+	'editargrafico <f2>
+	'editabitmap <f3>
+	show cls scr
+		'guimenu gui
+|		8 font dup ":r%d" verde print actuald @ "* %s *" rojo printc
+		|scr fonti dumpgui
+		cmano
+		;
+
+|****** BOOT ******
+:
+	"ogg/click.ogg" sload 'sndclick !
+	0 paper
+	|fonti
+	|8 font
+	restauradom
+|	'guimenu ingui
+	4 main drop
+	grabadom
+	;

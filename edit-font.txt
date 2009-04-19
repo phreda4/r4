@@ -1,0 +1,261 @@
+| Editor de fuentes v
+| :r4 PHREDA
+|---------------------------------
+^reda4.txt 
+^gui.txt
+^files.txt
+^sprites.txt
+|^font8x12i.txt
+^font.txt
+
+#caract 0
+#carini 0
+#cntlin 24
+
+#dibcom 0 | valor para contar
+#trazoi 1
+
+#nombre )( 64
+#dibmem )( 1024 |--- en 32bits
+#dibmem> 'dibmem
+#cursor 'dibmem
+
+#caracteres )( 16386	|--- 256 * 64 bytes para cada car
+
+:>>car | nro -- dir
+	6 << 'caracteres + ; | 64 bytes para cada caracter max
+
+#fin>
+|----------------- fuente
+:load-font
+	clear 
+	mem 'nombre load 'fin> !
+	mem 0 ( 256 <? )(
+		dup 6 << 'caracteres +	| mem 0 donde
+		rot ( c@+ 1? )( rot c!+ swap ) rot c! | 0 mem 
+		swap 1+ ) 2drop
+	0 dup 'carini ! 'caract !
+	;
+
+:save-font
+	clear 
+	'caracteres 0 ( 256 <? )(
+		swap dup ( c@+ 1? )( ,c ) ,c drop
+		$40 + swap 1+ ) 2drop
+	0 ,c
+	mem here over - 'nombre  save 
+	;
+
+|--------------------- graba codigo
+#fancho #falto
+
+:clearbox
+	0 'fancho ! 0 'falto ! ;
+	
+:addbox | v --
+	dup 1 and 0? ( 'falto )( 'fancho ) nip
+	swap 3 >> abs over @ >? ( swap ! )( 2drop )	;
+	
+:save-codigo
+	clear 
+	'caracteres 0 ( 256 <? )( 
+		dup "#car%d ( " ,print
+		swap dup ( c@+ 1? )( "%d " ,print ) ,n drop
+		" )" ,s 10 ,c |13 ,c
+		$40 + swap 1+ ) 2drop
+
+	"#:fnt1" ,s
+	0 ( 256 <? )( dup " car%d" ,print 1+ ) drop
+	10 ,c |13 ,c
+
+	"#:sfnt1 (" ,s
+	'caracteres 0 ( 256 <? )( 
+		clearbox
+		swap dup ( c@+ 1? )( addbox ) 2drop
+		fancho " %d" ,print
+		$40 + swap 1+ ) 2drop
+	" )" ,s 10 ,c |13 ,c
+	mem here over - "fuente.txt" save ;
+
+|--------------------------------------------------------
+:erase-draw  | nro --
+	0 1 'dibmem dup 'cursor !
+	!+ dup 'dibmem> !  ! ;
+
+:load-car | nro --
+	'dibmem 255 ( 1? )( 1- 0 rot !+ swap ) 2drop
+	caract >>car  'dibmem fp.8>32 
+	here 4 - 'dibmem> !
+	1 'trazoi ! ;
+
+:save-car | --
+	'dibmem caract >>car fp.32>8 
+	;	
+  
+|------------------ Modificacion
+:indot | x y x y --
+	rot - dup * swap rot - dup * + | dx2+dy2
+	48 <=? ( drop 1 )( drop 0 ) ;
+
+:cadanodo | adr --
+	( @+ 1? )( dup $f and
+		swap >xy rot box
+		) 2drop ;
+
+:insertanodo
+	dibmem> 
+	'dibmem =? ( cursor @ $fffffff0 and 1 or  )( dup 4 - @ $fffffff0 and 2 or  )
+	swap dup 'cursor ! !+ 0 over ! 'dibmem> ! ;
+
+|-------------------------------------------
+:caracter | --
+	 'dibmem v8draw32 ; |lineatr ;
+
+:caracteres
+	sw 4 >> sh 3 >> dim
+	sw 2/ dup 3 >> + sh 2 >> pos
+	verde gc.fbox rojo caracter ;
+
+:tiraascii | --
+	sw 5 >> sh 4 >> dim
+	carini
+	0 ( cntlin <? )(
+		dup 5 <<  sw 6 >> + sh 2/ sh 4 >> + pos
+		dup pick2 + caract =? ( azul gc.fbox ) 
+		>>car 
+		blanco v8draw
+|		dup 5 << sw 6 >> + sh 2/ 12 + f12.at 
+|		dup pick2 + f12.c | "%d" f12.print
+		1+ ) 2drop ;
+
+:kup
+	caract 254 >? ( drop ; ) 
+	carini - cntlin 2 - >=? ( caract cntlin - 2 + 'carini ! ) drop
+	save-car 1 'caract +! load-car ;
+
+:kdo
+	caract 0 <=? ( drop ; ) 
+	carini <=? ( dup 1- 'carini ! ) drop
+	save-car -1 'caract +! load-car 
+	;
+
+:otro-code
+	save-car
+	save-font
+	"./fnt/" dir
+	'nombre explore
+	erase-draw
+	load-font
+	load-car ;
+
+|--------------------------------------------------
+:dr.draw	 | --
+	blanco gc.fbox 
+	cyan
+|	caract f12.big
+	gris 32 rgrilla
+	rojo 4 rgrilla
+	azul caracter
+	cursor 1? ( @+ >xy blink 1? ( verde )( negro ) drop 6 fcircle ) drop
+	;
+
+| 5 bits de resolucion 
+:5norm | v -- vn
+	d>xy 9 >> 9 << swap 9 >> 9 << swap xy>d ;
+
+:dr.calc | x y ev --
+	0? ( 3drop ; )
+	1- 0? ( drop xy> 5norm dibmem> 4 - dup @ $f and rot or swap ! ; ) drop | move
+	xy> 5norm trazoi or 
+	dibmem> !+ 0 over ! 'dibmem> ! 
+	2 'trazoi !
+	; 
+
+|--------------------------------
+:cc | addr val -- adr+4
+	over @ $fffffff0 and or swap !+ ;
+
+:topunt
+	1 'trazoi ! cursor 1 cc drop ; 
+
+:toline
+	cursor 2 cc drop  ;
+
+:distintos | v2 --
+	3 =? ( cursor 4 - 2 cc swap cc 3 cc drop ; )
+	cursor 3 cc 3 cc swap cc drop ;
+
+:tocurve
+	cursor dibmem> 4 - >=? ( drop ; )
+	@+ $f and $2 nand? ( 2drop ; ) swap @ $f and $2 nand? ( 2drop ; )  | v1 v2
+	<>? ( distintos ; ) 
+	2 =? ( cursor 3 cc 3 cc 2drop ; ) drop
+	0 'dibmem ( cursor <=? )( @+ $f and 3 =? ( rot 1+ rot rot ) drop ) drop
+	1 and? (		| impar	--> quita
+		cursor 2 cc 2 cc drop
+		)(		| par	--> pone
+		cursor 3 cc 3 cc drop
+		)
+	drop	
+	;
+
+:xydes | x y --
+	cursor 0? ( 3drop ; )
+	@ dup >r d>xy 
+	rot 9 << +  
+	rot 9 << rot + 
+	swap xy>d 
+	r> $f and or cursor ! ;
+
+:main  | --
+	.page
+	16 16 .table
+	0 0 .at 8 8 .to 'dr.calc 'dr.draw .ug
+	0 15 .at
+	rojo "x" 'exit dup <esc> .2btn .>
+	azul
+	"F1" "-" 'erase-draw dup <f1> .fbtn .>
+	"F2" "+" 'insertanodo dup <f2> .fbtn .>
+	"F3" "p" 'topunt dup <f3> .fbtn .>
+	"F4" "l" 'toline  dup <f4> .fbtn .>
+	"F5" "c" 'tocurve  dup <f5> .fbtn .>
+	verde
+	"F6" "<-" 'kdo dup <f6> .fbtn .>
+	"F7" "->" 'kup dup <f7> .fbtn .>
+	"F8" "GEN" 'save-codigo dup <f8> .fbtn .>
+	cyan oscuro
+	11 15 .at 5 1 .to 'nombre 'otro-code dup <esp> .8btn
+	[ 1 0 xydes ; ] <der>
+	[ -1 0 xydes ; ] <izq>
+	[ 0 -1 xydes ; ] <arr>
+	[ 0 1 xydes ; ] <aba>
+	[ cursor 'dibmem >? ( 4 - ) 'cursor ! ; ] <pgdn>
+	[ cursor dibmem> <? ( 4+ ) 'cursor ! ; ] <pgup>
+	[ 'dibmem 'cursor ! ; ] <home>
+	[ dibmem> 'cursor ! ; ] <end>
+	.show cls scr
+		32 font
+		0 20 at verde 'dibmem ( dibmem> <? )( cursor =? ( ">" print ) @+ "%h " print ) drop
+		cr caract >>car ( c@+ 1? )( "%d " print ) 2drop
+		16 font
+		0 14 at
+		dup "Font8VEdit %d - " azul print
+		cursor @ d>xy "%d %d" verde print
+		15 1 at caract $7f and emit
+		caract " Ascii=%d" print
+|		sw 2/ 24 +  12 f12.at
+|		caract f12.c
+		caracteres
+		tiraascii
+		;
+
+:	0 paper
+	'nombre "./nom/r4letras.nom" load drop
+	"./fnt/" dir
+	load-font
+	load-car
+	33 main
+	save-font
+	".//" dir
+	'nombre count "./nom/r4letras.nom" save
+	"main.txt" run ;
