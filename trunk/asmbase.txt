@@ -1,0 +1,240 @@
+| rutinas para compilar
+| reemplazo para ASM (bastante feas)
+| PHREDA
+|------------------------
+
+#inki $ffffff
+#paperi 0
+
+::paper 'paperi ! ;
+::ink 'inki ! ;
+::ink@ inki ;
+
+|*******************************
+::CLS
+	framev >r 
+	sw sh * ( paperi r!+ 1- 0? ) drop 
+	rdrop ;
+|	paperi sw sh * framev ifill ;
+|	framev >a sw sh * ( 1? )( 1- paperi a!+ ) drop ;
+
+#px #py
+#cx #cy
+#dx
+
+|*******************************
+::CP | xy --
+	'cy ! 'cx ! ;
+
+| muchas comprobaciones!
+:_hline | x1 y1 x2 --    ; clip x1-x2
+	-? ( 3drop ; ) 
+	sw >=? ( drop over 
+	sw >=? ( 3drop ; ) drop sw )
+	rot sw >=? ( 3drop ; ) 
+	-? ( drop 0 )	| y1 x2 x1
+	rot over swap 						| x2 x1 x1 y1
+	sw * + 2 << framev + >r 
+	- 0? ( 1+ ) | cnt 
+	( 1? )( 1- inki r!+ ) drop 
+	rdrop ;
+
+|:_vline | x1 y1 y2 --	; clip y1 y2
+|	-? ( 3drop ; ) sh >=? ( drop sh >=? ( 2drop ; ) sh )
+|	swap sh >=? ( 3drop ; ) -? ( drop 0 ) | x1 y2 y1
+|	sw * + 2 << frame + >r - 0? ( 1+ )
+|	;
+
+:linhor | x y --
+	-? ( drop 'px ! ; ) 
+	sh >=? ( drop 'px ! ; )
+	px pick2 <? ( swap pick2 _hline 'px ! )( pick2 'px ! _hline ) ;
+	
+:linizq | x y x1 y1 cnt dx -- 
+	drop
+	( 1? )( 1- >r 	| x y x1 y1
+		swap dup dx + dup 16 >> rot 16 >>	| x y y1 x1+dx xd1 xd2
+		pick3 swap _hline					| x y y1 x1+dx ( xd1 y1 xd2  _hline
+		swap 1+ r> ) 
+:endline | x y .. .. ..  --
+	3drop 
+
+|*******************************
+::OP | xy --
+	'py ! 'px ! ;
+	
+:linder | x y x1 y1 cnt dx --
+	drop
+	( 1? )( 1- >r 	| x y x1 y1
+		swap dup dx + dup 16 >> rot 16 >>	| x y y1 x1+dx xd1 xd2
+		swap pick3 swap _hline				| x y y1 x1+dx ( xd2 y1 xd1  _hline
+		swap 1+ r> ) 
+	endline ;
+
+|*******************************
+::LINE | x y --
+	py =? ( linhor ; )
+	py over - px pick3 - 16 << over / 'dx !							| x y dy dx<<
+	-? ( neg >r px 16 << $8000 + py )( >r over 16 << $8000 + over )	| x y x1 y1
+	-? ( dup r+ neg dx * + 0 ) sh >=? ( r> endline ; ) 
+	r> -? ( endline ; )											| x y x1 y1 cnt
+	2dup + sh >=? ( sh - - )( drop )  
+	dx -? ( linizq ; ) linder ;		
+	
+|-------------------------------------------
+:sp-dist | x y xe ye -- x y xe ye dd
+	pick3 pick2 - dup * pick3 pick2 - dup * + ;
+
+:sp-cal1 | x y _cx _cy px py -- x y xn yn
+	rot 2* + pick3 + 2 >> >r			| x y cx px   r: ye
+	swap 2* + pick2 + 2 >> r> ;			| x y xe ye
+
+:sp-cal2 | cx cy px py -- x y
+	rot + 2/ >r + 2/ r> ;
+
+|#:splineco 6	 o 2 son las mejores
+|-------------------------------------------
+:spl | x y cx cy px py --
+	2dup >r >r 2over >r >r sp-cal1 r> r> 			| x y nx ny cx cy --  r: px py
+	sp-dist 6 <? ( nip 4drop rdrop rdrop 2/ swap 2/ swap line ; ) drop
+	>r >r 2over r> r> 2dup >r >r sp-cal2 2swap		| x y xa ya nx ny -- r: cx cy px py
+	2dup r> r> r> r> 2dup >r >r sp-cal2 r> r> 		| x y xa ya nx ny nx ny xb yb px py
+	spl spl ;
+
+|*******************************
+::CURVE | xy --
+	2* swap 2* swap cx 2* cy 2* px 2* py 2* spl ;
+
+|-------------------------------------------
+#bufferp )( 8192 | 8192/4*4=512 lineas
+#bufferp> 'bufferp
+#lineb )( 2048	| 512 vertices
+#lineb> 'lineb
+#lineb< 'lineb>
+#ymin 1024
+#ymax -1
+
+:min over <? ( nip )( drop ) ;  | reda4.txt
+:max over >? ( nip )( drop ) ;
+
+:plinend
+	dup ymax max 'ymax ! op ;
+
+|*******************************
+::PLINE | xy --
+	py =? ( drop 'px ! ; )
+	py over - px pick3 - 16 << over / 'dx !							| x y dy dx<<
+	-? ( neg >r px 16 << $8000 + py )( >r over 16 << $8000 + over )	| x y dy x1 y1
+	dup r + 1- 
+	-? ( rdrop endline ; ) drop
+	-? ( dup r+ neg dx * + 0 )	
+	sh >=? ( rdrop 2drop plinend ; )	
+	dup ymin min 'ymin !
+	bufferp> dup lineb> !+ 'lineb> !	| agrega a indice
+	!+ !+ r> swap !+ dx swap !+ 'bufferp> !
+	plinend ;
+
+|-------------------------------------------
+:spp | x y cx cy px py --
+	2dup >r >r 2over >r >r sp-cal1 r> r> 			| x y nx ny cx cy --  r: px py
+	sp-dist 6 <? ( nip 4drop rdrop rdrop 2/ swap 2/ swap pline ; ) drop
+	>r >r 2over r> r> 2dup >r >r sp-cal2 2swap		| x y xa ya nx ny -- r: cx cy px py
+	2dup r> r> r> r> 2dup >r >r sp-cal2 r> r> 		| x y xa ya nx ny nx ny xb yb px py
+	spp spp ;
+
+|*******************************
+::PCURVE | xy --
+	2* swap 2* swap cx 2* cy 2* px 2* py 2* spp ;
+
+|-----------------------------------------
+| nota:
+| se puede evitar el orden en las 
+| listas de activas/pendientes 
+|-----------------------------------------
+:agregal | d -- d
+	-4 'lineb< +! dup @ lineb< !
+	-4 'lineb> +! dup lineb> @ swap ! 
+	lineb< ( 'lineb> 4 - <? )( 
+		dup @ 4+ @ over 4+ @ 4+ @ | d x1 x2
+		<? ( 2drop ; ) drop
+		dup @ >r dup 4+ dup @ rot ! r> over !
+		) drop ;
+
+:reorl	
+	lineb< ( 'lineb> 4 - <? )( 
+		dup @ 4+ @ over 4+ @ 4+ @ | d x1 x2
+		>? ( drop dup @ >r dup 4+ dup @ rot ! r> over ! )( drop 4+ )
+		) drop ;
+
+:deld | ad+4 x
+	over 4 - 
+	( lineb< >? )( dup 4 - dup @ rot ! ) drop
+	4 'lineb< +! ;
+	
+:getxn | adr - x  ; update x,dy
+	4+ dup @ over 4+ 
+	dup dup @ 1- 0? ( 'deld >r ) 					| borro despues
+	swap !											| -1 over +! 
+	4+ @ dup 2/ pick2 + >r + swap ! r> 16 >> ;		|4+ @ + dup rot ! 16 >> ;
+
+:lllena | yact --
+	lineb< ( 'lineb> <? )( 	| recorre
+		@+ getxn >r
+		@+ getxn r 
+		<? ( pick2 r> )( r> swap pick3 swap ) _hline
+		) drop 
+	reorl
+	1+
+:lagrega | yact --
+	'lineb ( lineb> <? )(	| agrega
+		@+ @ pick2 =? ( swap 4 - agregal swap ) drop
+		) drop ;
+
+|*******************************
+::POLI
+	ymax sh >=? ( sh 'ymax ! ) drop
+	ymin lagrega ( ymax <? )( lllena ) drop
+	'bufferp 'bufferp> ! 'lineb 'lineb> ! 'lineb> 'lineb< !
+	sh 'ymin ! -1 'ymax ! ;
+
+::ALPHA | a --
+	drop ;
+
+::FMAT
+	2drop ;
+::FCEN
+	2drop ;
+::FCOL
+	2drop ;
+::SFILL
+::RFILL
+::LFILL
+	;
+
+|----------- movimiento de memoria para asm
+::cmove | de sr cnt --
+	( 1? )( 1- >r c@+ rot c!+ swap r> ) 3drop ;
+::cmove> | de sr cnt --
+	rot over + rot pick2 + rot
+	( 1? )( 1- >r 2dup c@ swap c! 1- swap 1- swap r> ) 3drop ;
+::move | de sr cnt --
+	( 1? )( 1- >r @+ rot !+ swap r> ) 3drop ;
+::move> | de sr cnt --
+	rot over 2 << + rot pick2 2 << + rot 1+
+	( 1? )( 1- >r dup @ pick2 ! 4 - swap 4 - swap r> ) 3drop ;
+
+|----------- joystick
+
+::CNTJOY
+	0 ;
+::AJOY
+	0 nip ;
+::BJOY
+	0 nip ;
+
+|----- Archivos
+::VOL
+	0 nip ;
+::FSIZE
+	0 nip ;
+

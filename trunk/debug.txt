@@ -1,0 +1,346 @@
+| debug/Editor de :R4
+| PHREDA 2007
+|---------------------------------------
+^reda4.txt
+^gui.txt
+^parse.txt
+^files.txt
+
+#nombre )( 64
+#fuente0 0
+#fuente )( 65536 | 64k de fuente editable
+#fuente> 'fuente
+#textofin> 'fuente
+
+#inisel 0 | inicio seleccion
+#finsel 0 | fin seleccion
+
+#pantaini> | comienzo de pantalla
+#pantafin> | fin de pantalla
+
+#linecnt 24
+
+#error )( 32
+#nrolin )( 32
+#ncar 0
+#nlin 0
+
+|-------------------------------------------------
+#isalir ( -30 -31 -60 -55 -82 -71 -66 -87 -50 -63 -26 -31 4 -63 36 -87 62 -71 78 -55 94 -31 70 1 36 33 68 57 94 73 78 89 62 65 38 33 4 65 -28 89 -50 73 -66 57 -82 33 -58 1 -28 0 )
+#iok ( -95 -30 -41 -31 6 -15 -74 103 1 -26 -31 70 -47 -2 -95 -26 0 )
+#iplay ( -63 -62 65 4 -63 68 -60 0 )
+#icolor ( -95 -30 -41 -31 6 -15 -74 103 1 -26 -31 70 -47 -2 -95 -26 0 )
+|-------------------------------------------------
+
+:lins  | c --
+	fuente> dup 1- textofin> over - 1+ cmove>
+
+	inisel 1? (	| seleccion
+		fuente>
+		over <? ( 1 dup 'inisel +! 'finsel +! )( finsel <=? ( 1 'finsel +!  ) )
+		drop
+		) drop
+
+	1 'textofin> +!
+:lover | c --
+	fuente> c!+ dup 'fuente> !
+	textofin> >? ( dup 'textofin> ! ) drop
+:0lin | --
+	0 textofin> ! ;
+
+#modo 'lins
+
+:ddel
+	fuente> textofin> >=? ( drop ; ) drop
+	1 'fuente> +!
+:del
+	fuente> 'fuente <=? ( drop ; )
+	dup 1- swap textofin> over - 1+ cmove -1 'textofin> +! -1 'fuente> +!
+
+	inisel 1? ( | seleccion
+		fuente>
+		over <? ( -1 dup 'inisel +! 'finsel +! )( finsel <=? ( -1 'finsel +! ) )
+		drop
+		) drop ;
+
+:<<13 | a -- a
+	( 'fuente >? )( dup c@ 13 =? ( drop ; ) drop 1- ) drop 'fuente 1- ;
+
+:>>13 | a -- a
+	( textofin> <? )( dup c@ 13 =? ( drop 1- ; ) drop 1+ ) drop textofin>  2 - ;
+
+:khome
+	fuente> 1- <<13 1+ 'fuente> ! ;
+
+:kend
+	fuente> >>13  1+ 'fuente> ! ;
+
+|----------mmmmmmmmmmmmmm
+:pasalinea | a -- a'
+	( c@+ 1? )( $d =? ( drop ; ) drop ) drop 1- ;
+
+:ajustapant
+	pantaini> 0 ( linecnt <? )( 1+ swap  pasalinea swap ) drop
+	dup c@ 0? ( swap 1+ swap ) drop
+	'pantafin> !  ;
+
+|---------------   mover fuente
+:scrollup | 'fuente -- 'fuente
+	pantaini> 1- <<13 1- <<13  1+ 'pantaini> !
+	ajustapant	;
+
+:scrolldw
+	pantaini> >>13 2 + 'pantaini> !
+	ajustapant	;
+
+:ajusta
+	ajustapant
+	fuente> pantafin> >=? ( scrolldw ) drop
+	fuente> pantaini> <? ( scrollup ) drop
+	;
+
+:karriba
+	fuente> 'fuente =? ( drop ; )
+	1- <<13 1- <<13 1+ 	'fuente> !
+	ajusta ;
+
+:kabajo
+	fuente> textofin> >=? ( drop ; )
+	>>13 2 + 'fuente> !
+	ajusta ;
+
+:kder 
+	fuente> textofin> <? ( 1 'fuente> +! ) drop ; 
+:kizq
+	fuente> 'fuente >? ( -1 'fuente> +! ) drop ;
+:kpgup
+	linecnt ( 1? )( 1- karriba ) drop  ;
+:kpgdn
+	linecnt ( 1? )( 1- kabajo ) drop  ;
+
+
+:e.clear
+	'fuente dup 'pantaini> ! dup 'fuente> ! 'textofin> ! 
+	0lin ;
+
+|------------------------------------------------
+:buscaerror
+	"" 'error !  -1  'nlin ! 0 'ncar !
+	mem "debug.err" load mem 4+ <? ( drop  ; ) 0 swap !
+	mem
+	'nombre swap ( c@+ $7c <>? )( rot c!+ swap ) drop 0 rot c!
+	'nrolin swap ( c@+ $7c <>? )( rot c!+ swap ) drop 0 rot c!
+	'nrolin ?numero 1? ( drop nip )  'nlin !
+	'nrolin swap ( c@+ $7c <>? )( rot c!+ swap ) drop 0 rot c!
+	'nrolin ?numero 1? ( drop nip )  'ncar !
+	'error swap ( c@+ 1? )( rot c!+ swap ) rot c! drop
+	;
+
+:loadtxt | -- cargar texto
+	clear mem 'nombre load 0 swap c!
+	'fuente dup 'pantaini> ! 'fuente> !
+
+	|-- si no hay cr y si ln reemplazar
+	0 mem ( c@+ 1? )( 13 =? ( rot 1+ rot rot ) drop ) 2drop
+	0? ( mem ( c@+ 1? )( 10 =? ( 13 pick2 1- c! ) drop ) 2drop )
+	drop
+	|--
+	'fuente mem ( c@+ 1? )(
+		10 =? ( drop swap fuente> <? ( -1 'fuente> +!  ) swap )( rot c!+ swap ) 
+		) 2drop 'textofin> ! 0lin 	
+	ajustapant
+	nlin 0 >? ( ( 1- 1? )( fuente> >>13 2 + 'fuente> ! ) ) drop
+	ncar +? ( dup 'fuente> +! ) drop
+	pantafin> ( fuente> <=? )( >>13  2 +
+		pantaini> >>13 2 + 'pantaini> !
+		) 'pantafin> !
+	;
+
+:savetxt
+	clear
+	'fuente ( c@+ 1? )( 13 =? ( ,c 10 ) ,c ) 2drop
+	mem here over - 'nombre save
+	nlin -1 =? ( 'nombre count "./nom/editor.nom" save )( "" 1 "debug.err" save -1 'nlin ! ) drop
+	;
+
+:otro-code
+	savetxt
+	".//" dir
+	'nombre explore
+	loadtxt 	;
+
+|----------------------------
+:marcasel
+	fuente>
+	inisel 0? ( drop dup 'finsel ! 'inisel ! ; )(
+		over =? ( 2drop 0 dup 'inisel ! 'finsel ! ; )
+		<? ( 'inisel ! ; )( 1- finsel =? ( 0 dup 'finsel ! 'inisel ! drop ; ) 'finsel ! ; )
+		) drop ;
+
+|------------
+:copiatras | cursor -- 
+	finsel inisel - over +  | dest
+	over 1- | srce
+	textofin> over - 4+ cmove> |::cmove> | de sr cnt --
+	finsel inisel - dup 'textofin> +!  1+ dup 'inisel +! 'finsel +!
+	dup inisel ( finsel <=? )( c@+ rot c!+ swap ) 2drop
+	finsel inisel - over + 'finsel ! 'inisel !  ;
+
+:copiadelant | cursor -- 
+	finsel inisel - over +  | dest
+	over 1- | srce
+	textofin> over - 4+ cmove>
+	finsel inisel - 'textofin> +! 
+	dup inisel ( finsel <=? )( c@+ rot c!+ swap ) 2drop
+	finsel inisel - over + 'finsel ! 'inisel !  ;
+
+:copiasel
+	fuente> 
+	inisel 0? ( 2drop ; ) <? ( copiatras ; )
+	finsel >? ( copiadelant ; )
+	drop ; | no copia dentro de seleccion
+
+|------------
+:selamem | --
+	mem inisel ( finsel <=? )( c@+ rot c!+ swap ) drop 0 swap c! ;
+
+:moveatras | cursor --
+	selamem
+	finsel inisel - over +  | dest
+	over  1-  |src
+	inisel over - 1- 
+	cmove> 
+	dup mem ( c@+ 1? )( rot c!+ swap ) 3drop 
+	finsel inisel - over + 'finsel ! 'inisel ! ;
+
+:moveadelant | cursor --
+	selamem
+	inisel 
+	finsel 1+ | cursor destino fuente
+	pick2 finsel -  | cantidad
+	cmove
+	dup finsel inisel - dup neg 1- 'fuente> +!   | cambia cursor
+	- 1- mem ( c@+ 1? )( rot c!+ swap ) 3drop
+	finsel - 1- dup 'finsel +! 'inisel +! ;
+
+:movesel
+	fuente>
+	inisel 0? ( 2drop ; ) <? ( moveatras ; )
+	finsel >? ( moveadelant ; )
+	drop ;
+
+:borrasel
+	inisel finsel 1+ textofin> finsel - 4+ cmove
+	finsel inisel - neg 'textofin> +!
+	fuente> inisel >=? ( finsel <=? ( inisel 'fuente> ! )(  finsel inisel - over swap - 'fuente> ! ) )  drop
+	0 dup 'inisel ! 'finsel !	;
+
+
+#lineaerr )( 2048
+:mostrarerr
+	'lineaerr dup c@ 1? ( drop 0 swap c! ; ) drop
+	"runtime.err" load 0 swap c!
+	;
+
+|-----------------[ dibujar lineas ]---------------
+:colorcursor
+	ink@ >r
+	modo 'lins =? ( blanco )( rojo ) drop 
+	printcur 
+	r> ink ;
+
+#_color 0
+
+:colores | adr c col -- adr c
+	drop 33 <? ( ; )
+	$7c =? ( gris 1 '_color !  ; )	| $7c |	 Comentario
+	$22 =? ( azul 2  '_color !  ; )	| $22 "	 Cadena		
+	over 1- ?numero 1? ( 2drop amarillo )( verde ) drop
+	$3A =? ( rojo )			| $3a :	Definicion
+	$23 =? ( violeta )		| $23 #  Variable
+	$5e =? ( amarillo )		| $5e ^  Include
+	$27 =? ( cyan ) 			| $27 '	Direccion
+	3 '_color ! ;
+
+:yacolor | adr c col -- adr c
+	1- 0? ( drop ; )
+	1- 0? ( drop $22 <>? ( ; ) )( drop 32 >? ( ; )  )
+	0 '_color ! ;
+
+:drawcode
+	0 '_color !
+	pantaini>
+	( inisel >=? ( finsel <=? ( ink@ >r $4444ff ink   printcur r> ink ) )
+	fuente> =? ( blink 1? ( drop colorcursor )( drop )  )
+		c@+ 1? )(
+			$d =? ( 0 '_color ! )( _color 0? ( colores )( yacolor ) )
+			emit emitout? 1? ( 2drop ; ) drop | corta cuando sale de ventana
+			) 2drop  ;
+
+|----------------------------
+|----------------------------
+:ayuda
+	savetxt	"r4token.txt" run ;
+
+:tokenizado
+	savetxt "tokenizar.txt" run ;
+
+:compilando
+	savetxt	"compilar.txt" run ;
+
+|----------------------------
+:pantalla
+	.page
+	[ key toasc modo exec ; ] <visible>
+	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
+	[ 13 modo exec ajusta ; ] <enter>
+	[ 9 modo exec ; ] <tab>
+	'del		<back>		'ddel	<del>
+	'karriba <arr>		'kabajo	<aba>
+	'kder	<der>		'kizq	<izq>
+	'khome	<home> 	'kend	<end>
+	'kpgup	<pgup>		'kpgdn	<pgdn>
+	16 16 .table 0 15 .at
+	rojo oscuro "ESC" 'ifin  'exit  dup >esc< .fsbtn .>
+	amarillo
+	"F1" "RUN"  'ayuda  dup <f1> .fbtn  .>
+	"F2" "INFO"  'tokenizado  dup <f2> .fbtn  .>
+	"F3" ">ASM" 'compilando dup <f3> .fbtn .>
+	"F4" "RUN!"  [ savetxt 'nombre run  ; ]  dup <f4> .fbtn  .>
+	violeta
+	"F5" "Mark" 'marcasel dup <f5> .fbtn .>
+	"F6" "Copy" 'copiasel  dup <f6> .fbtn .>
+	"F7" "Move" 'movesel dup <f7> .fbtn .>
+	"F8" "Del" 'borrasel dup <f8> .fbtn .> .> .>
+|	"F12" "ERROR" 'mostrarerr dup <f12> .fbtn
+	12 15 .at 4 1 .to cyan 'nombre 'otro-code .8btn
+	.show cls
+		scr
+		28 sfont azul oscuro
+|		0 0 at 41 1 ptofill
+		dup " Edit:r%d " verde print blanco
+		modo 'lins =? ( "INS" )( "OVER" ) nip
+		'nombre "| %s | %s | " print
+		finsel 0? ( drop "0" )( 'fuente - inisel 'fuente - "%d..%d" ) print
+		textofin> 'fuente - " | %d |" print
+		nlin -1 <>? (  'error  " %s en linea %d " blink 1? ( rojo )( amarillo ) drop  print )( drop )
+|		1 1 at 36 25 ptowin
+		0 1 at
+		drawcode
+		'lineaerr dup c@ 0? ( 2drop ; ) drop
+|		28 0 at 10 10 ptowin
+		blanco print
+		;
+
+
+|----------- principal
+:main
+	buscaerror
+	nlin -1 =? ( 'nombre "./nom/editor.nom" load drop ) drop
+	loadtxt
+	pantalla
+	savetxt
+	;
+
+: 0 paper 4 main "main.txt" run  ;
+

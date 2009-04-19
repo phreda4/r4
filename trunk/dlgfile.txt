@@ -1,0 +1,139 @@
+| Navegador de Archivos
+| PHREDA 2006
+|---------------------------------------
+^reda4.txt
+^medit.txt
+^libgui.txt
+
+#inicioarch 0
+#cntarch 20
+#vuelta 0
+#cant 0
+#inifile 0
+#iniprog 0
+
+|---------------------------------------------------------
+#actual 0
+
+#fileact 0
+#compnombre )( 128
+#nnombre )( 64
+#pnombre 0
+
+#entrada )( 64
+#hayarr 0
+#hayaba 0
+
+:compone | ".ext" "n"  -- "n.ext"
+	'compnombre swap
+	( c@+ 1? )( rot c!+ swap )  2drop
+	swap
+	( c@+ 1? )( rot c!+ swap ) rot c!
+	drop 'compnombre ;
+
+|---------------------------------------------------------
+:calbotons
+	inifile 0 >? ( 1 )( 0 ) nip 'hayarr !
+	inifile 3 20 * + file 1? ( 1 )( 0 ) nip 'hayaba !
+	;
+
+:sumafile | nro --
+	fileact + dup file 0? ( 2drop ; ) drop 'fileact !
+:ubicar
+	inifile 3 16 * +  ( fileact <=? )( 3 + ) 3 16 * - 'inifile !
+	inifile ( fileact >? )(  3 - ) 'inifile !
+	;
+
+:buscafile
+	'entrada c@ 0? ( drop ; ) drop
+	0 ( dup file 1? )(  | nro file
+		'entrada =pre 1? ( drop 'fileact ! ubicar ; ) drop 1+ )
+	2drop ;
+
+|---------------------------------------------------------
+:filedraw | x y -- x y
+	2dup 3 * + inifile +
+	dup file 0? ( 2drop ; ) drop
+	fileact =? ( $222222 $ff00 vbtn  )
+	[ dup file 1? ( m.copy )( drop ) ; ] onUp
+	1.8 fzoom
+	file 0? ( drop ; ) 2 sfont cr2 blanco printc ;
+
+:filelist
+	3 16 'filedraw .table ;
+
+|---------------------------------------------------------
+:salir
+	gris gc.fbox
+	0.9 [ 1.1 nip ; ] onMove fzoom
+	[ "" pnombre strcpy exit ; ] onUp
+	$ff0000 $222222 [ swap ; ] onIn vbtn
+	blanco 'ifin v8draw
+	;
+
+|---------------------------------------------------------
+:titulo
+	$ff00 $222222 vbtn
+	1 sfont negro "file:" print
+	blanco pnombre printc
+	[ exit ; ] onUp
+	;
+
+:nuevoreal
+	exit
+	'entrada c@ 0? ( drop ; ) drop
+	'entrada pnombre strcpy
+	;
+
+:saliendo
+	exit ;
+
+#acc1 2
+$ff0000 'ifin 'saliendo
+$00ff00	'iok 'nuevoreal
+
+:botonera
+	'acc1 .vbtns ;
+
+:lineadebug
+	fonti verde
+	dup "%d" print
+	;
+
+:textoin
+	verde gc.box -2 'h +!
+	1 sfont blanco
+	m.draw ;
+
+#control
+0.9 0.1 -0.05 -0.45 'titulo
+0.8 0.09 0 -0.35 'textoin
+0.9 0.8 0 0.1 'filelist
+0.1 0.2 0.45 -0.40 'botonera
+|0.3 0.1 0.25 0.45 'lineadebug
+0
+
+:showfile
+	inikey
+	[ exit ; ] >esc<
+	[ fileact file 1? ( pnombre strcpy exit ; ) drop ; ]  <enter>
+	'entrada 32 m.input | 'var max --
+	[ m.clear 1 sumafile ; ] <der>
+	[ m.clear -1 sumafile ; ] <izq>
+	[ m.clear 3 sumafile ; ] <aba>
+	[ m.clear -3 sumafile ; ] <arr>
+	"" m.copy
+	show cls scr
+		'control gui
+		buscafile
+		cmano
+		;
+
+|---------------------------------------------------------
+::dlgfile | nn --
+	'pnombre !
+	key.push
+	0 'fileact !
+|	calbotons
+	showfile
+	key.pop ;

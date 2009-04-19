@@ -1,0 +1,45 @@
+| LibColores
+| PHREDA
+|--------------------------------
+
+| degrade entre dos colores
+|--------------------------------------
+#rc #gc #bc
+#sr #sg #sb
+
+:pasocol | -- col
+	rc sr + dup 'rc ! $ff0000 and
+	gc sg + dup 'gc ! 8 >> $ff00 and or
+	bc sb + dup 'bc ! 16 >> $ff and or ;
+
+|------------------------------------
+::cmorph | cant col1 col2 --
+	over px!+
+	over $ff0000 and dup 'rc ! over $ff0000 and swap - pick3  / 'sr !
+	over 8 << $ff0000 and dup 'gc ! over 8 << $ff0000 and swap - pick3  / 'sg !
+	swap 16 << $ff0000 and dup 'bc ! swap 16 << $ff0000 and swap - over  / 'sb !
+	1- ( 1? )( 1- pasocol px!+ ) drop
+	;
+
+| diferencia de color
+|--------------------------------------
+|int DiffRGB2(unsigned long int a, unsigned long int b)
+|  return abs((a>>16)-(b>>16)) + abs(((a>>8)&255)-((b>>8)&255)) + abs((a&255)-(b&255));
+::diffrgb2 | a b -- v
+	over 16 >> over 16 >> - abs | a b a1
+	pick2 8 >> $ff and pick2 8 >> $ff and - abs + | a b a2
+	rot $ff and rot $ff and - abs + ;
+
+|uint32 vdavgpixel(uint32 a, uint32 b) {
+|	return (a|b) - (((a^b)&0xfefefefe)>>1);
+::colavg | a b -- c
+	2dup xor $fefefefe and 2/ >r or r> - ;
+
+|uint32 vdlerppixel(uint32 a, uint32 b, unsigned alpha) {
+|	return a + (((((b&0xff00ff) - (a&0xff00ff))*alpha + 0x00800080)>>8) & 0xff00ff) +
+|				(((((b&0xff00) - (a&0xff00))*alpha + 0x008000)>>8) & 0xff00);
+:collerp | a b al --c
+	>r dup
+	$ff00ff and pick2 $ff00ff and - r * $800080 + 8 >> $ff00ff and r> swap >r >r
+	$ff00 and swap $ff00 and - r> * $8000 + 8 >> $ff00 and r> + ;
+

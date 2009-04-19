@@ -1,0 +1,104 @@
+| Parse para numeros y busqueda en lista
+| PHReda
+|---------------------------
+
+:base | str -- str base
+	dup c@ | str c 
+	$24 =? ( drop 1+ 16 ; )	| $ hexa $24
+	$25 =? ( drop 1+ 2 ; ) 	| % bin  $25
+	drop 10 ;
+	
+:signo | str -- str signo
+	dup c@ 
+	$2b =? ( drop 1+ 1 ; )		|+ $2b
+	$2d =? ( drop 1+ -1 ; )	| - $2d
+	drop 1 ;
+	
+:digito | c --  dig / -1
+	$3A <? ( $30 - ; )			| 0..9
+	$60 >? ( $57 - ; )			| a
+	$40 >? ( $37 - ; )			| A
+	drop -1 ;
+
+::trim | adr -- adr'
+	( dup c@ 33 <? )( 0? ( drop ; ) drop 1+ ) drop ; | quitar espacios
+
+#:basen 
+
+::?numero | str -- 0 / str' nro 1 
+	signo swap base 'basen ! 			| -1 str
+	dup c@ 33 <? ( 3drop 0 ; ) drop
+	0 ( over c@ 32 >? )( 
+		digito -? ( 4drop 0 ; )			| -1 str 0 dig
+		basen >=? ( 4drop 0 ; )		| -1 str 0 dig
+		swap basen * +				| -1 str dig+0*10
+		swap 1+ swap )
+	drop rot * 1 ;	
+
+|----- lee punto fijo ( -43.04 ==> 104 -43 t>fix16  --> $00eedddd
+#parte0
+
+::?fnumero | str -- 0/ str' parte1 parte0 1		; b
+	10 'basen !
+	signo swap
+	dup c@ 33 <? ( 3drop 0 ; ) drop
+|	dup 1+ c@ que pasa con .0?
+	0 ( over c@ 32 >? )(				| -1 str 0 dig
+		$2e =? (	 drop 'parte0 ! 1 )( 	| 1.33 .. parte0=1 retorna 133
+			digito -? ( 4drop 0 ; )
+			10 >=? ( 4drop 0 ; )
+			swap 10 * + )
+		swap 1+ swap ) 
+	drop 1 =? ( parte0 0? ( 4drop 0 ; ) drop ) | casos -. y 
+	rot >r 
+	parte0 
+	16 << $10000 rot
+	1 over ( 1 >? )( 10 / swap 10 * swap ) drop
+	*/ $ffff and or 
+	r> * 
+	1 ;
+
+::?int | adr -- adr' nro /-1
+	dup c@ digito -? ( 2drop -1 ; ) 9 >? (  2drop -1 ; ) drop
+	0 swap ( c@+ $2f >? )(	| 0 adr car
+		digito -? ( 3drop -1 ; )
+		10 >=? ( 3drop -1 ; )
+		rot 2* dup 2 << + |10 * 
+		+ swap )  
+	drop 1- swap ;
+
+|-----
+::?lista  | str list -- str 0 / str' n 
+	>r ( r@+ 1? )(
+		over =word= 1? ( drop nip r> ; )( drop )
+		) drop rdrop 0 ;
+
+::=s | s1 s2 -- 0/1
+	( c@+ 32 >? )( toupp >r | s1 s2  r:c2
+		swap c@+ toupp r> | s2 s1 c1 c2
+		<>? ( 3drop 0 ; ) drop
+		swap ) drop
+	swap c@ 32 >? ( 0 )( 1 ) 
+	nip nip ;
+
+|-------------------------
+::copynom | sc s1 --
+	( c@+ 32 >? )(
+		rot c!+ swap ) 2drop
+	0 swap c! ;
+
+::copystr | sc s1 --
+	( c@+ 34 <>? )(
+		rot c!+ swap ) 2drop 
+	0 swap c! ;
+
+|------------- parseo
+::scanp | dir "str" -- dir' / 0
+	( c@+ 1? )( | d1 d2 c
+		rot c@+ | d2 c d1 c
+		rot <>? ( 3drop 0 ; )
+		drop | d2 d1
+		swap
+		) drop
+	drop | dir'
+	;

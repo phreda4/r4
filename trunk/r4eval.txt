@@ -1,0 +1,158 @@
+| eval-code.txt
+| PHREDA 2007
+|---------------------------------------
+^reda4.txt
+^libgui.txt
+^r4code.txt
+^medit.txt
+^codecolor.txt
+
+#nombre )( 64
+#linea )( 1024	| error y mem aux
+#pad )( 1024	| entrada texto
+
+#pantaini>
+#pantafin>
+#actual>
+
+|--------------------
+#:hojapal 0
+
+:printpageword | n
+	4 << 'indicepal +
+	10 ( 1? )( 1- >r
+		@+ "%w " print @+ " %h  " print @+ " %h  " print @+ " %h  " print cr
+		r> )
+	2drop ;
+
+|--------------------
+:vistaword
+	indicepal> 'indicepal - 4 >>
+	indicepal< 'indicepal - 4 >>
+	( over <? )(
+|		<<ip =? ( ">" print )
+		dup printwordname
+		1+ )
+	2drop
+	;
+
+|---------------- muestra fuente
+:drawcursor
+	blink 0? ( drop ; ) drop
+	actual> pantafin> >? ( drop ; ) drop
+	pantaini> ( actual> <? )( c@+ gemit ) printcurw drop
+	;
+
+:drawcode
+	fonti |20 sfont
+	drawcursor home	pantaini> code.lines 'pantafin> !
+	;
+
+|----------------- muestra token
+:drawtoken
+	fonti |20 sfont
+	vistaword
+	;
+
+|------------------ estado MV
+:drawstat
+	3 sfont
+	dumpvm cr
+	msg 1? ( cr rojo print )( drop )
+	cntvars cntword "pal:%d vars:%d " print amarillo
+	str> str - 	cte> cte - 2 >> prog> prog - 2 >> "tok:%d cons:%d str:%d" print
+	;
+
+:realplay
+	'nombre run  ;
+
+|"ESC" 'ifin 'exit dup >esc< .fsbtn .>
+|"F3" ">." 'stepvm dup <f3> .fbtn .>
+|"F4" ">-" 'wordvm dup <f4> .fbtn .>
+|"F5" "Reset" 'resetvm dup <f5> .fbtn .>
+|"F1" "eval" 'evaluador dup <f1> .fbtn .>
+|"F5" "Reset" 'resetvm dup <f5> .fbtn .>
+|"F9" "Stat" 'savestat dup <f9> .fbtn .>
+
+#newbotonera 7
+$00ff00	'iplay		'realplay
+$00ff00	'idibuja	'exit
+$ffff00	'icopia		'exit
+$ffff00	'iizq		'exit
+$ffff00	'ider		'exit
+$ff0000	'iborrar	'exit
+$00ff00	'icopia		'exit
+
+:botonera
+	'newbotonera .hbtns
+	;
+
+:titulo
+	$ff00 $222222 vbtn
+	1 sfont negro "r4Eval:" print
+	blanco 'nombre printc
+|	'eligearchivo onUp
+	;
+
+:salirbtn
+    'exit 'ifin $ff0000 .btns ;
+
+:consolag
+	2 font blanco
+	m.draw ;
+
+:execpad
+|	'pad
+	;
+
+#guiconsola
+0.9 0.1 -0.05 -0.45 'titulo
+0.1 0.1 0.45 -0.45 'salirbtn
+
+0.5 0.1 -0.25 0.45 'botonera
+|0.4 0.1 0.3 0.45 'lineastatus
+|0.05 0.8 -0.48 0 'drawnum
+0.5 0.5 0.25 -0.15  'drawcode
+0.5 0.5 -0.25 -0.15  'drawtoken
+0.9 0.2 0 0.4 'consolag
+0.5 0.1 0.25 0.45 'drawstat
+0
+
+:consola
+	mem 'pantaini> !
+	indicepal> 12 - @ 'actual> !
+|	ajusta
+	inikey
+	'exit >esc<
+	'realplay <f1>
+|	'stepvm <f1>
+	'playvm <f2>
+	'execpad <enter>
+	startvm
+	'pad 128 m.input
+	"" m.copy
+	show cls scr
+		'guiconsola gui
+		cmano ;
+
+|----------------------------
+:evaluador
+	;
+
+|----- Sistema
+:llamaeditor
+	'linea dup >, saverror count "debug.err" save
+	"edit-code.txt" run ;
+
+|----------- principal
+:main
+	'nombre "./nom/editor.nom" load drop
+	clear
+	'nombre tokencomp
+	msg 1? ( drop llamaeditor ; ) drop
+	tokenpost
+|	msg 1? ( drop evaluador ; ) drop
+	consola
+	;
+
+: 4 main "edit-code.txt" run  ;
