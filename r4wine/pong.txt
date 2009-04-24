@@ -1,0 +1,107 @@
+| Version del pong traducida a :r4
+| PHREDA
+|----------------------------------------------------------
+^reda4.txt
+^graflib.txt
+
+#ldir #rdir #lastime
+#ballx #bally #balldx #balldy 
+#leftbaty 0 #rightbaty 0
+#leftscore 0 #rightscore 0
+
+#dig0 ( %1111 %1001 %1001 %1001 %1111 ) 
+#dig1 ( %0001 %0001 %0001 %0001 %0001 )
+#dig2 ( %1111 %0001 %1111 %1000 %1111 )
+#dig3 ( %1111 %0001 %1111 %0001 %1111 )
+#dig4 ( %1001 %1001 %1111 %0001 %0001 )
+#dig5 ( %1111 %1000 %1111 %0001 %1111 )
+#dig6 ( %0001 %0001 %1111 %1001 %1111 )
+#dig7 ( %1111 %0001 %0001 %0001 %0001 )
+#dig8 ( %1111 %1001 %1111 %1001 %1111 )
+#dig9 ( %1111 %1001 %1111 %0001 %0001 )
+
+#digits 'dig0 'dig1 'dig2 'dig3 'dig4 'dig5 'dig6  'dig7 'dig8 'dig9
+		
+#xx #yy 
+#startx #starty
+
+:** | 0/1 --
+	and 1? ( $ffffff )( 0 ) ink drop
+	20 dup xx yy vfill 20 'xx +! ;
+	
+:drawd | addr -- 
+	starty 'yy !
+	5 ( 1? )( 1- swap c@+ startx 'xx ! 
+			dup %1000 ** dup %0100 ** dup %0010 ** %0001 **
+			20 'yy +! swap ) 2drop ;
+
+:drawdigit | n -- 
+  2 << 'digits + @ drawd ;
+
+:drawnumber | n x y --
+  'starty ! 'startx ! 
+  dup 10 / 10 mod drawdigit
+  100 'startx +! 10 mod drawdigit ;
+
+:pantalla
+	cls
+	$0000ff ink
+	sw 1- 10 0 0 vfill sw 1- 10 0 sh 11 - vfill
+	10 sh 20 - sw 2/ 5 - 10 vfill
+	$ffffff ink
+	leftscore sw 2/ 200 - 20 drawnumber
+	rightscore sw 2/ 20 + 20 drawnumber
+	$00cc00 ink
+	20 100 0 leftbaty vfill
+	20 100 sw 21 - rightbaty vfill
+	$ff00 ink
+	20 dup ballx 4 >> bally 4 >> vfill
+	redraw ;
+
+:doreset |( -- )
+	0 'leftscore ! 0 'rightscore !
+	sh 2/ 50 - dup 'leftbaty ! 'rightbaty !
+
+:resetball
+	sw 2/ 10 - 4 << 'ballx ! sh 2/ 10 - 4 << 'bally !
+	$ff rand -? ( drop -1 )( drop 1 ) * 'balldx !
+	rand $3ff and $1ff - 'balldy !
+	pantalla msec 'lastime !
+	0 ( drop update msec lastime - 1000 >? ) drop ;
+
+:rebote
+	balldy neg 'balldy ! ;
+
+:golpe
+	balldx +? ( 8 )( -8 ) +	neg 'balldx !
+	dup 50 - 3 * 'balldy +! ;
+
+:paleta | ypaleta --
+	bally 4 >> 10 + swap - +? ( 100 <? ( golpe ) ) drop ;
+
+:paso
+	balldx 'ballx +!	balldy 'bally +!
+	ldir 'leftbaty +!	rdir 'rightbaty +!
+	leftbaty 10 <? ( drop 10 ) sh 110 - >? ( drop sh 110 - ) 'leftbaty !
+	rightbaty 10 <? ( drop 10 ) sh 110 - >? ( drop sh 110 - ) 'rightbaty !
+	ballx 4 >> 0 <? ( 1 'rightscore +! resetball ) sw 20 - >? ( 1 'leftscore +! resetball ) drop
+	bally 4 >> 10 <? (  rebote 10 4 << 'bally ! ) sh 30 - >? ( rebote sh 30 - 4 << 'bally ! ) drop
+	ballx 4 >> balldx -? ( drop 20 <? ( leftbaty paleta ) )( drop sw 40 - >? ( rightbaty paleta ) ) drop ;
+
+:juego
+	inikey 0 ipen!
+ 	[ doreset ; ] $39 >key
+	[ $f 'ldir ! ; ] $1e >key [ -$f 'ldir ! ; ] $10 >key
+	[ 0 'ldir ! ; ] dup $10 >ukey $1e >ukey
+	[ $f 'rdir ! ; ] $50 >key [ -$f 'rdir ! ; ] $48 >key
+	[ 0 'rdir ! ; ] dup $50 >ukey $48 >ukey
+	[ rdrop rdrop end ; ] <esc>
+	doreset
+	( update msec lastime -
+		34 >? ( paso pantalla msec 'lastime ! )
+		drop ) ;
+
+: 0 paper juego ;
+
+
+

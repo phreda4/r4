@@ -1,0 +1,220 @@
+| libreria de graficos y cursor
+| PHREDA
+|---------------------------------------
+^reda4.txt
+^libtrig.txt
+^colores.txt
+^libgc.txt
+
+|--- mem video
+|:vmem | x y -- addr
+|	sw * +  2 << framev + ;
+|	sw sh * <? ( +? ( 2 << framev + ; ) ) drop rdrop ;
+
+::getpixel | x y -- c
+	setxy px@ ;	|	vmem @ ;
+
+::setpixel | c x y --
+	setxy px!+ ;    |	vmem ! ;
+
+::pix! | x y --
+	setxy ink@ px!+ ;
+
+|---- bitmap
+::oscurecetodo
+	0 0 setxy
+	0 ( sh <? )( 1+
+		0 ( sw <? )( 1+
+			px@ 2/ $7f7f7f and | oscurece
+			px!+
+			) drop
+		) drop
+|	framev sw sh *  ( 1? )( 1- swap dup @ 2/ $7f7f7f and swap !+ swap )	2drop
+	;
+
+::bmnoise |ancho alto x y
+	setxy
+|	vmem >r
+	sw pick2 - 2 << swap			| ancho dif alto
+	( 1? )( 1-
+		setxy
+		pick2 ( 1? )( 1- rand px!+ ) drop
+		over 0 swap setxy )
+	3drop
+	;
+
+|---- lineas gruesas
+#gg1 4 #gg2 4
+#ss1 $200 #ss2 $200
+#ang
+
+|---- lineas gruesas
+|                    1      2,3  4-8    8-16   16-32  32-64  64-128 128-256 256-512  512-1024
+|#escala $400 $200 $100 $80     $40      $20      $10        $8	    $4             $2
+:calcsum | n -- n suma
+	2 <? ( $400 )( 4 <? ( $200 )( 8 <? ( $100 )( 16 <? ( $80 )( 32 <? ( $40 )( 64 <? ( $20 )( 128 <?  ( $10 )( $8 ) ) ) ) ) ) ) ;
+:lineag!	| grosor --
+	calcsum 'ss1 ! 'gg1 ! ;
+:calg1 | angulo -- x y
+	sincos gg1 16 *>> rot + swap gg1 16 *>> rot + swap ;
+:calg2 | angulo -- x y
+	sincos gg2 16 *>> rot + swap gg2 16 *>> rot + swap ;
+
+|----- figuras geometricas
+::cajau | x2 y2 x1 y1 --
+	ink@ >r
+	oscuro over pick3 op 2dup line pick3 over line
+	r ink claro 2over line drop swap line drop
+	r> ink ;
+
+::cajad | x2 y2 x1 y1 --
+	ink@ >r
+	claro over pick3 op 2dup line pick3 over line
+	r ink oscuro 2over line drop swap line drop
+	r> ink ;
+
+|---------------------------------
+::hline | x y x --
+	over op line ;
+::vline | x y y --
+	r> over r> op line ;
+
+::box | x y r --
+	>r r - swap r - swap 2dup 2dup op r 2* + 2dup line
+	swap r 2* + swap 2dup line r> 2* - line line ;
+
+::cruz | x y r --
+	>r
+	over r - over op over r + over line
+	2dup r - op r> + line ;
+
+::fbox | xc yc r --
+	>r r - swap r - swap 2dup 2dup op r 2* + 2dup pline
+	swap r 2* + swap 2dup pline r> 2* - pline pline poli ;
+
+
+::vfill | ancho alto x y --
+	2swap >r >r
+	2dup op over r> + over 2dup pline r + pline
+	2dup r> + pline pline poli ;
+
+::circle | xc yc r --
+	>r r - 2dup 2dup op	swap r - swap 2dup cp
+	r + 2dup curve	r + 2dup cp swap r + swap 2dup curve
+	swap r + swap 2dup cp r - 2dup curve r> - cp curve ;
+
+::fcircle | xc yc r --
+	>r r - 2dup 2dup op swap r - swap 2dup cp
+	r + 2dup  pcurve r + 2dup cp	swap r + swap 2dup pcurve
+	swap r + swap 2dup cp r - 2dup
+	pcurve r> - cp pcurve poli ;
+
+|::fcircle | x y g --
+|	lineag!
+|	2dup 0 calg1 op
+|	0 ( $800 <? )( >r
+|		2dup r calg1 pline
+|		r> ss1 + ) drop
+|	0 calg1 pline poli ;
+
+::ellipse | xc yc rx ry --
+	>r >r r - 2dup 2dup op
+	swap r> r> dup >r swap >r  - swap 2dup cp
+	r + 2dup curve	r + 2dup cp
+	swap r> r> dup >r swap >r + swap 2dup curve
+	swap r> r> dup >r swap >r + swap 2dup cp r - 2dup curve r> - cp curve rdrop ;
+
+
+
+::gcursor | x y g --
+	lineag!
+	2dup 0 calg1 op
+	0 ( $800 <? )( >r
+		2dup r calg1 line
+		r> ss1 + ) drop
+	0 calg1 line ;
+
+::glineg |x y x y g--
+	lineag!
+	pick3 pick2 - pick3 pick2 - atan2 $200 + 'ang ! | +1/4 de angulo
+	2over ang calg1 op
+	0 ( $400 <? )( >r
+		2dup ang r + calg1 pline
+		r> ss1 + ) drop
+	2dup ang $400 + calg1 pline
+	2drop
+	$400 ( $800 <? )( >r
+		2dup ang r + calg1 pline
+		r> ss1 + ) drop
+	ang calg1 pline poli ;
+
+| lineas multigruesas
+:glinei |x y x y --
+	pick3 pick2 - pick3 pick2 - atan2 $200 + 'ang ! | +1/4 de angulo
+	2over ang calg2 op
+	0 ( $400 <? )( >r
+		2dup ang r + calg1 pline
+		r> ss1 + ) drop
+	2dup ang $400 + calg1 pline
+	2drop
+	$400 ( $800 <? )( >r
+		2dup ang r + calg2 pline
+		r> ss2 + ) drop
+	ang calg2 pline poli ;
+
+#x1 #y1 #x2 #y2
+
+::gg | grosor --
+	gg2 'gg1 ! ss2 'ss1 !
+	calcsum 'ss2 ! 'gg2 ! ;
+
+::gop | x y --
+	'y1 ! 'x1 ! ;
+
+::gline | x y --
+	y1 =? ( swap x1 =? ( 2drop ; ) swap ) 
+	x1 y1 2over  'y1 ! 'x1 ! glinei ;
+
+::gcp | x y --
+	'y2 ! 'x2 ! ;
+
+|---------spline
+:sp-cal1 | x y _cx _cy px py -- x y xn yn
+	rot 2* + pick3 + 2 >> >r			| x y cx px   r: ye
+	swap 2* + pick2 + 2 >> r> ;		| x y xe ye
+	
+:sp-cal2 | cx cy px py -- x y 
+	rot + 2/ >r + 2/ r> ;
+
+:sp-dist | x y xe ye -- x y xe ye dd
+	pick3 pick2 - dup * pick3 pick2 - dup * + ;
+
+:spl | x y cx cy px py --
+	2dup >r >r 2over >r >r sp-cal1 r> r> 			| x y nx ny cx cy --  r: px py
+	sp-dist 96 <? ( nip 4drop rdrop rdrop 2 >> swap 2 >> swap gline ; ) drop
+	>r >r 2over r> r> 2dup >r >r sp-cal2 2swap		| x y xa ya nx ny -- r: cx cy px py
+	2dup r> r> r> r> 2dup >r >r sp-cal2 r> r> 		| x y xa ya nx ny nx ny xb yb px py
+	spl spl ;
+
+| falta cambiar tamanio en curvas
+|#ga #sa
+::gcurve | xy --
+|	gg2 'ga ! ss2 'sa !
+	2 << swap 2 << swap x2 2 << y2 2 << x1 2 << y1 2 << spl ;
+
+|------- Grilla
+:hlinea | x --
+	dup yc h 2/ - op yc h 2/ + line ;
+:vlinea | y --
+	dup xc w 2/ - swap op xc w 2/ + swap line ;
+
+::rgrilla | escala --
+	0? ( drop ; )
+	w over / h pick2 / rot 2/ 1+
+	( 1? )( 1-
+		pick2 over * dup xc + hlinea neg xc + hlinea
+		over over * dup yc + vlinea neg yc + vlinea
+		) 3drop ;
+
+
+
