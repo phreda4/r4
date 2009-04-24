@@ -1,0 +1,146 @@
+| nuevos sprites
+| PHREDA 2008
+|------------------------------------
+^libgraf.txt
+^libtrig.txt
+^closegl.txt
+
+#c1
+
+#ycen #xcen
+
+:a0  drop ; | el valor no puede ser 0
+:a1  >xy op ;  | punto
+:a2  >xy cp ; | cp
+:a3  >xy pline ; | linea
+:a4  >xy pcurve ;  | curva
+:a5  >xy line ;
+:a6  >xy curve ;
+
+:ao7  >xy fcen ; | centro degrade
+:ao8  >xy 2dup distfast 0? ( 1 nip )
+	>r atan2 $200 + sincos r / swap r> / fmat ;
+
+:a7  >xy 2dup 'ycen !+ ! fcen ; | centro degrade
+:a8  >xy xcen rot - ycen rot -
+	2dup distfast 0? ( 1 nip )
+	>r atan2 $200 + sincos r / swap r> / fmat ; | vec  degrade
+
+:a9  >xy pcurve ; | e .. 9
+:aa  >xy pline ;  | f .. a
+:ab  drop ;
+:ac  4 >> 'c1 ! ;  | segundo color | c .. c
+:ad  4 >> ink sfill poli ;		| 9 .. d
+:ae  4 >> c1 fcol lfill poli ;	| a .. e
+:af  4 >> c1 fcol rfill poli ;	| b ..  f
+
+#nspaedit a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 aa ab ac ad ae af
+
+::nsprite | adr --
+  ( @+ 1? )( dup $f and 2 << 'nspaedit + @ exec ) 2drop sfill ;
+
+
+|#nspa a0 a1 a2 a3 a4 a5 a6 ao7 ao8 a9 aa ab ac ad ae af
+
+|::nsprite | adr --
+|  ( @+ 1? )( dup $f and 2 << 'nspa + @ exec ) 2drop sfill ;
+
+|--------- R sprite
+#cosa #sina | para rotar
+:r>xy
+	d>xy over sina * over cosa * + 16 >> h 14 *>> yc + >r
+	swap cosa * swap sina * - 16 >> w 14 *>> xc + r> ;
+
+:ar1  r>xy op ;  | punto
+:ar2  r>xy cp ; | cp
+:ar3  r>xy pline ; | linea
+:ar4  r>xy pcurve ;  | curva
+:ar5  r>xy line ;
+:ar6  r>xy curve ;
+:ar7  r>xy 2dup 'ycen !+ ! fcen ; | centro degrade
+:ar8  r>xy xcen rot - ycen rot -
+	2dup distfast 0? ( 1 nip )
+	>r atan2 $200 + sincos r / swap r> / fmat ; | vec  degrade
+:ar9  r>xy pcurve ; | linea fantasma
+:ara  r>xy pline ; | linea fantasma
+
+#nspar a0 ar1 ar2 ar3 ar4 ar5 ar6 ar7 ar8 ar9 ara ab ac ad ae af
+
+:nsprang | ang --
+	sincos 'cosa !+ ! ;
+
+::rnsprite | adr ang --
+	nsprang
+:nsprdrawr
+	( @+ 1? )( dup $f and 2 << 'nspar + @ exec ) 2drop sfill ;
+
+|-------------------------------------------------------
+| 3 << porque usa 14 bits a 17 bits queda 1.0
+:3d>xy
+	dup  18 >> 3 << swap 14 << 18 >> 3 << 0 project3d ;
+
+:ad1  3d>xy op ;  | punto
+:ad2  3d>xy cp ; | cp
+:ad3  3d>xy pline ; | linea
+:ad4  3d>xy pcurve ;  | curva
+:ad5  3d>xy line ;
+:ad6  3d>xy curve ;
+:ad7  3d>xy 2dup 'ycen !+ ! fcen ; | centro degrade
+:ad8  3d>xy xcen rot - ycen rot -
+	2dup distfast 0? ( 1 nip )					| este calculo se debe poder simplificar !!!!
+	>r atan2 $200 + sincos r / swap r> / fmat ; | vec  degrade
+:ad9  3d>xy pcurve ; | linea fantasma
+:ada  3d>xy pline ; | linea fantasma
+
+#nsp3d a0 ad1 ad2 ad3 ad4 ad5 ad6 ad7 ad8 ad9 ada ab ac ad ae af
+
+::3dnsprite | adr --
+	( @+ 1? )( dup $f and 2 << 'nsp3d + @ exec ) 2drop sfill ;
+
+|-----------------------------------
+::nDraw | 'adr --
+	@cursor @+ nsprang @ nsprdrawr ;
+
+::nDrawLayer | 'adr --
+	( @+ 1? )( nDraw ) 2drop ;
+
+|----------- interpolar 2 sprites
+
+:lerp | t a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - rot 16 *>> + ;
+
+:inod | n s1 s2 v2 g -- n s1 s2 n
+	>r | n s1 s2
+	swap @+ r>  | n s2 s1 v1 v2
+	pick4 >r
+	r pick2 d>x pick2 d>x lerp | n s2 s1 v1 v2 xx
+	r> pick3 d>y pick3 d>y lerp xy>d
+	nip swap $f and or | n s2 s1 v
+	;
+
+:lerpcol | t a b -- c | t 0..$ff
+	dup
+	$ff00ff and pick2 $ff00ff and - pick3 8 *>> pick2 + $ff00ff and >r
+	$ff00 and over $ff00 and - rot 8 *>> + $ff00 and r> or ;
+
+:icol | n s1 s2 v2 -- c
+	>r swap @+ 4 >> | n s2 s1 v1
+	pick3 1? ( 1- 8 >> ) swap r 4 >>
+	lerpcol
+	4 << r> $f and or
+	;
+
+| n 0.0 .. 1.0
+| s1 sprite fuente 1
+| s2 sprite fuente 2
+| s3 sprite destino
+|----------------------------------
+::nSprInter | n s1 s2 s3 --
+	>r
+	( @+ 1? )(
+		dup $f and $b <? ( drop inod )( drop icol )
+		r!+	swap )
+	r> !
+	3drop ;
+
+|-----------------------------------

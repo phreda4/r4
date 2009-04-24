@@ -1,0 +1,284 @@
+| close2gl - PHReda
+| :r4 system library
+|-------------------------
+^reda4.txt
+^libtrig.txt
+
+#xf #yf
+#ox #oy 
+
+#mati | matriz identidad
+1.0 0 0 0		| 1.0 = $10000
+0 1.0 0 0
+0 0 1.0 0
+0 0 0 1.0
+#mats )( 640 | 10 matrices
+#mat> 'mats
+
+:matini
+	'mats dup 'mat> ! 'mati 64 move ;
+
+::mpush | --
+	64 'mat> +! mat> dup 64 - 64 move ;
+
+::mpop | --
+	mat> 'mats =? ( drop ; ) 64 - 'mat> ! ;
+
+|---------------------- mat mult 
+:rcmult | m1 m2 -- v
+	>r @+ r@+ 16 *>> swap	@+ 12 r+ r@+ 16 *>> swap 
+	@+ 12 r+ r@+ 16 *>> swap @ r> 12 + @ 16 *>> + + + ;
+	
+:mmult | m1 --
+	mat> >r
+	dup r rcmult r!+ dup 16 + r rcmult r!+
+	dup 32 + r rcmult r!+ dup 48 + r rcmult r!+
+	dup r rcmult r!+ dup 16 + r rcmult r!+
+	dup 32 + r rcmult r!+ dup 48 + r rcmult r!+
+	dup r rcmult r!+ dup 16 + r rcmult r!+
+	dup 32 + r rcmult r!+ dup 48 + r rcmult r!+
+	dup r rcmult r!+ dup 16 + r rcmult r!+
+	dup 32 + r rcmult r!+ 48 + r rcmult r> ! ;
+
+|-----------------------------
+::mtrans | x y z --
+	mat> >r
+	pick2 r 48 + @  16 *>> r @ + r!+
+	pick2 r 48 + @  16 *>> r @ + r!+
+	pick2 r 48 + @  16 *>> r @ + r!+
+	rot  r @ + r!+
+	over r 32 + @ 16 *>> r @ + r!+
+	over r 32 + @ 16 *>> r @ + r!+
+	over r 32 + @ 16 *>> r @ + r!+
+	swap r @ + r!+
+	dup r 16 + @ 16 *>> r @ + r!+
+	dup r 16 + @ 16 *>> r @ + r!+
+	dup r 16 + @ 16 *>> r @ + r!+
+	r> +! ;
+
+::mtransi | x y z -- ;pre
+	mat> >r
+	pick2 r@+ 16 *>> pick2 r@+ 16 *>> + over r@+ 16 *>> + r @ + r!+
+	pick2 r@+ 16 *>> pick2 r@+ 16 *>> + over r@+ 16 *>> + r @ + r!+
+	rot r@+ 16 *>> rot r@+ 16 *>> + swap r@+ 16 *>> + r @ + r> ! ;
+
+|-----------------------------
+::mscale | x y z -- ; post
+	mat> >r
+	pick2 r @ 16 *>> r!+ pick2 r @ 16 *>> r!+ pick2 r @ 16 *>> r!+ rot r @ 16 *>> r!+
+	over r @ 16 *>> r!+ over r @ 16 *>> r!+ over r @ 16 *>> r!+ swap r @ 16 *>> r!+
+	dup r @ 16 *>> r!+ dup r @ 16 *>> r!+ dup r @ 16 *>> r!+ r @ 16 *>> r> ! ;
+
+::mscalei | x y z 
+	mat> >r
+	pick2 r @ 16 *>> r!+ over r @ 16 *>> r!+ dup r @ 16 *>> r!+ 4 r+
+	pick2 r @ 16 *>> r!+ over r @ 16 *>> r!+ dup r @ 16 *>> r!+ 4 r+
+	rot r @ 16 *>> r!+ swap r @ 16 *>> r!+ r @ 16 *>> r> ! ;
+
+|-----------------------------
+::mrotx | x -- ; posmultiplica
+	mat> 16 + >r
+	dup sin swap cos
+	r @ r 16 + @ | s c e i
+	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+
+	pick2 16 *>> >r pick2 neg 16 *>> r> +  r 12 + !
+	r @ r 16 + @ | s c f j
+	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+
+	pick2 16 *>> >r pick2 neg 16 *>> r> +  r 12 + !
+	r @ r 16 + @ | s c g k
+	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+
+	pick2 16 *>> >r pick2 neg 16 *>> r> +  r 12 + !
+	r @ r 16 + @ | s c h l
+	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+
+	rot 16 *>> >r 16 *>> r> +  r> 12 + ! ;
+
+::mrotxi |x -- ; premultiplica
+	mat> 4+ >r
+	dup sin swap cos
+	r @ r 4+ @ | s c b c
+	pick2 pick2 16 *>> pick4 neg pick2 16 *>> +  r!+ | s c b c
+	pick2 16 *>> >r pick2 16 *>> r> +  r!+ 8 r+
+	r @ r 4+ @ | s c f g
+	pick2 pick2 16 *>> pick4 neg pick2 16 *>> +  r!+ 
+	pick2 16 *>> >r pick2 16 *>> r> +  r!+ 8 r+
+	r @ r 4+ @ | s c j k
+	pick2 pick2 16 *>> pick4 neg pick2 16 *>> +  r!+ 
+	pick2 16 *>> >r pick2 16 *>> r> +  r!+ 8 r+
+	r @ r 4+ @ | s c m o
+	pick2 pick2 16 *>> pick4 neg pick2 16 *>> +  r!+ 
+	rot 16 *>> >r 16 *>> r> +  r> ! ;
+
+|-----------------------------
+::mroty | y  --
+	mat> >r
+	dup sin swap cos
+	r @ r 32 + @ 	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+
+	pick2 16 *>> >r pick2 neg 16 *>> r> +  r 28 + ! r @ r 32 + @ 
+	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+
+	pick2 16 *>> >r pick2 neg 16 *>> r> +  r 28 + !
+	r @ r 32 + @  pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+
+	pick2 16 *>> >r pick2 neg 16 *>> r> +  r 28 + ! r @ r 32 + @ 
+	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+
+	rot 16 *>> >r swap neg 16 *>> r> +  r> 28 + ! ;
+
+::mrotyi | y --
+	mat> >r
+	dup sin swap cos
+	r @ r 8 + @ | s c a c
+	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+ 
+	pick2 16 *>> >r pick2 neg 16 *>> r> +  r 4+ ! 12 r+
+	r @ r 8 + @ | s c a c
+	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+
+	pick2 16 *>> >r pick2 neg 16 *>> r> +  r 4+ ! 12 r+
+	r @ r 8 + @ | s c a c
+	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+ 
+	pick2 16 *>> >r pick2 neg 16 *>> r> +  r 4+ ! 12 r+
+	r @ r 8 + @ | s c a c
+	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+ 
+	rot 16 *>> >r swap neg 16 *>> r> +  r> 4+ ! 	;
+
+|-----------------------------
+::mrotz | z --
+	mat> >r
+	dup sin swap cos
+	r @ r 16 + @ | s c e i
+	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+
+	pick2 16 *>> >r pick2 neg 16 *>> r> +  r 12 + !
+	r @ r 16 + @ | s c e i
+	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+
+	pick2 16 *>> >r pick2 neg 16 *>> r> +  r 12 + !
+	r @ r 16 + @ | s c e i
+	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+
+	pick2 16 *>> >r pick2 neg 16 *>> r> +  r 12 + !
+	r @ r 16 + @ | s c e i
+	pick2 pick2 16 *>> pick4 pick2 16 *>> +  r!+
+	rot 16 *>> >r 16 *>> r> +  r> 12 + ! ;
+
+::mrotzi | z --
+	mat> >r
+	dup sin swap cos
+	r @ r 4+ @ | s c a b
+	pick2 pick2 16 *>> pick4 neg pick2 16 *>> +  r!+
+	pick2 16 *>> >r pick2 16 *>> r> +  r!+ 8 r+
+	r @ r 4+ @ | s c a b
+	pick2 pick2 16 *>> pick4 neg pick2 16 *>> +  r!+
+	pick2 16 *>> >r pick2 16 *>> r> +  r!+ 8 r+
+	r @ r 4+ @ | s c a b
+	pick2 pick2 16 *>> pick4 neg pick2 16 *>> +  r!+
+	pick2 16 *>> >r pick2 16 *>> r> +  r!+ 8 r+
+	r @ r 4+ @ | s c a b
+	pick2 pick2 16 *>> pick4 neg pick2 16 *>> +  r!+
+	rot 16 *>> >r 16 *>> r> +  r> ! ;
+
+|-----------------------------
+:invierte
+	over @ over @ swap rot ! swap ! ;
+
+::matinv
+	mat> >r
+	r 12 + @  neg r 28 + @  neg r 44 + @  neg | tx ty tz
+	r 4+ dup 12 + invierte r 8 + dup 24 + invierte r 24 + dup 12 + invierte
+	pick2 r @  16 *>> pick2 r 4+ @  16 *>> + over r 8 + @  16 *>> + r 12 + !
+	pick2 r 16 + @  16 *>> pick2 r 20 + @  16 *>> + over r 24 + @  16 *>> + r 28 + !
+	rot r 32 + @  16 *>> rot r 36 + @  16 *>> + swap r 40 + @  16 *>> + r 44 + !
+	rdrop ;
+
+|----------------------
+:vleng | x y z -- l
+	pick2 dup * pick2 dup * + over dup * + ;
+
+:vdot | v1 v2 -- r
+	>r
+	@+ r@+ * swap
+	@+ r@+ * swap
+	@ r> @ * + +  ;
+
+|-----------------------------
+
+::2dmode | xm xa ym ya
+	sw 2/ 'ox !
+	sh 2/ 'oy !
+	;
+
+
+::3dmode | fov --
+|	dup 'xf !
+|	sw sh */
+|	'yf !
+	dup sh 16 *>> 'yf !
+	sh 16 *>> 'xf !
+|	dup sw 16 *>> 'xf !
+|	sh 16 *>> 'yf !
+
+	sw 2/ 'ox !
+	sh 2/ 'oy !
+	matini
+	;
+
+::Omode
+	sw dup 2/ 'ox !
+	sh dup 2/ 'oy !
+	min  dup 'xf ! 'yf !
+	matini
+	;
+
+::transform | x y z -- x y z
+	mat> >r pick2 r@+ 16 *>> pick2 r@+ 16 *>> + over r@+ 16 *>> + r@+ +
+	r> swap >r >r pick2 r@+ 16 *>> pick2 r@+ 16 *>> + over r@+ 16 *>> + r@+ +
+	r> swap >r >r rot r@+ 16 *>> rot r@+ 16 *>> + swap r@+ 16 *>> + r> @ +
+	r> r> swap rot ;
+
+::project3d | x y z -- u v
+	transform
+	0? ( 1 nip ) >r
+	yf r */
+	oy +
+	swap
+	xf r> */
+	ox +
+	swap ;
+
+
+::proyect2d | x y z -- x y
+	drop oy + swap ox + swap ;
+
+
+|::Perspective |(  fovy,  aspect,      zNear,  zFar )
+|	ymax = zNear * tan( fovy * M_PI / 360.0 )
+|	ymin = -ymax
+|	xmin = ymin * aspect
+|	xmax = ymax * aspect
+
+|   glFrustum( xmin, xmax, ymin, ymax, zNear, zFar )
+
+::Frustum |xmin, xmax, ymin, ymax, zNear, zFar )( l, r, b, t, n, f)
+	mat> >r
+|	W=2*(zFar/abs(xmin-xmax))
+|	zFar 2* xmin xmax - abs /
+	r!+ 0 r!+ 0 r!+ 0 r!+
+	0 r!+
+|	 H=2*(zNear/abs(ymax-ymin))
+|	zNear 2* ymax ymin - abs /
+	r!+ 0 r!+ 0 r!+ 0 r!+ 0 r!+
+|	 Q=zFar/(zFar-zNear)
+|	zFar dup zNear - /.
+	dup r!+
+|	neg zNear *. r!+
+	 0 r!+ 0 r!+ 1.0 r!+ 0 r> !
+	 ;
+|	 m[16]=
+|		W		0		0		0
+|		0		H		0		0
+|		0		0		Q		-Q*zNear
+|		0		0		1		0
+
+
+|::ortho |  l  r b t n f --
+|	mat> >r
+|	r l - 2/ r!+ 0.0 r!+ 0.0 r!+ r l + neg r l - / r!+
+|	0.0 r!+ t b - 2/ r!+ 0.0  r!+ t b +  neg t b - / r!+
+|	0.0 r!+ 0.0 r!+ f n - 2/ neg r!+ f n + neg f n - / r!+
+|	0.0 r!+ 0.0 r!+ 0.0 r!+ 1.0 r> ! ;
+
+::aspect | --
+	sw 16 << sh / ;
