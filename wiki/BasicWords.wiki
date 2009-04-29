@@ -8,7 +8,7 @@ Fin de palabra
 {{{
 ;	| --	R: a -- 	
 }}}
-la palabra ; indica que termina la ejecucion de la palabra, toma el tope de la pila R y lo asigna al IP (direccion de la proxima palabra a executarse)
+la palabra ; indica que termina la ejecucion, toma el tope de la pila R y lo asigna al IP (direccion de la proxima palabra a executarse)
 
 == bloques ==
 
@@ -92,7 +92,14 @@ Definicion anonima.
 Definen una palabra anonima, no tiene nombre pero se apila su direccion.
 
 _Cuidado_
-_debe tener un fin de palabra ";" para que termine correctamente la ejecucion de la palabra anonima, el compilador actual no emite error y es valido poner por ejemplo *[ dup ]* sindo lo correcto poner *[ dup ; ]*_
+debe tener un fin de palabra ";" para que termine correctamente la ejecucion de la palabra anonima, el compilador actual no emite error y es valido poner por ejemplo
+{{{ 
+[ dup ] 
+}}}
+sindo lo correcto poner 
+{{{
+[ dup ; ]
+}}}
 
 Ejecuta palabra por direccion.
 {{{
@@ -100,7 +107,7 @@ EXEC  	| vector --
 }}}
 Lama al codigo del vector, si es 0 lo consume de la pila y no ejecuta nada.
 
-Se puede definir EXEC como
+Se puede definir como
 {{{
 :EXEC
     0? ( drop ; ) >r ;
@@ -125,6 +132,9 @@ ROT 	| a b c -- b c a
 2SWAP	| a b c d -- c d a b
 }}}
 
+Es un espacio de 2Kb de numeros entero con signo.
+Palabras que acomodan parametros que se pasan en la pila.
+Si para conectar dos palabras, aparecen juntas, muchas de estas, revisar la posicion de los parametros elegidos
 
 Pila de Direcciones (pila R)
 {{{
@@ -137,13 +147,18 @@ R!+	| v --	    R: a -- a+4
 RDROP	| --	    R: a --
 }}}
 
+Pila de direcciones, tambien usada como pila auxiliar.
+Tener en cuenta que desequilibra la pila utilizarlas.
+
 Operaciones Logicas
 {{{
 AND 	| a b -- c     c = a AND b
 OR 	| a b -- c     c = a OR b
 XOR 	| a b -- c     c = a XOR b
-NOT  	| a b -- c     c = a NOT b
+NOT  	| a -- b       c = NOT b
 }}}
+
+Esas, las de boole y sus muchachos.
 
 Operaciones Aritmeticas
 {{{
@@ -151,8 +166,8 @@ Operaciones Aritmeticas
 - 	| a b -- c	c=a-b
 * 	| a b -- c	c=a*b
 / 	| a b -- c	c=a/b
-*/ 	| a b c -- d	d=a*b/c	resultado intermedio en 64 bits
-*>>	| a b c -- d	d=(a*b)>>c	 resultado intermedio en 64 bits
+*/ 	| a b c -- d	d=a*b/c	      resultado intermedio en 64 bits
+*>>	| a b c -- d	d=(a*b)>>c    resultado intermedio en 64 bits
 /MOD 	| a b -- c d	c=a/b  d=a resto b
 MOD 	| a b -- c	c=a resto b
 ABS	| a -- b	b=|a|
@@ -165,6 +180,10 @@ NEG 	| a -- b	b=-a
 << 	| a b -- c	c=a<<b
 >> 	| a b -- c	b=a>>b (arrastra signo)
 }}}
+
+Solo hay numeros enteros con signo de 32 bits.
+Muchas palabras estan aqui por velocidad. 
+las unicas siempre presentes son sumar y girar bits (+,>>,<<).
 
 Acceso directo a Memoria
 {{{
@@ -185,6 +204,8 @@ W@+	| d -- d+2	word
 W!+	| v d -- d+2
 }}}
 
+La mejor forma de manejar memoria RAM, ampliable a 64,128 o 256 bits.
+
 Movimiento de memoria
 {{{
 MOVE	| de sr cnt --		Copia CNT dword de SR a DE
@@ -193,6 +214,14 @@ CMOVE   | de sr cnt --		Copia CNT bytes de SR a DE
 CMOVE>  | de sr cnt --		Copia CNT bytes de SR a DE (para atras)
 MEM	| -- dir 		Direccion de inicio de memoria libre
 }}}
+
+El mapa de memoria del programa corriendo en la MV tiene la siguiente forma.
+
+|| CODIGO || 256KB ||
+|| DATO + MEMORIA LIBRE || 16MB ||
+
+MEM es la primera posicion de la memoria libre.
+los MOV son por velocidad.
 
 Archivos
 {{{
@@ -204,15 +233,28 @@ LOAD	| d "filename" -- e	Carga un archivo en memoria
 SAVE	| d n "filename" –	Graba memoria en un archivo
 }}}
 
-Eventos, Sistema
+Borrar un archivo es grabar 0 bytes en si mismo (no implementado por seguridad :)
+
+Eventos
 {{{
 UPDATE	| --		Actualiza las irq como el raton, el teclado, sonido, etc
+END 	| --		Sale del :r4, finaliza TODO, apaga la maquina virtual
+}}}
+
+Es posible que desaparezca UPDATE, END no se usa.. por que sera ?
+
+Sistema
+{{{
 MSEC 	| -- a 		milisegundos del sistema
 TIME 	| -- h m s 	hora minutos y segundos
 DATE 	| -- d m a	dia mes y anio
-END 	| --		Sale del :r4, finaliza TODO, apaga la maquina virtual
-RUN  	| "nom" --	Carga, compila y ejecuta el archivo nom
 }}}
+El tiempo, que hariamos sin el?
+
+{{{
+RUN  	| "main.txt" --	Carga, compila y ejecuta el archivo nom
+}}}
+En la MV actual carga, compila y ejecuta el archivo de nombre "main.txt".
 
 Pantalla grafica
 {{{
@@ -221,6 +263,10 @@ SH 	| -- h		Alto de pantalla
 CLS	| --		Limpia pantalla
 REDRAW  | --		Dibuja nuevo FRAME
 FRAMEV	| -- m		Memoria de video
+}}}
+
+Dibujar por pixel
+{{{
 SETXY	| x y --    pone cursor grafico en x y
 PX+!	| cant --   suma cant al cursor grafico
 PX!+	| color --	pone color y avanza siguiente pixel
@@ -268,3 +314,20 @@ GETJOY	| j -- a	direccion de los datos de joystick J
 }}}
 
 La direccion que retorna GETJOY apunta al estado actual del joystick j.
+
+la estructura actual cumple con las ganas que tiene de andar en WINE.
+A mi, me da asi. 
+
+|| nro DWORD || Valor || Significado ||
+|| 0 || $3f || ??
+|| 1|| $ff || ??
+|| 2 || $7fff || PAD 0
+|| 3 || $7fff || PAD 1
+|| 4 || $7fff || PAD 2
+|| 5 || $7fff || PAD 3
+|| 6 || 0 || ??
+|| 7 || 0 || ??
+|| 8 || 0 || BUTTONS
+|| 9 || 0 || ANYBUTTON
+
+buscar en test-joy.txt como hacer para leerlo
