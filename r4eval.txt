@@ -4,8 +4,8 @@
 ^reda4.txt
 ^libgui.txt
 ^r4code.txt
+
 ^medit.txt
-^codecolor.txt
 
 #nombre )( 64
 
@@ -14,13 +14,13 @@
 
 #pantaini>
 #pantafin>
-#actual>
 
-|--------------------
+#actual>
+#primerword
+
 #:hojapal 0
 
-#primerword
-#palabraactual
+#actword | palabra actual
 
 
 :printpageword | n
@@ -30,41 +30,70 @@
 		r> )
 	2drop ;
 
-|---------------- muestra fuente
-:drawcursor
-	blink 0? ( drop ; ) drop
-	actual> pantafin> >? ( drop ; ) drop
-	pantaini> ( actual> <? )( c@+ gemit ) printcurw drop
-	;
-
-:drawcode
-	fonti |20 sfont
-	drawcursor
-	home
-	pantaini> code.lines 'pantafin> !
-	;
-
 |----------------- muestra lista palabras
+::printwordname | n --
+|	dup "%d." blanco print | nro de palabra
+	4 << 'indicepal +
+	indicepal> >=? ( drop ; )
+	dup 8 + @ 1 and? ( drop @ "#%w " violeta print ; ) drop
+	@+ ":%w" rojo print
+	drop
+	;
+:ll
+	verde
+	@+ drop |"%d " print direccion
+
+	@+
+	dup 24 >> "%d" 3 cntprint
+	dup 8 << 24 >> "%d" 3 cntprint
+	$fff and  "%b" 12 cntprint
+| 	"%h" 8 cntprint
+
+	@ "%d" 4 cntprint
+	;
 
 :drawtoken
 	fonti
 	primerword
 	fils ( 1? )( 1- swap
+		actword =? ( vidi )
 		dup printwordname cr
+		actword =? ( vidi )
 		1+ swap  )
 	2drop
 	;
 
 |------------------ definicion con ayuda
+:tokeninfolist | cnt adr --
+	( swap 1? )( 1- swap | cnt adr
+		<<ip =? ( vidi )
+		tokenprint
+		actual> =? ( vidi )
+		dup 4 - movstackprint
+		cr ) 2drop ;
+
+
+:esvar | adr --
+	@ "#%w " violeta print cr
+ 	;
+
+:exprintword | n --
+	4 << 'indicepal +
+	indicepal> >=? ( drop ; )
+	dup 8 + @ 1 and? ( drop esvar ; ) drop
+	dup @ ":%w " rojo print cr
+	dup 12 + @
+	swap 4+ @ prog +
+	tokeninfolist ;
+
 :drawpalex
 	fonti
-	palabraactual exprintword
+	actword exprintword
 	;
 
 |------------------ estado MV
 :drawstat
 	fonti
-	dumpvm cr
 	msg 1? ( cr rojo print )( drop )
 	cntvars cntword "pal:%d vars:%d " print cr amarillo
 	str> str - 	cte> cte - 2 >> prog> prog - 2 >> "tok:%d cons:%d str:%d" print
@@ -114,36 +143,38 @@ $00ff00	'icopia		'exit
 #guiconsola
 0.9 0.1 -0.05 -0.45 'titulo
 0.1 0.1 0.45 -0.45 'salirbtn
-
 0.5 0.1 -0.25 0.45 'botonera
+
 |0.4 0.1 0.3 0.45 'lineastatus
 |0.05 0.8 -0.48 0 'drawnum
-
 |0.5 0.5 -0.25 -0.15  'drawcode
 
 0.5 0.5 -0.25 -0.15  'drawtoken
 0.5 0.5 0.25 -0.15  'drawpalex
 
-|0.9 0.2 0 0.4 'consolag
+0.9 0.2 0 0.4 'dumpvm
 0.5 0.1 0.25 0.45 'drawstat
 0
 
 :consola
 	mem 'pantaini> !
-	indicepal> 12 - @ 'actual> !
+
+	indicepal< 'indicepal - 4 >> 'primerword ! | iniciodicc
+	indicepal> 'indicepal - 4 >> | fin dicc
+	1- 'actword !
+
+|	indicepal> 12 - @ 'actual> !
+
 |	ajusta
 	inikey
 	'exit >esc<
-	'realplay <f1>
-|	'stepvm <f1>
+|	'realplay <f1>
+	'stepvm <f1>
 	'playvm <f2>
-	'execpad <enter>
+|	'execpad <enter>
 	startvm
 |	'pad 128 m.input
 |	"" m.copy
-	indicepal< 'indicepal - 4 >> 'primerword ! | iniciodicc
-	indicepal> 'indicepal - 4 >> | fin dicc
-	2 - 'palabraactual !
 
 	show cls scr
 		'guiconsola gui
