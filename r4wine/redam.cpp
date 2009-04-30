@@ -81,6 +81,7 @@ char *macros[]={// directivas del compilador
 #endif
 "INET!",                //-------- red
 "LISTEN","CONECT","SEND","RECV","NBI",
+"TIMER",
 ""};
 
 // instrucciones de maquina (son compilables a assembler)
@@ -113,6 +114,7 @@ IRSON,SBO,SBI,
 #endif
 IRNET,//---- nuevas interrups
 LISTEN,CONECT,SEND,RECV,NBI,
+ITIMER,
 ULTIMAPRIMITIVA// de aqui en mas.. apila los numeros 0..255-ULTIMAPRIMITIVA
 };
 
@@ -144,6 +146,7 @@ int SYSirqteclado=0;
 int SYSirqsonido=0;
 int SYSirqred=0;
 int SYSirqjoystick=0;
+int SYSirqtime=0;
 
 //----- Directorio 
 char mindice[8192];// 8k de index 1024 archivos con nombres de 8 caracteres
@@ -505,6 +508,11 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
          NOS-=2;TOS=*NOS;NOS--;         
          continue;
 
+    case ITIMER: // vector msecs --
+        SetTimer(hWnd,0,TOS,0);
+        TOS=*NOS;NOS--;
+        SYSirqtime=TOS;TOS=*NOS;NOS--;continue;
+        continue;
 	default: // completa los 8 bits con apila numeros 0...
         NOS++;*NOS=TOS;TOS=W-ULTIMAPRIMITIVA;continue;
 	} } };
@@ -958,21 +966,6 @@ error:
 return CODIGOERROR;
 }
 
-
-/*
-void dumpmem(void)
-{char buffl[100];     
-sprintf(buffl,"\n******* %s *******\n",linea);ldebug(buffl);
-sprintf(buffl,"pila compilador %d\n",cntpila);ldebug(buffl);
-sprintf(buffl,"boot: %d\n",bootaddr);ldebug(buffl);
-sprintf(buffl,"** locales cnt:%d nom:%d bytes\n",cntindice,cntnombre);ldebug(buffl);
-for (int i=0;i<cntindice;i++) { sprintf(buffl,"%s ",indice[i].nombre);ldebug(buffl);}
-sprintf(buffl,"\n** export cnt:%d nom:%d bytes\n",cntindiceex,cntnombreex);ldebug(buffl);
-for (int i=0;i<cntindiceex;i++) {sprintf(buffl,"%s ",indiceex[i].nombre);ldebug(buffl);}
-sprintf(buffl,"\nincludes:%d\ndato:%d bytes\nprog:%d bytes",cntincludes,cntdato,cntprog);ldebug(buffl);
-ldebug("\n====================\n"); }
-*/
-
 void grabalinea(void)
 {
 FILE *stream;
@@ -1021,6 +1014,9 @@ fprintf(stream,")\r");
 //fprintf(stream,"Edx: %d \r",(int)e->ContextRecord->Edx);
 //fprintf(stream,"RSP: %d \r",(int)RSP);
 */
+
+fprintf(stream,"code:%d cnt:%d\r",&prog,cntprog);
+fprintf(stream,"data:%d cnt:%d\r",&data,cntdato);
 fclose(stream);
 return SHUTDOWN_NORETRY; //return EXCEPTION_CONTINUE_SEARCH;
 }
@@ -1045,6 +1041,9 @@ char *NDEBUG="debug.txt";
 LRESULT CALLBACK WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 {
 switch (message) {     // handle message
+    case WM_TIMER:
+        SYSEVENT=SYSirqtime;
+        break;
     case WM_MOUSEMOVE:
          if (SYSXYM==lParam) break;
          SYSXYM=lParam;
@@ -1071,8 +1070,8 @@ switch (message) {     // handle message
          active=wParam&0xff;
          if (active==WA_INACTIVE)
             {
-            ChangeDisplaySettings(NULL,0);
-            ShowWindow(hWnd,SW_MINIMIZE);
+//            ChangeDisplaySettings(NULL,0);
+//            ShowWindow(hWnd,SW_MINIMIZE);
          } else {
             ShowWindow(hWnd,SW_NORMAL);//SW_RESTORE);
             UpdateWindow(hWnd);
