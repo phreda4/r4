@@ -1,0 +1,223 @@
+| edit-bm0.txt
+| editor iconos 32x32
+| PHREDA 2009
+|----------------------------------
+^reda4.txt
+^libgui.txt
+^dlgfile.txt
+^inc/punteros.inc
+
+#nombre )( 64
+#fuente )( 32768 | 32kb
+#cursorf 'fuente
+#cursorn 0
+#hojaini 0
+
+|-----------------------------------
+:loadfnt
+	"./f32/" dir
+	'fuente 'nombre load drop
+	'fuente 'cursorf !
+	0 'cursorn !
+	"./" dir
+	;
+
+:savefnt
+	"./f32/" dir
+	'fuente 32768 'nombre save
+	"./" dir
+	;
+
+:creainc
+	clear
+	"#:fuente32a " ,s
+	'fuente ( 'cursorf <? )(
+		dup 'fuente - 2 >> $f and 0? ( ,cr ) drop
+		@+ "$%h " ,print
+		) drop
+	mem here over - "inc/fnt32font.inc" save
+	;
+
+|-----------------------------------
+:pinta		$ff over ! ; |over @ over or pick2 ! ;
+:borra		$00 over ! ; |over @ over not and pick2 ! ;
+:invierte	$ff00 over ! ; |over @ over xor pick2 ! ;
+
+#mododibujo 'pinta
+
+:led | x y -- x y
+	2dup 5 << + 2 << cursorf +
+	mododibujo onMove
+	@ ink
+	0.9 fzoom gc.fbox ;
+
+:bitmap
+	verde gc.box
+	32 32 'led .table ;
+
+
+#cursor
+#nroestado
+
+:lapiz
+	0 'nroestado !
+	'clapiz 'cursor !
+	'pinta 'mododibujo ! ;
+:goma
+	1 'nroestado !
+	'cgoma 'cursor !
+	'borra 'mododibujo ! ;
+:mano
+	2 'nroestado !
+	'cmano 'cursor !
+	'invierte 'mododibujo ! ;
+
+#acciones 'lapiz 'goma 'mano
+#botones 'dib3 'dib4 'dib2
+
+|-----------------------------------
+:botoncontrol
+	0.9 [ 1.0 nip ; ] onMove fzoom
+	[ dup 2 << 'acciones + @ exec ; ] onUp
+	nroestado =? ( 0.4 pinpon 1.2 + fzoom )
+	w 2 >> h neg 2 >> +pos
+|	1.4 rzoom
+	dup 2 << 'botones + @ $1ff rnsprite | quieto rotado
+
+|	nroestado =? ( msec 2 >> )( 0 )		| gira dibujo
+|	over 2 << 'botones + @ swap rnsprite
+	;
+
+:estadopen
+	$ff 0 vbtn
+|	cyan oscuro gc.frod
+	2 'botoncontrol .hlist ;
+
+|-------------- acciones en editar caracter
+:borracar
+	cursorf 32 ( 1? )( 1- 0 rot !+ swap ) 2drop
+	;
+
+#btgui 4
+$ff0000 'ifin   'exit
+$00ff00 'iizq	'exit
+$00ff00	'ider	'exit
+$ff0000	'iborrar 'borracar
+
+:botedit
+	'btgui .hbtns ;
+
+#guimenu
+0.8 0.8 0.0 0.0 'bitmap
+0.2 0.1 -0.4 -0.45 'estadopen
+0.4 0.1 -0.3 0.45 'botedit
+0
+
+:editando
+	lapiz
+	inikey
+	'exit >esc<
+	showo cls
+		scr 'guimenu gui
+		10 sfont naranja "32x32" printc
+		fonti blanco cr cr cr cr cursorn emit
+|		8 font dup ":r%d" verde print
+		cursor exec
+		;
+
+
+|------------------------------------------------
+:editar
+	key.push
+	editando
+	key.pop ;
+
+
+|------------- Acciones en todos los caracteres
+#cadagui 3
+$ff0000	'ifin		'exit
+$00ff00	'idibuja	'editar
+$00ff00	'irecicla	'creainc
+
+:acciones
+	'cadagui .hbtns ;
+
+|------------------------------------------------
+:cadacar
+	[ 1.1 fzoom verde gc.box ; ] onIn
+	2dup 3 << + hojaini 64 * +
+	cursorn =? ( 0.1 pinpon 0.9 + fzoom blanco gc.frod )( 0.9 fzoom )
+	[ dup 'cursorn ! dup 7 << 'fuente + 'cursorf ! ; ] onUp
+	fonti dup "%d " print emit
+	;
+
+:hojacar
+	8 8 'cadacar .table ;
+
+:btnpag
+	[ dup 'hojaini ! ; ] onUp
+	hojaini =? ( amarillo )( gris 0.8 fzoom )
+	'irec v8draw
+	;
+
+:pagcar
+	4 'btnpag .vlist ;
+
+|------------------------------------------------
+:elijearchivo
+	 key.push
+	savefnt
+	"./bm0/" dir
+	'nombre dlgfile
+	"./" dir
+	loadfnt
+	key.pop
+	;
+
+:accnombre
+	'elijearchivo onUp
+	$ff00 0 vbtn
+	blanco 1 font
+	'nombre printc
+	;
+
+|------------------------------------------------
+#guielige
+0.8 0.8 0.0 0.0 'hojacar
+0.05 0.4 -0.45 0 'pagcar
+0.7 0.1 -0.15 0.45 'acciones
+0.8 0.1 0.0 -0.45 'accnombre
+0
+
+:hojas
+	inikey
+	'exit >esc<
+	'editar <f1>
+	show cls
+		scr 'guielige gui
+		scr
+|		10 sfont
+|		blanco 0 0 at
+|		cursorn "%d" print
+|		8 font dup ":r%d" verde print
+		cmano ;
+
+|------------------------------------------------
+:main
+	'nombre "./nom/bm0.nom" load drop
+	'nombre c@ 0? ( elijearchivo ) drop
+	'nombre c@ 0? ( drop ; ) drop
+	loadfnt
+|	hojas
+
+	editar
+	savefnt
+	'nombre count "./nom/bm0.nom" save
+	;
+
+|****** BOOT ******
+:	0 paper
+	4 main
+	"main.txt" run
+	;
+
