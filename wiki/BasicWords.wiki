@@ -20,7 +20,7 @@ Las Pilas solo manejan numeros enteros de 32 bits con signo, por lo tanto no hay
 
 Para programar en :R4 vamos a definir palabra como DATOS (con # como prefijo) o definir palabras como ACCIONES (con : como prefijo). 
 
-Estas PALABRAS definidas como datos o acciones en el diccionario son las que compondran el programa que estemos realizando.
+Estas PALABRAS definidas como datos o acciones en el diccionario son las que compondran el algoritmo en :r4.
 
 = Funcionamiento =
 
@@ -28,110 +28,91 @@ Las palabras estan separadas por espacios, esta es la unica regla sintactica.
 
 El codigo es leido palabra por palabra.
 
-Para cada palabra se produce un compartamiento 
-
 Cuando la palabra es un numero:
-Ej: Decimal (2) hexa ($3f) binarios (%110001) punto fijo (0.23)
-*:r4* apila el numero en la PILA DE DATOS (PD)
+|| Decimal || 2 || 
+|| hexa || $3f ||  
+|| binarios || %110001 || 
+|| punto fijo || 0.23 || 
 
-si en el codigo se escribio
-3 2 +
-luego de la suma estara un 5 como tope en la pila de datos
+el lenguaje apila el numero en la PILA DE DATOS
 
-la pila sirve para pasar valores entre palabras, el parametro del PASCAL, 
-palabras que resuelven o transforman en otros paramentros o resultados...el algoritmo.
+Si la palabra actual no es un numero se busca la definicion en el diccionario y se ejecuta.
 
-Si no es numero se busca en el DICCIONARIO y se ejecuta.
-si no se encuentra en el diccionario es un error !
+Si no se encuentra la palabra en el diccionario es un error
 
-Para definir palabras nuevas se utiliza el prefijo : (dos puntos)
+La primera palabra del diccionario es FIN ";" punto y coma
 
-:+   | a b -- c
+Sirve para terminar una definicion de ACCION :
 
-el prefijo | signfica que hasta el final de linea es comentario y no se ejecuta
-Es util aqui dibujar el estado de la PD antes y despues de ejecutar dicha palabra.
+:apilador 1 2 3 4 5 ;
 
-B=2
-A=3   -->   C=5
+aqui definimos la palabra apilador que apila 5 numeros
+; marca el fin de la palabra
 
-El Diccionario comienza con menos de 250 palabras, 
-la primera palabras es ; (punto y coma) y significa fin de palabra.
+las siguientes 3 palabras forman listas de palabras que son utilizadas para las estructuras de control, ( , )( y )
+Recordar siempre los espacios entre palabras.
 
-Ej:
+Las siguientes 2 palabras forman lista de palabras que son utilizadas solamente a travez de su direccion ya que no tienen nombre, en list las llaman lambda, pero me gusta mas anonimas, [ y ]
+Recordar otra vez los espacios y aqui deberia terminar con ; ya que sino la ejecucion seguiria por quien la definio.
 
-:sumar5 | v -- v
- 5 + ;
-
-El codigo anterior define una nueva palabra llamada "sumar5".
-; termina la definicion de una palabra
-
-
-= Diccionario Basico de :r4 =
-
-Estas palabras estan definidas en el diccionario basico de la maquina virtual de :r4.
-
-Fin de palabra
+Definicion anonima.
 {{{
-;	| --	R: a -- 	
+[
+]
 }}}
-la palabra ; indica que termina la ejecucion, toma el tope de la pila R y lo asigna al IP (direccion de la proxima palabra a executarse).
+Definen una palabra anonima, no tiene nombre pero se apila su direccion.
 
-
-== bloques ==
-
-
-Palabras de bloques.
+_Cuidado_
+debe tener un fin de palabra ";" para que termine correctamente la ejecucion de la palabra anonima, el compilador actual no emite error y es valido poner por ejemplo
+{{{ 
+[ 1 ] 
+}}}
+sindo lo correcto poner 
 {{{
-(	| Comienzo de bloque
-)	| Fin de bloque
-)(	| Separador de bloque doble
+[ 1 ; ]
 }}}
-Los parentesis continen listas de palabras ejecutadas secuencialmente.
 
 
-junto con los condicionales forman las estructuras de control del lenguaje.
-A diferencia de FORTH, en :R4 no tenemos el control sobre el compilador, por esto, estas son las combinaciones que conforman las estructuras de control.
-Las unicas construcciones son:
+Luego estan los condicionales, en dos formas, simples o doble, los simples son 4 preguntas
 
-| REPEAT
+|| Es cero ? || 0? ||
+|| No es cero ? || 1? ||
+|| Es positivo ? 0 tambien || +? ||
+|| Es negativo ? || -? ||
+
+comprueba el Tope de la pila de datos (TOS) y ejecutan un bloque o no
+
+Las 5 estructuras de control que tiene el lenguajes (REPEAT,IF,IF-ELSE,WHILE y UNTIL) se definen ubicando los condicionales en los diferentes lugares de los bloques.
+IF 
 {{{
-( A B C )	
+0? ( ; ) | si el tope de la pila es 0 termina la palabra
+| el tope segira siendo 0
 }}}
-Sin condicional define REPETICION, para este ejemplo se repetire indefinidamente:
-A B C A B C A B C ... etc
-
+IF-ELSE
 {{{
-?? ( A )	| IF
+-? ( neg )( ; ) | si es negativo lo niega sino termina
 }}}
-Con condicional ANTES del comienzo de bloque, define IF, para este ejemplo A solo es ejecutado si el condicional da VERDADERO.
-
+WHILE
 {{{
-?? ( A )( B )	| IF-ELSE
+5         | apilo 5
+( 1? )(   | mientras no sea 0 (cero)
+    1-    | resto uno
+    )     | cuando es cero termina el bucle.
 }}}
-Con condicional ANTES del comienzo de bloque doble, define IF-ELSE, para este ejemplo si el condicional es VERDADERO ejecuta A, sino B.
-
+UNTIL
 {{{
-( A ?? )( B ) 	| WHILE
+8         | apilo 8
+( 1-      | resto 1
+    -? )  | hasta que sea negativo el tope de la pila repito el bloque anterior
 }}}
-Con condicional ANTES del separador, define WHILE, para este ejemplo MIENTRAS el condicional sea verdadero se ejecuta B, luego A y se comprueba nuevamente el condicional, A se ejecuta siempre al menos una vez.
 
+la 5 estructura de control se construye sin condicional
+REPEAT
 {{{
-( A ?? )	| UNTIL
+( 1 2 )	  | apila 1 luego 2 y repite
 }}}
-Con condicional ANTES del fin de bloque, define UNTIL, para este ejemplo se repite A por lo menos una vez y si el condicional da FALSO, se continuar ejecutando A.
 
-La posicion del condicional, simple o doble, indica el comportamiento.
-A diferencia de FORTH, no es posible separar el condicional de los bloque, pero es posiblo que sea posible en el futuro.
 
-== Condicionales ==
-
-Condicionales simples
-{{{
-0? 		| --		0 el tope de la pila ?
-+? 		| --		positivo el tope de la pila ?
--?		| --		negativo el tope de la pila ?
-1? 		| --		distinto a 0 el tope de la pila ?
-}}}
 Comprueban el tope de la pila pero no la consumen.
 
 como IF
@@ -171,22 +152,13 @@ Ej:
 0 ( 10 <? )( 1+ ) drop
 }}}
 
-Definicion anonima.
-{{{
-[
-]
-}}}
-Definen una palabra anonima, no tiene nombre pero se apila su direccion.
+Es util aqui dibujar el estado de la PD antes y despues de ejecutar dicha palabra.
 
-_Cuidado_
-debe tener un fin de palabra ";" para que termine correctamente la ejecucion de la palabra anonima, el compilador actual no emite error y es valido poner por ejemplo
-{{{ 
-[ dup ] 
-}}}
-sindo lo correcto poner 
-{{{
-[ dup ; ]
-}}}
+B=2
+A=3   -->   C=5
+
+El Diccionario comienza con menos de 250 palabras, 
+
 
 Ejecuta palabra por direccion.
 {{{
