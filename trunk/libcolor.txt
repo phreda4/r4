@@ -43,3 +43,53 @@
 	$ff00ff and pick2 $ff00ff and - r * $800080 + 8 >> $ff00ff and r> swap >r >r
 	$ff00 and swap $ff00 and - r> * $8000 + 8 >> $ff00 and r> + ;
 
+|--------------------------------------------------
+| a b n 
+
+:h0  $ff and over 8 *>> pick2 + $ff >? ( $ff nip ) 8 <<  | g-c
+	pick2 rot + $ff >? ( $ff nip ) 16 << or	| r-max
+	or ;	| b-min
+:h1  not $ff and over 8 *>> pick2 + $ff >? ( $ff nip ) 16 << | r-c
+	pick2 rot + $ff >? ( $ff nip ) 8 << or |g-max
+	or ; | b-min
+:h2	$ff and over 8 *>> pick2 + $ff >? ( $ff nip ) | b-c
+	pick2 rot + $ff >? ( $ff nip ) 8 << or | g -max
+	swap 16 << or ; | r-min
+:h3	not $ff and over 8 *>> pick2 + $ff >? ( $ff nip ) 8 <<  | g-c
+	pick2 rot + $ff >? ( $ff nip ) or | b -max
+	swap 16 << or ; | r-min
+:h4	$ff and over 8 *>> pick2 + $ff >? ( $ff nip ) 16 << | r-c
+	pick2 rot + $ff >? ( $ff nip ) or | b -max
+	swap 8 << or ; | g-min
+:h5	not $ff and over 8 *>> pick2 + $ff >? ( $ff nip )  | b-c
+	pick2 rot + $ff >? ( $ff nip ) 16 << or	| r-max
+	swap 8 << or ; | g-min
+
+#ach h0 h1 h2 h3 h4 h5 h0 h1 
+
+| sistema de color para :r4
+| a.. +		0-255		0..$ff
+| b.. *		0-255		0..$ff
+| h..Color	0-1536		0..$5ff
+::abh>rgb | a b n -- color
+	dup 8 >> $7 and 2 << 'ach + @ >r ; | $f and -> $1f
+
+| yuv <-> rgb
+|-----------------------------
+::rgb2yuv | rgb -- yuv
+	over 2* pick3 - pick2 - 3 >>  >r
+	pick2 over - 2 >> 128 + >r
+	+ + 2 >> r> r> ;
+
+:bound | i -- i
+	$ff >? ( $ff nip ) -? ( 0 nip ) ;
+
+::yuv2rgb | yuv -- rgb
+	pick2 16 - 76283 * pick2 128 - 132252 * + 16 >> bound >r
+	pick2 16 - 76283 * pick2 128 - 25624 *  - pick2 128 - 53281 * - 16 >> bound >r
+	nip 128 - 104595 * swap 16 - 76283 * + 16 >> bound r> r> ;
+
+::yuv32 | yuv -- col
+	pick2 16 - 76283 * pick2 128 - 132252 * + 16 >> bound >r
+	pick2 16 - 76283 * pick2 128 - 25624 *  - pick2 128 - 53281 * - 16 >> bound 8 << $ff00 and >r
+	nip 128 - 104595 * swap 16 - 76283 * + 16 >> bound 16 << $ff0000 and r> or r> or ;
