@@ -184,7 +184,7 @@ SYSPAUSA:
 	pop ebx eax
 	ret
 
-;===============================================	
+;===============================================
 SYSRUN: ; ( "nombre" -- )
 
 	lodsd
@@ -194,32 +194,32 @@ SYSRUN: ; ( "nombre" -- )
 SYSREDRAW: ; ( -- )
 	push edi esi eax ebx ecx
 	mov [ddsd.dwSize],sizeof.DDSURFACEDESC
-	cominvk DDSBack,LockSurface,0,ddsd,DDLOCK_WAIT,0 
+	cominvk DDSBack,LockSurface,0,ddsd,DDLOCK_WAIT,0
 	mov	edi,[ddsd.lpSurface] 	;--- copy vframe->video
 	mov	edx,[ddsd.lPitch]
 	mov	esi,SYSFRAME
 	mov ebx,[SYSH]
 	mov eax,[SYSW]
-@loopre:    
+@loopre:
 	push edi
 	mov ecx,eax
-	rep movsd 
+	rep movsd
 	pop edi
 	add edi,edx
 	dec ebx
 	jnz @loopre
-	cominvk DDSBack,UnlockSurface,0	
+	cominvk DDSBack,UnlockSurface,0
 	cominvk DDSPrimary,Flip,0,DDFLIP_WAIT
 	pop ecx ebx eax esi edi
 	ret
 
-	
+
 ;===============================================
-SYSIFILL: ; ( v cnt src -- )     
-	push edi esi eax
+SYSIFILL: ; ( v cnt src -- )
+	push edi esi eax ebx ecx
 	mov ebx,eax
 	mov ecx,[esi]
-	mov eax,[esi+4]	
+	mov eax,[esi+4]
 ;	cld
 loopf:
 	mov [ebx],eax
@@ -230,7 +230,7 @@ loopf:
 
 	;rep stosd
 	;pop edi
-	pop eax esi edi
+	pop ecx ebx eax esi edi
 	lea esi,[esi+8]
 	lodsd
 	ret
@@ -241,7 +241,7 @@ SYSMSEC: ;  ( -- msec )
 	mov [esi], eax
 	invoke GetTickCount
 	ret
-	
+
 ;===============================================	
 SYSTIME: ;  ( -- s m h )
 	lea esi,[esi-12]
@@ -253,8 +253,8 @@ SYSTIME: ;  ( -- s m h )
 	mov [esi],eax
 	movzx eax,word [SysTime.wHour]
 	ret
-	
-;===============================================	
+
+;===============================================
 SYSDATE: ;  ( -- y m d )
 	lea esi,[esi-12]
 	mov [esi+8],eax
@@ -265,8 +265,8 @@ SYSDATE: ;  ( -- y m d )
 	mov [esi],eax
 	movzx eax,word [SysTime.wDay]
 	ret
-	
-;===============================================		
+
+;===============================================
 SYSDIR: ; ( "path" -- )
 	push eax ebx esi edi
 	invoke SetCurrentDirectory,eax
@@ -278,14 +278,14 @@ SYSDIR: ; ( "path" -- )
 	mov [hdir],eax
 	cmp eax,INVALID_HANDLE_VALUE
 	je @dirfin
-@dirotro:	
+@dirotro:
 	mov eax,[Sfinddata.dwFileAttributes]
 	cmp eax,FILE_ATTRIBUTE_DIRECTORY
 	je @noguarda
 	mov [SYSIDIR+4*ebx],edi
 	inc ebx
 	mov eax,Sfinddata.cFileName
-@dircp:	
+@dircp:
 	mov cl,byte [eax]
 	mov byte [edi],cl
 	inc edi
@@ -302,8 +302,8 @@ SYSDIR: ; ( "path" -- )
 	pop edi esi ebx eax   
 	lodsd
 	ret
-	
-;===============================================	
+
+;===============================================
 SYSFILE: ; ( nro -- "name" )
 	cmp eax,[SYSCDIR]
 	jnl @nof
@@ -412,13 +412,13 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 	mov eax,[lparam]
 	shr eax,16
 	and eax,$7f
-	or eax,$80	
+	or eax,$80
 	mov [SYSKEY],eax
 	mov eax,[SYSiKEY]
 	mov [SYSEVENT],eax
 	xor eax,eax
 	ret
-  wmkeydown:			; cmp [wparam],VK_ESCAPE ; je wmdestroy	
+  wmkeydown:			; cmp [wparam],VK_ESCAPE ; je wmdestroy
 	mov eax,[lparam]
 	shr eax,16
 	and eax,$7f
@@ -443,19 +443,19 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 	invoke UpdateWindow,[hwnd]	;            UpdateWindow(hWnd);
 	xor eax,eax
 	ret
-@na:	
+@na:
 	invoke ChangeDisplaySettings,0,0		;            ChangeDisplaySettings(NULL,0);
-	invoke ShowWindow,[hwnd],SW_MINIMIZE	;            ShowWindow(hWnd,SW_MINIMIZE); 
+	invoke ShowWindow,[hwnd],SW_MINIMIZE	;            ShowWindow(hWnd,SW_MINIMIZE);
 	xor eax,eax
 	ret
  ; wmquit:
-;	cominvk DDraw,RestoreDisplayMode 
-;	cominvk DDraw,Release	
+;	cominvk DDraw,RestoreDisplayMode
+;	cominvk DDraw,Release
   finish:
 	ret
 endp
 
-;----------------------------------------------	
+;----------------------------------------------
 ddraw_error:
 	mov	eax,_error
 	invoke	MessageBox,[hwnd],eax,_error,MB_OK
@@ -502,7 +502,7 @@ import user,\
 	 ShowWindow,'ShowWindow',\
 	 UpdateWindow,'UpdateWindow',\
 	 ChangeDisplaySettings,'ChangeDisplaySettingsA'
-	 
+
 
 import ddraw,\
 	 DirectDrawCreate,'DirectDrawCreate'
