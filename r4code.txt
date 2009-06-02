@@ -8,6 +8,7 @@
 
 |--- Pilas
 #dpila )( 1024	#dpila> 'dpila
+#dpila.t )( 1024
 
 :d.cnt dpila> 'dpila - ;
 :d.ini 'dpila 'dpila> ! ;
@@ -20,9 +21,34 @@
 :d.get dpila> 4 - @ ;
 :d.get2 dpila> 8 - @ ;
 
+| vista de la pila 	-- a
+:d.tipo | nro --
+	 dpila> 'dpila - 'dpila.t + ! ;
+
+:dec.d		$0 or d.tipo ;
+:hex.d		$1 or d.tipo ;
+:bin.d		$2 or d.tipo ;
+:fix.d		$3 or d.tipo ;
+:dstr.d		$4 or d.tipo ;
+:dvar.d		$5 or d.tipo ;
+:dacc.d		$6 or d.tipo ;
+:prog.d		$7 or d.tipo ;
+
+| tipo en la pila 	b -- t
+:d.nro		$00 ;
+:d.dir2str	$10 ;
+:d.dir2var	$20 ;
+:d.dir2acc	$30 ;
+:d.calc		$40 ;
+:d.calcstr	$50 ;
+:d.calcvar	$60 ;
+:d.calcacc	$70 ;
+
 #rpila )( 1024	#rpila> 'rpila
+#rpila.t )( 1024
 
 :r.ini	'rpila 'rpila> ! ;
+
 :r.push	rpila> !+ 'rpila> ! ;
 :r.pop	-4 'rpila> +! rpila> @ ;
 :r.cnt	rpila> 'rpila - ;
@@ -56,24 +82,40 @@
 	"fuera de mem" 'msg ! 0 nip rdrop ;
 
 
-|-------------------------------
-::dibujapila
-	d.cnt 1? ( amarillo "(" print 'dpila ( dpila> <? )( @+ " %h" print  ) drop ) drop ;
+|----- dibuja pila D
+:dec.p		@+ " %d" amarillo print ;
+:hex.p		@+ " $%h" verde print ;
+:bin.p		@+ " %%%b" blanco print ;
+:fix.p		@+ " %f" naranja print ;
+:dstr.p		@+ " %d" azul print ;
+:dvar.p		@+ " %d" violeta print ;
+:dacc.p		@+ " %d" cyan print ;
+:prog.p		@+ " %d" rojo print ;
 
+#acctpila dec.p hex.p bin.p fix.p dstr.p dvar.p dacc.p prog.p
+:pilatipo | adr -- adr++
+	dup 'dpila - 'dpila.t + @ $7 and 2 << 'acctpila + @ exec ;
+
+::dibujapila
+	d.cnt 1? ( amarillo "(" print 'dpila ( dpila> <? )(
+			pilatipo
+			|@+ " %d" print
+			) drop ) drop ;
+
+|----- dibuja pila R
 ::dibujapilar
 	r.cnt 1? ( cyan "(" print 'rpila ( rpila> <? )( @+ " %h" print  ) drop ) drop ;
 
+|--- interprete
 
 :i0 drop ;
-:i:
-:i# 22 d.push
-	drop ;
-:idec
-:ihex
-:ibin
-:ifix
-	8 >> 2 << 'diccexe + @
-	d.push ;
+:i: drop ;
+:i# drop ;
+:idec	d.nro dec.d	8 >> cte + @ d.push ;
+:ihex	d.nro hex.d	8 >> cte + @ d.push ;
+:ibin	d.nro bin.d	8 >> cte + @ d.push ;
+:ifix	d.nro fix.d	8 >> cte + @ d.push ;
+
 :istr
 	8 >> str +
 	d.push ;
@@ -89,6 +131,7 @@
 :idvar
 	8 >> 2 << 'diccexe +
 	d.push ;
+
 :ilit
 	8 >> d.push ;
 
@@ -312,12 +355,9 @@ i*>>	i/MOD	iMOD	iABS	iNEG	i1+		i4+		i1-		i2/		i2*		i<<		i>>
 i@		iC@		iW@		i!		iC!		iW!		i+!		iC+!	iW+!	i@+		i!+		iC@+	iC!+	iW@+	iW!+
 iMSEC	iTIME	iDATE	iEND	iRUNi	0
 iSW		iSH		iCLS	iREDRAW	iFRAMEV	iUPDATE
-
 iXYMOUSE	iBMOUSE	iKEY
 iCNTJOY	iGETJOY		iRPEN!
-
 iRKEY!	iSETXY	iPX+!	iPX!+	iPX@
-
 iPAPER	iINK	iINKF	iALPHA
 iOP		iCP		iLINE	iCURVE	iPLINE	iPCURVE	iPOLI
 iFCOL  iFCEN	iFMAT	iSFILL	iLFILL	iRFILL
@@ -328,7 +368,8 @@ iSLOAD	iSPLAY	iMLOAD	iMPLAY
 
 ::stepvm | --
 	<<ip 0? ( drop ; )
-	@+ dup $ff and 2 << 'tablai + @ exec
+	@+ dup $ff and
+	2 << 'tablai + @ exec
 	'<<ip ! ;
 
 ::playvm | --
@@ -347,10 +388,13 @@ iSLOAD	iSPLAY	iMLOAD	iMPLAY
 	fonti
 	dibujapila cr
 	dibujapilar cr
-	blanco
-|	<<ip prog + tokenprint drop
+
+	<<ip tokenprint drop
+
+	blanco " " print
 	<<ip 0? ( drop "fin" print ; )
-	"IP:%h" print  ;
+	"IP:%h" print  cr
+|	<<boot "boot:%h" print
 	;
 
 :l
@@ -364,7 +408,7 @@ iSLOAD	iSPLAY	iMLOAD	iMPLAY
 	'inter 'inter> !
 	d.ini	| inicia pilad
 	r.ini	| inicia pilar
-	<<boot '<<ip !
+	<<boot prog + '<<ip !
 	;
 
 |------- asigna memoria a variables
