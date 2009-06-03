@@ -6,18 +6,27 @@
 ^r4post.txt
 ^trace.txt
 
+#:<<ip
+#:actword
+
+#freemem
+#diccexe	| var -> memoria cod->
+
+#inter )( 64
+#inter> 'inter
+
+#irqkey 0
+#irqmou 0
+
 |--- Pilas
 #dpila )( 1024	#dpila> 'dpila
 #dpila.t )( 1024
 
 :d.cnt dpila> 'dpila - ;
 :d.ini 'dpila 'dpila> ! ;
-
 :d.push dpila> !+ 'dpila> ! ;
-
 :d.pop  -4 'dpila> +! dpila> @ ;
 :d.pop2 dpila> 8 - dup 'dpila> ! @+ swap @ ;
-
 :d.get dpila> 4 - @ ;
 :d.get2 dpila> 8 - @ ;
 
@@ -53,19 +62,7 @@
 :r.pop	-4 'rpila> +! rpila> @ ;
 :r.cnt	rpila> 'rpila - ;
 
-
-#:<<ip
-
-#freemem
-#diccexe	| var -> memoria cod->
-
-#inter )( 64
-#inter> 'inter
-
-#irqkey 0
-#irqmou 0
-
-
+|---- interrupciones
 :+interrupcion | inter --
 	0? ( drop ; )
 	inter> !+ 'inter> >=? ( "Bucle infinito" 'msg ! 0 ; )
@@ -90,7 +87,7 @@
 :dstr.p		@+ " %d" azul print ;
 :dvar.p		@+ " %d" violeta print ;
 :dacc.p		@+ " %d" cyan print ;
-:prog.p		@+ " %d" rojo print ;
+:prog.p		@+ " >%d" rojo print ;
 
 #acctpila dec.p hex.p bin.p fix.p dstr.p dvar.p dacc.p prog.p
 :pilatipo | adr -- adr++
@@ -106,11 +103,15 @@
 ::dibujapilar
 	r.cnt 1? ( cyan "(" print 'rpila ( rpila> <? )( @+ " %h" print  ) drop ) drop ;
 
+|-- nro de palabra a memoria real (del emulador)
+:pal@rmem
+	;
+
 |--- interprete
 
-:i0 drop ;
-:i: drop ;
-:i# drop ;
+:i0		drop ;
+:i:		drop ;
+:i#		drop ;
 :idec	d.nro dec.d	8 >> cte + @ d.push ;
 :ihex	d.nro hex.d	8 >> cte + @ d.push ;
 :ibin	d.nro bin.d	8 >> cte + @ d.push ;
@@ -120,13 +121,12 @@
 	8 >> str +
 	d.push ;
 :iwor
-	8 >> 2 << 'diccexe + @
+	8 >> dup 'actword !
+	pal@tok prog +
 	swap r.push ;
 :ivar
-	8 >> 2 << 'diccexe + @
-	d.push ;
-:idwor
-	8 >> 2 << 'diccexe + @
+	8 >>
+	pal@rmem + @
 	d.push ;
 :idvar
 	8 >> 2 << 'diccexe +
@@ -135,9 +135,16 @@
 :ilit
 	8 >> d.push ;
 
+|--- llama palabra
+:idwor
+	d.dir2acc dacc.d
+	8 >> pal@tok prog +
+	d.push ;
+|--- retorna
 :i;
 	r.cnt 0? ( nip ; ) 2drop
 	r.pop ;
+
 :i)(
 :i)
 	8 >> + ;
@@ -148,22 +155,24 @@
 :i]             |*********
 	drop ; | api
 
-:i0?	d.get 0? ( drop 8 >> + ; ) drop ;
-:i+?	d.get +? ( drop 8 >> + ; ) drop ;
-:i-?	d.get -? ( drop 8 >> + ; ) drop ;
-:i1?	d.get 1? ( drop 8 >> + ; ) drop ;
-:i=?	d.get2 d.pop =? ( drop 8 >> + ; ) drop ;
-:i<?	d.get2 d.pop <? ( drop 8 >> + ; ) drop ;
-:i>?	d.get2 d.pop >? ( drop 8 >> + ; ) drop ;
-:i<=?	d.get2 d.pop <=? ( drop 8 >> + ; ) drop ;
-:i>=?   d.get2 d.pop >=? ( drop 8 >> + ; ) drop ;
-:i<>?   d.get2 d.pop <>? ( drop 8 >> + ; ) drop ;
-:iAND?  d.get2 d.pop AND? ( drop 8 >> + ; ) drop ;
-:iNAND? d.get2 d.pop NAND? ( drop 8 >> + ; ) drop ;
+:i0?	drop @+ d.get 0? ( 2drop ; ) drop 8 >> + ;
+:i+?	drop @+ d.get +? ( 2drop ; ) drop 8 >> + ;
+:i-?	drop @+ d.get -? ( 2drop ; ) drop 8 >> + ;
+:i1?	drop @+ d.get 1? ( 2drop ; ) drop 8 >> + ;
+:i=?	drop @+ d.get2 d.pop =? ( 2drop ; ) drop 8 >> + ;
+:i<?	drop @+ d.get2 d.pop <? ( 2drop ; ) drop 8 >> + ;
+:i>?	drop @+ d.get2 d.pop >? ( 2drop ; ) drop 8 >> + ;
+:i<=?	drop @+ d.get2 d.pop <=? ( 2drop ; ) drop 8 >> + ;
+:i>=?   drop @+ d.get2 d.pop >=? ( 2drop ; ) drop 8 >> + ;
+:i<>?   drop @+ d.get2 d.pop <>? ( 2drop ; ) drop 8 >> + ;
+:iAND?  drop @+ d.get2 d.pop AND? ( 2drop ; ) drop 8 >> + ;
+:iNAND? drop @+ d.get2 d.pop NAND? ( 2drop ; ) drop 8 >> + ;
+
 :iEXEC
 	drop
 	d.pop 1? ( swap r.push ; ) drop
 	;
+
 :iDROP  drop
 	-4 'dpila> +! ;
 :i2DROP drop
@@ -343,7 +352,7 @@ i0
 i: i#
 idec ihex ibin ifix istr
 iwor ivar idwor idvar
- i;
+i;
 i(		i)(		i)		i[		i]
 i0?		i+?		i-?		i1?
 i=?		i<?		i>?		i<=?	i>=?	i<>?	iAND?	iNAND?	iEXEC
@@ -389,12 +398,14 @@ iSLOAD	iSPLAY	iMLOAD	iMPLAY
 	dibujapila cr
 	dibujapilar cr
 
-	<<ip tokenprint drop
-
-	blanco " " print
+	blanco
 	<<ip 0? ( drop "fin" print ; )
-	"IP:%h" print  cr
+	dup "IP:%h " print
+	tokenprint
+	@ 8 >> " %h" print
+	|drop
 |	<<boot "boot:%h" print
+	cr
 	;
 
 :l
@@ -409,6 +420,7 @@ iSLOAD	iSPLAY	iMLOAD	iMPLAY
 	d.ini	| inicia pilad
 	r.ini	| inicia pilar
 	<<boot prog + '<<ip !
+
 	;
 
 |------- asigna memoria a variables
