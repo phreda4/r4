@@ -9,11 +9,6 @@
 ^dlgsino.txt
 ^dlgcolor.txt
 
-#codetxt
-#codestart
-#codelast
-#codefin
-
 #modo 0
 #etrazo 1
 #policursor -1
@@ -299,7 +294,8 @@
 #accdelnodo 0 delnodo1 delnodo2 -nodo delnodo4 0 0 quitapoli
 
 :del-nodo
-	lastnodo dup @ $7 and
+	lastnodo 0? ( drop ; )
+	dup @ $7 and
 	2 << 'accdelnodo + @ 0? ( 2drop )( exec )
 	haceindice
 	;
@@ -438,7 +434,7 @@
 |------------------------------------------------
 :circlemode
 	drawdibujo
-	[ elip.ins cpdibujo cur.clr 1 'modo ! ; ] onUp
+	[ elip.ins cpdibujo cur.clr ; ] onUp
 	[ xymouse 'yb ! 'xb ! ; ] onMove
 	[ xymouse cur.set ; ] onDn
 	blink 1? ( colora )( colorb ) ink drop
@@ -449,7 +445,7 @@
 |------------------------------------------------
 :cajamode
 	drawdibujo
-	[ caja.ins cpdibujo cur.clr  1 'modo ! ; ] onUp
+	[ caja.ins cpdibujo cur.clr ; ] onUp
 	[ xymouse 'yb ! 'xb ! ; ] onMove
 	[ xymouse cur.set ; ] onDn
 	blink 1? ( colora )( colorb ) ink drop
@@ -543,21 +539,20 @@
 	5 max
 	'cadapoli .vlist ;
 
-:eselipse
-	3 'modo ! ;
-
-:escaja
-	2 'modo ! ;
+:eslinea	0 'modo ! ;
+:escaja     2 'modo ! ;
+:eselipse   3 'modo ! ;
+:opczoom    5 'modo ! ;
 
 |--------------------------------------------------
 #btnnuevo 6
 $ff0000 'ifin 'exit
-$ff00 'irec 'eselipse
-$ff00 'istop 'escaja
+$ffff00 'ilupa 'opczoom
+$ffff00 'idibuja 'eslinea
+$ffff00 'istop 'escaja
+$ffff00 'irec 'eselipse
 $ff0000 'imenos 'deltrazo
-0 0 0
-0 0 0
-0 0 0
+
 #btnnodos 6
 $ff0000 'ifin 'exit
 $ff00 'imenos 'del-nodo
@@ -565,6 +560,7 @@ $ff00 'imas 'ins-nodo
 $ff00 'iarr 'abapoli
 $ff00 'icurva 'curv-nodo
 $ff0000 'imenos 'del-poli
+
 #btntrazo 6
 $ff0000 'ifin 'exit
 $ff00 'iborrar 'deltrazo
@@ -579,13 +575,14 @@ $ff00 'iborrar 'deltrazo
 :zoom3 	0.0 'zoom ! ;
 :zoom4 	0.2 'zoom ! ;
 :zoom5	0.4 'zoom !	;
+
 #btnvista 6
 $ff0000 'ifin 'modo0
-$ff00 'imenos 'zoom1
-$ff00 'imenos 'zoom2
-$ff00 'imenos 'zoom3
-$ff00 'imas 'zoom4
-$ff00 'imas 'zoom5
+$ffff00 'imenos 'zoom1
+$ffff00 'imenos 'zoom2
+$ffff00 'istop 'zoom3
+$ffff00 'imas 'zoom4
+$ffff00 'imas 'zoom5
 
 #btns 'btnnuevo 'btnnodos 'btnnuevo 'btnnuevo 'btntrazo 'btnvista
 
@@ -600,14 +597,13 @@ $ff00 'imas 'zoom5
 	+
 	@ exec ;
 
-|#modogui 4   'itrazo 'irec 'idibuja 'ilupa
-|:viewestado
-|	'modo 'modogui .vradio drop ;
+#modogui 4   'itrazo 'irec 'idibuja 'ilupa
+:viewestado
+	'modo 'modogui .vradio drop ;
 
 #accmodos 'nodomode 'editmode 'cajamode 'circlemode 'trazomode 'vistamode
 
 :viewdibujo
-|	verde gc.box
 	modo 2 << 'accmodos + @ >r ;
 
 :dumpdibujo
@@ -639,13 +635,11 @@ $ff00 'imas 'zoom5
 	1? ( resetspr ) drop
 	;
 
-:opczoom
-	5 'modo ! ;
 
 |------------------------------------------------
 #editbotgui 5
-$ffff00 'ilupa 'opczoom
 $ff00ff 'iborrar 'borrodib
+0 0 0
 0 0 0
 0 0 0
 0 0 0
@@ -663,11 +657,8 @@ $ff00ff 'iborrar 'borrodib
 0.1 1.0 0.45 0 'viewpolis
 0
 
-
-
 :editando
 	inikey
-|	'exit >esc<
 	[ 0 execescf1 ; ] >esc<
 	[ 1 execescf1 ; ] <f1>
 	[ 2 execescf1 ; ] <f2>
@@ -681,7 +672,6 @@ $ff00ff 'iborrar 'borrodib
 	show cls
 		scr dumpdibujo
 		scr 'editgui gui
-|		scr 16 sfont azul 'nombre  printc
 		cflecha
 		;
 
@@ -859,7 +849,7 @@ $00ff00 'irecicla 'save-code
 	;
 
 #guimenu
-0.9 0.1 -0.05 -0.45 'titulo
+1.0 0.1 0 -0.45 'titulo
 0.8 0.8 0 0 'tabladib
 0.7 0.1 -0.15 0.45 'botonera
 0
@@ -883,8 +873,7 @@ $00ff00 'irecicla 'save-code
 		;
 
 |--------------------------------------------------
-
-:	33
+:	33 0 paper
 	resetspr clear
 	'nombre "./nom/edit-spr.nom" load drop
 	"./spr/" dir
