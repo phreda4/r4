@@ -65,6 +65,9 @@
 	'dibujo 0 over ! 'dibujo> !
 	'indpol 0 over ! 'indpol> ! ;
 
+:-dibujo | --
+	-4 'dibujo> +! ;
+
 :+dibujo | p --
 	dibujo> !+ 'dibujo> ! ;
 :0dibujo
@@ -95,8 +98,8 @@
 		ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
 		xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
 		) 2drop
-	xmax 2/ ymax 2/ xy>d 'colcen !
-    xmin 2/ ymin 2/ xy>d 'colmat !
+	xmax dup 2 >> - ymax dup 2 >> - xy>d 'colcen !
+    xmin dup 2 >> - ymin dup 2 >> - xy>d 'colmat !
 	;
 
 :polsolido
@@ -126,6 +129,12 @@
 	coltipo 2 << 'tiposcol + @ exec
 	0dibujo ;
 
+:cierrocurva
+	setparam -dibujo
+	'trazo @ $fffffff0 and $9 or +dibujo | agrego linea fantasma
+	coltipo 2 << 'tiposcol + @ exec
+	0dibujo ;
+
 :cpdibujo
 	1 'etrazo !
 	0 'lastnodo !
@@ -134,9 +143,8 @@
 	dibujo> indpol> !+ 0 over ! 'indpol> !
 	'trazo ( @+ 1? )(
 		dup $f and 5 =? ( 3 nip ) swap $fffffff0 and or
-		+dibujo ) 2drop
-
-	cierropoligono
+		+dibujo ) drop
+	8 - @ $f and 4 =? ( cierrocurva )( cierropoligono ) drop
 	dibujo> indpol> !
 	cltrazo
 	;
@@ -173,7 +181,6 @@
 			drop r> )
 		4+ )
 	drop 0 ;
-
 
 |--------------------------------------------------
 #oxy
@@ -245,7 +252,8 @@
 |	7 =? ( 2drop inspoli ; )
 
 :ins-nodo
-	lastnodo dup @ $7 and
+	lastnodo 0? ( drop ; )
+	dup @ $7 and
 	2 << 'accinsnodo + @ 0? ( 2drop )( exec )
 	haceindice
 	;
@@ -322,7 +330,8 @@
 #acccurvn 0 'acurva1 'delnodo2 'acurva1 'acurva1 0 0 0
 
 :curv-nodo | --
-	lastnodo dup @ $7 and
+	lastnodo 0? ( drop ; )
+	dup @ $7 and
 	2 << 'acccurvn + @ 0? ( 2drop )( exec )
 	haceindice
 	;
@@ -410,16 +419,18 @@
 |-- caja
 :caja.ins
 	xa xb =? ( drop ; ) ya yb =? ( 2drop ; )
-	xy> 1 or +trazo xa yb xy> 3 or +trazo
-	xb yb xy> 3 or +trazo xb ya xy> 3 or +trazo
-|	4 0? ( xa ya xy> 2 or +trazo ) drop
+	xy> 1 or +trazo 
+	xa yb xy> 3 or +trazo
+	xb yb xy> 3 or +trazo 
+	xb ya xy> 3 or +trazo
 	;
 
 |-- elip
 :elip.ins
 	xa xb =? ( drop ; ) ya yb =? ( 2drop ; )
 	yb ya - abs xb xa - abs
-	>r >r r - 2dup 2dup xy> 1 or +trazo |op
+	>r >r r - 2dup
+	2dup xy> 1 or +trazo |op
     swap r> r> dup >r swap >r  - swap 2dup xy> 2 or +trazo	|cp
 	r + 2dup xy> 4 or +trazo |curve
 	r + 2dup xy> 2 or +trazo |cp
@@ -569,7 +580,6 @@ $ff00 'iborrar 'deltrazo
 0 0 0
 0 0 0
 
-:modo0 	0 'modo ! ;
 :zoom1 	-0.5 'zoom ! ;
 :zoom2 	-0.2 'zoom ! ;
 :zoom3 	0.0 'zoom ! ;
@@ -577,7 +587,7 @@ $ff00 'iborrar 'deltrazo
 :zoom5	0.4 'zoom !	;
 
 #btnvista 6
-$ff0000 'ifin 'modo0
+$ff0000 'ifin 'eslinea
 $ffff00 'imenos 'zoom1
 $ffff00 'imenos 'zoom2
 $ffff00 'istop 'zoom3
@@ -596,10 +606,6 @@ $ffff00 'imas 'zoom5
 	modo 2 << 'btns + @
 	+
 	@ exec ;
-
-#modogui 4   'itrazo 'irec 'idibuja 'ilupa
-:viewestado
-	'modo 'modogui .vradio drop ;
 
 #accmodos 'nodomode 'editmode 'cajamode 'circlemode 'trazomode 'vistamode
 
@@ -650,7 +656,7 @@ $ff00ff 'iborrar 'borrodib
 |-----------------------------------
 #editgui
 0.5 0.1 -0.25 -0.45 'btnsis
-0.2 0.1 0.3 -0.45 'btncolor
+0.2 0.1 0.3 0.45 'btncolor
 0.8 0.8 0 0 'viewdibujo
 0.6 0.1 -0.2 0.45 'botonherra
 |0.1 0.5 -0.45 0 'viewestado
