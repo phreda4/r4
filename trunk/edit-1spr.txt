@@ -260,9 +260,11 @@
 
 :quitapoli | adr --
 	drop
+:del-poli
 	poini pofin 4+ dibujo> over - 2 >> move
 	pofin poini - 4+ neg 'dibujo> +! 0 dibujo> !
 	0 dup dup 'poini ! 'pofin ! 'lastnodo !
+	haceindice
 	;
 
 :quitaylinea
@@ -290,7 +292,7 @@
 :delnodo4
 	4 - quitaylinea ;
 
-#accdelnodo 0 delnodo1 delnodo2 -nodo delnodo4 0 0 quitapoli
+#accdelnodo 0 delnodo1 delnodo2 -nodo delnodo4 0 0 0
 
 :del-nodo
 	lastnodo dup @ $7 and
@@ -402,21 +404,8 @@
 	1 'coltipo !
 	1 'etrazo !
 	0 'lastnodo !
-
+	haceindice
 	;
-
-:borrodib
-	"Borro Dibujo ?" dlgsino
-	1? ( resetspr ) drop
-	;
-
-|------------------------------------------------
-#editbotgui 2
-$ff0000 'ifin 'exit
-$ff00ff 'iborrar 'borrodib
-
-:btnsis
-	'editbotgui .vbtns ;
 
 |--cursor ab
 #xa #ya #xb #yb
@@ -451,7 +440,7 @@ $ff00ff 'iborrar 'borrodib
 |------------------------------------------------
 :circlemode
 	drawdibujo
-	[ elip.ins cpdibujo cur.clr 1 'modo ! ; ] onUp
+	[ elip.ins cpdibujo cur.clr ; ] onUp
 	[ xymouse 'yb ! 'xb ! ; ] onMove
 	[ xymouse cur.set ; ] onDn
 	blink 1? ( colora )( colorb ) ink drop
@@ -462,7 +451,7 @@ $ff00ff 'iborrar 'borrodib
 |------------------------------------------------
 :cajamode
 	drawdibujo
-	[ caja.ins cpdibujo cur.clr  1 'modo ! ; ] onUp
+	[ caja.ins cpdibujo cur.clr ; ] onUp
 	[ xymouse 'yb ! 'xb ! ; ] onMove
 	[ xymouse cur.set ; ] onDn
 	blink 1? ( colora )( colorb ) ink drop
@@ -533,11 +522,12 @@ $ff00ff 'iborrar 'borrodib
 :nuevopoli
 	'polinuevo onUp
 	policursor  -1 <>? ( 0.8 blanco )( colorb colora vbtn
-    	blink 1? ( negro )( blanco ) drop
+    	blink 1? ( verde )( amarillo ) drop
 		1.0 ) fzoom drop
 	2 font cr2  "*" printc ;
 
 :cadapoli | n -- n
+	maxpoli >? ( ; )
 	maxpoli =? ( nuevopoli ; )
 	policursor =? ( 1.0 )( 0.8 ) fzoom
 	dup 2 << 'indpol +
@@ -545,71 +535,85 @@ $ff00ff 'iborrar 'borrodib
 	4+ @ dup 8 - @ 4 >> swap 4 - @ 4 >> vbtn | col1 col2 --
 	policursor <>? ( ; )
 	2 sfont cr2
-	blink 1? ( negro )( blanco ) drop
+	blink 0? ( negro )( blanco ) drop
 	dup "%d" printc ;
-
 
 :viewpolis
 	| poner cantidad de poligonos
 	modo 5 =? ( drop 'zoom .vslide ; ) drop
 	indpol> 'indpol - 2 >> dup 'maxpoli ! 1+
+	5 max
 	'cadapoli .vlist ;
 
-:eselipse
-	3 'modo ! ;
-
-:escaja
-	2 'modo ! ;
+:eslinea	0 'modo ! ;
+:escaja     2 'modo ! ;
+:eselipse   3 'modo ! ;
+:opczoom    5 'modo ! ;
 
 |--------------------------------------------------
-#btnnuevo 5
-$ff00 'irec 'eselipse
-$ff00 'istop 'escaja
+#btnnuevo 6
+$ff0000 'ifin 'exit
+$ffff00 'ilupa 'opczoom
+$ffff00 'idibuja 'eslinea
+$ffff00 'istop 'escaja
+$ffff00 'irec 'eselipse
 $ff0000 'imenos 'deltrazo
+
+#btnnodos 6
+$ff0000 'ifin 'exit
+$ff00 'imenos 'del-nodo
+$ff00 'imas 'ins-nodo
+$ff00 'iarr 'abapoli
+$ff00 'icurva 'curv-nodo
+$ff0000 'imenos 'del-poli
+
+#btntrazo 6
+$ff0000 'ifin 'exit
+$ff00 'iborrar 'deltrazo
+0 0 0
 0 0 0
 0 0 0
 0 0 0
 
-#btnnodos 5
-$ff00 'imenos 'del-nodo
-$ff00 'imas 'ins-nodo
-$ff00 'iaba 'abapoli
-$ff00 'icurva 'curv-nodo
-$ff0000 'imenos 'del-poli
-#btntrazo 5
-$ff00 'iborrar 'deltrazo
-0 0 0
-0 0 0
-0 0 0
-0 0 0
-#btnvista 5
-$ff00 'iborrar 'deltrazo
-0 0 0
-0 0 0
-0 0 0
-0 0 0
+:modo0 	0 'modo ! ;
+:zoom1 	-0.5 'zoom ! ;
+:zoom2 	-0.2 'zoom ! ;
+:zoom3 	0.0 'zoom ! ;
+:zoom4 	0.2 'zoom ! ;
+:zoom5	0.4 'zoom !	;
+
+#btnvista 6
+$ff0000 'ifin 'modo0
+$ffff00 'imenos 'zoom1
+$ffff00 'imenos 'zoom2
+$ffff00 'istop 'zoom3
+$ffff00 'imas 'zoom4
+$ffff00 'imas 'zoom5
 
 #btns 'btnnuevo 'btnnodos 'btnnuevo 'btnnuevo 'btntrazo 'btnvista
 
 :botonherra
 	modo 2 << 'btns + @
-	.hbtns ;
+	escf1.. ;
+
+:execescf1 | nro
+	dup dup + + 2 <<
+	12 +
+	modo 2 << 'btns + @
+	+
+	@ exec ;
+
+#modogui 4   'itrazo 'irec 'idibuja 'ilupa
+:viewestado
+	'modo 'modogui .vradio drop ;
 
 #accmodos 'nodomode 'editmode 'cajamode 'circlemode 'trazomode 'vistamode
 
-|#modogui 4   'itrazo 'irec 'idibuja 'ilupa
-|:viewestado
-|	'modo 'modogui .vradio drop ;
-
 :viewdibujo
-  modo 2 << 'accmodos + @ >r ;
+	modo 2 << 'accmodos + @ >r ;
 
 :dumpdibujo
 	0.8 0.9 fdim fonti
-	violeta
-	'nombre "#%s" print cr
-	cyan
-	codestart "#%w" print cr
 	verde
 |	codetxt print
 |	codelast print
@@ -621,7 +625,7 @@ $ff00 'iborrar 'deltrazo
 		swap 1+ $7 nand? ( cr ) swap
 		) 2drop
 	cyan cr
-
+|	azul pofin poini "%d %d" print cr
 	policursor "policursor:%d " print
 	pofin poini "ini:%d fin%d " print cr
 	coltipo colorb colora "colA:%h colB:%h tipo:%h " print cr
@@ -633,19 +637,41 @@ $ff00 'iborrar 'deltrazo
 	'nombre lugar "%d %s" print
  	;
 
+:borrodib
+	"Borro Dibujo ?" dlgsino
+	1? ( resetspr ) drop
+	;
+
+
+|------------------------------------------------
+#editbotgui 5
+$ff00ff 'iborrar 'borrodib
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+
+:btnsis
+	'editbotgui .hbtns ;
+
 |-----------------------------------
 #editgui
+0.5 0.1 -0.25 -0.45 'btnsis
+0.2 0.1 0.3 -0.45 'btncolor
 0.8 0.8 0 0 'viewdibujo
-0.4 0.1 -0.3 0.45 'botonherra
-0.1 0.2 -0.45 -0.4 'btnsis
-0.1 0.1 -0.45 0.35 'btncolor
+0.6 0.1 -0.2 0.45 'botonherra
 |0.1 0.5 -0.45 0 'viewestado
 0.1 1.0 0.45 0 'viewpolis
 0
 
 :editando
 	inikey
-	'exit >esc<
+	[ 0 execescf1 ; ] >esc<
+	[ 1 execescf1 ; ] <f1>
+	[ 2 execescf1 ; ] <f2>
+	[ 3 execescf1 ; ] <f3>
+	[ 4 execescf1 ; ] <f4>
+	[ 5 execescf1 ; ] <f5>
 	0 0 fpos
 	zoom 1.3 + sh 16 *>> dup 'w ! 'h !
 	savebox
