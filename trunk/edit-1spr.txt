@@ -67,6 +67,9 @@
 	'dibujo 0 over ! 'dibujo> !
 	'indpol 0 over ! 'indpol> ! ;
 
+:-dibujo | --
+	-4 'dibujo> +! ;
+
 :+dibujo | p --
 	dibujo> !+ 'dibujo> ! ;
 :0dibujo
@@ -97,9 +100,8 @@
 		ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
 		xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
 		) 2drop
-	xmax xmin + 2/ ymax ymin + 2/ xy>d 'colcen !
-    xmin 0 |ymin
-	xy>d 'colmat !
+	xmax dup 2 >> - ymax dup 2 >> - xy>d 'colcen !
+    xmin dup 2 >> - ymin dup 2 >> - xy>d 'colmat !
 	;
 
 :polsolido
@@ -128,6 +130,12 @@
 	coltipo 2 << 'tiposcol + @ exec
 	0dibujo ;
 
+:cierrocurva
+	setparam -dibujo
+	'trazo @ $fffffff0 and $9 or +dibujo | agrego linea fantasma
+	coltipo 2 << 'tiposcol + @ exec
+	0dibujo ;
+
 :cpdibujo
 	1 'etrazo !
 	0 'lastnodo !
@@ -136,9 +144,8 @@
 	dibujo> indpol> !+ 0 over ! 'indpol> !
 	'trazo ( @+ 1? )(
 		dup $f and 5 =? ( 3 nip ) swap $fffffff0 and or
-		+dibujo ) 2drop
-
-	cierropoligono
+		+dibujo ) drop
+	8 - @ $f and 4 =? ( cierrocurva )( cierropoligono ) drop
 	dibujo> indpol> !
 	cltrazo
 	;
@@ -247,7 +254,8 @@
 |	7 =? ( 2drop inspoli ; )
 
 :ins-nodo
-	lastnodo dup @ $7 and
+	lastnodo 0? ( drop ; )
+	dup @ $7 and
 	2 << 'accinsnodo + @ 0? ( 2drop )( exec )
 	haceindice
 	;
@@ -295,7 +303,8 @@
 #accdelnodo 0 delnodo1 delnodo2 -nodo delnodo4 0 0 0
 
 :del-nodo
-	lastnodo dup @ $7 and
+	lastnodo 0? ( drop ; )
+	dup @ $7 and
 	2 << 'accdelnodo + @ 0? ( 2drop )( exec )
 	haceindice
 	;
@@ -321,7 +330,8 @@
 #acccurvn 0 'acurva1 'delnodo2 'acurva1 'acurva1 0 0 0
 
 :curv-nodo | --
-	lastnodo dup @ $7 and
+	lastnodo 0? ( drop ; )
+	dup @ $7 and
 	2 << 'acccurvn + @ 0? ( 2drop )( exec )
 	haceindice
 	;
@@ -615,8 +625,8 @@ $ffff00 'imas 'zoom5
 :dumpdibujo
 	0.8 0.9 fdim fonti
 	verde
-|	codetxt print
-|	codelast print
+|	codetxt "%d " print
+|	codelast "%d " print
 |	azul pofin poini "%d %d" print cr
 	0 'dibujo ( dibujo> <? )(
 		poini =? ( rojo )
@@ -624,6 +634,8 @@ $ffff00 'imas 'zoom5
 		@+ "%h " print
 		swap 1+ $7 nand? ( cr ) swap
 		) 2drop
+	;
+:aa
 	cyan cr
 |	azul pofin poini "%d %d" print cr
 	policursor "policursor:%d " print
@@ -638,6 +650,7 @@ $ffff00 'imas 'zoom5
  	;
 
 :borrodib
+	codefin 'here ! 	| dlgsino utiliza here
 	"Borro Dibujo ?" dlgsino
 	1? ( resetspr ) drop
 	;
@@ -657,7 +670,7 @@ $ff00ff 'iborrar 'borrodib
 |-----------------------------------
 #editgui
 0.5 0.1 -0.25 -0.45 'btnsis
-0.2 0.1 0.3 -0.45 'btncolor
+0.2 0.1 0.3 0.45 'btncolor
 0.8 0.8 0 0 'viewdibujo
 0.6 0.1 -0.2 0.45 'botonherra
 |0.1 0.5 -0.45 0 'viewestado
