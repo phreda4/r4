@@ -122,8 +122,6 @@ char *compilastr="";
 char *bootstr="main.txt";
 char *exestr="main.r4x";
 
-int FMODA;
-
 //---------------------- Memoria de reda4
 int gx1=0,gy1=0,gx2=0,gy2=0,gxc=0,gyc=0;// coordenadas de linea
 BYTE *bootaddr;
@@ -169,7 +167,7 @@ BYTE *RSP[2048];// 2k pila de direcciones
 BYTE ultimapalabra[]={ SISEND };
 //--- Memoria
 BYTE prog[1024*256];// 256k de programa
-BYTE data[1024*1024*16];// 16 MB de datos
+BYTE data[1024*1024*32];// 32 MB de datos
 
 //---- Graba y carga imagen
 void saveimagen(char *nombre)
@@ -222,7 +220,7 @@ do {
 	if (((virtualName[0] == '.') && (virtualName[1] == '\0')) ||
 		((virtualName[0] == '.') && (virtualName[1] == '.') && (virtualName[2] == '\0')))
 		continue;
-	if (ffd.dwFileAttributes==FILE_ATTRIBUTE_DIRECTORY) {
+	if (ffd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY) {
         subdirs[cntsubdirs] = act;
         cntsubdirs++;
 	} else { // is a file
@@ -361,7 +359,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
             DispatchMessage(&msg);
             if (SYSEVENT!=0) { R++;*(int*)R=(int)IP;IP=(BYTE*)SYSEVENT;SYSEVENT=0; }
             if (active==WA_INACTIVE) {
-               while (active==WA_INACTIVE) {
+               while (active==WA_INACTIVE) {    // cambiar esto para poder prender 2 r4
                 Sleep(2);
                 PeekMessage(&msg,hWnd,0,0,PM_REMOVE);
                 TranslateMessage(&msg); DispatchMessage(&msg);
@@ -510,8 +508,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 
     case ITIMER: // vector msecs --
         SetTimer(hWnd,0,TOS,0);
-        TOS=*NOS;NOS--;
-        SYSirqtime=TOS;TOS=*NOS;NOS--;continue;
+        SYSirqtime=*NOS;NOS--;TOS=*(NOS);NOS--;continue;
         continue;
 	default: // completa los 8 bits con apila numeros 0...
         NOS++;*NOS=TOS;TOS=W-ULTIMAPRIMITIVA;continue;
@@ -1070,7 +1067,7 @@ switch (message) {     // handle message
          active=wParam&0xff;
          if (active==WA_INACTIVE)
             {
-//            ChangeDisplaySettings(NULL,0);
+            ChangeDisplaySettings(NULL,0);
 //            ShowWindow(hWnd,SW_MINIMIZE);
          } else {
             ShowWindow(hWnd,SW_NORMAL);//SW_RESTORE);
