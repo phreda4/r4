@@ -1,0 +1,306 @@
+| libgui.txt - gui2
+| PHREDA - 2009
+|-----------------------------
+^reda4.txt
+^libgraf.txt
+^libprint.txt
+^font.txt
+^libsprite.txt
+^liboptdiv.txt
+
+#boton	0
+#botonc	0
+#inl #focus #is
+
+:item | adr -- adr++
+	swap >r | w
+	r@+ r@+ r@+ gc.conv | w h xc yc --
+	r> xymouse whin 1? ( over 'inl ! ) drop
+	dup 'is !
+	@+ exec ;
+
+:itemv | adr -- adr++
+	swap >r | w
+	r@+ r@+ r@+ gc.conv | w h xc yc --
+	r> dup 'is !
+	@+ exec ;
+
+:guifoco | 'tablegui foco --
+	drop
+	( @+ 1? )( gc.push itemv gc.pop ) 2drop
+	bmouse 0? ( dup 'focus ! ) drop
+	;
+
+|#actgui
+
+::gui | 'tablegui --
+	|dup 'actgui !
+	bmouse boton - 1? ( bmouse 'boton ! inl 'focus ! ) 'botonc !
+	focus 1? ( guifoco ; ) 'inl !
+	( @+ 1? )( gc.push item gc.pop ) 2drop
+	bmouse 0? ( dup 'focus ! ) drop
+	;
+
+::onIn
+	xymouse whin 1? ( drop exec ; ) 2drop ;
+
+::onUp
+	is focus - 1? ( 2drop ; ) drop
+	xymouse whin 0? ( 2drop ; ) drop
+	botonc -? ( drop exec ; ) 2drop ; 
+                             ::onDn
+	is focus - 1? ( 2drop ; ) drop
+	xymouse whin 0? ( 2drop ; ) drop
+	botonc 0? ( 2drop ; ) +? ( drop exec ; ) 2drop ;
+
+::onMove
+	bmouse 0? ( 2drop ; ) drop
+	is focus - 1? ( 2drop ; ) drop
+	xymouse whin 0? ( 2drop ; ) drop
+	exec ;
+
+::dumpgui
+	inl focus is "is:%d focus:%d inl:%d" print cr
+	;
+
+|-------------------- agrupadores
+::.vlist | cnt 'acc --
+	>r
+	1.0 over / | cnt sw
+	0 ( pick2 <? )( | cnt sw a
+		gc.push
+		1.0 pick2 2over * over 2/ + 0.5 - 0 swap
+		gc.conv | w h xc yc --
+		r exec
+		gc.pop 1+ )
+	3drop rdrop ;
+
+::.hlist | cnt 'acc --
+	>r
+	1.0 over / | cnt sw
+	0 ( pick2 <? )( | cnt sw a
+		gc.push
+		over 1.0 2over * pick2 2/ + 0.5 - 0
+		gc.conv | w h xc yc --
+		r exec
+		gc.pop 1+ )
+	3drop rdrop ;
+	;
+
+::.table | row col 'acc --
+	>r
+	1.0 pick2 / | row col sw
+	1.0 pick2 / | row col sw sh
+	0 ( pick4 <? )(
+		 0 ( pick4 <? )( | row col sw sh x y
+			gc.push
+			2over		| row col sw sh x y sw sh
+			pick3 pick2 * pick2 2/ + 0.5 -
+			pick3 pick2 * pick2 2/ + 0.5 -
+			gc.conv | w h xc yc --
+			r exec
+			gc.pop
+			1+ ) drop
+		1+ ) drop
+	4drop rdrop ;
+
+|-------------- dibujos cursores
+#flecha  $9B8FEFC1 $FA3BEC91 $19C1B2B3 $2F4D1B43 $5839C8D3 $74B160B3 $4560BA93 $6DDC7533 $FA3BEC9A
+ $D $7102111 $51DC7753 $35F0AD43 $65995A93 $56A18D03 $2A84DAF3 $1CBD42F3 $710211A
+ $FFFFFFD $0
+#mano  $F693F031 $8ABAE12 $27C43714 $32041922 $3BDC3EF4 $428C2422 $4B9C4864 $53E03712 $5D586334
+ $716D0D63 $75C1EEA2 $4619D0B4 $32CD7ED2 $19995124 $FA1D0712 $B6CBB74 $EBEC28F2 $F693F039
+ $D $FF3BF9C1 $5EBEB92 $D640B04 $22A861A3 $2B5038B2 $39E464D4 $409843C2 $4A706CB4
+ $4F8C51F2 $57D477C4 $6AB919F3 $6CB1C422 $4619AAE4 $32CD5442 $1FE537F4 $8450F02 $D64DE24
+ $12E4C672 $21DCE464 $F6282DA2 $FF3BF9C9 $FFFFFFD $0
+#lapiz  $191 $6B05833 $BD03A43 $16D428F3 $19A $D $6B05371 $9D83263 $167028F3
+ $300C4EC3 $1EB86E43 $11B8BE93 $6B0537A $FFFF00D $1154BB71 $18686663 $2EDC4D33 $69293B13
+ $4D31B2C3 $1154BB7A $FF7F00D $47AD73C1 $4B3934C2 $5AF929B4 $6D192372 $6B8568C4 $6B21AC82
+ $54ADB914 $4551B5F2 $47AD73C9 $FFFF00D $0
+#goma  $F17017A1 $90FE543 $2AFBFF63 $3FB06B83 $2734A873 $111C36C3 $F17017AA $7D7E7ED $F1A017F1
+ $121C3593 $2708A513 $1B64F063 $F1A017FA $9E9D9FD $26FCA3D1 $3F0067F3 $61AD29B3 $4B396A43
+ $26FCA3DA $434344D $1AD8F031 $2708A303 $4BAD6B13 $29D13BD3 $1AD8F03A $787877D $0
+
+|------------ cursores
+::ccruz
+	xymouse bmouse 2 << 8 + cruz ;
+
+::cflecha
+	xymouse 'yc ! 'xc !
+	sw 3 >>	bmouse 2 << + dup 'w ! 'h !
+	'flecha nsprite ;
+
+::cmano
+ 	xymouse 'yc ! 'xc !
+	sw 3 >>	bmouse 2 << + dup 'w ! 'h !
+	'mano nsprite ;
+
+::clapiz
+	xymouse 'yc ! 'xc !
+	sw 3 >>	bmouse 2 << + dup 'w ! 'h !
+	'lapiz nsprite ;
+
+::cgoma
+	xymouse 'yc ! 'xc !
+	sw 3 >>	bmouse 2 << + dup 'w ! 'h !
+	'goma nsprite ;
+
+|----- Dibujos Simples
+#:iaba ( -94 -89 6 102 7 103 6 -90 7 0 )
+#:iarr ( -7 -94 -95 4 -27 100 37 4 101 9 -92 0 )
+
+#:iizq ( 17 -30 -76 -90 7 -87 -12 -103 6 -87 22 1 100 23 86 36 85 103 22 -12 -26 87 21 0 )
+#:ider ( -94 89 -12 105 6 89 22 1 100 -9 86 36 -75 -89 22 -12 -26 -73 -11 -76 -90 7 0 )
+
+#:ilupa ( -39 -110 39 -26 6 25 14 81 68 49 116 -7 44 -15 54 -33 -105 -26 -106 -33 -87 -30 30 -33 15 -26 -82 -33 -81 -26 0 )
+#:ireloj ( -78 -73 6 86 7 87 6 -74 7 -7 10 -47 -12 -39 -20 -7 -4 -60 13 12 -3 0 )
+#:iborrar ( -87 -62 -71 84 -7 118 57 86 73 -60 -7 -18 -87 -58 -78 -7 -26 73 -74 -7 -106 -87 -74 -55 -6 -47 -28 -7 12 33 -28 41 -4 1 28 41 52 25 76 -7 44 -39 76 -55 52 -15 28 -55 -4 0 )
+#:ifin ( -30 -31 -60 -55 -82 -71 -66 -87 -50 -63 -26 -31 4 -63 36 -87 62 -71 78 -55 94 -31 70 1 36 33 68 57 94 73 78 89 62 65 38 33 4 65 -28 89 -50 73 -66 57 -82 33 -58 1 -28 0 )
+#:iok ( -79 -14 -63 -28 -7 36 65 -76 89 -44 17 68 -11 -79 -12 0 )
+#:idibuja ( 81 -14 -90 7 -95 4 100 5 81 -12 -79 66 12 -1 86 -59 70 -73 0 )
+#:icopia ( -55 -70 -103 -4 -79 60 -27 -7 -4 -55 -68 49 -54 1 12 25 76 77 97 12 49 -52 0 )
+#:irec ( -62 -57 6 70 7 71 6 -58 7 0 )
+#:istop ( 65 -62 -59 68 69 -60 0 )
+#:iplay ( -63 -62 65 4 -63 68 -60 0 )
+#:iff ( 17 66 73 4 17 -60 68 -63 -62 68 -7 4 -63 -60 0 )
+#:ibb ( 65 -62 68 9 4 65 -60 -13 68 -71 4 -15 -60 0 )
+#:icolor ( -95 -30 -41 -31 6 -15 -74 103 1 -26 -31 70 -47 -2 -95 -26 0 )
+#:itacho ( -102 -41 -79 -66 -47 -34 7 55 81 -66 49 -98 7 -79 -54 68 -47 102 7 55 81 70 36 49 70 7 20 55 81 -10 -52 49 -18 7 -41 -79 -50 0 )
+#:irecicla ( -111 34 -71 28 -79 94 15 87 73 46 61 49 62 15 -41 -55 30 -15 36 -63 -36 -111 36 -55 -46 -67 -79 -98 -1 87 73 -26 105 -36 65 36 25 -36 57 -28 49 -66 -1 -41 -55 -42 0 )
+#:icurva ( -87 42 -47 -10 -7 -58 65 -74 81 6 57 36 41 -18 1 -10 -39 38 -63 86 -87 44 0 )
+
+
+#:imas ( -15 -62 -12 -59 20 -11 68 21 20 69 -12 21 -60 -11 0 )
+#:imenos ( -47 18 -12 53 20 -43 0 )
+#:icorazon ( -30 -58 -25 -57 -26 22 1 70 65 22 -26 -58 39 7 -26 0 )
+#:ipica ( -62 -47 4 -63 54 -25 -9 -7 30 62 -15 70 21 9 62 30 17 54 39 71 49 6 1 -60 0 )
+#:idiamante ( -62 -63 4 1 68 65 4 1 -60 0 )
+#:itrebol ( -62 -25 -34 -18 -15 6 -31 -4 -57 22 62 -31 54 -7 36 62 -15 70 21 9 62 38 33 52 65 62 30 -2 39 17 4 33 -18 -34 -58 7 0 )
+#:itrazo ( -103 66 -39 -44 33 36 73 -68 89 -52 41 76 -39 -12 -87 84 -103 68 0 )
+#:ipreg ( 98 -17 78 54 7 31 78 102 7 17 34 -11 -26 23 39 -42 -58 7 -25 -42 -59 -90 7 71 -42 6 39 23 38 0 )
+
+|------------- botones
+:accHB | 'boton cnt nro -- =
+	>r rot
+	@+ 0? ( drop 8 + rot rot r> ; )
+	0.9 [ 0.95 nip ; ] onMove fzoom
+	[ 1.1 fzoom ; ] onIn
+	$333333 $aaaaaa vbtn
+	ink
+	@+ v8draw
+	@+ [ r> r> r> pick3 >r >r >r >r ; ] onUp drop
+	rot rot r> ;
+
+::.hbtns | 'dir --
+	@+ 'accHB .hlist drop ;
+
+::.vbtns | 'dir --
+	@+ 'accHB .vlist drop ;
+
+::.btns | acc dib color  --
+	0.9 [ 0.95 nip ; ] onMove fzoom
+	$222222 [ swap ; ] onIn vbtn | dir acc
+	negro [ blanco ; ] onIn
+	v8draw
+	[ r> r> pick2 >r >r >r ; ] onUp
+	drop | onUp
+	;
+
+|--------------- barra esc,f1,f2..
+::accescf1  | 'boton cnt nro -- =
+	>r rot
+	@+ 0? ( drop 8 + rot rot r> ; )
+	0.9 [ 0.95 nip ; ] onMove fzoom
+    [ 1.1 fzoom ; ] onIn
+	$333333 $aaaaaa vbtn
+	ink
+    @+ v8draw
+	@+ [ r> r> r> pick3 >r >r >r >r ; ] onUp drop
+	rot rot r>
+	fonti blanco
+	dup 0? ( "ESC" nip )( "F%d" ) printc
+	;
+
+::escf1.. | 'dir --
+	@+ 'accescf1 .hlist drop ;
+
+|--------------- TEXT BOTON BARS
+::.btnl |  acc "str" color --
+	0.9 [ 0.95 nip ; ] onMove fzoom
+	$222222 [ swap ; ] onIn vbtn | dir acc
+	[ blanco ; ] onIn
+	2 font blanco cr2 printc
+	[ r> r> pick2 >r >r >r ; ] onUp
+	drop | onUp
+	;
+
+::.btnt |  acc "str" color --
+	0.9 [ 0.95 nip ; ] onMove fzoom
+	$222222 [ swap ; ] onIn vbtn | dir acc
+	[ blanco ; ] onIn
+	fonti blanco printc
+	[ r> r> pick2 >r >r >r ; ] onUp
+	drop | onUp
+	;
+
+:accTB |  'lista cnt n -- =
+	>r rot
+	@+ swap @+ [ r> r> r> pick3 >r >r >r >r ; ] onUp drop
+	0.9 [ 1.0 nip ; ] onIn fzoom
+	swap $222222 vbtn
+	dup 2 sfont blanco cr2 printc
+	( c@+ 1? )( drop ) drop
+	rot rot r> ;
+
+::.hbtnt | 'lista --
+	@+ 'accTB .hlist drop ;
+
+::.vbtnt | 'lista --
+	@+ 'accTB .vlist drop ;
+
+|--------------------------------------- RADIO
+:accRad | 'var 'boton cnt nro -- 'var 'boton nro
+	0.9 [ 0.95 nip ; ] onMove fzoom
+	pick4 @ =? ( 0.3 pinpon 0.9 + fzoom verde gc.rod $ffffff )( $0 ) $ff
+	[ swap ; ] onIn gc.vdeg
+	dup 2 << pick4 + @ lfill v8draw sfill
+	[ pick4 over swap ! ; ] onUp
+	;
+
+::.hradio | 'var 'dir --
+	@+ 'accRad .hlist drop ;
+
+::.vradio | 'var 'dir --
+	@+ 'accRad .vlist drop ;
+
+|--------------------------------------- SLIDE
+::.hslide | 'var --
+	[ xymouse drop xc - 16 << w / over ! ; ] onMove
+	gc.push 0.98 0.2 fscala
+	gc.frod gc.pop
+	@ w 16 *>> 'xc +!
+ 	0.1 0.98 fscala
+	$dddddd $222222 vbtn
+	;
+
+::.vslide | 'var --
+	[ xymouse nip yc - 16 << h / over ! ; ] onMove
+	gc.push 0.2 0.98 fscala
+	gc.frod gc.pop
+	@ h 16 *>> 'yc +!
+ 	0.98 0.1 fscala
+	$dddddd $222222 hbtn
+	;
+
+|--------------------------------------- DEV...
+:strtobox | "" --
+	drop
+	;
+
+::.link | "text" 'acc --
+	over strtobox
+	onUp
+	print ;
+
+
+

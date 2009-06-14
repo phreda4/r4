@@ -27,6 +27,7 @@
 #define WIN32_EXTRA_LEAN
 
 #include <windows.h>
+#include <winsock.h>
 #include <stdio.h>
 #include <time.h>
 
@@ -36,7 +37,6 @@
 #include "graf.h"
 #include "sound.h"
 #include "joystick.h"
-#include "socket.h"
 
 HWND        hWnd;
 WNDCLASSA   wc;
@@ -45,6 +45,18 @@ DEVMODE     screenSettings;
 DWORD       dwExStyle, dwStyle; 
 RECT        rec; 
 int         active;
+
+SOCKET      soc;
+WSADATA     wsaData;
+SOCKADDR_IN naddr; // the address structure for a TCP socket
+
+sockaddr sockAddrClient;
+int sizesoc=sizeof(sockaddr);
+
+char        bufferin[8192];
+int         bufferlen;
+
+#define WM_WSAASYNC (WM_USER +5)
 
 static const char wndclass[] = ":r4";
 
@@ -79,9 +91,8 @@ char *macros[]={// directivas del compilador
 #else
 "ISON!","SBO","SBI",    // Sound Buffer Ouput/input   
 #endif
-"INET!",                //-------- red
-"LISTEN","CONECT","SEND","RECV","NBI",
-"TIMER",
+"LISTEN","CONECT","SEND","RECV","CLOSE","NBUFF",
+"TIMER",            //------- timer
 ""};
 
 // instrucciones de maquina (son compilables a assembler)
@@ -112,9 +123,9 @@ SLOAD,SPLAY,MLOAD,MPLAY,
 #else
 IRSON,SBO,SBI,
 #endif
-IRNET,//---- nuevas interrups
-LISTEN,CONECT,SEND,RECV,NBI,
-ITIMER,
+//---- nuevas interrups
+LISTEN,CONECT,SEND,RECV,CLOSE,NBUFF, //---- red
+ITIMER,//--- timer
 ULTIMAPRIMITIVA// de aqui en mas.. apila los numeros 0..255-ULTIMAPRIMITIVA
 };
 
@@ -358,6 +369,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
             {  //TranslateMessage(&msg); 
             DispatchMessage(&msg);
             if (SYSEVENT!=0) { R++;*(int*)R=(int)IP;IP=(BYTE*)SYSEVENT;SYSEVENT=0; }
+/*
             if (active==WA_INACTIVE) {
                while (active==WA_INACTIVE) {    // cambiar esto para poder prender 2 r4
                 Sleep(2);
@@ -366,6 +378,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
                 }
 //              gr_restore();
               }
+*/
             }
 #ifndef FMOD
         if (evtsound==1 && SYSirqsonido!=0) 
@@ -384,7 +397,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case WIDTH: NOS++;*NOS=TOS;TOS=gr_ancho;continue;
     case HEIGHT: NOS++;*NOS=TOS;TOS=gr_alto;continue;
 	case CLS: gr_clrscr();continue;
-    case REDRAW: gr_redraw();continue;
+    case REDRAW:  gr_redraw();continue;
     case FRAMEV: NOS++;*NOS=TOS;TOS=(int)gr_buffer;continue;
 	case SETXY:vcursor=(int*)gr_buffer+TOS*gr_ancho+(*NOS);
         NOS--;TOS=*NOS;NOS--;continue;
@@ -448,13 +461,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case SBO: NOS++;*NOS=TOS;TOS=(int)bosound();continue;
     case SBI: NOS++;*NOS=TOS;TOS=(int)bisound();continue;
 #endif
-//--- red
-    case IRNET: SYSirqred=TOS;TOS=*NOS;NOS--;continue;
-    case LISTEN: SYSirqred=TOS;TOS=*NOS;NOS--;continue;
-    case CONECT: SYSirqred=TOS;TOS=*NOS;NOS--;continue;
-    case SEND: SYSirqred=TOS;TOS=*NOS;NOS--;continue;
-    case RECV: SYSirqred=TOS;TOS=*NOS;NOS--;continue;
-    case NBI: SYSirqred=TOS;TOS=*NOS;NOS--;continue;
+
 //--- bloque de memoria
     case MEM: NOS++;*NOS=TOS;TOS=(int)memlibre;continue; // inicio de n-MB de datos
 //--- bloques
@@ -505,10 +512,44 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
          while (TOS--) { *(char*)--W=*(char*)--W1; }         
          NOS-=2;TOS=*NOS;NOS--;         
          continue;
-
+//--- red
+    case LISTEN: //  port -- err
+        naddr.sin_family = AF_INET;      // Address family Internet
+        naddr.sin_port = htons (TOS);   // Assign port to this socket
+        naddr.sin_addr.s_addr = htonl (INADDR_ANY);   // No destination
+        soc = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP); // Create socket
+        if (bind(soc, (LPSOCKADDR)&naddr, sizeof(naddr)) == SOCKET_ERROR) //Try binding
+            { TOS=0;continue; }
+        listen(soc, 10); //Start listening
+        WSAAsyncSelect(soc,hWnd,WM_WSAASYNC, FD_READ | FD_CONNECT | FD_CLOSE | FD_ACCEPT); //Switch to Non-Blocking mode
+        continue;
+    case CONECT: // "ip" port -- err
+        SOCKADDR_IN target; //Information about host
+        soc = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP); // Create socket
+        target.sin_family = AF_INET;           // address family Internet
+        target.sin_port = htons(TOS);        // set server’s port number
+        TOS=*NOS;NOS--;
+        target.sin_addr.s_addr = TOS;  // set server’s IP
+        if (connect(soc, (SOCKADDR *)&target, sizeof(target)) == SOCKET_ERROR) //Try binding
+          { TOS=0;continue; } 
+        WSAAsyncSelect(soc,hWnd,WM_WSAASYNC, FD_READ | FD_CONNECT | FD_CLOSE);
+        continue;
+    case SEND:  // buff len --
+        send(soc, (char*)*NOS, TOS, 0); //Send the string
+        NOS--;TOS=*NOS;NOS--;
+        continue;
+    case RECV:  // 'vector --       vector | buff len --
+        SYSirqred=TOS;NOS--;TOS=*(NOS);NOS--;continue;
+        continue; 
+    case NBUFF:
+        NOS++;*NOS=TOS;TOS=(int)bufferin;continue;
+    case CLOSE:// --
+        closesocket(soc); //Shut down socket
+        continue;
+//---- timer
     case ITIMER: // vector msecs --
         SetTimer(hWnd,0,TOS,0);
-        SYSirqtime=*NOS;NOS--;TOS=*(NOS);NOS--;continue;
+        SYSirqtime=*NOS;NOS--;TOS=*(NOS);NOS--;
         continue;
 	default: // completa los 8 bits con apila numeros 0...
         NOS++;*NOS=TOS;TOS=W-ULTIMAPRIMITIVA;continue;
@@ -1063,6 +1104,23 @@ switch (message) {     // handle message
          SYSKEY=(lParam>>16)&0x7f;
          SYSEVENT=SYSirqteclado;
          break;
+    //Winsock related message...
+    case WM_WSAASYNC:
+        switch(WSAGETSELECTEVENT(lParam)) {
+        case FD_CLOSE: //Lost connection
+//            if (soc) { closesocket(soc);soc=0; }
+            break;
+        case FD_READ: //Incoming data to receive
+            bufferlen=recv(soc,(char*)bufferin, sizeof(bufferin)-1, 0); //Get the text
+            SYSEVENT=SYSirqred;
+            break;
+       
+        case FD_ACCEPT: //Connection request
+            soc=accept(wParam,&sockAddrClient,&sizesoc);
+            break;
+        }
+        break;
+//----------------------------------------
     case WM_ACTIVATEAPP:
          active=wParam&0xff;
          if (active==WA_INACTIVE)
@@ -1173,6 +1231,9 @@ InitJoystick(hWnd);
 strcpy(pathdata,".//");  // SEBAS win-linux
 loaddir();
 
+unsigned short wVersionRequested = MAKEWORD(2,0);
+WSAStartup(wVersionRequested, &wsaData);
+
 //--------------------------------------------------------------------------
 recompila:
 
@@ -1222,7 +1283,8 @@ if (silent!=1 && interprete(bootaddr)==1) goto recompila;
    sound_close();
 #endif
 ReleaseJoystick();
-closeSocket();
+closesocket(soc); //Shut down socket
+WSACleanup(); //Clean up Winsock
 gr_fin();
 ReleaseDC(hWnd,hDC);
 DestroyWindow(hWnd);
