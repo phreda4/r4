@@ -46,15 +46,13 @@ DWORD       dwExStyle, dwStyle;
 RECT        rec; 
 int         active;
 
+struct hostent *host;
 SOCKET      soc;
 WSADATA     wsaData;
 SOCKADDR_IN naddr; // the address structure for a TCP socket
 
-sockaddr sockAddrClient;
-int sizesoc=sizeof(sockaddr);
-
-char        bufferin[8192];
-int         bufferlen;
+char*        buffernet;
+int     buffersize;
 
 #define WM_WSAASYNC (WM_USER +5)
 
@@ -91,7 +89,7 @@ char *macros[]={// directivas del compilador
 #else
 "ISON!","SBO","SBI",    // Sound Buffer Ouput/input   
 #endif
-"LISTEN","CONECT","SEND","RECV","CLOSE","NBUFF",
+"SERVER","CLIENT","SEND","RECV","CLOSE",
 "TIMER",            //------- timer
 ""};
 
@@ -124,7 +122,7 @@ SLOAD,SPLAY,MLOAD,MPLAY,
 IRSON,SBO,SBI,
 #endif
 //---- nuevas interrups
-LISTEN,CONECT,SEND,RECV,CLOSE,NBUFF, //---- red
+SERVER,CLIENT,SEND,RECV,CLOSE, //---- red
 ITIMER,//--- timer
 ULTIMAPRIMITIVA// de aqui en mas.. apila los numeros 0..255-ULTIMAPRIMITIVA
 };
@@ -513,7 +511,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
          NOS-=2;TOS=*NOS;NOS--;         
          continue;
 //--- red
-    case LISTEN: //  port -- err
+    case SERVER: //  port -- err
         naddr.sin_family = AF_INET;      // Address family Internet
         naddr.sin_port = htons (TOS);   // Assign port to this socket
         naddr.sin_addr.s_addr = htonl (INADDR_ANY);   // No destination
@@ -521,28 +519,29 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         if (bind(soc, (LPSOCKADDR)&naddr, sizeof(naddr)) == SOCKET_ERROR) //Try binding
             { TOS=0;continue; }
         listen(soc, 10); //Start listening
-        WSAAsyncSelect(soc,hWnd,WM_WSAASYNC, FD_READ | FD_CONNECT | FD_CLOSE | FD_ACCEPT); //Switch to Non-Blocking mode
+        WSAAsyncSelect(soc,hWnd,WM_WSAASYNC, FD_READ | FD_ACCEPT | FD_CLOSE); //Switch to Non-Blocking mode
         continue;
-    case CONECT: // "ip" port -- err
-        SOCKADDR_IN target; //Information about host
-        soc = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP); // Create socket
-        target.sin_family = AF_INET;           // address family Internet
-        target.sin_port = htons(TOS);        // set server’s port number
+    case CLIENT: // "dir" port -- err
+        naddr.sin_family = AF_INET;           // address family Internet
+        naddr.sin_port = htons(TOS);        // set server’s port number
         TOS=*NOS;NOS--;
-        target.sin_addr.s_addr = TOS;  // set server’s IP
-        if (connect(soc, (SOCKADDR *)&target, sizeof(target)) == SOCKET_ERROR) //Try binding
+    	if((host=gethostbyname((char*)TOS))==NULL)// Resolve IP address for hostname
+        	{ TOS=0;continue; }
+        naddr.sin_addr.s_addr = *((unsigned long*)host->h_addr);
+        soc = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP); // Create socket
+        if (connect(soc, (SOCKADDR *)&naddr, sizeof(naddr)) == SOCKET_ERROR) //Try binding
           { TOS=0;continue; } 
-        WSAAsyncSelect(soc,hWnd,WM_WSAASYNC, FD_READ | FD_CONNECT | FD_CLOSE);
+        WSAAsyncSelect(soc,hWnd,WM_WSAASYNC, FD_READ | //FD_CONNECT | 
+    FD_CLOSE);
         continue;
     case SEND:  // buff len --
-        send(soc, (char*)*NOS, TOS, 0); //Send the string
+        send(soc,(char*)*NOS, TOS, 0); //Send the string
         NOS--;TOS=*NOS;NOS--;
         continue;
-    case RECV:  // 'vector --       vector | buff len --
-        SYSirqred=TOS;NOS--;TOS=*(NOS);NOS--;continue;
+    case RECV:  // 'vector 'buffer --       vector | buff len --
+        buffernet=(char*)TOS;SYSirqred=*NOS;
+        NOS--;TOS=*NOS;NOS--;
         continue; 
-    case NBUFF:
-        NOS++;*NOS=TOS;TOS=(int)bufferin;continue;
     case CLOSE:// --
         closesocket(soc); //Shut down socket
         continue;
@@ -1072,7 +1071,8 @@ static void print_usage(void) {
   "  ? help\n" , "r4");
 }
 
-char *NDEBUG="debug.txt";
+//char *NDEBUG="debug.txt";
+char *DEBUGR4X="debug.r4x";
 
 ///////////////////////////////////////////////////////////////////////
 //...............................................................................
@@ -1104,23 +1104,25 @@ switch (message) {     // handle message
          SYSKEY=(lParam>>16)&0x7f;
          SYSEVENT=SYSirqteclado;
          break;
-    //Winsock related message...
+//---------Winsock related message...
     case WM_WSAASYNC:
         switch(WSAGETSELECTEVENT(lParam)) {
         case FD_CLOSE: //Lost connection
-//            if (soc) { closesocket(soc);soc=0; }
+            closesocket(soc);
             break;
         case FD_READ: //Incoming data to receive
-            bufferlen=recv(soc,(char*)bufferin, sizeof(bufferin)-1, 0); //Get the text
+            buffersize=recv(soc,buffernet,1024, 0);
+            buffernet[buffersize]=0;
             SYSEVENT=SYSirqred;
             break;
-       
+//        case FD_CONNECT:
+
         case FD_ACCEPT: //Connection request
-            soc=accept(wParam,&sockAddrClient,&sizesoc);
+            soc=accept(wParam,0,0);
             break;
         }
         break;
-//----------------------------------------
+//---------System
     case WM_ACTIVATEAPP:
          active=wParam&0xff;
          if (active==WA_INACTIVE)
@@ -1167,6 +1169,7 @@ for (;c>0;c--,p++) *p=v;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
+
 //----------------- PRINCIPAL
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -1230,9 +1233,8 @@ InitJoystick(hWnd);
 #endif
 strcpy(pathdata,".//");  // SEBAS win-linux
 loaddir();
-
-unsigned short wVersionRequested = MAKEWORD(2,0);
-WSAStartup(wVersionRequested, &wsaData);
+//--------------------------------------------------------------------------
+WSAStartup(2, &wsaData);
 
 //--------------------------------------------------------------------------
 recompila:
@@ -1254,8 +1256,8 @@ if (bootaddr==0 && bootstr[0]!=0){
    if (compilafile(linea)!=COMPILAOK) { 
       grabalinea();
 //    return 1;
-      if (!strcmp(linea,NDEBUG)) return 1;
-      exestr="debug.r4x";goto recompila;
+      if (exestr==DEBUGR4X) return 1;
+      exestr=DEBUGR4X;goto recompila;
       }
    if (compilastr[0]!=0) {
       #ifdef LOGMEM		                                
@@ -1268,8 +1270,8 @@ if (bootaddr==0) {
    sprintf(error,"%s|0|0|NO BOOT",linea);                    
    grabalinea();
 //    return 1;
-   if (!strcmp(linea,NDEBUG)) return 1;
-   exestr="debug.r4x";goto recompila;//   strcpy(linea,NDEBUG);
+    if (exestr==DEBUGR4X) return 1;
+   exestr=DEBUGR4X;goto recompila;//   strcpy(linea,NDEBUG);
    }
 #ifdef LOGMEM		
 dumpex();dumplocal("BOOT");
