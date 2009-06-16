@@ -122,7 +122,7 @@ SLOAD,SPLAY,MLOAD,MPLAY,
 IRSON,SBO,SBI,
 #endif
 //---- nuevas interrups
-SERVER,CLIENT,SEND,RECV,CLOSE, //---- red
+SERVER,CLIENT,NSEND,RECV,CLOSE, //---- red
 ITIMER,//--- timer
 ULTIMAPRIMITIVA// de aqui en mas.. apila los numeros 0..255-ULTIMAPRIMITIVA
 };
@@ -534,8 +534,8 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         WSAAsyncSelect(soc,hWnd,WM_WSAASYNC, FD_READ | //FD_CONNECT | 
     FD_CLOSE);
         continue;
-    case SEND:  // buff len --
-        send(soc,(char*)*NOS, TOS, 0); //Send the string
+    case NSEND:  // buff len --
+        send(soc,(char*)(*NOS), TOS, 0); //Send the string
         NOS--;TOS=*NOS;NOS--;
         continue;
     case RECV:  // 'vector 'buffer --       vector | buff len --
