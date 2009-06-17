@@ -44,36 +44,6 @@
 	$ff00ff and pick2 $ff00ff and - r * $800080 + 8 >> $ff00ff and r> swap >r >r
 	$ff00 and swap $ff00 and - r> * $8000 + 8 >> $ff00 and r> + ;
 
-|--------------------------------------------------
-| a b n
-
-:h0  $ff and over 8 *>> pick2 + $ff >? ( $ff nip ) 8 <<  | g-c
-	pick2 rot + $ff >? ( $ff nip ) 16 << or	| r-max
-	or ;	| b-min
-:h1  not $ff and over 8 *>> pick2 + $ff >? ( $ff nip ) 16 << | r-c
-	pick2 rot + $ff >? ( $ff nip ) 8 << or |g-max
-	or ; | b-min
-:h2	$ff and over 8 *>> pick2 + $ff >? ( $ff nip ) | b-c
-	pick2 rot + $ff >? ( $ff nip ) 8 << or | g -max
-	swap 16 << or ; | r-min
-:h3	not $ff and over 8 *>> pick2 + $ff >? ( $ff nip ) 8 <<  | g-c
-	pick2 rot + $ff >? ( $ff nip ) or | b -max
-	swap 16 << or ; | r-min
-:h4	$ff and over 8 *>> pick2 + $ff >? ( $ff nip ) 16 << | r-c
-	pick2 rot + $ff >? ( $ff nip ) or | b -max
-	swap 8 << or ; | g-min
-:h5	not $ff and over 8 *>> pick2 + $ff >? ( $ff nip )  | b-c
-	pick2 rot + $ff >? ( $ff nip ) 16 << or	| r-max
-	swap 8 << or ; | g-min
-
-#ach h0 h1 h2 h3 h4 h5
-
-| sistema de color para :r4
-| a.. +		0-255		0..$ff
-| b.. *		0-255		0..$ff
-| h..Color	0-1536		0..$5ff
-::abh>rgb | a b n -- color
-	dup 8 >> 6mod 2 << 'ach + @ >r ; | $f and -> $1f
 
 | yuv <-> rgb
 |-----------------------------
@@ -95,8 +65,55 @@
 	pick2 16 - 76283 * pick2 128 - 25624 *  - pick2 128 - 53281 * - 16 >> bound 8 << $ff00 and >r
 	nip 128 - 104595 * swap 16 - 76283 * + 16 >> bound 16 << $ff0000 and r> or r> or ;
 
-| hsv ->rgb
 
-:hsv2rgb | hsv -- rgb
+| hsv 1.0 1.0 1.0 --> rgb
+
+:h0 ;				|v, n, m
+:h1 >r swap r> ;	|n, v, m
+:h2 rot rot ;		|m, v, n
+:h3 swap rot ;		|m, n, v
+:h4 rot ;			|n, m, v
+:h5 swap ;			|v, m, n
+#acch h0 h1 h2 h3 h4 h5
+
+::hsv2rgb | hsv -- rgb
+	1? ( 1- ) $ffff and swap
+	0? ( drop nip 8 >> dup 8 << dup 8 << or or ; ) | hvs
+	rot 1? ( 1- ) $ffff and
+	dup 2* + 2*	| 6*
+	dup 16 >> 	| vshH
+	1 nand? ( 1.0 rot - swap ) | vsfH
+	>r $ffff and	| vsf
+	1.0 pick2 - pick3 *. | vsfm
+	>r
+	*. 1.0 swap - | v (1-s*f)
+	over *. r> | vnm
+	r> 2 << 'acch + @ exec | rgb
+	8 >> swap 8 >> 8 << or swap 8 >> 16 << or ;
+
+|	if (s == 0) RGB(v, v, v);
+|	i = floor(h);
+|	f = h - i;
+|	if ( !(i&1) ) f = 1 - f; // if i is even
+|	m = v * (1 - s);
+|	n = v * (1 - s * f);
+|	switch (i) {
+|		case 6:
+|		case 0: RGB(v, n, m);
+|		case 1: RGB(n, v, m);
+|		case 2: RGB(m, v, n)
+|		case 3: RGB(m, n, v);
+|		case 4: RGB(n, m, v);
+|		case 5: RGB(v, m, n);
+
+
+::rgb2hsv | rgb -- hsv
+	dup dup
 	;
+|	x = min(R, G, B);
+|	v = max(R, G, B);
+|	if(v == x) HSV(UNDEFINED, 0, v);
+|	f = (R == x) ? G - B : ((G == x) ? B - R : R - G);
+|	i = (R == x) ? 3 : ((G == x) ? 5 : 1);
+|	HSV(i - f /(v - x), (v - x)/v, v);
 
