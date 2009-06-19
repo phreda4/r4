@@ -9,11 +9,13 @@
 
 ^inc/punteros.inc
 
+
 #nombre )( 64
 #fuente )( 32768 | 32kb
 #cursorf 'fuente
 #cursorn 0
 #hojaini 0
+#paleta )( 128 | 32 colores
 
 |-----------------------------------
 :loadfnt
@@ -52,7 +54,7 @@
 	2dup 5 << + 2 << cursorf +
 	mododibujo onMove
 	@ ink
-	|0.9 fzoom
+	1.1 fzoom
 	gc.fbox ;
 
 :bitmap
@@ -111,34 +113,22 @@ $ff0000	'iborrar 'borracar
 	'btgui .hbtns ;
 
 |----------------- colores
-
-#compY #compU
-
-:btncol
-	compY 0.5 + 256 16 *>>
-	over $7 and dup 4 << or
-	pick2 $38 and 2 << dup 3 >> or
-	 yuv32
-|	dup $5ff 6 *>> compY 127 16 *>> 0 abh>rgb
+:btncol | n -- n
+	dup 2 << 'paleta + @
+	1.1 fzoom
 	[ dup 'colornow ! ; ] onUp
-	$ffffff hbtn
-	gc.fbox ;
+	ink gc.fbox ;
 
 :barracol
-	64 'btncol .vlist
+	32 'btncol .vlist
 	;
 
-:slideY
-	'compY .vslide ;
-:slideU
-	'compU .vslide ;
 
 #guimenu
 0.8 0.8 -0.1 0.0 'bitmap
 0.2 0.1 -0.4 -0.45 'estadopen
 0.4 0.1 -0.3 0.45 'botedit
-0.12 0.8 0.375 0.0 'barracol
-0.05 0.8 0.45 0.0 'slideY
+0.1 0.8 0.4 0.0 'barracol
 0
 
 :editando
@@ -160,6 +150,13 @@ $ff0000	'iborrar 'borracar
 	editando
 	key.pop ;
 
+:llenapaleta
+	'paleta
+	0.0 ( 1.0 <? )(
+		dup 1.0 1.0 hsv2rgb
+		rot !+
+		swap
+		0.031 + ) 2drop ;
 
 |------------- Acciones en todos los caracteres
 #cadagui 3
@@ -239,7 +236,7 @@ $00ff00	'irecicla	'creainc
 	'nombre c@ 0? ( drop ; ) drop
 	loadfnt
 |	hojas
-
+	llenapaleta
 	editar
 	savefnt
 	'nombre count "./nom/bm0.nom" save
