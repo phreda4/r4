@@ -7,12 +7,7 @@
 ^medit.txt
 
 #nombre )( 64
-
 #linea )( 1024	| error y mem aux
-#pad )( 1024	| entrada texto
-
-#pantaini>
-#pantafin>
 
 #primerword
 #:hojapal 0
@@ -21,12 +16,10 @@
 #pilaexec> 'pilaexec
 
 
-:printpageword | n
+:printwordal | n --
 	4 << 'indicepal +
-	10 ( 1? )( 1- >r
-		@+ "%w " print @+ " %h  " print @+ " %h  " print @+ " %h  " print cr
-		r> )
-	2drop ;
+	@+ "%w " print @+ " %h  " print @+ " %h  " print @+ " %h  " print cr
+	drop ;
 
 |----------------- muestra lista palabras
 ::printwordname | n --
@@ -41,20 +34,21 @@
 	verde
 	@+ drop |"%d " print direccion
 	@+
-	dup 24 >> "%d" 3 cntprint
-	dup 8 << 24 >> "%d" 3 cntprint
-	$fff and  "%b" 12 cntprint
-| 	"%h" 8 cntprint
-	@ "%d" 4 cntprint
+	dup 24 >> "%d" print
+	dup 8 << 24 >> "%d" print
+	$fff and  "%b" print
+| 	"%h" print
+	@ "%d" print
 	;
 
 :drawtoken
 	fonti
 	primerword
 	fils ( 1? )( 1- swap
-		actword =? ( vidi )
-		dup printwordname cr
-		actword =? ( vidi )
+|		actword =? ( vidi )
+		dup printwordal
+|		dup printwordname cr
+|		actword =? ( vidi )
 		1+ swap  )
 	2drop
 	;
@@ -86,23 +80,27 @@
 :drawtrace
 	fonti
 	dumpvm
-	actword exprintword
+	'pilaexe
+	( pilaexe> <? )(
+		@+ exprintword cr ) drop
 	;
 
 |------------------ dibuja la memoria
-:printvarname
+:printvarname | n --
 	4 << 'indicepal +
 	indicepal> >=? ( drop ; )
 	dup 8 + @ 1 nand? ( 2drop ; ) drop
-	@+ "#%w " violeta print
-	drop
+	@+ "#%w " violeta print amarillo
+	 " %d " print
+|	drop
 	;
 
 :drawmemvar
 	fonti
 	primerword
 	fils ( 1? )( 1- swap
-		dup printvarname cr
+		dup printvarname
+		cr
 		1+ swap  )
 	2drop
 	;
@@ -119,15 +117,7 @@
 :realplay
 	'nombre run  ;
 
-|"ESC" 'ifin 'exit dup >esc< .fsbtn .>
-|"F3" ">." 'stepvm dup <f3> .fbtn .>
-|"F4" ">-" 'wordvm dup <f4> .fbtn .>
-|"F5" "Reset" 'resetvm dup <f5> .fbtn .>
-|"F1" "eval" 'evaluador dup <f1> .fbtn .>
-|"F5" "Reset" 'resetvm dup <f5> .fbtn .>
-|"F9" "Stat" 'savestat dup <f9> .fbtn .>
-
-#newbotonera 7
+#newbotonera 5
 $ff0000 'ifin   'exit
 $00ff00	'iplay	'stepvm
 $00ff00	'iff	'playvm
@@ -160,20 +150,19 @@ $00ff00	'icopia		'exit
 0.96 0.06 0 -0.46 'titulo
 0.5 0.1 -0.25 0.45 'botonera
 
-0.5 0.5 -0.25 -0.15  'drawtoken
-0.5 0.5 0.25 -0.15  'drawmemvar
+0.5 0.5 0.25 -0.15  'drawtoken
+|0.5 0.5 -0.25 -0.15  'drawmemvar
 
 0.9 0.4 0 0.2 'drawtrace
 0.5 0.1 0.25 0.45 'drawstat
 0
 
 :consola
-	mem 'pantaini> !
-
-	indicepal< 'indicepal - 4 >> 'primerword ! | iniciodicc
-
+	indicepal< 'indicepal - 4 >>
+	'primerword ! | iniciodicc
 	indicepal> 'indicepal - 4 >> | fin dicc
-	1- 'actword !
+	1- |'actword !
+	+executa
 
 |	indicepal> 12 - @ 'actual> !
 |	ajusta
@@ -184,31 +173,26 @@ $00ff00	'icopia		'exit
 
 	startvm
 
-|	'execpad <enter>
-|	'pad 128 m.input
-|	"" m.copy
-
 	show cls scr
 		'guiconsola gui
 		cmano ;
 
-|----------------------------
-:evaluador
-	;
-
 |----- Sistema
-:llamaeditor
+:errorcompila
 	'linea dup >, saverror count "debug.err" save
 	"edit-code.txt" run ;
+
+:errorpost
+	;
 
 |----------- principal
 :main
 	'nombre "./nom/editor.nom" load drop
 	clear
 	'nombre tokencomp
-	msg 1? ( drop llamaeditor ; ) drop
+	msg 1? ( drop errorcompila ; ) drop
 	tokenpost |savestat
-|	msg 1? ( drop evaluador ; ) drop
+	msg 1? ( drop errorpost ; ) drop
 	consola
 	;
 

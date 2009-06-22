@@ -7,10 +7,17 @@
 ^trace.txt
 
 #:<<ip
-#:actword
+
+#:pilaexe )( 1024
+#:pilaexe> 'pilaexe
+
+::+executa | nroword --
+	pilaexe> !+ 'pilaexe> ! ;
+
+::-executa | --
+	-4 'pilaexe> +! ;
 
 #freemem
-#diccexe	| var -> memoria cod->
 
 #inter )( 64
 #inter> 'inter
@@ -113,9 +120,6 @@
 			) drop
 		) drop ;
 
-|-- nro de palabra a memoria real (del emulador)
-:pal@rmem
-	;
 
 |--- interprete
 
@@ -132,18 +136,18 @@
 	d.push ;
 
 :ivar
-	8 >>
-	pal@rmem + @
-	d.push ;
+	8 >> pal@tok
+	d.push drop ;
+
 :idvar
-	8 >> 2 << 'diccexe +
-	d.push ;
+	8 >> pal@tok
+	d.push drop ;
 
 :ilit
 	8 >> d.push ;
 
-
 :idwor
+	trace
 	d.dir2acc dacc.d
 	8 >> pal@tok prog + nip
 	d.push ;
@@ -151,23 +155,19 @@
 |--- llama palabra
 :iwor
 	8 >> pal@tok prog +
-	swap 'actword !
+	swap +executa
 	swap r.push ;
 
 |--- retorna
 :i;
 	r.cnt 0? ( nip ; ) 2drop
-	r.pop ;
+	r.pop -executa ;
 
 :i)(
-:i)
-	8 >> + ;
-:i(
-	drop ;
-:i[             |*********
-	8 >> @ 1? ( swap d.push )( drop ) ;
-:i]             |*********
-	drop ; | api
+:i)		8 >> + ;
+:i(     drop ;
+:i[     8 >> @ 1? ( swap d.push )( drop ) ;
+:i]     drop ;
 
 :i0?	drop @+ d.get 0? ( 2drop ; ) drop 8 >> + ;
 :i+?	drop @+ d.get +? ( 2drop ; ) drop 8 >> + ;
@@ -199,7 +199,7 @@
 	dpila> 8 -
 	dup 1028 + @+ swap @+ rot rot !+ !		| copia tipo
 	@+ swap @+ rot rot !+ !+ 'dpila> ! ;
-:iOVER
+:iOVER    
 	drop dpila> 8 - @+ swap 4+ !+ 'dpila> ! ;
 :iPICK2
 	drop dpila> 12 - @+ swap 8 + !+ 'dpila> ! ;
@@ -218,16 +218,14 @@
 :i2SWAP
 	drop dpila> 16 - >r r@+ r@+ r@+ r@+ -16 r+ swap r!+ r!+ swap r!+ r> ! ;
 
-:i>R     drop
-	dpila> 4 -  dup 'dpila> ! @ rpila> !+  'rpila> ! ;		|--- pila de direccion
-:iR>
-	drop rpila> 4 -  dup 'rpila> ! @ dpila> !+  'dpila> ! ;
-:iR
-	drop rpila> 4 -  @ dpila> !+  'dpila> ! ;
-:iR+		drop dpila> 4 -  dup 'dpila> ! @ rpila> 4 - +! ;
-:iR@+		drop rpila> 4 -  dup @ @ dpila> !+ 'dpila> ! 4 swap +! ;
-:iR!+		drop dpila> 4 -  dup 'dpila> ! @ rpila> 4 - 4 over +! @ ! ;
-:iRDROP		drop rpila> 4 -  'rpila> ! ;
+:i>R	drop dpila> 4 -  dup 'dpila> ! @ rpila> !+  'rpila> ! ;		|--- pila de direccion
+:iR>    drop rpila> 4 -  dup 'rpila> ! @ dpila> !+  'dpila> ! ;
+:iR     drop rpila> 4 -  @ dpila> !+  'dpila> ! ;
+:iR+	drop dpila> 4 -  dup 'dpila> ! @ rpila> 4 - +! ;
+:iR@+	drop rpila> 4 -  dup @ @ dpila> !+ 'dpila> ! 4 swap +! ;
+:iR!+	drop dpila> 4 -  dup 'dpila> ! @ rpila> 4 - 4 over +! @ ! ;
+:iRDROP	drop rpila> 4 -  'rpila> ! ;
+
 :iAND		drop dpila> 8 -  dup @+ swap @ and swap !+ 'dpila> ! ;			|--- logica y aritmetica
 :iOR		drop dpila> 8 -  dup @+ swap @ or swap !+ 'dpila> ! ;
 :iXOR		drop dpila> 8 -  dup @+ swap @ xor swap !+ 'dpila> ! ;
@@ -336,7 +334,7 @@
 :iMPLAY     drop d.pop MPLAY drop ;  | n/0 --
 
 |---------- tabla de saltos
-#tablai	| tabla de saltos de inctrucciones
+#tablai	| tabla de saltos de instrucciones
 i0
 i: i#
 idec ihex ibin ifix istr
@@ -413,21 +411,63 @@ iSLOAD	iSPLAY	iMLOAD	iMPLAY
 	;
 
 |------- asigna memoria a variables
-:addmem | asigna memoria a variables
-	drop
-	;
+:mem0 | nro --
+	freemem !+ 'freemem ! ;
+:mem1 | nro --
+	freemem w!+ 'freemem ! ;
+:mem2 | nro --
+	freemem c!+ 'freemem ! ;
+:mem3 | nro --
+	'freemem +! ;
 
-:cadapal
-	dup 8 + @
-	1 and? ( drop 16 + ; ) drop | solo variables
-	freemem over 'indicepal - 2 << diccexe + !
-	dup 4+ @ addmem
-	16 +
-	;
+#gmem 'mem0
+
+:gstr | adr --
+	freemem
+	( swap c@+ 1? )( rot c!+ ) rot
+	c!+ 'freemem ! ;
+
+:accpal | val instr --
+	7 <? ( drop 8 >> cte + @ gmem exec ; )
+	7 =? ( drop 8 >> str + gstr ; )
+	12 <? ( drop 8 >> pal@tok nip mem0 ; )
+	13 =? ( 2drop 'mem2 'gmem ! ; ) | (
+	14 =? ( 2drop 'mem3 'gmem ! ; )	| )(
+	16 =? ( 2drop 'mem1 'gmem ! ; ) | [
+	2drop 'mem0 'gmem ! ;
+
+|idec ihex ibin ifix istr
+|iwor ivar idwor idvar
+|i;
+|i(		i)(		i)		i[		i]
+
+:addmem | inifree adr1token -- inifree adr1token
+	dup @ | inicio tokens
+	'mem0 'gmem !
+	( @+ 1? )(
+		dup $ff and
+		3 <? ( 3drop ; ) | # o :
+		17 >? ( 3drop ; ) | o > ]
+		accpal
+        )
+	2drop ;
+
+:cadapal | adr -- adr++
+	dup 8 + @ 1 nand? ( drop 16 + ; ) drop | solo variables
+	freemem
+	over 4+ |addmem
+	!
+	16 + ;
 
 :memvars | --
 	'indicepal ( indicepal> <? )( cadapal ) drop ;
 
+|-------------------------------------
 ::startvm
-|	memvars
+	|--- reserva memoria para dicc de memoria y memoria de vars
+	here
+	dup 'freemem ! $ffff +
+	'here !
+
+	memvars
 	resetvm ;
