@@ -31,8 +31,22 @@
 	lfremove c@+ 82 - |20 *
 	swap ;
 
+#mini
+#mind
+
+:limitereset
+	0 dup 'mini !+ ! ;
+
+:limiteupd | x -- x
+	mini <? ( dup 'mini ! )
+	mind >? ( dup 'mind ! )
+	;
+
 :center_ | -- x y
-	yc + swap xc + swap ;
+	yc + swap
+	limiteupd
+	xc + swap ;
+
 
 #state | 0:up, 1:down ( x y -- )
 :step center_ state 0 =? ( drop op 1 'state ! )( drop line ) ;
@@ -46,6 +60,7 @@
 0 'state !
 0 'inc !
 dat 10 + nverts 1-
+limitereset
 ( +? )( swap offset >r pencmd r> swap 1- ) 2drop ;
 
 |----- indice de letras
@@ -91,6 +106,7 @@ dat 10 + nverts 1-
 	0 'inc !
 	3 << index +
 	@+ swap @ swap
+	limitereset
 	( +? )( swap offset >r pencmd r> swap 1- )
 	2drop ;
 
@@ -104,7 +120,8 @@ dat 10 + nverts 1-
 	c@+ ( 32 <? )( drop c@+ )
 	82 - swap
 	c@+ 82 -
-	rot swap  ;
+	rot swap
+	;
 
 :sigxy | addr -- addr++
 	otroxy 0 =? ( drop
@@ -128,46 +145,38 @@ dat 10 + nverts 1-
 #temp )( 1024
 #temp> 'temp
 
+#xcorrection 0
+
 :,temp | byte --
 	temp> c!+ 'temp> ! ;
 
-#ancholetra
-
 :getotroxy | adr -- adr++ x y
 	c@+ ( 32 <? )( drop c@+ )
-	82 -
-|	-50 <>? ( dup abs ancholetra max 'ancholetra ! )
+	82 - -50 <>? ( xcorrection + )
 	swap c@+ 82 -
-	rot swap ;
+	rot 
+	;
 
 :getsigxy | addr -- addr++
-	getotroxy 0 =? ( drop
-		-50 =? ( drop getotroxy
-				swap 2 << ,temp 2 << ,temp
-				swap 2 -
-			; )( 0 )
-		)
-	swap 2 << %11 or ,temp 2 << ,temp
+	getotroxy
+		-50 =? ( 2drop getotroxy
+				2 << ,temp 2 << ,temp
+				swap 2 - ; )
+	2 << %11 or ,temp 2 << ,temp
 	swap 1- ;
 
 :savecar | n --
-	0 'ancholetra !
+	mind mini - 2/ 'xcorrection !
 	'temp 'temp> !
 	3 << index +
-	dup @+
-	swap @
+	@+ swap @
 	getotroxy
-	swap 2 << ,temp 2 << ,temp
+	2 << ,temp 2 << ,temp
 	swap 1-
 	( +? )( swap getsigxy )
 	2drop
-
-	2 -
-    c@+ 82 - neg swap
-	c@ 82 - + 3 >>
-
-|	ancholetra
-
+	mind mini + 4+ 2/
+	2 =? ( 8 nip )
 	8 <<	| ancho de letra
 	temp> 'temp - 2/ | cantidad
 	or
@@ -276,7 +285,13 @@ dat 10 + nverts 1-
 	dup
 	2 << 'htoascii + @
 	drawnro
-	fonti dup "%d " print emit
+	amarillo
+	mini xc + yc h 2/ + op
+	mind xc + yc h 2/ + line
+
+	azul
+	fonti |dup "%d " print
+	emit
 	;
 
 :hojacar
