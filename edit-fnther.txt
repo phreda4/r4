@@ -3,6 +3,7 @@
 |------------------------------
 ^reda4.txt
 ^libgui.txt
+^trace.txt
 ^dlgfile.txt
 
 #dat #index
@@ -46,7 +47,6 @@
 	yc + swap
 	limiteupd
 	xc + swap ;
-
 
 #state | 0:up, 1:down ( x y -- )
 :step center_ state 0 =? ( drop op 1 'state ! )( drop line ) ;
@@ -146,39 +146,72 @@ limitereset
 #temp> 'temp
 
 #xcorrection 0
+#cntpuntos 0
+#xp #yp
 
 :,temp | byte --
 	temp> c!+ 'temp> ! ;
 
-:getotroxy | adr -- adr++ x y
+:getotroxy | adr -- adr++ y x
 	c@+ ( 32 <? )( drop c@+ )
-	82 - -50 <>? ( xcorrection + )
+	82 - -50 <>? ( limiteupd )
 	swap c@+ 82 -
-	rot 
+	rot
+	;
+
+:,op | y x --
+	xp =? ( swap yp =? ( 2drop ; ) swap )
+	2dup 'xp ! 'yp !
+	2 << ,temp 2 << ,temp
+	1 'cntpuntos +!
+	;
+
+:,line | y x --
+	xp =? ( drop yp =? ( drop ; )
+			dup 'yp !
+			2 << %10 or ,temp
+			1 'cntpuntos +!
+			; )
+	swap
+	yp =? ( drop
+			dup 'xp !
+			2 << %01 or ,temp
+			1 'cntpuntos +!
+			; )
+	swap
+	2dup 'xp ! 'yp !
+	2 << %11 or ,temp 2 << ,temp
+	1 'cntpuntos +!
 	;
 
 :getsigxy | addr -- addr++
 	getotroxy
 		-50 =? ( 2drop getotroxy
-				2 << ,temp 2 << ,temp
+				,op
 				swap 2 - ; )
-	2 << %11 or ,temp 2 << ,temp
+	,line
 	swap 1- ;
 
+
 :savecar | n --
-	mind mini - 2/ 'xcorrection !
+|	mind mini - 2/ 'xcorrection ! | no lo uso mas
+	0 'cntpuntos !
 	'temp 'temp> !
-	3 << index +
+	limitereset
+	over 'htoascii - 2 >> 33 =? ( 4 dup 'mini ! 'mind ! ) drop
+    3 << index +
 	@+ swap @
 	getotroxy
-	2 << ,temp 2 << ,temp
+	,op
 	swap 1-
 	( +? )( swap getsigxy )
 	2drop
-	mind mini + 4+ 2/
-	2 =? ( 8 nip )
+	mind abs
+	mini abs max 4+
 	8 <<	| ancho de letra
-	temp> 'temp - 2/ | cantidad
+
+	| imprimo buffer a codigo
+	cntpuntos
 	or
 	"%d ( " ,print
 	'temp
@@ -232,8 +265,6 @@ limitereset
 	"./" dir
 	;
 
-
-
 |------------------------------------------
 #acther
 #herini
@@ -270,10 +301,13 @@ limitereset
 :pagcarhe
 	20 'btnpaghe .hlist ;
 
+#cmi #cmd
 |------------------------------------------
 :setascii
 	dup 'cursorn !
 	dup 2 << 'htoascii + @ 	'acther !
+	mini 'cmi !
+	mind 'cmd !
 	;
 
 :cadacar
@@ -281,17 +315,20 @@ limitereset
 	[ 1.1 fzoom ; ] onIn
 	2dup 3 << + hojaini 64 * +
 	cursorn =? ( 0.1 pinpon 0.9 + fzoom gc.box )( 0.9 fzoom )
-	'setascii onUp
 	dup
 	2 << 'htoascii + @
 	drawnro
 	amarillo
 	mini xc + yc h 2/ + op
 	mind xc + yc h 2/ + line
+|	naranja
+|	xc yc h 2/ - 2dup op h + line
+	'setascii onUp
 
 	azul
 	fonti |dup "%d " print
 	emit
+
 	;
 
 :hojacar
@@ -362,7 +399,8 @@ $00ff00	'irecicla	'saveinc
 	inikey
 	'exit <esc>
 	show cls home verde scr fonti
-		showdicc
+		showdicc cr
+cmi cmd "%d %d" print
 		scr 'guiedita gui
 		cmano ;
 
