@@ -98,13 +98,13 @@
 :dicc>nro | w -- n
 	'indicepal - 4 >> ;
 
-:src>nro
-	inisrc - ;
+:src>nro | -- n    nro actual de palabra
+	indicepal> 'indicepal - 4 >> ;
 
 |----------- compilar codigo
-:,,defc | n --  define codigo
+:,,defc | --  define codigo
 	src>nro 8 << 1 or ,, ;
-:,,defv | n --  define variable
+:,,defv | --  define variable
 	src>nro 8 << 2 or ,, ;
 :,,litd | n --	numero decimal
 	,cte 8 << 3 or ,, ;
@@ -185,9 +185,12 @@
 :labelfix	c.pop prog> 4 - dup @ rot prog> - 8 << or swap ! ;
 
 :finpalabra
-	prog> indicepal> 12 - @ - 2 >>
-	indicepal> 4 - ! | falta palabra anterior
-	;
+	indicepal> 4 -
+	( dup @ 0? )( | mientras no tiene largo
+		drop
+		prog> over 8 - @ - 2 >> over !
+		16 - )
+	2drop ;
 
 :c;     c.cnt 0? ( dup 'estado ! finpalabra ) drop ;
 :c(     salto 1? ( hole 1 )( label 2 ) c.push drop ;
@@ -231,7 +234,6 @@
 
 :cerrarpalabra | -- guardar info de ultima definicion
 	c.cnt 1? ( "Bloque mal cerrado" 'msg ! 0 rdrop ; ) drop |	testear el c.pila... debe estar en 0
-|	finpalabra  |****
 	0 'salto ! ;
 
 :+dic | tipo mem nombre  --
@@ -239,7 +241,8 @@
 	0 over ! 'indicepal> ! ;
 
 :esboot
-	prog> '<<boot ! 3 'estado ! ":" ,,defc
+	prog> '<<boot ! 3 'estado !
+	,,defc
 	0 prog> "" +dic
 	1+ ;
 
@@ -249,7 +252,7 @@
 	1+ dup c@ | adr adr+1 c
 	33 <? ( drop esboot ; ) | boot
 	$3A =? ( swap 1+ swap %10 )( 0 ) nip | exporta bit 2
-	over ,,defc
+	,,defc
 	over
 	dup ?macro 1? ( 2drop " es reservado" seterror drop 0 ; ) drop
 	?palabra 1? ( 3drop " ya existe" seterror 2 - 0 ; ) drop
@@ -262,7 +265,7 @@
 	1+ dup c@
 	33 <? ( drop "# solo" 'msg ! 0 ; )
 	$3A =? ( swap 1+ swap %10 )( 0 ) nip | exporta bit 2
-	over ,,defv
+	,,defv
 	over
 	dup ?macro 1? ( 4drop "base no definible" 'msg ! 0 ; ) drop
 	?palabra 1? ( 3drop " ya existe" seterror 2 - 0 ; ) drop
