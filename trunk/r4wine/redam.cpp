@@ -42,7 +42,7 @@ HWND        hWnd;
 WNDCLASSA   wc;
 MSG         msg;
 DEVMODE     screenSettings;  
-DWORD       dwExStyle, dwStyle; 
+DWORD       dwExStyle, dwStyle;
 RECT        rec; 
 int         active;
 
@@ -58,7 +58,7 @@ int     buffersize;
 
 static const char wndclass[] = ":r4";
 
-//#define LOGMEM 
+//#define LOGMEM
 //#define ULTIMOMACRO 6
 //char *macrose[]={ ";","LIT","ADR","CALL","JMP","JMPR" };
 
@@ -498,7 +498,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case MOVEA: // | de sr cnt --
          W=(*(NOS-1))+(TOS<<2);W1=(*NOS)+(TOS<<2);
          while (TOS--) { W-=4;W1-=4;*(int *)W=*(int *)W1; }         
-         NOS-=2;TOS=*NOS;NOS--;         
+         NOS-=2;TOS=*NOS;NOS--;
          continue;
     case CMOVED: // | de sr cnt --
          W=*(NOS-1);W1=*NOS;    
@@ -630,7 +630,7 @@ BYTE *lastcall=NULL;
 void aprognro(int n) // graba nro como literal
 { BYTE *p=&prog[cntprog];lastcall=NULL;
 if (n>=0 && n<255-ULTIMAPRIMITIVA) { 
-  *p=ULTIMAPRIMITIVA+n;cntprog++; 
+  *p=ULTIMAPRIMITIVA+n;cntprog++;
 } else {
   *p=LIT;p++;*(int *)p=(int)n;
   cntprog+=5; } }
@@ -894,7 +894,7 @@ otrapalabra:
 		  case 5: unidad=desapila();break;		 // ]
           default: 
 			sprintf(error,"palabra %s en dato ?",palabra);goto error;  }           
-        break; // graba numero 
+        break; // graba numero
       case E_PROG:// ? ( . )( . )  ( . ? )  ( . ? )( . )  ( . ) 
         switch (numero) {
           case 0:// ; fin de dato
@@ -1022,7 +1022,7 @@ FILE *stream;
 stream=fopen("runtime.err","w+");
 fprintf(stream,"%s\r",linea);
 
-fprintf(stream,"IP: %d %d\r",(int)e->ContextRecord->Ebx-(int)prog,(int)e->ContextRecord->Ecx);// ebx=IP
+fprintf(stream,"IP: %d %d\r",(int)e->ContextRecord->Ebx-(int)prog,(int)e->ContextRecord->Edx);// ebx=IP
 fprintf(stream,"D: ");
 i=(int)PSP;
 if (((int)e->ContextRecord->Esi-i)>32) 
@@ -1035,12 +1035,12 @@ for (;i<(int)e->ContextRecord->Esi;i+=4)
 fprintf(stream,"%d )\r",e->ContextRecord->Edi);    // edi=TOS    
 fprintf(stream,"R: ");
 i=(int)RSP;
-if (((int)e->ContextRecord->Edx-i)>32) 
+if (((int)e->ContextRecord->Eax-i)>32) 
    {
    fprintf(stream,"... ");
-   i=((int)e->ContextRecord->Edx)-32;
+   i=((int)e->ContextRecord->Eax)-32;
    }
-for (;i<=(int)e->ContextRecord->Edx;i+=4)
+for (;i<=(int)e->ContextRecord->Eax;i+=4)
     fprintf(stream,"%d ",*(int*)i);
 fprintf(stream,")\r");
 /*

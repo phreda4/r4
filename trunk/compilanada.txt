@@ -9,8 +9,8 @@
 #macros
 ";" "(" ")" ")(" "[" "]" "EXEC"
 "0?" "+?" "-?" "1?" "=?" "<?" ">?" "<=?" ">=?" "<>?" "AND?" "NAND?"
-"DUP" "DROP" "OVER" "PICK2" "PICK3" "PICK4" "SWAP" "NIP" "ROT"  |--- pila
-"2DUP" "2DROP" "3DROP" "4DROP" "2OVER" "2SWAP"
+"DUP" "DROP" "OVER" "PICK2" "PICK3" "PICK4" "SWAP" "NIP"   |--- pila
+"ROT" "2DUP" "2DROP" "3DROP" "4DROP" "2OVER" "2SWAP"
 ">R" "R>" "R" "R+" "R@+" "R!+" "RDROP" |--- pila direcciones
 "AND" "OR" "XOR" "NOT"                 |--- logicas
 "+" "-" "*" "/" "*/" "*>>" "/MOD" "MOD" "ABS"  |--- aritmeticas
@@ -28,9 +28,9 @@
 "IPEN!" "XYMOUSE" "BMOUSE" |-------- mouse
 "IKEY!" "KEY"           |-------- teclado
 "IJOY!" "CNTJOY" "GETJOY"      |-------- joystick
-"SLOAD" "SPLAY" "MLOAD" "MPLAY"     |-------- sonido
-"INET!"                 |-------- red
-"LISTEN" "CONECT" "SEND" "RECV" "NBI"
+"SLOAD" "SPLAY" "MLOAD" "MPLAY"			|-------- sonido
+"LISTEN" "CONECT" "SEND" "RECV" "NBI"	|-------- red
+"TIMER"
 ( 0 )
 
 #ULTIMAP
@@ -104,54 +104,61 @@
 :8g | code --
 	prog> c!+ 'prog> ! ;
 
-:cLIT	1 8g ; 
-:cADR	2 8g ; 
-:cCALL	3 8g ; 
+:cLIT	1 8g ;
+:cADR	2 8g ;
+:cCALL	3 8g ;
 :cJMP	4 8g ;
-:cDUP	18 8g ; 
-:cDROP	19 8g ; 
+:cJMPR	5 8g ;
+
+:cDUP	18 8g ;
+:cDROP	19 8g ;
 :cNIP	22 8g ;
 
 :32g | nro32 --
 	drop 4 'prog> +! ;
-	
-:hole	
-	prog> >pilac 1 'prog> +! ;
-:holefix	
+
+:callxjump
+	4 prog> 5 - c! ;
+
+|------------- llenar los lugares
+:hole
+	prog> >pilac
+	1 'prog> +! ;
+:holefix
 	<pilac drop ; | prog> over - swap c! ;
 :label
 	prog> >pilac ;
 :labelfix
-	<pilac prog> -  8g ;
+	<pilac prog> - 8g ;
 
-:macro;		
-	lastcall 0? ( 0 8g  ) drop ; | <-- falta cambiar call por jmp
-:macro(		
+:macro;
+	lastcall 0? ( 0 8g )( callxjump ) drop ; | <-- falta cambiar call por jmp
+:macro(
 	salto 1? ( hole 1 )( label 2 ) >pilac drop ;
-:macro)(	
-	<pilac salto 0? ( drop 
-				1 =? ( drop cJMP hole <pilac holefix >pilac 1 >pilac ; )
-			)( drop 
-				2 =? ( drop <pilac hole >pilac 3 >pilac ; ) ) drop
-			")( error" 'error ! 
-			0 ;
-:macro)		
+:macro)(
 	<pilac salto 0? ( drop
-				1 =? ( drop holefix ; ) 
-				2 =? ( drop cJMP labelfix ; ) 
-				3 =? ( drop cJMP labelfix holefix ; )
-			)( drop	
-				2 =? ( drop labelfix ; ) ) drop
-			") error" 'error ! 
+				1 =? ( drop cJMPR hole <pilac holefix >pilac 1 >pilac ; )
+			)( drop
+				2 =? ( drop <pilac hole >pilac 3 >pilac ; ) ) drop
+			")( error" 'error !
 			0 ;
-:macro[ 
-	cJMP hole label 4 >pilac ;
- :macro] 
+:macro)
+	<pilac salto 0? ( drop
+				1 =? ( drop holefix ; )
+				2 =? ( drop cJMPR labelfix ; )
+				3 =? ( drop cJMPR labelfix holefix ; )
+			)( drop
+				2 =? ( drop labelfix ; ) ) drop
+			") error" 'error !
+			0 ;
+:macro[
+	cJMPR hole label 4 >pilac ;
+ :macro]
 	<pilac 4 <>? ( "] error" 'error ! 0 nip ; ) drop
 	<pilac holefix cLIT 32g ;
-		
+
 #fmacros 'macro; 'macro( 'macro)( 'macro) 'macro[ 'macro]
-	
+
 :macrod;	;
 :macrod(	unidad >pilac 'm8 'unidad ! ;
 :macrod)(	'mcnt 'unidad ! ;
@@ -162,10 +169,10 @@
 #dmacros 'macrod; 'macrod( 'macrod)( 'macrod) 'macrod[ 'macrod]
 
 |======================================================
-|---- Agrega palabra al diccionario	
+|---- Agrega palabra al diccionario
 :copyn | src buf -- src' buf'
     swap ( c@+ 32 >? )( toupp rot c!+ swap ) drop 0 rot c!+ ;
-	
+
 |-------------------------------------------------------------------
 :escadena | a -- a' graba cadena  "....."",..."
 	0 'lastcall !
@@ -208,7 +215,7 @@
 	0 'lastcall !
 	0 'salto !
 	modo 0? ( drop 
-		0 >=? ( ULTIMAP <? ( ULTIMAP + 8g ; ) )
+		0 >=? ( 255 ULTIMAP - <? ( ULTIMAP + 8g ; ) )
 		cLIT 32g )( drop unidad exec  ) ;
 
 :espalabra | adr nro -- adr
@@ -373,7 +380,7 @@
 	;
 
 ::imprimepals
-	'indicepal ( indice> <? )( 
+	'indicepal ( indice> <? )(
 		dup 'indicepal - 'dirpal + @ 
 		idato >=? ( idato - violeta )( iprog - verde )
 		"%d " print
