@@ -103,6 +103,7 @@
 :cADR	2 8g ;
 :cCALL	3 8g ;
 :cJMP	4 8g ;
+:cJMPR	5 8g ;
 :cDUP	18 8g ;
 :cDROP	19 8g ;
 :cNIP	22 8g ;
@@ -111,9 +112,7 @@
 	prog> !+ 'prog> ! ;
 
 :callxjump
-	prog> 6 - dup
-	c@ 3 <>? ( 2drop ; ) drop
-	4 swap ! ;
+	4 prog> 5 - c! ;
 
 |------------- llenar los lugares
 :hole
@@ -128,28 +127,28 @@
 
 |-------- macros
 :macro;
-	lastcall 0? ( 0 8g callxjump ) drop ; | <-- falta cambiar call por jmp
+	lastcall 0? ( 0 8g )( callxjump ) drop ; | <-- falta cambiar call por jmp
 :macro(
 	salto 1? ( hole 1 )( label 2 ) >pilac drop ;
 :macro)(
 	<pilac salto 0? ( drop
-				1 =? ( drop cJMP hole <pilac holefix >pilac 1 >pilac ; )
+				1 =? ( drop cJMPR hole <pilac holefix >pilac 1 >pilac ; )
 			)( drop
 				2 =? ( drop <pilac hole >pilac 3 >pilac ; ) ) drop
 			")( error" 'error !
 			0 ;
 :macro)
 	<pilac salto 0? ( drop
-				1 =? ( drop trace holefix ; )
-				2 =? ( drop cJMP labelfix ; )
-				3 =? ( drop cJMP labelfix holefix ; )
+				1 =? ( drop holefix ; )
+				2 =? ( drop cJMPR labelfix ; )
+				3 =? ( drop cJMPR labelfix holefix ; )
 			)( drop
 				2 =? ( drop labelfix ; ) ) drop
 			") error" 'error !
 			0 ;
 :macro[
-	cJMP hole label 4 >pilac ;
- :macro]
+	cJMPR hole label 4 >pilac ;
+:macro]
 	<pilac 4 <>? ( "] error" 'error ! 0 nip ; ) drop
 	<pilac holefix cLIT 32g ;
 
@@ -211,7 +210,7 @@
 	0 'lastcall !
 	0 'salto !
 	modo 0? ( drop
-		0 >=? ( ULTIMAP <? ( ULTIMAP + 8g ; ) )
+		0 >=? ( 255 ULTIMAP - <? ( ULTIMAP + 8g ; ) )
 		cLIT 32g )( drop unidad exec  ) ;
 
 :espalabra | adr nro -- adr
@@ -240,8 +239,8 @@
 		"macro en dato" 'error !
 		0 )
 	;
-|---------------------------------------------------------------------
 
+|---------------------------------------------------------------------
 :?palabra | str -- str' nro 1 / str 0
 	'indicepal ( @+ 1? )( 			| str ind pal
 		pick2 =word= 1? (										| str ind dir 1
@@ -329,7 +328,7 @@
 	drop dup ?palabra 1? ( drop rot drop espalabra ; ) drop
 	"No existe" 'error !
 	dup 'error> !
-	 0 ;
+	0 ;
 
 |---- inicializa
 :clearall
@@ -361,33 +360,15 @@
 		drop 0? ( drop dup 'error> ! ; )
 		drop
 		0? )  drop
-	79 8g | end 76 antes
+|	79 8g | end 76 antes solo no es fin la ultima
 	0 ;
 
-|--------------------------------------
-:pfin	";%." print ;
-:plit	dup @ "lit %h " print 4+ ;
-:padr	dup @ "adr %h " print 4+ ;
-:pcall	dup @ "call %h " print 4+ ;
-:pjmp	dup @ "jmp %h " print 4+ ;
-
-#printin 'pfin 'plit 'padr 'pcall 'pjmp
-
-:impr | nro --
-	5 <? ( 2 << 'printin + @ exec ; )
-	15 <? ( 1+ 2 << 'indicemac + @ print dup @ "j %h " print  4+ ; )
-	1+ 2 << 'indicemac + @ print " " print ;
-
-::printcode
-	iprog ( prog> <? )( c@+
-		impr	| "%d " j.print
-		) drop ;
 
 ::printpilac
 	'pilac pilac> =? ( drop ; )
 	rojo
 	"%.:>" print
-	( pilac> <? )( @+ "%d " print ) drop 
+	( pilac> <? )( @+ "%d " print ) drop
 	"%." print ;
 
 #cntusadas 0
@@ -395,8 +376,8 @@
 :solousadas
 	0 'cntusadas !
 	" " print
-	'indicepal ( @+ 1? )( 
-		over 'indicepal - 
+	'indicepal ( @+ 1? )(
+		over 'indicepal -
 		dup  'infopal + 4 - @
 		swap 'cntpalcal + 4 - @ 0? ( azul )( verde 1 'cntusadas +! ) "%d-%d-%s  " print
 		 ) 2drop "%." print
@@ -405,7 +386,7 @@
 ::dumptoken
 	blanco
 	'indexinc ( indexinc> <? )( dup 'indexinc - 'incmem + @ swap
-		@+ "%s  " print nip |swap 1? ( "x" )( "o" ) rojo j.s	drop
+		@+ "%s  " print nip |swap 1? ( "x" )( "o" ) rojo s	drop
 		) drop
 	"%." print
 	verde solousadas
@@ -418,21 +399,41 @@
 	dato> idato - "DATA: %d bytes%." print
 	<<boot iprog - "Boot:%d%." print
 |	dup errordir error "%s %s (%d) %." print
-
+|	printcode
 |	dup error 0? ( "OK" nip )
 |	"%s (%d) %." print
-
-|	pick3 pick3 pick3 pick3 "%d %d %d %d " print
 
 	rojo printpilac
 	;
 
 ::saveimage
-	dato> $ffff + 'here !	| ultimo dato+64k
+	dato> $3ffff + 'here !	| ultimo dato+256k
 	<<boot ,
 	dato> idato - ,
 	prog> iprog - ,
 	here iprog prog> over - dup 'here +! cmove
 	here idato dato> over - dup 'here +! cmove
-	dato> $ffff + here over - "test.r4x" save
+	dato> $3ffff + here over - "test.r4x" save
+	;
+
+|--------------------------------------
+:pfin	";%." ,print ;
+:plit	@+ "lit %h " ,print ;
+:padr	@+ "adr %h " ,print ;
+:pcall	@+ "call %h " ,print ;
+:pjmp	@+ "jmp %h " ,print ;
+:pjmpr	c@+ "(%d) " ,print ;
+#printin 'pfin 'plit 'padr 'pcall 'pjmp 'pjmpr
+
+:impr | nro --
+	6 <? ( 2 << 'printin + @ exec ; )
+	6 >? ( 19 <? ( 2 << 'indicemac + @ ,print c@+ "(%d) " ,print ; ) )
+	ULTIMAP >=? ( ULTIMAP - "%d " ,print ; )
+	2 << 'indicemac + @ ,print " " ,print
+	;
+
+::savecode
+	dato> $3ffff + 'here !	| ultimo dato+256k
+	iprog ( prog> <? )( c@+ $ff and impr ) drop
+	dato> $3ffff + here over - "test.vm4" save
 	;

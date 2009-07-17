@@ -478,6 +478,14 @@ return ((max<<8)+(max<<3)-(max<<4)-(max<<1)+
         (min<<7)-(min<<5)+(min<<3)-(min<<1));
 }
 
+/*
+int *mtext;
+inline int texture(int dx,int dy)
+{
+return *(mtext+((dx&0xff+(dy<<8)&0xff00)<<2));
+}
+*/
+
 void _FlineaDR(int y,Segm *m1,Segm *m2)
 {
 register DWORD *gr_pos;
@@ -516,7 +524,7 @@ if (ex3>=0) { // lleno
     if (ex2<0) { rx+=MA*(-ex2);ry+=MB*(-ex2);ex2=0; }
     if (ex3>gr_ancho) ex3=gr_ancho;
     cnt=ex3-ex2;if (cnt>0) cnt--;
-    while (cnt--) { 
+    while (cnt--) {
         mixcolor(col1,col2,dist(rx,ry)>>16);
         gr_pixel(gr_pos);gr_pos++; 
         rx+=MA;
@@ -580,7 +588,7 @@ for (;yMin<yMax;) {
              pact--;
              }
           }
-    }    
+    }
 yMin=gr_alto+1;
 yMax=-1;
 cntSegm=0;
