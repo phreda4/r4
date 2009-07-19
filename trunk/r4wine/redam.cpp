@@ -1016,44 +1016,46 @@ if(fclose(stream)) return;
  #ifdef WIN32
 LONG WINAPI MyUnhandledExceptionFilter(LPEXCEPTION_POINTERS e) 
 {
-int i;     
+int i,j;     
 
 FILE *stream;
 stream=fopen("runtime.err","w+");
 fprintf(stream,"%s\r",linea);
 
-fprintf(stream,"IP: %d %d\r",(int)e->ContextRecord->Ebx-(int)prog,(int)e->ContextRecord->Edx);// ebx=IP
+fprintf(stream,"IP: %d %d\r",(int)e->ContextRecord->Ebx-(int)prog-1,(int)e->ContextRecord->Edx);// ebx=IP
 fprintf(stream,"D: ");
 i=(int)PSP;
-if (((int)e->ContextRecord->Esi-i)>32) 
+j=(int)e->ContextRecord->Esi;
+if ((j-i)>32) 
    {
-   fprintf(stream,"... ");
-   i=((int)e->ContextRecord->Esi)-32;
+   i=j-32;
    }
-for (;i<(int)e->ContextRecord->Esi;i+=4)
+for (;i<j;i+=4)
     fprintf(stream,"%d ",*(int*)i);
 fprintf(stream,"%d )\r",e->ContextRecord->Edi);    // edi=TOS    
 fprintf(stream,"R: ");
 i=(int)RSP;
-if (((int)e->ContextRecord->Eax-i)>32) 
+j=(int)e->ContextRecord->Ecx;
+if ((j-i)>32) 
    {
-   fprintf(stream,"... ");
-   i=((int)e->ContextRecord->Eax)-32;
+   i=j-32;
    }
-for (;i<=(int)e->ContextRecord->Eax;i+=4)
+for (;i<=j;i+=4)
     fprintf(stream,"%d ",*(int*)i);
 fprintf(stream,")\r");
-/*
-//fprintf(stream,"Esi: %d ",(int)e->ContextRecord->Esi);
-//fprintf(stream,"PSP: %d ",(int)PSP);
-//fprintf(stream,"Eax: %d \r",(int)e->ContextRecord->Eax);
-//fprintf(stream,"Ecx: %d \r",(int)e->ContextRecord->Ecx);
-//fprintf(stream,"Edx: %d \r",(int)e->ContextRecord->Edx);
-//fprintf(stream,"RSP: %d \r",(int)RSP);
-*/
 
 fprintf(stream,"code:%d cnt:%d\r",&prog,cntprog);
 fprintf(stream,"data:%d cnt:%d\r",&data,cntdato);
+/*
+fprintf(stream,"Esi:%d\r",(int)e->ContextRecord->Esi);
+fprintf(stream,"Edi:%d\r",(int)e->ContextRecord->Edi);
+fprintf(stream,"Eax:%d\r",(int)e->ContextRecord->Eax);
+fprintf(stream,"Ebx:%d\r",(int)e->ContextRecord->Ebx);
+fprintf(stream,"Ecx:%d\r",(int)e->ContextRecord->Ecx);
+fprintf(stream,"Edx:%d\r",(int)e->ContextRecord->Edx);
+fprintf(stream,"PSP:%d\r",(int)PSP);
+fprintf(stream,"RSP:%d\r",(int)RSP);
+*/
 fclose(stream);
 return SHUTDOWN_NORETRY; //return EXCEPTION_CONTINUE_SEARCH;
 }
