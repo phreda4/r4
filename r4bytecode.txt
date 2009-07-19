@@ -19,9 +19,9 @@
 "MOVE" "MOVE>" "CMOVE" "CMOVE>"
 "MEM" "DIR" "FILE" "FSIZE" "VOL" "LOAD" "SAVE"			|--- memoria bloques
 "UPDATE" "MSEC" "TIME" "DATE" "END" "RUN" 				|--- sistema
-"SW" "SH" "CLS" "REDRAW" "FRAMEV"  				|--- pantalla
+"SW" "SH" "CLS" "REDRAW" "FRAMEV"  						|--- pantalla
 "SETXY" "PX+!" "PX!+" "PX@"
-"PAPER" "INK" "INK@" "ALPHA"					|--- color
+"PAPER" "INK" "INK@" "ALPHA"							|--- color
 "OP" "CP" "LINE" "CURVE" "PLINE" "PCURVE" "POLI"		|--- dibujo
 "FCOL" "FCEN" "FMAT" "SFILL" "LFILL" "RFILL"
 "IPEN!" "XYMOUSE" "BMOUSE"
@@ -205,15 +205,13 @@
 		cLIT 32g )( drop unidad exec  ) ;
 
 :espalabra | adr nro -- adr
-	0 'lastcall !
-	0 'salto !
+	0 'lastcall ! 0 'salto !
 	modo 0? ( drop
 		wtipo 1 and 0? ( drop cCALL wadr 32g 1 'lastcall ! )( drop cADR wadr 32g )
 	)( drop wadr m32 ) ;
 
 :esdir	| adr nro -- adr
-	0 'lastcall !
-	0 'salto !
+	0 'lastcall ! 0 'salto !
 	wadr
 	modo 0? ( drop cLIT 32g )( drop m32 ) ;
 
@@ -283,7 +281,6 @@
 	$5e =? ( drop esinc ; )		| $5e ^  Include
 	drop esnad ;
 
-
 :loadincludes | fuente --
 	dup ( c@+ 1? )( drop ) drop 1+ 'here ! | saltear 1er fuente
 	'indexinc 'indexinc> !
@@ -344,8 +341,7 @@
 	here $3ffff + dup 'idato ! 'dato> !	| resto dato+libre
 	0 '<<boot !
 	0 swap | 0 corta los includes
-	( ( palabra 0? )
-		ultsindat
+	( (	palabra 0? )
 		indice> 'locales ! | ignorar locales
 		drop 0? ( drop dup 'error> ! ; )
 		drop
@@ -357,42 +353,34 @@
 ::printpilac
 	'pilac pilac> =? ( drop ; )
 	rojo
-	"%.:>" print
+	"PILAC:>" print
 	( pilac> <? )( @+ "%d " print ) drop
-	"%." print ;
+	cr ;
 
-:solousadas
-	" " print
-	'indicepal ( @+ 1? )(
-		over
-		'indicepal - 'infopal + 4 - @
-		"%h-%s  " print
-		lout? 1? ( cr ) drop
-		 ) 2drop
-	cr
+:cadapal
+	over 'indicepal - 'infopal + 4 - @
+	1 nand? ( rojo )( violeta 2drop ; ) drop
+	over 'indicepal - 'dirpal + 4 - @ swap
+	"%s %d " print
 	;
 
-::dumptoken
-	blanco
-	'indexinc ( indexinc> <? )( dup 'indexinc - 'incmem + @ swap
-		@+ "%s  " print nip |swap 1? ( "x" )( "o" ) rojo s	drop
-		) drop
-	"%." print
-	verde solousadas
-|	'pilac ( <pilac <? )( @+ "%d " print ) drop
-	azul
-	indice> 'indicepal - 2 >> azul "%d palabras" print
-	verde cr
-	lastpal 'palabras - "Nombres: %d bytes%." print
-	prog> iprog - "CODE: %d bytes%." print
-	dato> idato - "DATA: %d bytes%." print
-	<<boot iprog - "Boot:%d%." print
-|	dup errordir error "%s %s (%d) %." print
-|	printcode
-|	dup error 0? ( "OK" nip )
-|	"%s (%d) %." print
+:diccionario
+	'indicepal ( @+ 1? )(
+		cadapal
+		lout? 1? ( cr ) drop
+|		cr
+		 ) 2drop
+	cr ;
 
-	rojo printpilac
+::dumptoken
+	diccionario
+	verde
+	indice> 'indicepal - 2 >> "%d palabras" print cr
+|	lastpal 'palabras - "Nombres: %d bytes" print cr
+	prog> iprog - "CODE: %d bytes" print cr
+	dato> idato - "DATA: %d bytes" print cr
+	<<boot iprog - "Boot:%d" print cr
+	printpilac
 	;
 
 ::saveimage
@@ -405,7 +393,7 @@
 	dato> $3ffff + here over - "test.r4x" save
 	;
 
-|--------------------------------------
+|------------- guarda codigo comp en test.vm4
 :pfin	";%." ,print ;
 :plit	@+ "lit %h " ,print ;
 :padr	@+ "adr %h " ,print ;
@@ -414,7 +402,7 @@
 :pjmpr	c@+ "(%d) " ,print ;
 #printin 'pfin 'plit 'padr 'pcall 'pjmp 'pjmpr
 
-:impr | nro --
+::,code | adr nro -- adr
 	6 <? ( 2 << 'printin + @ exec ; )
 	6 >? ( 19 <? ( 2 << 'indicemac + @ ,print c@+ "(%d) " ,print ; ) )
 	ULTIMAP >=? ( ULTIMAP - "%d " ,print ; )
@@ -423,6 +411,23 @@
 
 ::savecode
 	dato> $3ffff + 'here !	| ultimo dato+256k
-	iprog ( prog> <? )( c@+ $ff and impr ) drop
+	iprog ( prog> <? )( c@+ $ff and ,code ) drop
 	dato> $3ffff + here over - "test.vm4" save
 	;
+
+|------------- guarda codigo comp imprime
+:ppfin	";%." print ;
+:pplit	@+ "lit %h " print ;
+:ppadr	@+ "adr %h " print ;
+:ppcall	@+ "call %h " print ;
+:ppjmp	@+ "jmp %h " print ;
+:ppjmpr	c@+ "(%d) " print ;
+#printinp 'ppfin 'pplit 'ppadr 'ppcall 'ppjmp 'ppjmpr
+
+::printcode | adr nro -- adr
+	6 <? ( 2 << 'printinp + @ exec ; )
+	6 >? ( 19 <? ( 2 << 'indicemac + @ print c@+ "(%d) " print ; ) )
+	ULTIMAP >=? ( ULTIMAP - "%d " print ; )
+	2 << 'indicemac + @ print " " print
+	;
+
