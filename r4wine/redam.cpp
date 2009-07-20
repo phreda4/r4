@@ -248,12 +248,12 @@ FindClose(hFind);
 int interprete(BYTE *codigo)// 1=recompilar con nombre en linea
 {      
 if (codigo==NULL) return -1;
-register BYTE *IP=codigo;	// lugar del programa
 register int TOS;			// Tope de la pila PSP
 register int *NOS;			// Next of stack
 register BYTE **R;			// return stack
-register int W,W1;			// palabra actual y auxiliar
-register int *vcursor;
+BYTE *IP=codigo;	// lugar del programa // ebx
+int W,W1;			// palabra actual y auxiliar
+int *vcursor;
 
 SYSirqmouse=0;
 SYSirqteclado=0;
@@ -1035,7 +1035,7 @@ for (;i<j;i+=4)
 fprintf(stream,"%d )\r",e->ContextRecord->Edi);    // edi=TOS    
 fprintf(stream,"R: ");
 i=(int)RSP;
-j=(int)e->ContextRecord->Ecx;
+j=*(int*)(e->ContextRecord->Ebp-16); // es variable local 
 if ((j-i)>32) 
    {
    i=j-32;
@@ -1053,6 +1053,7 @@ fprintf(stream,"Eax:%d\r",(int)e->ContextRecord->Eax);
 fprintf(stream,"Ebx:%d\r",(int)e->ContextRecord->Ebx);
 fprintf(stream,"Ecx:%d\r",(int)e->ContextRecord->Ecx);
 fprintf(stream,"Edx:%d\r",(int)e->ContextRecord->Edx);
+fprintf(stream,"local:%d\r",*(int*)(e->ContextRecord->Ebp-16));
 fprintf(stream,"PSP:%d\r",(int)PSP);
 fprintf(stream,"RSP:%d\r",(int)RSP);
 */
