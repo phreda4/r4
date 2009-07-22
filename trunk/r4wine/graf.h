@@ -25,6 +25,7 @@ extern int gr_ancho,gr_alto;
 extern DWORD gr_color1,gr_color2,col1,col2;
 extern BYTE gr_alphav;
 extern int MA,MB,MTX,MTY; // matrix de transformacion
+extern int *mTex; // textura
 
 int gr_init(int XRES,int YRES);
 
@@ -46,6 +47,7 @@ void gr_alpha(void);
 void fillSol(void);
 void fillLin(void);
 void fillRad(void);
+void fillTex(void);
 //---- matriz transf
 inline void fillcent(int mx,int my)     { MTX=mx;MTY=my; }
 inline void fillmat(int a,int b)        { MA=a;MB=b; }

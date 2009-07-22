@@ -80,7 +80,7 @@ char *macros[]={// directivas del compilador
 "SETXY","PX+!","PX!+","PX@",
 "PAPER","INK","INK@","ALPHA", //--- color
 "OP","CP","LINE","CURVE","PLINE","PCURVE","POLI",//--- dibujo
-"FCOL","FCEN","FMAT","SFILL","LFILL","RFILL",
+"FCOL","FCEN","FMAT","SFILL","LFILL","RFILL","TFILL",
 "IPEN!","XYMOUSE","BMOUSE",//-------- mouse
 "IKEY!","KEY",          //-------- teclado
 "IJOY!","CNTJOY","GETJOY",     //-------- joystick
@@ -112,7 +112,7 @@ WIDTH,HEIGHT,CLS,REDRAW,FRAMEV,//--- pantalla
 SETXY,MPX,SPX,GPX,
 COLORF,COLOR,COLORA,ALPHA,//--- color
 OP,CP,LINE,CURVE,PLINE,PCURVE,POLI,//--- dibujo
-FCOL,FCEN,FMAT,SFILL,LFILL,RFILL, //--- pintado
+FCOL,FCEN,FMAT,SFILL,LFILL,RFILL,TFILL, //--- pintado
 IRMOU,XYMOUSE,BMOUSE,
 IRKEY,KEY,
 IRJOY,CNTJOY,GETJOY,
@@ -426,6 +426,8 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case SFILL: fillSol();continue;
     case LFILL: fillLin();continue;
     case RFILL: fillRad();continue;
+    case TFILL: mTex=(int*)TOS;fillTex();TOS=*NOS;NOS--;continue;
+
 //---- raton
     case IRMOU: SYSirqmouse=TOS;TOS=*NOS;NOS--;continue;
     case XYMOUSE: NOS++;*NOS=TOS;NOS++;*NOS=SYSXYM&0xffff;TOS=(SYSXYM>>16);continue;
