@@ -292,11 +292,11 @@ if (dy>dx) 	{
 }
 
 inline int abs(int a ) { return (a+(a>>31))^(a>>31); }
-inline int recta(int x1,int y1,int x2,int y2,int x3,int y3) { return abs((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1)); }
+inline int recta(int a1,int a2,int a3,int a4) { return abs(a1*a2-a3*a4); }
 
 void gr_splineiter(int x1,int y1,int x2,int y2,int x3,int y3)
 {
-if (recta(x1,y1,x2,y2,x3,y3)<1000)
+if (recta(x2-x1,y3-y1,x3-x1,y2-y1)<1000)
     { gr_line(x1>>4,y1>>4,x3>>4,y3>>4); return; }
 int x11=(x1+x2)>>1,y11=(y1+y2)>>1;
 int x21=(x2+x3)>>1,y21=(y2+y3)>>1;
@@ -313,7 +313,7 @@ gr_splineiter(x1<<4,y1<<4,x2<<4,y2<<4,x3<<4,y3<<4);
 // poligono
 void gr_iteracionSP(long x1,long y1,long x2,long y2,long x3,long y3)
 {
-if (recta(x1,y1,x2,y2,x3,y3)<1000)
+if (recta(x2-x1,y3-y1,x3-x1,y2-y1)<1000)
     { gr_psegmento(x1>>4,y1>>4,x3>>4,y3>>4);return; }
 long x11=(x1+x2)>>1,y11=(y1+y2)>>1;
 long x21=(x2+x3)>>1,y21=(y2+y3)>>1;
@@ -354,20 +354,23 @@ ii->deltax=t;
 cntSegm++;
 }
 
+//-------------------------------------------------
 void _FlineaSolido(int y,Segm *m1,Segm *m2)
 {
 register DWORD *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
+Segm *t;
+if (m1->x+m1->deltax>m2->x+m2->deltax)
+    { t=m1;m1=m2;m2=t; }
 if (m1->deltax<0)
    { x1=m1->x+m1->deltax;x2=m1->x; }
 else
-   { x2=m1->x+m1->deltax;x1=m1->x; }
+   { x1=m1->x;x2=m1->x+m1->deltax; }
 if (m2->deltax<0)
    { x3=m2->x+m2->deltax;x4=m2->x; }
 else
-   { x4=m2->x+m2->deltax;x3=m2->x; }
-
+   { x3=m2->x;x4=m2->x+m2->deltax; }
 int ex1=x1>>FBASE,ex2=x2>>FBASE;
 int ex3=x3>>FBASE,ex4=x4>>FBASE;
 if (ex4<0 || ex1>gr_ancho ) return;
@@ -384,13 +387,11 @@ if (ex2>0) { // entrada anti
     }
   }
 if (ex2==ex4) return;
-if (ex3>=0) { // lleno
-  if (ex3>ex2) {
+if (ex3>=0&&ex3>ex2) { // lleno
     if (ex2<0) ex2=0;
     if (ex3>gr_ancho) ex3=gr_ancho;
     cnt=ex3-ex2;if (cnt>0) cnt--;
     while (cnt--) { gr_pixel(gr_pos);gr_pos++; }
-   }
   }
 if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
@@ -403,6 +404,7 @@ if (ex4==ex3) { // punto solo
   }
 }
 
+//-------------------------------------------------
 inline void mixcolor(DWORD col1,DWORD col2,int niv)
 {
 //niv=niv&0xff;
@@ -418,6 +420,10 @@ void _FlineaDL(int y,Segm *m1,Segm *m2)
 register DWORD *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
+Segm *t;
+if (m1->x+m1->deltax>m2->x+m2->deltax)
+    { t=m1;m1=m2;m2=t; }
+
 if (m1->deltax<0)
    { x1=m1->x+m1->deltax;x2=m1->x; }
 else
@@ -448,8 +454,7 @@ if (ex2>0) { // entrada anti
     }
   }
 if (ex4==ex2) return;
-if (ex3>=0) { // lleno
-  if (ex3>ex2) {
+if (ex3>=0&&ex3>ex2) { // lleno
     if (ex2<0) { r+=MA*(-ex2);ex2=0; }
     if (ex3>gr_ancho) ex3=gr_ancho;
     cnt=ex3-ex2;if (cnt>0) cnt--;
@@ -458,7 +463,6 @@ if (ex3>=0) { // lleno
         gr_pixel(gr_pos);gr_pos++; 
         r+=MA;
         }
-   }
   }
 if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
@@ -487,6 +491,10 @@ void _FlineaDR(int y,Segm *m1,Segm *m2)
 register DWORD *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
+Segm *t;
+if (m1->x+m1->deltax>m2->x+m2->deltax)
+    { t=m1;m1=m2;m2=t; }
+
 if (m1->deltax<0)
    { x1=m1->x+m1->deltax;x2=m1->x; }
 else
@@ -515,8 +523,7 @@ if (ex2>0) { // entrada anti
     }
   }
 if (ex4==ex2) return;
-if (ex3>=0) { // lleno
-  if (ex3>ex2) {
+if (ex3>=0&&ex3>ex2) { // lleno
     if (ex2<0) { rx+=MA*(-ex2);ry+=MB*(-ex2);ex2=0; }
     if (ex3>gr_ancho) ex3=gr_ancho;
     cnt=ex3-ex2;if (cnt>0) cnt--;
@@ -526,7 +533,6 @@ if (ex3>=0) { // lleno
         rx+=MA;
         ry+=MB;
         }
-   }
   }
 if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
@@ -542,7 +548,7 @@ if (ex4==ex3) { // punto solo
 //---------------------------------------------------
 inline void texture(int dx,int dy)
 {
-gr_color1=*(mTex+((dx&0xff+(dy<<8)&0xff00)<<2));
+gr_color1=((int*)mTex)[(dx>>8)&0xff|(dy&0xff00)];
 }
 
 void _FlineaTX(int y,Segm *m1,Segm *m2)
@@ -550,6 +556,10 @@ void _FlineaTX(int y,Segm *m1,Segm *m2)
 register DWORD *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
+Segm *t;
+if (m1->x+m1->deltax>m2->x+m2->deltax)
+    { t=m1;m1=m2;m2=t; }
+
 if (m1->deltax<0)
    { x1=m1->x+m1->deltax;x2=m1->x; }
 else
@@ -562,9 +572,11 @@ else
 int ex1=x1>>FBASE,ex2=x2>>FBASE;
 int ex3=x3>>FBASE,ex4=x4>>FBASE;
 if (ex4<0 || ex1>gr_ancho ) return;
+
 int rx = MA*(ex2-MTX)-MB*(y-MTY);
 int ry = MB*(ex2-MTX)+MA*(y-MTY);
 texture(rx,ry);
+
 if (ex1>0) GR_SET(ex1,y) else GR_SET(0,y)
 if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
@@ -578,8 +590,7 @@ if (ex2>0) { // entrada anti
     }
   }
 if (ex4==ex2) return;
-if (ex3>=0) { // lleno
-  if (ex3>ex2) {
+if (ex3>=0&&ex3>ex2) { // lleno
     if (ex2<0) { rx+=MA*(-ex2);ry+=MB*(-ex2);ex2=0; }
     if (ex3>gr_ancho) ex3=gr_ancho;
     cnt=ex3-ex2;if (cnt>0) cnt--;
@@ -589,14 +600,13 @@ if (ex3>=0) { // lleno
         rx+=MA;
         ry+=MB;
         }
-   }
   }
 if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
   alpha=255<<8;da=(-255<<8)/(ex4-ex3);
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }    
-  if (ex4>=gr_ancho) ex4=gr_ancho; // que 
+  if (ex4>=gr_ancho) ex4=gr_ancho;
   cnt=ex4-ex3;
   while (cnt--) { gr_pixela(gr_pos,alpha>>8);gr_pos++;alpha+=da; }
   }
@@ -605,8 +615,8 @@ if (ex4==ex3) { // punto solo
 //----------------------------------------------------------
 void addlin(Segm *ii,int y) 
 {
-register int xr=ii->x;//+ii->deltax;
-if (y==ii->y) xr+=ii->deltax;
+register int xr=ii->x;
+//if (y==ii->y) xr+=ii->deltax; //*** quitar esto
 Segm **cursor=(xquisc-1);
 while (cursor>=xquis && (*cursor)->x>xr) {
       *(cursor+1)=*cursor;cursor--;
@@ -633,7 +643,12 @@ for (;yMin<yMax;) {
           jj++;
           }
     for (jj=xquis;jj+1<xquisc;jj+=2) {
-//        gr_hline((*jj)->x>>FBASE,yMin,(*(jj+1))->x>>FBASE);
+/*
+        gr_color1=0xff00;
+        gr_hline(((*jj)->x+(*jj)->deltax)>>FBASE,yMin,((*(jj+1))->x+(*(jj+1))->deltax)>>FBASE);
+        gr_color1=0xff;
+        gr_hline((*jj)->x>>FBASE,yMin,(*(jj+1))->x>>FBASE);
+*/
           fillpoly(yMin,*jj,*(jj+1));
           }
     jj=actual;
