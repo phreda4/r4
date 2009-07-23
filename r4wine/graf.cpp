@@ -540,9 +540,9 @@ if (ex4==ex3) { // punto solo
 }
 
 //---------------------------------------------------
-inline int texture(int dx,int dy)
+inline void texture(int dx,int dy)
 {
-return *(mTex+((dx&0xff+(dy<<8)&0xff00)<<2));
+gr_color1=*(mTex+((dx&0xff+(dy<<8)&0xff00)<<2));
 }
 
 void _FlineaTX(int y,Segm *m1,Segm *m2)
@@ -564,7 +564,7 @@ int ex3=x3>>FBASE,ex4=x4>>FBASE;
 if (ex4<0 || ex1>gr_ancho ) return;
 int rx = MA*(ex2-MTX)-MB*(y-MTY);
 int ry = MB*(ex2-MTX)+MA*(y-MTY);
-col1=texture(rx,ry);
+texture(rx,ry);
 if (ex1>0) GR_SET(ex1,y) else GR_SET(0,y)
 if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
@@ -584,7 +584,7 @@ if (ex3>=0) { // lleno
     if (ex3>gr_ancho) ex3=gr_ancho;
     cnt=ex3-ex2;if (cnt>0) cnt--;
     while (cnt--) {
-        col1=texture(rx,ry);
+        texture(rx,ry);
         gr_pixel(gr_pos);gr_pos++; 
         rx+=MA;
         ry+=MB;
