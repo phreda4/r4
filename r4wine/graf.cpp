@@ -360,9 +360,6 @@ void _FlineaSolido(int y,Segm *m1,Segm *m2)
 register DWORD *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
-Segm *t;
-if (m1->x+m1->deltax>m2->x+m2->deltax)
-    { t=m1;m1=m2;m2=t; }
 if (m1->deltax<0)
    { x1=m1->x+m1->deltax;x2=m1->x; }
 else
@@ -373,7 +370,7 @@ else
    { x3=m2->x;x4=m2->x+m2->deltax; }
 int ex1=x1>>FBASE,ex2=x2>>FBASE;
 int ex3=x3>>FBASE,ex4=x4>>FBASE;
-if (ex4<0 || ex1>gr_ancho ) return;
+if (ex4<=0 || ex1>=gr_ancho ) return;
 if (ex1>0) GR_SET(ex1,y) else GR_SET(0,y)
 if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
@@ -386,11 +383,12 @@ if (ex2>0) { // entrada anti
     while (cnt--) { gr_pixela(gr_pos,alpha>>8);gr_pos++;alpha+=da; }
     }
   }
-if (ex2==ex4) return;
-if (ex3>=0&&ex3>ex2) { // lleno
+
+if (ex3<=ex2) return;
+if (ex3>0) { // lleno
     if (ex2<0) ex2=0;
     if (ex3>gr_ancho) ex3=gr_ancho;
-    cnt=ex3-ex2;if (cnt>0) cnt--;
+    cnt=ex3-ex2-1;
     while (cnt--) { gr_pixel(gr_pos);gr_pos++; }
   }
 if (ex4==ex3) { // punto solo
@@ -420,10 +418,6 @@ void _FlineaDL(int y,Segm *m1,Segm *m2)
 register DWORD *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
-Segm *t;
-if (m1->x+m1->deltax>m2->x+m2->deltax)
-    { t=m1;m1=m2;m2=t; }
-
 if (m1->deltax<0)
    { x1=m1->x+m1->deltax;x2=m1->x; }
 else
@@ -432,19 +426,16 @@ if (m2->deltax<0)
    { x3=m2->x+m2->deltax;x4=m2->x; }
 else
    { x4=m2->x+m2->deltax;x3=m2->x; }
-
 int ex1=x1>>FBASE,ex2=x2>>FBASE;
 int ex3=x3>>FBASE,ex4=x4>>FBASE;
-if (ex4<0 || ex1>gr_ancho ) return;
-
+if (ex4<=0 || ex1>=gr_ancho ) return;
 int r=MA*(ex2-MTX)-MB*(y-MTY);
 mixcolor(col1,col2,r>>8);
-
 if (ex1>0) GR_SET(ex1,y) else GR_SET(0,y)
+
 if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
     gr_pixela(gr_pos,255-(BYTE)((x1+x2)>>1));gr_pos++;
-    if (ex2==ex4) return;
   } else { // degrade
     alpha=0;da=(255<<8)/(ex2-ex1);
     if (ex1<0) { alpha+=da*(-ex1);ex1=0; }
@@ -453,11 +444,12 @@ if (ex2>0) { // entrada anti
     while (cnt--) { gr_pixela(gr_pos,alpha>>8);gr_pos++;alpha+=da; }
     }
   }
-if (ex4==ex2) return;
-if (ex3>=0&&ex3>ex2) { // lleno
+
+if (ex3<=ex2) return;
+if (ex3>0) { // lleno
     if (ex2<0) { r+=MA*(-ex2);ex2=0; }
     if (ex3>gr_ancho) ex3=gr_ancho;
-    cnt=ex3-ex2;if (cnt>0) cnt--;
+    cnt=ex3-ex2-1;
     while (cnt--) { 
         mixcolor(col1,col2,r>>8);
         gr_pixel(gr_pos);gr_pos++; 
@@ -491,10 +483,6 @@ void _FlineaDR(int y,Segm *m1,Segm *m2)
 register DWORD *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
-Segm *t;
-if (m1->x+m1->deltax>m2->x+m2->deltax)
-    { t=m1;m1=m2;m2=t; }
-
 if (m1->deltax<0)
    { x1=m1->x+m1->deltax;x2=m1->x; }
 else
@@ -503,10 +491,9 @@ if (m2->deltax<0)
    { x3=m2->x+m2->deltax;x4=m2->x; }
 else
    { x4=m2->x+m2->deltax;x3=m2->x; }
-
 int ex1=x1>>FBASE,ex2=x2>>FBASE;
 int ex3=x3>>FBASE,ex4=x4>>FBASE;
-if (ex4<0 || ex1>gr_ancho ) return;
+if (ex4<=0 || ex1>=gr_ancho ) return;
 int rx = MA*(ex2-MTX)-MB*(y-MTY);
 int ry = MB*(ex2-MTX)+MA*(y-MTY);
 mixcolor(col1,col2,dist(rx,ry)>>16);
@@ -522,11 +509,11 @@ if (ex2>0) { // entrada anti
     while (cnt--) { gr_pixela(gr_pos,alpha>>8);gr_pos++;alpha+=da; }
     }
   }
-if (ex4==ex2) return;
-if (ex3>=0&&ex3>ex2) { // lleno
+if (ex3<=ex2) return;
+if (ex3>0) { // lleno
     if (ex2<0) { rx+=MA*(-ex2);ry+=MB*(-ex2);ex2=0; }
     if (ex3>gr_ancho) ex3=gr_ancho;
-    cnt=ex3-ex2;if (cnt>0) cnt--;
+    cnt=ex3-ex2-1;
     while (cnt--) {
         mixcolor(col1,col2,dist(rx,ry)>>16);
         gr_pixel(gr_pos);gr_pos++; 
@@ -539,7 +526,7 @@ if (ex4==ex3) { // punto solo
 } else { // degrade
   alpha=255<<8;da=(-255<<8)/(ex4-ex3);
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }    
-  if (ex4>=gr_ancho) ex4=gr_ancho; // que 
+  if (ex4>gr_ancho) ex4=gr_ancho;
   cnt=ex4-ex3;
   while (cnt--) { gr_pixela(gr_pos,alpha>>8);gr_pos++;alpha+=da; }
   }
@@ -556,10 +543,6 @@ void _FlineaTX(int y,Segm *m1,Segm *m2)
 register DWORD *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
-Segm *t;
-if (m1->x+m1->deltax>m2->x+m2->deltax)
-    { t=m1;m1=m2;m2=t; }
-
 if (m1->deltax<0)
    { x1=m1->x+m1->deltax;x2=m1->x; }
 else
@@ -568,15 +551,12 @@ if (m2->deltax<0)
    { x3=m2->x+m2->deltax;x4=m2->x; }
 else
    { x4=m2->x+m2->deltax;x3=m2->x; }
-
 int ex1=x1>>FBASE,ex2=x2>>FBASE;
 int ex3=x3>>FBASE,ex4=x4>>FBASE;
-if (ex4<0 || ex1>gr_ancho ) return;
-
+if (ex4<=0 || ex1>=gr_ancho ) return;
 int rx = MA*(ex2-MTX)-MB*(y-MTY);
 int ry = MB*(ex2-MTX)+MA*(y-MTY);
 texture(rx,ry);
-
 if (ex1>0) GR_SET(ex1,y) else GR_SET(0,y)
 if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
@@ -589,11 +569,11 @@ if (ex2>0) { // entrada anti
     while (cnt--) { gr_pixela(gr_pos,alpha>>8);gr_pos++;alpha+=da; }
     }
   }
-if (ex4==ex2) return;
-if (ex3>=0&&ex3>ex2) { // lleno
+if (ex3<=ex2) return;
+if (ex3>0) { // lleno
     if (ex2<0) { rx+=MA*(-ex2);ry+=MB*(-ex2);ex2=0; }
     if (ex3>gr_ancho) ex3=gr_ancho;
-    cnt=ex3-ex2;if (cnt>0) cnt--;
+    cnt=ex3-ex2-1;
     while (cnt--) {
         texture(rx,ry);
         gr_pixel(gr_pos);gr_pos++; 
@@ -606,7 +586,7 @@ if (ex4==ex3) { // punto solo
 } else { // degrade
   alpha=255<<8;da=(-255<<8)/(ex4-ex3);
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }    
-  if (ex4>=gr_ancho) ex4=gr_ancho;
+  if (ex4>gr_ancho) ex4=gr_ancho;
   cnt=ex4-ex3;
   while (cnt--) { gr_pixela(gr_pos,alpha>>8);gr_pos++;alpha+=da; }
   }
@@ -616,11 +596,12 @@ if (ex4==ex3) { // punto solo
 void addlin(Segm *ii,int y) 
 {
 register int xr=ii->x;
-//if (y==ii->y) xr+=ii->deltax; //*** quitar esto
 Segm **cursor=(xquisc-1);
 while (cursor>=xquis && (*cursor)->x>xr) {
       *(cursor+1)=*cursor;cursor--;
       }
+if (cursor>=xquis && (*cursor)->x+(*cursor)->deltax > ii->x+ii->deltax) {
+    *(cursor+1)=*cursor;cursor--; }    
 *(cursor+1)=ii;
 xquisc++;
 }
