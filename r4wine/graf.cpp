@@ -21,6 +21,22 @@ HGLRC   hRC;
 
 //---- buffer de video
 DWORD gr_buffer[1280*1024] = { 0 };
+int tablainc[256]={0x0,0xFF00,0x7F80,0x5500,0x3FC0,0x3300,0x2A80,0x246D,0x1FE0,0x1C55,0x1980,0x172E,0x1540,0x139D,0x1236,0x1100,
+0xFF0,0xF00,0xE2A,0xD6B,0xCC0,0xC24,0xB97,0xB16,0xAA0,0xA33,0x9CE,0x971,0x91B,0x8CB,0x880,0x839,
+0x7F8,0x7BA,0x780,0x749,0x715,0x6E4,0x6B5,0x689,0x660,0x638,0x612,0x5EE,0x5CB,0x5AA,0x58B,0x56C,
+0x550,0x534,0x519,0x500,0x4E7,0x4CF,0x4B8,0x4A2,0x48D,0x479,0x465,0x452,0x440,0x42E,0x41C,0x40C,
+0x3FC,0x3EC,0x3DD,0x3CE,0x3C0,0x3B2,0x3A4,0x397,0x38A,0x37E,0x372,0x366,0x35A,0x34F,0x344,0x33A,
+0x330,0x325,0x31C,0x312,0x309,0x300,0x2F7,0x2EE,0x2E5,0x2DD,0x2D5,0x2CD,0x2C5,0x2BD,0x2B6,0x2AF,
+0x2A8,0x2A0,0x29A,0x293,0x28C,0x286,0x280,0x279,0x273,0x26D,0x267,0x262,0x25C,0x256,0x251,0x24C,
+0x246,0x241,0x23C,0x237,0x232,0x22D,0x229,0x224,0x220,0x21B,0x217,0x212,0x20E,0x20A,0x206,0x202,
+0x1FE,0x1FA,0x1F6,0x1F2,0x1EE,0x1EA,0x1E7,0x1E3,0x1E0,0x1DC,0x1D9,0x1D5,0x1D2,0x1CE,0x1CB,0x1C8,
+0x1C5,0x1C2,0x1BF,0x1BC,0x1B9,0x1B6,0x1B3,0x1B0,0x1AD,0x1AA,0x1A7,0x1A5,0x1A2,0x19F,0x19D,0x19A,
+0x198,0x195,0x192,0x190,0x18E,0x18B,0x189,0x186,0x184,0x182,0x180,0x17D,0x17B,0x179,0x177,0x175,
+0x172,0x170,0x16E,0x16C,0x16A,0x168,0x166,0x164,0x162,0x160,0x15E,0x15D,0x15B,0x159,0x157,0x155,
+0x154,0x152,0x150,0x14E,0x14D,0x14B,0x149,0x148,0x146,0x144,0x143,0x141,0x140,0x13E,0x13C,0x13B,
+0x139,0x138,0x136,0x135,0x133,0x132,0x131,0x12F,0x12E,0x12C,0x12B,0x12A,0x128,0x127,0x126,0x124,
+0x123,0x122,0x120,0x11F,0x11E,0x11D,0x11B,0x11A,0x119,0x118,0x116,0x115,0x114,0x113,0x112,0x111,
+0x110,0x10E,0x10D,0x10C,0x10B,0x10A,0x109,0x108,0x107,0x106,0x105,0x104,0x103,0x102,0x101,0x100};
 
 //---- variables internas
 int gr_ancho,gr_alto;
@@ -376,7 +392,10 @@ if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
     gr_pixela(gr_pos,255-(BYTE)((x1+x2)>>1));gr_pos++;
   } else { // degrade
-    alpha=0;da=(255<<8)/(ex2-ex1);
+    alpha=0;//    da=(255<<8)/(ex2-ex1);
+    da=(ex2-ex1);
+    if (da>0xff) da=tablainc[(da>>8)&0xff]>>8; else da=tablainc[da];
+
     if (ex1<0) { alpha+=da*(-ex1);ex1=0; }
     if (ex2>=gr_ancho) ex2=gr_ancho-1;
     cnt=ex2-ex1+1;
@@ -394,7 +413,11 @@ if (ex3>0) { // lleno
 if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
-  alpha=255<<8;da=(-255<<8)/(ex4-ex3);
+  alpha=255<<8;//da=(-255<<8)/(ex4-ex3);
+
+  da=(ex4-ex3);
+  if (da>0xff) da=-tablainc[(da>>8)&0xff]>>8; else da=-tablainc[da];
+
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }    
   if (ex4>gr_ancho) ex4=gr_ancho;
   cnt=ex4-ex3;
@@ -437,7 +460,10 @@ if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
     gr_pixela(gr_pos,255-(BYTE)((x1+x2)>>1));gr_pos++;
   } else { // degrade
-    alpha=0;da=(255<<8)/(ex2-ex1);
+    alpha=0;//da=(255<<8)/(ex2-ex1);
+    da=(ex2-ex1);
+    if (da>0xff) da=tablainc[(da>>8)&0xff]>>8; else da=tablainc[da];
+
     if (ex1<0) { alpha+=da*(-ex1);ex1=0; }
     if (ex2>=gr_ancho) ex2=gr_ancho-1;
     cnt=ex2-ex1+1;
@@ -459,7 +485,10 @@ if (ex3>0) { // lleno
 if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
-  alpha=255<<8;da=(-255<<8)/(ex4-ex3);
+  alpha=255<<8;//da=(-255<<8)/(ex4-ex3);
+  da=(ex4-ex3);
+  if (da>0xff) da=-tablainc[(da>>8)&0xff]>>8; else da=-tablainc[da];
+
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }    
   if (ex4>gr_ancho) ex4=gr_ancho;
   cnt=ex4-ex3;
@@ -502,7 +531,10 @@ if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
     gr_pixela(gr_pos,255-(BYTE)((x1+x2)>>1));gr_pos++;
   } else { // degrade
-    alpha=0;da=(255<<8)/(ex2-ex1);
+    alpha=0;//da=(255<<8)/(ex2-ex1);
+    da=(ex2-ex1);
+    if (da>0xff) da=tablainc[(da>>8)&0xff]>>8; else da=tablainc[da];
+
     if (ex1<0) { alpha+=da*(-ex1);ex1=0; }
     if (ex2>=gr_ancho) ex2=gr_ancho-1;
     cnt=ex2-ex1+1;
@@ -524,7 +556,10 @@ if (ex3>0) { // lleno
 if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
-  alpha=255<<8;da=(-255<<8)/(ex4-ex3);
+  alpha=255<<8;//da=(-255<<8)/(ex4-ex3);
+  da=(ex4-ex3);
+  if (da>0xff) da=-tablainc[(da>>8)&0xff]>>8; else da=-tablainc[da];
+
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }    
   if (ex4>gr_ancho) ex4=gr_ancho;
   cnt=ex4-ex3;
@@ -562,7 +597,10 @@ if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
     gr_pixela(gr_pos,255-(BYTE)((x1+x2)>>1));gr_pos++;
   } else { // degrade
-    alpha=0;da=(255<<8)/(ex2-ex1);
+    alpha=0;//da=(255<<8)/(ex2-ex1);
+    da=(ex2-ex1);
+    if (da>0xff) da=tablainc[(da>>8)&0xff]>>8; else da=tablainc[da];
+
     if (ex1<0) { alpha+=da*(-ex1);ex1=0; }
     if (ex2>=gr_ancho) ex2=gr_ancho-1;
     cnt=ex2-ex1+1;
@@ -584,7 +622,10 @@ if (ex3>0) { // lleno
 if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
-  alpha=255<<8;da=(-255<<8)/(ex4-ex3);
+  alpha=255<<8;//da=(-255<<8)/(ex4-ex3);
+  da=(ex4-ex3);
+  if (da>0xff) da=-tablainc[(da>>8)&0xff]>>8; else da=-tablainc[da];
+
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }    
   if (ex4>gr_ancho) ex4=gr_ancho;
   cnt=ex4-ex3;
@@ -593,7 +634,7 @@ if (ex4==ex3) { // punto solo
 }
 
 //----------------------------------------------------------
-void addlin(Segm *ii,int y) 
+void addlin(Segm *ii) 
 {
 register int xr=ii->x;
 Segm **cursor=(xquisc-1);
@@ -620,7 +661,7 @@ for (;yMin<yMax;) {
     xquisc=xquis;
     jj=actual;
     while (jj<pact) {
-          addlin(*jj,yMin);
+          addlin(*jj);
           jj++;
           }
     for (jj=xquis;jj+1<xquisc;jj+=2) {
