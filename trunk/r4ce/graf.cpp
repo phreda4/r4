@@ -453,136 +453,6 @@ x2=mx+((x2-mx)<<1);y2=my+((y2-my)<<1);
 gr_splineiter(x1<<4,y1<<4,x2<<4,y2<<4,x3<<4,y3<<4);
 }
 
-void gr_box(int x1,int y1,int x2,int y2)
-{
-if (y1>y2) swap(y1,y2);
-if (x1>x2) swap(x1,x2);
-if (x2<0 || y2<0 || x1>=gr_ancho || y1>=gr_alto) return;
-if ((unsigned)y1<(unsigned)gr_alto) gr_hline(x1,y1,x2);
-if ((unsigned)y2<(unsigned)gr_alto) gr_hline(x1,y2,x2);
-y1++;y2--;
-if ((unsigned)x1<(unsigned)gr_ancho) gr_vline(x1,y1,y2);
-if ((unsigned)x2<(unsigned)gr_ancho) gr_vline(x2,y1,y2);
-}
-
-void gr_fbox(int x1,int y1,int x2,int y2)
-{
-if (y1>y2) swap(y1,y2);
-if (x1>x2) swap(x1,x2);
-if (x2<0 || y2<0 || x1>=gr_ancho || y1>=gr_alto) return;
-if (x1<0) x1=0;
-if (y1<0) y1=0;
-if (x2>=gr_ancho)	x2=gr_ancho-1;
-if (y2>=gr_alto)	y2=gr_alto-1;
-register WORD *gr_pos;
-register WORD *pf;
-register WORD cnt=x2-x1;
-register int y=y1;
-do {
-	GR_SET(x1,y);pf=gr_pos+cnt;
-	do { gr_pixel(gr_pos);gr_pos++; } while (gr_pos<=pf);
-	y++;
-} while (y<=y2);
-}
-
-void gr_fboxv(int x1,int y1,int x2,int y2)
-{
-if (y1>y2) swap(y1,y2);
-if (x1>x2) swap(x1,x2);
-if (x2<0 || y2<0 || x1>=gr_ancho || y1>=gr_alto) return;
-WORD a1=0,a2=0xff;// unpack FFFF ff 00 // skew - in - out
-register int x=x1;
-do { gr_vlined(x,y1,y2,(BYTE)a1,(BYTE)a2);x++; } while (x<=x2);
-}
-
-void gr_fboxh(int x1,int y1,int x2,int y2)
-{
-if (y1>y2) swap(y1,y2);
-if (x1>x2) swap(x1,x2);
-if (x2<0 || y2<0 || x1>=gr_ancho || y1>=gr_alto) return;
-register int y=y1;
-WORD a1=0,a2=0xff;// unpack FFFF ff 00 // skew - in - out
-do { gr_hlined(x1,y,x2,(BYTE)a1,(BYTE)a2);y++; } while (y<=y2);
-}
-
-void gr_circle(int x,int y,int r)
-{
-if (r<2)
-	{
-	gr_setpixel(x,y);
-	return;
-	}
-int cx=0,cy=r;
-int df=1-r; 
-int d_e=3;
-int d_se=-2*r+5;
-bool cambio=false;
-WORD al;
-do {
-	al=(absi(df)<<8)/absi(d_e);
-	gr_setpixel(x+cx,y+cy);//gr_setpixela(x+cx,y+cy,al);DecXPos();SPixelA(255-al);
-	if (cx)	{ gr_setpixel(x-cx,y+cy);}//;IncYPos();SPixelA(255-al); }
-    if (cy)	{ gr_setpixel(x+cx,y-cy);}//,255-al);IncXPos();SPixelA(al); }
-    if ((cx) && (cy)) { gr_setpixel(x-cx,y-cy); }
-    if (cx!=cy) 
-		{
-		gr_setpixel(x+cy,y+cx);
-		if (cx) gr_setpixel(x+cy,y-cx);
-		if (cy) gr_setpixel(x-cy,y+cx);
-		if (cx && cy) gr_setpixel(x-cy,y-cx);
-		}
-    if (df<0)  
-		{df+=d_e;d_e +=2;d_se+=2;}
-	else 
-		{df+=d_se;d_e+=2;d_se+=4;cy--;} 
-	cx++; 
-} while (cx<=cy);
-}
-
-void gr_fillcircle(int x,int y,int r)
-{
-if (r<1)
-	{
-	gr_setpixel(x,y);
-	return;
-	}
-int cx=0,cy=r,cxa;
-int df=1-r; 
-int d_e=3;
-int d_se=-2*r+5;
-int c=1;
-WORD al,dal,j;
-byte ci;
-do {
-// al=abs(df)*255/(1-r);gr_setpixela(x-cy,y-cx,al);gr_setpixela(x-cy,y+cx,al);
-	if (cy>0 && (unsigned)(y+cx)<(unsigned)gr_alto) gr_hline(x-cy+1,y+cx,x+cy-1);
-	if (cx>0 && (unsigned)(y-cx)<(unsigned)gr_alto) gr_hline(x-cy+1,y-cx,x+cy-1);
-    if (df<0)  
-		{df+=d_e;d_e +=2;d_se+=2;c++;}
-	else 
-		{
-		al=dal=(gr_alphav<<8)/c;
-		for (j=0;j<c;j++)
-			{
-			ci=al>>8;
-			gr_setpixela(x-cx+j,y-cy,ci);gr_setpixela(x-cx+j,y+cy,ci);
-			gr_setpixela(x-cy,y+cx-j,ci);gr_setpixela(x-cy,y-cx+j,ci);
-			gr_setpixela(x+cx-j,y-cy,ci);gr_setpixela(x+cx-j,y+cy,ci);
-			gr_setpixela(x+cy,y+cx-j,ci);gr_setpixela(x+cy,y-cx+j,ci);
-			al+=dal;
-			}
-		if (cx>c && cy!=cx)
-			{
-			cxa=cx-c;
-			if ((unsigned)(y-cy)<(unsigned)gr_alto) gr_hline(x-cxa,y-cy,x+cxa);
-			if ((unsigned)(y+cy)<(unsigned)gr_alto) gr_hline(x-cxa,y+cy,x+cxa);
-			}
-		c=1;
-		df+=d_se;d_e+=2;d_se+=4;cy--;
-		} 
-	cx++; 
-} while (cx<=cy);
-}
 
 // poligono
 void gr_iteracionSP(long x1,long y1,long x2,long y2,long x3,long y3)
@@ -636,43 +506,14 @@ ii->deltax=t;
 cntSegm++;
 }
 
-/*
-void gr_psegmento(int x1,int y1,int x2,int y2)
-{
-gr_segpoli *s;
-int dx,x,ymin,ymax;
-if (y1==y2) return;
-if (y1<y2) { ymin=y1;ymax=y2;} else { ymin=y2;ymax=y1;swap(x1,x2); }
-if (ymax<=0 || ymin>=gr_alto ) return;
-x=(x1<<SEGFRAC);
-dx=((x2-x1)<<SEGFRAC)/(ymax-ymin);
-if (ymin<0) { x+=dx*(-ymin);ymin=0; }
-if (ymax>gr_alto) ymax=gr_alto;//-1 (**1)
-if ((gr_linact-gr_seg)>=NB_SEGMENT_MAX) return;
-s=gr_linact++;
-s->next=s->nextValid=0;s->ymax=ymax;s->x=x;s->dx=dx;
-if (ymin<gr_limymin) gr_limymin=ymin;
-if (ymax>gr_limymax) gr_limymax=ymax;
-if (gr_lines[ymin]==NULL) gr_lines[ymin]=s;
-else {
-    gr_segpoli *act,*prev;prev=0;
-    for(act=gr_lines[ymin];act;prev=act,act=act->next) {
-        if ((act->x+act->dx)>(s->x+s->dx)) {
-            if (prev) { prev->next=s;s->next=act; } 
-			else { s->next=gr_lines[ymin];gr_lines[ymin]=s; }
-            break;
-            }
-        }
-	if (act==0) { prev->next=s;s->next=act; }
-    }
-}
-*/
 //-------------------------------------------------
 void _FlineaSolido(int y,Segm *m1,Segm *m2)
 {
 register WORD *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
+if (m1->x==m2->x&&m1->deltax>m2->deltax) { Segm *t=m1;m1=m2;m2=t; }
+
 if (m1->deltax<0)
    { x1=m1->x+m1->deltax;x2=m1->x; }
 else
@@ -686,7 +527,7 @@ int ex3=x3>>FBASE,ex4=x4>>FBASE;
 if (ex4<=0 || ex1>=gr_ancho ) return;
 if (ex1>0) GR_SET(ex1,y) else GR_SET(0,y)
 
-gr_color1=0xff0;
+//gr_color1=0xff00;
 if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
     gr_pixela(gr_pos,255-(BYTE)((x1+x2)>>1));gr_pos++;
@@ -702,17 +543,16 @@ if (ex2>0) { // entrada anti
     }
   }
 
-//if (ex3<ex2) return;
 if (ex3<=ex2) return;
-
-gr_color1=0xff;
+//gr_color1=0xff;
 if (ex3>0) { // lleno
     if (ex2<0) ex2=0;
     if (ex3>gr_ancho) ex3=gr_ancho;
     cnt=ex3-ex2-1;
     while (cnt--) { gr_pixel(gr_pos);gr_pos++; }
-  }
-gr_color1=0xff00;
+    }
+//gr_color1=0xff0000;
+
 if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
@@ -727,7 +567,6 @@ if (ex4==ex3) { // punto solo
   while (cnt--) { gr_pixela(gr_pos,alpha>>8);gr_pos++;alpha+=da; }
   }
 }
-
 //-------------------------------------------------
 inline void mixcolor(WORD col1,WORD col2,int niv)
 {
@@ -993,137 +832,6 @@ yMax=-1;
 cntSegm=0;
 }
 
-//*****************************************************
-/*
-
-gr_segpoli *avanzaS(gr_segpoli *curSegs,int y)
-{
-gr_segpoli *s,*prev,*ant;
-s=curSegs;prev=ant=0;
-while(s) {
-    if (y>=s->ymax) {// == para evitar superpuestos (**1)
-        if (prev) prev->nextValid=s->nextValid;
-		else curSegs=s->nextValid;
-        s=s->nextValid;
-    } else {
-		s->x+=s->dx;
-		if (prev!=0 && s->x<prev->x) { // se invirtio el orden
-			if (ant==0) curSegs=s; else ant->nextValid=s;
-			prev->nextValid=s->nextValid;
-			s->nextValid=prev;ant=s;s=prev->nextValid;
-		} else  { ant=prev;prev=s;s=s->nextValid; }// sigue igual
-        }
-    }
-return curSegs;
-}
-
-gr_segpoli *nuevoS(gr_segpoli *curSegs,gr_segpoli *newSegs)
-{
-gr_segpoli *s,*se,*prev;
-s=curSegs;prev=0;
-for (se=newSegs;se;se=se->next) {
-	if (curSegs==0) { curSegs=se;se->nextValid=0; } 
-	else {
-        for(;s;prev=s,s=s->nextValid) {
-            if (s->x>se->x)	{
-                if (prev) { se->nextValid=s;prev->nextValid=se; } 
-				else { se->nextValid=curSegs;curSegs=se; }
-                break;
-                }
-            }
-		if (s==0) { prev->nextValid=se;se->nextValid=0; }// agregar al final
-        }
-    s=se;
-    }
-return curSegs;
-}
-
-// Poligonos con antialiasing
-inline void Flinea(int y,int x1,int x2,int x3,int x4)
-{
-int ex1=x1>>SEGFRAC,ex2=x2>>SEGFRAC;
-int ex3=x3>>SEGFRAC,ex4=x4>>SEGFRAC;
-register WORD *gr_pos;
-if (ex2>=0) {
-	if (ex1<ex2) gr_hlined(ex1,y,ex2,0,255);
-	else { GR_SET(ex1,y);gr_pixela(gr_pos,255-(BYTE)((x1+x2)>>1));
-		if (ex2==ex4) return;}
-	}
-ex2++;
-if (ex2<ex3) gr_hline(ex2,y,ex3-1);
-if (ex3<gr_ancho) {
-	if (ex3<ex4) gr_hlined(ex3,y,ex4,255,0);
-	else { GR_SET(ex3,y);gr_pixela(gr_pos,(BYTE)((x3+x4)>>1)); }
-	}
-}
-
-//**************************************************
-//***** DIBUJO DE POLIGONO
-//**************************************************
-void gr_drawPoli(void)
-{
-int x1,x3,y;
-int x2,x4;
-int auxl=gr_ancho<<SEGFRAC;
-gr_segpoli *curSegs,*s;
-if (gr_limymax==-1) return;
-curSegs=NULL;
-gr_segpoli **linesp=&gr_lines[gr_limymin];
-for(y=gr_limymin;y<gr_limymax;y++) {
-    curSegs=avanzaS(curSegs,y);
-    curSegs=nuevoS(curSegs,*linesp);
-	s=curSegs;// salto anteriores a la pantalla
-	while (s && s->nextValid && s->nextValid->x<0)
-		s=s->nextValid->nextValid;
-	while (s && s->nextValid && s->x<auxl) {// hasta que este afuera
-		x1=s->x;x2=s->x+s->dx;if (s->dx<0) swap(x1,x2);
-		s=s->nextValid;
-		x3=s->x;x4=s->x+s->dx;if (s->dx<0) swap(x3,x4);
-		Flinea(y,x1,x2,x3,x4);
-
-/// sin antialiasing (mas rapido)
-//		x1=(s->x>>SEGFRAC);s=s->nextValid;
-//		x3=(s->x>>SEGFRAC);
-//		if (x1<0) x1=0;
-//		if (x3>=gr_ancho) x3=gr_ancho-1;
-//		gr_set(x1,y);gr_hline(x3-x1);
-// 
-		s=s->nextValid;
-		}
-	*linesp=NULL;linesp++;
-    }
-gr_limymax=-1;gr_limymin=gr_alto+1;gr_linact=gr_seg;
-}
-
-/*
-void gr_drawLines(WORD gr)
-{
-int x,dx,x1,x2,x3,x4,t;
-gr_segpoli *curSegs,*s;
-if (gr_limymax==-1) return;
-curSegs=NULL;
-for(unsigned short y=gr_limymin;y<gr_limymax;y++) {
-    curSegs=avanzaS(curSegs,y);
-    curSegs=nuevoS(curSegs,gr_lines[y]);
-	for(s=curSegs;s;s=s->nextValid) {
-		if (s->x<0) continue; // anteriores a la pantalla
-	    if ((s->x>>SEGFRAC)>=gr_ancho) break; //siguientes de la pantalla
-		x=s->x;dx=s->x+s->dx;
-		if (s->dx<0) {t=x;x=dx;dx=t;}
-		x1=x-(1<<SEGFRAC);x2=dx-(1<<SEGFRAC);
-		x3=x+(1<<SEGFRAC);x4=dx+(1<<SEGFRAC);
-/*
-	s=s->nextValid;
-	x3=s->x;x4=s->x+s->dx;
-	if (s->dx<0) {t=x3;x3=x4;x4=t;}	
-*//*
-		Flinea(y,x1,x2,x3,x4);
-	    }
-    }
-memset(&gr_lines[gr_limymin],0,(gr_limymax-gr_limymin+1)*sizeof(gr_segpoli *));
-gr_limymax=-1;gr_limymin=gr_alto+1;gr_linact=gr_seg;
-}
-*/
 
 
 //----- alfabeto bitmap
@@ -1453,68 +1161,3 @@ gr_textsize(t,&xs,&ys);
 gr_text(x-(xs>>1)+1,y-5,t);
 }
 
-#define MAX(a,b) ((a>b)?a:b)
-#define MIN(a,b) ((a<b)?a:b)
-
-#define HLSMAX 240 // H,L, and S vary over 0-HLSMAX
-#define RGBMAX 255 //;			// R,G, and B vary over 0-RGBMAX
-#define UNDEFINED (HLSMAX*2/3)
-
-void RGB_to_HSL(int r,int g,int b,int *h,int *s,int *l)
-{
-int cMax, cMin;
-int Rdelta,Gdelta,Bdelta;
-
-cMax=MAX(r,MAX(g,b));
-cMin=MIN(r,MAX(g,b));
-*l=(((cMax+cMin)*HLSMAX)+RGBMAX)/(2*RGBMAX);
-if (cMax==cMin) //r=g=b --> achromatic case
-	{ *s=0;*h=UNDEFINED; }
-else
-	{
-	if (*l<=(HLSMAX/2))
-		*s=(((cMax-cMin)*HLSMAX)+((cMax+cMin)/2))/(cMax+cMin);
-	else
-		*s=(((cMax-cMin)*HLSMAX)+((2*RGBMAX-cMax-cMin)/2))/(2*RGBMAX-cMax-cMin);
-    Rdelta=(((cMax-r)*(HLSMAX/6))+((cMax-cMin)/2))/(cMax-cMin);
-    Gdelta=(((cMax-g)*(HLSMAX/6))+((cMax-cMin)/2))/(cMax-cMin);
-    Bdelta=(((cMax-b)*(HLSMAX/6))+((cMax-cMin)/2))/(cMax-cMin);
-    if (r==cMax)		*h=Bdelta-Gdelta;
-    else if (g==cMax)	*h=(HLSMAX/3)+Rdelta-Bdelta;
-    else				*h=((2*HLSMAX)/3)+Gdelta-Rdelta;
-    *h=*h%HLSMAX;
-    if (*h<0) *h+=HLSMAX;
-	}
-}
-
-int HueToRGB(int n1,int n2,int hue)
-{
-hue=hue%HLSMAX;
-//hue=hue&0xff;
-if (hue<0) hue+=HLSMAX;
-if (hue<(HLSMAX/6))
-	return (n1+(((n2-n1)*hue+(HLSMAX/12))/(HLSMAX/6)));
-else if (hue<(HLSMAX/2))
-	return n2;
-else if (hue<((HLSMAX*2)/3))
-    return (n1+(((n2-n1)*(((HLSMAX*2)/3)-hue)+(HLSMAX/12))/(HLSMAX/6)));
-else
-	return n1;
-};
-
-void HSL_to_RGB(int h,int s,int l,int *r,int *g,int *b)
-{
-int m1,m2;
-if (s==0)
-	{ *b=*g=*r=(l*RGBMAX)/HLSMAX; }
-else {
-	if (l<=(HLSMAX/2))
-		m2=(l*(HLSMAX+s)+(HLSMAX/2))/HLSMAX;
-	else
-		m2=l+s-((l*s)+(HLSMAX/2))/HLSMAX;
-	m1=2*l-m2;
-	*r=(HueToRGB(m1,m2,h+(HLSMAX/3))*RGBMAX+(HLSMAX/2))/HLSMAX;
-    *g=(HueToRGB(m1,m2,h)           *RGBMAX+(HLSMAX/2))/HLSMAX;
-    *b=(HueToRGB(m1,m2,h-(HLSMAX/3))*RGBMAX+(HLSMAX/2))/HLSMAX;
-	}
-}

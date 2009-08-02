@@ -74,7 +74,7 @@ switch (message)
 	case WM_KEYDOWN:
 		tecla&=~wParam;evento=SYSirqteclado;break;
     case WM_DESTROY:
-        GXCloseInput();GXCloseDisplay();taskbar(true);
+        GXCloseInput();GXCloseDisplay();//taskbar(true);
         PostQuitMessage(0);break;
     case WM_KILLFOCUS:
         GXSuspend();break;
