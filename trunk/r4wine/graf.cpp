@@ -376,6 +376,8 @@ void _FlineaSolido(int y,Segm *m1,Segm *m2)
 register DWORD *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
+if (m1->x==m2->x&&m1->deltax>m2->deltax) { Segm *t=m1;m1=m2;m2=t; }
+
 if (m1->deltax<0)
    { x1=m1->x+m1->deltax;x2=m1->x; }
 else
@@ -388,6 +390,8 @@ int ex1=x1>>FBASE,ex2=x2>>FBASE;
 int ex3=x3>>FBASE,ex4=x4>>FBASE;
 if (ex4<=0 || ex1>=gr_ancho ) return;
 if (ex1>0) GR_SET(ex1,y) else GR_SET(0,y)
+
+//gr_color1=0xff00;
 if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
     gr_pixela(gr_pos,255-(BYTE)((x1+x2)>>1));gr_pos++;
@@ -404,12 +408,15 @@ if (ex2>0) { // entrada anti
   }
 
 if (ex3<=ex2) return;
+//gr_color1=0xff;
 if (ex3>0) { // lleno
     if (ex2<0) ex2=0;
     if (ex3>gr_ancho) ex3=gr_ancho;
     cnt=ex3-ex2-1;
     while (cnt--) { gr_pixel(gr_pos);gr_pos++; }
-  }
+    }
+//gr_color1=0xff0000;
+
 if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
@@ -441,6 +448,9 @@ void _FlineaDL(int y,Segm *m1,Segm *m2)
 register DWORD *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
+if (m1->x==m2->x&&m1->deltax>m2->deltax)
+    { Segm *t=m1;m1=m2;m2=t; }
+
 if (m1->deltax<0)
    { x1=m1->x+m1->deltax;x2=m1->x; }
 else
@@ -512,6 +522,9 @@ void _FlineaDR(int y,Segm *m1,Segm *m2)
 register DWORD *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
+if (m1->x==m2->x&&m1->deltax>m2->deltax)
+    { Segm *t=m1;m1=m2;m2=t; }
+
 if (m1->deltax<0)
    { x1=m1->x+m1->deltax;x2=m1->x; }
 else
@@ -578,6 +591,9 @@ void _FlineaTX(int y,Segm *m1,Segm *m2)
 register DWORD *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
+if (m1->x==m2->x&&m1->deltax>m2->deltax)
+    { Segm *t=m1;m1=m2;m2=t; }
+
 if (m1->deltax<0)
    { x1=m1->x+m1->deltax;x2=m1->x; }
 else
@@ -641,8 +657,8 @@ Segm **cursor=(xquisc-1);
 while (cursor>=xquis && (*cursor)->x>xr) {
       *(cursor+1)=*cursor;cursor--;
       }
-if (cursor>=xquis && (*cursor)->x+(*cursor)->deltax > ii->x+ii->deltax) {
-    *(cursor+1)=*cursor;cursor--; }    
+//if (cursor>=xquis && (*cursor)->x+(*cursor)->deltax > ii->x+ii->deltax) {
+//    *(cursor+1)=*cursor;cursor--; }    
 *(cursor+1)=ii;
 xquisc++;
 }
