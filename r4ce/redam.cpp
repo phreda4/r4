@@ -29,7 +29,7 @@ char *macros[]={// directivas del compilador
 "@+","!+","C@+","C!+","W@+","W!+",
 
 "MSEC","TIME","DATE","END","RUN",//--- sistema
-"BPP","SW","SH","CLS","REDRAW","FRAMEV","UPDATE",//--- pantalla
+"SW","SH","CLS","REDRAW","FRAMEV","UPDATE",//--- pantalla
 "SETXY","PX+!","PX!+","PX@",
 
 "XYMOUSE","BMOUSE","KEY",
@@ -58,7 +58,7 @@ FECH,CFECH,WFECH,STOR,CSTOR,WSTOR,INCSTOR,CINCSTOR,WINCSTOR,//--- memoria
 FECHPLUS,STOREPLUS,CFECHPLUS,CSTOREPLUS,WFECHPLUS,WSTOREPLUS,
 
 MSEC,TIME,EDATE,SISEND,SISRUN,//--- sistema
-BPP,WIDTH,HEIGHT,CLS,REDRAW,FRAMEV,UPDATE,//--- pantalla
+WIDTH,HEIGHT,CLS,REDRAW,FRAMEV,UPDATE,//--- pantalla
 
 SETXY,MPX,SPX,GPX,
 
@@ -104,10 +104,6 @@ int cntprog;
 BYTE *memlibre;
 BYTE prog[1024*256];
 BYTE data[1024*1024*8];
-//---- Serial port
-HANDLE hPort=0;            // Serial port handle
-HANDLE hReadThread=0;      // Handle to the read thread
-char *plinea;
 
 void loaddir()
 {
@@ -136,119 +132,6 @@ if (hSearch!=INVALID_HANDLE_VALUE) {
  }
 }
 
-/************************************************************************/
-
-DWORD PortReadThread(LPVOID lpvoid)
-{
-BYTE Byte;
-DWORD dwCommModemStatus, dwBytesTransferred;
-// Specify a set of events to be monitored for the port.
-SetCommMask (hPort, EV_RXCHAR | EV_CTS | EV_DSR | EV_RLSD | EV_RING);
-while (hPort != INVALID_HANDLE_VALUE) 
-	{
-	WaitCommEvent (hPort, &dwCommModemStatus, 0);    // Wait for an event to occur for the port.
-    SetCommMask (hPort, EV_RXCHAR | EV_CTS | EV_DSR | EV_RING);    // Re-specify the set of events to be monitored for the port.
-    if (dwCommModemStatus & EV_RXCHAR) 
-		{
-		do {      // Loop for waiting for the data.
-			ReadFile (hPort, &Byte, 1, &dwBytesTransferred, 0);        // Read the data from the serial port.
-			if (dwBytesTransferred == 1)         // Display the data read.
-				{
-				//ProcessChar (Byte);
-				*plinea=Byte;
-				plinea++;
-				if (Byte<=13 || plinea==&linea[256])
-					{
-					*plinea=0;// marca final buffer
-					plinea=linea;
-					evento=SYSirqred;
-					dwBytesTransferred=0;// corta while
-					}
-				}
-		} while (dwBytesTransferred == 1);
-		}
-	GetCommModemStatus (hPort, &dwCommModemStatus);    // Retrieve modem control-register values.
-	//SetLightIndicators (dwCommModemStatus);    // Set the indicator lights.
-	}
-return 0;
-}
-
-
-/***********************************************************************
-  PortInitialize (LPTSTR lpszPortName)
-***********************************************************************/
-char *PortInitialize(LPTSTR lpszPortName)
-{
-DWORD dwThreadID;
-DCB PortDCB;
-COMMTIMEOUTS CommTimeouts;
-
-if (hPort!=INVALID_HANDLE_VALUE)  
-	{
-	CloseHandle(hPort);
-	hPort=INVALID_HANDLE_VALUE;
-	return "Cerrado";
-	}
-hPort=CreateFile(lpszPortName, // Pointer to the name of the port
-                      GENERIC_READ | GENERIC_WRITE,   // Access (read-write) mode
-                      0,            // Share mode
-                      NULL,         // Pointer to the security attribute
-                      OPEN_EXISTING,// How to open the serial port
-                      0,            // Port attributes
-                      NULL);        // Handle to port with attribute to copy
-
-if (hPort == INVALID_HANDLE_VALUE ) 
-	return "Unable to open the port";
-PortDCB.DCBlength = sizeof (DCB);     
-GetCommState (hPort, &PortDCB); 
-PortDCB.BaudRate = 9600;              // Current baud 
-PortDCB.fBinary = TRUE;               // Binary mode; no EOF check 
-PortDCB.fParity = TRUE;               // Enable parity checking 
-PortDCB.fOutxCtsFlow = FALSE;         // No CTS output flow control 
-PortDCB.fOutxDsrFlow = FALSE;         // No DSR output flow control 
-PortDCB.fDtrControl = DTR_CONTROL_ENABLE; // DTR flow control type 
-PortDCB.fDsrSensitivity = FALSE;      // DSR sensitivity 
-PortDCB.fTXContinueOnXoff = TRUE;     // XOFF continues Tx 
-PortDCB.fOutX = FALSE;                // No XON/XOFF out flow control 
-PortDCB.fInX = FALSE;                 // No XON/XOFF in flow control 
-PortDCB.fErrorChar = FALSE;           // Disable error replacement 
-PortDCB.fNull = FALSE;                // Disable null stripping 
-PortDCB.fRtsControl = RTS_CONTROL_ENABLE;   // RTS flow control 
-PortDCB.fAbortOnError = FALSE;        // Do not abort reads/writes on error
-PortDCB.ByteSize = 8;                 // Number of bits/byte, 4-8 
-PortDCB.Parity = NOPARITY;            // 0-4=no,odd,even,mark,space 
-PortDCB.StopBits = ONESTOPBIT;        // 0,1,2 = 1, 1.5, 2 
-if (!SetCommState (hPort, &PortDCB)) 
-	return "Unable to configure the serial port";
-GetCommTimeouts (hPort, &CommTimeouts);
-CommTimeouts.ReadIntervalTimeout = MAXDWORD;  
-CommTimeouts.ReadTotalTimeoutMultiplier = 0;  
-CommTimeouts.ReadTotalTimeoutConstant = 0;    
-CommTimeouts.WriteTotalTimeoutMultiplier = 10;  
-CommTimeouts.WriteTotalTimeoutConstant = 1000;    
-if (!SetCommTimeouts (hPort, &CommTimeouts)) 
-	return "Unable to set the time-out parameters";
-  // Direct the port to perform extended functions SETDTR and SETRTS
-  // SETDTR: Sends the DTR (data-terminal-ready) signal.
-  // SETRTS: Sends the RTS (request-to-send) signal. 
-EscapeCommFunction (hPort, SETDTR);
-EscapeCommFunction (hPort, SETRTS);
-
-if (hReadThread = CreateThread (NULL,0,PortReadThread,0,0,&dwThreadID))
-	CloseHandle (hReadThread);
-else
-	return "Unable to create the read thread";
-return 0;
-}
-/************************************************************************/
-void PortWrite(BYTE Byte)
-{
-DWORD dwError, dwNumBytesWritten;
-if (!WriteFile (hPort,&Byte,1,&dwNumBytesWritten,NULL))
-  {
-  dwError = GetLastError ();// WriteFile failed. Report error.
-  }
-}
 
 //---------------------------------------------------------------
 int interprete(BYTE *codigo)// 1=recompilar con nombre en linea
@@ -360,7 +243,7 @@ while (true)  {
 		NOS++;*NOS=TOS;TOS=sitime.wMinute;NOS++;*NOS=TOS;TOS=sitime.wSecond;continue;
     case SISEND: return 0;  
     case SISRUN: if (TOS!=0) strcpy(linea,(char*)TOS); return 1;
-	case BPP: NOS++;*NOS=TOS;TOS=16;continue;
+
     case WIDTH: NOS++;*NOS=TOS;TOS=gr_ancho;continue;	// invirte xy
     case HEIGHT: NOS++;*NOS=TOS;TOS=gr_alto;continue;	//
 	case CLS: gr_clrscr();continue;
@@ -458,18 +341,6 @@ while (true)  {
          while (TOS--) { *(char*)--W=*(char*)--W1; }         
          NOS-=2;TOS=*NOS;NOS--;         
          continue;
-/*
-	case INIPORT: // -- 0/1
-		NOS++;*NOS=TOS;
-		plinea=linea;
-		TOS=(int)PortInitialize(TEXT("COM1:"));
-		continue;
-	case INET:	// int --
-		SYSirqred=TOS;TOS=*NOS;NOS--;continue;
-		continue;
-	case IBUFFER: // -- linea
-		NOS++;*NOS=TOS;TOS=(int)linea;continue;
-*/
 	default: // completa los 8 bits con apila numeros 0...
         NOS++;*NOS=TOS;TOS=W-ULTIMAPRIMITIVA;continue;
 	} } 
@@ -927,33 +798,23 @@ fclose(file);
 //---------------------------------------------------------------
 void main(void)
 {
-strcpy(pathprg,"\\mgps\\");
+strcpy(pathprg,"\\r4\\");
 strcpy(pathdata,pathprg);loaddir();
-//sprintf(pathdata,"%smain\\",pathprg);
-// si no existe la carpeta crearla
 strcpy(linea,"main.txt");
-
-hPort=INVALID_HANDLE_VALUE;
-
-plinea=linea;// inicio com1 buffer
 recompila:
   cntindiceex=0;cntnombreex=0;cntincludes=0;
   cntdato=0;cntprog=0;
   cntindice=cntnombre=0;// espacio de nombres reset
   bootaddr=NULL;
-  memlibre=0;
-  loadimagen("\\mgps\\main.r4c");
-  if (memlibre==0) {
-	if (compilafile(linea)!=COMPILAOK) { waitaclick();return; }
-	if (bootaddr==NULL) {
+  if (compilafile(linea)!=COMPILAOK) { waitaclick();return; }
+  if (bootaddr==NULL) {
 		strcpy(error,"NO HAY BOOT");
 		waitaclick();
 		return;
 		}
-	memlibre=&data[cntdato]; // comienzo memoria libre      
-	saveimagen("\\mgps\\main.r4c");
-	}
+  memlibre=&data[cntdato]; // comienzo memoria libre      
+  saveimagen("\\mgps\\main.r4c");
+
 if (interprete(bootaddr)==1) goto recompila;
 
-//if (hPort!=INVALID_HANDLE_VALUE) CloseHandle(hPort);
 }

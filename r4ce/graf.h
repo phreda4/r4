@@ -51,12 +51,6 @@ void gr_line(int x1,int y1,int x2,int y2);
 void gr_pline(int x1,int y1,int x2,int y2,WORD t);
 void gr_spline(int x1,int y1,int x2,int y2,int x3,int y3);
 void gr_splinec(int x1,int y1,int x2,int y2,int x3,int y3);
-void gr_box(int x1,int y1,int x2,int y2);
-void gr_fbox(int x1,int y1,int x2,int y2);
-void gr_fboxv(int x1,int y1,int x2,int y2);
-void gr_fboxh(int x1,int y1,int x2,int y2);
-void gr_circle(int x,int y,int r);
-void gr_fillcircle(int x,int y,int r);
 
 //---- poligono
 void gr_psegmento(int x1,int y1,int x2,int y2);
