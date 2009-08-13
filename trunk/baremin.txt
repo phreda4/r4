@@ -1,6 +1,6 @@
 | bare minimun
 | experimental gameplay project
-| PHReda - 2009 - http://www.reda4.org 
+| PHReda - 2009 - http://www.reda4.org
 | http://code.google.com/p/reda4/
 |-------------------------------------
 
@@ -35,16 +35,15 @@
  $4A33F2B2 $39788304 $22C11E12 $FB54FB54 $D53CF8A2 $CE8C9309 $156075A7 $C6DF63A8 $FFFF03C
  $FF0000E 0
 
-|------ x y w h r alpha 'sprite
-
-#sfondo	0.0  0.0  20.0 $ff0000 'fondo
-#savion	0.0  -4.0  1.0 $ff0000 'avion
-#ssalva -2.0  1.0  0.8 $ff0000 'salvavidas
-#snaufr	2.0  1.0 0.8 $ff0000 'naufrago
+|------	 x		y	size 'sprite
+#sfondo	 0.0   0.0  20.0 'fondo
+#savion	-9.0  -3.0  1.5  'avion
+#ssalva -9.0  -6.0  0.8  'salvavidas
+#snaufr	 2.0   3.0  1.0  'naufrago
 
 #escena 'sfondo 'savion 'snaufr 'ssalva 0
 
-
+#puntaje 0
 |----------  ESCENA
 :ini2d
 	omode
@@ -55,8 +54,7 @@
 		mpush
 		r@+ r@+ 0 mtransi
 		r@+ dup 0 mscalei
-		r@+ dup $ffff and 1? ( mrotzi )( drop )
-		16 >> 1? ( alpha r> @ 3dnsprite )( drop rdrop )
+		r> @ 3dnsprite
 		mpop
 		) 2drop
 	255 alpha ;
@@ -87,23 +85,42 @@
 		exec | adr
 		1? ( swap 4 - !+ )( drop delfx )
 		mpop
-		) drop ;
-
+		) drop
+	255 alpha ;
 
 :fxvel | dirx -- dirtl
 	>r
 	r@+ r@+ 0 mtransi
 	r@+ r 12 - +!
-	r @ 0.008 + r ! | gravedad
+	r @ 0.008 - r ! | gravedad
 	r@+ r 12 - +!
 	r> ;
 
+|-------------- Naufrago
+#velnauf 0.01
+
+:nuevonaufrago
+	rand %10000 and? ( -0.04 9.0 )( 0.04 -9.0 )
+	'snaufr ! 'velnauf ! drop
+	;
+
+:naufrago
+	snaufr
+	9.0 >? ( -0.03 'velnauf ! )
+	-9.0 <? ( 0.03 'velnauf ! )
+	velnaufr +
+	'snaufr !
+	;
+
 |-------------  explosion
 :getxysalva | -- y x
-	'ssalva @+ swap @  ;
+	'ssalva @+ swap @ swap ;
 
 :rand0.1 | -- r
-	rand 0.05 mod ;
+	rand 0.1 mod ;
+
+:velrand
+	rand0.1 rand0.1 ;
 
 :explosion | dirx -- dirtl tl
 	fxvel | dirtl
@@ -115,8 +132,63 @@
 	;
 
 :explode
-	80 rand0.1 rand0.1 getxysalva 'explosion +fx
+	30 ( 1? )( 1-
+		50 velrand getxysalva 'explosion +fx
+		)
+	drop
+	1 'puntaje +!
+	nuevonaufrago
 	;
+
+|------------- flotador
+:flotador
+	>r
+	r@+ r@+ 0 mtransi
+	rand 0.02 mod 0.02 + r 8 - +!
+	r> 8 +
+	@+ 0? ( ; ) 1-
+    0.8 dup 0 mscalei
+	dup 20 - 6 << mrotzi
+	'salvavidas 3dnsprite
+	;
+
+:flota
+	40 0.0 0.0 getxysalva 'flotador +fx
+	;
+
+
+|-------------- avion
+#velavion 0.05
+
+:test
+	ssalva snaufr - abs
+	0.4 <? ( explode )( flota )
+	drop
+	-6.0 'ssalva 4+ !
+	;
+
+:avionYsalva
+	velavion 'savion +!
+	savion
+	9.0 >? ( -9.0 'savion ! rand 0.05 mod abs 0.02 + 'velavion ! )
+	drop
+	'ssalva 4+ dup
+	@ -6.0 =? ( 2drop ; )
+	0.04 +
+	3.0 >? ( 2drop test ; )
+	swap !
+	;
+
+
+|-----------
+:arroja
+	'ssalva 4+ @ -6.0 <>? ( drop ; ) drop
+	'savion
+	'ssalva >r
+	@+ r!+
+	@ r> !
+	;
+
 |-----------  JUEGO
 :main
 	inikey
@@ -124,10 +196,16 @@
 	inifx
 	ini2d
 	'explode <f1>
+	'arroja <esp>
 	show cls scr
 		'escena draw2d
 		drawfx
+		avionYsalva
+		naufrago
 
+		14 font
+		blanco
+		puntaje "%d" printc
 		fonti
 		dup fx> fx - 6/ 2 >>  "%d %d" blanco print
 		;
