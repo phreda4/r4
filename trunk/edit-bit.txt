@@ -1,0 +1,190 @@
+| Editor de nsprite
+| PHREDA 2008
+|--------------------------------------------------
+^libgui.txt
+^libsprite.txt
+^trace.txt
+
+^dlgfile.txt
+^dlgsino.txt
+^dlgcolor.txt
+
+#nombre )( 64
+#inibit
+#actual
+
+#colornow $ff0000
+#zoom
+
+
+:drawbitm | adr --
+	tfill
+	gc.all
+	gc.fbox
+	sfill ;
+
+|--------------------------------------------------
+#xcycwh 0 0 0 0
+
+:savebox
+	xc yc w h 'xcycwh !+ !+ !+ ! ;
+
+:loadbox
+	'xcycwh @+ 'h ! @+ 'w ! @+ 'yc ! @ 'xc ! ;
+
+:drawdibujo
+	loadbox
+	actual 18 << inibit +
+	drawbitm
+	;
+
+|--------------------------------------------------
+:opczoom
+	;
+:eslinea
+:escaja
+:eselipse
+:deltrazo
+	;
+
+#btn1 6
+$ff0000 'ifin 'exit
+$ffff00 'ilupa 'opczoom
+$ffff00 'idibuja 'eslinea
+$ffff00 'istop 'escaja
+$ffff00 'irec 'eselipse
+$ff0000 'imenos 'deltrazo
+
+:botonherra
+	'btn1 escf1.. ;
+
+|--------------------------------------------------
+
+:pinta
+	colornow 
+	xymousef
+	1.0 + 255 1.0 */ 8 << $ff00 and
+	swap 1.0 + 255 1.0 */ $ff and or
+	actual 18 << inibit + +
+	!
+	;
+
+:vistamode
+	drawdibujo
+	[ pinta ; ] onDn
+	[ bmouse 1? ( pinta ) drop  ; ] onMove
+|	[ cpdibujo ; ] onUp
+	;
+
+|--------------------------------------------------
+#editgui
+|0.5 0.1 -0.25 -0.45 'btnsis
+|0.2 0.1 0.3 0.45 'btncolor
+0.8 0.8 0 0 'vistamode
+0.6 0.1 -0.2 0.45 'botonherra
+|0.1 0.5 -0.45 0 'viewestado
+|0.1 1.0 0.45 0 'viewpolis
+0
+
+:editando
+	inikey
+	'exit >esc<
+|	[ 1 execescf1 ; ] <f1>
+|	[ 2 execescf1 ; ] <f2>
+|	[ 3 execescf1 ; ] <f3>
+|	[ 4 execescf1 ; ] <f4>
+|	[ 5 execescf1 ; ] <f5>
+	0 0 fpos
+	zoom 1.3 + sh 16 *>> dup 'w ! 'h !
+	savebox
+	show cls scr
+		scr 'editgui gui
+		cflecha
+		;
+
+
+:editahoja
+	key.push
+	editando
+	key.pop
+	;
+
+|--------------------------------------------------
+
+:resetbit
+	clear
+	here 'inibit !
+	$ffff ( 1? )( dup , 1- ) drop
+	$ffff ( 1? )( dup 8 << , 1- ) drop
+	;
+|--------------------------------------------------
+#menu1 7
+$ff0000 'ifin 'exit
+$0000ff 'idibuja 'editahoja
+$0000ff 'icopia	0 |'copy-dibu
+$0000ff 'iizq 0 |'ante-dibu
+$0000ff 'ider 0 |'post-dibu
+$0000ff 'iborrar 0 |'borra-dibu
+$00ff00 'irecicla 0 |'save-code
+
+:cadadib | n n -- n n
+	2dup 3 << +   | x y nro
+	actual =? ( blanco gc.fbox )
+	[ dup 'actual ! ; ] onUp
+	dup	18 << inibit +
+	0.9 [ 1.2 nip ; ] onIn fzoom
+	drawbitm
+	fonti verde
+	1+ "%h" print
+	;
+
+:tabladib
+	8 8 'cadadib .table	;
+
+:botonera 'menu1 escf1.. ;
+
+:titulo
+	$333333 $aaaaaa [ swap ; ] onIn  vbtn
+	1 sfont negro "r4Bit:" print
+|	blanco 'nombre printc
+|	'eligearchivo onUp
+	;
+
+#guimenu
+1.0 0.1 0 -0.45 'titulo
+0.8 0.8 0 0 'tabladib
+0.7 0.1 -0.15 0.45 'botonera
+0
+
+:menu-dibujos
+	inikey
+	'exit >esc<
+	'editahoja <f1>
+|	'copy-dibu <f2>
+|	'ante-dibu <f3>
+|	'post-dibu <f4>
+|	'borra-dibu <f5>
+	[ 1 'actual +! ; ] <der>
+	[ actual 0 >? ( 1- ) 'actual ! ; ] <izq>
+|	'save-code <f6>
+|	'eligearchivo <esp>
+|	'editahoja <enter>
+	show cls scr
+       	'guimenu gui
+		cmano
+		;
+
+|--------------------------------------------------
+:	33 0 paper
+	resetbit
+	'nombre "./nom/edit-bit.nom" load drop
+	"./bit/" dir
+|	load-dibu
+	0 'actual !
+	menu-dibujos
+	"./bit/" dir
+|	save-dibu
+	"./" dir
+	'nombre count "./nom/edit-bit.nom" save
+	"main.txt" run ;
+
