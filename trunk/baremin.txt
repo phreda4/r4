@@ -20,8 +20,8 @@
 
 #salvavidas |spr
  $1578D11 $B92B8D12 $B92BFD64 $B9286D92 $1546D94 $49846D92 $4987FD64 $49878D12 $1578D19
- $1540AB7 $FC035248 $FFFFFFC $E $EF4FE2A1 $DBEBED53 $EBF406A2 $1540804 $1EBC0802
- $24C3E7F4 $A07DFF3 $EF4FE2AA $6AC3D77 $A07D7F8 $FFFFFFC $E $F5FC1AB1 $F4A45033
+ $1540AB7 $FC035248 $FFFFFFC $E $F5FFDFF1 $DE9BF553 $EBF406A2 $1540804 $1EBC0802
+ $256FF2B4 $CB3E2A3 $F5FFDFFA $6AC3D77 $6AFD548 $FFFFFFC $E $F5FC1AB1 $F4A45033
  $CB04D83 $CB02013 $F5FC1ABA $D5CA067 $2000D58 $FFFFFFC $FF0000E 0
 
 #nauf1 |spr
@@ -35,6 +35,17 @@
  $160F77B3 $256F6D03 $30CBFAB3 $9582AC3 $E08A063 $E3F0A31A $EEA0F5F7 $DF431F78 $FFFFFFC
  $E $F6AB6FA1 $E7F36FA2 $E7F3AD24 $E7F3EAA2 $F6ABEAA4 $55BEAA2 $55BAD24 $55B6FA2
  $F6AB6FA9 $407F007 $EF4F2778 $FFFFFFC $E 0
+
+#naufs |spr
+ $F5F89DC1 $F9FC2AC3 $E9F44023 $E3F085A3 $D89452E3 $E1EC1AB3 $FEABF2B3 $1F6BF003 $38D01AB3
+ $3ED48B03 $30C89DB3 $2C1C4833 $1CB82D73 $20109DC3 $F5F89DCA $200F8A7 $F2A32228 $FFFFFFC
+ $E $D5F7251 $FEA77252 $FEA7AFD4 $FEA7ED52 $D5FED54 $1C0FED52 $1C0FAFD4 $1C0F7252
+ $D5F7259 $1ABBF2B7 $6032A28 $FFFFFFC $E $BA804AD1 $87084AD2 $87089B14 $8708EB42
+ $BA80EB44 $EDF4EB42 $EDF49B14 $EDF44AD2 $BA804AD9 $B234EFF7 $B52C1438 $FFFFFFC $E
+ $FFFFFFC $E $B234C8C1 $B280B823 $B870B953 $B8BCAC43 $BCE4AC43 $BD30B6F3 $C36CBA83
+ $C320C9F3 $BDC8C793 $BD7CD963 $B8BCD4A3 $B870C8C3 $B234C8CA $FF0000D $B9548891 $B2808502
+ $AC448FB4 $B0209A62 $BAD09804 $C3209932 $CAD89214 $C3B88762 $B9548899 $BFDC9B97 $C0746D48
+ $C $FFFFFEE 0
 
 #explopar |spr
  $CE8C9301 $A3185582 $B47FA274 $BE8334D2 $DF4334D4 $2AEBF32 $1EBF3A34 $31774F92 $2CCBAD24
@@ -53,7 +64,7 @@
 
 |------	 x		y	size r 'sprite
 #sfondo	 0.0   0.0  20.0 0 'fondo
-#savion	-9.0  -3.0  1.5  0 'avion
+#savion	-9.0  -3.0  1.2  0 'avion
 #ssalva -9.0  -6.0  0.7  0 'salvavidas
 #snaufr	 2.0   2.6  1.0  0 'nauf1
 
@@ -107,6 +118,7 @@
 		) drop
 	255 alpha ;
 
+|--------------
 :fxvel | dirx -- dirtl
 	>r
 	r@+ r@+ 0 mtransi
@@ -126,7 +138,7 @@
 #velnaufr 0.01
 
 :nuevonaufrago
-	rand 7.0 mod 'snaufr !
+	rand 6.0 mod 2.0 + 'snaufr !
 	rand 0.02 mod 'velnaufr !
 	;
 
@@ -135,6 +147,7 @@
 	blink 1? ( 'nauf1 )( 'nauf2 ) nip
 	'snaufr 16 + !
 	;
+
 |-------------  explosion
 :getxysalva | -- x y
 	'ssalva @+ swap @ swap ;
@@ -147,8 +160,7 @@
 
 :explosion | dirx -- dirtl tl
 	fxvel | dirtl
-	@+ |dirnext tl
-	0? ( ; ) 1-
+	@+ 0? ( ; ) 1-
 	dup 2* alpha
 	dup 9 << mrotzi
 	'explopar 3dnsprite
@@ -157,23 +169,40 @@
 :+explode
 	30 ( 1? )( 1-
 		50 velrand getxysalva 'explosion +fx
-		)
-	drop
+		) drop
 	1 'puntaje +!
 	nuevonaufrago
 	;
 
+|------------- rescatado
+:accresc
+	fxvel2
+	@+ 0? ( ; ) 1-
+	255 alpha
+	'naufs 3dnsprite
+	;
+
+:+rescatado
+	over 20 - >r
+	120 -0.01 -0.02
+	r@+ r@+ rdrop
+	'accresc +fx
+	;
+
 |------------- flotador
 :flotador
+	dup @ snaufr - abs
+	0.3 <? ( drop 20 + 0  1 'puntaje +! +rescatado ; ) drop |
 	fxvel2
 	@+ 0? ( ; ) 1-
     0.7 dup 0 mscalei
-	dup 15 - 6 << mrotzi
+	|dup 20 - 6 << mrotzi
+	255 alpha
 	'salvavidas 3dnsprite
 	;
 
 :+flota
-	30 0.03 0.0 getxysalva 'flotador +fx ;
+	180 0.001 0.02 getxysalva 'flotador +fx ;
 
 |-------------  ayuda
 :acchelp
@@ -188,29 +217,38 @@
 	'snaufr @+ swap @ swap ;
 
 :+ayuda
-	120 -0.03 0 getxynaufr swap 1.0 - swap 'acchelp +fx ;
+	120 -0.04 0 getxynaufr swap 1.0 - swap 'acchelp +fx ;
 
 |-------------- avion
 #velavion 0.05
+#velxsal
+#velysal
 
 :test
 	ssalva snaufr - abs
-	0.4 <? ( +explode )( +flota )
+	0.3 <? ( +explode )( +flota )
 	drop
 	-6.0 'ssalva 4+ !
 	;
 
-:avionYsalva
+:avion
 	velavion 'savion +!
 	savion
 	9.0 >? ( -9.0 'savion ! rand 0.08 mod abs 0.06 + 'velavion ! )
 	drop
+	;
 
-	'ssalva 4+ dup
-	@ -6.0 =? ( 2drop ; )
-	0.04 + 3.0 >? ( 2drop test ; )
-	swap !
-	$40 'ssalva 12 + +!
+:salvavidas
+	'ssalva >r
+	r @ velxsal + r!+	| x
+	r @             	| y
+	-6.0 =? ( rdrop drop ; )
+	3.0 >? ( rdrop drop test ; )
+	velysal + r!+
+	r @ 0.001 + r!+	| s
+	r @ 0.004 - r!+	| r
+	rdrop
+	0.005 'velysal +!
 	;
 
 |-----------
@@ -218,8 +256,12 @@
 	'ssalva 4+ @ -6.0 <>? ( drop ; ) drop
 	'savion
 	'ssalva >r
-	@+ r!+
-	@ r> !
+	@+ r!+	| x
+	@ r!+	| y
+	0.6 r!+	| s
+	0 r> !	| r
+	velavion 'velxsal !
+	0 'velysal !
 	;
 
 |-----------  JUEGO
@@ -227,6 +269,7 @@
 	0 'puntaje !
 	60 'tiempo !
 	;
+
 
 :main
 	inikey
@@ -238,7 +281,8 @@
 	show cls scr
 		'escena draw2d
 		drawfx
-		avionYsalva
+		avion
+		salvavidas
 		naufrago
 
 		14 sfont
