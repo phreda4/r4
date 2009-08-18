@@ -3,7 +3,6 @@
 | PHReda - 2009 - http://www.reda4.org
 | http://code.google.com/p/reda4/
 |-------------------------------------
-
 ^reda4.txt
 ^libgui.txt
 
@@ -49,14 +48,14 @@
  $4833DD43 $E088852 $B92BED59 $E83448A7 $AB42028 $FF0300C $FF0004E 0
 
 #nauf1 |spr
- $E2989B11 $E69C2813 $C7DC1D63 $B3276FA3 $C12F5CF3 $CF3BE2A3 $EB4BF003 $C0BED53 $2217E2A3
- $2F775CF3 $3ED77253 $2C1C1563 $9582AC3 $CB09B13 $E2989B1A $600B1E7 $FC688368 $FFFFFFC
+ $DBEC8DB1 $DFF01AB3 $C1301003 $AC7B6243 $BA834F93 $C88FD543 $E49FE2A3 $55FDFF3 $1B6BD543
+ $28CB4F93 $382B64F3 $25700803 $2AC1D63 $6048DB3 $DBEC8DBA $26187047 $14B82818 $FFFFFFC
  $E $F6AB6FA1 $E7F36FA2 $E7F3AD24 $E7F3EAA2 $F6ABEAA4 $55BEAA2 $55BAD24 $55B6FA2
  $F6AB6FA9 $407F007 $F867B988 $FFFFFFC $E 0
 
 #nauf2 |spr
  $EB489B11 $EDF42013 $C933FD53 $CE8B5CF3 $DFEF6503 $DC97DAA3 $F2A3E803 $1363E553 $236BD2A3
- $1D676FB3 $2CC76503 $3823F2B3 $10B022C3 $15609863 $EB489B1A $F5F8EDF7 $ECC8CB88 $FFFFFFC
+ $1D676FB3 $2CC76503 $3823F2B3 $10B022C3 $15609863 $EB489B1A $397862E7 $20C01568 $FFFFFFC
  $E $FE076A51 $EF4F6A52 $EF4FA7D4 $EF4FE552 $FE07E554 $CB7E552 $CB7A7D4 $CB76A52
  $FE076A59 $B63EAB7 $133B188 $FFFFFFC $E 0
 
@@ -115,6 +114,25 @@
 #escena 'saleta 'snaufr 'ssalva 'savion 0
 
 #puntaje 0
+
+#soundavion
+#soundtibu
+#soundgolpe
+#soundola
+#soundhelp
+#soundcae
+#soundgrito
+#soundfin
+
+:loadsound
+	"avion.ogg" SLOAD 'soundavion !
+	"tibu.ogg" SLOAD 'soundtibu !
+	"golpe.ogg" SLOAD 'soundgolpe !
+	"ola.ogg" SLOAD 'soundola !
+	"help.ogg" SLOAD 'soundhelp !
+	"cae.ogg" SLOAD 'soundcae !
+	"grito.ogg" SLOAD 'soundgrito !
+	;
 
 |----------- FX 2D
 #fx 0
@@ -187,32 +205,46 @@
 	120
 	-0.04 0
 	getxynaufr swap 1.0 - swap
-	'acchelp +fx ;
+	'acchelp +fx
+	soundhelp SPLAY
+	;
 
 |-------------- Naufrago
 #velnaufr 0.01
 #timenau
-#vtibu 0.06
+#vtibu
 
 :initibu
-	0.3 0.4 -8.0 'saleta !+ !+ !
-	0.09 'vtibu !
+	-0.3 0.4 8.0 'saleta !+ !+ !
+	-0.06 'vtibu !
 	;
 
 :naufrago
 	velnaufr 'snaufr +!
 	blink 1? ( 'nauf1 )( 'nauf2 ) nip
 	'snaufr 16 + !
-	timenau 1- 1? ( 'timenau ! ; ) drop
-	velnaufr neg 'velnaufr !
+	snaufr
+	7.0 >? ( -0.01 'velnaufr ! )
+	-3.0 <? ( 0.01 'velnaufr ! )
+	drop
+	timenau 1-
+	$ff nand? ( +ayuda )
+	1? ( 'timenau ! ; ) drop
 	+ayuda
-	rand 10 >> $7f and 10 + 'timenau !
+	velnaufr neg 'velnaufr !
+	rand 10 >> $7f and 20 + 'timenau !
 	;
 
 :-naufrago
+	-8.0 'snaufr !
+	0.022 'velnaufr !
+	800  'timenau !
+	initibu
+	;
+
+:-naufrago2
 	-9.0 'snaufr !
-	0.025 'velnaufr !
-	rand 10 >> $ff and 400 + 'timenau !
+	0.0 'velnaufr !
 	initibu
 	;
 
@@ -223,11 +255,13 @@
 	dup abs 0.2 + swap
 	-? ( drop )( drop neg )
 	swap !
-	0.4 'saleta 4+ +!
+	0.6 'saleta 4+ +!
+	soundtibu SPLAY
 	;
 
 :acctibu
-    fxvel @+ 0? ( ; ) 1-
+    fxvel @+ 1- 0? ( exit ; )
+	255 alpha
 	'tiburon 3dnsprite
 	;
 
@@ -247,19 +281,20 @@
 		getxynaufr
 		'accexplo +fx
 		) drop
-	40
+	60
 	-0.01 0.0
 	getxynaufr
 	'acctibu +fx
-	1 'puntaje +!
-	-naufrago
+	soundola SPLAY
+	soundgrito SPLAY
+	-naufrago2
 	;
 
 :aletatibu
 	saleta abs
 	8.0 >? ( invtibu ) drop
 	vtibu 'saleta +!
-	'saleta 4+ @ 3.0 >? ( comio? ) drop
+	'saleta 4+ @ 2.4 >? ( comio? ) drop
 	;
 
 |-------------  explosion
@@ -281,6 +316,7 @@
 	'acchunde +fx
 	1 'puntaje +!
 	-naufrago
+	soundgolpe SPLAY
 	;
 
 |------------- rescatado
@@ -297,7 +333,6 @@
     -0.02 0
 	'snaufr 4+ @ snaufr
 	'accresc +fx
-
 	1 'puntaje +!
 	-naufrago
 	;
@@ -333,18 +368,20 @@
 	msec %10 and? ( 'avi1 )( 'avi2 ) 'savion 16 + ! drop
 	savion
 	9.0 <? ( drop ; ) drop
+:+avion
 	-9.0 'savion !
 	rand 0.08 mod abs 0.06 + 'velavion !
+	soundavion SPLAY
 	;
 
 :testsalva
 	ssalva snaufr - abs
-	0.4 <? ( +explode )( +flota )
+	0.6 <? ( +explode )( +flota )
 	drop
 	-6.0 'ssalva 4+ !
 	;
 
-:salvavidas
+:salvav
 	'ssalva >r
 	r @ velxsal + r!+	| x
 	r @             	| y
@@ -368,56 +405,85 @@
 	0 r> !	| r
 	velavion 'velxsal !
 	0 'velysal !
+	soundcae SPLAY
 	;
 
 
 |-----------  JUEGO
 :resetgame
+	0 SPLAY
 	0 'puntaje !
 	-naufrago
+	+avion
 	;
 
 :main
 	inikey
 	inifx
 	ini2d
-
 	'exit <esc>
 	'arroja <esp>
-
 	resetgame
 	show cls scr
 		'efondo draw2d
 		aletatibu
 		drawfx
 		'escena draw2d
-
 		avion
-		salvavidas
+		salvav
 		naufrago
+		10 font blanco cr puntaje " %d" printc
+|		fonti dup fx> fx - 6/ 2 >>  "%d %d" blanco print
+		;
 
-		10 sfont blanco cr puntaje " %d" printc
+:fin
+	inifx
+	ini2d
+	inikey
+	'exit <esc>
+	0 SPLAY
+	show cls scr
+		'efondo draw2d
+		drawfx
 
-|		fonti
-|		dup fx> fx - 6/ 2 >>  "%d %d" blanco print
-
+		10 bfont sfill
+		$ff0000 $00 gc.vdeg
+		cr "Game Over" printc
+		$ff00ff $00 gc.vdeg
+		cr cr cr puntaje "You score: %d" printc
+		blink 1? ( drop ; ) drop
+		12 bfont 0 $ff gc.vdeg
+		0 11 at "<ESC> Continue" printc
 		;
 
 :titulo
+	inifx
+	ini2d
 	inikey
-	'exit <esc>
+	[ exit 1 ; ] >esp<
+	[ exit 0 ; ] <esc>
 	show cls scr
-		5 font lfill
-		$ff00 $00 gc.vdeg
-		"Bare Minimun" printc
-		8 font
-		$ff0000 $00 gc.vdeg
-		cr cr cr cr "Experimental Gameplay" printc
-		cr "Proyect" printc
+		'efondo draw2d
+		drawfx
 
-		sfill
+		10 bfont sfill
+		$ff0000 $00 gc.vdeg
+		cr "Experimental Gameplay" printc
+		cr "Proyect" printc
+		$ff00ff $00 gc.vdeg
+		cr cr "Minimun Gameplay" printc
+		$ff00 $00 gc.vdeg
+		cr cr "press <ESPACE> to" printc
+		cr "drop life preserver" printc
+
+		blink 1? ( drop ; ) drop
+		12 bfont 0 $ff gc.vdeg
+		0 11 at "<ESPACE> Play  <ESC> Quit" printc
 		;
 
-: 33 titulo main ;
+: 33
+	loadsound
+	( titulo 1? )( drop main fin )
+	;
 
 
