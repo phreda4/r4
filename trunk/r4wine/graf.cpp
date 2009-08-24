@@ -21,6 +21,7 @@ HGLRC   hRC;
 
 //---- buffer de video
 DWORD gr_buffer[1280*1024] = { 0 };
+#if 0
 int tablainc[256]={0x0,0xFF00,0x7F80,0x5500,0x3FC0,0x3300,0x2A80,0x246D,0x1FE0,0x1C55,0x1980,0x172E,0x1540,0x139D,0x1236,0x1100,
 0xFF0,0xF00,0xE2A,0xD6B,0xCC0,0xC24,0xB97,0xB16,0xAA0,0xA33,0x9CE,0x971,0x91B,0x8CB,0x880,0x839,
 0x7F8,0x7BA,0x780,0x749,0x715,0x6E4,0x6B5,0x689,0x660,0x638,0x612,0x5EE,0x5CB,0x5AA,0x58B,0x56C,
@@ -37,6 +38,7 @@ int tablainc[256]={0x0,0xFF00,0x7F80,0x5500,0x3FC0,0x3300,0x2A80,0x246D,0x1FE0,0
 0x139,0x138,0x136,0x135,0x133,0x132,0x131,0x12F,0x12E,0x12C,0x12B,0x12A,0x128,0x127,0x126,0x124,
 0x123,0x122,0x120,0x11F,0x11E,0x11D,0x11B,0x11A,0x119,0x118,0x116,0x115,0x114,0x113,0x112,0x111,
 0x110,0x10E,0x10D,0x10C,0x10B,0x10A,0x109,0x108,0x107,0x106,0x105,0x104,0x103,0x102,0x101,0x100};
+#endif
 
 //---- variables internas
 int gr_ancho,gr_alto;
@@ -396,10 +398,13 @@ if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
     gr_pixela(gr_pos,255-(BYTE)((x1+x2)>>1));gr_pos++;
   } else { // degrade
-    alpha=0;//    da=(255<<8)/(ex2-ex1);
+    alpha=0;
+
+    da=(255<<8)/(ex2-ex1);
+/*
     da=(ex2-ex1);
     if (da>0xff) da=tablainc[(da>>8)&0xff]>>8; else da=tablainc[da];
-
+*/
     if (ex1<0) { alpha+=da*(-ex1);ex1=0; }
     if (ex2>=gr_ancho) ex2=gr_ancho-1;
     cnt=ex2-ex1+1;
@@ -420,11 +425,12 @@ if (ex3>0) { // lleno
 if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
-  alpha=255<<8;//da=(-255<<8)/(ex4-ex3);
-
+  alpha=255<<8;
+  da=(-255<<8)/(ex4-ex3);
+/*
   da=(ex4-ex3);
   if (da>0xff) da=-tablainc[(da>>8)&0xff]>>8; else da=-tablainc[da];
-
+*/
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }    
   if (ex4>gr_ancho) ex4=gr_ancho;
   cnt=ex4-ex3;
@@ -470,10 +476,12 @@ if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
     gr_pixela(gr_pos,255-(BYTE)((x1+x2)>>1));gr_pos++;
   } else { // degrade
-    alpha=0;//da=(255<<8)/(ex2-ex1);
+    alpha=0;
+    da=(255<<8)/(ex2-ex1);
+/*
     da=(ex2-ex1);
     if (da>0xff) da=tablainc[(da>>8)&0xff]>>8; else da=tablainc[da];
-
+*/
     if (ex1<0) { alpha+=da*(-ex1);ex1=0; }
     if (ex2>=gr_ancho) ex2=gr_ancho-1;
     cnt=ex2-ex1+1;
@@ -495,10 +503,12 @@ if (ex3>0) { // lleno
 if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
-  alpha=255<<8;//da=(-255<<8)/(ex4-ex3);
+  alpha=255<<8;
+  da=(-255<<8)/(ex4-ex3);
+/*
   da=(ex4-ex3);
   if (da>0xff) da=-tablainc[(da>>8)&0xff]>>8; else da=-tablainc[da];
-
+*/
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }    
   if (ex4>gr_ancho) ex4=gr_ancho;
   cnt=ex4-ex3;
@@ -544,9 +554,12 @@ if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
     gr_pixela(gr_pos,255-(BYTE)((x1+x2)>>1));gr_pos++;
   } else { // degrade
-    alpha=0;//da=(255<<8)/(ex2-ex1);
+    alpha=0;
+    da=(255<<8)/(ex2-ex1);
+/*
     da=(ex2-ex1);
     if (da>0xff) da=tablainc[(da>>8)&0xff]>>8; else da=tablainc[da];
+*/
 
     if (ex1<0) { alpha+=da*(-ex1);ex1=0; }
     if (ex2>=gr_ancho) ex2=gr_ancho-1;
@@ -569,10 +582,12 @@ if (ex3>0) { // lleno
 if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
-  alpha=255<<8;//da=(-255<<8)/(ex4-ex3);
+  alpha=255<<8;
+  da=(-255<<8)/(ex4-ex3);
+/*
   da=(ex4-ex3);
   if (da>0xff) da=-tablainc[(da>>8)&0xff]>>8; else da=-tablainc[da];
-
+*/
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }    
   if (ex4>gr_ancho) ex4=gr_ancho;
   cnt=ex4-ex3;
@@ -613,10 +628,12 @@ if (ex2>0) { // entrada anti
   if (ex1==ex2) { // punto solo
     gr_pixela(gr_pos,255-(BYTE)((x1+x2)>>1));gr_pos++;
   } else { // degrade
-    alpha=0;//da=(255<<8)/(ex2-ex1);
+    alpha=0;
+    da=(255<<8)/(ex2-ex1);
+/*
     da=(ex2-ex1);
     if (da>0xff) da=tablainc[(da>>8)&0xff]>>8; else da=tablainc[da];
-
+*/
     if (ex1<0) { alpha+=da*(-ex1);ex1=0; }
     if (ex2>=gr_ancho) ex2=gr_ancho-1;
     cnt=ex2-ex1+1;
@@ -638,10 +655,12 @@ if (ex3>0) { // lleno
 if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
-  alpha=255<<8;//da=(-255<<8)/(ex4-ex3);
+  alpha=255<<8;
+  da=(-255<<8)/(ex4-ex3);
+/*
   da=(ex4-ex3);
   if (da>0xff) da=-tablainc[(da>>8)&0xff]>>8; else da=-tablainc[da];
-
+*/
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }    
   if (ex4>gr_ancho) ex4=gr_ancho;
   cnt=ex4-ex3;
