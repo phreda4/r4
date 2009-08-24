@@ -1,0 +1,211 @@
+|dialogo.txt
+|---------------------------
+^libgui.txt
+
+#mdlg )( 2048	#mdlg. 'mdlg	#mdlg> 'mdlg
+#fdlg )( 1024	#fdlg. 'fdlg		#fdlg> 'fdlg
+#pilad )( 1024	#pilad> 'pilad
+
+#dfoco 0
+#tfoco 0
+#dx 0 #dy 0 
+#len 10
+
+|---------------------------	
+:,dlg | d --
+	mdlg> !+ 'mdlg> ! ;
+:tienefoco 
+	mdlg> fdlg> !+ 'fdlg> ! ;
+
+:asetxy | -- v
+	dx 24 << dy 16 << or len 8 << or ;
+:agetxy | n -- 
+	dup 24 >> $ff and over 16 >> $ff and at 
+	8 >> $ff and 'len ! ;
+
+|---------------------------	
+::dxy | x y --
+	'dy ! 'dx ! ;
+::dlen | l --
+	'len ! ;
+
+::dbox | x y --
+	asetxy 0 or ,dlg
+	dup 24 << swap 16 << or ,dlg ;
+
+::dlabel | "" --
+	asetxy 1 or ,dlg ,dlg ;
+
+::dinput | 'var --
+	tienefoco
+	asetxy 2 or ,dlg ,dlg ;
+
+::dnro | 'var --
+	tienefoco
+	asetxy 3 or ,dlg ,dlg ;
+
+::dbtn | 'exe "" --
+	tienefoco
+	asetxy 4 or ,dlg ,dlg ,dlg ;
+
+::dmenu | 'exe "opc" --
+	tienefoco
+	asetxy 5 or ,dlg ,dlg ,dlg ;
+
+
+:cuadro 2drop ;
+
+|----- DIBUJO
+:abox
+	gris
+	agetxy @+ 
+	dup 24 >> $ff and swap 16 >> $ff and cuadro ;
+
+:alabel | adr+1 n -- 
+	azul
+	agetxy @+ print ;
+
+:ainput | adr+1 n --
+	verde
+	agetxy @+ len cntprint ;
+	
+:anro | adr+1 n --
+	verde
+	agetxy @+ @ "%d" len cntprint ;
+
+:abtn |
+	gris	agetxy @+ |	drop
+	len |1 botonp 
+negro len cntprint @+ drop ;
+
+:amenu
+	verde
+	agetxy @+ len cntprint 
+	4+ ;
+
+#dacc 'abox 'alabel 'ainput 'anro 'abtn 'amenu 0 0 0 0 0 0 0 0 0 0 
+
+|---- set foco
+:sinput
+	dup @ swap
+	4 - @ 8 >> $ff and  | len
+	drop
+|	 setinput 
+; | si es text
+
+:snro
+	dup @ swap 
+	4 - @ 8 >> $ff and | len
+drop
+|	 setnro 
+; | si es nro
+
+:sbtn
+	4 + @ 'tfoco ! ;
+
+:smenu
+	4 + @ 'tfoco ! ;
+
+#fset 0 0 'sinput 'snro 'sbtn 'smenu 0 0 0 0 0 0 0 0 0 0
+
+|---- draw foco
+:finput
+	blanco
+	agetxy |drawinput 
+4+ ;
+
+:fnro
+	blanco
+	agetxy |drawnro 
+4+ ;
+
+:fbtn
+	cyan agetxy @+ 
+	len |1 botonu 
+negro len cntprint 4+ ;
+
+:fmenu
+	blanco |videoinv
+	agetxy @+ len cntprint
+	|videoinv 
+4+ ;
+
+#facc 0 0 'finput 'fnro 'fbtn 'fmenu 0 0 0 0 0 0 0 0 0 0 
+
+|-------------
+:drawdlg
+	mdlg.
+	dfoco 1? ( @  swap
+		( over <? )( @+ dup $f and 2 << 'dacc + @ exec )
+		@+ dup $f and 2 << 'facc + @ exec 
+		swap ) drop
+	( mdlg> <? )(  @+ dup $f and 2 << 'dacc + @ exec ) 
+	drop ;
+
+:cambiofoco
+|	clearinter
+	0 'tfoco !
+	dfoco 0? ( drop ; ) @
+	@+ $f and 2 << 'fset + @ exec drop ;
+
+:nextfoco
+	dfoco 0? ( drop ; )
+	4+ fdlg> >=? ( fdlg. nip )
+	'dfoco ! cambiofoco ;
+
+:prevfoco
+	dfoco 0? ( drop ; )
+	fdlg. =? ( fdlg> 4 - nip )( 4 - )
+	'dfoco ! cambiofoco ;
+
+|--- interaccion
+:darr prevfoco ;
+:daba nextfoco ;
+:dtab nextfoco ;
+
+:denter 
+	tfoco 0? ( drop nextfoco ; ) exec ;
+
+::dini	| cambio inicio
+	fdlg> dup 'fdlg. ! mdlg> dup 'mdlg. ! 
+	pilad> !+ !+ 'pilad> ! ;	
+
+#lastime
+::dialog
+	fdlg> mdlg> 
+	pilad> !+ !+ 'pilad> !
+	
+|	[ ; ] ipen! | sin mouse por ahora
+	inikey
+	'exit <esc>
+	'darr <arr> 'daba <aba> 
+	'dtab <tab>	'denter <enter>
+
+	fdlg. fdlg> =? ( 0 nip ) 'dfoco ! 
+	cambiofoco
+
+	msec 'lastime ! 0 '.exit !
+	( .exit 0? )( drop update msec 
+		lastime >? ( 33 + 'lastime ! r exec drawdlg redraw )( drop ) 
+		) drop rdrop
+	0 '.exit !
+	-16 'pilad> +! 
+	pilad> 16 - 
+	@+ 'mdlg. ! @+ 'fdlg. ! @+ 'mdlg> !  @ 'fdlg> !
+
+	fdlg. fdlg> =? ( 0 nip ) 'dfoco ! 
+	cambiofoco ;
+
+::ddump
+	0 32 at azul
+	mdlg> mdlg. "%h %h " print cr
+	fdlg> fdlg. "%h %h" print cr
+	'pilad ( pilad> <? )( @+ "%h " print ) drop
+	;
+
+|------------- interaccion
+::anykey 
+	inikey
+	'exit <esc>
+	redraw wait ;
+
