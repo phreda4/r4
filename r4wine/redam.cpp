@@ -81,8 +81,9 @@ char *macros[]={// directivas del compilador
 "PAPER","INK","INK@","ALPHA", //--- color
 "OP","CP","LINE","CURVE","PLINE","PCURVE","POLI",//--- dibujo
 "FCOL","FCEN","FMAT","SFILL","LFILL","RFILL","TFILL",
-"IPEN!","XYMOUSE","BMOUSE",//-------- mouse
-"IKEY!","KEY",          //-------- teclado
+"IPEN!",
+"XYMOUSE","BMOUSE",//-------- mouse
+"IKEY!","KEY", //"KEYX",          //-------- teclado
 "IJOY!","CNTJOY","GETJOY",     //-------- joystick
 #ifdef FMOD
 "SLOAD","SPLAY","MLOAD","MPLAY",    //-------- sonido
@@ -113,8 +114,9 @@ SETXY,MPX,SPX,GPX,
 COLORF,COLOR,COLORA,ALPHA,//--- color
 OP,CP,LINE,CURVE,PLINE,PCURVE,POLI,//--- dibujo
 FCOL,FCEN,FMAT,SFILL,LFILL,RFILL,TFILL, //--- pintado
-IRMOU,XYMOUSE,BMOUSE,
-IRKEY,KEY,
+IRMOU,
+XYMOUSE,BMOUSE,
+IRKEY,KEY, //KEYX,
 IRJOY,CNTJOY,GETJOY,
 #ifdef FMOD
 SLOAD,SPLAY,MLOAD,MPLAY,
@@ -146,6 +148,7 @@ int SYSEVENT=0;
 int SYSXYM=0;
 int SYSBM=0;
 int SYSKEY=0;
+//int SYSKEYX=0;
 
 // vectores de interrupciones
 int SYSirqmouse=0;
@@ -435,6 +438,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 //----- teclado
     case IRKEY: SYSirqteclado=TOS;TOS=*NOS;NOS--;continue;
 	case KEY: NOS++;*NOS=TOS;TOS=SYSKEY;continue;
+//	case KEYX: NOS++;*NOS=TOS;TOS=SYSKEYX;continue;
 //----- joy
     case IRJOY: SYSirqjoystick=TOS;TOS=*NOS;NOS--;continue;
     case CNTJOY: NOS++;*NOS=TOS;TOS=cntJoy;continue;
@@ -1102,11 +1106,17 @@ switch (message) {     // handle message
          SYSEVENT=SYSirqmouse;
          break;
     case WM_KEYUP:        // (lparam>>24)     ==1 keypad
-         SYSKEY=((lParam>>16)&0x7f)|0x80;
+//         SYSKEYX=lParam;
+//         SYSKEY=((lParam&0x1000000)?0x10:0)+((lParam>>16)&0x7f)|0x80;
+         lParam>>=16;
+         SYSKEY=(((lParam&0x100)>>4)+(lParam&0x7f))|0x80;
          SYSEVENT=SYSirqteclado;
          break;
     case WM_KEYDOWN:
-         SYSKEY=(lParam>>16)&0x7f;
+//         SYSKEYX=lParam;
+//         SYSKEY=((lParam&0x1000000)?0x10:0)+(lParam>>16)&0x7f;
+         lParam>>=16;
+         SYSKEY=(((lParam&0x100)>>4)+(lParam&0x7f));
          SYSEVENT=SYSirqteclado;
          break;
 //---------Winsock related message...
