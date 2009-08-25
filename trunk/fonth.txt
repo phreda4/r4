@@ -32,9 +32,33 @@
     2 << 'hfntd1 + @ h8draw ;
 
 :h8size | byte -- size
+	$ff and
 	2 << 'hfntd1 + @ @ 8 >>
 	ccw 5 *>> ;
 
 ::fonth | l --
-	wtext home 
+	wtext home
 	'h8char 'h8size setfont ;
+
+|...............
+| control
+:bp00 xy.. xa ya gop ;				| 00 - X Y op
+:bp01 2 >> tox dup 'xa ! ya gline ;	| 01 - X hline
+:bp10 xa swap 2 >> toy dup 'ya ! gline ;  | 10 - Y vline
+:bp11 xy.. xa ya gline ;					| 11 - X Y line
+
+#h8accb bp00 bp01 bp10 bp11
+
+::h8drawb | addr --
+	cch 5 >> 1+ gg
+	0 dup tox 'xa ! toy 'ya !
+	@+ $ff and ( 1? )( 1- swap
+		c@+ dup $3 and 2 << 'h8accb + @ exec
+		swap ) 2drop ;
+
+::h8charb | c --
+    2 << 'hfntd1 + @ h8drawb ;
+
+::fonthb | l --
+	wtext home
+	'h8charb 'h8size setfont ;
