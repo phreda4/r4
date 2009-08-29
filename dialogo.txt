@@ -1,10 +1,97 @@
 |dialogo.txt
 |---------------------------
 ^libgui.txt
-^consolaedit.txt
 
+|------------------- edita linea
+#cmax
+#padi>	| inicio
+#pad>	| cursor
+#padf>	| fin
+
+:lins  | c --
+	padf> padi> - cmax >=? ( drop ; ) drop
+	pad> dup 1- padf> over - 1+ cmove> 1 'padf> +!
+:lover | c --
+	$7f and
+	pad> c!+ dup 'pad> !
+	padf> >? (
+		dup padi> - cmax >=? ( swap 1- swap -1 'pad> +! ) drop
+		dup 'padf> ! ) drop
+:0lin | --
+	0 padf> ! ;
+:kdel
+	pad> padf> >=? ( drop ; ) drop
+	1 'pad> +!
+:kback
+	pad> padi> <=? ( drop ; )
+	dup 1- swap padf> over - 1+ cmove -1 'padf> +! -1 'pad> +! ;
+:kder
+	pad> padf> <? ( 1+ )  'pad> ! ;
+:kizq
+	 pad> padi> >? ( 1- ) 'pad> !  ;
+
+#modo 'lins
+
+::setinput | 'var max --
+	'cmax ! dup 'padi> !
+	( c@+ 1? )( drop ) drop 1- dup
+	'pad> ! 'padf> !
+	'lins 'modo !
+	[ key toasc modo exec ; ] <visible>
+	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
+	'kback <back>	'kdel <del>
+	'kder <der>		'kizq <izq>
+	[ padi> 'pad> ! ; ] <home>
+	[ padf> 'pad> ! ; ] <end>
+	;
+
+:dcursor
+	blink 1? ( drop ; ) drop
+	ink@ >r
+	modo 'lins =? ( azul )( rojo ) drop
+	printcur 1- 
+	r> ink ;
+
+::drawinput | --
+	padi> ( pad> =? ( dcursor )
+		c@+ 1? )( emit ) 2drop ;
+
+|--------------------- edita Nro
+:nvis
+	key toasc
+	$2d =? ( drop pad> neg dup 'pad> ! padi> ! ; )
+	$30 <? ( drop ; ) $39 >? ( drop ; ) | solo numeros
+	pad> abs 199999999 >=? ( drop ; ) drop | limite de 32 bits
+	$30 - pad> 10* +
+	dup 'pad> ! padi> ! ;
+
+::setnro | 'var dec --
+	'cmax ! dup 'padi> ! @ 'pad> !
+	'nvis <visible>
+	0 <ins>
+	[ 0 dup 'pad> ! padi> ! ; ] <del>
+	[ pad> 10 / dup 'pad> ! padi> ! ; ] <back>
+	0 dup <der>	dup <izq>
+	dup <home> <end>
+	;
+
+::drawnro
+	blink 1? (  ) drop
+	pad> "%d" print
+	blink 1? ( drop ; ) drop
+	ink@
+	verde "<" print ink
+	;
+
+::clearinter
+	0 dup <visible>
+	dup <ins> dup <del> dup <back>
+	dup <der>	dup <izq>
+	dup <home> <end> ;
+
+|--------------------------- dialogo
 #mdlg )( 2048	#mdlg. 'mdlg	#mdlg> 'mdlg
-#fdlg )( 1024	#fdlg. 'fdlg		#fdlg> 'fdlg
+#fdlg )( 1024	#fdlg. 'fdlg	#fdlg> 'fdlg
 #pilad )( 1024	#pilad> 'pilad
 
 #dfoco 0
@@ -53,7 +140,6 @@
 	tienefoco
 	asetxy 5 or ,dlg ,dlg ,dlg ;
 
-
 :cuadro 2drop ;
 
 |----- DIBUJO
@@ -75,9 +161,8 @@
 	agetxy @+ @ "%d" len cntprint ;
 
 :abtn |
-	gris	agetxy @+ |	drop
-	len |1 botonp
-negro len cntprint @+ drop ;
+	gris agetxy @+ |	drop
+	blanco len cntprint @+ drop ;
 
 :amenu
 	verde
@@ -89,17 +174,13 @@ negro len cntprint @+ drop ;
 |---- set foco
 :sinput
 	dup @ swap
-	4 - @ 8 >> $ff and  | len
-	drop
-	 setinput
-; | si es text
+	4 - @ 8 >> $ff and |len
+	setinput ; | si es text
 
 :snro
 	dup @ swap
-	4 - @ 8 >> $ff and len
-
-	 setnro
-; | si es nro
+	4 - @ 8 >> $ff and |len
+    setnro ; | si es nro
 
 :sbtn
 	4 + @ 'tfoco ! ;
@@ -112,18 +193,15 @@ negro len cntprint @+ drop ;
 |---- draw foco
 :finput
 	blanco
-	agetxy drawinput
-4+ ;
+	agetxy drawinput 4+ ;
 
 :fnro
 	blanco
-	agetxy drawnro
-4+ ;
+	agetxy drawnro 4+ ;
 
 :fbtn
 	cyan agetxy @+
-	len |1 botonu
-negro len cntprint 4+ ;
+	len cntprint 4+ ;
 
 :fmenu
 	blanco vidi
@@ -135,11 +213,11 @@ negro len cntprint 4+ ;
 |-------------
 :drawdlg
 	mdlg.
-	dfoco 1? ( @  swap
+	dfoco 1? ( @ swap
 		( over <? )( @+ dup $f and 2 << 'dacc + @ exec )
 		@+ dup $f and 2 << 'facc + @ exec
 		swap ) drop
-	( mdlg> <? )(  @+ dup $f and 2 << 'dacc + @ exec )
+	( mdlg> <? )( @+ dup $f and 2 << 'dacc + @ exec )
 	drop ;
 
 :cambiofoco
@@ -167,15 +245,15 @@ negro len cntprint 4+ ;
 	tfoco 0? ( drop nextfoco ; ) exec ;
 
 ::dini	| cambio inicio
-	fdlg> dup 'fdlg. ! mdlg> dup 'mdlg. ! 
-	pilad> !+ !+ 'pilad> ! ;	
+	fdlg> dup 'fdlg. ! mdlg> dup 'mdlg. !
+	pilad> !+ !+ 'pilad> ! ;
 
 #lastime
 ::dialog
-	fdlg> mdlg> 
+	fdlg> mdlg>
 	pilad> !+ !+ 'pilad> !
 	inikey
-	'exit <esc>
+	'exit >esc<
 	'darr <arr> 'daba <aba>
 	'dtab <tab>	'denter <enter>
 
@@ -190,7 +268,6 @@ negro len cntprint 4+ ;
 	-16 'pilad> +!
 	pilad> 16 -
 	@+ 'mdlg. ! @+ 'fdlg. ! @+ 'mdlg> !  @ 'fdlg> !
-
 	fdlg. fdlg> =? ( 0 nip ) 'dfoco !
 	cambiofoco ;
 
