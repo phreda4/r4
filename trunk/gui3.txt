@@ -10,7 +10,6 @@
 
 #bmouse..
 #click..
-#focus..
 
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 ::clrscr
@@ -61,3 +60,99 @@
 	xymouse 'yc ! 'xc !
 	sw 3 >>	bmouse 2 << + dup 'w ! 'h !
 	'flecha nsprite ;
+
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|------------------- edita linea
+#cmax
+#padi>	| inicio
+#pad>	| cursor
+#padf>	| fin
+
+:lins  | c --
+	padf> padi> - cmax >=? ( 2drop ; ) drop
+	pad> dup 1- padf> over - 1+ cmove> 1 'padf> +!
+:lover | c --
+	$7f and
+	pad> c!+ dup 'pad> !
+	padf> >? (
+		dup padi> - cmax >=? ( swap 1- swap -1 'pad> +! ) drop
+		dup 'padf> ! ) drop
+:0lin | --
+	0 padf> c! ;
+:kdel
+	pad> padf> >=? ( drop ; ) drop
+	1 'pad> +!
+:kback
+	pad> padi> <=? ( drop ; )
+	dup 1- swap padf> over - 1+ cmove -1 'padf> +! -1 'pad> +! ;
+:kder
+	pad> padf> <? ( 1+ )  'pad> ! ;
+:kizq
+	 pad> padi> >? ( 1- ) 'pad> !  ;
+
+#modo 'lins
+
+:setinput | 'var max --
+	'cmax ! dup 'padi> !
+	( c@+ 1? )( drop ) drop 1- dup
+	'pad> ! 'padf> !
+	'lins 'modo !
+	[ key toasc modo exec ; ] <visible>
+	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
+	'kback <back>	'kdel <del>
+	'kder <der>		'kizq <izq>
+	[ padi> 'pad> ! ; ] <home>
+	[ padf> 'pad> ! ; ] <end>
+	;
+
+:dcursor
+	blink 1? ( drop ; ) drop
+	ink@ >r
+	modo 'lins =? ( azul )( rojo ) drop
+	printcur 1-
+	r> ink ;
+
+:drawinput | --
+	padi> ( pad> =? ( dcursor )
+		c@+ 1? )( emit ) 2drop ;
+
+|-------------------- formulario
+#sform )( 256
+#sform> 'sform
+#forms
+#foco
+
+:nextfoco
+	forms @ 1-
+	foco forms - 4 >>
+	<=? ( forms 4+ )( foco 16 + ) nip
+|	setfoco ;
+:setfoco | adr --
+	dup 'foco !
+	8 + @+ swap @ setinput
+	;
+
+:ktab
+	mshift 0? ( drop nextfoco ; ) drop
+	foco
+	forms 4+ =? ( drop forms @+ 1- 4 << + )( 16 - )
+	setfoco ;
+
+::iniform | 'adr --
+	dup 'forms !
+	4+ setfoco	| foco en el primero
+	'ktab <tab>
+	;
+
+::guiform | --
+	forms >r
+	foco r@+ | cnt
+    ( 1? )( 1- swap
+		r <>? (
+			r@+ r@+ at
+			r@+ r@+ cntprint
+			)( 16 r+ )
+		swap ) 2drop
+	rdrop
+	foco @+ swap @ at drawinput
+	;
