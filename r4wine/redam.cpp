@@ -1109,14 +1109,17 @@ switch (message) {     // handle message
 //         SYSKEYX=lParam;
 //         SYSKEY=((lParam&0x1000000)?0x10:0)+((lParam>>16)&0x7f)|0x80;
          lParam>>=16;
-         SYSKEY=(((lParam&0x7f)==0x1c)?0:((lParam&0x100)>>4)+(lParam&0x7f))|0x80;
+         SYSKEY=lParam&0x7f;
+         if (SYSKEY!=0x1c) SYSKEY+=((lParam&0x100)>>4);
+         SYSKEY|=0x80;
          SYSEVENT=SYSirqteclado;
          break;
     case WM_KEYDOWN:
 //         SYSKEYX=lParam;
 //         SYSKEY=((lParam&0x1000000)?0x10:0)+(lParam>>16)&0x7f;
          lParam>>=16;
-         SYSKEY=(((lParam&0x7f)==0x1c)?0:((lParam&0x100)>>4)+(lParam&0x7f));
+         SYSKEY=lParam&0x7f;
+         if (SYSKEY!=0x1c) SYSKEY+=((lParam&0x100)>>4);
          SYSEVENT=SYSirqteclado;
          break;
 //---------Winsock related message...
