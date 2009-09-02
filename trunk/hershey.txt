@@ -4,9 +4,15 @@
 ^reda4.txt
 ^gui3.txt
 ^liboptdiv.txt
+^trace.txt
 
-#dat #index
-#numero #nverts
+#dat
+#index
+#index>
+#tabla
+#lastfree
+#numero
+#nverts
 
 | ( char - int )
 | 48 = '0', como se escribe un caracter ?
@@ -68,7 +74,7 @@ dat 10 + nverts 1-
 	;
 
 |----- compilado a memoria
-#index>
+
 :,index | v --
 	index> !+ 'index> ! ;
 
@@ -269,7 +275,7 @@ dat 10 + nverts 1-
 		swap ) 2drop
 	;
 ;
-:convert
+:convert | double -- int
 	$3ff0 =? ( 1 nip ; )
 	$4000 =? ( 2 nip ; )
 	$4008 =? ( 3 nip ; )
@@ -280,18 +286,37 @@ dat 10 + nverts 1-
 	$4020 =? ( 8 nip ; )
 	$4022 =? ( 9 nip ; )
 	$4024 =? ( 10 nip ; )
-	$4028 =? ( 11 nip ; )
-	$402c =? ( 12 nip ; )
+	$4026 =? ( 11 nip ; )
+	$4028 =? ( 12 nip ; )
+	$402a =? ( 13 nip ; )
+	$402c =? ( 14 nip ; )
+	$402e =? ( 15 nip ; )
+	$4030 =? ( 16 nip ; )
+	$4031 =? ( 17 nip ; )
+	$4032 =? ( 18 nip ; )
+	$4033 =? ( 19 nip ; )
+	$4034 =? ( 20 nip ; )
+	$4035 =? ( 21 nip ; )
+	$4036 =? ( 22 nip ; )
 
 	-$3fb0 =? ( -64 nip ; )
 
+	-$3fca =? ( -22 nip ; )
+	-$3fcb =? ( -21 nip ; )
+	-$3fcc =? ( -20 nip ; )
+	-$3fcd =? ( -19 nip ; )
+	-$3fce =? ( -18 nip ; )
+	-$3fcf =? ( -17 nip ; )
+	-$3fd0 =? ( -16 nip ; )
+	-$3fd2 =? ( -15 nip ; )
+	-$3fd4 =? ( -14 nip ; )
+	-$3fd6 =? ( -13 nip ; )
 	-$3fd8 =? ( -12 nip ; )
 	-$3fda =? ( -11 nip ; )
+	-$3fdc =? ( -10 nip ; )
 	-$3fde =? ( -9 nip ; )
-
 	-$3fe0 =? ( -8 nip ; )
 	-$3fe4 =? ( -7 nip ; )
-
 	-$3fe8 =? ( -6 nip ; )
 	-$3fec =? ( -5 nip ; )
 	-$3ff0 =? ( -4 nip ; )
@@ -320,9 +345,10 @@ dat 10 + nverts 1-
 
 :drawnro3 | nro --
 	2 << index + @
-	@+ swap
+	@+  1- swap
+	otroxy3 2drop	| el 1ero no
 	otroxy3 toxy op
-	swap 1-
+	swap 2 -
 	( +? )( swap sigxy3 )
 	2drop ;
 
@@ -365,14 +391,182 @@ dat 10 + nverts 1-
 				rot rot
 				0.2 + ) drop
 			0.2 - ) drop
-		fonti
-		index> index - 2 >> "%d" print
+|		fonti index> index - 2 >> "%d" print
 		drop
 		cflecha
 		;
 
+|----------------------------------
+:cadacart | n --
+	dup
+	2 << tabla + @
+	-1 =? ( drop 1+ ; )
+	drawnro3
+	1+
+    ;
+
+#htoascii )( 1024 | 256 chars
+
+#nrofuente 11 | 0..11
+
+:makehto
+	0
+	( 128 <? )(
+		dup 2 << tabla + 128 2 << nrofuente * + @
+		over 2 << 'htoascii + !
+		1+ )
+	( 256 <? )(
+		dup 2 << tabla + 128 2 <<  nrofuente * + 12 128 * 2 << + @
+		over 2 << 'htoascii + !
+		1+ )
+	drop
+	;
+
+#temp )( 1024
+#temp> 'temp
+#mini
+#mind
+
+:limitereset
+	0 dup 'mini !+ ! ;
+
+:limiteupd | x -- x
+	mini <? ( dup 'mini ! )
+	mind >? ( dup 'mind ! )
+	;
+
+#cntpuntos 0
+#xp #yp
+
+:,temp | byte --
+	temp> c!+ 'temp> ! ;
+
+:getotroxy | adr -- adr++ y x
+	getint8 swap getint8 rot
+	-64 <>? ( limiteupd )
+	;
+
+:,op | y x --
+	xp =? ( swap yp =? ( 2drop ; ) swap )
+	2dup 'xp ! 'yp !
+	2 << ,temp 2 << ,temp
+	1 'cntpuntos +!
+	;
+
+:,line | y x --
+	xp =? ( drop yp =? ( drop ; )
+			dup 'yp !
+			2 << %10 or ,temp
+			1 'cntpuntos +!
+			; )
+	swap
+	yp =? ( drop
+			dup 'xp !
+			2 << %01 or ,temp
+			1 'cntpuntos +!
+			; )
+	swap
+	2dup 'xp ! 'yp !
+	2 << %11 or ,temp 2 << ,temp
+	1 'cntpuntos +!
+	;
+
+:getsigxy | addr -- addr++
+	getotroxy
+		-64 =? ( 2drop getotroxy
+				,op
+				swap 2 - ; )
+	,line
+	swap 1- ;
+
+
+:savecar | n adr --
+	0 'cntpuntos !
+	'temp 'temp> !
+	limitereset
+	over 255 32 - =? ( 2drop "1536 ( " ,print ; ) drop
+	-1 =? ( drop "512 ( " ,print ; )
+	2 << index + @
+
+	@+ 1- swap
+	getotroxy 2drop
+	getotroxy ,op
+	swap 1-
+	( +? )( swap getsigxy )
+	2drop
+	mind abs
+	mini abs max 2 +
+	8 <<	| ancho de letra
+
+	| imprimo buffer a codigo
+	cntpuntos
+	or
+	"%d ( " ,print
+	'temp
+	( temp> <? )( c@+ "%d " ,print )
+	drop
+	;
+
+:saveinc
+	lastfree 'here !
+	'htoascii >r
+	256 ( 1? )( 1-
+		255 over - "#hchar%d " ,print
+		r@+ savecar
+		") " ,print
+		,cr
+		)
+	drop rdrop
+
+	"#:hfntd1 " ,print ,cr
+	256 ( 1? )( 1-
+		%1111 nand? ( ,cr )
+		255 over - "hchar%d " ,print
+		) drop
+
+	lastfree here over - "inc/fnthersheyc.inc" save
+
+	;
+
+
+:viewsmf+t
+	mem dup 'dat !
+	"hershey/Hershey.smf"
+	load 'index !
+	makeindex3
+	index> dup 'tabla !
+	"hershey/Hershey.xtb"
+	load 'lastfree !
+
+	inikey
+	'exit <esc>
+	[ 1 'hojaini +! ; ] <der>
+	[ -1 'hojaini +! ; ] <izq>
+	[ makehto saveinc exit ; ] >f1<
+	show
+		clrscr verde
+		hojaini
+		0.7 ( -0.7 >=? )(
+			-0.7 ( 0.7 <=? )(
+				0.1 0.1 fdim
+				2dup swap fpos
+				rot
+				cadacart
+				rot rot
+				0.2 + ) drop
+			0.2 - ) drop
+|		fonti index> index - 2 >> "%d" print
+		drop
+		cflecha
+		;
+
+|----------------------------------
+|----------------------------------
+|----------------------------------
+|----------------------------------
 :
 |viewreal | fuente real
 |viewconv | fuente en ,,,,
-viewsmf  | fuente en smf
-	 "main.txt" run ;
+|viewsmf  | fuente en smf
+viewsmf+t  | fuente en smf + tabla de conversion
+"main.txt" run ;
