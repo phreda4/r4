@@ -2,11 +2,11 @@
 | MCORNES 2009
 |------------------------------
 ^reda4.txt
-^libgui.txt
+^gui3.txt
+^liboptdiv.txt
 
 #dat #index
 #numero #nverts
-
 
 | ( char - int )
 | 48 = '0', como se escribe un caracter ?
@@ -95,8 +95,8 @@ dat 10 + nverts 1-
 
 |------------------------------------------
 :toxy
-	cch 5 *>> ccy + swap
-	ccw 5 *>> ccx + swap ;
+	h 5 *>> yc + swap
+	w 5 *>> xc + swap ;
 
 :otroxy | adr -- adr++ x y
 	c@+ ( 32 <? )( drop c@+ )
@@ -118,138 +118,261 @@ dat 10 + nverts 1-
 	( +? )( swap sigxy )
 	2drop ;
 
-|------------------------------------------
-#htoascii )( 1024 | 256 chars
-
-#hojaini 0
-
-
-:saverom
-	clear
-
-	'htoascii
-	256 ( 1? )( 1- >r
-		@+
-		r> )
-	2drop
-
-	mem here over - "inc/fnthershey.inc" save
-	;
-
-:showdicc
-	'htoascii
-	256 ( 1? )( 1- >r
-		@+ "%d " print
-		r> )
-	2drop
-	;
-|------------------------------------------
-
 |------------------------------------------------
+#hojaini
 #cursorn
-:cadacar
+
+:cadacar | n -- n+1
 	verde
 	[ 1.1 fzoom ; ] onIn
-	2dup 3 << + hojaini 64 * +
+	dup hojaini 64 * +
 	cursorn =? ( 0.1 pinpon 0.9 + fzoom gc.box )( 0.9 fzoom )
-	[ dup 'cursorn !  ; ] onUp
-	dup drawnro
-	fonti dup "%d " print emit
+	[ dup 'cursorn !  ; ] onClick
+	drawnro
+|	fonti dup "%d " print dup emit
+	1+
 	;
-
-:hojacar
-	8 8 'cadacar .table ;
-
-:btnpag
-	[ dup 'hojaini ! ; ] onUp
-	hojaini =? ( amarillo )( gris 0.8 fzoom )
-|	'irec v8draw
-	5 sfont  cr cr
-	dup 1+ 64 * 1- over 64 * "%d-%d" printc
-	;
-
-:pagcar
-	4 'btnpag .vlist ;
 
 |------------------------------------------------
-:elijearchivo
-	 key.push
-|	savefnt
-	"./f32/" dir
-|	'nombre dlgfile
-	"./" dir
-|	loadfnt
-	key.pop
-	;
-
-:accnombre
-	'elijearchivo onUp
-	$ff00 0 vbtn
-	blanco 1 font
-|	'nombre printc
-	;
-:acciones
-	;
-
-#guiedita
-0.6 0.6 -0.1 -0.1 'hojacar
-0.1 0.6 -0.45 -0.1 'pagcar
-0.7 0.1 -0.15 0.45 'acciones
-0.8 0.1 0.0 -0.45 'accnombre
-0
-
-:editascii
+:viewreal
 	mem dup 'dat !
 	"hershey/hershey_roman.txt"
 |	"hershey/hershey_japan.txt"
+
 	load 'index !
 	makeindex
 	inikey
 	'exit <esc>
 
-	'exit <esc>
-	show cls home verde scr fonti
-		showdicc
-		scr 'guiedita gui
-		cmano ;
+	[ 1 'hojaini +! ; ] <der>
+	[ -1 'hojaini +! ; ] <izq>
+	show
+		clrscr
+		0
+		0.7 ( -0.7 >=? )(
+			-0.7 ( 0.7 <=? )(
+				0.1 0.1 fdim
+				2dup swap fpos
+				rot
+				cadacar
+				rot rot
+				0.2 + ) drop
+			0.2 - ) drop
+		drop
+
+		cflecha ;
 
 |------------------------------------------
-:drawtest
-	0 ( 24 <? )(
-		20 over 1+ 32 * pos
-		0 ( 60 <? )(
-			over 60 * over + drawnro
-			20 0 +pos
-			1+ ) drop
-		1+ ) drop
+|------------------------------------------
+:makeindex2
+	index 'index> !
+	dat
+	( index <? )(
+		dup ,index
+		( c@+ 32 >=? )( drop ) drop
+		( c@+ 32 <? )( drop ) drop 1-
+		) drop
 	;
 
-:go
+|----------- parse signed int
+:digito | c --  dig / -1
+	$2f >? ( $3A <? ( $30 - ; ) )
+	-1 nip ;
+
+:?sint | adr -- adr' nro ; si adr=adr' => nro 0
+	dup c@
+	$2c =? ( drop 1+ dup c@ 	|, $2c
+		$2c =? ( drop 0 ; )	|, $2c
+		)
+	$2b =? ( drop 1+ dup c@ )	|+ $2b
+	$2d =? ( drop 1+ dup c@ [ neg ; ] >r )	| - $2d
+	digito -? ( ; )
+	drop
+	0 swap ( c@+ digito 1+ +? )(	| 0 adr car
+		1- rot 2* dup 2 << + |10*
+		+ swap )
+	drop 1- swap ;
+	;
+
+|--------------------------------
+:otroxy2 | adr -- adr++ x y
+	?sint swap ?sint rot swap
+	;
+
+:sigxy2 | addr -- addr++
+	otroxy2 0 =? ( drop
+		-64 =? ( drop otroxy2 toxy op swap 2 - ; )( 0 )
+		)
+	toxy line swap 1- ;
+
+:drawnro2 | nro --
+	2 << index + @
+	?sint 2/ swap
+	otroxy2 toxy op
+	swap 1-
+	( +? )( swap sigxy2 )
+	2drop ;
+
+:drawnro2v | n --
+	2 << index + @ | inicio de car
+	?sint azul
+	fonti "%d" print
+	verde
+	?sint " %d" print
+	?sint ",%d" print
+
+	drop
+	;
+
+:cadacar2 | n -- n+1
+	-? ( ; )
+	dup hojaini 64 * +
+	index> index - 2 >> >=? ( drop ; )
+	drawnro2
+|	fonti dup "%d " print dup emit
+	1+
+	;
+
+:viewconv
 	mem dup 'dat !
-	"hershey/hershey_roman.txt"
-|	"hershey/hershey_japan.txt"
+	"hershey/OrigFontData.txt"
 	load 'index !
-	makeindex
+	makeindex2
 	inikey
 	'exit <esc>
-	'next <f1>
-	33
-	show cls home verde
-		dup "%d" print cr
-|		index ( index 64 + <? )( >r
-|			r@+ r@+ "dir:%w cnt:%d " print cr r> ) drop
-
-		dat start
-		nverts numero "numero : %d - nverts : %d" print
-		scr blanco draw
-
-		drawtest
-|		fzoom 0.8 rojo |0 drawnro
-		scr fonti 0 3 at
-		verde
-		0 draw2nro
-
+	[ 1 'hojaini +! ; ] <der>
+	[ -1 'hojaini +! ; ] <izq>
+	show
+		clrscr verde
+		0
+		0.7 ( -0.7 >=? )(
+			-0.7 ( 0.7 <=? )(
+				0.1 0.1 fdim
+				2dup swap fpos
+				rot
+				cadacar2
+				rot rot
+				0.2 + ) drop
+			0.2 - ) drop
+		drop
 		;
 
-: editascii | go
+|------------------------------------------
+|------------------------------------------
+:makeindex3
+	index 'index> !
+	dat
+	@+
+	( 1? )( 1-
+		swap dup ,index
+		@+ 16 * +
+		swap ) 2drop
+	;
+;
+:convert
+	$3ff0 =? ( 1 nip ; )
+	$4000 =? ( 2 nip ; )
+	$4008 =? ( 3 nip ; )
+	$4010 =? ( 4 nip ; )
+	$4014 =? ( 5 nip ; )
+	$4018 =? ( 6 nip ; )
+	$401c =? ( 7 nip ; )
+	$4020 =? ( 8 nip ; )
+	$4022 =? ( 9 nip ; )
+	$4024 =? ( 10 nip ; )
+	$4028 =? ( 11 nip ; )
+	$402c =? ( 12 nip ; )
+
+	-$3fb0 =? ( -64 nip ; )
+
+	-$3fd8 =? ( -12 nip ; )
+	-$3fda =? ( -11 nip ; )
+	-$3fde =? ( -9 nip ; )
+
+	-$3fe0 =? ( -8 nip ; )
+	-$3fe4 =? ( -7 nip ; )
+
+	-$3fe8 =? ( -6 nip ; )
+	-$3fec =? ( -5 nip ; )
+	-$3ff0 =? ( -4 nip ; )
+	-$3ff8 =? ( -3 nip ; )
+	-$4000 =? ( -2 nip ; )
+	-$4010 =? ( -1 nip ; )
+
+	;
+
+:getint8 | adr .. adr`` nro
+	@+ drop
+	w@+ drop
+	w@+ convert
+	;
+
+|--------------------------------
+:otroxy3 | adr -- adr++ x y
+	getint8 swap getint8 rot swap
+	;
+
+:sigxy3 | addr -- addr++
+	otroxy3 0 =? ( drop
+		-64 =? ( drop otroxy3 toxy op swap 2 - ; )( 0 )
+		)
+	toxy line swap 1- ;
+
+:drawnro3 | nro --
+	2 << index + @
+	@+ swap
+	otroxy3 toxy op
+	swap 1-
+	( +? )( swap sigxy3 )
+	2drop ;
+
+:drawnro3v | n --
+	2 << index + @ | inicio de car
+	@+
+	fonti azul "%d" print verde cr
+	getint8 "%h" print getint8 ",%h" print cr
+	getint8 "%h" print getint8 ",%h" print cr
+	drop
+;
+
+:cadacar3 | n -- n+1
+	-? ( ; )
+	dup hojaini 64 * +
+	index> index - 2 >> >=? ( drop ; )
+	drawnro3
+|	fonti dup "%d " print dup emit
+	1+
+	;
+
+:viewsmf
+	mem dup 'dat !
+	"hershey/Hershey.smf"
+	load 'index !
+	makeindex3
+	inikey
+	'exit <esc>
+	[ 1 'hojaini +! ; ] <der>
+	[ -1 'hojaini +! ; ] <izq>
+	show
+		clrscr verde
+		0
+		0.7 ( -0.7 >=? )(
+			-0.7 ( 0.7 <=? )(
+				0.1 0.1 fdim
+				2dup swap fpos
+				rot
+				cadacar3
+				rot rot
+				0.2 + ) drop
+			0.2 - ) drop
+		fonti
+		index> index - 2 >> "%d" print
+		drop
+		cflecha
+		;
+
+:
+|viewreal | fuente real
+|viewconv | fuente en ,,,,
+viewsmf  | fuente en smf
 	 "main.txt" run ;
