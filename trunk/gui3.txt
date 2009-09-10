@@ -6,17 +6,26 @@
 ^libprint.txt
 ^libsprite.txt
 ^libgc.txt
+^memscr.txt
 ^font.txt
+^fonth.txt
 
 #bmouse..
 #click..
+#focus.. 1
+#idf
+#idl
+#sucio 1
 
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 ::clrscr
+	idf 'idl !	| ultimo
+	0 'idf !	| primero
 	cls scr home
 	bmouse bmouse.. =? ( drop ; )
 	0? ( 1 )( 0 ) 'click.. !
-	'bmouse.. ! ;
+	'bmouse.. !
+	;
 
 ::onIn | 'vec --
 	xymouse whin 1? ( drop exec ; ) 2drop ;
@@ -29,22 +38,33 @@
 	2drop ;
 
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-::sbtn | acc "str" --
+| botones sin foco
+::btns | acc "str" --
 	gc.push
-	ink@ $222222
+	ink@ dup >r $222222
 	[ swap ; ] [ 0.95 fzoom ; ] onInOut
 	vbtn
-	1 font blanco printc
+	1 font
+	blanco printc r> ink
 	onClick
 	gc.pop ;
 
-
-::dbtn | acc 'v8d --
+::btnh | acc "str" --
 	gc.push
-	ink@ $222222
+	ink@ dup >r $222222
 	[ swap ; ] [ 0.95 fzoom ; ] onInOut
 	vbtn
-	blanco v8draw
+	1 fonthb
+	blanco printc r> ink
+	onClick
+	gc.pop ;
+
+::btnd | acc 'v8d --
+	gc.push
+	ink@ dup >r $222222
+	[ swap ; ] [ 0.95 fzoom ; ] onInOut
+	vbtn
+	blanco v8draw r> ink
 	onClick
 	gc.pop ;
 
@@ -91,6 +111,17 @@
 
 #modo 'lins
 
+|------- manejo de foco
+:nextfoco
+	focus.. 1+ idl >? ( 1 nip ) 'focus.. !
+	1 'sucio ! ;
+
+:ktab
+	mshift 0? ( drop nextfoco ; ) drop
+	focus.. 1- 0 <=? ( idl nip ) 'focus.. !
+	1 'sucio ! ;
+
+|------- teclado para linea de texto
 :setinput | 'var max --
 	'cmax ! dup 'padi> !
 	( c@+ 1? )( drop ) drop 1- dup
@@ -102,6 +133,16 @@
 	'kder <der>		'kizq <izq>
 	[ padi> 'pad> ! ; ] <home>
 	[ padf> 'pad> ! ; ] <end>
+	'ktab dup <tab> <enter>
+	;
+
+|-------- teclado para boton
+:setinputb | 'var --  ; boton con foco
+	<enter>
+	0 <visible>
+	0 <ins> 0 <back> 0 <del> 0 <der> 0 <izq>
+	0 <home> 0 <end>
+	'ktab <tab>
 	;
 
 :dcursor
@@ -116,47 +157,116 @@
 	padi> ( pad> =? ( dcursor )
 		c@+ 1? )( emit ) 2drop ;
 
-|-------------------- formulario
-#sform )( 256
-#sform> 'sform
-#forms
-#foco
+||||||||||||||||||||||||||||
+| con foco
 
-:nextfoco
-	forms @ 1-
-	foco forms - 4 >>
-	<=? ( forms 4+ )( foco 16 + ) nip
-|	setfoco ;
-:setfoco | adr --
-	dup 'foco !
-	8 + @+ swap @ setinput
+::getline | 'dir cnt --
+	1 'idf +!
+	focus..
+	idf =? (
+		sucio 1? ( 0 'sucio ! pick3 pick3 setinput ) drop
+		3drop drawinput ; )
+	drop
+	cntprintbox |gc.box
+	xc w 2/ - yc h 2/ + 2dup op
+	swap w + swap line
+	cntprint
 	;
 
-:ktab
-	mshift 0? ( drop nextfoco ; ) drop
-	foco
-	forms 4+ =? ( drop forms @+ 1- 4 << + )( 16 - )
-	setfoco ;
+::fbtns | 'acc "tex" --
+	1 'idf +!
+	gc.push
+	ink@ dup >r $222222
+	[ swap ; ] [ 0.95 fzoom ; ] onInOut
+	vbtn
+	1 font
+	blanco printc r> ink
+	focus..
+	idf =? (
+		sucio 1? ( 0 'sucio ! pick3 setinputb ) drop
+		0.95 fzoom ink@ negro gc.rod ink )
+	drop
+	onClick
+	gc.pop ;
 
-::iniform | 'adr --
-	dup 'forms !
-	4+ setfoco	| foco en el primero
-	'ktab <tab>
+::fbtnh | 'acc "tex" --
+	1 'idf +!
+	gc.push
+	ink@ dup >r $222222
+	[ swap ; ] [ 0.95 fzoom ; ] onInOut
+	vbtn
+	1 fonthb
+	blanco printc r> ink
+	focus..
+	idf =? (
+		sucio 1? ( 0 'sucio ! pick3 setinputb ) drop
+		0.95 fzoom ink@ negro gc.rod ink )
+	drop
+	onClick
+	gc.pop ;
+
+::fbtnd | acc 'v8d --
+	1 'idf +!
+	gc.push
+	ink@ dup >r $222222
+	[ swap ; ] [ 0.95 fzoom ; ] onInOut
+	vbtn
+	1 fonthb
+	blanco v8draw r> ink
+	focus..
+	idf =? (
+		sucio 1? ( 0 'sucio ! pick3 setinputb ) drop
+		0.95 fzoom ink@ negro gc.rod ink )
+	drop
+	onClick
+	gc.pop ;
+
+::dumpgui
+	scr fonti
+	focus.. "foco..:%d " print
+	idf "idf:%d " print
 	;
 
-::guiform | --
-	forms >r
-	foco r@+ | cnt
-    ( 1? )( 1- swap
-		r <>? (
-			r@+ r@+ at
-			r@+ r@+
-			cntprintbox |gc.box
-			xc w 2/ - yc h 2/ + 2dup op
-			swap w + swap line
-			cntprint
-			)( 16 r+ )
-		swap ) 2drop
-	rdrop
-	foco @+ swap @ at drawinput
+::inigui
+	inikey
+	1 'focus.. !
+	1 'sucio !
+
+	;
+
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||| Dialogos
+
+#tt
+
+:dlgsinor | -- 0/1
+	inikey
+	[ 0 exit ; ] >esc<
+	[ 1 exit ; ] >esp<
+	show
+		clrscr
+		screencopy
+		0 0 fpos
+		0.6 0.5 fdim azul gc.frod
+		0.15 dup fdim
+		-0.2 -0.3 fpos
+		rojo oscuro
+		[ 0 exit ; ] 'ifin btnd
+		0.2 -0.3 fpos
+		verde oscuro
+		[ 1 exit ; ] 'iok btnd
+		blanco
+		0.6 dup fdim 0 0 fpos
+		7 fonthb cr cr
+		tt printc
+		cflecha ;
+
+::dlgsino | "" -- 0/1
+	'tt !
+	oscurecetodo
+	screenmark
+	key.push
+	dlgsinor
+	key.pop
+	screenempty
 	;
