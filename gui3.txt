@@ -116,10 +116,12 @@
 	focus.. 1+ idl >? ( 1 nip ) 'focus.. !
 	1 'sucio ! ;
 
-:ktab
-	mshift 0? ( drop nextfoco ; ) drop
+:prevfoco
 	focus.. 1- 0 <=? ( idl nip ) 'focus.. !
 	1 'sucio ! ;
+
+:ktab
+	mshift 0? ( nextfoco )( prevfoco ) drop ;
 
 |------- teclado para linea de texto
 :setinput | 'var max --
@@ -134,17 +136,33 @@
 	[ padi> 'pad> ! ; ] <home>
 	[ padf> 'pad> ! ; ] <end>
 	'ktab dup <tab> <enter>
+	'nextfoco <aba> 'prevfoco <arr>
 	;
 
 |-------- teclado para boton
 :setinputb | 'var --  ; boton con foco
 	<enter>
 	0 <visible>
-	0 <ins> 0 <back> 0 <del> 0 <der> 0 <izq>
+	0 <ins> 0 <back> 0 <del>
 	0 <home> 0 <end>
 	'ktab <tab>
+	'nextfoco <der> 'prevfoco <izq>
+	'nextfoco <aba> 'prevfoco <arr>
 	;
 
+|-------- teclado para slide
+:setinputs | 'var --  ; boton con foco
+	0 <enter>
+	0 <visible>
+	0 <ins> 0 <back> 0 <del>
+	[ 0.01 over +! ; ] <der> [ -0.01 over +! ; ] <izq>
+	[ -0.5 over ! ; ] <home> [ 0.5 over ! ; ] <end>
+	'ktab <tab>
+	'nextfoco <aba> 'prevfoco <arr>
+	drop
+	;
+
+|------------------------------
 :dcursor
 	blink 1? ( drop ; ) drop
 	ink@ >r
@@ -159,7 +177,7 @@
 
 ||||||||||||||||||||||||||||
 | con foco
-
+|---- ENTRADA
 ::getline | 'dir cnt --
 	1 'idf +!
 	focus..
@@ -173,54 +191,79 @@
 	cntprint
 	;
 
+|---- BOTONES
+:bordefoco
+	ink@ blink 1? ( blanco )( negro ) gc.rod drop ink
+	;
+
 ::fbtns | 'acc "tex" --
-	1 'idf +!
 	gc.push
 	ink@ dup >r $222222
 	[ swap ; ] [ 0.95 fzoom ; ] onInOut
 	vbtn
 	1 font
 	blanco printc r> ink
+	1 'idf +!
 	focus..
 	idf =? (
-		sucio 1? ( 0 'sucio ! pick3 setinputb ) drop
-		0.95 fzoom ink@ negro gc.rod ink )
+		sucio 1? ( 0 'sucio ! pick2 setinputb ) drop
+		bordefoco )
 	drop
 	onClick
 	gc.pop ;
 
 ::fbtnh | 'acc "tex" --
-	1 'idf +!
 	gc.push
 	ink@ dup >r $222222
 	[ swap ; ] [ 0.95 fzoom ; ] onInOut
 	vbtn
 	1 fonthb
 	blanco printc r> ink
+	1 'idf +!
 	focus..
 	idf =? (
-		sucio 1? ( 0 'sucio ! pick3 setinputb ) drop
-		0.95 fzoom ink@ negro gc.rod ink )
+		sucio 1? ( 0 'sucio ! pick2 setinputb ) drop
+		bordefoco )
 	drop
 	onClick
 	gc.pop ;
 
 ::fbtnd | acc 'v8d --
-	1 'idf +!
 	gc.push
 	ink@ dup >r $222222
 	[ swap ; ] [ 0.95 fzoom ; ] onInOut
 	vbtn
 	1 fonthb
 	blanco v8draw r> ink
+	1 'idf +!
 	focus..
 	idf =? (
-		sucio 1? ( 0 'sucio ! pick3 setinputb ) drop
-		0.95 fzoom ink@ negro gc.rod ink )
+		sucio 1? ( 0 'sucio ! pick2 setinputb ) drop
+		bordefoco )
 	drop
 	onClick
 	gc.pop ;
 
+|---- SLIDE
+::hslide | 'var --
+	[ bmouse 1? ( xymouse drop xc - 16 << w / pick2 ! ) drop ; ] onIn
+	gc.push 0.98 0.2 fscala
+	gc.frod gc.pop
+	@ w 16 *>> 'xc +!
+ 	0.1 0.98 fscala
+	$dddddd $222222 vbtn
+	;
+
+::vslide | 'var --
+	[ bmouse 1? ( xymouse nip yc - 16 << h / pick2 ! ) drop ; ] onIn
+	gc.push 0.2 0.98 fscala
+	gc.frod gc.pop
+	@ h 16 *>> 'yc +!
+ 	0.98 0.1 fscala
+	$dddddd $222222 hbtn
+	;
+
+|---- aux
 ::dumpgui
 	scr fonti
 	focus.. "foco..:%d " print
@@ -228,10 +271,15 @@
 	;
 
 ::inigui
+	key.push
 	inikey
-	1 'focus.. !
-	1 'sucio !
+	1 dup 'focus.. ! 'sucio !
+	;
 
+::exit
+	1 '.exit !
+	key.pop
+	1 dup 'focus.. ! 'sucio !
 	;
 
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
@@ -240,25 +288,27 @@
 #tt
 
 :dlgsinor | -- 0/1
-	inikey
+	inigui
 	[ 0 exit ; ] >esc<
 	[ 1 exit ; ] >esp<
 	show
 		clrscr
 		screencopy
 		0 0 fpos
-		0.6 0.5 fdim azul gc.frod
+		0.6 0.5 fdim
+		$ff $11 vbtn |azul gc.frod
 		0.15 dup fdim
 		-0.2 -0.3 fpos
 		rojo oscuro
-		[ 0 exit ; ] 'ifin btnd
+		[ 0 exit ; ] 'ifin fbtnd
 		0.2 -0.3 fpos
 		verde oscuro
-		[ 1 exit ; ] 'iok btnd
-		blanco
+		[ 1 exit ; ] 'iok fbtnd
 		0.6 dup fdim 0 0 fpos
 		7 fonthb cr cr
-		tt printc
+		negro tt printc
+		-2 dup 'xc +! 'ccy +! | porque printc lo centra
+		blanco tt printc
 		cflecha ;
 
 ::dlgsino | "" -- 0/1
