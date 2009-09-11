@@ -51,7 +51,7 @@ SOCKET      soc;
 WSADATA     wsaData;
 SOCKADDR_IN naddr; // the address structure for a TCP socket
 
-char*        buffernet;
+char*   buffernet;
 int     buffersize;
 
 #define WM_WSAASYNC (WM_USER +5)
@@ -387,10 +387,10 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 #endif
 		break;
 	case MSEC: NOS++;*NOS=TOS;TOS=timeGetTime();continue;
-    case IDATE: time(&sit);sitime=localtime(&sit);NOS++;*NOS=TOS;TOS=sitime->tm_year; //+1900
-  NOS++;*NOS=TOS;TOS=sitime->tm_mon;NOS++;*NOS=TOS;TOS=sitime->tm_wday;continue;
-    case TIME: time(&sit);sitime=localtime(&sit);NOS++;*NOS=TOS;TOS=sitime->tm_hour; 
-  NOS++;*NOS=TOS;TOS=sitime->tm_min;NOS++;*NOS=TOS;TOS=sitime->tm_sec;continue;
+    case IDATE: time(&sit);sitime=localtime(&sit);NOS++;*NOS=TOS;TOS=sitime->tm_year+1900;
+        NOS++;*NOS=TOS;TOS=sitime->tm_mon+1;NOS++;*NOS=TOS;TOS=sitime->tm_mday;continue;
+    case TIME: time(&sit);sitime=localtime(&sit);NOS++;*NOS=TOS;TOS=sitime->tm_sec; 
+        NOS++;*NOS=TOS;TOS=sitime->tm_min;NOS++;*NOS=TOS;TOS=sitime->tm_hour;continue;
     case SISEND: return 0;  
     case SISRUN: if (TOS!=0) { bootstr=(char*)TOS;exestr=""; }return 1;
 //    case SISIRUN: if (TOS!=0) exestr=(char*)TOS;return 1;
