@@ -7,64 +7,144 @@
 ^gui3.txt
 ^inc/systemfailure.inc
 
-
-|----------- FX 2D
+|||| DRAW 2D
+| x y s r  vx vy acc tl
+|   4 8 12 16 20 24  28
 #fx 0
 #fx> 0
 
-:inifx
-	clear
-	0 here dup dup 'fx> ! 'fx ! !
-	;
+:ini2d
+	omode
+	0 0 10.0  mtrans
+	0 here dup dup 'fx> ! 'fx ! ! ;
 
-:+fx | 'acc x y vx vy timelife --
-	fx> >r r!+ r!+ r!+ r!+ r!+ r!+ r> 'fx> !
-	;
+:+fx | tl 'acc vy vx r s y x  --
+	fx> !+ !+ !+ !+ !+ !+ !+ !+ 'fx> ! ;
 
 :delfx | parn -- parn
-	dup 24 - over
+	dup 32 - over
 	fx> over - 2 >>
 	move | de sr cnt
-	-24 'fx> +!
-	24 -
-	;
+	-32 'fx> +!
+	32 - ;
+
+:draw2d | adr -- adr tl
+	mpush
+	>r
+	r@+ r@+ 0 mtransi
+	r@+ dup 0 mscalei
+	r@+ mrotzi
+	r@+ r 20 - +!
+	r@+ r 20 - +!
+	r> @+ exec | adrtl t1
+	mpop ;
+
+:ss! | adrrl tl scale -- adrrl tl
+	pick2 20 - ! ;
+
+:sr! | adrrl tl scale -- adrrl tl
+	pick2 16 - ! ;
 
 :drawfx
 	fx ( fx> <? )(
-		mpush @+ | dirx acc
-		exec | adr
-		1? ( swap 4 - !+ )( drop delfx )
-		mpop
-		) drop
-	255 alpha ;
-
-:fxvel | dirx -- dirtl
-	>r
-	r@+ r@+ 0 mtransi
-	r@+ r 12 - +!
-	r@+ r 12 - +!
-	r> ;
+		draw2d
+		1? ( swap !+ )( drop 4+ delfx )
+		) drop ;
 
 :r0.1 | -- r
 	rand 0.1 mod ;
 
-|----------  ESCENA 2D
-:ini2d
-	omode
-	0 0 10.0  mtrans ;
+:r01 | -- r
+	rand 1.0 mod ;
 
-:draw2d | adr --
-	( @+ 1? )( >r
-		mpush
-		r@+ r@+ 0 mtransi
-		r@+ dup abs 0 mscalei
-		r@+ 1? ( mrotzi )( drop )
-		r> @ 3dnsprite
-		mpop
-		) 2drop
-	255 alpha ;
+|||| SPRITES
 
-|----------------------------------
+|||| NAVE
+| x y s r vx vy acc tl
+#snave 0 0 0.9 0 0 0 0 -1
+#vrnave 0
+#vanave 0
+
+
+:minave | adrtl -- adrtl tl
+	-1
+	'dib1 3dnsprite
+	vrnave 'snave 12 + +!	| rotacion
+							| angular
+	;
+
+:minavereset
+	'minave 0 0 0 0.9 0 0
+	'snave !+ !+ !+ !+ !+ !+ !
+	0 'vrnave !
+	;
+
+|||| SMOKE
+:mismoke
+	dup @ 1-
+	dup 3 << alpha
+	'dib3 3dnsprite
+	dup 10 << 0.2 + ss!
+	255 alpha
+	;
+
+:+smoke
+	30 'mismoke
+	0 0
+|	r0.1 r0.1
+	r01 0.5
+	'snave @+ swap @ swap
+	+fx
+	;
+
+|||| KEYS
+:kder
+	-0.002 'vrnave ! ;
+:ukder
+	0 'vrnave ! ;
+:kizq
+	0.002 'vrnave !	;
+:ukizq
+	0 'vrnave ! ;
+:kup
+    +smoke
+	-0.03 'snave 20 + !
+	;
+:ukup
+|	0 vnave 20 + !
+	;
+:kdn
+	+smoke
+	0.03 'snave 20 + !
+	;
+:ukdn
+	0 'snave 20 + !
+	;
+:kfire
+	;
+
+|||| GAME LOOP
+:juego
+	inigui
+	ini2d
+	minavereset
+
+	'exit >esc<
+	'kder <der> 'ukder >der<
+	'kizq <izq>	'ukizq >izq<
+	'kup <arr> 'ukup >arr<
+	'kdn <aba> 'ukdn >aba<
+	'kfire <esp>
+	show clrscr
+		drawfx
+    	'snave draw2d 2drop
+
+		20 fonth verde
+		dup "%d " print
+		fx> fx - 2 >> "%d " print
+	;
+
+|||| TITLE
 :titulo
 	inigui
 	[ exit 1 ; ] >esp<
@@ -73,8 +153,11 @@
 		cmano
 		;
 
+|||| BOOT
 : 33
-	titulo
+	clear
+|	titulo
+	juego
 	;
 
 
