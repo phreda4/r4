@@ -1110,7 +1110,7 @@ switch (message) {     // handle message
 //         SYSKEY=((lParam&0x1000000)?0x10:0)+((lParam>>16)&0x7f)|0x80;
          lParam>>=16;
          SYSKEY=lParam&0x7f;
-         if (SYSKEY>0x38) SYSKEY+=((lParam&0x100)>>4);
+         if (SYSKEY>0x34 && SYSKEY!=0x38) SYSKEY+=((lParam&0x100)>>4);
          SYSKEY|=0x80;
          SYSEVENT=SYSirqteclado;
          break;
@@ -1119,7 +1119,7 @@ switch (message) {     // handle message
 //         SYSKEY=((lParam&0x1000000)?0x10:0)+(lParam>>16)&0x7f;
          lParam>>=16;
          SYSKEY=lParam&0x7f;
-         if (SYSKEY>0x38) SYSKEY+=((lParam&0x100)>>4);
+         if (SYSKEY>0x34 && SYSKEY!=0x38) SYSKEY+=((lParam&0x100)>>4);
          SYSEVENT=SYSirqteclado;
          break;
 //---------Winsock related message...

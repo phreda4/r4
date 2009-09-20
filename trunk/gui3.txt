@@ -9,14 +9,13 @@
 ^memscr.txt
 ^font.txt
 ^fonth.txt
-^trace.txt
 
 #bmouse..
 #click..
 #focus.. 1
+#sucio 1
 #idf
 #idl
-#sucio 1
 
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 ::clrscr
@@ -167,6 +166,20 @@
 	'nextfoco <aba> 'prevfoco <arr>
 	;
 
+:dcursor
+	blink 1? ( drop ; ) drop
+	ink@ >r
+	modo 'lins =? ( azul )( rojo ) drop
+	printcur 1-
+	r> ink ;
+
+:drawinput | --
+	cmax cntprintbox drop ink@ blanco gc.fbox ink
+	padi> ( pad> =? ( dcursor )
+		c@+ 1? )( emit ) 2drop
+	xc w 2/ + 'ccx !
+	;
+
 |-------- teclado para boton
 :setinputb | 'var --  ; boton con foco
 	<enter>
@@ -190,20 +203,6 @@
 	drop
 	;
 
-|------------------------------
-:dcursor
-	blink 1? ( drop ; ) drop
-	ink@ >r
-	modo 'lins =? ( azul )( rojo ) drop
-	printcur 1-
-	r> ink ;
-
-:drawinput | --
-	cmax cntprintbox drop ink@ blanco gc.fbox ink
-	padi> ( pad> =? ( dcursor )
-		c@+ 1? )( emit ) 2drop
-	;
-
 ||||||||||||||||||||||||||||
 || con foco
 
@@ -212,8 +211,17 @@
 	'focus.. ! 1 'sucio !
 	;
 
+:tienefoco | adr -- |
+	1 'idf +!
+	focus..
+	idf =? (
+		sucio 0? ( 2drop exec dup 'sucio ! )( nip nip )
+		exec ; )
+	drop
+
 |---- ENTRADA
 ::getline | 'dir cnt --
+	| 'focogetline  tienefoco
 	1 'idf +!
 	focus..
 	idf =? (
@@ -221,19 +229,21 @@
 		3drop drawinput
 		; )
 	drop
-	cntprintbox |gc.box
-	xc w 2/ - yc h 2/ + 2dup op
-	swap w + swap line
-	cntprint
+
+ 	cntprintbox gc.box boxprint
 	'clickfoco onClick
 	;
 
 |---- BOTONES
 :bordefoco
-	ink@ blink 1? ( blanco )( negro )
+	ink@ blink 1? ( blanco )( negro ) drop
 	gc.rod -2 dup 'w +! 'h +! gc.rod
-	drop ink
-	;
+	ink ;
+
+:bordefocos
+	ink@ blink 1? ( blanco )( gris ) drop
+	gc.box
+	ink ;
 
 ::fbtns | 'acc "tex" --
 	gc.push
@@ -242,12 +252,14 @@
 	vbtn
 	1 font
 	blanco printc r> ink
+|	'focobtn1 tienefoco
 	1 'idf +!
 	focus..
 	idf =? (
 		sucio 1? ( 0 'sucio ! pick2 setinputb ) drop
 		bordefoco )
 	drop
+
 	onClick
 	gc.pop ;
 
@@ -258,12 +270,15 @@
 	vbtn
 	1 fonthb
 	blanco printc r> ink
+|	'focobtn1 tienefoco
+
 	1 'idf +!
 	focus..
 	idf =? (
 		sucio 1? ( 0 'sucio ! pick2 setinputb ) drop
 		bordefoco )
 	drop
+
 	onClick
 	gc.pop ;
 
@@ -274,12 +289,31 @@
 	vbtn
 	1 fonthb
 	blanco v8draw r> ink
+
+|	'focobtn1 tienefoco
 	1 'idf +!
 	focus..
 	idf =? (
 		sucio 1? ( 0 'sucio ! pick2 setinputb ) drop
 		bordefoco )
 	drop
+
+	onClick
+	gc.pop ;
+
+::fbtne | acc cnt --
+	gc.push
+	cntprintbox drop
+
+|	'focobtn2 tienefoco
+
+	1 'idf +!
+	focus..
+	idf =? (
+		sucio 1? ( 0 'sucio ! pick2 setinputb ) drop
+		bordefocos )
+	drop
+
 	onClick
 	gc.pop ;
 
@@ -332,6 +366,8 @@
 	[ swap 1.1 fzoom ; ] onIn vbtn
 	r> ink
 	print
+|	'focobtn2 tienefoco
+
 	1 'idf +!
 	focus..
 	idf =? (
@@ -343,9 +379,7 @@
 
 ||||||||||||||||||||
 ||  Dialogos
-
 #tt
-
 :dlgsinor | -- 0/1
 	inigui
 	[ 0 exit ; ] >esc<
