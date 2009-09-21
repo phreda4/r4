@@ -7,6 +7,10 @@
 ^gui3.txt
 ^inc/systemfailure.inc
 
+#xcam 0
+#ycam 0
+#zcam 10.0
+
 |||| DRAW 2D
 | x y s r  vx vy acc tl
 |   4 8 12 16 20 24  28
@@ -14,8 +18,6 @@
 #fx> 0
 
 :ini2d
-	omode
-	0 0 10.0  mtrans
 	0 here dup dup 'fx> ! 'fx ! ! ;
 
 :+fx | tl 'acc vy vx r s y x  --
@@ -39,11 +41,17 @@
 	r> @+ exec | adrtl t1
 	mpop ;
 
+:xy@ | adrrl -- adrrl x y
+	dup 28 - @+ swap @ ;
+
 :ss! | adrrl tl scale -- adrrl tl
 	pick2 20 - ! ;
 
 :sr! | adrrl tl scale -- adrrl tl
 	pick2 16 - ! ;
+
+:+sr! | adrrl tl scale -- adrrl tl
+	pick2 16 - +! ;
 
 :drawfx
 	fx ( fx> <? )(
@@ -59,16 +67,59 @@
 
 |||| SPRITES
 
+|||| ROCKS
+:rocks
+	xy@
+	abs 4.0 >? ( 0 nip nip ; ) drop
+	abs 4.0 >? ( 0 nip ; ) drop
+    -1
+    'dib6 3dnsprite
+	0.01 +sr!
+	;
+
+:+rocks
+	-1 'rocks
+	r0.1 r0.1
+	r01 0.4              | rot y tam
+	0 0
+	+fx
+	;
+
+|||| GOAL
+#sfin 0 0 0 0.5 0 0 0 0 -1
+
+:mifin
+	-1
+	'dib5 3dnsprite
+	0.4 pinpon 0.4 + ss!
+	;
+
+:mifinreset
+	'mifin 0 0 0 0.5 2.0 2.0
+	'sfin !+ !+ !+ !+ !+ !+ !
+	;
+
 |||| NAVE
 | x y s r vx vy acc tl
-#snave 0 0 0.1 0 0 0 0 -1
+#snave 0 0 0.5 0 0 0 0 -1
 
 #vrnave 0
 #arnave 0
 #vanave 0
 #aanave 0
 
+:ajustacam | x y --
+
+	neg ycam 3.0 + >? ( 3.0 - 'ycam ! )(
+		ycam 3.0 - <? ( 3.0 + 'ycam ! )( drop ) )
+	neg xcam 3.0 + >? ( 3.0 - 'xcam ! )(
+		xcam 3.0 - <? ( 3.0 + 'xcam ! )( drop ) )
+
+|	neg 'ycam ! neg 'xcam ! | centro siempre
+	;
+
 :minave | adrtl -- adrtl tl
+	xy@ ajustacam
 	-1
 	'dib1 3dnsprite
 	arnave 'vrnave +!
@@ -83,7 +134,21 @@
 	'minave 0 0 0 0.5 0 0
 	'snave !+ !+ !+ !+ !+ !+ !
 	0 'vrnave !
+	0 0 0 0 'vrnave !+ !+ !+ !
 	;
+
+|||| FIRE
+:fire
+	dup @ 1-
+	'diba 3dnsprite ;
+
+:+fire
+	100 'fire
+	'snave 12 + @ dup sincos
+	-0.2 *. swap -0.2 *. | velocidad
+	rot 0.1              | rot y tam
+	'snave @+ swap @ swap | posicion
+	+fx ;
 
 |||| SMOKE
 #humo
@@ -92,6 +157,7 @@
 	dup @ 1-
 	dup 3 << alpha
 	'dib2 3dnsprite
+	0.02 +sr!
 |	dup 10 << 0.2 + ss!
 	255 alpha
 	;
@@ -110,35 +176,42 @@
 	-0.001 'arnave ! ;
 :ukder
 	0 'arnave !
-	vrnave 2/ 'vrnave !
-|	0 'vrnave !
-;
+	vrnave 2/ 'vrnave ! ;
 :kizq
 	0.001 'arnave !	;
 :ukizq
 	0 'arnave !
-	vrnave 2/ 'vrnave !
-
-|	arnave 2/ 'arnave !
-|	0 'vrnave !
-	;
+	vrnave 2/ 'vrnave ! ;
 :kup
-	0.002 'aanave !
-	0.05 'humo !
-	;
+	0.001 'aanave !
+	0.05 'humo ! ;
 :ukup
 	0 'aanave !
-	0 'humo !
-	;
+	0 'humo ! ;
 :kdn
-	-0.002 'aanave !
-	-0.05 'humo !
-	;
+	-0.001 'aanave !
+	-0.05 'humo ! ;
 :ukdn
 	0 'aanave !
-	0 'humo !
-	;
+	0 'humo ! ;
+
 :kfire
+
+	+fire
+	;
+
+|||| CONSOLA
+#line1 "a" )( 64
+#line2 "1" )( 64
+#line3 "3" )( 64
+#line4 "4" )( 64
+
+:consola
+	20 fonth verde
+	'line1 print cr
+	'line2 print cr
+	'line3 print cr
+	'line4 print cr
 	;
 
 |||| GAME LOOP
@@ -146,7 +219,7 @@
 	inigui
 	ini2d
 	minavereset
-
+	mifinreset
 	'exit >esc<
 	'kder <der> 'ukder >der<
 	'kizq <izq>	'ukizq >izq<
@@ -154,22 +227,34 @@
 	'kdn <aba> 'ukdn >aba<
 	'kfire <esp>
 	show clrscr
+		omode
+		xcam ycam zcam  mtrans
 		drawfx
 
     	'snave draw2d 2drop
+		'sfin  draw2d 2drop
+
+		consola
 
 		20 fonth verde
+		0 18 at
 		dup "%d " print
 		fx> fx - 2 >> "%d " print cr
-vrnave
-arnave  "%f %f " print cr
-vanave
-aanave   "%f %f " print cr
-
+		vrnave arnave "%f %f - " print
+		vanave aanave "%f %f " print cr
 
 		100 .mseg .restart
 		humo 1? ( +smoke ) drop
-	;
+		+rocks
+		;
+
+
+#inigame1 "Use the arrows to move the ship."
+#inigame2 "Use SPACE to fire and destroy."
+#inigame3 "Avoid obstacles and go to the station."
+#inigame4 "Good Luck."
+
+#titleini "*** System Failure ****%.ESPACE to continue...%.ESC to exit..."
 
 |||| TITLE
 :titulo
