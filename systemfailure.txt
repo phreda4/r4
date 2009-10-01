@@ -12,24 +12,27 @@
 #zcam 10.0
 
 |||| DRAW 2D
-| x y s r  vx vy acc tl
-|   4 8 12 16 20 24  28
-#fx 0
-#fx> 0
+| x  y  s r  vx vy acc tl
+|    4  8 12 16 20 24  28
+|-28-24-20-16-12 -8 -4
 
-:ini2d
-	0 here dup dup 'fx> ! 'fx ! ! ;
+:sxy@ | adrrl -- adrrl x y
+	dup 28 - @+ swap @ ;
 
-:+fx | tl 'acc vy vx r s y x  --
-	fx> !+ !+ !+ !+ !+ !+ !+ !+ 'fx> ! ;
+:svxy! | adrrl +vy +vx -- adrrl
+	pick2 12 - !+ ! ;
 
-:delfx | parn -- parn
-	dup 32 - over
-	fx> over - 2 >>
-	move | de sr cnt
-	-32 'fx> +!
-	32 - ;
+:ss! | adrrl scale -- adrrl
+	over 20 - ! ;
 
+:sr! | adrrl rotacion -- adrrl
+	over 16 - ! ;
+:+sr! | adrrl +rotacion -- adrrl
+	over 16 - +! ;
+:sr@ | adrrl  -- adrrl rotacion
+	dup 16 - @ ;
+
+||||||||||||||||||||||||||||||||||
 :draw2d | adr -- adr tl
 	mpush
 	>r
@@ -41,40 +44,119 @@
 	r> @+ exec | adrtl t1
 	mpop ;
 
-:xy@ | adrrl -- adrrl x y
-	dup 28 - @+ swap @ ;
 
-:ss! | adrrl tl scale -- adrrl tl
-	pick2 20 - ! ;
+:simplesprite | adr -- adr'
+	@+ draw2d 2drop ;
 
-:sr! | adrrl tl scale -- adrrl tl
-	pick2 16 - ! ;
+|
+| 2 listfx
+| 1 <-lsig
+| listfx ... 'borr <-act
 
-:+sr! | adrrl tl scale -- adrrl tl
-	pick2 16 - +! ;
+:delspr | 'lsp 'lsig 'act -- 'lsig
+	dup 32 - over | nueva vieja
+	10 | *** cnt
+	5 << move | de sr cnt
+	32 - ;
 
-:drawfx
-	fx ( fx> <? )(
+
+:lsprite	| adr -- adr'
+	@+
+	@+ ( 1? )( 1- swap  | nexl cant lis'
 		draw2d
-		1? ( swap !+ )( drop 4+ delfx )
-		) drop ;
+        1? ( swap !+ )( drop 4+
+				delspr
+				-1 pick3 4 - @ +! 	| resta 1 a cantidad
+				)
+		swap ) 2drop
+	;
 
+:msprite
+:noop
+	@+ drop
+	;
+
+#accdib 'simplesprite 'lsprite 'msprite 'noop 'noop 'noop 'noop
+
+:drawlayer | layer --
+	( @+ 1? )(
+		1- $3 and 2 << 'accdib + @ exec
+		) 2drop ;
+
+:+layer | tl 'acc vy vx r s y x  'lista --
+	dup @+ | 'listfx 'dirini cantact
+	>r r
+	5 << + | 'listfx 'diractual
+	swap >r | ... y x 'diractual
+	!+ !+ !+ !+ !+ !+ !+ !
+	r> r> | 'diract cantact
+	1+ swap ! ;
+
+||||||||||||||||||||||||||||||||||
 :r0.1 | -- r
 	rand 0.1 mod ;
 
 :r01 | -- r
 	rand 1.0 mod ;
 
+||||||||||||||||||||||||||||||||||
+|||| GOAL
+:accgoal | adr -- adr t1
+	'dib5 3dnsprite
+	0.8 pinpon 0.8 + ss!
+	-1 ;
+
+#spr-goal 2.0 2.0 0.5 0 0 0 'accgoal -1
+
+:resetgoal
+	'accgoal 0 0 0 0.5 2.0 2.0 'spr-goal !+ !+ !+ !+ !+ !+ ! ;
+
+|||| NAVE
+| x y s r vx vy acc tl
+#vrnave 0
+#arnave 0
+#vanave 0
+#aanave 0
+
+:accnave | adrtl -- adrtl tl
+	'dib1 3dnsprite
+	arnave 'vrnave +!
+	vrnave +sr!	| rotacion
+	aanave 'vanave +!
+	sr@ sincos
+	vanave neg *. swap vanave neg *. svxy! | velocidad
+	-1 ;
+
+#spr-nave 0 0 0.5 0 0 0 'accnave -1
+
+:resetnave
+	'accnave 0 0 0 0.5 0 0
+	'spr-nave !+ !+ !+ !+ !+ !+ !
+	0 0 0 0 'vrnave !+ !+ !+ !
+	;
+
+:posnave
+	'spr-nave @+ swap @ swap ;
+
+#listafx 0 )( 8192
+
+#layer1
+2	'listafx
+1	'spr-goal
+1	'spr-nave
+0
+
+
 |||| SPRITES
 
 |||| ROCKS
 :rocks
-	xy@
+	0.01 +sr!
+	sxy@
 	abs 4.0 >? ( 0 nip nip ; ) drop
 	abs 4.0 >? ( 0 nip ; ) drop
     -1
     'dib6 3dnsprite
-	0.01 +sr!
 	;
 
 :+rocks
@@ -82,59 +164,7 @@
 	r0.1 r0.1
 	r01 0.4              | rot y tam
 	0 0
-	+fx
-	;
-
-|||| GOAL
-#sfin 0 0 0 0.5 0 0 0 0 -1
-
-:mifin
-	-1
-	'dib5 3dnsprite
-	0.4 pinpon 0.4 + ss!
-	;
-
-:mifinreset
-	'mifin 0 0 0 0.5 2.0 2.0
-	'sfin !+ !+ !+ !+ !+ !+ !
-	;
-
-|||| NAVE
-| x y s r vx vy acc tl
-#snave 0 0 0.5 0 0 0 0 -1
-
-#vrnave 0
-#arnave 0
-#vanave 0
-#aanave 0
-
-:ajustacam | x y --
-
-	neg ycam 3.0 + >? ( 3.0 - 'ycam ! )(
-		ycam 3.0 - <? ( 3.0 + 'ycam ! )( drop ) )
-	neg xcam 3.0 + >? ( 3.0 - 'xcam ! )(
-		xcam 3.0 - <? ( 3.0 + 'xcam ! )( drop ) )
-
-|	neg 'ycam ! neg 'xcam ! | centro siempre
-	;
-
-:minave | adrtl -- adrtl tl
-	xy@ ajustacam
-	-1
-	'dib1 3dnsprite
-	arnave 'vrnave +!
-	vrnave 'snave 12 + +!	| rotacion
-	aanave 'vanave +!
-	'snave 12 + @ sincos
-	vanave neg *. 'snave 20 + !
-	vanave neg *. 'snave 16 + ! | velocidad
-	;
-
-:minavereset
-	'minave 0 0 0 0.5 0 0
-	'snave !+ !+ !+ !+ !+ !+ !
-	0 'vrnave !
-	0 0 0 0 'vrnave !+ !+ !+ !
+	'listafx +layer
 	;
 
 |||| FIRE
@@ -144,31 +174,32 @@
 
 :+fire
 	100 'fire
-	'snave 12 + @ dup sincos
+	'spr-nave 12 + @ dup sincos
 	-0.2 *. swap -0.2 *. | velocidad
 	rot 0.1              | rot y tam
-	'snave @+ swap @ swap | posicion
-	+fx ;
+	posnave
+	'listafx +layer
+	;
 
 |||| SMOKE
 #humo
 
 :mismoke
+	0.02 +sr!
+|	dup 10 << 0.2 + ss!
 	dup @ 1-
 	dup 3 << alpha
 	'dib2 3dnsprite
-	0.02 +sr!
-|	dup 10 << 0.2 + ss!
 	255 alpha
 	;
 
 :+smoke
 	30 'mismoke
-	'snave 12 + @ sincos
+	'spr-nave 12 + @ sincos
 	humo *. swap humo *. | velocidad
 	r01 0.4              | rot y tam
-	'snave @+ swap @ swap | posicion
-	+fx
+	posnave
+	'listafx +layer
 	;
 
 |||| KEYS
@@ -196,30 +227,48 @@
 	0 'humo ! ;
 
 :kfire
-
 	+fire
 	;
 
 |||| CONSOLA
-#line1 "a" )( 64
-#line2 "1" )( 64
-#line3 "3" )( 64
-#line4 "4" )( 64
+#line1 )( 64
 
-:consola
-	20 fonth verde
+:consola+keys
+	0.05 dup fdim verde
+
+	0.7 -0.8 fpos 'exit 'iarr btnd
+	0.6 -0.9 fpos 'exit 'iizq btnd
+	0.7 -0.9 fpos 'exit 'iaba btnd
+	0.8 -0.9 fpos 'exit 'ider btnd
+	0.4 0.05 fdim rojo
+	0.0 -0.9 fpos 'exit "space" btnh
+
+	scr 20 fonth verde
 	'line1 print cr
-	'line2 print cr
-	'line3 print cr
-	'line4 print cr
 	;
 
+
 |||| GAME LOOP
+:debug scr
+		20 fonth verde
+		0 16 at
+		dup "%d " print
+		listafx "cnt:%d " print cr
+		vrnave arnave "%f %f - " print
+		vanave aanave "%f %f " print ;
+
+:ajustacam
+	posnave
+	neg xcam 3.0 + >? ( 3.0 - 'xcam ! )(
+		xcam 3.0 - <? ( 3.0 + 'xcam ! )( drop ) )
+	neg ycam 3.0 + >? ( 3.0 - 'ycam ! )(
+		ycam 3.0 - <? ( 3.0 + 'ycam ! )( drop ) )
+	;
+
 :juego
 	inigui
-	ini2d
-	minavereset
-	mifinreset
+	resetnave
+	resetgoal
 	'exit >esc<
 	'kder <der> 'ukder >der<
 	'kizq <izq>	'ukizq >izq<
@@ -227,22 +276,17 @@
 	'kdn <aba> 'ukdn >aba<
 	'kfire <esp>
 	show clrscr
+
 		omode
+		ajustacam
 		xcam ycam zcam  mtrans
-		drawfx
 
-    	'snave draw2d 2drop
-		'sfin  draw2d 2drop
+		'layer1 drawlayer
 
-		consola
+		consola+keys
 
-		20 fonth verde
-		0 18 at
-		dup "%d " print
-		fx> fx - 2 >> "%d " print cr
-		vrnave arnave "%f %f - " print
-		vanave aanave "%f %f " print cr
-
+		debug
+|		cmano
 		100 .mseg .restart
 		humo 1? ( +smoke ) drop
 		+rocks
