@@ -1,14 +1,16 @@
 | edit-code.txt
-| PHREDA 2007
+|
+| PHREDA 2007..
 |---------------------------------------
 ^reda4.txt
-^gui3.txt
+^libgui.txt
 ^parse.txt
-^dlgfile2.txt
-^codecolor.txt
 
-|^trace.txt
-|^fonth.txt
+^trace.txt
+
+^fonth.txt
+^dlgfile.txt
+^codecolor.txt
 
 #lugar
 #nombre )( 64
@@ -62,14 +64,14 @@
 	;
 
 :<<13 | a -- a
-	( 'fuente >? )( dup c@
-		13 =? ( drop ; )
+	( 'fuente >? )( dup c@ 
+		13 =? ( drop ; ) 
 		drop 1- ) ;
 
 :>>13 | a -- a
-	( textofin> <? )( dup c@
-		13 =? ( drop 1- ; )
-		drop 1+ )
+	( textofin> <? )( dup c@ 
+		13 =? ( drop 1- ; ) 
+		drop 1+ ) 
 	drop textofin> 2 - ;
 
 #1sel #2sel
@@ -172,7 +174,6 @@
 
 	nlin 0 >? ( ( 1- 1? )( fuente> >>13 2 + 'fuente> ! ) ) drop
 	ncar +? ( dup 'fuente> +! ) drop
-	0 'prilinea !
 
 	;
 
@@ -203,40 +204,62 @@
 :kback
 	inisel 0? ( back )( borrasel ) drop ;
 
-|||||||| Dibuja codigo
-:drawcur | com -- com
-	fuente> >? ( ; )
-	dup	( fuente> <? )( c@+ 13 =? ( 2drop ; ) gemit )
-	pick2 prilinea + 'actlinea !
-	blink 1? ( 2drop ; ) drop
-	modo 'lins =? ( gris )( rojo ) drop
-	printcur drop
+|-------------------------------------------
+:eligearchivo
+	savetxt
+	".//" dir
+	'nombre dlgfile |explore
+	'nombre c@ 1? ( loadtxt ) drop
 	;
 
-:drawsel | com -- com
-	inisel 0? ( drop ; ) drop
-	finsel >? ( ; )
-	dup ( inisel <? )( c@+ 13 =? ( 2drop ; ) gemit )
-	sel>>
-	( finsel <? )( c@+ 13 =? ( 2drop $77 ink sel<< ; ) gemit )
-	drop $77 ink sel<< ;
+|-------------------------------------------
+#cntcr 
 
-:drawtodo
-	pantaini> 0 ( cntlineas <? )(
-		dup prilinea +
-		actlinea =? ( blanco )( gris )
-		1+ "%d" 3 boxprintr spc
-		swap
-		4 col drawsel
-		4 col drawcur
-		4 col >>lineacolor>> cr
-		swap 1+ ) drop
-	1- 'pantafin> !
+:drawcursor
+	blink 0? ( drop ; ) drop
+	modo 'lins =? ( gris )( rojo ) drop
+	0 'cntcr !
+	pantaini>
+	home
+	( fuente> <? )( c@+ 13 =? ( 1 'cntcr +! ) gemit )
+	printcur drop
+	cntcr prilinea + 'actlinea ! ;
+
+:drawselect
+	inisel 0? ( drop ; ) drop
+	$77 ink
+	pantaini>
+	( inisel <? )( c@+ gemit )
+	sel>>
+	( finsel <? )( c@+ gemit )
+	sel<<
+	drop
+	;
+
+:drawcode
+	fonti  	|25 fonth
+	drawselect
+	drawcursor
+	home
+	pantaini> code.lines
+	cntcr fils dup 'cntlineas !
+	<? ( drop 1+ )( drop 1- )
+	'pantafin> !
 	fuente>
 	( pantafin> >? )( scrolldw )
 	( pantaini> <? )( scrollup )
-	drop
-	;
+	drop ;
+
+:drawnum
+	fonti 	| 25 fonth
+	fils 0
+	( over <? )(
+		dup prilinea +
+		actlinea =? ( blanco )( gris )
+		1+ "%d" printr
+		cr 1+ )
+	2drop ;
+
 
 |-------------------- tecla control
 :desinstalarcontrol
@@ -284,6 +307,21 @@
 :compilando
 	savetxt	"compilar.txt" run ;
 
+|----------------------------
+:lineastatus
+|	$3300 ink gc.fbox
+|	2 sfont verde
+	fonti blanco
+	'mensaje print
+|	cr
+|	modo 'lins =? ( "INS" )( "OVR" ) nip
+|	" %s | " print
+|	finsel 0? ( drop "0" )( 'fuente - inisel 'fuente - "%d..%d" ) print
+|	textofin> 'fuente -
+|	actlinea
+|	" | %d" print cr
+|	 clipboard> 'clipboard <>? ( " | *" print ) drop
+	;
 
 :ayudainclude
 	"include" 'mensaje strcpy
@@ -366,24 +404,8 @@
 	buscacom
 	;
 
-||||||||||||
-:openfile
-	savetxt
-	".//" dir
-	'nombre dlgfile |explore
-	'nombre c@ 1? ( loadtxt ) drop
-	;
-
-:newfile
-	savetxt
-	;
-
-:searchw
-	;
-:medit
-	;
-
 |-------------------- mirar libreria
+
 :seelib |
 	inikey
 	show cls scr
@@ -392,18 +414,37 @@
 :directrun
 	savetxt 'nombre run  ;
 
-|----------------------------
-:lineastatus
-	modo 'lins =? ( "INS" )( "OVR" ) nip
-	" %s | " print
-	finsel 0? ( drop "0" )( 'fuente - inisel 'fuente - "%d..%d" ) print
-	textofin> 'fuente -
-	actlinea 1+ " | %d" print
-	 clipboard> 'clipboard <>? ( " | *" print ) drop
+|--------------------
+#accedit 5
+$ff0000 'ifin	'exit
+$ffff00	'ipreg	'helpcode
+$00ff00	'iplay	'evaluando
+$00ff00	'iff	'directrun
+$0000ff	'icopia	'compilando
+
+:botonera
+	'accedit escf1.. ;
+
+:titulo
+	$333333 $aaaaaa
+	[ swap ; ] onIn
+	vbtn
+	1 sfont negro "r4Ed:" print
+	blanco 'nombre printc
+	'eligearchivo onUp
 	;
 
+#guieditor
+1.0 0.1 0.0 -0.45 'titulo
+0.5 0.1 -0.25 0.45 'botonera
+0.5 0.1 0.25 0.45 'lineastatus
+0.05 0.8 -0.48 0 'drawnum
+0.95 0.8 0.025 0 'drawcode
+0
+
+
 :editor
-	inigui
+	inikey
 	'exit  >esc<
 	'kback	<back>		'kdel	<del>
 	'karriba <arr>		'kabajo	<aba>
@@ -411,7 +452,7 @@
 	'khome	<home>		'kend	<end>
 	'kpgup	<pgup>		'kpgdn	<pgdn>
 
-|	'instal2 			<alt>
+	'instal2 			<alt>
 	'instalcontrol 		<ctrl> | control
 
 	[ key toasc modo exec ; ] <visible>
@@ -420,48 +461,19 @@
 	[ 9 modo exec ; ] <tab>
 
 	'helpcode <f1>
+	'evaluando  <f2>
+	'directrun <f3>
+	'compilando <f4>
+	'editasprite <f5>
 
-	'openfile <f5>
-	'newfile <f6>
+	show cls scr
 
-|	'editasprite <f5>
+		'guieditor gui
 
-	'evaluando  <f8>
-	'directrun <f9>
-	'compilando <f10>
-
-	scr fonti
-|	25 fonth
-	fils 4 - 'cntlineas !
-	show clrscr
-		fonti
-|		25 fonth
-		gris oscuro linefill
-		verde " :R4 Edit " print  'nombre "%s" blanco print cr
-		gris oscuro linefill
-		verde 'mensaje " %s " print cr
-
-		drawtodo
-		gris oscuro linefill
-		blanco lineastatus cr
-		gris oscuro linefill
-		blanco
-		$222222 $ff0000 linkcol
-		'exit "ESC" spc link spc
-		$222222 $ff00 linkcol
-		'helpcode "F1-Help" link spc
-
-|		'searchw "F2-Search" link spc
-|		'medit "F3-MEdit" link spc
-
-		'openfile "F5-Open" link spc
-		'newfile "F6-New" link spc
-
-		'evaluando "F8-Eval" link spc
-		'directrun "F9-Run" link spc
-		'compilando "F10-Asm" link cr
-
-		cmano ;
+|		textofin> 'fuente - "%d" print
+|		fuente> 'fuente - " %d" print
+		cflecha
+		;
 
 :buscaerror
 	"" 'error !  -1  'nlin ! 0 'ncar !
