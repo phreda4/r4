@@ -16,12 +16,30 @@
 #indice0
 #sumapos
 #inimem
+#inimemdb 0
 
 #flds )( 512	| nombre 128 campos
 #fldl )( 512	| largo
 #fldc )( 512	| campos en cursor
 #fldm )( 512	| memoria auxiliar
 
+|||||||| accesos
+::dbtitle | n -- adr	; titulo
+	2 << 'flds + @ ;
+
+::dblen | n -- largo	; largo
+	2 << 'fldl + @ ;
+
+::dbfld | n -- adr		; lugar en db
+	2 << 'fldc + @ ;
+
+::dbmfld | n -- adr		; lugar en memaux
+	2 << 'fldm + @ ;
+
+::dbreg | n -- adr
+	2 << indice0 + @ ;
+
+||||||||| recorrido
 :>>.. | adr -- adr'
 	( c@+ 32 <? )( 0? ( drop 1- ; ) drop ) drop 1- ;
 
@@ -38,29 +56,40 @@
 		$7e =? ( drop ; )
 		drop ) drop 1- ;
 
+:>>fld | reg fld -- reg'
+	( 1? )( 1- swap
+		>>f
+		swap ) drop ;
 
-|||||||||||||||||||||||||||||
-|||||||||| cargar tabla
+||||||||| cargar tabla
+:recorre
+	( c@+ $7e <>? )(
+		0? ( drop nip 1- ; )
+		$7c =? ( 1 'cntflds +! rot pick2 swap !+ rot rot )
+		drop ) drop nip | ind mem
+	;
+
 ::dbload | "app.db" --
 	0 'cntregs !
 	1 'cntflds !
 	dup 'dbnombre !
-	here swap load here =? ( drop ; )
+
+	inimemdb
+	0? ( here dup 'inimemdb ! nip )
+	swap load inimemdb =? ( drop ; )
+
 	0 over ! 4+
 	dup 'indice0 !
-	here dup 'flds !+ | ind mem fld
+	inimemdb | <-- inicio
+	dup 'flds !+ | ind mem fld
 	swap					|----- campos
-	( c@+ $7e <>? )(
-		0? ( 4drop ; )
-		$7c =? ( 1 'cntflds +! rot pick2 swap !+ rot rot )
-		drop ) drop nip | ind mem
+	recorre
 	>>..
 	dup rot !+ swap 		|---- registros
 	( c@+ 1? )(
 		$7e =? ( swap >>.. swap 1 'cntregs +! rot pick2 swap !+ rot rot )
-		drop
-		) drop
-	drop 'inimem !
+		drop ) 2drop
+	'inimem !
 	0 'sumapos !
 	'fldl 'flds 			|---- ancho de campos, mem aux
 	0 ( cntflds <? )( >r
@@ -72,21 +101,19 @@
 	sumapos inimem + 'here !
 	;
 
-|||||||| accesos
-::dbtitle | n -- adr	; titulo
-	2 << 'flds + @ ;
 
-::dblen | n -- largo	; largo
-	2 << 'fldl + @ ;
-
-::dbfld | n -- adr		; lugar en db
-	2 << 'fldc + @ ;
-
-::dbmfld | n -- adr		; lugar en memaux
-	2 << 'fldm + @ ;
+|||||||| tipos de campos
+| T- Texto
+| M- Memo
+| S- Si/no
+| 0- Entero
+| 1- 1 decima
+| 2- 2 decimales
+| 3- 3 decimales
+| 4- 4 decimales
 
 |||||||| memoria auxiliar de registros
-::regclear
+::clearreg
 	'fldm cntflds ( 1? )( >r
 		@+ 0 swap c!
 		r> 1- )
@@ -110,15 +137,28 @@
 		rot c!+ swap ) rot c!+
 	2drop ;
 
+::dbset | str nro --
+	dbmfld swap
+	( c@+ 1? )( rot c!+ swap ) rot c! drop ;
+
 ::cpyreg | --
 	actreg
-	cntregs >=? ( drop regclear ; )
+	cntregs >=? ( drop clearreg ; )
 	drop
 	'fldm 'fldc
 	0 ( cntflds <? )( >r
 		@+ rot @+ rot dbcpy swap
 		r> 1+ )
 	3drop ;
+
+|||||||||
+::dbedit | nro --
+	dup dbtitle "%a:" print cr
+	dup dbmfld swap dblen getline ;
+
+::dbprint | nro --
+	dup dbtitle "%a: " print
+	dup dbmfld swap dblen boxprint ;
 
 |||||||||
 ::printreg
@@ -133,6 +173,14 @@
 	'fldm negro
 	0 ( cntflds <? )( >r
 		r dbtitle "%a:" 10 boxprintr
+		@+ r dblen getline cr
+		r> 1+ )
+	2drop ;
+
+::editreg2
+	'fldm negro
+	0 ( cntflds <? )( >r
+		r dbtitle "%a:" print cr
 		@+ r dblen getline cr
 		r> 1+ )
 	2drop ;
@@ -152,18 +200,35 @@
 
 	;
 
-::dbinsert | --
-	0 dbmfld "%s" print
-	1 ( cntflds <? )( >r
-		r dbmfld "|%s" print
-		r> 1+ ) drop
-	"~" print
-
-	;
-
 ::dbdelete | nro --
 	drop
 	;
+
+|||||| copia en memoria
+#pl
+:,c1 pl c!+ 'pl ! ;
+:,s1 ( dup c@ 1? )( ,c1 1+ ) 2drop ;
+
+|||||| inserta registro
+::dbinsert | --   ; inserta memoria al final del archivo
+	indice0 4 - 'pl ! | graba mem
+	0 ( cntflds <? )(
+		1? ( "|" ,s1 )
+		dup dbmfld ,s1
+		1+ ) drop
+	"~" ,s1 13 ,c1 10 ,c1
+	mem pl over - dbnombre save 	| copia a archivo
+	;
+
+||||||||| funciones comunes
+::dbmax | campo -- valor
+	0 dup >r
+	( cntregs <? )(
+		dup dbreg | campo nroreg reg
+		pick2 >>fld | campo nroreg creg
+		?0int r >? ( r> drop >r )( drop )
+		1+ ) 2drop
+	r> ;
 
 ||||||||| aux
 ::dbdump
@@ -180,3 +245,4 @@
 		swap
 		1+ ) 2drop
 	cr ;
+
