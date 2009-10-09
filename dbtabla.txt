@@ -7,16 +7,17 @@
 ^parse.txt
 ^trace.txt
 
-#:dbnombre
 #:cntregs
 #:cntflds
+
+#:dbnombre )( 64
 
 #actreg
 
 #indice0
 #sumapos
 #inimem
-#inimemdb 0
+#:inimemdb 0
 
 #flds )( 512	| nombre 128 campos
 #fldl )( 512	| largo
@@ -24,7 +25,7 @@
 #fldm )( 512	| memoria auxiliar
 
 |||||||| accesos
-::dbtitle | n -- adr	; titulo
+::dbname | n -- adr	; titulo
 	2 << 'flds + @ ;
 
 ::dblen | n -- largo	; largo
@@ -72,7 +73,7 @@
 ::dbload | "app.db" --
 	0 'cntregs !
 	1 'cntflds !
-	dup 'dbnombre !
+	dup 'dbnombre strcpy
 
 	inimemdb
 	0? ( here dup 'inimemdb ! nip )
@@ -151,58 +152,7 @@
 		r> 1+ )
 	3drop ;
 
-|||||||||
-::dbedit | nro --
-	dup dbtitle "%a:" print cr
-	dup dbmfld swap dblen getline ;
 
-::dbprint | nro --
-	dup dbtitle "%a: " print
-	dup dbmfld swap dblen boxprint ;
-
-|||||||||
-::printreg
-	'fldc
-	0 ( cntflds <? )( >r
-		r dbtitle "%a:" verde print
-		@+ "%a" blanco print cr
-		r> 1+ )
-	2drop ;
-
-::editreg
-	'fldm negro
-	0 ( cntflds <? )( >r
-		r dbtitle "%a:" 10 boxprintr
-		@+ r dblen getline cr
-		r> 1+ )
-	2drop ;
-
-::editreg2
-	'fldm negro
-	0 ( cntflds <? )( >r
-		r dbtitle "%a:" print cr
-		@+ r dblen getline cr
-		r> 1+ )
-	2drop ;
-
-||||||||| actualizacion
-::dbupdate | nro --
-	drop
-	scr
-	fonti cr cr blanco
-	0 dbmfld "%s" print
-	1 ( cntflds <? )( >r
-		r dbmfld "|%s" print
-		r> 1+ ) drop
-	"~" print
-	redraw
-	trace
-
-	;
-
-::dbdelete | nro --
-	drop
-	;
 
 |||||| copia en memoria
 #pl
@@ -217,7 +167,35 @@
 		dup dbmfld ,s1
 		1+ ) drop
 	"~" ,s1 13 ,c1 10 ,c1
-	mem pl over - dbnombre save 	| copia a archivo
+	inimemdb pl over - 'dbnombre save 	| copia a archivo
+ 	'dbnombre dbload | recarga??
+	;
+
+|||||| actualizacion
+::dbupdate | nro --
+	cntregs >=? ( drop ; )
+	2 << indice0 + @ | inicio de campo(inic)
+
+
+
+	drop
+	scr
+	fonti cr cr blanco
+	0 dbmfld "%s" print
+	1 ( cntflds <? )( >r
+		r dbmfld "|%s" print
+		r> 1+ ) drop
+	"~" print
+	redraw
+	trace
+
+	;
+
+::dbdelete | nro --
+	cntregs >=? ( drop ; )
+	2 << indice0 + @ | inicio de campo(inic)
+
+	drop
 	;
 
 ||||||||| funciones comunes
@@ -230,19 +208,84 @@
 		1+ ) 2drop
 	r> ;
 
-||||||||| aux
+
+
+||||||||| interaccion
+::dbtitle | nro --
+	dbname "%a" print ;
+
+::dbtitlel | nro --
+	dup dbname "%a" rot dblen boxprint ;
+
+::dbedit | nro --
+	dup dbmfld swap dblen getline ;
+
+::dbprint | nro --
+	dup dbmfld swap dblen boxprint ;
+
+|||||||||
+::printreg
+	'fldc
+	0 ( cntflds <? )( >r
+		verde
+		r dbtitle ": " print
+		@+ "%a" blanco print cr
+		r> 1+ )
+	2drop ;
+
+::editreg
+	'fldm negro
+	0 ( cntflds <? )( >r
+		r dbtitle ": " print
+		@+ r dblen getline cr
+		r> 1+ )
+	2drop ;
+
+::editreg2
+	'fldm negro
+	0 ( cntflds <? )( >r
+		r dbtitle ":" print cr
+		@+ r dblen getline cr
+		r> 1+ )
+	2drop ;
+
+||||||||||||||
+|||| #lista act pag c1 c2 c3 .. 0
+::dbgrilla | 'desc 'click --
+	[ xymouse nip yc h 2/ - - fils h */ 1- pick2 ! ; ] onMove
+	onClick
+
+	verde oscuro linefill blanco
+	dup 8 + ( @+ 1? )(
+		dup $ff and dbname
+		"%a" rot 8 >> boxprint
+		) 2drop
+	cr
+	0 ( 18 <? )(
+		over 4+ @ over + cntregs >=? ( 3drop ; ) getreg
+		over @ =? ( ink@ gris oscuro linefill ink )
+		>r
+		dup 8 + ( @+ 1? )(
+			dup $ff and dbfld
+			"%a" rot 8 >> boxprint
+			) 2drop
+		cr
+		r> 1+ )
+	2drop
+	;
+
+||||||||| debug
 ::dbdump
-	dbnombre print cr
+	'dbnombre print cr
 |	cntflds "fld:%d " print cr
-|	cntregs "reg:%d " print cr
 	0 ( cntflds <? )( 1+
 		dup dbtitle "%a" pick2 dblen boxprint
 		1+ ) drop
 	cr
+|	cntregs "reg:%d " print cr
 	indice0
 	0 ( cntregs <? )(
 		swap @+ "%a" print cr
 		swap
 		1+ ) 2drop
 	cr ;
-
