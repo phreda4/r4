@@ -56,6 +56,15 @@ int     buffersize;
 
 #define WM_WSAASYNC (WM_USER +5)
 
+//----------- printer
+DOCINFO di;
+int lpError;
+
+HDC	phDC;
+LOGFONT plf;
+HGDIOBJ hfnt, hfntPrev;
+int cWidthPels,cHeightPels;
+
 static const char wndclass[] = ":r4";
 
 //#define LOGMEM
@@ -92,6 +101,7 @@ char *macros[]={// directivas del compilador
 #endif
 "SERVER","CLIENT","SEND","RECV","CLOSE",
 "TIMER",            //------- timer
+"DOCINI","DOCEND","DOCMOVE","DOCLINE","DOCTEXT","DOCFONT","DOCBIT","DOCRES",
 ""};
 
 // instrucciones de maquina (son compilables a assembler)
@@ -126,6 +136,8 @@ IRSON,SBO,SBI,
 //---- nuevas interrups
 SERVER,CLIENT,NSEND,RECV,CLOSE, //---- red
 ITIMER,//--- timer
+//-- impresora
+DOCINI,DOCEND,DOCMOVE,DOCLINE,DOCTEXT,DOCFONT,DOCBIT,DOCRES,
 ULTIMAPRIMITIVA// de aqui en mas.. apila los numeros 0..255-ULTIMAPRIMITIVA
 };
 
@@ -180,6 +192,11 @@ BYTE ultimapalabra[]={ SISEND };
 //--- Memoria
 BYTE prog[1024*256];// 256k de programa
 BYTE data[1024*1024*32];// 32 MB de datos
+
+void mimemset(char *p,char v,int c)
+{
+for (;c>0;c--,p++) *p=v;
+}
 
 //---- Graba y carga imagen
 void saveimagen(char *nombre)
@@ -555,6 +572,47 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case ITIMER: // vector msecs --
         SetTimer(hWnd,0,TOS,0);
         SYSirqtime=*NOS;NOS--;TOS=*(NOS);NOS--;
+        continue;
+//---- printer
+    case DOCINI:
+        lpError = StartDoc(phDC,&di);
+        lpError = StartPage(phDC);
+        continue;
+    case DOCEND:
+        lpError = EndPage(phDC);
+        lpError = EndDoc(phDC);
+        continue;
+    case DOCMOVE: // x y --
+        MoveToEx(phDC,*NOS,TOS,(LPPOINT) NULL); 
+        NOS--;TOS=*(NOS);NOS--;
+        continue;
+    case DOCLINE: // x y --
+        LineTo(phDC,*NOS,TOS); 
+        NOS--;TOS=*(NOS);NOS--;        
+        continue;
+    case DOCTEXT: // "tt" x y --
+        TextOutA(phDC,*NOS,TOS,(char*)(*(NOS-1)),strlen((char*)(*(NOS-1))));
+        NOS-=2;TOS=*(NOS);NOS--;
+        continue;
+    case DOCFONT: // size angle "font" --
+        SelectObject(phDC, hfntPrev); 
+        DeleteObject(hfnt); 
+        strcpy(plf.lfFaceName,(char*)TOS);
+        plf.lfWeight = FW_NORMAL;
+        plf.lfEscapement = *NOS; 
+        plf.lfHeight= -MulDiv(*(NOS-1), GetDeviceCaps(phDC, LOGPIXELSY), 72);
+        hfnt = CreateFontIndirect(&plf); 
+        hfntPrev = SelectObject(phDC, hfnt);
+        NOS-=2;TOS=*(NOS);NOS--;
+        continue;
+    case DOCBIT: // bitmap x y --
+//        StretchDIBits(phDC, *NOS,TOS, (int) ((float) bmih.biWidth* fScaleX), (int) ((float) bmih.biHeight * fScaleY), 0, 0,
+//        bmih.biWidth, bmih.biHeight, lpBits, &lpBitsInfo, DIB_RGB_COLORS,SRCCOPY)
+        NOS-=2;TOS=*(NOS);NOS--;
+        continue;
+    case DOCRES: // -- xmax ymax
+        NOS++;*NOS=TOS;TOS=cWidthPels;
+        NOS++;*NOS=TOS;TOS=cHeightPels;
         continue;
 	default: // completa los 8 bits con apila numeros 0...
         NOS++;*NOS=TOS;TOS=W-ULTIMAPRIMITIVA;continue;
@@ -1181,10 +1239,6 @@ while(SYSBM!=0) { updevt(); }
 while(SYSBM==0) { updevt(); }
 }
 
-void mimemset(char *p,char v,int c)
-{
-for (;c>0;c--,p++) *p=v;
-}
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1242,6 +1296,21 @@ if(!hWnd) return -2;
 if(!(hDC=GetDC(hWnd)))  return -3;
 
 if (gr_init(w,h)<0) return -1;
+
+phDC=CreateDC("winspool", "PrimoPDF", NULL, NULL );
+mimemset((char*)&di,0,sizeof (DOCINFO));
+di.cbSize = sizeof (DOCINFO);
+di.lpszDocName = "doc";
+
+cWidthPels = GetDeviceCaps(phDC, HORZRES);
+cHeightPels = GetDeviceCaps(phDC, VERTRES);
+
+SetBkMode(phDC, TRANSPARENT);
+strcpy(plf.lfFaceName,"Arial");
+plf.lfWeight = FW_NORMAL;
+plf.lfEscapement = 0; 
+hfnt = CreateFontIndirect(&plf); 
+hfntPrev = SelectObject(phDC, hfnt);
 
 InitJoystick(hWnd);
 #ifdef FMOD
@@ -1302,6 +1371,11 @@ if (silent!=1 && interprete(bootaddr)==1) goto recompila;
 #else
    sound_close();
 #endif
+
+SelectObject(phDC, hfntPrev); 
+DeleteObject(hfnt); 
+DeleteDC(phDC);
+
 ReleaseJoystick();
 closesocket(soc); //Shut down socket
 WSACleanup(); //Clean up Winsock
