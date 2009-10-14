@@ -1,0 +1,147 @@
+^gui.txt
+^nsprite.txt
+^trace.txt
+
+#trazo #trazo>
+#capa #capa>
+#caux #caux>
+
+:clcapa
+	capa 0 over ! 'capa> ! ;
+:+capa
+	capa> !+ 0 over ! 'capa> ! ;
+
+:clcaux
+	caux 0 over ! 'caux> ! ;
+:+caux
+	caux> !+ 0 over ! 'caux ! ;
+
+:swapcapa
+	capa> capa caux> caux 'capa !+ !+ !+ ! ;
+
+
+|--------------------------------
+:drawtra
+	@+ 0? ( 2drop ; ) >xy op
+	( @+ 1? )( >xy line  ) 2drop ;
+|--------------------------------
+
+|---------- punto en poligono
+#inside
+#xt #yt
+
+:entre | p1 p2 -- p1
+	over d>x xt pick2 d>x
+	<=? ( >=? ( 2drop ; ) )( <? ( 2drop ; ) ) | v1 v2  x1
+	over d>x <? ( pick2 d>y rot d>xy 2swap )( pick2 d>y rot d>xy )
+	swap pick3 - yt pick3 - *  >r | p1 'x1 'y1 'y2	 r: a | a= x2 x1 - yt y1 - *
+	rot xt swap - swap rot - * r> | p1 b a | b = xt x1 - y2 y1 - *
+	>?  ( inside 1 xor 'inside ! ) |inside 1 xor 'inside ! )
+	drop ;
+
+:adentro? | x y adr -- 1/0
+	>r 'yt ! 'xt ! 0 'inside !
+	r@+ 0? ( rdrop ; ) dup
+	( r@+ 1? )( swap entre ) drop
+	entre drop rdrop inside ;
+
+:cltrazo
+	trazo 0 over ! 'trazo> ! ;
+:+trazo | x y  --
+	xy> trazo> !+ 0 over ! 'trazo> ! ;
+
+
+#grosor
+#sumag
+
+:grosor! | n -- n suma
+	2 <? ( $400 )( 4 <? ( $200 )( 8 <? ( $100 )( 16 <? ( $80 )( 32 <? ( $40 )( 64 <? ( $20 )( 128 <?  ( $10 )( $8 ) ) ) ) ) ) )
+	'sumag ! 'grosor ! ;
+
+:calgr | angulo -- x y
+	sincos grosor 16 *>> rot + swap grosor 16 *>> rot + swap ;
+
+#ang
+:hacetrazo | x y x y --
+    pick3 pick2 - pick3 pick2 - atan2 $200 + 'ang ! | +1/4 de angulo
+	cltrazo
+	2over ang calgr +trazo
+	0 ( $400 <? )( >r
+		2dup ang r + calgr +trazo
+		r> sumag + ) drop
+	2dup ang $400 + calgr +trazo
+	2drop
+	$400 ( $800 <? )( >r
+		2dup ang r + calgr +trazo
+		r> sumag + ) drop
+	ang calgr +trazo ;
+
+
+|----------------------------
+:copiatodo
+	trazo ( @+ 1? )( +capa ) 2drop ;
+
+:salio
+	;
+
+:adentroafuera | dir --
+	( @+ 1? )(
+		dup >xy trazo adentro?
+		0? ( salio ; ) drop )
+
+	;
+
+:saliofin
+:entro
+	( @+ 1? )(
+		dup >xy trazo adentro?
+		0? ( drop saliofin ; )
+		2drop ) 2drop ;
+
+:afueraadentro
+	( @+ 1? )(
+		dup >xy trazo adentro?
+		1? ( drop entro ; ) drop
+		+caux ) 2drop ;
+
+:agrega | --
+	capa dup @ 0? ( 2drop copiatodo ; )
+	>xy trazo adentro?
+	clcaux
+	1? ( drop adentroafuera )( drop afueraadentro )
+	swapcapa
+	;
+
+|----------------------------------------------------------------
+
+:trazo.draw
+	verde trazo drawtra
+	azul capa drawtra ;
+
+#xa #ya
+:trazo.cal | x y ev --  | 0=up 1=move 2=down
+	0? ( 3drop ; ) | up
+	1- 0? ( drop ya =? ( swap xa =? ( 2drop ; ) swap )
+			2dup xa ya hacetrazo 'ya ! 'xa ! agrega ; )   | move
+	drop 'ya ! 'xa ! ; | down
+
+:main
+	mem
+	dup dup 'trazo ! 'trazo> ! $100 +
+	dup dup 'capa ! 'capa> ! $200 +
+	dup dup 'caux ! 'caux> ! $200 +
+	drop
+	.page
+	'exit <esc>
+	1 1 .table 0 0 .at 'trazo.cal 'trazo.draw .ug
+	8 grosor!
+	clcapa
+	.show cls
+		blanco 25 font
+|		trazo> trazo - 2 >> "%d" print cr
+|		trazo ( trazo> <? )( @+ "%h " print ) 2drop
+		capa> capa - 2 >> "%d" print cr
+
+		;
+
+: main ;

@@ -33,6 +33,7 @@
 
 //#define OPENGL
 #define FMOD
+//#define PRINTER
 
 #include "graf.h"
 #include "sound.h"
@@ -101,7 +102,9 @@ char *macros[]={// directivas del compilador
 #endif
 "SERVER","CLIENT","SEND","RECV","CLOSE",
 "TIMER",            //------- timer
+#ifdef PRINTER
 "DOCINI","DOCEND","DOCMOVE","DOCLINE","DOCTEXT","DOCFONT","DOCBIT","DOCRES",
+#endif
 ""};
 
 // instrucciones de maquina (son compilables a assembler)
@@ -128,16 +131,21 @@ IRMOU,
 XYMOUSE,BMOUSE,
 IRKEY,KEY, //KEYX,
 IRJOY,CNTJOY,GETJOY,
+
 #ifdef FMOD
 SLOAD,SPLAY,MLOAD,MPLAY,
 #else
 IRSON,SBO,SBI,
 #endif
+
 //---- nuevas interrups
 SERVER,CLIENT,NSEND,RECV,CLOSE, //---- red
 ITIMER,//--- timer
-//-- impresora
+
+#ifdef PRINTER  //-- impresora
 DOCINI,DOCEND,DOCMOVE,DOCLINE,DOCTEXT,DOCFONT,DOCBIT,DOCRES,
+#endif
+
 ULTIMAPRIMITIVA// de aqui en mas.. apila los numeros 0..255-ULTIMAPRIMITIVA
 };
 
@@ -573,6 +581,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         SetTimer(hWnd,0,TOS,0);
         SYSirqtime=*NOS;NOS--;TOS=*(NOS);NOS--;
         continue;
+#ifdef PRINTER
 //---- printer
     case DOCINI:
         lpError = StartDoc(phDC,&di);
@@ -614,6 +623,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         NOS++;*NOS=TOS;TOS=cWidthPels;
         NOS++;*NOS=TOS;TOS=cHeightPels;
         continue;
+#endif
 	default: // completa los 8 bits con apila numeros 0...
         NOS++;*NOS=TOS;TOS=W-ULTIMAPRIMITIVA;continue;
 	} } };
