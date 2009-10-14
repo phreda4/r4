@@ -1,0 +1,100 @@
+
+|------- View 3d
+
+::ortho |  l  r b t n f --
+	vista.m >r
+	r l - 2/ r!+ 0.0 r!+ 0.0 r!+ r l + neg r l - / r!+
+	0.0 r!+ t b - 2/ r!+ 0.0  r!+ t b +  neg t b - / r!+
+	0.0 r!+ 0.0 r!+ f n - 2/ neg r!+ f n + neg f n - / r!+
+	0.0 r!+ 0.0 r!+ 0.0 r!+ 1.0 r> ! ;
+
+::frustum_matrix | (T l, T r, T b, T t, T n, T f)
+	vista.m >r
+	(2 * n)/(r - l) r!+ 0.0 r!+ (r + l)/(r - l)  r!+ 0.0 r!+
+	0.0 r!+ (2 * n)/(t - b) r!+ (t + b)/(t - b) r!+ 0.0 r!+
+	0.0 r!+ 0.0 r!+ -(f + n)/(f - n)  r!+ -(2 * f * n)/(f - n)  r!+
+	0.0 r!+ 0.0 r!+ -1.0 r!+ 0.0 r> !
+	;
+
+#dz #rad 
+
+::perspective_matrix | (T fovy, T aspect, T zNear, T zFar)
+	zFar zNear - 'dz !
+	fovy sincos
+
+	T rad = fovy / 2.0 * T(M_PI/180);
+	T s = sin(rad);
+|	if ( ( dz == 0.0 ) or ( s == 0.0 ) or ( aspect == 0.0 ) ) { return identity4<T>(); }
+	T cot = cos(rad) / s;
+
+	mat> >r
+	m[0]  = cot / aspect;
+	m[5]  = cot;
+	m[10] = -(zFar + zNear) / dz;
+	m[14] = -1.0;
+	m[11] = -2 * zNear * zFar / dz;
+	m[15] = 0.0;
+	;
+
+::lookat_matrix |(vec3<T>& eye, vec3<T>& center, vec3<T>& up) {
+	vec3<T> forward = normalize(center - eye);
+	vec3<T> side = normalize(cross(forward, up));
+	vec3<T> up2 = cross(side, forward);
+	mat> >r
+	m.elem[0][0] = side[0];
+	m.elem[0][1] = side[1];
+	m.elem[0][2] = side[2];
+	m.elem[1][0] = up2[0];
+	m.elem[1][1] = up2[1];
+	m.elem[1][2] = up2[2];
+	m.elem[2][0] = -forward[0];
+	m.elem[2][1] = -forward[1];
+	m.elem[2][2] = -forward[2];
+
+	return m * translation_matrix(-eye);
+	;
+
+::picking_matrix |(T x, T y, T dx, T dy, int viewport[4]) {
+	if (dx <= 0 || dy <= 0) 	return identity4<T>();
+
+	mat4<T> r = translation_matrix((viewport[2] - 2 * (x - viewport[0])) / dx,	(viewport[3] - 2 * (y - viewport[1])) / dy,	0);
+	r *= scaling_matrix(viewport[2] / dx, viewport[2] / dy, 1);
+	return r;
+
+| Constructs a shadow matrix. q is the light source and p is the plane.
+::shadow_matrix | (vec4<T>& q, vec4<T>& p) {
+	mat> >r
+	m.elem[0][0] =  p.y * q[1] + p.z * q[2] + p.w * q[3];
+	m.elem[0][1] = -p.y * q[0];
+	m.elem[0][2] = -p.z * q[0];
+	m.elem[0][3] = -p.w * q[0];
+	m.elem[1][0] = -p.x * q[1];
+	m.elem[1][1] =  p.x * q[0] + p.z * q[2] + p.w * q[3];
+	m.elem[1][2] = -p.z * q[1];
+	m.elem[1][3] = -p.w * q[1];
+	m.elem[2][0] = -p.x * q[2];
+	m.elem[2][1] = -p.y * q[2];
+	m.elem[2][2] =  p.x * q[0] + p.y * q[1] + p.w * q[3];
+	m.elem[2][3] = -p.w * q[2];
+	m.elem[3][1] = -p.x * q[3];
+	m.elem[3][2] = -p.y * q[3];
+	m.elem[3][3] = -p.z * q[3];
+	m.elem[3][0] =  p.x * q[0] + p.y * q[1] + p.z * q[2];
+	;
+
+::glcTexCoordRange | (GLfloat max, GLfloat min = 0)
+	mat> >r
+   | Set up the scale
+   M(0, 0) = (1/(max - min));
+   M(1, 1) = (1/(max - min));
+   | Not needed as 3D textures aren't implemented yet
+   M(2, 2) = (1/(max - min));
+   | Set up the translate
+   M(0, 3) = min;
+   M(1, 3) = min;
+   M(2, 3) = min;                     | Again, not really needed
+   | Fix the rest
+   M(3, 3) = 1;
+   | Add to current matrix
+	;
+

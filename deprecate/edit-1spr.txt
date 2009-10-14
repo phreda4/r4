@@ -1,13 +1,25 @@
 | Editor de nsprite
 | PHREDA 2008
 |--------------------------------------------------
-^gui3.txt
+^libgui.txt
 ^libsprite.txt
+^parse.txt
 ^trace.txt
 
-^dlgfile2.txt
-^dlgcolor2.txt
+^dlgsino.txt
+^dlgcolor.txt
 
+#codetxt
+#codestart
+#codelast
+#codefin
+
+#lugar
+#nombre )( 64
+#dibujo )( $1000 #dibujo>
+#indpol )( $100 #indpol>
+#cntpol
+#trazo )( $1000 #trazo>
 #modo 0
 #etrazo 1
 #policursor -1
@@ -20,21 +32,12 @@
 #coltipo 0
 #colcen
 #colmat
-#zoom
+#zoom -0.5
 #xd #yd
 #xi #yi
 #xl #yl
 #grillamodo
 #egrilla 2
-
-#lugar
-#nombre )( 64
-#actual
-#indpol )( $100 #indpol>
-#dibujo )( $1000 #dibujo>
-#trazo )( $1000 #trazo>
-#hojas )( $10000 #hojas>
-#indice )( $1000 #indice>
 
 :angulo | p1 p2 -- ang
 	over d>y over d>y - >r
@@ -119,7 +122,6 @@
 	colorb 4 << $c or +dibujo
 	colora 4 << $f or +dibujo
 	;
-
 #tiposcol polsolido polldeg polrdeg
 
 :cierropoligono
@@ -180,6 +182,7 @@
 			drop r> )
 		4+ )
 	drop 0 ;
+
 
 |--------------------------------------------------
 #oxy
@@ -272,7 +275,6 @@
 	haceindice
 	;
 
-|-----------------------------------------------
 :quitaylinea
 	dup -nodo dup @ $fffffff0 and 3 or swap !
 	;
@@ -303,8 +305,7 @@
 :del-nodo
 	lastnodo 0? ( drop ; )
 	dup @ $7 and
-	2 << 'accdelnodo + @
-	0? ( 2drop ; )( exec )
+	2 << 'accdelnodo + @ 0? ( 2drop )( exec )
 	haceindice
 	;
 
@@ -368,12 +369,20 @@
 	0 dup dup 'poini ! 'pofin ! 'lastnodo !
 	;
 
-
+|---------
+:del-poli
+	poini 0? ( drop ; )
+	pofin 4+
+	dibujo> >=? ( drop 0 over ! 4 - 'dibujo> ! haceindice ; )
+	zcopy 4 - 'dibujo> !
+	haceindice
+	;
 |-----------------------------------------------
 #curcola
 #curcolb
 
 :colordepoli
+	0 dup 'curcola !+ !
 	poini 0? ( drop ; )
 	( pofin <=? )( dup @ $f and
 			$c =? ( over dup @ 4 >> 'colorb ! 'curcolb ! )
@@ -392,7 +401,7 @@
 
 :btncolor
 	colorb colora vbtn
-	'elijecolor onClick
+	'elijecolor onUp
 	;
 
 |--------------------------------------------------
@@ -418,18 +427,16 @@
 |-- caja
 :caja.ins
 	xa xb =? ( drop ; ) ya yb =? ( 2drop ; )
-	xy> 1 or +trazo
-	xa yb xy> 3 or +trazo
-	xb yb xy> 3 or +trazo
-	xb ya xy> 3 or +trazo
+	xy> 1 or +trazo xa yb xy> 3 or +trazo
+	xb yb xy> 3 or +trazo xb ya xy> 3 or +trazo
+|	4 0? ( xa ya xy> 2 or +trazo ) drop
 	;
 
 |-- elip
 :elip.ins
 	xa xb =? ( drop ; ) ya yb =? ( 2drop ; )
 	yb ya - abs xb xa - abs
-	>r >r r - 2dup
-	2dup xy> 1 or +trazo |op
+	>r >r r - 2dup 2dup xy> 1 or +trazo |op
     swap r> r> dup >r swap >r  - swap 2dup xy> 2 or +trazo	|cp
 	r + 2dup xy> 4 or +trazo |curve
 	r + 2dup xy> 2 or +trazo |cp
@@ -444,7 +451,7 @@
 |------------------------------------------------
 :circlemode
 	drawdibujo
-	[ elip.ins cpdibujo cur.clr ; ] onClick
+	[ elip.ins cpdibujo cur.clr ; ] onUp
 	[ xymouse 'yb ! 'xb ! ; ] onMove
 	[ xymouse cur.set ; ] onDn
 	blink 1? ( colora )( colorb ) ink drop
@@ -455,7 +462,7 @@
 |------------------------------------------------
 :cajamode
 	drawdibujo
-	[ caja.ins cpdibujo cur.clr ; ] onClick
+	[ caja.ins cpdibujo cur.clr ; ] onUp
 	[ xymouse 'yb ! 'xb ! ; ] onMove
 	[ xymouse cur.set ; ] onDn
 	blink 1? ( colora )( colorb ) ink drop
@@ -468,7 +475,7 @@
 	drawdibujo
 	[ cltrazo xymouse xy> 1 or +trazo ; ] onDn
 	[ xymouse xy> 5 or +trazo ; ] onMove
-	[ cpdibujo ; ] onClick
+	[ cpdibujo ; ] onUp
 	blink 1? ( colora )( colorb ) ink drop
 	'trazo nsprite
 	;
@@ -476,7 +483,7 @@
 |--------------------------------------------------
 :nodomode
 	drawdibujo
-	[ trazo> 4 - 'lastnodo ! ; ] onClick
+	[ trazo> 4 - 'lastnodo ! ; ] onUp
 	[ xymouse xy> etrazo or +trazo
 		etrazo 1 =? ( 5 nip ) 'etrazo !
 		; ] onDn
@@ -488,7 +495,7 @@
 |--------------------------------------------------
 :editmode
 	loadbox
-	[ 0 'cursor ! ; ] onClick
+	[ 0 'cursor ! ; ] onUp
 	[ xymouse tocanodopoli 1? ( dup 'lastnodo ! ) 'cursor ! xy> 'oxy ! ; ] onDn
 	[ xymouse cursor 1? ( muevenodo ; ) drop polimove ; ] onMove
 	drawdibujo
@@ -498,8 +505,8 @@
 
 |--------------------------------------------------
 :vistamode
-	[ xymouse 'yd ! 'xd ! ; ] onClick
-	[ xymouse loadbox dup yd - 'yc +! 'yd ! dup xd - 'xc +! 'xd ! savebox ;	] onMove
+	[ xymouse 'yd ! 'xd ! ; ] onDn
+	[ xymouse loadbox dup yd - 'yc +! 'yd ! dup xd - 'xc +! 'xd ! savebox ; ] onMove
 	loadbox
 	zoom 1.3 + sh 16 *>> dup 'w ! 'h !
 	savebox
@@ -524,7 +531,7 @@
 	haceindice ;
 
 :nuevopoli
-	'polinuevo onClick
+	'polinuevo onUp
 	policursor  -1 <>? ( 0.8 blanco )( colorb colora vbtn
     	blink 1? ( verde )( amarillo ) drop
 		1.0 ) fzoom drop
@@ -535,7 +542,7 @@
 	maxpoli =? ( nuevopoli ; )
 	policursor =? ( 1.0 )( 0.8 ) fzoom
 	dup 2 << 'indpol +
-    'policlick  onClick
+    'policlick  onUp
 	4+ @ dup 8 - @ 4 >> swap 4 - @ 4 >> vbtn | col1 col2 --
 	policursor <>? ( ; )
 	2 sfont cr2
@@ -544,76 +551,83 @@
 
 :viewpolis
 	| poner cantidad de poligonos
-	modo 5 =? ( drop 'zoom vslide ; ) drop
+	modo 5 =? ( drop 'zoom .vslide ; ) drop
 	indpol> 'indpol - 2 >> dup 'maxpoli ! 1+
 	5 max
-	'cadapoli vlist ;
+	'cadapoli .vlist ;
 
 :eslinea	0 'modo ! ;
 :escaja     2 'modo ! ;
 :eselipse   3 'modo ! ;
 :opczoom    5 'modo ! ;
 
+|--------------------------------------------------
+#btnnuevo 6
+$ff0000 'ifin 'exit
+$ffff00 'ilupa 'opczoom
+$ffff00 'idibuja 'eslinea
+$ffff00 'istop 'escaja
+$ffff00 'irec 'eselipse
+$ff0000 'imenos 'deltrazo
+
+#btnnodos 6
+$ff0000 'ifin 'exit
+$ff00 'imenos 'del-nodo
+$ff00 'imas 'ins-nodo
+$ff00 'iarr 'abapoli
+$ff00 'icurva 'curv-nodo
+$ff0000 'imenos 'del-poli
+
+#btntrazo 6
+$ff0000 'ifin 'exit
+$ff00 'iborrar 'deltrazo
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+
+:modo0 	0 'modo ! ;
 :zoom1 	-0.5 'zoom ! ;
 :zoom2 	-0.2 'zoom ! ;
 :zoom3 	0.0 'zoom ! ;
 :zoom4 	0.2 'zoom ! ;
-:zoom5	0.4 'zoom !	;
+:zoom5	2.0 'zoom !	;
 
-|--------------------------------------------------
-:btnvista
-	'eslinea 'ifin btnd gc>>
-	'zoom1 'imenos btnd gc>>
-	'zoom2 'imenos btnd gc>>
-	'zoom3 'istop btnd gc>>
-	'zoom4 'imas btnd gc>>
-	'zoom5 'imas btnd
-	;
-
-:btnnuevo
-	rojo
-	'exit 'ifin btnd gc>>
-	verde
-	'opczoom 'ilupa btnd gc>>
-	'eslinea 'idibuja btnd gc>>
-	'escaja 'istop btnd gc>>
-	'eselipse 'irec btnd gc>>
-	'deltrazo 'imenos btnd
-	;
-
-:btnnodos
-	rojo
-	'exit 'ifin btnd gc>>
-	verde
-	'del-nodo 'imenos btnd gc>>
-	'ins-nodo 'imas btnd gc>>
-	'abapoli 'iarr btnd gc>>
-	'curv-nodo 'icurva btnd gc>>
-	'del-poli 'imenos btnd
-	;
-
-:btntrazo 6
-	rojo
-	'exit 'ifin btnd gc>>
-	'deltrazo 'iborrar btnd
-	;
+#btnvista 6
+$ff0000 'ifin 'modo0
+$ffff00 'imenos 'zoom1
+$ffff00 'imenos 'zoom2
+$ffff00 'istop 'zoom3
+$ffff00 'imas 'zoom4
+$ffff00 'imas 'zoom5
 
 #btns 'btnnuevo 'btnnodos 'btnnuevo 'btnnuevo 'btntrazo 'btnvista
 
 :botonherra
-	modo 2 << 'btns + @ exec ;
+	modo 2 << 'btns + @
+	escf1.. ;
 
 :execescf1 | nro
-	drop ;
+	dup dup + + 2 <<
+	12 +
+	modo 2 << 'btns + @
+	+
+	@ exec ;
+
+#modogui 4   'itrazo 'irec 'idibuja 'ilupa
+:viewestado
+	'modo 'modogui .vradio drop ;
 
 #accmodos 'nodomode 'editmode 'cajamode 'circlemode 'trazomode 'vistamode
 
 :viewdibujo
-	modo 2 << 'accmodos + @ exec ;
+	modo 2 << 'accmodos + @ >r ;
 
 :dumpdibujo
 	0.8 0.9 fdim fonti
 	verde
+|	codetxt "%d " print
+|	codelast "%d " print
 |	azul pofin poini "%d %d" print cr
 	0 'dibujo ( dibujo> <? )(
 		poini =? ( rojo )
@@ -621,9 +635,10 @@
 		@+ "%h " print
 		swap 1+ $7 nand? ( cr ) swap
 		) 2drop
+	;
+:aa
 	cyan cr
-|	;
-|:aaa
+|	azul pofin poini "%d %d" print cr
 	policursor "policursor:%d " print
 	pofin poini "ini:%d fin%d " print cr
 	coltipo colorb colora "colA:%h colB:%h tipo:%h " print cr
@@ -636,15 +651,35 @@
  	;
 
 :borrodib
+	codefin 'here ! 	| dlgsino utiliza here
 	"Borro Dibujo ?" dlgsino
 	1? ( resetspr ) drop
 	;
 
+
+|------------------------------------------------
+#editbotgui 5
+$ff00ff 'iborrar 'borrodib
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+
+:btnsis
+	'editbotgui .hbtns ;
+
 |-----------------------------------
+#editgui | $gui
+0.5 0.1 -0.25 -0.45 'btnsis
+0.2 0.1 0.3 0.45 'btncolor
+0.8 0.8 0 0 'viewdibujo
+0.6 0.1 -0.2 0.45 'botonherra
 |0.1 0.5 -0.45 0 'viewestado
+0.1 1.0 0.45 0 'viewpolis
+0
 
 :editando
-	inigui
+	inikey
 	[ 0 execescf1 ; ] >esc<
 	[ 1 execescf1 ; ] <f1>
 	[ 2 execescf1 ; ] <f2>
@@ -652,43 +687,44 @@
 	[ 4 execescf1 ; ] <f4>
 	[ 5 execescf1 ; ] <f5>
 	0 0 fpos
-	-0.5 'zoom !
 	zoom 1.3 + sh 16 *>> dup 'w ! 'h !
 	savebox
 	0 'modo !
-	show clrscr
-		dumpdibujo
-		scr
-		0.8 0.8 fdim 0 0 fpos
-		viewdibujo
-		0.1 0.1 fdim -0.9 0.9 fpos
-		'iborrar 'borrodib btnd
-		0.2 0.1 fdim 0.6 -0.9 fpos
-		btncolor
-		0.1 dup fdim
-		-0.9 -0.9 fpos
-		botonherra
-		0.1 1.0 fdim 0.9 0 fpos
-		viewpolis
+	show cls
+		scr dumpdibujo
+		scr 'editgui gui
+|		scr 16 sfont azul 'nombre  printc
 		cflecha
 		;
 
+| code a dibujo
 |--------------------------------------------------
-|--------------------------------------------------
-|--------------------------------------------------
-|--------------------------------------------------
-:load-car | --
-	resetspr
-	actual @ 0? ( drop ; )
-	'dibujo swap zcopy 4 - 'dibujo> !
-	-1 'policursor !
-	1 'coltipo !
+|::?numero | str -- 0 / str' nro 1
+
+:getnro | txt -- txt' 0 / nro
+	( dup c@ 33 <? )( 0? ( ; ) drop 1+ ) drop
+	dup ?numero 0? ( ; )
+	drop rot drop ;
+
+:load-code
+	'dibujo >r
+	codestart
+	( c@+ 13 >? )( drop ) drop
+	( getnro 1? )( r!+ ) r !
+	r> 'dibujo> !
+	( c@+ 33 <? )( drop ) drop 1-
+	'codelast !
+    haceindice
+	;
+
+:loadbin
+	'dibujo "./nom/1spr.mem" load
+	'dibujo =? ( resetspr ) drop
 	haceindice
 	;
 
-:save-car | --
-	hojas> dup actual ! 'dibujo zcopy 'hojas> ! ;
-
+| savecode
+|--------------------------------------------------
 :newline 13 ,c 10 ,c ; | m#@$#!%@$#
 
 #compnombre )( 64
@@ -704,10 +740,10 @@
 #buffopt )( $4000
 #buffopt> 'buffopt
 
-:printbuff
+:codedibu
 	0 'buffopt
 	buffopt> >=? ( 2drop ; )
-	"#:dib" ,s pick3 ,h 32 ,c
+	codestart "%w |spr" ,print newline
 	( buffopt> <? )(
 		@+ 0? ( " %d" )( " $%h" ) ,print
 		swap 1+ 8 >? ( drop 0 newline )
@@ -728,161 +764,36 @@
 	;
 
 :save-code
-	clear
-	1 'indice
-	( @+ 1? )(
-		procbuff
-		printbuff
-		swap 1+ swap
-		) 3drop
-
-	newline
-|	"#:cntdib " ,s dup ,n newline
-|	"#:dibs" ,s 0
-|	( over <? )( 1+ " 'dib" ,s dup ,h
-|		dup $f and 0? ( newline ) drop
-|		) drop
-|	newline
-	"./inc/" dir
-	mem here over - ".inc" 'nombre compone save
+	codefin 'here !
+	'dibujo procbuff
+	here codetxt codestart over - dup 'here +!
+	cmove
+	codedibu newline
+	here codelast codefin over - dup 'here +!
+	cmove
+	codefin here over -
+	'nombre
+	save
 	;
 
-:copy-dibu
-	actual @ 0? ( drop ; )
-	hojas> indice> !+ 'indice> !
-	hojas> swap zcopy 'hojas> ! ;
-
-:ante-dibu
-	actual 'indice =? ( drop ; )
-	dup 4 - over @ over @ swap rot ! swap !
-	-4 'actual +! ;
-
-:post-dibu
-	actual indice> 4 - >=? ( drop ; )
-	dup 4+ over @ over @ swap rot ! swap !
-	4 'actual +! ;
-
-:borra-dibu
-	actual @ 0? ( drop ; ) drop
-	"Borro Dibujo ?" dlgsino
-	1? ( actual dup 4+ zcopy 4 - 'indice> !
-		0 'actual !
-		) drop
-;
-
 |--------------------------------------------------
-:cleardibujos
-	'indice >r 128 ( 1? )( 0 r!+ 1- ) drop rdrop
-	'dibujo 'dibujo> !
-	'hojas 'hojas> !
-	'indice dup 'indice> ! 'actual  ! ;
+:	33
+	resetspr
+	'lugar "./nom/1spr.nom" load
+	'lugar =? ( resetspr ) drop
 
-:load-dibu
-	cleardibujos
-	'hojas 'nombre load
-	dup 'hojas> ! 0 swap 4+ !+ 0 swap !
-	'indice 'hojas ( dup @ 1? )( drop dup
-		rot !+ swap ( @+ 1? )( drop ) drop
-		) 2drop 'indice> ! ;
-
-:save-dibu
 	clear
-	'indice ( @+ 1? )( ( @+ 1? )( , ) , drop ) , drop
-	mem here over - 'nombre save ;
+	here $ffff + dup 'codetxt !
+	'nombre load 'codefin !
+	codetxt
+	lugar ( 1? )( 1- swap c@+ 13 =? ( drop 1+ dup ) drop  swap ) drop
+	'codestart !
 
-#tactual
-
-:editahoja
-	actual 'tactual !
-	load-car
-	key.push
+	load-code | loadbin
 	editando
-	key.pop
-	save-car
-	"./spr/" dir
-	save-dibu load-dibu
-	tactual 'actual !
-	;
+	save-code
 
-:eligearchivo
-	save-dibu
-	"./spr/" dir
-	'nombre dlgfile
-	load-dibu
-	;
+|	'dibujo $1000 "./nom/1spr.mem" save
 
-
-|--------------------------------------------------
-
-:cadadib | n n -- n n
-	2dup 3 << +   | x y nro
-	dup
-	2 << 'indice +
-	actual =? ( blanco gc.fbox )
-	[ dup 'actual ! ; ] onClick
-	0.9 [ 1.2 nip ; ] onIn fzoom
-	@ 1? ( nsprite )( drop )
-	fonti verde
-	1+ "%h" print
-	;
-
-:tabladib
-	8 8 'cadadib table	;
-
-:botonera
-	rojo
-	'exit 'ifin btnd gc>>
-	verde
-	'editahoja 'idibuja btnd gc>>
-	'copy-dibu 'icopia	btnd gc>>
-	'ante-dibu 'iizq btnd gc>>
-	'post-dibu 'ider btnd gc>>
-	'borra-dibu 'iborrar btnd gc>>
-	'save-code 'irecicla btnd
-    ;
-
-:titulo
-	$333333 $aaaaaa [ swap ; ] onIn  vbtn
-	1 sfont negro "r4Spr:" print
-	blanco 'nombre printc
-	'eligearchivo onClick
-	;
-
-:menu-dibujos
-	inigui
-	'exit >esc<
-	'editahoja <f1>
-	'copy-dibu <f2>
-	'ante-dibu <f3>
-	'post-dibu <f4>
-	'borra-dibu <f5>
-	[ 4 'actual +! ; ] <der>
-	[ actual 'indice >? ( 4 - ) 'actual ! ; ] <izq>
-	'save-code <f6>
-	'eligearchivo <esp>
-	'editahoja <enter>
-	show clrscr
-		1.0 0.1 fdim
-		0 0.9 fpos titulo
-		0.1 dup fdim
-		-0.9 -0.9 fpos botonera
-
-		0.8 0.8 fdim
-		0 0 fpos tabladib
-		cmano
-		;
-
-|--------------------------------------------------
-:	33 0 paper
-	resetspr clear
-	'nombre "./nom/edit-spr.nom" load drop
-	"./spr/" dir
-	load-dibu
-	'indice 'actual !
-	menu-dibujos
-	"./spr/" dir
-	save-dibu
-	"./" dir
-	'nombre count "./nom/edit-spr.nom" save
-	"main.txt" run ;
+	"edit-code.txt" run ;
 

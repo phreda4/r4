@@ -2,47 +2,26 @@
 | PHREDA 2006
 |---------------------------------------
 ^reda4.txt
-^medit.txt
-^libgui.txt
+^gui3.txt
 
-#inicioarch 0
-#cntarch 20
-#vuelta 0
-|#cant 0
+#cntlineas 0
 #inifile 0
-#iniprog 0
-
-|---------------------------------------------------------
-#actual 0
-
 #fileact 0
-#compnombre )( 128
-#nnombre )( 64
 #pnombre 0
-
 #entrada )( 64
-#hayarr 0
-#hayaba 0
 
-:compone | ".ext" "n"  -- "n.ext"
-	'compnombre swap
-	( c@+ 1? )( rot c!+ swap )  2drop
-	swap
-	( c@+ 1? )( rot c!+ swap ) rot c!
-	drop 'compnombre ;
+:copye | str --
+	'entrada swap
+	( c@+ 1? )( rot c!+ swap ) rot c! drop ;
+:cleare
+	0 'entrada ! ;
 
 |---------------------------------------------------------
-:calbotons
-	inifile 0 >? ( 1 )( 0 ) nip 'hayarr !
-	inifile 3 20 * + file 1? ( 1 )( 0 ) nip 'hayaba !
-	;
-
-
 :sumafile | nro --
-	fileact + dup file 0? ( 2drop ; ) drop 'fileact !
+	fileact + dup file 0? ( 2drop ; ) copye  'fileact !
 :ubicar
-	inifile 3 16 * +  ( fileact <=? )( 3 + ) 3 16 * - 'inifile !
-	inifile ( fileact >? )(  3 - ) 'inifile !
+	inifile cntlineas +  ( fileact <=? )( 1+ ) cntlineas - 'inifile !
+	inifile ( fileact >? )(  1- ) 'inifile !
 	;
 
 :buscafile
@@ -52,104 +31,57 @@
 	2drop ;
 
 |---------------------------------------------------------
-:filedraw | x y -- x y
-	2dup 3 * + inifile +
-	dup file 0? ( 2drop ; ) drop
-	fileact =? ( verde oscuro gc.box ) |$ff0000 $ff00 vbtn  )
-	[ dup file 1? ( m.copy )( drop ) ; ] onUp
-	1.8 fzoom
-	file 0? ( drop ; ) 2 sfont cr2 gris printc ;
-
-:filelist
-	3 16 'filedraw .table ;
-
-|---------------------------------------------------------
-:salir
-	gris gc.fbox
-	0.9 [ 1.1 nip ; ] onMove fzoom
-	[ "" pnombre strcpy exit ; ] onUp
-	$ff0000 $222222 [ swap ; ] onIn vbtn
-	blanco 'ifin v8draw
-	;
-
-|---------------------------------------------------------
-:titulo
-	$ff00 $222222 vbtn
-	1 sfont negro "file:" print
-	blanco pnombre printc
-	[ exit ; ] onUp
-	;
-
 :nuevoreal
 	exit
 	'entrada c@ 0? ( drop ; ) drop
 	'entrada pnombre strcpy
 	;
 
-:saliendo
-	exit ;
-
-#acc1 2
-$ff0000 'ifin 'saliendo
-$00ff00	'iok 'nuevoreal
-
-:botonera
-	'acc1 .vbtns ;
-
-:lineadebug
-	fonti verde
-	dup "%d" print
+#largon
+:cadafile | nro -- nro
+	dup inifile +
+	fileact =? ( verde ">" )( blanco " " ) print
+	file 0? ( drop ; )
+	printbox
+	[ dup copye ; ] onClick
+	|print
+	largon boxprint
 	;
-
-:textoin
-	verde gc.box -2 'h +!
-	1 sfont gris
-	m.draw ;
-
-#control
-0.9 0.1 -0.05 -0.45 'titulo
-0.8 0.09 0 -0.35 'textoin
-0.9 0.8 0 0.1 'filelist
-0.1 0.2 0.45 -0.40 'botonera
-|0.3 0.1 0.25 0.45 'lineadebug
-0
-
-:nfiles | ( -- (n-1) )
-	0 ( dup file 1? )( drop 1+ ) drop 1- ;
-
-:pgup_	inifile fileact <>? ( inifile 'fileact ! )( inifile 48 - 0 max dup 'inifile ! 'fileact ! ) drop ubicar ;
-
-:pgdn_	inifile 45 + fileact <>? ( inifile 45 + nfiles min 'fileact ! )(
-	inifile 45 + nfiles min dup 'inifile ! 45 + nfiles min 'fileact ! ) drop ubicar ;
-
-:end_	nfiles 45 / 45 * 'inifile ! inifile nfiles 45 mod + 'fileact ! ;
-
-:showfile
-	inikey
-	[ exit ; ] >esc<
-	[ fileact file 1? ( pnombre strcpy exit ; ) drop ; ]  <enter>
-	'entrada 32 m.input | 'var max --
-
-	[ m.clear 1 sumafile ; ] <der>
-	[ m.clear -1 sumafile ; ] <izq>
-	[ m.clear 3 sumafile ; ] <aba>
-	[ m.clear -3 sumafile ; ] <arr>
-	[ m.clear pgup_ ; ] <pgup>
-	[ m.clear pgdn_ ; ] <pgdn>
-	[ m.clear 0 dup 'fileact ! 'inifile ! ubicar ; ] <home>
-	[ m.clear end_ ubicar ; ] <end>
-
-	"" m.copy
-	show cls scr
-		'control gui
-		buscafile
-		cmano ;
 
 |---------------------------------------------------------
 ::dlgfile | nn --
+	inigui
 	'pnombre !
-	key.push
 	0 'fileact !
-|	calbotons
-	showfile
-	key.pop ;
+	'exit  >esc<
+	'nuevoreal >enter< |[ fileact file 1? ( pnombre strcpy exit ; ) drop ; ]  >enter<
+	[ 1 sumafile ; ] <aba>
+	[ -1 sumafile ; ] <arr>
+	pnombre copye
+	scr fonti
+	fils 4 - 'cntlineas !
+|	cols 2 >> 'largon !
+	show clrscr
+		fontid
+		gris oscuro linefill
+		blanco "Elegir Archivo" printc cr
+		gris oscuro linefill
+		blanco spc 'entrada print
+
+|		verde spc spc 'entrada 32 getline cr
+ 		fonti 0 4 at
+		0 ( cntlineas <? )(
+			1 col cadafile cr
+|			largon 2*  col
+|			dup cntlineas + cadafile drop cr
+			1+ ) drop
+
+		0.1 0.1 fdim
+		0.9 0.9 fpos
+		rojo [ "" pnombre strcpy exit ; ] 'ifin btnd
+		0.7 0.9 fpos
+		verde 'nuevoreal 'iok btnd
+
+		buscafile
+		cmano
+		;

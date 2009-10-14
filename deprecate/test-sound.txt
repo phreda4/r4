@@ -1,0 +1,97 @@
+| :R4 sonido
+| PHREDA
+|---------------------------------------
+^reda4.txt
+^gui.txt
+
+
+#co
+#si
+
+#var1 1
+#var2 1
+
+#wind 0
+
+:sinus
+	sbo >r
+	-4410 'wind +!
+	4410 ( 1? )( 1-
+		dup wind + var1 4 *>> sin 2/
+		dup 16 << swap $ffff and or | 2canales
+		r!+
+		) drop
+    rdrop ;
+
+#fs 440
+
+:sawtooth
+    sbo >r
+	4410 ( 1? )( 1-
+		dup wind + var1 4 *>>
+		dup 16 << swap $ffff and or | 2canales
+		r!+
+		) drop
+	4410 'wind +!
+	rdrop ;
+
+
+:sound
+	sbo >r
+	4410 ( 1? )( 1-
+		rand $fff0fff and
+		r!+ ) drop
+	rdrop ;
+
+:silence | llena el buffer con 0
+	sbo >r
+	4410 ( 1? )( 1- 0 r!+ ) drop
+	rdrop ;
+
+|-------- mixer
+
+:endsound
+	'silence ison!
+	.page .show
+		200 .mseg exit 0 ison! ;
+
+|-------- drawbb
+
+:drawbuffer
+	sbo >r
+|	1000 ( 1? )( 1-
+	0 ( 2205 <? )( 1+
+		dup r@+ 4 r+
+		verde
+		over over 24 >> 200 + op over 200 line
+		rojo
+		over over 16 << 24 >> 400 + op drop 400 line
+		)  drop rdrop
+	;
+
+:main
+|	'sound ison!
+	'silence ison!
+	.page
+	'exit <esc>
+	[ 'sound ison! ; ] <esp>
+	[ 'sinus ison! ; ] <f1>
+
+	[ 'silence ison! ; ] dup >esp< >f1<
+
+	[ 'sawtooth ison! ; ] <f2>
+
+	1 8 .table
+|	verde
+	0 0 .at $fff 'var1 .hsli
+	0 1 .at	$fff 'var2 .hsli
+	.show cls
+		drawbuffer
+		20 font
+    	verde home var2 var1 "%d %d" print
+		blanco 	0 19 at "ESP - sonido" printc
+		;
+
+: main endsound
+
+"main.txt" run ;

@@ -4,7 +4,7 @@
 ^reda4.txt
 ^gui3.txt
 ^parse.txt
-^dlgfile2.txt
+^dlgfile.txt
 ^codecolor.txt
 
 |^trace.txt
@@ -16,7 +16,12 @@
 #fuente0 0
 #fuente )( $3ffff | 256k de fuente editable
 #fuente> 'fuente	| cursor
-#textofin> 'fuente
+#$fuente 'fuente
+
+#pantaini>	| comienzo de pantalla
+#pantafin>	| fin de pantalla
+#prilinea	| primera linea visible
+#actlinea	| linea actual
 
 #helptxt )( $3fff | 16k help file
 
@@ -33,31 +38,27 @@
 #ncar 0
 #nlin 0
 
-#pantaini> | comienzo de pantalla
-#pantafin>
-#prilinea
-#actlinea
 
 #mensaje )( 64
 
 :lins  | c --
-	fuente> dup 1- textofin> over - 1+ cmove>
-	1 'textofin> +!
+	fuente> dup 1- $fuente over - 1+ cmove>
+	1 '$fuente +!
 :lover | c --
 	fuente> c!+ dup 'fuente> !
-	textofin> >? ( dup 'textofin> ! ) drop
+	$fuente >? ( dup '$fuente ! ) drop
 :0lin | --
-	0 textofin> c! ;
+	0 $fuente c! ;
 
 #modo 'lins
 
 :del
-	fuente> textofin> >=? ( drop ; ) drop
+	fuente> $fuente >=? ( drop ; ) drop
 	1 'fuente> +!
 :back
 	fuente> 'fuente <=? ( drop ; )
-	dup 1- swap textofin> over - 1+ cmove
-	-1 'textofin> +!
+	dup 1- swap $fuente over - 1+ cmove
+	-1 '$fuente +!
 	-1 'fuente> +!
 	;
 
@@ -67,10 +68,10 @@
 		drop 1- ) ;
 
 :>>13 | a -- a
-	( textofin> <? )( dup c@
+	( $fuente <? )( dup c@
 		13 =? ( drop 1- ; )
 		drop 1+ )
-	drop textofin> 2 - ;
+	drop $fuente 2 - ;
 
 #1sel #2sel
 
@@ -118,7 +119,7 @@
 	selecc ;
 
 :kabajo
-	fuente> textofin> >=? ( drop ; )
+	fuente> $fuente >=? ( drop ; )
 	selecc
 	dup 1- <<13 | cur inilinea
 	over swap - swap | cnt cursor
@@ -131,7 +132,7 @@
 
 :kder
 	selecc
-	fuente> textofin> <?
+	fuente> $fuente <?
 	( 1+ 'fuente> ! selecc ; ) drop
 	;
 
@@ -153,7 +154,7 @@
 
 |---------------   mover fuente
 :e.clear
-	'fuente dup 'pantaini> ! dup 'fuente> ! 'textofin> !
+	'fuente dup 'pantaini> ! dup 'fuente> ! '$fuente !
 	0lin ;
 
 |------------------------------------------------
@@ -168,7 +169,7 @@
 	|--quitar 10
 	'fuente mem ( c@+ 1? )(
 		10 =? ( drop swap fuente> <? ( -1 'fuente> +!  ) swap )( rot c!+ swap )
-		) 2drop 'textofin> ! 0lin
+		) 2drop '$fuente ! 0lin
 
 	nlin 0 >? ( ( 1- 1? )( fuente> >>13 2 + 'fuente> ! ) ) drop
 	ncar +? ( dup 'fuente> +! ) drop
@@ -192,8 +193,8 @@
 	;
 
 :borrasel
-	inisel finsel textofin> finsel - 4+ cmove
-	finsel inisel - neg 'textofin> +!
+	inisel finsel $fuente finsel - 4+ cmove
+	finsel inisel - neg '$fuente +!
 	fuente> inisel >=? ( finsel <=? ( inisel 'fuente> ! )(  finsel inisel - over swap - 'fuente> ! ) )  drop
 	0 dup 'inisel ! 'finsel ! ;
 
@@ -227,11 +228,14 @@
 		actlinea =? ( blanco )( gris )
 		1+ "%d" 3 boxprintr spc
 		swap
-		4 col drawsel
-		4 col drawcur
-		4 col >>lineacolor>> cr
+		$fuente <? (
+			4 col drawsel
+			4 col drawcur
+			4 col >>lineacolor>>
+			)
+		cr
 		swap 1+ ) drop
-	1- 'pantafin> !
+	$fuente <? ( 1- ) 'pantafin> !
 	fuente>
 	( pantafin> >? )( scrolldw )
 	( pantaini> <? )( scrollup )
@@ -253,9 +257,9 @@
 :controlv | paste
 	'clipboard clipboard> over - 0? ( 3drop ; ) | clip cnt
 	fuente> dup pick2  + swap | clip cnt 'f+ 'f
-	textofin> over - 1+ cmove>	| clip cnt
+	$fuente over - 1+ cmove>	| clip cnt
 	fuente> rot rot | f clip cnt
-	dup 'textofin> +!
+	dup '$fuente +!
 	cmove
 	clipboard> 'clipboard - 'fuente> +!
 	;
@@ -302,6 +306,8 @@
 	;
 
 |--------------------
+|--------------------
+|--------------------
 :editasprite
 	savetxt
 	fuente> ( dup 1- c@ 32 >? )( drop 1- ) drop | busca comienzo
@@ -313,6 +319,8 @@
 	"edit-1spr.txt" run
 	;
 
+|--------------------
+|--------------------
 |--------------------
 :buscawhelp | str -- str l/0
 	'helptxt
@@ -397,7 +405,7 @@
 	modo 'lins =? ( "INS" )( "OVR" ) nip
 	" %s | " print
 	finsel 0? ( drop "0" )( 'fuente - inisel 'fuente - "%d..%d" ) print
-	textofin> 'fuente -
+|	$fuente 'fuente -
 	actlinea 1+ " | %d" print
 	 clipboard> 'clipboard <>? ( " | *" print ) drop
 	;
@@ -433,10 +441,12 @@
 	scr fonti
 |	25 fonth
 	fils 4 - 'cntlineas !
+|33
 	show clrscr
 		fonti |	25 fonth
 		gris oscuro linefill
-		verde " :R4 Edit " print  'nombre "%s" blanco print cr
+		verde " :R4 Edit " print  'nombre "%s" blanco print
+|		dup "(%d)" print cr
 		gris oscuro linefill
 		verde 'mensaje " %s " print cr
 

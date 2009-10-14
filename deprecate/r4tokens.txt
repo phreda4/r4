@@ -1,0 +1,232 @@
+| PHREDA - 2009
+| token 32bits
+| convierte str a cadena de tokens
+| mantiene diccionarios
+|---------------------------------
+^parse.txt
+
+|---- macros
+| 'string |
+#:indicemac )( 1024				| 256 macros
+|---- palabras
+| 'string | 'exec | info | stat |    16 bytes por palabra
+#:indicepal )( 16384
+#:indicepal> 'indicepal			| 2048 palabras
+#:indicepal<
+
+| info (en binario)
+| 00000000									Pila D ( -128 a 128)
+|                    00000000						Pila R
+|                                       0000000000FEDCBA		Flags
+| A- 0 accion 1 dato
+| B- 0 local 1 exportado
+| C- 0 un ; 1 varios ;
+| D- 0 sin calls 1 con calls
+| E- 0 no usas R(A) 1 usa R(A) .. R(A) es cuando R se usa como auxiliar
+| F- 0 nunca como direccion 1 alguna vez como direccion
+| stat (en hexa)
+| 0000			Cantidad de llamadas a esta palabra, 0 no se uso pero OJO con( 's1 !+ !)
+|       0000	Tamanio, accion en palabras, dato en bytes (o en dwords?)
+
+#:tk.msg 0
+
+:error! | "" --
+	'tk.msg ! ;
+
+
+|----------- palabras de inicio del diccionario
+#macros
+";" "(" ")" ")(" "[" "]" "EXEC"
+"0?" "+?" "-?" "1?" "=?" "<?" ">?" "<=?" ">=?" "<>?" "AND?" "NAND?"
+"DUP" "DROP" "OVER" "PICK2" "PICK3" "PICK4" "SWAP" "NIP" "ROT"  	|--- pila
+"2DUP" "2DROP" "3DROP" "4DROP" "2OVER" "2SWAP"
+">R" "R>" "R" "R+" "R@+" "R!+" "RDROP" 					|--- pila direcciones
+"AND" "OR" "XOR" "NOT"                 					|--- logicas
+"+" "-" "*" "/" "*/" "*>>" "/MOD" "MOD" "ABS"			|--- aritmeticas
+"NEG" "1+" "4+" "1-" "2/" "2*" "<<" ">>"
+"@" "C@" "W@" "!" "C!" "W!" "+!" "C+!" "W+!"			|--- memoria
+"@+" "!+" "C@+" "C!+" "W@+" "W!+"
+"MOVE" "MOVE>" "CMOVE" "CMOVE>" 						|--- mov de memoria
+"MEM" "DIR" "FILE" "FSIZE" "VOL" "LOAD" "SAVE"			|--- memoria a disco
+"UPDATE" "MSEC" "TIME" "DATE" "END" "RUN" 				|--- sistema
+"SW" "SH" "CLS" "REDRAW" "FRAMEV"						|--- pantalla
+"SETXY" "PX+!" "PX!+" "PX@"
+"PAPER" "INK" "INK@" "ALPHA"  							|--- color
+"OP" "CP" "LINE" "CURVE" "PLINE" "PCURVE" "POLI" 		|--- dibujo
+"FCOL" "FCEN" "FMAT" "SFILL" "LFILL" "RFILL"
+"IPEN!" "XYMOUSE" "BMOUSE" 								|--- mouse
+"IKEY!" "KEY"											|--- teclado
+"IJOY!" "CNTJOY" "AJOY" "BJOY"							|--- joystick
+"ISON!" "SBO" "SBI"										|--- sonido
+"INET!"													|--- red
+( 0 )
+
+::tk.reset
+	'macros 'indicemac |	haceindice
+	( over c@ 1? )(
+		drop over swap !+ swap
+		( c@+ 1? )( drop ) drop swap
+		) drop
+	nip 0 swap !
+	'indicepal dup
+	'indicepal> ! 'indicepal< !	| vacia palabras
+	;
+
+::?macro | str -- nro+1/0
+	'indicemac ( @+ 1? )( 			| str w pal
+		pick2 =word= 1? (			| str maindic dir 1
+			drop rot drop swap 		| dir maindic
+			'indicemac - 2 >> ; )		| para que 0 sea invalido el primer macro es 1
+		drop ) nip nip ;				| str md+4 pal'
+
+::?palabra | str -- str dir / str 0
+	'indicepal >r
+	( r@+ 1? )( 					| str ind pal
+		over =s 1? ( drop r> 4 -	| dirpal
+			dup 8 + @			| dirpal info
+			%10 and? ( drop ; )( drop indicepal< >=? ( ; ) )
+			16 + >r	)( drop 12 r+ )
+		) drop rdrop 0 ;
+
+#tc )( 2048		| codigo
+#tc>
+#cc )( 1024		| constantes
+#cc>
+#ss )( 1024		| cadenas
+#ss>
+#dd )( 1024		| datos
+#dd>
+
+::resetpad
+	'tc 'tc> !
+	'cc 'cc> !
+	'ss 'ss> !
+	'dd 'dd> !
+	;
+
+::drawpad
+	dd> 'dd -
+	ss> 'ss -
+	cc> 'cc -
+	tc> 'tc -
+	"COD:%d CTE:%d STR:%d DAT:%d" print
+	;
+
+:,, | n --
+	tc> !+ 'tc> ! ;
+
+:,nn | n -- d
+	cc> !+ 'cc> ! cc> 'cc 4+ - ;
+
+:,ss | a -- d
+	;
+:aa
+	dd> dup rot
+	( 1+ dup c@ 1? )(
+		34 =? ( drop 1+ dup c@ 34 <>? ( drop 0 rot c!+ swap ; ) )
+		rot c!+ swap )
+	rot c!+ 'dd ;
+
+|----------- palabras que compilan
+::,,litd | n --	numero decimal
+	,nn 8 << 1 or ,, ;
+::,,lith | n --	numero hexa
+	,nn 8 << 2 or ,, ;
+::,,litb | n --	numero binario
+	,nn 8 << 3 or ,, ;
+::,,litf | n --	numero punto fijo
+	,nn 8 << 4 or ,, ;
+::,,lits | n --	string
+	,ss 8 << 5 or ,, ;
+::,,litv | n --  valor var
+	8 << 6 or ,, ;
+::,,litw | n --  dir word
+	8 << 7 or ,, ;
+::,,lita | n --  dir var
+	8 << 8 or ,, ;
+::,,word | n --  call word
+	8 << 9 or ,, ;
+::,,mac  | n --  macro
+	10 + ,, ;
+
+|------------ imprime codigo
+:getcte
+	;
+:getstr
+	;
+:getnam
+	;
+:getmac
+	;
+
+|----- Imprime codigo tokenizado
+:colitd	amarillo getcte "%d" print ;
+:colith amarillo getcte "$%h" print ;
+:colitb	amarillo getcte "%%%b" print ;
+:colitf amarillo getcte "%f" print ;
+:colits	azul getstr 34 emit "%s" print 34 emit ;
+:colitv	verde getnam "%w" print ;
+:colitw	cyan getnam "'%w" print ;
+:colita cyan getnam "'%w" print ;
+:colwor verde getnam "%w"  print ;
+:colmac naranja getmac "%s" print ;
+
+#codei 'colitd 'colith 'colitb 'colitf 'colits 'colitv 'colitw 'colita 'colwor
+
+:linecod | a --a.
+	@+ 0? ( nip ; )
+	10 <? ( 2 << 'codei + @ )( 'colmac )
+	exec ;
+
+
+:esinclude
+:escomentario
+:esdefinicion
+:esvariable | definicion de variable #
+:escadena
+:esdir
+	;
+
+:esnumero
+	basen
+	2 =? ( drop ,,litb ; )
+	10 =? ( drop ,,litd ; )
+	16 =? ( drop ,,lith ; )
+	"base?" error!
+	drop 0 ;
+
+:esmacro
+:espalabra
+	;
+
+:?macro
+:?palabra
+	;
+
+|--- busca palabra
+:compilaword | str -- str'/0
+	( dup c@ 33 <? )( 0? ( ; ) drop 1+ )		| quitar espacios
+|	$5e =? ( drop esinclude ; )			| $5e ^  Include ******************
+|	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
+|	$3A =? ( drop esdefinicion ; )		| $3a :  Definicion
+|	$23 =? ( drop esvariable ; )		| $23 #  Variable
+|	$22 =? ( drop escadena ; )			| $22 "	 Cadena
+|	$27 =? ( drop 1+ dup 				| $27 ' Direccion
+|		dup ?macro 1? ( 3drop " no tiene direccion" error!
+|			3 - 0 ; ) drop
+|		?palabra 1? ( nip esdir ; ) 2drop
+|		" sin direccion" error! 3 - 0 ; )
+	drop
+	dup ?numero		1? ( drop rot drop esnumero ; ) drop | numero
+|	dup ?fnumero	1? ( drop rot drop esnumero ; ) drop | numero
+|	dup ?macro		1? ( rot drop esmacro ; ) drop		| macro
+|	dup	?palabra	1? ( nip espalabra ; ) drop		| palabra
+	"No Existe" error!
+	0 ;
+
+|--- tokeniza
+::tokeniza | "str" -- err/0
+	0 'tk.msg !
+	( compilaword 0? ) 2drop
+    tk.msg ;
+

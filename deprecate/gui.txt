@@ -1,0 +1,502 @@
+| libreria de GUI  1.0
+| PHREDA
+|-----------------------------
+^reda4.txt
+^font.txt
+^libprint.txt
+^libsprite.txt
+^sprites.txt
+^libgraf.txt
+
+#tx #ty #tx2 #ty2
+#sx #sy #ix #iy 
+
+#x1 #y1 #x2 #y2 | zona de dibujo
+#xa #ya #xb #yb | zona actual
+
+#xx -1 #yy -1 
+#nw #nh	| aux y tabla
+#:guiact 0
+#activo 0
+#zns	)( 4096 | pila de zonas
+#zns>	'zns	
+#za>	'zns
+#zf>	'zns
+#dlg	)( 256
+#dlg>	'dlg
+
+#:wx1 #:wy1 #:wx2 #:wy2	| ventana de texto
+
+|---- texto->cuadro
+::>win | y2 x2 y1 x1 --
+	'wx1 !+ !+ !+ !
+::full
+	wx2 wx1 2dup - 'w ! + 2/ 'xc ! wy2 wy1 2dup - 'h ! + 2/ 'yc ! ;
+
+|-------------------------------------
+::hsplit | cc --
+	wx2 wx1 - swap / 'w ! wx1 w 2/ + 'xc ! ;
+::xnext
+	w 'xc +! ;
+
+::vsplit | cc --
+	wy2 wy1 - swap / 'h ! wy1 h 2/ + 'yc ! ;
+::ynext
+	h 'yc +! ;
+
+
+::.table | cf --
+	sh swap / 'nh ! sw swap / 'nw ! -1 dup 'xx ! 'yy !
+	0 0
+::.at | xy --
+	nh * dup nh + 'y2 ! 'y1 ! nw * dup nw + 'x2 ! 'x1 ! ;
+::.to | xy --
+	nh * y1 + 'y2 ! nw * x1 + 'x2 ! ;
+::.> 	
+	x1 nw + sw >=? ( 0 nip 'x1 ! nw 'x2 ! y2 y1 - dup 'y1 +! 'y2 +! ; ) 'x1 ! 
+	nw 'x2 +! ;
+::.<
+	x1 nw - 0 <? ( 0 nip 'x1 ! nw 'x2 ! y2 y1 - neg dup 'y1 +! 'y2 +! ; ) 'x1 !
+	nw neg 'x2 +! ;
+::.\
+	y1 nh + sh >=? ( 0 nip 'y1 ! nh 'y2 ! x2 x1 - dup 'x1 +! 'x2 +! ; ) 'y1 ! 
+	nh 'y2 +! ;
+::./
+	y2 y1 - neg dup 'y1 +! 'y2 +! ;
+	
+|--------pantalla
+:inbox? | x y -- 1/0
+	y1 <? ( 2drop 0 ; ) y2 >? ( 2drop 0 ; ) drop
+	x1 <? ( 0 nip ; ) x2 >? ( 0 )( 1 ) nip ;
+
+:inboxb? | x y -- 1/0
+	ya <? ( 2drop 0 ; ) yb >? ( 2drop 0 ; ) drop
+	xa <? ( 0 nip ; ) xb >? ( 0 )( 1 ) nip ;
+
+|---- condicion,var,key
+:ex00 drop ;
+:ex01 over @ @ over 4 >> $fff and <>? ( drop 16 >> 'activo ! )( 2drop ) 4+ ;
+:ex10 drop @+ @+ 'x1 ! @+ 'y1 ! @+ 'x2 ! @ 'y2 ! ; 	| variables por programa	
+:ex11 drop ;
+	
+#extras 'ex00 'ex01 'ex10 'ex11
+
+:p0 dup $c and 'extras + @ exec ; 
+:p1 d>xy 'x2 ! 'x1 ! ; 
+:p2 d>xy 'y2 ! 'y1 ! ; 
+|---- Dibujando
+:p3
+	2 >> dup 6 >> ink $3f and 
+	activo 1? ( 1- 'activo ! + ; ) drop
+	y2 x2 y1 x1 >win	| esto se va
+	>r dup @ exec r> + ; 
+
+#toc 0	
+|---- Buscando	
+:b3
+	2 >> $3f and 
+	activo 1? ( 1- 'activo ! + ; ) drop
+	2over inbox? 1? ( y2 x2 y1 x1 'xa !+ !+ !+ ! pick2 'toc ! ) drop 
+	+ ;
+
+#pcom p0 p1 p2 p3
+:dlg.draw | --
+	0 'activo !
+	za> ( @+ 1? )( dup $3 and 2 << 'pcom + @ exec ) 2drop ;
+	
+#bbus p0 p1 p2 b3
+:dlg.busca | xy -- xy0/addr
+	0 'activo ! 0 'toc !
+	za> ( @+ 1? )( dup $3 and 2 << 'bbus + @ exec ) 2drop toc ;
+	
+|--- interaccion
+:msinicio | xy --
+	dlg.busca 0? ( 'guiact ! 2drop ; ) dup 'guiact ! 2	| entro raton
+:mscal
+	swap 4+ @ 0? ( 4drop ; ) 
+	yb xb ya xa
+	2over 2over >win | sacar esto
+	'x1 !+ !+ !+ !
+	exec ;
+:msup
+	guiact 0? ( drop ; ) >r xymouse r> 0 mscal 0 'guiact ! ;
+
+:irqpen
+	bmouse 0? ( drop msup ; ) drop
+	xymouse guiact 0? ( drop msinicio ; ) >r
+	2dup inboxb? 0? ( rdrop drop msinicio ; ) drop r>
+	1 mscal ;
+
+|---- compila dialogo
+:,. | o --
+	zns> !+ 'zns> ! ;
+	
+:savelugar
+	x1 x2 xy>d xx <>? ( dup 'xx ! 1 or ,. )( drop )
+	y1 y2 xy>d yy <>? ( dup 'yy ! 2 or ,. )( drop ) ;
+:col3 | cnt -- col
+	$3f and 2 << ink@ 8 << or 3 or ;
+
+::.ug	| cd --
+	savelugar 8 col3 ,. ,. ,. ;
+::.ug1 | acd -- 
+	savelugar 12 col3 ,. ,. ,. ,. ;
+::.ug2 | bacd --	
+	savelugar 16 col3 ,. ,. ,. ,. ,. ;
+::.ug3 | cbacd --	
+	savelugar 20 col3 ,. ,. ,. ,. ,. ,. ;
+
+::.cond | vnc -- | variable valor cantidad
+	16 << swap 4 << or $4 or ,. ,. ;
+
+::.pos | 'd -- variables de posicion (4 enteros)
+	x1 x2 xy>d 'xx ! y1 y2 xy>d 'yy !
+	$8 ,. ,. ;
+
+::*?   guiact =? ( 1 )( 0 ) ;
+::var1	8 + @ ;
+::var2	12 + @ ;
+::var3	16 + @ ;
+
+|=================================================
+
+::.page
+	key.push
+	inikey ;
+
+|------------ cursores
+#flecha  $A0480121 $FEF7FDF1 $1E7DC413 $34092CA3 $5E9DE9E3 $796D7213 $4A1CCBF3 $72988693 $FEF7FDFA
+ $D $9FC2E41 $563488A3 $3C70C9D3 $69216BC3 $5BFD9A03 $3380F1C3 $1F896783 $9FC2E4A
+ $FFFFFFD $0
+#mano  $F4B40831 $FFBFCDD2 $AA00974 $C988C33 $2890A3D3 $3070D643 $30717A13 $2439CA63 $FE71CA63
+ $F9518383 $EABD5C23 $EAB4D6A3 $F4B4B6D3 $F4B4083A $D $FA101AD1 $FFCBF9F2 $5741A44
+ $804BDF3 $E2C9982 $1474BEF4 $19B8A342 $1F1CC084 $23FCAB82 $2890DAF4 $27C56D73 $21159FE3
+ $3F19FE3 $12D6D73 $F2394613 $F1F8FB83 $F2DCDDD2 $F840DA34 $FB14F883 $FA101ADA $FFFFFFD
+ $0
+#mira $9C2381E1 $9C2077D3 $DFF00003 $9C2381EA $D $DFF27081 $1DF67083 $37DB3 $DFF2708A
+ $D $5C878C61 $5C8473A3 $1BDC0003 $5C878C6A $D $E53582E1 $19C184F3 $FF7C7E23
+ $E53582EA $D $A2704341 $A2FBB243 $CBF80003 $A270434A $FFFFFFD $EC929231 $10D29443
+ $FF7F3E93 $EC92923A $FFFFFFD $54A3C0F1 $55283F13 $2D37FDF3 $54A3C0FA $FFFFFFD $10D16781
+ $EEA96353 $FF7CB903 $10D1678A $FFFFFFD $0
+
+
+#actualm 'mano
+
+:show.cursor
+	xymouse 'yc ! 'xc !
+	sw 3 >>
+	bmouse 2 << +
+	dup 'w ! 'h !
+	actualm 0? ( drop ; )
+	nsprite ;
+
+#pnts 'mano 'flecha 'mira 0
+
+::.cursor | n --
+	$3 and 2 << 'pnts + @ 'actualm ! ;
+
+#lastime
+::.show
+	za> dlg> !+ 'dlg> !
+	zf> 'za> ! zns> 'zf> !
+	0 'guiact !
+	'irqpen ipen!
+	.restart
+	0 '.exit ! 0 zns> !
+	msec 'lastime !
+	( .exit 0? )( drop update msec
+		lastime >? ( 24 + 'lastime ! r exec dlg.draw show.cursor redraw )( drop )
+		) drop rdrop
+	0 '.exit !
+	za> dup 'zf> ! 'zns> !
+	dlg> 4 - dup 'dlg> ! @ 'za> !
+	0 zns> !
+::.unpage
+	key.pop
+	keyold ;
+
+::x>scl | max xr -- x'
+	x1 max x2 min x1 - x2 x1 - */ ;
+::scl>x | max x' -- xr
+	0 max over min x2 x1 - * swap / x1 + ;
+
+::y>scl | max yr -- x'
+	y1 max y2 min y1 - y2 y1 - */ ;
+::scl>y
+	0 max over min y2 y1 - * swap / y1 + ;
+
+::.click | accion --
+	[ ; ] .ug2 ;
+
+|--- botones spoli,text
+:cboton | xyv --
+	0? ( 3drop guiact var1 exec ; ) 3drop ;
+
+::arrboton
+	120 alpha
+	gc.frod -6 -2 over dup +dim dup dup +pos
+	gc.frod neg dup +pos neg dup +dim
+	255 alpha ;
+
+::ababoton
+	2 dup +pos
+	120 alpha
+	gc.frod 2 -2 over dup +dim dup dup +pos
+	gc.frod neg dup +pos neg dup +dim
+	255 alpha ;
+
+:dboton.gen
+|	guiact =? ( claro 0 )(  oscuro -8 ) dup +dim
+	-6 dup +dim
+	guiact =? ( claro ababoton )( oscuro arrboton )
+	;
+
+:spboton
+	dboton.gen
+	dup var2 sprite ;
+
+::.rbtn	'cboton 'spboton .ug2 ;
+|-----------------------
+
+:dboton
+	dboton.gen
+	dup var2 dup
+	oscuro v8draw
+-3 dup +pos -4 dup +dim
+	blanco v8draw ;
+
+::.sbtn | 'sprite 'click --
+	'cboton 'dboton .ug2 ;
+
+:dbotont
+	dboton.gen
+	blanco 6 1 ttext dup var2 printc ;
+
+::.tbtn | "hola" 'click --
+	'cboton 'dbotont .ug2 ;
+
+:8botont
+	dboton.gen
+	blanco 12 1 ttext dup var2 printc ;
+
+::.8btn | "hola" 'click --
+	'cboton '8botont .ug2 ;
+
+:4botont
+	dboton.gen
+	blanco 3 1 ttext dup var2 printc ;
+
+::.4btn | "hola" 'click --
+	'cboton '4botont .ug2 ;
+
+:2botont
+	dboton.gen
+	blanco 2 1 ttext dup var2 printc ;
+
+::.2btn | "hola" 'click --	
+	'cboton '2botont .ug2 ;
+
+::.xbtn | 'vec 'click --
+	'cboton rot .ug1 ;
+
+:funbtn
+|	guiact =? ( claro 8 )( -4 ) dup +dim fcaja 
+	dboton.gen
+	4 1 ttext
+	blanco 0 0 at dup var2 printc
+	6 2 ttext
+	negro 0 0 at dup var3 "  %s" print ;
+	
+::.fbtn	| "F1" "hola" 'click --
+	'cboton 'funbtn .ug3 ;
+
+:funbtn2
+|	guiact =? ( claro 8 )( -4 ) dup +dim fcaja 
+	dboton.gen
+	dup var2 blanco v8draw
+	6 2 ttext
+	negro 0 0 at dup var3 "  %s" print ;
+
+::.fsbtn	| "f1" 'dibu 'click --
+	'cboton 'funbtn2 .ug3 ;
+
+|---sliders
+:chsli | xyv --
+	0? ( 3drop ; ) 2drop 
+	guiact dup >r var2 swap x>scl r> var1 ! ;
+
+:riellh
+	ink@ y1 y2 + 2/ dup dup
+	blanco 1- x1 over op x2 swap line |vlinea 
+	gris x1 over op x2 swap line |vlinea 
+	negro 1+ x1 over op x2 swap line 
+	ink ;
+
+:dhsli
+	riellh dup var2 over var1 @ scl>x 
+	x1 max x2 min dup y2 y1 + 2/ y2 y1 - 2 >> dup >r  fcircle r>
+	2/ dup >r - y2 y1 + 2/ r - r> 2/ blanco fcircle ;
+
+::.hsli | max var --  | slide de 0..max
+	'chsli 'dhsli .ug2 ;
+
+:cvsli | xyv --
+	0? ( 3drop ; ) drop nip
+	guiact dup >r var2 swap y>scl r> var1 ! ;
+
+:riellv
+	ink@ x1 x2 + 2/ dup dup 
+	blanco 1- dup y1 op y2 line
+	gris dup y1 op y2 line 
+	negro 1+ dup y1 op y2 line 
+	ink ;
+
+:dvsli
+	riellv dup var2 over var1 @ scl>y
+	y1 max y2 min dup x2 x1 + 2/ swap x2 x1 - 2 >> dup >r fcircle r>
+	2/ dup >r - x2 x1 + 2/ r - swap r> 2/ blanco fcircle ;
+
+::.vsli | max var --  | slide de 0..max
+	'cvsli 'dvsli .ug2 ;
+
+|--- boton tabla
+::defbox | f c --
+	y2 x2 y1 x1 'tx !+ !+ !+ ! 		| guardo cuadro
+::defadj | f c --
+	y2 y1 - swap / 'sy ! x2 x1 - swap / 'sx !  ;
+
+::undefbox
+	ty2 tx2 ty tx 'x1 !+ !+ !+ ! ;
+
+::defbox2 | f c --
+	y2 y1 - 8 << swap / 'sy ! x2 x1 - 8 <<  swap / 'sx ! 
+	y2 x2 y1 x1 'tx !+ !+ !+ !  ;
+
+|--- btabla
+:cbtabla | xyv --
+	0? ( drop guiact var1 dup $ffff and swap 16 >>
+		over swap defadj
+		swap y1 - sy / * swap x1 - sx / + guiact var2 exec ; 
+		)
+	3drop ;
+	
+:dbtabla
+	dup var3 over var1 dup $ffff and swap 16 >> 
+	2dup defbox
+	x1 'ix ! y1 'iy ! 
+	0 >r ( 1? )( 1- over ( 1? )( 1-
+			iy ix over sy + over sx + 2swap 
+			|2over 2over >swin 
+			>win
+			pick3 r swap exec 1 r+
+			sx 'ix +! ) drop 
+		tx 'ix ! sy 'iy +! ) 3drop rdrop
+	undefbox ;
+
+::.btabla | draw click f c --
+	16 << or 'cbtabla 'dbtabla .ug3 ;
+
+|--- tTabla
+:tcbtabla | xyv --
+	rot rot | v x y --
+	guiact var1 dup $ffff and swap 16 >>  | v x y xr yr
+	over swap defadj
+	swap y1 - sy / * swap x1 - sx / + 
+	guiact var2 exec ; 
+
+:tdbtabla
+	dup var3 over var1 dup $ffff and swap 16 >> 
+	2dup defbox
+	x1 'ix ! y1 'iy ! 
+	0 >r ( 1? )( 1- over ( 1? )( 1-
+			iy ix over sy + over sx + 2swap 
+			|2over 2over >swin
+			>win
+			pick3 r swap exec 1 r+
+			sx 'ix +! ) drop 
+		tx 'ix ! sy 'iy +! ) 3drop rdrop
+	undefbox ;
+
+::.ttabla | draw click f c --
+	16 << or 'tcbtabla 'tdbtabla .ug3 ;
+
+|--- OPCBTN botonera de estados
+:copcbtn | xyv --
+	1? ( 3drop ; ) 3drop
+	guiact dup var2 @ 1+ over  var1 >=? ( 0 nip ) swap var2 !  	;
+
+:dopcbtn | a --
+	guiact =? (  4 )( 2 ) dup +dim 
+	-10 dup +dim
+	gc.frod
+	-6 -2 over dup +dim dup dup +pos
+
+|	32 alpha blanco fcaja 255 alpha
+
+	claro gc.frod oscuro
+	neg dup +pos neg dup +dim
+	dup var3 over var2 @ 2 << + @ v8draw ;
+	
+::.opcbtn | botonera var cnt --
+	'copcbtn 'dopcbtn .ug3 ;
+
+|---- VTOOL
+:cvtool | xyv --
+	0? ( 3drop ; ) drop nip
+	guiact var1 swap y>scl guiact var2 ! ;
+
+:dvtool | 
+	dup var3 >r dup var2 @ 
+	over var1 dup vsplit
+	swap over swap - 1- swap 
+	( 1? )( 1- 
+		over =? ( -2 dup dup +dim arrboton )( -8 dup dup +dim oscuro ababoton claro ) 
+		ink@ blanco 	r@+ v8draw ink 
+		neg dup +dim
+		ynext ) 
+	2drop rdrop ;
+
+::.vtool | botonera var cnt --
+	'cvtool 'dvtool .ug3 ;
+
+|--- HTOOL botonera horizontal de estados
+:chtool | xyv --
+	0? ( 3drop ; ) 2drop
+	guiact var1 swap x>scl guiact var2 ! ;
+
+:dhtool | 
+	dup var3 >r dup var2 @ 
+	over var1 dup hsplit
+	swap over swap - 1- swap 
+	( 1? )( 1- 
+		over =? ( -2 dup dup +dim arrboton )( -8 dup dup +dim oscuro ababoton claro ) 
+		ink@ blanco 	r@+ v8draw ink 
+		neg dup +dim
+
+|		over =? ( ababoton -4 verde )( arrboton -6 blanco ) dup dup +dim
+|		r@+ fp8.draw neg dup +dim
+		xnext ) 
+	2drop rdrop ;
+
+::.htool | botonera var cnt --
+	'chtool 'dhtool .ug3 ;
+
+|--- dialogos basicos
+#:ifin ( -30 -31 -60 -55 -82 -71 -66 -87 -50 -63 -26 -31 4 -63 36 -87 62 -71 78 -55 94 -31 70 1 36 33 68 57 94 73 78 89 62 65 38 33 4 65 -28 89 -50 73 -66 57 -82 33 -58 1 -28 0 )
+#:iok ( -79 -14 -63 -28 -7 36 65 -76 89 -44 17 68 -11 -79 -12 0 )
+
+#dline )( 256
+
+:gdline | "" --
+	here >r 'dline 'here ! ,print 0 ,c r> 'here ! ;
+
+::dlgsino | "" -- 0/1
+	gdline oscurecetodo
+	.page
+	8 8 .table
+	rojo oscuro 2 4 .at 'ifin [ 0 exit ; ] dup >esc< .sbtn
+	verde oscuro 5 4 .at 'iok [ 1 exit ; ] dup >esp< .sbtn
+	.show
+		0 0 fpos 0.6 dup fdim negro gc.frod
+		16 font verde 0 6 at 'dline printc ;
+

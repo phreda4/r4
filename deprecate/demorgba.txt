@@ -1,0 +1,107 @@
+|--------------------------------------------------------------------------|
+| iq / rgba  .  tiny codes  .  2008                                        |
+| adaptacion de Demo de rgba
+|--------------------------------------------------------------------------|
+^reda4.txt
+^gui.txt
+
+#myLut )( $300000 |3145728 | [XRES*YRES];
+#myTex )( $40000 |[256*256];
+
+#sx
+#sy
+
+:iniLut
+	'myLut >r
+	2.0 768 / 'sy !
+	2.0 1024 / 'sx !
+	-1.0 -1.0
+	768 ( 1? )( 1-
+		1024 ( 1? )( 1-
+			2swap	| y x fy fx
+			2dup atan2
+|			over 16 >> over 16 >> atan2
+			15 <<
+			$ff00 and >r  | y x fy fx    r: v
+			over dup *. over dup *. + 2/ sqrt dup neg $ff and >r
+			dup *. $ff0000 and  r> or r> or
+			r!+
+			sx +
+			2swap ) drop | fy fx y
+		nip swap sy + -1.0 rot
+		) drop
+	2drop
+	rdrop ;
+
+
+|	for( int j=0; j<YRES; j++ )
+|    for( int i=0; i<XRES; i++ )
+|    {
+|        const float x = -1.0f + (float)i*(2.0f/(float)XRES);
+|        const float y =  1.0f - (float)j*(2.0f/(float)YRES);
+|        const float r = sqrtf( x*x+y*y );
+|        const float a = atan2f( y, x );
+|        const float u = 1.0f/r;
+|        const float v = a*(3.0f/3.14159f);
+|              float w = r*r;
+|        if( w>1.0f ) w=1.0f;
+|        const int iu = (int)(u*255.0f);
+|        const int iv = (int)(v*255.0f);
+|        const int iw = (int)(w*255.0f);
+|        myLut[XRES*j+i] = ((iw&255)<<16) | ((iv&255)<<8) | (iu&255);
+|    }
+|}
+
+
+| textura xor
+:iniTex
+	'myTex >r
+	0 ( 256 <? )(
+		0 ( 256 <? )(
+			2dup xor dup 8 << over 16 << or
+			or r!+
+			1+ ) drop
+		1+ ) drop
+	rdrop ;
+
+:colScale | col sca -- r
+	over $ff00ff and over * 8 >> $ff00ff and 
+	rot $ff00 and rot * 8 >> $ff00 and or ;
+
+|static __forceinline unsigned int colScale( unsigned int col, int sca )
+|{
+|    return ((((col&0x00ff00ff)*sca)>>8)&0x00ff00ff) + ((((col&0x0000ff00)*sca)>>8)&0x0000ff00);
+|}
+
+:fillscreen
+	framev >r
+	msec 4 >>
+	'myLut
+	$c0000 ( 1? )( 1- swap 
+		@+			| c l v
+		pick3 over + 
+		dup
+		$ffff and 2 << 'myTex + @
+		swap 16 >> $ff and colScale 	
+		r!+
+		swap ) 3drop 
+	rdrop ;
+
+|    for( int i=0; i<XRES*YRES; i++ )
+|    {
+|        const unsigned int val = myLut[i];
+|	    const unsigned int col = myTex[ ((val&0x0000ffff)+(itime>>2))&0x0000ffff ];
+|        buffer[i] = colScale( col, (val>>16) );
+|    }
+
+:intro
+	.page 
+	'exit >esc<
+	cls
+	.show  
+		fillscreen
+		25 font verde
+		dup "%d" print
+		;
+
+: 33 iniLut iniTex intro "main.txt" run ;

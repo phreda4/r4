@@ -1,0 +1,275 @@
+| PHREDA - 2009
+| evaluador token 32bits
+| ejecuta sin control de errores
+|-------------------------------
+
+|---- memoria codigo+dato
+#:iprog 0	#:prog> 0
+#:idato 0	#:dato> 0
+#:icte	0	#:cte>	0
+#:istr	0	#:str>	0
+
+#:<<boot 0
+#:<<ip 0
+
+#ierror 0
+
+#inter )( 64
+#inter> 'inter
+
+#irqmou 0
+#irqkey 0
+#irqson 0
+#irqjoy 0
+#irqnet 0
+
+|--- Pilas
+#PSP )( 1024
+#RSP )( 1024
+
+#TOS 0
+#NOS 'PSP
+#RTOS 'RSP
+
+:getval
+	33
+	;
+
+|--Pila basica
+:iDUP	4 'NOS +! TOS NOS ! ;
+:iDROP	NOS @ 'TOS !
+:iNIP	-4 'NOS +! ;
+
+:iLITD  | decimal
+	iDUP getval 'TOS ! ;
+:iLITH	| hexa
+	iDUP getval 'TOS ! ;
+:iLITB  | bin
+	iDUP getval 'TOS ! ;
+:iLITF	| fixed
+	iDUP getval 'TOS ! ;
+:iLITS	| string
+:iWORD	| call word
+:iVAR	| lit var
+:iDWORD	| adr word
+:iDVAR	| adr var
+
+|---LIT, ADR(LIT) CALL y JMP
+:iLIT	iDUP dup @ 'TOS ! ;
+:iADR	iDUP dup @ @ 'TOS ! ;
+:iCALL	4 'RTOS +! dup 4+ RTOS ! @ ;
+:iJMP	@ ;
+
+|---palabras que compilan LIT, CALL o JMP
+
+:iCOMM	| comentario
+:iLITD  | decimal
+:iLITH	| hexa
+:iLITB  | bin
+:iLITF	| fixed
+:iLITS	| string
+:iWORD	| call word
+:iVAR	| lit var
+:iDWORD	| adr word
+:iDVAR	| adr var
+
+
+:i2DROP	NOS 4 - @ 'TOS ! -8 'NOS +! ;
+:i3DROP	NOS 8 - @ 'TOS ! -12 'NOS +! ;
+:i4DROP	NOS 12 - @ 'TOS ! -16 'NOS +! ;
+:iSWAP  NOS @ TOS NOS ! 'TOS ! ;
+:iROT	TOS NOS 4 - @ 'TOS ! NOS @ NOS 4 - ! NOS ! ;
+:iOVER	iDUP NOS 4 - @ 'TOS ! ;
+:iPICK2	iDUP NOS 8 - @ 'TOS ! ;
+:iPICK3	iDUP NOS 12 - @ 'TOS ! ;
+:iPICK4	iDUP NOS 16 - @ 'TOS ! ;
+:i2DUP	iOVER iOVER ;
+:i2OVER	iPICK3 iPICK3 ;
+:i2SWAP	TOS NOS @ NOS 4 - dup 4 - @ NOS ! @ 'TOS !  NOS 8 - ! NOS 4 - ! ;
+
+:d.push	iDUP 'TOS ! ;
+
+|-- Internas
+:i;		RTOS @ nip -4 'RTOS +! ;
+:i)(
+:i) 	@+ 1? ( swap ) drop ;
+:i(		4+ ;
+:i[ 	dup @ 1? ( swap 4+ d.push )( drop ) ;
+:i] 	4+ ;
+:iEXEC	TOS iDROP 1? ( 4 'RTOS +! swap RTOS ! ; ) drop ;
+
+
+
+
+|-- condicionales
+:i0?	TOS 1? ( drop @ )( drop 4+ ) ;
+:i+?	TOS -?  ( drop @ )( drop 4+ ) ;
+:i-?	TOS 1+ +? ( drop @ )( drop 4+ ) ;
+:i1?	TOS 0?  ( drop @ )( drop 4+ ) ;
+:i=?	NOS @ TOS <>? ( drop @ )( drop 4+ ) iDROP ;
+:i<?	NOS @ TOS >=? ( drop @ )( drop 4+ ) iDROP ;
+:i>?	 NOS @ TOS <=? ( drop @ )( drop 4+ ) iDROP ;
+:i<=?	NOS @ TOS >? ( drop @ )( drop 4+ ) iDROP ;
+:i>=?	NOS @ TOS <? ( drop @ )( drop 4+ ) iDROP ;
+:i<>?	NOS @ TOS =? ( drop @ )( drop 4+ ) iDROP ;
+:iand?	NOS @ TOS nand? ( drop @ )( drop 4+ ) iDROP ;
+:inand?	NOS @ TOS and? ( drop @ )( drop 4+ ) iDROP ;
+|-- exec
+
+:i>R	4 'RTOS +! TOS RTOS ! iDROP ;
+:iR>	iDUP RTOS @ 'TOS !
+:iRDROP	-4 'RTOS +! ;
+:iR		iDUP RTOS @ 'TOS ! ;
+:iR+	TOS RTOS +! iDROP ;
+:iR@+	iDUP RTOS @ @+ 'TOS ! RTOS ! ;
+:iR!+	TOS RTOS @ !+ RTOS ! iDROP ;
+:iAND	NOS @ TOS and 'TOS ! iNIP ;
+:iOR	NOS @ TOS or 'TOS ! iNIP ;
+:iXOR	NOS @ TOS xor 'TOS ! iNIP ;
+:iNOT	TOS not 'TOS ! ;
+:i+		NOS @ TOS + 'TOS ! iNIP ;
+:i-		NOS @ TOS - 'TOS ! iNIP ;
+:i*		NOS @ TOS * 'TOS ! iNIP ;
+:i/		NOS @ TOS / 'TOS ! iNIP ;
+:i*/	NOS 4 - @ NOS @ TOS */ 'TOS ! iNIP iNIP ;
+:i*>>	NOS 4 - @ NOS @ TOS *>> 'TOS ! iNIP iNIP ;
+:i/MOD	NOS @ TOS /mod 'TOS ! NOS ! ;
+:iMOD	NOS @ TOS mod 'TOS ! iNIP ;
+:iABS	TOS abs 'TOS ! ;
+:iNEG	TOS neg 'TOS ! ;
+:i1+	1 'TOS +! ;
+:i4+	4 'TOS +! ;
+:i1-	-1 'TOS +! ;
+:i2/	TOS 2/ 'TOS ! ;
+:i2*	TOS 2* 'TOS ! ;
+:i<<	NOS @ TOS << 'TOS ! iNIP ;
+:i>>	NOS @ TOS >> 'TOS ! iNIP ;
+|--- mem
+:i@		TOS @ 'TOS ! ;
+:iC@	TOS c@ 'TOS ! ;
+:iW@	TOS w@ 'TOS ! ;
+:i!		NOS @ TOS ! iNIP iDROP ;
+:iC!	NOS @ TOS c! iNIP iDROP ;
+:iW!	NOS @ TOS w! iNIP iDROP ;
+:i+!	NOS @ TOS +! iNIP iDROP ;
+:iC+!	NOS @ TOS c+! iNIP iDROP ;
+:iW+!	NOS @ TOS w+! iNIP iDROP ;
+:i@+	iDUP 4 NOS +! TOS @ 'TOS ! ;
+:i!+	NOS @ TOS ! iNIP 4 'TOS +! ;
+:iC@+	iDUP 1 NOS +! TOS c@ 'TOS ! ;
+:iC!+	NOS @ TOS c! iNIP 1 'TOS +! ;
+:iW@+	iDUP 2 NOS +! TOS w@ 'TOS ! ;
+:iW!+	NOS @ TOS w! iNIP 2 'TOS +! ;
+:iMOVE		NOS 4 - @ NOS @ TOS move i3DROP ;
+:iMOVE>		NOS 4 - @ NOS @ TOS move> i3DROP ;
+:iCMOVE		NOS 4 - @ NOS @ TOS cmove i3DROP ;
+:iCMOVE>	NOS 4 - @ NOS @ TOS cmove> i3DROP ;
+
+|---sis
+:iMSEC	iDUP msec 'TOS ! ;
+:iTIME	iDUP iDUP iDUP TIME 'TOS ! NOS ! NOS 4 - ! ;
+:iDATE	iDUP iDUP iDUP DATE 'TOS ! NOS ! NOS 4 - ! ;
+
+:iSW		iDUP sw 'TOS ! ;
+:iSH		iDUP sh 'TOS ! ;
+:iFRAMEV	iDUP framev 'TOS ! ;
+:iREDRAW
+|			32 dup screen rojo inter> 'inter - 2 >> "%d" print
+|			0 0 j.at blanco NOS 'RSP 'PSP "%d %d %d" j.print
+|			0 0 j.at blanco inter> 'inter - "%d" j.print	| interrupcion
+|			0 0 j.at blanco NOS 'RSP - 2 >> "%d" j.print
+			redraw ;
+:iEND	0 nip ;
+:iRUN	0 nip ; | falta guardar nombre
+:iUPDATE
+|	inter> 'inter =? ( drop ; )
+|	4 - dup 'inter> ! @ |0? ( drop ; )
+|	swap  4 'RTOS +! RTOS !
+|	'inter ( inter> <? )( @+ 1? ( 4 'RTOS +! RTOS ! )( drop ) )
+	;
+
+
+:iDIR		TOS dir iDROP ;
+:iFILE		TOS file 'TOS ! ;
+:iFSIZE		TOS fsize 'TOS ! ;
+:iVOL		TOS vol 'TOS ! ;
+:iLOAD		NOS @ TOS load 'TOS ! iNIP ;
+:iSAVE		NOS 4 - @ NOS @ TOS save i3DROP ;
+
+:iMEM		iDUP here 'TOS ! ; | mem
+
+:iSETXY		i2DROP ;
+:iPX+!		iDROP ;
+:iPX!+		iDROP ;
+:iPX@		iDUP ;
+
+:iOP		NOS @ TOS op i2DROP ;
+:iCP 		NOS @ TOS cp i2DROP ;
+:iLINE 		NOS @ TOS line i2DROP ;
+:iCURVE 	NOS @ TOS curve i2DROP ;
+:iPLINE 	NOS @ TOS pline i2DROP ;
+:iPCURVE 	NOS @ TOS pcurve i2DROP ;
+:iPOLI		poli ;
+
+:iFCOL		i2DROP ;
+:iFCEN		i2DROP ;
+:iFMAT		i2DROP ;
+:iSFILL		;
+:iLFILL     ;
+:iRFILL     ;
+
+:iPAPER		TOS paper iDROP ;
+:iINK		TOS ink iDROP ;
+:iINKF		iDUP ink@ 'TOS ! ;
+:iCLS		cls ;
+:iALPHA		TOS alpha iDROP ;
+
+:iRPEN!		TOS 'irqmou ! iDROP ;
+:iXYMOUSE	iDUP iDUP xymouse 'TOS ! NOS ! ;
+:iBMOUSE	iDUP bmouse 'TOS ! ;
+
+:iRKEY!		TOS 'irqkey ! iDROP ;
+:iKEY		iDUP key 'TOS ! ;
+
+:iCNTJOY	iDUP cntjoy 'TOS ! ;
+:iAJOY 		TOS ajoy 'TOS ! ;
+:iBJOY		TOS bjoy 'TOS ! ;
+
+:IJOY!	iDROP ;
+:ISON!	iDROP ;
+:INET!	iDROP ;
+
+
+:errm | d d m -- 0
+	|nip nip 'ierror !
+	 0 ;
+
+:+interrupcion | inter --
+	0? ( drop ; )
+	inter> !+ 'inter> >=? ( "Bucle infinito" errm ; )
+	'inter> ! ;
+
+:apilaD | --
+	NOS 'RSP >=? ( "Desborde Pila" errm ; ) drop ;
+
+:desapilaD | --
+	NOS 'PSP <? ( "Pila Vacia" errm ; ) drop ;
+
+:apilaR | --
+	RTOS 'TOS >=? ( "Desborde Pila R" errm ; ) drop ;
+
+:desapilaR | --
+	RTOS 'RSP <? ( "Pila R Vacia" errm ; ) drop ;
+
+
+::drawpila
+	NOS 'PSP >? ( TOS "( %d" print )
+	( 'PSP >? )( dup @ " %d" print 4 - )
+	drop ;
+
+::drawpilar
+	"(" print
+	RTOS
+	( 'RSP >? )( dup @ " %d" print 4 - )
+	drop
+	;
