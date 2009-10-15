@@ -3,7 +3,7 @@
 | PHREDA 2009
 |----------------------------------
 ^reda4.txt
-^libgui.txt
+^gui3.txt
 ^font.txt
 ^font32.txt
 ^fontj.txt
@@ -35,13 +35,14 @@
 	;
 
 :creainc
-	clear
+	mark
 	"#:fuente32a " ,s
 	'fuente ( 'cursorf <? )(
 		dup 'fuente - 2 >> $f and 0? ( ,cr ) drop
 		@+ "$%h " ,print
 		) drop
-	mem here over - "inc/fnt32font.inc" save
+	"inc/fnt32font.inc" savemem
+	empty
 	;
 
 |-----------------------------------
@@ -60,7 +61,7 @@
 
 :bitmap
 	verde gc.box
-	32 32 'led .table ;
+	32 32 'led table ;
 
 #cursor
 #nroestado
@@ -84,7 +85,7 @@
 |-----------------------------------
 :botoncontrol
 	0.9 [ 1.0 nip ; ] onMove fzoom
-	[ dup 2 << 'acciones + @ exec ; ] onUp
+	[ dup 2 << 'acciones + @ exec ; ] onClick
 	nroestado =? ( 0.4 pinpon 1.2 + fzoom )
 	w 2 >> h neg 2 >> +pos
 |	1.4 rzoom
@@ -97,34 +98,27 @@
 :estadopen
 	$ff 0 vbtn
 |	cyan oscuro gc.frod
-	2 'botoncontrol .hlist ;
+	2 'botoncontrol hlist ;
 
 |-------------- acciones en editar caracter
 :borracar
 	cursorf 32 ( 1? )( 1- 0 rot !+ swap ) 2drop
 	;
 
-#btgui 4
-$ff0000 'ifin   'exit
-$00ff00 'iizq	'exit
-$00ff00	'ider	'exit
-$ff0000	'iborrar 'borracar
-
-:botedit
-	'btgui .hbtns ;
-
-#guimenu
-0.8 0.8 0.0 0.0 'bitmap
-0.2 0.1 -0.4 -0.45 'estadopen
-0.4 0.1 -0.3 0.45 'botedit
-0
 
 :editando
 	lapiz
-	inikey
+	inigui
 	'exit >esc<
-	showo cls
-		scr 'guimenu gui
+	showo clrscr
+		0.8 0.8 fdim 0.0 0.0 fpos bitmap
+		0.2 0.1 fdim -0.8 -0.9 fpos estadopen
+
+		0.1 0.1 fdim -0.9 0.9 fpos
+		rojo
+		'exit 'ifin btnd gc>>
+		'borracar 'iborrar btnd
+
 		10 sfont naranja "32x32" printc
 		fonti blanco cr cr cr cr cursorn emit
 |		8 font dup ":r%d" verde print
@@ -144,40 +138,29 @@ $ff0000	'iborrar 'borracar
 	;
 
 |------------- Acciones en todos los caracteres
-#cadagui 7
-$ff0000	'ifin		'exit
-$00ff00	'idibuja	'editando
-$ffff00	'icopia		'copia
-$ffff00	'iizq		'izq
-$ffff00	'ider		'der
-$ff0000	'iborrar	'borrar
-$00ff00	'irecicla	'creainc
-
-:acciones
-	'cadagui .hbtns ;
 
 |------------------------------------------------
 :cadacar
 	[ 1.1 fzoom verde gc.box ; ] onIn
 	2dup 3 << + hojaini 64 * +
 	cursorn =? ( 0.1 pinpon 0.9 + fzoom blanco gc.frod )( 0.9 fzoom )
-	[ dup 'cursorn ! dup 7 << 'fuente + 'cursorf ! ; ] onUp
+	[ dup 'cursorn ! dup 7 << 'fuente + 'cursorf ! ; ] onClick
 	dup gris
 	7 << 'fuente + xc yc char32i
 	fonti dup "%d " print emit
 	;
 
 :hojacar
-	8 8 'cadacar .table ;
+	8 8 'cadacar table ;
 
 :btnpag
-	[ dup 'hojaini ! ; ] onUp
+	[ dup 'hojaini ! ; ] onClick
 	hojaini =? ( amarillo )( gris 0.8 fzoom )
 	'irec v8draw
 	;
 
 :pagcar
-	4 'btnpag .vlist ;
+	4 'btnpag vlist ;
 
 |------------------------------------------------
 :elijearchivo
@@ -191,30 +174,41 @@ $00ff00	'irecicla	'creainc
 	;
 
 :accnombre
-	'elijearchivo onUp
+	'elijearchivo onClick
 	$ff00 0 vbtn
 	blanco 1 font
 	'nombre printc
 	;
 
 |------------------------------------------------
-#guielige
-0.8 0.8 0.0 0.0 'hojacar
-0.05 0.4 -0.45 0 'pagcar
-0.7 0.1 -0.15 0.45 'acciones
-0.8 0.1 0.0 -0.45 'accnombre
-0
 
 :hojas
-	inikey
+	inigui
 	'exit >esc<
 	'editando <f1>
 	'copia <f2>
 	'izq <f3>
 	'der <f4>
 	'borrar <f5>
-	show cls
-		scr 'guielige gui
+	show clrscr
+		0.8 0.8 fdim 0.0 0.0 fpos hojacar
+		0.05 0.4 fdim -0.9 0 fpos pagcar
+		0.1 0.1 fdim -0.9 0.9 fpos
+		rojo
+		'exit 'ifin btnd gc>>
+		verde
+		'editando 'idibuja btnd gc>>
+		cyan
+		'copia 'icopia btnd gc>>
+		'izq 'iizq btnd gc>>
+		'der 'ider btnd gc>>
+		rojo
+		'borrar 'iborrar btnd gc>>
+		verde
+		'creainc 'irecicla btnd gc>>
+
+		0.8 0.1 fdim 0.0 -0.9 fpos accnombre
+
 		scr
 |		10 sfont
 |		blanco 0 0 at
