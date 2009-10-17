@@ -35,10 +35,10 @@
 :jmp,	"jmp " ,s label ,cr ;
 :dup,	"lea esi,[esi-4]" ,ln "mov [esi],eax" ,ln ;
 :drop,	"lodsd" ,ln ;
-:nip,		"lea esi,[esi+4]" ,ln ;
+:nip,	"lea esi,[esi+4]" ,ln ;
 
 #optipo  0 | 0,nro,var,dir,cad,call
-#optnro 
+#optnro
 
 | nro --
 :*nro	dup,
@@ -65,7 +65,7 @@
 :**cad 	"s" ,s ,n ;
 :**error drop ;
 #wopt **error **nro **var **dir **cad **error
-:**write		optipo 2 << 'wopt + @ optnro swap exec	0 'optipo ! ,cr ;
+:**write	optipo 2 << 'wopt + @ optnro swap exec	0 'optipo ! ,cr ;
 :**write1	optipo 2 << 'wopt + @ optnro swap exec	0 'optipo ! ;
 
 :optcall | --
@@ -238,10 +238,12 @@
 		"mov [esi],eax" ,ln "mov eax,ecx" ,ln ;
 :,C@+  	optfin "movsx ecx,byte [eax]" ,ln "inc eax" ,ln "lea esi,[esi-4]" ,ln
 		"mov [esi],eax" ,ln "mov eax,ecx" ,ln ;
+|-----------
 :,MOVE	;
 :,MOVE>	;
 :,CMOVE	;
 :,CMOVE>	;
+|------------------
 :,MEM 		optfin dup, "mov eax,FREE_MEM" ,ln ;
 :,DIR 		optfin "call SYSDIR" ,ln ;
 :,FILE 		optfin "call SYSFILE" ,ln ;
@@ -257,14 +259,37 @@
 :,RUN 		optfin "call SYSRUN" ,ln ;
 :,SW 	optfin dup, "mov eax,[SYSW]" ,ln ;
 :,SH	optfin dup, "mov eax,[SYSH]" ,ln ;
-:,CLS	;
-:,REDRAW 	optfin "call SYSREDRAW" ,ln ;
-:,FRAMEV 	optfin dup, "mov eax,SYSFRAME" ,ln ;
+|------------
+:,CLS ;
+|------------
+:,REDRAW
+	optfin "call SYSREDRAW" ,ln ;
+:,FRAMEV
+	optfin dup, "mov eax,SYSFRAME" ,ln ;
 
-:,SETXY
-:,PX+!
-:,PX!+
-:,PX@
+:,SETXY | x y --
+	optfin
+	"cdq" ,ln
+	"imul dword [SYSW]" ,ln
+	"add eax,[esi]" ,ln
+	"lea edi,[SYSFRAME+eax*4]" ,ln
+	nip, drop, ;
+
+:,PX+!	| s --
+	optfin
+	"lea edi,[edi+eax*4]" ,ln
+	drop,
+	;
+:,PX!+	| rgb --
+	optfin
+	"mov [edi],eax" ,ln
+	"add edi,4" ,ln
+	drop,
+	;
+:,PX@	| -- rgb
+	optfin
+	dup,
+	"mov eax,[edi]" ,ln
 	;
 
 :,iPEN!	optcall
@@ -281,10 +306,12 @@
 :,IJOY!
 :,CNTJOY
 :,GETJOY
+
 :,SLOAD
 :,SPLAY
 :,MLOAD
 :,MPLAY
+
 :,INET!
 :,LISTEN
 :,CONECT
@@ -303,10 +330,11 @@
 ',NEG ',1+ ',4+ ',1- ',2/ ',2* ',<< ',>>
 ',@ ',C@ ',W@ ',! ',C! ',W! ',+! ',C+! ',W+!
 ',@+ ',!+ ',C@+ ',C!+ ',W@+ ',W!+
-',MOVE ',MOVE> ',CMOVE ',CMOVE>
+|',MOVE ',MOVE> ',CMOVE ',CMOVE>
 ',MEM ',DIR ',FILE ',FSIZE ',VOL ',LOAD ',SAVE
 ',UPDATE ',MSEC ',TIME ',DATE ',END ',RUN
-',SW ',SH ',CLS ',REDRAW ',FRAMEV
+',SW ',SH |',CLS
+',REDRAW ',FRAMEV
 ',SETXY ',PX+! ',PX!+ ',PX@
 ',IPEN! ',XYMOUSE ',BMOUSE
 ',IKEY! ',KEY
@@ -336,10 +364,11 @@
 "NEG" "1+" "4+" "1-" "2/" "2*" "<<" ">>"
 "@" "C@" "W@" "!" "C!" "W!" "+!" "C+!" "W+!"  |--- memoria
 "@+" "!+" "C@+" "C!+" "W@+" "W!+"
-"MOVE" "MOVE>" "CMOVE" "CMOVE>" |-- movimiento de memoria
+|"MOVE" "MOVE>" "CMOVE" "CMOVE>" |-- movimiento de memoria
 "MEM" "DIR" "FILE" "FSIZE" "VOL" "LOAD" "SAVE" |--- memoria bloques
 "UPDATE" "MSEC" "TIME" "DATE" "END" "RUN" |--- sistema
-"SW" "SH" "CLS" "REDRAW" "FRAMEV" |--- pantalla
+"SW" "SH" |"CLS" 
+"REDRAW" "FRAMEV" |--- pantalla
 "SETXY" "PX+!" "PX!+" "PX@"
 "IPEN!" "XYMOUSE" "BMOUSE" |-------- mouse
 "IKEY!" "KEY"           |-------- teclado
@@ -445,7 +474,7 @@
 
 :esmacro | adr nro -- adr
 	dup modo 0? ( 'fmacros )( 'dmacros ) nip swap 2 << + @ exec
-	5 >? ( 18 <? ( 1 )( 0 ) )( 0 ) nip 'salto ! ;
+	6 >? ( 19 <? ( 1 )( 0 ) )( 0 ) nip 'salto ! ;
 
 |----------------------------------------------------------------
 :?palabra | str -- str' nro 1 / str 0
@@ -469,7 +498,7 @@
 	'indexinc ( indexinc> <? )(
 		@+ pick2 = 1? ( drop nip 4 - ; ) drop
 		) 2drop 0 ;
-		
+
 :esinclude | a -- a' b'
 	1+ dup ( c@+ 32 >? )( drop ) drop 1-
 	swap include? 1? (
@@ -551,6 +580,15 @@
 	 0 ;
 
 
+:printpalabras
+	verde 'indicepal ( @+ 1? )( over
+		'indicepal - 'infopal + 4 - @
+		2 and? ( verde )( azul  ) drop
+		"%s " print
+		lout? 1? ( cr ) drop
+		) 2drop
+	cr ;
+
 ::dumpcompila
 	":r4 compiler (:R4v1-FASM-386)" print cr
 	'indexinc ( indexinc> <? )( dup
@@ -560,13 +598,7 @@
 		lout? 1? ( cr ) drop
 		) drop
 	cr
-	verde 'indicepal ( @+ 1? )( over
-		'indicepal - 'infopal + 4 - @
-		2 and? ( verde )( azul  ) drop
-		"%s " print
-		lout? 1? ( cr ) drop
-		) 2drop
-	cr
+	| printpalabras
 |	'pilac ( <pilac <? )( @+ "%d " print ) drop
 	error>  1? ( blanco "%s" )( rojo " %d" ) print
 	blanco
