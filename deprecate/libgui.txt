@@ -1,0 +1,259 @@
+| libgui.txt - gui2
+| PHREDA - 2009
+|-----------------------------
+^reda4.txt
+^font.txt
+^libgraf.txt
+^libprint.txt
+^libsprite.txt
+^liboptdiv.txt
+
+#boton	0
+#botonc	0
+#inl #focus #is
+
+:item | adr -- adr++
+	swap >r | w
+	r@+ r@+ r@+ gc.conv | w h xc yc --
+	r> xymouse whin 1? ( over 'inl ! ) drop
+	dup 'is !
+	@+ exec ;
+
+:itemv | adr -- adr++
+	swap >r | w
+	r@+ r@+ r@+ gc.conv | w h xc yc --
+	r> dup 'is !
+	@+ exec ;
+
+:guifoco | 'tablegui foco --
+	drop
+	( @+ 1? )( gc.push itemv gc.pop ) 2drop
+	bmouse 0? ( dup 'focus ! ) drop
+	;
+
+::gui | 'tablegui --
+	bmouse boton - 1? ( bmouse 'boton ! inl 'focus ! ) 'botonc !
+	focus 1? ( guifoco ; ) 'inl !
+	( @+ 1? )( gc.push item gc.pop ) 2drop
+	bmouse 0? ( dup 'focus ! ) drop
+	;
+
+::onIn | 'vec --
+	xymouse whin 1? ( drop exec ; ) 2drop ;
+
+::onUp | 'vec --
+	is focus - 1? ( 2drop ; ) drop
+	xymouse whin 0? ( 2drop ; ) drop
+	botonc -? ( drop exec ; ) 2drop ;
+
+::onDn | 'vec --
+	is focus - 1? ( 2drop ; ) drop
+	xymouse whin 0? ( 2drop ; ) drop
+	botonc 0? ( 2drop ; ) +? ( drop exec ; ) 2drop ;
+
+::onMove | 'vec --
+	bmouse 0? ( 2drop ; ) drop
+	is focus - 1? ( 2drop ; ) drop
+	xymouse whin 0? ( 2drop ; ) drop
+	exec ;
+
+::dumpgui
+	inl focus is "is:%d focus:%d inl:%d" print cr
+	;
+
+|-------------------- agrupadores
+::.vlist | cnt 'acc --
+	>r
+	1.0 over / | cnt sw
+	0 ( pick2 <? )( | cnt sw a
+		gc.push
+		1.0 pick2 2over * over 2/ + 0.5 - 0 swap
+		gc.conv | w h xc yc --
+		r exec
+		gc.pop 1+ )
+	3drop rdrop ;
+
+::.hlist | cnt 'acc --
+	>r
+	1.0 over / | cnt sw
+	0 ( pick2 <? )( | cnt sw a
+		gc.push
+		over 1.0 2over * pick2 2/ + 0.5 - 0
+		gc.conv | w h xc yc --
+		r exec
+		gc.pop 1+ )
+	3drop rdrop ;
+	;
+
+::.table | row col 'acc --
+	>r
+	1.0 pick2 / | row col sw
+	1.0 pick2 / | row col sw sh
+	0 ( pick4 <? )(
+		 0 ( pick4 <? )( | row col sw sh x y
+			gc.push
+			2over		| row col sw sh x y sw sh
+			pick3 pick2 * pick2 2/ + 0.5 -
+			pick3 pick2 * pick2 2/ + 0.5 -
+			gc.conv | w h xc yc --
+			r exec
+			gc.pop
+			1+ ) drop
+		1+ ) drop
+	4drop rdrop ;
+
+|-------------- dibujos cursores
+#flecha  $9B8FEFC1 $FA3BEC91 $19C1B2B3 $2F4D1B43 $5839C8D3 $74B160B3 $4560BA93 $6DDC7533 $FA3BEC9A
+ $D $7102111 $51DC7753 $35F0AD43 $65995A93 $56A18D03 $2A84DAF3 $1CBD42F3 $710211A
+ $FFFFFFD $0
+#mano  $F693F031 $8ABAE12 $27C43714 $32041922 $3BDC3EF4 $428C2422 $4B9C4864 $53E03712 $5D586334
+ $716D0D63 $75C1EEA2 $4619D0B4 $32CD7ED2 $19995124 $FA1D0712 $B6CBB74 $EBEC28F2 $F693F039
+ $D $FF3BF9C1 $5EBEB92 $D640B04 $22A861A3 $2B5038B2 $39E464D4 $409843C2 $4A706CB4
+ $4F8C51F2 $57D477C4 $6AB919F3 $6CB1C422 $4619AAE4 $32CD5442 $1FE537F4 $8450F02 $D64DE24
+ $12E4C672 $21DCE464 $F6282DA2 $FF3BF9C9 $FFFFFFD $0
+#lapiz  $191 $6B05833 $BD03A43 $16D428F3 $19A $D $6B05371 $9D83263 $167028F3
+ $300C4EC3 $1EB86E43 $11B8BE93 $6B0537A $FFFF00D $1154BB71 $18686663 $2EDC4D33 $69293B13
+ $4D31B2C3 $1154BB7A $FF7F00D $47AD73C1 $4B3934C2 $5AF929B4 $6D192372 $6B8568C4 $6B21AC82
+ $54ADB914 $4551B5F2 $47AD73C9 $FFFF00D $0
+#goma  $F17017A1 $90FE543 $2AFBFF63 $3FB06B83 $2734A873 $111C36C3 $F17017AA $7D7E7ED $F1A017F1
+ $121C3593 $2708A513 $1B64F063 $F1A017FA $9E9D9FD $26FCA3D1 $3F0067F3 $61AD29B3 $4B396A43
+ $26FCA3DA $434344D $1AD8F031 $2708A303 $4BAD6B13 $29D13BD3 $1AD8F03A $787877D $0
+
+|------------ cursores
+::ccruz
+	xymouse bmouse 2 << 8 + cruz ;
+
+::cflecha
+	xymouse 'yc ! 'xc !
+	sw 3 >>	bmouse 2 << + dup 'w ! 'h !
+	'flecha nsprite ;
+
+::cmano
+ 	xymouse 'yc ! 'xc !
+	sw 3 >>	bmouse 2 << + dup 'w ! 'h !
+	'mano nsprite ;
+
+::clapiz
+	xymouse 'yc ! 'xc !
+	sw 3 >>	bmouse 2 << + dup 'w ! 'h !
+	'lapiz nsprite ;
+
+::cgoma
+	xymouse 'yc ! 'xc !
+	sw 3 >>	bmouse 2 << + dup 'w ! 'h !
+	'goma nsprite ;
+
+
+|------------- botones
+:accHB | 'boton cnt nro -- =
+	>r rot
+	@+ 0? ( drop 8 + rot rot r> ; )
+	0.9 [ 0.95 nip ; ] onMove fzoom
+	[ 1.1 fzoom ; ] onIn
+	$333333 $aaaaaa vbtn
+	ink
+	@+ v8draw
+	@+ [ r> r> r> pick3 >r >r >r >r ; ] onUp drop
+	rot rot r> ;
+
+::.hbtns | 'dir --
+	@+ 'accHB .hlist drop ;
+
+::.vbtns | 'dir --
+	@+ 'accHB .vlist drop ;
+
+::.btns | acc dib color  --
+	0.9 [ 0.95 nip ; ] onMove fzoom
+	$222222 [ swap ; ] onIn vbtn | dir acc
+	negro [ blanco ; ] onIn
+	v8draw
+	[ r> r> pick2 >r >r >r ; ] onUp
+	drop | onUp
+	;
+
+|--------------- barra esc,f1,f2..
+::accescf1  | 'boton cnt nro -- =
+	>r rot
+	@+ 0? ( drop 8 + rot rot r> ; )
+	0.9 [ 0.95 nip ; ] onMove fzoom
+    [ 1.1 fzoom ; ] onIn
+	$333333 $aaaaaa vbtn
+	ink
+    @+ v8draw
+	@+ [ r> r> r> pick3 >r >r >r >r ; ] onUp drop
+	rot rot r>
+	fonti blanco
+	dup 0? ( "ESC" nip )( "F%d" ) printc
+	;
+
+::escf1.. | 'dir --
+	@+ 'accescf1 .hlist drop ;
+
+|--------------- TEXT BOTON BARS
+::.btnl |  acc "str" color --
+	0.9 [ 0.95 nip ; ] onMove fzoom
+	$222222 [ swap ; ] onIn vbtn | dir acc
+	[ blanco ; ] onIn
+	2 font blanco cr2 printc
+	[ r> r> pick2 >r >r >r ; ] onUp
+	drop | onUp
+	;
+
+::.btnt |  acc "str" color --
+	0.9 [ 0.95 nip ; ] onMove fzoom
+	$222222 [ swap ; ] onIn vbtn | dir acc
+	[ blanco ; ] onIn
+	fonti blanco printc
+	[ r> r> pick2 >r >r >r ; ] onUp
+	drop | onUp
+	;
+
+:accTB |  'lista cnt n -- =
+	>r rot
+	@+ swap @+ [ r> r> r> pick3 >r >r >r >r ; ] onUp drop
+	0.9 [ 1.0 nip ; ] onIn fzoom
+	swap $222222 vbtn
+	dup 2 sfont blanco cr2 printc
+	( c@+ 1? )( drop ) drop
+	rot rot r> ;
+
+::.hbtnt | 'lista --
+	@+ 'accTB .hlist drop ;
+
+::.vbtnt | 'lista --
+	@+ 'accTB .vlist drop ;
+
+|--------------------------------------- RADIO
+:accRad | 'var 'boton cnt nro -- 'var 'boton nro
+	0.9 [ 0.95 nip ; ] onMove fzoom
+	pick4 @ =? ( 0.3 pinpon 0.9 + fzoom verde gc.rod $ffffff )( $0 ) $ff
+	[ swap ; ] onIn gc.vdeg
+	dup 2 << pick4 + @ lfill v8draw sfill
+	[ pick4 over swap ! ; ] onUp
+	;
+
+::.hradio | 'var 'dir --
+	@+ 'accRad .hlist drop ;
+
+::.vradio | 'var 'dir --
+	@+ 'accRad .vlist drop ;
+
+|--------------------------------------- SLIDE
+::.hslide | 'var --
+	[ xymouse drop xc - 16 << w / over ! ; ] onMove
+	gc.push 0.98 0.2 fscala
+	gc.frod gc.pop
+	@ w 16 *>> 'xc +!
+ 	0.1 0.98 fscala
+	$dddddd $222222 vbtn
+	;
+
+::.vslide | 'var --
+	[ xymouse nip yc - 16 << h / over ! ; ] onMove
+	gc.push 0.2 0.98 fscala
+	gc.frod gc.pop
+	@ h 16 *>> 'yc +!
+ 	0.98 0.1 fscala
+	$dddddd $222222 hbtn
+	;
+
