@@ -67,10 +67,10 @@ align 4
 
   SYSNDIR	rd 8192
   SYSIDIR	rd 1024
-  
-align 8  
+
+align 8
   SYSFRAME	rd XRES*YRES
-  FREE_MEM	rd 1024*4 ; 4M(32bits) 16MB
+  FREE_MEM	rd 1024*1024*4 ; 4M(32bits) 16MB
 
 section '.code' code readable executable
 
