@@ -4,84 +4,16 @@
 format PE GUI 4.0
 entry start
 
-;XRES equ 640
-;YRES equ 480
+XRES equ 640
+YRES equ 480
 ;XRES equ 800
 ;YRES equ 600
-XRES equ 1024
-YRES equ 768
+;XRES equ 1024
+;YRES equ 768
 ;XRES equ 1280
 ;YRES equ 800
 
 include 'include\win32a.inc'
-
-section '.data' data readable writeable
-
-	_title	db ':r4',0
-	_class	db ':r4',0
-	_error	db 'err',0
-	_dir 	db '*',0
-	mapex 	db    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15
-			db	 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31
-			db	 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47
-			db	 48, 49, 50, 51, 52, 69, 70, 71, 56, 73, 74, 75, 76, 77, 78, 79
-			db	 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95
-			db	 96, 97, 98, 99, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95
-			db	 96, 97, 98, 99,100,101,102,103,104,105,106,107,108,109,110,111
-			db	112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127
-align 4
-	hinstance	dd 0
-	hwnd		dd 0
-	wc			WNDCLASS ;EX?
-	msg			MSG
-	hDC			dd 0
-	dwExStyle	dd 0
-	dwStyle 	dd 0
-	rec			RECT
-	bmi			BITMAPINFOHEADER
-;	bmiq		dd 0,0,0,0 ;RGBQUAD
-
-;	screenSettings  DEVMODE ;no esta??
-
-	SysTime		SYSTEMTIME
-	Sfinddata	FINDDATA
-
-	active		dd 0
-	hdir		dd 0
-	sfile 		dd 0
-	afile 		dd 0
-	cntr		dd 0
-
-align 4
-
-  SYSEVENT	dd 0
-
-  SYSXYM	dd 0
-  SYSBM 	dd 0
-  SYSKEY	dd 0
-
-  SYSiKEY	dd 0
-  SYSiPEN	dd 0
-
-  SYSW		dd XRES
-  SYSH		dd YRES
-
-  SYSCDIR	dd 0
-
-include 'dat.asm'
-
-  SYSNDIR	rd 8192
-  SYSIDIR	rd 1024
-
-align 4
-  Dpila 	rd 1024
-
-align 8
-	SYSFRAME	rd XRES*YRES
-align 8
-	SYSEFRAME	rd XRES*YRES
-align 8
-	FREE_MEM	rd 1024*16 ; 16M(32bits) 64MB(8bits)
 
 section '.code' code readable executable
 
@@ -101,13 +33,21 @@ start:
 	mov	dword [wc.lpszClassName],_class
 	invoke	RegisterClass,wc
 	mov [dwExStyle],WS_EX_APPWINDOW
-	mov [dwStyle],WS_VISIBLE+WS_CAPTION+WS_CLIPSIBLINGS+WS_CLIPCHILDREN+WS_SYSMENU+WS_MINIMIZEBOX
+	mov [dwStyle],WS_VISIBLE+WS_CAPTION+WS_CLIPSIBLINGS+WS_CLIPCHILDREN+WS_SYSMENU
 	invoke ShowCursor,0
-	mov [rec.left],0
-	mov [rec.top],0
+	xor eax,eax
+	mov [rec.left],eax
+	mov [rec.top],eax
 	mov [rec.right],XRES
 	mov [rec.bottom],YRES
 	invoke AdjustWindowRect,rec,[dwStyle],0
+	mov eax,[rec.left]
+	sub [rec.right],eax
+	mov eax,[rec.top]
+	sub [rec.bottom],eax
+	xor eax,eax
+	mov [rec.left],eax
+	mov [rec.top],eax
 
 	;hWnd=CreateWindowEx( dwExStyle,wc.lpszClassName, wc.lpszClassName,dwStyle,
     ; (GetSystemMetrics(SM_CXSCREEN)-rec.right+rec.left)>>1,(GetSystemMetrics(SM_CYSCREEN)-rec.bottom+rec.top)>>1,
@@ -118,8 +58,7 @@ start:
 ;	invoke GetSystemMetrics,SM_CYSCREEN
 ;	mov [HSCR],eax
 
-	invoke	CreateWindowEx,[dwExStyle],_class,_title,[dwStyle],0,0,XRES,YRES,0,0,[hinstance],0
-;	invoke	CreateWindowEx,[dwExStyle],_class,_title,[dwStyle],0,0,0,0,0,0,[hinstance],0
+	invoke	CreateWindowEx,[dwExStyle],_class,_title,[dwStyle],0,0,[rec.right],[rec.bottom],0,0,[hinstance],0
 	mov	[hwnd],eax
 	invoke GetDC,[hwnd]
 	mov [hDC],eax
@@ -399,9 +338,6 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 	mov [SYSEVENT],eax
 	xor eax,eax
 	ret
-;         lParam>>=16;
-;         SYSKEY=lParam&0x7f;
-;         if (SYSKEY>0x34 && SYSKEY!=0x38) SYSKEY+=((lParam&0x100)>>4);
 
 ;  wmcreate:
 ;       xor eax,eax
@@ -418,7 +354,7 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 	ret
 @na:
 	invoke ChangeDisplaySettings,0,0		;            ChangeDisplaySettings(NULL,0);
-	invoke ShowWindow,[hwnd],SW_MINIMIZE	;            ShowWindow(hWnd,SW_MINIMIZE);
+;	invoke ShowWindow,[hwnd],SW_MINIMIZE	;            ShowWindow(hWnd,SW_MINIMIZE);
 	xor eax,eax
 	ret
   wmdestroy:
@@ -483,3 +419,71 @@ import gdi,\
        StretchDIBits,'StretchDIBits'
 
 include 'rsrc.rc'
+
+section '.data' data readable writeable
+
+	_title	db ':r4',0
+	_class	db ':r4',0
+	_error	db 'err',0
+	_dir 	db '*',0
+	mapex 	db    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15
+			db	 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31
+			db	 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47
+			db	 48, 49, 50, 51, 52, 69, 70, 71, 56, 73, 74, 75, 76, 77, 78, 79
+			db	 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95
+			db	 96, 97, 98, 99, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95
+			db	 96, 97, 98, 99,100,101,102,103,104,105,106,107,108,109,110,111
+			db	112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127
+align 4
+	hinstance	dd 0
+	hwnd		dd 0
+	wc			WNDCLASS ;EX?
+	msg			MSG
+	hDC			dd 0
+	dwExStyle	dd 0
+	dwStyle 	dd 0
+	rec			RECT
+	bmi			BITMAPINFOHEADER
+;	bmiq		dd 0,0,0,0 ;RGBQUAD
+
+;	screenSettings  DEVMODE ;no esta??
+
+	SysTime		SYSTEMTIME
+	Sfinddata	FINDDATA
+
+	active		dd 0
+	hdir		dd 0
+	sfile 		dd 0
+	afile 		dd 0
+	cntr		dd 0
+
+align 4
+
+  SYSEVENT	dd 0
+
+  SYSXYM	dd 0
+  SYSBM 	dd 0
+  SYSKEY	dd 0
+
+  SYSiKEY	dd 0
+  SYSiPEN	dd 0
+
+  SYSW		dd XRES
+  SYSH		dd YRES
+
+  SYSCDIR	dd 0
+
+include 'dat.asm'
+
+  SYSNDIR	rd 8192
+  SYSIDIR	rd 1024
+
+align 4
+  Dpila 	rd 1024
+
+align 8
+	SYSFRAME	rd XRES*YRES
+align 8
+	SYSEFRAME	rd XRES*YRES
+align 8
+	FREE_MEM	rd 1024*1024*16 ; 16M(32bits) 64MB(8bits)

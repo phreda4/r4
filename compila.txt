@@ -151,9 +151,9 @@
 :,4DROP	optfin "lea esi,[esi+12]" ,ln drop, ;
 :,NIP	optfin nip, ;
 
-:,>R		optfin "push eax" ,ln drop, ;
-:,R>		optfin dup, "pop eax" ,ln ;
-:,R 		optfin dup, "mov eax,[esp]" ,ln ;
+:,>R	optfin "push eax" ,ln drop, ;
+:,R>	optfin dup, "pop eax" ,ln ;
+:,R 	optfin dup, "mov eax,[esp]" ,ln ;
 :,R+ 	optfin "add [esp],eax" ,ln drop, ;
 :,R!+ 	optcall
 		0? ( "pop edx" ,ln "mov [edx],eax" ,ln "add edx,4" ,ln "push edx" ,ln drop, )(
@@ -204,9 +204,9 @@
 :,NEG 	optfin "neg eax" ,ln ;
 :,1+ 	optfin "inc eax" ,ln ;
 :,4+ 	optfin "add eax,4" ,ln ;
-:,1-		optfin "dec eax" ,ln ;
-:,2/		optfin "sar eax,1" ,ln ;
-:,2*		optfin "sal eax,1" ,ln ; | "add eax,eax" ,ln
+:,1-	optfin "dec eax" ,ln ;
+:,2/	optfin "sar eax,1" ,ln ;
+:,2*	optfin "sal eax,1" ,ln ; | "add eax,eax" ,ln
 
 :,@		optfin "mov eax,dword [eax]" ,ln ;
 :,C@ 	optfin "movsx eax,byte [eax]" ,ln ;
@@ -287,21 +287,36 @@
 	drop,
 	;
 :,PX@	| -- rgb
-	optfin
-	dup,
+	optfin dup,
 	"mov eax,[edi]" ,ln
 	;
 
-:,iPEN!	optcall
-		0? ( "mov [SYSiPEN],eax" ,ln drop, )( "mov ecx," ,s **write "mov [SYSiPEN],ecx" ,ln ) drop ;
+:,iPEN!
+	optcall
+	0? ( "mov [SYSiPEN],eax" ,ln drop, )(
+		"mov ecx," ,s **write "mov [SYSiPEN],ecx" ,ln )
+	drop ;
 
-:,XYMOUSE	optfin "lea esi,[esi-8]" ,ln "mov eax,[SYSXYM]" ,ln "mov ecx,eax" ,ln
-			"and ecx,$ffff" ,ln "shr eax,16" ,ln "mov [esi],ecx" ,ln ;
-:,BMOUSE	optfin dup, "mov eax,[SYSBM]" ,ln ;
+:,XYMOUSE | -- x y
+	optfin dup,
+	"lea esi,[esi-4]" ,ln
+	"mov eax,[SYSXYM]" ,ln
+	"mov ecx,eax" ,ln
+	"and ecx,$ffff" ,ln
+	"shr eax,16" ,ln
+	"mov [esi],ecx" ,ln ;
 
-:,iKEY!	optcall
-		0? ( "mov [SYSiKEY],eax" ,ln drop, )( "mov ecx," ,s **write "mov [SYSiKEY],ecx" ,ln ) drop ;
-:,KEY	optfin dup, "mov eax,[SYSKEY]" ,ln ;
+:,BMOUSE | -- c
+	optfin dup,
+	"mov eax,[SYSBM]" ,ln ;
+
+:,iKEY!	
+	optcall
+	0? ( "mov [SYSiKEY],eax" ,ln drop, )( "mov ecx," ,s **write "mov [SYSiKEY],ecx" ,ln ) drop ;
+
+:,KEY	
+	optfin dup, 
+	"mov eax,[SYSKEY]" ,ln ;
 
 :,IJOY!
 :,CNTJOY
@@ -367,7 +382,7 @@
 |"MOVE" "MOVE>" "CMOVE" "CMOVE>" |-- movimiento de memoria
 "MEM" "DIR" "FILE" "FSIZE" "VOL" "LOAD" "SAVE" |--- memoria bloques
 "UPDATE" "MSEC" "TIME" "DATE" "END" "RUN" |--- sistema
-"SW" "SH" |"CLS" 
+"SW" "SH" |"CLS"
 "REDRAW" "FRAMEV" |--- pantalla
 "SETXY" "PX+!" "PX!+" "PX@"
 "IPEN!" "XYMOUSE" "BMOUSE" |-------- mouse
@@ -478,13 +493,15 @@
 
 |----------------------------------------------------------------
 :?palabra | str -- str' nro 1 / str 0
-	'indicepal ( @+ 1? )( 			| str ind pal
+	indice> 4 - ( 'indicepal >=? )(
+		dup @ 			| str ind pal
 		pick2 =word= 1? (										| str ind dir 1
-			drop over 'indicepal - 'infopal + 4 - @ $2 and 		| str ind dir infop
-			0? ( drop over locales >? ( 1 )( 0 ) nip )		| es local ? esta adentro ?
+			drop over 'indicepal - 'infopal + @ $2 and 		| str ind dir infop
+			0? ( drop over locales >=? ( 1 )( 0 ) nip )		| es local ? esta adentro ?
 			1? ( drop rot drop swap 							| dir ind
-				'indicepal - 2 >> 1- 1 ; )( nip )
-			) drop ) nip nip ;					| str md+4 pal'
+				'indicepal - 2 >> 1 ; )( nip )
+			) drop
+		4 - ) 2drop 0 ;					| str md+4 pal'
 
 :?macro
 	'indicemac ( @+ 1? )( 			| str w pal
