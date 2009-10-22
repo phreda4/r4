@@ -5,7 +5,7 @@
 | _ multivalores
 |-------------------
 ^parse.txt
-^trace.txt
+|^trace.txt
 
 #:cntregs
 #:cntflds
@@ -44,19 +44,6 @@
 :>>.. | adr -- adr'
 	( c@+ 32 <? )( 0? ( drop 1- ; ) drop ) drop 1- ;
 
-:>>f | adr -- adr' |
-	( c@+ 1? )(
-		$7c =? ( drop ; )
-		$7e =? ( drop ; )
-		drop ) drop 1- ;
-
-:>>s | adr -- adr'  _
-	( c@+ 1? )(
-		$5f =? ( drop ; )
-		$7c =? ( drop ; )
-		$7e =? ( drop ; )
-		drop ) drop 1- ;
-
 :>>fld | reg fld -- reg'
 	( 1? )( 1- swap
 		>>f
@@ -68,17 +55,14 @@
 		0? ( drop nip 1- ; )
 		$7c =? ( 1 'cntflds +! rot pick2 swap !+ rot rot )
 		drop ) drop nip | ind mem
+	1 'cntflds +!
 	;
 
 ::dbload | "app.db" --
-	0 'cntregs !
-	1 'cntflds !
 	dup 'dbnombre strcpy
-
-	inimemdb
-	0? ( here dup 'inimemdb ! nip )
+	0 dup 'cntregs ! 'cntflds !
+	inimemdb 0? ( here dup 'inimemdb ! nip )
 	swap load inimemdb =? ( drop ; )
-
 	0 over ! 4+
 	dup 'indice0 !
 	inimemdb | <-- inicio
@@ -155,40 +139,46 @@
 
 
 |||||| copia en memoria
-#pl
-:,c1 pl c!+ 'pl ! ;
+#p1 #p2
+:,c1 p1 c!+ 'p1 ! ;
 :,s1 ( dup c@ 1? )( ,c1 1+ ) 2drop ;
 
 |||||| inserta registro
 ::dbinsert | --   ; inserta memoria al final del archivo
-	indice0 4 - 'pl ! | graba mem
+	indice0 4 - 'p1 ! | graba mem
+	13 ,c1 10 ,c1
 	0 ( cntflds <? )(
 		1? ( "|" ,s1 )
 		dup dbmfld ,s1
 		1+ ) drop
-	"~" ,s1 13 ,c1 10 ,c1
-	inimemdb pl over - 'dbnombre save 	| copia a archivo
+	"~" ,s1 |13 ,c1 10 ,c1
+	inimemdb p1 over - 'dbnombre save 	| copia a archivo
  	'dbnombre dbload | recarga??
 	;
 
-|||||| actualizacion
-::dbupdate | nro --
+|||||| actualizacion (registro actual)
+::dbupdate | --
+	actreg
 	cntregs >=? ( drop ; )
 	2 << indice0 + @ | inicio de campo(inic)
+	indice0 4 - 'p1 ! | ultimo
 
-
-
-	drop
-	scr
-	fonti cr cr blanco
-	0 dbmfld "%s" print
-	1 ( cntflds <? )( >r
-		r dbmfld "|%s" print
-		r> 1+ ) drop
-	"~" print
-	redraw
-	trace
-
+	here 'p2 !
+	0 ( cntflds <? )(
+		1? ( "|" ,s )
+		dup dbmfld ,s
+		1+ ) drop
+	"~" ,s 13 ,c 10 ,c
+	| desde
+	here p2 - over +	| desde nde
+	over				| desde nde de
+	p1 over - 			| desde nde de cnt
+	cmove> 				| desde
+	p2 here over -		|
+	cmove
+| 	inimemdb memmap
+|	inimemdb p1 over - here p2 - + 'dbnombre save
+ 	'dbnombre dbload | recarga??
 	;
 
 ::dbdelete | nro --
@@ -261,7 +251,7 @@
 		"%a" rot 8 >> boxprint
 		) 2drop
 	cr
-	0 ( 18 <? )(
+	0 ( fils 2 - <? )(
 		over 4+ @ over + cntregs >=? ( 3drop ; ) getreg
 		over @ =? ( ink@ gris oscuro linefill ink )
 		>r
@@ -273,6 +263,22 @@
 		r> 1+ )
 	2drop
 	;
+
+||||||||||||||
+|||| #form c1 c2 .. 0
+
+:tipo0 ;
+:tipo1 dup $ff and dbprint ;
+:tipo2 dup $ff and dbtitle cr dup $ff and dbedit ;
+
+#tiposf 'tipo0 'tipo1 'tipo2 0 0 0 0 0 0 0 0 0 0 0 0 0 
+
+::dbform | 'form --
+	( @+ 1? )(
+		dup 8 >> $f and 2 << 'tiposf + @ exec | dibujo
+		$1000 and? ( cr ) drop
+		)
+	2drop ;
 
 ||||||||| debug
 ::dbdump
