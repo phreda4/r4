@@ -8,11 +8,20 @@
 
 #tx1 0 #ty1 0
 #tx2 640 #ty2 480 		| ventana de texto
-#:fils 40 #:cols 80		| filas/columnas texto
+
 
 #charsize 'charsize8i
-#charo 'char8i
+#charemit 'char8i
 #sizef
+
+#:rows 40	#:cols 80		| filas/columnas texto
+
+#:ccx 4  	#:ccy 6			| cursor
+#:ccw 8		#:cch 12		| tamaño
+
+| 6 bits de valor (-32..31)
+::toxt ccw dup 2/ rot rot 5 *>> ccx + + ;
+::toyt cch dup 2/ rot rot 5 *>> ccy + + ;
 
 |--------- palabras de dibujo de fuentes (reemplazables)
 ::setfont | 'char 'size --
@@ -45,7 +54,8 @@
 |	dup 2* ccx + tx2 >? ( cr ) drop | c sizex (*2)
 	dup 2* ccx + tx2 >? ( 'ccx ! 2drop ; ) drop | c sizex (*3)
 	'ccx 2dup +!
-	rot charo exec
+	ccx ccy setxy
+	rot charemit exec
 	+! ;
 
 ::gemit | c --
@@ -92,16 +102,13 @@
 :sizeprint | "" -- "" x
 	0 >r dup ( c@+ 1? )( charsize exec r+ ) 2drop r> ;
 
-::vidi
-	inverso 0? ( $ffffffff )( 0 ) nip 'inverso ! ;
-
 |------------------- ventana de texto
 ::fixsize | w h --
 	xc w 2/ - dup 'tx1 ! w + 'tx2 !
 	yc h 2/ - dup 'ty1 ! h + 'ty2 !
 	'cch ! 'ccw !
 :filcol
-	h cch / 'fils !
+	h cch / 'rows !
 	w ccw 2* / 'cols !
     ;
 
@@ -114,7 +121,7 @@
 ::home
 	0 0
 ::at | x y --
-	cch * ty1 + cch 2/ + 'ccy !
+	cch * ty1 + 'ccy !
 ::col | x --
 	ccw * tx1 + 'ccx ! ;
 
@@ -148,11 +155,11 @@
 
 |-----------------------------------------
 ::fonti
-	8 12 fixsize home
+	8 12 fixsize
 	'char8i 'charsize8i setfont ;
 
 ::fontid
-	16 24 fixsize home
+	16 24 fixsize
 	'char8id 'charsize8id setfont ;
 
 |--- dibujo de seleccion
@@ -181,15 +188,13 @@
 |-----------------------------------------
 ::printbox | .. "" -- ""  ; pone gc en el texto (resuelve print)
 	mprint sizeprint 2* 'w !
-	cch 'h !
-	ccx w 2/ + 'xc !
-	ccy 'yc ! ;
+	ccx w 2/ + ccw 2/ + 'xc !
+	ccy cch dup 'cch ! 2/ + 'yc ! ;
 
 ::cntprintbox | cnt -- cnt  ; pone gc en el texto
 	sizef over * 'w !
-	cch 'h !
-	ccx w 2/ + 'xc !
-	ccy 'yc ! ;
+	ccx w 2/ + ccw 2/ + 'xc !
+	ccy cch dup 'h ! 2/ + 'yc ! ;
 
 ||||| boxprint
 ::boxprint | .. "" cnt --
