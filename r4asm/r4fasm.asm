@@ -72,6 +72,7 @@ start:
 	invoke UpdateWindow,[hwnd]
 ;---------- INICIO
 restart:
+	call reinit
 	mov esi,Dpila
 	xor eax,eax
 	jmp inicio
@@ -79,11 +80,23 @@ restart:
 include 'cod.asm'
 ;.................compilado.....................
 	jmp SYSEND
+;----------- INICIALICE
+reinit:
+	lea edi,[ROWFRAME]
+	xor eax,eax
+	mov ecx,YRES
+lreinit:
+	mov [edi],eax
+	add edi,4
+	add eax,XRES*4
+	loop lreinit
+	ret
 
 ; OS inteface
 ; stack............
 ; [esi+4] [esi] eax       ( [esi+4] [esi] eax --
 ;===============================================
+align 16
 SYSUPDATE: ; ( -- )
 	push eax ebx
 	invoke	PeekMessage,msg,0,0,0,PM_NOREMOVE
@@ -105,6 +118,7 @@ SYSUPDATE: ; ( -- )
 @isyse:
 	pop ebx eax
 ;===============================================
+align 16
 SYSEND: ; ( -- )
 	invoke ReleaseDC,[hwnd],[hDC]
 	invoke DestroyWindow,[hwnd]
@@ -116,7 +130,6 @@ SYSEND: ; ( -- )
 
 ;===============================================
 SYSRUN: ; ( "nombre" -- )
-
 	lodsd
 	ret
 
@@ -124,7 +137,6 @@ SYSRUN: ; ( "nombre" -- )
 SYSREDRAW: ; ( -- )
 	pusha
 	invoke StretchDIBits,[hDC],0,0,XRES,YRES,0,0,XRES,YRES,SYSFRAME,bmi,0,SRCCOPY
-;StretchDIBits(hDC,0,0,gr_ancho,gr_alto,0,0,gr_ancho,gr_alto,gr_buffer,&bmi,DIB_RGB_COLORS,SRCCOPY);
 	popa
 	ret
 
@@ -139,7 +151,6 @@ loopf:
 	mov [edi],eax
 	add edi,4
 	loop loopf
-
 	;rep stosd
 	;pop edi
 	popa
@@ -338,7 +349,6 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 	mov [SYSEVENT],eax
 	xor eax,eax
 	ret
-
 ;  wmcreate:
 ;       xor eax,eax
 ;       ret
@@ -359,7 +369,7 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 	ret
   wmdestroy:
 	invoke PostQuitMessage,0
-	ret
+;	ret
   finish:
 	xor eax,eax
 	ret
@@ -445,12 +455,9 @@ align 4
 	rec			RECT
 	bmi			BITMAPINFOHEADER
 ;	bmiq		dd 0,0,0,0 ;RGBQUAD
-
 ;	screenSettings  DEVMODE ;no esta??
-
 	SysTime		SYSTEMTIME
 	Sfinddata	FINDDATA
-
 	active		dd 0
 	hdir		dd 0
 	sfile 		dd 0
@@ -458,32 +465,26 @@ align 4
 	cntr		dd 0
 
 align 4
-
-  SYSEVENT	dd 0
-
-  SYSXYM	dd 0
-  SYSBM 	dd 0
-  SYSKEY	dd 0
-
-  SYSiKEY	dd 0
-  SYSiPEN	dd 0
-
-  SYSW		dd XRES
-  SYSH		dd YRES
-
-  SYSCDIR	dd 0
+	SYSEVENT	dd 0
+	SYSXYM	dd 0
+	SYSBM 	dd 0
+	SYSKEY	dd 0
+	SYSiKEY	dd 0
+	SYSiPEN	dd 0
+	SYSW	dd XRES
+	SYSH	dd YRES
+	SYSCDIR	dd 0
 
 include 'dat.asm'
-
-  SYSNDIR	rd 8192
-  SYSIDIR	rd 1024
-
-align 4
-  Dpila 	rd 1024
-
-align 8
+	SYSNDIR	rd 8192
+	SYSIDIR	rd 1024
+align 16
+	Dpila 	rd 1024
+align 16
+	ROWFRAME	rd YRES
+align 16
 	SYSFRAME	rd XRES*YRES
-align 8
+align 16
 	SYSEFRAME	rd XRES*YRES
-align 8
+align 16
 	FREE_MEM	rd 1024*1024*16 ; 16M(32bits) 64MB(8bits)

@@ -1,0 +1,167 @@
+| crear fuentes
+| PHREDA
+|------------------------
+^gui3.txt
+^dlgfile.txt
+^leebmp.txt
+^trace.txt
+
+#img1
+
+#xa #ya
+#wa #ha
+
+#inih 20
+#finh 0
+
+#inic
+#finc
+
+#nro
+#car
+
+|||||||||||||||||||||1
+:hline? | x y -- 1/0
+	setxy
+	wa ( 1? )( 1-
+		px@ $ffffff and 1? ( nip ; ) drop
+		1 px+!
+		) drop
+	0 ;
+
+:lineaup | x y -- x y i
+	0 ( ha 2/ <? )(
+		pick2 pick2 pick2 +
+		hline? 1? ( drop ; ) drop
+		1+ ) ;
+
+:lineadn | x y -- x y i
+	ha ( ha 2/ >? )(
+		pick2 pick2 pick2 +
+		hline? 1? ( drop ; ) drop
+		1- ) ;
+
+:altoreal | x y --
+	lineaup inih min 'inih !
+	lineadn finh max 'finh !
+	2drop
+	;
+
+|||||||||||||||||||||1
+:vline? | x y -- 1/0
+	setxy
+	ha
+	( 1? )( 1-
+        px@ $ffffff and 1? ( nip ; ) drop
+		sw px+!
+		) drop
+	0 ;
+
+:primcol | x y -- x y i
+	0 ( wa <? )(
+		pick2 over + pick2
+		vline? 1? ( drop ; ) drop
+		1+ ) ;
+
+:ultcol  | x y -- x y i
+	wa 1- ( 0 >? )(
+		pick2 over + pick2
+		vline? 1? ( drop ; ) drop
+		1- ) ;
+
+:anchoygenera | x y -- x y
+	primcol  'inic !
+	ultcol 'finc !
+	over inic + over inih +
+	setxy
+	nro "#c%d (" ,print
+	finc inic - 1+ abs " %d" ,print
+	15 ( 1? )( 1-
+		0 'car !
+		0 ( 7 <? )(
+|		finc inic - 1+ abs ( 1? )( 1-
+			px@ $1 and over << car or 'car !
+			1 px+!
+			1+ ) drop
+		car $7f and " $%h" ,print
+		sw 7 - px+!
+		) drop
+	" )" ,ln
+	1 'nro +!
+	;
+
+|||||||||||||||||||||
+:drawbox | x y --
+|	amarillo
+|	2dup 2dup op
+|	over wa + over 2dup line
+|	ha + line 2dup ha + line line
+	verde
+	swap inic + swap
+	2dup inih + over finc inic - + over op line
+	finh + over finc inic - + over op line
+	;
+
+|||||||||||||||||||||
+:procesa
+	bmp.alto 16 / 'ha !
+	bmp.ancho 16 / 'wa !
+	ha 'inih !
+	0 'finh !
+	0 ( 16 <? )(
+		0 ( 16 <? )(
+			dup wa * pick2 ha * | x y
+			altoreal
+			1+ ) drop
+		1+ ) drop
+
+	mark
+	0 'nro !
+	0 ( 16 <? )(
+		0 ( 16 <? )(
+			dup wa * pick2 ha * | x y
+ 			anchoygenera
+			drawbox
+			1+ ) drop
+		1+ ) drop
+|	"#fuente" ,s
+|	0 ( 256 <? )(
+|		dup " c%d" ,print
+|		1+ $f nand? ( ,cr )
+|		) drop
+	"#:realf " ,s
+	finh inih - 1- "%d " ,print | alto
+	"c0 " ,s
+
+	"tfont1.inc" savemem
+	empty
+|	here memmap
+	;
+
+|||||||||||||||||||||
+:main
+	"tfont/arial8.bmp" bmp.load 'img1 !
+	img1 bmp!
+
+	bmp.real
+	redraw
+	procesa
+
+
+	inigui
+	'exit >esc<
+	show clrscr
+		bmp.real
+
+		0 rows 1- at
+		bmp.alto bmp.ancho "%d %d |" print
+		ha wa " %d %d |" print
+		finh inih - "%d " print
+		dup "(%d)" print
+
+		cflecha
+		;
+
+
+: mark 0 paper 33 main "main.txt" run  ;
+
