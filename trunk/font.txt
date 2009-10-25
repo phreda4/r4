@@ -182,11 +182,7 @@
 #:ipreg ( 98 -17 78 54 7 31 78 102 7 17 34 -11 -26 23 39 -42 -58 7 -25 -42 -59 -90 7 71 -42 6 39 23 38 0 )
 
 #xa #ya #fc
-#xx #yy
-
-|--- fuente de letra | 00000 00 0 | valor op x/y
-:tox w 5 *>> xc + ;
-:toy h 5 *>> yc + ;
+#intw #inth
 
 |--------- dibuja poligonos 8 bits sin color
 :p1 xa ya op ;
@@ -201,113 +197,23 @@
 		$6 and 2* 'fp8acc + @ exec ) 2drop
 	poli ;
 
-|------------- Conversion 32-8-32
-:fp8.32to8xy | v -- t x y
-	dup $3 and 2*
-	over 27 >> 3 <<
-	rot 14 << 27 >> 3 << ;
-
-:fp8.graba8 | v --
-	fp8.32to8xy | t x y
-	yy =? ( drop xx =? ( 2drop ; ) dup 'xx ! or 1 or ,c ; )
-	swap xx =? ( drop dup 'yy ! or ,c ; )
-	dup 'xx ! 1 or ,c dup 'yy ! or ,c ;
-
-::fp.32>8 | 'desde32 'en8 --
-	'here !  0 'xx ! 0 'yy !
-	( @+ 1? )( fp8.graba8 ) ,c drop ;
-
-| xxxxx - xxxxx100000000
-|-----------------------------------------
-:fp.8to32xy | v -- t v | de 5 bits a 14 bits
-	dup 3 >> 9 << ;
-
-:q0 drop ;  :q1 1 or , ;  :q2 2 or , ;
-:q3 fc not 'fc ! 3 or , ; | ( 3 )( 3 ) curva recta siempre
-|-:q3 fc 0? ( 3 )( 3 ) swap not 'fc ! or , ; | ( 3 )( 3 ) curva recta siempre
-
-#vord 'q0 'q1 'q2 'q3
-
-:fp.graba32 | v --
-	fp.8to32xy |t v
-	over 1 and 0? ( 'yy )( 'xx ) nip !
-	xx 18 << yy 4 << $3fff0 and or swap
-	6 and 2* 'vord + @ exec	;
-
-::fp.8>32 | 'desde8 'en32 --
-	'here ! 0 'fc ! 0 'xx ! 0 'yy !
-	( c@+ 1? )( fp.graba32 ) , drop ;
-
-|-----------  fuente de lineas
-:a0 drop ;
-:a1	>xy op ;
-:a2	>xy pline ;
-:a3  >xy fc 0? ( >r cp )( >r pcurve ) r> not 'fc ! ;
-#acclin  a0 a1 a2 a3
-::v8draw32 | adr --
-	( @+ 1? )(
-		dup $3 and 2 << 'acclin + @ exec
-		) 2drop poli ;
-
-
-|------------------------ dibujo en 32
-:c0 drop ;
-:c1	>xy gop ;
-:c2	>xy gline ;
-:c3  >xy fc 0? ( >r gcp )( >r gcurve ) r> not 'fc ! ;
-#acclin1  c0 c1 c2 c3
-::vdraw32 | adr gro --
-	dup gg gg
-	( @+ 1? )(
-		dup $3 and 2 << 'acclin1 + @ exec
-		) 2drop ;
-
-|------------- Conversion 32->8
-:32to8xy2 | v -- t x y
-	dup $3 and 2*
-	over 27 >> 3 <<
-	rot 14 << 27 >> 3 << ;
-
-:graba82 | v --
-	32to8xy2 | t x y
-	yy =? ( drop xx =? ( 2drop ; ) dup 'xx ! or 1 or ,c ; )
-	swap xx =? ( drop dup 'yy ! or ,c ; )
-	dup 'xx ! 1 or ,c dup 'yy ! or ,c ;
-
-::fl.32>8 | 'desde32 'en8 --
-	'here !  0 'xx ! 0 'yy !
-	( @+ 1? )( graba82 ) ,c drop ;
-
-|------------- Conversion 8->32
-| xxxxx - xxxxx100000000
-:8to32xy3 | v -- t v | de 5 bits a 14 bits
-	dup 3 >> 9 << ;
-
-:w0 drop ; :w1 1 or , ; :w2 2 or , ;
-:w3 fc 0? ( 3 )( 3 ) swap not 'fc ! or , ;
-#vword 'w0 'w1 'w2 'w3
-:graba32 | v --
-	8to32xy3 |t v
-	over 1 and 0? ( 'yy )( 'xx ) nip !
-	xx 18 << yy 4 << $3fff0 and or swap
-	6 and 2* 'vword + @ exec	;
-
-::fl.8>32 | 'desde8 'en32 --
-	'here ! 0 'fc ! 0 'xx ! 0 'yy !
-	( c@+ 1? )( graba32 ) , drop ;
-
 |--- fuente de letra | 00000 00 0 | valor op x/y
 :cv8draw | addr --
+	intw 'ccx +!
+	inth 'ccy +!
 	0 dup toxt 'xa ! dup toyt 'ya ! 'fc !
 	( c@+ 1? )(
 		dup $1 and? ( 3 >> toxt 'xa )( 3 >> toyt 'ya ) !
 		$6 and 2* 'fp8acc + @ exec ) 2drop
-	poli ;
+	poli
+	intw neg 'ccx +!
+	inth neg 'ccy +!
+	;
 
 |-----------------------------------------------------
 :charsizev | c -- cnt
 	$7f and
-	'sfnt1 + c@ ccw 4 *>> ;
+	'sfnt1 + c@ ccw 4 *>> dup 2/ 'intw ! ;
 
 :charo | c --
 	$7f and
@@ -333,14 +239,14 @@
 
 |--------------------------------------------
 ::font | lineas --
-	wtext home
+	wtext cch 2/ 'inth !
 	'charov 'charsizev setfont ;
 
 ::sfont | lineas --
-	wtext home
+	wtext cch 2/ 'inth !
 	'charo 'charsizev setfont ;
 
 ::bfont | lineas --
-	wtext home
+	wtext cch 2/ 'inth !
 	'chardoble 'charsizev setfont ;
 
