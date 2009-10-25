@@ -6,35 +6,55 @@
 ^libgraf.txt
 ^fonti.txt
 
-#tx1 0 #ty1 0
-#tx2 640 #ty2 480 		| ventana de texto
+#tx1 0 #ty1 0 #tx2 640 #ty2 480 		| ventana de texto
 
+#:rows 40	#:cols 80		| filas/columnas texto
+#:ccx 0  	#:ccy 0			| cursor
+#:ccw 8		#:cch 12		| tamaño
 
 #charsize 'charsize8i
 #charemit 'char8i
-#sizef
-
-#:rows 40	#:cols 80		| filas/columnas texto
-
-#:ccx 4  	#:ccy 6			| cursor
-#:ccw 8		#:cch 12		| tamaño
+#:charrom
+#:charsiz
+#:charini
+#:charlin
 
 | 6 bits de valor (-32..31)
 ::toxt ccw dup 2/ rot rot 5 *>> ccx + + ;
 ::toyt cch dup 2/ rot rot 5 *>> ccy + + ;
 
 |--------- palabras de dibujo de fuentes (reemplazables)
+::fontset | tipof --
+	@+ 'charsize !
+	@+ 'charemit !
+	@+ 'ccw !
+	@+ 'cch !
+	@+ 'charrom !
+	@+ 'charsiz !
+	@+ 'charini !
+	@ 'charlin !
+	;
+
+::fontbold | --
+::fontnorm | --
+::fontdoub | --
+::fontoutl | --
+
 ::setfont | 'char 'size --
-	64 over exec 2* 'sizef !
 	'charsize !+ ! ;
 
 ::window | x1 y1 x2 y2 --
-	cch * 'ty2 ! ccw * 'tx2 ! cch * 'ty1 ! ccw * 'tx1 ! ;
+	cch * 'ty2 ! ccw * 'tx2 !
+	cch * 'ty1 ! ccw * 'tx1 ! ;
 
 ::win2gc
 	tx2 tx1 2dup - 'w ! + 2/ 'xc !
-	ty2 ty1 2dup - 'h ! + 2/ 'yc !
-	;
+	ty2 ty1 2dup - 'h ! + 2/ 'yc ! ;
+
+::gc2win
+	xc w 2/ - dup 'tx1 ! w + 'tx2 !
+	yc h 2/ - dup 'ty1 ! h + 'ty2 ! ;
+
 
 |------------------------------------------------------
 ::cr
@@ -50,20 +70,18 @@
 	9 =? ( drop dtab ; )
 	13 =? ( drop cr ; )
 	dup charsize exec  | c sizex
-|	dup 2* ccx + tx2 >? ( 3drop ; ) drop | c sizex (*1)
-|	dup 2* ccx + tx2 >? ( cr ) drop | c sizex (*2)
-	dup 2* ccx + tx2 >? ( 'ccx ! 2drop ; ) drop | c sizex (*3)
-	'ccx 2dup +!
-	ccx ccy setxy
-	rot charemit exec
-	+! ;
+|	dup ccx + tx2 >? ( 3drop ; ) drop | c sizex (*1)
+|	dup ccx + tx2 >? ( cr ) drop | c sizex (*2)
+	dup ccx + tx2 >? ( 'ccx ! 2drop ; ) drop | c sizex (*3)
+	ccx ccy setxy  |*********
+	swap charemit exec
+	'ccx +! ;
 
 ::gemit | c --
 	13 =? ( drop cr ; )
 :gemiti
 	9 =? ( drop dtab ; )
-	charsize exec 2*
-	'ccx +! ;
+	charsize exec 'ccx +! ;
 
 ::emitout? | -- f
 	ccy ty2 >? ( 1 )( 0 ) nip ;
@@ -75,6 +93,7 @@
 	32 emit ;
 
 |--------------------------------------------------------------------------
+
 ::fontd
 	cch 2/ 'cch ! ccw 2/ 'ccw ! ;
 
@@ -84,17 +103,17 @@
 |----- cursor
 ::printcur | adr -- adr
 	ccx >r
-	ccx ccy cch 2/ - 2dup op cch + pline
-	c@+ 0? ( ccw 2/ 'ccx +! ) gemiti
-	ccx ccy cch 2/ + 2dup pline cch - pline
+	ccx ccy  2dup op cch + pline
+	c@+ 0? ( ccw 'ccx +! ) gemiti
+	ccx ccy cch + 2dup pline cch - pline
 	poli
 	r> 'ccx !
 	;
 
 ::printcurw | adr -- adr
-	ccx ccy cch 2/ - 2dup op cch + pline
+	ccx ccy 2dup op cch + pline
 	( c@+ 32 >? )( gemit ) gemit
-	ccx ccy cch 2/ + 2dup pline cch - pline
+	ccx ccy cch + 2dup pline cch - pline
 	poli
 	;
 
@@ -104,33 +123,24 @@
 
 |------------------- ventana de texto
 ::fixsize | w h --
-	xc w 2/ - dup 'tx1 ! w + 'tx2 !
-	yc h 2/ - dup 'ty1 ! h + 'ty2 !
+	gc2win
 	'cch ! 'ccw !
 :filcol
 	h cch / 'rows !
-	w ccw 2* / 'cols !
+	w ccw / 'cols !
     ;
 
 ::wtext | lin --		; texto en ventana de cursor
-	xc w 2/ - dup 'tx1 ! w + 'tx2 !
-	yc h 2/ - dup 'ty1 ! h + 'ty2 !
+	gc2win
 	h swap / dup 'cch ! 2/ dup 2/ + 'ccw !
 	filcol
 |	home ;
 ::home
-	0 0
+	0 dup
 ::at | x y --
 	cch * ty1 + 'ccy !
 ::col | x --
 	ccw * tx1 + 'ccx ! ;
-
-::ttext | fil col --
-	xc w 2/ - dup 'tx1 ! w + 'tx2 !
-	yc h 2/ - dup 'ty1 ! h + 'ty2 !
-	h swap / 'cch !
-	w swap / 'ccw !
-	home ;
 
 |///////////////////////////////////////////////////////////////////////////
 ::print | .. "" --
@@ -140,12 +150,12 @@
 
 ::printc | .. "" --	; en centro de la ventana
 	mprint
-	sizeprint xc swap - 'ccx !
+	sizeprint xc swap 2/ - 'ccx !
 	printx ;
 
 ::printr | .. "" --	; en derecha de la ventana
 	mprint
-	sizeprint tx2 swap 2* - 'ccx !
+	sizeprint tx2 swap - 'ccx !
 	printx ;
 
 ::cntprint | .. "" cnt --
@@ -158,18 +168,15 @@
 	8 12 fixsize
 	'char8i 'charsize8i setfont ;
 
-::fontid
-	16 24 fixsize
-	'char8id 'charsize8id setfont ;
 
 |--- dibujo de seleccion
 #conex
 
 ::sel>>
-	tx1 ccy cch 2/ + dup 'conex ! op
-	ccx ccy cch 2/ + pline
-	ccx ccy cch 2/ - pline
-	tx2 ccy cch 2/ - pline
+	tx1 ccy cch + dup 'conex ! op
+	ccx ccy cch + pline
+	ccx ccy pline
+	tx2 ccy pline
 	;
 
 ::sel<<
@@ -177,67 +184,65 @@
 		tx2 ty2 pline
 		tx1 ty2 pline
 	)(
-		tx2 ccy cch 2/ - pline
-		ccx ccy cch 2/ - pline
-		ccx ccy cch 2/ + pline
-		tx1 ccy cch 2/ + pline
+		tx2 ccy pline
+		ccx ccy pline
+		ccx ccy cch + pline
+		tx1 ccy cch + pline
    		) drop
 	tx1 conex pline
 	poli ;
 
 |-----------------------------------------
 ::printbox | .. "" -- ""  ; pone gc en el texto (resuelve print)
-	mprint sizeprint 2* 'w !
-	ccx w 2/ + ccw 2/ + 'xc !
-	ccy cch dup 'cch ! 2/ + 'yc ! ;
+	mprint sizeprint 'w !
+	ccx w 2/ + 'xc !
+	ccy cch dup 'h ! 2/ + 'yc ! ;
 
 ::cntprintbox | cnt -- cnt  ; pone gc en el texto
-	sizef over * 'w !
+	ccw over * 'w !
 	ccx w 2/ + ccw 2/ + 'xc !
 	ccy cch dup 'h ! 2/ + 'yc ! ;
 
 ||||| boxprint
 ::boxprint | .. "" cnt --
-	sizef * ccx + >r
+	ccw * ccx + >r
 	print
 	r> 'ccx ! ;
 
 ::boxprintc | .. "" cnt --
-	sizef * ccx + >r
+	ccw * ccx + >r
 	mprint
 	sizeprint r ccx - 2/ swap - 'ccx +!
 	printx
 	r> 'ccx ! ;
 
 ::boxprintr | .. "" cnt --
-	sizef * ccx + >r
+	ccw * ccx + >r
 	mprint
-	sizeprint 2* r swap - 'ccx !
+	sizeprint r swap - 'ccx !
 	printx
 	r> 'ccx ! ;
 
 |||| fills
 ::linefill
-	tx1 ccy cch 2/ - 2dup op
+	tx1 ccy 2dup op
 	2dup cch + pline
-	tx2 ccy cch 2/ -
-	2dup cch + pline pline pline poli
+	tx2 ccy 2dup cch + pline pline pline poli
 	;
 
 ::linebox
-	tx1 ccy cch 2/ - 2dup op
+	tx1 ccy 2dup op
 	2dup cch + line
-	tx2 ccy cch 2/ -
-	2dup cch + line line line
+	tx2 ccy 2dup cch + line line line
 	;
 
 ::linehfill | col1 col2 --
 	fcol
 	tx1 tx2 + 2/ ty1 ty2 + 2/ fcen
 	1.0 ccw / 0 fmat
-	tx1 ccy cch 2/ - 2dup op
+	tx1 ccy 2dup op
 	2dup cch + pline
-	tx2 ccy cch 2/ -
+	tx2 ccy
 	2dup cch + pline pline pline
 	lfill poli sfill
 	;
@@ -246,9 +251,9 @@
 	fcol
 	tx1 tx2 + 2/ ty1 ty2 + 2/ fcen
 	0 1.0 cch / fmat
-	tx1 ccy cch 2/ - 2dup op
+	tx1 ccy 2dup op
 	2dup cch + pline
-	tx2 ccy cch 2/ -
+	tx2 ccy
 	2dup cch + pline pline pline
 	lfill poli sfill
 	;
