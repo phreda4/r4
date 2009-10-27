@@ -2,10 +2,8 @@
 | phreda
 |-------------------------------
 ^gui3.txt
-^tfont1.inc
-^tfont2.inc
 
-
+||||| 8x8 simple
 :chars | c --
 	$ff and charsiz + c@ ;
 
@@ -22,22 +20,8 @@
 		swap 1+ )
 	2drop ;
 
-::tfont8 | --
-	'realf1
-	@+ 'charlin !
-	@+ 'charrom !
-	@ 'charsiz !
-	8 charlin fixsize
-	'char 'chars setfont
-|	romf memmap
-	;
 
-
-|#c0 [ 4 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ] | hasta 16x16
-
-:charsize | c --
-	$ff and charsiz + c@ ;
-
+||||| 16x16 simple
 :chard | c --
 	ccx ccy setxy
 	$ff and 5 << charrom +
@@ -51,9 +35,24 @@
 		swap 1+ )
 	2drop ;
 
-:charsizeb | c --
+|| 8x8 doble
+:charbs | c --
 	$ff and charsiz + c@ 1+ ;
 
+:charb | c --
+	ccx ccy setxy
+	$ff and 4 << charrom +
+	0 ( charlin <? )( swap
+		c@+ $ff and dup 2* or
+		sw swap
+		( 1? )( swap 1- swap
+			1 and? ( ink@ px!+ )( 1 px+! )
+			2/ ) drop
+		px+!
+		swap 1+ )
+	2drop ;
+
+||||| 16x16 doble
 :chardb | c --
 	ccx ccy setxy
 	$ff and 5 << charrom +
@@ -67,29 +66,83 @@
 		swap 1+ )
 	2drop ;
 
-:charsizer | c --
+||||| OUTLINE
+:charrs | c --
 	$ff and charsiz + c@ 2 + ;
 
-:chardr | c --
-	ccx ccy setxy
-	$ff and 5 << charrom +
-	0 ( charlin <? )( swap
-		w@+ $ffff and dup 2* or
-		sw swap
-		( 1? )( swap 1- swap
-			1 and? ( ink@ px!+ )( 1 px+! )
-			2/ ) drop
-		px+!
-		swap 1+ )
+:linea | mask maskb --
+	( 1? )(
+		1 and? ( 2/ swap 1 and? ( inka )( inkb ) px!+ )( 2/ swap 1 px+! )
+		2/ swap )
 	2drop ;
 
-::tfont2 | --
-	'realf2
+|| 8x8
+:charr | c --
+	$ff and 4 << charrom +
+	0 0 rot
+	charlin ( 1? )( 1-
+		swap c@+ $ff and	| 0 0 lin adr v
+		rot rot 			| 0 0 v lin adr
+		swap ) 2drop
+	0 0 					| 0 0 .... 0 0
+	charlin 2 + ( 1? )( 1-
+		ccx ccy pick2 + setxy
+		pick2 2*
+		pick4 pick4 or pick3 or
+		dup 2* or dup 2* or
+		linea
+		nip ) drop
+	2drop
+	;
+
+||||| 16x16 borde
+:chardr | c --
+	$ff and 5 << charrom +
+	0 0 rot
+	charlin ( 1? )( 1-
+		swap w@+ $ffff and	| 0 0 lin adr v
+		rot rot 			| 0 0 v lin adr
+		swap ) 2drop
+	0 0 					| 0 0 .... 0 0
+	charlin 2 + ( 1? )( 1-
+		ccx ccy pick2 + setxy
+		pick2 2*
+		pick4 pick4 or pick3 or
+		dup 2* or dup 2* or
+		linea
+		nip ) drop
+	2drop
+	;
+
+
+||||||||||||||||||||||||||||||||||||||||
+::tfont | 'fuente --
 	@+ 'charlin !
 	@+ 'charrom !
-	@ 'charsiz !
-	4 charlin fixsize
-	'chardb 'charsizeb setfont
-|	romf memmap
+	@+ 'charsiz !
+	@
+	0? ( 'char )( 'chard ) 'chars
+	setfont drop
+	8 charlin fixsize
+	;
+
+::tfontb
+	@+ 'charlin !
+	@+ 'charrom !
+	@+ 'charsiz !
+	@
+	0? ( 'charb )( 'chardb ) 'charbs
+	setfont drop
+	8 charlin fixsize
+	;
+
+::tfonto
+	@+ 'charlin !
+	@+ 'charrom !
+	@+ 'charsiz !
+	@
+	0? ( 'charr )( 'chardr ) 'charrs
+	setfont drop
+	8 charlin fixsize
 	;
 
