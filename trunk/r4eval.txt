@@ -88,8 +88,7 @@
 
 
 :esvar | adr --
-	@ "#%w " violeta print cr
- 	;
+	@ "#%w " violeta print ;
 
 :exprintword | n --
 	4 << 'indicepal +
@@ -106,6 +105,20 @@
 	'pilaexe
 	( pilaexe> <? )( @+ exprintword cr ) drop
 
+	;
+
+|||||||||||||||||||||||||
+:printlineword | n --
+	4 << 'indicepal +
+	indicepal> >=? ( drop ; )
+	dup 8 + @ 1 and? ( violeta "#" )( rojo ":") print drop
+	@+ "%w" 20 boxprint blanco
+	@+ drop |"%d " print direccion
+	@+
+	dup 24 >> "%d" 5 boxprint		| pilaR
+	dup 8 << 24 >> "%d" 5 boxprint	| pilaD
+	$fff and "%b" 10 boxprintr		| flags
+	@ " %d" 7 boxprint					| largo en bytes
 	;
 
 |------------------ dibuja la memoria
@@ -137,6 +150,43 @@
 |	savetokens
 	"r4fasm.txt" run ;
 
+||||||||||||||||||||||||||||||||||||||||||||||||
+#pagina 0
+:vercod
+	inigui
+	'exit >esc<
+	[ 30 'pagina +! ; ] <dn>
+	[ -30 'pagina +! ; ] <up>
+
+	show clrscr
+		verde
+		"" 5 boxprint
+		"Nombre" 21 boxprint
+		"RS" 5 boxprint
+		"DS" 5 boxprint
+		"Flags" 10 boxprintr
+		" Bytes" 7 boxprint
+		"llamadas" print cr
+		pagina 40 ( 1? )( 1-
+			swap
+			dup "%d." verde 5 boxprint
+			dup printlineword
+			dup getllamadas 1? ( "%d" )( "" nip ) 6 boxprint
+			dup getflags 1? ( "%d" )( "" nip ) print
+			cr
+			1+ swap ) 2drop
+		cr
+     	verde
+		"| A-01 0 accion 1 dato" print cr
+		"| B-02 0 local 1 exportado" print cr
+		"| C-04 0 un ; 1 varios ;" print cr
+		"| D-08 0 sin calls 1 con calls" print cr
+		"| E-10 0 no usas R(A) 1 usa R(A) .. R(A) es cuando R se usa como auxiliar" print cr
+		"| F-20 0 nunca como direccion 1 alguna vez como direccion" print cr
+
+		cmano ;
+
+||||||||||||||||||||||||||||||||||||||||||||||||
 :consola
 	indicepal< 'indicepal - 4 >> | iniciodicc
 	'primerword !
@@ -157,6 +207,8 @@
 	'stepvm <f1>
 	'stepvmf <f2>
 	'compila <f3>
+
+	'vercod <f5>
 	startvm
 	show clrscr	fonti | 	25 fonth
 		"r4Eval: " print blanco 'nombre print cr
@@ -166,6 +218,7 @@
 		|drawmemvar
 		drawtrace
 		cr cr
+		0 rows 2 - at
 		blanco
 		$222222 $ff0000 linkcol
 		'exit "ESC" spc link spc
@@ -173,8 +226,11 @@
 		'stepvm "F1-Step" flink spc
 		'playvm "F2-Play" flink spc
 		'compila "F3-Compila" flink spc
+		[ savestat ; ] "F4-Graba" flink spc
+		'vercod "F5-Dicc" flink spc
 		cr
 		cmano ;
+
 
 |----- Sistema
 :errorcompila
@@ -182,7 +238,6 @@
 	saverror
 	"debug.err" savemem
 	empty
-
 |	savestat
 	"edit-code.txt" run ;
 
@@ -195,8 +250,6 @@
 	'nombre tokencomp
 	msg 1? ( drop errorcompila ; ) drop
 	tokenpost
-|	savestat | guarda info
-|	savecode | guarda codigo
 	msg 1? ( drop errorpost ; ) drop
 	consola
 	;
