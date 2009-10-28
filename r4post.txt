@@ -161,6 +161,32 @@
 -1 0 0 0 |"MPLAY"
 )
 
+||||||||||||||| llamadas entre palabras
+#llamadas )( 8192
+#flags )( 8192
+
+:resetllamadas | --
+	'llamadas >r
+	4096 ( 1? )( 1-
+		0 r!+
+		) drop rdrop ;
+
+:addcall | n -- nant
+	2 << 'llamadas +
+	dup @ dup 1+
+	rot ! ;
+
+:useaddr | n --
+	2 << 'flags +
+	dup @ 1 or swap ! ;
+
+::getllamadas | n -- v
+	2 << 'llamadas + @ ;
+
+::getflags | n -- v
+	2 << 'flags + @ ;
+
+
 |----- Imprime codigo tokenizado
 :getcte
 	8 >> cte + @ ;
@@ -317,15 +343,86 @@
 	;
 
 |-----------------------------------------
+| 0
+|:,,defc | n --  define codigo
+|:,,defv | n --  define variable
+|:,,litd | n --	numero decimal
+|:,,lith | n --	numero hexa
+|:,,litb | n --	numero binario
+|:,,litf | n --	numero punto fijo
+|:,,lits | n --	string
+|:,,word | n --  word <---- debe ser calculado
+|:,,var	 | n --  var
+|:,,dword | n --  dir word
+|:,,dvar | n --  dir var
+|";"
+
+:agregadir | dirv n c -- dirv .. n c
+	over 8 >>		| n c v
+	dup useaddr		| n c v
+	dup addcall		| n c v cc
+	1? ( 2drop ; ) drop | n c v
+	4 << 'indicepal + 4+ @ rot rot ;
+
+| recorre buscando direcciones
+:recorrevar | dir var -- dir .. 	; todas las palabras son direcciones
+	4 << 'indicepal + 4+ @ | dir dirv
+|	dup memmap
+	( @+ dup $ff and
+		1 =? ( 0 nip ) | corta con defc
+		2 =? ( 0 nip ) | corta con defv
+		1? )( 	 | dirv n c
+		8 =? ( agregadir )
+		9 =? ( agregadir )
+		10 =? ( agregadir )
+		11 =? ( agregadir )
+		2drop
+		)
+	3drop
+	;
+
+:agregapalabra
+	;
+
+:pasoexe | dir n -- dir
+	0? ( 2drop ; )
+ 	dup $ff and      | dir n c
+	12 >? ( 2drop ; )
+	8 =? ( | call word
+		drop 8 >>	| dir v
+		dup addcall 1? ( 2drop ; ) drop | solo suma 1 ; dir n
+        4 << 'indicepal + 4+ @ ; )
+	9 =? ( | var
+		drop 8 >>
+		dup addcall 1? ( 2drop ; ) drop
+		recorrevar
+		; )
+	10 =? ( | dir word
+		drop 8 >>	| dir v
+		dup dup useaddr
+		addcall 1? ( 2drop ; ) drop | solo suma 1 ; dir n
+        4 << 'indicepal + 4+ @ ; )
+	11 =? ( | dir var
+		drop 8 >>
+		dup dup useaddr
+		addcall 1? ( 2drop ; ) drop
+		recorrevar
+		; )
+	12 =? ( | ;
+		3drop ; )
+	2drop
+	;
+
 ::tokenpost | --
+	|----- recorre en ejecucion
+	resetllamadas
+	0 <<boot
+	( 1? )( @+ pasoexe )
+	drop
 	|----- recorre por palabra
 	'indicepal
 	( indicepal> <? )( pasowor )
 	drop
-	|----- recorre en ejecucion
-|	<<boot
-|	( @+ 1? )( pasoexe )
-|	2drop
 	;
 
 |-----------------------------------------
@@ -388,9 +485,8 @@
 | 'string | 'mem | first | last		16 bytes (32 includes)
 
 |------------------------------------
-#inia
 ::savestat
-	here 'inia !
+	mark
 	'indicepal ( indicepal> <? )(
 		@+ >r | "%w " ,print
 		@+ drop | " %h  " ,print  -- direccion no me interesa
@@ -407,13 +503,14 @@
 	str> str - "%d string%." ,print
 |	<<boot "%d%." ,print
 	,cr
-	imprimecodigo+dato
-	inia here over - "stat.inf" save |  graba archivo
+|	imprimecodigo+dato
+	"stat.inf" savemem |  graba archivo
+	empty
 	;
 
 |------------------------------------
 ::savecode
-	here 'inia !
+	mark
 	str> str -
 	cte> cte -
 	prog> prog  -
@@ -421,5 +518,6 @@
 	here prog prog> over - dup 'here +! cmove
 	here cte cte> over - dup 'here +! cmove
 	here str str> over - dup 'here +! cmove
-	inia here over - "token.r4c" save |  graba archivo
+	"token.r4c" savemem |  graba archivo
+	empty
 	;
