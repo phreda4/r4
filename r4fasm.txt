@@ -3,24 +3,87 @@
 |---------------
 ^gui3.txt
 ^r4comp.txt
+^r4post.txt
 
 #nombreimg )( 64
 
 #msgOK "OK."
 #mensaje 'msgOk
 
+||||||||||||||||||||||||||||||||||||||||||||||||
+:getcte		8 >> cte + @ ;
+:getstr     8 >> str + ;
+:nro>dicn   8 >> 4 << 'indicepal + @ ;
+
+||||||||||||||||||||||||||||||||||||||||||||||||
+:coldefw nro>dicn ":%w" ,print ;
+:coldefv nro>dicn "#%w" ,print ;
+:colitd	getcte "%d" ,print ;
+:colith getcte "$%h" ,print ;
+:colitb	getcte "%%%b" ,print ;
+:colitf getcte "%f" ,print ;
+:colits	getstr """%s""" ,print ;
+:colwor	nro>dicn "%w" ,print ;
+:colvar	nro>dicn "%w" ,print ;
+:coldwo	nro>dicn "'%w" ,print ;
+:coldva	nro>dicn "'%w" ,print ;
+
+#codei 0 'coldefw 'coldefv colitd colith colitb colitf colits colwor colvar coldwo coldva
+
+||||||||||||||||||||||||||||||||||||||||||||||||
+:genvar | nro llamadas -- nro llamadas
+	over "v%h  " ,print
+	over 4 << 'indicepal + 4+ @
+	( @+ dup $ff and
+		1 =? ( 0 nip ) | corta con defc
+		2 =? ( 0 nip ) | corta con defv
+		1? )( 	 | dirv n c
+		12 <? ( 2 << 'codei + @ exec )( 2drop )
+		,sp
+		)
+	3drop
+	,cr ;
 
 :compiladato
 	mark
-	";---:r4 compiler dat.asm" ,s
-
+	";---:r4 compiler dat.asm" ,s ,cr
+	0 ( cntword cntvars + <? )(
+		pal@inf | n -- n i
+		1 nand? ( drop )( drop
+			dup getllamadas 1? ( genvar ) drop
+			)
+		1+ ) drop
 	0 ,c
 	"r4asm/dat.asm" savemem
 	empty ;
 
+||||||||||||||||||||||||||||||||||||||||||||||||
+:,token | a -- a.
+	@+ dup $ff and
+	12 <? ( 2 << 'codei + @ exec ; ) nip
+	nro>macro ,s ;
+
+:gencodigo | nro llamadas -- nro llamadas
+	over "w%h: " ,print
+	over 4 << 'indicepal +
+	dup @ "; %w" ,print ,cr
+	dup 4+ @ swap 12 + @
+	( 1? )( 1- swap
+		,sp ,token swap
+		$f nand? ( ,cr ) )
+	2drop
+	,cr
+	;
+
 :compilacodigo
 	mark
-	";---:r4 compiler cod.asm" ,s
+	";---:r4 compiler cod.asm" ,s ,cr
+	0 ( cntword cntvars + <? )(
+		pal@inf | n -- n i
+		1 and? ( drop )( drop
+			dup getllamadas 1? ( gencodigo ) drop
+			)
+		1+ ) drop
 	0 ,c
 	"r4asm/cod.asm" savemem
 	empty ;
@@ -30,9 +93,7 @@
 	'nombreimg "./nom/editor.nom" load drop
 	'nombreimg tokencomp
 |	msg 1? ( drop errorcompila ; ) drop
-|	tokenpost
-|	savestat | guarda info
-|	savecode | guarda codigo
+	tokenpost
 |	msg 1? ( drop errorpost ; ) drop
 	;
 
@@ -40,8 +101,10 @@
 :main
 	mark
 	cargaimagen
+
 	compiladato
     compilacodigo
+
 	inigui
 	'exit >esc<
 	show clrscr

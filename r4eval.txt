@@ -23,7 +23,6 @@
 	-4 'pilavars> +! ;
 
 |-------- infopal
-
 :printwordal | n --
 	4 << 'indicepal +
 	@+ "%w " print @+ " %h  " print @+ " %h  " print @+ " %h  " print cr
@@ -101,10 +100,8 @@
 
 :drawtrace
 	dumpvm
-
 	'pilaexe
 	( pilaexe> <? )( @+ exprintword cr ) drop
-
 	;
 
 |||||||||||||||||||||||||
@@ -146,18 +143,86 @@
 	;
 
 |-------------------------------------------------------------
-:compila
-|	savetokens
-	"r4fasm.txt" run ;
+
+||||||||||||||||||||||||||||||||||||||||||||||||
+:getcte		8 >> cte + @ ;
+:getstr     8 >> str + ;
+:nro>dicn   8 >> 4 << 'indicepal + @ ;
+
+:coldefw nro>dicn ":%w" ,print ;
+:coldefv nro>dicn "#%w" ,print ;
+:colitd	getcte "%d" ,print ;
+:colith getcte "$%h" ,print ;
+:colitb	getcte "%%%b" ,print ;
+:colitf getcte "%f" ,print ;
+:colits	getstr """%s""" ,print ;
+:colwor	nro>dicn "%w" ,print ;
+:colvar	nro>dicn "%w" ,print ;
+:coldwo	nro>dicn "'%w" ,print ;
+:coldva	nro>dicn "'%w" ,print ;
+
+#codei 0 'coldefw 'coldefv colitd colith colitb colitf colits colwor colvar coldwo coldva
+
+:,token | a -- a.
+	@+ dup $ff and
+	12 <? ( 2 << 'codei + @ exec ; ) nip
+	nro>macro ,s ;
+
+:gencod | adrr --
+	dup @ swap 8 + @
+	( 1? )( 1- swap ,sp ,token swap
+		$f nand? ( ,cr ) )
+	2drop ;
+
+||||||||||||||||||||||||||||||||||||||||||||||||
+:genvar | adrr --
+	@
+	( @+ dup $ff and
+		1 =? ( 0 nip ) | corta con defc
+		2 =? ( 0 nip ) | corta con defv
+		1? )( 	 | dirv n c
+		12 <? ( 2 << 'codei + @ exec )( 2drop )
+		,sp
+		$3c nand? ( ,cr )
+		)
+	3drop ;
+
+:gencodigo | nro llamadas -- nro llamadas
+	over 4 << 'indicepal +
+	dup 8 + @ 1 and? ( 'genvar "#" )( 'gencod ":" ) ,s nip
+	swap @+ "%w " ,print
+	swap exec ,cr
+	;
+
+:genplain
+	mark
+	0 ( cntword cntvars + <? )(
+		dup getllamadas 1? ( gencodigo ) drop
+		1+ ) drop
+	"plain.txt" savemem
+	empty
+	exit
+	;
 
 ||||||||||||||||||||||||||||||||||||||||||||||||
 #pagina 0
+#actual 0
+
+:refresca
+	actual -? ( 0 nip )
+	pagina <? ( dup 'pagina ! )
+	pagina 39 + >? ( dup 39 - 'pagina ! )
+	'actual !
+	;
+
 :vercod
+	0 dup 'pagina ! 'actual !
 	inigui
 	'exit >esc<
-	[ 30 'pagina +! ; ] <dn>
-	[ -30 'pagina +! ; ] <up>
-
+	[ 1 'actual +! refresca ; ] <dn>
+	[ -1 'actual +! refresca ; ] <up>
+	[ 30 'actual +! refresca ; ] <pgdn>
+	[ -30 'actual +! refresca ; ] <pgup>
 	show clrscr
 		verde
 		"" 5 boxprint
@@ -166,9 +231,11 @@
 		"DS" 5 boxprint
 		"Flags" 10 boxprintr
 		" Bytes" 7 boxprint
-		"llamadas" print cr
+		"Calls" 7 boxprint
+		"'" print cr
 		pagina 40 ( 1? )( 1-
 			swap
+			actual =? ( ">" )( " " ) print
 			dup "%d." verde 5 boxprint
 			dup printlineword
 			dup getllamadas 1? ( "%d" )( "" nip ) 6 boxprint
@@ -177,13 +244,7 @@
 			1+ swap ) 2drop
 		cr
      	verde
-		"| A-01 0 accion 1 dato" print cr
-		"| B-02 0 local 1 exportado" print cr
-		"| C-04 0 un ; 1 varios ;" print cr
-		"| D-08 0 sin calls 1 con calls" print cr
-		"| E-10 0 no usas R(A) 1 usa R(A) .. R(A) es cuando R se usa como auxiliar" print cr
-		"| F-20 0 nunca como direccion 1 alguna vez como direccion" print cr
-
+		actual printword
 		cmano ;
 
 ||||||||||||||||||||||||||||||||||||||||||||||||
@@ -206,16 +267,12 @@
 	'exit >esc<
 	'stepvm <f1>
 	'stepvmf <f2>
-	'compila <f3>
-
-	'vercod <f5>
-	startvm
+	startvm | cambia las direcciones de variable!!
 	show clrscr	fonti | 	25 fonth
 		"r4Eval: " print blanco 'nombre print cr
 		msg 1? ( rojo print cr )( drop )
-		drawstat
-		|drawtoken
-		|drawmemvar
+		drawstat cr
+		|drawtoken		|drawmemvar
 		drawtrace
 		cr cr
 		0 rows 2 - at
@@ -225,9 +282,8 @@
 		$222222 $ff00 linkcol
 		'stepvm "F1-Step" flink spc
 		'playvm "F2-Play" flink spc
-		'compila "F3-Compila" flink spc
-		[ savestat ; ] "F4-Graba" flink spc
-		'vercod "F5-Dicc" flink spc
+		'savecode |[ savestat ; ]
+			"F4-Graba" flink spc
 		cr
 		cmano ;
 
@@ -244,6 +300,10 @@
 :errorpost
 	;
 
+:compila
+|	savetokens
+	"r4fasm.txt" run ;
+
 |----------- principal
 :main
 	'nombre "./nom/editor.nom" load drop
@@ -251,7 +311,22 @@
 	msg 1? ( drop errorcompila ; ) drop
 	tokenpost
 	msg 1? ( drop errorpost ; ) drop
-	consola
-	;
+
+	inigui
+	'exit >esc<
+	'consola <f1>
+	'vercod <f2>
+	'genplain <f3>
+	'compila <f4>
+	show clrscr verde
+		dup "(%d)" print
+		"Programa compilado" print cr
+
+		blanco
+		"F1-Debuger" print cr
+		"F2-Ver Diccionario" print cr
+		"F3-GenCodigo(plain.txt)" print cr
+		"F4-Compilar(plain.txt)" print cr
+		;
 
 : 0 paper 4 main "edit-code.txt" run  ;
