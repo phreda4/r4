@@ -10,10 +10,14 @@
 |^trace.txt
 |^fonth.txt
 
-#lugar
-#nombre )( 64
+^fontt.txt
+^fonts/vardana8.txt
+|^fonts/vardana12.txt
+|^fonts/arial8.txt
 
-#fuente )( $3ffff	| 256k de fuente editable
+#lugar
+
+#fuente 0 |)( $3ffff	| 256k de fuente editable
 #fuente> 'fuente	| cursor
 #$fuente 'fuente	| fin de texto
 
@@ -21,19 +25,21 @@
 #pantafin>	| fin de pantalla
 #prilinea	| primera linea visible
 #actlinea	| linea actual
-
-#helptxt )( $3fff | 16k help file
+#cntlineas
 
 #inisel 0 | inicio seleccion
 #finsel 0 | fin seleccion
 
+#helptxt )( $3fff | 16k help file
+
 #clipboard )( $3fff
 #clipboard> 'clipboard
 
-#cntlineas
+|---- debug.err
 
-#error )( 32
+#nombre )( 64
 #nrolin )( 32
+#error )( 32
 #ncar 0
 #nlin 0
 
@@ -54,14 +60,14 @@
 	fuente> $fuente >=? ( drop ; ) drop
 	1 'fuente> +!
 :back
-	fuente> 'fuente <=? ( drop ; )
+	fuente> fuente <=? ( drop ; )
 	dup 1- swap $fuente over - 1+ cmove
 	-1 '$fuente +!
 	-1 'fuente> +!
 	;
 
 :<<13 | a -- a
-	( 'fuente >=? )( dup c@
+	( fuente >=? )( dup c@
 		13 =? ( drop ; )
 		drop 1- ) ;
 
@@ -106,7 +112,7 @@
 	fuente> 1- <<13 swap - ;
 
 :karriba
-	fuente> 'fuente =? ( drop ; )
+	fuente> fuente =? ( drop ; )
 	selecc
 	dup 1- <<13		| cur inili
 	swap over - swap	| cnt cur
@@ -136,7 +142,7 @@
 
 :kizq
 	selecc
-	fuente> 'fuente >?
+	fuente> fuente >?
 	( 1- 'fuente> ! selecc ; ) drop
 	;
 
@@ -152,21 +158,22 @@
 
 |---------------   mover fuente
 :e.clear
-	'fuente dup 'pantaini> ! dup 'fuente> ! '$fuente !
+	fuente dup 'pantaini> ! dup 'fuente> ! '$fuente !
 	0lin ;
 
 |------------------------------------------------
 :loadtxt | -- cargar texto
-	mark 
+	mark
 	here 'nombre load 0 swap c!
-	'fuente dup 'pantaini> ! 'fuente> !
+	
+	fuente dup 'pantaini> ! 'fuente> !
 
 	|-- si no hay cr y si ln reemplazar
 	0 here ( c@+ 1? )( 13 =? ( rot 1+ rot rot ) drop ) 2drop
 	0? ( here ( c@+ 1? )( 10 =? ( 13 pick2 1- c! ) drop ) 2drop )
 	drop
 	|--quitar 10
-	'fuente here ( c@+ 1? )(
+	fuente here ( c@+ 1? )(
 		10 =? ( drop swap fuente> <? ( -1 'fuente> +!  ) swap )( rot c!+ swap )
 		) 2drop '$fuente ! 0lin
 
@@ -178,10 +185,11 @@
 
 :savetxt
 	mark
-	'fuente ( c@+ 1? )( 13 =? ( ,c 10 ) ,c ) 2drop
+	fuente ( c@+ 1? )( 13 =? ( ,c 10 ) ,c ) 2drop
 	'nombre savemem
 	empty
-	nlin -1 =? ( 'nombre count "./nom/editor.nom" save )( "" 1 "debug.err" save -1 'nlin ! ) drop
+	nlin -1 =? ( 'nombre count "./nom/editor.nom" save 
+			)( "" 1 "debug.err" save -1 'nlin ! ) drop
 	;
 
 |-------------------------------------------
@@ -195,7 +203,8 @@
 :borrasel
 	inisel finsel $fuente finsel - 4+ cmove
 	finsel inisel - neg '$fuente +!
-	fuente> inisel >=? ( finsel <=? ( inisel 'fuente> ! )(  finsel inisel - over swap - 'fuente> ! ) )  drop
+	fuente> inisel >=? ( finsel <=? ( inisel 'fuente> ! 
+		)(  finsel inisel - over swap - 'fuente> ! ) )  drop
 	0 dup 'inisel ! 'finsel ! ;
 
 :kdel
@@ -226,7 +235,7 @@
 	pantaini> 0 ( cntlineas <? )(
 		dup prilinea +
 		actlinea =? ( blanco )( gris )
-		1+ "%d" 3 boxprintr spc
+		1+ "%d" 3 boxprintr sp
 		swap
 		$fuente <? (
 			4 col drawsel
@@ -314,7 +323,7 @@
 	dup c@
 	$23 <>? ( 2drop ; ) | no es #
 	drop
-	'fuente - 'lugar !
+	fuente - 'lugar !
 	'lugar 68 "./nom/1spr.nom" save
 	"edit-1spr.txt" run
 	;
@@ -404,8 +413,8 @@
 :lineastatus
 	modo 'lins =? ( "INS" )( "OVR" ) nip
 	" %s | " print
-	finsel 0? ( drop "0" )( 'fuente - inisel 'fuente - "%d..%d" ) print
-|	$fuente 'fuente -
+	finsel 0? ( drop "0" )( fuente - inisel fuente - "%d..%d" ) print
+|	$fuente fuente -
 	actlinea 1+ " | %d" print
 	 clipboard> 'clipboard <>? ( " | *" print ) drop
 	;
@@ -438,14 +447,19 @@
 	'directrun <f9>
 	'compilando <f11>
 
-	scr fonti |25 fonth
+	scr 
+	fonti
+|25 fonth
+|	'vardana8 tfont
+|	'arial8 tfont
+
 	rows 4 - 'cntlineas !
 	33
 	show clrscr
-		fonti |25 fonth
 		gris oscuro linefill
 		dup blanco "(%d)" print
 		verde " :R4 Edit " print  'nombre "%s" blanco print cr
+
 		gris oscuro linefill
 		verde 'mensaje " %s " print cr
 
@@ -454,27 +468,29 @@
 		gris oscuro linefill
 		blanco
 		$222222 $ff0000 linkcol
-		'exit "ESC" spc link spc
+		'exit "ESC" sp link sp
 		$222222 $ff00 linkcol
-		'helpcode "F1-Help" link spc
+		'helpcode "F1-Help" link sp
 
-|		'searchw "F2-Search" link spc
-|		'medit "F3-MEdit" link spc
+|		'searchw "F2-Search" link sp
+|		'medit "F3-MEdit" link sp
 
-		'openfile "F5-Open" link spc
-		'newfile "F6-New" link spc
+		'openfile "F5-Open" link sp
+		'newfile "F6-New" link sp
 
-		'evaluando "F8-Eval" link spc
-		'directrun "F9-Run" link spc
+		'evaluando "F8-Eval" link sp
+		'directrun "F9-Run" link sp
 		'compilando "F11-Asm" link cr
 		gris oscuro linefill
 		blanco lineastatus cr
 		cmano ;
 
 :buscaerror
-	"" 'error !  -1  'nlin ! 0 'ncar !
-	mem "debug.err" load mem 4+ <? ( drop  ; ) 0 swap !
-	mem
+	"" 'error !
+	-1  'nlin !
+	0 'ncar !
+	here "debug.err" load here 4+ <? ( drop ; ) 0 swap !
+	here
 	'nombre swap ( c@+ $7c <>? )( rot c!+ swap ) drop 0 rot c!
 	'nrolin swap ( c@+ $7c <>? )( rot c!+ swap ) drop 0 rot c!
 	'nrolin ?numero 1? ( drop nip )  'nlin !
@@ -488,8 +504,10 @@
 |----------- principal
 :main
 	'helptxt "helpr4.txt" load drop
-
+    mark
 	buscaerror
+	empty
+
 	nlin -1 =? ( 'nombre "./nom/editor.nom" load drop ) drop
 
 	loadtxt
@@ -497,5 +515,18 @@
 	savetxt
 	;
 
-: 0 paper 4 main "main.txt" run  ;
+:ram
+	here dup 'fuente ! 
+	dup 'fuente> !
+	dup '$fuente !
+	$3ffff +	| 256kb texto
+	'here  !
+	;
+
+: 0 paper
+	mark
+	ram
+	4 main
+	empty
+	"main.txt" run  ;
 
