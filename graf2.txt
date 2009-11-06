@@ -1,0 +1,121 @@
+| rutinas graficas 2
+| para compilador
+| PHREDA 2009
+|----------------------------
+^gui3.txt
+
+|--------------------------------------
+:fillsolid | cnt --
+	( 1? )( 1- inka px!+ ) drop ;
+
+|--------------------------------------
+#rc #gc #bc
+#sr #sg #sb
+
+:pasocol | -- col
+	rc sr + dup 'rc ! $ff0000 and
+	gc sg + dup 'gc ! 8 >> $ff00 and or
+	bc sb + dup 'bc ! 16 >> $ff and or ;
+
+:fillramp | cnt --
+	inka px!+ 1- ( 1? )( 1- pasocol px!+ ) drop inkb 'inka ! ;
+
+:setramp | cnt --
+	inka inkb
+	over $ff0000 and dup 'rc ! over $ff0000 and swap - pick3  / 'sr !
+	over 8 << $ff0000 and dup 'gc ! over 8 << $ff0000 and swap - pick3  / 'sg !
+	swap 16 << $ff0000 and dup 'bc ! swap 16 << $ff0000 and swap - swap  / 'sb !
+	;
+
+:addramp | cnt --
+	sr over * 'rc +!
+	sg over * 'gc +!
+	sb * 'bc +! ;
+
+| degrade entre dos colores
+|------------------------------------
+::cmorph | cant col1 col2 --
+	over px!+
+	over $ff0000 and dup 'rc ! over $ff0000 and swap - pick3  / 'sr !
+	over 8 << $ff0000 and dup 'gc ! over 8 << $ff0000 and swap - pick3  / 'sg !
+	swap 16 << $ff0000 and dup 'bc ! swap 16 << $ff0000 and swap - over  / 'sb !
+	1- ( 1? )( 1- pasocol px!+ ) drop
+	;
+
+|---------------------------------
+| formato de scanline
+| 00 <-color
+|   000 <-cantidad de pixels
+|      000 <-pixel de inicio
+| precondiciones:
+| pixel de inicio esta ordenado
+| la cantidad de pixels puede solaparse
+|
+|
+#paleta0
+$0
+$ff
+$ff00
+$ff0000
+
+#scanline
+$0100f002
+$0000f003
+$0200303f
+$0000f04f
+$0300f06f
+$0000f07f
+0
+
+#scanline2
+$0100f003
+$0000f005
+$0200303f
+$0000f045
+$0300f06f
+$0000f075
+0
+
+#xact 0
+:renderscanline | 'scanline --
+	0 'inka !
+	0 'xact !
+	( @+ 1? )(
+		dup $fff and
+		xact >? ( dup xact - fillsolid )
+
+		over 22 >> $3fc and 'paleta0 + @ 'inkb !
+		swap 12 >> $fff and dup setramp	fillramp
+
+		'xact !
+		inkb 'inka !
+		) 2drop
+	;
+| 1.- xini es > a xact.. rellenar lo que falta (o avanzar)
+| 2.- calcular degrade (antes buscar colores)
+| 3.- buscar solapamiento del siguiente
+|---------------------------------
+:main
+	inigui
+	'exit >esc<
+	show clrscr
+
+		0 20 setxy 'scanline renderscanline
+		0 21 setxy 'scanline2 renderscanline
+
+		cmano ;
+:l
+		10 10 setxy
+		$ff00 'inka !
+		20 fillsolid
+		0 'inkb !
+		50 setramp
+		20 addramp
+		30 fillramp
+
+		10 11 setxy
+		$ff00 'inka !
+		20 fillsolid
+		50 $ff00 $0 cmorph
+;
+: 33 main "main.txt" run ;

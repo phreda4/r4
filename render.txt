@@ -8,94 +8,20 @@
 #color32
 #luz
 
-|:construye
-|	luz normal * color32 escala  ;
-
-|
-|	if (t1==t2) continue;// evita /0
-|	ir=((i-t1)<<16)/(t2-t1);// ojo dif !=0
-|	x=interpolaf(x1,x2,ir);y=interpolaf(y1,y2,ir);
-
-|	punto de interpolacion
-|	lineal  time1=0 time2=$10000
-| mix=0			..a
-| mix=$10000	..b
-::interpolaf | a b mix -- v		;(a,b,mix) ((b*mix+a*((1<<16)-mix))>>16)
-	dup >r * swap $10000 r> - * + 16 >> ;
-
-|int DiffRGB2(unsigned long int a, unsigned long int b)
-|  return abs((a>>16)-(b>>16)) + abs(((a>>8)&255)-((b>>8)&255)) + abs((a&255)-(b&255));
-::diffrgb2 | a b -- v
-	over 16 >> over 16 >> - abs | a b a1
-	pick2 8 >> $ff and pick2 8 >> $ff and - abs + | a b a2
-	rot $ff and rot $ff and - abs + ;
-
-|int DiffRGB4(unsigned long int a, unsigned long int b, unsigned long int c, unsigned long int d)
-| return abs((a>>16)-(b>>16)) + abs(((a>>8)&255)-((b>>8)&255)) + abs((a&255)-(b&255))
-|       + abs((a>>16)-(d>>16)) + abs(((a>>8)&255)-((d>>8)&255)) + abs((a&255)-(d&255))
-|       + abs((c>>16)-(d>>16)) + abs(((c>>8)&255)-((d>>8)&255)) + abs((c&255)-(d&255))
-|       + abs((c>>16)-(b>>16)) + abs(((c>>8)&255)-((b>>8)&255)) + abs((c&255)-(b&255));
-::diffRGB4 | a b c d -- v
-	pick3 16 >> dup pick4 16 >> - abs swap pick2 16 >> - abs + | a b c d v
-	pick3 8 >> $ff and dup pick4 8 >> $ff and - abs swap pick2 8 >> $ff and - abs + |
-	pick3
-	|*********
-	;
-
 |---------- suma saturada 8 bit por canal
-::sadd | color1 color2 -- col1+col2	 
+::sadd | color1 color2 -- col1+col2
 	2dup + dup >r 			| col1 col2 res     r: res
 	 xor xor $1010100 and	| overflow   r: result o $808080
 	r> over -				| over result-over
-	swap dup 8 >> -			| result over 8 >> 
-	or $ffffff and ;			| result OR over 
-
-:shadercod
-	2dup * pick2 + 
+	swap dup 8 >> -			| result over 8 >>
+	or $ffffff and ;		| result OR over
 
 #suma
 
 :shaderxor	| xf yf -- xf yf color
 	over suma + over suma + xor  ;
 
-
-#inicolor
-#stepcolor
-#deltaxcolor
-#deltaycolor
-
-:avanzax
-	stepcolor deltaxcolor + 'stepcolor ! ;
-:avanzay
-	inicolor  deltaycolor + dup 'stepcolor ! 'inicolor ! ;
-
-::gradiente | sw sh R: vframe  --
-	inicolor 'stepcolor !
-	>r over ( 1? )( 1-
-		over ( 1? )( 1-
-			stepcolor r!+
-			avanzax ) drop
-		avanzay ) drop
-	1 'suma +!
-	2drop rdrop ;
-
-
 |---- principal
-::renderee | sw sh R: vframe  --
-	>r over ( 1? )( 1-
-		over ( 1? )( 1-
-
-|			gettexturaxy
-|			getbintextxy
-|			hacecolor
-|			r @ sadd
-
-			r!+ ) drop
-		) drop
-	1 'suma +!
-	2drop rdrop ;
-
-
 ::renderback
 	framev >r
 	0 ( sh <? )(
@@ -126,29 +52,7 @@
 		1+ ) drop
 	rdrop ;
 
-
-
 |-------------------------------------
-:raypixel | x y -- x y x y z
-
-	;
-
-:castray | x y x y z -- x y f(x,y,z)
-	sin nip swap sin * ;
-
-::renderfix
-	0 0 setxy
-	0 ( sh <? )(
-		0 ( sw <? )(
-			raypixel | x y -- x y x y z
-			castray
-			px!+
-			1+ ) drop
-		1+ ) drop
-	;
-
-|-------------------------------------
-
 #lut )( 256
 
 :getlut | n -- nv
