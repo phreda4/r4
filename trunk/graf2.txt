@@ -3,15 +3,35 @@
 | PHREDA 2009
 |----------------------------
 ^gui3.txt
+^trace.txt
+
+| lineas
+#xa #ya
+#xb #yb
+
+| segmentos
+#.... -1 -1 -1 -1
+#segs )( 2048
+#segs> 'segs
+
+| activos por linea
+#activos )( 1024
+#activos> 'activos
+
+| linea de segmentos
+#..... 0
+#linea )( 1024
+#linea> 'linea
+
+| color
+#rc #gc #bc
+#sr #sg #sb
 
 |--------------------------------------
 :fillsolid | cnt --
 	( 1? )( 1- inka px!+ ) drop ;
 
 |--------------------------------------
-#rc #gc #bc
-#sr #sg #sb
-
 :pasocol | -- col
 	rc sr + dup 'rc ! $ff0000 and
 	gc sg + dup 'gc ! 8 >> $ff00 and or
@@ -24,8 +44,7 @@
 	inka inkb
 	over $ff0000 and dup 'rc ! over $ff0000 and swap - pick3  / 'sr !
 	over 8 << $ff0000 and dup 'gc ! over 8 << $ff0000 and swap - pick3  / 'sg !
-	swap 16 << $ff0000 and dup 'bc ! swap 16 << $ff0000 and swap - swap  / 'sb !
-	;
+	swap 16 << $ff0000 and dup 'bc ! swap 16 << $ff0000 and swap - swap  / 'sb ! ;
 
 :addramp | cnt --
 	sr over * 'rc +!
@@ -39,8 +58,7 @@
 	over $ff0000 and dup 'rc ! over $ff0000 and swap - pick3  / 'sr !
 	over 8 << $ff0000 and dup 'gc ! over 8 << $ff0000 and swap - pick3  / 'sg !
 	swap 16 << $ff0000 and dup 'bc ! swap 16 << $ff0000 and swap - over  / 'sb !
-	1- ( 1? )( 1- pasocol px!+ ) drop
-	;
+	1- ( 1? )( 1- pasocol px!+ ) drop ;
 
 |---------------------------------
 | formato de scanline
@@ -53,7 +71,7 @@
 |
 |
 #paleta0
-$0
+$0ff
 $ff
 $ff00
 $ff0000
@@ -76,6 +94,14 @@ $0300f06f
 $0000f075
 0
 
+#scanline3
+$01005032
+0
+
+| 1.- xini es > a xact.. rellenar lo que falta (o avanzar)
+| 2.- calcular degrade (antes buscar colores)
+| 3.- buscar solapamiento del siguiente
+
 #xact 0
 :renderscanline | 'scanline --
 	0 'inka !
@@ -85,26 +111,147 @@ $0000f075
 		xact >? ( dup xact - fillsolid )
 
 		over 22 >> $3fc and 'paleta0 + @ 'inkb !
-		swap 12 >> $fff and dup setramp	fillramp
+		swap 12 >> $fff and 1? ( dup setramp fillramp )( drop )
 
 		'xact !
 		inkb 'inka !
 		) 2drop
 	;
-| 1.- xini es > a xact.. rellenar lo que falta (o avanzar)
-| 2.- calcular degrade (antes buscar colores)
-| 3.- buscar solapamiento del siguiente
+
+:insscan | v dir-4 vx --
+	4+ dup | v dir d2
+	4+ over linea> over - 2 >> move>
+	!
+	4 'linea> +! ;
+
+:addscan | v --
+	linea>
+	( 'linea >? )( 4 -
+		dup @ $fff and pick2 $fff and
+		<? ( drop insscan ; )
+		drop )
+	drop
+	linea> !+ 'linea> !	;
+
+:generoscanline
+	'linea 'linea> !
+	'activos
+	( activos> <? )( @+ | dir
+		4+ dup
+		@+ swap @ | dirx x deltax
+		over + | x newx
+		rot over swap ! | actualiza x
+		over >? ( swap ) | x2 x1
+		8 >> swap 8 >> over - | x1 dif
+		12 << $fff000 and or
+		$02000000 or | color
+		addscan
+		) drop
+	0 linea> !
+	'linea renderscanline
+|	'scanline3 renderscanline
+	;
 |---------------------------------
+
+:iniseg
+	'segs 'segs> ! ;
+
+:insseg | ymax deltax x ymin seg --
+	16 + dup
+	16 + over segs> over - 2 >> move>
+	!+ !+ !+ !
+	16 'segs> +!
+	;
+
+:addseg | ymax deltax x ymin --
+	segs>
+	( 'segs >=? )( 16 -
+		dup @ pick2 <? ( drop insseg ; )
+		drop )
+	drop
+	segs> !+ !+ !+ !+ 'segs> ! ;
+
+:addline
+	ya yb >? ( xa xb yb 'ya ! 'xa ! 'xb ! 'yb ! ya ) | ymin (xa ya yminimos)
+	sw >=? ( drop ; )
+	xb 8 <<
+	xa 8 << - 			| ymin delx
+	yb -? ( 3drop ; )	| ymin delx ymax
+	pick2 - /			| ymin deltax
+	swap -? ( neg over * 'xa +! 0 ) | deltax ymin
+	yb rot rot xa 8 << swap
+	addseg | ymax deltax x ymin --
+	;
+
+|---------------------------------
+:nline | x y --
+	2dup 'yb ! 'xb !
+	ya <>? ( addline ) | ya=yb no dibuja
+:nop | x y --
+	'ya ! 'xa ! ;
+
+|----
+:addact | dir+4 -- dir+4
+	dup 4 - activos> !+ 'activos> ! ;
+
+:delactr | y dir+4 v -- y dir+4 v
+	-4 'activos> +!
+	activos> @ pick2 4 - !
+	;
+
+:delact | y -- y
+	'activos
+	( activos> <? )( @+
+		12 + @ pick2 <=? ( delactr )
+		drop )
+	drop
+	;
+
+:npoli
+	-1 dup dup dup segs> !+ !+ !+ ! | marca ultimo
+	'activos 'activos> !
+	'segs
+	0 ( sw <? )(
+		0 over setxy
+		swap ( @+ pick2 =? )( drop addact 12 + ) drop 4 - swap
+		generoscanline
+		delact
+		1+ )
+	2drop ;
+
+|---------------------------------
+
+
+:prueba1
+	iniseg
+	sw 2/ sh 2/ 2dup
+	nop
+	xymouse nline
+	60 180 nline
+    xymouse swap nline
+	nline
+
+|	'segs memmap
+
+	npoli ;
+
 :main
 	inigui
 	'exit >esc<
 	show clrscr
 
+		prueba1
+		fonti verde
+		'segs
+		( segs> <? )(
+			@+ "y:%d " print @+ "x:%d " print @+ "dx:%d " print @+ "ymax:%d " print cr
+			) drop
+		dup "%d" print
+		cflecha ;
+:l
 		0 20 setxy 'scanline renderscanline
 		0 21 setxy 'scanline2 renderscanline
 
-		cmano ;
-:l
 		10 10 setxy
 		$ff00 'inka !
 		20 fillsolid
