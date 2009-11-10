@@ -2,82 +2,8 @@
 | PHREDA
 | :r4 system library
 |-------------------------
-^key-es1.txt	| Distribucion de teclado - Scancode to Ascii
 
-#modos 'k2asc 'k2ascs
-#:mshift $0
-
-|--- mapa de teclado 256 keys (Up and Dn)
-#:keymap )( 2048
-
-:keydo
-	key 2 << 'keymap + @ exec ;
-
-::keyold
-	'keydo ikey! ;
-
-|--- Eventos del teclado
-::>key 2 << 'keymap + ! ;
-::>ukey 2 << 512 + 'keymap + ! ;
-
-::clearkey
-	'keymap 256 ( 1? )( 1- 0 rot !+ swap ) 2drop ;
-
-::toasc
-	mshift |$1 and | <--
-	2 << 'modos + @ + c@ ;
-
-::inikey
-	keyold
-	clearkey
-	[ mshift $1 or 'mshift ! ; ] dup $2a >key $36 >key | teclas shift
-	[ mshift $2 and 'mshift ! ; ] dup $2a >ukey $36 >ukey | levanta shift
-	;
-
-::<todas> | vec --
-	'keymap 128 ( 1? )( 1-
-		pick2  rot !+ swap ) 3drop ;
-::>todas< | vec --
-	'keymap 512 + 128 ( 1? )( 1-
-		pick2  rot !+ swap ) 3drop ;
-
-::<visible> | vec --
-	>r 'k2asc ( c@+ 1? )( 32 >? ( over 1- 'k2asc - r swap >key ) drop ) 2drop
-	r> $39 >key ; | y espacio
-
-::<cntrl> 29 >key ; ::>cntrl< 29 >ukey ;
-::<esc> 1 >key ;	::>esc< 1 >ukey ;
-::<esp> $39 >key ;	::>esp< $39 >ukey ;
-::<f1> $3b >key ; 	::>f1< $3b >ukey ;
-::<f2> $3c >key ;
-::<f3> $3d >key ; 	::<f4> $3e >key ;
-::<f5> $3f >key ; 	::<f6> $40 >key ;
-::<f7> $41 >key ; 	::<f8> $42 >key ;
-::<f9> $43 >key ; 	::<f10> $44 >key ;
-::<f11> $57 >key ; ::<f12> $58 >key ;
-::<back> $e >key ;
-::<tab> $f >key ;	::<enter> $1c >key ;
-::<home> $47 >key ;	::<end> $4f >key ;
-::<arr> $48 >key ;	::<aba> $50 >key ;
-::<der> $4d >key ;	::<izq> $4b >key ;
-::<ins> $52 >key ;	::<del> $53 >key ;
-::<pgup> $49 >key ; ::<pgdn> $51 >key ;
-
-::>home< $47 >ukey ; ::>end< $4f >ukey ;
-::>arr< $48 >ukey ;	::>aba< $50 >ukey ;
-::>der< $4d >ukey ;	::>izq< $4b >ukey ;
-::>ins< $52 >ukey ;	::>del< $53 >ukey ;
-::>pgup< $49 >key ; ::>pgdn< $51 >key ;
-
-|---- apila teclado
-#teclados )( 4096 | guarda teclados
-#teclados> 'teclados
-
-::key.push
-	teclados> 'keymap 256  move 1024 'teclados> +! ;
-
-::key.pop
-	-1024 'teclados> +! 'keymap teclados> 256 move ;
+^keyboard.txt
 
 |------- punto fijo 16.16
 ::*.	| a b -- c
@@ -85,7 +11,6 @@
 
 ::/.	| a b -- c
 	$ffffff00  nand? ( swap 16 << swap )( swap 8 <<  swap 8 >> ) /  ;
-
 
 |--- Memoria
 |---------------- en macros por velocidad !
@@ -146,16 +71,17 @@
 |3drop 1 ;
 
 |--- Memoria libre
-#:here
-::clear mem 'here ! ;
-::>, 'here ! ;
+#:here 0
+
+|::clear mem 'here ! ;
+
 ::, here !+ 'here ! ;
 ::,c here c!+ 'here ! ;
 |::,w here w!+ 'here ! ;
-::,s ( dup c@ 1? )( ,c 1+ ) 2drop ;
+::,s ( c@+ 1? )( ,c ) 2drop ;
 ::,w ( c@+ 32 >? )( ,c ) 2drop ;
-::,n | dec --
-	-? ( "-" ,s neg )
+::,d | dec --
+	-? ( $2d ,c neg )
 	0 swap ( 10 /mod $30 + swap 0? ) drop
 	( ,c 0? ) drop ;
 ::,h | hex --
@@ -165,6 +91,15 @@
 ::,b | bin --
 	0 swap ( dup $1 and $30 + swap 2/ $7fffffff and 0? ) drop
 	( ,c 0? ) drop ;
+::,f | fix --
+	dup 16 >> ,d
+	$2e ,c | .
+	-? ( not ) $ffff and
+	100 $ff00 */ 100 +	| solo dos decimales *** ojo falta investigar
+	0 swap ( 10 /mod $30 + swap 0? ) drop
+	drop ( ,c 0? ) drop
+	;
+
 ::,ln ,s
 ::,cr 10 ,c ;
 ::,eol 0 ,c ;
@@ -172,17 +107,30 @@
 :,emit | c --
 	$25 <>? ( ,c ; ) drop c@+
 	$73 =? ( drop swap ,s ; )	| s
-	$64 =? ( drop swap ,n ; )	| d
+	$64 =? ( drop swap ,d ; )	| d
 	$68 =? ( drop swap ,h ; )	| h
 	$62 =? ( drop swap ,b ; )	| b
-	$77 =? ( drop swap ,w ; ) | w
+	$77 =? ( drop swap ,w ; )	| w
+	$66 =? ( drop swap ,f ; )	| f
 	$3e =? ( drop 9 ,c ; )		|%> =tab
 	$2e =? ( drop ,cr ; ) 		|%.=enter
-	$25 =? ( ,c 1+ ; )
 	,c ;
 
 ::,print | adr --
 	( c@+ 1? )( ,emit ) 2drop ;
+
+||||||||
+
+#memmap )( 1024
+#memmap> 'memmap
+
+::mark | --
+	here 0? ( mem dup 'here ! nip ) memmap> !+ 'memmap> ! ;
+::empty | --
+	memmap> 'memmap =? ( mem nip )( 4 - dup 'memmap> ! @ ) 'here ! ;
+
+::savemem | "" --
+	memmap> 4 - @ here over - rot save ;
 
 |--- Numero aleatorios
 #:seed 495090497 |5765
@@ -280,4 +228,22 @@
 ::>uv | v -- u v
 	dup >u swap >v ;
 
-#:inverso
+
+|---- corredores
+::>>s | adr -- adr'  _
+	( c@+ 1? )(
+		$5f =? ( drop ; )
+		$7c =? ( drop 1- ; )
+		$7e =? ( drop 1- ; ) | ~ registro
+		drop ) drop 1- ;
+
+::>>f | adr -- adr' |
+	( c@+ 1? )(
+		$7c =? ( drop ; )
+		$7e =? ( drop 1- ; ) | ~ registro
+		drop ) drop 1- ;
+
+::>>fi | adr -- adr'  _
+	( c@+ 1? )(
+		$7e =? ( drop ; ) | ~ registro
+		drop ) drop 1- ;

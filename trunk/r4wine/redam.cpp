@@ -31,9 +31,10 @@
 #include <stdio.h>
 #include <time.h>
 
-//#define OPENGL
+//#define LOGMEM
+#define OPENGL
 #define FMOD
-//#define PRINTER
+#define PRINTER
 
 #include "graf.h"
 #include "sound.h"
@@ -68,11 +69,27 @@ int cWidthPels,cHeightPels;
 
 static const char wndclass[] = ":r4";
 
-//#define LOGMEM
+char setings[1024];
+int rebotea;
+
+
 //#define ULTIMOMACRO 6
 //char *macrose[]={ ";","LIT","ADR","CALL","JMP","JMPR" };
 
-char *macros[]={// directivas del compilador     
+//-- mapa de scancode extendido (quien diseño esto???)
+char mapex[]={
+  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
+ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+ 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+ 48, 49, 50, 51, 52, 69, 70, 71, 56, 73, 74, 75, 76, 77, 78, 79, 
+ 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95,
+ 96, 97, 98, 99, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 
+ 96, 97, 98, 99,100,101,102,103,104,105,106,107,108,109,110,111,
+112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127};
+
+//    if (SYSKEY>0x34 && SYSKEY!=0x38) SYSKEY+=((lParam&0x100)>>4);
+// 0x34-52   0x38-56
+char *macros[]={// directivas del compilador
 ";","(",")",")(","[","]","EXEC",
 "0?","+?","-?","1?","=?","<?",">?","<=?",">=?","<>?","AND?","NAND?",
 "DUP","DROP","OVER","PICK2","PICK3","PICK4","SWAP","NIP","ROT", //--- pila
@@ -93,17 +110,17 @@ char *macros[]={// directivas del compilador
 "FCOL","FCEN","FMAT","SFILL","LFILL","RFILL","TFILL",
 "IPEN!",
 "XYMOUSE","BMOUSE",//-------- mouse
-"IKEY!","KEY", //"KEYX",          //-------- teclado
+"IKEY!","KEY", //"KEYA",          //-------- teclado
 "IJOY!","CNTJOY","GETJOY",     //-------- joystick
 #ifdef FMOD
 "SLOAD","SPLAY","MLOAD","MPLAY",    //-------- sonido
 #else
-"ISON!","SBO","SBI",    // Sound Buffer Ouput/input   
+"ISON!","SBO","SBI",    // Sound Buffer Ouput/input
 #endif
-"SERVER","CLIENT","SEND","RECV","CLOSE",
+"SERVER","CLIENT","SEND","RECV","CLOSE", //--- red
 "TIMER",            //------- timer
 #ifdef PRINTER
-"DOCINI","DOCEND","DOCMOVE","DOCLINE","DOCTEXT","DOCFONT","DOCBIT","DOCRES",
+"DOCINI","DOCEND","DOCMOVE","DOCLINE","DOCTEXT","DOCFONT","DOCBIT","DOCRES", //-- impresora
 #endif
 ""};
 
@@ -129,7 +146,7 @@ OP,CP,LINE,CURVE,PLINE,PCURVE,POLI,//--- dibujo
 FCOL,FCEN,FMAT,SFILL,LFILL,RFILL,TFILL, //--- pintado
 IRMOU,
 XYMOUSE,BMOUSE,
-IRKEY,KEY, //KEYX,
+IRKEY,KEY, //KEYA,
 IRJOY,CNTJOY,GETJOY,
 
 #ifdef FMOD
@@ -168,7 +185,7 @@ int SYSEVENT=0;
 int SYSXYM=0;
 int SYSBM=0;
 int SYSKEY=0;
-//int SYSKEYX=0;
+int SYSKEYA=0;
 
 // vectores de interrupciones
 int SYSirqmouse=0;
@@ -416,9 +433,15 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         NOS++;*NOS=TOS;TOS=sitime->tm_mon+1;NOS++;*NOS=TOS;TOS=sitime->tm_mday;continue;
     case TIME: time(&sit);sitime=localtime(&sit);NOS++;*NOS=TOS;TOS=sitime->tm_sec; 
         NOS++;*NOS=TOS;TOS=sitime->tm_min;NOS++;*NOS=TOS;TOS=sitime->tm_hour;continue;
-    case SISEND: return 0;  
-    case SISRUN: if (TOS!=0) { bootstr=(char*)TOS;exestr=""; }return 1;
+    case SISEND: return 0;
+
+    case SISRUN: 
+//        exestr="";
+        if (TOS==0) { rebotea=1;return 0; }
+        bootstr=(char*)TOS;
+        return 1;
 //    case SISIRUN: if (TOS!=0) exestr=(char*)TOS;return 1;
+
 //--- pantalla
     case WIDTH: NOS++;*NOS=TOS;TOS=gr_ancho;continue;
     case HEIGHT: NOS++;*NOS=TOS;TOS=gr_alto;continue;
@@ -463,7 +486,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 //----- teclado
     case IRKEY: SYSirqteclado=TOS;TOS=*NOS;NOS--;continue;
 	case KEY: NOS++;*NOS=TOS;TOS=SYSKEY;continue;
-//	case KEYX: NOS++;*NOS=TOS;TOS=SYSKEYX;continue;
+//	case KEYA: NOS++;*NOS=TOS;TOS=SYSKEYA;continue;
 //----- joy
     case IRJOY: SYSirqjoystick=TOS;TOS=*NOS;NOS--;continue;
     case CNTJOY: NOS++;*NOS=TOS;TOS=cntJoy;continue;
@@ -572,7 +595,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case RECV:  // 'vector 'buffer --       vector | buff len --
         buffernet=(char*)TOS;SYSirqred=*NOS;
         NOS--;TOS=*NOS;NOS--;
-        continue; 
+        continue;
     case CLOSE:// --
         closesocket(soc); //Shut down socket
         continue;
@@ -806,7 +829,7 @@ int decim=1,num=numero;
 while (num>1) { decim*=10;num/=10; }
 num=0x10000*numero/decim;
 numero=(num&0xffff)|(parte0<<16);
-if (signo==1) numero=-numero;  
+if (signo==1) numero=-numero;
 return 1; };
 
 int esmacro(char *p)
@@ -1162,11 +1185,11 @@ switch (message) {     // handle message
     case WM_MOUSEMOVE:
          if (SYSXYM==lParam) break;
          SYSXYM=lParam;
-         SYSEVENT=SYSirqmouse;//         SYSEVENT=SYSMM;
+         SYSEVENT=SYSirqmouse;
          break;
     case WM_LBUTTONUP: case WM_MBUTTONUP: case WM_RBUTTONUP:
     case WM_LBUTTONDOWN: case WM_MBUTTONDOWN: case WM_RBUTTONDOWN:         
-         SYSBM=wParam;//&3;
+         SYSBM=wParam;
          SYSEVENT=SYSirqmouse;
          break;
     case WM_MOUSEWHEEL:         
@@ -1174,20 +1197,35 @@ switch (message) {     // handle message
          SYSEVENT=SYSirqmouse;
          break;
     case WM_KEYUP:        // (lparam>>24)     ==1 keypad
-//         SYSKEYX=lParam;
-//         SYSKEY=((lParam&0x1000000)?0x10:0)+((lParam>>16)&0x7f)|0x80;
+/*
+         SYSKEYA=(lParam>>24)&0x1; //wParam&0xff;
+         SYSKEY=((lParam>>16)&0x7f)|0x80;
+
          lParam>>=16;
          SYSKEY=lParam&0x7f;
          if (SYSKEY>0x34 && SYSKEY!=0x38) SYSKEY+=((lParam&0x100)>>4);
-         SYSKEY|=0x80;
-         SYSEVENT=SYSirqteclado;
-         break;
+*/
+        lParam>>=16;
+        if ((lParam&0x100)!=0)
+            lParam=mapex[lParam&0x7f];
+        SYSKEY=lParam&0x7f;
+        SYSKEY|=0x80;
+        SYSEVENT=SYSirqteclado;
+        break;
     case WM_KEYDOWN:
-//         SYSKEYX=lParam;
-//         SYSKEY=((lParam&0x1000000)?0x10:0)+(lParam>>16)&0x7f;
+/*
+         SYSKEYA=(lParam>>24)&0x1; //wParam&0xff;
+         SYSKEY=(lParam>>16)&0x7f;
+
          lParam>>=16;
          SYSKEY=lParam&0x7f;
          if (SYSKEY>0x34 && SYSKEY!=0x38) SYSKEY+=((lParam&0x100)>>4);
+*/        
+        lParam>>=16;
+        if ((lParam&0x100)!=0)
+            lParam=mapex[lParam&0x7f];
+        SYSKEY=lParam&0x7f;
+
          SYSEVENT=SYSirqteclado;
          break;
 //---------Winsock related message...
@@ -1259,26 +1297,38 @@ SetUnhandledExceptionFilter(&MyUnhandledExceptionFilter);
 
 int w=640,h=480,fullscreen=0,silent=0;
 int i=0;
+char printername[32];
 char *aa=(char*)lpCmdLine;
-while (*aa!=0) {
-      if ('i'==*aa) { compilastr=aa+1; }
-      if ('c'==*aa) { bootstr=aa+1;exestr=""; }
-      if ('x'==*aa) { exestr=aa+1; }
-      if ('w'==*aa) { esnumero(aa+1);w=numero; }
-      if ('h'==*aa) { esnumero(aa+1);h=numero; }
-      if ('f'==*aa) { fullscreen=1; }      
-      if ('s'==*aa) { silent=1; }
-      if ('?'==*aa) { print_usage();return 0; }
-      while (*aa!=32) aa++;
-      if (32==*aa) *aa=0;
-      aa++; }
-    
+
+strcpy(pathdata,".//");  // SEBAS win-linux
+strcpy(printername,"PrimoPDF");
+strcpy(setings,"pPrimoPDF") ;
+
 mimemset((char*)&wc,0,sizeof(WNDCLASSA));
 wc.style         = 0; //CS_OWNDC;
 wc.lpfnWndProc   = WndProc;
 wc.hInstance     = GetModuleHandle(0);
 wc.lpszClassName = wndclass;
 if(!RegisterClass((WNDCLASSA*)&wc)) return -1;
+
+reboot: rebotea=0;
+
+file=fopen("r4.ini","rb");// cargar r4.ini
+if (file!=NULL) { fread(setings,sizeof(char),1024,file);fclose(file);aa=setings; } 
+
+while (*aa!=0) {
+      if ('i'==*aa) { compilastr=aa+1; }
+      if ('c'==*aa) { bootstr=aa+1;exestr=""; }
+      if ('x'==*aa) { exestr=aa+1; }
+      if ('w'==*aa) { esnumero(aa+1);w=numero; }
+      if ('h'==*aa) { esnumero(aa+1);h=numero; }
+      if ('f'==*aa) { fullscreen=1; }
+      if ('s'==*aa) { silent=1; }
+      if ('p'==*aa) { strcpy(printername,aa); } // pPrimo PDF. 
+      if ('?'==*aa) { print_usage();return 0; }
+      while (*aa!=32&&*aa!=0) aa++;
+      if (32==*aa) *aa=0;
+      aa++; }
 
 if(fullscreen==1)    {
     mimemset((char*)&screenSettings,0,sizeof(screenSettings));
@@ -1307,10 +1357,10 @@ if(!(hDC=GetDC(hWnd)))  return -3;
 
 if (gr_init(w,h)<0) return -1;
 
-phDC=CreateDC("winspool", "PrimoPDF", NULL, NULL );
+phDC=CreateDC("winspool", printername , NULL, NULL );
 mimemset((char*)&di,0,sizeof (DOCINFO));
 di.cbSize = sizeof (DOCINFO);
-di.lpszDocName = "doc";
+di.lpszDocName = "r4doc";
 
 cWidthPels = GetDeviceCaps(phDC, HORZRES);
 cHeightPels = GetDeviceCaps(phDC, VERTRES);
@@ -1323,26 +1373,26 @@ hfnt = CreateFontIndirect(&plf);
 hfntPrev = SelectObject(phDC, hfnt);
 
 InitJoystick(hWnd);
+loaddir();
+//--------------------------------------------------------------------------
+WSAStartup(2, &wsaData);
+
 #ifdef FMOD
     if (!FSOUND_Init(44100, 32, 0)) return -4;
 #else
     if (sound_open(hWnd)!=0) return -4;
 #endif
-strcpy(pathdata,".//");  // SEBAS win-linux
-loaddir();
-//--------------------------------------------------------------------------
-WSAStartup(2, &wsaData);
 
 //--------------------------------------------------------------------------
 recompila:
 
 bootaddr=0;
 if (exestr[0]!=0) {
-   #ifdef LOGMEM		
+   #ifdef LOGMEM
    ldebug("LOAD IMA:");ldebug(exestr);
    #endif
    loadimagen(exestr);
-   } 
+   }
 if (bootaddr==0 && bootstr[0]!=0){
    #ifdef LOGMEM
    ldebug("BOOTSTR:");ldebug(bootstr);
@@ -1350,27 +1400,27 @@ if (bootaddr==0 && bootstr[0]!=0){
    strcpy(linea,bootstr);
    cntindiceex=cntnombreex=cntincludes=0;// espacio de nombres reset
    cntdato=cntprog=0;cntindice=cntnombre=0;
-   if (compilafile(linea)!=COMPILAOK) { 
+   if (compilafile(linea)!=COMPILAOK) {
       grabalinea();
 //    return 1;
       if (exestr==DEBUGR4X) return 1;
       exestr=DEBUGR4X;goto recompila;
       }
    if (compilastr[0]!=0) {
-      #ifdef LOGMEM		                                
+      #ifdef LOGMEM
       ldebug("SAVE IMA:");ldebug(compilastr);
       #endif
       saveimagen(compilastr);
       }
-   }       
+   }
 if (bootaddr==0) {
-   sprintf(error,"%s|0|0|NO BOOT",linea);                    
+   sprintf(error,"%s|0|0|NO BOOT",linea);
    grabalinea();
 //    return 1;
     if (exestr==DEBUGR4X) return 1;
    exestr=DEBUGR4X;goto recompila;//   strcpy(linea,NDEBUG);
    }
-#ifdef LOGMEM		
+#ifdef LOGMEM
 dumpex();dumplocal("BOOT");
 #endif
 memlibre=data+cntdato; // comienzo memoria libre
@@ -1382,8 +1432,8 @@ if (silent!=1 && interprete(bootaddr)==1) goto recompila;
    sound_close();
 #endif
 
-SelectObject(phDC, hfntPrev); 
-DeleteObject(hfnt); 
+SelectObject(phDC, hfntPrev);
+DeleteObject(hfnt);
 DeleteDC(phDC);
 
 ReleaseJoystick();
@@ -1392,6 +1442,9 @@ WSACleanup(); //Clean up Winsock
 gr_fin();
 ReleaseDC(hWnd,hDC);
 DestroyWindow(hWnd);
+
+if (rebotea==1) goto reboot;
+
 ExitProcess(0);
 return 0;
 }
