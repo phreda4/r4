@@ -20,7 +20,9 @@
 
 extern HDC hDC;
 
-extern DWORD gr_buffer[1280*1024];		// buffer de pantalla
+extern DWORD *gr_buffer; //[1280*1024];		// buffer de pantalla
+extern DWORD *XFB;
+
 extern int gr_ancho,gr_alto;
 extern DWORD gr_color1,gr_color2,col1,col2;
 extern BYTE gr_alphav;
@@ -56,5 +58,8 @@ inline void fillcol(DWORD c1,DWORD c2)  { col1=c1;col2=c2; }
 void gr_psegmento(int x1,int y1,int x2,int y2);
 void gr_pspline(int x1,int y1,int x2,int y2,int x3,int y3);
 void gr_drawPoli(void);	
+
+void gr_toxfb(void);
+void gr_xfbto(void);
 
 #endif

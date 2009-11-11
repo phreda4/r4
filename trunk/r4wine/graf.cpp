@@ -20,7 +20,9 @@ HDC     hDC;
 HGLRC   hRC;
 
 //---- buffer de video
-DWORD gr_buffer[1280*1024] = { 0 };
+DWORD *gr_buffer; //[1280*1024] = { 0 };
+DWORD *XFB;
+
 #if 0
 int tablainc[256]={0x0,0xFF00,0x7F80,0x5500,0x3FC0,0x3300,0x2A80,0x246D,0x1FE0,0x1C55,0x1980,0x172E,0x1540,0x139D,0x1236,0x1100,
 0xFF0,0xF00,0xE2A,0xD6B,0xCC0,0xC24,0xB97,0xB16,0xAA0,0xA33,0x9CE,0x971,0x91B,0x8CB,0x880,0x839,
@@ -80,6 +82,10 @@ BITMAPINFO bmi = {{sizeof(BITMAPINFOHEADER),800,-600,1,32,BI_RGB,0,0,0,0,0},{0,0
 int gr_init(int XRES,int YRES)
 {
 gr_sizescreen=XRES*YRES;// tamanio en DWORD
+
+gr_buffer=(DWORD*)VirtualAlloc(0,gr_sizescreen<<2, MEM_COMMIT, PAGE_READWRITE);
+XFB=(DWORD*)VirtualAlloc(0,gr_sizescreen<<2, MEM_COMMIT, PAGE_READWRITE);
+
 gr_ypitch=gr_ancho=XRES;
 gr_alto=YRES;
 //---- poligonos2
@@ -147,7 +153,11 @@ StretchDIBits(hDC,0,0,gr_ancho,gr_alto,0,0,gr_ancho,gr_alto,gr_buffer,&bmi,DIB_R
 #endif
 }
 
-void gr_fin(void) { }
+void gr_fin(void) 
+{ 
+VirtualFree(XFB, 0, MEM_RELEASE);
+VirtualFree(gr_buffer, 0, MEM_RELEASE);
+}
 
 void gr_clrscr(void) 
 {
@@ -155,6 +165,21 @@ register DWORD *PGR=gr_buffer;
 register int c=gr_sizescreen;
 for (;c>0;c--,PGR++) *PGR=gr_color2;
 }
+
+void gr_toxfb(void)
+{
+register DWORD *bgr=gr_buffer,*xgr=XFB;
+register int c=gr_sizescreen;
+while (c>0) { c--;*xgr++=*bgr++; }
+}
+
+void gr_xfbto(void)
+{
+register DWORD *bgr=gr_buffer,*xgr=XFB;
+register int c=gr_sizescreen;
+while (c>0) { c--;*bgr++=*xgr++; }
+}
+
 
 #define MASK1 (RED_MASK|BLU_MASK)
 #define MASK2 (GRE_MASK)
