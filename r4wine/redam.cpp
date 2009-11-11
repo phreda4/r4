@@ -32,7 +32,7 @@
 #include <time.h>
 
 //#define LOGMEM
-#define OPENGL
+//#define OPENGL
 #define FMOD
 #define PRINTER
 
@@ -105,6 +105,7 @@ char *macros[]={// directivas del compilador
 "UPDATE","MSEC","TIME","DATE","END","RUN",//--- sistema
 "SW","SH","CLS","REDRAW","FRAMEV",//--- pantalla
 "SETXY","PX+!","PX!+","PX@",
+"XFB",">XFB","XFB>",
 "PAPER","INK","INK@","ALPHA", //--- color
 "OP","CP","LINE","CURVE","PLINE","PCURVE","POLI",//--- dibujo
 "FCOL","FCEN","FMAT","SFILL","LFILL","RFILL","TFILL",
@@ -141,6 +142,7 @@ MEM,PATH,BFILE,BFSIZE,VOL,LOAD,SAVE,//--- bloques de memoria, bloques
 UPDATE,MSEC,TIME,IDATE,SISEND,SISRUN,//--- sistema
 WIDTH,HEIGHT,CLS,REDRAW,FRAMEV,//--- pantalla
 SETXY,MPX,SPX,GPX,
+VXFB,TOXFB,XFBTO,
 COLORF,COLOR,COLORA,ALPHA,//--- color
 OP,CP,LINE,CURVE,PLINE,PCURVE,POLI,//--- dibujo
 FCOL,FCEN,FMAT,SFILL,LFILL,RFILL,TFILL, //--- pintado
@@ -436,7 +438,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case SISEND: return 0;
 
     case SISRUN: 
-//        exestr="";
+        exestr="";
         if (TOS==0) { rebotea=1;return 0; }
         bootstr=(char*)TOS;
         return 1;
@@ -453,6 +455,10 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 	case MPX:vcursor+=TOS;TOS=*NOS;NOS--;continue;
 	case SPX:*(int*)(vcursor++)=TOS;TOS=*NOS;NOS--;continue;
 	case GPX:NOS++;*NOS=TOS;TOS=*(int*)(vcursor);continue;
+
+    case VXFB: NOS++;*NOS=TOS;TOS=(int)XFB;continue;
+    case TOXFB:gr_toxfb();continue;
+    case XFBTO:gr_xfbto();continue;
 //--- color
 	case COLORF: gr_color2=TOS;TOS=*NOS;NOS--;continue;
     case COLOR: gr_color1=TOS;TOS=*NOS;NOS--;continue;
@@ -1354,7 +1360,6 @@ hWnd=CreateWindowEx( dwExStyle,wc.lpszClassName, wc.lpszClassName,dwStyle,
      rec.right-rec.left, rec.bottom-rec.top,0,0,wc.hInstance,0);
 if(!hWnd) return -2;
 if(!(hDC=GetDC(hWnd)))  return -3;
-
 if (gr_init(w,h)<0) return -1;
 
 phDC=CreateDC("winspool", printername , NULL, NULL );
@@ -1440,6 +1445,13 @@ ReleaseJoystick();
 closesocket(soc); //Shut down socket
 WSACleanup(); //Clean up Winsock
 gr_fin();
+ChangeDisplaySettings(NULL, 0); // Problema: si esta en fullscreen no retorna a ventana
+/*            // Restore the window styles 
+            DWORD style = GetWindowLongPtr(hWnd, GWL_STYLE);
+            DWORD exstyle = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
+            SetWindowLongPtr(hWnd, GWL_STYLE, style | WS_OVERLAPPEDWINDOW);
+            SetWindowLongPtr(hWnd, GWL_EXSTYLE, exstyle & (~(WS_EX_APPWINDOW | WS_EX_TOPMOST)));
+*/
 ReleaseDC(hWnd,hDC);
 DestroyWindow(hWnd);
 
