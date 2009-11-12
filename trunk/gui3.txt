@@ -6,7 +6,6 @@
 ^libprint.txt
 ^libsprite.txt
 ^libgc.txt
-^memscr.txt
 ^font.txt
 ^fonth.txt
 
@@ -23,11 +22,26 @@
 #idf
 #idl
 
+:negro-blanco
+	msec
+	$400 and? ( neg )
+	2 >> $ff and
+	dup 8 << or dup 8 << or ink ;
+
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 ::clrscr
 	idf 'idl !	| ultimo
 	0 'idf !	| primero
 	cls scr home
+	bmouse bmouse.. =? ( drop 0 'click.. ! ; )
+	0? ( 1 )( -1 ) 'click.. !
+	'bmouse.. !
+	;
+
+::xfb>scr
+	idf 'idl !	| ultimo
+	0 'idf !	| primero
+	xfb> scr home
 	bmouse bmouse.. =? ( drop 0 'click.. ! ; )
 	0? ( 1 )( -1 ) 'click.. !
 	'bmouse.. !
@@ -119,10 +133,31 @@
 :ktab
 	mshift 0? ( nextfoco )( prevfoco ) drop ;
 
+:clickfoco
+	idf focus.. =? ( drop ; )
+	'focus.. ! 1 'sucio ! ;
+
+:*foco* | 'always 'start  --
+	idf 1+ focus.. <>? ( 'idf ! 2drop ; ) 'idf !
+	sucio 0? ( 2drop exec ; ) drop
+	0 'sucio !
+	exec exec ;
+
+
+:bordefoco
+	ink@ negro-blanco
+	4 dup 'w +! 'h +!
+	gc.rod
+	ink ;
+
+:botonsimple | col1 col2 --
+	[ swap ; ] [ 0.95 fzoom ; ] onInOut
+	vbtn ;
+
 
 |-------- teclado para boton
-:setinputb | 'var --  ; boton con foco
-	<enter>
+:keys-btn | 'var --  ; boton con foco
+	over <enter>
 	0 <visible>
 	0 <ins> 0 <back> 0 <del>
 	0 <home> 0 <end>
@@ -132,7 +167,7 @@
 	;
 
 |-------- teclado para slide
-:setinputs | 'var --  ; boton con foco
+:keys-slider | 'var --  ; boton con foco
 	0 <enter>
 	0 <visible>
 	0 <ins> 0 <back> 0 <del>
@@ -140,26 +175,11 @@
 	[ -0.5 over ! ; ] <home> [ 0.5 over ! ; ] <end>
 	'ktab <tab>
 	'nextfoco <aba> 'prevfoco <arr>
-	drop
 	;
 
-||||||||||||||||||||||||||||
-|| con foco
-:clickfoco
-	idf focus.. =? ( drop ; )
-	'focus.. ! 1 'sucio ! ;
-
-:tienefoco | adr -- |
-	1 'idf +!
-	focus..
-	idf =? (
-		sucio 0? ( 2drop exec dup 'sucio ! )( nip nip )
-		exec ; )
-	drop
-
 |------- teclado para linea de texto
-:setinput | 'var max --
-	'cmax ! dup 'padi> !
+:keys-getline | 'var max xx --
+	over 'cmax ! pick2 dup 'padi> !
 	( c@+ 1? )( drop ) drop 1- dup
 	'pad> ! 'padf> !
 	'lins 'modo !
@@ -172,8 +192,8 @@
 	'ktab dup <tab> <enter>
 	'nextfoco <aba> 'prevfoco <arr>
 	;
-|---- ENTRADA
 
+|---- ENTRADA
 :dcursor
 	blink 1? ( drop ; ) drop
 	ink@ >r
@@ -181,106 +201,61 @@
 	printcur 1-
 	r> ink ;
 
-:drawinput | --
-	padi> ( pad> =? ( dcursor ) c@+ 1? )( emit ) 2drop
-	xc w 2/ + 'ccx !
-	;
-
-::getline | 'dir cnt --
-	| 'focogetline  tienefoco
- 	cntprintbox
-	'color.entrada @+ ink gc.fbox @ ink
-	1 'idf +!
-	focus..
-	idf =? ( sucio 1? ( 0 'sucio ! pick3 pick3 setinput ) drop
-		drawinput 3drop )( drop boxprint )
-	'clickfoco onClick
-	;
-
-|--- focos
-:bordefoco
-	ink@ blink 1? ( blanco )( negro ) drop
-	-4 dup 'w +! 'h +!
-	gc.rod |-2 dup 'w +! 'h +! gc.rod
-	ink ;
-
-:bordefocos
-	ink@ blink 1? ( blanco )( gris ) drop
+:bordebox
+	ink@ negro-blanco
 	gc.box
 	ink ;
 
-|---- BOTONES sin foco
-::btns | acc "str" --
-	gc.push
-	ink@ dup >r $222222
-	[ swap ; ] [ 0.95 fzoom ; ] onInOut
-	vbtn
-	1 wtext home |	1 font
+:drawinput | --
+	padi> ( pad> =? ( dcursor ) c@+ 1? )( emit ) 2drop
+	xc w 2/ + 'ccx !
+	4 dup 'w +! 'h +!
+	bordebox
+	drop 0 |** no hace boxprint
+	;
 
-	blanco printc r> ink
+|------- GET LINE
+::getline | 'dir cnt --
+ 	cntprintbox
+	'color.entrada @+ ink gc.fbox @ ink
+	'drawinput 'keys-getline *foco*
+	1? ( boxprint )( 2drop ) |** 0 no boxprint
+	'clickfoco onClick ;
+
+|---- BOTONES
+::.btns | acc "str" --
+	gc.push print2gc
+	ink@ dup >r $222222 botonsimple
+	blanco printc
+	'bordefoco 'keys-btn *foco*
+	onClick
+	r> ink gc.pop ;
+
+::.btnd | acc 'v8d --
+	gc.push
+	ink@ dup >r $222222 botonsimple
+	blanco v8draw
+	'bordefoco 'keys-btn *foco*
+	onClick
+	r> ink gc.pop ;
+
+::.btne | acc --
+	'linebox 'keys-btn *foco*
 	onClick
 	gc.pop ;
 
-::btnd | acc 'v8d --
+| boton de texto grande
+::.btnt | 'event "texto" --
 	gc.push
-	ink@ dup >r $222222
-	[ swap ; ] [ 0.95 fzoom ; ] onInOut
-	vbtn
-	blanco v8draw r> ink
+	ccw 'ccx +!
+	print2gc
+	ccw 2* 'w +!
+	cch 'h +!
+	ink@ dup >r $222222 botonsimple
+	blanco printx r> ink
+|	'bordefoco 'keys-btn *foco*
 	onClick
-	gc.pop ;
-
-|---- BOTONES con foco
-::fbtns | 'acc "tex" --
-	gc.push
-	ink@ dup >r $222222
-	[ swap ; ] [ 0.95 fzoom ; ] onInOut
-	vbtn
-	1 wtext home |	1 font
-	blanco printc r> ink
-|	'focobtn1 tienefoco
-	1 'idf +!
-	focus..
-	idf =? (
-		sucio 1? ( 0 'sucio ! pick2 setinputb ) drop
-		bordefoco )
-	drop
-
-	onClick
-	gc.pop ;
-
-::fbtnd | acc 'v8d --
-	gc.push
-	ink@ dup >r $222222
-	[ swap ; ] [ 0.95 fzoom ; ] onInOut
-	vbtn
-	blanco v8draw r> ink
-
-|	'focobtn1 tienefoco
-	1 'idf +!
-	focus..
-	idf =? (
-		sucio 1? ( 0 'sucio ! pick2 setinputb ) drop
-		bordefoco )
-	drop
-
-	onClick
-	gc.pop ;
-
-::fbtne | acc --
-	gc.push
-
-|	'focobtn2 tienefoco
-
-	1 'idf +!
-	focus..
-	idf =? (
-		sucio 1? ( 0 'sucio ! pick2 setinputb ) drop
-		blink 1? ( linebox ) drop
-		)
-	drop
-
-	onClick
+	ccw 'ccx +!
 	gc.pop ;
 
 ||||||||||||||||||||
@@ -290,39 +265,21 @@
 ::linkcol | c1 c2
 	'col1 !+ ! ;
 
-::link | 'vec "label" --
+::.link | 'vec "label" --
 	print2gc
-	ink@ >r
-	'col1 @+ swap @ [ swap 1.1 fzoom ; ] onIn vbtn
-	r> ink
 	print
+	'linebox 'keys-btn *foco*
 	onClick	;
 
-::clink | 'vec "label" cnt --
+::.title | 'vec "label" cnt --
 	cntprintbox drop
 	ink@ >r
 	'col1 @+ swap @ [ swap 1.1 fzoom ; ] onIn vbtn
 	r> ink
 	printc
+	'linebox 'keys-btn *foco*
 	onClick ;
 
-::flink | 'vec "label" --
-	print2gc
-	ink@ >r
-	'col1 @+ swap @
-	[ swap 1.1 fzoom ; ] onIn vbtn
-	r> ink
-	print
-|	'focobtn2 tienefoco
-
-	1 'idf +!
-	focus..
-	idf =? (
-		sucio 1? ( 0 'sucio ! pick2 setinputb ) drop
-		bordefoco )
-	drop
-	onClick
-	;
 
 |---- SLIDE
 ::hslide | 'var --
@@ -381,7 +338,7 @@
 	gc.push
  	0 ( rows  <? )(
  		pick2 @ =? ( amarillo )( verde oscuro )
-		[ dup pick3 ! ; ] pick2 "%a" mprint flink cr
+		[ dup pick3 ! ; ] pick2 "%a" mprint .link cr
 		swap >>f dup c@ 0? ( 4drop gc.pop ; ) drop
 		swap
 		1+ ) drop
@@ -464,32 +421,7 @@
 		1+ ) drop
 	4drop rdrop ;
 
-|||||||||||||||||||
-||   dibujo
-::.tbtn | 'event "texto" --
-	gc.push
-	ccw 'ccx +!
-	print2gc
-	ccw 2* 'w +!
-	cch 'h +!
-	ink@ dup >r $222222
-	[ swap ; ] [ 0.9 fzoom ; ] onInOut
-	vbtn
-	blanco printx r> ink
-	onClick
-	ccw 'ccx +!
-	gc.pop ;
 
-::.draw | 'event dib --
-	gc.push
-	cch dup 'w ! dup 'h !
-	2/ dup
-	ccx + 'xc ! ccy + 'yc !
-	[ 2.0 fzoom ; ] onIn
-	v8draw
-	cch 'ccx +!
-	onClick
-	gc.pop ;
 
 |||||||||||||||||||
 ||  Cursores
@@ -539,21 +471,23 @@
 ||||||||||||||||||||
 ||  Dialogos (separar a otra lib)
 #tt
-:dlgsinor | "" -- 0/1
+::dlgsino | "" -- 0/1
+	'tt !
+	oscurecetodo
+	>xfb
 	inigui
 	[ 0 exit ; ] >esc<
 	[ 1 exit ; ] >esp<
 	show
-		clrscr
-		screencopy
+		xfb>scr
 		0 0 fpos 0.6 0.5 fdim
 		$ff $11 vbtn
 		0.15 dup fdim -0.2 -0.3 fpos
 		rojo oscuro
-		[ 0 exit ; ] 'ifin fbtnd
+		[ 0 exit ; ] 'ifin .btnd
 		0.2 -0.3 fpos
 		verde oscuro
-		[ 1 exit ; ] 'iok fbtnd
+		[ 1 exit ; ] 'iok .btnd
 		0.6 dup fdim 0 0 fpos
 		7 fonthb home cr cr
 		negro tt printc
@@ -561,9 +495,3 @@
 		blanco tt printc
 		cmano ;
 
-::dlgsino | "" -- 0/1
-	'tt !
-	oscurecetodo
-	screenmark
-	dlgsinor
-	screenempty ;

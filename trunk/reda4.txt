@@ -68,12 +68,20 @@
 	( c@+ 32 >? )( toupp rot c@+ toupp rot -
 		1? ( 3drop 0 ; ) drop swap ) 2drop
 	c@ 33 <? ( 1 )( 0 ) nip ;
-|3drop 1 ;
 
 |--- Memoria libre
 #:here 0
 
-|::clear mem 'here ! ;
+#memmap )( 1024
+#memmap> 'memmap
+
+::mark | --
+	here 0? ( mem dup 'here ! nip ) memmap> !+ 'memmap> ! ;
+::empty | --
+	memmap> 'memmap =? ( mem nip )( 4 - dup 'memmap> ! @ ) 'here ! ;
+
+::savemem | "" --
+	memmap> 4 - @ here over - rot save ;
 
 ::, here !+ 'here ! ;
 ::,c here c!+ 'here ! ;
@@ -119,19 +127,6 @@
 ::,print | adr --
 	( c@+ 1? )( ,emit ) 2drop ;
 
-||||||||
-
-#memmap )( 1024
-#memmap> 'memmap
-
-::mark | --
-	here 0? ( mem dup 'here ! nip ) memmap> !+ 'memmap> ! ;
-::empty | --
-	memmap> 'memmap =? ( mem nip )( 4 - dup 'memmap> ! @ ) 'here ! ;
-
-::savemem | "" --
-	memmap> 4 - @ here over - rot save ;
-
 |--- Numero aleatorios
 #:seed 495090497 |5765
 
@@ -151,7 +146,7 @@
 
 |--- pantalla&interaccion
 #:.exit
-|---------------------------------------
+
 #lastime
 #startime
 
@@ -164,21 +159,28 @@
 
 ::exit 1 '.exit ! ;
 
-::show			| framerate constante (mientras pueda)
+::show	| framerate constante (mientras pueda)
 	msec dup 'lastime !+ ! 0 '.exit !
 	( .exit 0? )( drop update
 		msec lastime >? ( 30 + 'lastime ! r exec redraw )( drop )
 		) drop rdrop 0 '.exit ! ;
 
-| ( update msec lastime >? ( 30 + 'lastime ! r exec redraw )( drop )
-|		.exit 1? ( drop rdrop 0 '.exit ! ; ) drop  ) ;
+::showpp | version rapida??
+	msec dup 30 + 'lastime !+ !
+	0 '.exit !
+	( .exit 0? )(
+		( drop update msec lastime <? )
+		30 + 'lastime !
+		r exec redraw )
+	drop rdrop
+	0 '.exit ! ;
 
-::showo			| sin limitador
+::showo	 | maximo framerate
 	msec dup 'lastime !+ ! 0 '.exit !
 	( .exit 0? )( drop update r exec redraw )
 	drop rdrop 0 '.exit ! ;
 
-::wait
+::wait	| se detiene (hasta exit)
 	msec 'lastime ! 0 '.exit !
 	( .exit 0? )( drop update )
 	drop 0 '.exit ! ;
