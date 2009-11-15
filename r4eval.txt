@@ -131,9 +131,11 @@
 	<<ip @ dup $ff and swap 8 >> swap "%d-%d" print
 	;
 
-|----------------------------------------
-| genera codigo en :r4
-|----------------------------------------
+|------------------------------------------------
+| genera codigo en :r4 y lo graba en "plain.txt"
+| Sin includes
+| Sin locales/exportadas
+|------------------------------------------------
 :getcte		8 >> cte + @ ;
 :getstr     8 >> str + ;
 
@@ -142,10 +144,13 @@
 
 :coldefw nro>dicn ":%w" ,print ;
 :coldefv nro>dicn "#%w" ,print ;
-:colitd	getcte "%d" ,print ;
+
+:colitd	getcte ,d ;
+
+:colitf |getcte ,f" ;
+:colitb	|getcte "%%%b" ,print ;
 :colith getcte "$%h" ,print ;
-:colitb	getcte "%%%b" ,print ;
-:colitf getcte "%f" ,print ;
+
 :colits	getstr """%s""" ,print ;
 :colwor	nro>dicn "%w" ,print ;
 :colvar	nro>dicn "%w" ,print ;
@@ -162,7 +167,7 @@
 :gencod | adrr --
 	dup @ swap 8 + @
 	( 1? )( 1- swap ,sp ,token swap
-		$f nand? ( ,cr ) )
+		$1f nand? ( ,cr ) )
 	2drop ;
 
 ||||||||||||||||||||||||||||||||||||||||||||||||
@@ -172,28 +177,28 @@
 		1 =? ( 0 nip ) | corta con defc
 		2 =? ( 0 nip ) | corta con defv
 		1? )( 	 | dirv n c
-		12 <? ( 2 << 'codei + @ exec )( nip nro>macro ,s )
 		,sp
-		$3c nand? ( ,cr )
+		12 <? ( 2 << 'codei + @ exec )( nip nro>macro ,s )
+		$7c nand? ( ,cr )
 		)
 	3drop ;
 
 :gencodigo | nro llamadas -- nro llamadas
 	over 4 << 'indicepal +
 	dup 8 + @ 1 and? ( 'genvar "#" )( 'gencod ":" ) ,s nip
-	swap 
-	|@+ "%w " ,print
-	4+ pick3
-	"w%h " ,print | falta : solo
-
-	swap exec ,cr
+	swap
+	|@+ "%w" ,print | *nombre textual
+	4+
+	pick3 "w%h" ,print
+	swap exec | ,cr
 	;
 
 :genplain
 	mark
-	0 ( cntword cntvars + <? )(
-		dup getllamadas 1? ( gencodigo ) drop
-		1+ ) drop
+	0 ( cntword cntvars + 1- <? )(
+		dup getllamadas 1? ( ,cr gencodigo ) drop
+		1+ )
+	": " ,s 4 << 'indicepal + 4+ gencod
 	"plain.txt" savemem
 	empty
 	exit
@@ -246,7 +251,7 @@
 		pagina rows 10 - ( 1? )( 1-
 			swap
 			actual =? ( ">" )( "" ) 1 boxprint
-			dup "%d." verde 5 boxprint
+			dup "%h." verde 5 boxprint
 			dup printlineword
 			dup getllamadas 1? ( "%d" )( "" nip ) 4 boxprintr
 			dup getflags 1? ( "%d" )( "" nip ) 4 boxprintr
@@ -287,9 +292,7 @@
 		cr cr
 		0 rows 2 - at
 		blanco
-		$222222 $ff0000 linkcol
 		'exit "ESC" sp .link sp
-		$222222 $ff00 linkcol
 		'stepvm "F1-Step" .link sp
 		'playvm "F2-Play" .link sp
 		'savecode |[ savestat ; ]

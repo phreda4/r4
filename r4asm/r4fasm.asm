@@ -255,6 +255,20 @@ SYSLOAD: ; ( 'from "filename" -- 'to )
 	lea esi,[esi+4]
 	ret
 
+toxfb:
+	pusha
+	lea esi,[SYSFRAME]
+	lea edi,[XFB]
+cop:
+	mov ecx,XRES*YRES
+	rep movsd
+	popa
+	ret
+xfbto:
+	pusha
+	lea esi,[XFB]
+	lea edi,[SYSFRAME]
+	jmp cop
 ;===============================================
 SYSSAVE: ; ( 'from cnt "filename" -- )
 	invoke CreateFile,eax,GENERIC_WRITE,0,0,CREATE_ALWAYS,0,0
@@ -485,6 +499,6 @@ align 16
 align 16
 	SYSFRAME	rd XRES*YRES
 align 16
-	SYSEFRAME	rd XRES*YRES
+	XFB			rd XRES*YRES
 align 16
 	FREE_MEM	rd 1024*1024*16 ; 16M(32bits) 64MB(8bits)
