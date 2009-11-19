@@ -7,6 +7,7 @@
 ^medit.txt
 ^fontt.txt
 ^fonts/vardana8.txt
+^fonts/vardana12.txt
 
 #nombre )( 64
 #linea )( 1024	| error y mem aux
@@ -134,13 +135,13 @@
 |------------------------------------------------
 | genera codigo en :r4 y lo graba en "plain.txt"
 | Sin includes
-| Sin locales/exportadas
+| Sin locales/exportadas ::->:  ##->#
 |------------------------------------------------
 :getcte		8 >> cte + @ ;
 :getstr     8 >> str + ;
 
-:nro>dicn2   8 >> 4 << 'indicepal + @ ; | nombre
-:nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
+|:nro>dicn2   8 >> 4 << 'indicepal + @ ; | nombre de palabra original
+:nro>dicn   8 >> "w%h" mprint ;			| w<nro palabra>
 
 :coldefw nro>dicn ":%w" ,print ;
 :coldefv nro>dicn "#%w" ,print ;
@@ -149,7 +150,7 @@
 
 :colitf |getcte ,f" ;
 :colitb	|getcte "%%%b" ,print ;
-:colith getcte "$%h" ,print ;
+:colith getcte "$%h" ,print ;  | todos los nros en hexa
 
 :colits	getstr """%s""" ,print ;
 :colwor	nro>dicn "%w" ,print ;
@@ -164,13 +165,14 @@
 	12 <? ( 2 << 'codei + @ exec ; ) nip
 	nro>macro ,s ;
 
+||| Codigo
 :gencod | adrr --
 	dup @ swap 8 + @
 	( 1? )( 1- swap ,sp ,token swap
 		$1f nand? ( ,cr ) )
 	2drop ;
 
-||||||||||||||||||||||||||||||||||||||||||||||||
+||| Variables
 :genvar | adrr --
 	@
 	( @+ dup $ff and
@@ -205,7 +207,8 @@
 	;
 
 |----------------------------------------
-||||||||||||||||||||||||||||||||||||||||||||||||
+|
+|----------------------------------------
 #pagina 0
 #actual 0
 
@@ -219,14 +222,17 @@
 :printlineword | n --
 	4 << 'indicepal +
 	indicepal> >=? ( drop ; )
-	dup 8 + @ 1 and? ( violeta "#" )( rojo ":") 1 boxprint drop
-	@+ "%w" 20 boxprint blanco
+
+|	dup 8 + @ 1 and? ( violeta "#" )( rojo ":" ) 1 boxprint drop
+	dup 8 + @ 1 and? ( violeta "#" )( rojo ":" ) nip
+	swap @+ rot
+	"%s%w" .cell |20 boxprint blanco
 	@+ drop |"%d " print direccion
 	@+
-	dup 24 >> "%d" 5 boxprint		| pilaR
-	dup 8 << 24 >> "%d" 5 boxprint	| pilaD
-	$fff and "%b" 12 boxprintr		| flags
-	@ "%d" 7 boxprintr					| largo en bytes
+	dup 24 >> "%d" .cell		| pilaR
+	dup 8 << 24 >> "%d" .cell	| pilaD
+	$fff and "%b" .cell		| flags
+	@ "%d" .cell | largo en bytes
 	;
 
 :vercod
@@ -238,31 +244,29 @@
 	[ rows 10 - 'actual +! refresca ; ] <pgdn>
 	[ rows 10 - neg 'actual +! refresca ; ] <pgup>
 	show clrscr cr
-		'vardana8 tfont
+		'vardana12 tfont
 		verde
-		"Nro" 6 boxprint
-		"Nombre" 21 boxprint
-		"RS" 5 boxprint
-		"DS" 5 boxprint
-		"Flags" 12 boxprintr
-		"Tokens" 7 boxprintr
-		"Calls" 7 boxprintr
-		" '" print cr
-		pagina rows 10 - ( 1? )( 1-
-			swap
-			actual =? ( ">" )( "" ) 1 boxprint
-			dup "%h." verde 5 boxprint
+		cr
+		.table
+		"Nro" 4 .! "Nombre" 21 .! "RS" 5 .! "DS" 5  .! "Flags" 12 .! "Tokens" 7 .! "Calls" 7 .! " '" 2 .!
+		cr
+		pagina 10 ( 1? )( 1- swap
+			verde
+			.row
+			dup actual =? ( ">%h<" )( " %h " ) .cell
 			dup printlineword
-			dup getllamadas 1? ( "%d" )( "" nip ) 4 boxprintr
-			dup getflags 1? ( "%d" )( "" nip ) 4 boxprintr
+			dup getllamadas 1? ( "%d" )( "" nip ) .cell
+			dup getflags 1? ( "%d" )( "" nip ) .cell
 			cr
 			1+ swap ) 2drop
+		blanco .grid
 		cr
      	verde
 		actual printword
 		cmano ;
 
-||||||||||||||||||||||||||||||||||||||||||||||||
+|----------------------------------------
+|----------------------------------------
 :consola
 	indicepal< 'indicepal - 4 >> | iniciodicc
 	'primerword !
