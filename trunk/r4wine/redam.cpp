@@ -1202,6 +1202,7 @@ switch (message) {     // handle message
          SYSBM=((short)HIWORD(wParam)<0)?4:5;
          SYSEVENT=SYSirqmouse;
          break;
+    case WM_SYSKEYUP:
     case WM_KEYUP:        // (lparam>>24)     ==1 keypad
 /*
          SYSKEYA=(lParam>>24)&0x1; //wParam&0xff;
@@ -1218,6 +1219,7 @@ switch (message) {     // handle message
         SYSKEY|=0x80;
         SYSEVENT=SYSirqteclado;
         break;
+    case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
 /*
          SYSKEYA=(lParam>>24)&0x1; //wParam&0xff;
