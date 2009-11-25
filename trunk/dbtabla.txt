@@ -5,7 +5,7 @@
 | _ multivalores
 |-------------------
 ^parse.txt
-|^trace.txt
+^trace.txt
 
 |--- info
 #:dbnombre )( 64
@@ -77,7 +77,7 @@
 	( c@+ 1? )(
 		$7e =? ( swap >>.. swap 1 'cntregs +! rot pick2 swap !+ rot rot )
 		drop ) 2drop
-	'inimem !
+	$fff + 'inimem !
 	0 'sumapos !
 	'fldl 'flds 			|---- ancho de campos, mem aux
 	0 ( cntflds <? )( >r
@@ -86,19 +86,8 @@
 		dup 1+ 'sumapos +!
 		rot !+ swap
 		r> 1+ ) 3drop
-	sumapos inimem + 'here !
+	sumapos inimem + 2 + 'here !
 	;
-
-
-|||||||| tipos de campos
-| T- Texto
-| M- Memo
-| S- Si/no
-| 0- Entero
-| 1- 1 decima
-| 2- 2 decimales
-| 3- 3 decimales
-| 4- 4 decimales
 
 |||||||| memoria auxiliar de registros
 ::clearreg
@@ -141,51 +130,60 @@
 
 
 |||||| copia en memoria
-#p1 #p2
+#p1 #psig
 :,c1 p1 c!+ 'p1 ! ;
 :,s1 ( dup c@ 1? )( ,c1 1+ ) 2drop ;
 
 |||||| inserta registro
-::dbinsert | --   ; inserta memoria al final del archivo
-	indice0 4 - 'p1 ! | graba mem
-	13 ,c1 10 ,c1
+:armareg | --
 	0 ( cntflds <? )(
 		1? ( "|" ,s1 )
 		dup dbmfld ,s1
 		1+ ) drop
-	"~" ,s1 |13 ,c1 10 ,c1
-	inimemdb p1 over - 'dbnombre save 	| copia a archivo
- 	'dbnombre dbload | recarga??
-	;
+	"~" ,s1
+	13 ,c1 10 ,c1 ;
 
-|||||| actualizacion (registro actual)
+:cntreg | -- cnt
+	0 | cantidad de caracteres
+	0 ( cntflds <? )(
+		swap 1+
+		over dbmfld count nip +
+		swap 1+ ) drop
+	2 + ;
+
+::dbinsert | --   ; inserta memoria al final del archivo
+	indice0 4 - 'p1 ! | graba mem
+	armareg
+	inimemdb p1 over - 'dbnombre save 	| copia a archivo
+ 	'dbnombre dbload ; | recarga
+
+|||||| actualiza registro
+:updultimo | act --
+	2 << indice0 + @ 'p1 !
+	armareg
+	inimemdb p1 over - 'dbnombre save 	| copia a archivo
+ 	'dbnombre dbload ; | recarga
+
 ::dbupdate | --
 	actreg
 	cntregs >=? ( drop ; )
-	2 << indice0 + @ | inicio de campo(inic)
-	indice0 4 - 'p1 ! | ultimo
+	cntregs 1- =? ( updultimo ; ) | borro ultimo
+    2 << indice0 + @+ 'p1 ! @ 'psig ! | actual y siguiente
+	cntreg psig p1 - - dup
+	+? ( psig + psig indice0 over - move> )( psig + psig indice0 over - move ) | des src cant
+	armareg
+	'indice0 +!
+	inimemdb indice0 over - 'dbnombre save 	| copia a archivo graba de mas
+ 	'dbnombre dbload ; | recarga
 
-	here 'p2 !
-	0 ( cntflds <? )(
-		1? ( "|" ,s )
-		dup dbmfld ,s
-		1+ ) drop
-	"~" ,s 13 ,c 10 ,c
-	| desde
-	here p2 - over +	| desde nde
-	over				| desde nde de
-	p1 over - 			| desde nde de cnt
-	cmove> 				| desde
-	p2 here over -		|
-	cmove
-| 	inimemdb memmap
-|	inimemdb p1 over - here p2 - + 'dbnombre save
- 	'dbnombre dbload | recarga??
+:delultimo | nro --
+
 	;
 
 ::dbdelete | nro --
 	cntregs >=? ( drop ; )
-	2 << indice0 + @ | inicio de campo(inic)
+	cntregs 1- =? (  delultimo ; ) | borro ultimo
+    2 << indice0 + @+ 'p1 @ 'psig !
 
 	drop
 	;
@@ -267,6 +265,15 @@
 	;
 
 ||||||||||||||
+|||||||| tipos de campos
+| T- Texto
+| M- Memo
+| S- Si/no
+| 0- Entero
+| 1- 1 decima
+| 2- 2 decimales
+| 3- 3 decimales
+| 4- 4 decimales
 |||| #form c1 c2 .. 0
 
 :tipo0 ;
