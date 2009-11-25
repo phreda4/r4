@@ -1,0 +1,73 @@
+| Simplest ray tracing
+| http://mrl.nyu.edu/~perlin/courses/spring2009/raytrace-algorithm.html
+| the great site of Ken Perlin
+|-----------------------------------------------------------------------
+| raySphereIntersect ( ray, sphere )
+|   v = rayv - spherecenter; w = rayw
+|   double A =   w•w
+|   double B = 2 v•w
+|   double C =   v•v - sphereradius2
+|   return if B2-4AC ? 0 then (-B - sqrt(B2-4AC)) / 2A else HUGE
+
+| shootRay ( ray )
+|   t = HUGE
+|   for all spheres s
+|   	ts = raySphereIntersect(v, w, s)
+|       if ts > 0 and ts < t
+|       	t = ts
+|           sphere = s
+|   if sphere then point = rayv + t rayw
+|   return [sphere,point]
+
+| computeShade ( ray, sphere, point, color )
+|   if sphere then
+|   	normal = (point - spherecenter) / sphereradius
+|     	color += phongShade(normal)
+|       rayv = point + ? normal; rayw = rayw - 2 (rayw•normal) normal
+|       [ sphere , point ] = shootRay(ray)
+|       if sphere then
+|       	color += computeShade(ray, sphere, point)
+|   return color
+
+| setPixel ( x, y )
+|   rayv = [0,0,0]; rayw = normalize([(x-W/2)/W , (H/2-y)/W , -3]);
+|	[sphere,point] = shootRay(ray)
+|	return computeShade(ray,sphere,point,black)
+|-----------------------------------------------------------------------
+
+#spheres
+0.0 0.0 0.0 0.3 $ff0000 0 0 0
+0.5 0.0 0.0 0.4 $00ff00 0 0 0
+0.0 0.5 0.0 0.4 $0000ff 0 0 0
+0.0 0.0 0.5 0.4 $ff00ff 0 0 0
+#spheres$
+
+:allspheres
+	spheres ( spheres$ <? )(
+		8 2 << +
+		) drop
+	;
+:pixel? | x y -- x y color
+	allspheres
+	0 ;
+
+:render
+	0 dup setxy
+   	0 ( sh <? )(
+		0 ( sw <? )(
+			pixel? px!+
+			1+ ) drop
+		1+ ) drop
+	;
+
+:main
+	inigui
+	'exit >esc<
+	show clrscr
+		render
+		ccruz ;
+
+:
+33
+main
+"main.txt" run ;
