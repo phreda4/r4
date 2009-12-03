@@ -46,48 +46,87 @@
 	;
 
 |------------------------------------------
-
-:ctecla | n --
-	cursor =? ( rojo )( blanco )
-	dup "%h: " print
-	modot + c@ emit
+:tek | n -- n
+	cursor =? ( blanco )( cyan )
+	20 28 ccx 2 - ccy 2 - vfill
+	ccx 2 - ccy 2 - over 20 + over 28 + cajau
+	dup 'keysolo
+	modot =? ( negro )( gris )
+	+ c@ emit sp sp
 	;
 
-:drawlist
-	0 ( 32 <? )(
-		2 over 4+ at dup 2 << ctecla
-		20 over 4+ at dup 2 << 1+ ctecla
-		40 over 4+ at dup 2 << 2 + ctecla
-		60 over 4+ at dup 2 << 3 + ctecla
+:tek2 | n -- n
+	dup 'keyshif
+	modot =? ( negro )( gris )
+	+ c@ emit
+	dup 'keyalt
+	modot =? ( negro )( gris )
+	+ c@ emit sp
+	;
+
+:dibteclado
+	verde
+	cr cr "   " print
+	0 ( 16 <? )(
+		dup " %h " print 1+ ) drop
+	cr
+	0 ( 8 <? )(
+		cr dup " %h " print
+		0 ( 16 <? )(
+			over 4 << over +
+			tek drop
+			1+ ) drop
+		cr "   " print
+		0 ( 16 <? )(
+			over 4 << over +
+			tek2 drop
+			1+ ) drop cr
+		verde
+	   	1+ ) drop
+	cr ;
+
+#curcar
+
+:dibcar
+	0 ( 4 <? )(
+		0 ( 64 <? )(
+			over 6 << over +
+			curcar =? ( blanco )( azul )
+			32 <? ( 32 nip ) emit
+			1+ ) drop
+		cr
 		1+ ) drop
 	;
 
-
-:incc
-	1 cursor modot + c+! ;
-
-:decc
-	-1 cursor modot + c+! ;
+:setcar
+	cursor modot + c@ $ff and 'curcar ! ;
+:putcar
+	$ff and
+	dup 'curcar ! cursor modot + c! ;
 
 |------------------------------------------
 :modi
-	inikey
-	'exit >esc<
-	'incc <f1>
-	'decc <f2>
-	show cls scr
+	inigui
+	'exit <enter>
+	[ 'keysolo 'modot ! setcar ; ] <f1>
+	[ 'keyshif 'modot ! setcar ; ] <f2>
+	[ 'keyalt 'modot ! setcar ; ] <f3>
+	[ curcar 64 - putcar ; ] <up>
+	[ curcar 64 + putcar ; ] <dn>
+	[ curcar 1- putcar ; ] <le>
+	[ curcar 1+ putcar ; ] <ri>
+	setcar
+	show clrscr
 		fonti cr rojo
-		"Modifica tabla" print
-		drawlist
-		amarillo
+		"  Elegir CARACTER" print
+		dibteclado
 		cr
-		cursor modot + c@ $ff and 1- 0 ( 30 <? )( 1+ swap 1+ dup emit swap ) 2drop
+		dibcar
 		cr cr
 		cursor dup "scancode: %d $%h" print cr cr
 		verde
-		"F1->>  F2-<<  ESC-Continue Edit" print
-
-	;
+		"F1-Norm  F2-Shift  F3-Alt  Flechas-Elije  ENTER-Continue" print
+		cmano ;
 
 
 :modificac
@@ -95,13 +134,6 @@
 	modi
 	key.pop	;
 
-|------------------------------------------
-:modosh
-    modot 'keysolo =? ( 'keyshif )(
-		'keyshif =? ( 'keyalt )(
-		'keysolo ) ) nip
-	'modot !
-	;
 
 |------------------------------------------
 :nir
@@ -111,20 +143,20 @@
 	copyact
 	inigui
 	128 ( 1? )( 'nir over >key 1- ) drop
+
 	'exit >esc<
-	'modosh <f1>
-	'savefile <f2>
+	'savefile <f1>
 	'modificac <enter>
+
 	show clrscr
 		fonti cr verde
-		"Elegir caracter, Tabla: " print
-		modot 'keysolo =? ( "Normal" )(	'keyshif =? ( "Shift" )( "Alt" ) ) nip
-		print
-		drawlist
+		"  Elegir TECLA" print
+
+        dibteclado
 		cr cr
 		cursor dup "scancode: %d $%h" print cr cr
 		verde
-		"F1-Norm/Shift/Alt  F2-Save  ENTER-Edit  ESC-Exit" print
-		;
+		"F1-Save""key-n.txt""  ENTER-Edit  ESC-Exit" print
+		cmano ;
 
 : 0 paper main "main.txt" run ;
