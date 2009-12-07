@@ -10,10 +10,256 @@
 |
 | ebp - VFRAME pointer
 | MMX - auxiliares de almacenamiento
+|
+| nivel 0 -- como macros
+|
 |--------------------------------------------
 ^gui3.txt
 ^parse.txt
 ^trace.txt
+
+|---- nivel 0 - sin desordenar la pila
+:0,DUP
+	"lea esi,[esi-4]" ,ln
+	"mov [esi],eax" ,ln ;
+:0,DROP
+	"lodsd" ,ln ;
+:0,NIP
+	"lea esi,[esi+4]" ,ln ;
+:0,OVER
+	0,DUP
+	"mov eax,[esi+4]" ,ln ;
+:0,PICK2
+	0,DUP
+	"mov eax,[esi+4*2]" ,ln ;
+:0,PICK3
+	0,DUP
+	"mov eax,[esi+4*3]" ,ln ;
+:0,PICK4
+	0,DUP
+	"mov eax,[esi+4*4]" ,ln ;
+:0,SWAP
+	"mov edx,eax" ,ln |"xchg eax,[esi]" ,ln ;|ggrr
+	"mov eax,[esi]" ,ln
+	"mov [esi],edx" ,ln ;
+|	"push eax" ,ln	| otra version (sin dx)
+|	"mov eax,[esi]" ,ln
+|	"pop [esi]" ,ln ;
+:0,ROT
+	"mov ecx,[esi+4]" ,ln
+	"mov edx,[esi]" ,ln
+	"mov [esi],eax" ,ln
+	"mov [esi+4],edx" ,ln
+	"mov eax,ecx" ,ln ;
+|	"push [esi+4]" ,ln	| otra version (sin dx,cx)
+|	"push [esi]" ,ln
+|	"pop [es+4]" ,ln
+|	"mov [esi],eax" ,ln
+|	"pop eax" ,ln ;
+:0,2DUP
+	0,OVER 0,OVER ;
+:0,2OVER
+	"mov [esi-4],eax" ,ln
+	"lea esi,[esi-8]" ,ln
+	"mov edx,[esi+16]" ,ln
+	"mov [esi],edx" ,ln
+	"mov eax,[esi+12]" ,ln ;
+:0,2SWAP
+	"mov ecx,[esi+4]" ,ln
+	"mov [esi+4],eax" ,ln
+	"mov edx,[esi+8]" ,ln
+	"mov eax,[esi]" ,ln
+	"mov [esi+8],eax" ,ln
+	"mov [esi],edx" ,ln
+	"mov eax,ecx" ,ln ;
+:0,2DROP
+	0,NIP 0,DROP ;
+:0,3DROP
+	"lea esi,[esi+8]" ,ln
+	0,DROP ;
+:0,4DROP
+	"lea esi,[esi+12]" ,ln
+	0,DROP ;
+
+:0,EXEC
+	"mov ecx,eax" ,ln
+	0,DROP
+	"or ecx,ecx" ,ln
+	"jz @f" ,ln
+	"call ecx" ,ln
+	"@@:" ,ln ;
+
+:0,>R
+	"push eax" ,ln
+	0,DROP ;
+:0,R>
+	0,DUP
+	"pop eax" ,ln ;
+:0,R
+	0,DUP
+	"mov eax,[esp]" ,ln ;
+:0,RDROP
+	"lea esp,[esp+4]" ,ln ;
+
+:0,R+
+	"add [esp],eax" ,ln
+	0,DROP ;
+:0,R!+
+	"pop edx" ,ln
+	"mov [edx],eax" ,ln
+	"add edx,4" ,ln
+	"push edx" ,ln
+	0,DROP ;
+:0,R@+
+	0,DUP
+	"pop edx" ,ln
+	"mov eax,[edx]" ,ln
+	"add edx,4" ,ln
+	"push edx" ,ln ;
+
+:0,AND
+	"and eax,[esi]" ,ln
+	0,NIP ;
+:0,OR
+	"or eax,[esi]" ,ln
+	0,NIP ;
+:0,XOR
+	"xor eax,[esi]" ,ln
+	0,NIP ;
+:0,NOT
+	"not eax" ,ln ;
+
+:0,+
+	"add eax,[esi]" ,ln
+	0,NIP ;
+:0,-
+	"neg eax" ,ln
+	"add eax,[esi]" ,ln
+	0,NIP ;
+:0,*
+	"cdq" ,ln
+	"imul dword [esi]" ,ln
+	0,NIP ;
+:0,/
+	"mov ecx,eax" ,ln
+	0,DROP
+	"cdq" ,ln
+	"idiv ecx" ,ln ;
+:0,*/
+	"mov ecx,eax" ,ln
+	0,DROP
+	"cdq" ,ln
+	"imul dword [esi]" ,ln
+	"idiv ecx" ,ln
+	0,NIP ;
+:0,*>>
+	"mov ecx,eax" ,ln
+	0,DROP
+	"cdq" ,ln
+	"imul dword [esi]" ,ln
+	"shrd eax,edx,cl" ,ln
+	0,NIP ;
+:0,/MOD
+	"mov ecx,eax" ,ln
+	"mov eax,[esi]" ,ln
+	"cdq" ,ln
+	"idiv ecx" ,ln
+	"mov [esi],eax" ,ln
+	"mov eax,edx" ,ln ;
+:0,MOD
+	"mov ecx,eax" ,ln
+	0,DROP
+	"cdq" ,ln
+	"idiv ecx" ,ln
+	"mov eax,edx" ,ln ;
+:0,<<
+	"mov ecx,eax" ,ln
+	0,DROP
+	"sal eax,cl" ,ln ;
+:0,>>
+	"mov ecx,eax" ,ln
+	0,DROP
+	"sar eax,cl" ,ln ;
+:0,ABS
+	"cdq" ,ln
+	"add eax,edx" ,ln
+	"xor eax,edx" ,ln ;
+:0,NEG
+	"neg eax" ,ln ;
+:0,1+
+	"inc eax" ,ln ;
+:0,4+
+	"add eax,4" ,ln ;
+:0,1-
+	"dec eax" ,ln ;
+:0,2/
+	"sar eax,1" ,ln ;
+:0,2*
+	"sal eax,1" ,ln ; | "add eax,eax" ,ln
+
+:0,@
+	"mov eax,dword [eax]" ,ln ;
+:0,C@
+	"movsx eax,byte [eax]" ,ln ;
+:0,W@
+	"movsx eax,word [eax]" ,ln ;
+:0,!
+	"mov ecx,[esi]" ,ln
+	"mov [eax],ecx" ,ln
+	0,2DROP ;
+:0,C!
+	"mov ecx,[esi]" ,ln
+	"mov byte [eax],cl" ,ln
+	0,2DROP ;
+:0,W!
+	"mov ecx,[esi]" ,ln
+	"mov word [eax],cx" ,ln
+	0,2DROP ;
+:0,+!
+	"mov ecx,[esi]" ,ln
+	"add [eax],ecx" ,ln
+	0,2DROP ;
+:0,W+!
+	"mov ecx,[esi]" ,ln
+	"add word [eax],cx" ,ln
+	0,2DROP ;
+:0,C+!
+	"mov ecx,[esi]" ,ln
+	"add byte [eax],cl" ,ln
+	0,2DROP ;
+:,!+
+	"mov ecx,[esi]" ,ln
+	"mov [eax],ecx" ,ln
+	"add eax,4" ,ln
+	0,NIP ;
+:,W!+
+	"movsx ecx,word [esi]" ,ln
+	"mov [eax],cx" ,ln
+	"add eax,2" ,ln
+	0,NIP ;
+:,C!+
+	"movsx ecx,byte [esi]" ,ln
+	"mov [eax],cl" ,ln
+	"inc eax" ,ln
+	0,NIP ;
+:,@+
+	"mov ecx,[eax]" ,ln
+	"add eax,4" ,ln
+	"mov [esi-4],eax" ,ln
+	"mov eax,ecx" ,ln
+	"lea esi,[esi-4]" ,ln ;
+:,W@+
+	"movsx ecx,word [eax]" ,ln
+	"add eax,2" ,ln
+	"mov [esi-4],eax" ,ln
+	"mov eax,ecx" ,ln
+	"lea esi,[esi-4]" ,ln ;
+:,C@+
+	"movsx ecx,byte [eax]" ,ln
+	"inc eax" ,ln
+	"mov [esi-4],eax" ,ln
+	"mov eax,ecx" ,ln
+	"lea esi,[esi-4]" ,ln ;
 
 
 #ra "eax"
@@ -232,118 +478,6 @@
 		0? ( "mov ecx,eax" ,ln drop, "test eax,ecx" ,ln "jnz " ,s )(
 			"test eax," ,s **write "jnz " ,s ) drop ;
 
-:,EXEC	optfin "mov ecx,eax" ,ln drop, "or ecx,ecx" ,ln "jz @f" ,ln "call ecx" ,ln  "@@:" ,ln ;
-
-:,DUP	optfin dup, ;
-:,OVER	optfin dup, "mov eax,[esi+4]" ,ln ;
-:,PICK2 optfin dup, "mov eax,[esi+4*2]" ,ln ;
-:,PICK3 optfin dup, "mov eax,[esi+4*3]" ,ln ;
-:,PICK4 optfin dup, "mov eax,[esi+4*4]" ,ln ;
-:,SWAP	optcall 0? ( "mov edx,eax" ,ln "mov eax,[esi]" ,ln "mov [esi],edx" ,ln )( |"xchg eax,[esi]" ,ln ;|ggrr
-		2 =? ( "lea esi,[esi-4]" ,ln "mov edx," ,s **write "mov [esi],edx" ,ln )(
-			"lea esi,[esi-4]" ,ln "mov dword [esi]," ,s **write ) ) drop ;
-:,ROT	optcall 0? ( "mov ecx,[esi+4]" ,ln "mov edx,[esi]" ,ln "mov [esi],eax" ,ln
-					"mov [esi+4],edx" ,ln "mov eax,ecx" ,ln )(
-				"mov ecx,[esi]" ,ln "mov [esi],eax" ,ln "lea esi,[esi-4]" ,ln "mov eax," ,s **write
-					"mov [esi],eax" ,ln "mov eax,ecx" ,ln ) drop ;
-:,2DUP	optfin ,over ,over ;
-:,2OVER optfin "mov [esi-4],eax" ,ln "lea esi,[esi-8]" ,ln
-		"mov edx,[esi+16]" ,ln "mov [esi],edx" ,ln "mov eax,[esi+12]" ,ln ;
-:,2SWAP optfin "mov ecx,[esi+4]" ,ln "mov [esi+4],eax" ,ln "mov edx,[esi+8]" ,ln
-		"mov eax,[esi]" ,ln "mov [esi+8],eax" ,ln "mov [esi],edx" ,ln "mov eax,ecx" ,ln ;
-:,DROP	optfin drop, ;
-:,2DROP	optfin nip, drop, ;
-:,3DROP	optfin "lea esi,[esi+8]" ,ln drop, ;
-:,4DROP	optfin "lea esi,[esi+12]" ,ln drop, ;
-:,NIP	optfin nip, ;
-
-:,>R	optfin "push eax" ,ln drop, ;
-:,R>	optfin dup, "pop eax" ,ln ;
-:,R 	optfin dup, "mov eax,[esp]" ,ln ;
-:,R+ 	optfin "add [esp],eax" ,ln drop, ;
-:,R!+ 	optcall
-		0? ( "pop edx" ,ln "mov [edx],eax" ,ln "add edx,4" ,ln "push edx" ,ln drop, )(
-			2 =? ( "pop edx" ,ln "mov ecx," ,s **write "mov [edx],ecx" ,ln "add edx,4" ,ln "push edx" ,ln )(
-			"pop edx" ,ln "mov dword [edx]," ,s **write "add edx,4" ,ln "push edx" ,ln ) ) drop ;
-:,R@+   optfin dup, "pop edx" ,ln "mov eax,[edx]" ,ln "add edx,4" ,ln "push edx" ,ln ;
-:,RDROP optfin "pop edx" ,ln ;
-
-:,AND 	optcall	0? ( "and eax,[esi]" ,ln nip, )( "and eax," ,s **write ) drop ;
-:,OR 	optcall	0? ( "or eax,[esi]" ,ln nip, )( "or eax," ,s **write ) drop ;
-:,XOR 	optcall	0? ( "xor eax,[esi]" ,ln nip, )( "xor eax," ,s **write ) drop ;
-:,NOT 	optfin "not eax" ,ln ;
-
-
-:,+ 	optcall
-		0? ( "add eax,[esi]" ,ln nip, )( "add eax," ,s **write ) drop ;
-:,- 	optcall
-		0? ( "neg eax" ,ln "add eax,[esi]" ,ln nip, )( "sub eax," ,s **write ) drop ;
-:,* 	optcall
-		0? ( "cdq" ,ln "imul dword [esi]" ,ln nip, )( "mov ecx," ,s **write "cdq" ,ln "imul ecx" ,ln ) drop ;
-:,/ 	optcall
-		0? ( "mov ecx,eax" ,ln drop, "cdq" ,ln "idiv ecx" ,ln )(
-			"mov ecx," ,s **write "cdq" ,ln "idiv ecx" ,ln ) drop ;
-:,*/ 	optcall
-		0? ( "mov ecx,eax" ,ln drop, "cdq" ,ln "imul dword [esi]" ,ln "idiv ecx" ,ln nip, )(
-			"mov ecx," ,s **write "cdq" ,ln "imul dword [esi]" ,ln "idiv ecx" ,ln nip, ) drop ;
-
-:,*>> optcall
-		0? ( "mov ecx,eax" ,ln drop, "cdq" ,ln "imul dword [esi]" ,ln "shrd eax,edx,cl" ,ln nip, )(
-					2 =? ( "mov ecx," ,s **write  "cdq" ,ln "imul dword [esi]" ,ln "shrd eax,edx,cl" ,ln nip,  )(
-					"cdq" ,ln "imul dword [esi]" ,ln "shrd eax,edx," ,s **write nip, ) ) drop ;
-
-:,/MOD 	optfin
-		"mov ecx,eax" ,ln "mov eax,[esi]"  ,ln "cdq" ,ln "idiv ecx" ,ln "mov [esi],eax" ,ln "mov eax,edx" ,ln ;
-
-:,MOD 	optcall
-		0? ( "mov ecx,eax" ,ln drop, "cdq" ,ln "idiv ecx" ,ln "mov eax,edx" ,ln )(
-			"mov ecx," ,s **write "cdq" ,ln "idiv ecx" ,ln "mov eax,edx" ,ln ) drop ;
-:,<< 	optcall
-		0? ( "mov ecx,eax" ,ln drop, "sal eax,cl" ,ln )(
-			1 =? ( "sal eax," ,s **write )(
-			"mov ecx," ,s **write "sal eax,cl" ,ln ) ) drop ;
-:,>> 	optcall
-		0? ( "mov ecx,eax" ,ln drop, "sar eax,cl" ,ln )(
-			1 =? ( "sar eax," ,s **write )(
-			"mov ecx," ,s **write "sar eax,cl" ,ln ) ) drop ;
-:,ABS 	optfin "cdq" ,ln "add eax,edx" ,ln "xor eax,edx" ,ln ;
-:,NEG 	optfin "neg eax" ,ln ;
-:,1+ 	optfin "inc eax" ,ln ;
-:,4+ 	optfin "add eax,4" ,ln ;
-:,1-	optfin "dec eax" ,ln ;
-:,2/	optfin "sar eax,1" ,ln ;
-:,2*	optfin "sal eax,1" ,ln ; | "add eax,eax" ,ln
-
-:,@		optfin "mov eax,dword [eax]" ,ln ;
-:,C@ 	optfin "movsx eax,byte [eax]" ,ln ;
-:,W@ 	optfin "movsx eax,word [eax]" ,ln ;
-:,! 	optcall 0? ( "mov ecx,[esi]" ,ln "mov [eax],ecx" ,ln nip, drop, )(
-			2 =? ( "mov ecx," ,s **write  "mov [ecx],eax" ,ln drop, )(
-			"mov dword [" ,s **write1 "],eax" ,ln drop, ) ) drop ;
-:,C! 	optcall 0? ( "mov ecx,[esi]" ,ln "mov byte [eax],cl" ,ln nip, drop, )(
-			2 =? ( "mov ecx," ,s **write "mov byte [ecx],al" ,ln drop, )(
-			"mov byte [" ,s **write1 "],al" ,ln drop, ) ) drop ;
-:,W! 	optcall 0? ( "mov ecx,[esi]" ,ln "mov word [eax],cx" ,ln nip, drop, )(
-			2 =? ( "mov ecx," ,s **write "mov word [ecx],ax" ,ln drop, )(
-			"mov word [" ,s **write1 "],ax" ,ln drop, ) ) drop ;
-:,+! 	optcall 0? ( "mov ecx,[esi]" ,ln "add [eax],ecx" ,ln nip, drop, )(
-			2 =? ( "mov ecx," ,s **write "add [ecx],eax" ,ln drop, )(
-			"add dword [" ,s **write1 "],eax" ,ln drop, ) ) drop ;
-:,W+! 	optcall 0? ( "mov ecx,[esi]" ,ln "add word [eax],cx" ,ln nip, drop, )(
-			2 =? ( "mov ecx," ,s **write "add word [ecx],ax" ,ln drop, )(
-			"add word [" ,s **write1 "],ax" ,ln drop, ) ) drop ;
-:,C+! 	optcall 0? ( "mov ecx,[esi]" ,ln "add byte [eax],cl" ,ln nip, drop, )(
-			2 =? ( "mov ecx," ,s **write "add byte [ecx],al" ,ln drop, )(
-			"add byte [" ,s **write1 "],al" ,ln drop, ) ) drop ;
-:,!+  	optfin "mov ecx,[esi]" ,ln "mov [eax],ecx" ,ln nip, "add eax,4" ,ln ;
-:,W!+ 	optfin "movsx ecx,word [esi]" ,ln "mov [eax],cx" ,ln nip, "add eax,2" ,ln ;
-:,C!+  	optfin "movsx ecx,byte [esi]" ,ln "mov [eax],cl" ,ln nip, "inc eax" ,ln ;
-:,@+ 	optfin "mov ecx,[eax]" ,ln "add eax,4" ,ln "lea esi,[esi-4]" ,ln
-		"mov [esi],eax" ,ln "mov eax,ecx" ,ln ;
-:,W@+  	optfin "movsx ecx,word [eax]" ,ln "add eax,2" ,ln "lea esi,[esi-4]" ,ln
-		"mov [esi],eax" ,ln "mov eax,ecx" ,ln ;
-:,C@+  	optfin "movsx ecx,byte [eax]" ,ln "inc eax" ,ln "lea esi,[esi-4]" ,ln
-		"mov [esi],eax" ,ln "mov eax,ecx" ,ln ;
 |-----------
 |:,MOVE	;
 |:,MOVE>	;
@@ -372,23 +506,20 @@
 |:,CLS ;
 |------------
 :,REDRAW
-	optfin
 	"call SYSREDRAW" ,ln ;
 
 :,FRAMEV
-	optfin dup,
+	0,DUP
 	"mov eax,SYSFRAME" ,ln ;
 
 :,SETXY | x y --
-	optfin
 	"cdq" ,ln
 	"imul dword [SYSW]" ,ln
 	"add eax,[esi]" ,ln
 	"lea edi,[SYSFRAME+eax*4]" ,ln
-	nip, drop, ;
+	0,2DROP ;
 
 :,SETXYnoanda | x y --
-	optfin
 	"mov ebx,[ROWFRAME+eax*4]" ,ln
 	"mov eax,[esi]" ,ln
 	"lea edi,[SYSFRAME+ebx+eax*4]" ,ln
@@ -397,29 +528,22 @@
 	;
 
 :,PX+!	| s --
-	optfin
 	"lea edi,[edi+eax*4]" ,ln
-	drop,
-	;
+	0,DROP ;
 :,PX!+	| rgb --
-	optfin
 	"mov [edi],eax" ,ln
 	"add edi,4" ,ln
-	drop,
-	;
+	0,DROP ;
 :,PX@	| -- rgb
-	optfin dup,
-	"mov eax,[edi]" ,ln
-	;
+	0,DUP
+	"mov eax,[edi]" ,ln ;
 
-:,iPEN!
-	optcall
-	0? ( "mov [SYSiPEN],eax" ,ln drop, )(
-		"mov ecx," ,s **write "mov [SYSiPEN],ecx" ,ln )
-	drop ;
+:,iPEN! | v --
+	"mov [SYSiPEN],eax" ,ln 
+	0,DROP ;
 
 :,XYMOUSE | -- x y
-	optfin dup,
+	0,DUP
 	"lea esi,[esi-4]" ,ln
 	"mov eax,[SYSXYM]" ,ln
 	"mov ecx,eax" ,ln
@@ -428,7 +552,7 @@
 	"mov [esi],ecx" ,ln ;
 
 :,BMOUSE | -- c
-	optfin dup,
+	dup,
 	"mov eax,[SYSBM]" ,ln ;
 
 :,iKEY!
