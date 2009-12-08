@@ -19,14 +19,14 @@
 ^trace.txt
 
 |---- nivel 0 - sin desordenar la pila
-:0,DUP
+:0,DUP || a -- a a
 	"lea esi,[esi-4]" ,ln
 	"mov [esi],eax" ,ln ;
-:0,DROP
+:0,DROP || a --
 	"lodsd" ,ln ;
-:0,NIP
+:0,NIP	|| a b -- b
 	"lea esi,[esi+4]" ,ln ;
-:0,OVER
+:0,OVER || a b -- a b a
 	0,DUP
 	"mov eax,[esi+4]" ,ln ;
 :0,PICK2
@@ -269,31 +269,53 @@
 #re "edi"
 
 |||||||||||||||||||| pila virtual |||||||||||||
-#vstack )( 1024
+#vstack )( 1024 | valor
+#tstack )( 1024 | tipo
 #vstack> 'vstack
 
-::vpushCte | val --
-	;
-::vpushDirC | val --
-	;
-::vpushDirD | val --
-	;
-::vdrop | val --
-	;
+:vini
+	'vstck 'vstack> ! ;
 
-::vflush
+:vpush | valor tipo --
+	vstack> swap over 1024 + ! !+ 'vstack> ! ;
 
+:vpushCte | val --
+	0 vpush ;
+:vpushDirC | val --
+	1 vpush ;
+:vpushDirD | val --
+	2 vpush ;
 
-:vDUP	;
-:vOVER	;
-:vPICK2 ;
-:vPICK3 ;
-:vPICK4 ;
-:vSWAP	;
+:vDROP | -- || a --
+	-4 'vstack> +! ;
+:vDUP | -- || a -- a a
+	vstack> 4 -
+	dup 1024 + @+ swap !
+	@+ swap !+ 'vstack> ! ;
+:vOVER
+	vstack> 8 -
+	dup 1024 + @+ swap 4+ !
+	@+ swap 4+ !+ 'vstack> ! ;
+:vPICK2
+	vstack> 12 -
+	dup 1024 + @+ swap 8 + !
+	@+ swap 8 + !+ 'vstack> ! ;
+:vPICK3
+	vstack> 16 -
+	dup 1024 + @+ swap 12 + !
+	@+ swap 12 + !+ 'vstack> ! ;
+:vPICK4
+	vstack> 20 -
+	dup 1024 + @+ swap 16 + !
+	@+ swap 16 + !+ 'vstack> ! ;
+:vSWAP
+	vstack> 8 -
+	dup 1024 +
+	dup @+ swap @ rot !+ !
+	dup @+ swap @ rot !+ ! ;
 :vROT	;
 :v2OVER ;
 :v2SWAP ;
-:vDROP	;
 :v4DROP	vdrop
 :v3DROP	vdrop
 :v2DROP	vdrop vdrop ;
@@ -301,28 +323,49 @@
 :v2DUP	vover vover ;
 
 |||||||| Calculo
+:vAND
+	vstack> 8 - @+ over @ and swap ! ;
+:vOR
+	vstack> 8 - @+ over @ or swap ! ;
+:vXOR
+	vstack> 8 - @+ over @ xor swap ! ;
+:vNOT
+	vstack> 4 - dup @ not swap ! ;
+:v+
+	vstack> 8 - @+ over @ + swap ! ;
+:v-
+	vstack> 8 - @+ over @ - swap ! ;
+:v*
+	vstack> 8 - @+ over @ * swap ! ;
+:v/
+	vstack> 8 - @+ over @ / swap ! ;
+:vMOD
+	vstack> 8 - @+ over @ mod swap ! ;
+:v<<
+	vstack> 8 - @+ over @ << swap ! ;
+:v>>
+	vstack> 8 - @+ over @ >> swap ! ;
+:v*/
+	vstack> 12 - @+ over @+ swap @ */ swap ! ;
+:v*>>
+	vstack> 12 - @+ over @+ swap @ *>> swap ! ;
+:v/MOD
+	vstack> 8 - dup @+ swap @ /mod swap rot !+ ! ;
+:vABS
+	vstack> 4 - dup @ abs swap ! ;
+:vNEG
+	vstack> 4 - dup @ neg swap ! ;
+:v1+
+	vstack> 4 - dup @ 1+ swap ! ;
+:v4+
+	vstack> 4 - dup @ 4+ swap ! ;
+:v1-
+	vstack> 4 - dup @ 1- swap ! ;
+:v2/
+	vstack> 4 - dup @ 2/ swap ! ;
+:v2*
+	vstack> 4 - dup @ 2* swap ! ;
 
-:vAND 	;
-:vOR 	;
-:vXOR 	;
-:vNOT 	;
-:v+		;
-:v- 	;
-:v* 	;
-:v/ 	;
-:v*/ 	;
-:v*>> 	;
-:v/MOD 	;
-:vMOD 	;
-:v<< 	;
-:v>> 	;
-:vABS 	;
-:vNEG 	;
-:v1+ 	;
-:v4+ 	;
-:v1-	;
-:v2/	;
-:v2*	;
 
 |||||||||| Memoria
 :v@		;
@@ -349,7 +392,6 @@
 #dtipo 'd1
 #dini 0
 
-
 :,d; ;
 :,d( dtipo >pilac 'd3 'dtipo ! ;
 :,d)( 'd4 'dtipo ! ;
@@ -359,18 +401,6 @@
 
 #dmacros ',d; ',d( ',d) ',d)( ',d[ ',d]
 
-
-|----codigo
-:dup,
-	"lea esi,[esi-4]" ,ln
-	"mov [esi],eax" ,ln ;
-:drop,
-	"lodsd" ,ln ;
-:nip,
-	"lea esi,[esi+4]" ,ln ;
-
-
-|----- pila de compilador
 #pilac )( 256	#pilac> 'pilac
 
 :>pilac pilac> ! 4 'pilac> +! ;
@@ -484,23 +514,41 @@
 |:,CMOVE	;
 |:,CMOVE>	;
 |------------------
-:,DIR 		optfin "call SYSDIR" ,ln ;
-:,FILE 		optfin "call SYSFILE" ,ln ;
-:,FSIZE	;
-:,VOL	;
-:,LOAD 		optfin "call SYSLOAD" ,ln ;
-:,SAVE 		optfin "call SYSSAVE" ,ln ;
+:,DIR 		
+	"call SYSDIR" ,ln ;
+:,FILE 		
+	"call SYSFILE" ,ln ;
+:,FSIZE	
+	"call SYSFSIZE" ,ln ;
+:,VOL
+	"call SYSVOL" ,ln ;
 
-:,UPDATE 	optfin "call SYSUPDATE" ,ln ;
-:,MSEC 		optfin "call SYSMSEC" ,ln ;
-:,TIME 		optfin "call SYSTIME" ,ln ;
-:,DATE 		optfin "call SYSDATE" ,ln ;
-:,END		optfin "jmp SYSEND" ,ln ;
-:,RUN 		optfin "call SYSRUN" ,ln ;
+:,LOAD
+	"call SYSLOAD" ,ln ;
+:,SAVE
+	"call SYSSAVE" ,ln ;
 
-:,SW 	optfin dup, "mov eax,[SYSW]" ,ln ;
-:,SH	optfin dup, "mov eax,[SYSH]" ,ln ;
-:,MEM 	optfin dup, "mov eax,FREE_MEM" ,ln ;
+:,UPDATE
+	"call SYSUPDATE" ,ln ;
+:,MSEC
+	"call SYSMSEC" ,ln ;
+:,TIME
+	"call SYSTIME" ,ln ;
+:,DATE
+	"call SYSDATE" ,ln ;
+:,END
+	"jmp SYSEND" ,ln ;
+:,RUN
+	"call SYSRUN" ,ln ;
+:,SW
+	0,dup
+	"mov eax,[SYSW]" ,ln ;
+:,SH
+	0,dup
+	"mov eax,[SYSH]" ,ln ;
+:,MEM
+	0,dup 
+	"mov eax,FREE_MEM" ,ln ;
 
 |------------
 |:,CLS ;
@@ -516,30 +564,30 @@
 	"cdq" ,ln
 	"imul dword [SYSW]" ,ln
 	"add eax,[esi]" ,ln
-	"lea edi,[SYSFRAME+eax*4]" ,ln
+	"lea ebp,[SYSFRAME+eax*4]" ,ln
 	0,2DROP ;
 
 :,SETXYnoanda | x y --
 	"mov ebx,[ROWFRAME+eax*4]" ,ln
 	"mov eax,[esi]" ,ln
-	"lea edi,[SYSFRAME+ebx+eax*4]" ,ln
+	"lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
 	"sub esi,8" ,ln
 	"mov eax,[esi+4]" ,ln
 	;
 
 :,PX+!	| s --
-	"lea edi,[edi+eax*4]" ,ln
+	"lea ebp,[ebp+eax*4]" ,ln
 	0,DROP ;
 :,PX!+	| rgb --
-	"mov [edi],eax" ,ln
-	"add edi,4" ,ln
+	"mov [ebp],eax" ,ln
+	"add ebp,4" ,ln
 	0,DROP ;
 :,PX@	| -- rgb
 	0,DUP
-	"mov eax,[edi]" ,ln ;
+	"mov eax,[ebp]" ,ln ;
 
 :,iPEN! | v --
-	"mov [SYSiPEN],eax" ,ln 
+	"mov [SYSiPEN],eax" ,ln
 	0,DROP ;
 
 :,XYMOUSE | -- x y
@@ -552,15 +600,15 @@
 	"mov [esi],ecx" ,ln ;
 
 :,BMOUSE | -- c
-	dup,
+	0,DUP
 	"mov eax,[SYSBM]" ,ln ;
 
 :,iKEY!
-	optcall
-	0? ( "mov [SYSiKEY],eax" ,ln drop, )( "mov ecx," ,s **write "mov [SYSiKEY],ecx" ,ln ) drop ;
+	"mov [SYSiKEY],eax" ,ln
+	0,DROP ;
 
 :,KEY
-	optfin dup,
+	0,DUP
 	"mov eax,[SYSKEY]" ,ln ;
 
 :,IJOY!
