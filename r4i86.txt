@@ -5,7 +5,7 @@
 | .. [esi] eax - pila D
 |
 | ebx edi - Libres
-| ecx - libre | shr shl
+| ecx - libre | sar sal
 | edx - libre | * /
 |
 | ebp - VFRAME pointer
@@ -17,6 +17,98 @@
 ^gui3.txt
 ^parse.txt
 ^trace.txt
+
+#ra "eax"
+#rb "ebx"
+#rc "ecx"
+#rd "edx"
+#re "edi"
+#nos "[esi]"
+#cl "cl"
+
+#vTOS ra
+#vNOS nos
+
+|||||||||||||||||||| pila virtual |||||||||||||
+#vstack )( 1024 | valor
+#tstack )( 1024 | tipo
+#vstack> 'vstack
+
+:vini | --
+	'vstck 'vstack> ! ;
+:vpush | valor tipo --
+	vstack> swap over 1024 + ! !+ 'vstack> ! ;
+:vpushCte | val --
+	0 vpush ;
+:vpushDirC | val --
+	1 vpush ;
+:vpushDirD | val --
+	2 vpush ;
+
+|---- nivel v - pila virtual solamente
+:vDROP | -- || a --
+	-4 'vstack> +! ;
+:vDUP | -- || a -- a a
+	vstack> 4 -
+	dup 1024 + @+ swap !
+	@+ swap !+ 'vstack> ! ;
+:vOVER
+	vstack> 8 -
+	dup 1024 + @+ swap 4+ !
+	@+ swap 4+ !+ 'vstack> ! ;
+:vPICK2
+	vstack> 12 -
+	dup 1024 + @+ swap 8 + !
+	@+ swap 8 + !+ 'vstack> ! ;
+:vPICK3
+	vstack> 16 -
+	dup 1024 + @+ swap 12 + !
+	@+ swap 12 + !+ 'vstack> ! ;
+:vPICK4
+	vstack> 20 -
+	dup 1024 + @+ swap 16 + !
+	@+ swap 16 + !+ 'vstack> ! ;
+:vSWAP
+	vstack> 8 -
+	dup 1024 +
+	dup @+ swap @ rot !+ !
+	dup @+ swap @ rot !+ ! ;
+:vROT	
+	vstack> 12 -
+	dup 1024 +
+	dup >r @+ swap @+ swap @ rot >r !+ !+ !
+    dup >r @+ swap @+ swap @ rot >r !+ !+ ! ;
+
+:v2OVER ;
+:v2SWAP ;
+:v4DROP	vdrop
+:v3DROP	vdrop
+:v2DROP	vdrop vdrop ;
+:vNIP	vswap vdrop ;
+:v2DUP	vover vover ;
+
+|||||||| Calculo
+:vAND	vstack> 8 - @+ over @ and swap ! ;
+:vOR    vstack> 8 - @+ over @ or swap ! ;
+:vXOR   vstack> 8 - @+ over @ xor swap ! ;
+:vNOT   vstack> 4 - dup @ not swap ! ;
+:v+     vstack> 8 - @+ over @ + swap ! ;
+:v-     vstack> 8 - @+ over @ - swap ! ;
+:v*     vstack> 8 - @+ over @ * swap ! ;
+:v/     vstack> 8 - @+ over @ / swap ! ;
+:vMOD   vstack> 8 - @+ over @ mod swap ! ;
+:v<<    vstack> 8 - @+ over @ << swap ! ;
+:v>>    vstack> 8 - @+ over @ >> swap ! ;
+:v*/    vstack> 12 - @+ over @+ swap @ */ swap ! ;
+:v*>>   vstack> 12 - @+ over @+ swap @ *>> swap ! ;
+:v/MOD  vstack> 8 - dup @+ swap @ /mod swap rot !+ ! ;
+:vABS   vstack> 4 - dup @ abs swap ! ;
+:vNEG   vstack> 4 - dup @ neg swap ! ;
+:v1+    vstack> 4 - dup @ 1+ swap ! ;
+:v4+    vstack> 4 - dup @ 4+ swap ! ;
+:v1-    vstack> 4 - dup @ 1- swap ! ;
+:v2/    vstack> 4 - dup @ 2/ swap ! ;
+:v2*    vstack> 4 - dup @ 2* swap ! ;
 
 |---- nivel 0 - sin desordenar la pila
 :0,DUP || a -- a a
@@ -227,145 +319,39 @@
 	"mov ecx,[esi]" ,ln
 	"add byte [eax],cl" ,ln
 	0,2DROP ;
-:,!+
+:0,!+
 	"mov ecx,[esi]" ,ln
 	"mov [eax],ecx" ,ln
 	"add eax,4" ,ln
 	0,NIP ;
-:,W!+
+:0,W!+
 	"movsx ecx,word [esi]" ,ln
 	"mov [eax],cx" ,ln
 	"add eax,2" ,ln
 	0,NIP ;
-:,C!+
+:0,C!+
 	"movsx ecx,byte [esi]" ,ln
 	"mov [eax],cl" ,ln
 	"inc eax" ,ln
 	0,NIP ;
-:,@+
+:0,@+
 	"mov ecx,[eax]" ,ln
 	"add eax,4" ,ln
 	"mov [esi-4],eax" ,ln
 	"mov eax,ecx" ,ln
 	"lea esi,[esi-4]" ,ln ;
-:,W@+
+:0,W@+
 	"movsx ecx,word [eax]" ,ln
 	"add eax,2" ,ln
 	"mov [esi-4],eax" ,ln
 	"mov eax,ecx" ,ln
 	"lea esi,[esi-4]" ,ln ;
-:,C@+
+:0,C@+
 	"movsx ecx,byte [eax]" ,ln
 	"inc eax" ,ln
 	"mov [esi-4],eax" ,ln
 	"mov eax,ecx" ,ln
 	"lea esi,[esi-4]" ,ln ;
-
-
-#ra "eax"
-#rb "ebx"
-#rc "ecx"
-#rd "edx"
-#re "edi"
-
-|||||||||||||||||||| pila virtual |||||||||||||
-#vstack )( 1024 | valor
-#tstack )( 1024 | tipo
-#vstack> 'vstack
-
-:vini
-	'vstck 'vstack> ! ;
-
-:vpush | valor tipo --
-	vstack> swap over 1024 + ! !+ 'vstack> ! ;
-
-:vpushCte | val --
-	0 vpush ;
-:vpushDirC | val --
-	1 vpush ;
-:vpushDirD | val --
-	2 vpush ;
-
-:vDROP | -- || a --
-	-4 'vstack> +! ;
-:vDUP | -- || a -- a a
-	vstack> 4 -
-	dup 1024 + @+ swap !
-	@+ swap !+ 'vstack> ! ;
-:vOVER
-	vstack> 8 -
-	dup 1024 + @+ swap 4+ !
-	@+ swap 4+ !+ 'vstack> ! ;
-:vPICK2
-	vstack> 12 -
-	dup 1024 + @+ swap 8 + !
-	@+ swap 8 + !+ 'vstack> ! ;
-:vPICK3
-	vstack> 16 -
-	dup 1024 + @+ swap 12 + !
-	@+ swap 12 + !+ 'vstack> ! ;
-:vPICK4
-	vstack> 20 -
-	dup 1024 + @+ swap 16 + !
-	@+ swap 16 + !+ 'vstack> ! ;
-:vSWAP
-	vstack> 8 -
-	dup 1024 +
-	dup @+ swap @ rot !+ !
-	dup @+ swap @ rot !+ ! ;
-:vROT	;
-:v2OVER ;
-:v2SWAP ;
-:v4DROP	vdrop
-:v3DROP	vdrop
-:v2DROP	vdrop vdrop ;
-:vNIP	vswap vdrop ;
-:v2DUP	vover vover ;
-
-|||||||| Calculo
-:vAND
-	vstack> 8 - @+ over @ and swap ! ;
-:vOR
-	vstack> 8 - @+ over @ or swap ! ;
-:vXOR
-	vstack> 8 - @+ over @ xor swap ! ;
-:vNOT
-	vstack> 4 - dup @ not swap ! ;
-:v+
-	vstack> 8 - @+ over @ + swap ! ;
-:v-
-	vstack> 8 - @+ over @ - swap ! ;
-:v*
-	vstack> 8 - @+ over @ * swap ! ;
-:v/
-	vstack> 8 - @+ over @ / swap ! ;
-:vMOD
-	vstack> 8 - @+ over @ mod swap ! ;
-:v<<
-	vstack> 8 - @+ over @ << swap ! ;
-:v>>
-	vstack> 8 - @+ over @ >> swap ! ;
-:v*/
-	vstack> 12 - @+ over @+ swap @ */ swap ! ;
-:v*>>
-	vstack> 12 - @+ over @+ swap @ *>> swap ! ;
-:v/MOD
-	vstack> 8 - dup @+ swap @ /mod swap rot !+ ! ;
-:vABS
-	vstack> 4 - dup @ abs swap ! ;
-:vNEG
-	vstack> 4 - dup @ neg swap ! ;
-:v1+
-	vstack> 4 - dup @ 1+ swap ! ;
-:v4+
-	vstack> 4 - dup @ 4+ swap ! ;
-:v1-
-	vstack> 4 - dup @ 1- swap ! ;
-:v2/
-	vstack> 4 - dup @ 2/ swap ! ;
-:v2*
-	vstack> 4 - dup @ 2* swap ! ;
-
 
 |||||||||| Memoria
 :v@		;
@@ -384,7 +370,84 @@
 :vW@+  	;
 :vC@+  	;
 
-|----data
+
+
+|---- nivel 1 - pila virtual
+:1,AND
+	vTOS vNOS "and %s,%s" ,print ,cr ;
+:1,OR
+	vTOS vNOS "or %s,%s" ,print ,cr ;
+:1,XOR
+	vTOS vNOS "xor %s,%s" ,print ,cr ;
+:1,NOT
+	vTOS "not %s" ,print ,cr ;
+:1,+
+	vTOS vNOS "add %s,%s" ,print ,cr ;
+:1,-
+	vTOS vNOS "sub %s,%s" ,print ,cr ;
+
+:1,*
+	"cdq" ,ln
+	"imul dword [esi]" ,ln
+	0,NIP ;
+:1,/
+	"mov ecx,eax" ,ln
+	0,DROP
+	"cdq" ,ln
+	"idiv ecx" ,ln ;
+:1,*/
+	"mov ecx,eax" ,ln
+	0,DROP
+	"cdq" ,ln
+	"imul dword [esi]" ,ln
+	"idiv ecx" ,ln
+	0,NIP ;
+:1,*>>
+	"mov ecx,eax" ,ln
+	0,DROP
+	"cdq" ,ln
+	"imul dword [esi]" ,ln
+	"shrd eax,edx,cl" ,ln
+	0,NIP ;
+:1,/MOD
+	"mov ecx,eax" ,ln
+	"mov eax,[esi]" ,ln
+	"cdq" ,ln
+	"idiv ecx" ,ln
+	"mov [esi],eax" ,ln
+	"mov eax,edx" ,ln ;
+:1,MOD
+	"mov ecx,eax" ,ln
+	0,DROP
+	"cdq" ,ln
+	"idiv ecx" ,ln
+	"mov eax,edx" ,ln ;
+
+:1,<<
+	vTOS vNOS "sal %s,%s" ,print ,cr ; | cl o cte
+:1,>>
+	vTOS vNOS "sar %s,%s" ,print cr ; | cl o cte
+
+:0,ABS
+	"cdq" ,ln
+	"add eax,edx" ,ln
+	"xor eax,edx" ,ln ;
+
+:1,NEG
+	vTOS "neg %s" ,print ,cr ;
+:0,1+
+	vTOS "inc %s" ,print ,cr ;
+:0,4+
+	vTOS "add %s,4" ,print ,cr ;
+:0,1-
+	vTOS "dec %s" ,print ,cr ;
+:0,2/
+	vTOS "sar %s,1" ,print ,cr ;
+:0,2*
+	vTOS "sal %s,1" ,print ,cr ;
+
+
+|-------------------------------------data
 #d1 "dd "
 #d2 "dw "
 #d3	"db "
@@ -478,33 +541,32 @@
 :,]
 	optfin <pilac label ":" ,ln ;
 
-:,0?	optfin "or eax,eax" ,ln "jnz " ,s ;
-:,+?	optfin "or eax,eax" ,ln "js " ,s ;
-:,-?	optfin "or eax,eax" ,ln "jns " ,s ;
-:,1?	optfin "or eax,eax" ,ln "jz " ,s ;
-:,=?	optcall
+:,0?	"or eax,eax" ,ln "jnz " ,s ;
+:,+?	"or eax,eax" ,ln "js " ,s ;
+:,-?	"or eax,eax" ,ln "jns " ,s ;
+:,1?	"or eax,eax" ,ln "jz " ,s ;
+:,=?
 		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jnz " ,s )(
 			"cmp eax," ,s **write "jnz " ,s ) drop ;
-:,<?	optcall
+:,<?
 		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jge " ,s )(
 			"cmp eax," ,s **write "jge " ,s ) drop ;
-:,>?	optcall
+:,>?
 		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jle " ,s )(
 			"cmp eax," ,s **write "jle " ,s ) drop ;
-:,<=?	optcall
+:,<=?
 		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jg " ,s )(
 			"cmp eax," ,s **write "jg " ,s ) drop ;
-:,>=?	optcall
+:,>=?
 		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jl " ,s )(
 			"cmp eax," ,s **write "jl " ,s ) drop ;
-:,<>?	optcall
+:,<>?
 		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jz " ,s )(
 			"cmp eax," ,s **write "jz " ,s ) drop ;
-:,and?	optcall
+:,and?
 		0? ( "mov ecx,eax" ,ln drop, "test eax,ecx" ,ln "jz " ,s )(
 			"test eax," ,s **write "jz " ,s ) drop ;
-
-:,nand?	optcall
+:,nand?
 		0? ( "mov ecx,eax" ,ln drop, "test eax,ecx" ,ln "jnz " ,s )(
 			"test eax," ,s **write "jnz " ,s ) drop ;
 
@@ -514,32 +576,18 @@
 |:,CMOVE	;
 |:,CMOVE>	;
 |------------------
-:,DIR 		
-	"call SYSDIR" ,ln ;
-:,FILE 		
-	"call SYSFILE" ,ln ;
-:,FSIZE	
-	"call SYSFSIZE" ,ln ;
-:,VOL
-	"call SYSVOL" ,ln ;
-
-:,LOAD
-	"call SYSLOAD" ,ln ;
-:,SAVE
-	"call SYSSAVE" ,ln ;
-
-:,UPDATE
-	"call SYSUPDATE" ,ln ;
-:,MSEC
-	"call SYSMSEC" ,ln ;
-:,TIME
-	"call SYSTIME" ,ln ;
-:,DATE
-	"call SYSDATE" ,ln ;
-:,END
-	"jmp SYSEND" ,ln ;
-:,RUN
-	"call SYSRUN" ,ln ;
+:,DIR		"call SYSDIR" ,ln ;
+:,FILE      "call SYSFILE" ,ln ;
+:,FSIZE     "call SYSFSIZE" ,ln ;
+:,VOL       "call SYSVOL" ,ln ;
+:,LOAD      "call SYSLOAD" ,ln ;
+:,SAVE      "call SYSSAVE" ,ln ;
+:,UPDATE    "call SYSUPDATE" ,ln ;
+:,MSEC      "call SYSMSEC" ,ln ;
+:,TIME      "call SYSTIME" ,ln ;
+:,DATE      "call SYSDATE" ,ln ;
+:,END       "jmp SYSEND" ,ln ;
+:,RUN       "call SYSRUN" ,ln ;
 :,SW
 	0,dup
 	"mov eax,[SYSW]" ,ln ;
@@ -547,14 +595,13 @@
 	0,dup
 	"mov eax,[SYSH]" ,ln ;
 :,MEM
-	0,dup 
+	0,dup
 	"mov eax,FREE_MEM" ,ln ;
 
 |------------
 |:,CLS ;
 |------------
-:,REDRAW
-	"call SYSREDRAW" ,ln ;
+:,REDRAW	"call SYSREDRAW" ,ln ;
 
 :,FRAMEV
 	0,DUP
@@ -603,11 +650,11 @@
 	0,DUP
 	"mov eax,[SYSBM]" ,ln ;
 
-:,iKEY!
+:,iKEY! | v --
 	"mov [SYSiKEY],eax" ,ln
 	0,DROP ;
 
-:,KEY
+:,KEY	| -- c
 	0,DUP
 	"mov eax,[SYSKEY]" ,ln ;
 
@@ -628,30 +675,6 @@
 :,NBI
 	;
 
-#fmacros ',; ',( ',) ',)( ',[ ',] ',EXEC
-',0? ',+? ',-? ',1? ',=? ',<? ',>? ',<=? ',>=? ',<>? ',and? ',nand?
-',DUP ',DROP ',OVER ',PICK2 ',PICK3 ',PICK4 ',SWAP ',NIP ',ROT
-',2DUP ',2DROP ',3DROP ',4DROP ',2OVER ',2SWAP
-',>R ',R> ',R ',R+ ',R@+ ',R!+ ',RDROP
-',AND ',OR ',XOR ',NOT
-',+ ',- ',* ',/ ',*/ ',*>> ',/MOD ',MOD ',ABS
-',NEG ',1+ ',4+ ',1- ',2/ ',2* ',<< ',>>
-',@ ',C@ ',W@ ',! ',C! ',W! ',+! ',C+! ',W+!
-',@+ ',!+ ',C@+ ',C!+ ',W@+ ',W!+
-|',MOVE ',MOVE> ',CMOVE ',CMOVE>
-',MEM ',DIR ',FILE ',FSIZE ',VOL ',LOAD ',SAVE
-',UPDATE ',MSEC ',TIME ',DATE ',END ',RUN
-',SW ',SH |',CLS
-',REDRAW ',FRAMEV
-',SETXY ',PX+! ',PX!+ ',PX@
-',IPEN! ',XYMOUSE ',BMOUSE
-',IKEY! ',KEY
-',IJOY! ',CNTJOY ',GETJOY
-',SLOAD ',SPLAY ',MLOAD ',MPLAY
-',INET!
-',LISTEN ',CONECT ',SEND ',RECV ',NBI
-
-|--- Macros
 
 |---- Agrega palabra al diccionario
 
