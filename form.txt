@@ -44,3 +44,142 @@
 
 
 
+|--------- reloj
+:aguja | ang largo --
+	polar
+	xc pick2 3 >> - yc pick2 3 >> + op
+	xc rot + yc rot - line ;
+
+::reloj | --
+	blanco
+	w h min 2/
+	0 ( 1.0 <? )(
+		dup pick2 polar
+		swap xc + swap yc + op
+		dup pick2 dup 4 >> - polar
+		swap xc + swap yc + line
+		0.0834 + ) drop
+	4 - >r
+	time | s m h --
+	rojo 1.0 12 */ r 2/ aguja
+	verde 1.0 60 */ r dup 2 >> - aguja
+	blanco 1.0 60 */ r> aguja ;
+
+|---------------------- Mas botones
+::btnex | 'acc "leyenda" "titulo" --
+	gc.push ink@ dup >r $222222
+	[ swap ; ] [ 0.95 fzoom ; ] onInOut
+	vbtn
+	gc2win home
+	font-vard-12-bold-out
+	cr2 printc cr cr2
+	font-vard-8
+
+	blanco linefill
+	1 col negro print
+
+	onClick
+	r> ink gc.pop ;
+
+::btnee | 'acc DB --
+	gc.push ink@ dup >r $222222
+	[ swap ; ] [ 0.95 fzoom ; ] onInOut
+	vbtn
+	gc2win home
+	font-vard-12-quad-out
+	cr2 linefill
+	dup "%a" printc cr cr2
+	font-vard-8-bold-out
+	>>f
+	( dup c@ 1? )( drop
+|		blanco linefill negro
+		1 col dup "* %a" print >>s cr
+		) 2drop
+	gc.pop
+	onClick
+	r> ink ;
+
+|---------------- Grilla
+#cols
+#ancho
+#factor
+#xi
+#tabcols )( 256
+#xf
+#yi
+#tabrows )( 256
+#yf
+#tabrows>
+#col>
+#xxi
+
+::grid | grids cols ancho --
+	tx2 tx1 - 16 *>> 'ancho !
+	tx2 tx1 - 2/ ancho 2/ - tx1 + 'xi !
+
+	over >r
+	0 over ( 1? )( 1- r@+ rot + swap )
+	drop rdrop
+	ancho 2* swap / 'factor !
+	dup 'cols !
+
+	swap >r
+	'tabcols xi rot  | grid xi cols
+	( 1? )( 1- | adr xi cnt
+		r@+ swap >r | adr xi act
+		factor * 2/ + dup rot !+  		| tab xi -- xi tab
+		swap r> )
+	drop nip 'xf !
+	rdrop
+	ccy 'yi !
+	'tabrows 'tabrows> !
+
+::rowg | --
+	0 'col> !
+	xi 'xxi !
+	2 'ccy +!
+	ccy cch + dup 'yf ! tabrows> !+ 'tabrows> !
+	;
+
+::gfill | color --
+	ink@ swap ink
+	xi ccy 2dup 1- op cch + pline
+	xf ccy 2dup cch + pline 1- pline
+	poli ink ;
+
+:xxf | -- xf
+	col> dup 1+ 'col> !
+	2 << 'tabcols + @ ;
+
+:centerprint | "" x2 x1 --
+	'ccx ! 'xxi !
+	mprint sizeprint xxi ccx - swap - 2/ 'ccx +!
+	printx ;
+
+:rigthprint | "" x2 x1 --
+	drop 'xxi !
+	mprint sizeprint
+	xxi swap - 'ccx !
+	printx ;
+
+:leftprint | "" x2 x1 --
+	'ccx ! 'xxi !
+	print ;
+
+::gcell | "texto" --
+	xxf xxi 4+ leftprint ;
+
+::gcellc | "texto" --
+	xxf xxi centerprint ;
+
+::gcellr | "texto" --
+	xxf xxi 4 - rigthprint ;
+
+::$grid | --
+	'xi cols 1+ ( 1? )( 1- swap
+		@+ dup yi op yf line
+		swap ) 2drop
+	'yi ( tabrows> <? )(
+		@+ xi over op xf swap line
+		) drop ;
+
