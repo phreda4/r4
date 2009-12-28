@@ -66,6 +66,7 @@ HDC	phDC;
 LOGFONT plf;
 HGDIOBJ hfnt, hfntPrev;
 int cWidthPels,cHeightPels;
+SIZE tsize;
 
 static const char wndclass[] = ":r4";
 
@@ -121,7 +122,7 @@ char *macros[]={// directivas del compilador
 "SERVER","CLIENT","SEND","RECV","CLOSE", //--- red
 "TIMER",            //------- timer
 #ifdef PRINTER
-"DOCINI","DOCEND","DOCMOVE","DOCLINE","DOCTEXT","DOCFONT","DOCBIT","DOCRES", //-- impresora
+"DOCINI","DOCEND","DOCAT","DOCLINE","DOCTEXT","DOCFONT","DOCBIT","DOCRES","DOCSIZE", //-- impresora
 #endif
 ""};
 
@@ -162,7 +163,7 @@ SERVER,CLIENT,NSEND,RECV,CLOSE, //---- red
 ITIMER,//--- timer
 
 #ifdef PRINTER  //-- impresora
-DOCINI,DOCEND,DOCMOVE,DOCLINE,DOCTEXT,DOCFONT,DOCBIT,DOCRES,
+DOCINI,DOCEND,DOCMOVE,DOCLINE,DOCTEXT,DOCFONT,DOCBIT,DOCRES,DOCSIZE,
 #endif
 
 ULTIMAPRIMITIVA// de aqui en mas.. apila los numeros 0..255-ULTIMAPRIMITIVA
@@ -628,9 +629,13 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         LineTo(phDC,*NOS,TOS); 
         NOS--;TOS=*(NOS);NOS--;        
         continue;
-    case DOCTEXT: // "tt" x y --
-        TextOutA(phDC,*NOS,TOS,(char*)(*(NOS-1)),strlen((char*)(*(NOS-1))));
-        NOS-=2;TOS=*(NOS);NOS--;
+    case DOCTEXT: // "tt" --
+        TextOutA(phDC,0,0,(char*)(TOS),strlen((char*)(TOS)));
+        TOS=*(NOS);NOS--;
+        continue;
+    case DOCSIZE: // "tt" --
+        GetTextExtentPoint(phDC,(char*)(TOS),strlen((char*)(TOS)),&tsize);
+        NOS++;*(NOS)=tsize.cx;TOS=tsize.cy;
         continue;
     case DOCFONT: // size angle "font" --
         SelectObject(phDC, hfntPrev); 
@@ -1378,6 +1383,7 @@ plf.lfWeight = FW_NORMAL;
 plf.lfEscapement = 0; 
 hfnt = CreateFontIndirect(&plf); 
 hfntPrev = SelectObject(phDC, hfnt);
+SetTextAlign(phDC,TA_UPDATECP);
 
 InitJoystick(hWnd);
 loaddir();
