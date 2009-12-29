@@ -1337,7 +1337,7 @@ while (*aa!=0) {
       if ('h'==*aa) { esnumero(aa+1);h=numero; }
       if ('f'==*aa) { fullscreen=1; }
       if ('s'==*aa) { silent=1; }
-      if ('p'==*aa) { strcpy(printername,aa); } // pPrimo PDF. 
+      if ('p'==*aa) { strcpy(printername,(aa+1)); } // pPrimo PDF. 
       if ('?'==*aa) { print_usage();return 0; }
       while (*aa!=32&&*aa!=0) aa++;
       if (32==*aa) *aa=0;
