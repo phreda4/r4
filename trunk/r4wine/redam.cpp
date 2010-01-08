@@ -27,6 +27,7 @@
 #define WIN32_EXTRA_LEAN
 
 #include <windows.h>
+#include <stdlib.h>
 #include <winsock.h>
 #include <stdio.h>
 #include <time.h>
@@ -70,7 +71,7 @@ SIZE tsize;
 
 static const char wndclass[] = ":r4";
 
-char setings[1024];
+char setings[256];
 int rebotea;
 
 
@@ -88,8 +89,6 @@ char mapex[]={
  96, 97, 98, 99,100,101,102,103,104,105,106,107,108,109,110,111,
 112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127};
 
-//    if (SYSKEY>0x34 && SYSKEY!=0x38) SYSKEY+=((lParam&0x100)>>4);
-// 0x34-52   0x38-56
 char *macros[]={// directivas del compilador
 ";","(",")",")(","[","]","EXEC",
 "0?","+?","-?","1?","=?","<?",">?","<=?",">=?","<>?","AND?","NAND?",
@@ -124,6 +123,7 @@ char *macros[]={// directivas del compilador
 #ifdef PRINTER
 "DOCINI","DOCEND","DOCAT","DOCLINE","DOCTEXT","DOCFONT","DOCBIT","DOCRES","DOCSIZE", //-- impresora
 #endif
+"SYSTEM"
 ""};
 
 // instrucciones de maquina (son compilables a assembler)
@@ -165,9 +165,12 @@ ITIMER,//--- timer
 #ifdef PRINTER  //-- impresora
 DOCINI,DOCEND,DOCMOVE,DOCLINE,DOCTEXT,DOCFONT,DOCBIT,DOCRES,DOCSIZE,
 #endif
-
+SYSTEM,
 ULTIMAPRIMITIVA// de aqui en mas.. apila los numeros 0..255-ULTIMAPRIMITIVA
 };
+
+char pilaexec[1024];
+char *pilaexecl;
 
 char *compilastr="";
 char *bootstr="main.txt";
@@ -219,7 +222,7 @@ BYTE *RSP[2048];// 2k pila de direcciones
 BYTE ultimapalabra[]={ SISEND };
 //--- Memoria
 BYTE prog[1024*256];// 256k de programa
-BYTE data[1024*1024*32];// 32 MB de datos
+BYTE data[1024*1024*512];// 512 MB de datos
 
 void mimemset(char *p,char v,int c)
 {
@@ -441,7 +444,12 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case SISRUN: 
         exestr="";
         if (TOS==0) { rebotea=1;return 0; }
-        bootstr=(char*)TOS;
+//        bootstr=(char*)TOS;
+        
+        strcpy(pilaexecl,(char*)TOS);
+        while (*pilaexecl!=0) pilaexecl++;
+        pilaexecl++;
+
         return 1;
 //    case SISIRUN: if (TOS!=0) exestr=(char*)TOS;return 1;
 
@@ -658,6 +666,11 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         NOS++;*NOS=TOS;TOS=cHeightPels;
         continue;
 #endif
+    case SYSTEM: // "" --
+        //if (TOS!=0) 
+        system((char*)TOS);
+        TOS=(*NOS);NOS--;
+        continue;
 	default: // completa los 8 bits con apila numeros 0...
         NOS++;*NOS=TOS;TOS=W-ULTIMAPRIMITIVA;continue;
 	} } };
@@ -1252,7 +1265,7 @@ switch (message) {     // handle message
             buffernet[buffersize]=0;
             SYSEVENT=SYSirqred;
             break;
-//        case FD_CONNECT:
+        case FD_CONNECT:
 
         case FD_ACCEPT: //Connection request
             soc=accept(wParam,0,0);
@@ -1314,8 +1327,8 @@ char printername[32];
 char *aa=(char*)lpCmdLine;
 
 strcpy(pathdata,".//");  // SEBAS win-linux
-strcpy(printername,"PrimoPDF");
-strcpy(setings,"pPrimoPDF") ;
+//strcpy(printername,"PrimoPDF");
+//strcpy(setings,"pPrimoPDF") ;
 
 mimemset((char*)&wc,0,sizeof(WNDCLASSA));
 wc.style         = 0; //CS_OWNDC;
@@ -1324,14 +1337,24 @@ wc.hInstance     = GetModuleHandle(0);
 wc.lpszClassName = wndclass;
 if(!RegisterClass((WNDCLASSA*)&wc)) return -1;
 
+pilaexecl=pilaexec;
+strcpy(pilaexecl,"main.txt");
+while (*pilaexecl!=0) pilaexecl++;
+pilaexecl++;
+
 reboot: rebotea=0;
 
 file=fopen("r4.ini","rb");// cargar r4.ini
 if (file!=NULL) { fread(setings,sizeof(char),1024,file);fclose(file);aa=setings; } 
 
+
 while (*aa!=0) {
       if ('i'==*aa) { compilastr=aa+1; }
-      if ('c'==*aa) { bootstr=aa+1;exestr=""; }
+      if ('c'==*aa) { 
+        exestr="";
+        strcpy(pilaexec,aa+1);pilaexecl=pilaexec; 
+        while (*pilaexecl!=0) pilaexecl++; pilaexecl++;
+        }
       if ('x'==*aa) { exestr=aa+1; }
       if ('w'==*aa) { esnumero(aa+1);w=numero; }
       if ('h'==*aa) { esnumero(aa+1);h=numero; }
@@ -1399,6 +1422,11 @@ WSAStartup(2, &wsaData);
 //--------------------------------------------------------------------------
 recompila:
 
+bootstr=pilaexecl-2;
+while (*bootstr!=0 && bootstr>pilaexec)
+    bootstr--;
+if (bootstr>pilaexec) bootstr++;
+
 bootaddr=0;
 if (exestr[0]!=0) {
    #ifdef LOGMEM
@@ -1438,6 +1466,15 @@ dumpex();dumplocal("BOOT");
 #endif
 memlibre=data+cntdato; // comienzo memoria libre
 if (silent!=1 && interprete(bootaddr)==1) goto recompila;
+
+pilaexecl--;pilaexecl--;
+while (*pilaexecl!=0 && pilaexecl>pilaexec)
+   pilaexecl--;
+if (*pilaexecl==0) {
+    pilaexecl++;
+    goto recompila;
+    }
+
 //--------------------------------------------------------------------------
 #ifdef FMOD
    FSOUND_Close();

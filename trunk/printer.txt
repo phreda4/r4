@@ -11,29 +11,44 @@
 #linpr
 #x2pr #y2pr
 #:cntlinpr
+#rotacion
+
+|----------
+:mat rotacion 1? ( drop y2pr - neg swap )( drop ) docat ;
+:mline rotacion 1? ( drop y2pr - neg swap )( drop ) docline ;
+
+|--------------------------------------
+:iniciap
+	drop
+	docres 'x2pr ! 'y2pr !
+	"a" docsize 'linpr ! drop
+	y2pr linpr / 'cntlinpr !
+	0 0 2dup mat
+	'x1pr ! 'y1pr ! ;
 
 ::docajusta |
+	over 'rotacion !
 	docfont
 ::docinicia
+	rotacion 1? ( iniciap ; ) drop
 	docres 'y2pr ! 'x2pr !
 	"a" docsize 'linpr ! drop
 	y2pr linpr / 'cntlinpr !
 	0 0 2dup docat
-	'x1pr ! 'y1pr !
-	;
+	'x1pr ! 'y1pr ! ;
 
 ::docprintc | "" --
 	mprint
 	dup docsize drop 2/
 	x2pr 2/ swap - 'x1pr !
-	x1pr y1pr docat
+	x1pr y1pr mat
 	dup doctext
 	docsize drop 'x1pr +!
 	;
 ::docprintr | "" --
 	mprint
 	x2pr over docsize drop - 'x1pr !
-	x1pr y1pr docat
+	x1pr y1pr mat
 	doctext
 	x2pr 'x1pr !
 	;
@@ -46,7 +61,7 @@
 ::doccr
 	linpr 'y1pr +!
 	0 'x1pr !
-	x1pr y1pr docat
+	x1pr y1pr mat
 	;
 
 |---------------- Grilla printer
@@ -84,20 +99,41 @@
 	rdrop
 	y1pr 'yi !
 	'tabrows 'tabrows> !
-
 ::docrow | --
 	0 'col> !
 	xi 'xxi !
-|	2 'ccy +!
-|	ccy cch +
 	y1pr linpr +
 	dup 'yf ! tabrows> !+ 'tabrows> !
 	;
 
+::docgrid2 | lista ancho --
+|-------------------
+| #lista Act Pag c1 c2c3 .. 0
+| cx $TLLFF
+	x2pr 16 *>> 'ancho !
+	x2pr 2/ ancho 2/ - tx1 + 'xi !
+
+	0 'cols !
+	0 over 8 + ( @+ 1? )( | 0 dd aa
+		8 >> $ff and rot + swap | 1 dd
+		1 'cols +!
+		) 2drop
+	ancho 4 << swap / 'factor !
+
+	'tabcols >r
+	xi swap 8 + | xi cols
+	( @+ 1? )( | i dd aa
+		8 >> $ff and factor * 4 >> rot +
+		dup r!+
+		swap ) 2drop rdrop
+	'xf !
+	y1pr 'yi !
+	'tabrows 'tabrows> !
+	docrow 	;
+
 :xxf | -- xf
 	col> dup 1+ 'col> !
 	2 << 'tabcols + @ ;
-
 
 |---------------------------
 :centerprint | "" x2 x1 --
@@ -106,18 +142,18 @@
 	dup docsize drop
 	xxi x1pr - swap - 2/
 	'x1pr +!
-	x1pr y1pr docat
+	x1pr y1pr mat
 	docprint ;
 
 :rigthprint | "" x2 x1 --
 	drop 'xxi !
 	mprint
 	dup docsize drop xxi swap - dup 'x1pr !
-	y1pr docat
+	y1pr mat
 	docprint ;
 
 :leftprint | "" x2 x1 --
-	dup 'x1pr ! y1pr docat 'xxi !
+	dup 'x1pr ! y1pr mat 'xxi !
 	docprint ;
 
 |---------------------------
@@ -132,9 +168,35 @@
 
 ::doc$grid | --
 	'xi cols 1+ ( 1? )( 1- swap
-		@+ dup yi docat yf docline
+		@+ dup yi mat yf mline
 		swap ) 2drop
 	'yi ( tabrows> <? )(
-		@+ xi over docat xf swap docline
+		@+ xi over mat xf swap mline
 		) drop ;
-|
+
+|---------------------------
+:t0 doccellc ;
+:t1 doccell ;
+:t2 doccell ;
+:t3 doccellr ;
+#tiposg t0 t1 t2 t3
+
+:dbfields | 'lista --
+	8 + ( @+ 1? )(
+		dup $ff and dbfld "%a" mprint
+		swap 16 >> 3 and 2 << 'tiposg + @ exec
+		) 2drop
+	doccr ;
+
+|||| #lista Act Pag c1 c2 c3 .. 0
+::dbgrillaprinter | adr --
+	dup 0.9 docgrid2
+	dup 8 + ( @+ 1? )(
+		$ff and dbname "%a" doccellc
+		) 2drop
+	doccr
+	0 ( cntregs <? )( docrow
+		dup getreg over dbfields
+		1+ ) 2drop
+	doc$grid
+	;
