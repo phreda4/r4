@@ -1327,8 +1327,6 @@ char printername[32];
 char *aa=(char*)lpCmdLine;
 
 strcpy(pathdata,".//");  // SEBAS win-linux
-//strcpy(printername,"PrimoPDF");
-//strcpy(setings,"pPrimoPDF") ;
 
 mimemset((char*)&wc,0,sizeof(WNDCLASSA));
 wc.style         = 0; //CS_OWNDC;
@@ -1337,6 +1335,7 @@ wc.hInstance     = GetModuleHandle(0);
 wc.lpszClassName = wndclass;
 if(!RegisterClass((WNDCLASSA*)&wc)) return -1;
 
+// pila de ejecucion
 pilaexecl=pilaexec;
 strcpy(pilaexecl,"main.txt");
 while (*pilaexecl!=0) pilaexecl++;
@@ -1347,20 +1346,20 @@ reboot: rebotea=0;
 file=fopen("r4.ini","rb");// cargar r4.ini
 if (file!=NULL) { fread(setings,sizeof(char),1024,file);fclose(file);aa=setings; } 
 
-
 while (*aa!=0) {
       if ('i'==*aa) { compilastr=aa+1; }
       if ('c'==*aa) { 
         exestr="";
         strcpy(pilaexec,aa+1);pilaexecl=pilaexec; 
-        while (*pilaexecl!=0) pilaexecl++; pilaexecl++;
+        while (*pilaexecl>32) pilaexecl++; 
+        *pilaexecl=0;pilaexecl++;
         }
       if ('x'==*aa) { exestr=aa+1; }
       if ('w'==*aa) { esnumero(aa+1);w=numero; }
       if ('h'==*aa) { esnumero(aa+1);h=numero; }
       if ('f'==*aa) { fullscreen=1; }
       if ('s'==*aa) { silent=1; }
-      if ('p'==*aa) { strcpy(printername,(aa+1)); } // pPrimo PDF. 
+      if ('p'==*aa) { strcpy(printername,(aa+1)); } // pPrimo PDF
       if ('?'==*aa) { print_usage();return 0; }
       while (*aa!=32&&*aa!=0) aa++;
       if (32==*aa) *aa=0;
@@ -1391,6 +1390,7 @@ hWnd=CreateWindowEx( dwExStyle,wc.lpszClassName, wc.lpszClassName,dwStyle,
 if(!hWnd) return -2;
 if(!(hDC=GetDC(hWnd)))  return -3;
 if (gr_init(w,h)<0) return -1;
+//--------------------------------------------------------------------------
 
 phDC=CreateDC("winspool", printername , NULL, NULL );
 mimemset((char*)&di,0,sizeof (DOCINFO));
@@ -1410,7 +1410,6 @@ SetTextAlign(phDC,TA_UPDATECP);
 
 InitJoystick(hWnd);
 loaddir();
-//--------------------------------------------------------------------------
 WSAStartup(2, &wsaData);
 
 #ifdef FMOD
@@ -1426,13 +1425,14 @@ bootstr=pilaexecl-2;
 while (*bootstr!=0 && bootstr>pilaexec)
     bootstr--;
 if (bootstr>pilaexec) bootstr++;
-
+ 
 bootaddr=0;
 if (exestr[0]!=0) {
    #ifdef LOGMEM
    ldebug("LOAD IMA:");ldebug(exestr);
    #endif
    loadimagen(exestr);
+   exestr="";
    }
 if (bootaddr==0 && bootstr[0]!=0){
    #ifdef LOGMEM
@@ -1443,7 +1443,6 @@ if (bootaddr==0 && bootstr[0]!=0){
    cntdato=cntprog=0;cntindice=cntnombre=0;
    if (compilafile(linea)!=COMPILAOK) {
       grabalinea();
-//    return 1;
       if (exestr==DEBUGR4X) return 1;
       exestr=DEBUGR4X;goto recompila;
       }
@@ -1457,7 +1456,6 @@ if (bootaddr==0 && bootstr[0]!=0){
 if (bootaddr==0) {
    sprintf(error,"%s|0|0|NO BOOT",linea);
    grabalinea();
-//    return 1;
     if (exestr==DEBUGR4X) return 1;
    exestr=DEBUGR4X;goto recompila;//   strcpy(linea,NDEBUG);
    }
@@ -1467,12 +1465,13 @@ dumpex();dumplocal("BOOT");
 memlibre=data+cntdato; // comienzo memoria libre
 if (silent!=1 && interprete(bootaddr)==1) goto recompila;
 
-pilaexecl--;pilaexecl--;
-while (*pilaexecl!=0 && pilaexecl>pilaexec)
-   pilaexecl--;
-if (*pilaexecl==0) {
-    pilaexecl++;
-    goto recompila;
+
+if (rebotea!=1) 
+    {
+    pilaexecl--;pilaexecl--;
+    while (*pilaexecl!=0 && pilaexecl>pilaexec)
+       pilaexecl--;
+    if (*pilaexecl==0) { pilaexecl++; goto recompila; }
     }
 
 //--------------------------------------------------------------------------
