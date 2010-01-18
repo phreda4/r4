@@ -6,15 +6,22 @@
 |-------------------
 ^lib/parse.txt
 ^lib/trace.txt
+^lib/gui3.txt
 
 |--- info
 #:dbnombre )( 64
-#:cntregs
 #:cntflds
+
+#cntregr
+#cntregf
+
+::cntregs
+	cntregf -1 =? ( cntregr nip ; ) ;
 
 |--- control
 #actreg
 #indice0
+#indicef
 #sumapos
 
 |--- memoria
@@ -62,7 +69,8 @@
 
 ::dbload | "app.db" --
 	dup 'dbnombre strcpy
-	0 dup 'cntregs ! 'cntflds !
+	0 dup 'cntregr ! 'cntflds !
+	-1 'cntregf !
 	inimemdb 0? ( here dup 'inimemdb ! nip )
 	swap load inimemdb =? ( drop ; )
 	0 swap !+ dup 'indice0 !
@@ -73,9 +81,13 @@
 	>>..
 	dup rot !+ swap 		|---- registros
 	( c@+ 1? )(
-		$7e =? ( swap >>.. swap 1 'cntregs +! rot pick2 swap !+ rot rot )
+		$7e =? ( swap >>.. swap 1 'cntregr +! rot pick2 swap !+ rot rot )
 		drop ) 2drop
-	$fff + 'inimem !
+|	$ff +
+	dup 'indicef !
+	cntregr 2 << +
+|	$ff +
+	'inimem !
 	0 'sumapos !
 	'fldl 'flds 			|---- ancho de campos, mem aux
 	0 ( cntflds <? )( >r
@@ -95,8 +107,9 @@
 	2drop ;
 
 ::getreg | nro --
+	cntregf -1 >? ( >=? ( drop ; ) 2 << indicef + @ dup ) drop | filtro
 	dup 'actreg !
-	cntregs >=? ( drop ; )
+	cntregr >=? ( drop ; )
 	2 << indice0 + @
 	'fldc swap
 	cntflds ( 1? )( >r
@@ -118,7 +131,7 @@
 
 ::cpyreg | --
 	actreg
-	cntregs >=? ( drop clearreg ; )
+	cntregr >=? ( drop clearreg ; )
 	drop
 	'fldm 'fldc
 	0 ( cntflds <? )( >r
@@ -141,7 +154,7 @@
 	"~" ,s1
 	13 ,c1 10 ,c1 ;
 
-:cntreg | -- cnt
+:sumreg | -- cnt
 	0 | cantidad de caracteres
 	0 ( cntflds <? )(
 		swap 1+
@@ -164,24 +177,26 @@
 
 ::dbupdate | --
 	actreg
-	cntregs >=? ( drop ; )
-	cntregs 1- =? ( updultimo ; ) | borro ultimo
+	cntregr >=? ( drop ; )
+	cntregr 1- =? ( updultimo ; ) | borro ultimo
     2 << indice0 + @+ 'p1 ! @ 'psig ! | actual y siguiente
-	cntreg psig p1 - - dup
-	+? ( psig + psig indice0 over - move> )( psig + psig indice0 over - move ) | des src cant
+	sumreg psig p1 - - dup
+	+? ( psig + psig indice0 over - cmove> )( psig + psig indice0 over - cmove ) | des src cant
 	armareg
 	'indice0 +!
 	indice0 1- ( dup c@ 32 <? )( drop 1- ) drop 1+ 'indice0 !
 	inimemdb indice0 over - 'dbnombre save 	| copia a archivo graba de mas
  	'dbnombre dbload ; | recarga
 
-:delultimo | nro --
+::dblastdel
+	cntregr 1- 2 << indice0 + @ 'p1 !
+	inimemdb p1 over - 'dbnombre save
+	'dbnombre dbload ;
 
-	;
 
 ::dbdelete | nro --
-	cntregs >=? ( drop ; )
-	cntregs 1- =? (  delultimo ; ) | borro ultimo
+	cntregr >=? ( drop ; )
+	1- =? ( drop dblastdel ; ) | borro ultimo
     2 << indice0 + @+ 'p1 @ 'psig !
 
 	drop
@@ -316,6 +331,7 @@
 		1+ ) 2drop
 	cr ;
 
+|-------------SEARCH
 :=f | fs1 s2 -- 1/0
 	( c@+ 1? )(
 		rot c@+ rot -
@@ -329,10 +345,26 @@
 
 ::dbsearch | 'que fld -- reg
 	0
-	( cntregs <? )( | 'que fld nro
+	( cntregr <? )( | 'que fld nro
 		dup dbreg
 		pick2 >>fld  | 'que fld nro reg
 		pick3 =f 1? ( drop nip nip ; )
 		drop 1+ ) 3drop
 	-1 ;
+
+|-------------FILTRO
+:addf
+	over cntregf 2 << indicef + !
+	1 'cntregf +!
+	;
+
+::dbfilter | 'que fld --
+	-1 =? ( nip 'cntregf ! ; ) | -1 apaga filtro
+	0 'cntregf !
+	0 ( cntregr <? )(
+		dup dbreg
+		pick2 >>fld
+		pick3 =f 1? ( addf )
+		drop 1+ )
+	3drop ;
 
