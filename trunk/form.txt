@@ -1,4 +1,5 @@
 ^lib/gui3.txt
+^lib/dbtabla.txt
 
 #focovar
 #focopar1
@@ -77,55 +78,70 @@
 	verde 1.0 60 */ r dup 2 >> - aguja
 	blanco 1.0 60 */ r> aguja ;
 
-|---------------------- Mas botones
-::btnex | 'acc "leyenda" "titulo" --
-	gc.push ink@ dup >r $222222
-	[ swap ; ] [ 0.95 fzoom ; ] onInOut
-	vbtn
-	gc2win home
-	font-vard-12-bold-out
-	cr2 printc cr cr2
-	font-vard-8
-
-	blanco linefill
-	1 col negro print
-
-	onClick
-	r> ink gc.pop ;
-
-::btnee | 'acc DB --
-	gc.push ink@ dup >r $222222
-	[ swap ; ] [ 0.95 fzoom ; ] onInOut
-	vbtn
-	gc2win home
-	font-vard-12-quad-out
-	cr2 linefill
-	dup "%a" printc cr cr2
-	font-vard-8-bold-out
-	>>f
-	( dup c@ 1? )( drop
-|		blanco linefill negro
-		1 col dup "* %a" print >>s cr
-		) 2drop
-	gc.pop
-	onClick
-	r> ink ;
 
 |---------------- Grilla
-#cols
+#colums
 #ancho
 #factor
 #xi
 #tabcols )( 256
+#tabcols>
 #xf
+
 #yi
 #tabrows )( 256
-#yf
 #tabrows>
-#col>
-#xxi
+#yf
 
-::grid | grids cols ancho --
+#col>
+
+#xxi
+#tx1 #ty1
+#tx2 #ty2
+
+::.table | --
+	ccx dup dup 'tx1 ! 'tx2 ! 'tabcols !+ 'tabcols> !
+	ccy dup dup 'ty1 ! 'ty2 ! 'tabrows !+ 'tabrows> !
+::.row | --
+	2 'ccy +!
+	0 'col> ! ;
+
+::.col | "titulo" cols --
+	dup ccw * ccx +
+	tabcols> !+ 'tabcols> !
+	boxprintc
+	col> 1+ dup 'col> !
+	2 << 'tabcols + @ 'ccx !
+	tx2 ccx max 'tx2 !
+	ty2 ccy cch + max 'ty2 !
+	;
+
+::.cell | "texto" --
+	4 'ccx +!
+	print
+	col> 1+ dup 'col> !
+	2 << 'tabcols + @ 'ccx !
+	tx2 ccx max 'tx2 !
+	ty2 ccy cch + max 'ty2 !
+	;
+
+::.grid | --
+	'tabcols
+	( tabcols> <? )( @+ dup ty1 op ty2 line )
+	drop
+	ty1 ( ty2 <=? )(
+		tx1 over op tx2 over line
+		cch 2 + + ) drop
+	;
+
+::rowfill | color --
+	ink@ swap ink
+	tx1 ccy 2dup 1- op cch + pline
+	tx2 ccy 2dup cch + pline 1- pline
+	poli ink ;
+
+|-------- nueva
+::grid | grids cols ancho% --
 	tx2 tx1 - 16 *>> 'ancho !
 	tx2 tx1 - 2/ ancho 2/ - tx1 + 'xi !
 
@@ -133,7 +149,7 @@
 	0 over ( 1? )( 1- r@+ rot + swap )
 	drop rdrop
 	ancho 4 << swap / 'factor !
-	dup 'cols !
+	dup 'colums !
 
 	swap >r
 	'tabcols xi rot		| grid xi cols
@@ -160,12 +176,13 @@
 	tx2 tx1 - 16 *>> 'ancho !
 	tx2 tx1 - 2/ ancho 2/ - tx1 + 'xi !
 
-	0 'cols !
+	0 'colums !
 
 	0 over 8 + ( @+ 1? )( | 0 dd aa
 		8 >> $ff and rot + swap | 1 dd
-		1 'cols +!
+		1 'colums +!
 		) 2drop
+
 	ancho 4 << swap / 'factor !
 
 	'tabcols >r
@@ -215,12 +232,51 @@
 	xxf xxi 4 - rigthprint ;
 
 ::$grid | --
-	'xi cols 1+ ( 1? )( 1- swap
+	'xi colums ( 1? )( 1- swap
 		@+ dup yi op yf line
 		swap ) 2drop
 	'yi ( tabrows> <? )(
 		@+ xi over op xf swap line
 		) drop ;
+
+
+| 'filas -> 4 9 8 0
+|			[ dup pick3 ! ; ] onLineMove | 'vec --
+|			pick2 @ =? ( $ff gfill blanco )( $ffffff gfill negro )
+
+::strgrilla | "" 'filas ancho--
+	tx2 tx1 - 16 *>> 'ancho !
+	tx2 tx1 - 2/ ancho 2/ - tx1 + 'xi !
+
+	0 over 1 >r  | "" 'filas 0 'filas
+	( @+ 1? )( rot + swap r> 1+ >r ) 2drop | cnt filas
+	ancho 4 << swap / 'factor !
+	r> 'colums !
+
+	xi over 'tabcols >r | "" 'filas xi 'filas
+	( @+ 1? )(
+		factor * 4 >> rot +
+		dup r!+
+		swap ) drop rdrop
+	swap 'xf !
+	ccy 'yi !
+	'tabrows 'tabrows> !
+	rowg
+	$cccccc gfill negro
+	( dup c@ 1? )( drop
+			dup gcellc
+			( c@+ 1? )( drop ) drop
+			) 3drop cr
+	dup c@ 0? ( 2drop $grid ; ) drop
+	rowg
+	dup ( c@+ 1? )(
+		$7c =? ( pick2 "%a" mprint gcellc  rot drop over swap cr rowg )
+		$5f  =? ( pick2 "%a" mprint gcellc  rot drop over swap )
+		drop ) 2drop
+	"%a" mprint gcellc
+	$grid 	;
+
+
 
 |---------------------------------
 ::dlgprinter
@@ -268,3 +324,38 @@
 	( @+ 1? )(
     	dup $f and 2 << 'accf + @ exec
 		) 2drop ;
+
+|---------------------- Mas botones
+::btnex | 'acc "leyenda" "titulo" --
+	gc.push ink@ dup >r $222222
+	[ swap ; ] [ 0.95 fzoom ; ] onInOut
+	vbtn
+	gc2win home
+	font-vard-12-bold-out
+	cr2 printc cr cr2
+	font-vard-8
+
+	blanco linefill
+	1 col negro print
+
+	onClick
+	r> ink gc.pop ;
+
+::btnee | 'acc DB --
+	gc.push ink@ dup >r $222222
+	[ swap ; ] [ 0.95 fzoom ; ] onInOut
+	vbtn
+	gc2win home
+	font-vard-12-quad-out
+	cr2 linefill
+	dup "%a" printc cr cr2
+	font-vard-8-bold-out
+	>>f
+	( dup c@ 1? )( drop
+|		blanco linefill negro
+		1 col dup "* %a" print >>s cr
+		) 2drop
+	gc.pop
+	onClick
+	r> ink ;
+
