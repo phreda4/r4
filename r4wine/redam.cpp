@@ -33,7 +33,7 @@
 #include <time.h>
 
 //#define LOGMEM
-//#define OPENGL
+#define OPENGL
 #define FMOD
 #define PRINTER
 
@@ -285,7 +285,7 @@ do {
         cntsubdirs++;
 	} else { // is a file
         indexdir[cntindex] = act;
-		sizedir[cntindex] = ffd.nFileSizeHigh<<16 +	ffd.nFileSizeLow;
+		sizedir[cntindex] = (ffd.nFileSizeHigh << 32 ) + ffd.nFileSizeLow;
         cntindex++;
 		}
     strcpy(act,virtualName); 
