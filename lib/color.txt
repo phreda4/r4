@@ -8,12 +8,14 @@
 #rc #gc #bc
 #sr #sg #sb
 
+#copiadeg )( 24
+
+|---------------------
 :pasocol | -- col
 	rc sr + dup 'rc ! $ff0000 and
 	gc sg + dup 'gc ! 8 >> $ff00 and or
 	bc sb + dup 'bc ! 16 >> $ff and or ;
 
-|------------------------------------
 ::cmorph | cant col1 col2 --
 	over px!+
 	over $ff0000 and dup 'rc ! over $ff0000 and swap - pick3  / 'sr !
@@ -21,6 +23,30 @@
 	swap 16 << $ff0000 and dup 'bc ! swap 16 << $ff0000 and swap - over  / 'sb !
 	1- ( 1? )( 1- pasocol px!+ ) drop
 	;
+
+|---------------------
+::degrade! |  cant $000FFF --
+    dup  $f00000 and dup 4 >> or
+	over $000f00 and 8 << dup 4 << or
+	dup 'rc ! - pick2 / 'sr !
+	dup  $0f0000 and dup 4 << or
+	over $0000f0 and 12 << dup 4 << or 
+	dup 'gc ! - pick2 / 'sg !
+	dup  $00f000 and 4 << dup 4 << or
+	swap $00000f and 16 << dup 4 << or 
+	dup 'bc ! - swap / 'sb ! ;
+
+::deg@+ | -- color
+	rc dup sr + 'rc ! $ff0000 and
+	gc dup sg + 'gc ! 8 >> $ff00 and or
+	bc dup sb + 'bc ! 16 >> $ff and or ;
+
+::*deg | guarda
+	'copiadeg 'rc 6 move ;
+
+::deg* | restaura
+	'rc 'copiadeg 6 move ;
+
 
 | diferencia de color
 |--------------------------------------
@@ -46,10 +72,10 @@
 
 |	punto de interpolacion
 |	lineal  time1=0 time2=$10000
-| mix=0			..a
-| mix=$10000	..b
+| mix=0		..a
+| mix=1.0	..b
 ::interpolaf | a b mix -- v		;(a,b,mix) ((b*mix+a*((1<<16)-mix))>>16)
-	dup >r * swap $10000 r> - * + 16 >> ;
+	dup >r * swap 1.0 r> - * + 16 >> ;
 
 
 | yuv <-> rgb
