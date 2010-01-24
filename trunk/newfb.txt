@@ -3,6 +3,7 @@
 |-------------
 ^lib/gui3.txt
 ^lib/color.txt
+^lib/leebmp.txt
 
 #xa #ya
 
@@ -48,33 +49,48 @@
 		1 'ya +!
 		) 2drop ;
 
+
 |---------------------------------
-| formato de scanline
-|	00 RRGGBB Entrada a paleta
-|	01 UUU VVV v1 v2
-|   01 RGB RGB col1 col2
-|
-| pixel de inicio esta ordenado
-| la cantidad de pixels puede solaparse
-|
+| formato de scanline 2
+| $0 cnt de pixels a llenar (*cnt)
+| $1 UUU VVV v1 v2
+| $2 RGB RGB col1 col2 (*v1)
+| $3 RRGGBB Entrada a paleta (*1)
+| $4 dire cant ? (*cnt)
+| $5 direcc ct ? (*cnt)
+| $6
+| $7 fin de linea
 |
 
-#v1 #v2
-| 1.- xini es > a xact.. rellenar lo que falta (o avanzar)
-| 2.- calcular degrade (antes buscar colores)
-| 3.- buscar solapamiento del siguiente
-:x3	$ffffff and dup ink px!+ ;
-:x1 dup $fff and 'v1 ! 12 >> $fff and 'v2 ! ;
-:x2 v1 swap degrade! v2 ( 1? )( 1- deg@+ px!+ ) drop ;
-:x0	$ffff and ( 1? )( 1- ink@ px!+ ) drop  ;
+#v1 #v2 #y
 
-#xscan x0 x1 x2 x3
-:renderscanline | 'scanline --
+:r0	$ffff and ( 1? )( 1- ink@ px!+ ) drop  ;
+:r1 dup $fff and 'v1 ! 12 >> $fff and 'v2 ! ;
+:r2 v1 swap degrade! v2 ( 1? )( 1- deg@+ px!+ ) drop ;
+:r3	$ffffff and dup ink px!+ ;
+:r4 drop ;
+:r5 drop ;
+:r6 drop ;
+:r7 drop
+	0 y 1+ dup 'y ! setxy ;
+
+#xscan r0 r1 r2 r3 r4 r5 r6 r7
+:frameline | 'scanline --
+	0 'y !
 	( @+ 1? )(
-		dup 22 >> $c and 'xscan + @ exec
+		dup 22 >> $1c and 'xscan + @ exec
 		) 2drop ;
 
+|---------------------------------
+| scanline
 
+#scanline |)( 16384 | 16k
+#scanline> 'scanline
+:,scanline scanline> !+ 'scanline> ! ;
+:scanline# scanline> scanline ; |- 2 >> ;
+:clscanline scanline 'scanline> ! ;
+
+|-----------------------------------
 :render
 	100 $000f00 degrade!
 	100 100 .at 100 100 .fboxdh
@@ -89,27 +105,73 @@
 	azul 200 400 .at 100 100 .fbox
 	;
 
-#scanline
-$03000000
-$000000f0
-$01030030
-$020ff000
-$01040040
-$020000ff
-$000000f0
-0
+
+|	$00 cnt de pixels a llenar
+|	01 UUU VVV v1 v2
+|   10 RGB RGB col1 col2
+|	11 RRGGBB Entrada a paleta
+|-------------------------------------
+| comprime runlength
+#cnt
+#colact
+
+:px2tracer | adr+ val --
+|	$f0f0f0 and
+	$ffffff and | full
+	colact =? ( 1 'cnt +! drop ; )
+	colact $3000000 or ,scanline
+	cnt 1 >? ( dup 12 << over $fff and or $1000000 or ,scanline dup ,scanline ) drop
+:scanini | color --
+	$ffffff and 'colact ! 1 'cnt ! ;
+
+:scanlast
+	colact $3000000 or ,scanline
+	cnt 2 <? ( drop ; )
+	,scanline ;
+|	dup @ scanini 0 'cnt ! ;
+
+|-------------------------------------
+
+:px2tracer2
+	 $ffffff and $3000000 or ,scanline ;
+
+#imagen1
+
+:testcomprime
+	"bmp/cerezop.bmp" bmp.load 'imagen1 !
+| 	"bmp/logo-clubpesca.bmp" bmp.load 'imagen1 !
+	0 0 bmp.xyreal
+	imagen1
+	here 'scanline !
+	clscanline
+	dup @ scanini 0 'cnt !
+	>r bmp.ancho bmp.alto
+	( 1? )( 1-
+		over ( 1? )( 1-
+			r@+ px2tracer
+			) drop
+|		r @ scanlast
+		$7000000 ,scanline
+		)
+	2drop rdrop
+	scanlast
+	0 ,scanline ;
+
+|render
+|sh $0000f0 degrade!
+|0 0 .at sw sh .fboxdh
 
 :main
 	inigui
 	'exit >esc<
+	testcomprime
 	show clrscr
-|		render
+		0 0 setxy scanline frameline
+		0 rows 1- at
+		verde scanline# "%d" print
 
-		sh $0000f0 degrade!
-		0 0 .at sw sh .fboxdh
-		10 ( 1? )( 1-
-			0 over setxy 'scanline renderscanline
-			) drop
-		cmano ;
 
-: main ;
+		cflecha
+;
+
+: mark main  ;
