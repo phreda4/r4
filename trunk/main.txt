@@ -9,21 +9,29 @@
 |^lib/fonth.txt
 ^lib/trace.txt
 
+|----------- estado
+#ra
+#ha
+
 |------------ cursor
 #inicioarch 0
 #cntarch 20
 #cant 0
 
+#filas 9   | [ 3 4 + ]
+#columnas 3
+#actual 0
+
 #iniprog 0
 #hayarr 0
 #hayaba 0
 
-#indice	)( 2048
+#consola )( 256
 
-#sndclick
+#buffertext )( 1024
 
 #juegos "Juegos"
-"tetris"
+"cuatros"
 "baremin" "peleador" "zzDestroyIt" "Tunel"
 "slimeatlet" "invasion"
 "clickotron"
@@ -67,130 +75,26 @@
 			)
 		2drop cr ) 2drop ;
 
-#actuald 'dominios
-
-#filas 9   | [ 3 4 + ]
-#columnas 3
-#actual 0
-
-:calbotons
-	iniprog 0 >? ( 1 )( 0 ) nip 'hayarr !
-	iniprog 3 9 * + cant <? ( 1 )( 0 ) nip 'hayaba ! ;
-
-:nextpag
-	iniprog  3 9 * +  cant >=? ( drop ; )
-	'iniprog ! calbotons ;
-:prevpag
-	iniprog 3 9 * - 0 <? ( drop ; )
-	'iniprog ! calbotons ;
-
-:haceindice |'lista --
-	'indice swap
-	0 'cant !
-	( c@+ 1? )( drop
-		dup 1-  rot !+ swap
-		1 'cant +!
-		( c@+ 1? )( drop ) drop
-		) drop
-	swap !  ;
-
-:nextdom | --
-	actuald 4+
-:hacedom  | adr --
-	dup @ 0? ( 2drop 'dominios dup @ )
-	( c@+ 1? )( drop ) drop haceindice
-	'actuald !
-	iniprog (  cant >? )( 4 6 * - ) 'iniprog !
-	calbotons ;
-
-:grabadom
-	"./" dir
-	'actuald 4 "nom/main.nom" save
-	;
-
-:testdominio | --
-	'dominios ( actuald =? ( drop ; ) @+ 1? )( drop ) 2drop
-	'dominios 'actuald ! ;
-
-:restauradom
-	".//" dir
-	'actuald "nom/main.nom" load drop
-	testdominio
-	actuald hacedom ;
-
-|--------------------------------------------------------------------------------------------
-:runactual
-	grabadom
-	actual 2 << 'indice + @ "%s.txt" mprint run ;
-
-|---------------------------------------
-:editarcodigo
-	"" 1 "debug.err" save
-	"edit-code.txt" run ;
-
-:editargrafico
-	"edit-spr.txt" run ;
-
-:editarprojecto
-	"r4proj.txt" run ;
-
-:editabitmap
-	"edit-bit.txt" run ;
-
-:runtimeerr
-	"runtime2.txt" run ;
-
-:configura
-	"config.txt" run ;
-
-|-------
-:tocoentrada
-	dup 'actual ! ;
-
-#dactual
-:tocodom
-	dup 4 - 'dactual !
-	dup hacedom ;
-
-:conbotones
-		'dominios (
-			dactual =? ( amarillo )( verde )
-			@+ 1? )(
-			'tocodom
-			swap allow2cr sp btnt
-|			over allow2cr btnt cr cr
-|			drop
-|			( >>0 1? )( 'tocoentrada over allow2cr btnt sp ) drop
-			) drop
-
-		cr cr cr
-		0 ( cant <? )(
-			actual =? ( cyan )( gris )
-			'tocoentrada
-			over 2 << 'indice + @
-			allow2cr
-       		btnt sp
-			1+ ) drop
-
-		cr cr cr
-	;
-
-
 |-------------
-#buffertext )( 1024
-
-#ra
 :tocorama |
 	dup 'ra ! ;
 
-#ha
 :tocohoja
 	dup 'ha !
 	dup "%s.txt" mprint
 	here swap load here =? ( drop ; ) drop
 	'buffertext here 256 move
-	0 'buffertext 512 + c!
+	0 'buffertext 1023 + c!
+	'buffertext ( c@+ 1? )(
+|		( 33 <? )( c@
+|		$23 =? ( drop 1- 0 swap c! ; ) | #
+|		$3a =? ( drop 1- 0 swap c! ; ) | :
+		$5e =? ( drop 1- 0 swap c! ; ) | ^
+		drop ) 2drop
 	;
+
+:setopcion
+	ha tocohoja drop ;
 
 :nodo | adr
 	gris
@@ -231,8 +135,48 @@
 		) drop ) 2drop ;
 
 |---------------
+:grabadom
+	"./" dir
+	'ra 8 "nom/main.nom" save
+	;
 
-#consola )( 256
+:restauradom
+	".//" dir
+	'ra "nom/main.nom" load drop
+	setopcion
+	;
+
+
+|--------------------------------------------------------------------------------------------
+:runactual
+	ha 0? ( drop ; )
+	grabadom
+	"%s.txt" mprint run ;
+
+:editactual
+	ha 0? ( drop ; )
+	grabadom
+	"%s." mprint drop
+	"edit-code.txt" run ;
+
+:editarcodigo
+	"" 1 "debug.err" save
+	"edit-code.txt" run ;
+
+:editargrafico
+	"edit-spr.txt" run ;
+
+:editarprojecto
+	"r4proj.txt" run ;
+
+:editabitmap
+	"edit-bit.txt" run ;
+
+:runtimeerr
+	"runtime2.txt" run ;
+
+:configura
+	"config.txt" run ;
 
 :main
 	inigui
@@ -241,8 +185,9 @@
 	[ actual 3 + cant 1- min  'actual ! ; ] <aba>
 	[ actual 3 - 0 max 'actual ! ; ] <arr>
 	'exit <esc>
-	'nextdom <esp>
+
 	'runactual <enter>
+|	'editactual <tab>
 
 	'editarcodigo <f1>
 	'editargrafico <f2>
@@ -256,9 +201,12 @@
 		| menu principal
 		'dominios dup ddlista cr cr ddsub cr cr
 		| programa actual
-		font-vard-8-bold verde
+		font-vard-8-bold blanco
 |        ha dup "%d: %s" print cr
 		'buffertext text
+		cr cr
+		verde sp 'runactual  "Run" btnt
+		cyan sp 'editactual "Edit" btnt
 
 		| consola
 		0 rows 4 - at
@@ -273,6 +221,8 @@
 		rojo sp 'exit "ESC" btnt
 		cyan
 		sp 'editarcodigo "F1-EditCode" btnt
+|		sp 'editarcodigo "F1-New Project" btnt
+
 		sp 'editargrafico "F2-Draw" btnt
 		sp 'editabitmap "F3-Pict" btnt
 | DATABASE
@@ -282,6 +232,4 @@
 		cmano ;
 
 |****** BOOT ******
-: 0 paper mark
-4
-restauradom main grabadom ;
+: 0 paper mark restauradom 4 main grabadom ;
