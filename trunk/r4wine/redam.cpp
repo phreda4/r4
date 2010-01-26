@@ -33,7 +33,7 @@
 #include <time.h>
 
 //#define LOGMEM
-#define OPENGL
+//#define OPENGL
 #define FMOD
 #define PRINTER
 
@@ -102,28 +102,32 @@ char *macros[]={// directivas del compilador
 "@+","!+","C@+","C!+","W@+","W!+",
 "MOVE","MOVE>","CMOVE","CMOVE>",//-- movimiento de memoria
 "MEM","DIR","FILE","FSIZE","VOL","LOAD","SAVE",//--- memoria,bloques
-"UPDATE","MSEC","TIME","DATE","END","RUN",//--- sistema
+"UPDATE",
+//"IPEN!",
+"XYMOUSE","BMOUSE",     //-------- mouse
+//"IKEY!",
+"KEY",          //-------- teclado
+//"IJOY!",
+"CNTJOY","GETJOY",     //-------- joystick
+
+"MSEC","TIME","DATE","END","RUN",//--- sistema
 "SW","SH","CLS","REDRAW","FRAMEV",//--- pantalla
 "SETXY","PX+!","PX!+","PX@",
 "XFB",">XFB","XFB>",
 "PAPER","INK","INK@","ALPHA", //--- color
 "OP","CP","LINE","CURVE","PLINE","PCURVE","POLI",//--- dibujo
 "FCOL","FCEN","FMAT","SFILL","LFILL","RFILL","TFILL",
-"IPEN!",
-"XYMOUSE","BMOUSE",//-------- mouse
-"IKEY!","KEY", //"KEYA",          //-------- teclado
-"IJOY!","CNTJOY","GETJOY",     //-------- joystick
 #ifdef FMOD
 "SLOAD","SPLAY","MLOAD","MPLAY",    //-------- sonido
 #else
 "ISON!","SBO","SBI",    // Sound Buffer Ouput/input
 #endif
 "SERVER","CLIENT","SEND","RECV","CLOSE", //--- red
-"TIMER",            //------- timer
+//"TIMER",            //------- timer
 #ifdef PRINTER
 "DOCINI","DOCEND","DOCAT","DOCLINE","DOCTEXT","DOCFONT","DOCBIT","DOCRES","DOCSIZE", //-- impresora
 #endif
-"SYSTEM"
+"SYSTEM",
 ""};
 
 // instrucciones de maquina (son compilables a assembler)
@@ -140,17 +144,20 @@ FECH,CFECH,WFECH,STOR,CSTOR,WSTOR,INCSTOR,CINCSTOR,WINCSTOR,//--- memoria
 FECHPLUS,STOREPLUS,CFECHPLUS,CSTOREPLUS,WFECHPLUS,WSTOREPLUS,
 MOVED,MOVEA,CMOVED,CMOVEA,
 MEM,PATH,BFILE,BFSIZE,VOL,LOAD,SAVE,//--- bloques de memoria, bloques
-UPDATE,MSEC,TIME,IDATE,SISEND,SISRUN,//--- sistema
+UPDATE,
+//IRMOU,
+XYMOUSE,BMOUSE,
+//IRKEY,
+KEY,
+//IRJOY,
+CNTJOY,GETJOY,
+MSEC,TIME,IDATE,SISEND,SISRUN,//--- sistema
 WIDTH,HEIGHT,CLS,REDRAW,FRAMEV,//--- pantalla
 SETXY,MPX,SPX,GPX,
 VXFB,TOXFB,XFBTO,
 COLORF,COLOR,COLORA,ALPHA,//--- color
 OP,CP,LINE,CURVE,PLINE,PCURVE,POLI,//--- dibujo
 FCOL,FCEN,FMAT,SFILL,LFILL,RFILL,TFILL, //--- pintado
-IRMOU,
-XYMOUSE,BMOUSE,
-IRKEY,KEY, //KEYA,
-IRJOY,CNTJOY,GETJOY,
 
 #ifdef FMOD
 SLOAD,SPLAY,MLOAD,MPLAY,
@@ -158,9 +165,8 @@ SLOAD,SPLAY,MLOAD,MPLAY,
 IRSON,SBO,SBI,
 #endif
 
-//---- nuevas interrups
 SERVER,CLIENT,NSEND,RECV,CLOSE, //---- red
-ITIMER,//--- timer
+//ITIMER,//--- timer
 
 #ifdef PRINTER  //-- impresora
 DOCINI,DOCEND,DOCMOVE,DOCLINE,DOCTEXT,DOCFONT,DOCBIT,DOCRES,DOCSIZE,
@@ -191,15 +197,20 @@ int SYSEVENT=0;
 int SYSXYM=0;
 int SYSBM=0;
 int SYSKEY=0;
-int SYSKEYA=0;
 
 // vectores de interrupciones
-int SYSirqmouse=0;
-int SYSirqteclado=0;
+//int SYSirqmouse=0;
+//int SYSirqteclado=0;
+//int SYSirqjoystick=0;
 int SYSirqsonido=0;
 int SYSirqred=0;
-int SYSirqjoystick=0;
-int SYSirqtime=0;
+//int SYSirqtime=0;
+
+char kbuff[32];
+int kcnt=0,kcur=0;
+    
+//int mbuff[128];
+//int mcnt=0,mcur=0;
 
 //----- Directorio 
 char mindice[8192];// 8k de index 1024 archivos con nombres de 8 caracteres
@@ -227,6 +238,84 @@ BYTE data[1024*1024*512];// 512 MB de datos
 void mimemset(char *p,char v,int c)
 {
 for (;c>0;c--,p++) *p=v;
+}
+
+///////////////////////////////////////////////////////////////////////
+//...............................................................................
+LRESULT CALLBACK WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
+{
+switch (message) {     // handle message
+    case WM_MOUSEMOVE:
+        if (SYSXYM==lParam) break;
+        SYSXYM=lParam;
+//        mcnt=(mcnt+1)&127;mbuff[mcnt]=SYSXYM;
+//         SYSEVENT=SYSirqmouse;
+         break;
+    case WM_LBUTTONUP: case WM_MBUTTONUP: case WM_RBUTTONUP:
+    case WM_LBUTTONDOWN: case WM_MBUTTONDOWN: case WM_RBUTTONDOWN:         
+         SYSBM=wParam;
+ //        SYSEVENT=SYSirqmouse;
+         break;
+    case WM_MOUSEWHEEL:         
+         SYSBM=((short)HIWORD(wParam)<0)?4:5;
+  //       SYSEVENT=SYSirqmouse;
+         break;
+    case WM_SYSKEYUP:
+    case WM_KEYUP:        // (lparam>>24)     ==1 keypad
+        lParam>>=16;
+        if ((lParam&0x100)!=0) lParam=mapex[lParam&0x7f];
+        kbuff[kcnt]=(lParam&0x7f)|0x80;;kcnt=(kcnt+1)&31;
+//      SYSEVENT=SYSirqteclado;
+        break;
+    case WM_SYSKEYDOWN:
+    case WM_KEYDOWN:
+        lParam>>=16;
+        if ((lParam&0x100)!=0) lParam=mapex[lParam&0x7f];
+        kbuff[kcnt]=lParam&0x7f;kcnt=(kcnt+1)&31;
+//         SYSEVENT=SYSirqteclado;
+         break;
+//    case WM_TIMER:
+//        SYSEVENT=SYSirqtime;
+//        break;
+//---------Winsock related message...
+    case WM_WSAASYNC:
+        switch(WSAGETSELECTEVENT(lParam)) {
+        case FD_CLOSE: //Lost connection
+            closesocket(soc);
+            break;
+        case FD_READ: //Incoming data to receive
+            buffersize=recv(soc,buffernet,1024, 0);
+            buffernet[buffersize]=0;
+//            SYSEVENT=SYSirqred;
+            break;
+        case FD_CONNECT:
+
+        case FD_ACCEPT: //Connection request
+            soc=accept(wParam,0,0);
+            break;
+        }
+        break;
+//---------System
+    case WM_ACTIVATEAPP:
+         active=wParam&0xff;
+         if (active==WA_INACTIVE)
+            {
+            ChangeDisplaySettings(NULL,0);
+//            ShowWindow(hWnd,SW_MINIMIZE);
+         } else {
+            ShowWindow(hWnd,SW_NORMAL);//SW_RESTORE);
+            UpdateWindow(hWnd);
+            }
+         break;
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        break;
+  default:
+       return DefWindowProc(hWnd,message,wParam,lParam);
+  }
+return 0;
+	// salvapantallas
+//	if( uMsg==WM_SYSCOMMAND && (wParam==SC_SCREENSAVE || wParam==SC_MONITORPOWER) )	return( 0 );
 }
 
 //---- Graba y carga imagen
@@ -306,12 +395,14 @@ BYTE *IP=codigo;	// lugar del programa // ebx
 int W,W1;			// palabra actual y auxiliar
 int *vcursor;
 
-SYSirqmouse=0;
-SYSirqteclado=0;
-SYSirqjoystick=0;
+//SYSirqmouse=0;
+//SYSirqteclado=0;
+//SYSirqjoystick=0;
 SYSirqsonido=0;
 SYSirqred=0;
 SYSEVENT=0;
+kcnt=kcur=0;
+
 vcursor=(int*)gr_buffer;
 
 R=RSP;*R=(BYTE*)&ultimapalabra;
@@ -417,6 +508,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
          if (PeekMessage(&msg,hWnd,0,0,PM_REMOVE)) // process messages
             {  //TranslateMessage(&msg); 
             DispatchMessage(&msg);
+// lleno pila con interrupciones
             if (SYSEVENT!=0) { R++;*(int*)R=(int)IP;IP=(BYTE*)SYSEVENT;SYSEVENT=0; }
 /*
             if (active==WA_INACTIVE) {
@@ -434,6 +526,24 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
             { R++;*(int*)R=(int)IP;IP=(BYTE*)SYSirqsonido;evtsound=0; }
 #endif
 		break;
+
+//---- raton
+//    case IRMOU: SYSirqmouse=TOS;TOS=*NOS;NOS--;continue;
+    case XYMOUSE: NOS++;*NOS=TOS;NOS++;*NOS=SYSXYM&0xffff;TOS=(SYSXYM>>16);continue;
+    case BMOUSE: NOS++;*NOS=TOS;TOS=SYSBM;continue;
+//----- teclado
+//    case IRKEY: SYSirqteclado=TOS;TOS=*NOS;NOS--;continue;
+	case KEY: NOS++;*NOS=TOS;TOS=SYSKEY&0xff;continue;
+//----- joy
+//    case IRJOY: SYSirqjoystick=TOS;TOS=*NOS;NOS--;continue;
+    case CNTJOY: NOS++;*NOS=TOS;TOS=cntJoy;continue;
+    case GETJOY: TOS=getjoy(TOS);continue;
+
+    case REDRAW: 
+        gr_redraw();
+        if (kcnt==kcur) { SYSKEY=0; } else { SYSKEY=kbuff[kcur];kcur=(kcur+1)&31; }
+        continue;
+
 	case MSEC: NOS++;*NOS=TOS;TOS=timeGetTime();continue;
     case IDATE: time(&sit);sitime=localtime(&sit);NOS++;*NOS=TOS;TOS=sitime->tm_year+1900;
         NOS++;*NOS=TOS;TOS=sitime->tm_mon+1;NOS++;*NOS=TOS;TOS=sitime->tm_mday;continue;
@@ -457,7 +567,6 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case WIDTH: NOS++;*NOS=TOS;TOS=gr_ancho;continue;
     case HEIGHT: NOS++;*NOS=TOS;TOS=gr_alto;continue;
 	case CLS: gr_clrscr();continue;
-    case REDRAW:  gr_redraw();continue;
     case FRAMEV: NOS++;*NOS=TOS;TOS=(int)gr_buffer;continue;
 	case SETXY:vcursor=(int*)gr_buffer+TOS*gr_ancho+(*NOS);
         NOS--;TOS=*NOS;NOS--;continue;
@@ -494,18 +603,6 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case RFILL: fillRad();continue;
     case TFILL: mTex=(int*)TOS;fillTex();TOS=*NOS;NOS--;continue;
 
-//---- raton
-    case IRMOU: SYSirqmouse=TOS;TOS=*NOS;NOS--;continue;
-    case XYMOUSE: NOS++;*NOS=TOS;NOS++;*NOS=SYSXYM&0xffff;TOS=(SYSXYM>>16);continue;
-    case BMOUSE: NOS++;*NOS=TOS;TOS=SYSBM;continue;
-//----- teclado
-    case IRKEY: SYSirqteclado=TOS;TOS=*NOS;NOS--;continue;
-	case KEY: NOS++;*NOS=TOS;TOS=SYSKEY;continue;
-//	case KEYA: NOS++;*NOS=TOS;TOS=SYSKEYA;continue;
-//----- joy
-    case IRJOY: SYSirqjoystick=TOS;TOS=*NOS;NOS--;continue;
-    case CNTJOY: NOS++;*NOS=TOS;TOS=cntJoy;continue;
-    case GETJOY: TOS=getjoy(TOS);continue;
 //------- sonido
 #ifdef FMOD
     case SLOAD: // "" -- pp
@@ -615,10 +712,10 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         closesocket(soc); //Shut down socket
         continue;
 //---- timer
-    case ITIMER: // vector msecs --
-        SetTimer(hWnd,0,TOS,0);
-        SYSirqtime=*NOS;NOS--;TOS=*(NOS);NOS--;
-        continue;
+//    case ITIMER: // vector msecs --
+//        SetTimer(hWnd,0,TOS,0);
+//        SYSirqtime=*NOS;NOS--;TOS=*(NOS);NOS--;
+//        continue;
 #ifdef PRINTER
 //---- printer
     case DOCINI:
@@ -941,7 +1038,10 @@ int estado=E_PROG;int unidad=4;int salto=0;
 int aux,nrolinea=1;// convertir a nro de linea local
 cntpila=0;
 while(!feof(stream)) {
-  *lineat=0;fgets(lineat,512,stream);ahora=lineat;// ldebug(ahora);
+  *lineat=0;fgets(lineat,512,stream);ahora=lineat;
+
+// ldebug(ahora);
+
 otrapalabra:
   while (*ahora!=0 && *ahora<33) ahora++;
   if (*ahora==0) goto otralinea;
@@ -1198,102 +1298,6 @@ static void print_usage(void) {
 //char *NDEBUG="debug.txt";
 char *DEBUGR4X="debug.r4x";
 
-///////////////////////////////////////////////////////////////////////
-//...............................................................................
-LRESULT CALLBACK WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
-{
-switch (message) {     // handle message
-    case WM_TIMER:
-        SYSEVENT=SYSirqtime;
-        break;
-    case WM_MOUSEMOVE:
-         if (SYSXYM==lParam) break;
-         SYSXYM=lParam;
-         SYSEVENT=SYSirqmouse;
-         break;
-    case WM_LBUTTONUP: case WM_MBUTTONUP: case WM_RBUTTONUP:
-    case WM_LBUTTONDOWN: case WM_MBUTTONDOWN: case WM_RBUTTONDOWN:         
-         SYSBM=wParam;
-         SYSEVENT=SYSirqmouse;
-         break;
-    case WM_MOUSEWHEEL:         
-         SYSBM=((short)HIWORD(wParam)<0)?4:5;
-         SYSEVENT=SYSirqmouse;
-         break;
-    case WM_SYSKEYUP:
-    case WM_KEYUP:        // (lparam>>24)     ==1 keypad
-/*
-         SYSKEYA=(lParam>>24)&0x1; //wParam&0xff;
-         SYSKEY=((lParam>>16)&0x7f)|0x80;
-
-         lParam>>=16;
-         SYSKEY=lParam&0x7f;
-         if (SYSKEY>0x34 && SYSKEY!=0x38) SYSKEY+=((lParam&0x100)>>4);
-*/
-        lParam>>=16;
-        if ((lParam&0x100)!=0)
-            lParam=mapex[lParam&0x7f];
-        SYSKEY=lParam&0x7f;
-        SYSKEY|=0x80;
-        SYSEVENT=SYSirqteclado;
-        break;
-    case WM_SYSKEYDOWN:
-    case WM_KEYDOWN:
-/*
-         SYSKEYA=(lParam>>24)&0x1; //wParam&0xff;
-         SYSKEY=(lParam>>16)&0x7f;
-
-         lParam>>=16;
-         SYSKEY=lParam&0x7f;
-         if (SYSKEY>0x34 && SYSKEY!=0x38) SYSKEY+=((lParam&0x100)>>4);
-*/        
-        lParam>>=16;
-        if ((lParam&0x100)!=0)
-            lParam=mapex[lParam&0x7f];
-        SYSKEY=lParam&0x7f;
-
-         SYSEVENT=SYSirqteclado;
-         break;
-//---------Winsock related message...
-    case WM_WSAASYNC:
-        switch(WSAGETSELECTEVENT(lParam)) {
-        case FD_CLOSE: //Lost connection
-            closesocket(soc);
-            break;
-        case FD_READ: //Incoming data to receive
-            buffersize=recv(soc,buffernet,1024, 0);
-            buffernet[buffersize]=0;
-            SYSEVENT=SYSirqred;
-            break;
-        case FD_CONNECT:
-
-        case FD_ACCEPT: //Connection request
-            soc=accept(wParam,0,0);
-            break;
-        }
-        break;
-//---------System
-    case WM_ACTIVATEAPP:
-         active=wParam&0xff;
-         if (active==WA_INACTIVE)
-            {
-            ChangeDisplaySettings(NULL,0);
-//            ShowWindow(hWnd,SW_MINIMIZE);
-         } else {
-            ShowWindow(hWnd,SW_NORMAL);//SW_RESTORE);
-            UpdateWindow(hWnd);
-            }
-         break;
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        break;
-  default:
-       return DefWindowProc(hWnd,message,wParam,lParam);
-  }
-return 0;
-	// salvapantallas
-//	if( uMsg==WM_SYSCOMMAND && (wParam==SC_SCREENSAVE || wParam==SC_MONITORPOWER) )	return( 0 );
-}
 
 void updevt(void)
 {
@@ -1441,11 +1445,24 @@ if (bootaddr==0 && bootstr[0]!=0){
    strcpy(linea,bootstr);
    cntindiceex=cntnombreex=cntincludes=0;// espacio de nombres reset
    cntdato=cntprog=0;cntindice=cntnombre=0;
+
+      #ifdef LOGMEM
+      ldebug("compila...");
+      #endif
+
    if (compilafile(linea)!=COMPILAOK) {
+      #ifdef LOGMEM
+      ldebug("NO COMPILA");ldebug(linea);
+      #endif
       grabalinea();
-      if (exestr==DEBUGR4X) return 1;
-      exestr=DEBUGR4X;goto recompila;
+        return 1;
+//      if (exestr==DEBUGR4X) return 1;
+//    exestr=DEBUGR4X;goto recompila;
       }
+      #ifdef LOGMEM
+      ldebug("fin compila...");
+      #endif
+
    if (compilastr[0]!=0) {
       #ifdef LOGMEM
       ldebug("SAVE IMA:");ldebug(compilastr);
