@@ -41,6 +41,11 @@
 	( swap c@+ 1? )( 13 =? ( 2drop 0 swap c! ; )
 		rot c!+ ) rot c!+ drop ;
 
+::strchg | ree car adr --
+	( c@+ 1? )( | r c adr c
+		pick2 =? ( drop pick2 over 1- c! )( drop )
+		) 4drop ;
+
 ::count | s1 -- s1 cnt
 	0 over ( c@+ 1? )( drop swap 1+ swap ) 2drop  ;
 
@@ -68,12 +73,20 @@
 	( c@+ 32 >? )( toupp rot c@+ toupp rot -
 		1? ( 3drop 0 ; ) drop swap ) 2drop
 	c@ 33 <? ( 1 )( 0 ) nip ;
-|3drop 1 ;
 
 |--- Memoria libre
 #:here 0
 
-|::clear mem 'here ! ;
+#memmap )( 1024
+#memmap> 'memmap
+
+::mark | --
+	here 0? ( mem dup 'here ! nip ) memmap> !+ 'memmap> ! ;
+::empty | --
+	memmap> 'memmap =? ( mem nip )( 4 - dup 'memmap> ! @ ) 'here ! ;
+
+::savemem | "" --
+	memmap> 4 - @ here over - rot save ;
 
 ::, here !+ 'here ! ;
 ::,c here c!+ 'here ! ;
@@ -92,7 +105,8 @@
 	0 swap ( dup $1 and $30 + swap 2/ $7fffffff and 0? ) drop
 	( ,c 0? ) drop ;
 ::,f | fix --
-	dup 16 >> ,d
+	dup 16 >> -? ( 1+ 0? ( $2d ,c ) )
+	,d
 	$2e ,c | .
 	-? ( not ) $ffff and
 	100 $ff00 */ 100 +	| solo dos decimales *** ojo falta investigar
@@ -119,19 +133,6 @@
 ::,print | adr --
 	( c@+ 1? )( ,emit ) 2drop ;
 
-||||||||
-
-#memmap )( 1024
-#memmap> 'memmap
-
-::mark | --
-	here 0? ( mem dup 'here ! nip ) memmap> !+ 'memmap> ! ;
-::empty | --
-	memmap> 'memmap =? ( mem nip )( 4 - dup 'memmap> ! @ ) 'here ! ;
-
-::savemem | "" --
-	memmap> 4 - @ here over - rot save ;
-
 |--- Numero aleatorios
 #:seed 495090497 |5765
 
@@ -151,7 +152,7 @@
 
 |--- pantalla&interaccion
 #:.exit
-|---------------------------------------
+
 #lastime
 #startime
 
@@ -164,21 +165,28 @@
 
 ::exit 1 '.exit ! ;
 
-::show			| framerate constante (mientras pueda)
+::show	| framerate constante (mientras pueda)
 	msec dup 'lastime !+ ! 0 '.exit !
 	( .exit 0? )( drop update
 		msec lastime >? ( 30 + 'lastime ! r exec redraw )( drop )
 		) drop rdrop 0 '.exit ! ;
 
-| ( update msec lastime >? ( 30 + 'lastime ! r exec redraw )( drop )
-|		.exit 1? ( drop rdrop 0 '.exit ! ; ) drop  ) ;
+::showpp | version rapida?? (se cuelga)
+	msec dup 30 + 'lastime !+ !
+	0 '.exit !
+	( .exit 0? )(
+		( drop update msec lastime <? )
+		32 + 'lastime !
+		r exec redraw )
+	drop rdrop
+	0 '.exit ! ;
 
-::showo			| sin limitador
+::showo	 | maximo framerate
 	msec dup 'lastime !+ ! 0 '.exit !
 	( .exit 0? )( drop update r exec redraw )
 	drop rdrop 0 '.exit ! ;
 
-::wait
+::wait	| se detiene (hasta exit)
 	msec 'lastime ! 0 '.exit !
 	( .exit 0? )( drop update )
 	drop 0 '.exit ! ;
@@ -247,3 +255,4 @@
 	( c@+ 1? )(
 		$7e =? ( drop ; ) | ~ registro
 		drop ) drop 1- ;
+
