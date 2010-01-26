@@ -1,57 +1,13 @@
-| new frame buffer
-| PHREDA 2010
+ | new frame buffer
+ | PHREDA 2010
 |-------------
-^lib/gui3.txt
+^lib/gui.txt
 ^lib/color.txt
 ^lib/leebmp.txt
-
-#xa #ya
-
-:.at | x y --
-	'ya ! 'xa ! ;
-
-:.fline | w --
-	xa ya setxy dup 'xa +!
-	( 1? )( 1- ink@ px!+ ) drop ;
-
-:.fdeg | w --
-	xa ya setxy dup 'xa +!
-	( 1? )( 1- deg@+ px!+ ) drop ;
-
-:.fbox | w h --
-	( 1? )( 1-
-		xa ya setxy
-		over ( 1? )( 1-
-			ink@ px!+
-			) drop
-		1 'ya +!
-		) 2drop ;
-
-:.fboxdh | w h --
-	( 1? )( 1-
-		xa ya setxy
-		deg@+ pick2
-		( 1? )( 1-
-			over px!+
-			) 2drop
-		1 'ya +!
-		) 2drop ;
-
-:.fboxdv | w h --
-	*deg
-	( 1? )( 1-
-		deg*
-		xa ya setxy
-		over
-		( 1? )( 1-
-			deg@+ px!+
-			) drop
-		1 'ya +!
-		) 2drop ;
-
-
+^lib/trace.txt
+ 
 |---------------------------------
-| formato de scanline 2
+| formato de scanline 2    
 | $0 cnt de pixels a llenar (*cnt)
 | $1 UUU VVV v1 v2
 | $2 RGB RGB col1 col2 (*v1)
@@ -122,29 +78,24 @@
 	colact $3000000 or ,scanline
 	cnt 1 >? ( dup 12 << over $fff and or $1000000 or ,scanline dup ,scanline ) drop
 :scanini | color --
+|	$f0f0f0 and
 	$ffffff and 'colact ! 1 'cnt ! ;
 
 :scanlast
 	colact $3000000 or ,scanline
 	cnt 2 <? ( drop ; )
 	,scanline ;
-|	dup @ scanini 0 'cnt ! ;
 
 |-------------------------------------
-
 :px2tracer2
-	 $ffffff and $3000000 or ,scanline ;
+	$ffffff and $3000000 or ,scanline ;
 
 #imagen1
 
 :testcomprime
-	"bmp/cerezop.bmp" bmp.load 'imagen1 !
-| 	"bmp/logo-clubpesca.bmp" bmp.load 'imagen1 !
-	0 0 bmp.xyreal
-	imagen1
 	here 'scanline !
 	clscanline
-	dup @ scanini 0 'cnt !
+	imagen1 dup @ scanini 0 'cnt !
 	>r bmp.ancho bmp.alto
 	( 1? )( 1-
 		over ( 1? )( 1-
@@ -161,17 +112,60 @@
 |sh $0000f0 degrade!
 |0 0 .at sw sh .fboxdh
 
+:inistat
+	;
+:addstat
+	drop ;
+:endstat
+	;
+
+#yrenglon
+
 :main
+	"bmp/cerezop.bmp" bmp.load 'imagen1 !
+| 	"bmp/logo-clubpesca.bmp" bmp.load 'imagen1 !
+
 	inigui
-	'exit >esc<
-	testcomprime
+|	testcomprime
+	0 'yrenglon !
 	show clrscr
-		0 0 setxy scanline frameline
+		0 0 bmp.xyreal
+|		200 0 setxy scanline frameline
+
+
 		0 rows 1- at
+		dup "(%d) " print
 		verde scanline# "%d" print
+		yrenglon
+		bmp.ancho
+		2dup * 2 << imagen1 + >r
+		0 bmp.alto 4+ setxy
+		dup ( 1? )( 1- r@+ px!+ ) drop
+		rdrop
+		0 bmp.alto 5 + setxy
+		2dup * 2 << imagen1 + >r
+		dup ( 1? )( 1- r@+ px!+ ) drop
+		rdrop
 
-
-		cflecha
+		2dup * 2 << imagen1 + >r
+		inistat
+		( 1? )( 1-
+			bmp.ancho over -
+			r@+ |addstat
+			2dup 2 >> $3f and 400 + setxy $ff px!+
+			2dup 10 >> $3f and 400 + setxy $ff00 px!+
+			18 >> $3f and 400 + setxy $ff0000 px!+
+			) drop
+		rdrop
+		endstat
+		bmp.ancho over op
+		sw swap line
+		cflecha 
+	key
+	'exit >esc<
+	[ yrenglon 0? ( drop ; ) 1- 'yrenglon ! ; ] <up>
+	[ yrenglon 1+ 'yrenglon ! ; ] <dn>
+	drop
 ;
 
-: mark main  ;
+: mark 33 main  ;
