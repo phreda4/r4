@@ -1,0 +1,578 @@
+| gui3
+| idea en esta version:
+|  cada palabra se dibuja y actua sola (no esta "compilada")
+|  el teclado esta incluido en la interaccion
+|
+^lib/print.txt
+^lib/sprite.txt
+^lib/gc.txt
+^lib/font.txt
+^lib/fontt.txt
+
+		| fondo fuente
+#colores $408080 $ffffff | verde-blanco
+#color.titulo $C0C0C0 $0 | gris-negro
+#color.entrada $ffffff $0 | blanco-negro
+#color.res	$0 $ffffff
+
+#bmouse..
+#click..
+#focus.. 1
+#sucio 1
+#idf
+#idl
+
+:negro-blanco
+	msec
+	$400 and? ( neg )
+	2 >> $ff and
+	dup 8 << or dup 8 << or ink ;
+
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+::clrscr
+	idf 'idl !	| ultimo
+	0 'idf !	| primero
+	cls scr home
+	sucio -? ( 1 dup 'focus.. ! 'sucio ! ) drop
+	bmouse bmouse.. =? ( drop 0 'click.. ! ; )
+	0? ( 1 )( -1 ) 'click.. !
+	'bmouse.. !
+	;
+
+::xfb>scr
+	idf 'idl !	| ultimo
+	0 'idf !	| primero
+	xfb> scr home
+	bmouse bmouse.. =? ( drop 0 'click.. ! ; )
+	0? ( 1 )( -1 ) 'click.. !
+	'bmouse.. !
+	;
+
+::inigui
+|	1 dup 'focus.. ! 'sucio !
+|::restartgui
+	-1 'sucio ! ;
+
+::exit
+	1 '.exit !
+	-1 'sucio ! ;
+
+::onIn | 'vec --
+	xymouse whin 0? ( 2drop ; ) drop
+	exec ;
+
+::onMove | 'vec --
+	xymouse whin 0? ( 2drop ; ) drop
+	bmouse 0? ( 2drop ; ) drop
+	exec ;
+
+::onInOut | 'vecin 'vecout --
+	xymouse whin 1? ( 2drop )( drop nip ) exec ;
+
+::onClick | 'vec --
+	click.. 0? ( 2drop ; ) -? ( 2drop ; ) drop
+	xymouse whin 0? ( 2drop ; ) drop
+	0 'click.. ! exec ;
+
+::onDn | 'vec --
+	click.. 0? ( 2drop ; ) +? ( 2drop ; ) drop
+	xymouse whin 0? ( 2drop ; ) drop
+	0 'click.. ! exec ;
+
+::onLineMove | 'vec --
+	xymouse whin 0? ( 2drop ; ) drop
+	bmouse 0? ( 2drop ; ) drop
+	xymouse nip
+	ccy <? ( 2drop ; )
+	ccy cch + >? ( 2drop ; )
+	drop
+	exec ;
+
+||||||||||||||||||||||
+||  Edita linea
+#cmax
+#padi>	| inicio
+#pad>	| cursor
+#padf>	| fin
+
+:lins  | c --
+	padf> padi> - cmax >=? ( 2drop ; ) drop
+	pad> dup 1- padf> over - 1+ cmove> 1 'padf> +!
+:lover | c --
+	pad> c!+ dup 'pad> !
+	padf> >? (
+		dup padi> - cmax >=? ( swap 1- swap -1 'pad> +! ) drop
+		dup 'padf> ! ) drop
+:0lin | --
+	0 padf> c! ;
+:kdel
+	pad> padf> >=? ( drop ; ) drop
+	1 'pad> +!
+:kback
+	pad> padi> <=? ( drop ; )
+	dup 1- swap padf> over - 1+ cmove -1 'padf> +! -1 'pad> +! ;
+:kder
+	pad> padf> <? ( 1+ )  'pad> ! ;
+:kizq
+	 pad> padi> >? ( 1- ) 'pad> !  ;
+
+#modo 'lins
+
+|------- manejo de foco
+::nextfoco
+	focus.. 1+ idl >? ( 1 nip ) 'focus.. !
+::guifresh
+	1 'sucio ! ;
+
+::prevfoco
+	focus.. 1- 0 <=? ( idl nip ) 'focus.. !
+	1 'sucio ! ;
+
+::setfoco | nro --
+	focus.. !
+	1 'sucio ! ;
+
+::ktab
+	mshift 0? ( nextfoco )( prevfoco ) drop ;
+
+:clickfoco
+	idf focus.. =? ( drop ; )
+	'focus.. ! 1 'sucio ! ;
+
+|-----------------------------
+|::*foco* | 'always 'start  --
+|	idf 1+ focus.. <>? ( 'idf ! 2drop ; ) 'idf !
+|	sucio 0? ( 2drop exec ; ) drop
+|	0 'sucio !
+|	exec exec ;
+
+| foco
+::*foco | 'siestaenfoco --
+	idf 1+ focus.. <>? ( 'idf ! 2drop ; ) 'idf !
+	exec ;
+
+ | no puedo retroceder!
+::lostfoco | 'acc --
+	idf 1+ focus.. <>? ( 'idf ! drop ; ) 'idf !
+	exec
+	nextfoco ;
+
+
+:botonsimple | col1 col2 --
+|	[ swap ; ] [ 0.95 fzoom ; ] onInOut
+	[ swap ; ] onIn
+	vbtn ;
+
+|---- ENTRADA
+:dcursor
+	blink 1? ( drop ; ) drop
+	ink@ >r
+	modo 'lins =? ( azul )( rojo ) drop
+	printcur 1-
+	r> ink ;
+
+:bordebox
+	ink@ negro-blanco
+	gc.box
+	ink ;
+
+:drawinput | --
+	padi> ( pad> =? ( dcursor ) c@+ 1? )( emit ) 2drop
+	xc w 2/ + 'ccx !
+	4 dup 'w +! 'h +!
+	bordebox
+|	blink 1? ( negro )( blanco ) drop gc.fbox
+	drop 0 |** no hace boxprint
+	;
+
+|------- GET LINE
+|------- teclado para linea de texto
+::keys-getline | 'var max xx --
+
+	drawinput
+
+|inifoco
+|	dup 'cmax ! over dup 'padi> !
+|	( c@+ 1? )( drop ) drop 1- dup
+|	'pad> ! 'padf> !
+|	'lins 'modo !
+
+	key
+	[ key toasc modo exec ; ] <char>
+	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
+	'kback <back>
+	'kdel <del>
+	'kder <ri>
+	'kizq <le>
+	[ padi> 'pad> ! ; ] <home>
+	[ padf> 'pad> ! ; ] <end>
+	'ktab <tab>
+	'ktab <enter>
+	drop
+	;
+
+::getline | 'dir cnt --
+	cntprintbox
+	blanco gc.fbox negro
+|	'color.entrada @+ ink gc.fbox @ ink
+	'keys-getline *foco
+	1? ( boxprint )( 2drop ) |** 0 no boxprint
+	'clickfoco onClick
+	;
+
+|------- teclado para linea de texto sin enter
+::keys-getlinen | 'var max xx --
+
+|---inicio
+|	over 'cmax ! pick2 dup 'padi> !
+|	( c@+ 1? )( drop ) drop 1- dup
+|	'pad> ! 'padf> !
+|	'lins 'modo !
+
+	key shift/alt
+	[ key toasc modo exec ; ] <char>
+
+	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
+	'kback <back>
+	'kdel <del>
+	'kder <le>
+	'kizq <ri>
+	[ padi> 'pad> ! ; ] <home>
+	[ padf> 'pad> ! ; ] <end>
+	'ktab <tab>
+	drop
+	;
+
+::inputline | 'dir cnt --
+	0 keys-getlinen 2drop
+	( pad> =? ( dcursor ) c@+ 1? )( emit )
+	2drop ;
+
+
+::getfield | 'dir cnt --
+	cntprintbox
+
+	'keys-getlinen *foco
+	drop ( pad> =? ( dcursor ) c@+ 1? )( emit ) 2drop
+	'clickfoco onClick ;
+
+
+|---- BOTONES
+| sin foco
+::btns | acc "str" --
+	gc.push print2gc
+	ink@ dup >r $222222 botonsimple
+	blanco printc
+	onClick
+	r> ink gc.pop ;
+
+::btnd | acc 'v8d --
+	gc.push
+	ink@ dup >r $222222 botonsimple
+	blanco v8draw
+	onClick
+	r> ink gc.pop ;
+
+::btnt | 'event "texto" --
+	gc.push
+	ccw 'ccx +!
+	print2gc
+	ccw 2* 'w +!
+	cch 'h +!
+	ink@ dup >r $222222 botonsimple
+	blanco printx r> ink
+	onClick
+	ccw 'ccx +!
+	gc.pop
+;
+
+|--- con foco
+|-------- teclado para boton
+:keys-btn | --  ; boton con foco
+
+	ink@ negro-blanco
+	4 dup 'w +! 'h +!
+	-1 'yc +!
+	gc.rod
+	ink
+
+	key
+	dup <enter>
+	'ktab <tab>
+	'nextfoco <dn>
+	'prevfoco <up>
+	drop
+	;
+
+::.btns | acc "str" --
+	gc.push print2gc
+	ink@ dup >r $222222 botonsimple
+	blanco printc
+	'keys-btn *foco
+	onClick
+	r> ink gc.pop ;
+
+::.btnd | acc 'v8d --
+	gc.push
+	ink@ dup >r $222222 botonsimple
+	blanco v8draw
+	'keys-btn *foco
+	onClick
+	r> ink gc.pop ;
+
+::.btne | acc --
+|	'linebox 
+'keys-btn *foco
+	onClick ;
+
+| boton de texto grande
+::.btnt | 'event "texto" --
+	gc.push
+	ccw 'ccx +!
+	print2gc
+	ccw 2* 'w +!
+	cch 'h +!
+	ink@ dup >r $222222 botonsimple
+	blanco printx r> ink
+|	'bordefoco
+ 'keys-btn *foco
+	onClick
+	ccw 'ccx +!
+	gc.pop ;
+
+::.link | 'vec "label" --
+	print2gc
+	print
+|	'linebox 
+'keys-btn *foco
+	onClick	;
+
+::.menu | 'vec "label" cnt --
+	gc.push
+	ccw 'ccx +!
+	cntprintbox drop
+|	print2gc
+	ccw 2* 'w +!
+	cch 'h +!
+	ink@ dup >r $222222 botonsimple
+	blanco printc r> ink
+|	'bordefoco 
+'keys-btn *foco
+	onClick
+	ccw 'ccx +!
+	gc.pop ;
+
+::cmenu | 'vec "label" cnt --
+	gc.push
+	tx2 tx1 - ccw pick2 * dup 2/ + - 2/ tx1 + 'ccx !
+	cntprintbox drop
+	ccw 2* 'w +!
+	cch 'h +!       
+	ink@ dup >r $222222 botonsimple
+	blanco printc r> ink
+|	'bordefoco
+ 'keys-btn *foco
+	onClick
+	ccw 'ccx +!
+	gc.pop ;
+
+
+|---- SLIDE
+|-------- teclado para slide
+:keys-slider | --  ; boton con foco
+	key
+	[ 0.01 over +! ; ] <le> 
+	[ -0.01 over +! ; ] <ri>
+	[ -0.5 over ! ; ] <home> 
+	[ 0.5 over ! ; ] <end>
+	'ktab <tab>
+	'nextfoco <dn> 'prevfoco <up>
+	drop
+	;
+
+::hslide | 'var --
+	[ xymouse drop xc - 16 << w / over ! ; ] onMove
+	gc.push 0.98 0.2 fscala
+	gc.frod gc.popush
+	@ w 16 *>> 'xc +!
+ 	0.1 0.98 fscala ink@
+	$dddddd $222222 vbtn
+	gc.pop ink
+	;
+
+::vslide | 'var --
+	[ xymouse nip yc - 16 << h / over ! ; ] onMove
+	gc.push 0.2 0.98 fscala
+	gc.frod gc.popush
+	@ h 16 *>> 'yc +!
+ 	0.98 0.1 fscala ink@
+	$dddddd $222222 hbtn
+	gc.pop ink
+	;
+
+
+|---- LISTA
+::guilista | 'var 'opciones --
+	home
+	gc.push
+ 	0 ( rows  <? )(
+		[ dup pick3 ! ; ] onLineMove
+ 		pick2 @ =? ( 'color.res  )( 1 and? ( 'color.titulo )( 'color.entrada ) )
+		@+ ink linefill @ ink
+		swap dup "%a" printc cr
+		>>f
+		dup c@ 0? ( 4drop gc.pop ; ) drop
+		swap
+|		pick2 @ =? ( cch 2/ neg dup 'cch +! 2/ 'ccy +! )
+		1+ ) drop
+	2drop
+	gc.pop ;
+
+|---- LISTMAP
+::guimapv | 'cadafila cnt --
+	gc.push
+	yc h 2/ - cch 2/ + 'yc !
+	cch 'h !
+	0 ( over <? )(
+		pick2 exec
+		h 'yc +!
+		1+ ) drop
+	2drop
+	gc.pop
+	;
+
+|---- botonera
+::guibtns | 'var 'opciones --
+	gc.push
+ 	0 ( rows  <? )(
+ 		pick2 @ =? ( amarillo )( verde oscuro )
+		[ dup pick3 ! ; ] pick2 "%a" mprint .link cr
+		swap >>f dup c@ 0? ( 4drop gc.pop ; ) drop
+		swap
+		1+ ) drop
+	2drop
+	gc.pop ;
+
+|---- GRILLA
+#maxanchos )( 64
+
+:genmax | grilla --
+	'maxanchos swap  | 'anchos "titi" --
+	( dup >>f over - 1? )(	| 'anchos "ll" cnt
+			rot c!+ swap
+			>>f
+			)
+	3drop ;
+
+::guigrilla | 'var 'grilla 3 -- ; "10_20_32|N_S_P|1_2_3|44_22_33"
+	home
+	gc.push
+	over genmax
+	0 ( rows <? )(
+			0? ( 'colores )(
+				pick3 @ =? ( 'color.res )(
+	 			 1 and? ( 'color.titulo )( 'color.entrada ) )
+				)
+			@+ ink linefill @ ink
+			[ dup pick4 ! ; ] onLineMove
+|			over "%d%s" 4 boxprintr
+			>r >r
+			0 ( r <? )( >r
+				dup "%a" r 'maxanchos + c@
+				boxprint >>f
+|				"%d" print print >>f
+				r> 1+ ) drop
+			>>fi cr
+			r> r>
+			1+ ) 4drop
+	gc.pop ;
+
+
+|||||| Agrupadores (tratar de no usarlos)
+::vlist | cnt 'acc --
+	>r
+	1.0 over / | cnt sw
+	0 ( pick2 <? )( | cnt sw a
+		gc.push
+		1.0 pick2 2over * over 2/ + 0.5 - 0 swap
+		gc.conv | w h xc yc --
+		r exec
+		gc.pop 1+ )
+	3drop rdrop ;
+
+::hlist | cnt 'acc --
+	>r
+	1.0 over / | cnt sw
+	0 ( pick2 <? )( | cnt sw a
+		gc.push
+		over 1.0 2over * pick2 2/ + 0.5 - 0
+		gc.conv | w h xc yc --
+		r exec
+		gc.pop 1+ )
+	3drop rdrop ;
+	;
+
+::table | row col 'acc --
+	>r
+	1.0 pick2 / | row col sw
+	1.0 pick2 / | row col sw sh
+	0 ( pick4 <? )(
+		 0 ( pick4 <? )( | row col sw sh x y
+			gc.push
+			2over		| row col sw sh x y sw sh
+			pick3 pick2 * pick2 2/ + 0.5 -
+			pick3 pick2 * pick2 2/ + 0.5 -
+			gc.conv | w h xc yc --
+			r exec
+			gc.pop
+			1+ ) drop
+		1+ ) drop
+	4drop rdrop ;
+
+
+
+|------------
+|  Cursores
+|------------
+
+#flecha  $9B8FEFC1 $FA3BEC91 $19C1B2B3 $2F4D1B43 $5839C8D3 $74B160B3 $4560BA93 $6DDC7533 $FA3BEC9A
+ $D $7102111 $51DC7753 $35F0AD43 $65995A93 $56A18D03 $2A84DAF3 $1CBD42F3 $710211A
+ $FFFFFFD $0
+
+#mano  $F4440001 $5BB762 $BBC0164 $EB47043 $23707EB2 $3AC8A514 $41810E02 $36D570D4 $36D59753
+ $1D35A9E2 $FA519474 $F9416B23 $D98CADC2 $F3E874C4 $F444000A $D $F8ECB3A1 $F8840163
+ $FFFFD112 $8880004 $AB09DB3 $132C6762 $1A10B074 $22987662 $2970BB24 $32088A62 $3778C5D4
+ $3ED520C2 $35096574 $1B258432 $FB5D5FC4 $E160A6A2 $F6688674 $F8ECB3AA $1CB4DBE7 $2B29A128
+ $FFFFFFC $E $FCCD70E1 $1A658E72 $328D7524 $323191A3 $1975A152 $FD818A84 $FCCD70EA
+ $150D4BE7 $2511BBB8 $FFFFFFC $E 0
+
+#lapiz  $191 $6B05833 $BD03A43 $16D428F3 $19A $D $6B05371 $9D83263 $167028F3
+ $300C4EC3 $1EB86E43 $11B8BE93 $6B0537A $FFFF00D $1154BB71 $18686663 $2EDC4D33 $69293B13
+ $4D31B2C3 $1154BB7A $FF7F00D $47AD73C1 $4B3934C2 $5AF929B4 $6D192372 $6B8568C4 $6B21AC82
+ $54ADB914 $4551B5F2 $47AD73C9 $FFFF00D $0
+#goma  $F17017A1 $90FE543 $2AFBFF63 $3FB06B83 $2734A873 $111C36C3 $F17017AA $7D7E7ED $F1A017F1
+ $121C3593 $2708A513 $1B64F063 $F1A017FA $9E9D9FD $26FCA3D1 $3F0067F3 $61AD29B3 $4B396A43
+ $26FCA3DA $434344D $1AD8F031 $2708A303 $4BAD6B13 $29D13BD3 $1AD8F03A $787877D $0
+
+::ccruz
+	xymouse bmouse 2 << 8 + cruz ;
+
+::cflecha
+	xymouse 'yc ! 'xc !
+	sw 3 >>	bmouse 2 << + dup 'w ! 'h !
+	'flecha nsprite ;
+
+::cmano
+	xymouse 'yc ! 'xc !
+	sw 3 >>	bmouse 2 << + dup 'w ! 'h !
+	'mano nsprite ;
+
+::clapiz
+	xymouse 'yc ! 'xc !
+	sw 3 >>	bmouse 2 << + dup 'w ! 'h !
+	'lapiz nsprite ;
+
+::cgoma
+	xymouse 'yc ! 'xc !
+	sw 3 >>	bmouse 2 << + dup 'w ! 'h !
+	'goma nsprite ;
