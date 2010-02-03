@@ -1,5 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or modify
+/* * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
@@ -32,7 +31,7 @@
 #include <stdio.h>
 #include <time.h>
 
-//#define LOGMEM
+#define LOGMEM
 //#define OPENGL
 #define FMOD
 #define PRINTER
@@ -105,8 +104,7 @@ char *macros[]={// directivas del compilador
 "UPDATE",
 //"IPEN!",
 "XYMOUSE","BMOUSE",     //-------- mouse
-//"IKEY!",
-"KEY",          //-------- teclado
+"IKEY!","KEY",          //-------- teclado
 //"IJOY!",
 "CNTJOY","GETJOY",     //-------- joystick
 
@@ -147,8 +145,7 @@ MEM,PATH,BFILE,BFSIZE,VOL,LOAD,SAVE,//--- bloques de memoria, bloques
 UPDATE,
 //IRMOU,
 XYMOUSE,BMOUSE,
-//IRKEY,
-KEY,
+IRKEY,KEY,
 //IRJOY,
 CNTJOY,GETJOY,
 MSEC,TIME,IDATE,SISEND,SISRUN,//--- sistema
@@ -200,14 +197,14 @@ int SYSKEY=0;
 
 // vectores de interrupciones
 //int SYSirqmouse=0;
-//int SYSirqteclado=0;
+int SYSirqteclado=0;
 //int SYSirqjoystick=0;
 int SYSirqsonido=0;
 int SYSirqred=0;
 //int SYSirqtime=0;
 
-char kbuff[32];
-int kcnt=0,kcur=0;
+//char kbuff[32];
+//int kcnt=0,kcur=0;
     
 //int mbuff[128];
 //int mcnt=0,mcur=0;
@@ -264,15 +261,19 @@ switch (message) {     // handle message
     case WM_KEYUP:        // (lparam>>24)     ==1 keypad
         lParam>>=16;
         if ((lParam&0x100)!=0) lParam=mapex[lParam&0x7f];
-        kbuff[kcnt]=(lParam&0x7f)|0x80;;kcnt=(kcnt+1)&31;
-//      SYSEVENT=SYSirqteclado;
+
+//        kbuff[kcnt]=(lParam&0x7f)|0x80;;kcnt=(kcnt+1)&31;
+        SYSKEY=(lParam&0x7f)|0x80;
+        SYSEVENT=SYSirqteclado;
         break;
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
         lParam>>=16;
         if ((lParam&0x100)!=0) lParam=mapex[lParam&0x7f];
-        kbuff[kcnt]=lParam&0x7f;kcnt=(kcnt+1)&31;
-//         SYSEVENT=SYSirqteclado;
+       
+//        kbuff[kcnt]=lParam&0x7f;kcnt=(kcnt+1)&31;
+        SYSKEY=lParam&0x7f;
+        SYSEVENT=SYSirqteclado;
          break;
 //    case WM_TIMER:
 //        SYSEVENT=SYSirqtime;
@@ -396,12 +397,12 @@ int W,W1;			// palabra actual y auxiliar
 int *vcursor;
 
 //SYSirqmouse=0;
-//SYSirqteclado=0;
+SYSirqteclado=0;
 //SYSirqjoystick=0;
 SYSirqsonido=0;
 SYSirqred=0;
 SYSEVENT=0;
-kcnt=kcur=0;
+//kcnt=kcur=0;
 
 vcursor=(int*)gr_buffer;
 
@@ -532,7 +533,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case XYMOUSE: NOS++;*NOS=TOS;NOS++;*NOS=SYSXYM&0xffff;TOS=(SYSXYM>>16);continue;
     case BMOUSE: NOS++;*NOS=TOS;TOS=SYSBM;continue;
 //----- teclado
-//    case IRKEY: SYSirqteclado=TOS;TOS=*NOS;NOS--;continue;
+    case IRKEY: SYSirqteclado=TOS;TOS=*NOS;NOS--;continue;
 	case KEY: NOS++;*NOS=TOS;TOS=SYSKEY&0xff;continue;
 //----- joy
 //    case IRJOY: SYSirqjoystick=TOS;TOS=*NOS;NOS--;continue;
@@ -541,7 +542,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 
     case REDRAW: 
         gr_redraw();
-        if (kcnt==kcur) { SYSKEY=0; } else { SYSKEY=kbuff[kcur];kcur=(kcur+1)&31; }
+//        if (kcnt==kcur) { SYSKEY=0; } else { SYSKEY=kbuff[kcur];kcur=(kcur+1)&31; }
         continue;
 
 	case MSEC: NOS++;*NOS=TOS;TOS=timeGetTime();continue;
@@ -817,7 +818,7 @@ void dumpex(void)
 {
 FILE *stream;
 if((stream=fopen("log.txt","a"))==NULL) return;
-fprintf(stream,"-------\n");
+fprintf(stream,"------- %d\n",cntindiceex);
 for (int i=0;i<cntindiceex;i++)
     fprintf(stream,"%s %d\n",indiceex[i].nombre,indiceex[i].codigo-prog);
 fprintf(stream,"-------\n");    
@@ -1084,11 +1085,11 @@ otrapalabra:
 	if (estainclude(palabra)==0) {// si esta en la lista no se incluye
 		agregainclude(palabra);// agrega a la lista
 		aux=compilafile(palabra);// inclusion recursiva
-        if (aux==OPENERROR) { sprintf(error,"no existe %s",palabra);goto error; } 
-		if (aux!=COMPILAOK) { return aux; }
 #ifdef LOGMEM		
 		dumplocal(palabra);
 #endif
+        if (aux==OPENERROR) { sprintf(error,"no existe %s",palabra);goto error; } 
+		if (aux!=COMPILAOK) { return aux; }
 		cntindice=cntnombre=0;// espacio de nombres reset
 		}
 	}
@@ -1437,7 +1438,7 @@ if (exestr[0]!=0) {
    #endif
    loadimagen(exestr);
    exestr="";
-   }
+    }
 if (bootaddr==0 && bootstr[0]!=0){
    #ifdef LOGMEM
    ldebug("BOOTSTR:");ldebug(bootstr);
@@ -1455,9 +1456,9 @@ if (bootaddr==0 && bootstr[0]!=0){
       ldebug("NO COMPILA");ldebug(linea);
       #endif
       grabalinea();
-        return 1;
-//      if (exestr==DEBUGR4X) return 1;
-//    exestr=DEBUGR4X;goto recompila;
+//        return 1;
+      if (exestr==DEBUGR4X) return 1;
+      exestr=DEBUGR4X;goto recompila; 
       }
       #ifdef LOGMEM
       ldebug("fin compila...");

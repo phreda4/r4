@@ -11,8 +11,8 @@
 #bmouse..
 #click..
 
-#focus
-#focus..
+#foco
+#lastfoco
 
 #idf	| id actual
 #idl	| id ultimo
@@ -36,8 +36,14 @@
 	;
 
 ::inigui
-	-1 'focus  !
+	key.push inikey
+	-1 'foco  !
 	;
+
+::exit
+	1 '.exit !
+	-1 'foco  !
+	key.pop ;
 
 ::onIn | 'vec --
 	xymouse whin 0? ( 2drop ; ) drop
@@ -75,65 +81,46 @@
 | manejo de foco (teclado)
 
 ::nextfoco
-	focus.. 1+ idl >? ( 1 nip ) 'focus.. ! ;
+	foco 1+ idl >? ( 1 nip ) 'foco ! ;
 
 ::prevfoco
-	focus.. 1- 0 <=? ( idl nip ) 'focus.. ! ;
+	foco 1- 0 <=? ( idl nip ) 'foco ! ;
 
 ::setfoco | nro --
-	focus.. ! ;
+	foco ! ;
 
 ::ktab
 	mshift 0? ( nextfoco )( prevfoco ) drop ;
 
-:clickfoco
-
-::*foco | word -- ; exec word when this gain foco
-	idf focus.. =? ( drop ; )
-	'focus.. ! ;
-
-::>foco | word -- ; exec word when this in foco
-	idf 1+ focus.. <>? ( 'idf ! 2drop ; ) 'idf !
-	exec ;
-	;
-
-|-----------------------------
-|::*foco* | 'always 'start  --
-|	idf 1+ focus.. <>? ( 'idf ! 2drop ; ) 'idf !
-|	sucio 0? ( 2drop exec ; ) drop
-|	0 'sucio !
-|	exec exec ;
-
-| foco
-::*foco | 'siestaenfoco --
-	idf 1+ focus.. <>? ( 'idf ! 2drop ; ) 'idf !
+::w/foco | 'fvect 'svect --
+	idf 1+
+	foco |-1 =? ( drop dup dup 'foco ! )
+	<>? ( 'idf ! 2drop ; )
+	lastfoco <>? ( dup 'lastfoco ! swap exec )( nip )
+	'idf !
 	exec ;
 
  | no puedo retroceder!
 ::lostfoco | 'acc --
-	idf 1+ focus.. <>? ( 'idf ! drop ; ) 'idf !
+	idf 1+ foco <>? ( 'idf ! drop ; ) 'idf !
 	exec
 	nextfoco ;
 
+:32to12
+	dup 4 >> $f and | $f0 -> $f
+	over 8 >> $f0 and or
+	swap 12 >> $f00 and or ;
 
-:botonsimple | col1 col2 --
-|	[ swap ; ] [ 0.95 fzoom ; ] onInOut
-	[ swap ; ] onIn
-	vbtn ;
-
+::4+gc
+	4 dup 'w +! 'h +! ;
 
 ::botonsimple
 	xc w 2/ - yc h 2/ - .at
-	h ink@
-	dup 4 >> $f and | $f0 -> $f
-	over 8 >> $f0 and or
-	swap 12 >> $f00 and or
-	$aaa000
-	[ drop 12 << $ccc ; ] onIn
-	or degrade!
+	h ink@ 32to12 $000000 or
+	[ dup 12 << swap 12 >> $fff and or ; ] onIn
+	degrade!
 	w h .fboxdh
 	;
-
 
 ::gcbtn | acc --
 	xc w 2/ - yc h 2/ - .at
@@ -148,24 +135,20 @@
 	ccw 'ccx +!
 	print2gc
 	ccw 2* 'w +!
-	cch 'h +!
+	cch 2/ 'h +!
 	botonsimple
-	blanco printx
+	ink@ >r blanco printx r> ink
 	onClick
 	ccw 'ccx +!
 	gc.pop ;
 
 ::btnd | 'event 'dibujo --
 	gc.push
-	ccw 'ccx +!
-	print2gc
-	ccw 2* 'w +!
-	cch 'h +!
 	botonsimple
 	blanco v8draw
 	onClick
-	ccw 'ccx +!
 	gc.pop ;
+
 
 #pad>
 
@@ -175,6 +158,26 @@
 	drop
 	( pad> =? ( dcursor ) c@+ 1? )( emit ) 2drop ;
 
+|-------------------- SLIDE
+::hslide | 'var --
+	[ xymouse drop xc - 16 << w / over ! ; ] onMove
+	gc.push 0.98 0.2 fscala
+	gc.frod gc.popush
+	@ w 16 *>> 'xc +!
+ 	0.1 0.98 fscala ink@
+	$dddddd $222222 vbtn
+	gc.pop ink
+	;
+
+::vslide | 'var --
+	[ xymouse nip yc - 16 << h / over ! ; ] onMove
+	gc.push 0.2 0.98 fscala
+	gc.frod gc.popush
+	@ h 16 *>> 'yc +!
+ 	0.98 0.1 fscala ink@
+	$dddddd $222222 hbtn
+	gc.pop ink
+	;
 
 |------------
 |  Cursores
