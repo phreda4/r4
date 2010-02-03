@@ -7,69 +7,78 @@
 #tablact 'k2asc
 #:mshift 0
 
+|--- mapa de teclado 256 keys (Up and Dn)
+#:keymap )( 1024
+
+::>key 2 << 'keymap + ! ;
+::>ukey 2 << 512 + 'keymap + ! ;
+
+|--- Evento del teclado
+:keydo
+	key 2 << 'keymap + @ exec ;
+
+::clearkey
+	'keymap 256 ( 1? )( 1- 0 rot !+ swap ) 2drop ;
+
+::inikey
+	'keydo ikey!
+	clearkey
+	[ 'k2ascs 'tablact ! 1 'mshift ! ; ] dup $2a >key $36 >key | teclas shift
+	[ 'k2asc 'tablact ! 0 'mshift ! ; ] dup $2a >ukey $36 >ukey | levanta shift
+	[ 'k2alt 'tablact ! ; ] $38 >key 								| abajo alt
+	[ mshift 1? ( 'k2ascs )( 'k2asc ) nip 'tablact ! ; ] $38 >ukey	| arriba alt
+	;
+
 ::toasc | scancode -- ascii
 	tablact + c@ ;
 
-::shift/alt | key -- key
-	$2a =? ( $36 nip ) $36 =? ( 'k2ascs 'tablact ! 1 'mshift ! )
-	$38  =? ( 'k2alt 'tablact ! )
-	$2a $80 or =? ( $36 $80 or nip ) $36 $80 or =? ( 'k2asc 'tablact ! 0 'mshift ! )
-	$38 $80 or =? ( mshift 1? ( 'k2ascs )( 'k2asc ) nip 'tablact ! )
-	;
+::<todas> | vec --
+	'keymap 128 ( 1? )( 1-
+		pick2  rot !+ swap ) 3drop ;
+::>todas< | vec --
+	'keymap 512 + 128 ( 1? )( 1-
+		pick2  rot !+ swap ) 3drop ;
 
-| 0..255 keys
-| 000 11111 bit
-#keycursor	0 0 0 0
-#keyalfa	0 0 0 0
-#keyfn		0 0 0 0
-#keynro		0 0 0 0
-#keysgn		0 0 0 0
-#keychar $00000001 $ffffffff $ffffffff $ffffffff
+::<visible> | vec --
+	0 ( 128 <? )( 1+
+    	dup toasc 32 >? ( drop 2dup >key )( drop )
+		) drop
+	$39 >key ; | y espacio
 
-:keygroup | adr -- f
-	key 3 >> $c and + @
-	key $1f and 1? ( 1- >> ) 1 and ;
+::<esc> 1 >key ;	::>esc< 1 >ukey ;
+::<esp> $39 >key ;	::>esp< $39 >ukey ;
+::<back> $e >key ;
+::<tab> $f >key ;
+::<enter> $1c >key ;	::>enter< $1c >ukey ;
+::<ctrl> 29 >key ;		::>ctrl< 29 >ukey ;
+::<alt> $38 >key ;		::>alt< $38 >ukey ;
 
-::<char> | key 'vector -- key ; vector | ascii --
-	over 0? ( 2drop ; )
-	$80 and? ( 2drop ; )
-	toasc 32 <? ( 2drop ; )
-	swap exec ;
+::<home> $67 >key ;	::<end> $5f >key ;
+::>home< $67 >ukey ; ::>end< $5f >ukey ;
 
-::<esc> over 1 <>? ( 2drop ; ) drop exec ;
-::>esc< over $81 <>? ( 2drop ; ) drop exec ;
+::<up> $68 >key ;	::<dn> $60 >key ;
+::<ri> $5d >key ;	::<le> $5b >key ;
+::>up< $68 >ukey ;	::>dn< $60 >ukey ;
+::>ri< $5d >ukey ;	::>le< $5b >ukey ;
 
-::<esp> over $39 <>? ( 2drop ; ) drop exec ;
-::<back> over $e <>? ( 2drop ; ) drop exec ;
-::<tab> over $f <>? ( 2drop ; ) drop exec ;
-::<enter> over $1c <>? ( 2drop ; ) drop exec ;
-::>enter< over $9c <>? ( 2drop ; ) drop exec ;
+::<ins> $62 >key ;	::<del> $63 >key ;
+::<pgup> $59 >key ; ::<pgdn> $61 >key ;
+::>ins< $62 >ukey ;	::>del< $63 >ukey ;
+::>pgup< $59 >key ; ::>pgdn< $61 >key ;
 
-::<ctrl> over 29 <>? ( 2drop ; ) drop exec ;
-::<alt> over $38 <>? ( 2drop ; ) drop exec ;
+::<f1> $3b >key ;	::<f2> $3c >key ;
+::<f3> $3d >key ; 	::<f4> $3e >key ;
+::<f5> $3f >key ; 	::<f6> $40 >key ;
+::<f7> $41 >key ; 	::<f8> $42 >key ;
+::<f9> $43 >key ; 	::<f10> $44 >key ;
+::<f11> $57 >key ;	::<f12> $58 >key ;
 
-::<home> over $67 <>? ( 2drop ; ) drop exec ;
-::<end> over $5f <>? ( 2drop ; ) drop exec ;
+|---- apila teclado
+#teclados )( 4096 | guarda teclados
+#teclados> 'teclados
 
-::<ins> over $62 <>? ( 2drop ; ) drop exec ;
-::<del> over $63 <>? ( 2drop ; ) drop exec ;
-::<pgup> over $59 <>? ( 2drop ; ) drop exec ;
-::<pgdn> over $61 <>? ( 2drop ; ) drop exec ;
+::key.push
+	teclados> 'keymap 256 move 1024 'teclados> +! ;
 
-::<up> over $68 <>? ( 2drop ; ) drop exec ;
-::<dn> over $60 <>? ( 2drop ; ) drop exec ;
-::<ri> over $5d <>? ( 2drop ; ) drop exec ;
-::<le> over $5b <>? ( 2drop ; ) drop exec ;
-
-::<f1> over $3b <>? ( 2drop ; ) drop exec ;
-::<f2> over $3c <>? ( 2drop ; ) drop exec ;
-::<f3> over $3d <>? ( 2drop ; ) drop exec ;
-::<f4> over $3e <>? ( 2drop ; ) drop exec ;
-::<f5> over $3f <>? ( 2drop ; ) drop exec ;
-::<f6> over $40 <>? ( 2drop ; ) drop exec ;
-::<f7> over $41 <>? ( 2drop ; ) drop exec ;
-::<f8> over $42 <>? ( 2drop ; ) drop exec ;
-::<f9> over $43 <>? ( 2drop ; ) drop exec ;
-::<f10> over $44 <>? ( 2drop ; ) drop exec ;
-::<f11> over $57 <>? ( 2drop ; ) drop exec ;
-::<f12> over $58 <>? ( 2drop ; ) drop exec ;
+::key.pop
+	-1024 'teclados> +! 'keymap teclados> 256 move ;
