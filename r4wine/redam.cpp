@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#define LOGMEM
+//#define LOGMEM
 //#define OPENGL
 #define FMOD
 #define PRINTER
@@ -787,7 +787,7 @@ int cntnombreex;
 char nombreex[1024*32];
 //---- includes
 int cntincludes;
-Indice includes[25];
+Indice includes[50];
 //---- pila de compilador
 int cntpilaA;
 int cntpila;
@@ -1039,9 +1039,7 @@ int estado=E_PROG;int unidad=4;int salto=0;
 int aux,nrolinea=1;// convertir a nro de linea local
 cntpila=0;
 while(!feof(stream)) {
-  *lineat=0;fgets(lineat,512,stream);ahora=lineat;
-
-// ldebug(ahora);
+  *lineat=0;fgets(lineat,512,stream);ahora=lineat; // ldebug(ahora);
 
 otrapalabra:
   while (*ahora!=0 && *ahora<33) ahora++;
@@ -1279,6 +1277,7 @@ fprintf(stream,"local:%d\r",*(int*)(e->ContextRecord->Ebp-16));
 fprintf(stream,"PSP:%d\r",(int)PSP);
 fprintf(stream,"RSP:%d\r",(int)RSP);
 */
+fprintf(stream,"%d %d %d %d %d \r",cntindice,cntnombre,cntindiceex,cntnombreex,cntincludes);
 fclose(stream);
 return SHUTDOWN_NORETRY; //return EXCEPTION_CONTINUE_SEARCH;
 }
@@ -1431,6 +1430,8 @@ while (*bootstr!=0 && bootstr>pilaexec)
     bootstr--;
 if (bootstr>pilaexec) bootstr++;
  
+debugerr:
+
 bootaddr=0;
 if (exestr[0]!=0) {
    #ifdef LOGMEM
@@ -1447,21 +1448,24 @@ if (bootaddr==0 && bootstr[0]!=0){
    cntindiceex=cntnombreex=cntincludes=0;// espacio de nombres reset
    cntdato=cntprog=0;cntindice=cntnombre=0;
 
-      #ifdef LOGMEM
-      ldebug("compila...");
-      #endif
+   #ifdef LOGMEM
+   ldebug("compila...");
+   #endif
 
    if (compilafile(linea)!=COMPILAOK) {
       #ifdef LOGMEM
       ldebug("NO COMPILA");ldebug(linea);
+      sprintf(linea,"\r%d %d %d %d %d \r",cntindice,cntnombre,cntindiceex,cntnombreex,cntincludes);ldebug(linea);
+
       #endif
       grabalinea();
 //        return 1;
       if (exestr==DEBUGR4X) return 1;
-      exestr=DEBUGR4X;goto recompila; 
+      exestr=DEBUGR4X;goto debugerr; 
       }
       #ifdef LOGMEM
       ldebug("fin compila...");
+      sprintf(linea,"\r%d %d %d %d %d \r",cntindice,cntnombre,cntindiceex,cntnombreex,cntincludes);ldebug(linea);
       #endif
 
    if (compilastr[0]!=0) {
