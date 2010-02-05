@@ -68,6 +68,11 @@ HGDIOBJ hfnt, hfntPrev;
 int cWidthPels,cHeightPels;
 SIZE tsize;
 
+//---------- SYSTEM word
+PROCESS_INFORMATION ProcessInfo; //This is what we get as an [out] parameter
+STARTUPINFO StartupInfo; //This is an [in] parameter
+
+//------------
 static const char wndclass[] = ":r4";
 
 char setings[256];
@@ -766,7 +771,15 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 #endif
     case SYSTEM: // "" --
         //if (TOS!=0) 
-        system((char*)TOS);
+        //system((char*)TOS);
+        ZeroMemory(&StartupInfo, sizeof(StartupInfo));
+        StartupInfo.cb = sizeof StartupInfo ; //Only compulsory field
+        if(CreateProcess((char*)TOS,NULL,NULL,NULL,FALSE,0,NULL,NULL,&StartupInfo,&ProcessInfo))
+            { 
+            WaitForSingleObject(ProcessInfo.hProcess,INFINITE);
+            CloseHandle(ProcessInfo.hThread);
+            CloseHandle(ProcessInfo.hProcess);
+            }  
         TOS=(*NOS);NOS--;
         continue;
 	default: // completa los 8 bits con apila numeros 0...
