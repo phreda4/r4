@@ -92,6 +92,9 @@
 ::ktab
 	mshift 0? ( nextfoco )( prevfoco ) drop ;
 
+:clickfoco
+	idf foco =? ( drop ; ) 'foco ! ;
+
 ::w/foco | 'fvect 'svect --
 	idf 1+
 	foco |-1 =? ( drop dup dup 'foco ! )
@@ -150,10 +153,81 @@
 	gc.pop ;
 
 
-#pad>
 
-:dcursor ;
+|----------
+||||||||||||||||||||||
+||  Edita linea
+#cmax
+#padi>	| inicio
+#pad>	| cursor
+#padf>	| fin
 
+:lins  | c --
+	padf> padi> - cmax >=? ( 2drop ; ) drop
+	pad> dup 1- padf> over - 1+ cmove> 1 'padf> +!
+:lover | c --
+	pad> c!+ dup 'pad> !
+	padf> >? (
+		dup padi> - cmax >=? ( swap 1- swap -1 'pad> +! ) drop
+		dup 'padf> ! ) drop
+:0lin | --
+	0 padf> c! ;
+:kdel
+	pad> padf> >=? ( drop ; ) drop
+	1 'pad> +!
+:kback
+	pad> padi> <=? ( drop ; )
+	dup 1- swap padf> over - 1+ cmove -1 'padf> +! -1 'pad> +! ;
+:kder
+	pad> padf> <? ( 1+ )  'pad> ! ;
+:kizq
+	 pad> padi> >? ( 1- ) 'pad> !  ;
+
+#modo 'lins
+
+:dcursor
+	blink 1? ( drop ; ) drop
+	ink@ >r
+	modo 'lins =? ( azul )( rojo ) drop
+	printcur 1-
+	r> ink ;
+
+:bordebox
+	ink@ azul
+	gc.box
+	ink ;
+
+:keys-getline | 'var max xx --
+	over 'cmax ! pick2 dup 'padi> !
+	( c@+ 1? )( drop ) drop 1- dup
+	'pad> ! 'padf> !
+	'lins 'modo !
+	[ key toasc modo exec ; ] <visible>
+	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
+	'kback <back>	'kdel <del>
+	'kder <ri>		'kizq <le>
+	[ padi> 'pad> ! ; ] <home>
+	[ padf> 'pad> ! ; ] <end>
+	'ktab dup <tab> <enter>
+	'nextfoco <dn> 'prevfoco <up>
+	;
+
+:drawinput | --
+	padi> ( pad> =? ( dcursor ) c@+ 1? )( emit ) 2drop
+	xc w 2/ + 'ccx !
+	4 dup 'w +! 'h +!
+	bordebox
+	drop 0 |** no hace boxprint
+	;
+
+::getline | 'dir cnt --
+ 	cntprintbox
+	blanco gc.fbox negro
+	'drawinput 'keys-getline w/foco
+	1? ( boxprint )( 2drop ) |** 0 no boxprint
+	'clickfoco onClick ;
+
+|-------
 ::inputline | 'var cnt --
 	drop
 	( pad> =? ( dcursor ) c@+ 1? )( emit ) 2drop ;
