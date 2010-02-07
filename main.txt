@@ -5,10 +5,8 @@
 ^lib/reda4.txt
 ^lib/gui.txt
 ^lib/fontt.txt
-
 |^lib/fonth.txt
 ^lib/trace.txt
-
 ^r4code.txt
 
 |----------- estado
@@ -28,7 +26,7 @@
 #hayarr 0
 #hayaba 0
 
-#consola )( 256
+#consola )( 1024
 
 #buffertext )( 1024
 
@@ -91,7 +89,7 @@
 |		( 33 <? )( c@
 |		$23 =? ( drop 1- 0 swap c! ; ) | #
 |		$3a =? ( drop 1- 0 swap c! ; ) | :
-		$5e =? ( drop 1- 0 swap c! ; ) | ^
+|		$5e =? ( drop 1- 0 swap c! ; ) | ^
 		drop ) 2drop
 	;
 
@@ -99,41 +97,24 @@
 	ha tocohoja drop ;
 
 :nodo | adr
-	gris
+	font-vard-8-bold
 	( c@+ 1? )( drop ) drop
 	( dup c@ 1? )( drop
-		ha =? ( blanco )( gris )
+
+|		noemit? 0? ( 2drop ; ) drop
+
+		ha =? ( cyan )( gris )
 		'tocohoja
-		over allow2cr btnt
+		over sp sp sp sp btnt cr cr2
 		( c@+ 1? )( drop ) drop
-		) drop ;
+		) drop
+	font-vard-12-bold ;
 
 :tree | adr --
 	( @+ 1? )(
-		ra =? ( cyan )( verde )
-		'tocorama over btnt
-		ra =? ( cr cr nodo cr cr )
+		verde 'tocorama over btnt cr cr2
+		ra =? ( nodo )
 		drop ) 2drop ;
-
-|-------------
-:ddlista | adr --
-	( @+ 1? )(
-		ra =? ( cyan )( verde )
-		'tocorama over sp btnt
-		drop ) 2drop ;
-
-:ddsub | adr --
-	( @+ 1? )(
-		ra =? (
-		( c@+ 1? )( drop ) drop
-		( dup c@ 1? )( drop
-			ha =? ( blanco )( gris )
-			'tocohoja
-			over allow2cr
-			sp btnt
-			( c@+ 1? )( drop ) drop
-			) drop
-		) drop ) 2drop ;
 
 |---------------
 :grabadom
@@ -146,7 +127,6 @@
 	'ra "nom/main.nom" load drop
 	setopcion
 	;
-
 
 |--------------------------------------------------------------------------------------------
 :runactual
@@ -209,6 +189,35 @@
 	line
 	255 alpha
 	;
+|------- modos
+:modo-menu
+	| menu
+	0.2 0.8 fdim -0.8 0.2 fpos 	home cr
+
+|	'dominios dup ddlista cr cr ddsub
+	'dominios tree
+
+	| programa actual
+	0.7 0.8 fdim 0.2 0.2 fpos home
+	cr2 blanco
+|        ha dup "%d: %s" print cr
+	verde sp 'runactual  "Run" btnt
+	cyan sp 'editactual "Edit" btnt
+	violeta sp 'nuevoactual "New" btnt
+	rojo sp 'borractual "Del" btnt
+	blanco ha 1? ( sp printx ".txt" printx )( drop )
+	cr cr2
+	'buffertext text
+	;
+
+:modo-vm
+	| pilas
+	0.5 dup fdim
+	0.5 -0.5 fpos
+	home
+	"Status MV" print cr
+	blanco
+	;
 
 |---------- main
 :main
@@ -228,44 +237,19 @@
 	'editabitmap <f3>
 	'runtimeerr  <f4>
 	'configura <f5>
-	show clrscr
-		font-vard-12-bold home cr
-		| menu principal
-		0.5 dup fdim
-		0.5 dup fpos
-		home cr
-		'dominios dup ddlista cr cr ddsub
-| programa actual
-		0.5 dup fdim
-		-0.5 0.5 fpos
-		home cr2 blanco
-|        ha dup "%d: %s" print cr
-		verde sp 'runactual  "Run" btnt
-		cyan sp 'editactual "Edit" btnt
-		violeta sp 'nuevoactual "New" btnt
-		rojo sp 'borractual "Del" btnt
-		blanco ha 1? ( sp printx ".txt" printx )( drop )
+	show clrscr font-vard-12-bold home
 
-		cr cr2
-		'buffertext text
 
-| pilas
-		0.5 dup fdim
-		0.5 -0.5 fpos
-		home
-		"Status MV" print cr
-		blanco
+		modo-menu
 
-		scr home
-		| consola
-		0 rows 4 - at
+
+	| consola
+		scr home 0 rows 4 - at
 		dup verde ":r%d " print
-
 		amarillo "Ok " print
-		violeta "#" print blanco
+		blanco ">" print
 		'consola 32 inputline cr
-
-		| botoner
+	| botoner
 		0 rows 2 - at cr2
 		rojo sp 'exit "ESC" btnt
 		cyan
@@ -279,9 +263,10 @@
 		sp 'runtimeerr "F4-runtime error" btnt
 		sp 'configura "F5-Config" btnt
 
-		boxcursor
+		|boxcursor
 
-		cflecha ;
+		bmouse 0? ( cflecha )( cmano ) drop
+		;
 
 |****** BOOT ******
 : 0 paper mark restauradom 4 main grabadom ;

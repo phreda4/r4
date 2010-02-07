@@ -17,14 +17,34 @@
 #idf	| id actual
 #idl	| id ultimo
 
+||  Edita linea
+#cmax
+#padi>	| inicio
+#pad>	| cursor
+#padf>	| fin
+
+|---------
+:dumpgui
+	fonti home cr cr cr cr
+	bmouse.. "bmouse..%d " print cr
+	click.. "click..%d " print cr
+	foco "foco%d " print cr
+	lastfoco "lastfoco%d " print cr
+cmax "cmax%d " print cr
+padi> "padi>	| inicio%d " print cr
+pad> "pad>| cursor%d " print cr
+padf> "padf>| fin%d " print cr
+
+	;
+
 ::clrscr
 	idf 'idl !	| ultimo
 	0 'idf !	| primero
 	cls scr
-	bmouse bmouse.. =? ( drop 0 'click.. ! ; )
+	bmouse bmouse.. =? ( drop 0 'click.. ! | dumpgui 
+	; )
 	0? ( 1 )( -1 ) 'click.. !
-	'bmouse.. !
-	;
+	'bmouse.. ! ;
 
 ::xfb>scr
 	idf 'idl !	| ultimo
@@ -37,12 +57,12 @@
 
 ::inigui
 	key.push inikey
-	-1 'foco  !
+	0 'foco  ! -1 'lastfoco !
 	;
 
 ::exit
 	1 '.exit !
-	-1 'foco  !
+	0 'foco  ! -1 'lastfoco !
 	key.pop ;
 
 ::onIn | 'vec --
@@ -97,7 +117,7 @@
 
 ::w/foco | 'fvect 'svect --
 	idf 1+
-	foco |-1 =? ( drop dup dup 'foco ! )
+	foco 0? ( drop dup dup 'foco ! )
 	<>? ( 'idf ! 2drop ; )
 	lastfoco <>? ( dup 'lastfoco ! swap exec )( nip )
 	'idf !
@@ -152,15 +172,8 @@
 	onClick
 	gc.pop ;
 
-
-
 |----------
-||||||||||||||||||||||
-||  Edita linea
-#cmax
-#padi>	| inicio
-#pad>	| cursor
-#padf>	| fin
+|  Edita linea
 
 :lins  | c --
 	padf> padi> - cmax >=? ( 2drop ; ) drop
@@ -185,52 +198,54 @@
 
 #modo 'lins
 
+|---------------------------
 :dcursor
 	blink 1? ( drop ; ) drop
-	ink@ >r
 	modo 'lins =? ( azul )( rojo ) drop
-	printcur 1-
-	r> ink ;
+	printcur 1- ;
 
 :bordebox
 	ink@ azul
 	gc.box
 	ink ;
 
-:keys-getline | 'var max xx --
-	over 'cmax ! pick2 dup 'padi> !
+:inigetline | 'var max 'dr IDF -- 'var max 'dr IDF
+	pick2 'cmax !
+	pick3 dup 'padi> !
 	( c@+ 1? )( drop ) drop 1- dup
 	'pad> ! 'padf> !
 	'lins 'modo !
+
 	[ key toasc modo exec ; ] <visible>
 	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
 	'kback <back>	'kdel <del>
 	'kder <ri>		'kizq <le>
 	[ padi> 'pad> ! ; ] <home>
 	[ padf> 'pad> ! ; ] <end>
-	'ktab dup <tab> <enter>
-	'nextfoco <dn> 'prevfoco <up>
 	;
 
-:drawinput | --
+:drgetline | --
+	blanco 4 dup 'w +! 'h +! gc.fbox
+	ccx
 	padi> ( pad> =? ( dcursor ) c@+ 1? )( emit ) 2drop
-	xc w 2/ + 'ccx !
-	4 dup 'w +! 'h +!
-	bordebox
-	drop 0 |** no hace boxprint
-	;
+	'ccx !
+	negro ;
 
-::getline | 'dir cnt --
- 	cntprintbox
-	blanco gc.fbox negro
-	'drawinput 'keys-getline w/foco
-	1? ( boxprint )( 2drop ) |** 0 no boxprint
-	'clickfoco onClick ;
+::getline | 'var max --
+	gc.push
+	blanco
+	cntprintbox
+	'drgetline 'inigetline w/foco
+	'clickfoco onClick
+	drop printx
+	gc.pop ;
 
 |-------
-::inputline | 'var cnt --
-	drop
-	( pad> =? ( dcursor ) c@+ 1? )( emit ) 2drop ;
+::inputline | 'var max --
+	'drgetline 0 inigetline
+	3drop
+	( pad> =? ( dcursor ) c@+ 1? )( emit )
+	2drop ;
 
 |-------------------- SLIDE
 ::hslide | 'var --
