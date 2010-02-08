@@ -27,8 +27,12 @@
 #hayaba 0
 
 #consola )( 1024
-
+#mensaje ":Ok." )( 32
 #buffertext )( 1024
+
+
+:mensaje!
+	'mensaje strcpy ;
 
 #juegos "Juegos"
 "cuatros"
@@ -65,16 +69,6 @@
 
 #dominios  'juegos 'edits 'devs 'tests 'sistemas  0
 
-:printarbol | adr --
-	( @+ 1? )(
-		dup blanco print cr gris
-		( c@+ 1? )( drop ) drop
-		( dup c@ 1? )( drop
-			dup allowcr print sp
-			( c@+ 1? )( drop ) drop
-			)
-		2drop cr ) 2drop ;
-
 |-------------
 :tocorama |
 	dup 'ra ! ;
@@ -100,9 +94,6 @@
 	font-vard-8-bold
 	( c@+ 1? )( drop ) drop
 	( dup c@ 1? )( drop
-
-|		noemit? 0? ( 2drop ; ) drop
-
 		ha =? ( cyan )( gris )
 		'tocohoja
 		over sp sp sp sp btnt cr cr2
@@ -112,8 +103,9 @@
 
 :tree | adr --
 	( @+ 1? )(
-		verde 'tocorama over btnt cr cr2
-		ra =? ( nodo )
+		ra swap
+		verde 'tocorama over sp btnt cr cr2
+		=? ( nodo )
 		drop ) 2drop ;
 
 |---------------
@@ -163,6 +155,15 @@
 :borractual
 	;
 
+#voc-system
+'exit "bye"
+'editactual "edit"
+'editargrafico "draw"
+'editabitmap "img"
+'runtimeerr  "error?"
+'configura "config"
+0
+
 |--------- cursor de caja
 #bx1 #by1 #bx2 #by2
 
@@ -189,82 +190,130 @@
 	line
 	255 alpha
 	;
+
+#modon 0
 |------- modos
 :modo-menu
-	| menu
-	0.2 0.8 fdim -0.8 0.2 fpos 	home cr
 
-|	'dominios dup ddlista cr cr ddsub
-	'dominios tree
+	'runactual <f1>
+
+	scr home
+	azul 2 linesfill
+	cr2
+	gris sp [ 1 'modon ! ; ] " Menu " btnt |print
+
+	blanco ha 1? ( sp printx ".txt" printx )( drop )
+
+	verde sp 'runactual dup <F1> "Run" btnt
+	cyan sp 'editactual dup <F2> "Edit" btnt
+	violeta sp 'nuevoactual dup <F3> "New" btnt
+	rojo sp 'borractual dup <F4> "Del" btnt
+
+	| menu
+	0.2 0.8 fdim -0.8 0.1 fpos home
+	cr2 'dominios tree
 
 	| programa actual
-	0.7 0.8 fdim 0.2 0.2 fpos home
-	cr2 blanco
-|        ha dup "%d: %s" print cr
-	verde sp 'runactual  "Run" btnt
-	cyan sp 'editactual "Edit" btnt
-	violeta sp 'nuevoactual "New" btnt
-	rojo sp 'borractual "Del" btnt
-	blanco ha 1? ( sp printx ".txt" printx )( drop )
-	cr cr2
-	'buffertext text
+	0.7 0.8 fdim 0  0.1 fpos home blanco
+	cr2 'buffertext text
 	;
 
 :modo-vm
+	scr home
+	azul 2 linesfill
+	cr2
+	gris sp [ 2 'modon ! ; ] " MV " btnt |print
+
 	| pilas
-	0.5 dup fdim
-	0.5 -0.5 fpos
-	home
-	"Status MV" print cr
-	blanco
+	0.1 0.8 fdim
+	0.7 0.1 fpos home
+	verde gc.box
+	blanco "Dato" printc cr cr2 amarillo
+	dpila> ( 'dpila >? )( 4 -
+		dup @ "%d" printc cr
+		) drop
+	0.9 0.1 fpos home
+	verde gc.box
+	blanco "Retorno" printc cr cr2 amarillo
+	rpila> ( 'rpila >? )( 4 -
+		dup @ "%d" printc cr
+		) drop
+	;
+
+:modo-define
+	scr home
+	azul 2 linesfill
+	cr2
+	rojo sp [ 3 'modon ! ; ] " DEFINE " btnt |print
+	;
+
+:modo-gui
+	scr home
+	azul 2 linesfill
+	cr2
+	gris sp [ 0 'modon ! ; ] " GUI " btnt |print
+
+	boxcursor
+	;
+
+
+#modos 'modo-menu 'modo-vm 'modo-define 'modo-gui
+
+:esnumero?
+    dup ?numero 0? (
+		drop
+		?fnumero 0? ( drop ; )
+		) drop
+	rot drop
+	1 'modon !
+	d.push
+	rdrop ;
+
+:essis? | sistema
+	;
+
+:esmacro? |	dup ?macro 1? ( rot drop esmacro ; ) drop		| macro
+	;
+
+:espalabra? |	dup	?palabra  1? ( nip espalabra ; ) drop		| palabra
+	;
+
+:palabraconsola | str -- str'
+	( dup c@ 33 <? )( 0? ( nip "Ok" swap ; ) drop 1+ )		| quitar espacios
+|	$5e =? ( drop esinclude ; )			| $5e ^  Include
+|	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
+|	$3A =? ( drop esdefinicion ; )		| $3a :  Definicion
+|	$23 =? ( drop esvariable ; )		| $23 #  Variable
+|	$22 =? ( drop escadena ; )			| $22 "	 Cadena
+|	$27 =? ( drop 1+ dup 				| $27 ' Direccion
+|		dup ?macro 1? ( 3drop " no tiene direccion" mensaje! 0 ; ) drop
+|		?palabra 1? ( nip esdir ; ) 2drop
+|		" no existe direccion" seterror 3 - 0 ; )
+|	drop
+	drop
+	esnumero? essis? esmacro? espalabra?
+	drop
+	"NOTfOUND" 0 ;
+
+:correconsola
+	'consola ( palabraconsola 0? ) drop
+    mensaje!
+	0 'consola !
 	;
 
 |---------- main
 :main
 	inigui
 	'exit >esc<
-
-	[ actual cant 1- <? ( 1+ ) 'actual ! ; ] <le>
-	[ actual 1? ( 1- ) 'actual ! ; ] <ri>
-	[ actual 3 + cant 1- min  'actual ! ; ] <dn>
-	[ actual 3 - 0 max 'actual ! ; ] <up>
-
-	'runactual <enter>
-|	'editactual <tab>
-
-	'editarcodigo <f1>
-	'editargrafico <f2>
-	'editabitmap <f3>
-	'runtimeerr  <f4>
-	'configura <f5>
-	show clrscr font-vard-12-bold home
-
-
-		modo-menu
-
-
-	| consola
-		scr home 0 rows 4 - at
+	'correconsola <enter>
+	show clrscr font-vard-12-bold
+		'modos modon 2 << + @ exec
+		| consola
+		scr 9 font home 0 rows 1- at
 		dup verde ":r%d " print
-		amarillo "Ok " print
+		rojo 'mensaje printx
 		blanco ">" print
 		'consola 32 inputline cr
-	| botoner
-		0 rows 2 - at cr2
-		rojo sp 'exit "ESC" btnt
-		cyan
-		sp 'editarcodigo "F1-EditCode" btnt
-|		sp 'editarcodigo "F1-New Project" btnt
-
-		sp 'editargrafico "F2-Draw" btnt
-		sp 'editabitmap "F3-Pict" btnt
-| DATABASE
-| FORM
-		sp 'runtimeerr "F4-runtime error" btnt
-		sp 'configura "F5-Config" btnt
-
-		|boxcursor
-
 		bmouse 0? ( cflecha )( cmano ) drop
 		;
 
