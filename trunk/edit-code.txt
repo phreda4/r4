@@ -4,13 +4,11 @@
 ^lib/reda4.txt
 ^lib/gui.txt
 ^lib/parse.txt
-^lib/dlgfile.txt
 ^lib/codecolor.txt
+^lib/fontt.txt
+|^lib/trace.txt
 
-|^trace.txt
-^lib/fonth.txt
-
-#lugar
+#nombre )( 64
 
 #fuente 0 |)( $3ffff	| 256k de fuente editable
 #fuente> 'fuente	| cursor
@@ -31,8 +29,6 @@
 #clipboard> 'clipboard
 
 |---- debug.err
-
-#nombre )( 64
 #nrolin )( 32
 #error )( 32
 #ncar 0
@@ -160,7 +156,7 @@
 :loadtxt | -- cargar texto
 	mark
 	here 'nombre load 0 swap c!
-	
+
 	fuente dup 'pantaini> ! 'fuente> !
 
 	|-- si no hay cr y si ln reemplazar
@@ -178,14 +174,16 @@
 	empty
 	;
 
+:guardanombre
+	'nombre count "./nom/editor.nom" save ;
+
 :savetxt
 	mark
 	fuente ( c@+ 1? )( 13 =? ( ,c 10 ) ,c ) 2drop
 	'nombre savemem
 	empty
-	nlin -1 =? ( 'nombre count "./nom/editor.nom" save
-			)( "" 1 "debug.err" save -1 'nlin ! ) drop
-	;
+	nlin -1 =? ( guardanombre )( "" 1 "debug.err" save -1 'nlin ! ) 
+	drop ;
 
 |-------------------------------------------
 :copysel
@@ -268,6 +266,8 @@
 |--------------------
 |--------------------
 |--------------------
+#lugar
+
 :editasprite
 	savetxt
 	fuente> ( dup 1- c@ 32 >? )( drop 1- ) drop | busca comienzo
@@ -335,16 +335,16 @@
 	;
 
 ||||||||||||
-:openfile
-	savetxt
-	".//" dir
-	'nombre dlgfile |explore
-	'nombre c@ 1? ( loadtxt ) drop
-	;
+|:openfile
+|	savetxt
+|	".//" dir
+|	'nombre dlgfile |explore
+|	'nombre c@ 1? ( loadtxt ) drop
+|	;
 
-:newfile
-	savetxt
-	;
+|:newfile
+|	savetxt
+|	;
 
 :searchw
 	;
@@ -405,69 +405,43 @@
 
 :editor
 	inigui
-
-	scr fonti home |	25 fonth |	font-vard-12
-	rows 6 - 'cntlineas !
-
 	[ key toasc modo exec ; ] <visible>
-
 	'kback	<back>
 	'kdel	<del>
 	'karriba <up>		'kabajo	<dn>
 	'kder	<ri>		'kizq	<le>
 	'khome	<home>		'kend	<end>
 	'kpgup	<pgup>		'kpgdn	<pgdn>
-
 	'instalcontrol 		<ctrl> | control
-
 	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
 	[ 13 modo exec ; ] <enter>
 	[ 9 modo exec ; ] <tab>
-
-	'helpcode <f1>
-	'debugword <f2>
-	'openfile <f5>
-	'newfile <f6>
-|	'editasprite <f5>
-	'evaluando  <f8>
-	'directrun <f9>
-	'compilando <f11>
-
 	'exit  >esc<
+
+	scr fonti home rows 6 - 'cntlineas !
+|	10 'cntlineas !
+
 	show clrscr
 		font-vard-12-bold home
-        gris 2 linesfill
-		cr2
-		verde dup " :R%d EditCode" print sp|
-		amarillo 'nombre "%s" print sp|
+		azul 2 linesfill cr2
+		blanco " EDIT " print
+		gris sp [ end ; ] 'nombre btnt sp
+|		amarillo [ end ;'nombre "%s" print
+		verde
+		sp 'helpcode "Help" dup <f1> btnt
+		sp 'debugword "Word" dup <f2> btnt
+		sp 'evaluando "Eval" dup <f8> btnt
+		sp 'directrun "Run" dup <f9> btnt
+		sp 'compilando "Asm" dup <f10> btnt sp|
+
 		verde actlinea 1+ "%d" print sp|
 		modo 'lins =? ( "INS" verde )( "OVR" rojo ) nip printx sp|
 		finsel 0? ( drop "0" )( fuente - inisel fuente - "%d..%d" ) print sp|
 	 	clipboard> 'clipboard <>? ( "clip" print sp| ) drop
 		blanco 'mensaje printx
-
-		0 2 at
-        fonti drawcode
-
-		| botoner
-		font-vard-8-bold
-		0 rows 2 - at
-		gris 2 linesfill
-		cr2
-		rojo sp 'exit "ESC" btnt
-		verde
-|		sp 'helpcode "F1-Help" btnt
-
-|		sp 'searchw "F2-<<" btnt
-|		sp 'medit "F3-MEdit" btnt
-
-		sp 'openfile "F5-Open" btnt
-		sp 'newfile "F6-New" btnt
-
-		sp 'evaluando "F8-Eval" btnt
-		sp 'directrun "F9-Run" btnt
-		sp 'compilando "F11-Asm" btnt
-
+		verde dup " :R%d" print sp|
+		0 2 at cr2 fonti
+		drawcode
 		cflecha ;
 
 :buscaerror
@@ -490,30 +464,22 @@
 :main
 	here dup 'helptxt !
 	"helpr4.txt" load 0 swap !+ 'here !
-
-    mark
-	buscaerror
-	empty
-
+    mark buscaerror empty
 	nlin -1 =? ( 'nombre "./nom/editor.nom" load drop ) drop
-
 	loadtxt
 	editor
-	savetxt
-	;
+	savetxt ;
 
 :ram
 	here dup 'fuente !
 	dup 'fuente> !
 	dup '$fuente !
 	$3ffff +	| 256kb texto
-	'here  !
-	;
+	'here  ! ;
 
 : 0 paper
 	mark
 	ram
 	4 main
-	empty
-	;
+	empty ;
 
