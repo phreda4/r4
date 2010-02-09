@@ -1,0 +1,231 @@
+| main.txt
+| menu principal
+| PHREDA 2009
+|----------------------------------
+^lib/reda4.txt
+^lib/parse.txt
+^lib/gui.txt
+^lib/fontt.txt
+|^lib/fonth.txt
+^lib/trace.txt
+^r4code.txt
+
+#mydicc )( 8192
+
+#modon 0	| modo de edicion
+
+#consola )( 1024
+#buffertext )( 1024
+
+#mensaje )( 32
+:mensaje! 'mensaje strcpy ;
+
+|-------------
+:editactual
+|	ha 0? ( drop ; )
+	"%s.txt" mprint count
+	"./nom/editor.nom" save
+	"edit-code.txt" run ;
+
+:editarcodigo
+	"" 0 "debug.err" save
+	"edit-code.txt" run ;
+
+:editargrafico
+	"edit-spr.txt" run ;
+
+:editarprojecto
+	"r4proj.txt" run ;
+
+:editabitmap
+	"edit-bit.txt" run ;
+
+:runtimeerr
+	"runtime2.txt" run ;
+
+:configura
+	"config.txt" run ;
+
+:nuevoactual
+:borractual
+	;
+
+:helpmodo
+	;
+
+:menumodo
+	;
+
+#voc-system
+"BYE" "HELP" "MENU" "EDIT" "DRAW" "IMG" "ERROR" "CONFIG"
+( 0 )
+
+#exe-system
+'exit 'helpmodo 'menumodo 'editactual 'editargrafico 'editabitmap 'runtimeerr  'configura
+0
+
+
+|--------- cursor de caja
+#bx1 #by1 #bx2 #by2
+
+:boxcursor | --
+	[ xymouse 'by2 ! 'bx2 ! ; ] onMove
+	[ xymouse 'by1 ! 'bx1 ! ; ] onDn
+	[ 0 dup 2dup 'bx1 !+ !+ !+ ! ; ] onClick
+
+	127 alpha
+	cyan oscuro
+	bx1 by1
+	2dup op
+	over by2 pline
+	bx2 by2 pline
+	bx2 over pline
+	pline poli
+
+	verde
+	bx1 by1
+	2dup op
+	over by2 line
+	bx2 by2 line
+	bx2 over line
+	line
+	255 alpha
+	;
+
+
+:addfile
+	;
+
+:adddome
+	;
+
+
+:modo-define
+	scr home
+	azul 2 linesfill
+	cr2
+	rojo sp [ 3 'modon ! ; ] " DEFINE " btnt |print
+	;
+
+:modo-gui
+	scr home
+	azul 2 linesfill
+	cr2
+	gris sp [ 0 'modon ! ; ] " GUI " btnt |print
+	boxcursor
+	;
+
+|--------------------------------------------------------------------------------------------
+:nextw
+    ( c@+ 32 >? )( drop )
+	0? ( drop 1- )( drop )
+	;
+
+:esnumero? | adr -- adr/adrn ..
+    dup ?numero 0? ( drop
+		dup ?fnumero 0? ( drop ; )
+		) drop
+	rot drop
+	1 'modon !
+	d.push rdrop ;
+
+:essis? | adr -- adr/adrn ..
+	dup 'voc-system inupp?
+	0? ( drop ; )
+	1- 2 << 'exe-system + @ exec
+    nextw rdrop ;
+
+:esmacro? | adr -- adr/adrn ..
+	dup 'macrosr4 inupp?
+	0? ( drop ; )
+    stepmacro
+|	"%d" mprint mensaje!
+	nextw rdrop ;
+
+:espalabra? | adr -- adr/adrn ..
+	dup 'mydicc inupp?
+	0? ( drop ; )
+	"%d" mprint mensaje!
+	nextw rdrop ;
+
+:palabraconsola | str -- str'
+	( dup c@ 33 <? )( 0? ( nip ; ) drop 1+ )		| quitar espacios
+|	$5e =? ( drop esinclude ; )			| $5e ^  Include
+|	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
+|	$3A =? ( drop esdefinicion ; )		| $3a :  Definicion
+|	$23 =? ( drop esvariable ; )		| $23 #  Variable
+|	$22 =? ( drop escadena ; )			| $22 "	 Cadena
+|	$27 =? ( drop 1+ dup 				| $27 ' Direccion
+|		dup ?macro 1? ( 3drop " no tiene direccion" mensaje! 0 ; ) drop
+|		?palabra 1? ( nip esdir ; ) 2drop
+|		" no existe direccion" seterror 3 - 0 ; )
+|	drop
+	drop
+	esnumero?
+	essis?
+	esmacro?
+	|espalabra?
+	drop
+	0
+	"NOTfOUND" mensaje! ;
+
+:correconsola
+	0 'mensaje !
+	'consola ( palabraconsola 0? ) drop
+	0 'consola !
+	;
+
+
+:modo-vm
+	scr home
+	azul 2 linesfill
+	cr2
+	gris sp [ 2 'modon ! ; ] " MV " btnt |print
+
+	| pilas
+	0.1 0.76 fdim
+	0.65 0.1 fpos home
+	verde gc.box
+	blanco cr2 "Dato" printc cr cr2 amarillo
+	dpila> ( 'dpila >? )( 4 -
+		dup @ "%d" printc cr
+		) drop
+	0.88 0.1 fpos home
+	verde gc.box
+	blanco cr2 "Retorno" printc cr cr2 amarillo
+	rpila> ( 'rpila >? )( 4 -
+		dup @ "%d" printc cr
+		) drop
+
+		| consola
+		scr 12 font home 0 rows 1- at
+		dup verde ":r%d " print
+		rojo 'mensaje printx
+		blanco "> " print
+		'consola 32 inputline cr
+		'correconsola <enter>
+
+	;
+
+|---------- main
+:main
+	inigui
+	'exit >esc<
+	show clrscr font-vard-12-bold
+		modo-vm
+		bmouse 0? ( cflecha )( cmano ) drop	;
+
+:salvaestado
+	"mem/main.mem" save ;
+
+:recuperaestado
+	mark
+	"mem/main.mem" load drop
+	empty
+	;
+
+
+|****** BOOT ******
+: 0 paper mark                      
+	4 main
+	;

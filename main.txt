@@ -3,36 +3,27 @@
 | PHREDA 2009
 |----------------------------------
 ^lib/reda4.txt
+^lib/parse.txt
 ^lib/gui.txt
 ^lib/fontt.txt
 |^lib/fonth.txt
 ^lib/trace.txt
-^r4code.txt
+
+#mydicc )( 8192
 
 |----------- estado
 #ra
 #ha
-
-|------------ cursor
-#inicioarch 0
-#cntarch 20
-#cant 0
-
-#filas 9   | [ 3 4 + ]
-#columnas 3
-#actual 0
 
 #iniprog 0
 #hayarr 0
 #hayaba 0
 
 #consola )( 1024
-#mensaje ":Ok." )( 32
 #buffertext )( 1024
 
-
-:mensaje!
-	'mensaje strcpy ;
+#mensaje )( 32
+:mensaje! 'mensaje strcpy ;
 
 #juegos "Juegos"
 "cuatros"
@@ -53,6 +44,8 @@
 "funciones" "personaje" 0
 
 #devs "Devs"
+"maineval"
+"edit-draw"
 "jetpatrol" "esqueleto" "escena" "planedef" "crayon"  "bitmap"
 "3dlatr"  "pizarra"  "adentro"
 "rmation" "mys" "render" "rtable"
@@ -69,46 +62,7 @@
 
 #dominios  'juegos 'edits 'devs 'tests 'sistemas  0
 
-|-------------
-:tocorama |
-	dup 'ra ! ;
 
-:tocohoja
-	dup 'ha !
-	dup "%s.txt" mprint
-	here swap load here =? ( drop ; ) drop
-	'buffertext here 256 move
-	0 'buffertext 1023 + c!
-	'buffertext ( c@+ 1? )(
-|		( 33 <? )( c@
-|		$23 =? ( drop 1- 0 swap c! ; ) | #
-|		$3a =? ( drop 1- 0 swap c! ; ) | :
-|		$5e =? ( drop 1- 0 swap c! ; ) | ^
-		drop ) 2drop
-	;
-
-:setopcion
-	ha tocohoja drop ;
-
-:nodo | adr
-	font-vard-8-bold
-	( c@+ 1? )( drop ) drop
-	( dup c@ 1? )( drop
-		ha =? ( cyan )( gris )
-		'tocohoja
-		over sp sp sp sp btnt cr cr2
-		( c@+ 1? )( drop ) drop
-		) drop
-	font-vard-12-bold ;
-
-:tree | adr --
-	( @+ 1? )(
-		ra swap
-		verde 'tocorama over sp btnt cr cr2
-		=? ( nodo )
-		drop ) 2drop ;
-
-|---------------
 :grabadom
 	"./" dir
 	'ra 8 "nom/main.nom" save
@@ -117,10 +71,43 @@
 :restauradom
 	".//" dir
 	'ra "nom/main.nom" load drop
-	setopcion
+|	setopcion
 	;
 
-|--------------------------------------------------------------------------------------------
+|--generaindice automatico
+:strlast | 2 "abc" -- "bc"
+	( c@+ 1? )( drop ) drop
+	swap 1+ - ;
+
+:?sufix | adr sufix -- 1/0 ; "p.txt" ".txt" -- 1
+	count rot strlast = ;
+
+:generatree
+	"config/" dir
+	mark
+	0 ( dup vol 1? )(
+        dup ,s
+		0 ( dup file 1? )( | nro vol nro file --
+			pick2 ?sufix
+			1? ( "|" ,s  drop dup file ,s )( drop )
+			1+ ) 3drop
+		"~" ,s ,cr
+		1+ ) drop
+	0 ,c
+	'mydicc cpymem
+	empty
+	"." dir
+	;
+
+:grillatree | adr --
+    dup "%a" print cr >>f
+|	( dup c@ 1? )(
+		1 col dup "* %a" print >>f
+|		) 2drop
+	drop
+	;
+
+|-------------
 :runactual
 	ha 0? ( drop ; )
 	grabadom
@@ -129,7 +116,8 @@
 :editactual
 	ha 0? ( drop ; )
 	grabadom
-	"%s." mprint drop
+	"%s.txt" mprint count
+	"./nom/editor.nom" save
 	"edit-code.txt" run ;
 
 :editarcodigo
@@ -155,167 +143,138 @@
 :borractual
 	;
 
-#voc-system
-'exit "bye"
-'editactual "edit"
-'editargrafico "draw"
-'editabitmap "img"
-'runtimeerr  "error?"
-'configura "config"
-0
-
-|--------- cursor de caja
-#bx1 #by1 #bx2 #by2
-
-:boxcursor | --
-	[ xymouse 'by2 ! 'bx2 ! ; ] onMove
-	[ xymouse 'by1 ! 'bx1 ! ; ] onDn
-	[ 0 dup 2dup 'bx1 !+ !+ !+ ! ; ] onClick
-
-	127 alpha
-	cyan oscuro
-	bx1 by1
-	2dup op
-	over by2 pline
-	bx2 by2 pline
-	bx2 over pline
-	pline poli
-
-	verde
-	bx1 by1
-	2dup op
-	over by2 line
-	bx2 by2 line
-	bx2 over line
-	line
-	255 alpha
+:helpmodo
 	;
 
-#modon 0
-|------- modos
+:menumodo
+	;
+
+
+:addfile
+	;
+
+:adddome
+	;
+
+|------- MENU
+:tocorama |
+	dup 'ra ! ;
+
+:tocohoja
+	dup 'ha !
+	dup "%s.txt" mprint
+	here swap load here =? ( drop ; ) drop
+	'buffertext here 256 move
+	0 'buffertext 1023 + c!
+	'buffertext ( c@+ 1? )(
+|		( 33 <? )( c@
+|		$23 =? ( drop 1- 0 swap c! ; ) | #
+|		$3a =? ( drop 1- 0 swap c! ; ) | :
+|		$5e =? ( drop 1- 0 swap c! ; ) | ^
+		drop ) 2drop
+	;
+
+:>>0
+	( c@+ 1? )( drop ) drop ;
+
+:nodo | adr --
+	font-vard-8-bold
+    >>0
+	( dup c@ 1? )( drop
+		azul linefill
+		ha =? ( negro )( cyan )
+		dup
+		sp sp sp printc
+		'tocohoja onLineMove
+		cr >>0 ) 2drop
+	font-vard-12-bold ;
+
+:tree | adr --
+	font-vard-12-bold 4 'cch +!
+	( @+ 1? )(
+		'tocorama onLineMove
+		ra =? ( azul oscuro linefill dup )( 0 )
+		4 'ccy +!
+		0? ( drop verde sp printc cr )( blanco sp printc cr nodo )
+		) 2drop ;
+
+|------- MENU de Arbol
+:marcado
+	" %a" negro printc cr ;
+
+:normal
+	'tocohoja onLineMove
+	" %a" cyan printc cr ;
+
+:conhijos
+	azul oscuro linefill
+	swap dup "%a" verde printc cr
+	>>f
+	font-vard-8-bold
+	( dup >>f over <>? )( swap
+		azul linefill
+		ha =? ( marcado )( normal )
+		) 2drop cr2
+	font-vard-12-bold
+	;
+
+:sinhijos
+	'tocorama onLineMove
+	swap "%a" blanco printc cr ;
+
+:menutree | adr --
+	font-vard-12-bold
+	( dup >>fi over <>? )(
+		ra =? ( conhijos )( sinhijos )
+		) 2drop ;
+
+|-------------
 :modo-menu
-
-	'runactual <f1>
-
-	scr home
-	azul 2 linesfill
-	cr2
-	gris sp [ 1 'modon ! ; ] " Menu " btnt |print
-
-	blanco ha 1? ( sp printx ".txt" printx )( drop )
+	scr home azul 2 linesfill cr2
+	blanco " MENU " print
+	blanco ha 1? ( sp "%a" print )( drop )
 
 	verde sp 'runactual dup <F1> "Run" btnt
 	cyan sp 'editactual dup <F2> "Edit" btnt
-	violeta sp 'nuevoactual dup <F3> "New" btnt
-	rojo sp 'borractual dup <F4> "Del" btnt
-
+	violeta sp 'adddome dup <F5> "+Dom" btnt
+	verde sp 'addfile dup <F4> "+File" btnt
+	amarillo sp 'nuevoactual dup <F3> "+New" btnt
+	rojo sp 'borractual dup <F5> "Del" btnt
+    cyan sp 'generatree "GT" btnt
 	| menu
-	0.2 0.8 fdim -0.8 0.1 fpos home
-	cr2 'dominios tree
+	0.18 0.8 fdim -0.8 0.1 fpos home cr2
+	'dominios tree
 
 	| programa actual
-	0.7 0.8 fdim 0  0.1 fpos home blanco
-	cr2 'buffertext text
-	;
+	0.6 0.8 fdim 0  0.1 fpos fonti home cr2
+	blanco 'buffertext text
+	cyan
+	'mydicc	dup c@ 0? ( 2drop ; ) drop
+	menutree
 
-:modo-vm
-	scr home
-	azul 2 linesfill
-	cr2
-	gris sp [ 2 'modon ! ; ] " MV " btnt |print
-
-	| pilas
-	0.1 0.8 fdim
-	0.7 0.1 fpos home
-	verde gc.box
-	blanco "Dato" printc cr cr2 amarillo
-	dpila> ( 'dpila >? )( 4 -
-		dup @ "%d" printc cr
-		) drop
-	0.9 0.1 fpos home
-	verde gc.box
-	blanco "Retorno" printc cr cr2 amarillo
-	rpila> ( 'rpila >? )( 4 -
-		dup @ "%d" printc cr
-		) drop
-	;
-
-:modo-define
-	scr home
-	azul 2 linesfill
-	cr2
-	rojo sp [ 3 'modon ! ; ] " DEFINE " btnt |print
-	;
-
-:modo-gui
-	scr home
-	azul 2 linesfill
-	cr2
-	gris sp [ 0 'modon ! ; ] " GUI " btnt |print
-
-	boxcursor
-	;
-
-
-#modos 'modo-menu 'modo-vm 'modo-define 'modo-gui
-
-:esnumero?
-    dup ?numero 0? (
-		drop
-		?fnumero 0? ( drop ; )
-		) drop
-	rot drop
-	1 'modon !
-	d.push
-	rdrop ;
-
-:essis? | sistema
-	;
-
-:esmacro? |	dup ?macro 1? ( rot drop esmacro ; ) drop		| macro
-	;
-
-:espalabra? |	dup	?palabra  1? ( nip espalabra ; ) drop		| palabra
-	;
-
-:palabraconsola | str -- str'
-	( dup c@ 33 <? )( 0? ( nip "Ok" swap ; ) drop 1+ )		| quitar espacios
-|	$5e =? ( drop esinclude ; )			| $5e ^  Include
-|	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
-|	$3A =? ( drop esdefinicion ; )		| $3a :  Definicion
-|	$23 =? ( drop esvariable ; )		| $23 #  Variable
-|	$22 =? ( drop escadena ; )			| $22 "	 Cadena
-|	$27 =? ( drop 1+ dup 				| $27 ' Direccion
-|		dup ?macro 1? ( 3drop " no tiene direccion" mensaje! 0 ; ) drop
-|		?palabra 1? ( nip esdir ; ) 2drop
-|		" no existe direccion" seterror 3 - 0 ; )
-|	drop
-	drop
-	esnumero? essis? esmacro? espalabra?
-	drop
-	"NOTfOUND" 0 ;
-
-:correconsola
-	'consola ( palabraconsola 0? ) drop
-    mensaje!
-	0 'consola !
+|	print
 	;
 
 |---------- main
 :main
 	inigui
 	'exit >esc<
-	'correconsola <enter>
 	show clrscr font-vard-12-bold
-		'modos modon 2 << + @ exec
-		| consola
-		scr 9 font home 0 rows 1- at
-		dup verde ":r%d " print
-		rojo 'mensaje printx
-		blanco ">" print
-		'consola 32 inputline cr
-		bmouse 0? ( cflecha )( cmano ) drop
-		;
+		modo-menu
+		bmouse 0? ( cflecha )( cmano ) drop	;
+
+:salvaestado
+	"mem/main.mem" save ;
+
+:recuperaestado
+	mark
+	"mem/main.mem" load drop
+	empty
+	;
+
 
 |****** BOOT ******
-: 0 paper mark restauradom 4 main grabadom ;
+: 0 paper mark
+	restauradom
+	4 main
+	grabadom ;
