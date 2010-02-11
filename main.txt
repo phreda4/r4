@@ -9,59 +9,16 @@
 |^lib/fonth.txt
 ^lib/trace.txt
 
-#mydicc )( 8192
-
 |----------- estado
 #ra
 #ha
-
-#iniprog 0
-#hayarr 0
-#hayaba 0
+#mydicc )( 8192
 
 #consola )( 1024
 #buffertext )( 1024
 
 #mensaje )( 32
 :mensaje! 'mensaje strcpy ;
-
-#juegos "Juegos"
-"cuatros"
-"baremin" "peleador" "zzDestroyIt" "Tunel"
-"slimeatlet" "invasion"
-"clickotron"
-"pong" "memoria" "carucha"
-"carrera" "xe" "cartonman"
-"sraceituna" "lagranjita"
-"clock"   0
-
-#tests "Test"
-"test-dbgui" "test-n2gl"
-"test-gui3" "test-bmps"
-"test-font" "test-sprite"
-"test-yuvrgb" "test-joy"
-"test-atan"
-"funciones" "personaje" 0
-
-#devs "Devs"
-"maineval"
-"edit-draw"
-"jetpatrol" "esqueleto" "escena" "planedef" "crayon"  "bitmap"
-"3dlatr"  "pizarra"  "adentro"
-"rmation" "mys" "render" "rtable"
-0
-
-#edits "Editores"
-"edit-code" "edit-spr" "edit-font32"
-"edit-fnther"
-0
-
-#sistemas "Sistema"
-"scancode" "fps" "runtime" "runtime2"
- 0
-
-#dominios  'juegos 'edits 'devs 'tests 'sistemas  0
-
 
 :grabadom
 	"./" dir
@@ -99,6 +56,23 @@
 	"." dir
 	;
 
+:generacont
+	"config/" dir
+	mark
+	0 ( dup vol 1? )(
+        dup ,s
+|		dup "%s/" mprint dir
+		0 ( dup file 1? )( | nro vol nro file --
+			"|" ,s ,s 1+ ) 3drop
+		"~" ,s ,cr
+|		".." dir
+		1+ ) drop
+	0 ,c
+	'mydicc cpymem
+	empty
+	"." dir
+	;
+
 :grillatree | adr --
     dup "%a" print cr >>f
 |	( dup c@ 1? )(
@@ -111,13 +85,14 @@
 :runactual
 	ha 0? ( drop ; )
 	grabadom
-	"%s.txt" mprint run ;
+	"%a.txt" mprint run ;
 
 :editactual
 	ha 0? ( drop ; )
 	grabadom
-	"%s.txt" mprint count
+	"%a.txt" mprint count
 	"./nom/editor.nom" save
+|	trace
 	"edit-code.txt" run ;
 
 :editarcodigo
@@ -162,7 +137,7 @@
 
 :tocohoja
 	dup 'ha !
-	dup "%s.txt" mprint
+	dup "%a.txt" mprint
 	here swap load here =? ( drop ; ) drop
 	'buffertext here 256 move
 	0 'buffertext 1023 + c!
@@ -174,30 +149,6 @@
 		drop ) 2drop
 	;
 
-:>>0
-	( c@+ 1? )( drop ) drop ;
-
-:nodo | adr --
-	font-vard-8-bold
-    >>0
-	( dup c@ 1? )( drop
-		azul linefill
-		ha =? ( negro )( cyan )
-		dup
-		sp sp sp printc
-		'tocohoja onLineMove
-		cr >>0 ) 2drop
-	font-vard-12-bold ;
-
-:tree | adr --
-	font-vard-12-bold 4 'cch +!
-	( @+ 1? )(
-		'tocorama onLineMove
-		ra =? ( azul oscuro linefill dup )( 0 )
-		4 'ccy +!
-		0? ( drop verde sp printc cr )( blanco sp printc cr nodo )
-		) 2drop ;
-
 |------- MENU de Arbol
 :marcado
 	" %a" negro printc cr ;
@@ -208,7 +159,8 @@
 
 :conhijos
 	azul oscuro linefill
-	swap dup "%a" verde printc cr
+	2 'ccy +!
+	swap dup "%a" blanco printc cr
 	>>f
 	font-vard-8-bold
 	( dup >>f over <>? )( swap
@@ -220,47 +172,49 @@
 
 :sinhijos
 	'tocorama onLineMove
-	swap "%a" blanco printc cr ;
+	swap "%a" verde printc cr ;
 
 :menutree | adr --
-	font-vard-12-bold
+	font-vard-12-bold 2 'cch +!
 	( dup >>fi over <>? )(
+		( dup c@ 13 =? )( drop 1+ ) drop | quita 13
 		ra =? ( conhijos )( sinhijos )
 		) 2drop ;
-
 |-------------
-:modo-menu
-	scr home azul 2 linesfill cr2
-	blanco " MENU " print
-	blanco ha 1? ( sp "%a" print )( drop )
+:menucontenido
 
-	verde sp 'runactual dup <F1> "Run" btnt
-	cyan sp 'editactual dup <F2> "Edit" btnt
-	violeta sp 'adddome dup <F5> "+Dom" btnt
-	verde sp 'addfile dup <F4> "+File" btnt
-	amarillo sp 'nuevoactual dup <F3> "+New" btnt
-	rojo sp 'borractual dup <F5> "Del" btnt
-    cyan sp 'generatree "GT" btnt
-	| menu
-	0.18 0.8 fdim -0.8 0.1 fpos home cr2
-	'dominios tree
-
-	| programa actual
-	0.6 0.8 fdim 0  0.1 fpos fonti home cr2
-	blanco 'buffertext text
-	cyan
-	'mydicc	dup c@ 0? ( 2drop ; ) drop
-	menutree
-
-|	print
-	;
 
 |---------- main
 :main
 	inigui
 	'exit >esc<
 	show clrscr font-vard-12-bold
-		modo-menu
+		scr home azul 2 linesfill cr2
+		verde dup " :R%d" print
+		blanco " MENU " print
+
+|		6 ( 1? )( 1-
+|			verde sp 'runactual sp "PROG" btnt
+|			) drop
+
+		blanco ha 1? ( sp "%a.txt" print )( drop )
+
+		verde sp 'runactual dup <F1> "Run" btnt
+		cyan sp 'editactual dup <F2> "Edit" btnt
+		violeta sp 'adddome dup <F5> "+Dom" btnt
+		verde sp 'addfile dup <F4> "+File" btnt
+		amarillo sp 'nuevoactual dup <F3> "+New" btnt
+		rojo sp 'borractual dup <F5> "Del" btnt
+	    cyan sp 'generatree "GT" btnt
+	    cyan sp 'generacont "GC" btnt
+		0.18 0.8 fdim -0.8 0.1 fpos home cr2
+	|	'dominios tree
+		'mydicc	dup c@ 1? ( drop menutree )( 2drop )
+
+	| programa actual
+		0.6 0.8 fdim 0  0.1 fpos fonti home cr2
+		blanco 'buffertext text
+
 		bmouse 0? ( cflecha )( cmano ) drop	;
 
 :salvaestado
@@ -275,6 +229,9 @@
 
 |****** BOOT ******
 : 0 paper mark
+	'mydicc "mem/main.txt" load drop
 	restauradom
+|	recuperaestado
 	4 main
+|	salvaestado
 	grabadom ;
