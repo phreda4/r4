@@ -9,147 +9,22 @@
 |^lib/fonth.txt
 ^lib/trace.txt
 
-|----------- estado
-#ra
-#ha
-#mydicc )( 8192
+#ramaact
+#hojaact
+#menuprg
 
-#consola )( 1024
-#buffertext )( 1024
+:cargasrc
+	hojaact 0? ( drop ; ) "%a.txt" mprint
+	here swap load drop ;
 
-#mensaje )( 32
-:mensaje! 'mensaje strcpy ;
-
-:grabadom
-	"./" dir
-	'ra 8 "nom/main.nom" save
-	;
-
-:restauradom
-	".//" dir
-	'ra "nom/main.nom" load drop
-|	setopcion
-	;
-
-|--generaindice automatico
-:strlast | 2 "abc" -- "bc"
-	( c@+ 1? )( drop ) drop
-	swap 1+ - ;
-
-:?sufix | adr sufix -- 1/0 ; "p.txt" ".txt" -- 1
-	count rot strlast = ;
-
-:generatree
-	"config/" dir
-	mark
-	0 ( dup vol 1? )(
-        dup ,s
-		0 ( dup file 1? )( | nro vol nro file --
-			pick2 ?sufix
-			1? ( "|" ,s  drop dup file ,s )( drop )
-			1+ ) 3drop
-		"~" ,s ,cr
-		1+ ) drop
-	0 ,c
-	'mydicc cpymem
-	empty
-	"." dir
-	;
-
-:generacont
-	"config/" dir
-	mark
-	0 ( dup vol 1? )(
-        dup ,s
-|		dup "%s/" mprint dir
-		0 ( dup file 1? )( | nro vol nro file --
-			"|" ,s ,s 1+ ) 3drop
-		"~" ,s ,cr
-|		".." dir
-		1+ ) drop
-	0 ,c
-	'mydicc cpymem
-	empty
-	"." dir
-	;
-
-:grillatree | adr --
-    dup "%a" print cr >>f
-|	( dup c@ 1? )(
-		1 col dup "* %a" print >>f
-|		) 2drop
-	drop
-	;
-
-|-------------
-:runactual
-	ha 0? ( drop ; )
-	grabadom
-	"%a.txt" mprint run ;
-
-:editactual
-	ha 0? ( drop ; )
-	grabadom
-	"%a.txt" mprint count
-	"./nom/editor.nom" save
-|	trace
-	"edit-code.txt" run ;
-
-:editarcodigo
-	"" 0 "debug.err" save
-	"edit-code.txt" run ;
-
-:editargrafico
-	"edit-spr.txt" run ;
-
-:editarprojecto
-	"r4proj.txt" run ;
-
-:editabitmap
-	"edit-bit.txt" run ;
-
-:runtimeerr
-	"runtime2.txt" run ;
-
-:configura
-	"config.txt" run ;
-
-:nuevoactual
-:borractual
-	;
-
-:helpmodo
-	;
-
-:menumodo
-	;
-
-
-:addfile
-	;
-
-:adddome
-	;
-
-|------- MENU
+|--- MENU de Arbol
 :tocorama |
-	dup 'ra ! ;
+	dup 'ramaact ! ;
 
 :tocohoja
-	dup 'ha !
-	dup "%a.txt" mprint
-	here swap load here =? ( drop ; ) drop
-	'buffertext here 256 move
-	0 'buffertext 1023 + c!
-	'buffertext ( c@+ 1? )(
-|		( 33 <? )( c@
-|		$23 =? ( drop 1- 0 swap c! ; ) | #
-|		$3a =? ( drop 1- 0 swap c! ; ) | :
-|		$5e =? ( drop 1- 0 swap c! ; ) | ^
-		drop ) 2drop
-	;
+	dup 'hojaact !
+	cargasrc ;
 
-|------- MENU de Arbol
 :marcado
 	" %a" negro printc cr ;
 
@@ -165,7 +40,7 @@
 	font-vard-8-bold
 	( dup >>f over <>? )( swap
 		azul linefill
-		ha =? ( marcado )( normal )
+		hojaact =? ( marcado )( normal )
 		) 2drop cr2
 	font-vard-12-bold
 	;
@@ -178,60 +53,116 @@
 	font-vard-12-bold 2 'cch +!
 	( dup >>fi over <>? )(
 		( dup c@ 13 =? )( drop 1+ ) drop | quita 13
-		ra =? ( conhijos )( sinhijos )
+		ramaact =? ( conhijos )( sinhijos )
 		) 2drop ;
-|-------------
-:menucontenido
 
+|----------- estado
+:grabaestado
+	"./" dir
+	'ramaact 8 "nom/main.nom" save
+	;
+
+:restauraestado
+	".//" dir
+	'ramaact "nom/main.nom" load drop
+	cargasrc
+	;
+
+
+|------------ para cada dominio
+|-- sistema
+:confsis
+	grabaestado
+	"config.txt" run ;
+
+:keysis
+	grabaestado
+	"scancode.txt" run ;
+
+|-- programa
+:preprg
+	fonti home
+	"Codigo" print cr
+	blanco here text
+	;
+
+:runprg
+	hojaact 0? ( drop ; )
+	grabaestado
+	"%a.txt" mprint run ;
+
+:editprg
+	hojaact 0? ( drop ; )
+	grabaestado
+	"%a.txt" mprint count
+	"./nom/editor.nom" save
+	"edit-code.txt" run ;
+
+|--
+:runtimeerr
+	"runtime2.txt" run ;
+
+:nuevoactual
+:borractual
+	;
+:helpmodo
+	;
+:menumodo
+	;
+:addfile
+	;
+:adddome
+	;
 
 |---------- main
 :main
 	inigui
 	'exit >esc<
-	show clrscr font-vard-12-bold
-		scr home azul 2 linesfill cr2
+	'runprg <f1>
+	'editprg <f2>
+
+	show clrscr font-vard-12-bold home
+		azul 2 linesfill cr2
 		verde dup " :R%d" print
-		blanco " MENU " print
+		blanco "MENU " print
+		font-vard-8-bold
+	| acciones
+		sp sp verde
+		'runprg "RUN" sp btnt
+		'editprg "EDIT" sp btnt
 
-|		6 ( 1? )( 1-
-|			verde sp 'runactual sp "PROG" btnt
-|			) drop
+	| menu datos
+		sp sp sp cyan
+		'confsis "CONFIG" sp btnt
+		'keysis "KEY" sp btnt
 
-		blanco ha 1? ( sp "%a.txt" print )( drop )
+|		violeta 'adddome "+Fold" btnt
+|		verde sp 'addfile "+File" btnt
+|		rojo sp 'borractual "Del" btnt
 
-		verde sp 'runactual dup <F1> "Run" btnt
-		cyan sp 'editactual dup <F2> "Edit" btnt
-		violeta sp 'adddome dup <F5> "+Dom" btnt
-		verde sp 'addfile dup <F4> "+File" btnt
-		amarillo sp 'nuevoactual dup <F3> "+New" btnt
-		rojo sp 'borractual dup <F5> "Del" btnt
-	    cyan sp 'generatree "GT" btnt
-	    cyan sp 'generacont "GC" btnt
+	| datos
 		0.18 0.8 fdim -0.8 0.1 fpos home cr2
-	|	'dominios tree
-		'mydicc	dup c@ 1? ( drop menutree )( 2drop )
-
-	| programa actual
-		0.6 0.8 fdim 0  0.1 fpos fonti home cr2
-		blanco 'buffertext text
+		menuprg menutree
+	| prevista
+		0.6 0.9 fdim 0 0 fpos fonti home cr2
+		blanco here text
 
 		bmouse 0? ( cflecha )( cmano ) drop	;
 
-:salvaestado
-	"mem/main.mem" save ;
+:loadmenu
+	here dup 'menuprg !
+	"mem/prg.txt" load
+	0 swap !+ 'here ! ;
 
-:recuperaestado
-	mark
-	"mem/main.mem" load drop
-	empty
+:savemenu
+	menuprg count "mem/prg.txt" save
 	;
 
-
 |****** BOOT ******
-: 0 paper mark
-	'mydicc "mem/main.txt" load drop
-	restauradom
-|	recuperaestado
+: 0 paper
+	mark
+	loadmenu
+	restauraestado
 	4 main
-|	salvaestado
-	grabadom ;
+	grabaestado
+	;
