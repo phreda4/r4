@@ -33,6 +33,8 @@
 
 //#define LOGMEM
 //#define OPENGL
+//#define RUNER // quita el compilador (6kb)
+
 #define FMOD
 #define PRINTER
 
@@ -302,6 +304,12 @@ switch (message) {     // handle message
         }
         break;
 //---------System
+/*    case WM_CLOSE:
+		DestroyWindow(hWnd);
+		break;*/
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        break;
     case WM_ACTIVATEAPP:
          active=wParam&0xff;
          if (active==WA_INACTIVE)
@@ -313,9 +321,7 @@ switch (message) {     // handle message
             UpdateWindow(hWnd);
             }
          break;
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        break;
+
   default:
        return DefWindowProc(hWnd,message,wParam,lParam);
   }
@@ -325,6 +331,7 @@ return 0;
 }
 
 //---- Graba y carga imagen
+#ifndef RUNER
 void saveimagen(char *nombre)
 {
 file=fopen(nombre,"wb");if (file==NULL) return;
@@ -335,6 +342,7 @@ fwrite((void*)prog,1,cntprog,file);
 fwrite((void*)data,1,cntdato,file);
 fclose(file);
 }
+#endif
 
 void loadimagen(char *nombre)
 {
@@ -512,6 +520,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 //--- sistema
 	case UPDATE: 
          if (PeekMessage(&msg,hWnd,0,0,PM_REMOVE)) // process messages
+//         if (PeekMessage(&msg,0,0,0,PM_REMOVE)) // process messages
             {  //TranslateMessage(&msg); 
             DispatchMessage(&msg);
 // lleno pila con interrupciones
@@ -786,6 +795,51 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         NOS++;*NOS=TOS;TOS=W-ULTIMAPRIMITIVA;continue;
 	} } };
 
+long numero;
+
+int esnumero(char *p)
+{//if (*p=='&') { p++;numero=*p;return 1;} // codigo ascii
+int base,dig=0,signo=0;
+if (*p=='-') { p++;signo=1; } else if (*p=='+') p++;
+if (*p==0) return 0;// no es numero
+switch(*p) {
+  case '$': base=16;p++;break;// hexa
+  case '%': base=2;p++;break;// binario
+  default:  base=10;break; }; 
+numero=0;if (*p==0) return 0;// no es numero
+while (*p!=0) {
+  if (*p<='9') dig=*p-'0'; else if (*p>='A') dig=*p-'A'+10;
+  else return 0;
+  if (dig<0 || dig>=base) return 0;
+  numero*=base;numero+=dig;
+  p++;
+  };
+if (signo==1) numero=-numero;  
+return 1; };
+
+int esnumerof(char *p)         // decimal punto fijo 16.16
+{
+int parte0,dig=0,signo=0;
+if (*p=='-') { p++;signo=1; } else if (*p=='+') p++;
+if (*p==0) return 0;// no es numero
+numero=0;
+while (*p!=0) {
+  if (*p=='.') { parte0=numero;numero=1;if (numero==0 && *(p+1)<33) return 0; } else 
+  {
+  if (*p<='9') dig=*p-'0'; else dig=-1;
+  if (dig<0 || dig>=10) return 0;
+  numero=(numero*10)+dig;
+  }
+  p++;
+  };  
+int decim=1,num=numero;
+while (num>1) { decim*=10;num/=10; }
+num=0x10000*numero/decim;
+numero=(num&0xffff)|(parte0<<16);
+if (signo==1) numero=-numero;
+return 1; };
+
+#ifndef RUNER
 //----------------------------------------------
 struct Indice {	char *nombre;BYTE *codigo;int tipo;	 };
 //---- diccionario local
@@ -923,49 +977,6 @@ if (actual->tipo!=':' && &data[cntdato]==actual->codigo) adatonro(0,4);
 }
 
 //---- parse de fuente
-long numero;
-
-int esnumero(char *p)
-{//if (*p=='&') { p++;numero=*p;return 1;} // codigo ascii
-int base,dig=0,signo=0;
-if (*p=='-') { p++;signo=1; } else if (*p=='+') p++;
-if (*p==0) return 0;// no es numero
-switch(*p) {
-  case '$': base=16;p++;break;// hexa
-  case '%': base=2;p++;break;// binario
-  default:  base=10;break; }; 
-numero=0;if (*p==0) return 0;// no es numero
-while (*p!=0) {
-  if (*p<='9') dig=*p-'0'; else if (*p>='A') dig=*p-'A'+10;
-  else return 0;
-  if (dig<0 || dig>=base) return 0;
-  numero*=base;numero+=dig;
-  p++;
-  };
-if (signo==1) numero=-numero;  
-return 1; };
-
-int esnumerof(char *p)         // decimal punto fijo 16.16
-{
-int parte0,dig=0,signo=0;
-if (*p=='-') { p++;signo=1; } else if (*p=='+') p++;
-if (*p==0) return 0;// no es numero
-numero=0;
-while (*p!=0) {
-  if (*p=='.') { parte0=numero;numero=1;if (numero==0 && *(p+1)<33) return 0; } else 
-  {
-  if (*p<='9') dig=*p-'0'; else dig=-1;
-  if (dig<0 || dig>=10) return 0;
-  numero=(numero*10)+dig;
-  }
-  p++;
-  };  
-int decim=1,num=numero;
-while (num>1) { decim*=10;num/=10; }
-num=0x10000*numero/decim;
-numero=(num&0xffff)|(parte0<<16);
-if (signo==1) numero=-numero;
-return 1; };
 
 int esmacro(char *p)
 {    
@@ -1235,6 +1246,7 @@ error:
   strcpy(error,lineat);
 return CODIGOERROR;
 }
+#endif
 
 void grabalinea(void)
 {
@@ -1245,7 +1257,7 @@ if(fclose(stream)) return;
 }
 
 //----------------- PRINCIPAL
-
+#ifndef RUNER
  #ifdef WIN32
 LONG WINAPI MyUnhandledExceptionFilter(LPEXCEPTION_POINTERS e) 
 {
@@ -1296,6 +1308,8 @@ return SHUTDOWN_NORETRY; //return EXCEPTION_CONTINUE_SEARCH;
 }
 #endif
 
+#endif
+
 static void print_usage(void) {
   printf(":R4 console\n"
   "  c<CODIGO> compile\n"
@@ -1311,32 +1325,14 @@ static void print_usage(void) {
 //char *NDEBUG="debug.txt";
 char *DEBUGR4X="debug.r4x";
 
-
-void updevt(void)
-{
-while (PeekMessage(&msg,0,0,0,PM_REMOVE)) {   // TraslateMessage...
-     DispatchMessage(&msg);
-     while (active==WA_INACTIVE) {
-         Sleep(10);
-         PeekMessage(&msg,hWnd,0,0,PM_REMOVE);
-         TranslateMessage(&msg);DispatchMessage(&msg);
-         }
-     }
-}
-
-void waitclick(void)
-{
-while(SYSBM!=0) { updevt(); }
-while(SYSBM==0) { updevt(); }
-}
-
-
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 //----------------- PRINCIPAL
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+#ifndef RUNER
 SetUnhandledExceptionFilter(&MyUnhandledExceptionFilter);
+#endif
 
 int w=640,h=480,fullscreen=0,silent=0;
 int i=0;
@@ -1453,6 +1449,9 @@ if (exestr[0]!=0) {
    loadimagen(exestr);
    exestr="";
     }
+
+#ifndef RUNER
+
 if (bootaddr==0 && bootstr[0]!=0){
    #ifdef LOGMEM
    ldebug("BOOTSTR:");ldebug(bootstr);
@@ -1494,6 +1493,9 @@ if (bootaddr==0) {
     if (exestr==DEBUGR4X) return 1;
    exestr=DEBUGR4X;goto recompila;//   strcpy(linea,NDEBUG);
    }
+
+#endif
+
 #ifdef LOGMEM
 dumpex();dumplocal("BOOT");
 #endif
@@ -1524,7 +1526,10 @@ ReleaseJoystick();
 closesocket(soc); //Shut down socket
 WSACleanup(); //Clean up Winsock
 gr_fin();
-ChangeDisplaySettings(NULL, 0); // Problema: si esta en fullscreen no retorna a ventana
+
+
+//ChangeDisplaySettings(NULL, 0); // Problema: si esta en fullscreen no retorna a ventana
+
 /*            // Restore the window styles 
             DWORD style = GetWindowLongPtr(hWnd, GWL_STYLE);
             DWORD exstyle = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
@@ -1533,7 +1538,8 @@ ChangeDisplaySettings(NULL, 0); // Problema: si esta en fullscreen no retorna a 
 */
 ReleaseDC(hWnd,hDC);
 DestroyWindow(hWnd);
-
+ChangeDisplaySettings(NULL,0); 
+ShowCursor(TRUE);
 if (rebotea==1) goto reboot;
 
 ExitProcess(0);
