@@ -131,23 +131,23 @@
 	0,DUP
 	"mov eax,[esi+4*4]" ,ln ;
 :0,SWAP
-	"mov edx,eax" ,ln |"xchg eax,[esi]" ,ln ;|ggrr
-	"mov eax,[esi]" ,ln
-	"mov [esi],edx" ,ln ;
-|	"push eax" ,ln	| otra version (sin dx)
+|	"mov edx,eax" ,ln |"xchg eax,[esi]" ,ln ;|ggrr
 |	"mov eax,[esi]" ,ln
-|	"pop [esi]" ,ln ;
+|	"mov [esi],edx" ,ln ;
+	"push eax" ,ln	| otra version (sin dx)
+	"mov eax,[esi]" ,ln
+	"pop [esi]" ,ln ;
 :0,ROT
-	"mov ecx,[esi+4]" ,ln
-	"mov edx,[esi]" ,ln
-	"mov [esi],eax" ,ln
-	"mov [esi+4],edx" ,ln
-	"mov eax,ecx" ,ln ;
-|	"push [esi+4]" ,ln	| otra version (sin dx,cx)
-|	"push [esi]" ,ln
-|	"pop [es+4]" ,ln
+|	"mov ecx,[esi+4]" ,ln
+|	"mov edx,[esi]" ,ln
 |	"mov [esi],eax" ,ln
-|	"pop eax" ,ln ;
+|	"mov [esi+4],edx" ,ln
+|	"mov eax,ecx" ,ln ;
+	"push [esi+4]" ,ln	| otra version (sin dx,cx)
+	"push [esi]" ,ln
+	"pop [es+4]" ,ln
+	"mov [esi],eax" ,ln
+	"pop eax" ,ln ;
 :0,2DUP
 	0,OVER 0,OVER ;
 :0,2OVER
@@ -448,6 +448,17 @@
 
 
 |-------------------------------------data
+#pilac )( 256	#pilac> 'pilac
+
+:>pilac pilac> ! 4 'pilac> +! ;
+:<pilac -4 'pilac> +! pilac> @ ;
+
+#etiqueta 0	| etiquetas
+#cadena 0	| cadenas
+#salto
+#msgserr 
+#modo
+
 #d1 "dd "
 #d2 "dw "
 #d3	"db "
@@ -464,13 +475,6 @@
 
 #dmacros ',d; ',d( ',d) ',d)( ',d[ ',d]
 
-#pilac )( 256	#pilac> 'pilac
-
-:>pilac pilac> ! 4 'pilac> +! ;
-:<pilac -4 'pilac> +! pilac> @ ;
-
-#etiqueta 0	| etiquetas
-#cadena 0	| cadenas
 
 :+etiqueta	| -- nueva   // y agrega a pila
 	etiqueta 1+ dup 'etiqueta ! dup >pilac ;
@@ -491,23 +495,23 @@
 		1 =? ( drop "xor eax,eax" ,ln "inc eax" ,ln ; )
 		-1 =? ( drop "xor eax,eax" ,ln "dec eax" ,ln ; )
 		"mov eax,$" ,s ,h ,cr  ;
-:*var	dup, "mov eax,[w" ,s ,n "]" ,ln ;
-:*dir	dup, "mov eax,w" ,s ,n ,cr ;
-:*cad	dup, "mov eax,s" ,s ,n ,cr ;
-:*call	"call w" ,s ,n ,cr ;
+:*var	dup, "mov eax,[w" ,s ,d "]" ,ln ;
+:*dir	dup, "mov eax,w" ,s ,d ,cr ;
+:*cad	dup, "mov eax,s" ,s ,d ,cr ;
+:*call	"call w" ,s ,d ,cr ;
 #jopt  0 *nro *var *dir *cad *call
 :optfin optipo 1? ( 2 << 'jopt + @ optnro swap exec 0 'optipo ! dup ) drop ;
 
 :optset | nro clase --
 	optfin 'optipo ! 'optnro ! ;
 
-:*jump  "jmp w" ,s optnro ,n ,cr 0 'optipo ! ;
+:*jump  "jmp w" ,s optnro ,d ,cr 0 'optipo ! ;
 
 | nro --
 :**nro 	"$" ,s ,h  ;
-:**var	"dword [w" ,s ,n "]" ,s ;
-:**dir	"w" ,s ,n ;
-:**cad 	"s" ,s ,n ;
+:**var	"dword [w" ,s ,d "]" ,s ;
+:**dir	"w" ,s ,d ;
+:**cad 	"s" ,s ,d ;
 :**error drop ;
 #wopt **error **nro **var **dir **cad **error
 :**write	optipo 2 << 'wopt + @ optnro swap exec	0 'optipo ! ,cr ;
@@ -601,7 +605,8 @@
 |------------
 |:,CLS ;
 |------------
-:,REDRAW	"call SYSREDRAW" ,ln ;
+:,REDRAW	
+	"call SYSREDRAW" ,ln ;
 
 :,FRAMEV
 	0,DUP
@@ -679,23 +684,34 @@
 |---- Agrega palabra al diccionario
 
 :dfin	dini 1? ( dtipo )( "," ) ,s drop 0 'dini ! ;
-:dfini	dini 1? ( dtipo ,s 0 ,n ) ,cr drop 0 'dini ! ;
+:dfini	dini 1? ( dtipo ,s 0 ,d ) ,cr drop 0 'dini ! ;
 :dfins	dini 1? ( "db " )( "," ) ,s drop 0 'dini ! ;
 :dfind	dini 1? ( "dd " )( "," ) ,s drop 0 'dini ! ;
 
+#ghere
+#hcode
+#hdata
+#cntpal
+#wtipo
 
 :esdefinicion | a -- a' define palabra
-	dfini ghere 0 'modo ! hcode 'here ! optfin
+	dfini 
+	ghere 
+	0 'modo ! 
+	hcode 'here ! 
+	optfin
 	dup 1+ c@ 33 <? ( drop 2 + "inicio:" ,ln ; ) drop
-	"w" ,s cntpal ,n ": " ,s 1 'cntpal +!
+	"w" ,s cntpal ,d ": " ,s 1 'cntpal +!
 	" ;" ,s dup ( c@+ 32 >? )( ,c ) 2drop ,cr
-	0 definep ;
+	0 ; | definep
 
 :esvariable | a -- a' define variable
 	optfin dfini
-	ghere 1 'modo ! hdata 'here !
-	"w" ,s cntpal ,n " " ,s 1 'cntpal +!
-	1 definep
+	ghere 
+	1 'modo ! 
+	hdata 'here !
+	"w" ,s cntpal ,d " " ,s 1 'cntpal +!
+	1 |definep
 	'd1 'dtipo !
 	1 'dini ! ;
 
@@ -708,7 +724,7 @@
 :escadena | a -- a' graba cadena  "....."",..."
 	modo 0? ( drop
 		here 'hcode ! hdata 'here !
-		"s" ,s cadena ,n " db " ,s copydat ,cr
+		"s" ,s cadena ,d " db " ,s copydat ,cr
 		here 'hdata ! hcode 'here !
 		cadena 4 optset |******optipo  0 | 0,nro,var,dir,cad,call
 		1 'cadena +!
@@ -718,7 +734,7 @@
 	0 'salto !
 	modo 0? ( drop
 		1 optset |******optipo  0 | 0,nro,var,dir,cad,call
-	)( drop	dfin ,n ) ;
+	)( drop	dfin ,d ) ;
 
 :espalabra | adr nro -- adr
 	0 'salto !
@@ -728,15 +744,15 @@
 		)( drop
 			2 optset |******optipo  0 | 0,nro,var,dir,cad,call
 			)
-	)( drop dfind "w" ,s ,n  ) ;
+	)( drop dfind "w" ,s ,d  ) ;
 
 :esdir	| adr nro -- adr
 	0 'salto !
 	modo 0? ( drop
 		3 optset |******optipo  0 | 0,nro,var,dir,cad,call
-	)( drop dfind "w" ,s ,n ) ;
+	)( drop dfind "w" ,s ,d ) ;
 
 :esmacro | adr nro -- adr
-	dup modo 0? ( 'fmacros )( 'dmacros ) nip swap 2 << + @ exec
+|	dup modo 0? ( 'fmacros )( 'dmacros ) nip swap 2 << + @ exec
 	6 >? ( 19 <? ( 1 )( 0 ) )( 0 ) nip 'salto ! ;
 
