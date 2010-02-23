@@ -309,6 +309,7 @@ switch (message) {     // handle message
 		break;*/
     case WM_DESTROY:
         PostQuitMessage(0);
+        SYSEVENT=(int)&ultimapalabra;
         break;
     case WM_ACTIVATEAPP:
          active=wParam&0xff;
@@ -1356,8 +1357,10 @@ pilaexecl++;
 
 reboot: rebotea=0;
 
-file=fopen("r4.ini","rb");// cargar r4.ini
-if (file!=NULL) { fread(setings,sizeof(char),1024,file);fclose(file);aa=setings; } 
+if (*aa==0) {
+    file=fopen("r4.ini","rb");// cargar r4.ini
+    if (file!=NULL) { fread(setings,sizeof(char),1024,file);fclose(file);aa=setings; }
+    } 
 
 while (*aa!=0) {
       if ('i'==*aa) { compilastr=aa+1; }
