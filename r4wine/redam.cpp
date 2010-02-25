@@ -80,7 +80,6 @@ static const char wndclass[] = ":r4";
 char setings[256];
 int rebotea;
 
-
 //#define ULTIMOMACRO 6
 //char *macrose[]={ ";","LIT","ADR","CALL","JMP","JMPR" };
 
@@ -109,7 +108,7 @@ char *macros[]={// directivas del compilador
 "MOVE","MOVE>","CMOVE","CMOVE>",//-- movimiento de memoria
 "MEM","DIR","FILE","FSIZE","VOL","LOAD","SAVE",//--- memoria,bloques
 "UPDATE",
-//"IPEN!",
+"TPEN",
 "XYMOUSE","BMOUSE",     //-------- mouse
 "IKEY!","KEY",          //-------- teclado
 //"IJOY!",
@@ -150,7 +149,7 @@ FECHPLUS,STOREPLUS,CFECHPLUS,CSTOREPLUS,WFECHPLUS,WSTOREPLUS,
 MOVED,MOVEA,CMOVED,CMOVEA,
 MEM,PATH,BFILE,BFSIZE,VOL,LOAD,SAVE,//--- bloques de memoria, bloques
 UPDATE,
-//IRMOU,
+TPEN,
 XYMOUSE,BMOUSE,
 IRKEY,KEY,
 //IRJOY,
@@ -212,9 +211,9 @@ int SYSirqred=0;
 
 //char kbuff[32];
 //int kcnt=0,kcur=0;
-    
-//int mbuff[128];
-//int mcnt=0,mcur=0;
+
+int mcnt=0;
+int mbuff[128];
 
 //----- Directorio 
 char mindice[8192];// 8k de index 1024 archivos con nombres de 8 caracteres
@@ -250,9 +249,9 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 {
 switch (message) {     // handle message
     case WM_MOUSEMOVE:
-        if (SYSXYM==lParam) break;
+        if (SYSXYM!=lParam)
+            { mbuff[mcnt]=SYSXYM;mcnt=(mcnt+1)&127; }
         SYSXYM=lParam;
-//        mcnt=(mcnt+1)&127;mbuff[mcnt]=SYSXYM;
 //         SYSEVENT=SYSirqmouse;
          break;
     case WM_LBUTTONUP: case WM_MBUTTONUP: case WM_RBUTTONUP:
@@ -417,6 +416,7 @@ SYSirqsonido=0;
 SYSirqred=0;
 SYSEVENT=0;
 //kcnt=kcur=0;
+mcnt=1;
 
 vcursor=(int*)gr_buffer;
 
@@ -547,6 +547,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 //    case IRMOU: SYSirqmouse=TOS;TOS=*NOS;NOS--;continue;
     case XYMOUSE: NOS++;*NOS=TOS;NOS++;*NOS=SYSXYM&0xffff;TOS=(SYSXYM>>16);continue;
     case BMOUSE: NOS++;*NOS=TOS;TOS=SYSBM;continue;
+    case TPEN: NOS++;*NOS=TOS;TOS=(int)&mbuff[0];mbuff[0]=mcnt-1;mcnt=1;continue;
 //----- teclado
     case IRKEY: SYSirqteclado=TOS;TOS=*NOS;NOS--;continue;
 	case KEY: NOS++;*NOS=TOS;TOS=SYSKEY&0xff;continue;
@@ -1305,6 +1306,7 @@ fprintf(stream,"RSP:%d\r",(int)RSP);
 */
 fprintf(stream,"%d %d %d %d %d \r",cntindice,cntnombre,cntindiceex,cntnombreex,cntincludes);
 fclose(stream);
+//SYSEVENT=(int)&ultimapalabra;
 return SHUTDOWN_NORETRY; //return EXCEPTION_CONTINUE_SEARCH;
 }
 #endif
