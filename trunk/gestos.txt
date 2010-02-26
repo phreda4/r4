@@ -3,6 +3,46 @@
 |--------------
 ^lib/gui.txt
 
+|----------
+#dibujo
+#dibujo>
+
+:resetdibujo
+	0 here dup dup 'dibujo !+ ! ! ;
+
+:,dib | v --
+	dibujo> !+ 'dibujo> ! ;
+
+:0dib
+	0 dibujo> ! ;
+
+|-------tipo dibujo
+| ...0 00..
+:t000 | color
+	drop ;
+:t001 | color .rrggbb
+	$ffffff and ink ;
+:t010 | op
+	dup $fff over 12 >> $fff and op ;
+:t011 | line
+	dup $fff over 12 >> $fff and line ;
+:t100 | cv-curve
+	dup $fff over 12 >> $fff and cp @+ dup $fff over 12 >> $ffff and curve ;
+:t101 | pline
+	dup $fff over 12 >> $fff and pline ;
+:t110 | cv-pcurve
+	dup $fff over 12 >> $fff and cp @+ dup $fff over 12 >> $ffff and pcurve ;
+:t111 | endpoli
+	drop poli ;
+
+#acc t000 t001 t010 t011 t100 t101 t110 t111
+
+:drawdraw | str --
+	( @+ 1? )(
+		dup 24 >> $1c and acc + @ exec
+		) 2drop ;
+
+|----------
 #linea )( 43768
 #linea> 'linea
 
@@ -15,10 +55,24 @@
 
 :drawlinea
 	'linea
-	@+ >uv 2dup rojo 2 box op verde
+|	@+ >uv 2dup rojo 2 box op verde
 	( linea> <? )(
 		@+ 1? ( >uv line )( drop @+ >uv 2dup rojo 2 box op verde )
 		) drop ;
+
+
+:16to12
+	>uv 12 << $fff000 and swap $fff and or ;
+
+:pasatrazo
+	'linea linea> 4 - >=? ( drop ; )
+	rand $ffffff and $04000000 or ,dib | color al azar
+	( linea> <? )(
+		@+
+		0? ( drop @+ 16to12 $08000000 or ,dib )( 16to12 $0c000000 or ,dib )
+		) drop
+	0dib
+	reslinea ;
 
 :udtlinea
 	bmouse 0? ( ,linea tpen drop ; ) drop
@@ -28,19 +82,25 @@
 		swap )
 	2drop ;
 
+|---------------------
+
 :main
+	resetdibujo
     inigui
 	'exit >esc<
+	'pasatrazo <f1>
 	show clrscr
 		blanco
 		fonti home
-		linea> 'linea - 2 >> "%d " print
-|		'linea ( linea> <? )( @+ "%h " print ) drop
+		linea> 'linea - 2 >> "%d " print cr
+		'linea ( linea> <? )( @+ "%h " print ) drop cr
+	    dibujo ( @+ 1? )( "%h " print ) 2drop cr
+
 		verde
 		drawlinea
-		udtlinea
+|		dibujo drawdraw
 		cflecha
-
+		udtlinea
 		;
 
 : 4 mark main ;
