@@ -307,8 +307,9 @@ switch (message) {     // handle message
 		DestroyWindow(hWnd);
 		break;*/
     case WM_DESTROY:
+        SYSEVENT=(int)&ultimapalabra; // ejecuta end
+        rebotea=2;
         PostQuitMessage(0);
-        SYSEVENT=(int)&ultimapalabra;
         break;
     case WM_ACTIVATEAPP:
          active=wParam&0xff;
@@ -1507,8 +1508,7 @@ dumpex();dumplocal("BOOT");
 memlibre=data+cntdato; // comienzo memoria libre
 if (silent!=1 && interprete(bootaddr)==1) goto recompila;
 
-
-if (rebotea!=1) 
+if (rebotea==0) 
     {
     pilaexecl--;pilaexecl--;
     while (*pilaexecl!=0 && pilaexecl>pilaexec)
