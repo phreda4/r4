@@ -249,17 +249,17 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 {
 switch (message) {     // handle message
     case WM_MOUSEMOVE:
-        if (SYSXYM!=lParam)
-            { mbuff[mcnt]=SYSXYM;mcnt=(mcnt+1)&127; }
+        if (SYSXYM==lParam) break;
+        mbuff[mcnt]=SYSXYM;mcnt=(mcnt+1)&127;
         SYSXYM=lParam;
 //         SYSEVENT=SYSirqmouse;
          break;
     case WM_LBUTTONUP: case WM_MBUTTONUP: case WM_RBUTTONUP:
-    case WM_LBUTTONDOWN: case WM_MBUTTONDOWN: case WM_RBUTTONDOWN:         
+    case WM_LBUTTONDOWN: case WM_MBUTTONDOWN: case WM_RBUTTONDOWN:
          SYSBM=wParam;
  //        SYSEVENT=SYSirqmouse;
          break;
-    case WM_MOUSEWHEEL:         
+    case WM_MOUSEWHEEL:
          SYSBM=((short)HIWORD(wParam)<0)?4:5;
   //       SYSEVENT=SYSirqmouse;
          break;
@@ -452,7 +452,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 		TOS=*NOS;NOS--;continue;
     case IFAND: W=*(char*)IP;IP++;if (!(TOS&*NOS)) IP+=W; 
 		TOS=*NOS;NOS--;continue;
-    case IFNAND: W=*(char*)IP;IP++;if (TOS&*NOS) IP+=W; 
+    case IFNAND: W=*(char*)IP;IP++;if (TOS&*NOS) IP+=W;
 		TOS=*NOS;NOS--;continue;
 //--- fin condicionales dependiente de bloques    
 	case EXEC:W=TOS;TOS=*NOS;NOS--;if (W!=0) { R++;*R=IP;IP=(BYTE*)W; } continue;
@@ -882,7 +882,7 @@ fprintf(stream,"**** %s ****\n", nombre);
 for (int i=0;i<cntindice;i++)
     fprintf(stream,"%s %d\n",indice[i].nombre,indice[i].codigo-prog);
 if(fclose(stream)) return; 
-}    
+}
 
 void dumpex(void)
 {
@@ -968,7 +968,7 @@ void endefine(void)
 {
 Indice *actual=&indice[cntindice-1];     
 if (actual->tipo==':') {
-   compilofin();                        
+   compilofin();
 //  if (lastcall!=NULL) { *lastcall=JMP;lastcall=NULL; } else aprog(FIN);
   } else { if (&data[cntdato]==actual->codigo) adatonro(0,4); } }
 
@@ -1140,7 +1140,7 @@ otrapalabra:
  		  case 4: apila(unidad);unidad=2;break;	 // [ cuenta words
 		  case 5: unidad=desapila();break;		 // ]
           default: 
-			sprintf(error,"palabra %s en dato ?",palabra);goto error;  }           
+			sprintf(error,"palabra %s en dato ?",palabra);goto error;  }
         break; // graba numero
       case E_PROG:// ? ( . )( . )  ( . ? )  ( . ? )( . )  ( . ) 
         switch (numero) {
