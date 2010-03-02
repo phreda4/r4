@@ -11,7 +11,7 @@
 
 | memoria
 |-----------------	<- memsrc
-|codigo
+| codigo
 |...
 |-----------------	<- memcomp
 | includes
@@ -72,8 +72,6 @@
 	src>nro 8 << 2 or ,, ;
 :,,lit | n -- literal
 	rot memsrc - 8 << 3 or ,, ;
-:,,lits | n --	string
-	dup memsrc - 8 << 7 or ,, ;
 :,,word | n --  word
 	dicc>nro 8 << 8 or ,, ;
 :,,var | n --  var
@@ -169,7 +167,8 @@
 	over | nro 'dir nro
 	7 <? ( 1- 2 << + @ exec 0? ( nip ; ) )( 2drop )
 	7 >? ( 20 <? ( 1 )( 0 ) )( 0 ) 'salto ! | despues del exec !!!
-	drop ;
+	drop 
+	pasapal ;
 
 :escomentario | a -- a' saltea comentario
 	( c@+ 1? )( 13 =? ( drop ; ) drop ) drop 1- ;
@@ -219,12 +218,12 @@
 	estado  | 0-nada 1-dato 2-accion 3-boot
 	0? ( 2drop dup " afuera s" seterror 0 ; )
 	drop
-	,,lits
+	dup memsrc - 8 << 7 or ,, | ,,lits
+	1+
 	( c@+ 1? )(
 		34 =? ( drop 1+ dup c@ 34 <>? ( drop ; ) ) drop
 		) drop
-	1-
-	;
+	1- ;
 
 :datoaccion?	| adr -- adr f
 	dup 8 + @ 1 and? ( 0 )( 1 ) nip ;
@@ -245,12 +244,13 @@
 	datoaccion? 1? ( drop ,,dword )( drop ,,dvar )
 	pasapal ;
 
-:esnumero | nro --
+:esnumero | str nro --
 	0 'salto !
 	estado | 0-nada 1-dato 2-accion 3-boot
 	0? ( 2drop dup " afuera n" seterror 0 ; )
 	drop
 	,,lit
+	drop | no consume el nro
 	;
 
 |------------------------------------------------------------
@@ -280,7 +280,7 @@
 	drop
 	dup ?numero 1? ( drop esnumero ; ) drop | numero
 	dup ?fnumero 1? ( drop esnumero ; ) drop | numero
-	dup ?macro 1? ( rot drop esmacro ; ) drop		| macro
+	dup ?macro 1? ( esmacro ; ) drop		| macro
 	dup	?palabra  1? ( nip espalabra ; ) drop		| palabra
 	" no existe" seterror drop
 	2 - 0 ;
@@ -298,7 +298,6 @@
 |---  includes
 :escom		( c@+ 1? )( 14 <? ( drop 1- ; ) drop ) drop 1- ;
 :escad		( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( drop 1- ; ) ) drop ) drop 1- ;
-
 
 :esinc 	| a -- a' incluye codigo
 	1+ dup include? 1? ( drop ; ) drop
@@ -332,12 +331,10 @@
 |--------- COMPILA ARCHIVO
 ::tokencomp | adr --
 	clearall
-	dup
 	'indicepal dup 'indicepal< !
-	swap 'pinc !+ !+ 'pinc> !	| 1er include es el codigo
+	over 'pinc !+ !+ 'pinc> !	| 1er include es el codigo
 	dup 'inisrc !
 	dup loadincludes			| carga todos los includes
-
 	msg 1? ( 2drop ; ) drop	| error en include
 	0 'estado !
 
@@ -354,7 +351,8 @@
 			indicepal> 'indicepal< ! )	| ignorar locales si es un include
 		-8 'pinc> +!					| desapila includes
 		0? )
-	,, ;
+	,,
+	;
 
 ::cleartoken
 	;
@@ -388,19 +386,26 @@
 
 |------------------------
 #memsrc
+
 ::source!
 	here 'memsrc ! ;
+
 ::compila!
-	here 'memcomp ! ;
+	here 'memcomp !
+	;
 
 ::dumpcompila
-	msg 0? ( drop ; ) blanco print cr
-	fuenteerror "%s" print cr
-	ubicarerror "|%d|%d|" blanco print
-|	indicemac> 'indicemac - 2 >> "macros:%d" print cr
-	indicepal> 'indicepal - 4 >> "pal:%d" print cr
-	indiceinc> 'indiceinc - 4 >> "inc:%d" print cr
-	prog> prog - "code: %d bytes" print cr
+	msg 0? ( drop ; ) blanco print
+|	fuenteerror "|%s" print
+	ubicarerror "|%d|%d|" blanco print cr
+	indicepal> 'indicepal - 4 >> "pal:%d  " print
+	indiceinc> 'indiceinc - 4 >> "inc:%d  " print
+	prog> prog - 2 >> "prog:%d " print cr
 	amarillo
-	'indiceinc ( indiceinc> <? )( @+ "%w " print cr 12 + ) drop
+	'indiceinc ( indiceinc> <? )(
+		@+ "%w" print
+		@+ "-%d" print
+		@+ "-%d" print
+		@+ "-%d" print
+		cr ) drop
 	;
