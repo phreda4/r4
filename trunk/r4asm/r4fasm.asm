@@ -72,6 +72,7 @@ start:
 	invoke UpdateWindow,[hwnd]
 ;---------- INICIO
 restart:
+	mov [MCNT],1
 	call reinit
 	mov esi,Dpila
 	xor eax,eax
@@ -322,16 +323,17 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 	mov eax,[lparam]
 	cmp eax,[SYSXYM]
 	je finish
+	mov ebx,[MCNT]
+	mov [MBUFF+ebx],eax
+	inc ebx
+	and ebx,$7f
+	mov [MCNT],ebx
 	mov [SYSXYM],eax
-	mov eax,[SYSiPEN]
-	mov [SYSEVENT],eax
 	xor eax,eax
 	ret
   wmmouseev:
 	mov eax,[wparam]
 	mov [SYSBM],eax
-	mov eax,[SYSiPEN]
-	mov [SYSEVENT],eax
 	xor eax,eax
 	ret
   wmkeyup:
@@ -484,10 +486,12 @@ align 4
 	SYSBM 	dd 0
 	SYSKEY	dd 0
 	SYSiKEY	dd 0
-	SYSiPEN	dd 0
 	SYSW	dd XRES
 	SYSH	dd YRES
 	SYSCDIR	dd 0
+	
+	MCNT	dd 1
+	MBUFF	dd 128
 
 include 'dat.asm'
 	SYSNDIR	rd 8192
