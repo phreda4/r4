@@ -221,8 +221,8 @@ $01005032
 
 |---------------------------------
 :nhline | x y dx --
-	-? ( neg swap pick2 | ax>x
-		)( swap xa )
+	-? ( neg swap pick2 swap | ax>x
+		)( xa rot )
 						| x cnt x y
 	setxy 1+
 	( 1? )( 1- ink@ px!+ ) drop
@@ -238,16 +238,17 @@ $01005032
 	'ya ! ;
 
 :li00 | x y dx dy -- x y .. +dx +dy
-	2over
+	amarillo
+	xa ya
 :cont00 | x y dx dy x1 y1 ....
 	2dup setxy ink@ px!+
 	2swap
 	over <? ( | x y x1 y1 dx dy ...dy<dx
 		16 << over / 0 rot	| x y x1 y1 ea ec dx
 		( 1? )( 1- >r		| x y x1 y1 ea ec
-			2dup +		| x y x1 y1 ea ec ea+ec
+			2dup + $ffff and		| x y x1 y1 ea ec ea+ec
 			swap <=? ( rot 1+ rot rot )
-			>r rot 1+ rot rot >r
+			>r rot 1+ rot rot r>
 			| falta alpha
 			2over setxy ink@ px!+
 |			2over 1+ setxy ink@ px!+
@@ -255,7 +256,7 @@ $01005032
 		)(
 		swap 16 << over / 0 rot | x y x1 y1 ea ec dx
 		( 1? )( 1- >r
-			2dup +
+			2dup + $ffff and
 			swap <=? ( >r rot 1+ rot rot r> )
         	rot 1+ rot rot
 			| falta alpha
@@ -266,19 +267,21 @@ $01005032
  	nip 4drop ;
 
 :li11 | x y dx dy -- x y ; -dx -dy
-	neg swap neg swap xa ya cont00 ;
+	azul
+	neg swap neg swap 2over cont00 ;
 
 :li01 | x y dx dy -- x y ... -dx +dy
-	2over
+	verde
+	xa ya
 :cont01 | x y dx dy x1 y1 ....
 	2dup setxy ink@ px!+
 	2swap swap neg swap
 	over <? ( | x y x1 y1 dx dy ...dy<dx
 		16 << over / 0 rot	| x y x1 y1 ea ec dx
 		( 1? )( 1- >r		| x y x1 y1 ea ec
-			2dup +		| x y x1 y1 ea ec ea+ec
+			2dup + $ffff and	| x y x1 y1 ea ec ea+ec
 			swap <=? ( rot 1+ rot rot )
-			>r rot 1- rot rot >r
+			>r rot 1- rot rot r>
 			| falta alpha
 			2over setxy ink@ px!+
 |			2over 1+ setxy ink@ px!+
@@ -286,7 +289,7 @@ $01005032
 		)(
 		swap 16 << over / 0 rot | x y x1 y1 ea ec dx
 		( 1? )( 1- >r
-			2dup +
+			2dup + $ffff and
 			swap <=? ( >r rot 1- rot rot r> )
         	rot 1+ rot rot
 			| falta alpha
@@ -297,17 +300,18 @@ $01005032
  	nip 4drop ;
 
 :li10 | x y dx dy -- x y ; +dx -dy
-	neg swap neg swap xa ya cont01 ;
+	rojo
+	neg swap neg swap 2over cont01 ;
 
 #acclin li00 li01 li10 li11
 
-:nlinean | x y --
+:nlinen | x y --
 	over xa - 0? ( drop nvline ; )
 	over ya - 0? ( drop nhline ; )
 	| x y dx dy
 	over 29 >> $4 and
 	over 28 >> $8 and or 'acclin + @ exec
-	'ya ! 'xa !
+	'ya ! 'xa ! ;
 
 |void gr_line(int x1,int y1,int x2,int y2)
 |{
@@ -340,28 +344,35 @@ $01005032
 |}
 
 
-:prueba1
-	iniseg
-	sw 2/ sh 2/ 2dup
-	nop
-	xymouse nline
-	sw 2 >> sh 2 >> nline
-    xymouse swap nline
-	2dup nline
-|	'segs memmap
-	npoli
+:contorno1
 	rojo
 	sw 2/ sh 2/ 2dup op
 	xymouse line
 	sw 2 >> sh 2 >> line
     xymouse swap line
-	line
+	line ;
 
-
+:contorno2
 	azul
-	sw 2/ 1+ sh 2/ op
-	xymouse 1+ line
-	sw 2 >> 1+ sh 2 >> line
+	sw 2/ sh 2/ 2dup nop
+	xymouse nlinen
+	sw 2 >> sh 2 >> nlinen
+    xymouse swap nlinen
+	nlinen ;
+
+:poligono
+	iniseg
+	sw 2/ sh 2/ 2dup nop
+	xymouse nline
+	sw 2 >> sh 2 >> nline
+    xymouse swap nline
+	nline
+|	'segs memmap
+	npoli
+	;
+
+:prueba1
+	contorno2
 ;
 
 :main
