@@ -220,6 +220,124 @@ $01005032
 	2drop ;
 
 |---------------------------------
+:nhline | x y dx --
+	-? ( neg swap pick2 | ax>x
+		)( swap xa )
+						| x cnt x y
+	setxy 1+
+	( 1? )( 1- ink@ px!+ ) drop
+	'xa ! ;
+
+:nvline | x y --
+	dup ya - | x y dy
+	-? ( neg rot pick2	| ya>y
+		)( rot ya )
+						| y cnt x y
+	setxy 1+
+	( 1? )( 1- ink@ px!+ sw 1- px+! ) drop
+	'ya ! ;
+
+:li00 | x y dx dy -- x y .. +dx +dy
+	2over
+:cont00 | x y dx dy x1 y1 ....
+	2dup setxy ink@ px!+
+	2swap
+	over <? ( | x y x1 y1 dx dy ...dy<dx
+		16 << over / 0 rot	| x y x1 y1 ea ec dx
+		( 1? )( 1- >r		| x y x1 y1 ea ec
+			2dup +		| x y x1 y1 ea ec ea+ec
+			swap <=? ( rot 1+ rot rot )
+			>r rot 1+ rot rot >r
+			| falta alpha
+			2over setxy ink@ px!+
+|			2over 1+ setxy ink@ px!+
+			r> )
+		)(
+		swap 16 << over / 0 rot | x y x1 y1 ea ec dx
+		( 1? )( 1- >r
+			2dup +
+			swap <=? ( >r rot 1+ rot rot r> )
+        	rot 1+ rot rot
+			| falta alpha
+			2over setxy ink@ px!+
+|			ink@ px!+
+			r> )
+		)
+ 	nip 4drop ;
+
+:li11 | x y dx dy -- x y ; -dx -dy
+	neg swap neg swap xa ya cont00 ;
+
+:li01 | x y dx dy -- x y ... -dx +dy
+	2over
+:cont01 | x y dx dy x1 y1 ....
+	2dup setxy ink@ px!+
+	2swap swap neg swap
+	over <? ( | x y x1 y1 dx dy ...dy<dx
+		16 << over / 0 rot	| x y x1 y1 ea ec dx
+		( 1? )( 1- >r		| x y x1 y1 ea ec
+			2dup +		| x y x1 y1 ea ec ea+ec
+			swap <=? ( rot 1+ rot rot )
+			>r rot 1- rot rot >r
+			| falta alpha
+			2over setxy ink@ px!+
+|			2over 1+ setxy ink@ px!+
+			r> )
+		)(
+		swap 16 << over / 0 rot | x y x1 y1 ea ec dx
+		( 1? )( 1- >r
+			2dup +
+			swap <=? ( >r rot 1- rot rot r> )
+        	rot 1+ rot rot
+			| falta alpha
+			2over setxy ink@ px!+
+|			ink@ px!+
+			r> )
+		)
+ 	nip 4drop ;
+
+:li10 | x y dx dy -- x y ; +dx -dy
+	neg swap neg swap xa ya cont01 ;
+
+#acclin li00 li01 li10 li11
+
+:nlinean | x y --
+	over xa - 0? ( drop nvline ; )
+	over ya - 0? ( drop nhline ; )
+	| x y dx dy
+	over 29 >> $4 and
+	over 28 >> $8 and or 'acclin + @ exec
+	'ya ! 'xa !
+
+|void gr_line(int x1,int y1,int x2,int y2)
+|{
+|if (!gr_clipline(&x1,&y1,&x2,&y2)) return;
+|int dx,dy,sx,d;
+|if (x1==x2) { if (y1>y2) swap(y1,y2); gr_vline(x1,y1,y2);return; }
+|if (y1==y2) { if (x1>x2) swap(x1,x2); gr_hline(x1,y1,x2);return; }
+|if (y1>y2) { swap(x1,x2);swap(y1,y2); }
+|dx=x2-x1;dy=y2-y1;
+|if (dx>0) sx=1; else { sx=-1;dx=-dx; }
+|WORD ea,ec=0;BYTE ci;
+|register DWORD *gr_pos;
+|GR_SET(x1,y1);gr_pixel(gr_pos);
+|if (dy>dx) 	{
+|	ea=(dx<<16)/dy;
+|    while (dy>0) {
+|        dy--;d=ec;ec+=ea;if (ec<=d) x1+=sx;
+|        y1++;ci=ec>>8;
+|		GR_SET(x1,y1);gr_pixela(gr_pos,255-ci);GR_X(sx);gr_pixela(gr_pos,ci);
+|		}
+|} else {// DY < DX
+|    ea=(dy<<16)/dx;
+|    while (dx>0) {
+|        dx--;d=ec;ec+=ea;if (ec<=d) y1++;
+|        x1+=sx;ci=ec>>8;
+|		GR_SET(x1,y1);gr_pixela(gr_pos,255-ci);
+|        GR_Y(1);gr_pixela(gr_pos,ci);
+|		}
+|	}
+|}
 
 
 :prueba1
@@ -237,9 +355,13 @@ $01005032
 	xymouse line
 	sw 2 >> sh 2 >> line
     xymouse swap line
-	2dup line
+	line
 
 
+	azul
+	sw 2/ 1+ sh 2/ op
+	xymouse 1+ line
+	sw 2 >> 1+ sh 2 >> line
 ;
 
 :main
