@@ -9,14 +9,19 @@
 #xa #ya
 #xb #yb
 
+#ymin #ymax
+
 | segmentos
+| ymin x deltax ymax
 #.... -1 -1 -1 -1
 #segs )( 2048
 #segs> 'segs
 
 | activos por linea
+| @segs
 #activos )( 1024
 #activos> 'activos
+
 
 | linea de segmentos
 #..... 0
@@ -133,6 +138,7 @@ $01005032
 	drop
 	linea> !+ 'linea> !	;
 
+|--- with scanline
 :generoscanline
 	'linea 'linea> !
 	'activos
@@ -142,7 +148,7 @@ $01005032
 		over + | x newx
 		rot over swap ! | actualiza x
 		over >? ( swap ) | x2 x1
-		8 >> swap 8 >> over - | x1 dif
+		16 >> swap 16 >> over - | x1 dif
 		12 << $fff000 and or
 		$02000000 or | color
 		addscan
@@ -151,11 +157,39 @@ $01005032
 	'linea renderscanline
 |	'scanline3 renderscanline
 	;
-|---------------------------------
 
-:iniseg
-	'segs 'segs> ! ;
+|--- with fill
+:_hline | x1 y1 x2 --    ; clip x1-x2
+	-? ( 3drop ; ) sw >? ( drop sw )
+	rot sw >? ( 3drop ; ) -? ( drop 0 )	| y1 x2 x1
+	rot over swap 						| x2 x1 x1 y1
+	setxy - 1+
+	( 1? )( 1- ink@ px!+ ) drop
+	;
 
+| seg
+| ymin x deltax ymax
+
+:filllines | y -- y
+	'activos
+	( activos> <? )( >r
+		r@+ | dirseg
+		4+ dup @+ swap @ 	| dirx x deltx
+		over + | x newx		| dir x newx
+		rot !				| x1
+		16 >>
+		r@+
+		4+ dup @+ swap @ 	| dirx x deltx
+		over + | x newx		| dir x newx
+		rot !				| x2
+		16 >>
+		over <? ( swap ) |r 8 - dup @+ swap @ rot !+ ! )
+		pick2 swap
+		_hline
+		r> ) drop
+	;
+
+|------fill polygon
 :insseg | ymax deltax x ymin seg --
 	16 + dup
 	16 + over segs> over - 2 >> move>
@@ -171,15 +205,15 @@ $01005032
 	drop
 	segs> !+ !+ !+ !+ 'segs> ! ;
 
-:addline
+:addline | x y -- x y
 	ya yb >? ( xa xb yb 'ya ! 'xa ! 'xb ! 'yb ! ya ) | ymin (xa ya yminimos)
 	sw >=? ( drop ; )
-	xb 8 <<
-	xa 8 << - 			| ymin delx
-	yb -? ( 3drop ; )	| ymin delx ymax
+	xb 16 <<
+	xa 16 << - 			| ymin delx
+	yb |-? ( 3drop ; )	| ymin delx ymax
 	pick2 - /			| ymin deltax
 	swap -? ( neg over * 'xa +! 0 ) | deltax ymin
-	yb rot rot xa 8 << swap
+	yb rot rot xa 16 << swap
 	addseg | ymax deltax x ymin --
 	;
 
@@ -188,13 +222,12 @@ $01005032
 	2dup 'yb ! 'xb !
 	ya <>? ( addline ) | ya=yb no dibuja
 :nop | x y --
+	dup ymin <? ( 'ymin ! )( drop )
+	dup ymax >? ( 'ymax ! )( drop )
 	'ya ! 'xa ! ;
 
 |----
-:addact | dir+4 -- dir+4
-	dup 4 - activos> !+ 'activos> ! ;
-
-:delactr | y dir+4 v -- y dir+4 v
+:delactr | y act n yl -- y act n yl
 	-4 'activos> +!
 	activos> @ pick2 4 - !
 	;
@@ -202,24 +235,73 @@ $01005032
 :delact | y -- y
 	'activos
 	( activos> <? )( @+
-		12 + @ pick2 <=? ( delactr )
-		drop )
-	drop
+		12 + @
+		pick2 <=? ( delactr )
+		drop
+		) drop ;
+
+:sortx
+	'activos @+ 4+ @ swap | x1 'activo
+	( activos> <? )( @+
+		4+ @ rot | 'activo x2 x1
+		>? ( over 8 - dup @+ swap @ rot !+ ! )
+		swap ) 2drop ;
+
+|---- sin ordenar
+:addact | dir+4 -- dir+4
+	dup 4 - activos> !+ 'activos> ! ;
+
+|---- ordenando (en x)
+:addsortc | v po di+ v --
+	drop 4 -
+	dup @+ swap | v po di v di+
+	( activos> <? )( dup @ rot rot !+ )
+	!+ 'activos> ! !
 	;
 
-:npoli
+:addsort | v -- v
+	dup 4 - dup 4+ @ | v po vx1
+	'activos
+	( activos> <? )( @+
+		4+ @ 		| v po vx1 di+ vx2
+		rot swap    | v po di+ vx1 vx2
+		>? ( addsortc ; )
+		swap )
+	nip !+ 'activos> ! ;
+|-----
+
+::npoli
+	ymin -? ( 0 'ymin ! ) drop
+	sh ymax <? ( 'ymax ! )( drop )
 	-1 dup dup dup segs> !+ !+ !+ ! | marca ultimo
 	'activos 'activos> !
 	'segs
-	0 ( sw <? )(
-		0 over setxy
-		swap ( @+ pick2 =? )( drop addact 12 + ) drop 4 - swap
-		generoscanline
-		delact
-		1+ )
-	2drop ;
+	ymin ( ymax <? )(
+		swap ( @+ pick2 =? )( drop addsort 12 + ) drop 4 - swap
+		filllines
+		sortx
+		1+ delact )
+	2drop
+	;
+:iniseg
+	'segs 'segs> !
+	sh 'ymin ! -1 'ymax ! ;
 
-|---------------------------------
+
+|--- putpixel w/alpha (invertido)
+:pxa | alpha --
+	0? ( drop ink@ px!+ ; )
+	$ff =? ( drop ; )
+	ink@ $ff00ff and
+	px@ dup $ff00ff and | alpha inkb px pxb
+	pick2 - pick3 * 8 >> rot + $ff00ff and | alpha px RB
+	>r
+	ink@ $ff00 and
+	swap $ff00 and over - pick2 * 8 >> rot + $ff00 and
+	r> or
+	px!+ drop ;
+
+|------ wuline
 :nhline | x y dx --
 	-? ( neg swap pick2 swap | ax>x
 		)( xa rot )
@@ -238,7 +320,6 @@ $01005032
 	'ya ! ;
 
 :li00 | x y dx dy -- x y .. +dx +dy
-	amarillo
 	xa ya
 :cont00 | x y dx dy x1 y1 ....
 	2dup setxy ink@ px!+
@@ -250,8 +331,10 @@ $01005032
 			swap <=? ( rot 1+ rot rot )
 			>r rot 1+ rot rot r>
 			| falta alpha
-			2over setxy ink@ px!+
-|			2over 1+ setxy ink@ px!+
+			2over setxy
+			dup 8 >> $ff and pxa
+			2over 1+ setxy
+			$ff over 8 >> $ff and - pxa
 			r> )
 		)(
 		swap 16 << over / 0 rot | x y x1 y1 ea ec dx
@@ -260,18 +343,17 @@ $01005032
 			swap <=? ( >r rot 1+ rot rot r> )
         	rot 1+ rot rot
 			| falta alpha
-			2over setxy ink@ px!+
-|			ink@ px!+
+			2over setxy
+			dup 8 >> $ff and pxa
+			$ff over 8 >> $ff and - pxa
 			r> )
 		)
  	nip 4drop ;
 
 :li11 | x y dx dy -- x y ; -dx -dy
-	azul
 	neg swap neg swap 2over cont00 ;
 
 :li01 | x y dx dy -- x y ... -dx +dy
-	verde
 	xa ya
 :cont01 | x y dx dy x1 y1 ....
 	2dup setxy ink@ px!+
@@ -283,8 +365,10 @@ $01005032
 			swap <=? ( rot 1+ rot rot )
 			>r rot 1- rot rot r>
 			| falta alpha
-			2over setxy ink@ px!+
-|			2over 1+ setxy ink@ px!+
+			2over setxy
+			dup 8 >> $ff and pxa
+			2over 1+ setxy
+			$ff over 8 >> $ff and - pxa
 			r> )
 		)(
 		swap 16 << over / 0 rot | x y x1 y1 ea ec dx
@@ -293,14 +377,14 @@ $01005032
 			swap <=? ( >r rot 1- rot rot r> )
         	rot 1+ rot rot
 			| falta alpha
-			2over setxy ink@ px!+
-|			ink@ px!+
+			2over setxy
+			$ff over 8 >> $ff and - pxa
+			dup 8 >> $ff and pxa
 			r> )
 		)
  	nip 4drop ;
 
 :li10 | x y dx dy -- x y ; +dx -dy
-	rojo
 	neg swap neg swap 2over cont01 ;
 
 #acclin li00 li01 li10 li11
@@ -313,42 +397,13 @@ $01005032
 	over 28 >> $8 and or 'acclin + @ exec
 	'ya ! 'xa ! ;
 
-|void gr_line(int x1,int y1,int x2,int y2)
-|{
-|if (!gr_clipline(&x1,&y1,&x2,&y2)) return;
-|int dx,dy,sx,d;
-|if (x1==x2) { if (y1>y2) swap(y1,y2); gr_vline(x1,y1,y2);return; }
-|if (y1==y2) { if (x1>x2) swap(x1,x2); gr_hline(x1,y1,x2);return; }
-|if (y1>y2) { swap(x1,x2);swap(y1,y2); }
-|dx=x2-x1;dy=y2-y1;
-|if (dx>0) sx=1; else { sx=-1;dx=-dx; }
-|WORD ea,ec=0;BYTE ci;
-|register DWORD *gr_pos;
-|GR_SET(x1,y1);gr_pixel(gr_pos);
-|if (dy>dx) 	{
-|	ea=(dx<<16)/dy;
-|    while (dy>0) {
-|        dy--;d=ec;ec+=ea;if (ec<=d) x1+=sx;
-|        y1++;ci=ec>>8;
-|		GR_SET(x1,y1);gr_pixela(gr_pos,255-ci);GR_X(sx);gr_pixela(gr_pos,ci);
-|		}
-|} else {// DY < DX
-|    ea=(dy<<16)/dx;
-|    while (dx>0) {
-|        dx--;d=ec;ec+=ea;if (ec<=d) y1++;
-|        x1+=sx;ci=ec>>8;
-|		GR_SET(x1,y1);gr_pixela(gr_pos,255-ci);
-|        GR_Y(1);gr_pixela(gr_pos,ci);
-|		}
-|	}
-|}
-
+|------------------------------------------------------
 
 :contorno1
 	rojo
 	sw 2/ sh 2/ 2dup op
 	xymouse line
-	sw 2 >> sh 2 >> line
+	sw 2 >> dup 2/ + sh 2 >> dup 2/ + line
     xymouse swap line
 	line ;
 
@@ -356,7 +411,7 @@ $01005032
 	azul
 	sw 2/ sh 2/ 2dup nop
 	xymouse nlinen
-	sw 2 >> sh 2 >> nlinen
+	sw 2 >> dup 2/ + sh 2 >> dup 2/ + nlinen
     xymouse swap nlinen
 	nlinen ;
 
@@ -364,31 +419,13 @@ $01005032
 	iniseg
 	sw 2/ sh 2/ 2dup nop
 	xymouse nline
-	sw 2 >> sh 2 >> nline
+	sw 2 >> dup 2/ + sh 2 >> dup 2/ + nline
     xymouse swap nline
 	nline
-|	'segs memmap
 	npoli
 	;
 
-:prueba1
-	contorno2
-;
-
-:main
-	inigui
-	'exit >esc<
-	show clrscr
-
-		prueba1
-		fonti home verde
-		'segs
-		( segs> <? )(
-			@+ "y:%d " print @+ "x:%d " print @+ "dx:%d " print @+ "ymax:%d " print cr
-			) drop
-		dup "%d" print
-		cflecha ;
-:l
+:testscanline
 		0 20 setxy 'scanline renderscanline
 		0 21 setxy 'scanline2 renderscanline
 
@@ -404,5 +441,30 @@ $01005032
 		$ff00 'inka !
 		20 fillsolid
 		50 $ff00 $0 cmorph
-;
+		;
+
+|----------------------------
+|----------------------------
+:main
+	inigui
+	'exit >esc<
+	show clrscr home
+
+		verde contorno1
+
+| 		rojo contorno2
+
+		azul poligono
+
+		sw 2/ gc.rigth
+		fonti home
+		verde
+		dup "%d" print cr
+		'segs
+		( segs> <? )(
+			@+ "y:%d " print @+ "x:%d " print @+ "dx:%d " print @+ "ymax:%d " print cr
+			) drop
+
+		cflecha ;
+
 : 33 main ;
