@@ -72,6 +72,7 @@
 	src>nro 8 << 2 or ,, ;
 :,,lit | n -- literal
 	rot memsrc - 8 << 3 or ,, ;
+
 :,,word | n --  word
 	dicc>nro 8 << 8 or ,, ;
 :,,var | n --  var
@@ -290,7 +291,6 @@
 	;
 
 |---  includes
-
 :esinc 	| a -- a' incluye codigo
 	1+ dup include? 1? ( drop ; ) drop
 	'auxstr over copynom
@@ -329,10 +329,9 @@
 	dup loadincludes			| carga todos los includes
 	msg 1? ( 2drop ; ) drop	| error en include
 	0 'estado !
-
 |--- mapa de memoria
 	here dup 'prog ! 'prog> !
-
+|--- recorre fuente
 	c.ini
 	0 swap	| 0 corta los includes
 	dup		| 0 com act
@@ -346,8 +345,80 @@
 	,,
 	;
 
-::cleartoken
+|------------------llamadas entre palabras
+#llamadas )( 8192
+#direccio )( 8192
+#pilapend )( 4096		| pila de pendientes
+#pilapend> 'pilapend
+
+:resetllamadas | --
+	'llamadas >r 4096 ( 1? )( 1- 0 r!+ ) drop rdrop ;
+
+:addcall | n -- nant
+	2 << 'llamadas +
+	dup @ dup 1+
+	rot ! ;
+
+:useaddr | n --
+	2 << 'direccio +
+	dup @ 1 or swap ! ;
+
+::getllamadas | n -- v
+	2 << 'llamadas + @ ;
+
+::getflags | n -- v
+	2 << 'direccio + @ ;
+
+:addw | w --
+	pilapend> !+ 'pilapend> ! ;
+
+:overcode | valor xx -- valor xx
+	over 8 >> dup addcall 0? ( over addw ) 2drop ;
+
+:overdire | valor xx -- valor xx
+	over 8 >> dup addcall 0? ( over addw ) drop useaddr ;
+
+:reccod | nrop -- nrop
+	dup 4 << 'indicepal +
+	dup 4+ @ swap 12 + @  | .. dir cnt
+	( 1? )( 1- swap
+		@+ dup $ff and
+		8 =? ( overcode ) | call word
+		9 =? ( overcode ) | var
+		10 =? ( overdire ) | dir word
+		11 =? ( overdire ) | dir var
+		2drop swap ) 2drop
 	;
+
+:recdat | nrop -- nrop
+	dup 4 << 'indicepal +
+	4+ @
+	( @+ dup $ff and
+		1 =? ( 0 nip ) | corta con defc
+		2 =? ( 0 nip ) | corta con defv
+		1? )( 	 | dirv n c
+		8 =? ( overcode ) | call word
+		9 =? ( overcode ) | var
+		10 =? ( overdire ) | dir word
+		11 =? ( overdire ) | dir var
+		2drop )
+	3drop
+	;
+
+::tokenpost
+	|-------- arbol de llamadas
+	resetllamadas
+	cntword cntvars + 1- dup addcall drop
+	'pilapend !+ 'pilapend> !
+	( pilapend> 'pilapend >? )(
+		4 - dup 'pilapend> ! @ | palabra a agregar
+		dup 4 << 'indicepal + 8 + @
+		1 and? ( drop recdat )( drop reccod )
+		drop )
+	drop
+	|----------
+	;
+
 
 |------------------------------------
 ::ubicarerror | -- car lin
@@ -396,4 +467,76 @@
 	memsrc "%h <-src" print cr
 	memcomp "%h <-inc" print cr
 	prog "%h <-prog" print cr
+	;
+
+
+|--------------------------------
+#actualinclude
+#maxinclude
+
+#actualword
+#inirango
+#finrango
+
+
+:tocopal
+	dup 'actualword ! ;
+
+:cadaboton
+	"  " allow2cr print
+	dup 4 << 'indicepal +
+	dup 8 + @ 1 and? ( violeta )( rojo ) drop
+	'tocopal swap @ "%w" allow2cr btnt
+	;
+
+:cadapal
+	actualword <>? ( cadaboton ; )
+	cr cr2
+	dup 4 << 'indicepal +
+	dup 8 + @ 1 and? ( violeta "#" )( rojo " :" ) print drop
+	dup @ "%w" print cr
+	4+ @ "%h" print
+	cr cr2 ;
+
+:rango | hasta desde --
+	( over <? )(
+		cadapal
+		1+ ) 2drop ;
+
+:tocoinclude
+	dup 'actualinclude !
+	dup 4 << 'indiceinc +
+	dup 8 + @ 'indicepal - 4 >> 'inirango !
+	dup 12 + @ 'indicepal - 4 >> 'finrango !
+	;
+
+:cadainc
+	amarillo
+    "  " print
+	'tocoinclude over 4 << 'indiceinc + @ "%w " allow2cr
+
+	btnt
+	;
+
+:partes
+	actualinclude <>? ( cadainc ; )
+	cr cr2
+	dup 4 << 'indiceinc + @ "--- %w ---" print
+	cr cr2
+	finrango inirango rango
+	cr cr
+	;
+
+::printwords |
+	0 ( maxinclude  <? )(
+		partes
+		1+ ) drop ;
+
+
+::resetwords
+	indicepal> 'indicepal - 4 >> 1-
+	dup 1- 'actualword ! 'finrango !
+	indicepal< 'indicepal - 4 >> 'inirango !
+	indiceinc> 'indiceinc - 4 >>
+	dup 1- 'actualinclude ! 'maxinclude !
 	;
