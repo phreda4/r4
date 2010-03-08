@@ -73,7 +73,7 @@ start:
 ;---------- INICIO
 restart:
 	mov [MCNT],1
-	call reinit
+;	call reinit
 	mov esi,Dpila
 	xor eax,eax
 	jmp inicio
@@ -82,16 +82,16 @@ include 'cod.asm'
 ;.................compilado.....................
 	jmp SYSEND
 ;----------- INICIALICE
-reinit:
-	lea edi,[ROWFRAME]
-	xor eax,eax
-	mov ecx,YRES
-lreinit:
-	mov [edi],eax
-	add edi,4
-	add eax,XRES*4
-	loop lreinit
-	ret
+;reinit:
+;	lea edi,[ROWFRAME]
+;	xor eax,eax
+;	mov ecx,YRES
+;lreinit:
+;	mov [edi],eax
+;	add edi,4
+;	add eax,XRES*4
+;	loop lreinit
+;	ret
 
 ; OS inteface
 ; stack............
@@ -324,7 +324,7 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 	cmp eax,[SYSXYM]
 	je finish
 	mov ebx,[MCNT]
-	mov [MBUFF+ebx],eax
+	mov [MBUFF+ebx*4],eax
 	inc ebx
 	and ebx,$7f
 	mov [MCNT],ebx
@@ -489,11 +489,12 @@ align 4
 	SYSW	dd XRES
 	SYSH	dd YRES
 	SYSCDIR	dd 0
-	
+
 	MCNT	dd 1
-	MBUFF	dd 128
+	MBUFF	rd 128
 
 include 'dat.asm'
+
 	SYSNDIR	rd 8192
 	SYSIDIR	rd 1024
 align 16
