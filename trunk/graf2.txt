@@ -6,10 +6,8 @@
 ^lib/trace.txt
 
 | lineas
-#xa #ya
-#xb #yb
-
-#ymin #ymax
+#px #py
+#ymin $ffff #ymax -1
 
 | segmentos
 | ymin x deltax ymax
@@ -167,28 +165,6 @@ $01005032
 	( 1? )( 1- ink@ px!+ ) drop
 	;
 
-| seg
-| ymin x deltax ymax
-
-:filllines | y -- y
-	'activos
-	( activos> <? )( >r
-		r@+ | dirseg
-		4+ dup @+ swap @ 	| dirx x deltx
-		over + | x newx		| dir x newx
-		rot !				| x1
-		16 >>
-		r@+
-		4+ dup @+ swap @ 	| dirx x deltx
-		over + | x newx		| dir x newx
-		rot !				| x2
-		16 >>
-		over <? ( swap ) |r 8 - dup @+ swap @ rot !+ ! )
-		pick2 swap
-		_hline
-		r> ) drop
-	;
-
 |------fill polygon
 :insseg | ymax deltax x ymin seg --
 	16 + dup
@@ -205,51 +181,60 @@ $01005032
 	drop
 	segs> !+ !+ !+ !+ 'segs> ! ;
 
-:addline | x y -- x y
-	ya yb >? ( xa xb yb 'ya ! 'xa ! 'xb ! 'yb ! ya ) | ymin (xa ya yminimos)
-	sw >=? ( drop ; )
-	xb 16 <<
-	xa 16 << - 			| ymin delx
-	yb |-? ( 3drop ; )	| ymin delx ymax
-	pick2 - /			| ymin deltax
-	swap -? ( neg over * 'xa +! 0 ) | deltax ymin
-	yb rot rot xa 16 << swap
-	addseg | ymax deltax x ymin --
-	;
-
-|---------------------------------
-:nline | x y --
-	2dup 'yb ! 'xb !
-	ya <>? ( addline ) | ya=yb no dibuja
-:nop | x y --
+|-----
+:pline2 | x y --
+	py =? ( drop 'px ! ; ) | no usa lineas horizontales
+	over px - 16 << over py - 				| x y dx dy
+	-? ( / py 2over )( / over px py )	| x y deltax ymax xmin ymin
+	sh >? ( 4drop 'py ! 'px ! ; )
+	-? ( neg pick3 * 16 >> + 0 )
 	dup ymin <? ( 'ymin ! )( drop )
+	>r >r
+	-? ( rdrop rdrop 2drop 'py ! 'px ! ; )
 	dup ymax >? ( 'ymax ! )( drop )
-	'ya ! 'xa ! ;
+	1- swap r> 16 << r>
+    addseg | ymax deltax xmin ymin --
+:op2 | x y --
+	'py ! 'px ! ;
 
-|----
-:delactr | y act n yl -- y act n yl
-	-4 'activos> +!
-	activos> @ pick2 4 - !
-	;
+|-----------------------
+| seg
+| ymin x deltax ymax
 
-:delact | y -- y
+:deld | ad+4 x
+	over
+	( activos> <? )( dup @ swap 4 - !+ 4+ )
+	4 - 'activos> !
+	swap 4 - swap ;
+
+:getxn2 | adr seg -- adr x
+	dup 12 + @ pick3 =? ( 'deld >r ) drop
+	4+ dup @+ swap @ 	| dirx x deltx
+	over + | x newx		| dir x newx
+	rot !				| x1
+	16 >> ;
+
+:getxn | adr seg -- adr x
+	dup 12 + @ pick3 =? ( 'deld >r ) drop
+	4+ dup @+ swap @ 	| dirx x deltx
+	2dup
+	2/ + >r
+	+ swap !
+	r> 16 >> ;
+
+:filllines | y -- y
 	'activos
-	( activos> <? )( @+
-		12 + @
-		pick2 <=? ( delactr )
-		drop
-		) drop ;
-
-:sortx
+	( activos> <? )(
+		@+ getxn >r
+		@+ getxn r>
+		over <? ( swap )
+		pick3 swap _hline
+		) drop
 	'activos @+ 4+ @ swap | x1 'activo
 	( activos> <? )( @+
-		4+ @ rot | 'activo x2 x1
-		>? ( over 8 - dup @+ swap @ rot !+ ! )
+		4+ @ rot >? ( over 8 - dup @+ swap @ rot !+ ! )
 		swap ) 2drop ;
 
-|---- sin ordenar
-:addact | dir+4 -- dir+4
-	dup 4 - activos> !+ 'activos> ! ;
 
 |---- ordenando (en x)
 :addsortc | v po di+ v --
@@ -268,25 +253,20 @@ $01005032
 		>? ( addsortc ; )
 		swap )
 	nip !+ 'activos> ! ;
-|-----
 
-::npoli
-	ymin -? ( 0 'ymin ! ) drop
-	sh ymax <? ( 'ymax ! )( drop )
-	-1 dup dup dup segs> !+ !+ !+ ! | marca ultimo
+|-----
+::poli2
+	sh ymax <? ( 'ymax ! )( drop ) |-
+	-1 segs> ! | marca ultimo
 	'activos 'activos> !
 	'segs
 	ymin ( ymax <? )(
 		swap ( @+ pick2 =? )( drop addsort 12 + ) drop 4 - swap
 		filllines
-		sortx
-		1+ delact )
+		1+ )
 	2drop
-	;
-:iniseg
 	'segs 'segs> !
-	sh 'ymin ! -1 'ymax ! ;
-
+	$ffff 'ymin ! -1 'ymax ! ;
 
 |--- putpixel w/alpha (invertido)
 :pxa | alpha --
@@ -304,23 +284,23 @@ $01005032
 |------ wuline
 :nhline | x y dx --
 	-? ( neg swap pick2 swap | ax>x
-		)( xa rot )
+		)( px rot )
 						| x cnt x y
 	setxy 1+
 	( 1? )( 1- ink@ px!+ ) drop
-	'xa ! ;
+	'px ! ;
 
 :nvline | x y --
-	dup ya - | x y dy
-	-? ( neg rot pick2	| ya>y
-		)( rot ya )
+	dup py - | x y dy
+	-? ( neg rot pick2	| py>y
+		)( rot py )
 						| y cnt x y
 	setxy 1+
 	( 1? )( 1- ink@ px!+ sw 1- px+! ) drop
-	'ya ! ;
+	'py ! ;
 
 :li00 | x y dx dy -- x y .. +dx +dy
-	xa ya
+	px py
 :cont00 | x y dx dy x1 y1 ....
 	2dup setxy ink@ px!+
 	2swap
@@ -354,7 +334,7 @@ $01005032
 	neg swap neg swap 2over cont00 ;
 
 :li01 | x y dx dy -- x y ... -dx +dy
-	xa ya
+	px py
 :cont01 | x y dx dy x1 y1 ....
 	2dup setxy ink@ px!+
 	2swap swap neg swap
@@ -390,40 +370,57 @@ $01005032
 #acclin li00 li01 li10 li11
 
 :nlinen | x y --
-	over xa - 0? ( drop nvline ; )
-	over ya - 0? ( drop nhline ; )
+	over px - 0? ( drop nvline ; )
+	over py - 0? ( drop nhline ; )
 	| x y dx dy
 	over 29 >> $4 and
 	over 28 >> $8 and or 'acclin + @ exec
-	'ya ! 'xa ! ;
+	'py ! 'px ! ;
 
 |------------------------------------------------------
 
 :contorno1
-	rojo
 	sw 2/ sh 2/ 2dup op
 	xymouse line
-	sw 2 >> dup 2/ + sh 2 >> dup 2/ + line
+	sw 2 >> sh 2 >> line
     xymouse swap line
 	line ;
 
 :contorno2
-	azul
-	sw 2/ sh 2/ 2dup nop
+	sw 2/ sh 2/ 2dup op2
 	xymouse nlinen
-	sw 2 >> dup 2/ + sh 2 >> dup 2/ + nlinen
+	sw 2 >> sh 2 >> nlinen
     xymouse swap nlinen
 	nlinen ;
 
 :poligono
-	iniseg
-	sw 2/ sh 2/ 2dup nop
-	xymouse nline
-	sw 2 >> dup 2/ + sh 2 >> dup 2/ + nline
-    xymouse swap nline
-	nline
-	npoli
+	sw 2/ sh 2/ 2dup op2
+	xymouse pline2
+	sw 2 >> sh 2 >> pline2
+    xymouse swap pline2
+	pline2
+	poli2
 	;
+
+:rr
+	rand $3ff and $ff -
+	rand $3ff and $ff -
+	;
+
+:testp
+|	iniseg
+	rand ink
+	rr 2dup op2
+	rr pline2
+	rr pline2
+	rr pline2
+	rr pline2
+	rr pline2
+	pline2 poli2
+	;
+
+:stresst
+	20 ( 1? )( 1- testp ) drop ;
 
 :testscanline
 		0 20 setxy 'scanline renderscanline
@@ -443,28 +440,33 @@ $01005032
 		50 $ff00 $0 cmorph
 		;
 
+:dumpseg
+	'segs
+	( segs> <? )(
+		@+ "y:%d " print @+ "x:%d " print @+ "dx:%d " print @+ "ymax:%d " print cr
+		) drop
+	;
+
 |----------------------------
 |----------------------------
 :main
 	inigui
 	'exit >esc<
-	show clrscr home
+	show clrscr
 
-		verde contorno1
+		rojo poligono
 
-| 		rojo contorno2
+|        testp
+|        BLANCO dumpseg
 
-		azul poligono
+|		violeta contorno1
+| 		verde contorno2
 
-		sw 2/ gc.rigth
-		fonti home
-		verde
+|        stresst
+		cflecha
+
+		scr fonti home verde
 		dup "%d" print cr
-		'segs
-		( segs> <? )(
-			@+ "y:%d " print @+ "x:%d " print @+ "dx:%d " print @+ "ymax:%d " print cr
-			) drop
-
-		cflecha ;
+;
 
 : 33 main ;
