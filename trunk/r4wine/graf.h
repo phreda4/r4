@@ -28,6 +28,7 @@ extern DWORD gr_color1,gr_color2,col1,col2;
 extern BYTE gr_alphav;
 extern int MA,MB,MTX,MTY; // matrix de transformacion
 extern int *mTex; // textura
+extern int (*setxyf)(int a,int b);
 
 int gr_init(int XRES,int YRES);
 

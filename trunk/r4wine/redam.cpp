@@ -586,7 +586,8 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case HEIGHT: NOS++;*NOS=TOS;TOS=gr_alto;continue;
 	case CLS: gr_clrscr();continue;
     case FRAMEV: NOS++;*NOS=TOS;TOS=(int)gr_buffer;continue;
-	case SETXY:vcursor=(int*)gr_buffer+TOS*gr_ancho+(*NOS);
+	case SETXY:vcursor=(int*)setxyf((*NOS),TOS);   // faster????
+                //(int*)gr_buffer+TOS*gr_ancho+(*NOS); 
         NOS--;TOS=*NOS;NOS--;continue;
 	case MPX:vcursor+=TOS;TOS=*NOS;NOS--;continue;
 	case SPX:*(int*)(vcursor++)=TOS;TOS=*NOS;NOS--;continue;
@@ -786,7 +787,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         //system((char*)TOS);
         ZeroMemory(&StartupInfo, sizeof(StartupInfo));
         StartupInfo.cb = sizeof StartupInfo ; //Only compulsory field
-        if(CreateProcess((char*)TOS,NULL,NULL,NULL,FALSE,0,NULL,NULL,&StartupInfo,&ProcessInfo))
+        if(CreateProcess(NULL,(char*)TOS,NULL,NULL,FALSE,0,NULL,NULL,&StartupInfo,&ProcessInfo))
             { 
             WaitForSingleObject(ProcessInfo.hProcess,INFINITE);
             CloseHandle(ProcessInfo.hThread);

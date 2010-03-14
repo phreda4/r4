@@ -78,6 +78,33 @@ static const PIXELFORMATDESCRIPTOR pfd = {
 BITMAPINFO bmi = {{sizeof(BITMAPINFOHEADER),800,-600,1,32,BI_RGB,0,0,0,0,0},{0,0,0,0}};
 #endif
 
+int (*setxyf)(int a,int b);
+
+int setxy(int a,int b)
+{
+return (int)gr_buffer+((b*gr_ancho+a)<<1);
+}
+
+int setxy640(int a,int b)
+{
+return (int)gr_buffer+(((b<<7)+(b<<9)+a)<<2);
+}
+
+int setxy800(int a,int b)
+{
+return (int)gr_buffer+(((b<<5)+(b<<8)+(b<<9)+a)<<2);
+}
+
+int setxy1024(int a,int b)
+{
+return (int)gr_buffer+((b<<10)+a)<<2;
+}
+
+int setxy1280(int a,int b)
+{
+return (int)gr_buffer+((b<<10)+(b<<8)+a)<<2;
+}
+
 //---- rutinas de inicio
 int gr_init(int XRES,int YRES)
 {
@@ -88,6 +115,15 @@ XFB=(DWORD*)VirtualAlloc(0,gr_sizescreen<<2, MEM_COMMIT, PAGE_READWRITE);
 
 gr_ypitch=gr_ancho=XRES;
 gr_alto=YRES;
+
+switch(XRES) {
+    case 640:   setxyf=setxy640;break;
+    case 800:   setxyf=setxy800;break;
+    case 1024:  setxyf=setxy1024;break;
+    case 1280:  setxyf=setxy1280;break;
+    default:    setxyf=setxy;
+    }
+
 //---- poligonos2
 cntSegm=0;
 yMin=gr_alto+1;
