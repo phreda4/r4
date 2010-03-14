@@ -239,7 +239,7 @@ SYSFILE: ; ( nro -- "name" )
 
 ;===============================================
 SYSLOAD: ; ( 'from "filename" -- 'to )
-	invoke CreateFile,eax,GENERIC_READ,FILE_SHARE_READ,0,OPEN_EXISTING,0,0
+	invoke CreateFile,eax,GENERIC_READ,FILE_SHARE_READ,0,OPEN_EXISTING,FILE_FLAG_NO_BUFFERING+FILE_FLAG_SEQUENTIAL_SCAN,0
 	mov [hdir],eax
 	or eax,eax
 	mov eax,[esi]
@@ -272,7 +272,7 @@ xfbto:
 	jmp cop
 ;===============================================
 SYSSAVE: ; ( 'from cnt "filename" -- )
-	invoke CreateFile,eax,GENERIC_WRITE,0,0,CREATE_ALWAYS,0,0
+	invoke CreateFile,eax,GENERIC_WRITE,0,0,CREATE_ALWAYS,FILE_FLAG_NO_BUFFERING+FILE_FLAG_SEQUENTIAL_SCAN,0
 	mov [hdir],eax
 	or eax,eax
 	jz saveend
