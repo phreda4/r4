@@ -773,8 +773,8 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         NOS-=2;TOS=*(NOS);NOS--;
         continue;
     case DOCBIT: // bitmap x y --
-//        StretchDIBits(phDC, *NOS,TOS, (int) ((float) bmih.biWidth* fScaleX), (int) ((float) bmih.biHeight * fScaleY), 0, 0,
-//        bmih.biWidth, bmih.biHeight, lpBits, &lpBitsInfo, DIB_RGB_COLORS,SRCCOPY)
+//      W=(*(NOS-1));
+//      StretchDIBits(phDC,(*NOS),TOS,bmih.biWidth,bmih.biHeight,0,0,bmih.biWidth, bmih.biHeight, lpBits, &lpBitsInfo, DIB_RGB_COLORS,SRCCOPY);
         NOS-=2;TOS=*(NOS);NOS--;
         continue;
     case DOCRES: // -- xmax ymax

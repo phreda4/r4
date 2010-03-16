@@ -82,7 +82,7 @@ int (*setxyf)(int a,int b);
 
 int setxy(int a,int b)
 {
-return (int)gr_buffer+((b*gr_ancho+a)<<1);
+return (int)gr_buffer+((b*gr_ancho+a)<<2);
 }
 
 int setxy640(int a,int b)
