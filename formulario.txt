@@ -1,0 +1,240 @@
+| formulario
+| ABM
+| PHREDA 2010
+|----------------------
+^lib/gui.txt
+^lib/fontt.txt
+^lib/fonth.txt
+^lib/parse.txt
+^lib/trace.txt
+
+#ctrl 0
+#sy	0
+
+|-- tamanio formulario visible
+#xi 0 #yi 0 #wi 0 #hi 0
+
+|-- posicion y tam cursor
+#xcc #ycc #wcc 20 #hcc 10
+#c2 )( 16
+
+:*cursor
+	'xcc 'c2 4 move ;
+:cursor*
+	'c2 'xcc 4 move ;
+
+|-- campo actual
+#campocursor 0
+#lineaux )( 64
+
+|-- Formulario
+| x y | w h | info
+#campos )( 8192
+#campos> 'campos
+#camaux )( 8192
+#camaux> 'camaux
+
+:,campos | val --
+	campos> !+ 'campos> ! ;
+
+:addcampo | tform --
+	hcc -? ( dup 'ycc +! neg 'hcc ! )( drop )
+	wcc -? ( dup 'xcc +! neg 'wcc ! )( drop )
+	ycc 16 << xcc or ,campos
+	hcc 16 << wcc or ,campos
+	,campos ;
+
+:delcampo
+	-12 'campos> +! ;
+
+:resetcam
+	'campos 'campos> !
+	'camaux 'camaux> !
+	;
+
+:,aux | c --
+	camaux> c!+ 'camaux> ! ;
+
+:+str | "" -- index
+	camaux> swap
+	( c@+ 1? )( ,aux ) ,aux
+	drop 'camaux - ;
+
+|--------- dibujo en ventana
+:rxy | x y -- rx ry
+	swap xi -
+	swap yi - sy + ;
+
+:xyr | rx ry -- x y
+	swap xi +
+	swap yi + sy - ;
+
+:checkxy | x y --
+	swap wi >? ( wi nip )
+	swap hi >? ( hi nip )
+	;
+
+:boxx | w h x y --
+	rxy
+	2dup op
+	pick3 pick2 + over line
+	pick3 pick2 + pick3 pick2 + line
+	over pick3 pick2 + line
+	line 2drop ;
+
+|------------ dibujo campos
+:c0 | box
+	drop azul
+	wcc hcc xcc ycc boxx ;
+:c1 | label
+|	dup memmap
+	xcc ycc rxy 'ccy ! 'ccx !
+	dup 4 >> $fff and ink12
+	16 >> 'camaux +
+	print ;
+
+:c2 | edit
+	drop
+	;
+:c3 | list
+	drop
+	;
+:c4 | radio
+	drop
+	;
+:c5 |
+:c6 |
+:c7 |
+	drop rojo
+	wcc hcc xcc ycc boxx ;
+
+#editcmp c0 c1 c2 c3 c4 c5 c6 c7 c7 c7 c7 c7 c7 c7 c7 c7
+
+:campodraw | adr -- adr+
+	@+ >uv 'ycc ! 'xcc !
+	@+ >uv 'hcc ! 'wcc !
+	@+ dup $f and 2 << 'editcmp + @ exec ;
+
+:drawcampos
+	'campos ( campos> <? )( campodraw ) drop ;
+
+|---------
+:camposet | x y adr --
+	@+ >uv 'ycc ! 'xcc !
+	@+ >uv	'hcc ! 'wcc !
+	4+  ;
+
+:in? | x y adr -- x y adr 1/0
+	over ycc - -? ( drop 0 ; ) hcc >? ( drop 0 ; ) drop
+	pick2 xcc - -? ( drop 0 ; ) wcc >? ( drop 0 ; ) drop
+	1 ;
+
+:searchcmp | x y -- adr/0
+	'campos ( campos> <? )(
+		camposet
+		in? 1? ( drop 12 - nip nip ; ) drop
+		) 3drop 0 ;
+
+|----------- mover cursor y cambiar limites
+:cursorsize
+	mshift 1? ( drop 10 * )( drop ) 'hcc +!
+	mshift 1? ( drop 10 * )( drop ) 'wcc +!
+:cursorlim
+|... form
+	xcc -? ( 0 'xcc ! ) drop
+|	bmp.ancho wcc - swap <? ( 'xcc ! )( drop )
+	ycc -? ( 0 'ycc ! ) drop
+|	bmp.alto hcc - swap <? ( 'ycc ! )( drop )
+
+|.... ventana
+	xcc xi <? ( dup 'xi ! )
+	xi wi + swap wcc + <? ( xcc wcc + swap - 'xi +! )( drop )
+	ycc yi <? ( dup 'yi ! )
+	yi hi + swap hcc + <? ( ycc hcc + swap - 'yi +! )( drop )
+	;
+
+:cursormov | x y --
+	ctrl 1? ( drop cursorsize ; ) drop
+	mshift 1? ( drop 10 * )( drop ) 'ycc +!
+	mshift 1? ( drop 10 * )( drop ) 'xcc +!
+	cursorlim ;
+
+:ventana
+	cursor* drawcampos *cursor
+	blink 1? ( negro )( blanco ) drop
+	wcc hcc xcc ycc boxx
+	;
+
+|---- cursor de caja
+:cursorcaja | --
+	[ xymouse xyr ycc - 'hcc ! xcc - 'wcc ! ; ] onMove
+	[ xymouse xyr 'ycc ! 'xcc ! 0 dup 'hcc ! 'wcc ! ; ] onDn
+|	[ +box 0 dup 2dup 'bx1 !+ !+ !+ ! ; ] onClick
+	cflecha ;
+
+|---- cursor de seleccion
+:cursorselec | --
+	[ cursor* xymouse xyr searchcmp 0? ( *cursor ) 'campocursor !  ; ] onDn
+	campocursor 1? ( campodraw ) drop
+	cmano ;
+
+#modoc
+|-----------------------------------------------
+:main
+	32 'sy !
+	sh 26 32 + - 'hi !
+	sw dup 2 >> - 'wi !
+
+	inigui
+	'exit >esc<
+	[ 0 -1 cursormov ; ] <up>
+	[ 0 1 cursormov ; ] <dn>
+	[ -1 0 cursormov ; ] <le>
+	[ 1 0 cursormov ; ] <ri>
+	[ 0 addcampo ; ] <f1> | caja
+	[ "Label" +str 16 << $fff 4 << or 1 or addcampo ; ] <f2> | label
+	[ 20 2 or addcampo ; ] <f3> | Edit
+	[ 10 3 or addcampo ; ] <f4> | List
+	[ 5 4 or addcampo ; ] <f5> | Radio
+
+	[ delcampo ; ] <del>
+	[ 1 'ctrl ! ; ] <ctrl>
+	[ 0 'ctrl ! ; ] >ctrl<
+
+	[ modoc 'cursorcaja =? ( 'cursorselec )( 'cursorcaja ) nip 'modoc ! ; ] <enter>
+	'cursorcaja 'modoc !
+	show clrscr
+		ventana
+
+		32 gc.top $f gc.hfill
+		font-vard-12-bold home cr2
+		verde dup " :R%d" print
+		blanco "FORM " print
+
+		26 gc.botton $00000f gc.hfill
+		font-vard-8-bold home cr2
+		rojo sp 'exit "esc-Exit" btnt
+		amarillo
+		sp 'exit "f1-Box" btnt
+		sp 'exit "f2-Label" btnt
+		sp 'exit "f3-Edit" btnt
+		sp 'exit "f4-List" btnt
+		sp 'exit "f5-Radio" btnt
+		yi xi "  %d,%d | " print
+		hcc abs wcc abs ycc xcc " %d,%d (%d-%d) " print
+
+		modoc 'cursorcaja =? ( "Create" )( "Edit" ) nip print
+		32 26 gc.vbetween
+		sw 2 >> gc.rigth $f gc.hfill
+		blanco fonti home
+		campocursor "%d" print cr
+		"Fuente:" print cr
+		"Color:" print cr
+		"Evento:" print cr
+		scr
+		modoc exec
+		;
+
+
+: mark resetcam 4 main ;
+
