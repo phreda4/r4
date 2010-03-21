@@ -34,6 +34,9 @@
 #camaux )( 8192
 #camaux> 'camaux
 
+#memedit )( 8192
+#memedit> 'memedit
+
 :,campos | val --
 	campos> !+ 'campos> ! ;
 
@@ -50,6 +53,7 @@
 :resetcam
 	'campos 'campos> !
 	'camaux 'camaux> !
+	'memedit 'memedit> !
 	;
 
 :,aux | c --
@@ -59,6 +63,35 @@
 	camaux> swap
 	( c@+ 1? )( ,aux ) ,aux
 	drop 'camaux - ;
+
+:+mem | 30 -- index
+	memedit> 
+	swap over + 'memedit> +! ;
+
+|---- load &save
+:loadform | "name" --
+	mark
+	here dup rot load 'here !
+	here =? ( drop empty ; )
+	@+ 'campos swap | adr 'campos cant
+	( 1? )( 1- >r
+		swap @+ rot !+
+		r> ) drop 'campos> !
+	@+ 'camaux swap
+	( 1? )( 1- >r
+		swap c@+ rot c!+
+		r> ) drop 'camaux> !
+	drop
+	empty ;
+
+:saveform | "name" --
+	mark
+	'campos campos> over - 2 >> ,
+	( campos> <? )( @+ , ) drop
+	'camaux camaux> over - ,
+	( camaux> <? )( c@+ ,c ) drop
+	savemem
+	empty ;
 
 |--------- dibujo en ventana
 :rxy | x y -- rx ry
@@ -92,10 +125,19 @@
 	dup 4 >> $fff and ink12
 	16 >> 'camaux +
 	print ;
+:c1.foco
+	;
 
+|----
 :c2 | edit
+	dup 16 >> 'memedit +
+	swap 4 >> $fff and
+	getline
+	;
+:c2.foco
 	drop
 	;
+
 :c3 | list
 	drop
 	;
@@ -184,18 +226,19 @@
 	32 'sy !
 	sh 26 32 + - 'hi !
 	sw dup 2 >> - 'wi !
-
+	"inc/form.frm" loadform
 	inigui
-	'exit >esc<
+	|	'exit >esc<
+	[ "inc/form.frm" saveform exit ; ] >esc<
 	[ 0 -1 cursormov ; ] <up>
 	[ 0 1 cursormov ; ] <dn>
 	[ -1 0 cursormov ; ] <le>
 	[ 1 0 cursormov ; ] <ri>
 	[ 0 addcampo ; ] <f1> | caja
 	[ "Label" +str 16 << $fff 4 << or 1 or addcampo ; ] <f2> | label
-	[ 20 2 or addcampo ; ] <f3> | Edit
-	[ 10 3 or addcampo ; ] <f4> | List
-	[ 5 4 or addcampo ; ] <f5> | Radio
+	[ 20 4 << 2 or addcampo ; ] <f3> | Edit
+	[ "Uno|dos|tres" +str 16 << 3 or addcampo ; ] <f4> | List
+	[ "Uno|dos|tres" +str 16 << 4 or addcampo ; ] <f5> | Radio
 
 	[ delcampo ; ] <del>
 	[ 1 'ctrl ! ; ] <ctrl>

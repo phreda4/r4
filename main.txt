@@ -9,67 +9,64 @@
 |^lib/fonth.txt
 ^lib/trace.txt
 
-#ramaact
-#hojaact
+|--menu de arbol2
+#nroh
+#nrof
+
 #menuprg
+#prgact
+
+:marcado2
+	over " %a" blanco printc cr
+	;
 
 :cargasrc
-	hojaact 0? ( drop ; ) "%a.txt" mprint
+	prgact 0? ( drop ; ) "%a.txt" mprint
 	here swap load drop ;
 
-|--- MENU de Arbol
-:tocorama |
-	dup 'ramaact ! ;
-
-:tocohoja
-	dup 'hojaact !
-	cargasrc ;
-
-:marcado
-	" %a" negro printc cr ;
-
-:normal
-	'tocohoja onLineMove
-	" %a" cyan printc cr ;
-
-:conhijos
-	azul oscuro linefill
-	2 'ccy +!
-	dup "%a" blanco printc cr
-	>>f
-	font-vard-8-bold
-	( dup >>f over <>? )( swap
-		azul linefill
-		hojaact =? ( marcado )( normal )
-		) 2drop cr2
-	font-vard-12-bold
+:clickf
+	dup 'nrof !
+	over 'prgact !
+	cargasrc
 	;
 
-:sinhijos
-	'tocorama onLineMove
-	"%a" verde printc cr ;
-
-:menutree | adr --
-	font-vard-12-bold 2 'cch +!
-	( dup >>fi over <>? )(
-		( dup c@ 13 =? )( drop 1+ ) drop | quita 13
-		swap
-		ramaact =? ( conhijos )( sinhijos )
-		) 2drop ;
-
-:addmenu | str --
-
+:normal2
+	'clickf onLineMove
+	over " %a" verde printc cr
 	;
+
+:conhijos2
+	over "%a" cyan printc cr
+	over fld# ( swap >>f swap 1? )( 1-
+		nrof =? ( marcado2 )( normal2 )
+		) 2drop
+	cr2
+	;
+
+:clickhi
+	dup 'nroh ! 0 'nrof ! ;
+
+:sinhijos2
+	'clickhi onLineMove
+|	over "%a" blanco print cr
+	gris
+	cr2 'clickhi pick2 "%a" 10 btnm cr cr2
+	;
+
+:menutree2 | adr --
+	reg# ( 1? )( 1-
+		nroh =? ( conhijos2 )( sinhijos2 )
+		swap >>fi swap ) 2drop ;
+
 |----------- estado
 :grabaestado
 	"./" dir
-	'ramaact 8 "nom/main.nom" save
+	'nroh 8 "nom/main.nom" save
 	;
 
 :restauraestado
 	".//" dir
-	'ramaact "nom/main.nom" load drop
-	cargasrc
+	'nroh "nom/main.nom" load drop
 	;
 
 :loadmenu
@@ -100,12 +97,12 @@
 	;
 
 :runprg
-	hojaact 0? ( drop ; )
+	prgact 0? ( drop ; )
 	grabaestado
 	"%a.txt" mprint run ;
 
 :editprg
-	hojaact 0? ( drop ; )
+	prgact 0? ( drop ; )
 	grabaestado
 	"%a.txt" mprint count
 	"./nom/editor.nom" save
@@ -131,8 +128,8 @@
 :agregap
 	'name dup c@ 0? ( 2drop exit ; ) drop
 	| agrega a lista
-	hojaact  menuprg +list
-|	drop
+|	hojaact  menuprg +list
+	drop
 	exit ;
 
 :newprg
@@ -143,43 +140,18 @@
 		32 gc.top $f gc.hfill
 		font-vard-12-bold home cr2
 		verde dup " :R%d" print
-		blanco "NEW " print
-
+		blanco " New File Name?" print
 		32 26 gc.vbetween
-	| datos
-		w 2 >> gc.left home
-		menuprg menutree
-
-		sw dup 2 >> - gc.rigth
 		font-vard-12-bold home
 		cr cr blanco
-        ramaact " %a>>" print
-        hojaact "%a" print cr cr
-		" Nombre:" print cr cr
+		" Enter Name " print
+|        ramaact "in %a>>" print hojaact "%a" print cr cr
+|        ramaact "in %a" print cr cr
 		sp 'name 31 getline
 		'agregap lostfoco
 		bmouse 0? ( cflecha )( cmano ) drop	;
 	;
 
-:itemup
-	hojaact 2 -
-	( dup c@ 1? )(
-		$5f =? ( drop 1+ 'hojaact ! ; )
-		$7c =? ( drop 1+ 'hojaact ! ; )
-		$7e =? ( drop 1+ 'hojaact ! ; )
-		drop 1- ) 2drop
-	0 'hojaact !
-	;
-
-:itemdn
-	hojaact
-	( c@+ 1? )(
-		$5f =? ( drop 'hojaact ! ; )
-		$7c =? ( drop 'hojaact ! ; )
-		$7e =? ( drop 'hojaact ! ; )
-		drop ) 2drop
-	0 'hojaact !
-	;
 
 |---------- main
 :main
@@ -193,13 +165,14 @@
 	'confsis <f10>
 	'keysis <f11>
 
-	'itemdn <dn>
-	'itemup <up>
+	[ -1 'nrof +! ; ]  <dn>
+	[ 1 'nrof +! ; ] <up>
+
 	show clrscr
 		32 gc.top $f gc.hfill
 		font-vard-12-bold home cr2
 		verde dup " :R%d" print
-		blanco "MENU " print
+		blanco " ROOT " print
 
 		26 gc.botton $00000f gc.hfill
 		font-vard-8-bold home cr2
@@ -222,12 +195,16 @@
 
 		32 26 gc.vbetween
 	| datos
-		w 2 >> gc.left home
-		menuprg menutree
+		w 2 >> gc.left
+|		font-vard-12-bold
+		font-vard-8-bold
+		home
+
+|		menuprg menutree
+		menuprg menutree2
 	| prevista
 		sw dup 2 >> - gc.rigth fonti home
 		blanco here text
-
 		bmouse 0? ( cflecha )( cmano ) drop	;
 
 
