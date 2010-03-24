@@ -6,91 +6,117 @@
 ^lib/parse.txt
 ^lib/gui.txt
 ^lib/fontt.txt
-|^lib/fonth.txt
+^lib/fonth.txt
 ^lib/trace.txt
 
 |--menu de arbol2
-#nroh
-#nrof
+#nroh -1
+#nrof -1
+
+#lastrun )( 64
 
 #menuprg
-#prgact
+#menuprg>
 
+:setnow | adr --
+	0? ( drop ; ) "%a.txt" mprint
+	dup 'lastrun strcpy
+:loadsrc | name --
+	here swap load 0 swap ! ;
 
-:cargasrc
-	prgact 0? ( drop ; ) "%a.txt" mprint
-	here swap load drop ;
-
-:
-:clickf
+:clickf | adr nro -- adr nro
 	dup 'nrof !
-	over 'prgact !
-	cargasrc
+	over setnow
 	;
 
 :normal2
-	'clickf onLineMove
-	over "%a" negro printc cr
+	cr2 'clickf pick2 "%a" 9 btnh cr |cr2
 	;
 
 :marcado2
-	'clickf onLineMove
-	over "%a" blanco printc cr
+|	blink 1? ( blanco )( negro ) drop
+	negro
+	cr2 'clickf pick2 "%a >" 9 btnh cr |cr2
+	verde
 	;
 
 :clickn
-|	0 'nroh !
+	;
+	-1 dup 'nroh ! 'nrof !
 	;
 
 :conhijos2
-	azul
-	over fld# 2 + linesfill drop
-	cr2 'clickn pick2 "%a" cyan 14 btnm cr cr2
+|	cyan oscuro
+|	over fld# 2 + linesfill drop
+	verde
+	cr2 'clickn pick2 "%a >" 10 btnh cr |cr2
 	over fld# ( swap >>f swap 1? )( 1-
 		nrof =? ( marcado2 )( normal2 )
 		) 2drop
-	cr2
 	;
 
 :clickhi
-	dup 'nroh ! 0 'nrof ! ;
-
-:sinhijos2
-	'clickhi onLineMove
-|	over "%a" blanco print cr
-	gris
-	cr2 'clickhi pick2 "%a" 14 btnm cr cr2
+	dup 'nroh !
+	over fld# 1- 'nrof !
+	>>f setnow
 	;
 
-:menutree2 | adr --
-	reg# ( 1? )( 1-
+:sinhijos2
+	cyan
+	cr2 'clickhi pick2 "%a" 10 btnh cr |cr2
+	;
+
+:menutree | adr --
+	reg#
+	 ( 1? )( 1-
 		nroh =? ( conhijos2 )( sinhijos2 )
 		swap >>fi swap ) 2drop ;
+
+|----
+:treeview | adr --
+|	rows
+	reg# ( 1? )( 1-
+		verde
+		'clickn pick2 "%|--- a " print cr |cr2
+		over fld# ( swap >>f swap 1? )( 1-
+			'clickf pick2 "|%a" print cr |cr2
+			) 2drop
+		swap >>fi swap ) 2drop
+	;
+
 
 |----------- estado
 :grabaestado
 	"./" dir
-	'nroh 8 "nom/main.nom" save
+	'nroh 72 "nom/main.nom" save
 	;
 
 :restauraestado
 	"./" dir
 	'nroh "nom/main.nom" load drop
-
-	menuprg
-	reg# 1- nroh - ( 1? )( 1- swap >>fi swap ) drop
-	fld# nrof - ( 1? )( 1- swap >>f swap ) drop
-	'prgact !
-	cargasrc
+	'lastrun c@ 0? ( drop ; ) drop
+	'lastrun loadsrc
 	;
 
 :loadmenu
 	here dup 'menuprg !
 	"mem/prg.txt" load
+	dup 'menuprg> !
 	0 swap !+ 'here ! ;
 
+:+dom | dom --
+	"%s~" mprint
+	menuprg>
+	( 1- dup c@ 0? )( drop 1- ) drop 1+
+	|( 1- dup c@ $7e =? )( drop 1- ) drop 1+
+	strcpyl 1- 'menuprg> !
 :savemenu
 	menuprg count "mem/prg.txt" save
+	;
+
+|--
+:+list | "" lugar arbo --
+	3drop
 	;
 
 
@@ -100,10 +126,6 @@
 	grabaestado
 	"config.txt" run ;
 
-:keysis
-	grabaestado
-	"scancode.txt" run ;
-
 |-- programa
 :preprg
 	fonti home
@@ -112,14 +134,14 @@
 	;
 
 :runprg
-	prgact 0? ( drop ; )
+	'lastrun c@ 0? ( drop ; ) drop
 	grabaestado
-	"%a.txt" mprint run ;
+	'lastrun run ;
 
 :editprg
-	prgact 0? ( drop ; )
+	'lastrun c@ 0? ( drop ; ) drop
 	grabaestado
-	"%a.txt" mprint count
+	'lastrun count
 	"./nom/editor.nom" save
 	"edit-code2.txt" run ;
 |	"edit-code.txt" run ;
@@ -130,13 +152,7 @@
 
 :borractual
 	;
-:adddome
-	;
 
-|--
-:+list | adnew lugar lista --
-	3drop
-	;
 
 #name )( 32
 
@@ -167,6 +183,60 @@
 		bmouse 0? ( cflecha )( cmano ) drop	;
 	;
 
+:newdom
+	'name c@ 0? ( drop ; ) drop
+	'name +dom
+	exit ;
+
+:clicknew
+	0 'name !
+	inigui
+	'exit >esc<
+	show clrscr
+		32 gc.top $f0f gc.hfill
+		font-vard-12-bold home cr2
+		verde dup " :R%d" print
+		blanco " ROOT " print
+
+		26 gc.botton $f0f gc.hfill
+		font-vard-8-bold home cr2
+
+	| acciones
+		rojo
+		sp 'exit "esc-Exit" btnt
+|		sp verde
+|		sp 'runprg "f1-Run" btnt
+|		sp 'editprg "f2-Edit" btnt
+|		sp 'newprg "f3-NewPrg" btnt
+|		violeta sp 'adddome "+Fold" btnt
+|		rojo sp 'borractual "Del" btnt
+
+	| menu datos
+		sp cyan
+|		sp 'runtimeerr "f9-RUNERR" btnt
+|		sp 'confsis "f10-CONFIG" btnt
+
+		32 26 gc.vbetween
+	| datos
+		w 2 >> gc.left
+
+|		font-vard-12-bold
+		font-vard-8-bold
+|		font-vard-8-out
+		home
+
+		menuprg menutree cr2
+
+	| prevista
+		sw dup 2 >> - gc.rigth
+
+		home blanco
+
+        "New Domain" print cr cr2
+		'name 32 getline
+		'newdom lostfoco
+		cmano
+	;
 
 |---------- main
 :main
@@ -178,18 +248,17 @@
 
 	'runtimeerr <f9>
 	'confsis <f10>
-	'keysis <f11>
 
 	[ -1 'nrof +! ; ]  <dn>
 	[ 1 'nrof +! ; ] <up>
 
 	show clrscr
-		32 gc.top $f gc.hfill
+		32 gc.top $ccc gc.hfill
 		font-vard-12-bold home cr2
 		verde dup " :R%d" print
 		blanco " ROOT " print
 
-		26 gc.botton $00000f gc.hfill
+		26 gc.botton $ccc gc.hfill
 		font-vard-8-bold home cr2
 
 	| acciones
@@ -198,7 +267,7 @@
 		sp verde
 		sp 'runprg "f1-Run" btnt
 		sp 'editprg "f2-Edit" btnt
-		sp 'newprg "f3-New" btnt
+		sp 'newprg "f3-NewPrg" btnt
 |		violeta sp 'adddome "+Fold" btnt
 |		rojo sp 'borractual "Del" btnt
 
@@ -206,21 +275,34 @@
 		sp cyan
 		sp 'runtimeerr "f9-RUNERR" btnt
 		sp 'confsis "f10-CONFIG" btnt
-		sp 'keysis "f11-KEY" btnt
 
 		32 26 gc.vbetween
 	| datos
 		w 2 >> gc.left
+		|$ccc000 gc.hfill
 |		font-vard-12-bold
 		font-vard-8-bold
+|		font-vard-8-bold-out
 		home
 
-|		menuprg menutree
-		menuprg menutree2
+		menuprg menutree cr2
+		violeta
+		'clicknew "* NEW *" 8 btnm cr cr2
+
 	| prevista
-		sw dup 2 >> - gc.rigth fonti home
-|		nrof nroh "%d %d" print cr
-		blanco here text
+		sw dup 2 >> - gc.rigth
+		|$ccc000 gc.vfill
+		verde
+		fonti home
+|		20 fonth home
+
+		nrof nroh "%d %d" print cr
+		'lastrun print cr
+
+		here text
+
+|		menuprg treeview
+
 		bmouse 0? ( cflecha )( cmano ) drop	;
 
 
