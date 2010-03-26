@@ -5,22 +5,49 @@
 ^lib/trace.txt
 ^lib/fontt.txt
 
-|-------------
 #bx1 #by1 #bx2 #by2
+#memmap
 
-#boxini
 #boxlist
 #boxlist>
+#dibujo
+#dibujo>
+#dibujo<
+#string
+#string>
 
-:resetbox
-	0 boxini dup dup 'boxlist !+ ! ! ;
+#campocursor
 
-:+box
+
+:ram
+	mark
+	here
+	dup 'boxlist ! $ffff +
+	dup 'dibujo ! $7ffff +
+	dup 'string ! $ffff +
+	'here !
+:reset
+	boxlist 'boxlist> !
+	dibujo dup 'dibujo> !+ !
+	string 'string> !
+	0 boxlist !
+	0 dibujo !
+    ;
+
+:,aux | c --
+	string> c!+ 'string> ! ;
+
+:+str | "" -- index
+	string> swap
+	( c@+ 1? )( ,aux ) ,aux
+	drop string - ;
+
+:+box | param --
 	bx2 bx1 - abs 8 <? ( drop ; ) drop
 	by2 by1 - abs 8 <? ( drop ; ) drop
 	bx2 16 << by2 or
 	bx1 16 << by1 or
-	boxlist> !+ !+ 'boxlist> ! ;
+	boxlist> !+ !+ !+ 'boxlist> ! ;
 
 :0box
 	0 boxlist> ! ;
@@ -37,24 +64,19 @@
 		r@+ dup 16 >> swap $ffff and
 		r@+ dup 16 >> swap $ffff and
 		dbox
+		r@+ print
 		r> ) drop ;
 
-:inbox | -- addr/0
-	xymouse
-	boxlist ( boxlist> <? )( >r
-		r@+ dup 16 >> swap $ffff and
-		r@+ dup 16 >> swap $ffff and
-		dbox
-		r> ) drop ;
+:campodraw
+	campocursor 0? ( drop ; ) >r
+	r@+ dup 16 >> swap $ffff and
+	r@+ dup 16 >> swap $ffff and
+	violeta
+	dbox
+	r@+ print
+	rdrop ;
 
 |-------------
-#dibini
-#dibujo
-#dibujo>
-
-:resetdibujo
-	0 dibini dup dup 'dibujo !+ ! ! ;
-
 :,dib | v --
 	dibujo> !+ 'dibujo> ! ;
 
@@ -82,6 +104,7 @@
 	@+ 0? ( 2drop ; ) >uv op
 	( linea> <? )( @+ >uv line ) drop ;
 
+
 |-------tipo dibujo
 | ...0 00..
 :t000 | color	$00 000000
@@ -107,7 +130,6 @@
 	( @+ 1? )(
 		dup 24 >> $1c and 'acc + @ exec
 		) 2drop ;
-
 
 |----------------
 :colineal | q1 q2 q3 -- 0/1
@@ -135,8 +157,8 @@
 	colineal 1? ( drop ; ) drop
 	dibujo> 8 - dup 4+ @ swap !+ 'dibujo> !
 	;
-|----------------
 
+|----------------
 :16to12
 	>uv 12 << $fff000 and swap $fff and or ;
 
@@ -146,7 +168,6 @@
 
 :pasatrazo
 	'linea linea> >=? ( drop ; )
-	rand $ffffff and $04000000 or ,dib | color al azar
 	@+ 16to12 $08000000 or ,dib
 	( linea> <? )(
 		@+ cadapunto
@@ -154,94 +175,79 @@
 	0dib
 	 ;
 
+|-------tipo coord
+:+xydata | x y --
+	by1 <? ( dup 'by1 ! )
+	by2 >? ( dup 'by2 ! ) drop
+	bx1 <? ( dup 'bx1 ! )
+	bx2 >? ( dup 'bx2 ! ) drop ;
+
+:xx drop ;
+:dd dup $fff and swap 12 >> $fff and +xydata ;
+:ddc dup dd dd ;
+
+#accXY xx xx dd dd ddc dd ddc xx
+
+:gestobox | str --
+	sh sw 'bx1 ! 'by1 !
+	0 0 'bx2 ! 'by2 !
+	( @+ 1? )(
+		dup 24 >> $1c and 'accXY + @ exec
+		) 2drop ;
+
 |----------------
 :makebox
-
+	dibujo<
+	dibujo> =? ( drop ; ) | no agrega si no hay trazo
+	gestobox
+	"hola" +box
+	dibujo> 'dibujo< !
 	;
 
 |---------------------
-:gestos
+:cursordibuja
 	[ tpen drop resetlinea ; ] onDn
 	'addline onMove
 	'pasatrazo onClick
-
-	dibujo drawdraw
-	verde drawlinea
-	cflecha ;
-
-|---------------------
-:dibujar
-	[ addline ; ] onMove
-	[ tpen drop resetlinea ; ] onDn
-	[ pasatrazo ; ] onClick
-
-	dibujo drawdraw
-	verde drawlinea
 	clapiz ;
 
-|--------- cursor de caja
-:cajas | --
-	[ xymouse 'by2 ! 'bx2 ! ; ] onMove
-	[ xymouse 'by1 ! 'bx1 ! ; ] onDn
-	[ +box 0 dup 2dup 'bx1 !+ !+ !+ ! ; ] onClick
+|---- cursor de caja
+:cursorcaja | --
+|	[ xymouse xyr ycc - 'hcc ! xcc - 'wcc ! ; ] onMove
+|	[ xymouse xyr 'ycc ! 'xcc ! 0 dup 'hcc ! 'wcc ! ; ] onDn
+|	[ +box 0 dup 2dup 'bx1 !+ !+ !+ ! ; ] onClick
+	cflecha ;
 
-	127 alpha
-	cyan oscuro
-	bx1 by1
-	2dup op
-	over by2 pline
-	bx2 by2 pline
-	bx2 over pline
-	pline poli
+|---- cursor de seleccion
 
-	verde
-	bx1 by1
-	2dup op
-	over by2 line
-	bx2 by2 line
-	bx2 over line
-	line
-	255 alpha
-
-	drawbox
-
-	cflecha
-	;
-
-|---------------------
-:anima
+:cursorselec | --
+	[ 0 'campocursor ! ; ] onDn
+	campodraw
 	cmano ;
 
-
-#modo 'dibujar 'cajas 'gestos 'anima
-#modoa 'dibujar
+#modoc 'cursordibuja
 
 |---------------------
 :main
     inigui
 	'exit >esc<
-	'pasatrazo <f1>
+|	'pasatrazo <f1>
+	[ rand $ffffff and $04000000 or ,dib ; ] <f2> | color al azar
+	[ modoc 'cursordibuja =? ( 'cursorselec )( 'cursordibuja ) nip 'modoc ! ; ] <enter>
 	show clrscr
 		32 gc.top $f gc.hfill
 		font-vard-12-bold home cr2
 		verde dup " :R%d" print
 		blanco "GESTO " print
-		|-------------
-		| modos
-		'modo 0 ( 4 <? )(
-			sp [ over @ 'modoa ! ; ]
-			over "%d" mprint btnt
-			1+ swap 4+ swap ) 2drop
-		|-------------
 
-		26 gc.botton $00000f gc.hfill
+		32 gc.botton $00000f gc.hfill
 		font-vard-8-bold home cr2
 
 	| acciones
 		rojo
 		sp 'exit "esc-Exit" btnt
 		sp verde
-		sp 'makebox "f1-Box" btnt
+		sp 'makebox dup <f1> "f1-Box" btnt
 
 		scr fonti
 		cr cr verde
@@ -249,19 +255,14 @@
     	dibujo> dibujo - 2 >> "%d " print
 |		'linea ( linea> <? )( @+ "%h " print ) drop cr
 |	    dibujo ( @+ 1? )( "%h " print ) 2drop cr
+		home
+		boxlist ( boxlist> <? )( 8 + "* " print @+ print cr ) drop
 
-		32 26 gc.vbetween
-		modoa exec ;
+		32 32 gc.vbetween
+		dibujo drawdraw
+		verde drawlinea
+		verde drawbox
+		modoc >r ;
 
-:ram
-	mark
-	here
-	dup 'boxini ! $ffff +
-	dup 'dibini ! $7ffff +
-	'here !
 
-	resetbox
-	resetdibujo
-    ;
-
-: ram 4 main ;
+: 4 ram main ;

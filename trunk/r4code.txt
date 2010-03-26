@@ -25,42 +25,43 @@
 #irqkey 0
 
 |--- Pilas
-#:dpila )( 1024	#:dpila> 'dpila
-#:dpila.t )( 1024
+#:dpila )( 2048
+#:dpila> 'dpila
 
-:d.cnt dpila> 'dpila - ;
+:d.push | nro tipo --
+	dpila> !+ !+ 
+	'dpila> ! ;
+
+:d.pop | -- nro
+	dpila> 8 2 << -
+	dup 'dpila> ! @ ;
+
+:d.cnt | -- cnt
+	dpila dpila> - 3 >> ;
+
 :d.ini 'dpila 'dpila> ! ;
-::d.push dpila> !+ 'dpila> ! ;
-:d.pop  -4 'dpila> +! dpila> @ ;
-:d.pop2 dpila> 8 - dup 'dpila> ! @+ swap @ ;
-:d.get dpila> 4 - @ ;
-:d.get2 dpila> 8 - @ ;
+
+:d.get dpila> 8 - @ ;
+:d.get2 dpila> 16 - @ ;
 
 | vista de la pila 	-- a
 :d.tipo | nro --
 	 dpila> 1028 + ! ;
 
-:dec.d		$0 or d.tipo ;
-:hex.d		$1 or d.tipo ;
-:bin.d		$2 or d.tipo ;
-:fix.d		$3 or d.tipo ;
-:dstr.d		$4 or d.tipo ;
-:dvar.d		$5 or d.tipo ;
-:dacc.d		$6 or d.tipo ;
-:prog.d		$7 or d.tipo ;
+:d.pushDec	$0 d.push ;
+:d.pushHex	$1 d.push ;
+:d.pushbin		$2 d.push ;
+:d.pushfix		$3 d.push ;
+:d.pushdir2str	$10 d.push ;
+:d.pushdir2var	$20 d.push ;
+:d.pushdir2acc	$30 d.push ;
+:d.pushcalc		$40 d.push ;
+:d.pushcalcstr	$50 d.push ;
+:d.pushcalcvar	$60 d.push ;
+:d.pushcalcacc	$70 d.push ;
 
-| tipo en la pila 	b -- t
-:d.nro		$00 ;
-:d.dir2str	$10 ;
-:d.dir2var	$20 ;
-:d.dir2acc	$30 ;
-:d.calc		$40 ;
-:d.calcstr	$50 ;
-:d.calcvar	$60 ;
-:d.calcacc	$70 ;
-
-#:rpila )( 1024	#:rpila> 'rpila
-#:rpila.t )( 1024
+#:rpila )( 2048
+#:rpila> 'rpila
 
 :r.ini	'rpila 'rpila> ! ;
 
@@ -125,10 +126,10 @@
 :i0		drop ;
 :i:		drop ;
 :i#		drop ;
-:idec	d.nro dec.d	8 >> cte + @ d.push ;
-:ihex	d.nro hex.d	8 >> cte + @ d.push ;
-:ibin	d.nro bin.d	8 >> cte + @ d.push ;
-:ifix	d.nro fix.d	8 >> cte + @ d.push ;
+:idec	8 >> cte + @ d.pushdec ;
+:ihex	8 >> cte + @ d.pushhex ;
+:ibin	8 >> cte + @ d.pushbin ;
+:ifix	8 >> cte + @ d.pushfix ;
 
 :istr
 	8 >> str +
@@ -307,7 +308,6 @@
 :iEND    	2drop 0 ;
 :iRUNi   	iDROP ;
 |-----  Interrupciones
-
 |-----mouse
 :iTPEN		drop tpen d.push ;
 :iXYMOUSE	drop xymouse swap d.push d.push ;
@@ -316,7 +316,6 @@
 :iRKEY!  	drop dpila> 4 -  dup 'dpila> ! @ 'irqkey ! ; | n --
 :iKEY		drop key d.push ;
 |-----joystick
-|:iRJOY!  	drop dpila> 4 -  dup 'dpila> ! @ 'irqjoy ! ; | n --
 :iCNTJOY    drop cntjoy d.push ;
 :iGETJOY    drop d.pop GETJOY d.push ;
 |--- archivos
@@ -343,7 +342,6 @@
 :iSEND
 :iRECV
 :iCLOSE
-:iTIMER											|------- timer
 	;
 
 |---------- tabla de saltos
@@ -370,14 +368,11 @@ iXFB	i>XFB	iXFB>
 iPAPER	iINK	iINKF	iALPHA
 iOP		iCP		iLINE	iCURVE	iPLINE	iPCURVE	iPOLI
 iFCOL	iFCEN	iFMAT	iSFILL	iLFILL	iRFILL
-iTPEN
-iXYMOUSE iBMOUSE
+iTPEN 	iXYMOUSE iBMOUSE
 iRKEY!	iKEY
-|iRJOY!
 iCNTJOY	iGETJOY
 iSLOAD	iSPLAY	iMLOAD	iMPLAY					|--- Sonido
 iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
-|iTIMER											|------- timer
 
 ::stepmacro | nro --
   	dup 11 + 2 << 'tablai + @ exec ;
