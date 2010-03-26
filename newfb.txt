@@ -7,7 +7,7 @@
 ^lib/trace.txt
 
 |-------------------------------
-| formato de scanline 2    
+| formato de scanline 2
 | $0 cnt de pixels a llenar (*cnt)
 | $1 UUU VVV v1 v2
 | $2 RGB RGB col1 col2 (*v1)
@@ -108,22 +108,52 @@
 	scanlast
 	0 ,scanline ;
 
-|render
-|sh $0000f0 degrade!
-|0 0 .at sw sh .fboxdh
-
 :inistat
 	;
 :addstat
 	drop ;
 :endstat
+
+	;
+|-----------------------------------
+#matcol )( $ffff
+
+:rescol
+	'matcol >r 0 0 ( $fff <? )( 1+ over r!+ ) 2drop rdrop ;
+
+:to12+ | rgb -- ; matcol(rgb12)++
+	dup 4 >> $f and over 8 >> $f0 and or swap 12 >> $f00 and or
+	2 << 'matcol + 1 swap +! ;
+
+:histogramacolor
+	rescol
+:h2
+	imagen1 >r
+	bmp.ancho bmp.alto
+	( 1? )( 1-
+		over ( 1? )( 1-
+			r@+ to12+
+			) drop
+		) 2drop
+	rdrop
 	;
 
+:noceros | -- cntceros
+	'matcol >r
+	0 0 ( $fff <? )( 1+
+		r@+ 0? ( drop swap 1+ swap )( drop )
+		) drop rdrop
+	;
+
+|-----------------------------------
 #yrenglon
 
 :main
-	"bmp/cerezop.bmp" bmp.load 'imagen1 !
+	"bmp/pasto.bmp" bmp.load 'imagen1 !
+|	"bmp/cerezop.bmp" bmp.load 'imagen1 !
 | 	"bmp/logo-clubpesca.bmp" bmp.load 'imagen1 !
+
+	histogramacolor
 
 	inigui
 	'exit >esc<
@@ -139,7 +169,8 @@
 
 		0 rows 1- at
 		dup "(%d) " print
-		verde scanline# "%d" print
+		verde scanline# "%d " print
+		$fff noceros - "Colores:%d " print
 		yrenglon
 		bmp.ancho
 		2dup * 2 << imagen1 + >r
@@ -170,6 +201,17 @@
 		endstat
 		bmp.ancho over op
 		sw swap line
+
+		0 0 setxy
+		'matcol >r
+		$7f ( 1? )(
+			500 over setxy
+			$7f ( 1? )( 1-
+				r@+ px!+
+				) drop
+			1- ) drop rdrop
+
+ h2
 		cflecha
 ;
 
