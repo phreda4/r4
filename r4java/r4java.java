@@ -1,8 +1,21 @@
+/* * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * ---------------------------------------------------------------------------
+ * Copyright (c) 2006, Pablo Hugo Reda <pabloreda@gmail.com>, Mar del Plata, Argentina
+ * All rights reserved.
+ */
+//  Reda4 interprete y compilador  pabloreda@gmail.com
+
+// Version Java Applet
+// MC 27/3/2010: screen blitting tests, events in a simple applet.
 
 import java.awt.event.*;
 import java.util.Calendar;
 
-public class test extends tinyptc implements KeyListener, MouseListener, MouseMotionListener {
+public class r4java extends tinyptc implements KeyListener, MouseListener, MouseMotionListener {
 
     public void main(int width,int height) {
 
