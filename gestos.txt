@@ -5,6 +5,8 @@
 ^lib/trace.txt
 ^lib/fontt.txt
 
+^trazo.txt
+
 #bx1 #by1 #bx2 #by2
 #memmap
 
@@ -33,6 +35,38 @@
 	0 boxlist !
 	0 dibujo !
     ;
+
+::savegst | "nombre" --
+	mark
+	boxlist boxlist> over - 2 >> ,
+	( boxlist> <? )( @+ , ) drop
+	dibujo dibujo> over - 2 >> ,
+	( dibujo> <? )( @+ , ) drop
+	string string> over - ,
+	( string> <? )( c@+ ,c ) drop
+		|dibujo<
+	savemem
+	empty ;
+
+::loadgst | "nombre" --
+	mark
+	here dup rot load 'here !
+	here =? ( drop empty reset ; )
+	@+ boxlist swap
+	( 1? )( 1- >r
+		swap @+ rot !+
+		r> ) drop 'boxlist> !
+	@+ dibujo swap
+	( 1? )( 1- >r
+		swap @+ rot !+
+		r> ) drop 'dibujo> !
+	@+ string swap
+	( 1? )( 1- >r
+		swap c@+ rot c!+
+		r> ) drop 'string> !
+	drop
+	dibujo> 'dibujo< !
+	empty ;
 
 :,aux | c --
 	string> c!+ 'string> ! ;
@@ -105,31 +139,6 @@
 	( linea> <? )( @+ >uv line ) drop ;
 
 
-|-------tipo dibujo
-| ...0 00..
-:t000 | color	$00 000000
-	drop ;
-:t001 | color	$04 000000
-	$ffffff and ink ;
-:t010 | op		$08 000000
-	dup $fff and swap 12 >> $fff and op ;
-:t011 | line	$0c 000000
-	dup $fff and swap 12 >> $fff and line ;
-:t100 | cv-curve
-	dup $fff and swap 12 >> $fff and cp @+ dup $fff and swap 12 >> $ffff and curve ;
-:t101 | pline
-	dup $fff and swap 12 >> $fff and pline ;
-:t110 | cv-pcurve
-	dup $fff and swap 12 >> $fff and cp @+ dup $fff and swap 12 >> $ffff and pcurve ;
-:t111 | endpoli
-	drop poli ;
-
-#acc t000 t001 t010 t011 t100 t101 t110 t111
-
-:drawdraw | str --
-	( @+ 1? )(
-		dup 24 >> $1c and 'acc + @ exec
-		) 2drop ;
 
 |----------------
 :colineal | q1 q2 q3 -- 0/1
@@ -225,6 +234,9 @@
 	campodraw
 	cmano ;
 
+:loadmem	"mem/test.gst" loadgst ;
+:savemem    "mem/test.gst" savegst ;
+
 #modoc 'cursordibuja
 
 |---------------------
@@ -259,10 +271,10 @@
 		boxlist ( boxlist> <? )( 8 + "* " print @+ print cr ) drop
 
 		32 32 gc.vbetween
-		dibujo drawdraw
+		dibujo trazodraw
 		verde drawlinea
 		verde drawbox
 		modoc >r ;
 
 
-: 4 ram main ;
+: 4 ram loadmem main savemem ;
