@@ -3,7 +3,6 @@
 |---------------------------------
 ^lib/reda4.txt
 ^lib/print.txt
-^r4post.txt
 ^lib/trace.txt
 
 #:<<ip
@@ -29,12 +28,17 @@
 #:dpila> 'dpila
 
 :d.push | nro tipo --
-	dpila> !+ !+ 
+	dpila> !+ !+
 	'dpila> ! ;
 
-:d.pop | -- nro
-	dpila> 8 2 << -
+::d.pop | -- nro
+	dpila> 8 -
 	dup 'dpila> ! @ ;
+:d.pop2
+	dpila> 12 -
+	dup 'dpila> !
+	@+ swap 4+ @
+	;
 
 :d.cnt | -- cnt
 	dpila dpila> - 3 >> ;
@@ -48,10 +52,11 @@
 :d.tipo | nro --
 	 dpila> 1028 + ! ;
 
-:d.pushDec	$0 d.push ;
-:d.pushHex	$1 d.push ;
-:d.pushbin		$2 d.push ;
-:d.pushfix		$3 d.push ;
+::d.pushDec		$0 d.push ;
+::d.pushHex		$1 d.push ;
+::d.pushBin		$2 d.push ;
+::d.pushFix		$3 d.push ;
+
 :d.pushdir2str	$10 d.push ;
 :d.pushdir2var	$20 d.push ;
 :d.pushdir2acc	$30 d.push ;
@@ -69,6 +74,8 @@
 :r.pop	-4 'rpila> +! rpila> @ ;
 :r.cnt	rpila> 'rpila - ;
 
+#msg 
+
 |---- interrupciones
 :+interrupcion | inter --
 	0? ( drop ; )
@@ -82,7 +89,8 @@
 :?pilar	'rpila> >=? ( "Pila R llena" 'msg ! 0 nip rdrop ; ) ;
 
 :pmem? | adr -- adr/0
-	prog >=? ( prog> <=? ( ; ) )
+
+|	prog >=? ( prog> <=? ( ; ) )
 	"fuera de mem" 'msg ! 0 nip rdrop ;
 
 
@@ -126,34 +134,34 @@
 :i0		drop ;
 :i:		drop ;
 :i#		drop ;
-:idec	8 >> cte + @ d.pushdec ;
-:ihex	8 >> cte + @ d.pushhex ;
-:ibin	8 >> cte + @ d.pushbin ;
-:ifix	8 >> cte + @ d.pushfix ;
+:idec	8 >> |cte + @ d.pushdec ;
+:ihex	8 >> |cte + @ d.pushhex ;
+:ibin	8 >> |cte + @ d.pushbin ;
+:ifix	8 >> |cte + @ d.pushfix ;
 
 :istr
-	8 >> str +
+	8 >> |str +
 	d.push ;
 
 :ivar
-	8 >> pal@tok @
+	8 >> |pal@tok @
 	d.push drop ;
 
 :idvar
-	8 >> pal@tok
+	8 >> |pal@tok
 	d.push drop ;
 
 :ilit
 	8 >> d.push ;
 
 :idwor
-	d.dir2acc dacc.d
-	8 >> pal@tok nip
+|	d.dir2acc dacc.d
+|	8 >> pal@tok nip
 	d.push ;
 
 |--- llama palabra
 :iwor
-	8 >> pal@tok
+|	8 >> pal@tok
 	swap +executa
 	swap r.push ;
 
@@ -263,9 +271,12 @@
 :iC!+       drop dpila> 8 -  dup @+ swap @ c!+ swap !+ 'dpila> ! ; | nose
 :iW!+       drop dpila> 8 -  dup @+ swap @ w!+ swap !+ 'dpila> ! ; | nose
 |---- pantalla
-:iSW 		drop d.nro dec.d sw d.push ;
-:iSH    	drop d.nro dec.d sh d.push ;
-:iFRAMEV	drop d.nro hex.d framev d.push ;
+:iSW 		drop |d.nro dec.d 
+		sw d.push ;
+:iSH    	drop | d.nro dec.d 
+		sh d.push ;
+:iFRAMEV	drop | d.nro hex.d 
+		framev d.push ;
 :iREDRAW    drop redraw ;
 :iUPDATE
 	drop	|update | hace interrupciones
@@ -410,7 +421,7 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	blanco
 	<<ip 0? ( drop "fin" print ; )
 	dup "IP:%h " print
-	tokenprint
+|	tokenprint
 	@ 8 >> " %h" print
 	dpila> 'dpila - 2 >> "D: %d" print
 	|drop
@@ -442,9 +453,12 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	c!+ 'freemem ! drop ;
 
 :accpal | val instr --
-	7 <? ( drop 8 >> cte + @ gmem exec ; ) 	| nro
-	7 =? ( drop 8 >> str + gstr ; )			| str
-	12 <? ( drop 8 >> pal@tok nip mem0 ; )	| pal
+	7 <? ( drop 8 >> |cte + @
+		 gmem exec ; ) 	| nro
+	7 =? ( drop 8 >> |str + 
+		gstr ; )			| str
+	12 <? ( drop 8 >> | pal@tok nip 
+		mem0 ; )	| pal
 	13 =? ( 2drop 'mem2 'gmem ! ; ) | (
 	14 =? ( 2drop 'mem3 'gmem ! ; )	| )(
 	16 =? ( 2drop 'mem1 'gmem ! ; ) | [
@@ -477,7 +491,7 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	16 + ;
 
 :memvars | --
-	'indicepal ( indicepal> <? )( cadapal ) drop ;
+|	'indicepal ( indicepal> <? )( cadapal ) drop ;
 
 |-------
 ::resetvm | --
@@ -485,7 +499,7 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	'inter 'inter> !
 	d.ini	| inicia pilad
 	r.ini	| inicia pilar
-	<<boot '<<ip !
+|	<<boot '<<ip !
 	;
 
 |-------
