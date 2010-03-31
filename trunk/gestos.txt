@@ -7,138 +7,31 @@
 
 ^trazo.txt
 
-#bx1 #by1 #bx2 #by2
 #memmap
 
-#boxlist
-#boxlist>
 #dibujo
 #dibujo>
 #dibujo<
+#boxlist
+#boxlist>
 #string
 #string>
 
+#tpad )( 2048
+
 #campocursor
+#coloractual $ff00
 
-
-:ram
-	mark
-	here
-	dup 'boxlist ! $ffff +
-	dup 'dibujo ! $7ffff +
-	dup 'string ! $ffff +
-	'here !
-:reset
-	boxlist 'boxlist> !
-	dibujo dup 'dibujo> !+ !
-	string 'string> !
-	0 boxlist !
-	0 dibujo !
-    ;
-
-::savegst | "nombre" --
-	mark
-	boxlist boxlist> over - 2 >> ,
-	( boxlist> <? )( @+ , ) drop
-	dibujo dibujo> over - 2 >> ,
-	( dibujo> <? )( @+ , ) drop
-	string string> over - ,
-	( string> <? )( c@+ ,c ) drop
-		|dibujo<
-	savemem
-	empty ;
-
-::loadgst | "nombre" --
-	mark
-	here dup rot load 'here !
-	here =? ( drop empty reset ; )
-	@+ boxlist swap
-	( 1? )( 1- >r
-		swap @+ rot !+
-		r> ) drop 'boxlist> !
-	@+ dibujo swap
-	( 1? )( 1- >r
-		swap @+ rot !+
-		r> ) drop 'dibujo> !
-	@+ string swap
-	( 1? )( 1- >r
-		swap c@+ rot c!+
-		r> ) drop 'string> !
-	drop
-	dibujo> 'dibujo< !
-	empty ;
-
-:,aux | c --
-	string> c!+ 'string> ! ;
-
-:+str | "" -- index
-	string> swap
-	( c@+ 1? )( ,aux ) ,aux
-	drop string - ;
-
-:+box | param --
-	bx2 bx1 - abs 8 <? ( drop ; ) drop
-	by2 by1 - abs 8 <? ( drop ; ) drop
-	bx2 16 << by2 or
-	bx1 16 << by1 or
-	boxlist> !+ !+ !+ 'boxlist> ! ;
-
-:0box
-	0 boxlist> ! ;
-
-:dbox | x1 y1 x2 y2 --
-	2over op
-	over pick3 line
-	swap over line
-	pick2 swap line
-	line ;
-
-:drawbox
-	boxlist ( boxlist> <? )( >r
-		r@+ dup 16 >> swap $ffff and
-		r@+ dup 16 >> swap $ffff and
-		dbox
-		r@+ print
-		r> ) drop ;
-
-:campodraw
-	campocursor 0? ( drop ; ) >r
-	r@+ dup 16 >> swap $ffff and
-	r@+ dup 16 >> swap $ffff and
-	violeta
-	dbox
-	r@+ print
-	rdrop ;
-
-|-------------
 :,dib | v --
 	dibujo> !+ 'dibujo> ! ;
 
 :0dib
 	0 dibujo> ! ;
 
-|-------------
-#linea )( 32768
-#linea> 'linea
-
-:,linea | xy --
-	linea> 4 - @ =? ( drop ; )
-	linea> !+ 'linea> ! ;
-
-:resetlinea
-	'linea 'linea> ! ;
-
-:addline
-	tpen @+ 0? ( 2drop ; )
-	( 1? )( 1- swap @+ ,linea swap )
-	2drop ;
-
-:drawlinea
-	'linea
-	@+ 0? ( 2drop ; ) >uv op
-	( linea> <? )( @+ >uv line ) drop ;
-
-
+:,color | color --
+	dup 'coloractual !
+	dibujo> 4 - @ $4000000 nand? ( -4 'dibujo> +! ) drop
+	$4000000 or ,dib ;
 
 |----------------
 :colineal | q1 q2 q3 -- 0/1
@@ -176,43 +69,132 @@
 	checkline ;
 
 :pasatrazo
-	'linea linea> >=? ( drop ; )
+	'trazo trazo> >=? ( drop ; )
 	@+ 16to12 $08000000 or ,dib
-	( linea> <? )(
+	( trazo> <? )(
 		@+ cadapunto
 		) drop
 	0dib
-	 ;
+    resetlinea
+	;
 
-|-------tipo coord
-:+xydata | x y --
-	by1 <? ( dup 'by1 ! )
-	by2 >? ( dup 'by2 ! ) drop
-	bx1 <? ( dup 'bx1 ! )
-	bx2 >? ( dup 'bx2 ! ) drop ;
+|-------------
+:ram
+	mark
+	here
+	dup 'boxlist ! $ffff +
+	dup 'dibujo ! $7ffff +
+	dup 'string ! $ffff +
+	'here !
+:reset
+	boxlist 'boxlist> !
+	dibujo dup 'dibujo> !+ !
+	string 'string> !
+	0 boxlist !
+	0 dibujo !
+	coloractual ,color
+    ;
 
-:xx drop ;
-:dd dup $fff and swap 12 >> $fff and +xydata ;
-:ddc dup dd dd ;
+::savegst | "nombre" --
+	mark
+	dibujo dibujo> over - 2 >> ,
+	( dibujo> <? )( @+ , ) drop
+	boxlist boxlist> over - 2 >> ,
+	( boxlist> <? )( @+ , ) drop
+	string string> over - ,
+	( string> <? )( c@+ ,c ) drop
+		|dibujo<
+	savemem
+	empty ;
 
-#accXY xx xx dd dd ddc dd ddc xx
+::loadgst | "nombre" --
+	mark
+	here dup rot load
+	'here !
+	here =? ( drop empty reset ; )
+	@+ dibujo swap
+	( 1? )( 1- >r
+		swap @+ rot !+
+		r> ) drop 'dibujo> !
+	@+ boxlist swap
+	( 1? )( 1- >r
+		swap @+ rot !+
+		r> ) drop 'boxlist> !
+	@+ string swap
+	( 1? )( 1- >r
+		swap c@+ rot c!+
+		r> ) drop 'string> !
+	drop
+	dibujo> 'dibujo< !
+	empty ;
 
-:gestobox | str --
-	sh sw 'bx1 ! 'by1 !
-	0 0 'bx2 ! 'by2 !
-	( @+ 1? )(
-		dup 24 >> $1c and 'accXY + @ exec
-		) 2drop ;
+:,aux | c --
+	string> c!+ 'string> ! ;
+
+:+str | "" -- index
+	string> swap
+	( c@+ 1? )( ,aux ) ,aux
+	drop string - ;
+
+|------------------
+:box!+ | d c b a --
+	boxlist> !+ !+ !+ !+ 'boxlist> ! ;
+
+:0box
+	0 boxlist> ! ;
+
+:dbox | x1 y1 x2 y2 --
+	2over op
+	over pick3 line
+	swap over line
+	pick2 swap line
+	line ;
+
+:drawbox
+	boxlist ( boxlist> <? )( >r
+		r@+ dup 16 >> swap $ffff and
+		r@+ dup 16 >> swap $ffff and
+		dbox
+		r@+ print
+		r@+
+		r> ) drop ;
+
+:campodraw
+	campocursor 0? ( drop ; ) >r
+	r@+ dup 16 >> swap $ffff and
+	r@+ dup 16 >> swap $ffff and
+	violeta
+	dbox
+	r@+ print
+	r@+ drop
+	rdrop ;
+
+
+:colorpick
+	;
 
 |----------------
 :makebox
-	dibujo<
-	dibujo> =? ( drop ; ) | no agrega si no hay trazo
-	gestobox
-	"hola" +box
+	dibujo< dibujo> =? ( drop ; ) | no agrega si no hay trazo
+	0
+	"hola"
+	trazobox
+	16 << or >r
+	16 << or r>
+	box!+
 	dibujo> 'dibujo< !
 	;
 
+|-----------------
+
+
+:makemtr
+	dibujo< dibujo> =? ( drop ; ) | no agrega si no hay trazo
+	'tpad swap
+	( dibujo> <? )( | tpad dib
+   +   @
+		)
+	2drop ;
 |---------------------
 :cursordibuja
 	[ tpen drop resetlinea ; ] onDn
@@ -239,41 +221,57 @@
 
 #modoc 'cursordibuja
 
+:debug
+	cr verde
+	trazo> 'trazo - 2 >> "tra:%d " print
+   	dibujo> dibujo - 2 >> "dib:%d " print
+	cr
+	;
+
 |---------------------
 :main
     inigui
 	'exit >esc<
 |	'pasatrazo <f1>
-	[ rand $ffffff and $04000000 or ,dib ; ] <f2> | color al azar
 	[ modoc 'cursordibuja =? ( 'cursorselec )( 'cursordibuja ) nip 'modoc ! ; ] <enter>
 	show clrscr
-		32 gc.top $f gc.hfill
-		font-vard-12-bold home cr2
-		verde dup " :R%d" print
-		blanco "GESTO " print
+		font-vard-12-bold
+		32 gc.top
+|		$f gc.hfill
+|		home cr2
+|		verde dup " :R%d" print
+|		blanco "GESTO " print
 
 		32 gc.botton $00000f gc.hfill
-		font-vard-8-bold home cr2
+		home cr2
 
 	| acciones
+		sp coloractual ink
+		'colorpick "  " btnbox
+		sp sp
 		rojo
 		sp 'exit "esc-Exit" btnt
 		sp verde
-		sp 'makebox dup <f1> "f1-Box" btnt
+		sp 'reset dup <f1> "f1-Reset" btnt
 
-		scr fonti
-		cr cr verde
-		linea> 'linea - 2 >> "%d " print cr
-    	dibujo> dibujo - 2 >> "%d " print
-|		'linea ( linea> <? )( @+ "%h " print ) drop cr
-|	    dibujo ( @+ 1? )( "%h " print ) 2drop cr
-		home
-		boxlist ( boxlist> <? )( 8 + "* " print @+ print cr ) drop
+		sp 'makebox dup <f2> "f2-Box" btnt
+		sp [ rand $ffffff and ,color ; ] dup <f3> "f3-Color" btnt | color al azar
+    	sp 'makemtr dup <f4> "f4-2mtr" btnt
+
+
+		scr fonti home blanco
+		dibujo trazopoli cr
+		debug
 
 		32 32 gc.vbetween
 		dibujo trazodraw
-		verde drawlinea
+
+		coloractual ink
+		drawlinea
+
 		verde drawbox
+		blanco
+		'tpad 50 50 mtrazodraw
 		modoc >r ;
 
 
