@@ -123,32 +123,19 @@
 	0? ( drop 1- )( drop )
 	;
 
-:esnumero? | adr -- adr/adrn ..
-    dup ?numero 0? ( drop
-		dup ?fnumero 0? ( drop ; )
-		) drop
-	rot drop
-	1 'modon !
-	d.pushDec rdrop ;
-
-:essis? | adr -- adr/adrn ..
-	dup 'voc-system inupp?
-	0? ( drop ; )
-	1- 2 << 'exe-system + @ exec
-    nextw rdrop ;
-
-:esmacro? | adr -- adr/adrn ..
-	dup ?macro |'macrosr4 inupp?
-	0? ( drop ; )
-    stepmacro
-|	"%d" mprint mensaje!
-	nextw rdrop ;
-
 :espalabra? | adr -- adr/adrn ..
 	dup 'mydicc inupp?
 	0? ( drop ; )
 	"%d" mprint mensaje!
 	nextw rdrop ;
+
+:pushnro | val --
+	basen
+	10 =? ( drop d.pushDec ; )
+	2 =? ( drop d.pushBin ; )
+	drop
+	d.pushHex ;
+	;
 
 :palabraconsola | str -- str'
 	( dup c@ 33 <? )( 0? ( nip ; ) drop 1+ )		| quitar espacios
@@ -161,11 +148,13 @@
 |		dup ?macro 1? ( 3drop " no tiene direccion" mensaje! 0 ; ) drop
 |		?palabra 1? ( nip esdir ; ) 2drop
 |		" no existe direccion" seterror 3 - 0 ; )
-|	drop
+
 	drop
-	esnumero?
-	essis?
-	esmacro?
+
+	dup ?numero 1? ( drop pushnro nip ; ) drop
+	dup ?fnumero 1? ( drop d.pushFix nip ; ) drop
+	dup 'voc-system inupp? 1? ( 1- 2 << 'exe-system + @ exec nextw ; ) drop
+	dup ?macro 1? ( stepmacro nextw ; ) drop
 	|espalabra?
 	drop
 	0
@@ -177,7 +166,29 @@
 	0 'consola !
 	;
 
+|----- imprime pilas
 
+:dec	@+ "%d" printc ;	|::d.pushDec 0
+:hex    @+ "$%h" printc ;	|::d.pushHex 1
+:bin    @+ "%%%b" printc ;	|::d.pushBin 2
+:fix    @+ "%f" printc ;	|::d.pushFix 3
+:str    @+ "%d" printc ;	|::d.pushStr 4
+:var	@+ "%d" printc ;	|::d.pushVar  5
+:dvar	@+ "%d" printc ;	|::d.pushDVar 6
+:dcod	@+ "%d" printc ;	|::d.pushDCod 7
+:cnum	@+ "%d" printc ;	|::d.pushCNum 8
+:cstr	@+ "%d" printc ;	|::d.pushCStr 9
+:cdvar	@+ "%d" printc ;	|::d.pushCDVar 10
+:cdcod	@+ "%d" printc ;	|::d.pushCDCod 11
+
+#accpp 'dec 'hex 'bin 'fix 'str 'var 'dvar 'dcod 'cnum 'cstr 'cdvar  'cdcod
+
+:printpila | adr -- adr--
+	8 -
+	@+ $f and 2 << 'accpp + @ exec
+	8 - ;
+
+|----- interaccion
 :modo-vm
 	scr home
 	azul 2 linesfill
@@ -188,25 +199,20 @@
 	0.1 0.76 fdim
 	0.65 0.1 fpos home
 	verde gc.box
-	blanco cr2 "Dato" printc cr cr2 amarillo
-	dpila> ( 'dpila >? )( 4 -
-		dup @ "%d" printc cr
-		) drop
+	blanco cr2 "Dato" printc cr cr2
+	dpila> ( 'dpila >? )( printpila cr ) drop
 	0.88 0.1 fpos home
 	verde gc.box
-	blanco cr2 "Retorno" printc cr cr2 amarillo
-	rpila> ( 'rpila >? )( 4 -
-		dup @ "%d" printc cr
-		) drop
+	blanco cr2 "Retorno" printc cr cr2
+	rpila> ( 'rpila >? )( printpila cr ) drop
 
 		| consola
-		scr 12 font home 0 rows 1- at
-		dup verde ":r%d " print
-		rojo 'mensaje printx
-		blanco "> " print
-		'consola 32 inputline cr
-		'correconsola <enter>
-
+	scr 12 font home 0 rows 1- at
+	dup verde ":r%d " print
+	rojo 'mensaje printx
+	blanco "> " print
+	'consola 32 inputline cr
+	'correconsola <enter>
 	;
 
 |---------- main
@@ -228,6 +234,6 @@
 
 
 |****** BOOT ******
-: 0 paper mark                      
+: 0 paper mark
 	4 main
 	;
