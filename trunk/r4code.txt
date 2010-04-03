@@ -24,12 +24,34 @@
 #irqkey 0
 
 |--- Pilas
+| 		valor 		tipo
+| TOS = dpila>-4  dpila>-8
+|       -12       -16
+|       -20       -24
+|       -28       -32
 #:dpila )( 2048
 #:dpila> 'dpila
 
+:d.ini 'dpila 'dpila> ! ;
+:d.cnt | -- cnt
+	dpila dpila> - 3 >> ;
+
 :d.push | nro tipo --
-	dpila> !+ !+
-	'dpila> ! ;
+	dpila> !+ !+ 'dpila> ! ;
+
+::d.pushDec		$0 d.push ;
+::d.pushHex		$1 d.push ;
+::d.pushBin		$2 d.push ;
+::d.pushFix		$3 d.push ;
+
+::d.pushStr		$4 d.push ;
+::d.pushVar		$5 d.push ;
+::d.pushDVar	$6 d.push ;
+::d.pushDCod	$7 d.push ;
+::d.pushCNum	$8 d.push ;
+::d.pushCStr	$9 d.push ;
+::d.pushCDVar	$10 d.push ;
+::d.pushCDCod	$11 d.push ;
 
 ::d.pop | -- nro
 	dpila> 8 -
@@ -40,31 +62,72 @@
 	@+ swap 4+ @
 	;
 
-:d.cnt | -- cnt
-	dpila dpila> - 3 >> ;
-
-:d.ini 'dpila 'dpila> ! ;
 
 :d.get dpila> 8 - @ ;
 :d.get2 dpila> 16 - @ ;
 
-| vista de la pila 	-- a
-:d.tipo | nro --
-	 dpila> 1028 + ! ;
+|-----
+:iDROP  drop -8 'dpila> +! ;
+:i2DROP drop -16 'dpila> +! ;
+:i3DROP drop -24 'dpila> +! ;
+:i4DROP drop -32 'dpila> +! ;
+:iDUP   drop
+	dpila> 8 - >r
+	r@+ r@+ swap
+	r!+ r!+ r> 'dpila> ! ;
+:i2DUP  drop
+	dpila> 32 - >r
+	r@+ r@+ swap r> 16 + >r
+	r!+ r!+ r> 'dpila> ! ;
+:iOVER  drop
+	dpila> 16 - >r
+	r@+ r@+ swap r> 8 + >r
+	r!+ r!+ r> 'dpila> ! ;
+:iPICK2 drop
+	dpila> 24 - >r
+	r@+ r@+ swap r> 16 + >r
+	r!+ r!+ r> 'dpila> ! ;
+:iPICK3
+	dpila> 32 - >r
+	r@+ r@+ swap r> 24 + >r
+	r!+ r!+ r> 'dpila> ! ;
+:iPICK4
+	dpila> 40 - >r
+	r@+ r@+ swap r> 32 + >r
+	r!+ r!+ r> 'dpila> ! ;
+:iSWAP drop
+	dpila> 16 - >r
+	r@+ r@+ swap
+	r@+ r> @ swap
+	dpila> 16 -
+	!+ !+ !+ ! ;
+:iNIP drop
+	dpila> 8 - >r
+	r@+ r@+ swap r> 16 -
+	!+ !+ 'dpila> ! ;
+:iROT drop
+	dpila> 24 - >r
+	r@+ r@+ swap
+	r@+ r@+ swap
+	r@+ r> @ swap 2swap
+	dpila> 24 -
+	!+ !+ !+ !+ !+ ! ;
+:i2OVER drop
+	dpila> 32 - >r
+	r@+ r@+ swap
+	r@+ r@+ swap 2swap
+	r> 16 +
+	!+ !+ !+ !+ 'dpila> ! ;
+:i2SWAP drop
+	dpila> 32 - >r
+	r@+ r@+ swap
+	r@+ r@+ swap 2swap
+	r@+ r@+ swap
+	r@+ r@+ swap 2swap r> 32 -
+	!+ !+ !+ !+ !+ !+ !+ ! ;
 
-::d.pushDec		$0 d.push ;
-::d.pushHex		$1 d.push ;
-::d.pushBin		$2 d.push ;
-::d.pushFix		$3 d.push ;
-
-:d.pushdir2str	$10 d.push ;
-:d.pushdir2var	$20 d.push ;
-:d.pushdir2acc	$30 d.push ;
-:d.pushcalc		$40 d.push ;
-:d.pushcalcstr	$50 d.push ;
-:d.pushcalcvar	$60 d.push ;
-:d.pushcalcacc	$70 d.push ;
-
+|----- PILA R
+|
 #:rpila )( 2048
 #:rpila> 'rpila
 
@@ -72,9 +135,20 @@
 
 :r.push	rpila> !+ 'rpila> ! ;
 :r.pop	-4 'rpila> +! rpila> @ ;
-:r.cnt	rpila> 'rpila - ;
+:r.cnt	rpila> 'rpila - 3 >> ;
 
-#msg 
+
+:i>R	drop dpila> 4 -  dup 'dpila> ! @ rpila> !+  'rpila> ! ;		|--- pila de direccion
+:iR>    drop rpila> 4 -  dup 'rpila> ! @ dpila> !+  'dpila> ! ;
+:iR     drop rpila> 4 -  @ dpila> !+  'dpila> ! ;
+:iR+	drop dpila> 4 -  dup 'dpila> ! @ rpila> 4 - +! ;
+:iR@+	drop rpila> 4 -  dup @ @ dpila> !+ 'dpila> ! 4 swap +! ;
+:iR!+	drop dpila> 4 -  dup 'dpila> ! @ rpila> 4 - 4 over +! @ ! ;
+:iRDROP	drop rpila> 4 -  'rpila> ! ;
+
+|-------------------------------------
+
+#msg
 
 |---- interrupciones
 :+interrupcion | inter --
@@ -89,45 +163,8 @@
 :?pilar	'rpila> >=? ( "Pila R llena" 'msg ! 0 nip rdrop ; ) ;
 
 :pmem? | adr -- adr/0
-
 |	prog >=? ( prog> <=? ( ; ) )
 	"fuera de mem" 'msg ! 0 nip rdrop ;
-
-
-|----- dibuja pila D
-:dec.p		@+ " %d" amarillo print ;
-:hex.p		@+ " $%h" verde print ;
-:bin.p		@+ " %%%b" blanco print ;
-:fix.p		@+ " %f" naranja print ;
-:dstr.p		@+ " %d" azul print ;
-:dvar.p		@+ " %d" violeta print ;
-:dacc.p		@+ " %d" cyan print ;
-:prog.p		@+ " >%d" rojo print ;
-
-#acctpila dec.p hex.p bin.p fix.p dstr.p dvar.p dacc.p prog.p
-:pilatipo | adr -- adr++
-	dup 1028 + @ $7 and 2 << 'acctpila + @ exec ;
-
-::dibujapila
-	d.cnt 1? (
-		amarillo "(" print 'dpila ( dpila> <? )(
-			pilatipo |@+ " %d" print
-			) drop
-		) drop ;
-
-|----- dibuja pila R
-
-#acctpilar dec.p hex.p bin.p fix.p dstr.p dvar.p dacc.p prog.p
-:pilartipo | adr -- adr++
-	dup 1028 + @ $7 and 2 << 'acctpilar + @ exec ;
-
-::dibujapilar
-	r.cnt 1? (
-		cyan "(" print 'rpila ( rpila> <? )(
-			@+ " %h" print
-			) drop
-		) drop ;
-
 
 |--- interprete
 
@@ -194,45 +231,10 @@
 	d.pop 1? ( swap r.push ; ) drop
 	;
 
-:iDROP  drop -4 'dpila> +! ;
-:i2DROP drop -8 'dpila> +! ;
-:i3DROP drop -12 'dpila> +! ;
-:i4DROP drop -16 'dpila> +! ;
-:iDUP   drop
-	dpila> 4 -
-	dup 1028 + @+ swap ! 		| copia tipo costoso!!
-	@+ swap !+ 'dpila> ! ; 					| copia valor
-:i2DUP  drop
-	dpila> 8 -
-	dup 1028 + @+ swap @+ rot rot !+ !		| copia tipo
-	@+ swap @+ rot rot !+ !+ 'dpila> ! ;
-:iOVER  drop
-	dpila> 8 - @+ swap 4+ !+ 'dpila> ! ;
-:iPICK2
-	drop dpila> 12 - @+ swap 8 + !+ 'dpila> ! ;
-:iPICK3
-	drop dpila> 16 - @+ swap 12 + !+ 'dpila> ! ;
-:iPICK4
-	drop dpila> 20 - @+ swap 16 + !+ 'dpila> ! ;
-:iSWAP
-	drop dpila> 8 - dup @+ swap @ rot !+ ! ;
-:iNIP
-	drop dpila> 8 - dup 4+ @ swap !+ 'dpila> ! ;
-:iROT
-	drop dpila> 12 - dup >r @+ swap @+ r!+ @ r!+ r> ! ;
-:i2OVER
-	drop dpila> 16 - @+ swap @+ rot rot 8 + !+ !+ 'dpila> ! ;
-:i2SWAP
-	drop dpila> 16 - >r r@+ r@+ r@+ r@+ -16 r+ swap r!+ r!+ swap r!+ r> ! ;
 
-:i>R	drop dpila> 4 -  dup 'dpila> ! @ rpila> !+  'rpila> ! ;		|--- pila de direccion
-:iR>    drop rpila> 4 -  dup 'rpila> ! @ dpila> !+  'dpila> ! ;
-:iR     drop rpila> 4 -  @ dpila> !+  'dpila> ! ;
-:iR+	drop dpila> 4 -  dup 'dpila> ! @ rpila> 4 - +! ;
-:iR@+	drop rpila> 4 -  dup @ @ dpila> !+ 'dpila> ! 4 swap +! ;
-:iR!+	drop dpila> 4 -  dup 'dpila> ! @ rpila> 4 - 4 over +! @ ! ;
-:iRDROP	drop rpila> 4 -  'rpila> ! ;
-|--- aritmetica logica
+|--- aritmetica y logica
+|
+
 :iAND		drop dpila> 8 -  dup @+ swap @ and swap !+ 'dpila> ! ;			|--- logica y aritmetica
 :iOR		drop dpila> 8 -  dup @+ swap @ or swap !+ 'dpila> ! ;
 :iXOR		drop dpila> 8 -  dup @+ swap @ xor swap !+ 'dpila> ! ;
@@ -254,6 +256,8 @@
 :i1-        drop dpila> 4 -  dup @ 1- swap ! ;
 :i1+        drop dpila> 4 -  dup @ 1+ swap ! ;
 :i4+        drop dpila> 4 -  dup @ 4+ swap ! ;
+
+
 |--- memoria
 :i@         drop dpila> 4 -  dup @ @ swap ! ;
 :iC@        drop dpila> 4 -  dup @ c@ swap ! ;
@@ -270,12 +274,14 @@
 :i!+        drop dpila> 8 -  dup @+ swap @ !+ swap !+ 'dpila> ! ; | nose
 :iC!+       drop dpila> 8 -  dup @+ swap @ c!+ swap !+ 'dpila> ! ; | nose
 :iW!+       drop dpila> 8 -  dup @+ swap @ w!+ swap !+ 'dpila> ! ; | nose
+
+
 |---- pantalla
-:iSW 		drop |d.nro dec.d 
+:iSW 		drop |d.nro dec.d
 		sw d.push ;
-:iSH    	drop | d.nro dec.d 
+:iSH    	drop | d.nro dec.d
 		sh d.push ;
-:iFRAMEV	drop | d.nro hex.d 
+:iFRAMEV	drop | d.nro hex.d
 		framev d.push ;
 :iREDRAW    drop redraw ;
 :iUPDATE
@@ -284,6 +290,8 @@
 	4 - dup 'inter> ! @ |0? ( drop ; )
 	swap rpila> !+ 'rpila> !
 	;
+
+
 |---- dibujo
 :iOP    	drop d.pop2 op ;
 :iCP    	drop d.pop2 cp ;
@@ -364,8 +372,10 @@ iwor ivar idwor idvar
 i;
 i(		i)(		i)		i[		i]		iEXEC
 i0?		i+?		i-?		i1?		i=?		i<?		i>?		i<=?	i>=?	i<>?	iAND?	iNAND?
+
 iDUP	iDROP	iOVER	iPICK2	iPICK3	iPICK4	iSWAP	iNIP	iROT
 i2DUP	i2DROP	i3DROP	i4DROP	i2OVER	i2SWAP
+
 i>R		iR>		iR		iR+		iR@+	iR!+	iRDROP
 iAND	iOR		iXOR	iNOT	i+		i-		i*		i/		i*/
 i*>>	i/MOD	iMOD	iABS	iNEG	i1+		i4+		i1-		i2/		i2*		i<<		i>>
@@ -415,8 +425,6 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	;
 
 ::dumpvm
-	dibujapila cr
-	dibujapilar cr
 
 	blanco
 	<<ip 0? ( drop "fin" print ; )
