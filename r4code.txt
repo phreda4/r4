@@ -9,6 +9,7 @@
 
 #memvar
 #freemem
+
 #:<<ip
 
 #:pilaexe )( 1024
@@ -476,33 +477,95 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	2drop
 	;
 
-:cadapal | adr -- adr++
-	dup 8 + @ 1 nand? ( drop 16 + ; ) drop | solo variables
-	freemem
-	over 4+
+:variable | adr --
+	freemem over 4+ | adr
 	addmem
 	freemem pick2 =? ( 4 'freemem +! ) drop | si es variable sin nros
-	!
-	16 + ;
+	! drop
+	;
 
-:calcmemvars | --
-	'indicepal ( indicepal> <? )( cadapal ) drop ;
+|---- Codigo
+:coldefw
+:coldefv drop ;
+:colitd
+:colitf
+:colitb
+:colith drop ; |tomem "%w" ,print ;
+:colits	drop ; |34 ,c tomem 1+ 34 ,c ;
+:colwor
+:colvar
+:coldwo
+:coldva	drop ;
+
+#codei 0 'coldefw 'coldefv colitd colith colitb colitf colits colwor colvar coldwo coldva
+
+:,token | a -- a.
+	@+ dup $ff and
+	12 <? ( 2 << 'codei + @ exec ; ) nip
+	nro>macro ,s ;
+
+:codigo | adrr --
+	dup @ swap 8 + @
+	( 1? )( 1- swap ,token swap )
+	2drop ;
+
+:memcodigo | nro --
+	4 << 'indicepal +
+	dup 8 + @ 1 and? ( 'variable )( 'codigo ) nip
+	exec ;
+
+|-----
+:makemem
+	0 ( cntw <? )(
+		dup ind2nro memcodigo
+		1+ ) drop ;
 
 |-------
 ::startvm
-	mark
 	|--- reserva memoria para dicc de memoria y memoria de vars
 	here dup 'memvar ! 'freemem !
-
-	calcmemvars
-
+	makemem
 ::resetvm | --
 	0 'irqkey !  | interrupciones
 	'inter 'inter> !
 	d.ini	| inicia pilad
 	r.ini	| inicia pilar
-|	<<boot '<<ip !
+	<<boot '<<ip !
 	;
 
 ::vm.step? | -- 0/1
+	;
+
+|----- imprime pilas
+
+:dec	@+ "%d" printc ;	|::d.pushDec 0
+:hex    @+ "$%h" printc ;	|::d.pushHex 1
+:bin    @+ "%%%b" printc ;	|::d.pushBin 2
+:fix    @+ "%f" printc ;	|::d.pushFix 3
+:str    @+ "%d" printc ;	|::d.pushStr 4
+:var	@+ "%d" printc ;	|::d.pushVar  5
+:dvar	@+ "%d" printc ;	|::d.pushDVar 6
+:dcod	@+ "%d" printc ;	|::d.pushDCod 7
+:cnum	@+ "%d" printc ;	|::d.pushCNum 8
+:cstr	@+ "%d" printc ;	|::d.pushCStr 9
+:cdvar	@+ "%d" printc ;	|::d.pushCDVar 10
+:cdcod	@+ "%d" printc ;	|::d.pushCDCod 11
+
+#accpp 'dec 'hex 'bin 'fix 'str 'var 'dvar 'dcod 'cnum 'cstr 'cdvar  'cdcod
+
+::printpila | adr -- adr--
+	8 -
+	@+ $f and 2 << 'accpp + @ exec
+	8 - ;
+
+::vm.dump
+	"D)" print
+	dpila> ( 'dpila >? )( sp printpila ) drop
+	cr
+	"R)" print
+	rpila> ( 'rpila >? )( sp printpila ) drop
+	cr
+	freemem memvar - 10 >> "USO VARS %d Kbytes" print cr
+	<<ip "IP: %h" print cr
+
 	;
