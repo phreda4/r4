@@ -17,37 +17,30 @@ import java.util.Calendar;
 
 public class r4java extends tinyptc implements KeyListener, MouseListener, MouseMotionListener {
 
-enum {
-FIN,LIT,ADR,CALL,JMP,JMPR, EXEC,//hasta JMPR no es visible
-IF,PIF,NIF,UIF,IFN,IFL,IFG,IFLE,IFGE,IFNO,IFAND,IFNAND,// condicionales 0 - y +  y no 0
-DUP,DROP,OVER,PICK2,PICK3,PICK4,SWAP,NIP,ROT,
-DUP2,DROP2,DROP3,DROP4,OVER2,SWAP2,//--- pila
-TOR,RFROM,ERRE,ERREM,ERRFM,ERRSM,ERRDR,//--- pila direcciones
-AND,OR,XOR,NOT,//--- logica
-SUMA,RESTA,MUL,DIV,MULDIV,MULSHR,DIVMOD,MOD,ABS,
-NEG,INC,INC4,DEC,DIV2,MUL2,SHL,SHR,//--- aritmetica
-FECH,CFECH,WFECH,STOR,CSTOR,WSTOR,INCSTOR,CINCSTOR,WINCSTOR,//--- memoria
-FECHPLUS,STOREPLUS,CFECHPLUS,CSTOREPLUS,WFECHPLUS,WSTOREPLUS,
-MOVED,MOVEA,CMOVED,CMOVEA,
-MEM,PATH,BFILE,BFSIZE,VOL,LOAD,SAVE,//--- bloques de memoria, bloques
-UPDATE,
-TPEN,
-XYMOUSE,BMOUSE,
-IRKEY,KEY,
-CNTJOY,GETJOY,
-MSEC,TIME,IDATE,SISEND,SISRUN,//--- sistema
-WIDTH,HEIGHT,CLS,REDRAW,FRAMEV,//--- pantalla
-SETXY,MPX,SPX,GPX,
-VXFB,TOXFB,XFBTO,
-COLORF,COLOR,COLORA,ALPHA,//--- color
-OP,CP,LINE,CURVE,PLINE,PCURVE,POLI,//--- dibujo
-FCOL,FCEN,FMAT,SFILL,LFILL,RFILL,TFILL, //--- pintado
-SLOAD,SPLAY,MLOAD,MPLAY,
-SERVER,CLIENT,NSEND,RECV,CLOSE, //---- red
-DOCINI,DOCEND,DOCMOVE,DOCLINE,DOCTEXT,DOCFONT,DOCBIT,DOCRES,DOCSIZE,
-SYSTEM,
-ULTIMAPRIMITIVA// de aqui en mas.. apila los numeros 0..255-ULTIMAPRIMITIVA
-};
+public static final int NOP=0,LIT= 1,ADR= 2,CALL= 3,JMP=4 ,FIN= 5,EXEC=6 ,
+       IF=7 ,PIF= 8,NIF= 9,UIF=10 ,IFN= 11,IFL= 12,IFG=13 ,IFLE= 14,IFGE= 15,IFNO=16 ,IFAND=17 ,IFNAND=18 ,
+       DUP= 19,DROP=20 ,OVER= 21,PICK2=22 ,PICK3= 23,PICK4= 24,SWAP= 25,NIP= 26,ROT= 27,
+       DUP2= 28,DROP2=29 ,DROP3=30 ,DROP4=31 ,OVER2=32 ,SWAP2=33 ,
+       TOR=34 ,RFROM=35 ,ERRE=36 ,ERREM=37 ,ERRFM=38 ,ERRSM=39 ,ERRDR=40 ,
+       AND=41 ,OR= 42,XOR=43 ,NOT=44 ,
+       SUMA=45 ,RESTA=46 ,MUL= 47,DIV=48 ,MULDIV=49 ,MULSHR= 50,DIVMOD=51 ,MOD=52 ,ABS=53 ,
+       NEG= 54,INC=55 ,INC4=56 ,DEC=57 ,DIV2=58 ,MUL2=59 ,SHL=60 ,SHR=61 ,
+       FECH= 62,CFECH=63 ,WFECH=64 ,STOR=65 ,CSTOR=66 ,WSTOR=67 ,INCSTOR=68 ,CINCSTOR=69 ,WINCSTOR=70 ,
+       FECHPLUS=71 ,STOREPLUS=72 ,CFECHPLUS= 73,CSTOREPLUS=74 ,WFECHPLUS=75 ,WSTOREPLUS= 76,
+       MOVED=77 ,MOVEA=78 ,CMOVED= 79,CMOVEA=80 ,
+       MEM=81 ,PATH=82 ,BFILE=83 ,BFSIZE= 84,VOL= 85,LOAD= 86,SAVE=87 ,
+       UPDATE=88 ,
+       TPEN=89 ,
+       XYMOUSE=90 ,BMOUSE=91 ,
+       IRKEY=92 ,KEY=93 ,
+       CNTJOY=94 ,GETJOY=95 ,
+       MSEC= 96,TIME=97 ,IDATE=98 ,SISEND=99 ,SISRUN=100 ,
+       WIDTH=101 ,HEIGHT=102 ,CLS=103 ,REDRAW=104 ,FRAMEV=105 ,
+       SETXY=106 ,MPX= 107,SPX=108 ,GPX= 109,
+       VXFB=110 ,TOXFB= 111,XFBTO=112 ,
+       COLORF=113 ,COLOR=114 ,COLORA=115 ,ALPHA= 116,
+       OP=117 ,CP= 118,LINE=119 ,CURVE=120 ,PLINE=121 ,PCURVE=122 ,POLI=123 ,
+       FCOL=124 ,FCEN=125 ,FMAT=126 ,SFILL=127 ,LFILL= 128,RFILL=129 ,TFILL=130 ;
 
 	int ip;
 	int [] dpila = new int[1024];
@@ -56,26 +49,23 @@ ULTIMAPRIMITIVA// de aqui en mas.. apila los numeros 0..255-ULTIMAPRIMITIVA
 	int FB[] = new int[sizefb];
 	int XFB[] = new int[sizefb];
 
-	char memcod[] = new char[256*1024];
-	char memdat[] = new char[1024*1024];
+	char mem[] = new int[16*1024*1024];
 
 	public void interprete()
 	{
-	int TOS,NOS,RTOS;
-	char op;
+	int TOS,NOS,RTOS,W;
 	TOS=NOS=RTOS=0;
 	while (true) {
-		op=memcod[ip];
-		ip=ip+1;
-		switch(op) {
-			case FIN: ip=rpila[RTOS];RTOS--;break
-			case LIT: NOS++;dpila[NOS]=TOS;TOS=memcod[ip]|memcod[ip+1]<<8|memcod[ip+2]<<16|memcod[ip+3]<<24;ip=ip+4;break;
-			case ADR: NOS++;dpila[NOS]=TOS;TOS=memcod[ip]|memcod[ip+1]<<8|memcod[ip+2]<<16|memcod[ip+3]<<24;ip=ip+4;TOS=... break;
-			case CALL:
-			case JMP:
-			case JMPR:
+		W=mem[IP];IP++;
+		while (w!=0) {
+		switch(W&0xff) {
+			case FIN: IP=rpila[RTOS];RTOS--;W=0;break
+			case LIT: NOS++;dpila[NOS]=TOS;TOS=mem[IP];IP++;break;
+			case ADR: NOS++;dpila[NOS]=TOS;TOS=mem[W>>8];break;
+			case CALL: rtos++;rpila[RTOS]=IP;IP=W>>8;W=0;break;
+			case JMP: IP=W>>8;W=0;break;
 			case EXEC://hasta JMPR no es visible
-			case IF:	// condicionales 0 - y +  y no 0
+			case IF: if (TOS!=0) IP+=(W>>8);W=0;break;	// condicionales 0 - y +  y no 0
 			case PIF:
 			case NIF:
 			case UIF:
@@ -218,8 +208,9 @@ ULTIMAPRIMITIVA// de aqui en mas.. apila los numeros 0..255-ULTIMAPRIMITIVA
 			case DOCRES:
 			case DOCSIZE:
 			case SYSTEM:
-
 			  }
+			W=W>>8;
+			}
 		}
 	}
 
