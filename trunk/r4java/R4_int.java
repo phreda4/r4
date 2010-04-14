@@ -11,7 +11,7 @@
 //  Version Java Applet
 
 /*
-  Example use ( for an r4 program called ex1.txt ) :
+  Example use :
 
   wine ../r4.exe cex1.txt iex1.r4x s
   javac R4_int.java 
@@ -241,10 +241,14 @@ class R4_int {
 		ip += 4 ;
 		break;
 
-		/*
-		  case ADR:
-		  break ;
-		*/
+	    case ADR:
+		nos++;
+		dpila[nos] = tos ;
+		value = getdw(prog, ip) ;
+		ip += 4 ;
+		tos = getdw(memdat, value - memstart) ;
+
+		break ;
 
 	    case CALL:
 		System.out.println("[" + bytecode[w] + "]") ;
