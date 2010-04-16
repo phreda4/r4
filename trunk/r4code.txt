@@ -7,19 +7,11 @@
 
 ^r4token.txt
 
+#memcte
 #memvar
 #freemem
 
 #:<<ip
-
-#:pilaexe )( 1024
-#:pilaexe> 'pilaexe
-
-::+executa | nroword --
-	pilaexe> !+ 'pilaexe> ! ;
-
-::-executa | --
-	-4 'pilaexe> +! ;
 
 |--- Pila DATOS
 | 		valor 		tipo
@@ -150,6 +142,7 @@
 ::r.pushCStr	$9 r.push ;
 ::r.pushCDVar	$10 r.push ;
 ::r.pushCDCod	$11 r.push ;
+::r.pushEXE		$ff r.push ;
 
 :i>R	drop d.pop r.pushDec ;		|--- pila de direccion
 :iR>    drop r.pop d.pushDec ;
@@ -184,10 +177,8 @@
 	"fuera de mem" 'msg ! 0 nip rdrop ;
 
 
-|:adr>lit
 :adr>mem
 :adr>cmem
-:adr>cod
 	8 >>
 	;
 
@@ -195,11 +186,14 @@
 :i0		drop ;
 :i:		drop ;
 :i#		drop ;
-:idec	adr>lit ?numero drop nip d.pushDec ;
-:ihex	adr>lit ?numero drop nip d.pushHex ;
-:ibin	adr>lit ?numero drop nip d.pushBin ;
-:ifix	adr>lit ?fnumero drop nip d.pushFix ;
-:istr	adr>lit d.pushStr ;
+
+:idec	tok>cte d.pushDec ;
+:ihex	tok>cte d.pushHex ;
+:ibin	tok>cte d.pushBin ;
+:ifix	tok>cte d.pushFix ;
+|:istr	tok>cte d.pushStr ;
+
+:istr	tok>src d.pushStr ;
 
 :ivar	adr>mem d.pushVar ; |adr>mem @ d.pushVar ;
 :idvar	adr>mem d.pushDVar ;
@@ -207,13 +201,13 @@
 
 |--- llama palabra
 :iwor
-	adr>cod dup +executa
-	swap r.push ;
+	8 >> nro>dir
+	swap r.pushEXE
+	;
 
 |--- retorna
 :i;
-	r.cnt 0? ( nip ; ) 2drop
-	r.pop -executa ;
+	r.cnt 0? ( nip ; ) r.pop 3drop ;
 
 :i)(
 :i)		8 >> + ;
@@ -340,18 +334,18 @@
 :iGETJOY    drop d.pop GETJOY d.push ;
 |--- archivos
 :iDIR       drop d.pop dir ;	| "path" --
-:iVOL       drop d.pop VOL d.push ;  | nro -- "nombre" o 0
-:iFILE      drop d.pop file d.push ;  | nro -- "nombre" o 0
-:iFSIZE     drop d.pop FSIZE d.push ;  | nro --  size o 0
-:iLOAD      drop dpila> 8 -  dup @+ swap @ load swap !+ 'dpila> ! ;  | 'from "filename" -- 'to
-:iSAVE      drop dpila> 12 -  dup @+ swap @+ swap @ save 'dpila> ! ;   |  'from cnt "filename" --
-:iMEM       drop mem dpila> !+  'dpila> ! ; | mem
+:iVOL       drop d.pop VOL d.pushVar ;  | nro -- "nombre" o 0
+:iFILE      drop d.pop file d.pushVar ;  | nro -- "nombre" o 0
+:iFSIZE     drop d.pop FSIZE d.pushVar ;  | nro --  size o 0
+:iLOAD      drop d.pop2 load d.pushVar ;  | 'from "filename" -- 'to
+:iSAVE      drop d.pop3 save ;   |  'from cnt "filename" --
+:iMEM       drop freemem d.pushVar ; | mem
 
 |--- mueve mem
-:iMOVE      drop dpila> 12 -  dup @+ swap @+ swap @ move 'dpila> ! ;
-:iMOVE>     drop dpila> 12 -  dup @+ swap @+ swap @ move> 'dpila> ! ;
-:iCMOVE     drop dpila> 12 -  dup @+ swap @+ swap @ cmove 'dpila> ! ;
-:iCMOVE>    drop dpila> 12 -  dup @+ swap @+ swap @ cmove> 'dpila> ! ;
+:iMOVE      drop d.pop3 move ;
+:iMOVE>     drop d.pop3 move> ;
+:iCMOVE     drop d.pop3 cmove ;
+:iCMOVE>    drop d.pop3 cmove> ;
 
 |--- sonido
 :iSLOAD     drop d.pop SLOAD d.push ;  | "" -- n
@@ -410,7 +404,6 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 
 |-------------------------------
 | Asigma memoria para ejecucion
-| recorre el codigo
 |
 :mem0 | nro --
 	freemem !+ 'freemem ! ;
@@ -429,10 +422,8 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	c!+ 'freemem ! drop ;
 
 :accpal | val instr --
-	7 <? ( drop 8 >> |cte + @
-		 gmem exec ; ) 	| nro
-	7 =? ( drop 8 >> |str +
-		gstr ; )			| str
+	7 <? ( drop tok>cte gmem exec ; ) 	| nro
+	7 =? ( drop tok>str	gstr ; )			| str
 	12 <? ( drop 8 >> | pal@tok nip
 		mem0 ; )	| pal
 	13 =? ( 2drop 'mem2 'gmem ! ; ) | (
@@ -468,10 +459,10 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 :coldefw
 :coldefv drop ;
 :colitd
-:colitf
 :colitb
-:colith drop ; |tomem "%w" ,print ;
-:colits	drop ; |34 ,c tomem 1+ 34 ,c ;
+:colith 
+:colitf tok>cte , ;
+:colits	drop 0 ,c ; |tomem 1+
 :colwor
 :colvar
 :coldwo
@@ -481,28 +472,43 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 
 :,token | a -- a.
 	@+ dup $ff and
-	12 <? ( 2 << 'codei + @ exec ; ) nip
-	nro>macro ,s ;
+	12 <? ( 2 << 'codei + @ exec ; )
+	2drop ;
 
 :codigo | adrr --
 	dup @ swap 8 + @
 	( 1? )( 1- swap ,token swap )
 	2drop ;
 
-:memcodigo | nro --
-	4 << 'indicepal +
-	dup 8 + @ 1 and? ( 'variable )( 'codigo ) nip
-	exec ;
+|--- reserva memoria para dicc de memoria y memoria de vars
+| 1ero recorre codigo,
+|     transforma cte en lugar de memoria (por velocidad)
+|     transforma str en lugar de memoria (por funcionamiento)
+| 2do recorre codigo+variables,
+|     asigna direccion real y valor en direccion
 
-|-----
+:cadaword | nropal cntlla -- nropal
+	drop
+	dup 4 << 'indicepal +
+	dup @ swap 8 + @
+	( 1? )( 1- swap ,token swap )
+	2drop ;
+
+:cadaword2 | nropal cntlla -- nropal
+	drop
+	;
+
 :makemem
-	0 ( cntw <? )(
-		dup ind2nro memcodigo
-		1+ ) drop ;
+	indicepal> 'indicepal - 2 >> + 'here !
+	here 'memcte !
+	'cadaword wordmap
+	here 'memvar !
+    'cadaword2 diccmap
+	here 'freemem !
+	;
 
 |-------
 ::startvm
-	|--- reserva memoria para dicc de memoria y memoria de vars
 	here dup 'memvar ! 'freemem !
 	makemem
 ::resetvm | --
@@ -511,7 +517,7 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	d.ini	| inicia pilad
 	r.ini	| inicia pilar
 	<<boot '<<ip !
-	cntword cntvars + 1- 'pilaexe !+ 'pilaexe> !
+|	cntword cntvars + 1- 'pilaexe !+ 'pilaexe> !
 	;
 
 |----- imprime pilas
@@ -543,12 +549,12 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 :colitd
 :colitf
 :colitb
-:colith amarillo tomem "%w" print ;
+:colith amarillo tok>cte "%d" print ;
 
 :cpycad | adr --
 	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop ; ) ) emit ) 2drop ;
 
-:colits	azul 34 emit tomem 1+ cpycad 34 emit ;
+:colits	azul 34 emit tok>src 1+ cpycad 34 emit ;
 :colwor	verde nro>dicnr "%w" print ;
 :colvar	verde nro>dicnr "%w" print ;
 :coldwo	cyan nro>dicnr "'%w" print ;
@@ -592,5 +598,10 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	freemem memvar - 10 >> "USO VARS %d Kbytes" print cr
 	<<boot "BOOT:%h " print
 	<<ip "IP: %h" print cr
-	'pilaexe ( pilaexe> <? )( @+ printword cr ) drop
+
+	rpila> ( 'rpila >? )( 8 -
+		dup @+ "%d " print @ "%h" print
+		cr ) drop
+
+|	'pilaexe ( pilaexe> <? )( @+ printword cr ) drop
 	;

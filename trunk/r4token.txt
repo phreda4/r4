@@ -19,13 +19,18 @@
 |----------------- 	<- prog
 | programa
 |..					<- prog>
-|-----------------
+|-----------------  <- ctes
+| constantes
+|..					<- ctes>
+|----------------
 | las tablas en mem cte
 
 #memsrc
 #:prog		|---- codigo&variables
 #:prog>
 #:<<boot
+#cte
+#cte>
 
 #:cntword
 #:cntvars
@@ -48,6 +53,8 @@
 ::nro>nom | n -- %a
 	4 << 'indicepal + @ ;
 
+::nro>dir | n -- %a
+	4 << 'indicepal + 4+ @ ;
 
 #pilac )( 128	#pilac> 'pilac	|----- pila de compilador
 
@@ -57,11 +64,6 @@
 :c.cnt pilac> 'pilac - ;
 
 #pinc )( 128 #pinc> 'pinc	 | pila de nombres de includes para saber donde esta el error
-
-|------------------------
-
-::tomem | tok -- mem
-	8 >> memsrc + ;
 
 |---- Compila programa
 :,, | n --
@@ -73,13 +75,50 @@
 :src>nro | -- n    nro actual de palabra
 	indicepal> 'indicepal - 4 >> ;
 
+::tok>src | tok -- mem
+	8 >> memsrc + ;
+
+::tok>cte | tok -- nro
+	8 >> cte + @ ;
+
+::tok>str | tok -- nro
+	8 >> cte + ;
+
+|----------
+
+:,cte | n -- d
+|	cte ( cte> <? )( 						| buscar iguales. muy lento !!
+|		@+ pick2 =? ( drop nip cte 4+ - ; )
+|		drop )
+	cte> swap over !+ 'cte> ! cte - ;
+
+:rstr | c --
+	cte> c!+ 'cte> ! ;
+
+:realstr | cad -- cad'
+	( 1+ dup c@ 1? )(
+		34 =? ( drop 1+ dup c@ 34 <>? ( drop 0 rstr ; ) )
+		rstr ) rstr ;
+
+:,str | a -- a' d
+	cte> swap realstr swap cte - ;
+
 |----------- compilar codigo
 :,,defc | --  define codigo
 	src>nro 8 << 1 or ,, ;
 :,,defv | --  define variable
 	src>nro 8 << 2 or ,, ;
-:,,lit | n -- literal
-	rot memsrc - 8 << 3 or ,, ;
+
+:,,litD | n -- literal
+	,cte 8 << 3 or ,, ;
+:,,litH | n -- literal
+	,cte 8 << 4 or ,, ;
+:,,litB | n -- literal
+	,cte 8 << 5 or ,, ;
+:,,litF | n -- literal
+	,cte 8 << 6 or ,, ;
+:,,litS | n -- literal
+	,str 8 << 7 or ,, ;
 
 :,,word | n --  word
 	dicc>nro 8 << 8 or ,, ;
@@ -93,12 +132,8 @@
 :,,mac  | n --  macro
 	12 + ,, ;
 
-
 ::nro>macro | n -- s
 	12 - macroname ;
-
-::adr>lit | addr -- realaddr
-	8 >> memsrc + ;
 
 |----------ERROR
 #auxstr )( 64
@@ -230,8 +265,7 @@
 	estado  | 0-nada 1-dato 2-accion 3-boot
 	0? ( 2drop dup " afuera s" seterror 0 ; )
 	drop
-	dup memsrc - 8 << 7 or ,, | ,,lits
-	1+ escad ;
+	,,litS ;
 
 :datoaccion?	| adr -- adr f
 	dup 8 + @ 1 and? ( 0 )( 1 ) nip ;
@@ -256,10 +290,14 @@
 	0 'salto !
 	estado | 0-nada 1-dato 2-accion 3-boot
 	0? ( 2drop dup " afuera n" seterror 0 ; )
-	drop
-	,,lit
-	drop | no consume el nro
-	;
+	drop basen
+	2 =? ( drop ,,litb ; )
+	10 =? ( drop ,,litd ; )
+	16 =? ( drop ,,lith ; )
+	-1 =? ( drop ,,litf ; )
+	2drop
+	dup " base?" seterror 0 ;
+
 
 |------------------------------------------------------------
 :esinclude | a -- a' b'
@@ -285,8 +323,8 @@
 		?palabra 1? ( nip esdir ; ) 2drop
 		" no existe direccion" seterror 3 - 0 ; )
 	drop
-	dup ?numero 1? ( drop esnumero ; ) drop | numero
-	dup ?fnumero 1? ( drop esnumero ; ) drop | numero
+	dup ?numero 1? ( drop rot drop esnumero ; ) drop | numero
+	dup ?fnumero 1? ( drop rot drop esnumero ; ) drop | numero
 	dup ?macro 1? ( esmacro ; ) drop		| macro
 	dup	?palabra  1? ( nip espalabra ; ) drop		| palabra
 	" no existe" seterror drop
@@ -345,7 +383,10 @@
 	msg 1? ( 2drop ; ) drop	| error en include
 	0 'estado !
 |--- mapa de memoria
-	here dup 'prog ! 'prog> !
+	here dup dup
+	'cte ! 'cte> !
+	$fffff +
+	dup 'prog ! 'prog> !
 |--- recorre fuente
 	c.ini
 	0 swap	| 0 corta los includes
