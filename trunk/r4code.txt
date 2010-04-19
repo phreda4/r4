@@ -7,7 +7,6 @@
 
 ^r4token.txt
 
-#memcte
 #memvar
 #freemem
 
@@ -178,11 +177,6 @@
 	"fuera de mem" 'msg ! 0 nip rdrop ;
 
 
-:adr>mem
-:adr>cmem
-	8 >>
-	;
-
 |--- interprete
 :i0		drop ;
 :i:		drop ;
@@ -196,16 +190,11 @@
 
 :istr	tok>src d.pushStr ;
 
-:ivar	adr>mem d.pushVar ; |adr>mem @ d.pushVar ;
-:idvar	adr>mem d.pushDVar ;
-:idwor	adr>cmem d.pushDCod ;
-
 |--- llama palabra
-:iwor
-	8 >> nro>dir
-	swap r.pushEXE
-|trace
-	;
+:iwor	8 >> nro>dir swap r.pushEXE ;
+:ivar	8 >> nro>mem @ d.pushVar ;
+:idvar	8 >> nro>mem d.pushDVar ;
+:idwor	8 >> nro>dir d.pushDCod ;
 
 |--- retorna
 :i;
@@ -450,77 +439,29 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	2drop
 	;
 
-:variable | adr --
+
+:c/var | nropal cntll -- nropal
+	drop
+	dup 5 << 'indicepal +
 	freemem over 4+ | adr
 	addmem
 	freemem pick2 =? ( 4 'freemem +! ) drop | si es variable sin nros
 	! drop
 	;
 
-|---- Codigo
-:coldefw
-:coldefv drop ;
-:colitd
-:colitb
-:colith 
-:colitf tok>cte , ;
-:colits	drop 0 ,c ; |tomem 1+
-:colwor
-:colvar
-:coldwo
-:coldva	drop ;
-
-#codei 0 'coldefw 'coldefv colitd colith colitb colitf colits colwor colvar coldwo coldva
-
-:,token | a -- a.
-	@+ dup $ff and
-	12 <? ( 2 << 'codei + @ exec ; )
-	2drop ;
-
-:codigo | adrr --
-	dup @ swap 8 + @
-	( 1? )( 1- swap ,token swap )
-	2drop ;
-
 |--- reserva memoria para dicc de memoria y memoria de vars
-| 1ero recorre codigo,
-|     transforma cte en lugar de memoria (por velocidad)
-|     transforma str en lugar de memoria (por funcionamiento)
-| 2do recorre codigo+variables,
+| 1do recorre variables,
 |     asigna direccion real y valor en direccion
 
-:cadaword | nropal cntlla -- nropal
-	drop
-	dup 4 << 'indicepal +
-	dup @ swap 8 + @
-	( 1? )( 1- swap ,token swap )
-	2drop ;
-
-:cadaword2 | nropal cntlla -- nropal
-	drop
-	;
-
-:makemem
-|	indicepal> 'indicepal - 2 >> + 'here !
-	here 'memcte !
-	'cadaword wordmap
-	here 'memvar !
-    'cadaword2 diccmap
-	here 'freemem !
-	;
-
-|-------
-::startvm
+::startvm | --
 	here dup 'memvar ! 'freemem !
-	makemem
+    'c/var varmap
 ::resetvm | --
 	0 'irqkey !  | interrupciones
 	'inter 'inter> !
 	d.ini	| inicia pilad
 	r.ini	| inicia pilar
 	<<boot '<<ip !
-|	cntword cntvars + 1- 'pilaexe !+ 'pilaexe> !
-	cntword cntvars + 1- 'actwrd !
 	;
 
 |----- imprime pilas
@@ -545,7 +486,7 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	8 - ;
 
 |------ imprime codigo
-:nro>dicnr   8 >> 4 << 'indicepal + @ ;	| nombre de palabra
+:nro>dicnr   8 >> 5 << 'indicepal + @ ;	| nombre de palabra
 
 :coldefw drop ; |nro>dicnr ":%w" print ;
 :coldefv drop ; |nro>dicnr "#%w" print ;
@@ -578,12 +519,12 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	@ "#%w " violeta print ;
 
 ::printword | n --
-	4 << 'indicepal +
+	5 << 'indicepal +
 	indicepal> >=? ( drop ; )
 	dup 8 + @ 1 and? ( drop esvar ; ) drop
 	dup @ ":%w " rojo print
 	dup 4+ @
-	swap 12 + @
+	swap 16 + @
 	tokeninfolist ;
 
 |---------------------------
@@ -601,6 +542,7 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	rpila> ( 'rpila >? )( 8 -
 		dup @+ "%d " print @ "%h" print
 		cr ) drop
+
 
 |	'pilaexe ( pilaexe> <? )( @+ printword cr ) drop
 	;
