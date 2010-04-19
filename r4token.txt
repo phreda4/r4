@@ -16,45 +16,57 @@
 |-----------------
 | includes
 |...
-|----------------- 	<- prog
-| programa
-|..					<- prog>
 |-----------------  <- ctes
 | constantes
 |..					<- ctes>
-|----------------
+|----------------- 	<- prog
+| programa
+|..					<- prog>
 | las tablas en mem cte
 
 #memsrc
+#cte
+#cte>
 #:prog		|---- codigo&variables
 #:prog>
 #:<<boot
-#cte
-#cte>
 
-#:cntword
-#:cntvars
+#:cntwords
+#:newwords
 
 #salto 0		| es salto el anterior ?
 #estado 0		| 0-nada 1-dato 2-accion  3-boot
 #:error> 0
-#inisrc 0
 
+#inisrc 0
 #:msg 0
 
 |---- includes
-| 'string | 'mem | first | last		16 bytes (32 includes)
-#:indiceinc )( 8192		#:indiceinc> 'indiceinc
+| 'string|'mem|first|last		16 bytes (32 includes)
+|  0      4    8     12  ...16
+#:indiceinc )( 8192
+#:indiceinc> 'indiceinc
 |---- palabras
-| 'string | 'exec | info | stat |    16 bytes por palabra
-#:indicepal )( 65536	#:indicepal> 'indicepal	| 2048 palabras
+| string|token|info|mem|len|calls|dir|group   32 bytes por palabra
+| 0      4     8    12   16  20    24  28   .. 32 |---largo
+#:indicepal )( 65536
+#:indicepal> 'indicepal	| 2048 palabras
 #:indicepal<
 
 ::nro>nom | n -- %a
-	4 << 'indicepal + @ ;
+	5 << 'indicepal + @ ;
 
 ::nro>dir | n -- %a
-	4 << 'indicepal + 4+ @ ;
+	5 << 'indicepal + 4+ @ ;
+
+::nro>info | n -- %a
+	5 << 'indicepal + 8 + ;
+
+::nro>mem | n -- m
+	5 << 'indicepal + 12 + @ ;
+
+::nro>calls | n -- m
+	5 << 'indicepal + 20 + ;
 
 #pilac )( 128	#pilac> 'pilac	|----- pila de compilador
 
@@ -70,10 +82,10 @@
 	prog> !+ 'prog> ! ;
 
 :dicc>nro | w -- n
-	'indicepal - 4 >> ;
+	'indicepal - 5 >> ;
 
 :src>nro | -- n    nro actual de palabra
-	indicepal> 'indicepal - 4 >> ;
+	indicepal> 'indicepal - 5 >> ;
 
 ::tok>src | tok -- mem
 	8 >> memsrc + ;
@@ -84,6 +96,8 @@
 ::tok>str | tok -- nro
 	8 >> cte + ;
 
+::tok>mem
+	8 >> nro>mem ;
 |----------
 
 :,cte | n -- d
@@ -148,14 +162,14 @@
 :pasapal	( c@+ 1? )( 33 <? ( drop 1- ; ) drop ) drop 1- ;
 
 ::?palabra | str -- str dir / str 0
-	indicepal> 16 -
+	indicepal> 32 -	|---largo
 	( 'indicepal >=? )(
 		dup @						| str ind pal
 		pick2 =s 0? ( drop )( drop
 			dup 8 + @
 			%10 and? ( drop ; )( drop indicepal< >=? ( ; ) )
 			)
-		16 - ) drop
+		32 - ) drop |---largo
 	0 ;
 
 :include? | s -- adr/0
@@ -171,12 +185,12 @@
 
 |--- calculo de longitud
 :finpalabra
-	indicepal> 4 -
+	indicepal> 16 -
 	( dup @ 1? ( 2drop ; ) drop | si tiene largo termina
-		dup 4 - @ %1 nand?  )(  | si el anterior es dato termina ( :a #b dup no anda !!)
+		dup 8 - @ %1 nand?  )(  | si el anterior es dato termina ( :a #b dup no anda !!)
 		drop
-		prog> over 8 - @ - 2 >> over !
-		16 - )
+		prog> over 12 - @ - 2 >> over ! |---------------------
+		32 - ) |---largo
 	2drop ;
 
 |---  Macros
@@ -225,8 +239,9 @@
 	0 'salto ! ;
 
 :+dic | tipo mem nombre  --
-	indicepal> !+ !+ !+ 0 swap !+ | nombre | mem | info | stat
-	0 over ! 'indicepal> ! ;
+	indicepal> >r r!+ r!+ r!+ 			| nombre|tok|info|
+	0 r!+ 0 r!+ 0 r!+ 0 r!+ 0 r!+	| stat|mem|calls|dir|group
+	r> 0 over ! 'indicepal> ! ;
 
 :esboot
 	prog> '<<boot ! 3 'estado !
@@ -235,7 +250,6 @@
 	1+ ;
 
 :esdefinicion | adr -- adr
-	1 'cntword +!
 	cerrarpalabra 2 'estado !
 	1+ dup c@ | adr adr+1 c
 	33 <? ( drop esboot ; ) | boot
@@ -248,7 +262,6 @@
 	pasapal ;
 
 :esvariable | adr -- adr'
-	1 'cntvars +!
 	cerrarpalabra 1 'estado !
 	1+ dup c@
 	33 <? ( drop "# solo" 'msg ! 0 ; )
@@ -335,8 +348,6 @@
 	'indicepal 'indicepal> !
 	0 indicepal> !
 	'indiceinc 'indiceinc> !
-	0 'cntword !
-	0 'cntvars !
 	0 dup 'msg ! 'error> !
 	;
 
@@ -384,8 +395,7 @@
 	0 'estado !
 |--- mapa de memoria
 	here dup dup
-	'cte ! 'cte> !
-	$fffff +
+	'cte ! 'cte> ! $fffff + | memoria para constantes
 	dup 'prog ! 'prog> !
 |--- recorre fuente
 	c.ini
@@ -399,32 +409,26 @@
 		-8 'pinc> +!					| desapila includes
 		0? )
 	,, drop
+
+	indicepal> 'indicepal - 5 >> 1- 'cntwords !
+	indicepal< 'indicepal - 5 >> 'newwords !
 	;
 
 |------------------llamadas entre palabras
-#llamadas )( 8192
-#direccio )( 8192
-
 #pilapend )( 4096		| pila de pendientes
 #pilapend> 'pilapend
 
-:resetllamadas | --
-	'llamadas >r 4096 ( 1? )( 1- 0 r!+ ) drop rdrop ;
-
 :addcall | n -- nant
-	2 << 'llamadas +
-	dup @ dup 1+
-	rot ! ;
+	nro>calls dup @ dup 1+ rot ! ;
+
+::getllamadas | n -- n v
+	nro>calls @ ;
 
 :useaddr | n --
-	2 << 'direccio +
-	dup @ 1 or swap ! ;
-
-::getllamadas | n -- v
-	2 << 'llamadas + @ ;
+	nro>info dup @ $1000 or swap ! ;
 
 ::getflags | n -- v
-	2 << 'direccio + @ ;
+	nro>info @ $1000 and ;
 
 :addw | w --
 	pilapend> !+ 'pilapend> ! ;
@@ -436,8 +440,8 @@
 	over 8 >> dup addcall 0? ( over addw ) drop useaddr ;
 
 :reccod | nrop -- nrop
-	dup 4 << 'indicepal +
-	dup 4+ @ swap 12 + @  | .. dir cnt
+	dup 5 << 'indicepal +
+	dup 4+ @ swap 16 + @  | .. dir cnt
 	( 1? )( 1- swap
 		@+ dup $ff and
 		8 =? ( overcode ) | call word
@@ -448,8 +452,7 @@
 	;
 
 :recdat | nrop -- nrop
-	dup 4 << 'indicepal +
-	4+ @
+	dup 5 << 'indicepal + 4+ @
 	( @+ dup $ff and
 		1 =? ( 0 nip ) | corta con defc
 		2 =? ( 0 nip ) | corta con defv
@@ -466,26 +469,25 @@
 | vector | nropal cntlla -- nropal
 
 ::varmap | 'vector --
-	0 ( cntword cntvars + <? )(
-		dup 4 << 'indicepal + 8 + @
+	0 ( cntwords <? )(
+		dup 5 << 'indicepal + 8 + @
 		1 nand? ( drop )( drop
 			dup getllamadas 1? ( pick2 exec )( drop )
 			)
 		1+ ) 2drop ;
 
 ::wordmap | 'vector --
-	0 ( cntword cntvars + <? )(
-		dup 4 << 'indicepal + 8 + @
+	0 ( cntwords <? )(
+		dup 5 << 'indicepal + 8 + @
 		1 and? ( drop )( drop
 			dup getllamadas 1? ( pick2 exec )( drop )
 			)
 		1+ ) 2drop ;
 
 ::diccmap | 'vector --
-	cntword cntvars +
-	0 ( over <? )(
-		dup getllamadas 1? ( pick3 exec )( drop )
-		1+ ) 3drop ;
+	0 ( cntwords <? )(
+		dup getllamadas 1? ( pick2 exec )( drop )
+		1+ ) 2drop ;
 
 |----------- indice de usadas
 #indexw
@@ -504,12 +506,11 @@
 |--------- COMPILA ARCHIVO 2da PASADA
 ::tokenpost
 	|-------- arbol de llamadas
-	resetllamadas
-	cntword cntvars + 1- dup addcall drop
+	cntwords dup addcall drop
 	'pilapend !+ 'pilapend> !
 	( pilapend> 'pilapend >? )(
 		4 - dup 'pilapend> ! @ | palabra a agregar
-		dup 4 << 'indicepal + 8 + @
+		dup 5 << 'indicepal + 8 + @
 		1 and? ( drop recdat )( drop reccod )
 		drop )
 	drop
@@ -542,8 +543,8 @@
 |	msg 0? ( drop ; ) blanco print
 |	fuenteerror "|%s" print
 	ubicarerror "|%d|%d|" blanco print cr
-	indicepal> 'indicepal - 4 >> "pal:%d  " print
-	indiceinc> 'indiceinc - 4 >> "inc:%d  " print
+	indicepal> 'indicepal - 5 >> "pal:%d  " print
+	indiceinc> 'indiceinc - 5 >> "inc:%d  " print
 	prog> prog - 2 >> "prog:%d " print cr
 	amarillo
 	'indiceinc ( indiceinc> <? )(
@@ -559,6 +560,8 @@
 	memsrc "%h <-src" print cr
 |	meminc "%h <-inc" print cr
 	prog "%h <-prog" print cr
+	newwords cntwords "cnt:%d new:%d " print cr
+	cntw "%d" print
 	;
 
 
