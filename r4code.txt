@@ -36,8 +36,8 @@
 	-24 'dpila> +!
 	dpila> 4+ @+ swap 4+ @+ swap 4+ @ ;
 
-:d.get dpila> 8 - @ ;
-:d.get2 dpila> 16 - @ ;
+:d.get dpila> 4 - @ ;
+:d.get2 dpila> 12 - @ ;
 
 :d.push | nro tipo --
 	dpila> !+ !+ 'dpila> ! ;
@@ -55,6 +55,7 @@
 ::d.pushCStr	$9 d.push ;
 ::d.pushCDVar	$10 d.push ;
 ::d.pushCDCod	$11 d.push ;
+::d.pushEXE		$11 d.push ;
 
 |-----
 :iDROP  drop -8 'dpila> +! ;
@@ -198,12 +199,12 @@
 
 |--- retorna
 :i;
-	r.cnt 0? ( nip ; ) r.pop 3drop ;
+	r.cnt 0? ( nip ; ) 2drop r.pop ;
 
 :i)(
 :i)		8 >> + ;
 :i(     drop ;
-:i[     8 >> over d.push + ;
+:i[     8 >> over d.pushEXE + ;
 :i]     drop ;
 
 :i0?	drop @+ d.get 0? ( 2drop ; ) drop 8 >> + ;
@@ -249,21 +250,21 @@
 :i4+    drop d.pop 4+ d.pushVar ;
 
 |--- memoria
-:i@     drop dpila> 4 -  dup @ @ swap ! ;
-:iC@	drop dpila> 4 -  dup @ c@ swap ! ;
-:iW@    drop dpila> 4 -  dup @ w@ swap ! ;
-:i!     drop dpila> 8 -  dup 'dpila> ! @+ swap @ ! ;
-:iC!    drop dpila> 8 -  dup 'dpila> ! @+ swap @ c! ;
-:iW!    drop dpila> 8 -  dup 'dpila> ! @+ swap @ w! ;
-:i+!	drop dpila> 8 -  dup 'dpila> ! @+ swap @ +! ;
-:iC+!	drop dpila> 8 -  dup 'dpila> ! @+ swap @ c+! ;
-:iW+!	drop dpila> 8 -  dup 'dpila> ! @+ swap @ w+! ;
-:i@+	drop dpila> 4 -  dup @+ @ swap !+ 'dpila> ! 4 swap +! ; | no test
-:iC@+	drop dpila> 4 -  dup @+ c@ swap !+ 'dpila> ! 1 swap +! ; | no test
-:iW@+	drop dpila> 4 -  dup @+ w@ swap !+ 'dpila> ! 2 swap +! ; | no test
-:i!+	drop dpila> 8 -  dup @+ swap @ !+ swap !+ 'dpila> ! ; | nose
-:iC!+	drop dpila> 8 -  dup @+ swap @ c!+ swap !+ 'dpila> ! ; | nose
-:iW!+	drop dpila> 8 -  dup @+ swap @ w!+ swap !+ 'dpila> ! ; | nose
+:i@     drop d.pop @ d.pushVar ;
+:iC@	drop d.pop c@ d.pushVar ;
+:iW@    drop d.pop w@ d.pushVar ;
+:i!     drop d.pop2 ! ;
+:iC!    drop d.pop2 c! ;
+:iW!    drop d.pop2 w! ;
+:i+!	drop d.pop2 +! ;
+:iC+!	drop d.pop2 c+! ;
+:iW+!	drop d.pop2 w+! ;
+:i@+	drop d.pop @+ d.pushVar d.pushVar ;
+:iC@+	drop d.pop c@+ d.pushVar d.pushVar ;
+:iW@+	drop d.pop w@+ d.pushVar d.pushVar ;
+:i!+	drop d.pop2 !+ d.pushVar ;
+:iC!+	drop d.pop2 c!+ d.pushVar ;
+:iW!+	drop d.pop2 w!+ d.pushVar ;
 
 
 |---- pantalla
@@ -415,8 +416,9 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 :accpal | val instr --
 	7 <? ( drop tok>cte gmem exec ; ) 	| nro
 	7 =? ( drop tok>str	gstr ; )			| str
-	12 <? ( drop 8 >> | pal@tok nip
-		mem0 ; )	| pal
+	12 <? ( drop 8 >>
+			dup nro>var? 1? ( drop nro>mem )( drop nro>dir )
+			mem0 ; )	| pal
 	13 =? ( 2drop 'mem2 'gmem ! ; ) | (
 	14 =? ( 2drop 'mem3 'gmem ! ; )	| )(
 	16 =? ( 2drop 'mem1 'gmem ! ; ) | [
@@ -439,14 +441,13 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	2drop
 	;
 
-
 :c/var | nropal cntll -- nropal
 	drop
-	dup 5 << 'indicepal +
-	freemem over 4+ | adr
+	dup 5 << 'indicepal +	| nro dirw
+	freemem over 4+ 		| nro dirw free tok
 	addmem
 	freemem pick2 =? ( 4 'freemem +! ) drop | si es variable sin nros
-	! drop
+	8 + ! drop
 	;
 
 |--- reserva memoria para dicc de memoria y memoria de vars
