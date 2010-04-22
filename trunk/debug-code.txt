@@ -15,6 +15,9 @@
 
 #nombre )( 64
 #mensaje )( 64
+#consola )( 1024
+
+:mensaje! 'mensaje strcpy ;
 
 |------------------------------------------------
 | genera codigo en :r4 y lo graba en "plain.txt"
@@ -107,7 +110,7 @@
 
 :gridline2 | nro --
 	5 << 'indicepal +
-	indicepal> >=? ( drop ; )
+	indicepal> >? ( drop ; )
 	dup 8 + @ 1 and? ( violeta "#" )( rojo ":" ) nip
 	swap @+ rot
 	"%s%w" gcell
@@ -122,7 +125,7 @@
 
 :refrescaind
 	actual -? ( 0 nip )
-	cntw  1- >? ( cntw 1- nip )
+	cntw >? ( cntw nip )
 	pagina <? ( dup 'pagina ! )
 	pagina 20 + >? ( dup 20 - 'pagina ! )
 	'actual !
@@ -146,6 +149,60 @@
 		ind2nro gridline2
 		cr 1+ swap ) 2drop
 	gris $grid
+	;
+
+|----------------------------------
+:helpmodo
+	;
+
+
+#voc-system
+"BYE" "HELP"
+( 0 )
+
+#exe-system
+'exit 'helpmodo
+0
+
+:nextw
+    ( c@+ 32 >? )( drop )
+	0? ( drop 1- )( drop )
+	;
+
+:pushnro | val --
+	basen
+	10 =? ( drop d.pushDec ; )
+	2 =? ( drop d.pushBin ; )
+	drop
+	d.pushHex ;
+	;
+
+:palabraconsola | str -- str'
+	( dup c@ 33 <? )( 0? ( nip ; ) drop 1+ )		| quitar espacios
+|	$5e =? ( drop esinclude ; )			| $5e ^  Include
+|	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
+|	$3A =? ( drop esdefinicion ; )		| $3a :  Definicion
+|	$23 =? ( drop esvariable ; )		| $23 #  Variable
+|	$22 =? ( drop escadena ; )			| $22 "	 Cadena
+|	$27 =? ( drop 1+ dup 				| $27 ' Direccion
+|		dup ?macro 1? ( 3drop " no tiene direccion" mensaje! 0 ; ) drop
+|		?palabra 1? ( nip esdir ; ) 2drop
+|		" no existe direccion" seterror 3 - 0 ; )
+
+	drop
+
+	dup ?numero 1? ( drop pushnro nip ; ) drop
+	dup ?fnumero 1? ( drop d.pushFix nip ; ) drop
+	dup 'voc-system inupp? 1? ( 1- 2 << 'exe-system + @ exec nextw ; ) drop
+	dup ?macro 1? ( stepmacro nextw ; ) drop
+	|espalabra?
+	drop
+	0
+	"NOTfOUND" mensaje! ;
+
+:correconsola
+	'consola ( palabraconsola 0? ) drop
+	0 'consola !
 	;
 
 |----------------------------------
@@ -180,18 +237,23 @@
 		sp 'makeplain dup <f10> "f10-GenPlain" btnt
 		sp 'makeasm dup <f11> "f11-ASM" btnt
 
-		32 26 gc.vbetween
-		font-vard-8 home
+		32 26 gc.vbetween 
+		fonti home
+		rojo 'mensaje cr printx
+		blanco "> " print
+		'consola 32 inputline cr
+		'correconsola <enter>
+		blanco 
 
 		gridindexwords
-		fonti cr
-		dumpcompila cr
-
+|		fonti cr
+|		dumpcompila cr
 		verde vm.dump
-		cr dup "%d" print cr
+|		cr dup "%d" print cr
 |		actual printword cr
-		actual ind2nro printword cr
-        <<ip @ dup 8 >> swap $ff and  "%h:%d " print
+|		actual ind2nro printword cr
+|        <<ip 0? ( "fin" nip )( @ dup 8 >> swap $ff and  "%h:%d " ) print
+
 		cmano ;
 
 :main

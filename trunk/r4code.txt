@@ -153,6 +153,25 @@
 :iR!+	drop d.pop r.pop nip 4+ r.pushDec ;
 :iRDROP	r.pop 2drop ;
 
+|---------------------------------
+#viewcode )( 1024
+#viewcode> 'viewcode
+
+#viewdata )( 1024
+#viewdata> 'viewdata
+
+:+code | nrow --
+	viewcode> !+ 'viewcode> ! ;
+
+:-code | --
+	-4 'viewcode> +! ;
+
+:+data | nrow --
+	viewdata> !+ 'viewdata> ! ;
+
+:-data | --
+	-4 'viewdata> +! ;
+
 |-------------------------------------
 #inter )( 64
 #inter> 'inter
@@ -168,14 +187,24 @@
 	'inter> ! ;
 
 |---- Comprobaciones
-:pila?	'dpila <? ( "Pila vacia" 'msg ! 0 nip rdrop ; ) ;
-:?pila	'dpila> >=? ( "Pila llena" 'msg ! 0 nip rdrop ; ) ;
-:pilar?	'rpila <? ( "Pila R vacia" 'msg ! 0 nip rdrop ; ) ;
-:?pilar	'rpila> >=? ( "Pila R llena" 'msg ! 0 nip rdrop ; ) ;
 
-:pmem? | adr -- adr/0
-|	prog >=? ( prog> <=? ( ; ) )
-	"fuera de mem" 'msg ! 0 nip rdrop ;
+:dstack? | cnt --
+	3 << neg dpila> +
+	'dpila >=? ( drop ; ) drop
+	"data stack empty" 'msg ! 0 nip rdrop ;
+
+:rstack? | cnt --
+	3 << neg rpila> +
+	'rpila >=? ( drop ; ) drop
+	"return stack empty" 'msg ! 0 nip rdrop ;
+
+:progmem? | adr -- adr
+	prog >=? ( prog> <=? ( ; ) )
+	"fuera de codemem" 'msg ! 0 nip rdrop ;
+
+:datamem? | adr -- adr 0/1
+	memvar >=? ( freemem <=? ( ; ) )
+	"fuera de datamem" 'msg ! 0 nip rdrop ;
 
 
 |--- interprete
@@ -192,14 +221,13 @@
 :istr	tok>src d.pushStr ;
 
 |--- llama palabra
-:iwor	8 >> nro>dir swap r.pushEXE ;
+:iwor	8 >> dup +code nro>dir swap r.pushEXE ;
 :ivar	8 >> nro>mem @ d.pushVar ;
 :idvar	8 >> nro>mem d.pushDVar ;
 :idwor	8 >> nro>dir d.pushDCod ;
 
 |--- retorna
-:i;
-	r.cnt 0? ( nip ; ) 2drop r.pop ;
+:i;		drop r.cnt 0? ( nip ; ) 2drop r.pop -code ;
 
 :i)(
 :i)		8 >> + ;
@@ -259,9 +287,9 @@
 :i+!	drop d.pop2 +! ;
 :iC+!	drop d.pop2 c+! ;
 :iW+!	drop d.pop2 w+! ;
-:i@+	drop d.pop @+ d.pushVar d.pushVar ;
-:iC@+	drop d.pop c@+ d.pushVar d.pushVar ;
-:iW@+	drop d.pop w@+ d.pushVar d.pushVar ;
+:i@+	drop d.pop @+ swap d.pushVar d.pushVar ;
+:iC@+	drop d.pop c@+ swap d.pushVar d.pushVar ;
+:iW@+	drop d.pop w@+ swap d.pushVar d.pushVar ;
 :i!+	drop d.pop2 !+ d.pushVar ;
 :iC!+	drop d.pop2 c!+ d.pushVar ;
 :iW!+	drop d.pop2 w!+ d.pushVar ;
@@ -270,7 +298,7 @@
 |---- pantalla
 :iSW 	drop sw d.pushDec ;
 :iSH    drop sh d.pushDec ;
-:iFRAMEV	drop framev d.push ;
+:iFRAMEV	drop framev d.pushVar ;
 :iREDRAW    drop redraw ;
 :iUPDATE    drop
 	inter> 'inter =? ( drop ; )
@@ -293,37 +321,39 @@
 :iSFILL  	drop sfill ;
 :iLFILL  	drop lfill ;
 :iRFILL  	drop rfill ;
+:iTFILL  	drop d.pop tfill ;
+
 :iSETXY  	drop d.pop2 setxy ;
 :iPX+!   	drop d.pop px+! ;
 :iPX!+   	drop d.pop px!+ ;
-:iPX@    	drop px@ d.push ;
+:iPX@    	drop px@ d.pushVar ;
 
-:iXFB		drop xfb d.push ;
+:iXFB		drop xfb d.pushVar ;
 :i>XFB		drop >xfb ;
 :iXFB>		drop xfb> ;
 
 :iPAPER  	drop d.pop paper ;
 :iINK    	drop d.pop ink ;
-:iINKF   	drop ink@ d.push ;
+:iINKF   	drop ink@ d.pushVar ;
 :iALPHA  	drop d.pop ALPHA ;
 :iCLS    	drop cls ;
 |----- sis
-:iMSEC   	drop msec d.push ;
-:iTIME   	drop time rot d.push swap d.push d.push ;
-:iDATE   	drop date rot d.push swap d.push d.push ;
+:iMSEC   	drop msec d.pushVar ;
+:iTIME   	drop time rot d.pushVar swap d.pushVar d.pushVar ;
+:iDATE   	drop date rot d.pushVar swap d.pushVar d.pushVar ;
 :iEND    	2drop 0 ;
 :iRUNi   	iDROP ;
 |-----  Interrupciones
 |-----mouse
-:iTPEN		drop tpen d.push ;
-:iXYMOUSE	drop xymouse swap d.push d.push ;
-:iBMOUSE    drop bmouse d.push ;
+:iTPEN		drop tpen d.pushVar ;
+:iXYMOUSE	drop xymouse swap d.pushVar d.pushVar ;
+:iBMOUSE    drop bmouse d.pushVar ;
 |-----teclado
-:iRKEY!  	drop dpila> 4 -  dup 'dpila> ! @ 'irqkey ! ; | n --
-:iKEY		drop key d.push ;
+:iRKEY!  	drop d.pop 'irqkey ! ;
+:iKEY		drop key d.pushVar ;
 |-----joystick
-:iCNTJOY    drop cntjoy d.push ;
-:iGETJOY    drop d.pop GETJOY d.push ;
+:iCNTJOY    drop cntjoy d.pushVar ;
+:iGETJOY    drop d.pop GETJOY d.pushVar ;
 |--- archivos
 :iDIR       drop d.pop dir ;	| "path" --
 :iVOL       drop d.pop VOL d.pushVar ;  | nro -- "nombre" o 0
@@ -340,10 +370,10 @@
 :iCMOVE>    drop d.pop3 cmove> ;
 
 |--- sonido
-:iSLOAD     drop d.pop SLOAD d.push ;  | "" -- n
-:iSPLAY     drop d.pop SPLAY drop ;  | n/0 --
-:iMLOAD     drop d.pop MLOAD d.push ;  | "" -- n
-:iMPLAY     drop d.pop MPLAY drop ;  | n/0 --
+:iSLOAD     drop d.pop SLOAD d.pushVar ;  | "" -- n
+:iSPLAY     drop d.pop SPLAY ;  | n/0 --
+:iMLOAD     drop d.pop MLOAD d.pushVar ;  | "" -- n
+:iMPLAY     drop d.pop MPLAY ;  | n/0 --
 
 :iSERVER
 :iCLIENT
@@ -377,7 +407,7 @@ iSETXY	iPX+!	iPX!+	iPX@
 iXFB	i>XFB	iXFB>
 iPAPER	iINK	iINKF	iALPHA
 iOP		iCP		iLINE	iCURVE	iPLINE	iPCURVE	iPOLI
-iFCOL	iFCEN	iFMAT	iSFILL	iLFILL	iRFILL
+iFCOL	iFCEN	iFMAT	iSFILL	iLFILL	iRFILL	iTFILL
 iTPEN 	iXYMOUSE iBMOUSE
 iRKEY!	iKEY
 iCNTJOY	iGETJOY
@@ -392,6 +422,97 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	@+ dup $ff and
 	2 << 'tablai + @ exec
 	'<<ip ! ;
+
+
+|----- imprime pilas
+:dec	@+ "%d" print ;	|::d.pushDec 0
+:hex    @+ "$%h" print ;	|::d.pushHex 1
+:bin    @+ "%%%b" print ;	|::d.pushBin 2
+:fix    @+ "%f" print ;	|::d.pushFix 3
+:str    @+ "%d" print ;	|::d.pushStr 4
+:var	@+ "%d" print ;	|::d.pushVar  5
+:dvar	@+ "%d" print ;	|::d.pushDVar 6
+:dcod	@+ "%d" print ;	|::d.pushDCod 7
+:cnum	@+ "%d" print ;	|::d.pushCNum 8
+:cstr	@+ "%d" print ;	|::d.pushCStr 9
+:cdvar	@+ "%d" print ;	|::d.pushCDVar 10
+:cdcod	@+ "%d" print ;	|::d.pushCDCod 11
+
+#accpp 'dec 'hex 'bin 'fix 'str 'var 'dvar 'dcod 'cnum 'cstr 'cdvar  'cdcod
+
+::printpila | adr -- adr--
+	8 -
+	@+ $f and 2 << 'accpp + @ exec
+	8 - ;
+
+|------ imprime codigo
+:nro>dicnr   8 >> 5 << 'indicepal + @ ;	| nombre de palabra
+
+:coldefw drop ; |nro>dicnr ":%w" print ;
+:coldefv drop ; |nro>dicnr "#%w" print ;
+:colitd amarillo tok>cte "%d" print ;
+:colitf amarillo tok>cte "%f" print ;
+:colitb amarillo tok>cte "%%%b" print ;
+:colith amarillo tok>cte "$%h" print ;
+:colits	azul 34 emit tok>str printx 34 emit ;
+:colwor	verde nro>dicnr "%w" print ;
+:colvar	verde nro>dicnr "%w" print ;
+:coldwo	cyan nro>dicnr "'%w" print ;
+:coldva	cyan nro>dicnr "'%w" print ;
+
+#codei 0 'coldefw 'coldefv colitd colith colitb colitf colits colwor colvar coldwo coldva
+
+:tokenprint | a -- a.
+	@+ dup $ff and
+	12 <? ( 2 << 'codei + @ exec ; ) nip
+	blanco nro>macro print ;
+
+:tokeninfolist | adr cnt --
+	( 1? )( 1- swap | cnt adr
+		<<ip =? ( blink 1? ( negro )( blanco ) drop ">" print )
+		tokenprint
+		<<ip 4+ =? ( blink 1? ( negro )( blanco ) drop "<" print )
+		sp lout? 1? ( cr ) drop
+		swap ) 2drop ;
+
+:esvar | adr --
+	dup @ "#%w " violeta print
+	12 + @ @ "%d" amarillo print
+	;
+
+::printword | n --
+	5 << 'indicepal +
+	indicepal> >=? ( drop ; )
+	dup 8 + @ 1 and? ( drop esvar ; ) drop
+	dup @ ":%w " rojo print
+	dup 4+ @
+	swap 16 + @
+	tokeninfolist ;
+
+|---------------------------
+::vcode
+	'viewcode ( viewcode> <? )( @+ printword cr ) drop ;
+
+::vdata
+	'viewdata ( viewdata> <? )( @+ printword cr ) drop ;
+
+::vm.dump
+	"D)" print
+	dpila> ( 'dpila >? )( sp printpila ) drop
+	cr
+	"R)" print
+	rpila> ( 'rpila >? )( sp printpila ) drop
+	cr
+|	freemem memvar - 10 >> "USO VARS %d Kbytes" print cr
+|	<<boot "BOOT:%h " print
+|	<<ip "IP: %h" print cr
+
+|	rpila> ( 'rpila >? )( 8 -
+|		dup @+ "%d " print @ "%h" print
+|		cr ) drop
+	vcode
+|	vdata
+	;
 
 
 |-------------------------------
@@ -463,87 +584,6 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	d.ini	| inicia pilad
 	r.ini	| inicia pilar
 	<<boot '<<ip !
+	cntw ind2nro +code
 	;
 
-|----- imprime pilas
-:dec	@+ "%d" print ;	|::d.pushDec 0
-:hex    @+ "$%h" print ;	|::d.pushHex 1
-:bin    @+ "%%%b" print ;	|::d.pushBin 2
-:fix    @+ "%f" print ;	|::d.pushFix 3
-:str    @+ "%d" print ;	|::d.pushStr 4
-:var	@+ "%d" print ;	|::d.pushVar  5
-:dvar	@+ "%d" print ;	|::d.pushDVar 6
-:dcod	@+ "%d" print ;	|::d.pushDCod 7
-:cnum	@+ "%d" print ;	|::d.pushCNum 8
-:cstr	@+ "%d" print ;	|::d.pushCStr 9
-:cdvar	@+ "%d" print ;	|::d.pushCDVar 10
-:cdcod	@+ "%d" print ;	|::d.pushCDCod 11
-
-#accpp 'dec 'hex 'bin 'fix 'str 'var 'dvar 'dcod 'cnum 'cstr 'cdvar  'cdcod
-
-::printpila | adr -- adr--
-	8 -
-	@+ $f and 2 << 'accpp + @ exec
-	8 - ;
-
-|------ imprime codigo
-:nro>dicnr   8 >> 5 << 'indicepal + @ ;	| nombre de palabra
-
-:coldefw drop ; |nro>dicnr ":%w" print ;
-:coldefv drop ; |nro>dicnr "#%w" print ;
-:colitd amarillo tok>cte "%d" print ;
-:colitf amarillo tok>cte "%f" print ;
-:colitb amarillo tok>cte "%%%b" print ;
-:colith amarillo tok>cte "$%h" print ;
-:colits	azul 34 emit tok>str printx 34 emit ;
-:colwor	verde nro>dicnr "%w" print ;
-:colvar	verde nro>dicnr "%w" print ;
-:coldwo	cyan nro>dicnr "'%w" print ;
-:coldva	cyan nro>dicnr "'%w" print ;
-
-#codei 0 'coldefw 'coldefv colitd colith colitb colitf colits colwor colvar coldwo coldva
-
-:tokenprint | a -- a.
-	@+ dup $ff and
-	12 <? ( 2 << 'codei + @ exec ; ) nip
-	blanco nro>macro print ;
-
-:tokeninfolist | adr cnt --
-	( 1? )( 1- swap | cnt adr
-		<<ip =? ( blink 1? ( negro )( blanco ) drop ">" print )
-		tokenprint
-		<<ip 4+ =? ( blink 1? ( negro )( blanco ) drop "<" print )
-		sp lout? 1? ( cr ) drop
-		swap ) 2drop ;
-
-:esvar | adr --
-	@ "#%w " violeta print ;
-
-::printword | n --
-	5 << 'indicepal +
-	indicepal> >=? ( drop ; )
-	dup 8 + @ 1 and? ( drop esvar ; ) drop
-	dup @ ":%w " rojo print
-	dup 4+ @
-	swap 16 + @
-	tokeninfolist ;
-
-|---------------------------
-::vm.dump
-	"D)" print
-	dpila> ( 'dpila >? )( sp printpila ) drop
-	cr
-	"R)" print
-	rpila> ( 'rpila >? )( sp printpila ) drop
-	cr
-	freemem memvar - 10 >> "USO VARS %d Kbytes" print cr
-	<<boot "BOOT:%h " print
-	<<ip "IP: %h" print cr
-
-	rpila> ( 'rpila >? )( 8 -
-		dup @+ "%d " print @ "%h" print
-		cr ) drop
-
-
-|	'pilaexe ( pilaexe> <? )( @+ printword cr ) drop
-	;
