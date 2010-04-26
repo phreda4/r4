@@ -163,6 +163,9 @@
 :+code | nrow --
 	viewcode> !+ 'viewcode> ! ;
 
+:dupcode | --
+	viewcode> dup 4 - @ swap !+ 'viewcode> ! ;
+
 :-code | --
 	-4 'viewcode> +! ;
 
@@ -216,18 +219,20 @@
 :ihex	tok>cte d.pushHex ;
 :ibin	tok>cte d.pushBin ;
 :ifix	tok>cte d.pushFix ;
-|:istr	tok>cte d.pushStr ;
 
 :istr	tok>src d.pushStr ;
 
 |--- llama palabra
 :iwor	8 >> dup +code nro>dir swap r.pushEXE ;
+:iworS	8 >> nro>dir swap r.pushEXE ;
+
 :ivar	8 >> nro>mem @ d.pushVar ;
 :idvar	8 >> nro>mem d.pushDVar ;
 :idwor	8 >> nro>dir d.pushDCod ;
 
 |--- retorna
 :i;		drop r.cnt 0? ( nip ; ) 2drop r.pop -code ;
+:i;S	drop r.cnt 0? ( nip ; ) 2drop r.pop  ;
 
 :i)(
 :i)		8 >> + ;
@@ -249,10 +254,13 @@
 :iNAND? drop @+ d.get2 d.pop NAND? ( 2drop ; ) drop 8 >> + ;
 
 :iEXEC
-	drop
-	d.pop 1? ( swap r.push ; ) drop
-	;
+	dupcode
+	drop d.pop 0? ( drop ; )
+	swap r.pushEXE ;
 
+:iEXECs
+	drop d.pop 0? ( drop ; )
+	swap r.pushEXE ;
 
 |--- aritmetica y logica
 :iAND   drop d.pop2 AND d.pushVar ;
@@ -391,10 +399,37 @@ iwor ivar idwor idvar
 i;
 i(		i)(		i)		i[		i]		iEXEC
 i0?		i+?		i-?		i1?		i=?		i<?		i>?		i<=?	i>=?	i<>?	iAND?	iNAND?
-
 iDUP	iDROP	iOVER	iPICK2	iPICK3	iPICK4	iSWAP	iNIP	iROT
 i2DUP	i2DROP	i3DROP	i4DROP	i2OVER	i2SWAP
+i>R		iR>		iR		iR+		iR@+	iR!+	iRDROP
+iAND	iOR		iXOR	iNOT	i+		i-		i*		i/		i*/
+i*>>	i/MOD	iMOD	iABS	iNEG	i1+		i4+		i1-		i2/		i2*		i<<		i>>
+i@		iC@		iW@		i!		iC!		iW!		i+!		iC+!	iW+!	i@+		i!+		iC@+	iC!+	iW@+	iW!+
+iMOVE	iMOVE>	iCMOVE	iCMOVE>
+iMEM	iDIR	iFILE	iFSIZE	iVOL	iLOAD	iSAVE
+iUPDATE	iMSEC	iTIME	iDATE	iEND	iRUNi
+iSW		iSH		iCLS	iREDRAW	iFRAMEV
+iSETXY	iPX+!	iPX!+	iPX@
+iXFB	i>XFB	iXFB>
+iPAPER	iINK	iINKF	iALPHA
+iOP		iCP		iLINE	iCURVE	iPLINE	iPCURVE	iPOLI
+iFCOL	iFCEN	iFMAT	iSFILL	iLFILL	iRFILL	iTFILL
+iTPEN 	iXYMOUSE iBMOUSE
+iRKEY!	iKEY
+iCNTJOY	iGETJOY
+iSLOAD	iSPLAY	iMLOAD	iMPLAY					|--- Sonido
+iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 
+#tablais	| tabla de saltos de instrucciones silenciosa
+i0
+i: i#
+idec ihex ibin ifix istr
+iwors ivar idwor idvar
+i;s
+i(		i)(		i)		i[		i]		iEXECs
+i0?		i+?		i-?		i1?		i=?		i<?		i>?		i<=?	i>=?	i<>?	iAND?	iNAND?
+iDUP	iDROP	iOVER	iPICK2	iPICK3	iPICK4	iSWAP	iNIP	iROT
+i2DUP	i2DROP	i3DROP	i4DROP	i2OVER	i2SWAP
 i>R		iR>		iR		iR+		iR@+	iR!+	iRDROP
 iAND	iOR		iXOR	iNOT	i+		i-		i*		i/		i*/
 i*>>	i/MOD	iMOD	iABS	iNEG	i1+		i4+		i1-		i2/		i2*		i<<		i>>
@@ -417,10 +452,26 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 ::stepmacro | nro --
   	dup 11 + 2 << 'tablai + @ exec ;
 
+::stepword | nro --
+
+	;
+
 ::stepvm | --
 	<<ip 0? ( drop ; )
+:step..
 	@+ dup $ff and
 	2 << 'tablai + @ exec
+	'<<ip ! ;
+
+::stepvmn | --
+	<<ip 0? ( drop ; )
+	dup @ $ff and 8 <>? ( drop step.. ; ) drop
+	dup 4+ swap
+	( over <>? )(
+		@+ dup $ff and
+		2 << 'tablais + @ exec
+		0? ( 2drop ; )
+		) nip
 	'<<ip ! ;
 
 
