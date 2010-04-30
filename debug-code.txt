@@ -12,6 +12,7 @@
 ^sort.txt
 ^form.txt
 ^r4code.txt
+^r4plain.txt
 
 #nombre )( 64
 #mensaje )( 64
@@ -19,85 +20,13 @@
 
 :mensaje! 'mensaje strcpy ;
 
-|------------------------------------------------
-| genera codigo en :r4 y lo graba en "plain.txt"
-| Sin includes
-| Sin locales/exportadas ::->:  ##->#
-|------------------------------------------------
-:nro>dicn   8 >> "w%h" mprint ;		| w<nro palabra>
-
-:cpycad | adr --
-	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop ; ) ) ,c ) 2drop ;
-
-:coldefw ":" ,s nro>dicn ,s ;
-:coldefv "#" ,s nro>dicn ,s ;
-
-:colitd
-:colitf
-:colitb
-:colith tok>cte "%d" ,print ;
-:colits	34 ,c tok>str cpycad 34 ,c ;
-
-:colwor
-:colvar
-	nro>dicn ,s ;
-:coldwo
-:coldva
-	"'" ,s nro>dicn ,s ;
-
-#codei 0 coldefw coldefv colitd colith colitb colitf colits colwor colvar coldwo coldva
-
-:,token | a -- a.
-	@+ dup $ff and
-	12 <? ( 2 << 'codei + @ exec ; ) nip
-	nro>macro ,s ;
-
-||| Codigo
-:gencod | adrr --
-	dup @ swap 12 + @
-	( 1? )( 1- swap ,sp ,token swap
-		$1f nand? ( ,cr ) )
-	2drop ;
-
-||| Variables
-:genvar | adrr --
-	@
-	( @+ dup $ff and
-		1 =? ( 0 nip ) | corta con defc
-		2 =? ( 0 nip ) | corta con defv
-		1? )( 	 | dirv n c
-		,sp
-		12 <? ( 2 << 'codei + @ exec )( nip nro>macro ,s )
-		$7c nand? ( ,cr )
-		)
-	3drop ,cr ;
-
-
-:gencodigo | nro --
-	dup 5 << 'indicepal +
-	dup 8 + @ 1 and? ( 'genvar "#" )( 'gencod ":" ) ,s nip
-	swap
-	4+ pick2 "w%h" ,print      | w<nro palabra>
-	swap exec | ,cr
-	drop
-	;
-
-:makeplain
-	mark
-	"| plain.txt generator" ,s ,cr
-	"|---------------------" ,s ,cr
-	0 ( cntw <? )(
-		dup ind2nro gencodigo
-		1+ )
-	": " ,s ind2nro 5 << 'indicepal + 4+ gencod
-	"plain.txt" savemem
-	empty
+:mkplain
+	makeplain
 	"plain.txt generado." 'mensaje strcpy
 	;
 
-|------------------------------
-|------------------------------
-:makeasm
+:mkasm
+	"r4fasm.txt" run 
 	;
 
 :viewCode
@@ -236,18 +165,20 @@
 		sp 'stepvmn dup <f2> "f2-StepN" btnt
 |		sp 'viewData dup <f3> "f3-ViewData" btnt
 
-		sp 'makeplain dup <f10> "f10-GenPlain" btnt
-		sp 'makeasm dup <f11> "f11-ASM" btnt
+		sp 'mkplain dup <f10> "f10-GenPlain" btnt
+		sp 'mkasm dup <f11> "f11-ASM" btnt
 
 		32 26 gc.vbetween
-		fonti home
+		home
+		gridindexwords
+
+		fonti
 		rojo 'mensaje cr printx
 		blanco "> " print
 		'consola 32 inputline cr
 		'correconsola <enter>
 		blanco
 
-		gridindexwords
 |		fonti cr
 |		dumpcompila cr
 		verde vm.dump
