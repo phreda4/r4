@@ -18,6 +18,14 @@
 ^lib/parse.txt
 ^lib/trace.txt
 
+
+|------ optimizador
+:label	"_" ,s ,h 	;
+:jmp,	"jmp " ,s label ,cr ;
+:dup,	"lea esi,[esi-4]" ,ln "mov [esi],eax" ,ln ;
+:drop,	"lodsd" ,ln ;
+:nip,	"lea esi,[esi+4]" ,ln ;
+
 #ra "eax"
 #rb "ebx"
 #rc "ecx"
@@ -29,89 +37,9 @@
 #vTOS ra
 #vNOS nos
 
-|||||||||||||||||||| pila virtual |||||||||||||
-#vstack )( 1024 | valor
-#tstack )( 1024 | tipo
-#vstack> 'vstack
-
-:vini | --
-	'vstack 'vstack> ! ;
-:vpush | valor tipo --
-	vstack> swap over 1024 + ! !+ 'vstack> ! ;
-:vpushCte | val --
-	0 vpush ;
-:vpushDirC | val --
-	1 vpush ;
-:vpushDirD | val --
-	2 vpush ;
-
-|---- nivel v - pila virtual solamente
-:vDROP | -- || a --
-	-4 'vstack> +! ;
-:vDUP | -- || a -- a a
-	vstack> 4 -
-	dup 1024 + @+ swap !
-	@+ swap !+ 'vstack> ! ;
-:vOVER
-	vstack> 8 -
-	dup 1024 + @+ swap 4+ !
-	@+ swap 4+ !+ 'vstack> ! ;
-:vPICK2
-	vstack> 12 -
-	dup 1024 + @+ swap 8 + !
-	@+ swap 8 + !+ 'vstack> ! ;
-:vPICK3
-	vstack> 16 -
-	dup 1024 + @+ swap 12 + !
-	@+ swap 12 + !+ 'vstack> ! ;
-:vPICK4
-	vstack> 20 -
-	dup 1024 + @+ swap 16 + !
-	@+ swap 16 + !+ 'vstack> ! ;
-:vSWAP
-	vstack> 8 -
-	dup 1024 +
-	dup @+ swap @ rot !+ !
-	dup @+ swap @ rot !+ ! ;
-:vROT	
-	vstack> 12 -
-	dup 1024 +
-	dup >r @+ swap @+ swap @ rot >r !+ !+ !
-    dup >r @+ swap @+ swap @ rot >r !+ !+ ! ;
-
-:v2OVER ;
-:v2SWAP ;
-:v4DROP	vdrop
-:v3DROP	vdrop
-:v2DROP	vdrop vdrop ;
-:vNIP	vswap vdrop ;
-:v2DUP	vover vover ;
-
-|||||||| Calculo
-:vAND	vstack> 8 - @+ over @ and swap ! ;
-:vOR    vstack> 8 - @+ over @ or swap ! ;
-:vXOR   vstack> 8 - @+ over @ xor swap ! ;
-:vNOT   vstack> 4 - dup @ not swap ! ;
-:v+     vstack> 8 - @+ over @ + swap ! ;
-:v-     vstack> 8 - @+ over @ - swap ! ;
-:v*     vstack> 8 - @+ over @ * swap ! ;
-:v/     vstack> 8 - @+ over @ / swap ! ;
-:vMOD   vstack> 8 - @+ over @ mod swap ! ;
-:v<<    vstack> 8 - @+ over @ << swap ! ;
-:v>>    vstack> 8 - @+ over @ >> swap ! ;
-:v*/    vstack> 12 - @+ over @+ swap @ */ swap ! ;
-:v*>>   vstack> 12 - @+ over @+ swap @ *>> swap ! ;
-:v/MOD  vstack> 8 - dup @+ swap @ /mod swap rot !+ ! ;
-:vABS   vstack> 4 - dup @ abs swap ! ;
-:vNEG   vstack> 4 - dup @ neg swap ! ;
-:v1+    vstack> 4 - dup @ 1+ swap ! ;
-:v4+    vstack> 4 - dup @ 4+ swap ! ;
-:v1-    vstack> 4 - dup @ 1- swap ! ;
-:v2/    vstack> 4 - dup @ 2/ swap ! ;
-:v2*    vstack> 4 - dup @ 2* swap ! ;
 
 |---- nivel 0 - sin desordenar la pila
-:0,DUP || a -- a a
+::0,DUP || a -- a a
 	"lea esi,[esi-4]" ,ln
 	"mov [esi],eax" ,ln ;
 :0,DROP || a --
@@ -353,23 +281,65 @@
 	"mov eax,ecx" ,ln
 	"lea esi,[esi-4]" ,ln ;
 
-|||||||||| Memoria
-:v@		;
-:vC@ 	;
-:vW@ 	;
-:v! 	;
-:vC! 	;
-:vW! 	;
-:v+! 	;
-:vW+! 	;
-:vC+! 	;
-:v!+  	;
-:vW!+ 	;
-:vC!+  	;
-:v@+ 	;
-:vW@+  	;
-:vC@+  	;
+:0,;
+:0,(
+:0,)(
+:0,)
+:0,[
+:0,]	;
 
+:0,0?
+	"or eax,eax" ,ln
+	"jnz " ,s ;
+:0,+?
+	"or eax,eax" ,ln
+	"js " ,s ;
+:0,-?
+	"or eax,eax" ,ln
+	"jns " ,s ;
+:0,1?
+	"or eax,eax" ,ln
+	"jz " ,s ;
+:0,=?
+	"mov ecx,eax" ,ln
+	0,DROP
+	"cmp eax,ecx" ,ln
+	"jnz " ,s ;
+:0,<?
+	"mov ecx,eax" ,ln
+	0,DROP
+	"cmp eax,ecx" ,ln
+	"jge " ,s ;
+:0,>?
+	"mov ecx,eax" ,ln
+	0,DROP
+	"cmp eax,ecx" ,ln
+	"jle " ,s ;
+:0,<=?
+	"mov ecx,eax" ,ln
+	0,DROP
+	"cmp eax,ecx" ,ln
+	"jg " ,s ;
+:0,>=?
+	"mov ecx,eax" ,ln
+	0,DROP
+	"cmp eax,ecx" ,ln
+	"jl " ,s ;
+:0,<>?
+	"mov ecx,eax" ,ln
+	0,DROP
+	"cmp eax,ecx" ,ln
+	"jz " ,s ;
+:0,and?
+	"mov ecx,eax" ,ln
+	0,DROP
+	"test eax,ecx" ,ln
+	"jz " ,s ;
+:0,nand?
+	"mov ecx,eax" ,ln
+	0,DROP
+	"test eax,ecx" ,ln
+	"jnz " ,s ;
 
 
 |---- nivel 1 - pila virtual
@@ -428,158 +398,25 @@
 :1,>>
 	vTOS vNOS "sar %s,%s" ,print cr ; | cl o cte
 
-:0,ABS
-	"cdq" ,ln
-	"add eax,edx" ,ln
-	"xor eax,edx" ,ln ;
-
 :1,NEG
 	vTOS "neg %s" ,print ,cr ;
-:0,1+
+:1,1+
 	vTOS "inc %s" ,print ,cr ;
-:0,4+
+:1,4+
 	vTOS "add %s,4" ,print ,cr ;
-:0,1-
+:1,1-
 	vTOS "dec %s" ,print ,cr ;
-:0,2/
+:1,2/
 	vTOS "sar %s,1" ,print ,cr ;
-:0,2*
+:1,2*
 	vTOS "sal %s,1" ,print ,cr ;
 
-
-|-------------------------------------data
-#pilac )( 256	#pilac> 'pilac
-
-:>pilac pilac> ! 4 'pilac> +! ;
-:<pilac -4 'pilac> +! pilac> @ ;
-
-#etiqueta 0	| etiquetas
-#cadena 0	| cadenas
-#salto
-#msgserr 
-#modo
-
-#d1 "dd "
-#d2 "dw "
-#d3	"db "
-#d4 "rb "
-#dtipo 'd1
-#dini 0
-
-:,d; ;
-:,d( dtipo >pilac 'd3 'dtipo ! ;
-:,d)( 'd4 'dtipo ! ;
-:,d) <pilac 'dtipo ! ;
-:,d[ dtipo >pilac 'd2 'dtipo ! ;
-:,d] <pilac 'dtipo ! ;
-
-#dmacros ',d; ',d( ',d) ',d)( ',d[ ',d]
-
-
-:+etiqueta	| -- nueva   // y agrega a pila
-	etiqueta 1+ dup 'etiqueta ! dup >pilac ;
-
-|------ optimizador
-:label	"_" ,s ,h 	;
-:jmp,	"jmp " ,s label ,cr ;
-:dup,	"lea esi,[esi-4]" ,ln "mov [esi],eax" ,ln ;
-:drop,	"lodsd" ,ln ;
-:nip,	"lea esi,[esi+4]" ,ln ;
-
-#optipo  0 | 0,nro,var,dir,cad,call
-#optnro
-
-| nro --
-:*nro	dup,
-		0? ( drop "xor eax,eax" ,ln ; )
-		1 =? ( drop "xor eax,eax" ,ln "inc eax" ,ln ; )
-		-1 =? ( drop "xor eax,eax" ,ln "dec eax" ,ln ; )
-		"mov eax,$" ,s ,h ,cr  ;
-:*var	dup, "mov eax,[w" ,s ,d "]" ,ln ;
-:*dir	dup, "mov eax,w" ,s ,d ,cr ;
-:*cad	dup, "mov eax,s" ,s ,d ,cr ;
-:*call	"call w" ,s ,d ,cr ;
-#jopt  0 *nro *var *dir *cad *call
-:optfin optipo 1? ( 2 << 'jopt + @ optnro swap exec 0 'optipo ! dup ) drop ;
-
-:optset | nro clase --
-	optfin 'optipo ! 'optnro ! ;
-
-:*jump  "jmp w" ,s optnro ,d ,cr 0 'optipo ! ;
-
-| nro --
-:**nro 	"$" ,s ,h  ;
-:**var	"dword [w" ,s ,d "]" ,s ;
-:**dir	"w" ,s ,d ;
-:**cad 	"s" ,s ,d ;
-:**error drop ;
-#wopt **error **nro **var **dir **cad **error
-:**write	optipo 2 << 'wopt + @ optnro swap exec	0 'optipo ! ,cr ;
-:**write1	optipo 2 << 'wopt + @ optnro swap exec	0 'optipo ! ;
-
-:optcall | --
-	optipo 5 =? ( optfin drop 0 ) ;
-
-|---------------------------------------------------
-:,;
-	optipo 5 =? ( *jump )( optfin "ret" ,ln ) drop ;
-:,(
-	optfin +etiqueta salto 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
-:,)(
-	optfin <pilac salto 0? ( drop
-			1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac drop ; )
-			)( drop
-			2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac drop ; ) ) drop
-	"**)( error **" 'msgserr ! ; | 1 'error !
-:,)
-	optfin
-	<pilac salto 0? ( drop
-			1 =? ( <pilac label ":" ,ln drop ; )
-			2 =? ( <pilac jmp, drop ; )
-			3 =? ( <pilac jmp, <pilac label ":" ,ln drop ; )
-		)( drop
-			2 =? ( <pilac label ,cr drop ; ) ) drop
-	"**) error **"  'msgserr ! ;
-:,[
-	optfin dup, +etiqueta +etiqueta "mov eax," ,s label ,cr jmp, <pilac label ":" ,ln ;
-:,]
-	optfin <pilac label ":" ,ln ;
-
-:,0?	"or eax,eax" ,ln "jnz " ,s ;
-:,+?	"or eax,eax" ,ln "js " ,s ;
-:,-?	"or eax,eax" ,ln "jns " ,s ;
-:,1?	"or eax,eax" ,ln "jz " ,s ;
-:,=?
-		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jnz " ,s )(
-			"cmp eax," ,s **write "jnz " ,s ) drop ;
-:,<?
-		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jge " ,s )(
-			"cmp eax," ,s **write "jge " ,s ) drop ;
-:,>?
-		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jle " ,s )(
-			"cmp eax," ,s **write "jle " ,s ) drop ;
-:,<=?
-		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jg " ,s )(
-			"cmp eax," ,s **write "jg " ,s ) drop ;
-:,>=?
-		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jl " ,s )(
-			"cmp eax," ,s **write "jl " ,s ) drop ;
-:,<>?
-		0? ( "mov ecx,eax" ,ln drop, "cmp eax,ecx" ,ln "jz " ,s )(
-			"cmp eax," ,s **write "jz " ,s ) drop ;
-:,and?
-		0? ( "mov ecx,eax" ,ln drop, "test eax,ecx" ,ln "jz " ,s )(
-			"test eax," ,s **write "jz " ,s ) drop ;
-:,nand?
-		0? ( "mov ecx,eax" ,ln drop, "test eax,ecx" ,ln "jnz " ,s )(
-			"test eax," ,s **write "jnz " ,s ) drop ;
-
 |-----------
-|:,MOVE	;
-|:,MOVE>	;
-|:,CMOVE	;
-|:,CMOVE>	;
-|------------------
+:,MOVE	;
+:,MOVE>	;
+:,CMOVE	;
+:,CMOVE>	;
+
 :,DIR		"call SYSDIR" ,ln ;
 :,FILE      "call SYSFILE" ,ln ;
 :,FSIZE     "call SYSFSIZE" ,ln ;
@@ -602,16 +439,15 @@
 	0,dup
 	"mov eax,FREE_MEM" ,ln ;
 
-|------------
-|:,CLS ;
-|------------
+:,CLS ;
 :,REDRAW
 	"call SYSREDRAW" ,ln ;
-
 :,FRAMEV
 	0,DUP
 	"mov eax,SYSFRAME" ,ln ;
-
+:,XFB
+:,>XFB
+:,XFB> ;
 :,SETXY | x y --
 	"cdq" ,ln
 	"imul dword [SYSW]" ,ln
@@ -680,79 +516,35 @@
 :,NBI
 	;
 
+
 #nivel0
+0,; 0,( 0,)( 0,) 0,[ 0,] 0,EXEC
+0,0? 0,+? 0,-? 0,1? 0,=? 0,<? 0,>? 0,<=? 0,>=? 0,<>? 0,AND? 0,NAND?
+0,DUP 0,DROP 0,OVER 0,PICK2 0,PICK3 0,PICK4 0,SWAP 0,NIP	|--- pila
+0,ROT 0,2DUP 0,2DROP 0,3DROP 0,4DROP 0,2OVER 0,2SWAP
+0,>R 0,R> 0,R 0,R+ 0,R@+ 0,R!+ 0,RDROP					|--- pila direcciones
+0,AND 0,OR 0,XOR 0,NOT  								|--- logicas
+0,+ 0,- 0,* 0,/ 0,*/ 0,*>> 0,/MOD 0,MOD 0,ABS  			|--- aritmeticas
+0,NEG 0,1+ 0,4+ 0,1- 0,2/ 0,2* 0,<< 0,>>
+0,@ 0,C@ 0,W@ 0,! 0,C! 0,W! 0,+! 0,C+! 0,W+!  			|--- memoria
+0,@+ 0,!+ 0,C@+ 0,C!+ 0,W@+ 0,W!+
+,MOVE ,MOVE> ,CMOVE ,CMOVE>
+,MEM ,DIR ,FILE ,FSIZE ,VOL ,LOAD ,SAVE			|--- memoria bloques
+,UPDATE ,MSEC ,TIME ,DATE ,END ,RUN 				|--- sistema
+,SW ,SH ,CLS ,REDRAW ,FRAMEV  						|--- pantalla
+,SETXY ,PX+! ,PX!+ ,PX@
+,XFB ,>XFB ,XFB>
+|,PAPER ,INK ,INK@ ,ALPHA							|--- color
+|,OP ,CP ,LINE ,CURVE ,PLINE ,PCURVE ,POLI		|--- dibujo
+|,FCOL ,FCEN ,FMAT ,SFILL ,LFILL ,RFILL ,TFILL
+|,TPEN ,XYMOUSE ,BMOUSE
+|,IKEY! ,KEY
+|,CNTJOY ,GETJOY
+|,SLOAD ,SPLAY	,MLOAD ,MPLAY					|--- Sonido
+|,SERVER ,CLIENT ,SEND ,RECV ,CLOSE
+|,DOCINI ,DOCEND ,DOCAT ,DOCLINE ,DOCTEXT ,DOCFONT ,DOCBIT ,DOCRES ,DOCSIZE  |-- impresora
+|,SYSTEM
 
-|---- Agrega palabra al diccionario
-:dfin	dini 1? ( dtipo )( "," ) ,s drop 0 'dini ! ;
-:dfini	dini 1? ( dtipo ,s 0 ,d ) ,cr drop 0 'dini ! ;
-:dfins	dini 1? ( "db " )( "," ) ,s drop 0 'dini ! ;
-:dfind	dini 1? ( "dd " )( "," ) ,s drop 0 'dini ! ;
-
-#ghere
-#hcode
-#hdata
-#cntpal
-#wtipo
-
-:esdefinicion | a -- a' define palabra
-	dfini
-	ghere
-	0 'modo !
-	hcode 'here !
-	optfin
-	dup 1+ c@ 33 <? ( drop 2 + "inicio:" ,ln ; ) drop
-	"w" ,s cntpal ,d ": " ,s 1 'cntpal +!
-	" ;" ,s dup ( c@+ 32 >? )( ,c ) 2drop ,cr
-	0 ; | definep
-
-:esvariable | a -- a' define variable
-	optfin dfini
-	ghere
-	1 'modo !
-	hdata 'here !
-	"w" ,s cntpal ,d " " ,s 1 'cntpal +!
-	1 |definep
-	'd1 'dtipo !
-	1 'dini ! ;
-
-|----------------------------------------------------------------
-:copydat | a -- a'
-	34 ,c 1+
-	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( drop 34 ,c ",0" ,s ; ) """,34," ,s ) ,c )
-	34 ,c drop ",0" ,s  1- ;
-
-:escadena | a -- a' graba cadena  "....."",..."
-	modo 0? ( drop
-		here 'hcode ! hdata 'here !
-		"s" ,s cadena ,d " db " ,s copydat ,cr
-		here 'hdata ! hcode 'here !
-		cadena 4 optset |******optipo  0 | 0,nro,var,dir,cad,call
-		1 'cadena +!
-	)( drop dfins copydat ) ;
-
-:esnumero | adr nro -- adr
-	0 'salto !
-	modo 0? ( drop
-		1 optset |******optipo  0 | 0,nro,var,dir,cad,call
-	)( drop	dfin ,d ) ;
-
-:espalabra | adr nro -- adr
-	0 'salto !
-	modo 0? ( drop
-		wtipo 1 and 0? ( drop
-			5 optset |******optipo  0 | 0,nro,var,dir,cad,call
-		)( drop
-			2 optset |******optipo  0 | 0,nro,var,dir,cad,call
-			)
-	)( drop dfind "w" ,s ,d  ) ;
-
-:esdir	| adr nro -- adr
-	0 'salto !
-	modo 0? ( drop
-		3 optset |******optipo  0 | 0,nro,var,dir,cad,call
-	)( drop dfind "w" ,s ,d ) ;
-
-:esmacro | adr nro -- adr
-|	dup modo 0? ( 'fmacros )( 'dmacros ) nip swap 2 << + @ exec
-	6 >? ( 19 <? ( 1 )( 0 ) )( 0 ) nip 'salto ! ;
-
+| compila nivel 0 de palabras
+::gen0 | val byte -- val
+	2 << 'nivel0 + @ exec ;

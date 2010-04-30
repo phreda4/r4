@@ -10,100 +10,179 @@
 #msgOK "OK."
 #mensaje 'msgOk
 
+|----- pila de compilador
+#pilac )( 256	#pilac> 'pilac
+
+:>pilac pilac> ! 4 'pilac> +! ;
+:<pilac -4 'pilac> +! pilac> @ ;
+:pilac! 'pilac 'pilac> ! ;
+
+#nstr | nro de string
+#nlabel | nro de etiqueta
+
+:+etiqueta	| -- nueva   // y agrega a pila
+	nlabel 1+ dup 'nlabel ! dup >pilac ;
+
+:cpycad | adr --
+	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop ; ) ) ,c ) 2drop ;
+
+#d1 "dd "
+#d2 "dw "
+#d3	"db "
+#d4 "rb "
+#dtipo 'd1
+#dini 0
+
+:dfin	dini 1? ( dtipo )( "," ) ,s drop 0 'dini ! ;
+:dfini	dini 1? ( dtipo ,s 0 ,d ) drop 0 'dini ! ;
+:dfins	dini 1? ( "db " )( "," ) ,s drop 0 'dini ! ;
+:dfind	dini 1? ( "dd " )( "," ) ,s drop 0 'dini ! ;
+
 |----------------------------------------------
 :nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
 :nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
 
 |----------------------------------------------
-:coldefw nro>dicn ":%w" ,print ;
-:coldefv nro>dicn "#%w" ,print ;
-:colitd
-:colith
-:colitb
-:colitf	tok>cte "%d" ,print ;
+:,ddefw nro>dicn ":%w" ,print ;
+:,ddefv nro>dicn "#%w" ,print ;
+:,dlitd
+:,dlith
+:,dlitb
+:,dlitf	dfin tok>cte ,d ;
+:,dlits	dfins tok>str 34 ,c cpycad 34 ,c ",0" ,s ;
+:,dwor
+:,dvar
+:,ddwo
+:,ddva dfind nro>dicn ,s ;
+:,d; drop ;
+:,d( drop dtipo >pilac 'd3 'dtipo ! ;
+:,d)( drop 'd4 'dtipo ! ;
+:,d) drop <pilac 'dtipo ! ;
+:,d[ drop dtipo >pilac 'd2 'dtipo ! ;
+:,d] drop <pilac 'dtipo ! ;
 
-:cpycad | adr --
-	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop ; ) ) ,c ) 2drop ;
 
-:colits	34 ,c tok>str cpycad 34 ,c ",0" ,s ;
-:colwor
-:colvar
-	nro>dicn ,s ;
-:coldwo
-:coldva
-	"'" ,s nro>dicn ,s ;
+#coded 0
+,ddefw ,ddefv ,dlitd ,dlith ,dlitb ,dlitf ,dlits ,dwor ,dvar ,ddwo ,ddva
+,d; ,d( ,d)( ,d) ,d[ ,d]
 
-#codei 0 'coldefw 'coldefv colitd colith colitb colitf colits colwor colvar coldwo coldva
-
-|----------------------------------------------
-:genvar | nro llamadas -- nro llamadas
-	over "v%h  " ,print
-	over 5 << 'indicepal + 4+ @
+|---- datos
+:cadavar | nropal cntlla -- nropal
+	drop dup "w%h " ,print
+	'd1 'dtipo ! 1 'dini ! pilac!
+	dup nro>tok
 	( @+ dup $ff and
 		1 =? ( 0 nip ) | corta con defc
 		2 =? ( 0 nip ) | corta con defv
 		1? )( 	 | dirv n c
-		12 <? ( 2 << 'codei + @ exec )( 2drop )
+		18 <? ( 2 << 'coded + @ exec )( 2drop )
 		,sp
 		)
 	3drop
+	dfini
 	,cr ;
 
+:otrostr
+	over
+	nstr "s%h db " ,print
+	,dlits
+	1 'nstr +!
+	,cr ;
+
+:cadawor | nropal cntlla -- nropal
+	drop |dup "w%h  " ,print
+	dup
+	nro>toklen
+	( 1? )( 1- swap
+		@+ dup $ff and
+		7 =? ( otrostr ) 2drop
+		swap )
+	2drop ;
+
 :compiladato
+	0 'nstr !
 	mark
 	";---:r4 compiler dat.asm" ,s ,cr
-	0 ( cntwords <? )(
-		dup 5 << 'indicepal + 8 + @
-		1 nand? ( drop )( drop
-			dup getllamadas 1? ( genvar ) drop
-			)
-		1+ ) drop
-	0 ,c
+    'cadavar varmap
+    'cadawor wordmap
+    0 ,c
 	"r4asm/dat.asm" savemem
 	empty ;
 
 |----------------------------------------------
-:,token | a -- a.
-	@+ dup $ff and
-	12 <? ( 2 << 'codei + @ exec ; ) nip
-	nro>macro ,s ;
+:salto? | adr++ xx
+	over 8 - @ $ff and
+	18 >? ( 31 <? ( 1 nip ; ) ) 0 nip ;
 
-:gencodigo | nro llamadas -- nro llamadas
-	over "w%h: " ,print
-	over 5 << 'indicepal +
-	dup @ "; %w" ,print ,cr
-	dup 4+ @ swap 16 + @
-	( 1? )( 1- swap
-		,sp ,token swap
-		$f nand? ( ,cr ) )
-	2drop
-	,cr
-	;
+:label	"_" ,s ,h ;
+:jmp,	"jmp " ,s label ,cr ;
+
+:,cdefw
+:,cdefv drop ;
+:,clitd
+:,clith
+:,clitb
+:,clitf	tok>cte 0,DUP "mov eax," ,s ,d ,cr ;
+:,clits	drop 0,DUP "mov eax,s" nstr ,h ,cr 1 'nstr +! ;
+:,cwor nro>dicn "call " ,s ,s ,cr ;
+:,cvar nro>dicn 0,DUP "mov eax,[" ,s ,s "]" ,s ,cr ;
+:,cdwo nro>dicn 0,DUP "mov eax," ,s ,s ,cr ;
+:,cdva nro>dicn 0,DUP "mov eax," ,s ,s ,cr ;
+:,c; drop "ret" ,ln ;
+:,c( drop +etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
+:,c)( drop
+	<pilac salto? 0? ( drop
+			1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac drop ; )
+			)( drop
+			2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac drop ; ) )
+	drop ;
+:,c) drop
+	<pilac salto? 0? ( drop
+			1 =? ( <pilac label ":" ,ln drop ; )
+			2 =? ( <pilac jmp, drop ; )
+			3 =? ( <pilac jmp, <pilac label ":" ,ln drop ; )
+		)( drop
+			2 =? ( <pilac label ,cr drop ; ) )
+	drop ;
+:,c[ drop
+	0,DUP +etiqueta +etiqueta "mov eax," ,s label ,cr jmp, <pilac label ":" ,ln ;
+:,c] drop
+	<pilac label ":" ,ln ;
+
+#codec 0 ,cdefw ,cdefv ,clitd ,clith ,clitb ,clitf ,clits ,cwor ,cvar ,cdwo ,cdva
+,c; ,c( ,c)( ,c) ,c[ ,c]
+
+:,token0 | a -- a.
+	@+ dup $ff and
+	18 <? ( 2 << 'codec + @ exec ; )
+	12 - gen0
+	drop ;
+
+
+:gencodigo | nro llamadas -- nro
+	drop dup "w%h: " ,print
+	dup 5 << 'indicepal + @ "; %w" ,print ,cr
+	dup nro>toklen
+	( 1? )( 1- swap	,token0 swap ) 2drop
+	,cr ;
 
 :compilacodigo
+	0 'nstr !
+	0 'nlabel !
 	mark
 	";---:r4 compiler cod.asm" ,s ,cr
-	0 ( cntwords <? )(
-		dup 5 << 'indicepal + 8 + @
-		1 and? ( drop )( drop
-			dup getllamadas 1? ( gencodigo ) drop
-			)
-		1+ ) drop
+	'gencodigo wordmap
+	cntwords "inicio: jmp w%h" ,print ,cr
 	0 ,c
 	"r4asm/cod.asm" savemem
 	empty ;
 
 |-----------------------
-:cargaimagen
+:main
+	mark
 	'nombreimg "./nom/editor.nom" load drop
 	'nombreimg tokencomp
 	tokenpost
-	;
-
-|-----------------------
-:main
-	mark
-	cargaimagen | genera en realidad
 	compiladato
 	compilacodigo
 
@@ -118,6 +197,7 @@
 		blanco
         verde
 		dumpcompila
+		dup "%d" cr print
 		;
 
 : 33 main ;
