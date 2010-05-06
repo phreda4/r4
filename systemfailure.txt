@@ -6,6 +6,7 @@
 ^lib/reda4.txt
 ^lib/gui.txt
 ^lib/fonth.txt
+^lib/trace.txt
 ^inc/systemfailure.inc
 
 #xcam 0
@@ -46,6 +47,18 @@
 	mpop ;
 
 
+:hit? | s1 s2 -- 0/s1
+	over =? ( 2drop 0 ; ) | s1=s2?
+	>r
+	dup @+ r@+ -	| s1 s1y dx
+	swap @ r@+ -	| s1 dx dy
+	distfast			| s1 dist
+	over 8 + @ r@+ + | s1 dist dw
+	pick2 12 + @ r> @ +
+	distfast 2/ -		| s1 dd
+	+? ( 2drop 0 ; )
+	drop ;
+
 :simplesprite | adr -- adr'
 	@+ draw2d 2drop ;
 
@@ -56,12 +69,11 @@
 
 :delspr | 'lsp 'lsig 'act -- 'lsig
 	dup 32 - over | nueva vieja
-	10 | *** cnt
-	5 << move | de sr cnt
+	pick3 3 << move | de sr cnt
 	32 - ;
 
 
-:lsprite	| adr -- adr'
+:lsprite | adr -- adr'
 	@+
 	@+ ( 1? )( 1- swap  | nexl cant lis'
 		draw2d
@@ -71,6 +83,13 @@
 				)
 		swap ) 2drop
 	;
+
+:lspritehit | 'spr 'adr --  0/'otro
+	@+ @+
+	( 1? )( 1- swap
+        hit? 1? ( nip nip ; )
+		swap )
+	3drop 0 ;
 
 :msprite
 :noop
@@ -143,7 +162,7 @@
 
 #layer1
 2	'listafx
-1	'spr-goal
+|1	'spr-goal
 1	'spr-nave
 0
 
@@ -154,8 +173,8 @@
 :rocks
 	0.01 +sr!
 	sxy@
-	abs 4.0 >? ( 0 nip nip ; ) drop
-	abs 4.0 >? ( 0 nip ; ) drop
+	abs 6.0 >? ( 0 nip nip ; ) drop
+	abs 6.0 >? ( 0 nip ; ) drop
     -1
     'dib6 3dnsprite
 	;
@@ -163,7 +182,7 @@
 :+rocks
 	-1 'rocks
 	r0.1 r0.1
-	r01 0.4              | rot y tam
+	r01 0.4 r0.1 +              | rot y tam
 	0 0
 	'listafx +layer
 	;
@@ -187,7 +206,6 @@
 
 :mismoke
 	0.02 +sr!
-|	dup 10 << 0.2 + ss!
 	dup @ 1-
 	dup 3 << alpha
 	'dib2 3dnsprite
@@ -231,32 +249,14 @@
 	+fire
 	;
 
-|||| CONSOLA
-#line1 )( 64
-
-:consola+keys
-	0.05 dup fdim verde
-
-	0.7 -0.8 fpos 'exit 'iarr btnd
-	0.6 -0.9 fpos 'exit 'iizq btnd
-	0.7 -0.9 fpos 'exit 'iaba btnd
-	0.8 -0.9 fpos 'exit 'ider btnd
-	0.4 0.05 fdim rojo
-	0.0 -0.9 fpos home 'exit "space" btnt
-
-	scr 20 fonth verde
-	'line1 print cr
-	;
-
 
 |||| GAME LOOP
-:debug scr
-		20 fonth verde
-		0 16 at
-		dup "%d " print
-		listafx "cnt:%d " print cr
-		vrnave arnave "%f %f - " print
-		vanave aanave "%f %f " print ;
+:debug
+	scr home fonti verde
+	dup "%d " print
+	listafx "cnt:%d " print cr
+	vrnave arnave "%f %f - " print vanave aanave "%f %f " print 
+	;
 
 :ajustacam
 	posnave
@@ -272,9 +272,9 @@
 	resetgoal
 	'exit >esc<
 	'kder <ri> 'ukder >ri<
-	'kizq <izq>	'ukizq >izq<
-	'kup <arr> 'ukup >arr<
-	'kdn <aba> 'ukdn >aba<
+	'kizq <le>	'ukizq >le<
+	'kup <up> 'ukup >up<
+	'kdn <dn> 'ukdn >dn<
 	'kfire <esp>
 	show clrscr
 
@@ -284,8 +284,6 @@
 
 		'layer1 drawlayer
 
-		consola+keys
-
 		debug
 |		cmano
 		100 .mseg .restart
@@ -294,26 +292,10 @@
 		;
 
 
-#inigame1 "Use the arrows to move the ship."
-#inigame2 "Use SPACE to fire and destroy."
-#inigame3 "Avoid obstacles and go to the station."
-#inigame4 "Good Luck."
-
-#titleini "*** System Failure ****%.ESPACE to continue...%.ESC to exit..."
-
-|||| TITLE
-:titulo
-	inigui
-	[ exit 1 ; ] >esp<
-	[ exit 0 ; ] <esc>
-	show clrscr
-		cmano
-		;
 
 |||| BOOT
 : 33
 	mark
-|	titulo
 	juego
 	;
 
