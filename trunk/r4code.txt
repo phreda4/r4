@@ -160,6 +160,9 @@
 #viewdata )( 1024
 #viewdata> 'viewdata
 
+:codereset
+	'viewcode 'viewcode> ! ;
+
 :+code | nrow --
 	viewcode> !+ 'viewcode> ! ;
 
@@ -548,23 +551,16 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	'viewdata ( viewdata> <? )( @+ printword cr ) drop ;
 
 ::vm.dump
+	cr
 	"D)" print
 	dpila> ( 'dpila >? )( sp printpila ) drop
 	cr
 	"R)" print
 	rpila> ( 'rpila >? )( sp printpila ) drop
-	cr
-|	freemem memvar - 10 >> "USO VARS %d Kbytes" print cr
-|	<<boot "BOOT:%h " print
-|	<<ip "IP: %h" print cr
-
-|	rpila> ( 'rpila >? )( 8 -
-|		dup @+ "%d " print @ "%h" print
-|		cr ) drop
+	cr cr
+	vdata
 	vcode
-|	vdata
 	;
-
 
 |-------------------------------
 | Asigma memoria para ejecucion
@@ -613,6 +609,10 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	2drop
 	;
 
+|--- reserva memoria para dicc de memoria y memoria de vars
+| 1do recorre variables,
+|     asigna direccion real y valor en direccion
+
 :c/var | nropal cntll -- nropal
 	drop
 	dup 5 << 'indicepal +	| nro dirw
@@ -622,9 +622,12 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	8 + ! drop
 	;
 
-|--- reserva memoria para dicc de memoria y memoria de vars
-| 1do recorre variables,
-|     asigna direccion real y valor en direccion
+:verc/var | nropal cntll -- nropal
+	drop
+|	indicepal< 'indicepal - 5 >>
+	newwords <? ( ; )
+	dup +data
+	;
 
 ::startvm | --
 	here dup 'memvar ! 'freemem !
@@ -635,6 +638,8 @@ iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 	d.ini	| inicia pilad
 	r.ini	| inicia pilar
 	<<boot '<<ip !
+	codereset
 	cntw ind2nro +code
+	'verc/var varmap | 'vector --
 	;
 
