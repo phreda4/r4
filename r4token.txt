@@ -74,6 +74,8 @@
 ::nro>calls | n -- m
 	5 << 'indicepal + 20 + ;
 
+::getllamadas | n -- n v
+	nro>calls @ ;
 
 #pilac )( 128	#pilac> 'pilac	|----- pila de compilador
 
@@ -420,113 +422,6 @@
 	indicepal< 'indicepal - 5 >> 'newwords !
 	;
 
-|------------------llamadas entre palabras
-#pilapend )( 4096		| pila de pendientes
-#pilapend> 'pilapend
-
-:addcall | n -- nant
-	nro>calls dup @ dup 1+ rot ! ;
-
-::getllamadas | n -- n v
-	nro>calls @ ;
-
-:useaddr | n --
-	nro>info dup @ $1000 or swap ! ;
-
-::getflags | n -- v
-	nro>info @ $1000 and ;
-
-:addw | w --
-	pilapend> !+ 'pilapend> ! ;
-
-:overcode | valor xx -- valor xx
-	over 8 >> dup addcall 0? ( over addw ) 2drop ;
-
-:overdire | valor xx -- valor xx
-	over 8 >> dup addcall 0? ( over addw ) drop useaddr ;
-
-:reccod | nrop -- nrop
-	dup 5 << 'indicepal +
-	dup 4+ @ swap 16 + @  | .. dir cnt
-	( 1? )( 1- swap
-		@+ dup $ff and
-		8 =? ( overcode ) | call word
-		9 =? ( overcode ) | var
-		10 =? ( overdire ) | dir word
-		11 =? ( overdire ) | dir var
-		2drop swap ) 2drop
-	;
-
-:recdat | nrop -- nrop
-	dup 5 << 'indicepal + 4+ @
-	( @+ dup $ff and
-		1 =? ( 0 nip ) | corta con defc
-		2 =? ( 0 nip ) | corta con defv
-		1? )( 	 | dirv n c
-		8 =? ( overcode ) | call word
-		9 =? ( overcode ) | var
-		10 =? ( overdire ) | dir word
-		11 =? ( overdire ) | dir var
-		2drop )
-	3drop
-	;
-
-|------ mapeos
-| vector | nropal cntlla -- nropal
-
-::varmap | 'vector --
-	0 ( cntwords <=? )(
-		dup 5 << 'indicepal + 8 + @
-		1 nand? ( drop )( drop
-			dup getllamadas 1? ( pick2 exec )( drop )
-			)
-		1+ ) 2drop ;
-
-::wordmap | 'vector --
-	0 ( cntwords <=? )(
-		dup 5 << 'indicepal + 8 + @
-		1 and? ( drop )( drop
-			dup getllamadas 1? ( pick2 exec )( drop )
-			)
-		1+ ) 2drop ;
-
-::diccmap | 'vector --
-	0 ( cntwords <=? )(
-		dup getllamadas 1? ( pick2 exec )( drop )
-		1+ ) 2drop ;
-
-|----------- indice de usadas
-#indexw
-#:cntw
-
-::ind2nro | nroindex -- nroreal
-	2 << indexw + @ ;
-
-:makeindex
-	here 'indexw !
-	[ drop dup , ; ] diccmap
-	here indexw - 2 >> 1- 'cntw !
-	;
-
-
-|--------- COMPILA ARCHIVO 2da PASADA
-::tokenpost
-	|-------- arbol de llamadas
-	cntwords dup addcall drop
-	'pilapend !+ 'pilapend> !
-	( pilapend> 'pilapend >? )(
-		4 - dup 'pilapend> ! @ | palabra a agregar
-		dup 5 << 'indicepal + 8 + @
-		1 and? ( drop recdat )( drop reccod )
-		drop )
-	drop
-	|----------
-	prog> 'here !
-	makeindex
-	|---------- analisis+
-
-	;
-
 
 |-------- ERROR EN CODIGO
 :ubicarerror | -- car lin
@@ -569,7 +464,30 @@
 |	meminc "%h <-inc" print cr
 	prog "%h <-prog" print cr
 	newwords cntwords "cnt:%d new:%d " print cr
-	cntw "%d" print
+|	cntw "%d" print
 	;
 
 
+|------ mapeos
+| vector | nropal cntlla -- nropal
+
+::varmap | 'vector --
+	0 ( cntwords <=? )(
+		dup 5 << 'indicepal + 8 + @
+		1 nand? ( drop )( drop
+			dup getllamadas 1? ( pick2 exec )( drop )
+			)
+		1+ ) 2drop ;
+
+::wordmap | 'vector --
+	0 ( cntwords <=? )(
+		dup 5 << 'indicepal + 8 + @
+		1 and? ( drop )( drop
+			dup getllamadas 1? ( pick2 exec )( drop )
+			)
+		1+ ) 2drop ;
+
+::diccmap | 'vector --
+	0 ( cntwords <=? )(
+		dup getllamadas 1? ( pick2 exec )( drop )
+		1+ ) 2drop ;
