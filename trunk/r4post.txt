@@ -1,15 +1,10 @@
 | analisis profundo de cada palabra usada
 | PHREDA 2010
 |
-| 00000000									Pila D ( -128 a 128)
-|            00000000						Pila R
-|                      0000000000FEDCBA		Flags
-| A-01 0 accion 1 dato
-| B-02 0 local 1 exportado
-| C-04 0 un ; 1 varios ;
-| D-08 0 sin calls 1 con calls
-| E-10 0 no usas R(A) 1 usa R(A) .. R(A) es cuando R se usa como auxiliar
-| F-20 0 nunca como direccion 1 alguna vez como direccion
+| 01 0 accion 1 dato
+| 02 0 local 1 exportado
+| 04 0 un ; 1 varios ;
+| 10 0 no usas R(A) 1 usa R(A) .. R(A) es cuando R se usa como auxiliar
 |---------------------------------------------------------------
 ^r4token.txt
 
@@ -175,7 +170,6 @@
 )
 
 |------------- recorre cada palabra
-
 #pilaint )( 1024
 #pilaint> 'pilaint
 
@@ -187,13 +181,18 @@
 	@+ 'deltaR ! @ 'deltaD !
 	;
 
+:marcausado | u --
+	drop ;
+
 | adr adrt t tabla
 :espal | palabra
 	dup 8 >> nro>mov @
 	dup 16 << 24 >> 1+ 'nivel !
+	dup 24 << 24 >> marcausado
 	dup 24 >> 'deltaR +!
 	8 << 24 >> 'deltaD +!
 	;
+
 :esdpal | 'palabra
 	;
 :esvar | variable
@@ -223,13 +222,15 @@
 :prosstoken | a -- a.
 	@+ dup	| a. v v
 	$ff and 2 << 'deltainternos +
-	c@+ | uso D
-		drop
+	c@+ marcausado
 	c@+ 'deltaD +!
 	c@+ 'deltaR +!
 	c@ 2 << 'acct + @ exec
 	drop
 	;
+
+::infotok | tok -- adr
+	$ff and 2 << 'deltainternos + ;
 
 :resetvars | --
 	0 'usoD !
@@ -244,7 +245,7 @@
 	deltaR 8 <<
 	deltaD $ff and or 8 <<
 	nivel $ff and or 8 <<
-	flags $ff and or
+	usoD $ff and or
 	over nro>mov !
 	;
 
@@ -279,8 +280,7 @@
 	over 8 >> dup addcall 0? ( over addw ) drop useaddr ;
 
 :reccod | nrop -- nrop
-	dup 5 << 'indicepal +
-	dup 4+ @ swap 16 + @  | .. dir cnt
+	dup nro>toklen
 	( 1? )( 1- swap
 		@+ dup $ff and
 		8 =? ( overcode ) | call word
