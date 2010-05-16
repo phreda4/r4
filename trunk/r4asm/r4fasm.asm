@@ -130,11 +130,13 @@ SYSEND: ; ( -- )
 	ret
 
 ;===============================================
+align 16
 SYSRUN: ; ( "nombre" -- )
 	lodsd
 	ret
 
 ;===============================================
+align 16
 SYSREDRAW: ; ( -- )
 	pusha
 	invoke StretchDIBits,[hDC],0,0,XRES,YRES,0,0,XRES,YRES,SYSFRAME,bmi,0,SRCCOPY
@@ -142,21 +144,14 @@ SYSREDRAW: ; ( -- )
 	ret
 
 ;===============================================
-SYSIFILL: ; ( v cnt src -- )
+align 16
+SYSCLS:		; ( -- )
 	pusha
-	mov edi,eax
-	mov ecx,[esi]
-	mov eax,[esi+4]
-;       cld
-loopf:
-	mov [edi],eax
-	add edi,4
-	loop loopf
-	;rep stosd
-	;pop edi
+	mov eax,[SYSPAPER]
+	lea edi,[SYSFRAME]
+	mov ecx,XRES*YRES
+	rep stosd
 	popa
-	lea esi,[esi+8]
-	lodsd
 	ret
 
 ;===============================================
@@ -256,20 +251,26 @@ SYSLOAD: ; ( 'from "filename" -- 'to )
 	lea esi,[esi+4]
 	ret
 
-toxfb:
+;===============================================
+SYSTOXFB:
 	pusha
 	lea esi,[SYSFRAME]
 	lea edi,[XFB]
-cop:
 	mov ecx,XRES*YRES
 	rep movsd
 	popa
 	ret
-xfbto:
+
+;===============================================
+SYSXFBTO:
 	pusha
 	lea esi,[XFB]
 	lea edi,[SYSFRAME]
-	jmp cop
+	mov ecx,XRES*YRES
+	rep movsd
+	popa
+	ret
+
 ;===============================================
 SYSSAVE: ; ( 'from cnt "filename" -- )
 	invoke CreateFile,eax,GENERIC_WRITE,0,0,CREATE_ALWAYS,FILE_FLAG_NO_BUFFERING+FILE_FLAG_SEQUENTIAL_SCAN,0
@@ -488,6 +489,7 @@ align 4
 	SYSiKEY	dd 0
 	SYSW	dd XRES
 	SYSH	dd YRES
+	SYSPAPER dd 0
 	SYSCDIR	dd 0
 
 	MCNT	dd 1

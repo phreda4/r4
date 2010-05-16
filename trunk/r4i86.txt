@@ -45,17 +45,60 @@
 #nos "[esi]"
 #cl "cl"
 
-#vTOS ra
-#vNOS nos
+#TOS ra
+#NOS nos
+#REGR re
 
+:TOS>eax
+	;
+:TOS>cl
+	;
+:NOS>byte
+	;
+:NOS>word
+	;
+:NOS>cl
+	;
+:NOS>eax
+	;
+:NOS2>eax
+	;
+:USAedx
+	;
 |---- nivel 0 - sin desordenar la pila
+:*,DUP
+	;
 :,DUP
 	"lea esi,[esi-4]" ,ln
 	"mov [esi],eax" ,ln ;
+
+:*,DROP
+	;
 :,DROP
 	"lodsd" ,ln ;
+
+:*,NIP
+   ;
 :,NIP
 	"lea esi,[esi+4]" ,ln ;
+
+:*,2DROP
+	;
+:,2DROP
+	,NIP ,DROP ;
+
+:*,3DROP
+	;
+:,3DROP
+	"lea esi,[esi+8]" ,ln
+	,DROP ;
+
+:*,4DROP
+	;
+:,4DROP
+	"lea esi,[esi+12]" ,ln
+	,DROP ;
+
 :,OVER
 	,DUP "mov eax,[esi+4]" ,ln ;
 :,PICK2
@@ -104,14 +147,7 @@
 |	"mov eax,ecx" ,ln
 	"popd [esi]" ,ln
 	"pop eax" ,ln ;
-:,2DROP
-	,NIP ,DROP ;
-:,3DROP
-	"lea esi,[esi+8]" ,ln
-	,DROP ;
-:,4DROP
-	"lea esi,[esi+12]" ,ln
-	,DROP ;
+
 
 :,EXEC
 	"mov ecx,eax" ,ln
@@ -121,26 +157,51 @@
 	"call ecx" ,ln
 	"@@:" ,ln ;
 
+:*,>R
+	| ( ; )
+	TOS REGR "mov %s,%s" ,print ,cr
+	*,DROP ;
 :,>R
 	"push eax" ,ln
 	,DROP ;
+
+:*,R>
+	;
 :,R>
 	,DUP "pop eax" ,ln ;
+
+:*,R
+	| ( ; )
+	*,DUP
+	TOS REGR "mov %s,%s" ,print ,cr ;
 :,R
 	,DUP "mov eax,[esp]" ,ln ;
 
+:*,RDROP
+| ( ; )
 :,RDROP
 	"lea esp,[esp+4]" ,ln ;
 
+:*,R+
+	TOS REGR "add [%s],%s" ,print ,cr ;
 :,R+
 	"add [esp],eax" ,ln
 	,DROP ;
+
+:*,R!+
+	TOS REGR "mov [%s],%s" ,print ,cr
+	REGR "add %s,4" ,print ,cr
+	;
 :,R!+
 	"pop edx" ,ln
 	"mov [edx],eax" ,ln
 	"add edx,4" ,ln
 	"push edx" ,ln
 	,DROP ;
+
+:*,R@+
+	REGR TOS "move %s,[%s]" ,print ,cr
+	REGR "add %s,4" ,print ,cr ;
 :,R@+
 	,DUP
 	"pop edx" ,ln
@@ -148,59 +209,66 @@
 	"add edx,4" ,ln
 	"push edx" ,ln ;
 
-:1,AND
-	vTOS vNOS "and %s,%s" ,print ,cr ;
+:*,AND
+	NOS TOS "and %s,%s" ,print ,cr
+	*,NIP ;
 :,AND
-	"and eax,[esi]" ,ln
-	,NIP ;
+	"and eax,[esi]" ,ln ,NIP ;
 
-:1,OR
-	vTOS vNOS "or %s,%s" ,print ,cr ;
+:*,OR
+	NOS TOS "or %s,%s" ,print ,cr *,NIP ;
 :,OR
-	"or eax,[esi]" ,ln
-	,NIP ;
+	"or eax,[esi]" ,ln ,NIP ;
 
-:1,XOR
-	vTOS vNOS "xor %s,%s" ,print ,cr ;
+:*,XOR
+	NOS TOS "xor %s,%s" ,print ,cr *,NIP ;
 :,XOR
-	"xor eax,[esi]" ,ln
-	,NIP ;
+	"xor eax,[esi]" ,ln ,NIP ;
 
-:1,NOT
-	vTOS "not %s" ,print ,cr ;
+:*,NOT
+	TOS "not %s" ,print ,cr ;
 :,NOT
 	"not eax" ,ln ;
 
-:1,+
-	vTOS vNOS "add %s,%s" ,print ,cr ;
+:*,+
+	NOS TOS "add %s,%s" ,print ,cr *,NIP ;
 :,+
-	"add eax,[esi]" ,ln
-	,NIP ;
+	"add eax,[esi]" ,ln ,NIP ;
 
-:1,-
-	vTOS vNOS "sub %s,%s" ,print ,cr ;
+:*,-
+	TOS NOS "sub %s,%s" ,print ,cr *,DROP ;
 :,-
 	"neg eax" ,ln
 	"add eax,[esi]" ,ln
 	,NIP ;
 
-:1,*
+:*,*
 	"cdq" ,ln
-	vTOS "imul dword %s" ,ln
+	TOS "imul dword %s" ,print ,cr
 	;
 :,*
 	"cdq" ,ln
 	"imul dword [esi]" ,ln
 	,NIP ;
 
-:1,/
+:*,/
+	NOS>eax
+	*,DROP
+	"cdq" ,ln
+	TOS "idiv %s" ,print ,cr ;
 :,/
 	"mov ecx,eax" ,ln
 	,DROP
 	"cdq" ,ln
 	"idiv ecx" ,ln ;
 
-:1,*/
+:*,*/
+	NOS2>eax
+	"cdq" ,ln
+	NOS "imul dword %s" ,print ,cr
+	TOS "idiv %s" ,print ,cr
+	*,2DROP ;
+
 :,*/
 	"mov ecx,eax" ,ln
 	,DROP
@@ -208,6 +276,14 @@
 	"imul dword [esi]" ,ln
 	"idiv ecx" ,ln
 	,NIP ;
+
+:*,*>>
+	NOS2>eax
+	TOS>cl
+	"cdq" ,ln
+	NOS "imul dword %s" ,print ,cr
+	TOS "shrd eax,edx,%s" ,print ,cr
+	*,2DROP ;
 :,*>>
 	"mov ecx,eax" ,ln
 	,DROP
@@ -215,6 +291,31 @@
 	"imul dword [esi]" ,ln
 	"shrd eax,edx,cl" ,ln
 	,NIP ;
+
+:*,<</
+	NOS>cl
+	"cdq" ,ln
+    NOS "shld eax,edx,%s" ,print ,cr
+	TOS "idiv %s" ,print ,cr
+	*,2DROP ;
+:,<</
+	"push eax" ,ln
+	,DROP
+	"mov ecx,eax",ln
+	"mov eax,[esi]",ln
+	"cdq" ,ln
+    "shld eax,edx,cl" ,ln
+	"pop ecx" ,ln
+	"idiv ecx" ,ln
+	,NIP ;
+
+
+:*,/MOD
+	NOS>eax
+	"cdq" ,ln
+	TOS "idiv %s" ,ln
+	NOS "mov %s,eax" ,ln
+	"mov eax,edx" ,ln ;
 :,/MOD
 	"mov ecx,eax" ,ln
 	"mov eax,[esi]" ,ln
@@ -222,6 +323,12 @@
 	"idiv ecx" ,ln
 	"mov [esi],eax" ,ln
 	"mov eax,edx" ,ln ;
+
+:*,MOD
+	NOS>eax
+	"cdq" ,ln
+ 	TOS "idiv %s" ,ln
+	*,DROP ;
 :,MOD
 	"mov ecx,eax" ,ln
 	,DROP
@@ -229,112 +336,181 @@
 	"idiv ecx" ,ln
 	"mov eax,edx" ,ln ;
 
-:1,<<
-	vTOS vNOS "sal %s,%s" ,print ,cr ; | cl o cte
+:*,<<
+	TOS>cl
+	TOS NOS "sal %s,%s" ,print ,cr
+	*,DROP ;
 :,<<
 	"mov ecx,eax" ,ln
 	,DROP
 	"sal eax,cl" ,ln ;
 
-:1,>>
-	vTOS vNOS "sar %s,%s" ,print cr ; | cl o cte
+:*,>>
+	TOS>cl
+	TOS NOS "sar %s,%s" ,print cr
+	*,DROP ;
 :,>>
 	"mov ecx,eax" ,ln
 	,DROP
 	"sar eax,cl" ,ln ;
 
+:*,ABS
+	TOS>eax
+	USAedx
 :,ABS
 	"cdq" ,ln
 	"add eax,edx" ,ln
 	"xor eax,edx" ,ln ;
 
-:1,NEG
-	vTOS "neg %s" ,print ,cr ;
+:*,NEG
+	TOS "neg %s" ,print ,cr ;
 :,NEG
 	"neg eax" ,ln ;
 
-:1,1+
-	vTOS "inc %s" ,print ,cr ;
+:*,1+
+	TOS "inc %s" ,print ,cr ;
 :,1+
 	"inc eax" ,ln ;
 
-:1,4+
-	vTOS "add %s,4" ,print ,cr ;
+:*,4+
+	TOS "add %s,4" ,print ,cr ;
 :,4+
 	"add eax,4" ,ln ;
 
-:1,1-
-	vTOS "dec %s" ,print ,cr ;
+:*,1-
+	TOS "dec %s" ,print ,cr ;
 :,1-
 	"dec eax" ,ln ;
 
-:1,2/
-	vTOS "sar %s,1" ,print ,cr ;
+:*,2/
+	TOS "sar %s,1" ,print ,cr ;
 :,2/
 	"sar eax,1" ,ln ;
 
-:1,2*
-	vTOS "sal %s,1" ,print ,cr ;
+:*,2*
+	TOS "sal %s,1" ,print ,cr ;
 :,2*
 	"sal eax,1" ,ln ; | "add eax,eax" ,ln
 
+:*,@
+	TOS TOS "mov %s,dword [%s]" ,print ,cr
 :,@
 	"mov eax,dword [eax]" ,ln ;
+
+:*,C@
+	TOS TOS "movsx %s,byte [%s]" ,print ,cr ;
 :,C@
 	"movsx eax,byte [eax]" ,ln ;
+
+:*,W@
+	TOS TOS "movsx %s,word [%s]" ,print ,cr ;
 :,W@
 	"movsx eax,word [eax]" ,ln ;
+
+:*,!
+	NOS TOS "mov [%s],%s" ,print ,cr
+	*,2DROP ;
 :,!
 	"mov ecx,[esi]" ,ln
 	"mov [eax],ecx" ,ln
 	,2DROP ;
+
+:*,C!
+ 	NOS>byte TOS "mov byte [%s],%s" ,print ,cr
+	*,2DROP ;
 :,C!
 	"mov ecx,[esi]" ,ln
 	"mov byte [eax],cl" ,ln
 	,2DROP ;
+
+:*,W!
+	NOS>word TOS "mov word [%s],%s" ,print ,cr
+	*,2DROP ;
 :,W!
 	"mov ecx,[esi]" ,ln
 	"mov word [eax],cx" ,ln
 	,2DROP ;
+
+:*,+!
+	NOS TOS "add [%s],%s" ,print ,cr
+	*,2DROP ;
 :,+!
 	"mov ecx,[esi]" ,ln
 	"add [eax],ecx" ,ln
 	,2DROP ;
+
+:*,W+!
+	NOS>word TOS "add word [%s],%s" ,print ,cr
+	*,2DROP ;
 :,W+!
 	"mov ecx,[esi]" ,ln
 	"add word [eax],cx" ,ln
 	,2DROP ;
+
+:*,C+!
+	NOS>byte TOS "add byte [%s],%s" ,print ,cr
+	*,2DROP ;
 :,C+!
 	"mov ecx,[esi]" ,ln
 	"add byte [eax],cl" ,ln
 	,2DROP ;
+
+:*,!+
+	NOS TOS "mov [%s],%s" ,print ,cr
+	TOS "add %s,4" ,print ,cr
+	*,NIP ;
 :,!+
 	"mov ecx,[esi]" ,ln
 	"mov [eax],ecx" ,ln
 	"add eax,4" ,ln
 	,NIP ;
+
+:*,W!+
+	NOS>word TOS "mov [%s],%s" ,print ,cr
+	TOS "add %s,2" ,print ,cr
+	*,NIP ;
 :,W!+
 	"movsx ecx,word [esi]" ,ln
 	"mov [eax],cx" ,ln
 	"add eax,2" ,ln
 	,NIP ;
+
+:*,C!+
+	NOS>byte TOS "mov [%s],%s" ,print ,cr
+	TOS "inc %s" ,print ,cr
+	*,NIP ;
 :,C!+
 	"movsx ecx,byte [esi]" ,ln
 	"mov [eax],cl" ,ln
 	"inc eax" ,ln
 	,NIP ;
+
+:*,@+
+	*,DUP
+	TOS NOS "mov %s,[%s]" ,print ,cr
+	NOS "add %s,4" ,print ,cr ;
 :,@+
 	"mov ecx,[eax]" ,ln
 	"add eax,4" ,ln
 	"mov [esi-4],eax" ,ln
 	"mov eax,ecx" ,ln
 	"lea esi,[esi-4]" ,ln ;
+
+:*,W@+
+	*,DUP
+	TOS NOS "movsx %s,word [%s]" ,print ,cr
+	NOS "add %s,2" ,print ,cr ;
 :,W@+
 	"movsx ecx,word [eax]" ,ln
 	"add eax,2" ,ln
 	"mov [esi-4],eax" ,ln
 	"mov eax,ecx" ,ln
 	"lea esi,[esi-4]" ,ln ;
+
+:*,C@+
+	*,DUP
+	TOS NOS "movsx %s,byte [%s]" ,print ,cr
+	NOS "add %s,4" ,print ,cr ;
 :,C@+
 	"movsx ecx,byte [eax]" ,ln
 	"inc eax" ,ln
@@ -349,82 +525,121 @@
 :,[
 :,]	;
 
+:*,0?
+	TOS "or %s,%s" ,ln
+	"jnz " ,s ;
 :,0?
 	"or eax,eax" ,ln
 	"jnz " ,s ;
+
+:*,+?
+	TOS "or %s,%s" ,ln
+	"js " ,s ;
 :,+?
 	"or eax,eax" ,ln
 	"js " ,s ;
+
+:*,-?
+	TOS "or %s,%s" ,ln
+	"jns " ,s ;
 :,-?
 	"or eax,eax" ,ln
 	"jns " ,s ;
+
+:*,1?
+	TOS "or %s,%s" ,ln
+	"jz " ,s ;
 :,1?
 	"or eax,eax" ,ln
 	"jz " ,s ;
+
+:*,=?
+	NOS TOS "cmp %s,%s" ,ln *,DROP
+	"jnz " ,s ;
 :,=?
-	"mov ecx,eax" ,ln
-	,DROP
+	"mov ecx,eax" ,ln ,DROP
 	"cmp eax,ecx" ,ln
 	"jnz " ,s ;
+
+:*,<?
+	NOS TOS "cmp %s,%s" ,ln *,DROP
+	"jge " ,s ;
 :,<?
-	"mov ecx,eax" ,ln
-	,DROP
+	"mov ecx,eax" ,ln ,DROP
 	"cmp eax,ecx" ,ln
 	"jge " ,s ;
+
+:*,>?
+	NOS TOS "cmp %s,%s" ,ln *,DROP
+	"jle " ,s ;
 :,>?
-	"mov ecx,eax" ,ln
-	,DROP
+	"mov ecx,eax" ,ln ,DROP
 	"cmp eax,ecx" ,ln
 	"jle " ,s ;
+
+:*,<=?
+	NOS TOS "cmp %s,%s" ,ln *,DROP
+	"jg " ,s ;
 :,<=?
-	"mov ecx,eax" ,ln
-	,DROP
+	"mov ecx,eax" ,ln ,DROP
 	"cmp eax,ecx" ,ln
 	"jg " ,s ;
+
+:*,>=?
+	NOS TOS "cmp %s,%s" ,ln *,DROP
+	"jl " ,s ;
 :,>=?
-	"mov ecx,eax" ,ln
-	,DROP
+	"mov ecx,eax" ,ln ,DROP
 	"cmp eax,ecx" ,ln
 	"jl " ,s ;
+
+:*,<>?
+	NOS TOS "cmp %s,%s" ,ln *,DROP
+	"jz " ,s ;
 :,<>?
-	"mov ecx,eax" ,ln
-	,DROP
+	"mov ecx,eax" ,ln ,DROP
 	"cmp eax,ecx" ,ln
 	"jz " ,s ;
+
+:*,and?
+	NOS TOS "test %s,%s" ,ln *,DROP
+	"jz " ,s ;
 :,and?
-	"mov ecx,eax" ,ln
-	,DROP
+	"mov ecx,eax" ,ln ,DROP
 	"test eax,ecx" ,ln
 	"jz " ,s ;
+
+:*,nand?
+	NOS TOS "test %s,%s" ,ln *,DROP
+	"jnz " ,s ;
 :,nand?
-	"mov ecx,eax" ,ln
-	,DROP
+	"mov ecx,eax" ,ln ,DROP
 	"test eax,ecx" ,ln
 	"jnz " ,s ;
 
-:,DIR		
+:,DIR
 	"call SYSDIR" ,ln ;
-:,FILE      
+:,FILE
 	"call SYSFILE" ,ln ;
-:,FSIZE     
+:,FSIZE
 	"call SYSFSIZE" ,ln ;
-:,VOL       
+:,VOL
 	"call SYSVOL" ,ln ;
-:,LOAD      
+:,LOAD
 	"call SYSLOAD" ,ln ;
-:,SAVE      
+:,SAVE
 	"call SYSSAVE" ,ln ;
-:,UPDATE    
+:,UPDATE
 	"call SYSUPDATE" ,ln ;
-:,MSEC      
+:,MSEC
 	"call SYSMSEC" ,ln ;
-:,TIME      
+:,TIME
 	"call SYSTIME" ,ln ;
-:,DATE      
+:,DATE
 	"call SYSDATE" ,ln ;
-:,END       
+:,END
 	"jmp SYSEND" ,ln ;
-:,RUN       
+:,RUN
 	"call SYSRUN" ,ln ;
 :,SW
 	,DUP  "mov eax,[SYSW]" ,ln ;
@@ -434,8 +649,7 @@
 	,DUP  "mov eax,FREE_MEM" ,ln ;
 
 :,PAPER
-	"mov [SYSPAPER],eax" ,ln
-	,DROP ;
+	"mov [SYSPAPER],eax" ,ln ,DROP ;
 
 :,CLS
 	"call SYSCLS" ,ln ;
