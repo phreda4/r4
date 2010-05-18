@@ -45,9 +45,11 @@
 #nos "[esi]"
 #cl "cl"
 
+
 #TOS ra
 #NOS nos
 #REGR re
+
 
 :TOS>eax
 	;
@@ -65,8 +67,9 @@
 	;
 :USAedx
 	;
-|---- nivel 0 - sin desordenar la pila
+
 :*,DUP
+
 	;
 :,DUP
 	"lea esi,[esi-4]" ,ln
@@ -293,22 +296,20 @@
 	,NIP ;
 
 :*,<</
-	NOS>cl
+	TOS>cl
+	NOS2>eax
 	"cdq" ,ln
-    NOS "shld eax,edx,%s" ,print ,cr
-	TOS "idiv %s" ,print ,cr
+    TOS "shld eax,edx,%s" ,print ,cr
+	NOS "idiv %s" ,print ,cr
 	*,2DROP ;
 :,<</
-	"push eax" ,ln
-	,DROP
-	"mov ecx,eax",ln
-	"mov eax,[esi]",ln
+	"mov ecx,eax" ,ln
+	"pushd [esi+4]"
+	,2DROP
 	"cdq" ,ln
     "shld eax,edx,cl" ,ln
 	"pop ecx" ,ln
-	"idiv ecx" ,ln
-	,NIP ;
-
+	"idiv ecx" ,ln ;
 
 :*,/MOD
 	NOS>eax
@@ -341,8 +342,7 @@
 	TOS NOS "sal %s,%s" ,print ,cr
 	*,DROP ;
 :,<<
-	"mov ecx,eax" ,ln
-	,DROP
+	"mov ecx,eax" ,ln ,DROP
 	"sal eax,cl" ,ln ;
 
 :*,>>
@@ -350,8 +350,7 @@
 	TOS NOS "sar %s,%s" ,print cr
 	*,DROP ;
 :,>>
-	"mov ecx,eax" ,ln
-	,DROP
+	"mov ecx,eax" ,ln ,DROP
 	"sar eax,cl" ,ln ;
 
 :*,ABS
@@ -518,6 +517,7 @@
 	"mov eax,ecx" ,ln
 	"lea esi,[esi-4]" ,ln ;
 
+|------ estructuras de control
 :,;
 :,(
 :,)(
@@ -617,6 +617,7 @@
 	"test eax,ecx" ,ln
 	"jnz " ,s ;
 
+|--------- Sistema
 :,DIR
 	"call SYSDIR" ,ln ;
 :,FILE
@@ -672,6 +673,7 @@
 	"add eax,[esi]" ,ln
 	"lea ebp,[SYSFRAME+eax*4]" ,ln
 	,2DROP ;
+
 
 :,PX+!	| s --
 	"lea ebp,[ebp+eax*4]" ,ln
@@ -767,6 +769,7 @@
 :,SYSTEM
 	;
 
+|---- nivel 0 - sin desordenar la pila
 #nivel0
 ,; ,( ,)( ,) ,[ ,] ,EXEC
 ,0? ,+? ,-? ,1? ,=? ,<? ,>? ,<=? ,>=? ,<>? ,AND? ,NAND?
@@ -800,6 +803,24 @@
 	2 << 'nivel0 + @ exec ;
 
 
+#pilacc )( 1024
+#pilacc> 'pilacc
+
+:resetpcc
+	'pilacc 'pilacc> ! ;
+:cc.push
+	pilacc> !+ 'pilacc> ! ;
+:cc.pop
+	pilacc> 4 - dup 'pilacc> ! @ ;
+
+#modopila | 0 - directo
+
+:*,LIT | token --
+	tok>cte
+	modopila
+	0
+	"mov %s,
+
 |------------ compila CODIGO
 |:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
 :nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
@@ -825,6 +846,7 @@
 :,cvar nro>dicn ,DUP "mov eax,[" ,s ,s "]" ,s ,cr ;
 :,cdwo nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
 :,cdva nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+
 :,c; drop "ret" ,ln ;
 :,c( drop +etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
 :,c)( drop
