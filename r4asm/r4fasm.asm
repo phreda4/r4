@@ -13,6 +13,37 @@ YRES equ 480
 ;XRES equ 1280
 ;YRES equ 800
 
+;		"if XRES=640" ,ln
+;	"mov ebx,eax" ,ln
+;	"shr eax,7" ,ln
+;	"shr ebx,9" ,ln
+;	"add eax,[esi]" ,ln
+;	"lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
+;		"else if XRES=800" ,ln
+;	"mov ebx,eax" ,ln
+;	"shr eax,5" ,ln
+;	"shr ebx,8" ,ln
+;	"add eax,ebx" ,ln
+;	"shr ebx,1" ,ln
+;	"add eax,[esi]" ,ln
+;	"lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
+;		"else if XRES=1024" ,ln
+;	"shr eax,10" ,ln
+;	"add eax,[esi]" ,ln
+;	"lea ebp,[SYSFRAME+eax*4]" ,ln
+;		"else if XRES=1280" ,ln
+;;	"mov ebx,eax" ,ln
+;	"shr eax,8" ,ln
+;	"shr ebx,10" ,ln
+;	"add eax,[esi]" ,ln
+;;	"lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
+;		"else" ,ln
+;	"cdq" ,ln
+;	"imul dword [SYSW]" ,ln
+;	"add eax,[esi]" ,ln
+;	"lea ebp,[SYSFRAME+eax*4]" ,ln
+;		"end if" ,ln
+
 include 'include\win32a.inc'
 
 section '.code' code readable executable
