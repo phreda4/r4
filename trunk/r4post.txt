@@ -13,7 +13,9 @@
 #deltaD	0	| pila de datos
 #deltaR	0	| pila de retorno
 #flags	0
-
+#cntfin
+#pano
+#cano
 | uso dD dR tipo
 #deltainternos (
 0 0 0 0 | 0
@@ -30,12 +32,12 @@
 0 1 0 4 |:,,dvar | n --  dir var
 )
 #deltamacros (
-0 0 0 0 |; | r:-1 pero veamos
+0 0 0 10 |; | r:-1 pero veamos
 0 0 0 6 |(
 0 0 0 0 |)(
 0 0 0 7 |)
-0 1 0 0 |[
-0 0 0 0 |]
+0 1 0 11 |[
+0 0 0 12 |]
 1 0 0 0 |0? a -- a
 1 0 0 0 |+? a -- a
 1 0 0 0 |-? a -- a
@@ -112,12 +114,14 @@
 3 -3 0 0 |CMOVE abc --
 3 -3 0 0 |CMOVE> abc --
 0 1 0 0 |MEM     -- a
+
 1 -1 0 0 |DIR    a --
 1 0 1 0 |FILE    a -- b
 1 0 1 0 |FSIZE   a -- b
 1 0 1 0 |VOL     a -- b
 2 -1 0 0 |LOAD   ab -- c
 3 -3 0 0 |SAVE   abc --
+
 0 0 0 0 |UPDATE  --
 0 1 0 0 |MSEC    -- a
 0 3 0 0 |TIME    -- abc
@@ -133,9 +137,11 @@
 1 -1 0 0 |PX+!   a --
 1 -1 0 0 |PX!+   a --
 0 1 0 0 |PX@     -- a
+
 0 1 0 0 |XFB     -- a
 0 0 0 0 |>XFB    --
 0 0 0 0 |XFB>    --
+
 1 -1 0 0 |PAPER  a --
 1 -1 0 0 |INK    a --
 0 1 0 0 |INK@    -- a
@@ -161,10 +167,12 @@
 0 1 0 0 |KEY     -- a
 0 1 0 0 |CNTJOY  -- a
 0 1 0 0 |GETJOY  -- a
+
 1 0 0 0 |SLOAD   a -- a
 1 -1 0 0 |SPLAY  a --
 1 0 0 0 |MLOAD   a -- a
 1 -1 0 0 |MPLAY  a --
+
 |iSERVER	iCLIENT	iSEND	iRECV	iCLOSE
 
 )
@@ -199,9 +207,23 @@
 	;
 :esdvar | 'variable
 	;
+
 :usaR
-	$10 flags or 'flags ! | marca flag con R
-	;
+	$1 flags or 'flags ! ;
+
+:usaFILE
+	$10 flags or 'flags ! ;
+:usaXFB
+	$20 flags or 'flags ! ;
+:usaSOUND
+	$40 flags or 'flags ! ;
+
+:iniAno
+	1 'pano +!
+	1 'cano +! ;
+
+:finAno
+    -1 'pano +! ;
 
 :apilae
 	pushvars
@@ -217,11 +239,17 @@
 :esctes | "cte"
 	;
 
+:esfin
+	pano 1? ( drop ; ) drop
+	1 'cntfin +! ;
+
 #acct 0 'espal 'esdpal 'esvar 'esdvar 'usaR 'apilae 'desapilae 'escte 'esctes
+'esfin iniano finano
 
 :prosstoken | a -- a.
 	@+ dup	| a. v v
-	$ff and 2 << 'deltainternos +
+	$ff and
+	2 << 'deltainternos +
 	c@+ usoDcalc
 	c@+ 'deltaD +!
 	c@+ 'deltaR +!
@@ -238,6 +266,9 @@
 	0 'deltaR !
 	0 'nivel !
 	0 'flags !
+	0 'cntfin !
+	0 'pano !
+	0 'cano !
 	'pilaint 'pilaint> !
 	;
 
@@ -247,6 +278,9 @@
 	nivel $ff and or 8 <<
 	usoD $ff and or
 	over nro>mov !
+	cntfin 1 >? ( $2 flags or 'flags ! ) drop
+	cano 1 >? ( $4 flags or 'flags ! ) drop
+	flags 24 << over nro>info !
 	;
 
 |----- analiza codigo
