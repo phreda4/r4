@@ -40,8 +40,8 @@
 | 		valor 		tipo
 | TOS = dpila>-4  dpila>-8
 
-#:dpila )( 2048
-#:dpila> 'dpila
+#dpila )( 2048
+#dpila> 'dpila
 
 :d.ini
 	'dpila 'dpila> ! ;
@@ -63,37 +63,94 @@
 :d.push | nro tipo --
 	dpila> !+ !+ 'dpila> ! ;
 
-| tipo de pila
-| pila	0	over
-| cte	1	23
-| var	2 	var
-| cal	3 	caculo 23 var +
-| dvar	4	'var
-| dvca	5	'var 2 +
-| dcod	6	'exe
+|----------- tipo de pila
+:d.pushStk	0 d.push ; | pila	over
+:d.pushCte	1 d.push ; | cte	23
+:d.pushStr	2 d.push ; | str    "hola"
+:d.pushVar	3 d.push ; | var	var
+:d.pushCal	4 d.push ; | cal	caculo 23 var +
+:d.pushDvar	5 d.push ; | dvar	'var
+:d.pushDvca 6 d.push ; | dvca	'var 2 +
+:d.pushDcod	7 d.push ; | dcod	'exe
 
-:d.pushStk	0 d.push ;
-:d.pushCte	1 d.push ;
-:d.pushVar	2 d.push ;
-:d.pushCal	3 d.push ;
-:d.pushDvar	4 d.push ;
-:d.pushDvca 5 d.push ;
-:d.pushDcod	6 d.push ;
+:stk drop;
+:cte @ "%d" mprint ;
+:str @ "s%h" mprint ;
+:var @ "[w%h]" mprint ;
+:cal drop ;
+:dvar
+:dvca
+:dcod @ "w%h" mprint ;
 
-#nvstack
+#tipopila 'stk 'cte 'str 'var 'cal 'dvar 'dvca 'dcod
+:d.getval | nro -- ""
+	3 << dpila> swap - 4 -
+	dup 4 - @ 2 << 'tipopila + @ exec | tipo
+	;
 
-:reset.vstack
-	0 'nvstack ! ;
-
-
+#rnos8 "[esi+4*7]"
+#rnos7 "[esi+4*6]"
+#rnos6 "[esi+4*5]"
+#rnos5 "[esi+4*4]"
+#rnos4 "[esi+4*3]"
+#rnos3 "[esi+4*2]"
+#rnos2 "[esi+4]"
+#rnos "[esi]"
 #ra "eax"
 #rb "ebx"
 #rc "ecx"
 #rd "edx"
 #re "edi"
-#nos "[esi]"
 #cl "cl"
 
+
+#regused 0  0  0  0  0
+#regname ra rb rc rd re
+
+:reg.reset
+	0 0 0 0 1 'regused !+ !+ !+ !+ !
+	d.ini ;
+
+:reg.free | -- nro/-1
+	'regused
+	5 ( 1? )( swap @+
+		0? ( drop 'regused - 2 >> 1- nip ; )
+		drop swap ) 2drop
+	-1 ;
+
+:reg.set | nro --
+	2 << 'regused + 1 swap ! ;
+
+:reg.plain
+	d.cnt 0? ( drop ; )
+	( 1? )(
+		"mov [esi+4*" ,s dup ,d "]," ,s dup d.getval ,s ,cr
+		1- ) 2drop
+	"mov eax," ,s 0 d.getval
+    reg.reset ;
+
+:,lit
+	dup tok>cte d.pushCte ;
+|	dup tok>cte ,DUP "mov eax," ,s ,d ,cr ;
+:,lits
+	nstr d.pushStr 1 'nstr +! ;
+|	,DUP "mov eax,s" ,s nstr ,h ,cr 1 'nstr +! ;
+:,wor
+	| elegir modo
+	| comprobar ultimo para jmp
+	|dup nro>dicn "call " ,s ,s ,cr
+	;
+:,var
+	dup 8 >> d.pushVar ;
+|	dup nro>dicn ,DUP "mov eax,[" ,s ,s "]" ,s ,cr ;
+:,dwo
+	dup 8 >> d.pushDcod ;
+|	dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+:,dva
+	dup 8 >> d.pushDvar ;
+|	dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+
+|---------------------------
 
 :TOS>eax
 	;
@@ -251,10 +308,13 @@
 	REGR "add %s,4" ,print ,cr ;
 :,R@+
 	,DUP
-	"pop edx" ,ln
-	"mov eax,[edx]" ,ln
-	"add edx,4" ,ln
-	"push edx" ,ln ;
+	"mov eax,[esp]" ,ln
+	"mov eax,[eax]" ,ln
+	"add [esp],4" ,ln ;
+|	"pop edx" ,ln
+|	"mov eax,[edx]" ,ln
+|	"add edx,4" ,ln
+|	"push edx" ,ln ;
 
 :*,AND
 	NOS TOS "and %s,%s" ,print ,cr
@@ -812,30 +872,16 @@
 :+etiqueta	| -- nueva   // y agrega a pila
 	nlabel 1+ dup 'nlabel ! dup >pilac ;
 
-:cpycad | adr --
-	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop ; ) ) ,c ) 2drop ;
-
 :salto? | adr++ xx xx -- adr++ xx xx 0/1
 	pick2 8 - @ $ff and
 	18 >? ( 31 <? ( 1 nip ; ) ) 0 nip ;
 
-:,defw
-:,defv ;
+:,defw :,defv ;
 
-:,lit
-	dup tok>cte ,DUP "mov eax," ,s ,d ,cr ;
-:,lits
-	,DUP "mov eax,s" ,s nstr ,h ,cr 1 'nstr +! ;
-:,wor
-	dup nro>dicn "call " ,s ,s ,cr ;
-:,var
-	dup nro>dicn ,DUP "mov eax,[" ,s ,s "]" ,s ,cr ;
-:,dwo
-	dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
-:,dva
-	dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+
 
 :,;
+	| reacomoda pila
 	"ret" ,ln ;
 :,(
 	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
@@ -914,6 +960,9 @@
 :dfind	dini 1? ( "dd " )( "," ) ,s drop 0 'dini ! ;
 
 |----------------------------------------------
+:cpycad | adr --
+	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop ; ) ) ,c ) 2drop ;
+
 :,ddefw
 :,ddefv drop ;
 :,dlit	dfin tok>cte ,d ;
