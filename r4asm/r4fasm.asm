@@ -233,7 +233,6 @@ SYSDIR: ; ( "path" -- )
 	cmp eax,FILE_ATTRIBUTE_DIRECTORY
 	je @noguarda
 	mov [SYSIDIR+4*ebx],edi
-	inc ebx
 	mov eax,Sfinddata.cFileName
 @dircp:
 	mov cl,byte [eax]
@@ -242,6 +241,10 @@ SYSDIR: ; ( "path" -- )
 	inc eax
 	or cl,cl
 	jnz @dircp
+	mov eax,[Sfinddata.nFileSizeLow]
+	mov edx,[Sfinddata.nFileSizeHigh] ; en bytes.. pasar a kb para que sea 32bit?
+	mov [SYSSDIR+4*ebx],eax
+	inc ebx
 @noguarda:
 	invoke FindNextFile,[hdir],Sfinddata
 	or eax,eax
@@ -258,6 +261,11 @@ SYSFILE: ; ( nro -- "name" )
 	cmp eax,[SYSCDIR]
 	jnl @nof
 	mov eax,[SYSIDIR+4*eax]
+	ret
+SYSFSIZE: ; nro -- size
+	cmp eax,[SYSCDIR]
+	jnl @nof
+	mov eax,[SYSSDIR+4*eax]
 	ret
 @nof:
 	xor eax,eax
@@ -530,6 +538,7 @@ include 'dat.asm'
 
 	SYSNDIR	rd 8192
 	SYSIDIR	rd 1024
+	SYSSDIR	rd 1024
 align 16
 	Dpila 	rd 1024
 align 16

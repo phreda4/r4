@@ -20,11 +20,12 @@
 ^lib/trace.txt
 
 |----- nro de str y label
-#nstr | nro de string
+#nstr	| nro de string
 #nlabel | nro de etiqueta
+#nanon	| nro de def anonima
 
-::inistr	0 'nstr ! ;
-::inilab    0 'nlabel ! ;
+::ini.compila
+	0 'nstr ! 0 'nlabel ! 0 'nanon ! ;
 
 |----- pila de compilador
 #pilac )( 256	#pilac> 'pilac
@@ -64,45 +65,46 @@
 	dpila> !+ !+ 'dpila> ! ;
 
 |----------- tipo de pila
-:d.pushStk	0 d.push ; | pila	over
-:d.pushCte	1 d.push ; | cte	23
-:d.pushStr	2 d.push ; | str    "hola"
-:d.pushVar	3 d.push ; | var	var
-:d.pushCal	4 d.push ; | cal	caculo 23 var +
-:d.pushDvar	5 d.push ; | dvar	'var
-:d.pushDvca 6 d.push ; | dvca	'var 2 +
-:d.pushDcod	7 d.push ; | dcod	'exe
+:d.pushReg	0 d.push ; | eax ebx ecx edx edi
+:d.pushEsi  1 d.push ; | dword [esi+4*] ..
+:d.pushEsp	2 d.push ; | dword	[esp+4*] ..
+:d.pushVar	3 d.push ; | var	[w1]
+:d.pushIcod	4 d.push ; | dcod	'w2
+:d.pushDcod	5 d.push ; | dcod	'w2
+:d.pushDvar	6 d.push ; | dvar	w1
+:d.pushStr	7 d.push ; | str    "hola"
+:d.pushCte	8 d.push ; | cte	23
 
-:stk drop;
-:cte @ "%d" mprint ;
-:str @ "s%h" mprint ;
-:var @ "[w%h]" mprint ;
-:cal drop ;
-:dvar
-:dvca
-:dcod @ "w%h" mprint ;
+#ra "eax" #rb "ebx" #rc "ecx" #rd "edx" #re "edi"
 
-#tipopila 'stk 'cte 'str 'var 'cal 'dvar 'dvca 'dcod
-:d.getval | nro -- ""
+#reg 'ra 'rb 'rc 'rd 're
+
+:,Reg	@ 2 << 'regp + @ ,s ; | eax ebx ecx edx edi
+:,Esi	@	0? ( "dword [esi]" ,s drop ; )
+			-? ( neg "dword [esi-4*%d]" )( "dword [esi+4*%d]" )
+			mprint ,s ;
+:,Esp	@	0? ( "dword [esp]" ,s drop ; )
+			-? ( neg "dword [esp-4*%d]" )( "dword [esp+4*%d]" )
+			mprint ,s ;
+:,Var	@ "[w%h]" mprint ,s ;
+:,Icod  @ "i%h" mprint ,s ;
+:,Dcod
+:,Dvar	@ "w%h" mprint ,s ;
+:,Str	@ "s%h" mprint ,s ;
+:,Cte	@ "%d" mprint ,s ;
+
+#tipopila
+,Reg ,Esi ,Esp ,Var	,Icod ,Dcod ,Dvar ,Str ,Cte
+
+:,getval | nro -- ""
 	3 << dpila> swap - 4 -
 	dup 4 - @ 2 << 'tipopila + @ exec | tipo
 	;
 
-#rnos8 "[esi+4*7]"
-#rnos7 "[esi+4*6]"
-#rnos6 "[esi+4*5]"
-#rnos5 "[esi+4*4]"
-#rnos4 "[esi+4*3]"
-#rnos3 "[esi+4*2]"
-#rnos2 "[esi+4]"
-#rnos "[esi]"
-#ra "eax"
-#rb "ebx"
-#rc "ecx"
-#rd "edx"
-#re "edi"
-#cl "cl"
+:,,
+	"," ,s ;
 
+|----------- uso de registro
 
 #regused 0  0  0  0  0
 #regname ra rb rc rd re
@@ -121,88 +123,109 @@
 :reg.set | nro --
 	2 << 'regused + 1 swap ! ;
 
-:reg.plain
-	d.cnt 0? ( drop ; )
-	( 1? )(
-		"mov [esi+4*" ,s dup ,d "]," ,s dup d.getval ,s ,cr
-		1- ) 2drop
-	"mov eax," ,s 0 d.getval
-    reg.reset ;
 
+|---------------------------
 :,lit
-	dup tok>cte d.pushCte ;
-|	dup tok>cte ,DUP "mov eax," ,s ,d ,cr ;
+	dup tok>cte d.pushCte ; |	dup tok>cte ,DUP "mov eax," ,s ,d ,cr ;
 :,lits
-	nstr d.pushStr 1 'nstr +! ;
-|	,DUP "mov eax,s" ,s nstr ,h ,cr 1 'nstr +! ;
+	nstr d.pushStr 1 'nstr +! ; |	,DUP "mov eax,s" ,s nstr ,h ,cr 1 'nstr +! ;
 :,wor
 	| elegir modo
 	| comprobar ultimo para jmp
 	|dup nro>dicn "call " ,s ,s ,cr
 	;
 :,var
-	dup 8 >> d.pushVar ;
-|	dup nro>dicn ,DUP "mov eax,[" ,s ,s "]" ,s ,cr ;
+	dup 8 >> d.pushVar ; |	dup nro>dicn ,DUP "mov eax,[" ,s ,s "]" ,s ,cr ;
 :,dwo
-	dup 8 >> d.pushDcod ;
-|	dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+	dup 8 >> d.pushDcod ; |	dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
 :,dva
-	dup 8 >> d.pushDvar ;
-|	dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+	dup 8 >> d.pushDvar ; |	dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
 
-|---------------------------
 
-:TOS>eax
-	;
-:TOS>cl
-	;
-:NOS>byte
-	;
-:NOS>word
-	;
-:NOS>cl
-	;
-:NOS>eax
-	;
-:NOS2>eax
-	;
-:USAedx
-	;
+:,[
+	1 'niva +!
+	nanon d.pushIcod 1 'nanon +! ; |,DUP +etiqueta +etiqueta "mov eax," ,s label ,cr jmp, <pilac label ":" ,ln ;
+:,]
+	-1 'niva +! ; |<pilac label ":" ,ln ;
 
-:*,DUP
+|----------------------------
+|-----
+:*DROP  drop -8 'dpila> +! ;
+:*2DROP drop -16 'dpila> +! ;
+:*3DROP drop -24 'dpila> +! ;
+:*4DROP drop -32 'dpila> +! ;
+:*DUP   drop
+	dpila> 8 - >r
+	r@+ r@+ swap
+	r!+ r!+ r> 'dpila> ! ;
+:*2DUP  drop
+	dpila> 16 - >r
+	r@+ r@+ swap
+	r@+ r@+ swap 2swap
+	r!+ r!+ r!+ r!+
+	r> 'dpila> ! ;
+:*OVER  drop
+	dpila> 16 - >r
+	r@+ r@+ swap r> 8 + >r
+	r!+ r!+ r> 'dpila> ! ;
+:*PICK2 drop
+	dpila> 24 - >r
+	r@+ r@+ swap r> 16 + >r
+	r!+ r!+ r> 'dpila> ! ;
+:*PICK3 drop
+	dpila> 32 - >r
+	r@+ r@+ swap r> 24 + >r
+	r!+ r!+ r> 'dpila> ! ;
+:*PICK4 drop
+	dpila> 40 - >r
+	r@+ r@+ swap r> 32 + >r
+	r!+ r!+ r> 'dpila> ! ;
+:*SWAP drop
+	dpila> 16 - >r
+	r@+ r@+ swap
+	r@+ r> @ swap
+	dpila> 16 -
+	!+ !+ !+ ! ;
+:*NIP drop
+	dpila> 8 - >r
+	r@+ r@+ swap r> 16 -
+	!+ !+ 'dpila> ! ;
+:*ROT drop
+	dpila> 24 - >r
+	r@+ r@+ swap
+	r@+ r@+ swap
+	r@+ r> @ swap 2swap
+	dpila> 24 -
+	!+ !+ !+ !+ !+ ! ;
+:*2OVER drop
+	dpila> 32 - >r
+	r@+ r@+ swap
+	r@+ r@+ swap 2swap
+	r> 16 +
+	!+ !+ !+ !+ 'dpila> ! ;
+:*2SWAP drop
+	dpila> 32 - >r
+	r@+ r@+ swap
+	r@+ r@+ swap 2swap
+	r@+ r@+ swap
+	r@+ r@+ swap 2swap r> 32 -
+	!+ !+ !+ !+ !+ !+ !+ ! ;
 
-	;
 :,DUP
 	"lea esi,[esi-4]" ,ln
 	"mov [esi],eax" ,ln ;
-
-:*,DROP
-	;
 :,DROP
 	"lodsd" ,ln ;
-
-:*,NIP
-   ;
 :,NIP
 	"lea esi,[esi+4]" ,ln ;
-
-:*,2DROP
-	;
 :,2DROP
 	,NIP ,DROP ;
-
-:*,3DROP
-	;
 :,3DROP
 	"lea esi,[esi+8]" ,ln
 	,DROP ;
-
-:*,4DROP
-	;
 :,4DROP
 	"lea esi,[esi+12]" ,ln
 	,DROP ;
-
 :,OVER
 	,DUP "mov eax,[esi+4]" ,ln ;
 :,PICK2
@@ -252,6 +275,204 @@
 	"popd [esi]" ,ln
 	"pop eax" ,ln ;
 
+|--------------------------------------------
+:,AND
+	d.cnt 0? ( drop "and eax,[esi]" ,ln ,NIP ; ) drop
+	2cte? 1? ( drop d.pop2 and d.pushCte ; ) drop
+	NOSset
+	"and " ,s ,NOS ,, ,TOS ,cr *DROP ;
+
+:,OR
+	d.cnt 0? ( drop "or eax,[esi]" ,ln ,NIP ; ) drop
+	2cte? 1? ( drop d.pop2 or d.pushCte ; ) drop
+	NOSset
+	"or " ,s ,NOS ,, ,TOS ,cr *DROP ;
+
+:,XOR
+	d.cnt 0? ( drop "xor eax,[esi]" ,ln ,NIP ; ) drop
+	2cte? 1? ( drop d.pop2 xor d.pushCte ; ) drop
+	NOSset
+	"xor " ,s ,NOS ,, ,TOS ,cr *DROP ;
+
+:,NOT
+	d.cnt 0? ( drop "not eax" ,ln ; ) drop
+	1cte? 1? ( drop d.pop not d.pushCte ; ) drop
+	TOSset
+	"not" ,s ,TOS ,cr ;
+
+:,+
+	d.cnt 0? ( drop "add eax,[esi]" ,ln ,NIP ; ) drop
+	2cte? 1? ( drop d.pop2 + d.pushCte ; ) drop
+	NOSset
+	"add " ,s ,NOS ,, ,TOS ,cr *DROP ;
+
+:,-
+	d.cnt 0? ( drop "neg eax" ,ln "add eax,[esi]" ,ln ,NIP ; ) drop
+	2cte? 1? ( drop d.pop2 - d.pushCte ; ) drop
+	NOSset
+	"sub " ,s ,NOS ,, ,TOS ,cr *DROP ;
+
+:,*
+	d.cnt 0? ( drop "imul eax,dword [esi]" ,ln ,NIP ; ) drop
+	2cte? 1? ( drop d.pop2 * d.pushCte ; ) drop
+	NOSset
+	"imul " ,s ,NOS ,, ,TOS ,cr *DROP ;
+
+:,/
+	d.cnt 0? ( drop "idiv eax,dword [esi]" ,ln ,NIP ; ) drop
+	2cte? 1? ( drop d.pop2 / d.pushCte ; ) drop
+	NOSset
+	"idiv " ,s ,NOS ,, ,TOS ,cr *DROP ;
+
+:,*/
+	d.cnt 0? ( drop
+			"mov ecx,eax" ,ln
+			,DROP
+			"cdq" ,ln
+			"imul dword [esi]" ,ln
+			"idiv ecx" ,ln
+			,NIP ; ) drop
+	3cte? 1? ( drop d.pop3 */ d.pushCte ; ) drop
+	NOS2eax
+	FREEedx
+	"cdq" ,ln
+	"imul " ,s ,NOS ,cr
+	"idiv " ,s ,TOS ,cr
+	*2DROP ;
+
+:,*>>
+	d.cnt 0? ( drop
+		"mov ecx,eax" ,ln
+		,DROP
+		"cdq" ,ln
+		"imul dword [esi]" ,ln
+		"shrd eax,edx,cl" ,ln
+		,NIP ; ) drop
+	3cte? 1? ( drop d.pop3 *>> d.pushCte ; ) drop
+	-2cte? 1? ( drop
+		NOS2eax
+		FREEedx
+		"cdq" ,ln
+		"imul dword [esi]" ,ln
+		"shrd eax,edx," ,s ,TOSbyte ,cr
+		*2DROP ; ) drop
+	TOSecx
+	NOS2eax
+	FREEedx
+	"cdq" ,ln
+	"imul dword [esi]" ,ln
+	"shrd eax,edx,cl" ,ln
+	*2DROP ;
+
+
+:*,<</
+	TOS>cl
+	NOS2>eax
+	"cdq" ,ln
+    TOS "shld eax,edx,%s" ,print ,cr
+	NOS "idiv %s" ,print ,cr
+	*,2DROP ;
+:,<</
+	"mov ecx,eax" ,ln
+	"pushd [esi+4]"
+	,2DROP
+	"cdq" ,ln
+    "shld eax,edx,cl" ,ln
+	"pop ecx" ,ln
+	"idiv ecx" ,ln ;
+
+:*,/MOD
+	NOS>eax
+	"cdq" ,ln
+	TOS "idiv %s" ,ln
+	NOS "mov %s,eax" ,ln
+	"mov eax,edx" ,ln ;
+:,/MOD
+	"mov ecx,eax" ,ln
+	"mov eax,[esi]" ,ln
+	"cdq" ,ln
+	"idiv ecx" ,ln
+	"mov [esi],eax" ,ln
+	"mov eax,edx" ,ln ;
+
+:*,MOD
+	NOS>eax
+	"cdq" ,ln
+ 	TOS "idiv %s" ,ln
+	*,DROP ;
+:,MOD
+	"mov ecx,eax" ,ln
+	,DROP
+	"cdq" ,ln
+	"idiv ecx" ,ln
+	"mov eax,edx" ,ln ;
+
+:*,<<
+	TOS>cl
+	TOS NOS "sal %s,%s" ,print ,cr
+	*,DROP ;
+:,<<
+	"mov ecx,eax" ,ln ,DROP
+	"sal eax,cl" ,ln ;
+
+:*,>>
+	TOS>cl
+	TOS NOS "sar %s,%s" ,print cr
+	*,DROP ;
+:,>>
+	"mov ecx,eax" ,ln ,DROP
+	"sar eax,cl" ,ln ;
+
+:,ABS
+	d.cnt 0? ( drop
+		"cdq" ,ln
+		"add eax,edx" ,ln
+		"xor eax,edx" ,ln ; ) drop
+	1cte? 1? ( drop d.pop abs d.pushCte ; ) drop
+	TOSeax
+	FREEedx
+	"cdq" ,ln
+	"add eax,edx" ,ln
+	"xor eax,edx" ,ln ;
+
+:,NEG
+	d.cnt 0? ( drop "neg eax" ,ln ; ) drop
+	1cte? 1? ( drop d.pop neg d.pushCte ; ) drop
+	TOSset
+	"neg" ,s ,TOS ,cr ;
+
+:,1+
+	d.cnt 0? ( drop "add eax,1" ,ln ; ) drop
+	1cte? 1? ( drop d.pop 1+ d.pushCte ; ) drop
+	TOSset
+	"add " ,s ,TOS ",1" ,s ,cr ;
+
+:,1-
+	d.cnt 0? ( drop "add eax,-1" ,ln ; ) drop
+	1cte? 1? ( drop d.pop 1- d.pushCte ; ) drop
+	TOSset
+	"add " ,s ,TOS ",-1" ,s ,cr ;
+
+:,4+
+	d.cnt 0? ( drop "add eax,4" ,ln ; ) drop
+	1cte? 1? ( drop d.pop 4+ d.pushCte ; ) drop
+	TOSset
+	"add " ,s ,TOS ",4" ,s ,cr ;
+
+
+:,2/
+	d.cnt 0? ( drop "sar eax,1" ,ln ; ) drop
+	1cte? 1? ( drop d.pop 2/ d.pushCte ; ) drop
+	TOSset
+	"sar " ,s ,TOS ",1" ,s ,cr ;
+
+:,2*
+	d.cnt 0? ( drop "sal eax,1" ,ln ; ) drop
+	1cte? 1? ( drop d.pop 2* d.pushCte ; ) drop
+	TOSset
+	"sal " ,s ,TOS ",1" ,s ,cr ;
+
+|---------------------
 
 :,EXEC
 	"mov ecx,eax" ,ln
@@ -316,189 +537,9 @@
 |	"add edx,4" ,ln
 |	"push edx" ,ln ;
 
-:*,AND
-	NOS TOS "and %s,%s" ,print ,cr
-	*,NIP ;
-:,AND
-	"and eax,[esi]" ,ln ,NIP ;
 
-:*,OR
-	NOS TOS "or %s,%s" ,print ,cr *,NIP ;
-:,OR
-	"or eax,[esi]" ,ln ,NIP ;
 
-:*,XOR
-	NOS TOS "xor %s,%s" ,print ,cr *,NIP ;
-:,XOR
-	"xor eax,[esi]" ,ln ,NIP ;
 
-:*,NOT
-	TOS "not %s" ,print ,cr ;
-:,NOT
-	"not eax" ,ln ;
-
-:2cte?
-	0 ;
-
-:,+
-	nvstack
-	0? ( drop "add eax,[esi]" ,ln ,NIP ; )
-	1 >? ( drop 2cte? 1? ( drop d.pop2 + d.pushCte ; ) )
-	drop
-    NOS TOS "add %s,%s" ,print ,cr *NIP ;
-
-:*,-
-	TOS NOS "sub %s,%s" ,print ,cr *,DROP ;
-:,-
-	"neg eax" ,ln
-	"add eax,[esi]" ,ln
-	,NIP ;
-
-:*,*
-	"cdq" ,ln
-	TOS "imul dword %s" ,print ,cr
-	;
-:,*
-	"cdq" ,ln
-	"imul dword [esi]" ,ln
-	,NIP ;
-
-:*,/
-	NOS>eax
-	*,DROP
-	"cdq" ,ln
-	TOS "idiv %s" ,print ,cr ;
-:,/
-	"mov ecx,eax" ,ln
-	,DROP
-	"cdq" ,ln
-	"idiv ecx" ,ln ;
-
-:*,*/
-	NOS2>eax
-	"cdq" ,ln
-	NOS "imul dword %s" ,print ,cr
-	TOS "idiv %s" ,print ,cr
-	*,2DROP ;
-
-:,*/
-	"mov ecx,eax" ,ln
-	,DROP
-	"cdq" ,ln
-	"imul dword [esi]" ,ln
-	"idiv ecx" ,ln
-	,NIP ;
-
-:*,*>>
-	NOS2>eax
-	TOS>cl
-	"cdq" ,ln
-	NOS "imul dword %s" ,print ,cr
-	TOS "shrd eax,edx,%s" ,print ,cr
-	*,2DROP ;
-:,*>>
-	"mov ecx,eax" ,ln
-	,DROP
-	"cdq" ,ln
-	"imul dword [esi]" ,ln
-	"shrd eax,edx,cl" ,ln
-	,NIP ;
-
-:*,<</
-	TOS>cl
-	NOS2>eax
-	"cdq" ,ln
-    TOS "shld eax,edx,%s" ,print ,cr
-	NOS "idiv %s" ,print ,cr
-	*,2DROP ;
-:,<</
-	"mov ecx,eax" ,ln
-	"pushd [esi+4]"
-	,2DROP
-	"cdq" ,ln
-    "shld eax,edx,cl" ,ln
-	"pop ecx" ,ln
-	"idiv ecx" ,ln ;
-
-:*,/MOD
-	NOS>eax
-	"cdq" ,ln
-	TOS "idiv %s" ,ln
-	NOS "mov %s,eax" ,ln
-	"mov eax,edx" ,ln ;
-:,/MOD
-	"mov ecx,eax" ,ln
-	"mov eax,[esi]" ,ln
-	"cdq" ,ln
-	"idiv ecx" ,ln
-	"mov [esi],eax" ,ln
-	"mov eax,edx" ,ln ;
-
-:*,MOD
-	NOS>eax
-	"cdq" ,ln
- 	TOS "idiv %s" ,ln
-	*,DROP ;
-:,MOD
-	"mov ecx,eax" ,ln
-	,DROP
-	"cdq" ,ln
-	"idiv ecx" ,ln
-	"mov eax,edx" ,ln ;
-
-:*,<<
-	TOS>cl
-	TOS NOS "sal %s,%s" ,print ,cr
-	*,DROP ;
-:,<<
-	"mov ecx,eax" ,ln ,DROP
-	"sal eax,cl" ,ln ;
-
-:*,>>
-	TOS>cl
-	TOS NOS "sar %s,%s" ,print cr
-	*,DROP ;
-:,>>
-	"mov ecx,eax" ,ln ,DROP
-	"sar eax,cl" ,ln ;
-
-:*,ABS
-	TOS>eax
-	USAedx
-:,ABS
-	"cdq" ,ln
-	"add eax,edx" ,ln
-	"xor eax,edx" ,ln ;
-
-:*,NEG
-	TOS "neg %s" ,print ,cr ;
-:,NEG
-	"neg eax" ,ln ;
-
-:*,1+
-	TOS "inc %s" ,print ,cr ;
-:,1+
-	"inc eax" ,ln ;
-
-:*,4+
-	TOS "add %s,4" ,print ,cr ;
-:,4+
-	"add eax,4" ,ln ;
-
-:*,1-
-	TOS "dec %s" ,print ,cr ;
-:,1-
-	"dec eax" ,ln ;
-
-:*,2/
-	TOS "sar %s,1" ,print ,cr ;
-:,2/
-	"sar eax,1" ,ln ;
-
-:*,2*
-	TOS "sal %s,1" ,print ,cr ;
-:,2*
-	"sal eax,1" ,ln ; | "add eax,eax" ,ln
 
 :*,@
 	TOS TOS "mov %s,dword [%s]" ,print ,cr
@@ -879,7 +920,6 @@
 :,defw :,defv ;
 
 
-
 :,;
 	| reacomoda pila
 	"ret" ,ln ;
@@ -899,10 +939,6 @@
 		)( drop
 			2 =? ( <pilac label ,cr drop ; ) )
 	drop ;
-:,[
-	,DUP +etiqueta +etiqueta "mov eax," ,s label ,cr jmp, <pilac label ":" ,ln ;
-:,]
-	<pilac label ":" ,ln ;
 
 |---- nivel 0 - sin desordenar la pila
 #nivel0 0
@@ -943,7 +979,8 @@
 ::compword | nro --
 	nro>toklen
 	( 1? )( 1- swap	,token0 swap )
-	2drop ;
+	2drop
+	;
 
 
 |------------ compila DATO
