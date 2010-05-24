@@ -1,4 +1,4 @@
-| R4i86.txt - PHREDA 2009
+| R4i86o.txt - PHREDA 2010
 | Generacion de codigo para i86-FASM
 |
 | .. [esp] - pila R
@@ -24,8 +24,18 @@
 #nlabel | nro de etiqueta
 #nanon	| nro de def anonima
 
+| por palabras
+#niva 		| nivel de anonimo
+#compara?	| 0 si no esta comparado nos con tos
+#jmp?       | 1 si salto en la anterior (para no hacer ret)
+
 ::ini.compila
 	0 'nstr ! 0 'nlabel ! 0 'nanon ! ;
+
+:ini.word
+	0 'niva ! 
+	0 'compara? !
+	0 'jmp? ! ;
 
 |----- pila de compilador
 #pilac )( 256	#pilac> 'pilac
@@ -61,8 +71,19 @@
 :d.get dpila> 4 - @ ;
 :d.get2 dpila> 12 - @ ;
 
+:d.TOSt | -- tipodenos
+	dpila> 8 - @ ;
+
+:d.NOSt | -- tipodenos
+	dpila> 16 - @ ;
+
+
 :d.push | nro tipo --
 	dpila> !+ !+ 'dpila> ! ;
+
+:d.setReg | nro lugar --
+	3 << dpila> swap -
+	0 d.push ;
 
 |----------- tipo de pila
 :d.pushReg	0 d.push ; | eax ebx ecx edx edi
@@ -79,50 +100,98 @@
 
 #reg 'ra 'rb 'rc 'rd 're
 
-:,Reg	@ 2 << 'regp + @ ,s ; | eax ebx ecx edx edi
-:,Esi	@	0? ( "dword [esi]" ,s drop ; )
-			-? ( neg "dword [esi-4*%d]" )( "dword [esi+4*%d]" )
-			mprint ,s ;
-:,Esp	@	0? ( "dword [esp]" ,s drop ; )
-			-? ( neg "dword [esp-4*%d]" )( "dword [esp+4*%d]" )
-			mprint ,s ;
-:,Var	@ "[w%h]" mprint ,s ;
-:,Icod  @ "i%h" mprint ,s ;
+:,Reg	@ 2 << 'reg + @ ; | eax ebx ecx edx edi
+:,Esi	@ 0? ( "dword [esi]" ,s drop ; )
+		-? ( neg "dword [esi-4*%d]" )( "dword [esi+4*%d]" )
+		mprint ;
+:,Esp	@ 0? ( "dword [esp]" ,s drop ; )
+		-? ( neg "dword [esp-4*%d]" )( "dword [esp+4*%d]" )
+		mprint ;
+:,Var	@ "[w%h]" mprint ;
+:,Icod  @ "i%h" mprint ;
 :,Dcod
-:,Dvar	@ "w%h" mprint ,s ;
-:,Str	@ "s%h" mprint ,s ;
-:,Cte	@ "%d" mprint ,s ;
+:,Dvar	@ "w%h" mprint ;
+:,Str	@ "s%h" mprint ;
+:,Cte	@ "%d" mprint ;
 
-#tipopila
-,Reg ,Esi ,Esp ,Var	,Icod ,Dcod ,Dvar ,Str ,Cte
+#tipopila ,Reg ,Esi ,Esp ,Var ,Icod ,Dcod ,Dvar ,Str ,Cte
 
-:,getval | nro -- ""
+:,vstack | nro -- ""
 	3 << dpila> swap - 4 -
-	dup 4 - @ 2 << 'tipopila + @ exec | tipo
-	;
+	dup 4 - @ 2 << 'tipopila + @ exec
+	,s ;
 
-:,,
-	"," ,s ;
+:,TOS	0 ,vstack ;
+:,NOS	1 ,vstack ;
+:,NOS2	2 ,vstack ;
+:,,		"," ,s ;
+
+
+:1cte? | -- f
+	dpila> 8 -
+	@  8 <>? ( 2drop 0 ; ) drop
+	1 ;
+
+:2cte? | -- f
+	dpila> 16 -
+	@+ 8 <>? ( 2drop 0 ; ) drop
+	4+ @ 8 <>? ( drop 0 ; ) drop
+	1 ;
+
+:3cte? | -- f
+	dpila> 24 -
+	@+ 8 <>? ( 2drop 0 ; ) drop
+	4+ @+ 8 <>? ( 2drop 0 ; ) drop
+	4+ @ 8 <>? ( drop 0 ; ) drop
+	1 ;
 
 |----------- uso de registro
-
 #regused 0  0  0  0  0
 #regname ra rb rc rd re
 
-:reg.reset
-	0 0 0 0 1 'regused !+ !+ !+ !+ !
-	d.ini ;
-
-:reg.free | -- nro/-1
+:reg.free | -- nro
 	'regused
 	5 ( 1? )( swap @+
 		0? ( drop 'regused - 2 >> 1- nip ; )
 		drop swap ) 2drop
+	| si no hay uno, libera y asigna
 	-1 ;
 
 :reg.set | nro --
 	2 << 'regused + 1 swap ! ;
 
+:reg.refresh
+	0 0 0 0 0 'regused !+ !+ !+ !+ !
+	'dpila
+	( dpila> <? )(
+		4+ @+ 0? ( over 8 - @ reg.set )
+		drop ) drop
+	;
+
+| NOS a un registro (ni no esta)
+:TOSreg
+	d.TOSt 0? ( drop ; ) drop
+	reg.free
+	"mov " ,s dup ,Reg ,, ,TOS ,cr
+	0 d.setReg ;
+
+:TOSmem
+    d.TOSt 3 <? ( drop ; ) drop
+	reg.free
+	"mov " ,s dup ,Reg ,, ,TOS ,cr
+	0 d.setReg ;
+
+:NOSreg
+	d.NOSt 0? ( drop ; ) drop
+	reg.free
+	"mov " ,s dup ,Reg ,, ,NOS ,cr
+	1 d.setReg ;
+
+:NOSmem
+    d.NOSt 3 <? ( drop ; ) drop
+	reg.free
+	"mov " ,s dup ,Reg ,, ,NOS ,cr
+	1 d.setReg ;
 
 |---------------------------
 :,lit
@@ -279,49 +348,49 @@
 :,AND
 	d.cnt 0? ( drop "and eax,[esi]" ,ln ,NIP ; ) drop
 	2cte? 1? ( drop d.pop2 and d.pushCte ; ) drop
-	NOSset
+	NOSreg
 	"and " ,s ,NOS ,, ,TOS ,cr *DROP ;
 
 :,OR
 	d.cnt 0? ( drop "or eax,[esi]" ,ln ,NIP ; ) drop
 	2cte? 1? ( drop d.pop2 or d.pushCte ; ) drop
-	NOSset
+	NOSreg
 	"or " ,s ,NOS ,, ,TOS ,cr *DROP ;
 
 :,XOR
 	d.cnt 0? ( drop "xor eax,[esi]" ,ln ,NIP ; ) drop
 	2cte? 1? ( drop d.pop2 xor d.pushCte ; ) drop
-	NOSset
+	NOSreg
 	"xor " ,s ,NOS ,, ,TOS ,cr *DROP ;
 
 :,NOT
 	d.cnt 0? ( drop "not eax" ,ln ; ) drop
 	1cte? 1? ( drop d.pop not d.pushCte ; ) drop
-	TOSset
+	TOSreg
 	"not" ,s ,TOS ,cr ;
 
 :,+
 	d.cnt 0? ( drop "add eax,[esi]" ,ln ,NIP ; ) drop
 	2cte? 1? ( drop d.pop2 + d.pushCte ; ) drop
-	NOSset
+	NOSreg
 	"add " ,s ,NOS ,, ,TOS ,cr *DROP ;
 
 :,-
 	d.cnt 0? ( drop "neg eax" ,ln "add eax,[esi]" ,ln ,NIP ; ) drop
 	2cte? 1? ( drop d.pop2 - d.pushCte ; ) drop
-	NOSset
+	NOSreg
 	"sub " ,s ,NOS ,, ,TOS ,cr *DROP ;
 
 :,*
 	d.cnt 0? ( drop "imul eax,dword [esi]" ,ln ,NIP ; ) drop
 	2cte? 1? ( drop d.pop2 * d.pushCte ; ) drop
-	NOSset
+	NOSreg
 	"imul " ,s ,NOS ,, ,TOS ,cr *DROP ;
 
 :,/
 	d.cnt 0? ( drop "idiv eax,dword [esi]" ,ln ,NIP ; ) drop
 	2cte? 1? ( drop d.pop2 / d.pushCte ; ) drop
-	NOSset
+	NOSreg
 	"idiv " ,s ,NOS ,, ,TOS ,cr *DROP ;
 
 :,*/
@@ -421,7 +490,7 @@
 		"mov ecx,eax" ,ln ,DROP
 		"sal eax,cl" ,ln ; ) drop
 	2cte? 1? ( drop d.get2 << d.pushCte ; ) drop
-	NOSset
+	NOSreg
 	"sal ",s ,NOS ,, ,TOS ,cr
 	*DROP ;
 
@@ -430,7 +499,7 @@
 		"mov ecx,eax" ,ln ,DROP
 		"sar eax,cl" ,ln ; ) drop
 	2cte? 1? ( drop d.get2 << d.pushCte ; ) drop
-	NOSset
+	NOSreg
 	"sar ",s ,NOS ,, ,TOS ,cr
 	*DROP ;
 
@@ -449,49 +518,56 @@
 :,NEG
 	d.cnt 0? ( drop "neg eax" ,ln ; ) drop
 	1cte? 1? ( drop d.pop neg d.pushCte ; ) drop
-	TOSset
+	TOSreg
 	"neg" ,s ,TOS ,cr ;
 
 :,1+
 	d.cnt 0? ( drop "add eax,1" ,ln ; ) drop
 	1cte? 1? ( drop d.pop 1+ d.pushCte ; ) drop
-	TOSset
+	TOSreg
 	"add " ,s ,TOS ",1" ,s ,cr ;
 
 :,1-
 	d.cnt 0? ( drop "add eax,-1" ,ln ; ) drop
 	1cte? 1? ( drop d.pop 1- d.pushCte ; ) drop
-	TOSset
+	TOSreg
 	"add " ,s ,TOS ",-1" ,s ,cr ;
 
 :,4+
 	d.cnt 0? ( drop "add eax,4" ,ln ; ) drop
 	1cte? 1? ( drop d.pop 4+ d.pushCte ; ) drop
-	TOSset
+	TOSreg
 	"add " ,s ,TOS ",4" ,s ,cr ;
 
 
 :,2/
 	d.cnt 0? ( drop "sar eax,1" ,ln ; ) drop
 	1cte? 1? ( drop d.pop 2/ d.pushCte ; ) drop
-	TOSset
+	TOSreg
 	"sar " ,s ,TOS ",1" ,s ,cr ;
 
 :,2*
 	d.cnt 0? ( drop "sal eax,1" ,ln ; ) drop
 	1cte? 1? ( drop d.pop 2* d.pushCte ; ) drop
-	TOSset
+	TOSreg
 	"sal " ,s ,TOS ",1" ,s ,cr ;
 
 |---------------------
-
 :,EXEC
-	"mov ecx,eax" ,ln
-	,DROP
-	"or ecx,ecx" ,ln
+	d.cnt 0? ( drop
+		"mov ecx,eax" ,ln
+		,DROP
+		"or ecx,ecx" ,ln
+		"jz @f" ,ln
+		"call ecx" ,ln
+		"@@:" ,ln ; ) drop
+	-1 d.plain
+	"mov ecx," ,s ,TOS
+   	"or ecx,ecx" ,ln
 	"jz @f" ,ln
 	"call ecx" ,ln
 	"@@:" ,ln ;
+	;
 
 :*,>R
 	| ( ; )
@@ -925,9 +1001,6 @@
 
 :,defw :,defv ;
 
-:ini.wordcomp
-	;
-
 :,;
 	| reacomoda pila
 	"ret" ,ln ;
@@ -980,12 +1053,20 @@
 
 | compila nivel 0 de palabras
 :,token0 | a -- a.
+	reg.refresh
 	@+ dup
 	$ff and 2 << 'nivel0 + @ exec
 	drop ;
 
+:makevstack | u --
+	d.ini
+	0? ( drop ; )
+	1- ( 1? )( dup d.pushEsi 1- )
+	d.pushReg ;
+
 ::compword | nro --
-	ini.wordcomp
+	ini.word
+	dup nro>mov @ 24 << 24 >> makevstack
 	nro>toklen
 	( 1? )( 1- swap	,token0 swap )
 	2drop ;
