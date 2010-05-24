@@ -1,0 +1,90 @@
+| R4asmdat.txt - PHREDA 2010
+| Generacion de data para i86-FASM
+|
+|--------------------------------------------
+^lib/gui.txt
+^lib/parse.txt
+^lib/trace.txt
+^r4post.txt
+
+:nro>dicn 8 >> "w%h" mprint ;			| numero de palabra
+
+|----- pila de compilador
+#pilac )( 256	#pilac> 'pilac
+
+:>pilac pilac> ! 4 'pilac> +! ;
+:<pilac -4 'pilac> +! pilac> @ ;
+:pilac! 'pilac 'pilac> ! ;
+
+|----- nro de str y label
+#nstr	| nro de string
+
+|------------ compila DATO
+#d1 "dd "
+#d2 "dw "
+#d3	"db "
+#d4 "rb "
+#dtipo 'd1
+#dini 0
+
+:dfin	dini 1? ( dtipo )( "," ) ,s drop 0 'dini ! ;
+:dfini	dini 1? ( dtipo ,s 0 ,d ) drop 0 'dini ! ;
+:dfins	dini 1? ( "db " )( "," ) ,s drop 0 'dini ! ;
+:dfind	dini 1? ( "dd " )( "," ) ,s drop 0 'dini ! ;
+
+|----------------------------------------------
+:cpycad | adr --
+	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop ; ) ) ,c ) 2drop ;
+
+:,ddefw
+:,ddefv drop ;
+:,dlit	dfin tok>cte ,d ;
+:,dlits	dfins tok>str 34 ,c cpycad 34 ,c ",0" ,s ;
+:,dwor	dfind nro>dicn ,s ;
+:,d;	drop ;
+:,d(	drop dtipo >pilac 'd3 'dtipo ! ;
+:,d)(	drop 'd4 'dtipo ! ;
+:,d)	drop <pilac 'dtipo ! ;
+:,d[	drop dtipo >pilac 'd2 'dtipo ! ;
+:,d]	drop <pilac 'dtipo ! ;
+
+#coded 0
+,ddefw ,ddefv ,dlit ,dlit ,dlit ,dlit ,dlits ,dwor ,dwor ,dwor ,dwor
+,d; ,d( ,d)( ,d) ,d[ ,d]
+
+|---- datos
+:compvar | nropal cntlla -- nropal
+	drop dup "w%h " ,print
+	'd1 'dtipo ! 1 'dini ! pilac!
+	dup nro>tok
+	( @+ dup $ff and
+		2 >? )( 	 | dirv n c
+		18 <? ( 2 << 'coded + @ exec )( 2drop )
+		,sp )
+	3drop
+	dfini
+	,cr ;
+
+:otrostr
+	over
+	1 'dini !
+	nstr "s%h " ,print
+	,dlits
+	1 'nstr +!
+	,cr ;
+
+:compvarw | nropal cntlla -- nropal
+	drop |dup "w%h  " ,print
+	dup
+	nro>toklen
+	( 1? )( 1- swap
+		@+ dup $ff and
+		7 =? ( otrostr ) 2drop
+		swap )
+	2drop ;
+
+
+::,comp.dat.asm
+	0 'nstr !
+    'compvar varmap
+    'compvarw wordmap ;
