@@ -1421,7 +1421,7 @@ while (*aa!=0) {
       aa++; }
 
 dwExStyle = WS_EX_APPWINDOW;// | WS_EX_WINDOWEDGE;
-dwStyle   = WS_VISIBLE  ;
+dwStyle   = WS_VISIBLE | WS_CAPTION | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SYSMENU  ;
 
 ShowCursor(0);
 
