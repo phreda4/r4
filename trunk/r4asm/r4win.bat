@@ -1,2 +1,2 @@
-fasm r4win.asm r4win.exe
+fasm r4fasm.asm r4win2.exe
 pause
