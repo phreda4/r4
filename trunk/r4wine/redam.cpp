@@ -102,6 +102,7 @@ char *macros[]={// directivas del compilador
 ">R","R>","R","R+","R@+","R!+","RDROP",//--- pila direcciones
 "AND","OR","XOR","NOT",                //--- logicas
 "+","-","*","/","*/","*>>","/MOD","MOD","ABS", //--- aritmeticas
+"SQRT","CLZ","<</",
 "NEG","1+","4+","1-","2/","2*","<<",">>",
 "@","C@","W@","!","C!","W!","+!","C+!","W+!", //--- memoria
 "@+","!+","C@+","C!+","W@+","W!+",
@@ -143,6 +144,7 @@ DUP2,DROP2,DROP3,DROP4,OVER2,SWAP2,//--- pila
 TOR,RFROM,ERRE,ERREM,ERRFM,ERRSM,ERRDR,//--- pila direcciones
 AND,OR,XOR,NOT,//--- logica
 SUMA,RESTA,MUL,DIV,MULDIV,MULSHR,DIVMOD,MOD,ABS,
+CSQRT,CLZ,CDIVSH,
 NEG,INC,INC4,DEC,DIV2,MUL2,SHL,SHR,//--- aritmetica
 FECH,CFECH,WFECH,STOR,CSTOR,WSTOR,INCSTOR,CINCSTOR,WINCSTOR,//--- memoria
 FECHPLUS,STOREPLUS,CFECHPLUS,CSTOREPLUS,WFECHPLUS,WSTOREPLUS,
@@ -399,6 +401,30 @@ do {
 FindClose(hFind);
 }
 
+// http://www.devmaster.net/articles/fixed-point-optimizations/
+static inline int isqrt32(int value) 
+{
+int g = 0;
+int bshift = 15;
+int b = 1<<bshift;
+do {
+	int temp = (g+g+b)<<bshift;
+	if (value >= temp) { g += b; value -= temp;	}
+	b>>=1;
+} while (bshift--);
+return g;
+}
+
+static inline int iCLZ32(int x)
+{
+if (x==0) return 32;
+int numZeros=0;
+while (!(x & 0x80000000)) {
+	numZeros++;
+	x <<= 1; } 
+return numZeros;
+}
+
 //---------------------------------------------------------------
 int interprete(BYTE *codigo)// 1=recompilar con nombre en linea
 {      
@@ -493,11 +519,16 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 	     TOS=*NOS/TOS;NOS--;continue;
 	case MULDIV: //if (TOS==0) { NOS--;TOS=*NOS;NOS--;continue; }
 	     TOS=(*(NOS-1))*(*NOS)/TOS;NOS-=2;continue;
+
 	case MULSHR: TOS=((long long)(*(NOS-1))*(*NOS))>>TOS;NOS-=2;continue;
+    case CDIVSH: TOS=((long long)(*(NOS-1)<<TOS)/(*NOS));NOS-=2;continue;
+
     case DIVMOD: if (TOS==0) { NOS--;TOS=*NOS;NOS--;continue; }
 	     W=*NOS%TOS;*NOS=*NOS/TOS;TOS=W;continue;
 	case MOD: TOS=*NOS%TOS;NOS--;continue;
     case ABS: W=(TOS>>31);TOS=(TOS+W)^W;continue;
+    case CSQRT: TOS=isqrt32(TOS);continue;
+    case CLZ: TOS=iCLZ32(TOS);continue;
     case NEG: TOS=-TOS;continue;
     case INC: TOS++;continue;	case INC4: TOS+=4;continue; case DEC: TOS--;continue;	
     case DIV2: TOS>>=1;continue;	case MUL2: TOS<<=1;continue;
@@ -557,7 +588,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case CNTJOY: NOS++;*NOS=TOS;TOS=cntJoy;continue;
     case GETJOY: TOS=getjoy(TOS);continue;
 
-    case REDRAW: 
+    case REDRAW:
         gr_redraw();
 //        if (kcnt==kcur) { SYSKEY=0; } else { SYSKEY=kbuff[kcur];kcur=(kcur+1)&31; }
         continue;
@@ -686,7 +717,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
          NOS-=2;TOS=*NOS;NOS--;
          continue;
     case CMOVED: // | de sr cnt --
-         W=*(NOS-1);W1=*NOS;    
+         W=*(NOS-1);W1=*NOS;
          while (TOS--) { *(char*)W++=*(char*)W1++; }
          NOS-=2;TOS=*NOS;NOS--;
          continue;
@@ -901,7 +932,7 @@ void adato(const char *p)
 { strcpy((char*)&data[cntdato],p);cntdato+=strlen(p)+1; } 
 
 void adatonro(int n,int u)
-{ BYTE *p=&data[cntdato];     
+{ BYTE *p=&data[cntdato];
 switch(u) {
   case 1:*(char *)p=(char)n;break;// char
   case 2:*(short *)p=(short)n;break;// short
@@ -1159,7 +1190,7 @@ otrapalabra:
             aux=desapila();lastcall=NULL;
             if (aux==1) {
               aux=desapila();
-              if (salto==0) { prog[aux]=cntprog-aux-1; }  
+              if (salto==0) { prog[aux]=cntprog-aux-1; }
                 else { sprintf(error,"? ) no valido ");goto error; }
             } else if (aux==2) { // repeticion
               aux=desapila();
@@ -1339,7 +1370,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 SetUnhandledExceptionFilter(&MyUnhandledExceptionFilter);
 #endif
 
-int w=640,h=480,fullscreen=0,silent=0;
+int w=640,h=480,noborde=0,silent=0;
 int i=0;
 char printername[32];
 char *aa=(char*)lpCmdLine;
@@ -1366,6 +1397,9 @@ if (*aa==0) {
     if (file!=NULL) { fread(setings,sizeof(char),1024,file);fclose(file);aa=setings; }
     } 
 
+DEVMODE devmodo;
+EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmodo);
+	
 while (*aa!=0) {
       if ('i'==*aa) { compilastr=aa+1; }
       if ('c'==*aa) { 
@@ -1377,7 +1411,8 @@ while (*aa!=0) {
       if ('x'==*aa) { exestr=aa+1; }
       if ('w'==*aa) { esnumero(aa+1);w=numero; }
       if ('h'==*aa) { esnumero(aa+1);h=numero; }
-      if ('f'==*aa) { fullscreen=1; }
+      if ('b'==*aa) { noborde=1; }
+      if ('f'==*aa) { w=devmodo.dmPelsWidth;h=devmodo.dmPelsHeight; }
       if ('s'==*aa) { silent=1; }
       if ('p'==*aa) { strcpy(printername,(aa+1)); } // pPrimo PDF
       if ('?'==*aa) { print_usage();return 0; }
@@ -1385,28 +1420,24 @@ while (*aa!=0) {
       if (32==*aa) *aa=0;
       aa++; }
 
-if(fullscreen==1)    {
-    mimemset((char*)&screenSettings,0,sizeof(screenSettings));
-#if _MSC_VER < 1400
-    screenSettings.dmSize=148;
-#else
-    screenSettings.dmSize=156;
-#endif
-    screenSettings.dmFields=0x1c0000;
-    screenSettings.dmBitsPerPel=32;screenSettings.dmPelsWidth=w;screenSettings.dmPelsHeight=h; 
-    if(ChangeDisplaySettings(&screenSettings,CDS_FULLSCREEN)!=DISP_CHANGE_SUCCESSFUL) return -4;
-    dwExStyle = WS_EX_APPWINDOW;
-    dwStyle   = WS_VISIBLE | WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-} else {
-    dwExStyle = WS_EX_APPWINDOW;// | WS_EX_WINDOWEDGE;
-    dwStyle   = WS_VISIBLE | WS_CAPTION | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SYSMENU;
-    }
+dwExStyle = WS_EX_APPWINDOW;// | WS_EX_WINDOWEDGE;
+dwStyle   = WS_VISIBLE  ;
+
 ShowCursor(0);
+
 rec.left=rec.top=0;rec.right=w;rec.bottom=h;
 AdjustWindowRect(&rec,dwStyle,0);
 hWnd=CreateWindowEx( dwExStyle,wc.lpszClassName, wc.lpszClassName,dwStyle,
      (GetSystemMetrics(SM_CXSCREEN)-rec.right+rec.left)>>1,(GetSystemMetrics(SM_CYSCREEN)-rec.bottom+rec.top)>>1,
      rec.right-rec.left, rec.bottom-rec.top,0,0,wc.hInstance,0);
+
+if (noborde==1) { // noanda
+  int style = GetWindowLong(hWnd, GWL_STYLE);
+  style &= ~(WS_CAPTION | WS_THICKFRAME);
+  SetWindowLongPtr(hWnd, GWL_STYLE,style);
+//  ShowWindow(hWnd,SW_NORMAL);
+  }
+
 if(!hWnd) return -2;
 if(!(hDC=GetDC(hWnd)))  return -3;
 if (gr_init(w,h)<0) return -1;
@@ -1533,8 +1564,7 @@ closesocket(soc); //Shut down socket
 WSACleanup(); //Clean up Winsock
 gr_fin();
 
-
-//ChangeDisplaySettings(NULL, 0); // Problema: si esta en fullscreen no retorna a ventana
+//ChangeDisplaySettings(NULL, 0); // Problema: si esta en noborde no retorna a ventana
 
 /*            // Restore the window styles 
             DWORD style = GetWindowLongPtr(hWnd, GWL_STYLE);
@@ -1544,7 +1574,7 @@ gr_fin();
 */
 ReleaseDC(hWnd,hDC);
 DestroyWindow(hWnd);
-ChangeDisplaySettings(NULL,0); 
+//ChangeDisplaySettings(NULL,0); 
 ShowCursor(TRUE);
 if (rebotea==1) goto reboot;
 
