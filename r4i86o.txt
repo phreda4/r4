@@ -195,7 +195,8 @@
 :,RTOS
 	"edi" ;
 
-:,,		"," ,s ;
+:,,
+	"," ,s ;
 
 :1cte? | -- f
 	dpila> 8 -
@@ -216,8 +217,8 @@
 	1 ;
 
 |----------- uso de registro
-#regused 0  0  0  0  0
-#regname ra rb rc rd re
+#regused 0  0  0  0  0  0   0   0   0   0   0   0   0
+#regname ra rb rc rd re rm0 rm1 rm2 rm3 rm4 rm5 rm6 rm7
 
 :reg.free | -- nro
 	'regused
@@ -227,6 +228,11 @@
 	| si no hay uno, libera y asigna
 	4 ;
 |	-1 ;
+
+:regx.free | -- nro
+	reg.free 0 >=? ( ; )
+
+	;
 
 :reg.set | nro --
 	2 << 'regused + 1 swap ! ;
@@ -265,14 +271,16 @@
 	0 1 d.setReg ;
 
 :NOSeax
-|	d.NOSt 0? (
+	|nos es eax..salir
+	|liberea eax
 	"mov eax," ,s ,NOS ,cr ;
 
 :NOS2eax
-|	d.NOS2t 0? (
+	|nos es eax..salir
 	"mov eax," ,s ,NOS2 ,cr ;
 
 :FREEedx
+	|libera edx
 	;
 
 :TOSecx
@@ -612,6 +620,15 @@
 	"or " ,s ,TOS ,, ,TOS ,cr
 	"jp @f" ,ln
 	"neg " ,s ,TOS ,cr
+	"@@:" ,ln ;
+
+:,CLZ
+	1cte? 1? ( drop d.pop clz d.pushCte ; ) drop
+
+	"or " ,s ,TOS ,, ,TOS ,cr
+	"jz @f" ,ln
+	"bsr " ,s ,TOS ,, ,TOS ,cr
+	"xor " ,s ,TOS ",31" ,ln
 	"@@:" ,ln ;
 
 :,NEG
@@ -1040,6 +1057,7 @@
 
 |-----------definiciones en asmbase.txt ---------------
 :,MOVE :,MOVE> :,CMOVE :,CMOVE>
+:,SQRT
 :,INK :,INK@ :,ALPHA :,OP :,CP :,LINE :,CURVE :,PLINE :,PCURVE
 :,POLI :,FCOL :,FCEN :,FMAT :,SFILL :,LFILL :,RFILL :,TFILL
 
@@ -1056,7 +1074,7 @@
 
 :,;
 	jmp? 1? ( drop 0 'jmp? ! ; ) drop
-	d.resortstack | reacomoda pila
+	|d.resortstack | reacomoda pila
 	"ret" ,ln ;
 :,(
 	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
@@ -1087,6 +1105,7 @@
 ,>R ,R> ,R ,R+ ,R@+ ,R!+ ,RDROP					|--- pila direcciones  52
 ,AND ,OR ,XOR ,NOT  								|--- logicas
 ,+ ,- ,* ,/ ,*/ ,*>> ,/MOD ,MOD ,ABS  			|--- aritmeticas
+,SQRT ,CLZ ,<</
 ,NEG ,1+ ,4+ ,1- ,2/ ,2* ,<< ,>> | 73
 ,@ ,C@ ,W@ ,! ,C! ,W! ,+! ,C+! ,W+!  			|--- memoria
 ,@+ ,!+ ,C@+ ,C!+ ,W@+ ,W!+ | 88
@@ -1115,21 +1134,23 @@
 :print.regused
 	'regused
 	'regname
-	5 ( 1? )( rot @+ 0? ( "*" )( " ") print drop
+	5 ( 1? )( rot @+ 0? ( " " )( ">" ) print drop
 			rot @+ print cr
 			rot 1- ) 3drop
 
 	;
 
+#codehere
 :printdebug
-    fonti home cr cr verde
+    fonti home verde
 	"-----------------------" print cr
 	print.dumpvstack cr
 	"-----------------------" print cr
 	print.regused
 	"-----------------------" print cr
-	dup 
-	11 >? ( 12 - macroname print  )( "%d" print ) cr
+	dup
+	11 >? ( 12 - macroname print  )( "%d" print ) cr cr
+	0 here ! codehere print
 	;
 
 :espera
@@ -1142,12 +1163,10 @@
 :,token0 | a -- a.
 	reg.refresh
 	@+ dup
-	$ff and
-|	cr dup "%d |" print print.dumpvstack redraw
-	|trace
-	espera
+	$ff and espera
 	2 << 'nivel0 + @ exec
-	drop ;
+	drop
+	;
 
 :makevstack | nro --
 	nro>mov @ 24 << 24 >> dup 'uquieto !
@@ -1162,8 +1181,7 @@
 	0 'compara? !
 	0 'jmp? !
 	dup makevstack
-
+	here 'codehere !
 	nro>toklen
 	( 1? )( 1- swap	,token0 swap )
-	here memmap
 	2drop ;
