@@ -85,8 +85,11 @@
 3 -2 0 0 |*/    abc -- d
 3 -2 0 0 |*>>   abc -- d
 2 0 0 0 |/MOD   ab -- cd
-2 0 0 0 |MOD    ab -- c
+2 -1 0 0 |MOD    ab -- c
 1 0 0 0 |ABS    a -- b
+1 0 0 0 | SQRT	a -- b
+1 0 0 0 | CLZ	a -- b
+3 -2 0 0 | <</	abc -- d
 1 0 0 0 |NEG    a -- b
 1 0 0 0 |1+     a -- b
 1 0 0 0 |4+     a -- b
@@ -206,14 +209,6 @@
 :usoDcalc | u --
 	deltaD swap - usoD min 'usoD ! ;
 
-| adr adrt t tabla
-:espal | palabra
-	dup 8 >> nro>mov @
-	dup 16 << 24 >> 1+ 'nivel !
-	dup 24 << 24 >> usoDcalc
-	dup 24 >> 'deltaR +!
-	8 << 24 >> 'deltaD +!
-	;
 
 :esdpal | 'palabra
 	;
@@ -257,6 +252,15 @@
 	pano 1? ( drop ; ) drop
 	1 'cntfin +! ;
 
+| adr adrt t tabla
+:espal | palabra
+	dup 8 >> nro>mov @
+	dup 16 << 24 >> 1+ 'nivel !
+	dup 24 << 24 >> usoDcalc
+	dup 24 >> 'deltaR +!
+	8 << 24 >> 'deltaD +!
+	;
+
 #acct 0 'espal 'esdpal 'esvar 'esdvar 'usaR 'apilae 'desapilae 'escte 'esctes
 'esfin iniano finano
 
@@ -271,9 +275,21 @@
 	drop
 	;
 
-::infotok | tok -- adr
-	$ff and 2 << 'deltainternos + ;
+|-----------------------------
+:tokpal | tok -- userd Dstack Rstack
+	8 >> nro>mov @
+	dup 24 << 24 >> swap
+	dup 8 << 24 >> swap
+	24 >> ;
 
+::tok>udr | tok -- userd Dstack Rstack
+	dup $ff and 8 =? ( drop tokpal ; ) nip
+	2 << 'deltainternos +
+	c@+ swap
+	c@+ swap
+	c@ ;
+
+|-----------------------------
 :resetvars | --
 	0 'usoD !
 	0 'deltaD !
