@@ -401,21 +401,29 @@ do {
 FindClose(hFind);
 }
 
-// http://www.devmaster.net/articles/fixed-point-optimizations/
-static inline int isqrt32(int value) 
+#ifdef __GNUC__
+#define iclz32(x) __builtin_clz(x)
+#else
+static inline int popcnt(int x)
 {
-int g = 0;
-int bshift = 15;
-int b = 1<<bshift;
-do {
-	int temp = (g+g+b)<<bshift;
-	if (value >= temp) { g += b; value -= temp;	}
-	b>>=1;
-} while (bshift--);
-return g;
+    x -= ((x >> 1) & 0x55555555);
+    x = (((x >> 2) & 0x33333333) + (x & 0x33333333));
+    x = (((x >> 4) + x) & 0x0f0f0f0f);
+    x += (x >> 8);
+    x += (x >> 16);
+    return x & 0x0000003f;
 }
-
-static inline int iCLZ32(int x)
+static inline int iclz32(int x)
+{
+    x |= (x >> 1);
+    x |= (x >> 2);
+    x |= (x >> 4);
+    x |= (x >> 8);
+    x |= (x >> 16);
+    return 32 - popcnt(x);
+}
+#endif
+/*static inline int iCLZ32(int x)
 {
 if (x==0) return 32;
 int numZeros=0;
@@ -423,6 +431,21 @@ while (!(x & 0x80000000)) {
 	numZeros++;
 	x <<= 1; } 
 return numZeros;
+}*/
+
+// http://www.devmaster.net/articles/fixed-point-optimizations/
+static inline int isqrt32(int value) 
+{
+if (value==0) return 0;
+int g = 0;
+int bshft = (31-iclz32(value))>>1;  // spot the difference!
+int b = 1<<bshft;
+do {
+	int temp = (g+g+b)<<bshft;
+	if (value >= temp) { g += b;value -= temp;	}
+	b>>=1;
+} while (bshft--);
+return g;
 }
 
 //---------------------------------------------------------------
@@ -528,7 +551,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 	case MOD: TOS=*NOS%TOS;NOS--;continue;
     case ABS: W=(TOS>>31);TOS=(TOS+W)^W;continue;
     case CSQRT: TOS=isqrt32(TOS);continue;
-    case CLZ: TOS=iCLZ32(TOS);continue;
+    case CLZ: TOS=iclz32(TOS);continue;
     case NEG: TOS=-TOS;continue;
     case INC: TOS++;continue;	case INC4: TOS+=4;continue; case DEC: TOS--;continue;	
     case DIV2: TOS>>=1;continue;	case MUL2: TOS<<=1;continue;
@@ -1412,7 +1435,7 @@ while (*aa!=0) {
       if ('w'==*aa) { esnumero(aa+1);w=numero; }
       if ('h'==*aa) { esnumero(aa+1);h=numero; }
       if ('b'==*aa) { noborde=1; }
-      if ('f'==*aa) { w=devmodo.dmPelsWidth;h=devmodo.dmPelsHeight; }
+      if ('f'==*aa) { w=devmodo.dmPelsWidth;h=devmodo.dmPelsHeight;noborde=1; }
       if ('s'==*aa) { silent=1; }
       if ('p'==*aa) { strcpy(printername,(aa+1)); } // pPrimo PDF
       if ('?'==*aa) { print_usage();return 0; }
@@ -1421,8 +1444,11 @@ while (*aa!=0) {
       aa++; }
 
 dwExStyle = WS_EX_APPWINDOW;// | WS_EX_WINDOWEDGE;
-dwStyle   = WS_VISIBLE | WS_CAPTION | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SYSMENU  ;
 
+if (noborde==0)
+   dwStyle=WS_VISIBLE|WS_CAPTION|WS_SYSMENU|WS_CLIPSIBLINGS|WS_CLIPCHILDREN;
+else
+   dwStyle= WS_VISIBLE | WS_POPUP |	WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
 ShowCursor(0);
 
 rec.left=rec.top=0;rec.right=w;rec.bottom=h;
@@ -1430,13 +1456,6 @@ AdjustWindowRect(&rec,dwStyle,0);
 hWnd=CreateWindowEx( dwExStyle,wc.lpszClassName, wc.lpszClassName,dwStyle,
      (GetSystemMetrics(SM_CXSCREEN)-rec.right+rec.left)>>1,(GetSystemMetrics(SM_CYSCREEN)-rec.bottom+rec.top)>>1,
      rec.right-rec.left, rec.bottom-rec.top,0,0,wc.hInstance,0);
-
-if (noborde==1) { // noanda
-  int style = GetWindowLong(hWnd, GWL_STYLE);
-  style &= ~(WS_CAPTION | WS_THICKFRAME);
-  SetWindowLongPtr(hWnd, GWL_STYLE,style);
-//  ShowWindow(hWnd,SW_NORMAL);
-  }
 
 if(!hWnd) return -2;
 if(!(hDC=GetDC(hWnd)))  return -3;
