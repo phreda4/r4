@@ -13,46 +13,51 @@
 #varb 0
 
 |**** mapa
-#dibujos 0 'dib1 'dib2 'dib3 'dib4 'dib5 'dib6 'dib7
-#mapa )( 400
+#dibujos 0 'dib1 'dib2 'dib3 'dib4 'dib5 'dib6 'dib7 'dib8 'dib9 'diba 'dibb 'dibc 'dibd 'dibe 'dibf 'dib10
+
+#mapa )( 1024
+#fill
+#xref
 
 :drawmapa
-	'mapa >r
-		mpush
-
-|	msec 2* mrotyi
-|	msec  mrotxi
-
-		-5.0 -5.0 0.0 mtransi
-		-5.0 ( 5.0 <? )(
-		-5.0 ( 5.0 <? )(
-				0.0 1.0 0.0 mtransi
-				r@+
-				mpush
-|				dup 2 >> mrotxi
-|    			0.23 pinpon over + mrotxi
-				$7 and
-				1? ( 2 << 'dibujos + @ 3dnsprite )( drop )
-				mpop
-				1.0 + ) drop
-			1.0 -10.0 0.0 mtransi
+'mapa >r
+	mpush
+	-8.5 xref - -8.5 0 mtransi
+	-8.0 ( 8.0 <? )(
+		-8.0 ( 8.0 <? )(
+			 1.0 0.0 0.0 mtransi
+			r@+
+			mpush
+|			dup 2 >> mrotxi
+|    		0.23 pinpon over + mrotxi
+			$f and
+			1? ( 2 << 'dibujos + @ 3dnsprite )( drop )
+			mpop
 			1.0 + ) drop
-		mpop rdrop
-		;
+		-16.0 1.0 0.0 mtransi
+		1.0 + ) drop
+	mpop rdrop ;
 
 :randmap
 	'mapa >r
-	100 ( 1? )( 1-
+	256 ( 1? )( 1-
 		dup r!+
 		) drop
 	rdrop ;
 
+:leftscroll
 :mapnext
-	'mapa >r
-	10 ( 1? )( 1-
-		r @ 1+ r!+
-		) drop
-	rdrop ;
+	'mapa
+	dup 960 + @ 'fill !
+	dup 4+ 256 move ;
+
+:fillline
+	;
+
+:softscroll | vel --
+	xref +
+    1.0 >? ( 1.0 - mapnext )
+	'xref ! ;
 
 |*** multisprite
 #multisprite
@@ -86,19 +91,11 @@
 	20 * + 4+
 	>r
 	swap
-	r @ + r!+
-	r @ + r> !
-	;
+	r +! r> 4+ +! ;
 
-|	-0.01 0.01 2 'multisprite s.move
-:ms.rote | r 'msr--
-	>r
-	( r@+ 1? )( drop
-		r> 8 + >r
-		dup r @ + r!+
-		r> 4+ >r
-		) drop
-	rdrop ;
+:s.rot | r 'ms nro --
+	20 * + 16 +
+	+! ;
 
 
 #lunar
@@ -113,22 +110,23 @@
 	>r ( r@+ 1? )(
 		mpush
 		r@+ r@+ polar 0 mtransi
-		r@+ mrotz
+		r@+ mrotzi
 		3dnsprite
 		mpop
 		) drop
 	rdrop ;
 
-:testms
-	0 0 vara mtransi
-|	0.01 pinpon mrotxi
-     'multisprite drawmultisprite
-|	0.1 -0.1 'multisprite ms.move
-	-0.01 0.01 'multisprite 2 s.move
+:sr.rot
+	4 << + 12 + +! ;
 
-	'lunar mulispr
-|	'lunar ms.rote
-	;
+:msr.rot | r 'msr--
+	>r
+	( r@+ 1? )( drop
+		r> 8 + >r
+		dup r @ + r!+
+		) drop
+	rdrop ;
+
 
 | box
 | tipo angulo largo dibujo
@@ -142,12 +140,14 @@
 	mpop ;
 
 
+#vx
 
 :principal
 	inigui
 	'exit >esc<
-	[ 0.01 'vara +! ; ] <ri>
-	[ -0.01 'vara +! ; ] <le>
+	[ 0.1 'vx ! ; ] <ri>
+	[ -0.1 'vx ! ; ] <le>
+	[ 0 'vx ! ; ] dup >ri< >le<
 	[ 1 'varb +! ; ] <up>
 	[ -1 'varb +! ; ] <dn>
 
@@ -157,7 +157,7 @@
 
 	|***** camara
 |		1.0 late mrotx
-		0.01 pinpon  mroty
+|		0.01 pinpon  mroty
 |		0.6 late mrotz
 		0 0 10.0 |1.0 pinpon +
 				mtrans
@@ -165,13 +165,29 @@
 	|*** actores
 |		'dib2 3dnsprite
 		drawmapa
-		testms
+
+	vx 'x +! 
+	x 0 0 mtransi
+|	0.01 pinpon mrotxi
+    'multisprite drawmultisprite
+|	0.1 -0.1 'multisprite ms.move
+	-0.001 0.001 'multisprite 2 s.move
+	0.5 'multisprite 2 s.rot
+
+
+	'lunar mulispr
+	0.1 softscroll
+	-0.0164	'lunar
+		2dup 0 sr.rot
+		2dup 1 sr.rot
+		2dup 3 sr.rot
+		4 sr.rot
+
+
 	|*** debug
 		scr fonti home verde
 		varb vara "a:%f b:%f" print cr
 		dup "%d" print
-		mapnext
-
 		cmano ;
 
 : 33 principal ;
