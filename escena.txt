@@ -128,17 +128,92 @@
 	rdrop ;
 
 
-| box
-| tipo angulo largo dibujo
-:drawbox
-	mpush
-	1.0 1.0 0.0 mtransi
-	'dib4 3dnsprite
-	-2.0 0.0 0.0 mtransi
-	'dib4 3dnsprite
+|**** particulas
+| x  y  s r  vx vy acc tl
+|    4  8 12 16 20 24  28
+|-28-24-20-16-12 -8 -4
 
+:sxy@ | adrrl -- adrrl x y
+	dup 28 - @+ swap @ ;
+
+:svxy! | adrrl +vy +vx -- adrrl
+	pick2 12 - !+ ! ;
+
+:sz! | adrrl scale -- adrrl
+	over 20 - ! ;
+
+:sr! | adrrl rotacion -- adrrl
+	over 16 - ! ;
+:+sr! | adrrl +rotacion -- adrrl
+	over 16 - +! ;
+:sr@ | adrrl  -- adrrl rotacion
+	dup 16 - @ ;
+
+:draw2d | adr -- adr tl
+	mpush
+	>r
+	r@+ r@+ r@+ mtransi
+	r@+ mrotzi
+	r@+ r 20 - +!
+	r@+ r 20 - +!
+	r> @+ exec | adrtl t1
 	mpop ;
 
+:delspr | 'lsp 'lsig 'act -- 'lsig
+	dup 32 - over | nueva vieja
+	pick3 3 << move | de sr cnt
+	32 - ;
+
+:+layer | tl 'acc vy vx r z y x  'layer --
+	dup @+ | 'listfx 'dirini cantact
+	>r r
+	5 << + | 'listfx 'diractual
+	swap >r | ... y x 'diractual
+	!+ !+ !+ !+ !+ !+ !+ !
+	r> r> | 'diract cantact
+	1+ swap ! ;
+
+:layerdraw | adr -- adr'
+	@+ ( 1? )( 1- swap  | nexl cant lis'
+		draw2d
+        1? ( swap !+ )( drop 4+
+				delspr
+				-1 pick3 4 - @ +! 	| resta 1 a cantidad
+				)
+		swap ) 2drop
+	;
+
+#layerfx 0 )( 8192
+
+:+layerfx | tl 'acc vy vx r z y x --
+	'layerfx +layer ;
+
+|--- rand
+:r0.1 | -- r
+	rand 0.1 mod ;
+
+:r01 | -- r
+	rand 1.0 mod ;
+
+|----  ROCKS
+:rocks
+	0.01 +sr!
+	sxy@
+	abs 6.0 >? ( 0 nip nip ; ) drop
+	abs 6.0 >? ( 0 nip ; ) drop
+    -1
+    'dib6 3dnsprite
+	;
+
+:+rocks
+	-1 'rocks
+	r0.1 r0.1
+	r01 0.4 r01 +              | rot y tam
+	r01 2* r01 2*
+	+layerfx
+	;
+
+|-----------------------
 
 #vx
 
@@ -150,7 +225,7 @@
 	[ 0 'vx ! ; ] dup >ri< >le<
 	[ 1 'varb +! ; ] <up>
 	[ -1 'varb +! ; ] <dn>
-
+	[ +rocks ; ] <esp>
 	randmap
 	show clrscr
 		1.0 3dmode
@@ -166,7 +241,9 @@
 |		'dib2 3dnsprite
 		drawmapa
 
-	vx 'x +! 
+		'layerfx layerdraw
+
+	vx 'x +!
 	x 0 0 mtransi
 |	0.01 pinpon mrotxi
     'multisprite drawmultisprite
