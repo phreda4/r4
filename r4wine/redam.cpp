@@ -574,10 +574,11 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case WFECHPLUS: NOS++;*NOS=TOS+2;TOS=*(short *)TOS;continue;
     case WSTOREPLUS: *(short *)TOS=(short)*NOS;TOS+=2;NOS--;continue;
 //--- sistema
-	case UPDATE: 
+	case UPDATE:
+		while (TOS--) {
          if (PeekMessage(&msg,hWnd,0,0,PM_REMOVE)) // process messages
 //         if (PeekMessage(&msg,0,0,0,PM_REMOVE)) // process messages
-            {  //TranslateMessage(&msg); 
+            {  //TranslateMessage(&msg);
             DispatchMessage(&msg);
 // lleno pila con interrupciones
             if (SYSEVENT!=0) { R++;*(int*)R=(int)IP;IP=(BYTE*)SYSEVENT;SYSEVENT=0; }
@@ -593,9 +594,10 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 */
             }
 #ifndef FMOD
-        if (evtsound==1 && SYSirqsonido!=0) 
+        if (evtsound==1 && SYSirqsonido!=0)
             { R++;*(int*)R=(int)IP;IP=(BYTE*)SYSirqsonido;evtsound=0; }
 #endif
+		}
 		break;
 
 //---- raton
@@ -800,7 +802,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         lpError = EndDoc(phDC);
         continue;
     case DOCMOVE: // x y --
-        MoveToEx(phDC,*NOS,TOS,(LPPOINT) NULL); 
+        MoveToEx(phDC,*NOS,TOS,(LPPOINT) NULL);
         NOS--;TOS=*(NOS);NOS--;
         continue;
     case DOCLINE: // x y --
@@ -936,7 +938,7 @@ if((stream=fopen("log.txt","a"))==NULL) return;
 fprintf(stream,"**** %s ****\n", nombre);
 for (int i=0;i<cntindice;i++)
     fprintf(stream,"%s %d\n",indice[i].nombre,indice[i].codigo-prog);
-if(fclose(stream)) return; 
+if(fclose(stream)) return;
 }
 
 void dumpex(void)
@@ -1140,7 +1142,7 @@ otrapalabra:
     { 
     palabra++;// graba str
     switch (estado) {
-      case E_DATO:	
+      case E_DATO:
             adato(palabra);break;
 //              pushA((int)&data[cntdato]);
 //              adato(palabra);break;
@@ -1208,7 +1210,7 @@ otrapalabra:
               { apila(cntprog);apila(1);cntprog++;salto=0; }
             else 
               { apila(cntprog);apila(2); } 
-            break;               
+            break;
           case 2: // )
             aux=desapila();lastcall=NULL;
             if (aux==1) {
@@ -1242,7 +1244,7 @@ otrapalabra:
             } else if (aux==2) {
                 aux=desapila();
                 if (salto==1)  
-                   { apila(cntprog);cntprog++;apila(aux);apila(3);salto=0; } 
+                   { apila(cntprog);cntprog++;apila(aux);apila(3);salto=0; }
                 else { sprintf(error,")( falta condicion");goto error; }
             } else  
                 { sprintf(error,")( mal cerrado");goto error; }
@@ -1310,7 +1312,7 @@ void grabalinea(void)
 {
 FILE *stream;
 if((stream=fopen("debug.err","w+"))==NULL) return;
-fputs(error,stream); 
+fputs(error,stream);
 if(fclose(stream)) return; 
 }
 
@@ -1413,15 +1415,15 @@ strcpy(pilaexecl,"main.txt");
 while (*pilaexecl!=0) pilaexecl++;
 pilaexecl++;
 
+DEVMODE devmodo;
+EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmodo);
+
 reboot: rebotea=0;
 
 if (*aa==0) {
     file=fopen("r4.ini","rb");// cargar r4.ini
     if (file!=NULL) { fread(setings,sizeof(char),1024,file);fclose(file);aa=setings; }
     } 
-
-DEVMODE devmodo;
-EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmodo);
 	
 while (*aa!=0) {
       if ('i'==*aa) { compilastr=aa+1; }
@@ -1583,9 +1585,7 @@ closesocket(soc); //Shut down socket
 WSACleanup(); //Clean up Winsock
 gr_fin();
 
-//ChangeDisplaySettings(NULL, 0); // Problema: si esta en noborde no retorna a ventana
-
-/*            // Restore the window styles 
+/*            // Restore the window styles
             DWORD style = GetWindowLongPtr(hWnd, GWL_STYLE);
             DWORD exstyle = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
             SetWindowLongPtr(hWnd, GWL_STYLE, style | WS_OVERLAPPEDWINDOW);
@@ -1593,8 +1593,8 @@ gr_fin();
 */
 ReleaseDC(hWnd,hDC);
 DestroyWindow(hWnd);
-//ChangeDisplaySettings(NULL,0); 
-ShowCursor(TRUE);
+//ShowCursor(TRUE);
+*aa=0;
 if (rebotea==1) goto reboot;
 
 ExitProcess(0);

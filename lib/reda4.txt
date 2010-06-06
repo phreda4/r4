@@ -9,28 +9,11 @@
 	16 *>> ;
 
 ::/.	| a b -- c
-|	$ffffff00  nand? ( swap 16 << swap )( swap 8 <<  swap 8 >> ) /  ;
 	16 <</ ;
 
 |--- Memoria
-|---------------- en macros por velocidad !
-|::cmove | de sr cnt --
-|	( 1? )( 1- >r c@+ rot c!+ swap r> ) 3drop ;
-|::cmove> | de sr cnt --
-|	rot over + rot pick2 + rot
-|	( 1? )( 1- >r 2dup c@ swap c! 1- swap 1- swap r> ) 3drop ;
-|::move | de sr cnt --
-|	( 1? )( 1- >r @+ rot !+ swap r> ) 3drop ;
-|::move> | de sr cnt --
-|	rot over 2 << + rot pick2 2 << + rot 1+
-|	( 1? )( 1- >r dup @ pick2 ! 4 - swap 4 - swap r> ) 3drop ;
-
-|::zcopy | destino fuente -- destino'
-|	( @+ 1? )( rot !+ swap ) 2drop ;
-
 ::zcopy | destino fuente -- destino' con 0
 	( @+ 1? )( rot !+ swap ) rot !+ nip ;
-
 ::strcat | src des --
 	( c@+ 1? )( drop ) drop 1-
 ::strcpy | src des --
@@ -40,7 +23,6 @@
 ::strcpyln | src des --
 	( swap c@+ 1? )( 13 =? ( 2drop 0 swap c! ; )
 		rot c!+ ) rot c!+ drop ;
-
 ::strchg | ree car adr --
 	( c@+ 1? )( | r c adr c
 		pick2 =? ( drop pick2 over 1- c! )( drop )
@@ -51,7 +33,6 @@
 
 ::toupp | c -- C
 	$60 >? ( $7b <? ( $20 - ) ) ;
-
 ::tolow
 	$40 >? ( $5b <? ( $20 + ) ) ;
 
@@ -90,7 +71,7 @@
 
 ::cpymem | 'destino --
 	memmap> 4 - @ here over -
-	cmove ; | de sr cnt --	Copia CNT dword de SR a DE
+	cmove ; | de sr cnt --
 
 ::, here !+ 'here ! ;
 ::,c here c!+ 'here ! ;
@@ -122,7 +103,7 @@
 ::,cr 13 ,c ;
 ::,eol 0 ,c ;
 ::,sp 32 ,c ;
-:,emit | c --
+:,emit | p p .. adr c --
 	$25 <>? ( ,c ; ) drop c@+
 	$73 =? ( drop swap ,s ; )	| s
 	$64 =? ( drop swap ,d ; )	| d
@@ -134,15 +115,17 @@
 	$2e =? ( drop ,cr ; ) 		|%.=enter
 	,c ;
 
-::,print | adr --
+::,print | p p .. adr --
 	( c@+ 1? )( ,emit ) 2drop ;
 
-
-::min over <? ( nip )( drop ) ;
-::max over >? ( nip )( drop ) ;
+::min	| a b -- m
+	over <? ( nip )( drop ) ;
+::max	| a b -- m
+	over >? ( nip )( drop ) ;
 
 ::blink | -- 0/1
 	msec $100 and ;
+
 
 |--- pantalla&interaccion
 #:.exit
@@ -161,9 +144,11 @@
 
 ::show	| framerate constante (mientras pueda)
 	msec dup 'lastime !+ ! 0 '.exit !
-	( .exit 0? )( drop update
+|	( .exit 0? )( drop update
+	( .exit 0? )( drop 100 update drop
 		msec lastime >? ( 30 + 'lastime ! r exec redraw )( drop )
 		) drop rdrop 0 '.exit ! ;
+
 
 ::showpp | version rapida?? (se cuelga)
 	msec dup 30 + 'lastime !+ !
