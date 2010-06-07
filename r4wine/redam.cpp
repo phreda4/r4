@@ -575,9 +575,9 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case WSTOREPLUS: *(short *)TOS=(short)*NOS;TOS+=2;NOS--;continue;
 //--- sistema
 	case UPDATE:
-		while (TOS--) {
+         Sleep(TOS);
          if (PeekMessage(&msg,hWnd,0,0,PM_REMOVE)) // process messages
-//         if (PeekMessage(&msg,0,0,0,PM_REMOVE)) // process messages
+// if (PeekMessage(&msg,0,0,0,PM_REMOVE)) // process messages
             {  //TranslateMessage(&msg);
             DispatchMessage(&msg);
 // lleno pila con interrupciones
@@ -588,16 +588,13 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
                 Sleep(2);
                 PeekMessage(&msg,hWnd,0,0,PM_REMOVE);
                 TranslateMessage(&msg); DispatchMessage(&msg);
-                }
-//              gr_restore();
-              }
-*/
-            }
+                } // gr_restore();
+*/            
 #ifndef FMOD
         if (evtsound==1 && SYSirqsonido!=0)
             { R++;*(int*)R=(int)IP;IP=(BYTE*)SYSirqsonido;evtsound=0; }
 #endif
-		}
+            }
 		break;
 
 //---- raton
