@@ -80,36 +80,12 @@ BITMAPINFO bmi = {{sizeof(BITMAPINFOHEADER),800,-600,1,32,BI_RGB,0,0,0,0,0},{0,0
 
 int (*setxyf)(int a,int b);
 
-int setxy(int a,int b)
-{
-return (int)gr_buffer+((b*gr_ancho+a)<<2);
-}
-
-int setxy640(int a,int b) // 128 + 512
-{
-return (int)gr_buffer+(((b<<7)+(b<<9)+a)<<2);
-}
-
-int setxy800(int a,int b)
-{
-return (int)gr_buffer+(((b<<5)+(b<<8)+(b<<9)+a)<<2);
-}
-
-int setxy1024(int a,int b)
-{
-return (int)gr_buffer+(((b<<10)+a)<<2);
-}
-
-int setxy1280(int a,int b)
-{
-return (int)gr_buffer+(((b<<10)+(b<<8)+a)<<2);
-}
-
-int setxy1366(int a,int b)
-{
-return (int)gr_buffer+(((b*1366)+a)<<2);
-}
-
+int setxy(int a,int b) { return (int)gr_buffer+((b*gr_ancho+a)<<2); }
+int setxy640(int a,int b) { return (int)gr_buffer+(((b<<7)+(b<<9)+a)<<2); } // 128 + 512
+int setxy800(int a,int b) { return (int)gr_buffer+(((b<<5)+(b<<8)+(b<<9)+a)<<2); }
+int setxy1024(int a,int b) { return (int)gr_buffer+(((b<<10)+a)<<2); }
+int setxy1280(int a,int b) { return (int)gr_buffer+(((b<<10)+(b<<8)+a)<<2); }
+int setxy1366(int a,int b) { return (int)gr_buffer+(((b*1366)+a)<<2); }
 
 void gr_fin(void) 
 { 
@@ -489,11 +465,11 @@ if (ex3>0) { // lleno
     cnt=ex3-ex2-1;
     while (cnt--) { gr_pixel(gr_pos);gr_pos++; }
     }
-//gr_color1=0xff0000;
-
 if (ex4==ex3) { // punto solo
+   if (ex4>=gr_ancho) return;
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
+//gr_color1=0xff;
   alpha=255<<8;
   da=(-255<<8)/(ex4-ex3);
 /*
@@ -570,6 +546,7 @@ if (ex3>0) { // lleno
         }
   }
 if (ex4==ex3) { // punto solo
+  if (ex4>=gr_ancho) return;
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
   alpha=255<<8;
@@ -649,6 +626,7 @@ if (ex3>0) { // lleno
         }
   }
 if (ex4==ex3) { // punto solo
+  if (ex4>=gr_ancho) return;
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
   alpha=255<<8;
@@ -722,6 +700,7 @@ if (ex3>0) { // lleno
         }
   }
 if (ex4==ex3) { // punto solo
+  if (ex4>=gr_ancho) return;
   gr_pixela(gr_pos,(BYTE)((x3+x4)>>1));
 } else { // degrade
   alpha=255<<8;
