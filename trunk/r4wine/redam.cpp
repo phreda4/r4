@@ -32,7 +32,7 @@
 #include <time.h>
 
 //#define LOGMEM
-//#define OPENGL
+#define OPENGL
 //#define RUNER // quita el compilador (6kb)
 
 #define FMOD
@@ -310,7 +310,7 @@ switch (message) {     // handle message
 		break;*/
     case WM_DESTROY:
         SYSEVENT=(int)&ultimapalabra; // ejecuta end
-        rebotea=2;
+//      rebotea=2;
         PostQuitMessage(0);
         break;
     case WM_ACTIVATEAPP:
@@ -1165,7 +1165,7 @@ otrapalabra:
 		agregainclude(palabra);// agrega a la lista
 		aux=compilafile(palabra);// inclusion recursiva
 #ifdef LOGMEM		
-		dumplocal(palabra);
+//		dumplocal(palabra);
 #endif
         if (aux==OPENERROR) { sprintf(error,"no existe %s",palabra);goto error; } 
 		if (aux!=COMPILAOK) { return aux; }
@@ -1392,8 +1392,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 SetUnhandledExceptionFilter(&MyUnhandledExceptionFilter);
 #endif
 
-int w=640,h=480,noborde=0,silent=0;
-int i=0;
+int w=640,h=480,silent=0;
+int noborde,i=0;
 char printername[32];
 char *aa=(char*)lpCmdLine;
 
@@ -1415,13 +1415,18 @@ pilaexecl++;
 DEVMODE devmodo;
 EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmodo);
 
-reboot: rebotea=0;
+reboot: rebotea=SYSEVENT=0;
+
+#ifdef LOGMEM
+ldebug("ini..");
+#endif
 
 if (*aa==0) {
     file=fopen("r4.ini","rb");// cargar r4.ini
     if (file!=NULL) { fread(setings,sizeof(char),1024,file);fclose(file);aa=setings; }
     } 
-	
+    
+noborde=0;	
 while (*aa!=0) {
       if ('i'==*aa) { compilastr=aa+1; }
       if ('c'==*aa) { 
@@ -1442,12 +1447,12 @@ while (*aa!=0) {
       if (32==*aa) *aa=0;
       aa++; }
 
-dwExStyle = WS_EX_APPWINDOW;// | WS_EX_WINDOWEDGE;
+dwExStyle = WS_EX_APPWINDOW;
 
 if (noborde==0)
    dwStyle=WS_VISIBLE|WS_CAPTION|WS_SYSMENU|WS_CLIPSIBLINGS|WS_CLIPCHILDREN;
 else
-   dwStyle= WS_VISIBLE | WS_POPUP |	WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+   dwStyle=WS_VISIBLE|WS_POPUP|WS_CLIPSIBLINGS|WS_CLIPCHILDREN;
 ShowCursor(0);
 
 rec.left=rec.top=0;rec.right=w;rec.bottom=h;
@@ -1553,7 +1558,7 @@ if (bootaddr==0) {
 #endif
 
 #ifdef LOGMEM
-dumpex();dumplocal("BOOT");
+//dumpex();dumplocal("BOOT");
 #endif
 memlibre=data+cntdato; // comienzo memoria libre
 if (silent!=1 && interprete(bootaddr)==1) goto recompila;
@@ -1594,6 +1599,11 @@ DestroyWindow(hWnd);
 
 ShowCursor(TRUE);
 *aa=0;
+#ifdef LOGMEM
+ldebug("REBOOT..");
+sprintf(linea," %d *****\r",rebotea);ldebug(linea);
+#endif
+
 if (rebotea==1) goto reboot;
 
 ExitProcess(0);
