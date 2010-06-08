@@ -1580,6 +1580,7 @@ DeleteDC(phDC);
 ReleaseJoystick();
 closesocket(soc); //Shut down socket
 WSACleanup(); //Clean up Winsock
+
 gr_fin();
 
 /*            // Restore the window styles
@@ -1590,7 +1591,8 @@ gr_fin();
 */
 ReleaseDC(hWnd,hDC);
 DestroyWindow(hWnd);
-//ShowCursor(TRUE);
+
+ShowCursor(TRUE);
 *aa=0;
 if (rebotea==1) goto reboot;
 

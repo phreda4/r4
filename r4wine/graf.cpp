@@ -85,7 +85,7 @@ int setxy(int a,int b)
 return (int)gr_buffer+((b*gr_ancho+a)<<2);
 }
 
-int setxy640(int a,int b)
+int setxy640(int a,int b) // 128 + 512
 {
 return (int)gr_buffer+(((b<<7)+(b<<9)+a)<<2);
 }
@@ -97,15 +97,27 @@ return (int)gr_buffer+(((b<<5)+(b<<8)+(b<<9)+a)<<2);
 
 int setxy1024(int a,int b)
 {
-return (int)gr_buffer+((b<<10)+a)<<2;
+return (int)gr_buffer+(((b<<10)+a)<<2);
 }
 
 int setxy1280(int a,int b)
 {
-return (int)gr_buffer+((b<<10)+(b<<8)+a)<<2;
+return (int)gr_buffer+(((b<<10)+(b<<8)+a)<<2);
 }
 
-//---- rutinas de inicio
+int setxy1366(int a,int b)
+{
+return (int)gr_buffer+(((b*1366)+a)<<2);
+}
+
+
+void gr_fin(void) 
+{ 
+VirtualFree(XFB, 0, MEM_RELEASE);
+VirtualFree(gr_buffer, 0, MEM_RELEASE);
+}
+
+//---- inicio
 int gr_init(int XRES,int YRES)
 {
 gr_sizescreen=XRES*YRES;// tamanio en DWORD
@@ -121,6 +133,7 @@ switch(XRES) {
     case 800:   setxyf=setxy800;break;
     case 1024:  setxyf=setxy1024;break;
     case 1280:  setxyf=setxy1280;break;
+    case 1366:  setxyf=setxy1366;break;
     default:    setxyf=setxy;
     }
 
@@ -189,12 +202,6 @@ StretchDIBits(hDC,0,0,gr_ancho,gr_alto,0,0,gr_ancho,gr_alto,gr_buffer,&bmi,DIB_R
 #endif
 }
 
-void gr_fin(void) 
-{ 
-VirtualFree(XFB, 0, MEM_RELEASE);
-VirtualFree(gr_buffer, 0, MEM_RELEASE);
-}
-
 void gr_clrscr(void) 
 {
 register DWORD *PGR=gr_buffer;
@@ -258,7 +265,8 @@ void fillRad(void) { fillpoly=_FlineaDR; }
 void fillTex(void) { fillpoly=_FlineaTX; }
 
 //------------------------------------
-#define GR_SET(X,Y) gr_pos=(DWORD*)gr_buffer+Y*gr_ypitch+X;
+//#define GR_SET(X,Y) gr_pos=(DWORD*)gr_buffer+Y*gr_ypitch+X;
+#define GR_SET(X,Y) gr_pos=(DWORD*)setxyf(X,Y);
 #define GR_X(X) gr_pos+=X;
 #define GR_Y(Y) gr_pos+=gr_ypitch*Y;
 
