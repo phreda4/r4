@@ -46,7 +46,7 @@ HWND        hWnd;
 WNDCLASSA   wc;
 MSG         msg;
 DEVMODE     screenSettings;  
-DWORD       dwExStyle, dwStyle;
+DWORD       dwStyle;
 RECT        rec; 
 int         active;
 
@@ -1447,7 +1447,6 @@ while (*aa!=0) {
       if (32==*aa) *aa=0;
       aa++; }
 
-dwExStyle = WS_EX_APPWINDOW;
 
 if (noborde==0)
    dwStyle=WS_VISIBLE|WS_CAPTION|WS_SYSMENU|WS_CLIPSIBLINGS|WS_CLIPCHILDREN;
@@ -1457,7 +1456,7 @@ ShowCursor(0);
 
 rec.left=rec.top=0;rec.right=w;rec.bottom=h;
 AdjustWindowRect(&rec,dwStyle,0);
-hWnd=CreateWindowEx( dwExStyle,wc.lpszClassName, wc.lpszClassName,dwStyle,
+hWnd=CreateWindowEx(WS_EX_APPWINDOW,wc.lpszClassName, wc.lpszClassName,dwStyle,
      (GetSystemMetrics(SM_CXSCREEN)-rec.right+rec.left)>>1,(GetSystemMetrics(SM_CYSCREEN)-rec.bottom+rec.top)>>1,
      rec.right-rec.left, rec.bottom-rec.top,0,0,wc.hInstance,0);
 

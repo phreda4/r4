@@ -6,12 +6,15 @@
 ^lib/trace.txt
 ^inc/escena.inc
 
+#spr.piso 0
+
 #x
 #y
 #z
 
-#vara -2.0
-#varb 0
+#vx
+
+#salto
 
 |**** mapa
 #dibujos 0 'dib1 'dib2 'dib3 'dib4 'dib5 'dib6 'dib7 'dib8 'dib9 'diba 'dibb 'dibc 'dibd 'dibe 'dibf 'dib10
@@ -153,7 +156,8 @@
 :draw2d | adr -- adr tl
 	mpush
 	>r
-	r@+ r@+ r@+ mtransi
+	r@+ r@+ 0 mtransi
+	r@+ dup 0 mscalei
 	r@+ mrotzi
 	r@+ r 20 - +!
 	r@+ r 20 - +!
@@ -184,6 +188,25 @@
 		swap )
 	3drop ;
 
+:hit? | s1 s2 -- 0/s1
+	over =? ( 2drop 0 ; ) | s1=s2?
+	>r
+	dup @+ r@+ -	| s1 s1y dx
+	swap @ r@+ -	| s1 dx dy
+	distfast			| s1 dist
+	over 8 + @ r@+ + | s1 dist dw
+	pick2 12 + @ r> @ +
+	distfast 2/ -		| s1 dd
+	+? ( 2drop 0 ; )
+	drop ;
+
+:layerhit | adr adr -- adr'/0
+	@+
+	( 1? )( 1-
+		swap pick2 hit? 1? ( nip nip nip ; ) drop
+		swap )
+	nip nip ;
+
 #layerfx 0 )( 8192
 
 :+layerfx | tl 'acc vy vx r z y x --
@@ -203,20 +226,36 @@
 	abs 6.0 >? ( 0 nip nip ; ) drop
 	abs 6.0 >? ( 0 nip ; ) drop
     -1
-    'dib6 3dnsprite
-	;
+    'dib6 3dnsprite ;
 
+| tl 'acc vy vx r z y x  'layer --
 :+rocks
 	-1 'rocks
 	r0.1 r0.1
 	r01 0.4 r01 +              | rot y tam
 	r01 2* r01 2*
-	+layerfx
-	;
+	+layerfx ;
+
+|-------- disparos
+:shoot
+	dup @ 1-
+	'dib6 3dnsprite ;
+
+| tl 'acc vy vx r z y x  'layer --
+:+shoot
+	60 'shoot
+	0 0.2
+	0 0.1
+	y x
+	+layerfx ;
 
 |-----------------------
+::late | amp -- n
+	msec 3 >> $1ff and 7 << *. ;
 
-#vx
+:pinpon | amp -- n
+	msec 3 >> $3ff and $1ff >? ( $3ff swap - ) 7 << *. ;
+
 
 :principal
 	inigui
@@ -224,18 +263,20 @@
 	[ 0.1 'vx ! ; ] <ri>
 	[ -0.1 'vx ! ; ] <le>
 	[ 0 'vx ! ; ] dup >ri< >le<
-	[ 1 'varb +! ; ] <up>
-	[ -1 'varb +! ; ] <dn>
+	[ 1 'salto ! ; ] <up>
+	[ +shoot ; ] <dn>
 	[ +rocks ; ] <esp>
+	[ +shoot ; ] <f1>
+
 	randmap
 	show clrscr
 		1.0 3dmode
 
 	|***** camara
 |		1.0 late mrotx
-|		0.01 pinpon  mroty
+|		1.0 late mrotz
 |		0.6 late mrotz
-		0 0 16.0 |1.0 pinpon +
+		0 0 8.0 |4.0 pinpon +
 				mtrans
 
 	|*** actores
@@ -245,12 +286,14 @@
 		'layerfx layerdraw
 
 	vx 'x +!
-	x 0 0 mtransi
+	x y 0 mtransi
 |	0.01 pinpon mrotxi
-    'multisprite drawmultisprite
+
+|    'multisprite drawmultisprite
+
 |	0.1 -0.1 'multisprite ms.move
-	-0.001 0.001 'multisprite 2 s.move
-	0.5 'multisprite 2 s.rot
+|	-0.001 0.001 'multisprite 2 s.move
+|	0.5 'multisprite 2 s.rot
 
 
 	'lunar mulispr
@@ -264,7 +307,14 @@
 
 	|*** debug
 		scr fonti home verde
-		varb vara "a:%f b:%f" print cr
+x
+y
+z
+vx
+salto
+
+		"salto:%d vx:%f z:%f y:%f x:%f" print cr
+layerfx "layerfx: %d" print cr
 		dup "%d" print
 		cmano ;
 
