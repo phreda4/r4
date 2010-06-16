@@ -1,0 +1,172 @@
+^lib/reda4.txt
+^lib/gui.txt
+^lib/3dmat.txt
+^inc/espacio.inc
+^lib/trace.txt
+^lib/sprite.txt
+
+|**** mapa
+#dibujos
+'dib1 'dib2 'dib10 'dib4
+'dibb 'dibc 'dibd 'dibe
+'dibf 'dib5 'dibb 'dibc
+'dibd 'dibe 'dibf 'dib1
+
+#dibu 'diba | 'dib1 'dib2
+#xa 8 #ya 0 | coordenadas del auto. Esta en el primer 1 del mapa
+
+#mapa
+0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0
+0 0 1 1 1 1 1 1 1 1 1 1 8 1 1 1 0 0
+0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0
+0 0 1 1 1 5 1 1 1 1 1 1 0 0 0 1 0 0
+0 0 0 0 0 0 0 0 0 0 0 5 0 0 0 8 0 0
+0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 1 0 0
+0 0 0 1 6 1 1 1 1 1 1 1 0 0 0 1 0 0
+0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0 0
+0 0 0 1 1 1 0 0 0 0 0 0 0 1 8 1 0 0
+0 0 0 0 0 1 1 7 1 1 0 0 0 1 0 0 0 0
+0 0 1 0 0 1 0 0 0 1 0 0 0 1 0 0 0 0
+0 0 8 1 1 1 0 0 0 1 0 0 0 1 0 0 0 0
+0 0 1 0 0 1 0 0 0 1 0 0 1 1 0 0 0 0
+0 0 1 0 0 1 0 0 0 9 0 0 1 0 0 0 0 0
+0 0 1 1 1 1 0 0 0 1 0 1 1 0 0 0 0 0
+0 0 0 0 0 1 0 0 0 1 0 1 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 1 9 0 1 1 1 0 0 0 0
+0 0 0 0 0 0 0 0 2 0 0 0 0 0 0 0 0 0
+
+:putmap | x y -- pone algo en esa posicion
+   18 * + 2 << 'mapa + ! ;
+
+:getmap | x y -- v    dado un x y un y obtengo el valor que tengo en el mapa en esas coord
+   18 * +  2 << 'mapa + @ ;
+
+:drawmapa | 'mapa --
+	>r
+	mpush
+	-9.0 -9.0 0 mtransi | coordenada x=0 y=0 del mapa z=0
+	-9.0 ( 9.0 <? )(
+		-9.0 ( 9.0 <? )(
+			r@+
+			$f and 2 << 'dibujos + @ 3dnsprite
+			1.0 0.0 0.0 mtransi
+			1.0 + ) drop
+		-18.0 1.0 0.0 mtransi
+		1.0 + ) drop
+	mpop rdrop
+    ;
+
+|******************
+#xc -9.5 #yc -9.5
+
+:drawmapa2 | --
+	mpush
+	-9.5 -9.5 0 mtransi | coordenada x=0 y=0 del mapa z=0
+	-9.0 ( 9.0 <? )(
+		-9.0 ( 9.0 <? )(
+			 1.0 0.0 0.0 mtransi
+				|if
+					'diba 3dnsprite
+
+
+			1.0 + ) drop
+		-18.0 1.0 0.0 mtransi
+		1.0 + ) drop
+	mpop
+     ;
+|******************
+
+:dibujaauto
+mpush
+xa 1.0 * 9.0 -
+ya 1.0 * 9.0 -
+0 mtransi
+'dib4 3dnsprite
+mpop
+;
+
+:movder
+   xa 1+ ya  getmap
+   0? ( drop ; ) drop
+
+	1 'xa +!
+	;
+:movizq
+   xa 1- ya  getmap
+   0? ( drop ; ) drop
+	-1 'xa +!
+	;
+
+
+:movabajo
+	xa ya 1+ getmap | dadas las coord del auto le sumo uno y
+					| obtengo lo q tengo en el mapa, si es 0 termina, si no es 0, se mueve 1
+					| para abajo
+	0? ( drop ; ) drop
+	1  'ya +!
+
+	;
+
+:movarr
+   xa ya 1- getmap
+   0? ( drop ; ) drop
+   -1   'ya +!
+	;
+
+#cont 0
+:consumebi
+  |xa  ya  getmap
+|  xa  ya cont  "  %d %d %d" print cr
+  |-1 'xa +!
+
+  xa ya getmap
+	5 =? ( 1 xa ya putmap 10 'cont  +! )
+ 	6 =? ( 1 xa ya putmap 10 'cont  +! )
+ 	7 =? ( 1 xa ya putmap 10 'cont  +! )
+  	8 =? ( 1 xa ya putmap -10 'cont  +! )
+  	9 =? ( 1 xa ya putmap 10 'cont  +! )
+	drop
+
+  |1 'xa +!
+
+;
+
+
+
+:gano
+ xa ya getmap
+ 2 =? ( exit 60 cont =? ( " Gano  " printc cr )( " Perdio  " printc cr ) )
+drop
+;
+
+
+:principal
+	inigui
+	'exit >esc<
+    'movabajo <dn>
+    'movder <ri>
+    'movizq <le>
+    'movarr <up>
+	show clrscr
+		1.0 3dmode
+        consumebi
+        gano
+
+	|***** camara
+		xa 1.0 * 9.0 - neg
+		ya 1.0 * 9.0 - neg
+		4.0 mtrans
+
+	|*** actores
+		'mapa drawmapa
+		dibujaauto
+|		drawmapa2
+|		'layerfx layerdraw
+
+	|*** debug
+		scr fonti home verde
+    	xa ya "a:%f b:%f" print cr
+		dup "%d" print
+		 ;
+
+: 33 principal ;

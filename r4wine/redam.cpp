@@ -32,7 +32,7 @@
 #include <time.h>
 
 //#define LOGMEM
-#define OPENGL
+//#define OPENGL
 //#define RUNER // quita el compilador (6kb)
 
 #define FMOD
@@ -310,19 +310,20 @@ switch (message) {     // handle message
 		break;*/
     case WM_DESTROY:
         SYSEVENT=(int)&ultimapalabra; // ejecuta end
-//      rebotea=2;
-        PostQuitMessage(0);
+//        PostQuitMessage(0);
         break;
     case WM_ACTIVATEAPP:
          active=wParam&0xff;
+         /*
          if (active==WA_INACTIVE)
             {
-            ChangeDisplaySettings(NULL,0);
+  //          ChangeDisplaySettings(NULL,0);
 //            ShowWindow(hWnd,SW_MINIMIZE);
          } else {
-            ShowWindow(hWnd,SW_NORMAL);//SW_RESTORE);
-            UpdateWindow(hWnd);
+    //        ShowWindow(hWnd,SW_NORMAL);//SW_RESTORE);
+//            UpdateWindow(hWnd);
             }
+            */
          break;
 
   default:
@@ -576,8 +577,8 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 //--- sistema
 	case UPDATE:
          Sleep(TOS);
-         if (PeekMessage(&msg,hWnd,0,0,PM_REMOVE)) // process messages
-// if (PeekMessage(&msg,0,0,0,PM_REMOVE)) // process messages
+//         if (PeekMessage(&msg,hWnd,0,0,PM_REMOVE)) // process messages
+ if (PeekMessage(&msg,0,0,0,PM_REMOVE)) // process messages
             {  //TranslateMessage(&msg);
             DispatchMessage(&msg);
 // lleno pila con interrupciones
@@ -1596,7 +1597,7 @@ gr_fin();
 ReleaseDC(hWnd,hDC);
 DestroyWindow(hWnd);
 
-ShowCursor(TRUE);
+//ShowCursor(TRUE);
 *aa=0;
 #ifdef LOGMEM
 ldebug("REBOOT..");

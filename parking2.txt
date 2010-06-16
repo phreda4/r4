@@ -1,0 +1,122 @@
+^lib/reda4.txt
+^lib/gui.txt
+^lib/sprites.txt
+^lib/grpix.txt
+^lib/graf.txt
+^lib/gc.txt
+^lib/trace.txt
+
+^inc/park.inc
+
+
+#car_ang 0
+#ang 0
+#rot_ang 0
+#car_vel 20
+#car_x 0.5
+#car_y 0.5
+#car_w 0.1
+#car_h 0.1
+#screen_w
+#screen_h
+#car_adar_x 
+#car_adar_y
+#car_adab_x 
+#car_adab_y
+#car_atar_x 
+#car_atar_y
+#car_atab_x 
+#car_atab_y
+
+#bot 0
+#bot_x -60000
+#bot_y 0
+#bot_rot_ang 0.5
+#bot_visible 0
+#bot_vel 0
+
+#bot_dib
+#bad_cars 'dib3 'dib4 'dib5 'dib6
+
+#autoy )( 44
+:elije
+	rand 8 >> 3 and 2 << 'bad_cars + @
+	'bot_dib !
+;
+:scrLimits |Fuera de pantalla
+	car_x  
+	1.09 >? ( -1.09 nip )
+	-1.09 <? ( 1.09 nip )
+	'car_x !
+;
+:carTurn |Calcula posicion cuando dobla.
+	car_ang 'ang +!
+	ang sincos car_vel * 15 >> 'car_x +! car_vel * 15 >> neg 'car_y +!
+	car_x car_y fpos car_w car_h fdim 'dib2 ang rnsprite 
+	car_x car_y fpos
+	0 ( 1.0 <? )( 0.125 +
+    	0 xc yc pick3 20 xy+polar setpixel
+		) drop
+;
+:limitTurn	|Limita rotacion para evitar que el auto gire en posicion neutra
+	car_vel 0 <? ( -1 * )
+	30 <? ( 0 'rot_ang ! )( 0.009 'rot_ang ! ) drop
+;
+:friction   | Friccion
+    0 car_vel >? ( 1 )( -1 ) 'car_vel +! drop
+;
+:inPath |Deteccion si estoy sobre el camino	
+	|car_x1 |car_x2 |car_y1 |car_y2
+	car_x car_y fgetpixel 5592405 <>? ( "Colision" print cr )( "En ruta" print cr ) drop
+	car_x car_y fgetpixel 16777215 <>? ( "..." print cr )( "Exito" print cr ) drop
+;
+:keysActions
+	[ 10 'car_vel +! ; ] <dn> [ -30 'car_vel +! ; ] <up>
+    [ rot_ang 'car_ang ! ; ] <ri> [ rot_ang -1 * 'car_ang ! ; ] <le>
+    [ 0 'car_ang ! ; ] dup >ri< >le<
+;
+:main
+	inigui
+	'exit >esc<
+	$b45d31 paper
+	keysActions 
+	show clrscr
+	90000 90000  fdim 0 0 fpos 'dib1 nsprite     |Muestra fondo de lvl
+
+	bot_visible 0 =? (
+		|cargo en bot_x el val aleatorio
+	    bot 0 =? (
+			rand 43000 mod abs |entre 0 y 44000
+			'bot_y !
+			1 'bot !
+			elije
+		)
+		drop
+		bot_x bot_y fpos car_w car_h fdim bot_dib bot_rot_ang rnsprite
+		
+		bot_x 1.09 >? ( 0 'bot ! -60000 'bot_x ! )( 0.000002 'bot_x +! ) drop	
+	)
+	drop
+
+	limitTurn |Limita rotacion para evitar que el auto gire en posicion neutra
+
+    inPath |Deteccion si estoy sobre el camino	
+    |car_x car_w + car_y car_h + fgetpixel 5592405 <>? ( "Atras Derecha" print cr )( "En ruta" print cr ) drop
+
+	friction   | Friccion
+
+    carTurn |Calcula posicion cuando dobla.
+	
+	scrLimits	|Fuera de pantalla
+
+	|car_y  
+	|1.09 >? ( -1.09 nip )
+	|-1.09 <? ( 1.09 nip )
+	|'car_y !
+	|muestra coche
+	
+
+	scr home dup "control: %d " print cr 
+;
+
+: 33 main ;
