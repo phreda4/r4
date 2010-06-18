@@ -193,7 +193,6 @@
 :savetxt
 	mark
 	fuente ( c@+ 1? )( 13 =? ( ,c 10 ) ,c ) 2drop
-
 	'nombre savemem
 	empty
 	nlin -1 =? ( guardanombre )( "" 1 "debug.err" save -1 'nlin ! )
@@ -473,20 +472,35 @@
 
 		cflecha ;
 
+|---- Mantiene estado del editor
+
+:cpy|
+    swap ( c@+ $7c <>? )( rot c!+ swap ) drop 0 rot c! ;
+
 :buscaerror
-	"" 'error !
-	-1  'nlin !
-	0 'ncar !
+	-1  'nlin ! 0 'ncar !
 	here "debug.err" load here 4+ <? ( drop ; ) 0 swap !
 	here
-	'nombre swap ( c@+ $7c <>? )( rot c!+ swap ) drop 0 rot c!
-	'nrolin swap ( c@+ $7c <>? )( rot c!+ swap ) drop 0 rot c!
+	'nombre cpy|
+	'nrolin cpy|
 	'nrolin ?numero 1? ( drop nip ) -1 =? ( drop ; ) 'nlin !
-	'nrolin swap ( c@+ $7c <>? )( rot c!+ swap ) drop 0 rot c!
+	'nrolin cpy|
 	'nrolin ?numero 1? ( drop nip )  'ncar !
 	'error swap ( c@+ 1? )( rot c!+ swap ) rot c! drop
-	'error " %s en linea %d " mprint 'mensaje strcpy
-	;
+	'error 'mensaje strcpy ;
+
+:ubicarcursor | -- car lin
+	1 fuente ( fuente> <? )( c@+ 13 =? ( rot 1+ rot rot ) drop ) | cuenta lineas
+	( dup c@ 13 <>? )( drop 1- ) drop | cuenta caracters a inicio de linea
+	fuente> swap - swap ;
+
+:saveestado
+	mark
+	'nombre ,s
+	ubicarcursor "|%d|%d|" ,print ,eol
+	"mem/edit-code.mem" savemem
+	empty ;
+
 
 |----------- principal
 :main

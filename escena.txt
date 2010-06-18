@@ -8,76 +8,77 @@
 
 #spr.piso 0
 
-#x
-#y
+#x -2.0
+#y 2.4
 #z
 
 #vx
+#vy
 
 #salto
 
 |**** mapa
-#dibujos 0 'dib1 'dib2 'dib3 'dib4 'dib5 'dib6 'dib7 'dib8 'dib9 'diba 'dibb 'dibc 'dibd 'dibe 'dibf 'dib10
+#dibujos 0 'dib18 'dib19 'dib16 'dib17 'dib5 'dib6 'dib7
+'dib8 'dib9 'diba 'dibb 'dibc 'dibd 'dibe 'dibf
 
 #mapa )( 1024
-#fill
 #xref
 
 :drawm
-	mpush
-|			dup 2 >> mrotxi
-|    		0.23 pinpon over + mrotxi
-	$f and
-	1? ( 2 << 'dibujos + @ 3dnsprite )( drop )
-	mpop ;
+	$f and 2 << 'dibujos + @ 3dnsprite ;
 
 :drawmapa
-'mapa >r
+	'mapa >r
 	mpush
 	-8.5 xref - -7.5 0 mtransi
 	-8.0 ( 8.0 <? )(
 		-8.0 ( 8.0 <? )(
-			1.0 0.0 0.0 mtransi
 			r@+ 1? ( drawm )( drop )
+			1.0 0.0 0.0 mtransi
 			1.0 + ) drop
 		-16.0 1.0 0.0 mtransi
 		1.0 + ) drop
 	mpop rdrop ;
 
-:randmap
-	'mapa >r
-	256 ( 1? )( 1-
-		dup r!+
-		) drop
-	rdrop ;
-
 :leftscroll
-	'mapa
-	dup 960 + @ 'fill !
-	dup 4+ 256 move ;
+	'mapa dup 4+ 255 move ;
 
 :softscroll | vel --
 	xref +
     1.0 >? ( 1.0 - leftscroll )
 	'xref ! ;
 
+|*** linea de dibujos
+
+#linea1 0 $1 $1 $1 $1 $1 $1 $1 $1 $1 $1 $1 $1 $1 $1 $1 $1
+#linea2 0 $2 $2 $2 $2 $2 $2 $2 $2 $2 $2 $2 $2 $2 $2 $2 $2
+#linea3 0 $3 $3 $3 $3 $3 $3 $3 $3 $3 $3 $3 $3 $3 $3 $3 $3
+
+:lin.draw | 'list
+	>r
+	mpush
+	-7.0 r@+ - 0 0 mtransi
+	16 ( 1? )( 1-
+		r@+ 1? ( drawm )( drop )
+		1.0 0 0 mtransi
+		) drop rdrop
+	mpop ;
+
+:lin.scroll | 'list vel --
+	over @ +
+	1.0 >? ( 1.0 - )
+	swap ! ;
+
 |*** 1alto
 
 |*** multisprite
-#multisprite
-'dib1 0.0 0.0 0.0 $0
-'dib9 0.0 0.0 0.0 $0
-'dib9 0.0 0.6 0.0 $0
-0
-
-:drawmultisprite | m --
+:ms.draw | m --
 	>r
 	( r@+ 1? )(
 		mpush
 		r@+ r@+ 0 mtransi
 		r@+ mrotzi
 		3dnsprite
-        r@+ drop
 		mpop
 		) drop rdrop
 	;
@@ -87,49 +88,27 @@
 	( r@+ 1? )( drop
 		over  r @ + r!+
 		dup r @ + r!+
-		r> 8 + >r
 		) drop
 	rdrop ;
 
 :s.move | x y 'ms nro --
-	20 * + 4+
-	>r
-	swap
+	4 << + 4+
+	>r swap
 	r +! r> 4+ +! ;
 
 :s.rot | r 'ms nro --
-	20 * + 16 +
-	+! ;
-
-
-#lunar
-'dibC 0.14 0.55 0.0
-'dibC -0.10 0.4 0.0
-'dibD 0.0 0.0 0.0
-'dibC 0.10 0.5 0.0
-'dibC -0.14 0.6 0.0
-0
-
-:mulispr | msr --
-	>r ( r@+ 1? )(
-		mpush
-		r@+ r@+ polar 0 mtransi
-		r@+ mrotzi
-		3dnsprite
-		mpop
-		) drop
-	rdrop ;
-
-:sr.rot
 	4 << + 12 + +! ;
 
-:msr.rot | r 'msr--
-	>r
-	( r@+ 1? )( drop
-		r> 8 + >r
-		dup r @ + r!+
-		) drop
-	rdrop ;
+:s.ypos | y 'ms nro --
+	4 << + 8 + ! ;
+
+#auto
+'dibC 0.3 0.25 0.0
+'dibC -0.3 0.25 0.0
+'dibD 0.0 0.0 0.0
+'dibC 0.3 0.25 0.0
+'dibC -0.3 0.25 0.0
+0
 
 
 |**** particulas
@@ -238,13 +217,20 @@
 
 |-------- disparos
 :shoot
-	dup @ 1-
-	'dib6 3dnsprite ;
+	dup @ 1- 'dib3 3dnsprite ;
 
 | tl 'acc vy vx r z y x  'layer --
 :+shoot
 	60 'shoot
 	0 0.2
+	0 0.1
+	y x
+	+layerfx ;
+
+| tl 'acc vy vx r z y x  'layer --
+:+shootup
+	60 'shoot
+	-0.2 0
 	0 0.1
 	y x
 	+layerfx ;
@@ -257,6 +243,32 @@
 	msec 3 >> $3ff and $1ff >? ( $3ff swap - ) 7 << *. ;
 
 
+:vehiculo
+	mpush
+	x y 0 mtransi
+	'auto ms.draw
+	mpop
+
+	vx 'x +!
+	vy 'y +!
+
+
+	-0.0164	'auto
+	2dup 0 s.rot
+	2dup 1 s.rot
+	2dup 3 s.rot
+		4 s.rot
+	rand 0.02 mod 0.25 + 'auto 0 s.ypos
+	rand 0.02 mod 0.25 + 'auto 1 s.ypos
+	rand 0.02 mod 0.25 + 'auto 3 s.ypos
+	rand 0.02 mod 0.25 + 'auto 4 s.ypos
+
+	y 2.4 <? ( 0.01 'vy +! 0 'salto ! drop ; ) drop
+	2.4 'y !
+	0 'vy !
+	salto 1? ( -0.18 'vy ! 0 'salto ! ) drop
+	;
+
 :principal
 	inigui
 	'exit >esc<
@@ -264,57 +276,38 @@
 	[ -0.1 'vx ! ; ] <le>
 	[ 0 'vx ! ; ] dup >ri< >le<
 	[ 1 'salto ! ; ] <up>
-	[ +shoot ; ] <dn>
-	[ +rocks ; ] <esp>
-	[ +shoot ; ] <f1>
-
-	randmap
+	[ +shoot +shootup ; ] <dn>
 	show clrscr
 		1.0 3dmode
 
 	|***** camara
-|		1.0 late mrotx
-|		1.0 late mrotz
-|		0.6 late mrotz
-		0 0 8.0 |4.0 pinpon +
-				mtrans
+		0 0 8.0 mtrans
 
 	|*** actores
-|		'dib2 3dnsprite
-		drawmapa
+|		drawmapa
+|		0.1 softscroll
+
+		mpush
+		0 0 -3.0 mtrans
+		'linea1 lin.draw
+		'linea1 0.012 lin.scroll
+		0 1.5 1.0 mtrans
+		'linea2 lin.draw
+		'linea2 0.025 lin.scroll
+		0 1.5 1.0 mtrans
+		'linea3 lin.draw
+		'linea3 0.1 lin.scroll
+		mpop
 
 		'layerfx layerdraw
-
-	vx 'x +!
-	x y 0 mtransi
-|	0.01 pinpon mrotxi
-
-|    'multisprite drawmultisprite
-
-|	0.1 -0.1 'multisprite ms.move
-|	-0.001 0.001 'multisprite 2 s.move
-|	0.5 'multisprite 2 s.rot
-
-
-	'lunar mulispr
-	0.1 softscroll
-	-0.0164	'lunar
-		2dup 0 sr.rot
-		2dup 1 sr.rot
-		2dup 3 sr.rot
-		4 sr.rot
+		vehiculo
 
 
 	|*** debug
 		scr fonti home verde
-x
-y
-z
-vx
-salto
+		x y z vx vy salto 	"salto:%d vy:%f vx:%f z:%f y:%f x:%f" print cr
+		layerfx "layerfx: %d" print cr
 
-		"salto:%d vx:%f z:%f y:%f x:%f" print cr
-layerfx "layerfx: %d" print cr
 		dup "%d" print
 		cmano ;
 
