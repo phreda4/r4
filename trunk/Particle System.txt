@@ -1,0 +1,718 @@
+^lib/reda4.txt
+^lib/gui.txt
+^lib/fonth.txt
+^lib/trace.txt
+^inc/systemfailure.inc
+
+#xcam 0
+#ycam 0
+#zcam 10.0
+
+#listafx )( 16384 | le damos 32k de memoria a la listas de particulas
+#listafx> 'listafx
+#nodeBytes 60
+#listafxSize 16384
+
+:toInteger 		| argument: float | returns: integer
+	16 >>
+	;
+
+:toFloat 		| argument: integer | returns: float
+	16 <<
+	;
+
+|||| DRAW 2D
+| x  | y  | scale | direction | hspeed | vspeed | friction | gravity 
+|    | 4  |   8   |    12     |   16   |   20   |    24    |  28     
+|-56 |-52 | -48   |   -44     |  -40   |  -36   |   -32    | -28     
+
+| gravityDir  | Hmask  | Vmask  | action | HitAction | flags | tl
+|     32      |  36    |  40    |  44    |    48     | 52    | 56
+|    -24      | -20    | -16    | -12    |    -8     | -4    | 0
+
+| flags:
+| 1 = solid
+| 2 = visible
+| 3 = harms player con contact
+| 4 = is player character
+| 5 = is fx
+| 6 = is enemy
+| 7 = 
+
+|| Posiblemente agregar: alarm1, alarm2, alarm3, alAction1, alAction2, alAction3, type, sprite
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Fetchers
+
+| arguments: addr | returns x y
+:@xy
+	@+ swap @ swap
+	;
+
+| arguments: addr | returns grav gravDir
+:@gravDirGrav
+	28 + @+ swap @ swap
+	;
+
+| arguments: addr | returns scale
+:@scale
+	8 + @
+	;
+
+| arguments: addr | returns dir
+:@dir
+	12 + @
+	;
+
+| arguments: addr | returns hspeed vspeed
+:@hvspeeds
+	16 + @+ swap @ swap
+	;
+
+| arguments: addr | returns friction
+:@friction
+	24 + @
+	;
+
+| arguments: addr | returns Hmask Vmask
+:@hvmasks
+	36 + @+ swap @ swap
+	;
+
+:@action
+	44 + @
+	;
+
+:@hitAction
+	48 + @
+	;
+
+| arguments: addr | returns spriteDir
+:@flagSolid
+	52 + @
+	1 and? (
+		drop 1
+	)(
+		drop 0
+	)
+	;
+
+| arguments: addr | returns Time of life
+:@tl
+	56 + @
+	;
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Asigners
+
+| arguments: addr FlagSolid | returns --
+:!flagSolid
+	| swap 52 + !
+	;
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Auxiliar Procedures
+
+| arguments: speed direction | returns: hspeed vspeed
+:calculateSpeeds
+	sincos		| speed sin(dir) cos(dir)
+	pick2 *.	| speed sin(dir) hspeed
+	rot rot		| hspeed speed sin(dir)
+	*.			| hspeed vspeed
+	;
+
+| arguments: hspeed vspeed | returns: speed
+:calcSpeed
+	dup			| hspeed vspeed vspeed
+	*.			| hspeed vspeed^2
+	swap		| vspeed^2 hspeed
+	dup			| vspeed^2 hspeed hspeed
+	*.			| vspeed^2 hspeed^2
+	+			| vspeed^2+hspeed^2
+	toInteger	| toInteger(vspeed^2+hspeed^2)
+	sqrt		| speed
+	toFloat		| toFloat(speed)
+	;
+
+| arguments: hspeed vspeed | returns: newDirection
+:calcDir2
+	toInteger	| hspeed vspeedEntero
+	swap		| vspeedEntero hspeed
+	toInteger	| vspeedEntero hspeedEntero
+	atan2		| angle
+	;
+
+| arguments: hspeed vspeed | returns: newDirection
+:calcDir
+	swap atan2
+	;
+
+| arguments: hspeed friction | returns: newHspeed
+:calcFriction
+	over abs 		| hspeed friction abs(hspeed)
+	>=? (			| hspeed friction
+		2drop 0
+	)(
+		swap -? (	| friction hspeed
+			+
+		)(
+			swap -
+		)
+	)
+	;
+
+| arguments: hspeed vspeed grav gravDir | returns: newHspeed newVspeed
+:addGravity 
+	sincos				| hspeed vspeed grav sin(gravDir) cos(gravDir)
+	pick2				| hspeed vspeed grav sin(gravDir) cos(gravDir) grav
+	*.					| hspeed vspeed grav sin(gravDir) hspeedGrav
+	rot rot				| hspeed vspeed hspeedGrav grav sin(gravDir)
+	*.					| hspeed vspeed hspeedGrav vspeedGrav
+	rot +				| hspeed hspeedGrav newVspeed
+	rot rot +			| newVspeed newHspeed
+	swap				| newHspeed newVspeed
+	;
+
+| arguments: x1 y1 x2 y2 | returns: direction
+:pointDirection
+	rot  - 			| x1 x2 y2-y1
+	rot rot swap -	| y2-y1 x2-x1
+	swap			| x2-x1 y2-y1
+	calcDir			| angle
+	;
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Hit Detection
+
+| arguments: addr addr2 | returns: x2+hmask2 x1-hmask1 x2-hmask2 x1+hmask1
+:boundariesX
+	dup @xy	drop	| addr addr2 x2
+	swap			| addr x2 addr2
+	@HVMasks drop	| addr x2 hmask2
+	rot				| x2 hmask2 addr
+	dup @xy	drop	| x2 hmask2 addr x1
+	swap			| x2 hmask2 x1 addr
+	@HVMasks drop	| x2 hmask2 x1 hmask1
+	2dup +			| x2 hmask2 x1 hmask1 x1+hmask1
+	rot rot -		| x2 hmask2 x1+hmask1 x1-hmask1
+	2swap			| x1+hmask1 x1-hmask1 x2 hmask2
+	2dup +			| x1+hmask1 x1-hmask1 x2 hmask2 x2+hmask2
+	rot rot -		| x1+hmask1 x1-hmask1 x2+hmask2 x2-hmask2
+	2swap			| x2+hmask2 x2-hmask2 x1+hmask1 x1-hmask1
+	rot rot			| x2+hmask2 x1-hmask1 x2-hmask2 x1+hmask1
+	;
+
+| arguments: addr addr2 | returns: y2+vmask2 y1-vmask1 y2-vmask2 y1+vmask1
+:boundariesY
+	dup @xy	swap drop	| addr addr2 y2
+	swap				| addr y2 addr2
+	@HVMasks swap drop	| addr y2 hmask2
+	rot					| y2 vmask2 addr
+	dup @xy	swap drop	| y2 vmask2 addr y1
+	swap				| y2 vmask2 y1 addr
+	@HVMasks swap drop	| y2 vmask2 y1 vmask1
+	2dup +				| y2 vmask2 y1 vmask1 y1+vmask1
+	rot rot -			| y2 vmask2 y1+vmask1 y1-vmask1
+	2swap				| y1+vmask1 y1-vmask1 y2 vmask2
+	2dup +				| y1+vmask1 y1-vmask1 y2 vmask2 y2+vmask2
+	rot rot -			| y1+vmask1 y1-vmask1 y2+vmask2 y2-vmask2
+	2swap				| y2+vmask2 y2-vmask2 y1+vmask1 y1-vmask1
+	rot rot				| y2+vmask2 y1-vmask1 y2-vmask2 y1+vmask1
+	;
+
+| arguments: addr addr2 | returns: Boolean
+:hit?
+	2dup >r >r		| addr addr2 | R: addr2 addr
+	boundariesX		| x2+hmask2 x1-hmask1 x2-hmask2 x1+hmask1 | R: addr2 addr
+	<? (
+		drop 		| x2+hmask2 x1-hmask1 | R: addr2 addr
+		>? (
+			drop 			| -- | R: addr2 addr
+			r> r>			| addr addr2 | R: --
+			boundariesY		| y2+vmask2 y1-vmask1 y2-vmask2 y1+vmask1 | R: --
+			
+			<? (
+				drop		| y2+vmask2 y1-vmask1 | R: --
+				>? (
+					drop 1
+				)(
+					drop 0
+				)
+			)(
+				drop 2drop 0
+			)
+		)(
+			drop rdrop rdrop 0
+		)
+	)(
+		drop 2drop rdrop rdrop 0
+	)
+	;
+
+| arguments: 'listaFin 'listaInicio 'me(particle) | returns: --
+:recorreHits
+	>r
+	( over <? )(				| 'fin 'act 'fin
+		r						| 'fin 'act 'me
+		<>? (					| 'fin 'act	
+			dup @flagSolid		| 'fin 'act act.solid
+			1? (
+				drop			| 'fin 'act
+				dup r			| 'fin 'act 'act 'me
+				hit?			| 'fin 'act Boolean
+				1? (
+					drop					| 'fin 'act
+					dup r dup @hitAction	| 'fin 'act 'act 'me 'hitAction
+					exec					| 'fin 'act 'newMe
+					rdrop >r				| 'fin 'act
+				)(
+					drop		| 'fin 'act
+				)
+			)(
+				drop			| 'fin 'act
+			)
+		)
+		nodeBytes +				| 'fin 'act+60
+	)
+	2drop rdrop
+	;
+
+| arguments: 'act 'me | returns: 'newMe
+:defaultHitAction
+	nip
+	;
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Central Particle Procedure
+
+| arguments: addr | returns: newAddr
+:GeneralUpdate
+	mpush
+	dup
+	>r >r					| -- | r = initialAdr initialAdr
+	r@+ r@+ 0 mtransi		| x y 0 | r = initialAdr 'scale
+	r@+ dup 0 mscalei		| scale scale
+	r@+ mrotzi				| direction  | r = initialAdr 'hspeed
+	r@+ r@+					| hspeed vspeed | r = initialAdr 'friction
+	swap r@+				| vspeed hspeed friction | r = initialAdr 'gravity
+	calcFriction			| vspeed newHspeed
+	swap					| newHspeed vspeed
+	r@+ r @	rdrop			| newHspeed vspeed gravity gravDir  | r = initialAdr
+	addGravity				| newHspeed newVspeed
+	over					| newHspeed newVspeed newHspeed
+	r 16 + !				| newHspeed newVspeed newHspeed 'hspeed !
+	dup						| newHspeed newVspeed newVspeed
+	r 20 + !				| newHspeed newVspeed newVspeed 'vspeed !
+	r 4 + +!				| newHspeed newVspeed 'y +!
+	r +!					| newHspeed 'x +!
+	r> dup @action			| initialAdr 'action
+	exec					| newAddr
+	mpop
+	;
+
+| arguments: addr | returns: newAddr
+:SimpleUpdate
+	mpush
+	dup						| addr addr
+	>r >r					| --				| r = addr addr
+	r@+ r@+ 0 mtransi		| --				| r = addr 'scale
+	r@+ dup 0 mscalei		| scale scale		| r = addr 'direction
+	r@+ mrotzi				| direction			| r = addr 'hspeed
+	r@+ r@+	rdrop			| hspeed vspeed		| r = addr
+	
+	r 4 + +!				| hspeed vspeed 'y +!
+	r +!					| hspeed 'x +!
+	r> dup @action			| addr				| r = --
+	exec					| newAddr
+	mpop
+	;
+
+
+| arguments: 'particle | returns: newAddr
+:genericAction
+	;
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Particles Cycling Procedures
+
+| arguments: 'toErase 'act 'last | returns: 'newAct
+:delspr
+	rot dup				| 'act 'last 'toErase 'toErase
+	rot					| 'act 'toErase 'toErase 'last
+	over				| 'act 'toErase 'toErase 'last 'toErase
+	nodeBytes + swap	| 'act 'toErase 'toErase 'sig 'last
+	over - 2 >>			| 'act 'toErase 'toErase 'sig cnt_de_var(bytesHastaFin*0.25(porque hay 4 bytes por variable))
+	move				| 'act 'toErase
+	>=? (
+		nodeBytes -		| 'act-60
+	)
+	;
+
+:delList | 'list 'finlist --
+	!
+	;
+
+| arguments: tl flags hitAction action Vmask Hmask gravityDir gravity friction vspeed hspeed direction scale y x 'listafx> | returns: --
+:+lista
+	dup >r @			| variablesVarias listafx>(va a actuar de variable actual) | R: 'listafx>
+	nodeBytes 4 /		| variablesVarias act cnt(cantidad de variables que hay por particula)
+	( 0 >? )(
+		>r				| variablesVarias(15) act | R: 'listafx> cnt
+		!+				| variablesVarias(14) act(sig)
+		r>				| variablesVarias(14) act(sig) cnt | R: 'listafx>
+		1 -				| variablesVarias(14) act(sig) cnt-1
+	)
+	drop				| act
+	r> !				| act 'listafx> ! | R: --
+	;
+
+| arguments: 'listafx> 'listaInicio | returns: --
+:cycleLayer
+	( over @ <? )(				| 'listafx> 'act 'fin
+		dup Nodebytes + 4 -		| 'listafx> 'act 'tl
+		dup @					| 'listafx> 'act 'tl tl
+		-? (
+			2drop 1				| 'listafx> 'act 1
+		)(
+			1 - over !		| 'listafx> 'act 'tl | tl = tl-1
+			@				| 'listafx> 'act tl
+		)
+		
+		0 <=? (
+			drop				| 'listafx> 'act
+			dup pick2 @			| 'listafx> 'act 'act 'fin
+			delspr				| 'listafx> 'newAct
+			swap dup @			| 'newAct 'listafx> 'fin
+			nodeBytes -			| 'newAct 'listafx> 'fin-NodeBytes
+			over !				| 'newAct 'listafx> | listafx> = 'fin-NodeBytes
+			swap				| 'listafx> 'newAct
+		)(
+			drop dup			| 'listafx> 'act 'act
+			GeneralUpdate		| 'listafx> 'act 'newAct
+			dup rot -			| 'listafx> 'newAct 'newAct-'act
+			pick2 @ +			| 'listafx> 'newAct 'newAct-'act+'fin
+			pick2 !				| 'listafx> 'newAct | listafx> = 'newAct-'act+'fin
+		)
+		nodeBytes +				| 'listafx> 'newAct+nodeBytes
+	)
+	2drop
+	;
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Keyboard Handling Procedures
+
+|key	| status: 0 idle | 1 justPressed | 2 released | 3 pressed
+#keys 0 0 0 0 0 0 50
+
+:downKey
+	'keys
+	;
+:rightKey
+	'keys 4 +
+	;
+:leftKey
+	'keys 8 +
+	;
+:upKey
+	'keys 12 +
+	;
+:jumpKey
+	'keys 16 +
+	;
+:fireKey
+	'keys 20 +
+	;
+
+| arguments: 'Key | returns: --
+:Pressed
+	dup @			| 'key key
+	1 and? (		| wasn't previously pressed (released or idle status)
+		drop		| 'key
+		3 swap !	| key = 3
+	)(
+		drop
+		1 swap !
+	)
+	;
+
+:Released
+	2 swap !
+	;
+
+:CheckPressed
+	@ 1 and? (
+		drop 1
+	)(
+		drop 0
+	)
+	;
+
+:CheckReleased
+	@ 2 =? (
+		drop 1
+	)(
+		drop 0
+	)
+	;
+
+:CheckJustPressed
+	@ 1 <>? (
+		drop 0
+	)
+	;
+
+:cleanKeys
+	'keys 
+	( dup @ 3 <? )(
+		2 =? (
+			drop	| 'key
+			0 over	| 'key 0 'key
+			!		| 'key | key = 0
+		)(
+						| 'key key
+			1 =? (
+				drop	| 'key
+				3 over	| 'key 3 'key
+				!		| 'key | key = 3
+			)(
+				drop	| 'key
+			)
+		)
+		4 +
+	)
+	2drop
+	;
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Player-specific Procedures & variables
+
+#player )( 60
+
+| arguments: 'particle | returns: newAddr
+:playerAction
+	'dib2 3dnsprite
+	
+	0.01 pinpon 'player 12 + +!
+	dup 0.2 pinpon 0.8 + swap 8 + !
+	
+	rightKey CheckPressed
+	1? (
+		drop
+		0.3 over 16 + !
+	)(
+		drop
+	)
+	
+	rightKey CheckReleased
+	1? (
+		drop
+		0 over 16 + !
+	)(
+		drop
+	)
+
+	leftKey CheckPressed
+	1? (
+		drop
+		-0.3 over 16 + !
+	)(
+		drop
+	)
+	
+	leftKey CheckReleased
+	1? (
+		drop
+		0 over 16 + !
+	)(
+		drop
+	)
+	
+	upKey CheckPressed
+	1? (
+		drop
+		-0.3 over 20 + !
+	)(
+		drop
+	)
+	
+	upKey CheckReleased
+	1? (
+		drop
+		0 over 20 + !
+	)(
+		drop
+	)
+
+	downKey CheckPressed
+	1? (
+		drop
+		0.3 over 20 + !
+	)(
+		drop
+	)
+	
+	downKey CheckReleased
+	1? (
+		drop
+		0 over 20 + !
+	)(
+		drop
+	)
+	
+	fireKey CheckPressed
+	1? (
+	)
+	drop
+	;
+	
+| arguments: 'act 'me | returns: 'newMe
+:playerHitAction
+	nip
+	;
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| FX-specific Procedures & variables
+
+| arguments: 'particle | returns: newAddr
+:RockAction
+	'dib6 3dnsprite
+	
+	dup 0.01 swap 12 + +!
+	
+	jumpKey CheckPressed
+	1? (
+		drop
+		dup 8 +			| 'particle 'scale
+		0.05 swap +!
+	)(
+		drop
+	)
+	;
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Particle Creation Procedures
+
+| arguments:  -- | returns: --
+:CreatePlayer
+	0					| tl
+	0					| flags
+	'playerHitAction	| hitAction
+	'playerAction		| action
+	32.0				| vmask
+	32.0				| hmask
+	0.25				| gravityDir
+	0.00				| gravity
+	0.01				| friction
+	0					| vspeed
+	0					| hspeed
+	0					| direction
+	1.0					| scale
+	0.1					| y
+	0.1					| x
+	'player
+	!+ !+ !+ !+ !+ !+ !+ !+ !+ !+ !+ !+ !+ !+ !+ drop
+	;
+
+| arguments:  -- | returns: --
+:CreateRock
+	listafx> 'listafx - listafxSize nodeBytes - >=? (
+		drop
+		;
+	)(
+		drop
+	)
+	
+	rand abs 1.0 mod	| speed(0--1.0)
+	3 >> 0.125 +		| speed(0.125--0.25)
+	
+	rand abs 1.0 mod	| speed dir(0--1.0)
+	2 >> 0.375 +		| speed dir(0.375--0.625)
+	calculateSpeeds		| hspeed vspeed
+	>r >r
+	
+	rand 20 >> abs 40 +	| tl
+	0					| flags
+	'defaultHitAction	| hitAction
+	'RockAction			| action
+	32.0				| vmask
+	32.0				| hmask
+	0.25				| gravityDir
+	0.005				| gravity
+	0					| friction
+	r>					| vspeed
+	r>					| hspeed
+	0.55				| direction
+	rand 15 >> abs 0.5 +	| scale
+	0.1					| y
+	0.1					| x
+	'listafx>
+	+lista
+	;
+
+|||| GAME LOOP
+| arguments: -- | returns: --
+:debug
+	scr home fonti verde
+	dup "%d" print cr
+	listafx> 'listafx - nodeBytes / "cnt FX: %d" print cr
+	'player dup 4 + @ swap @ "x: %f y: %f" print cr
+	;
+
+| arguments: -- | returns: --
+:executeLayers
+	'listafx> 'listafx cycleLayer
+	'player GeneralUpdate drop
+	;
+
+| arguments: -- | returns: --
+:ajustacam
+	'player @xy
+	neg xcam 3.0 + >? ( 3.0 - 'xcam ! )(
+		xcam 3.0 - <? ( 3.0 + 'xcam ! )( drop ) )
+	neg ycam 3.0 + >? ( 3.0 - 'ycam ! )(
+		ycam 3.0 - <? ( 3.0 + 'ycam ! )( drop ) )
+	;
+
+| arguments: -- | returns: --
+:juego
+	inigui
+	CreatePlayer
+	CreateRock
+	'exit >esc<
+	[ rightKey Pressed ; ]	<ri>	[ rightKey Released ; ]	>ri<
+	[ leftKey Pressed ; ]	<le>	[ leftKey Released ; ]	>le<
+	[ upKey Pressed ; ]		<up>	[ upKey Released ; ]	>up<
+	[ downKey Pressed ; ]	<dn>	[ downKey Released ; ]	>dn<
+	[ jumpKey Pressed ; ]	<esp>	[ jumpKey Released ; ]	>esp<
+	| [ fireKey Pressed ; ]	<esp>	[ fireKey Released ; ]	>esp<
+	
+	show clrscr
+		omode
+		ajustacam
+		xcam ycam zcam  mtrans
+		
+		CreateRock
+		executeLayers
+		cleanKeys
+		debug
+		cmano
+|		100 .mseg .restart
+		;
+
+
+
+|||| BOOT
+: 33
+	mark
+	juego
+	;
