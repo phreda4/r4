@@ -9,52 +9,21 @@
 ^lib/fonth.txt
 ^lib/trace.txt
 
-|--menu de arbol2
 #nroh -1
+#cnth
 #nrof -1
-
+#cntf
 #lastrun )( 64
 
-#menuprg
-#menuprg>
+#ncar
+#nlin
+#nombre )( 64
 
-:setnow | adr --
-	0? ( drop ; ) "%a.txt" mprint
-	dup 'lastrun strcpy
-:loadsrc | name --
-	here swap load 0 swap ! ;
+:cargaeditornl
+	'ncar "nom/debug.err" load drop ;
 
-:clickf | adr nro -- adr nro
-	dup 'nrof !
-	over setnow
-	;
-
-:clickn
-	;
-	-1 dup 'nroh ! 'nrof !
-	;
-
-:clickhi
-	dup 'nroh !
-	over fld# 1- 'nrof !
-	>>f setnow
-	;
-
-|-------
-:dominios | adr --
-	reg#
-	( 1? )( 1-
-		nroh =? ( cyan )( negro )
-        'clickhi pick2 " %a " allow2cr sp btnt
-		swap >>fi swap ) 2drop ;
-
-:programas | adr --
-	reg# nroh - 1- ( 1? )( 1-	swap >>fi swap ) drop
-    fld# ( swap >>f swap 1? )( 1-
-		nrof =? ( verde )( negro )
-		'clickf pick2 " %a " allow2cr sp btnt |cr cr2
-		) 2drop
-	;
+:grabaeditornl
+	'ncar 72 "nom/debug.err" save ;
 
 |----------- estado
 :grabaestado
@@ -65,15 +34,85 @@
 :restauraestado
 	"./" dir
 	'nroh "nom/main.nom" load drop
-	'lastrun c@ 0? ( drop ; ) drop
-	'lastrun loadsrc
 	;
+
+#menuprg
+#menuprg>
+
+:lastrun! | adr --
+	0? ( drop ; ) "%a.txt" mprint
+	'lastrun strcpy ;
+
+:clickf | adr nro -- adr nro
+	dup 'nrof !
+	over lastrun!
+	;
+
+:clickn
+	;
+	-1 dup 'nroh ! 'nrof !
+	;
+
+:clickhi
+	dup 'nroh !
+	0 'nrof ! ;
+
+|-------
+:dominios | adr --
+	reg# dup 'cnth !
+	( 1? )( 1-
+		nroh =? ( cyan )( negro )
+        'clickhi pick2 " %a " allow2cr sp btnt
+		swap >>fi swap ) 2drop ;
+
+:programas | adr --
+	reg# nroh - 1- ( 1? )( 1-	swap >>fi swap ) drop
+    fld# dup 'cntf !
+	( swap >>f swap 1? )( 1-
+		nrof =? ( verde )( negro )
+		'clickf pick2 " %a " allow2cr sp btnt |cr cr2
+		)
+	2drop ;
+
+:programas3d | adr --
+	reg# nroh - 1- ( 1? )( 1- swap >>fi swap ) drop
+    fld# dup 'cntf !
+	( swap
+		>>f swap 1? )( 1-
+        nrof =? ( verde over lastrun! 20 )( negro 16 ) fonthex
+		'clickf pick2 " %a " mprint
+		allow2cr
+		cr sp sp btnt cr
+		)
+	2drop ;
+
+:iconos
+	reg# ( 1? )( 1- swap >>fi swap ) drop
+	fld#
+	( 1? )( 1-
+		nrof =? ( verde over lastrun! 32 )( negro 24 ) fonthex
+		'clickf pick2 " %a " mprint
+		allow2cr
+		cr sp sp btnt cr
+		swap >>f swap )
+	2drop ;
+
+
+:mapboton | adr --
+	menuprg
+	0 ( swap >>fi swap 1? )( 1+
+|		( >>f 1? )(
+|			)
+		)
+   2drop ;
 
 :loadmenu
 	here dup 'menuprg !
 	"mem/prg.txt" load
 	dup 'menuprg> !
-	0 swap !+ 'here ! ;
+	0 swap !+ 'here ! | marcar final
+
+	;
 
 :+dom | dom --
 	"%s~" mprint
@@ -104,16 +143,35 @@
 	blanco here text
 	;
 
-:runprg
-	'lastrun c@ 0? ( drop ; ) drop
+#nextms
+:aminaprog
+	msec 'nextms !
+	inigui show clrscr
+		32 gc.top $ccc gc.hfill
+		font-vard-12-bold home cr2
+		verde dup " :R%d " print
+		Blanco "Cargando " print
+		msec nextms - 4 >> -? ( 0 nip )
+		( 1? )( 1- "." print ) drop
+		32 0 gc.vbetween
+		home
+		cr2 menuprg dominios
+		cr menuprg programas3d
+		bmouse 0? ( cflecha )( cmano ) drop
+		400 .mseg exit ;
+
+:runprg | --
+	aminaprog
 	grabaestado
 	'lastrun run ;
 
 :editprg
-	'lastrun c@ 0? ( drop ; ) drop
 	grabaestado
-	'lastrun count
-	"./nom/editor.nom" save
+	cargaeditornl
+	'lastrun 'nombre = 0? (
+		'lastrun 'nombre strcpy 0 'nlin ! 0 'ncar !
+		) drop 
+	grabaeditornl
 	"edit-code.txt" run ;
 
 |--
@@ -201,19 +259,17 @@
 		sw dup 2 >> - gc.rigth
 
 		home blanco
-
         "New Domain" print cr cr2
 		'name 32 getline
 		'newdom lostfoco
-		cmano
-	;
+		cmano ;
 
 :setinisave | "" --
 	mark
 	,print
 	"r4.ini" savemem
 	empty
-	0 run ;
+	0 run ; | restart vm
 
 :fullset
 	mark
@@ -237,45 +293,64 @@
 	'runtimeerr <f9>
 	'confsis <f10>
 	'fullset <f11>
-'set640480 <f12>
-'set800600 <f12>
-'set1024768 <f12>
 
-	[ -1 'nrof +! ; ]  <dn>
-	[ 1 'nrof +! ; ] <up>
+	'set640480 <f12>
+	'set800600 <f12>
+	'set1024768 <f12>
+	[ "f" setinisave ; ] <F12>
+
+	[ nrof 1- -? ( cntf 1- nip ) 'nrof ! ; ] <dn>
+	[ nrof 1+ cntf >=? ( 0 nip ) 'nrof ! ; ] <up>
+
+	[ nroh 1- -? ( cnth 1- nip ) 'nroh ! ; ] <ri>
+	[ nroh 1+ cnth >=? ( 0 nip ) 'nroh ! ; ] <le>
+
+	[ runprg ; ] <enter>
 
 	show clrscr
 		32 gc.top $ccc gc.hfill
 		font-vard-12-bold home cr2
-		verde dup " :R%d" print
-		blanco " MENU " print
+		rojo
+		sp sp 'exit "esc-Exit" btnt
 		sp verde
 		sp 'runprg "f1-Run" btnt
 		sp 'editprg "f2-Edit" btnt
-|		sp 'newprg "f3-NewPrg" btnt
+		sp 'newprg "f3-NewPrg" btnt
 |		violeta sp 'adddome "+Fold" btnt
 |		rojo sp 'borractual "Del" btnt
 
 	| menu datos
-		sp cyan
-		sp 'runtimeerr "f9-RUNERR" btnt
-		sp 'confsis "f10-CONFIG" btnt
-		sp 'fullset "f11-FULL" btnt
+		cyan
+|		sp sp 'runtimeerr "f9-RUNERR" btnt
+|		sp 'confsis "f10-CONFIG" btnt
+|		sp 'fullset "f11-FULL" btnt
 
-		26 gc.botton $ccc gc.hfill
-		font-vard-8-bold home cr2
+		verde dup " :R%d" print
+		blanco " MENU " print
+
+|		26 gc.botton $ccc gc.hfill
+|		font-vard-8-bold home cr2
 
 	| acciones
-		rojo
-		sp 'exit "esc-Exit" btnt
-		32 26 gc.vbetween
+		32 0 gc.vbetween
 	| datos
 |		font-vard-12-bold
 		home cr2
 		menuprg dominios
 |		verde 'clicknew "* NEW *" sp btnt
-		cr cr cr2
-		menuprg programas
+		cr
+
+
+	menuprg programas3d
+    'lastrun print
+	cr cr
+	fonti verde
+	16 fonthex
+
+	dup "(%d) " print cr
+	cntf nrof "nrof:%d cntf:%d" print cr
+	cnth nroh "nroh:%d cnth:%d" print cr
+
 		bmouse 0? ( cflecha )( cmano ) drop	;
 
 
