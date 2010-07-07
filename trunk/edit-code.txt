@@ -195,6 +195,7 @@
 	fuente ( c@+ 1? )( 13 =? ( ,c 10 ) ,c ) 2drop
 	'nombre savemem
 	empty
+	"" 1 "debug.err" save
 	'ncar 72 "nom/debug.err" save ;
 
 |-------------------------------------------
@@ -221,57 +222,41 @@
 |-------------------- tecla control
 #cntrl?
 :desinstalarcontrol
-	key.pop
-	0 'cntrl? !
-|	"ok" 'mensaje strcpy
-	;
+	key.pop 0 'cntrl? ! ;
 
-:controlc | copy
-	copysel ;
+|-------------
+| Edit CtrE
+|-------------
+#lugar
 
-:controlx | move
-	controlc
-	borrasel ;
+:posfijo? | adr -- desde/0
+	( c@+ 1? )(
+		46 =? ( drop ; )
+		drop )
+	nip ;
 
-:controlv | paste
-	'clipboard clipboard> over - 0? ( 3drop ; ) | clip cnt
-	fuente> dup pick2  + swap | clip cnt 'f+ 'f
-	$fuente over - 1+ cmove>	| clip cnt
-	fuente> rot rot | f clip cnt
-	dup '$fuente +!
-	cmove
-	clipboard> 'clipboard - 'fuente> +!
-	;
-
-:controlz | undo
-	undobuffer>
-	'undobuffer =? ( drop ; )
-	1- dup c@
-	9 =? ( drop 1- dup c@ [ -1 'fuente> +! ; ] >r )
-	lins 'undobuffer> ! ;
-
-:instalcontrol
-	key.push
-	clearkey
-	1 'cntrl? !
-	'controlz 44 >key | undo
-	'controlx 45 >key | cut
-	'controlc 46 >key | copy
-	'controlv 47 >key | paste
-	'desinstalarcontrol >ctrl<
-	;
-
-|----------------------------
-:tokenizado
+:controle
 	savetxt
-	"tokenizar.txt" run ;
+	fuente> ( dup 1- c@ 32 >? )( drop 1- ) drop | busca comienzo
+	dup c@
+	$23 <>? ( 2drop ; ) | no es #
+	drop
+	dup fuente - 'lugar !
+	posfijo? 0? ( drop ; )
 
-:debugcode
-	savetxt
-	"" 1 "debug.err" save
-	"debug-code.txt" run ;
+|	over "mem/f5-%w.mem" mprint
+ 	drop
+	"f5-%w.txt" mprint run ;
 
-|----------------------------
+|-------------
+| Help CtrH
+|-------------
+:getword | adr -- adr car ; palabra que apunta el cursor
+	( dup c@ 32 >? )( 0? ( ; ) drop 1- ) drop
+    dup c@ 0? ( ; )
+	33 <? ( drop 1+ dup c@ )
+	;
+
 :ayudainclude
 	"include" 'mensaje strcpy
 	;
@@ -288,38 +273,6 @@
 	"numero" 'mensaje strcpy
 	;
 
-|--------------------
-| F5 editor
-|--------------------
-#lugar
-
-:posfijo? | adr -- desde/0
-	( c@+ 1? )(
-		46 =? ( drop ; )
-		drop )
-	nip ;
-
-:editasprite
-	savetxt
-	fuente> ( dup 1- c@ 32 >? )( drop 1- ) drop | busca comienzo
-	dup c@
-	$23 <>? ( 2drop ; ) | no es #
-	drop
-	dup fuente - 'lugar !
-
-	posfijo? 0? ( drop ; )
-	'lugar 4 "./mem/edit-1spr.mem" save
-	"f5-%w.txt" mprint run
-	;
-
-
-:editdata
-	editasprite
-	;
-
-|--------------------
-|--------------------
-|--------------------
 :buscawhelp | str -- str l/0
 	helptxt
 	( 2dup =w 1? ( drop nip ; ) drop
@@ -345,13 +298,6 @@
 	;
 
 
-|------------------- HELPCODE
-:getword | adr -- adr car ; palabra que apunta el cursor
-	( dup c@ 32 >? )( 0? ( ; ) drop 1- ) drop
-    dup c@ 0? ( ; )
-	33 <? ( drop 1+ dup c@ )
-	;
-
 :helpcode
 	"" 'mensaje strcpy
 	fuente>
@@ -371,6 +317,61 @@
 |	buscacad
 |	buscacom
 	;
+
+:controlh | help
+	helpcode ;
+
+|-------------
+:controlc | copy
+	copysel ;
+
+|-------------
+:controlx | move
+	controlc
+	borrasel ;
+
+|-------------
+:controlv | paste
+	'clipboard clipboard> over - 0? ( 3drop ; ) | clip cnt
+	fuente> dup pick2  + swap | clip cnt 'f+ 'f
+	$fuente over - 1+ cmove>	| clip cnt
+	fuente> rot rot | f clip cnt
+	dup '$fuente +!
+	cmove
+	clipboard> 'clipboard - 'fuente> +!
+	;
+
+|-------------
+:controlz | undo
+	undobuffer>
+	'undobuffer =? ( drop ; )
+	1- dup c@
+	9 =? ( drop 1- dup c@ [ -1 'fuente> +! ; ] >r )
+	lins 'undobuffer> ! ;
+
+:instalcontrol
+	key.push
+	clearkey
+	1 'cntrl? !
+	'controle 18 >key | ctrl-E dit
+	'controlh 35 >key | ctrl-H elp
+	'controlz 44 >key | undo
+	'controlx 45 >key | cut
+	'controlc 46 >key | copy
+	'controlv 47 >key | paste
+	'desinstalarcontrol >ctrl< ;
+
+|----------------------------
+:tokenizado
+	savetxt
+	"tokenizar.txt" run ;
+
+:debugcode
+	savetxt
+	"" 1 "debug.err" save
+	"debug-code.txt" run ;
+
+
 
 :searchw
 	;
@@ -459,13 +460,9 @@
 		32 gc.top $00000f gc.hfill
 		font-vard-12-bold home cr2
 		rojo sp 'exit "esc-Exit" btnt
-
-		sp verde
-		sp 'directrun dup <f1> "f1-Run" btnt
+		verde sp sp 'directrun dup <f1> "f1-Run" btnt
 		sp 'debugcode dup <f2> "f2-Debug" btnt
 		sp 'archivos dup <f3> "f3-File" btnt
-		sp 'helpcode dup <f4> "f4-Help" btnt
-		sp 'editdata dup <f5> "f5-Edit" btnt
 
 		verde dup " :R%d" print
 		blanco "EDIT " print
@@ -477,12 +474,12 @@
 		finsel 0? ( drop "0" )( fuente - inisel fuente - "%d..%d" ) print sp|
 	 	clipboard> 'clipboard <>? ( "clip" print sp| ) drop
 		verde nlin 1+ "%d " print |sp|
-        blanco 'mensaje printx
 
-		26 gc.botton |$00000f gc.hfill
-		font-vard-8-bold home cr2
-		sp cyan
-		cntrl? 1? ( " CTRL Z-undo X-cut C-copy V-paste" print ) drop
+
+		26 gc.botton $00000f gc.hfill
+		font-vard-8-bold home blanco
+		cntrl? 1? ( " CTRL E-Edit H-Help Z-Undo X-Cut C-Copy V-Paste |" print ) drop
+        cr sp 'mensaje printx
 |		'undobuffer 10 ( 1? )( 1- swap c@+ emit swap ) 2drop
 		32 26 gc.vbetween fonti home
 		drawcode
@@ -516,26 +513,21 @@
 
 |----------- principal
 :main
+	here dup 'helptxt !
+	"doc/helpr4.txt" load 0 swap !+ 'here !
+	-1  'nlin ! 0 'ncar !
+    cargaestado
+	here dup 'fuente !	| -- MEM --
+	dup 'fuente> !
+	dup '$fuente !
+	$3ffff +			| 256kb texto
+	'here  !
 	loadtxt
 	editor
 	savetxt ;
 
-:ram
-	here dup 'helptxt !
-	"doc/helpr4.txt" load 0 swap !+ 'here !
-	-1  'nlin ! 0 'ncar !
-
-    cargaestado
-
-	here dup 'fuente !
-	dup 'fuente> !
-	dup '$fuente !
-	$3ffff +	| 256kb texto
-	'here  ! ;
 
 : 0 paper
 	mark
-	ram
 	4 main
 	empty ;
-
