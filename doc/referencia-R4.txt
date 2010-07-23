@@ -1,0 +1,185 @@
+:R4 - Referencia Rapida
+
+:nueva  	define la palabra NUEVA como la lista de palabras a acontinuacion hasta ;, es codigo.
+#memoria  	define la palabra MEMORIA como una variable, es dato.
+^modulo.txt incluye el archivo MODULO.TXT en el codigo actual (importa sus definiciones exportadas)
+'cosa  		apila la DIRECCION de la palabra COSA (ya definida).
+|blabla 	comentario, ignora hasta el fin de la linea.
+"bla bla"  	texto, en codigo apila su DIRECCION, en dato se registra en memoria.
+
+: (dos puntos solos) es el lugar donde comienza a executarse
+
+; es la palabra que significa fin
+
+Los Bloques de codigo son la unica construccion de compilador, se usa 3 palabras:
+abrir parentesis "(", cerrar y abrir parentesis ")(", cerrar parentesis  ")"
+Los bloques pueden anidarse, no abusar..
+segun la posicion del condicional se convierten en
+
+Repeticion			( PALABRAS )		REPEAT
+Condicion			?? ( .V. )( .F. )	IF-THEN-ELSE
+Repetir Hasta		( PALABRAS .F. ?? )			UNTIL
+Repetir Mientras	( .V. ?? )( PALABRAS )	WHILE
+
+Condicionales, de dos tipos:
+Condicion simple, sin consumir el tope de la pila:
+
+0? 	| --		0 el tope de la pila ?
++? 	| --		positivo el tope de la pila ?
+-?	| --		negativo el tope de la pila ?
+1? 	| --		distinto a 0 el tope de la pila ?
+
+Condicion doble, consume el tope de la pila:
+
+=?		| a b -- a		a = b ?
+<?		| a b -- a		a < b ?
+>?		| a b -- a		a > b ?
+<=?		| a b -- a		a <= b ?
+>=?		| a b -- a		a >= b ?
+<>?		| a b -- a		a <> b ?
+AND?	| a b -- a		a and b ?
+NAND?	| a b -- a		a nand b ?
+
+Tanto los condicionales como el resto de las palabras tiene una
+notacion de pila que significa que cambios hace en la/s pila/s
+despues del comentario | estado anterior -- estado actual
+
+Vectorizacion
+Las palabras [ y ] definen codigo sin nombre, apilando su direccion.
+para ejecutar este codigo se puede invocar a:
+EXEC  	| vector --  	llama al codigo del vector ( 0 no llama a nadie)
+
+** Pila de datos
+DUP 	| a -- a a
+DROP 	| a --
+OVER 	| a b -- a b a
+PICK2 	| a b c -- a b c a
+PICK3 	| a b c d -- a b c d a
+PICK4 	| a b c d e -- a b c d e a
+SWAP 	| a b -- b a
+NIP		| a b -- b
+ROT 	| a b c -- b c a
+2DUP 	| a b -- a b a b
+2DROP   | a b --
+3DROP   | a b c --
+4DROP   | a b c d --
+2OVER	| a b c d -- a b c d a b
+2SWAP	| a b c d -- c d a b
+** Pila R (de direcciones)
+>R 		| a --      R: -- a
+R> 		| -- a		R: a --
+R		| -- a      R: a -- a
+R+		| v --		R: a -- a+v
+R@+		| -- v      R: a -- a+4
+R!+		| v --		R: a -- a+4
+RDROP	| --		R: a --
+ ** Llogicas
+AND 	| a b -- c     c = a AND b
+OR 		| a b -- c     c = a OR b
+XOR 	| a b -- c     c = a XOR b
+NOT  	| a b -- c     c = a NOT b
+** Aritmeticas
++ 		| a b -- c		c=a+b
+- 		| a b -- c		c=a-b
+* 		| a b -- c		c=a*b
+/ 		| a b -- c		c=a/b
+*/ 		| a b c -- d	d=a*b/c	resultado intermedio en 64 bits
+*>>		| a b c -- d	d=(a*b)>>c	 resultado intermedio en 64 bits
+/MOD 	| a b -- c d	c=a/b  d=a resto b
+MOD 	| a b -- c		c=a resto b
+ABS		| a -- b		b=|a|
+NEG 	| a -- b		b=-a
+1+ 		| a -- b		b=a+1
+4+		| a -- b		b=a+4
+1- 		| a -- b		b=a-1
+2/ 		| a -- b		b=a/2
+2* 		| a -- b		b=a*2
+<< 		| a b -- c		c=a<<b
+>> 		| a b -- c		b=a>>b (arrastra signo)
+** Memoria
+@ 		| a -- b		b=32(a)
+C@ 		| a -- b		b=8 (a)
+W@		| a -- b		b=16(a)
+!		| v d --		32(d) = v
+C!		| v d --		8(d) = v
+W! 		| v d --		16(d) = v
++! 		| v d --		32(d)=32(d)+v
+C+!		| v d --		8(d)=8(d)+v
+W+!  	| v d --		16(d)=16(d)+v
+@+		| d -- d+4	dword
+!+		| v d -- d+4
+C@+		| d -- d+1	byte
+C!+		| v d -- d+1
+W@+		| d -- d+2	word
+W!+		| v d -- d+2
+** Movimiento de memoria
+MOVE	| de sr cnt --		Copia CNT dword de SR a DE
+MOVE>   | de sr cnt --		Copia CNT dword de SR a DE (para atras)
+CMOVE   | de sr cnt --		Copia CNT bytes de SR a DE
+CMOVE>  | de sr cnt --		Copia CNT bytes de SR a DE (para atras)
+** Memoria,bloques
+MEM		| -- dir 			Direccion de inicio de memoria libre
+DIR		| "foldername" –	Cambia la carpeta actual
+FILE	| n -- "filename"	Nombre del archivo n
+FSIZE	| n -- cnt			Tamanio del archivo
+VOL		| n -- "foldername"	Nombre de la carpeta n
+LOAD	| d "filename" -- e	Carga un archivo en memoria
+SAVE	| d n "filename" –	Graba memoria en un archivo
+** Sistema
+UPDATE	| --		Actualiza las irq como el raton, el teclado, sonido, etc
+MSEC 	| -- a 		milisegundos del sistema
+TIME 	| -- h m s 	hora minutos y segundos
+DATE 	| -- a m d	dia mes y anio
+END 	| --		Sale del :r4, finaliza TODO, apaga la maquina virtual
+RUN  	| "nom" --	Carga, compila y ejecuta el archivo nom
+** Pantalla
+SW 		| -- w		Ancho de pantalla
+SH 		| -- h		Alto de pantalla
+CLS		| --		Limpia pantalla
+REDRAW  | --		Dibuja nuevo FRAME
+FRAMEV	| -- m		Memoria de video
+SETXY	| x y --    pone cursor grafico en x y
+PX+!	| cant --   suma cant al cursor grafico
+PX!+	| color --	pone color y avanza siguiente pixel
+PX@		| -- color	obtiene color del punto
+** Color
+PAPER	| a –-	Asigna color de fondo
+INK		| a --	Asigna color de dibujo
+INK@	| -- a	color de dibujo
+ALPHA 	| a --	Transparencia (canal alpha)
+** Dibujo
+OP 		| x y –-	Punto de origen
+CP 		| x y –-	Punto de curva
+LINE 	| x y –-	Traza línea
+CURVE 	| x y –-	Traza curva
+PLINE 	| x y --	Traza línea poligono
+PCURVE 	| x y --	Traza curva poligono
+POLI	| --		Traza polígono
+FCOL	| col1 col2 --	2colores para degrade
+FCEN	| x y --		centro de degrade
+FMAT	| a b --		matriz de degrade
+SFILL	| --		poligonos con color solido (ink)
+LFILL	| --		poligono con degrade lineal
+RFILL	| --		poligono con degrade radial (algo parecido..)
+** Mouse
+IPEN!	| v --  	vector de irq del mouse (o lapiz)
+XYMOUSE | -- x y 	coordenadas de la pantalla del apuntador
+BMOUSE	| -- b		estado del apuntado
+** Teclado
+IKEY!	| v --    	vector de irq del teclado
+KEY		| -- s		ultima tecla pulsada (scancode)
+** Joystick
+IJOY!	| v --	**** NO IMPLEMENTADO ****
+CNTJOY	| -- cnt		cantidad de joysticks
+GETJOY	| j -- a		direccion de los datos de joystick J
+** Sonido
+ISON!	| v --		vector de irq de sonido
+SBO		| -- adr	direccion buffer salida sonido
+SBI		| -- adr	direccion buffer entrada sonido
+** Red
+INET	| v --	**** NO IMPLEMENTADO ****
+
+
+
+
+
