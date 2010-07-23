@@ -1,0 +1,534 @@
+| edit-code.txt
+| PHREDA 2007
+|---------------------------------------
+^lib/reda4.txt
+^lib/gui.txt
+^lib/parse.txt
+^lib/codecolor.txt
+^lib/fontt.txt
+^lib/dlgfile.txt
+^lib/trace.txt
+
+#ncar 0
+#nlin 0
+#nombre )( 64
+
+#fuente 0 |)( $3ffff	| 256k de fuente editable
+#fuente> 'fuente	| cursor
+#$fuente 'fuente	| fin de texto
+
+#pantaini>	| comienzo de pantalla
+#pantafin>	| fin de pantalla
+#prilinea	| primera linea visible
+
+#cntlineas
+
+#inisel 0 | inicio seleccion
+#finsel 0 | fin seleccion
+
+#helptxt 0
+
+#clipboard )( $3fff
+#clipboard> 'clipboard
+
+#undobuffer )( $ffff
+#undobuffer> 'undobuffer
+
+|---- debug.err
+#nrolin )( 32
+#error )( 32
+
+#mensaje )( 1024
+
+:sp|
+	blanco " | " printx ;
+
+:lins  | c --
+	fuente> dup 1- $fuente over - 1+ cmove>
+	1 '$fuente +!
+:lover | c --
+	fuente> c!+ dup 'fuente> !
+	$fuente >? ( dup '$fuente ! ) drop
+:0lin | --
+	0 $fuente c! ;
+
+#modo 'lins
+
+:back
+	fuente> fuente <=? ( drop ; )
+	dup 1- c@ undobuffer> c!+ 'undobuffer> !
+	dup 1- swap $fuente over - 1+ cmove
+	-1 '$fuente +!
+	-1 'fuente> +! ;
+
+:del
+	fuente>	$fuente >=? ( drop ; )
+    1+ fuente <=? ( drop ; )
+	9 over 1- c@ undobuffer> c!+ c!+ 'undobuffer> !
+	dup 1- swap $fuente over - 1+ cmove
+	-1 '$fuente +! ;
+
+:<<13 | a -- a
+	( fuente >=? )( dup c@
+		13 =? ( drop ; )
+		drop 1- ) ;
+
+:>>13 | a -- a
+	( $fuente <? )( dup c@
+		13 =? ( drop 1- ; ) | quitar el 1-
+		drop 1+ )
+	drop $fuente 2 - ;
+
+#1sel #2sel
+
+:selecc	| agrega a la seleccion
+	mshift 0? ( dup 'inisel ! 'finsel ! ; ) drop
+	inisel 0? ( fuente> '1sel ! ) drop
+	fuente> dup '2sel !
+	1sel over <? ( swap )
+	'finsel ! 'inisel !
+	;
+
+:khome
+	selecc
+	fuente> 1- <<13 1+ 'fuente> !
+	selecc ;
+
+:kend
+	selecc
+	fuente> >>13  1+ 'fuente> !
+	selecc ;
+
+:scrollup | 'fuente -- 'fuente
+	pantaini> 1- <<13 1- <<13  1+ 'pantaini> !
+	prilinea 1? ( 1- ) 'prilinea !
+	selecc ;
+
+:scrolldw
+	pantaini> >>13 2 + 'pantaini> !
+	pantafin> >>13 2 + 'pantafin> !
+	1 'prilinea +!
+	selecc ;
+
+:colcur
+	fuente> 1- <<13 swap - ;
+
+:karriba
+	fuente> fuente =? ( drop ; )
+	selecc
+	dup 1- <<13		| cur inili
+	swap over - swap	| cnt cur
+	dup 1- <<13			| cnt cur cura
+	swap over - 		| cnt cura cur-cura
+	rot min +
+	'fuente> !
+	selecc ;
+
+:kabajo
+	fuente> $fuente >=? ( drop ; )
+	selecc
+	dup 1- <<13 | cur inilinea
+	over swap - swap | cnt cursor
+	>>13 1+    | cnt cura
+	dup 1+ >>13 1+ 	| cnt cura curb
+	over -
+	rot min +
+	'fuente> !
+	selecc ;
+
+:kder
+	selecc
+	fuente> $fuente <?
+	( 1+ 'fuente> ! selecc ; ) drop
+	;
+
+:kizq
+	selecc
+	fuente> fuente >?
+	( 1- 'fuente> ! selecc ; ) drop
+	;
+
+:kpgup
+	selecc
+	cntlineas ( 1? )( 1- karriba ) drop
+	selecc ;
+
+:kpgdn
+	selecc
+	cntlineas ( 1? )( 1- kabajo ) drop
+	selecc ;
+
+|---------------   mover fuente
+:e.clear
+	fuente dup 'pantaini> ! dup 'fuente> ! '$fuente !
+	0lin ;
+
+|------------------------------------------------
+:loadtxt | -- cargar texto
+	mark
+	here 'nombre load 0 swap c!
+
+	fuente dup 'pantaini> ! 'fuente> !
+
+	|-- si no hay cr y si ln reemplazar
+	0 here ( c@+ 1? )( 13 =? ( rot 1+ rot rot ) drop ) 2drop
+	0? ( here ( c@+ 1? )( 10 =? ( 13 pick2 1- c! ) drop ) 2drop )
+	drop
+	|--quitar 10
+	fuente here ( c@+ 1? )(
+		10 =? ( drop swap fuente> <? ( -1 'fuente> +!  ) swap )( rot c!+ swap )
+		) 2drop '$fuente ! 0lin
+
+	nlin 0 >? ( ( 1? )( 1- fuente> >>13 2 + 'fuente> ! ) ) drop
+	ncar +? ( dup 'fuente> +! ) drop
+	0 'prilinea !
+	empty
+	;
+
+:ubicarcursor | -- car lin
+	1 fuente ( fuente> <? )( c@+ 13 =? ( rot 1+ rot rot ) drop ) | cuenta lineas
+	( dup c@ 13 <>? )( drop 1- ) drop | cuenta caracters a inicio de linea
+	fuente> swap - swap ;
+
+:savetxt
+	mark	| guarda texto
+	fuente ( c@+ 1? )( 13 =? ( ,c 10 ) ,c ) 2drop
+	'nombre savemem
+	empty
+	"" 1 "debug.err" save
+	'ncar 72 "mem/debug.err" save ;
+
+|-------------------------------------------
+:copysel
+	inisel 0? ( drop ; )
+	'clipboard swap
+	finsel over - pick2 over + 'clipboard> !
+	cmove
+	;
+
+:borrasel
+	inisel finsel $fuente finsel - 4+ cmove
+	finsel inisel - neg '$fuente +!
+	fuente> inisel >=? ( finsel <=? ( inisel 'fuente> !
+		)(  finsel inisel - over swap - 'fuente> ! ) )  drop
+	0 dup 'inisel ! 'finsel ! ;
+
+:kdel
+	inisel 0? ( del )( borrasel ) drop ;
+
+:kback
+	inisel 0? ( back )( borrasel ) drop ;
+
+|-------------------- tecla control
+#cntrl?
+:desinstalarcontrol
+	key.pop 0 'cntrl? ! ;
+
+|-------------
+| Edit CtrE
+|-------------
+#lugar
+
+:posfijo? | adr -- desde/0
+	( c@+ 1? )(
+		46 =? ( drop ; )
+		drop )
+	nip ;
+
+:controle
+	savetxt
+	fuente> ( dup 1- c@ 32 >? )( drop 1- ) drop | busca comienzo
+	dup c@
+	$23 <>? ( 2drop ; ) | no es #
+	drop
+	dup fuente - 'lugar !
+	posfijo? 0? ( drop ; )
+
+|	over "mem/f5-%w.mem" mprint
+ 	drop
+	"f5-%w.txt" mprint run ;
+
+|-------------
+| Help CtrH
+|-------------
+:getword | adr -- adr car ; palabra que apunta el cursor
+	( dup c@ 32 >? )( 0? ( ; ) drop 1- ) drop
+    dup c@ 0? ( ; )
+	33 <? ( drop 1+ dup c@ )
+	;
+
+:ayudainclude
+	"include" 'mensaje strcpy
+	;
+:ayudadef
+	"definicion" 'mensaje strcpy
+	;
+:ayudavar
+	"variable" 'mensaje strcpy
+	;
+:ayudadir
+	"direccion" 'mensaje strcpy
+	;
+:ayudanum
+	"numero" 'mensaje strcpy
+	;
+
+:buscawhelp | str -- str l/0
+	helptxt
+	( 2dup =w 1? ( drop nip ; ) drop
+		( c@+ 13 >? )( drop )
+		0? ( nip nip ; )
+		drop )
+	2drop "imposible" ;
+
+:buscacom
+	fuente>
+	( dup c@ $7f <>? )(
+			32 <? ( 2drop ; )
+			drop 1- ) 2drop
+	"comentario" 'mensaje strcpy
+	;
+
+:buscacad
+	fuente>
+	( dup c@ $22 <>? )(
+			32 <? ( 2drop ; )
+			drop 1- ) 2drop
+	"cadena" 'mensaje strcpy
+	;
+
+
+:helpcode
+	"" 'mensaje strcpy
+	fuente>
+	dup c@ 33 <? ( 2drop ; ) drop
+	getword 0? ( 2drop ; ) 		| -> inicio de palabra
+	$5e =? ( 2drop ayudainclude ; )	| $5e ^  Include
+	$3A =? ( 2drop ayudadef ; )		| $3a :  Definicion
+	$23 =? ( 2drop ayudavar ; )		| $23 #  Variable
+	$27 =? ( 2drop ayudadir ; )		| $27 ' direccion
+	drop
+|	dup ?numero  1? ( ayudanum ; ) drop | numero
+|	dup ?fnumero  1? ( drop rot drop -1 'basen ! esnumero ; ) drop | numero
+|	dup ?macro 1? ( rot drop esmacro ; ) drop		| macro
+|	dup	?palabra  1? ( nip espalabra ; ) drop		| palabra
+	buscawhelp 1? ( 'mensaje strcpyln ; ) drop	| en ayuda?
+	drop
+|	buscacad
+|	buscacom
+	;
+
+:controlh | help
+	helpcode ;
+
+|-------------
+:controlc | copy
+	copysel ;
+
+|-------------
+:controlx | move
+	controlc
+	borrasel ;
+
+|-------------
+:controlv | paste
+	'clipboard clipboard> over - 0? ( 3drop ; ) | clip cnt
+	fuente> dup pick2  + swap | clip cnt 'f+ 'f
+	$fuente over - 1+ cmove>	| clip cnt
+	fuente> rot rot | f clip cnt
+	dup '$fuente +!
+	cmove
+	clipboard> 'clipboard - 'fuente> +!
+	;
+
+|-------------
+:controlz | undo
+	undobuffer>
+	'undobuffer =? ( drop ; )
+	1- dup c@
+	9 =? ( drop 1- dup c@ [ -1 'fuente> +! ; ] >r )
+	lins 'undobuffer> ! ;
+
+:instalcontrol
+	key.push
+	clearkey
+	1 'cntrl? !
+	'controle 18 >key | ctrl-E dit
+	'controlh 35 >key | ctrl-H elp
+	'controlz 44 >key | undo
+	'controlx 45 >key | cut
+	'controlc 46 >key | copy
+	'controlv 47 >key | paste
+	'desinstalarcontrol >ctrl< ;
+
+|----------------------------
+:tokenizado
+	savetxt
+	"tokenizar.txt" run ;
+
+:debugcode
+	savetxt
+	"" 1 "debug.err" save
+	"debug-code.txt" run ;
+
+
+
+:searchw
+	;
+
+:medit
+	;
+
+|--------------------
+|--------------------
+|--------------------
+:tablascii
+	32 ( 255 <? )(
+		dup emit
+		dup ")%d " print
+		1+ ) drop
+	;
+
+:directrun
+	savetxt
+	"" 1 "debug.err" save
+	'nombre run  ;
+
+
+|----------------------------
+:archivos
+	savetxt
+	'nombre dlgfile
+	'nombre c@ 1? ( loadtxt ) drop
+	;
+
+|----------------------------
+|||||||| Dibuja codigo
+:drawcur | com -- com
+	fuente> >? ( ; )
+	dup	( fuente> <? )( c@+ 13 =? ( 2drop ; ) gemit )
+	pick2 prilinea + 'nlin !
+	blink 1? ( 2drop ; ) drop
+	modo 'lins =? ( gris )( rojo ) drop
+	printcur drop
+	;
+
+:drawsel | com -- com
+	inisel 0? ( drop ; ) drop
+	finsel >? ( ; )
+	dup ( inisel <? )( c@+ 13 =? ( 2drop ; ) gemit )
+	sel>>
+	( finsel <? )( c@+ 13 =? ( 2drop $77 ink sel<< ; ) gemit )
+	drop $77 ink sel<< ;
+
+:drawcode
+	pantaini> 0 ( cntlineas <? )(
+		dup prilinea +
+		nlin =? ( blanco )( gris )
+		1+ "%d" 3 boxprintr
+		swap
+		$fuente <? (
+			4 col drawsel
+			4 col drawcur
+			4 col >>lineacolor>>
+			)
+		cr
+		swap 1+ ) drop
+	$fuente <? ( 1- ) 'pantafin> !
+	fuente>
+	( pantafin> >? )( scrolldw )
+	( pantaini> <? )( scrollup )
+	drop
+	;
+
+:editor
+	inigui
+	[ key toasc modo exec ; ] <visible>
+	'instalcontrol 		<ctrl> | control
+	'kback	<back>
+	'kdel	<del>
+	'karriba <up>		'kabajo	<dn>
+	'kder	<ri>		'kizq	<le>
+	'khome	<home>		'kend	<end>
+	'kpgup	<pgup>		'kpgdn	<pgdn>
+	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
+	[ 13 modo exec ; ] <enter>
+	[ 9 modo exec ; ] <tab>
+	'exit  >esc<
+	scr 32 26 gc.vbetween fonti home rows 'cntlineas !
+	show clrscr
+		32 gc.top $00000f gc.hfill
+		font-vard-12-bold home cr2
+		rojo sp 'exit "esc-Exit" btnt
+		verde sp sp 'directrun dup <f1> "f1-Run" btnt
+		sp 'debugcode dup <f2> "f2-Debug" btnt
+		sp 'archivos dup <f3> "f3-File" btnt
+
+		verde dup " :R%d" print
+		blanco "EDIT " print
+		gris [ end ; ] 'nombre btnt sp
+
+		|font-vard-8-bold
+		sp|
+		modo 'lins =? ( "INS" verde )( "OVR" rojo ) nip printx sp|
+		finsel 0? ( drop "0" )( fuente - inisel fuente - "%d..%d" ) print sp|
+	 	clipboard> 'clipboard <>? ( "clip" print sp| ) drop
+		verde nlin 1+ "%d " print |sp|
+
+
+		26 gc.botton $00000f gc.hfill
+		font-vard-8-bold home blanco
+		sp 'mensaje printx 
+		cntrl? 1? ( " CTRL E-Edit H-Help Z-Undo X-Cut C-Copy V-Paste" cr print ) drop
+
+|		'undobuffer 10 ( 1? )( 1- swap c@+ emit swap ) 2drop
+		32 26 gc.vbetween fonti home
+		drawcode
+
+		cflecha ;
+
+|---- Mantiene estado del editor
+
+:cpy|
+    swap ( c@+ $7c <>? )( rot c!+ swap ) drop 0 rot c! ;
+
+:buscaactual
+	'ncar "mem/edit-code.mem" load drop ;
+
+:cargaestado
+	mark
+	here
+	dup "debug.err" load
+	empty
+	over 4+ <? ( 2drop buscaactual ; )
+	0 swap !
+	| -- here  ...vacia antes de usarla
+	'nombre cpy|
+	'nrolin cpy|
+	'nrolin ?numero 1? ( drop nip ) -1 =? ( drop ; ) 'nlin !
+	'nrolin cpy|
+	'nrolin ?numero 1? ( drop nip )  'ncar !
+	'error swap ( c@+ 1? )( rot c!+ swap ) rot c! drop
+	'error 'mensaje strcpy
+	;
+
+|----------- principal
+:main
+	here dup 'helptxt !
+	"doc/helpr4.txt" load 0 swap !+ 'here !
+	-1  'nlin ! 0 'ncar !
+    cargaestado
+	here dup 'fuente !	| -- MEM --
+	dup 'fuente> !
+	dup '$fuente !
+	$3ffff +			| 256kb texto
+	'here  !
+	loadtxt
+	editor
+	savetxt ;
+
+
+: 0 paper
+	mark
+	4 main
+	empty ;
