@@ -1,0 +1,258 @@
+| Teclado, Memoria, Conversion, Basicos
+| PHREDA
+| :r4 system library
+|-------------------------
+
+^keyboard.txt
+
+|------- punto fijo 16.16
+::*.	| a b -- c
+	16 *>> ;
+
+::/.	| a b -- c
+	$ffffff00  nand? ( swap 16 << swap )( swap 8 <<  swap 8 >> ) /  ;
+
+|--- Memoria
+|---------------- en macros por velocidad !
+|::cmove | de sr cnt --
+|	( 1? )( 1- >r c@+ rot c!+ swap r> ) 3drop ;
+|::cmove> | de sr cnt --
+|	rot over + rot pick2 + rot
+|	( 1? )( 1- >r 2dup c@ swap c! 1- swap 1- swap r> ) 3drop ;
+|::move | de sr cnt --
+|	( 1? )( 1- >r @+ rot !+ swap r> ) 3drop ;
+|::move> | de sr cnt --
+|	rot over 2 << + rot pick2 2 << + rot 1+
+|	( 1? )( 1- >r dup @ pick2 ! 4 - swap 4 - swap r> ) 3drop ;
+
+|::zcopy | destino fuente -- destino'
+|	( @+ 1? )( rot !+ swap ) 2drop ;
+
+::zcopy | destino fuente -- destino' con 0
+	( @+ 1? )( rot !+ swap ) rot !+ nip ;
+
+::strcat | src des --
+	( c@+ 1? )( drop ) drop 1-
+::strcpy | src des --
+	( swap c@+ 1? )( rot c!+ ) nip swap c! ;
+::strcpyl | src des -- ndes
+	( swap c@+ 1? )( rot c!+ ) rot c!+ nip ;
+::strcpyln | src des --
+	( swap c@+ 1? )( 13 =? ( 2drop 0 swap c! ; )
+		rot c!+ ) rot c!+ drop ;
+
+::strchg | ree car adr --
+	( c@+ 1? )( | r c adr c
+		pick2 =? ( drop pick2 over 1- c! )( drop )
+		) 4drop ;
+
+::count | s1 -- s1 cnt
+	0 over ( c@+ 1? )( drop swap 1+ swap ) 2drop  ;
+
+::toupp | c -- C
+	$60 >? ( $7b <? ( $20 - ) ) ;
+
+::tolow
+	$40 >? ( $5b <? ( $20 + ) ) ;
+
+::=word= | s1 s2 -- 0 \ s2' 1
+	( swap c@+ 1? )( rot c@+ toupp rot -
+		1? ( 3drop 0 ; ) drop ) 2drop
+	dup c@ 33 <? ( drop 1 )( 2drop 0 ) ;
+
+::= | s1 s2 -- 1/0
+	( swap c@+ 1? )( toupp rot c@+ toupp rot -
+		1? ( 3drop 0 ; ) drop ) 2drop
+	c@ 33 <? ( 1 )( 0 ) nip ;
+
+::=pre | s1 s2 -- 1/0
+	( c@+ 1? )( toupp rot c@+ toupp rot -
+		1? ( 3drop 0 ; ) drop swap ) 3drop 1 ;
+
+::=w | s1 s2 -- 1/0
+	( c@+ 32 >? )( toupp rot c@+ toupp rot -
+		1? ( 3drop 0 ; ) drop swap ) 2drop
+	c@ 33 <? ( 1 )( 0 ) nip ;
+
+|--- Memoria libre
+#:here 0
+
+#memmap )( 1024
+#memmap> 'memmap
+
+::mark | --
+	here 0? ( mem dup 'here ! nip ) memmap> !+ 'memmap> ! ;
+::empty | --
+	memmap> 'memmap =? ( mem nip )( 4 - dup 'memmap> ! @ ) 'here ! ;
+
+::savemem | "" --
+	memmap> 4 - @ here over - rot save ;
+
+::, here !+ 'here ! ;
+::,c here c!+ 'here ! ;
+|::,w here w!+ 'here ! ;
+::,s ( c@+ 1? )( ,c ) 2drop ;
+::,w ( c@+ 32 >? )( ,c ) 2drop ;
+::,d | dec --
+	-? ( $2d ,c neg )
+	0 swap ( 10 /mod $30 + swap 0? ) drop
+	( ,c 0? ) drop ;
+::,h | hex --
+	0 swap
+	( dup $f and $30 + swap 4 >> $fffffff and 0? ) drop
+	( $39 >? ( 7 + ) ,c 0? ) drop ;
+::,b | bin --
+	0 swap ( dup $1 and $30 + swap 2/ $7fffffff and 0? ) drop
+	( ,c 0? ) drop ;
+::,f | fix --
+	dup 16 >> -? ( 1+ 0? ( $2d ,c ) )
+	,d
+	$2e ,c | .
+	-? ( not ) $ffff and
+	100 $ff00 */ 100 +	| solo dos decimales *** ojo falta investigar
+	0 swap ( 10 /mod $30 + swap 0? ) drop
+	drop ( ,c 0? ) drop
+	;
+
+::,ln ,s
+::,cr 10 ,c ;
+::,eol 0 ,c ;
+::,sp 32 ,c ;
+:,emit | c --
+	$25 <>? ( ,c ; ) drop c@+
+	$73 =? ( drop swap ,s ; )	| s
+	$64 =? ( drop swap ,d ; )	| d
+	$68 =? ( drop swap ,h ; )	| h
+	$62 =? ( drop swap ,b ; )	| b
+	$77 =? ( drop swap ,w ; )	| w
+	$66 =? ( drop swap ,f ; )	| f
+	$3e =? ( drop 9 ,c ; )		|%> =tab
+	$2e =? ( drop ,cr ; ) 		|%.=enter
+	,c ;
+
+::,print | adr --
+	( c@+ 1? )( ,emit ) 2drop ;
+
+|--- Numero aleatorios
+#:seed 495090497 |5765
+
+|::rand | -- v
+|	seed 2* -? ( 495090497 xor ) dup 'seed ! ; | fast farwest
+::rand | -- v
+	seed 3141592621 * 1+ dup 'seed ! ;
+
+::rerand | --
+	time + + 'seed ! ;
+
+::min over <? ( nip )( drop ) ;
+::max over >? ( nip )( drop ) ;
+
+::blink | -- 0/1
+	msec $100 and ;
+
+|--- pantalla&interaccion
+#:.exit
+
+#lastime
+#startime
+
+::.restart
+	msec 'startime ! ;
+::.segs | seg --
+	1000 *
+::.mseg | seg --  R:X?
+	msec startime - >? ( rdrop ) drop ;
+
+::exit 1 '.exit ! ;
+
+::show	| framerate constante (mientras pueda)
+	msec dup 'lastime !+ ! 0 '.exit !
+	( .exit 0? )( drop 10 update drop
+		msec lastime >? ( 30 + 'lastime ! r exec redraw )( drop )
+		) drop rdrop 0 '.exit ! ;
+
+::showpp | version rapida?? (se cuelga)
+	msec dup 30 + 'lastime !+ !
+	0 '.exit !
+	( .exit 0? )(
+		( drop update msec lastime <? )
+		32 + 'lastime !
+		r exec redraw )
+	drop rdrop
+	0 '.exit ! ;
+
+::showo	 | maximo framerate
+	msec dup 'lastime !+ ! 0 '.exit !
+	( .exit 0? )( drop update r exec redraw )
+	drop rdrop 0 '.exit ! ;
+
+::wait	| se detiene (hasta exit)
+	msec 'lastime ! 0 '.exit !
+	( .exit 0? )( drop update )
+	drop 0 '.exit ! ;
+
+|---- tiempo
+::late | amp -- n
+	msec $1ff and 7 << *. ;
+::pinpon | amp -- n
+	msec $3ff and $1ff >? ( $3ff swap - ) 7 << *. ;
+
+|--------- Vector 3d
+| vector3d a 10 bits
+| x=10 bits y=10 bits z=10 bits control=2bit
+
+::>z	20 << 22 >> ;
+::>y 10 <<
+::>x 22 >> ;
+
+::>xyz | v -- x y z
+	dup >z 5 << >r dup >y 5 << >r  >x 5 << r> r> ;
+
+::3d> | x y z -- v
+	$ffc000 and 12 >> >r $ffc000 and 2 >> r> or swap $ffc000 and 8 << or 3 or ;
+
+|--------- Vector 2d
+| vector2d de 14 bits c/control
+| x=14 bits	y=14 bits  control=4bits
+
+::xy>d | x y -- v
+	4 << $3fff0 and swap 18 << $fffc0000 and or ;
+::d>xy | v -- x y
+	dup 18 >> swap
+::d>y | v -- y
+	14 << 18 >> ;
+::d>x | v -- x
+	18 >> ;
+
+::dxy |v1 v2 -- dx dy
+	over 14 << 18 >> over  14 << 18 >> - >r	18 >> swap 18 >> swap - r> ;
+
+|---------- uv
+| x=16 bits y= 16bits
+
+::uv> $ffff and 16 << swap $ffff and or ; | u v -- uv
+::>u 16 <<
+::>v 16 >> ;
+::>uv | v -- u v
+	dup >u swap >v ;
+
+
+|---- corredores
+::>>s | adr -- adr'  _
+	( c@+ 1? )(
+		$5f =? ( drop ; )
+		$7c =? ( drop 1- ; )
+		$7e =? ( drop 1- ; ) | ~ registro
+		drop ) drop 1- ;
+
+::>>f | adr -- adr' |
+	( c@+ 1? )(
+		$7c =? ( drop ; )
+		$7e =? ( drop 1- ; ) | ~ registro
+		drop ) drop 1- ;
+
+::>>fi | adr -- adr'  _
+	( c@+ 1? )(
+		$7e =? ( drop ; ) | ~ registro
+		drop ) drop 1- ;
+
