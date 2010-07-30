@@ -20,7 +20,7 @@
 	( 1? )( 1- swap @+ ,linea swap )
 	2drop ;
 
-::drawlinea
+::trazodrawi
 	'trazo
 	@+ 0? ( 2drop ; ) >uv op
 	( trazo> <? )( @+ >uv line ) drop ;
@@ -99,4 +99,86 @@
 	( @+ 1? )(
 		dup 24 >> $1c and 'acc + @ exec
 		) 2drop ;
+
+|----------------------------------
+#dibujo )( 8192
+#dibujo> 'dibujo
+#dibujo< 'dibujo
+
+#coloractual $ff00
+
+:,dib | v --
+	dibujo> !+ 'dibujo> ! ;
+
+:0dib 0 dibujo> ! ;
+
+:,color | color --
+	dup 'coloractual !
+	dibujo> 4 - @ $4000000 nand? ( -4 'dibujo> +! ) drop
+	$4000000 or ,dib 0dib ;
+
+:,center | x y ---
+	dup 12 >> $fff and  swap $fff and or
+	$c000000 or
+	,dib 0dib ;
+
+:,line 	$10000000 or ,dib 0dib ;
+:,gline $14000000 or ,dib 0dib ;
+:,epoli $18000000 or ,dib 0dib ;
+:,poli  $1c000000 or ,dib 0dib ;
+
+|----------------
+:colineal | q1 q2 q3 -- 0/1
+	pick2 pick2 * 2 << >r | 4q1q2
+	- + dup * r> - ;
+
+:Qab | a b -- q
+	over $fff and
+	over $fff and - dup * >r
+	swap 12 >> $fff and
+	swap 12 >> $fff and - dup * r> + ;
+
+| a-b q1
+| b-c q2
+| a-c q3
+:checkline | --
+	dibujo> 12 -
+	@+ swap @+ swap @ and and $c000000 and
+	$c000000 <>? ( drop ; ) drop | 3 ultimos puntos son lineas
+
+	dibujo> 12 - >r r@+	r@+	r> @ | a b c
+	pick2 over Qab >r	| a b c r:q3
+	over swap Qab >r	| a b 	r:q2 q3
+	Qab r> r>
+	colineal 1? ( drop ; ) drop
+	dibujo> 8 - dup 4+ @ swap !+ 'dibujo> !
+	;
+
+|----------------
+:16to12
+	>uv 12 << $fff000 and swap $fff and or ;
+
+:cadapunto | xy --
+	16to12 $0c000000 or ,dib
+	checkline ;
+
+:cpytrazo | adr -- adr'
+	'trazo trazo> >=? ( drop ; )
+	@+ 16to12 $08000000 or ,dib
+	( trazo> <? )(
+		@+ cadapunto
+		) drop
+	0dib
+    resetlinea
+	;
+
+
+::trazoin
+	[ tpen drop resetlinea ; ] onDn
+	'addline onMove
+	'cpytrazo onClick
+	'dibujo trazodraw
+	rojo
+	trazodrawi
+	;
 
