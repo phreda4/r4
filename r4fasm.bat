@@ -1,5 +1,3 @@
-cd r4asm
-fasm r4fasm.asm r4win2.exe
-cd ..
+fasm r4fasm\\r4fasm.asm r4plain.exe
 pause
-r4asm\\r4win2.exe
+r4plain.exe

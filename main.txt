@@ -5,7 +5,7 @@
 ^r4/lib/reda4.txt
 ^r4/lib/fontt.txt
 ^r4/lib/fonth.txt
-
+^r4/lib/font3d.txt
 ^r4/lib/gui.txt
 ^r4/lib/trace.txt
 ^r4/lib/trazo.txt
@@ -25,6 +25,9 @@
 
 
 |--------- estado
+
+#padin ":r4 " )( 1024
+
 #actf
 #actv
 #ruta )( 1024
@@ -130,11 +133,15 @@
 :drawf
 	cntf >=? ( ; )
 	actf =? ( verde )( negro )
-	dup filex
 	3dpos2gc
-	'clickf swap btnb
+	'clickf over filex btnb
 	actf =? ( bordefoco )
 	;
+
+:drawfi
+	cntf >=? ( ; )
+	3dpos2gc gc.box
+	dup filex printc ;
 
 :clickv
 	dup 'actv ! refresh ;
@@ -142,32 +149,17 @@
 :drawv
 	cntv >=? ( ; )
 	actv =? ( azul )( negro )
-	dup filev
 	3dpos2gc
-	'clickv swap btnh ;
+	'clickv over filev btnh ;
+
+:drawvi
+	cntv >=? ( ; )
+	3dpos2gc
+	dup filev print ;
 
 
 #cntpanel
 #actualypanel
-
-
-
-	2.0 0.5 1.0 mscale
-	3dsize2gc
-    -6.4 -5.1 0 mtrans
-|	'exit 'iarr 3dbtnd
-	0 10.2 0 mtrans
-|	'exit 'iaba 3dbtnd
-	0.5 3.0 1.0 mscale
-	3dsize2gc
-
-    -5.1 0 0 mtrans
-|	'exit 'iizq 3dbtnd
-
-	+12.2 0 0 mtrans
-|	'exit 'ider 3dbtnd
-	;
-
 
 :runprg
 	grabaestado
@@ -188,15 +180,15 @@
 |----------------------------------
 :actv+! | nro --
 	actv +
-	cntv >? ( 0 nip )
-	-? ( cntv nip )
+	cntv >=? ( cntv 1- nip )
+	-? ( 0 nip )
 	'actv !
 	refresh ;
 
 :actf+! | nro --
 	actf +
-	cntf >? ( 0 nip )
-	-? ( cntf nip )
+	cntf >=? ( cntf 1- nip )
+	-? ( 0 nip )
 	'actf !
 	refresh ;
 
@@ -206,7 +198,7 @@
 :drawvolumes | exec --
 	mpush
 	2.0 1.0 1.0 mscale
-	-5.8 -4.2 yvol + 0 mtrans
+	-6.5 -4.2 yvol + 0 mtrans
 	0 3dsize2gc
 	-4.0 ( 5.0 <? )( swap
 		pick2 exec
@@ -218,12 +210,14 @@
 	mpop ;
 
 #yfilv 0
-#yfil 0
+#yfil -4.5
+#yfild 0
 
 :drawfiles | exec --
 	mpush
 	3.0 1.0 1.0 mscale
-	-3.0 -3.6 yfil + yfilv 1? ( over + 'yfil ! ) drop 0 mtrans
+|	yfilv 'yfil +!
+	-3.5 yfil 0 mtrans
 	0 3dsize2gc
 	-4.0 ( 4.0 <? )(
 		-4.0 ( -1.0 <? )( rot
@@ -237,14 +231,22 @@
 	3drop
 	mpop ;
 
-:scrollfiles | cnt --
-	yfil +
-	1.0 >? ( 0.0 nip )
-	'yfil ! ;
+:drawfiles2 | exec --
+	mpush
+	4.0 1.0 1.0 mscale
+	-3.5 yfil 0 mtrans
+	3dsize2gc
+	0 ( cntf <? )(
+			over exec 1+
+			5.0 0.0 0.0 mtransi
 
-:veltra | VELOCIDAD
-	0
-	;
+			over exec 1+
+			-5.0 1.2 0.0 mtransi
+			) drop
+	mpop ;
+
+:consola
+	scr 12 font home cr2 sp ;
 
 :mododominio
 	[ -1 actv+! ; ] <up>
@@ -252,44 +254,51 @@
 	[ -1 actv+! ; ] <le>
 	[ 1 actv+! ; ] <ri>
 	mpush
-	1.2 1.2 1.0 mscale
+	1.2 1.1 1.0 mscale
 	'drawv drawvolumes
-	0.8 0.8 1.0 mscale
+|	0.8 0.8 1.0 mscale
 	'drawf drawfiles
 	mpop
+	consola cyan
+	'padin print
+
 	cflecha ;
 
 :modoitem
-	[ -3 actf+! ; ] <up>
-	[ 3 actf+! ; ] <dn>
+	[ -3 actf+! 0.01 'yfilv ! ; ] <up>
+	[ 3 actf+! -0.01 'yfilv ! ; ] <dn>
 	[ -1 actf+! ; ] <le>
 	[ 1 actf+! ; ] <ri>
+|	font3d
 	mpush
 	0.8 0.8 1.0 mscale
 	'drawv drawvolumes
-	1.4 1.4 1.0 mscale
+	1.8 1.4 1.0 mscale
 	'drawf drawfiles
 	mpop
-	clapiz ;
+	consola verde
+	'padin print
+	clapiz
+	;
 
 |---------------------
 :modobuscar
-	scr
+	blanco
+	mpush
+	'drawvi drawvolumes
+|	'drawfi drawfiles
+	mpop
+	consola verde
+	'padin 32 inputline
 	blanco trazoIn
 	clapiz ;
 
 #estado 'modoitem
 
-:finestado
-	nip 'estado ! ;
-
 :cambiaestado
 	estado
-	'modoitem =? ( 'mododominio finestado ; )
-	'mododominio =? ( 'modobuscar finestado ; )
-	'modobuscar =? (  'modoitem finestado ; )
-	drop ;
-
+	'modoitem =? ( 'mododominio )( 'modoitem ) nip
+	'estado ! ;
 
 :main
 	inigui
@@ -328,11 +337,11 @@
 		'lastrun print
 
 		32 32 gc.vbetween
-		home cr2 cr
 		1.0 3dmode
 		0 0 12.0 mtrans
 		font-vard-8
-		estado exec ;
+		estado exec
+;
 
 :	|$808080 paper
 	0 paper
