@@ -2,12 +2,14 @@
 | PHREDA 2010
 |------------------
 
-^lib/reda4.txt
-^lib/fontt.txt
-^lib/fonth.txt
+^r4/lib/reda4.txt
+^r4/lib/fontt.txt
+^r4/lib/fonth.txt
 
-^lib/gui.txt
-^lib/trace.txt
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+^r4/lib/trazo.txt
+
 
 #lastrun )( 1024
 |--------- edit-code
@@ -15,21 +17,26 @@
 #nlin
 #nombre )( 64
 
-:cargaeditornl
+::cargaeditornl
 	'ncar "mem/edit-code.mem" load drop ;
 
-:grabaeditornl
+::grabaeditornl
 	'ncar 72 "mem/edit-code.mem" save ;
+
 
 |--------- estado
 #actf
 #actv
+#ruta )( 1024
+#ruta> 'ruta
 
 #cntf
 #cntv
 
-#ruta )( 1024
-#ruta> 'ruta
+#indexf )( 8192
+#indexf> 'indexf
+#indexv )( 8192
+#indexv> 'indexv
 
 :ruta.push | "" --
 	ruta> strcpyl
@@ -45,12 +52,6 @@
 :ruta.pop | --
 	ruta<< 0 over c! 'ruta> !
 	'ruta dir ;
-
-#indexf )( 8192
-#indexf> 'indexf
-#indexv )( 8192
-#indexv> 'indexv
-
 
 |----------- estado
 :grabaestado
@@ -83,6 +84,121 @@
 :3dbtnd | 'acc 'dib --
 	3dpos2gc
 	btnd ;
+
+
+
+:,string | "" -- ""'
+	here swap ,s ,eol ;
+
+|------------------
+:filex | nro -- "name"
+	2 << 'indexf + @ ;
+
+:filev | nro -- "name"
+	2 << 'indexv + @ ;
+
+|------------------
+:,cpyv | vol
+	,string indexv> !+ 'indexv> ! ;
+
+:,cpyf | file
+	,string indexf> !+ 'indexf> ! ;
+
+|---- genera indice y nombre
+
+:refresh
+	mark
+	'ruta dir
+	'indexv 'indexv> !
+	0 ( dup vol 1? )( ,cpyv 1+ ) drop 'cntv !
+
+	actv filev ruta.push
+	'indexf 'indexf> !
+	0 ( dup file 1? )( ,cpyf 1+ ) drop 'cntf !
+	ruta.pop
+
+	actf filex actv filev 'ruta
+	"%s%s/%s" mprint 'lastrun strcpy
+	empty
+	;
+
+|---------------
+
+:clickf
+	dup 'actf ! refresh ;
+
+:drawf
+	cntf >=? ( ; )
+	actf =? ( verde )( negro )
+	dup filex
+	3dpos2gc
+	'clickf swap btnb
+	actf =? ( bordefoco )
+	;
+
+:clickv
+	dup 'actv ! refresh ;
+
+:drawv
+	cntv >=? ( ; )
+	actv =? ( azul )( negro )
+	dup filev
+	3dpos2gc
+	'clickv swap btnh ;
+
+
+#cntpanel
+#actualypanel
+
+
+
+	2.0 0.5 1.0 mscale
+	3dsize2gc
+    -6.4 -5.1 0 mtrans
+|	'exit 'iarr 3dbtnd
+	0 10.2 0 mtrans
+|	'exit 'iaba 3dbtnd
+	0.5 3.0 1.0 mscale
+	3dsize2gc
+
+    -5.1 0 0 mtrans
+|	'exit 'iizq 3dbtnd
+
+	+12.2 0 0 mtrans
+|	'exit 'ider 3dbtnd
+	;
+
+
+:runprg
+	grabaestado
+	'lastrun run
+	;
+
+:editprg
+	grabaestado
+	cargaeditornl
+	'lastrun 'nombre = 0? (
+		'lastrun 'nombre strcpy
+		0 'nlin ! 0 'ncar !
+		) drop
+	grabaeditornl
+
+	"r4/System/edit-code.txt" run
+	;
+|----------------------------------
+:actv+! | nro --
+	actv +
+	cntv >? ( 0 nip )
+	-? ( cntv nip )
+	'actv !
+	refresh ;
+
+:actf+! | nro --
+	actf +
+	cntf >? ( 0 nip )
+	-? ( cntf nip )
+	'actf !
+	refresh ;
 
 |------------------------------
 |------------------------------
@@ -126,161 +242,21 @@
 	1.0 >? ( 0.0 nip )
 	'yfil ! ;
 
-|		violeta sp 'adddome "+Fold" btnt
-|		rojo sp 'borractual "Del" btnt
-|		sp sp 'runtimeerr "f9-RUNERR" btnt
-|		sp 'confsis "f10-CONFIG" btnt
-|		sp 'fullset "f11-FULL" btnt
-|		26 gc.botton $ccc gc.hfill
-|		font-vard-8-bold home cr2
-|		font-vard-12-bold
-|		verde 'clicknew "* NEW *" sp btnt
-
-
-
-:ruta.fil | --
-	actv vol "/%s" mprint ruta> strcpy
-	'ruta dir
-	0 ruta> c! ;
-
-:ruta.dir | --
-	'ruta dir ;
-
-:tree.addf
-	0 ( dup file 1? )(
-		here indexf> !+ 'indexf> !
-		,s ,eol
-		1+ ) 2drop ;
-
-:tree.addv
-	0 ( dup vol 1? )(
-		here indexv> !+ 'indexv> !
-		,s ,eol
-     	1+ ) 2drop ;
-
-
-:filex | nro -- "name"
-	2 << 'indexf + @ ;
-
-:filev | nro -- "name"
-	2 << 'indexv + @ ;
-
-
-|---- genera indice y nombre
-:refresh
-	mark
-	'lastrun 'here !
-
-    ruta.dir
-	'ruta ,s
-
-	'indexv 'indexv> !
-	actv vol 1? ( ,s "/" ,s )( drop )
-	indexv> tree.addv indexv> swap
-	indexv> 'indexv - 2 >> 'cntv !
-
-	ruta.fil
-	'indexf 'indexf> !
-	actf file 1? ( ,s )( drop )
-	indexf> tree.addf indexf> swap
-	indexf 'indexf - 2 >> 'cntf !
-
-	ruta.dir
-	,eol
-	empty
+:veltra | VELOCIDAD
+	0
 	;
-
-|---------------
-
-:clickf
-	dup 'actf ! ;
-
-:drawf
-	actf =? ( verde )( negro )
-	dup filex 0? ( drop ; )
-	3dpos2gc
-	'clickf swap btnb
-	actf =? ( bordefoco )
-	;
-
-:clickv
-	dup 'actv ! refresh ;
-
-:drawv
-	actv =? ( azul )( negro )
-	dup filev 0? ( drop ; )
-	3dpos2gc
-	'clickv swap btnh ;
-
-
-#cntpanel
-#actualypanel
-
-
-:panelvol
-	mpop
-	'drawv drawvolumes
-	ruta.fil
-	1 scrollfiles
-	'drawf drawfiles
-	mpush
-	;
-
-
-	2.0 0.5 1.0 mscale
-	3dsize2gc
-    -6.4 -5.1 0 mtrans
-|	'exit 'iarr 3dbtnd
-	0 10.2 0 mtrans
-|	'exit 'iaba 3dbtnd
-	0.5 3.0 1.0 mscale
-	3dsize2gc
-
-    -5.1 0 0 mtrans
-|	'exit 'iizq 3dbtnd
-
-	+12.2 0 0 mtrans
-|	'exit 'ider 3dbtnd
-	;
-
-
-:runprg
-	grabaestado
-	'lastrun run
-	;
-
-:editprg
-	grabaestado
-	cargaeditornl
-	'lastrun 'nombre = 0? (
-		'lastrun 'nombre strcpy
-		0 'nlin ! 0 'ncar !
-		) drop
-	grabaeditornl
-	"r4/System/edit-code.txt" run
-	;
-|----------------------------------
-
-:actv+! | nro --
-	actv +
-	cntv >? ( 0 nip )
-|	-? ( dup 2* + )
-	'actv !
-	refresh ;
-
-:actf+! | nro --
-	actf +
-	cntf >? ( 0 nip )
-|	-? ( dup 2* + )
-	'actf ! 
-	refresh ;
 
 :mododominio
 	[ -1 actv+! ; ] <up>
 	[ 1 actv+! ; ] <dn>
 	[ -1 actv+! ; ] <le>
 	[ 1 actv+! ; ] <ri>
-	panelvol
+	mpush
+	1.2 1.2 1.0 mscale
+	'drawv drawvolumes
+	0.8 0.8 1.0 mscale
+	'drawf drawfiles
+	mpop
 	cflecha ;
 
 :modoitem
@@ -288,13 +264,19 @@
 	[ 3 actf+! ; ] <dn>
 	[ -1 actf+! ; ] <le>
 	[ 1 actf+! ; ] <ri>
-	panelvol
+	mpush
+	0.8 0.8 1.0 mscale
+	'drawv drawvolumes
+	1.4 1.4 1.0 mscale
+	'drawf drawfiles
+	mpop
 	clapiz ;
 
-
+|---------------------
 :modobuscar
-	panelvol
-	cmano ;
+	scr
+	blanco trazoIn
+	clapiz ;
 
 #estado 'modoitem
 
@@ -311,9 +293,8 @@
 
 :main
 	inigui
-|	[ 'ruta "r4/" = 1? ( drop exit ; ) drop ruta.pop ; ] >esc<
-	'cambiaestado >esc<
-
+	'exit >esc<
+	'cambiaestado <spc>
 	'runprg dup <enter> <f1>
 	'editprg <f2>
 |	'newprg <f3>
@@ -329,14 +310,24 @@
 		sp 'runprg "f1-Run" btnt
 		sp 'editprg "f2-Edit" btnt
 |		sp 'newprg "f3-NewPrg" btnt
+|		violeta sp 'adddome "+Fold" btnt
+|		rojo sp 'borractual "Del" btnt
+|		sp sp 'runtimeerr "f9-RUNERR" btnt
+|		sp 'confsis "f10-CONFIG" btnt
+|		sp 'fullset "f11-FULL" btnt
+|		26 gc.botton $ccc gc.hfill
+|		font-vard-8-bold home cr2
+|		font-vard-12-bold
+|		verde 'clicknew "* NEW *" sp btnt
 
+		32 gc.botton home
 		sp
 		verde dup " :R%d" print
-		blanco " MAIN MENU " print
+		blanco " RUN " print
 
 		'lastrun print
 
-		32 0 gc.vbetween
+		32 32 gc.vbetween
 		home cr2 cr
 		1.0 3dmode
 		0 0 12.0 mtrans
@@ -347,7 +338,7 @@
 	0 paper
 	mark
 	"r4" ruta.push
-	|restauraestado
+	restauraestado
 	4 main
-	|grabaestado
+	grabaestado
 ;
