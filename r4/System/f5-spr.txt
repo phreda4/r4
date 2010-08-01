@@ -1,0 +1,108 @@
+| Editor en codigo
+| PHREDA 2010
+|--------------------------------------------------
+^lib/gui.txt
+^lib/sprite.txt
+^lib/parse.txt
+^lib/trace.txt
+
+| code a dibujo
+|--------------------------------------------------
+|::?numero | str -- 0 / str' nro 1
+
+:getnro | txt -- txt' 0 / nro
+	( dup c@ 33 <? )( 0? ( ; ) drop 1+ ) drop
+	dup ?numero 0? ( ; )
+	drop rot drop ;
+
+:load-code
+	'dibujo >r
+	codestart
+	( c@+ 13 >? )( drop ) drop
+	( getnro 1? )( r!+ ) r !
+	r> 'dibujo> !
+	( c@+ 33 <? )( drop ) drop 1-
+	'codelast !
+    haceindice
+	;
+
+:loadbin
+	'dibujo "./nom/1spr.mem" load
+	'dibujo =? ( resetspr ) drop
+	haceindice
+	;
+
+| savecode
+|--------------------------------------------------
+:newline 13 ,c 10 ,c ; | m#@$#!%@$#
+
+#compnombre )( 64
+
+:compone | ".ext" "n" -- "n.ext"
+	 'compnombre swap
+	( c@+ 1? )( rot c!+ swap )  2drop
+	swap
+	( c@+ 1? )( rot c!+ swap ) rot c!
+	drop 'compnombre ;
+
+|--- quita los tokens innecesarios ( los degrade y la matriz )
+#buffopt )( $4000
+#buffopt> 'buffopt
+
+:codedibu
+	0 'buffopt
+	buffopt> >=? ( 2drop ; )
+	codestart "%w |spr" ,print newline
+	( buffopt> <? )(
+		@+ 0? ( " %d" )( " $%h" ) ,print
+		swap 1+ 8 >? ( drop 0 newline )
+		swap ) 2drop
+	newline
+	;
+
+:procbuff | adr --
+	'buffopt swap
+	( @+ 1? )(
+		dup $f and
+		$d =? ( drop rot 12 - rot rot dup )
+		drop
+		rot !+ swap
+		)
+	rot !+ 'buffopt> !
+	drop
+	;
+
+:save-code
+	codefin 'here !
+	'dibujo procbuff
+	here codetxt codestart over - dup 'here +!
+	cmove
+	codedibu newline
+	here codelast codefin over - dup 'here +!
+	cmove
+	codefin here over -
+	'nombre
+	save
+	;
+
+|--------------------------------------------------
+:	33
+	resetspr
+	'lugar "./nom/1spr.nom" load
+	'lugar =? ( resetspr ) drop
+
+	clear
+	here $ffff + dup 'codetxt !
+	'nombre load 'codefin !
+	codetxt
+	lugar ( 1? )( 1- swap c@+ 13 =? ( drop 1+ dup ) drop  swap ) drop
+	'codestart !
+
+	load-code | loadbin
+	editando
+	save-code
+
+|	'dibujo $1000 "./nom/1spr.mem" save
+
+	"edit-code.txt" run ;
+

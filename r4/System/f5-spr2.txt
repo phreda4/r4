@@ -1,0 +1,90 @@
+| f5-spr.txt
+| edita dibujo
+| PHREDA2010
+|--------------------------------------------------
+^lib/parse.txt
+
+^edit-incode.txt
+
+|::?numero | str -- 0 / str' nro 1
+
+:getnro | txt -- txt' 0 / nro
+	( dup c@ 33 <? )( 0? ( ; ) drop 1+ ) drop
+	dup ?numero 0? ( ; )
+	drop rot drop ;
+
+:load-code
+	'dibujo >r
+	codestart
+	( c@+ 13 >? )( drop ) drop
+	( getnro 1? )( r!+ ) r !
+	r> 'dibujo> !
+	( c@+ 33 <? )( drop ) drop 1-
+	'codelast !
+    haceindice
+	;
+
+:loadbin
+	'dibujo "./nom/1spr.mem" load
+	'dibujo =? ( resetspr ) drop
+	haceindice
+	;
+
+| savecode
+|--------------------------------------------------
+:newline 13 ,c 10 ,c ; | m#@$#!%@$#
+
+#compnombre )( 64
+
+:compone | ".ext" "n" -- "n.ext"
+	 'compnombre swap
+	( c@+ 1? )( rot c!+ swap )  2drop
+	swap
+	( c@+ 1? )( rot c!+ swap ) rot c!
+	drop 'compnombre ;
+
+|--- quita los tokens innecesarios ( los degrade y la matriz )
+#buffopt )( $4000
+#buffopt> 'buffopt
+
+:codedibu
+	0 'buffopt
+	buffopt> >=? ( 2drop ; )
+	codestart "%w ",print newline
+	( buffopt> <? )(
+		@+ 0? ( " %d" )( " $%h" ) ,print
+		swap 1+ 8 >? ( drop 0 newline )
+		swap ) 2drop
+	newline
+	;
+
+:procbuff | adr --
+	'buffopt swap
+	( @+ 1? )(
+		dup $f and
+		$d =? ( drop rot 12 - rot rot dup )
+		drop
+		rot !+ swap
+		)
+	rot !+ 'buffopt> !
+	drop
+	;
+
+:save-code
+	codefin 'here !
+	'dibujo procbuff
+	here codetxt codestart over - dup 'here +!
+	cmove
+	codedibu newline
+	here codelast codefin over - dup 'here +!
+	cmove
+	codefin here over -
+	'nombre
+	save
+	;
+
+
+:main
+	;
+
+: 33 main ;

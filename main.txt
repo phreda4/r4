@@ -10,6 +10,8 @@
 ^r4/lib/trace.txt
 ^r4/lib/trazo.txt
 
+^r4/system/r4code.txt
+
 
 #lastrun )( 1024
 |--------- edit-code
@@ -131,8 +133,18 @@
 :clickf
 	dup 'actf ! refresh ;
 
+:clicknew
+	;
+
+:drawn
+	cntf >? ( ; )
+	amarillo
+	3dpos2gc 'clicknew  btn
+	blanco "* NEW FILE *" cr printc
+	;
+
 :drawf
-	cntf >=? ( ; )
+	cntf >=? ( drawn ; )
 	actf =? ( verde )( negro )
 	3dpos2gc
 	'clickf over filex btnb
@@ -247,6 +259,64 @@
 	mpop ;
 
 
+|----------------------------------
+:helpmodo
+	;
+
+:memmapv
+	d.get memmap
+	;
+
+#voc-system
+"BYE" "HELP" "RESETVM" "MEMMAP"
+( 0 )
+
+#exe-system
+'exit 'helpmodo 'resetvm 'memmapv
+0
+
+:nextw
+    ( c@+ 32 >? )( drop )
+	0? ( drop 1- )( drop )
+	;
+
+:pushnro | val --
+	basen
+	10 =? ( drop d.pushDec ; )
+	2 =? ( drop d.pushBin ; )
+	drop
+	d.pushHex ;
+	;
+
+:palabraconsola | str -- str'
+	( dup c@ 33 <? )( 0? ( nip ; ) drop 1+ )		| quitar espacios
+|	$5e =? ( drop esinclude ; )			| $5e ^  Include
+|	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
+|	$3A =? ( drop esdefinicion ; )		| $3a :  Definicion
+|	$23 =? ( drop esvariable ; )		| $23 #  Variable
+
+|	$22 =? ( drop escadena ; )			| $22 "	 Cadena
+
+	$27 =? ( drop 1+ dup 				| $27 ' Direccion
+		dup ?macro 1? ( 3drop "mACROnOTdIR" 'mensaje ! 0 ; ) drop
+		?palabra 1? ( nip stepadr nextw ; ) 2drop
+		"NOTdIR" seterror 3 - 0 ; )
+	drop
+	dup ?numero 1? ( drop pushnro nip ; ) drop
+	dup ?fnumero 1? ( drop d.pushFix nip ; ) drop
+	dup 'voc-system inupp? 1? ( 1- 2 << 'exe-system + @ exec nextw ; ) drop
+	dup ?macro 1? ( stepmacro nextw ; ) drop
+	dup ?palabra 1? ( stepword nextw ; ) drop
+	2drop 0
+	"NOTfOUND" 'mensaje !  ;
+
+:correconsola
+	'padin ( palabraconsola 0? ) drop
+	0 'padin !
+	;
+
+|----------------------------------
+
 :main
 	inigui
 	'exit >esc<
@@ -254,19 +324,27 @@
 	'editprg <f2>
 |	'newprg <f3>
 
-	[ -3 actf+! 0.01 'yfilv ! ; ] <up>
-	[ 3 actf+! -0.01 'yfilv ! ; ] <dn>
+	[ -4 actf+! ; ] <up>
+	[ 4 actf+! ; ] <dn>
 	[ -1 actf+! ; ] <le>
 	[ 1 actf+! ; ] <ri>
 
 	[ -1 actv+! ; ] <pgup>
 	[ 1 actv+! ; ] <pgdn>
+	'correconsola <enter>
 
 	refresh
 	show clrscr
+		1.0 3dmode
+		0 0 12.0 mtrans
+		font-vard-8-bold
+		mpush
+		1.4 1.1 1.0 mscale
+		'drawf drawfiles
+		mpop
 
-		32 gc.top $00c gc.hfill
-		SCR font-vard-12-bold home cr2
+		scr 32 gc.top $00c gc.hfill
+		font-vard-12-bold home cr2
 		rojo
 		sp sp 'exit "esc-Exit" btnt
 		verde
@@ -279,39 +357,29 @@
 |		sp 'confsis "f10-CONFIG" btnt
 |		sp 'fullset "f11-FULL" btnt
 |		26 gc.botton $ccc gc.hfill
-|		font-vard-8-bold home cr2
-|		font-vard-12-bold
-|		verde 'clicknew "* NEW *" sp btnt
-
 		cr cr
+		scr gc2win
 		0 ( cntv <? )(
 			actv =? ( azul )( negro )
-			'clickv over filev btnt cr cr
+			'clickv over filev sp btnt cr cr
 			1+ ) drop cr cr
 
-		1.0 3dmode
-		0 0 12.0 mtrans
-
-		font-vard-8
-		mpush
-	1.4 1.1 1.0 mscale
-	'drawf drawfiles
-	mpop
-    trazoIn
-	scr		12 font home cr2
-		128 gc.botton
-		home
-		verde dup ":R%d " print
-
+    	trazoIn
+		scr
+		256 gc.botton
+		home verde dup " :R%d " print
 		blanco 'lastrun print cr
 		'mensaje print
 		blanco
-		'padin 32 inputline
+		'padin 32 inputline cr
 
+		[ -1 actf+! ; ] <le>
+		[ 1 actf+! ; ] <ri>
 
-	cflecha ;
+		verde vm.dump
+		cflecha ;
 
-:	$888888
+:	$0
 	paper
 	mark
 	"r4" ruta.push
