@@ -4,8 +4,19 @@
 
 #bx1 #by1 #bx2 #by2
 
-#:trazo )( 8192
+#:trazo )( 32768
 #:trazo> 'trazo
+
+#:dibujo )( 8192
+#:dibujo> 'dibujo
+#:dibujo< 'dibujo
+
+::dumptrazo
+	dibujo> 'dibujo -
+	8192 >? ( "LLENI" nip )( "D:%d" ) print cr
+	trazo> 'trazo -
+	8192 >? ( "LLENI" nip )( "T:%d" ) print cr
+		;
 
 |----------------
 :,linea | xy --
@@ -25,29 +36,10 @@
 	@+ 0? ( 2drop ; ) >uv op
 	( trazo> <? )( @+ >uv line ) drop ;
 
-|-------tipo coord
-:+xydata | x y --
-	by1 <? ( dup 'by1 ! )
-	by2 >? ( dup 'by2 ! ) drop
-	bx1 <? ( dup 'bx1 ! )
-	bx2 >? ( dup 'bx2 ! ) drop ;
-
-:xx drop ;
-:dd dup $fff and swap 12 >> $fff and +xydata ;
-:ddc dup dd dd ;
-
-#accXY xx xx dd dd ddc dd ddc xx
-
-::trazolimites | str --
-	sh sw 'bx1 ! 'by1 !
-	0 0 'bx2 ! 'by2 !
-	( @+ 1? )(
-		dup 24 >> $1c and 'accXY + @ exec
-		) 2drop ;
 
 ::trazobox | -- x1y1 x2y2
-	by1 bx1 16 << or
-	by2 bx2 16 << or
+	by1 16 << bx1  or
+	by2 16 << bx2  or
 	;
 
 |------------
@@ -100,20 +92,58 @@
 		dup 24 >> $1c and 'acc + @ exec
 		) 2drop ;
 
-|----------------------------------
-#dibujo )( 8192
-#dibujo> 'dibujo
-#dibujo< 'dibujo
+|-------tipo coord
+:+xydata | x y --
+	by1 <? ( dup 'by1 ! )
+	by2 >? ( dup 'by2 ! ) drop
+	bx1 <? ( dup 'bx1 ! )
+	bx2 >? ( dup 'bx2 ! ) drop ;
 
-#coloractual $ff00
+:xx drop ;
+:dd dup $fff and swap 12 >> $fff and +xydata ;
+:ddc dup dd dd ;
+
+#accXY xx xx dd dd ddc dd ddc xx
+
+::trazolimites | str --
+	sh sw 'bx1 ! 'by1 !
+	0 0 'bx2 ! 'by2 !
+	( @+ 1? )(
+		dup 24 >> $1c and 'accXY + @ exec
+		) 2drop ;
+
+|----------------
+:h000 | color	$00 000000
+	drop ;
+:h001 | color	$04 000000
+	$ffffff and ink ;
+:h010 | op		$08 000000
+	dup $fff and swap 12 >> $fff and 2dup op 'y ! 'x ! ;
+:h011 | line	$0c 000000
+	dup $fff and swap 12 >> $fff and line ;
+:h100 | cv-curve
+	dup $fff and swap 12 >> $fff and cp @+ dup $fff and swap 12 >> $ffff and curve ;
+:h101 | pline
+	dup $fff and swap 12 >> $fff and pline ;
+:h110 | cv-pcurve
+	dup $fff and swap 12 >> $fff and cp @+ dup $fff and swap 12 >> $ffff and pcurve ;
+:h111 | endpoli
+	drop poli ;
+#acch t000 t001 t010 t011 t100 t101 t110 t111
+
+::trazohistograma | adr --
+	( @+ 1? )(
+		dup 24 >> $1c and 'acch + @ exec
+		) 2drop ;
+
+|----------------------------------
 
 :,dib | v --
 	dibujo> !+ 'dibujo> ! ;
 
 :0dib 0 dibujo> ! ;
 
-:,color | color --
-	dup 'coloractual !
+::d,color | color --
 	dibujo> 4 - @ $4000000 nand? ( -4 'dibujo> +! ) drop
 	$4000000 or ,dib 0dib ;
 
@@ -172,13 +202,14 @@
     resetlinea
 	;
 
-
+|------- habilita trazo
 ::trazoin
 	[ tpen drop resetlinea ; ] onDn
 	'addline onMove
 	'cpytrazo onClick
+::drawtrazo
+	dumptrazo
 	'dibujo trazodraw
-	rojo
-	trazodrawi
-	;
+	rojo trazodrawi ;
+
 
