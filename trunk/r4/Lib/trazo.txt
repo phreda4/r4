@@ -2,29 +2,52 @@
 | estructura para trazos en 32 bits
 |-------------
 
-#bx1 #by1 #bx2 #by2
+#bx1 #by1
+#bx2 #by2
+#xt #yt #wt #ht
 
-#:trazo )( 32768
-#:trazo> 'trazo
+| trazointerno
+#trazo 0
+#trazo> 0
 
-#:dibujo )( 8192
+#:dibujo )( $ffff
 #:dibujo> 'dibujo
 #:dibujo< 'dibujo
 
-::dumptrazo
+::trazo>xy | val -- x y
+	dup 20 << 20 >>
+	swap 8 << 20 >> ;
+
+::xy>trazo | x y -- atr
+	12 << $fff000 and swap $fff and or
+	;
+
+|--- para 3d
+:trazo>3d | tr32 -- x y
+	dup 20 << 20 >>
+	swap 8 << 20 >>
+	0
+	project3d ;
+
+::trazo.debug
 	dibujo> 'dibujo -
 	8192 >? ( "LLENI" nip )( "D:%d" ) print cr
-	trazo> 'trazo -
+	trazo> trazo -
 	8192 >? ( "LLENI" nip )( "T:%d" ) print cr
-		;
+	;
 
 |----------------
 :,linea | xy --
 	trazo> 4 - @ =? ( drop ; )
 	trazo> !+ 'trazo> ! ;
 
-::resetlinea
-	'trazo 'trazo> ! ;
+::trazo.uso
+	here dup dup
+	'trazo ! 'trazo> !
+	$ffff + 'here ! ;
+
+::trazo.cls
+	trazo 'trazo> ! ;
 
 ::addline
 	tpen @+ 0? ( 2drop ; )
@@ -32,7 +55,7 @@
 	2drop ;
 
 ::trazodrawi
-	'trazo
+	trazo
 	@+ 0? ( 2drop ; ) >uv op
 	( trazo> <? )( @+ >uv line ) drop ;
 
@@ -54,7 +77,8 @@
 
 #accp p000 p001 p010 p011 p011 p011 p011 p011
 
-::trazopoli | str --
+::trazopoli | --
+	'dibujo
 	0 'inip !
 	( @+ 1? )(
 		dup 24 >> $1c and 'accp + @ exec
@@ -62,16 +86,16 @@
 	inip 1? ( dup "%d " print ) drop ;
 
 
+
 |-------tipo dibujo
 | ...0 00..
 
-#x #y
 :t000 | color	$00 000000
 	drop ;
 :t001 | color	$04 000000
 	$ffffff and ink ;
 :t010 | op		$08 000000
-	dup $fff and swap 12 >> $fff and 2dup op 'y ! 'x ! ;
+	dup $fff and swap 12 >> $fff and op ;
 :t011 | line	$0c 000000
 	dup $fff and swap 12 >> $fff and line ;
 :t100 | cv-curve
@@ -93,32 +117,65 @@
 		) 2drop ;
 
 |-------tipo coord
-:+xydata | x y --
+:+xyinfo | x y --
 	by1 <? ( dup 'by1 ! )
 	by2 >? ( dup 'by2 ! ) drop
 	bx1 <? ( dup 'bx1 ! )
 	bx2 >? ( dup 'bx2 ! ) drop ;
 
 :xx drop ;
-:dd dup $fff and swap 12 >> $fff and +xydata ;
+:dd dup $fff and swap 12 >> $fff and
+	+xyinfo ;
 :ddc dup dd dd ;
 
 #accXY xx xx dd dd ddc dd ddc xx
 
-::trazolimites | str --
+::trazo.info | str --
 	sh sw 'bx1 ! 'by1 !
 	0 0 'bx2 ! 'by2 !
 	( @+ 1? )(
 		dup 24 >> $1c and 'accXY + @ exec
-		) 2drop ;
+		) 2drop
+	bx1 bx2 over - dup 'wt ! 2/ + 'xt !
+	by1 by2 over - dup 'ht ! 2/ + 'yt !
+	;
 
+
+|------- mueve
+:+xynodo | x y nod -- x y nnod
+	trazo>xy | x y xn yn
+	pick2 +
+	swap
+	pick3 +
+	swap
+	xy>trazo
+	;
+
+:xx drop ;
+
+:dd
+	swap >r
+	+xynodo
+	r !
+	r> swap
+	;
+
+#accXY xx xx dd dd dd dd dd xx
+
+::trazo.move | x y --
+	'dibujo
+	( @+ 1? )(
+		dup 24 >> $1c and 'accXY + @ exec
+		) 4drop
+
+	;
 |----------------
 :h000 | color	$00 000000
 	drop ;
 :h001 | color	$04 000000
 	$ffffff and ink ;
 :h010 | op		$08 000000
-	dup $fff and swap 12 >> $fff and 2dup op 'y ! 'x ! ;
+	dup $fff and swap 12 >> $fff and op ;
 :h011 | line	$0c 000000
 	dup $fff and swap 12 >> $fff and line ;
 :h100 | cv-curve
@@ -137,6 +194,7 @@
 		) 2drop ;
 
 |----------------------------------
+
 
 :,dib | v --
 	dibujo> !+ 'dibujo> ! ;
@@ -193,23 +251,23 @@
 	checkline ;
 
 :cpytrazo | adr -- adr'
-	'trazo trazo> >=? ( drop ; )
+	trazo trazo> >=? ( drop ; )
 	@+ 16to12 $08000000 or ,dib
 	( trazo> <? )(
 		@+ cadapunto
 		) drop
 	0dib
-    resetlinea
+    trazo.cls
 	;
 
 |------- habilita trazo
 ::trazoin
-	[ tpen drop resetlinea ; ] onDn
+	[ tpen drop trazo.cls ; ] onDn
 	'addline onMove
 	'cpytrazo onClick
 ::drawtrazo
-	dumptrazo
 	'dibujo trazodraw
-	rojo trazodrawi ;
+	rojo trazodrawi
+	;
 
 
