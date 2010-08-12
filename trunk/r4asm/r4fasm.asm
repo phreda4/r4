@@ -44,7 +44,7 @@ YRES equ 480
 ;	"lea ebp,[SYSFRAME+eax*4]" ,ln
 ;		"end if" ,ln
 
-include 'include\win32a.inc'
+include 'r4asm\include\win32a.inc'
 
 section '.code' code readable executable
 
