@@ -5,25 +5,22 @@
 
 
 :base | str -- str base
-	dup c@ | str c 
+	dup c@ | str c
 	$24 =? ( drop 1+ 16 ; )	| $ hexa $24
 	$25 =? ( drop 1+ 2 ; ) 	| % bin  $25
 	drop 10 ;
-	
+
 :signo | str -- str signo
-	dup c@ 
+	dup c@
 	$2b =? ( drop 1+ 1 ; )		|+ $2b
 	$2d =? ( drop 1+ -1 ; )	| - $2d
 	drop 1 ;
-	
+
 :digito | c --  dig / -1
 	$3A <? ( $30 - ; )			| 0..9
 	$60 >? ( $57 - ; )			| a
 	$40 >? ( $37 - ; )			| A
 	drop -1 ;
-
-::trim | adr -- adr'
-	( dup c@ 33 <? )( 0? ( drop ; ) drop 1+ ) drop ; | quitar espacios
 
 #:basen
 
@@ -92,16 +89,6 @@
 	swap c@ $ff and 32 >? ( 0 )( 1 )
 	nip nip ;
 
-|-------------------------
-::copynom | sc s1 --
-	( c@+ 32 >? )(
-		rot c!+ swap ) 2drop
-	0 swap c! ;
-
-::copystr | sc s1 --
-	( c@+ 34 <>? )(
-		rot c!+ swap ) 2drop
-	0 swap c! ;
 
 |------------- parseo
 ::scanp | dir "str" -- dir' / 0
@@ -124,3 +111,56 @@
 		) nip nip nip ;
 
 
+
+|---- corredores
+::>>s | adr -- adr'  _
+	( c@+ 1? )(
+		$5f =? ( drop ; ) 		| _
+		$7c =? ( drop 1- ; )	||
+		$7e =? ( drop 1- ; )	| ~ registro
+		drop ) drop 1- ;
+
+::>>f | adr -- adr' |
+	( c@+ 1? )(
+		$7c =? ( drop ; )
+		$7e =? ( drop 1- ; ) | ~ registro
+		drop ) drop 1- ;
+
+::fld# | adr -- adr cnt
+	0 over
+	( c@+ 1? )(
+		$7c =? ( rot 1+ rot rot )
+		$7e =? ( 2drop ; ) | ~ registro
+		drop ) 2drop ;
+
+
+::>>fi | adr -- adr'  _
+	( c@+ 1? )(
+		$7e =? ( drop ; ) | ~ registro
+		drop ) drop 1- ;
+
+::reg# | adr -- adr cnt
+	0 over
+	( c@+ 1? )(
+		$7e =? ( rot 1+ rot rot ) | ~ registro
+		drop ) 2drop ;
+
+
+::>>0 | adr -- adr' ; pasa 0
+	( c@+ 1? )( drop ) drop ;
+
+|------
+::>>sp | adr -- adr'	; proximo espacio
+	( c@+ 1? )(
+		33 <? ( drop 1- ; )
+		drop ) drop 1- ;
+
+::>>cr | adr -- adr'	; proxima linea
+	( c@+ 13 >? )( drop ) 
+	0? ( drop 1- ; )
+	drop ;
+
+::trim | adr -- adr'	; proximo no espacio
+	( dup c@ 33 <? )(
+		0? ( drop ; )
+		drop 1+ ) drop ;

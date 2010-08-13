@@ -309,6 +309,7 @@ switch (message) {     // handle message
 		break;*/
     case WM_DESTROY:
         SYSEVENT=(int)&ultimapalabra; // ejecuta end
+        rebotea=2;// no reinicia
 //        PostQuitMessage(0);
         break;
     case WM_ACTIVATEAPP:
