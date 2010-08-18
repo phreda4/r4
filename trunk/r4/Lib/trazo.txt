@@ -1,273 +1,82 @@
 | PHReda 2010
 | estructura para trazos en 32 bits
+| interface con TPEN
 |-------------
-
-#bx1 #by1
-#bx2 #by2
-#xt #yt #wt #ht
 
 | trazointerno
 #trazo 0
 #trazo> 0
+#bx1 #by1
+#bx2 #by2
 
-#:dibujo )( $ffff
-#:dibujo> 'dibujo
-#:dibujo< 'dibujo
+|-- inicializador
+::trazo.ini
+	here dup dup
+	'trazo ! 'trazo> !
+	$ffff + 'here ! ;
 
+|-- convierte  8 - 12 - 12
 ::trazo>xy | val -- x y
 	dup 20 << 20 >>
 	swap 8 << 20 >> ;
 
-::xy>trazo | x y -- atr
+::xy>trazo | x y -- val
 	12 << $fff000 and swap $fff and or
 	;
 
-|--- para 3d
-:trazo>3d | tr32 -- x y
-	dup 20 << 20 >>
-	swap 8 << 20 >>
-	0
-	project3d ;
+:16to12 | tpenxy -- val
+	>uv 12 << $fff000 and swap $fff and or ;
 
 ::trazo.debug
-	dibujo> 'dibujo -
-	8192 >? ( "LLENI" nip )( "D:%d" ) print cr
 	trazo> trazo -
 	8192 >? ( "LLENI" nip )( "T:%d" ) print cr
 	;
 
 |----------------
-:,linea | xy --
-	trazo> 4 - @ =? ( drop ; )
+:,tr | xy --
+	16to12
+	trazo> 4 - @ $ffffff and =? ( drop ; )
+:,tr.
 	trazo> !+ 'trazo> ! ;
-
-::trazo.uso
-	here dup dup
-	'trazo ! 'trazo> !
-	$ffff + 'here ! ;
 
 ::trazo.cls
 	trazo 'trazo> ! ;
 
-::addline
+:trazo.add | agrega trazo a linea actual
 	tpen @+ 0? ( 2drop ; )
-	( 1? )( 1- swap @+ ,linea swap )
+	( 1? )( 1- swap @+
+		,tr swap )
 	2drop ;
 
-::trazodrawi
-	trazo
-	@+ 0? ( 2drop ; ) >uv op
-	( trazo> <? )( @+ >uv line ) drop ;
-
-
-::trazobox | -- x1y1 x2y2
-	by1 16 << bx1  or
-	by2 16 << bx2  or
+:trazo.start
+	tpen drop
+	xymouse xy>trazo $80000000 or ,tr.
 	;
 
-|------------
-#inip
-
-:p000 drop ;
-:p001 $ffffff and ink ;
-:p010
-	inip 1? ( dup "%d " print ) drop
-	1 'inip ! drop ;
-:p011 1 'inip +! drop ;
-
-#accp p000 p001 p010 p011 p011 p011 p011 p011
-
-::trazopoli | --
-	'dibujo
-	0 'inip !
+:trazo.draw | str --
+	trazo
 	( @+ 1? )(
-		dup 24 >> $1c and 'accp + @ exec
-		) 2drop
-	inip 1? ( dup "%d " print ) drop ;
-
-
-
-|-------tipo dibujo
-| ...0 00..
-
-:t000 | color	$00 000000
-	drop ;
-:t001 | color	$04 000000
-	$ffffff and ink ;
-:t010 | op		$08 000000
-	dup $fff and swap 12 >> $fff and op ;
-:t011 | line	$0c 000000
-	dup $fff and swap 12 >> $fff and line ;
-:t100 | cv-curve
-	dup $fff and swap 12 >> $fff and cp @+ dup $fff and swap 12 >> $ffff and curve ;
-:t101 | pline
-	dup $fff and swap 12 >> $fff and pline ;
-:t110 | cv-pcurve
-	dup $fff and swap 12 >> $fff and cp @+ dup $fff and swap 12 >> $ffff and pcurve ;
-:t111 | endpoli
-	drop poli ;
-
-|:t1000 x y gop gline ;
-
-#acc t000 t001 t010 t011 t100 t101 t110 t111
-
-::trazodraw | str --
-	( @+ 1? )(
-		dup 24 >> $1c and 'acc + @ exec
+		$80000000 and? ( trazo>xy op )( trazo>xy line )
 		) 2drop ;
 
-|-------tipo coord
-:+xyinfo | x y --
-	by1 <? ( dup 'by1 ! )
-	by2 >? ( dup 'by2 ! ) drop
-	bx1 <? ( dup 'bx1 ! )
-	bx2 >? ( dup 'bx2 ! ) drop ;
+|------- habilita trazo y dibuja
+::trazoin
+	'trazo.start onDn
+	'trazo.add onMove
+::drawtrazo
+	trazo.draw
+	;
 
-:xx drop ;
-:dd dup $fff and swap 12 >> $fff and
-	+xyinfo ;
-:ddc dup dd dd ;
-
-#accXY xx xx dd dd ddc dd ddc xx
-
-::trazo.info | str --
+:trazo.info |
 	sh sw 'bx1 ! 'by1 !
 	0 0 'bx2 ! 'by2 !
-	( @+ 1? )(
-		dup 24 >> $1c and 'accXY + @ exec
+	trazo ( @+ 1? )(
+		trazo>xy
+		by1 <? ( dup 'by1 ! )
+		by2 >? ( dup 'by2 ! ) drop
+		bx1 <? ( dup 'bx1 ! )
+		bx2 >? ( dup 'bx2 ! ) drop
 		) 2drop
-	bx1 bx2 over - dup 'wt ! 2/ + 'xt !
-	by1 by2 over - dup 'ht ! 2/ + 'yt !
+	|bx1 bx2 over - dup 'wt ! 2/ + 'xt !
+	|by1 by2 over - dup 'ht ! 2/ + 'yt !
 	;
-
-
-|------- mueve
-:+xynodo | x y nod -- x y nnod
-	trazo>xy | x y xn yn
-	pick2 +
-	swap
-	pick3 +
-	swap
-	xy>trazo
-	;
-
-:xx drop ;
-
-:dd
-	swap >r
-	+xynodo
-	r !
-	r> swap
-	;
-
-#accXY xx xx dd dd dd dd dd xx
-
-::trazo.move | x y --
-	'dibujo
-	( @+ 1? )(
-		dup 24 >> $1c and 'accXY + @ exec
-		) 4drop
-
-	;
-|----------------
-:h000 | color	$00 000000
-	drop ;
-:h001 | color	$04 000000
-	$ffffff and ink ;
-:h010 | op		$08 000000
-	dup $fff and swap 12 >> $fff and op ;
-:h011 | line	$0c 000000
-	dup $fff and swap 12 >> $fff and line ;
-:h100 | cv-curve
-	dup $fff and swap 12 >> $fff and cp @+ dup $fff and swap 12 >> $ffff and curve ;
-:h101 | pline
-	dup $fff and swap 12 >> $fff and pline ;
-:h110 | cv-pcurve
-	dup $fff and swap 12 >> $fff and cp @+ dup $fff and swap 12 >> $ffff and pcurve ;
-:h111 | endpoli
-	drop poli ;
-#acch t000 t001 t010 t011 t100 t101 t110 t111
-
-::trazohistograma | adr --
-	( @+ 1? )(
-		dup 24 >> $1c and 'acch + @ exec
-		) 2drop ;
-
-|----------------------------------
-
-
-:,dib | v --
-	dibujo> !+ 'dibujo> ! ;
-
-:0dib 0 dibujo> ! ;
-
-::d,color | color --
-	dibujo> 4 - @ $4000000 nand? ( -4 'dibujo> +! ) drop
-	$4000000 or ,dib 0dib ;
-
-:,center | x y ---
-	dup 12 >> $fff and  swap $fff and or
-	$c000000 or
-	,dib 0dib ;
-
-:,line 	$10000000 or ,dib 0dib ;
-:,gline $14000000 or ,dib 0dib ;
-:,epoli $18000000 or ,dib 0dib ;
-:,poli  $1c000000 or ,dib 0dib ;
-
-|----------------
-:colineal | q1 q2 q3 -- 0/1
-	pick2 pick2 * 2 << >r | 4q1q2
-	- + dup * r> - ;
-
-:Qab | a b -- q
-	over $fff and
-	over $fff and - dup * >r
-	swap 12 >> $fff and
-	swap 12 >> $fff and - dup * r> + ;
-
-| a-b q1
-| b-c q2
-| a-c q3
-:checkline | --
-	dibujo> 12 -
-	@+ swap @+ swap @ and and $c000000 and
-	$c000000 <>? ( drop ; ) drop | 3 ultimos puntos son lineas
-
-	dibujo> 12 - >r r@+	r@+	r> @ | a b c
-	pick2 over Qab >r	| a b c r:q3
-	over swap Qab >r	| a b 	r:q2 q3
-	Qab r> r>
-	colineal 1? ( drop ; ) drop
-	dibujo> 8 - dup 4+ @ swap !+ 'dibujo> !
-	;
-
-|----------------
-:16to12
-	>uv 12 << $fff000 and swap $fff and or ;
-
-:cadapunto | xy --
-	16to12 $0c000000 or ,dib
-	checkline ;
-
-:cpytrazo | adr -- adr'
-	trazo trazo> >=? ( drop ; )
-	@+ 16to12 $08000000 or ,dib
-	( trazo> <? )(
-		@+ cadapunto
-		) drop
-	0dib
-    trazo.cls
-	;
-
-|------- habilita trazo
-::trazoin
-	[ tpen drop trazo.cls ; ] onDn
-	'addline onMove
-	'cpytrazo onClick
-::drawtrazo
-	'dibujo trazodraw
-	trazodrawi
-	;
-
-
