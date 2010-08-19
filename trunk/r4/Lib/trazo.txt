@@ -12,7 +12,7 @@
 |-- inicializador
 ::trazo.ini
 	here dup dup
-	'trazo ! 'trazo> !
+	'trazo ! 0 over ! 'trazo> !
 	$ffff + 'here ! ;
 
 |-- convierte  8 - 12 - 12
@@ -21,26 +21,46 @@
 	swap 8 << 20 >> ;
 
 ::xy>trazo | x y -- val
-	12 << $fff000 and swap $fff and or
-	;
+	12 << $fff000 and swap $fff and or	;
 
 :16to12 | tpenxy -- val
 	>uv 12 << $fff000 and swap $fff and or ;
 
 ::trazo.debug
-	trazo> trazo -
-	8192 >? ( "LLENI" nip )( "T:%d" ) print cr
+	trazo> trazo - 2 >> "T:%d" print cr ;
+
+|---
+:colineal | q1 q2 q3 -- 0/1
+	pick2 pick2 * 2 << >r | 4q1q2
+	- + dup * r> - ;
+
+:Qab | a b -- q
+	over $fff and
+	over $fff and - dup * >r
+	swap 12 >> $fff and
+	swap 12 >> $fff and - dup * r> + ;
+
+| a-b q1
+| b-c q2
+| a-c q3
+:checkline | --
+	trazo> 12 - trazo <? ( drop ; )
+	>r r@+	r@+	r> @ | a b c
+	pick2 over Qab >r	| a b c r:q3
+	over swap Qab >r	| a b 	r:q2 q3
+	Qab r> r>
+	colineal 1? ( drop ; ) drop
+	trazo> 8 - dup 4+ @ swap !+ 'trazo> !
 	;
 
-|----------------
 :,tr | xy --
 	16to12
 	trazo> 4 - @ $ffffff and =? ( drop ; )
-:,tr.
-	trazo> !+ 'trazo> ! ;
+	trazo> !+ 0 over ! 'trazo> !
+	checkline ;
 
 ::trazo.cls
-	trazo 'trazo> ! ;
+	trazo 0 over ! 'trazo> ! ;
 
 :trazo.add | agrega trazo a linea actual
 	tpen @+ 0? ( 2drop ; )
@@ -50,22 +70,20 @@
 
 :trazo.start
 	tpen drop
-	xymouse xy>trazo $80000000 or ,tr.
+	xymouse xy>trazo $80000000 or
+	trazo> !+ 0 over ! 'trazo> !
 	;
 
-:trazo.draw | str --
+
+|------- habilita trazo y dibuja
+::trazo.in
+	'trazo.start onDn
+	'trazo.add onMove
+::trazo.draw | --
 	trazo
 	( @+ 1? )(
 		$80000000 and? ( trazo>xy op )( trazo>xy line )
 		) 2drop ;
-
-|------- habilita trazo y dibuja
-::trazoin
-	'trazo.start onDn
-	'trazo.add onMove
-::drawtrazo
-	trazo.draw
-	;
 
 :trazo.info |
 	sh sw 'bx1 ! 'by1 !
@@ -80,3 +98,10 @@
 	|bx1 bx2 over - dup 'wt ! 2/ + 'xt !
 	|by1 by2 over - dup 'ht ! 2/ + 'yt !
 	;
+
+| cadapunto | v81212 --
+::trazo.map | 'cadapunto --
+	trazo
+	( @+ 1? )(
+		pick2 exec
+		) 3drop ;
