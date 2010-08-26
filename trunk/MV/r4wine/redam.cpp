@@ -27,9 +27,10 @@
 
 #include <windows.h>
 #include <stdlib.h>
-#include <winsock.h>
 #include <stdio.h>
 #include <time.h>
+//#include <winsock.h>
+#include <wininet.h>
 
 //#define LOGMEM
 //#define OPENGL
@@ -37,6 +38,7 @@
 
 #define FMOD
 #define PRINTER
+#define NET
 
 #include "graf.h"
 #include "sound.h"
@@ -50,7 +52,7 @@ DWORD       dwStyle;
 RECT        rec; 
 int         active;
 
-struct hostent *host;
+/*struct hostent *host;
 SOCKET      soc;
 WSADATA     wsaData;
 SOCKADDR_IN naddr; // the address structure for a TCP socket
@@ -59,6 +61,12 @@ char*   buffernet;
 int     buffersize;
 
 #define WM_WSAASYNC (WM_USER +5)
+*/
+#ifdef NET
+HINTERNET hOpen, hURL;
+char *buffData;
+unsigned long readData;
+#endif
 
 //----------- printer
 DOCINFO di;
@@ -122,13 +130,18 @@ char *macros[]={// directivas del compilador
 "PAPER","INK","INK@","ALPHA", //--- color
 "OP","CP","LINE","CURVE","PLINE","PCURVE","POLI",//--- dibujo
 "FCOL","FCEN","FMAT","SFILL","LFILL","RFILL","TFILL",
+//---------------------
 #ifdef FMOD
 "SLOAD","SPLAY","MLOAD","MPLAY",    //-------- sonido
 #else
 "ISON!","SBO","SBI",    // Sound Buffer Ouput/input
 #endif
-"SERVER","CLIENT","SEND","RECV","CLOSE", //--- red
+//--------------------- red
+#ifdef NET
+"OPENURL",
+#endif
 //"TIMER",            //------- timer
+//---------------------
 #ifdef PRINTER
 "DOCINI","DOCEND","DOCAT","DOCLINE","DOCTEXT","DOCFONT","DOCBIT","DOCRES","DOCSIZE", //-- impresora
 #endif
@@ -170,7 +183,10 @@ SLOAD,SPLAY,MLOAD,MPLAY,
 IRSON,SBO,SBI,
 #endif
 
-SERVER,CLIENT,NSEND,RECV,CLOSE, //---- red
+#ifdef NET
+OPENURL,
+#endif
+
 //ITIMER,//--- timer
 
 #ifdef PRINTER  //-- impresora
@@ -286,6 +302,7 @@ switch (message) {     // handle message
 //        SYSEVENT=SYSirqtime;
 //        break;
 //---------Winsock+ related message...
+/*
     case WM_WSAASYNC:
         switch(WSAGETSELECTEVENT(lParam)) {
         case FD_CLOSE: //Lost connection
@@ -303,6 +320,7 @@ switch (message) {     // handle message
             break;
         }
         break;
+        */
 //---------System
 /*    case WM_CLOSE:
 		DestroyWindow(hWnd);
@@ -750,6 +768,19 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
          NOS-=2;TOS=*NOS;NOS--;         
          continue;
 //--- red
+#ifdef NET
+    case OPENURL: // url header buff -- buff/0
+         buffData=(char*)TOS;
+         hOpen = InternetOpen("InetURL/1.0",INTERNET_OPEN_TYPE_DIRECT,NULL,NULL,0);
+         hURL = InternetOpenUrl(hOpen,(char*)(*(NOS-1)),(char*)(*NOS),0,0,0);
+         InternetReadFile(hURL,buffData,0xffff,&readData);
+         InternetCloseHandle(hURL);
+         InternetCloseHandle(hOpen);
+         NOS-=2;TOS=(int)(buffData+readData);
+         continue;   
+#endif
+
+/*
     case SERVER: //  port -- err
         naddr.sin_family = AF_INET;      // Address family Internet
         naddr.sin_port = htons (TOS);   // Assign port to this socket
@@ -784,6 +815,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case CLOSE:// --
         closesocket(soc); //Shut down socket
         continue;
+        */
 //---- timer
 //    case ITIMER: // vector msecs --
 //        SetTimer(hWnd,0,TOS,0);
@@ -1482,7 +1514,7 @@ SetTextAlign(phDC,TA_UPDATECP);
 
 InitJoystick(hWnd);
 loaddir(".//");
-WSAStartup(2, &wsaData);
+//WSAStartup(2, &wsaData);
 
 #ifdef FMOD
     if (!FSOUND_Init(44100, 32, 0)) return -4;
@@ -1581,8 +1613,8 @@ DeleteObject(hfnt);
 DeleteDC(phDC);
 
 ReleaseJoystick();
-closesocket(soc); //Shut down socket
-WSACleanup(); //Clean up Winsock
+//closesocket(soc); //Shut down socket
+//WSACleanup(); //Clean up Winsock
 
 gr_fin();
 
