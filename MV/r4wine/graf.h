@@ -18,6 +18,8 @@
 #include <windows.h>
 #include <mmsystem.h>
 
+//#define NOMUL
+
 extern HDC hDC;
 
 extern DWORD *gr_buffer; //[1280*1024];		// buffer de pantalla
@@ -28,7 +30,9 @@ extern DWORD gr_color1,gr_color2,col1,col2;
 extern BYTE gr_alphav;
 extern int MA,MB,MTX,MTY; // matrix de transformacion
 extern int *mTex; // textura
+#ifdef NOMUL
 extern int (*setxyf)(int a,int b);
+#endif
 
 int gr_init(int XRES,int YRES);
 

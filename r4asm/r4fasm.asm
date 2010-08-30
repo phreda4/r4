@@ -104,25 +104,13 @@ start:
 ;---------- INICIO
 restart:
 	mov [MCNT],1
-;	call reinit
 	mov esi,Dpila
 	xor eax,eax
 	jmp inicio
-;.................compilado.....................
+;----- CODE -----
 include 'cod.asm'
-;.................compilado.....................
+;----- CODE -----
 	jmp SYSEND
-;----------- INICIALICE
-;reinit:
-;	lea edi,[ROWFRAME]
-;	xor eax,eax
-;	mov ecx,YRES
-;lreinit:
-;	mov [edi],eax
-;	add edi,4
-;	add eax,XRES*4
-;	loop lreinit
-;	ret
 
 ; OS inteface
 ; stack............
@@ -130,16 +118,20 @@ include 'cod.asm'
 ;===============================================
 align 16
 SYSUPDATE: ; ( -- )
-	push eax ebx
+	push eax ebx edx ; falta guardar ecx!! y esi,edi!!
 	invoke	PeekMessage,msg,0,0,0,PM_NOREMOVE
 	or	eax,eax
-	jz	@noevent
+	jnz	@f
+	pop edx ebx eax
+	ret
+@@:
 	invoke	GetMessage,msg,0,0,0
 	or	eax,eax
 	jz	@isyse
 	invoke	TranslateMessage,msg
 	invoke	DispatchMessage,msg
-	pop ebx eax
+	pop edx ebx eax
+
 	mov ecx,[SYSEVENT]
 	or ecx,ecx
 	jnz @dispara
@@ -148,16 +140,13 @@ SYSUPDATE: ; ( -- )
 	mov [SYSEVENT],0
 	jmp ecx
 @isyse:
-	pop ebx eax
+	pop edx ebx eax
 ;===============================================
 align 16
 SYSEND: ; ( -- )
 	invoke ReleaseDC,[hwnd],[hDC]
 	invoke DestroyWindow,[hwnd]
 	invoke ExitProcess,0
-	ret
-@noevent:
-	pop ebx eax
 	ret
 
 ;===============================================
@@ -348,27 +337,26 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 	je	wmmouseev
 	cmp eax,WM_KEYUP
 	je	wmkeyup
+    cmp eax,WM_SYSKEYUP
+    je	wmkeyup
 	cmp	eax,WM_KEYDOWN
 	je	wmkeydown
-;       cmp     eax,WM_CREATE
-;       je      wmcreate
-	cmp	eax,WM_DESTROY
-	je	wmdestroy
-	cmp	eax,WM_ACTIVATEAPP
-	je	wmactivate
+    cmp	eax,WM_SYSKEYDOWN
+    je	wmkeydown
   defwindowproc:
 	invoke	DefWindowProc,[hwnd],[wmsg],[wparam],[lparam]
 	ret
   wmmousemove:
 	mov eax,[lparam]
 	cmp eax,[SYSXYM]
-	je finish
+	je @f
 	mov ebx,[MCNT]
 	mov [MBUFF+ebx*4],eax
 	inc ebx
 	and ebx,$7f
 	mov [MCNT],ebx
 	mov [SYSXYM],eax
+  @@:
 	xor eax,eax
 	ret
   wmmouseev:
@@ -380,10 +368,10 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 	mov eax,[lparam]
 	shr eax,16
 	test eax,$100
-	jz @noeu
+	jz @f
 	and eax,$7f
 	mov al,[mapex+eax]
-@noeu:
+  @@:
 	and eax,$7f
 	or eax,$80
 	mov [SYSKEY],eax
@@ -395,50 +383,19 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 	mov eax,[lparam]
 	shr eax,16
 	test eax,$100
-	jz @noed
+	jz @f
 	and eax,$7f
 	mov al,[mapex+eax]
-@noed:
+  @@:
 	and eax,$7f
 	mov [SYSKEY],eax
 	mov eax,[SYSiKEY]
 	mov [SYSEVENT],eax
 	xor eax,eax
 	ret
-;  wmcreate:
-;       xor eax,eax
-;       ret
-  wmactivate:
-	mov	eax,[wparam]
-	and	eax,$ff
-	mov	[active],eax
-	cmp eax,WA_INACTIVE
-	je @na
-	invoke ShowWindow,[hwnd],SW_NORMAL ;            ShowWindow(hWnd,SW_NORMAL);//SW_RESTORE);
-	invoke UpdateWindow,[hwnd]	;            UpdateWindow(hWnd);
-	xor eax,eax
-	ret
-@na:
-	invoke ChangeDisplaySettings,0,0		;            ChangeDisplaySettings(NULL,0);
-;	invoke ShowWindow,[hwnd],SW_MINIMIZE	;            ShowWindow(hWnd,SW_MINIMIZE);
-	xor eax,eax
-	ret
-  wmdestroy:
-	invoke PostQuitMessage,0
-;	ret
-  finish:
-	xor eax,eax
-	ret
 endp
 
-;----------------------------------------------
-sys_error:
-	mov	eax,_error
-	invoke	MessageBox,[hwnd],eax,_error,MB_OK
-	invoke	DestroyWindow,[hwnd]
-	invoke	PostQuitMessage,1
-	ret
-
+;----- DATA -----
 section '.idata' import data readable
 
 library kernel,'KERNEL32.DLL', user,'USER32.DLL', gdi,'GDI32.DLL'
@@ -488,10 +445,6 @@ include 'rsrc.rc'
 
 section '.data' data readable writeable
 
-	_title	db ':r4',0
-	_class	db ':r4',0
-	_error	db 'err',0
-	_dir 	db '*',0
 	mapex 	db    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15
 			db	 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31
 			db	 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47
@@ -500,6 +453,10 @@ section '.data' data readable writeable
 			db	 96, 97, 98, 99, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95
 			db	 96, 97, 98, 99,100,101,102,103,104,105,106,107,108,109,110,111
 			db	112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127
+	_title	db ':r4',0
+	_class	db ':r4',0
+	_dir 	db '*',0
+
 align 4
 	hinstance	dd 0
 	hwnd		dd 0
@@ -510,11 +467,9 @@ align 4
 	dwStyle 	dd 0
 	rec			RECT
 	bmi			BITMAPINFOHEADER
-;	bmiq		dd 0,0,0,0 ;RGBQUAD
-;	screenSettings  DEVMODE ;no esta??
 	SysTime		SYSTEMTIME
 	Sfinddata	FINDDATA
-	active		dd 0
+;	active		dd 0
 	hdir		dd 0
 	sfile 		dd 0
 	afile 		dd 0
@@ -536,13 +491,11 @@ align 4
 
 include 'dat.asm'
 
+align 16
 	SYSNDIR	rd 8192
 	SYSIDIR	rd 1024
 	SYSSDIR	rd 1024
-align 16
 	Dpila 	rd 1024
-align 16
-	ROWFRAME	rd YRES
 align 16
 	SYSFRAME	rd XRES*YRES
 align 16

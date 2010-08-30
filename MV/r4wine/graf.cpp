@@ -16,6 +16,7 @@
 #include <GL/gl.h>
 #endif
 
+
 HDC     hDC;
 HGLRC   hRC;
 
@@ -78,6 +79,7 @@ static const PIXELFORMATDESCRIPTOR pfd = {
 BITMAPINFO bmi = {{sizeof(BITMAPINFOHEADER),800,-600,1,32,BI_RGB,0,0,0,0,0},{0,0,0,0}};
 #endif
 
+#ifdef NOMUL
 int (*setxyf)(int a,int b);
 
 int setxy(int a,int b) { return (int)gr_buffer+((b*gr_ancho+a)<<2); }
@@ -86,6 +88,7 @@ int setxy800(int a,int b) { return (int)gr_buffer+(((b<<5)+(b<<8)+(b<<9)+a)<<2);
 int setxy1024(int a,int b) { return (int)gr_buffer+(((b<<10)+a)<<2); }
 int setxy1280(int a,int b) { return (int)gr_buffer+(((b<<10)+(b<<8)+a)<<2); }
 int setxy1366(int a,int b) { return (int)gr_buffer+(((b*1366)+a)<<2); }
+#endif
 
 void gr_fin(void) 
 { 
@@ -103,7 +106,7 @@ XFB=(DWORD*)VirtualAlloc(0,gr_sizescreen<<2, MEM_COMMIT, PAGE_READWRITE);
 
 gr_ypitch=gr_ancho=XRES;
 gr_alto=YRES;
-
+#ifdef NOMUL
 switch(XRES) {
     case 640:   setxyf=setxy640;break;
     case 800:   setxyf=setxy800;break;
@@ -112,7 +115,7 @@ switch(XRES) {
     case 1366:  setxyf=setxy1366;break;
     default:    setxyf=setxy;
     }
-
+#endif
 //---- poligonos2
 cntSegm=0;
 yMin=gr_alto+1;
@@ -241,8 +244,12 @@ void fillRad(void) { fillpoly=_FlineaDR; }
 void fillTex(void) { fillpoly=_FlineaTX; }
 
 //------------------------------------
-//#define GR_SET(X,Y) gr_pos=(DWORD*)gr_buffer+Y*gr_ypitch+X;
+#ifdef NOMUL
 #define GR_SET(X,Y) gr_pos=(DWORD*)setxyf(X,Y);
+#else
+#define GR_SET(X,Y) gr_pos=(DWORD*)gr_buffer+Y*gr_ypitch+X;
+#endif
+
 #define GR_X(X) gr_pos+=X;
 #define GR_Y(Y) gr_pos+=gr_ypitch*Y;
 
