@@ -47,21 +47,11 @@
 HWND        hWnd;
 WNDCLASSA   wc;
 MSG         msg;
-DEVMODE     screenSettings;  
+DEVMODE     devmodo;
 DWORD       dwStyle;
 RECT        rec; 
 int         active;
 
-/*struct hostent *host;
-SOCKET      soc;
-WSADATA     wsaData;
-SOCKADDR_IN naddr; // the address structure for a TCP socket
-
-char*   buffernet;
-int     buffersize;
-
-#define WM_WSAASYNC (WM_USER +5)
-*/
 #ifdef NET
 HINTERNET hOpen, hURL;
 char *buffData;
@@ -120,7 +110,6 @@ char *macros[]={// directivas del compilador
 "TPEN",
 "XYMOUSE","BMOUSE",     //-------- mouse
 "IKEY!","KEY",          //-------- teclado
-//"IJOY!",
 "CNTJOY","GETJOY",     //-------- joystick
 
 "MSEC","TIME","DATE","END","RUN",//--- sistema
@@ -167,7 +156,6 @@ UPDATE,
 TPEN,
 XYMOUSE,BMOUSE,
 IRKEY,KEY,
-//IRJOY,
 CNTJOY,GETJOY,
 MSEC,TIME,IDATE,SISEND,SISRUN,//--- sistema
 WIDTH,HEIGHT,CLS,REDRAW,FRAMEV,//--- pantalla
@@ -301,26 +289,6 @@ switch (message) {     // handle message
 //    case WM_TIMER:
 //        SYSEVENT=SYSirqtime;
 //        break;
-//---------Winsock+ related message...
-/*
-    case WM_WSAASYNC:
-        switch(WSAGETSELECTEVENT(lParam)) {
-        case FD_CLOSE: //Lost connection
-            closesocket(soc);
-            break;
-        case FD_READ: //Incoming data to receive
-            buffersize=recv(soc,buffernet,1024, 0);
-            buffernet[buffersize]=0;
-//            SYSEVENT=SYSirqred;
-            break;
-        case FD_CONNECT:
-
-        case FD_ACCEPT: //Connection request
-            soc=accept(wParam,0,0);
-            break;
-        }
-        break;
-        */
 //---------System
 /*    case WM_CLOSE:
 		DestroyWindow(hWnd);
@@ -596,7 +564,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 	case UPDATE:
          Sleep(TOS);
 //         if (PeekMessage(&msg,hWnd,0,0,PM_REMOVE)) // process messages
- if (PeekMessage(&msg,0,0,0,PM_REMOVE)) // process messages
+           if (PeekMessage(&msg,0,0,0,PM_REMOVE)) // process messages
             {  //TranslateMessage(&msg);
             DispatchMessage(&msg);
 // lleno pila con interrupciones
@@ -625,7 +593,6 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case IRKEY: SYSirqteclado=TOS;TOS=*NOS;NOS--;continue;
 	case KEY: NOS++;*NOS=TOS;TOS=SYSKEY&0xff;continue;
 //----- joy
-//    case IRJOY: SYSirqjoystick=TOS;TOS=*NOS;NOS--;continue;
     case CNTJOY: NOS++;*NOS=TOS;TOS=cntJoy;continue;
     case GETJOY: TOS=getjoy(TOS);continue;
 
@@ -644,22 +611,21 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case SISRUN: 
         exestr="";
         if (TOS==0) { rebotea=1;return 0; }
-//        bootstr=(char*)TOS;
-        
         strcpy(pilaexecl,(char*)TOS);
         while (*pilaexecl!=0) pilaexecl++;
         pilaexecl++;
-
         return 1;
-//    case SISIRUN: if (TOS!=0) exestr=(char*)TOS;return 1;
-
 //--- pantalla
     case WIDTH: NOS++;*NOS=TOS;TOS=gr_ancho;continue;
     case HEIGHT: NOS++;*NOS=TOS;TOS=gr_alto;continue;
 	case CLS: gr_clrscr();continue;
     case FRAMEV: NOS++;*NOS=TOS;TOS=(int)gr_buffer;continue;
-	case SETXY:vcursor=(int*)setxyf((*NOS),TOS);   // faster????
-                //(int*)gr_buffer+TOS*gr_ancho+(*NOS); 
+	case SETXY:
+#ifdef NOMUL
+       vcursor=(int*)setxyf((*NOS),TOS);   // faster????
+#else
+       vcursor=(int*)gr_buffer+TOS*gr_ancho+(*NOS); 
+#endif
         NOS--;TOS=*NOS;NOS--;continue;
 	case MPX:vcursor+=TOS;TOS=*NOS;NOS--;continue;
 	case SPX:*(int*)(vcursor++)=TOS;TOS=*NOS;NOS--;continue;
@@ -1443,7 +1409,7 @@ strcpy(pilaexecl,"main.txt");
 while (*pilaexecl!=0) pilaexecl++;
 pilaexecl++;
 
-DEVMODE devmodo;
+devmodo.dmSize = sizeof(devmodo);
 EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmodo);
 
 reboot: rebotea=SYSEVENT=0;
