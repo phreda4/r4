@@ -16,7 +16,6 @@
 #include <GL/gl.h>
 #endif
 
-
 HDC     hDC;
 HGLRC   hRC;
 
@@ -177,7 +176,13 @@ glRasterPos2i(0,gr_alto);
 glDrawPixels(gr_ancho,gr_alto,GL_BGRA,GL_UNSIGNED_BYTE,gr_buffer);
 SwapBuffers(hDC);
 #else
-StretchDIBits(hDC,0,0,gr_ancho,gr_alto,0,0,gr_ancho,gr_alto,gr_buffer,&bmi,DIB_RGB_COLORS,SRCCOPY);
+//HBITMAP hBitmap = (HBITMAP )GetCurrentObject(hDC, OBJ_BITMAP);
+// GDI_ReleaseObj( hBitmap );
+//SetBitmapBits(hBitmap,gr_sizescreen,gr_buffer);
+
+//SetDIBits(hDC,hBitmap,0,gr_alto,gr_buffer,&bmi,DIB_RGB_COLORS);
+//StretchDIBits(hDC,0,0,gr_ancho,gr_alto,0,0,gr_ancho,gr_alto,gr_buffer,&bmi,DIB_RGB_COLORS,SRCCOPY);
+SetDIBitsToDevice(hDC,0,0,gr_ancho,gr_alto,0,0,0,gr_alto,gr_buffer,&bmi,DIB_RGB_COLORS);
 #endif
 }
 

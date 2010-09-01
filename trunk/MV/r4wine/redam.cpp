@@ -1446,9 +1446,9 @@ while (*aa!=0) {
 
 
 if (noborde==0)
-   dwStyle=WS_VISIBLE|WS_CAPTION|WS_SYSMENU|WS_CLIPSIBLINGS|WS_CLIPCHILDREN;
+   dwStyle=WS_VISIBLE|WS_CAPTION|WS_SYSMENU;
 else
-   dwStyle=WS_VISIBLE|WS_POPUP|WS_CLIPSIBLINGS|WS_CLIPCHILDREN;
+   dwStyle=WS_VISIBLE|WS_POPUP;
 ShowCursor(0);
 
 rec.left=rec.top=0;rec.right=w;rec.bottom=h;
