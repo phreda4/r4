@@ -290,17 +290,18 @@ switch (message) {     // handle message
 //        SYSEVENT=SYSirqtime;
 //        break;
 //---------System
-/*    case WM_CLOSE:
-		DestroyWindow(hWnd);
-		break;*/
-    case WM_DESTROY:
-        SYSEVENT=(int)&ultimapalabra; // ejecuta end
+   case WM_CLOSE:
         rebotea=2;// no reinicia
+        SYSEVENT=(int)&ultimapalabra; // ejecuta end
+
+//		DestroyWindow(hWnd);
+		break;
+/*    case WM_DESTROY:
 //        PostQuitMessage(0);
         break;
     case WM_ACTIVATEAPP:
          active=wParam&0xff;
-         /*
+         
          if (active==WA_INACTIVE)
             {
   //          ChangeDisplaySettings(NULL,0);
@@ -309,9 +310,9 @@ switch (message) {     // handle message
     //        ShowWindow(hWnd,SW_NORMAL);//SW_RESTORE);
 //            UpdateWindow(hWnd);
             }
-            */
+            
          break;
-
+*/
   default:
        return DefWindowProc(hWnd,message,wParam,lParam);
   }
@@ -1315,15 +1316,26 @@ if(fclose(stream)) return;
 //----------------- PRINCIPAL
 #ifndef RUNER
  #ifdef WIN32
+
+FILE *stream;
+ 
+int imprime(int v)
+{
+if (v>(int)(&prog) && v<=(int)(&prog)+cntprog) 
+   fprintf(stream,"$%x ",v-(int)&prog);
+else
+   fprintf(stream,"%d ",v);
+
+}
+
 LONG WINAPI MyUnhandledExceptionFilter(LPEXCEPTION_POINTERS e) 
 {
 int i,j;     
 
-FILE *stream;
 stream=fopen("runtime.err","w+");
 fprintf(stream,"%s\r",linea);
 
-fprintf(stream,"IP: %d %d\r",(int)e->ContextRecord->Ebx-(int)prog-1,(int)e->ContextRecord->Edx);// ebx=IP
+fprintf(stream,"IP: $%x + %d \r",((int)e->ContextRecord->Edx)-(int)&prog,(int)&prog);// ebx=IP
 fprintf(stream,"D: ");
 i=(int)PSP;
 j=(int)e->ContextRecord->Esi;
@@ -1342,11 +1354,11 @@ if ((j-i)>32)
    i=j-32;
    }
 for (;i<=j;i+=4)
-    fprintf(stream,"%d ",*(int*)i);
+    imprime(*(int*)i);
 fprintf(stream,")\r");
 
-fprintf(stream,"code:%d cnt:%d\r",&prog,cntprog);
-fprintf(stream,"data:%d cnt:%d\r",&data,cntdato);
+fprintf(stream,"code:%d cnt:$%x\r",&prog,cntprog);
+fprintf(stream,"data:%d cnt:$%x\r",&data,cntdato);
 /*
 fprintf(stream,"Esi:%d\r",(int)e->ContextRecord->Esi);
 fprintf(stream,"Edi:%d\r",(int)e->ContextRecord->Edi);
@@ -1358,7 +1370,7 @@ fprintf(stream,"local:%d\r",*(int*)(e->ContextRecord->Ebp-16));
 fprintf(stream,"PSP:%d\r",(int)PSP);
 fprintf(stream,"RSP:%d\r",(int)RSP);
 */
-fprintf(stream,"%d %d %d %d %d \r",cntindice,cntnombre,cntindiceex,cntnombreex,cntincludes);
+//fprintf(stream,"%d %d %d %d %d \r",cntindice,cntnombre,cntindiceex,cntnombreex,cntincludes);
 fclose(stream);
 //SYSEVENT=(int)&ultimapalabra;
 return SHUTDOWN_NORETRY; //return EXCEPTION_CONTINUE_SEARCH;

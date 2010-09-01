@@ -159,7 +159,10 @@ SYSRUN: ; ( "nombre" -- )
 align 16
 SYSREDRAW: ; ( -- )
 	pusha
-	invoke StretchDIBits,[hDC],0,0,XRES,YRES,0,0,XRES,YRES,SYSFRAME,bmi,0,SRCCOPY
+;	invoke StretchDIBits,[hDC],0,0,XRES,YRES,0,0,XRES,YRES,SYSFRAME,bmi,0,SRCCOPY
+		    ;SetDIBitsToDevice(hDC,0,0,gr_ancho,gr_alto,0,0,0,gr_alto,gr_buffer,&bmi,DIB_RGB_COLORS);
+	xor eax,eax
+	invoke SetDIBitsToDevice,[hDC],eax,eax,XRES,YRES,eax,eax,eax,YRES,SYSFRAME,bmi,eax
 	popa
 	ret
 
@@ -439,7 +442,7 @@ import user,\
 	 ShowCursor,'ShowCursor'
 
 import gdi,\
-       StretchDIBits,'StretchDIBits'
+	SetDIBitsToDevice,'SetDIBitsToDevice'
 
 include 'rsrc.rc'
 
