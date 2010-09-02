@@ -29,7 +29,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
-//#include <winsock.h>
 #include <wininet.h>
 
 //#define LOGMEM
@@ -292,11 +291,11 @@ switch (message) {     // handle message
 //---------System
    case WM_CLOSE:
         rebotea=2;// no reinicia
+   case WM_DESTROY:
         SYSEVENT=(int)&ultimapalabra; // ejecuta end
-
 //		DestroyWindow(hWnd);
 		break;
-/*    case WM_DESTROY:
+/*    
 //        PostQuitMessage(0);
         break;
     case WM_ACTIVATEAPP:
@@ -411,15 +410,6 @@ static inline int iclz32(int x)
     return 32 - popcnt(x);
 }
 #endif
-/*static inline int iCLZ32(int x)
-{
-if (x==0) return 32;
-int numZeros=0;
-while (!(x & 0x80000000)) {
-	numZeros++;
-	x <<= 1; } 
-return numZeros;
-}*/
 
 // http://www.devmaster.net/articles/fixed-point-optimizations/
 static inline int isqrt32(int value) 
@@ -564,8 +554,8 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 //--- sistema
 	case UPDATE:
          Sleep(TOS);
-//         if (PeekMessage(&msg,hWnd,0,0,PM_REMOVE)) // process messages
-           if (PeekMessage(&msg,0,0,0,PM_REMOVE)) // process messages
+         if (PeekMessage(&msg,hWnd,0,0,PM_REMOVE)) // process messages
+//           if (PeekMessage(&msg,0,0,0,PM_REMOVE)) // process messages
             {  //TranslateMessage(&msg);
             DispatchMessage(&msg);
 // lleno pila con interrupciones
@@ -740,49 +730,13 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
          buffData=(char*)TOS;
          hOpen = InternetOpen("InetURL/1.0",INTERNET_OPEN_TYPE_DIRECT,NULL,NULL,0);
          hURL = InternetOpenUrl(hOpen,(char*)(*(NOS-1)),(char*)(*NOS),0,0,0);
-         InternetReadFile(hURL,buffData,0xffff,&readData);
+         InternetReadFile(hURL,buffData,0xfffff,&readData); // 1MB pagina
          InternetCloseHandle(hURL);
          InternetCloseHandle(hOpen);
          NOS-=2;TOS=(int)(buffData+readData);
          continue;   
 #endif
 
-/*
-    case SERVER: //  port -- err
-        naddr.sin_family = AF_INET;      // Address family Internet
-        naddr.sin_port = htons (TOS);   // Assign port to this socket
-        naddr.sin_addr.s_addr = htonl (INADDR_ANY);   // No destination
-        soc = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP); // Create socket
-        if (bind(soc, (LPSOCKADDR)&naddr, sizeof(naddr)) == SOCKET_ERROR) //Try binding
-            { TOS=0;continue; }
-        listen(soc, 10); //Start listening
-        WSAAsyncSelect(soc,hWnd,WM_WSAASYNC, FD_READ | FD_ACCEPT | FD_CLOSE); //Switch to Non-Blocking mode
-        continue;
-    case CLIENT: // "dir" port -- err
-        naddr.sin_family = AF_INET;           // address family Internet
-        naddr.sin_port = htons(TOS);        // set server’s port number
-        TOS=*NOS;NOS--;
-    	if((host=gethostbyname((char*)TOS))==NULL)// Resolve IP address for hostname
-        	{ TOS=0;continue; }
-        naddr.sin_addr.s_addr = *((unsigned long*)host->h_addr);
-        soc = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP); // Create socket
-        if (connect(soc, (SOCKADDR *)&naddr, sizeof(naddr)) == SOCKET_ERROR) //Try binding
-          { TOS=0;continue; } 
-        WSAAsyncSelect(soc,hWnd,WM_WSAASYNC, FD_READ | //FD_CONNECT | 
-    FD_CLOSE);
-        continue;
-    case NSEND:  // buff len --
-        send(soc,(char*)(*NOS), TOS, 0); //Send the string
-        NOS--;TOS=*NOS;NOS--;
-        continue;
-    case RECV:  // 'vector 'buffer --       vector | buff len --
-        buffernet=(char*)TOS;SYSirqred=*NOS;
-        NOS--;TOS=*NOS;NOS--;
-        continue;
-    case CLOSE:// --
-        closesocket(soc); //Shut down socket
-        continue;
-        */
 //---- timer
 //    case ITIMER: // vector msecs --
 //        SetTimer(hWnd,0,TOS,0);
@@ -1408,12 +1362,6 @@ int noborde,i=0;
 char printername[32];
 char *aa=(char*)lpCmdLine;
 
-mimemset((char*)&wc,0,sizeof(WNDCLASSA));
-wc.style         = 0; //CS_OWNDC;
-wc.lpfnWndProc   = WndProc;
-wc.hInstance     = GetModuleHandle(0);
-wc.lpszClassName = wndclass;
-if(!RegisterClass((WNDCLASSA*)&wc)) return -1;
 
 // pila de ejecucion
 pilaexecl=pilaexec;
@@ -1424,8 +1372,15 @@ pilaexecl++;
 devmodo.dmSize = sizeof(devmodo);
 EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmodo);
 
-reboot: rebotea=SYSEVENT=0;
 
+mimemset((char*)&wc,0,sizeof(WNDCLASSA));
+wc.style         = 0; //CS_OWNDC;
+wc.lpfnWndProc   = WndProc;
+wc.hInstance     = GetModuleHandle(0);
+wc.lpszClassName = wndclass;
+if(!RegisterClass((WNDCLASSA*)&wc)) return -1;
+
+reboot: rebotea=SYSEVENT=0;
 #ifdef LOGMEM
 ldebug("ini..");
 #endif
@@ -1461,6 +1416,7 @@ if (noborde==0)
    dwStyle=WS_VISIBLE|WS_CAPTION|WS_SYSMENU;
 else
    dwStyle=WS_VISIBLE|WS_POPUP;
+if (silent==1)  dwStyle&=~WS_VISIBLE;
 ShowCursor(0);
 
 rec.left=rec.top=0;rec.right=w;rec.bottom=h;
@@ -1472,6 +1428,8 @@ hWnd=CreateWindowEx(WS_EX_APPWINDOW,wc.lpszClassName, wc.lpszClassName,dwStyle,
 if(!hWnd) return -2;
 if(!(hDC=GetDC(hWnd)))  return -3;
 if (gr_init(w,h)<0) return -1;
+
+ShowWindow(hWnd,SW_NORMAL);
 //--------------------------------------------------------------------------
 
 phDC=CreateDC("winspool", printername , NULL, NULL );
@@ -1591,29 +1549,24 @@ DeleteObject(hfnt);
 DeleteDC(phDC);
 
 ReleaseJoystick();
-//closesocket(soc); //Shut down socket
-//WSACleanup(); //Clean up Winsock
 
 gr_fin();
 
-/*            // Restore the window styles
-            DWORD style = GetWindowLongPtr(hWnd, GWL_STYLE);
-            DWORD exstyle = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
-            SetWindowLongPtr(hWnd, GWL_STYLE, style | WS_OVERLAPPEDWINDOW);
-            SetWindowLongPtr(hWnd, GWL_EXSTYLE, exstyle & (~(WS_EX_APPWINDOW | WS_EX_TOPMOST)));
-*/
-ReleaseDC(hWnd,hDC);
-DestroyWindow(hWnd);
-
-//ShowCursor(TRUE);
-*aa=0;
+if (rebotea==1)  {
+   *aa=0;
 #ifdef LOGMEM
-ldebug("REBOOT..");
-sprintf(linea," %d *****\r",rebotea);ldebug(linea);
+       ldebug("REBOOT..");
+       sprintf(linea," %d *****\r",rebotea);ldebug(linea);
 #endif
 
-if (rebotea==1) goto reboot;
+   ReleaseDC(hWnd,hDC);
+   DestroyWindow(hWnd);
+   goto reboot;
+   }
 
+
+ReleaseDC(hWnd,hDC);
+DestroyWindow(hWnd);
 ExitProcess(0);
 return 0;
 }
