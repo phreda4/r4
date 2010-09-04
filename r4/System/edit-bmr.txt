@@ -6,12 +6,18 @@
 ^r4/lib/sprite.txt
 ^r4/lib/trace.txt
 
+|-- ancho alto
+#wpx #hpx
+#bmrmap
+#bmrmap>
+
+|-- vista
+#xi 2 #yi 32
+#wi #hi
+
 #zoom
 #xd #yd
 #xcycwh 0 0 0 0
-
-#bmrmap
-#bmrmap>
 
 :savebox
 	xc yc w h 'xcycwh !+ !+ !+ ! ;
@@ -19,12 +25,100 @@
 :loadbox
 	'xcycwh @+ 'h ! @+ 'w ! @+ 'yc ! @ 'xc ! ;
 
-:drawdibujo
-	loadbox
-|	grillamodo 0? ( blanco gc.fbox ) drop
-|	'dibujoed nsprite
-|	egrilla gris 2* rgrilla
+
+:drawraw
+	sw wi - -? ( drop ; )
+	bmrmap >r
+	xi yi setxy
+	0 ( hpx <? )(
+		wpx ( 1? )( 1- r@+ px!+ ) drop
+		over px+!
+		1+ ) 2drop
+	rdrop
 	;
+
+:drawraw2x
+	sw wi 2* -
+	bmrmap >r
+	xi yi setxy
+	0 ( hpx <? )(
+		r
+		wpx ( 1? )( 1- r@+ dup px!+ px!+ ) drop
+		rdrop >r
+		over px+!
+		wpx ( 1? )( 1- r@+ dup px!+ px!+ ) drop
+		over px+!
+		1+ ) 2drop
+	rdrop
+	;
+
+:3dup dup dup dup ;
+
+:drawraw4x
+	sw wi 2 << -
+	bmrmap >r
+	xi yi setxy
+	0 ( hpx <? )(
+		r
+		wpx ( 1? )( 1- r@+ 3dup px!+ px!+ px!+ px!+ ) drop
+		rdrop >r
+		over px+!
+		r
+		wpx ( 1? )( 1- r@+ 3dup px!+ px!+ px!+ px!+ ) drop
+		rdrop >r
+		over px+!
+		r
+		wpx ( 1? )( 1- r@+ 3dup px!+ px!+ px!+ px!+ ) drop
+		rdrop >r
+		over px+!
+		wpx ( 1? )( 1- r@+ 3dup px!+ px!+ px!+ px!+ ) drop
+		over px+!
+		1+ ) 2drop
+	rdrop
+	;
+
+|--- otro encare
+:xytxt@ | x y -- v
+	wpx * + 2 << bmrmap + @ ;
+
+:pxnext | y -x -- y -x color
+	wi over - pick2 xytxt@ ;
+
+:drawraw8x
+	xi yi setxy
+	sw wi 3 << -
+	0 ( hi <? )(
+		wi ( 1? )( 1- pxnext px!+ ) drop
+		over px+!
+		1+ ) 
+	2drop
+	;
+
+:zoom0
+	xi 1- yi 1- 2dup op
+	over wi + 2 + over 2dup line hi + 2 + line
+	2dup hi + 2 + line line
+	drawraw ;
+:zoom1
+	xi 1- yi 1- 2dup op
+	over wi 2* + 2 + over 2dup line hi 2* + 2 + line
+	2dup hi 2* + 2 + line line
+	drawraw2x ;
+:zoom2
+	xi 1- yi 1- 2dup op
+	over wi 2 << + 2 + over 2dup line hi 2 << + 2 + line
+	2dup hi 2 << + 2 + line line
+	drawraw4x ;
+
+#zoomA 'zoom0
+
+:otrozoom
+	'zoom0 =? ( 'zoom1 ; )
+	'zoom1 =? ( 'zoom2 ; )
+	'zoom0 ;
+
+:cambiozoom
+	zoomA otrozoom nip 'zoomA ! ;
 
 |--------------------------------------------------
 :invistamode
@@ -33,11 +127,11 @@
 	;
 
 :vistamode
-	'invistamode 'drawdibujo onInOut
+|	'invistamode 'drawmbr onInOut
 	loadbox
 	zoom 1.3 + sh 16 *>> dup 'w ! 'h !
 	savebox
-	drawdibujo
+|	drawmbr
 	;
 
 
@@ -52,12 +146,21 @@
 
 |---- debug
 :dumpdibujo
+	hpx wpx "%dx%d" print cr
+|	bmrmap> bmrmap ( over <? )( @+ "%d " print ) 2drop
  	;
 
 ::textbmr | hasta desde --
 
 	;
 
+
+:resolucion
+ 	128 dup
+|	256 256
+|	64 64
+	2dup 'wpx ! 'hpx ! 'wi ! 'hi !
+	;
 |-----------------------------------
 :editabmr
 	0 0 fpos
@@ -67,16 +170,39 @@
 	inigui
 	'exit >esc<
 	show
-		clrscr home
-		dumpdibujo
-		cflecha	;
+		clrscr home cr2
+|		dumpdibujo
 
-::editandobmr  | hasta desde --
+		'resolucion hpx wpx "%dx%d" cr2 sp btnt
+		'exit "SAVE" sp btnt
+		'exit "CLONE" sp btnt
+		'exit "CANCEL" sp btnt
+		cr
+		32 gc.botton
+		home
+		'cambiozoom "Zoom" sp btnt
+		blanco
+		zoomA exec
+
+		cminiflecha	;
+
+#interface 0
+
+:copy
+	here 'bmrmap !
+	interface @+ swap @ | start end
+	swap
+	@+ >uv 2dup 'wpx ! 'hpx ! 'wi ! 'hi !
+	( over <? )( @+ , ) 2drop
+	here 'bmrmap> !
+	;
+
+::editandobmr  | 'datastart --
+	'interface !
 	mark
-	here dup
-	'bmrmap ! 'bmrmap> !
-	
+	copy
 	editabmr
+
 	empty ;
 
 
