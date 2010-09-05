@@ -3,6 +3,8 @@
 |--------------------------------------------------
 ^r4/lib/gui.txt
 ^r4/lib/dialogs.txt
+^r4/lib/color.txt
+
 ^r4/lib/sprite.txt
 ^r4/lib/trace.txt
 
@@ -90,7 +92,7 @@
 	0 ( hi <? )(
 		wi ( 1? )( 1- pxnext px!+ ) drop
 		over px+!
-		1+ ) 
+		1+ )
 	2drop
 	;
 
@@ -110,7 +112,7 @@
 	2dup hi 2 << + 2 + line line
 	drawraw4x ;
 
-#zoomA 'zoom0
+#zoomA 'zoom2
 
 :otrozoom
 	'zoom0 =? ( 'zoom1 ; )
@@ -155,12 +157,94 @@
 	;
 
 
-:resolucion
- 	128 dup
-|	256 256
-|	64 64
-	2dup 'wpx ! 'hpx ! 'wi ! 'hi !
+:resolucion!
+	2dup 'wpx ! 'hpx !
+	'wi ! 'hi !
 	;
+
+| cambio de resolucion
+#resol.
+
+:resol.set
+	resol. not 'resol. !
+	;
+
+:resolucion
+	resol. 0? ( drop 'resol.set hpx wpx "%dx%d" sp btnt ; ) drop
+
+	'resol.set "* x *" sp btnt
+
+|	"16x16|64x64|256x256| * x * "
+	;
+
+:cargabmp
+	;
+
+:modobmr
+	;
+
+:savebmr | dump2inteface
+	;
+
+:clonebmr
+	;
+
+:saveexit
+	;
+
+|-----------------------------------
+#dl.c
+:cl.set dl.c not 'dl.c ! ;
+
+#rlimits 0 0 320 320
+
+#dl.a
+
+#yy
+#yyy
+:slidey
+	'yyy hslide
+	yyy 0.5 + | 0..1.0
+	256 16 *>> 'yy !
+	;
+
+:drawhsv
+|	1.0 w / 'sx !
+|	1.0 h / 'sy !
+;
+
+#colorbase
+#coloractual
+
+:dlg.color | adr --
+	'dl.a !
+	'cl.set sp 28 btnbox
+	dl.c 0? ( drop ; ) drop
+	colum blanco
+	dl.a "$%h" print cr
+	"otra" print cr
+
+	ccx ccy 320 -	| ini box
+	.at
+
+	coloractual ink
+|	256 256 .fboxcroma
+
+	ccx 280 + ccy 320 - | ini croma
+	256 ( 1? )( 1- >r
+		dup 8 <<  1.0 1.0 hsv2rgb ink
+		2dup op
+		over 32 + over line
+		1+ r> ) drop
+	2drop
+	blanco
+	ccx 312 + ccy 320 - colorbase +
+	over 8 + over op line
+	;
+
+
+
+#coloractual
 |-----------------------------------
 :editabmr
 	0 0 fpos
@@ -172,15 +256,24 @@
 	show
 		clrscr home cr2
 |		dumpdibujo
-
-		'resolucion hpx wpx "%dx%d" cr2 sp btnt
-		'exit "SAVE" sp btnt
-		'exit "CLONE" sp btnt
+		rojo
+		'saveexit "ESC-SAVE+EXIT" btnt
+ 		azul
+		'savebmr "SAVE" sp btnt
+		'clonebmr "CLONE" sp btnt
 		'exit "CANCEL" sp btnt
+		cyan
+		resolucion
+
+		'cambiozoom "ZOOM" sp btnt
+
+		'cargabmp "BMP" sp btnt
+		'modobmr "MODO" sp btnt
 		cr
-		32 gc.botton
+		32 gc.botton home
+		'coloractual dlg.color
+
 		home
-		'cambiozoom "Zoom" sp btnt
 		blanco
 		zoomA exec
 
