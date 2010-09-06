@@ -193,58 +193,70 @@
 	;
 
 |-----------------------------------
+#coloractual
+#vhue #yluma #xluma
+#colorrampa
 #dl.c
+
 :cl.set dl.c not 'dl.c ! ;
 
-#rlimits 0 0 320 320
-
-#dl.a
-
-#yy
-#yyy
-:slidey
-	'yyy hslide
-	yyy 0.5 + | 0..1.0
-	256 16 *>> 'yy !
+:vhue! | nro --
+	dup 'vhue !
+	8 <<  1.0 1.0 hsv2rgb
+	 'colorrampa !
+	;
+:xyluma! | x y --
+	2dup
+	getpixel 'coloractual !
+	'yluma ! 'xluma !
 	;
 
-:drawhsv
-|	1.0 w / 'sx !
-|	1.0 h / 'sy !
-;
-
-#colorbase
-#coloractual
-
+#col.ram
 :dlg.color | adr --
-	'dl.a !
-	'cl.set sp 28 btnbox
-	dl.c 0? ( drop ; ) drop
-	colum blanco
-	dl.a "$%h" print cr
-	"otra" print cr
-
-	ccx ccy 320 -	| ini box
-	.at
-
 	coloractual ink
-|	256 256 .fboxcroma
+	'cl.set sp 30 btnboxb
+	dl.c 0? ( drop ; ) drop
 
-	ccx 280 + ccy 320 - | ini croma
-	256 ( 1? )( 1- >r
-		dup 8 <<  1.0 1.0 hsv2rgb ink
+	ccx ccy 290 -	| ini box
+	over 128 + over 128 + 'yc ! 'xc ! 256 dup 'h ! 'w !
+
+	256 ( 1? )( 1-
+		dup 0 colorrampa lerpcol
+		over dup 8 << dup 8 << or or
+		degrade32!
+		>r
+		2dup setxy
+		256 ( 1? )( 1- deg@+ px!+ ) drop
+		1+ r> ) drop
+	2drop
+    [ xymouse xyluma! ; ] onMove
+	blanco
+	xluma yluma pos
+	6 dup dim
+	gc.box
+
+	ccx 280 + ccy 290 - | ini croma
+	over 20 + over 128 + 'yc ! 'xc ! 256 'h ! 40 'w !
+	256 ( 1? )( 1-
+		255 over - 8 <<  1.0 1.0 hsv2rgb ink
+		>r
 		2dup op
 		over 32 + over line
 		1+ r> ) drop
 	2drop
+    [ xymouse nip ccy 290 - - vhue! ; ] onMove
 	blanco
-	ccx 312 + ccy 320 - colorbase +
+	ccx 312 + ccy 290 - vhue +
 	over 8 + over op line
+
+	colum blanco
+	coloractual "     %h" print
+
+|	vhue " %h " print
+|	yluma xluma "x:%d y:%d " print
+|	colorrampa "%h" print
 	;
 
-
-
-#coloractual
 |-----------------------------------
 :editabmr
 	0 0 fpos
@@ -271,7 +283,7 @@
 		'modobmr "MODO" sp btnt
 		cr
 		32 gc.botton home
-		'coloractual dlg.color
+		dlg.color
 
 		home
 		blanco
