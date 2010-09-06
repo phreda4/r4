@@ -13,19 +13,8 @@
 #bmrmap>
 
 |-- vista
-#xi 2 #yi 32
+#xi 2 #yi 2
 #wi #hi
-
-#zoom
-#xd #yd
-#xcycwh 0 0 0 0
-
-:savebox
-	xc yc w h 'xcycwh !+ !+ !+ ! ;
-
-:loadbox
-	'xcycwh @+ 'h ! @+ 'w ! @+ 'yc ! @ 'xc ! ;
-
 
 :drawraw
 	sw wi - -? ( drop ; )
@@ -78,6 +67,22 @@
 	rdrop
 	;
 
+|------
+:setbmr! | x y --
+	yi - swap xi - swap
+	wpx * + 2 <<
+	bmrmap + coloractual swap ! ;
+
+:setbmr2! | x y --
+	yi - 2/ swap xi - 2/ swap
+	wpx * + 2 <<
+	bmrmap + coloractual swap ! ;
+
+:setbmr4! | x y --
+	yi - 2 >> swap xi - 2 >> swap
+	wpx * + 2 <<
+	bmrmap + coloractual swap ! ;
+
 |--- otro encare
 :xytxt@ | x y -- v
 	wpx * + 2 << bmrmap + @ ;
@@ -96,20 +101,37 @@
 	;
 
 :zoom0
-	xi 1- yi 1- 2dup op
+	xi 1- yi 1-
+	over wi 2/ + over hi 2/ + 'yc ! 'xc ! wi 'w ! hi 'h !
+	[ tpen drop ; ] onDn
+	[ 'setbmr! tpenmap ; ] onMove
+
+	2dup op
 	over wi + 2 + over 2dup line hi + 2 + line
 	2dup hi + 2 + line line
-	drawraw ;
+	drawraw
+	;
 :zoom1
-	xi 1- yi 1- 2dup op
+	xi 1- yi 1-
+	over wi + over hi + 'yc ! 'xc ! wi 2* 'w ! hi 2* 'h !
+	[ tpen drop ; ] onDn
+	[ 'setbmr2! tpenmap ; ] onMove
+
+	2dup op
 	over wi 2* + 2 + over 2dup line hi 2* + 2 + line
 	2dup hi 2* + 2 + line line
-	drawraw2x ;
+	drawraw2x
+	;
 :zoom2
-	xi 1- yi 1- 2dup op
+	xi 1- yi 1-
+	over wi 2* + over hi 2* + 'yc ! 'xc ! wi 2 << 'w ! hi 2 << 'h !
+	[ tpen drop ; ] onDn
+	[ 'setbmr4! tpenmap ; ] onMove
+	2dup op
 	over wi 2 << + 2 + over 2dup line hi 2 << + 2 + line
 	2dup hi 2 << + 2 + line line
-	drawraw4x ;
+	drawraw4x
+	;
 
 #zoomA 'zoom2
 
@@ -121,23 +143,10 @@
 :cambiozoom
 	zoomA otrozoom nip 'zoomA ! ;
 
-|--------------------------------------------------
-:invistamode
-	[ xymouse 'yd ! 'xd ! ; ] onDn
-	[ xymouse loadbox dup yd - 'yc +! 'yd ! dup xd - 'xc +! 'xd ! savebox ;	] onMove
-	;
-
-:vistamode
-|	'invistamode 'drawmbr onInOut
-	loadbox
-	zoom 1.3 + sh 16 *>> dup 'w ! 'h !
-	savebox
-|	drawmbr
-	;
-
-
 |-----------------------------------
 ::resetbmr
+	bmrmap ( bmrmap> <? )(
+		0 swap !+ ) drop
 	;
 
 :borrodib
@@ -150,11 +159,6 @@
 	hpx wpx "%dx%d" print cr
 |	bmrmap> bmrmap ( over <? )( @+ "%d " print ) 2drop
  	;
-
-::textbmr | hasta desde --
-
-	;
-
 
 :resolucion!
 	2dup 'wpx ! 'hpx !
@@ -169,11 +173,17 @@
 	;
 
 :resolucion
-	resol. 0? ( drop 'resol.set hpx wpx "%dx%d" sp btnt ; ) drop
+	'resol.set hpx wpx "%dx%d" sp btnt
+	resol. 0? ( drop ; ) drop
 
-	'resol.set "* x *" sp btnt
-
-|	"16x16|64x64|256x256| * x * "
+	tgc.push
+	128 256 gc.window
+	gc.fbox home
+	[ 16 dup resolucion! ; ] "16x16" btnt cr cr2
+	[ 64 dup resolucion! ; ] "64x64" btnt cr cr2
+	[ 256 dup resolucion! ; ] "256x256" btnt cr cr2
+	[ 1024 dup resolucion! ; ] "1kx1k" btnt
+	tgc.pop
 	;
 
 :cargabmp
@@ -191,28 +201,30 @@
 :saveexit
 	;
 
+:realdibujo
+	;
 |-----------------------------------
 :modoe
-	trazo.in
-	cminiflecha
+
+|	trazo.in
+|	'realdibujo onClick
+	cminilapiz
 	;
 
 #modoi 'modoe
 
 |-----------------------------------
 :editabmr
-	0 0 fpos
-	-0.5 'zoom !
-	zoom 1.3 + sh 16 *>> dup 'w ! 'h !
-	savebox
 	inigui
 	'exit >esc<
 	trazo.ini
-	show
-		clrscr home cr2
+	show clrscr
 |		dumpdibujo
+		32 gc.botton home
+		font-vard-12-bold
+		dlg.color acr2
 		rojo
-		'saveexit "ESC-SAVE+EXIT" btnt
+		'saveexit "ESC-SAVE+EXIT" sp btnt
  		azul
 		'savebmr "SAVE" sp btnt
 		'clonebmr "CLONE" sp btnt
@@ -223,16 +235,14 @@
 		'cambiozoom "ZOOM" sp btnt
 
 		'cargabmp "BMP" sp btnt
+	dlg.file
 		'modobmr "MODO" sp btnt
-		cr
-		32 gc.botton home
-		dlg.color
 
 		home
 		blanco
 		zoomA exec
 
-	scr trazo.in
+		scr |trazo.in
 		modoi onIDLE ;
 
 #interface 0
