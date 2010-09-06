@@ -20,6 +20,18 @@
 	swap $00000f and 16 << dup 4 << or
 	dup 'bc ! - swap / 'sb ! ;
 
+::degrade32! |  $ff $ff00 --
+    over $ff0000 and
+	over $ff0000 and
+	dup 'rc ! - 8 >> 'sr !
+    over $ff00 and 8 <<
+	over $ff00 and 8 <<
+	dup 'gc ! - 8 >> 'sg !
+    $ff and 16 << swap
+	$ff and 16 << swap 
+	dup 'bc ! - 8 >> 'sb ! ;
+
+
 ::deg@+ | -- color
 	rc dup sr + 'rc ! $ff0000 and
 	gc dup sg + 'gc ! 8 >> $ff00 and or
@@ -38,8 +50,18 @@
 
 ::ink12 | -- ink12
 	ink@
-    dup  $f00000 and dup 4 >> or
+    dup $f00000 and dup 4 >> or
 	over $000f00 and 8 << dup 4 << or ;
+
+::24to12
+    dup  $f00000 and 12 >>
+	over $f000 and 8 >> or
+	swap $f0 and 4 >> or ;
+
+::lerpcol | t a b -- c | t 0..$ff
+	dup
+	$ff00ff and pick2 $ff00ff and - pick3 8 *>> pick2 + $ff00ff and >r
+	$ff00 and over $ff00 and - rot 8 *>> + $ff00 and r> or ;
 
 #xa #ya
 
@@ -63,6 +85,7 @@
 		1 'ya +!
 		) 2drop ;
 
+
 ::.fboxdh | w h --
 	( 1? )( 1-
 		xa ya setxy
@@ -83,22 +106,6 @@
 			deg@+ px!+
 			) drop
 		1 'ya +!
-		) 2drop ;
-
-::.fboxcroma | w h --
-	dup ink12 $fff000 or degrade!
-	*deg
-	xa ya setxy
-	( 1? )( 1-
-		over
-		dup degnow $777 or degrade!
-		( 1? )( 1-
-			deg@+ px!+
-			) drop
-		*deg
-|		deg*
-		1 'ya +!
-
 		) 2drop ;
 
 
