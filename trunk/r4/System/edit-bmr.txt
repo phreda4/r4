@@ -90,7 +90,7 @@
 :pxnext | y -x -- y -x color
 	wi over - pick2 xytxt@ ;
 
-:drawraw8x
+:drawrawXx
 	xi yi setxy
 	sw wi 3 << -
 	0 ( hi <? )(
@@ -100,11 +100,12 @@
 	2drop
 	;
 
+|------- modos
 :zoom0
 	xi 1- yi 1-
 	over wi 2/ + over hi 2/ + 'yc ! 'xc ! wi 'w ! hi 'h !
-	[ tpen drop ; ] onDn
-	[ 'setbmr! tpenmap ; ] onMove
+	[ 'setbmr! tpenini ; ] onDn
+	[ tpenline ; ] onMove
 
 	2dup op
 	over wi + 2 + over 2dup line hi + 2 + line
@@ -114,8 +115,8 @@
 :zoom1
 	xi 1- yi 1-
 	over wi + over hi + 'yc ! 'xc ! wi 2* 'w ! hi 2* 'h !
-	[ tpen drop ; ] onDn
-	[ 'setbmr2! tpenmap ; ] onMove
+	[ 'setbmr2! tpenini ; ] onDn
+	[  tpenline ; ] onMove
 
 	2dup op
 	over wi 2* + 2 + over 2dup line hi 2* + 2 + line
@@ -125,8 +126,8 @@
 :zoom2
 	xi 1- yi 1-
 	over wi 2* + over hi 2* + 'yc ! 'xc ! wi 2 << 'w ! hi 2 << 'h !
-	[ tpen drop ; ] onDn
-	[ 'setbmr4! tpenmap ; ] onMove
+	[ 'setbmr4! tpenini ; ] onDn
+	[ tpenline ; ] onMove
 	2dup op
 	over wi 2 << + 2 + over 2dup line hi 2 << + 2 + line
 	2dup hi 2 << + 2 + line line
@@ -165,26 +166,26 @@
 	'wi ! 'hi !
 	;
 
-| cambio de resolucion
-#resol.
-
-:resol.set
-	resol. not 'resol. !
-	;
-
-:resolucion
-	'resol.set hpx wpx "%dx%d" sp btnt
-	resol. 0? ( drop ; ) drop
-
+|
+:winresol
+	gris
 	tgc.push
 	128 256 gc.window
-	gc.fbox home
-	[ 16 dup resolucion! ; ] "16x16" btnt cr cr2
-	[ 64 dup resolucion! ; ] "64x64" btnt cr cr2
-	[ 256 dup resolucion! ; ] "256x256" btnt cr cr2
-	[ 1024 dup resolucion! ; ] "1kx1k" btnt
+	gc.fbox home cr2
+	[ 16 dup resolucion! ; ] "16x16" sp btnt cr cr2
+	[ 64 dup resolucion! ; ] "64x64" sp btnt cr cr2
+	[ 256 dup resolucion! ; ] "256x256" sp btnt cr cr2
+	[ 1024 dup resolucion! ; ] "1kx1k" sp btnt
 	tgc.pop
 	;
+
+#winr
+
+:resolucion
+	winr 1? ( winresol ) drop
+	[ winr not 'winr ! ; ] hpx wpx " %dx%d " sp amarillo btnt
+	;
+
 
 :cargabmp
 	;
@@ -208,17 +209,19 @@
 
 |	trazo.in
 |	'realdibujo onClick
-	cminilapiz
 	;
 
 #modoi 'modoe
 
 |-----------------------------------
 :editabmr
+	sw 2/ 'xi !
+	sh 2/ 'yi !
+
 	inigui
 	'exit >esc<
 	trazo.ini
-	show clrscr
+	show clrscr home
 |		dumpdibujo
 		32 gc.botton home
 		font-vard-12-bold
@@ -230,12 +233,13 @@
 		'clonebmr "CLONE" sp btnt
 		'exit "CANCEL" sp btnt
 		cyan
+
 		resolucion
 
 		'cambiozoom "ZOOM" sp btnt
 
 		'cargabmp "BMP" sp btnt
-	dlg.file
+		dlg.file
 		'modobmr "MODO" sp btnt
 
 		home
@@ -243,7 +247,8 @@
 		zoomA exec
 
 		scr |trazo.in
-		modoi onIDLE ;
+		modoi onIDLE
+		cminilapiz ;
 
 #interface 0
 
