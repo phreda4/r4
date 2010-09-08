@@ -2,6 +2,7 @@
 | estructura para trazos en 32 bits
 | interface con TPEN
 |-------------
+^r4/lib/trace.txt
 
 | trazointerno
 #trazo 0
@@ -72,6 +73,9 @@
 	;
 
 
+::trazo.cnt | valor -- 1/0
+	trazo> trazo - 2 >> ;
+	
 |------- habilita trazo y dibuja
 ::trazo.in
 	'trazo.start onDn
@@ -111,7 +115,44 @@
 	( 1? )( 1- swap @+ >uv pick4 exec swap )
 	3drop ;
 
-::tpenline | 'set --
+|-----------
+#vec
+#xa #ya
+
+:hline | xd yd xa --
+	pick2 - 0? ( drop vec exec ; )
+	-? ( rot over + rot rot neg )
+	( 1? )( 1- >r
+		2dup vec exec
+		swap 1+ swap
+		r> ) 3drop
+	;
+
+:rline | xd yd --
+	ya =? ( xa hline ; )
+	ya <? ( xa ya )( xa ya 2swap )	| xm ym xM yM
+	pick2 - >r			| xm ym xM  r:canty
+	pick2 - r 16 <</
+	rot 16 << rot rot
+	r> 				|xm<<16 ym delta canty
+	( 1? )( 1- >r >r
+		over 16 >> over pick3 r + 16 >> hline
+		1+ swap
+		r + swap
+		r> r> )
+	4drop
+	;
+
+:vline! | x y --
+	2dup rline
+	'ya ! 'xa ! ;
+
+::tpenini | 'set --
+	'vec !
+	tpen drop
+	xymouse 'ya ! 'xa ! ;
+
+::tpenline | --
 	tpen @+ 0? ( 2drop ; )
-	( 1? )( 1- swap @+ >uv pick4 exec swap )
-	3drop ;
+	( 1? )( 1- swap @+ >uv vline! swap )
+	2drop ;
