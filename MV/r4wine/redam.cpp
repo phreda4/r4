@@ -730,10 +730,14 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
          buffData=(char*)TOS;
          hOpen = InternetOpen("InetURL/1.0",INTERNET_OPEN_TYPE_DIRECT,NULL,NULL,0);
          hURL = InternetOpenUrl(hOpen,(char*)(*(NOS-1)),(char*)(*NOS),0,0,0);
-         InternetReadFile(hURL,buffData,0xfffff,&readData); // 1MB pagina
+         NOS-=2;
+         do {
+            InternetReadFile(hURL,buffData,2048,&readData);
+            buffData+=readData;
+         } while (readData!=0);
          InternetCloseHandle(hURL);
          InternetCloseHandle(hOpen);
-         NOS-=2;TOS=(int)(buffData+readData);
+         TOS=(int)buffData;
          continue;   
 #endif
 
