@@ -12,137 +12,93 @@
 #bmrmap
 #bmrmap>
 
-|-- vista
-#xi 2 #yi 2
-#wi #hi
+|-- pantalla
+#xi #yi		| donde esta el pixel 0,0
+#wi #hi		| ancho y alto de todo los pixels
 
-:drawraw
-	sw wi - -? ( drop ; )
-	bmrmap >r
-	xi yi setxy
-	0 ( hpx <? )(
-		wpx ( 1? )( 1- r@+ px!+ ) drop
-		over px+!
-		1+ ) 2drop
-	rdrop
-	;
+|-- origen
+#xo #yo		| origen de pantalla
+#wo #ho		| ancho y alto que dibuja en pantalla
+#xd #yd
 
-:drawraw2x
-	sw wi 2* -
-	bmrmap >r
-	xi yi setxy
-	0 ( hpx <? )(
-		r
-		wpx ( 1? )( 1- r@+ dup px!+ px!+ ) drop
-		rdrop >r
-		over px+!
-		wpx ( 1? )( 1- r@+ dup px!+ px!+ ) drop
-		over px+!
-		1+ ) 2drop
-	rdrop
-	;
+#res 1
 
-:3dup dup dup dup ;
 
-:drawraw4x
-	sw wi 2 << -
-	bmrmap >r
-	xi yi setxy
-	0 ( hpx <? )(
-		r
-		wpx ( 1? )( 1- r@+ 3dup px!+ px!+ px!+ px!+ ) drop
-		rdrop >r
-		over px+!
-		r
-		wpx ( 1? )( 1- r@+ 3dup px!+ px!+ px!+ px!+ ) drop
-		rdrop >r
-		over px+!
-		r
-		wpx ( 1? )( 1- r@+ 3dup px!+ px!+ px!+ px!+ ) drop
-		rdrop >r
-		over px+!
-		wpx ( 1? )( 1- r@+ 3dup px!+ px!+ px!+ px!+ ) drop
-		over px+!
-		1+ ) 2drop
-	rdrop
-	;
-
-|------
-:setbmr! | x y --
-	yi - swap xi - swap
+:bmr!m | x y --
+	yi - res / swap xi - res / swap
+:bmr!
 	wpx * + 2 <<
 	bmrmap + coloractual swap ! ;
 
-:setbmr2! | x y --
-	yi - 2/ swap xi - 2/ swap
-	wpx * + 2 <<
-	bmrmap + coloractual swap ! ;
-
-:setbmr4! | x y --
-	yi - 2 >> swap xi - 2 >> swap
-	wpx * + 2 <<
-	bmrmap + coloractual swap ! ;
-
-|--- otro encare
-:xytxt@ | x y -- v
+:bmr@m | x y -- c
+	yi - res / swap xi - res / swap
+:bmr@ | x y -- c
 	wpx * + 2 << bmrmap + @ ;
 
-:pxnext | y -x -- y -x color
-	wi over - pick2 xytxt@ ;
+:ajustai |
+	| imagen real
+	wpx res * sw >? ( sw nip ) 'wi !
+	hpx res * sh >? ( sh nip ) 'hi !
+	sw 2/ wi 2/ - 'xi !
+	sh 2/ hi 2/ - 'yi !
 
-:drawrawXx
-	xi yi setxy
-	sw wi 3 << -
-	0 ( hi <? )(
-		wi ( 1? )( 1- pxnext px!+ ) drop
+	xi -? ( 0 nip ) 'xo !
+	yi -? ( 0 nip ) 'yo !
+
+	wi 'wo !
+	hi 'ho !
+	0 dup 'xd ! 'yd !
+|	xo wi + sw >? ( sw - ) 'wo !
+|	yo hi + sh >? ( sh - ) 'ho !
+	;
+
+|-- dibujo
+
+#xa #ya
+#xs #ys
+
+:getxybmr | x y -- c
+	xa 16 >> ya 16 >>
+	wpx * + 2 << bmrmap + @ ;
+
+:drawmap | --
+	xi -? ( neg res / )( 0 nip ) 16 << dup 'xa !
+	yi -? ( neg res / )( 0 nip ) 16 << 'ya !
+	1.0 res / dup 'xs ! 'ys !
+	xo yo setxy
+	sw wo - | columna
+	0 ( ho <? )(
+		0 ( wo <? )(
+			getxybmr px!+
+			xs 'xa +!
+			1+ ) drop
 		over px+!
-		1+ )
+		ys 'ya +!
+		pick2 'xa !
+		1+ ) drop
 	2drop
 	;
 
-|------- modos
-:zoom0
-	xi 1- yi 1-
-	over wi 2/ + over hi 2/ + 'yc ! 'xc ! wi 'w ! hi 'h !
-	[ 'setbmr! tpenini ; ] onDn
+:drawbmr | --
+	xi wi 2/ + 1- yi hi 2/ + 1-  'yc ! 'xc !
+	wi 1+ 'w ! hi 1+ 'h !
+	blanco gc.box
+	-2 dup 'w +! 'h +!
+	[ 'bmr!m tpenini ; ] onDn
 	[ tpenline ; ] onMove
 
-	2dup op
-	over wi + 2 + over 2dup line hi + 2 + line
-	2dup hi + 2 + line line
-	drawraw
-	;
-:zoom1
-	xi 1- yi 1-
-	over wi + over hi + 'yc ! 'xc ! wi 2* 'w ! hi 2* 'h !
-	[ 'setbmr2! tpenini ; ] onDn
-	[  tpenline ; ] onMove
+	drawmap	;
 
-	2dup op
-	over wi 2* + 2 + over 2dup line hi 2* + 2 + line
-	2dup hi 2* + 2 + line line
-	drawraw2x
-	;
-:zoom2
-	xi 1- yi 1-
-	over wi 2* + over hi 2* + 'yc ! 'xc ! wi 2 << 'w ! hi 2 << 'h !
-	[ 'setbmr4! tpenini ; ] onDn
-	[ tpenline ; ] onMove
-	2dup op
-	over wi 2 << + 2 + over 2dup line hi 2 << + 2 + line
-	2dup hi 2 << + 2 + line line
-	drawraw4x
+|---- zoom
+:bz+
+	res 1+ 16 >? ( 1 nip ) 'res !
+	ajustai
 	;
 
-#zoomA 'zoom2
-
-:otrozoom
-	'zoom0 =? ( 'zoom1 ; )
-	'zoom1 =? ( 'zoom2 ; )
-	'zoom0 ;
-
-:cambiozoom
-	zoomA otrozoom nip 'zoomA ! ;
+:bz-
+	res 1- 0? ( 16 nip ) 'res !
+	ajustai
+	;
 
 |-----------------------------------
 ::resetbmr
@@ -162,8 +118,11 @@
  	;
 
 :resolucion!
-	2dup 'wpx ! 'hpx !
-	'wi ! 'hi !
+	| falta ajustar el dibujo
+
+	2dup * 2 << bmrmap + 'bmrmap> !
+	'wpx ! 'hpx !
+	ajustai
 	;
 
 |
@@ -173,7 +132,9 @@
 	128 256 gc.window
 	gc.fbox home cr2
 	[ 16 dup resolucion! ; ] "16x16" sp btnt cr cr2
+	[ 32 dup resolucion! ; ] "32x32" sp btnt cr cr2
 	[ 64 dup resolucion! ; ] "64x64" sp btnt cr cr2
+	[ 128 dup resolucion! ; ] "128x128" sp btnt cr cr2
 	[ 256 dup resolucion! ; ] "256x256" sp btnt cr cr2
 	[ 1024 dup resolucion! ; ] "1kx1k" sp btnt
 	tgc.pop
@@ -199,27 +160,34 @@
 :clonebmr
 	;
 
+|-----------------------
+#interface 0
+
+:copy
+	here 'bmrmap !
+	interface @+ swap @ | start end
+	swap
+	@+ >uv 'wpx ! 'hpx !
+	( over <? )( @+ , ) 2drop
+	here 'bmrmap> !
+
+	ajustai	;
+
+:recopy
+	here
+	wpx hpx uv> ,
+	bmrmap ( bmrmap> <? )(
+		@+ , ) drop
+	here swap  interface !+ !
+	;
+
 :saveexit
-	;
-
-:realdibujo
-	;
-|-----------------------------------
-:modoe
-
-|	trazo.in
-|	'realdibujo onClick
-	;
-
-#modoi 'modoe
+	recopy exit ;
 
 |-----------------------------------
 :editabmr
-	sw 2/ 'xi !
-	sh 2/ 'yi !
-
 	inigui
-	'exit >esc<
+	'saveexit >esc<
 	trazo.ini
 	show clrscr home
 |		dumpdibujo
@@ -236,7 +204,8 @@
 
 		resolucion
 
-		'cambiozoom "ZOOM" sp btnt
+		'bz- "Z-" sp btnt
+		'bz+ "Z+" sp btnt
 
 		'cargabmp "BMP" sp btnt
 		dlg.file
@@ -244,29 +213,19 @@
 
 		home
 		blanco
-		zoomA exec
+
+|		zoomA exec
+        drawbmr
 
 		scr |trazo.in
-		modoi onIDLE
 		cminilapiz ;
 
-#interface 0
-
-:copy
-	here 'bmrmap !
-	interface @+ swap @ | start end
-	swap
-	@+ >uv 2dup 'wpx ! 'hpx ! 'wi ! 'hi !
-	( over <? )( @+ , ) 2drop
-	here 'bmrmap> !
-	;
 
 ::editandobmr  | 'datastart --
 	'interface !
 	mark
 	copy
 	editabmr
-
 	empty ;
 
 

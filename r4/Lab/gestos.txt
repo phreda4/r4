@@ -20,6 +20,8 @@
 
 #campocursor
 
+#colorultimo
+
 #zoom
 #xd #yd
 #xcycwh 0 0 0 0
@@ -43,8 +45,11 @@
 	;
 
 |----------------
-:,dib	
+:,dib
 	dibujo> !+ 0 over ! 'dibujo> ! ;
+
+:,dibcolor
+	coloractual 4 << $b  or ,dib ;
 
 |-------------
 :,str | c --
@@ -62,6 +67,7 @@
 	'string 'string> !
 	0 'boxlist !
 	0 'dibujo !
+	coloractual 1- 'colorultimo !
 	trazo.cls
     ;
 
@@ -173,13 +179,10 @@
 :addline
 	1 'modot !
 	trazo.cnt 2 <? ( drop trazo.cls ; ) drop
+	coloractual colorultimo <>? ( 'colorultimo ! ,dibcolor )( drop )
 	'creapoli trazo.map
 	trazo.cls ;
 
-:cursordibuja
-	trazo.in
-	'addline onClick
-	;
 
 |---- cursor de seleccion
 :cursorselec | --
@@ -195,6 +198,17 @@
 :loadmem	"mem/test.gst" loadgst ;
 :savemem    "mem/test.gst" savegst ;
 
+
+
+:cursordibuja
+	loadbox
+	'dibujo nsprite
+    coloractual ink
+	trazo.in
+	[  trazo.cls ; ] onDn
+	'addline onClick
+	;
+
 #modoc 'cursordibuja
 
 :dibujando!
@@ -202,25 +216,25 @@
 :seleccionando!
 	'cursorselec 'modoc ! ;
 
-
 :keyenter
 	modoc 'cursordibuja
 	=? ( 'cursorselec )( 'cursordibuja )
 	nip 'modoc ! ;
 
+#cursorp
 |---------------------
 :main
-	sw dup 2/ 'xc ! 1+ 'w !
-	sh dup 2/ 'yc ! 1+ 'h !
-	savebox
+	sw dup 2/ 'xc ! 4 << 'w !
+	sh dup 2/ 'yc ! 64 - 4 << 'h !
 
+	savebox
     inigui
 	'exit >esc<
 |	'pasatrazo <f1>
 	'keyenter <enter>
 	dibujando!
 	show clrscr
-		font-vard-12-bold
+		font-vard-12-bold home
 		32 gc.top
 |		verde dup " :R%d" print
 |		blanco "GESTO " print
@@ -242,19 +256,18 @@
 |		dup <f3> "f3-Color" btnt | color al azar
 |    	sp 'makemtr dup <f4> "f4-2mtr" btnt
 
-		scr fonti home blanco
-		dup "%d" print 	cr
-		trazo.debug
-		|trazopoli
+		'exit "<" sp btnt
+		'exit cursorp " %d " sp btnt
+		'exit ">" sp btnt
 
-		32 32 gc.vbetween scr home
-|		drawbox
-|------------------
-|:drawdibujo
-		loadbox
-		'dibujo nsprite
-        coloractual ink
+		scr fonti home blanco
+		dup "%d " print
+ 		trazo.debug cr
+|		'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop
+
+		|trazopoli
 		modoc onIDLE
+
 
 		cminilapiz ;
 
@@ -262,6 +275,7 @@
 :
 mark
 trazo.ini
+reset
 loadmem
 4 main
 savemem
