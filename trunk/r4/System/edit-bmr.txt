@@ -1,11 +1,14 @@
 | Editor de bmr (BITMAPR)
 | PHREDA 2010
 |--------------------------------------------------
-^r4/lib/gui.txt
+^r4/lib/gui3.txt
 ^r4/lib/dlg.txt
 ^r4/lib/sprite.txt
 ^r4/lib/trazo.txt
+^r4/lib/leebmp.txt
+
 ^r4/lib/trace.txt
+
 
 |-- ancho alto
 #wpx #hpx
@@ -21,8 +24,13 @@
 #wo #ho		| ancho y alto que dibuja en pantalla
 #xd #yd
 
-#res 1
+#res 16
 
+#xa #ya	| dibujo con zoom
+#xs #ys
+
+::bmrW
+	wpx ;
 
 :bmr!m | x y --
 	yi - res / swap xi - res / swap
@@ -50,12 +58,12 @@
 	0 dup 'xd ! 'yd !
 |	xo wi + sw >? ( sw - ) 'wo !
 |	yo hi + sh >? ( sh - ) 'ho !
+
+	1.0 res / dup 'xs ! 'ys !
 	;
 
 |-- dibujo
 
-#xa #ya
-#xs #ys
 
 :getxybmr | x y -- c
 	xa 16 >> ya 16 >>
@@ -64,7 +72,6 @@
 :drawmap | --
 	xi -? ( neg res / )( 0 nip ) 16 << dup 'xa !
 	yi -? ( neg res / )( 0 nip ) 16 << 'ya !
-	1.0 res / dup 'xs ! 'ys !
 	xo yo setxy
 	sw wo - | columna
 	0 ( ho <? )(
@@ -117,6 +124,7 @@
 |	bmrmap> bmrmap ( over <? )( @+ "%d " print ) 2drop
  	;
 
+|---- cambia resolucion
 :resolucion!
 	| falta ajustar el dibujo
 
@@ -125,7 +133,6 @@
 	ajustai
 	;
 
-|
 :winresol
 	gris
 	tgc.push
@@ -147,8 +154,10 @@
 	[ winr not 'winr ! ; ] hpx wpx " %dx%d " sp amarillo btnt
 	;
 
-
+|--- carga bmp
 :cargabmp
+	256 dup gc.window
+	gc.fbox
 	;
 
 :modobmr
@@ -181,6 +190,11 @@
 	here swap  interface !+ !
 	;
 
+:clsbmr
+	bmrmap ( bmrmap> <? )(
+		0 swap !+ ) drop
+
+	;
 :saveexit
 	recopy exit ;
 
@@ -189,9 +203,13 @@
 	inigui
 	'saveexit >esc<
 	trazo.ini
-	show clrscr home
+	show clrscr
+		|		zoomA exec
+        drawbmr
+
+		|home
 |		dumpdibujo
-		32 gc.botton home
+		scr 32 gc.botton home
 		font-vard-12-bold
 		dlg.color acr2
 		rojo
@@ -209,13 +227,9 @@
 
 		'cargabmp "BMP" sp btnt
 		dlg.file
+		'clsbmr "CLS" sp btnt
 		'modobmr "MODO" sp btnt
 
-		home
-		blanco
-
-|		zoomA exec
-        drawbmr
 
 		scr |trazo.in
 		cminilapiz ;
