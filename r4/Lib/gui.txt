@@ -1,102 +1,149 @@
 |------------------------------
-| gui - PHREDA
+| gui.txt - PHREDA
 | Immediate mode gui for :r4
-|
 |------------------------------
 ^r4/lib/gc.txt
+^r4/lib/color.txt
+^r4/lib/cursor.txt
 ^r4/lib/grpix.txt
 ^r4/lib/font.txt
-^r4/lib/sprite.txt
-^r4/lib/cursor.txt
 ^r4/lib/show.txt
 
-#bmouse..
-#click..
-#ejecuto..
 
-#foco
-#lastfoco
+|--- state
+#active #activenow
+#hot	#hotnow
+#foco	#foconow
 
+|--- id
+#id
 #idf	| id actual
 #idl	| id ultimo
 
-||  Edita linea
+|---  Edita linea
 #cmax
 #padi>	| inicio
 #pad>	| cursor
 #padf>	| fin
 
 |---------
-:dumpgui
-	fonti home cr cr cr cr
-	bmouse.. "bmouse..%d " print cr
-	click.. "click..%d " print cr
-	foco "foco%d " print cr
-	lastfoco "lastfoco%d " print cr
-	cmax "cmax%d " print cr
-	padi> "padi>	| inicio%d " print cr
-	pad> "pad>| cursor%d " print cr
-	padf> "padf>| fin%d " print cr
+::gui.debug
+	idf id "ID:%d IDF:%d " print cr
+	foconow foco "foco:%d now:%d" print cr
+	hotnow hot "hot:%d now:%d" print cr
+	activenow active "active:%d now:%d" print cr
+
+|---debug texto
+|	cmax "cmax%d " print cr
+|	padi> "padi>	| inicio%d " print cr
+|	pad> "pad>| cursor%d " print cr
+|	padf> "padf>| fin%d " print cr
 	;
 
 ::clrscr
-	0 'ejecuto.. !
 	idf 'idl !	| ultimo
-	0 'idf !	| primero
-	cls scr
-	bmouse bmouse.. =? ( drop 0 'click.. ! | dumpgui
-	; )
-	0? ( 1 )( -1 ) 'click.. !
-	'bmouse.. ! ;
+	active 'activenow !
+	hot 'hotnow !
+
+	0 'idf !	| primero foco
+	0 'id !     | primero hot
+	0 'active !
+	0 'hot !
+
+	cls scr ;
 
 ::xfb>scr
 	idf 'idl !	| ultimo
-	0 'idf !	| primero
-	xfb> scr
-	bmouse bmouse.. =? ( drop 0 'click.. ! ; )
-	0? ( 1 )( -1 ) 'click.. !
-	'bmouse.. !
-	;
+	active 'activenow !
+	hot 'hotnow !
+
+	0 'idf !	| primero foco
+	0 'id !     | primero hot
+	0 'active !
+	0 'hot !
+
+	xfb> scr ;
 
 ::inigui
 	key.push inikey
-	0 'foco  ! -1 'lastfoco !
+	0 'foco  ! -1 'foconow !
 	;
 
 ::exit
 	1 '.exit !
-	0 'foco  ! -1 'lastfoco !
+	0 'foco  ! -1 'foconow !
 	key.pop ;
 
-|-------------------------------
-::onIn | 'vec --
+|--- in
+::guiIn | 'vec --
 	xymouse whin 0? ( 2drop ; ) drop
-	1 'ejecuto.. !
 	exec ;
 
-::onMove | 'vec --
+|--- boton
+::guiBtn | 'up  --
+	1 'id +!
+	id
+	xymouse whin 0? ( 3drop ; ) drop
+	activenow =? (
+		bmouse 0? ( 2drop exec ; ) drop |		*Up*
+		)
+	hotnow =? (
+		bmouse 1? ( over 'active ! ) drop
+		)
+	'hot !
+	drop
+	;
+
+|-- move
+::guiMove | 'move --
+	1 'id +!
+	id
+	xymouse whin 0? ( 3drop ; ) drop
+	activenow =? (
+		bmouse 0? ( 3drop ; ) drop |		*Up*
+		'active !
+		exec |*move*
+		;
+		)
+	hotnow =? (
+		bmouse 1? ( over 'active ! ) drop
+		)
+	'hot !
+	drop
+	;
+
+|-- mapa
+::guiMap | 'dn 'move 'up --
+	1 'id +!
+	id
+	xymouse whin 0? ( nip 4drop ; ) drop
+	activenow =? (
+		bmouse 0? ( 2drop nip nip exec ; ) drop |		*Up*
+		'active !
+		drop nip exec |*move*
+		;
+		)
+	hotnow =? (
+		bmouse 1? ( drop 'active ! 2drop exec ; ) drop
+		)
+	'hot !
+	3drop
+	;
+
+::guiEmpty | --
+	1 'id +!
+	id
 	xymouse whin 0? ( 2drop ; ) drop
-	bmouse 0? ( 2drop ; ) drop
-	1 'ejecuto.. !
-	exec ;
+	activenow =? (
+		bmouse 0? ( 2drop ; ) drop |		*Up*
+		)
+	hotnow =? (
+		bmouse 1? ( over 'active ! ) drop
+		)
+	'hot ! 
+	;
 
-::onInOut | 'vecin 'vecout --
-	xymouse whin 1? ( 2drop )( drop nip )
-	1 'ejecuto.. !
-	exec ;
-
-::onClick | 'vec --
-	click.. 0? ( 2drop ; ) -? ( 2drop ; ) drop
-	xymouse whin 0? ( 2drop ; ) drop
-	0 'click.. ! 1 'ejecuto.. !
-	exec ;
-
-::onDn | 'vec --
-	click.. 0? ( 2drop ; ) +? ( 2drop ; ) drop
-	xymouse whin 0? ( 2drop ; ) drop
-	0 'click.. ! 1 'ejecuto.. !
-	exec ;
-
+|---------------------------
 ::onLineMove | 'vec --
 	xymouse whin 0? ( 2drop ; ) drop
 	bmouse 0? ( 2drop ; ) drop
@@ -104,11 +151,7 @@
 	ccy <? ( 2drop ; )
 	ccy cch + >? ( 2drop ; )
 	drop
-	1 'ejecuto.. !
 	exec ;
-
-::onIDLE | 'vec  --
-	ejecuto.. 0? ( drop exec ; ) 2drop ;
 
 |---------------------------------------------------
 | manejo de foco (teclado)
@@ -132,7 +175,7 @@
 	idf 1+
 	foco 0? ( drop dup dup 'foco ! )
 	<>? ( 'idf ! 2drop ; )
-	lastfoco <>? ( dup 'lastfoco ! swap exec )( nip )
+	foconow <>? ( dup 'foconow ! swap exec )( nip )
 	'idf !
 	exec ;
 
@@ -151,166 +194,21 @@
 	exec
 	nextfoco ;
 
-:32to12
-	dup 4 >> $f and | $f0 -> $f
-	over 8 >> $f0 and or
-	swap 12 >> $f00 and or ;
-
-::4+gc
-	4 dup 'w +! 'h +! ;
-
-::4-gc
-	-4 dup 'w +! 'h +! ;
-
-:swap12bits
-	dup 12 << swap 12 >> $fff and or ;
-
-:botonsimple2
-	xc w 2/ - yc h 2/ - .at
-	h ink@ 32to12 $111000 or
-	'swap12bits onIn
-	degrade!
-	w h .fboxdh
-	;
 
 :botonsimple | --
 	ink@ $444444 over
-	[ swap ; ] onIn
+	[ swap ; ] guiIN
 	vbtn ink ;
 
 :botonsimpleh | --
 	ink@ $444444 over
-	[ swap ; ] onIn
+	[ swap ; ] guiIn
 	hbtn ink ;
 
+
+
 |-----------------
-::gcbtn | acc --
-	xc w 2/ - yc h 2/ - .at
-	h [ $fff000 ; ] [ $000fff ; ] onInOut degrade!
-	w h .fboxdh
-	'bordefoco onIn
-	onClick
-	;
 
-|--------
-::btnt | 'event "texto" --
-	gc.push
-	ccw 2/ 'ccx +!
-	print2gc
-	ccw 'w +!
-	cch 2/ 'h +!
-	botonsimple
-	ink@ >r blanco printx r> ink
-	onClick
-	ccw 2/ 'ccx +!
-	gc.pop ;
-
-::btnm | 'vec "label" cnt --
-	gc.push
-	tx2 tx1 - ccw pick2 * dup 2/ + - 2/ tx1 + 'ccx !
-	cntprintbox drop
-	ccw 'w +!
-	cch 2/ 'h +!
-	botonsimple
-	ink@ >r blanco printc r> ink
-|	'bordefoco 'keys-btn w/foco
-	onClick
-	ccw 'ccx +!
-	gc.pop ;
-
-::btnh  | 'vec "label" cnt --
-	gc.push
-	cntprintbox drop
-	ccw 'w +!
-	cch 2/ 'h +!
-	botonsimple
-	ink@ >r blanco print r> ink
-	onClick
-	ccw 'ccx +!
-	gc.pop ;
-
-::btnd | 'event 'dibujo --
-	gc.push
-	botonsimple
-	ink@ swap blanco v8draw ink
-	onClick
-	gc.pop ;
-
-::btnb | 'event "tx" --
-	gc.push
-	botonsimple
-	ink@ swap blanco
-	gc2win
-	home
-	printc
-	ink
-	onClick
-	gc.pop ;
-
-::btnh | 'event "tx" --
-	gc.push
-	botonsimpleh
-	ink@ swap blanco
-	gc2win
-	home
-	printc
-	ink
-	onClick
-	gc.pop ;
-
-::btnbox | 'event alto --
-	ccx ccy .at
-	dup .fbox
-	onClick
-	;
-
-::btnboxb | 'event px --
-	dup 'h ! 'w ! ccx w 2/ + 'xc ! ccy h 2/ + 'yc !
-	ink@
-	blanco gc.box
-	-2 dup 'w +! 'h +!
-	negro gc.box
-	-2 dup 'w +! 'h +!
-	ink gc.fbox
-	onClick
-	w 4 + 'ccx +!
-	;
-
-::btntxt | 'event "texto" --
-	gc.push
-	print2gc
-	[ gc.box ; ] onIn
-	printx
-	onClick
-	gc.pop ;
-
-::btntf | 'event "texto" cnt --
-	gc.push
-	cntprintbox drop ccx w + ccw +  >r
-	ccw 'w +!
-	cch 2/ 'h +!
-	botonsimple
-	ink@ >r blanco sp print r> ink
-	onClick
-	r> 'ccx !
-	gc.pop ;
-
-|--- Boton solo !!
-::btn | 'event --
-	gc.push
-	botonsimple
-	gc2win
-	home
-	onClick
-	gc.pop ;
-
-|--------?????
-:winevent | IDF -- IDF
-	;
-
-::winb | 'event -- winev
-
-	'winevent ;
 
 |-------- teclado para boton
 :keys-btn | 'acc xx --  ; boton con foco
@@ -333,7 +231,7 @@
 	botonsimple
 	ink@ >r blanco printx r> ink
 	'bordefoco 'keys-btn w/foco
-	onClick
+	guiBtn
 	ccw 'ccx +!
 	gc.pop ;
 
@@ -342,7 +240,7 @@
 	botonsimple
 	ink@ >r blanco v8draw r> ink
 	'bordefoco 'keys-btn w/foco
-	onClick
+	guiBtn
 	gc.pop ;
 
 ::cmenu | 'vec "label" cnt --
@@ -354,12 +252,11 @@
 	botonsimple
 	ink@ >r blanco printc r> ink
 	'bordefoco 'keys-btn w/foco
-	onClick
+	guiBtn
 	ccw 'ccx +!
 	gc.pop ;
 
 |-------  Edita linea
-
 :lins  | c --
 	padf> padi> - cmax >=? ( 2drop ; ) drop
 	pad> dup 1- padf> over - 1+ cmove> 1 'padf> +!
@@ -428,7 +325,7 @@
 	-4 dup 'w +! 'h +!
 
 	'drgetline 'inigetline w/foco
-	'clickfoco onClick
+	'clickfoco guiBtn
 	drop
 	printx blanco
 	gc.pop ;
@@ -457,7 +354,7 @@
 
 |-------- SLIDES
 ::hslide | 'var --
-	[ xymouse drop xc - 16 << w / over ! ; ] onMove
+	[ xymouse drop xc - 16 << w / over ! ; ] guiMove
 	gc.push 0.98 0.2 fscala
 	gc.frod gc.popush
 	@ w 16 *>> 'xc +!
@@ -467,7 +364,7 @@
 	;
 
 ::vslide | 'var --
-	[ xymouse nip yc - 16 << h / over ! ; ] onMove
+	[ xymouse nip yc - 16 << h / over ! ; ] guiMove
 	gc.push 0.2 0.98 fscala
 	gc.frod gc.popush
 	@ h 16 *>> 'yc +!
@@ -476,3 +373,35 @@
 	gc.pop ink
 	;
 
+|--- BOTONES
+
+::btnt | 'event "texto" --
+	gc.push
+	ccw 2/ 'ccx +!
+	print2gc
+	ccw 'w +!
+	cch 2/ 'h +!
+	botonsimple
+	ink@ >r blanco printx r> ink
+	guiBtn
+	ccw 2/ 'ccx +!
+	gc.pop ;
+
+
+::btntf | 'event "texto" cnt --
+	gc.push
+	cntprintbox drop ccx w + ccw +  >r
+	ccw 'w +!
+	cch 2/ 'h +!
+	botonsimple
+	ink@ >r blanco sp print r> ink
+	guiBtn
+	r> 'ccx !
+	gc.pop ;
+
+::btnd | 'event 'dibujo --
+	gc.push
+	botonsimple
+	ink@ swap blanco v8draw ink
+	guiBtn
+	gc.pop ;
