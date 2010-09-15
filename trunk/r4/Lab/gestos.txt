@@ -32,17 +32,6 @@
 :loadbox
 	'xcycwh @+ 'h ! @+ 'w ! @+ 'yc ! @ 'xc ! ;
 
-|--------------------------------------------------
-:invistamode
-|	[ xymouse 'yd ! 'xd ! ; ] onDn
-|	[ xymouse loadbox dup yd - 'yc +! 'yd ! dup xd - 'xc +! 'xd ! savebox ;	] onMove
-	;
-
-:vistamode
-|	'invistamode 'drawmbr onInOut
-	loadbox
-	savebox
-	;
 
 |----------------
 :,dib
@@ -83,6 +72,8 @@
 	savemem
 	empty ;
 
+:savemem    "mem/test.gst" savegst ;
+
 ::loadgst | "nombre" --
 	mark
 	here dup rot load
@@ -104,6 +95,7 @@
 	dibujo> 'dibujo< !
 	empty ;
 
+:loadmem	"mem/test.gst" loadgst ;
 
 |------------------
 :box!+ | d c b a --
@@ -133,7 +125,6 @@
 	;
 
 :campodraw
-
 	campocursor 0? ( drop ; ) >r
 	r@+ dup 16 >> swap $ffff and
 	r@+ dup 16 >> swap $ffff and
@@ -145,8 +136,6 @@
 	r@+ print
 	r@+ drop
 	rdrop ;
-
-
 
 |----------------
 :makebox
@@ -181,8 +170,8 @@
 	trazo.cnt 2 <? ( drop trazo.cls ; ) drop
 	coloractual colorultimo <>? ( 'colorultimo ! ,dibcolor )( drop )
 	'creapoli trazo.map
-	trazo.cls ;
-
+	trazo.cls
+	;
 
 |---- cursor de seleccion
 :cursorselec | --
@@ -191,32 +180,52 @@
 	campodraw
 	;
 
+|--------- test
+#string )( 1024
+#string> 'string
 
-|----
-:loadmem	"mem/test.gst" loadgst ;
-:savemem    "mem/test.gst" savegst ;
+:.c string> c!+ 'string> ! ;
+:test.up 39 .c ;
+:test.move 35 .c ;
+:test.dn 36 .c ;
 
-:botonsimple2
-	xc w 2/ - yc h 2/ - .at
-	h ink@ 32to12 $111000 or
-|	'swap12bits onIn
-	degrade!
-	w h .fboxdh
-	;
+:test
+	'test.up 'test.move 'test.dn guiMap ;
 
-|---------------------------
+|--- modo de dibujo
+:dibujando  'trazo.start 'trazo.add  'addline guiMap ;
 
-#cursorp
-
-|---------------------
-:main
-	sw dup 2/ 'xc ! 4 << 'w !
-	sh dup 2/ 'yc ! 64 - 4 << 'h !
-
-	0 dup fpos 256 dup dim
-
+|--- modo hoja
+#xv #yv
+:vista.up ;
+:vista.move
+	xymouse
+	over xv - 'xc +!
+	dup yv - 'yc +!
+	'yv ! 'xv !
 	savebox
-	scr
+	;
+:vista.dn
+	xymouse 'yv ! 'xv ! ;
+
+:hojayzoom  'vista.dn 'vista.move 'vista.up guiMap ;
+
+#cursormodo 'dibujando
+
+:modohoja!	'hojayzoom 'cursormodo ! ;
+:modolapiz! 'dibujando 'cursormodo ! ;
+
+
+|-- poligono
+#cursorp | poligono
+
+|--- MAIN ---
+:main
+	0 dup fpos
+	sw sh min -64 dup 2/ 'yc +! +
+	dup dim
+	savebox
+
     inigui
 	'exit >esc<
 |	'pasatrazo <f1>
@@ -227,7 +236,7 @@
 		loadbox
 		'dibujo nsprite
 	    coloractual ink
-		'trazo.start 'trazo.add  'addline guiMap
+		cursormodo exec
 		trazo.draw
 		gc.box
 
@@ -235,22 +244,28 @@
 		font-vard-12-bold home verde
 
 		verde dup " :R%d" print
-|		blanco "GESTO " print
+		blanco "GESTO " print
 |		scr
 |		fonti home blanco
 		blanco cr
  		trazo.debug
 		gui.debug
-|		"aqui" print
 		 cr
+		'string print
 
 |		'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop
 
 		32 gc.botton $00000f gc.hfill
 		home
-	| acciones
 		dlg.color
 		acr2
+		"     " printx
+		cyan
+		'exit 'xcycwh @+ swap @ " %dx%d " btnt
+
+		sp
+		'modolapiz! "L" sp btnt
+		'modohoja! "H" sp btnt
 
 		rojo
 		sp 'exit "esc-Exit" btnt
@@ -267,14 +282,13 @@
 		'exit cursorp " %d " sp btnt
 		'exit ">" sp btnt
 
-
-		cminilapiz ;
-
+		cursormodo
+		'dibujando =? ( drop cminilapiz ; )
+		'hojayzoom =? ( drop cminimano ; )
+		drop cminiflecha
+		;
 
 :
-
-|"esc-Exit" 'exit bttexto
-
 mark
 trazo.ini
 reset

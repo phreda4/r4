@@ -11,7 +11,7 @@
 
 
 |--- state
-#active #activenow
+#active
 #hot	#hotnow
 #foco	#foconow
 
@@ -31,7 +31,7 @@
 	idf id "ID:%d IDF:%d " print cr
 	foconow foco "foco:%d now:%d" print cr
 	hotnow hot "hot:%d now:%d" print cr
-	activenow active "active:%d now:%d" print cr
+	active "active:%d " print cr
 
 |---debug texto
 |	cmax "cmax%d " print cr
@@ -42,29 +42,26 @@
 
 ::clrscr
 	idf 'idl !	| ultimo
-	active 'activenow !
 	hot 'hotnow !
 
 	0 'idf !	| primero foco
 	0 'id !     | primero hot
-	0 'active !
 	0 'hot !
 
 	cls scr ;
 
 ::xfb>scr
 	idf 'idl !	| ultimo
-	active 'activenow !
 	hot 'hotnow !
 
 	0 'idf !	| primero foco
 	0 'id !     | primero hot
-	0 'active !
 	0 'hot !
 
 	xfb> scr ;
 
 ::inigui
+	0 'active !
 	key.push inikey
 	0 'foco  ! -1 'foconow !
 	;
@@ -82,42 +79,47 @@
 |--- boton
 ::guiBtn | 'up  --
 	1 'id +!
-	id
-	xymouse whin 0? ( 3drop ; ) drop
-	activenow =? (
+	xymouse whin 0? ( 2drop ; ) drop
+	id dup 'hot !
+	active =? (
 		bmouse 0? ( 2drop exec ; ) drop |		*Up*
 		)
 	hotnow =? (
 		bmouse 1? ( over 'active ! ) drop
 		)
-	'hot !
-	drop
+	2drop
 	;
+
+
+::guiBtn | 'click --
+	1 'id +!
+	id
+	active =? (
+		bmouse 0? ( 2drop exec 0 'active ! ; ) drop
+
+		)(
+		hotnow =? ( bmouse 1? ( over 'active ! ) drop )
+		)
+	xymouse whin 0? ( 3drop ; ) drop
+	nip 'hot ! ;
 
 |-- move
 ::guiMove | 'move --
 	1 'id +!
-	id
-	xymouse whin 0? ( 3drop ; ) drop
-	activenow =? (
-		bmouse 0? ( 3drop ; ) drop |		*Up*
-		'active !
-		exec |*move*
-		;
-		)
+	xymouse whin 0? ( 2drop ; ) drop
+	id dup 'hot !
 	hotnow =? (
-		bmouse 1? ( over 'active ! ) drop
+		bmouse 1? ( 2drop exec ; ) drop
 		)
-	'hot !
-	drop
+	2drop
 	;
 
 |-- mapa
-::guiMap | 'dn 'move 'up --
+::guiMap2 | 'dn 'move 'up --
 	1 'id +!
-	id
-	xymouse whin 0? ( nip 4drop ; ) drop
-	activenow =? (
+	xymouse whin 0? ( 4drop ; ) drop
+	id dup 'hot !
+	active =? (
 		bmouse 0? ( 2drop nip nip exec ; ) drop |		*Up*
 		'active !
 		drop nip exec |*move*
@@ -126,21 +128,25 @@
 	hotnow =? (
 		bmouse 1? ( drop 'active ! 2drop exec ; ) drop
 		)
-	'hot !
-	3drop
+	4drop
 	;
+
+::guiMap | 'dn 'move 'up --
+	1 'id +!
+	id
+	active =? (
+		bmouse 0? ( 2drop nip nip exec 0 'active ! ; ) drop
+		hotnow <>? ( pick3 )( pick2 ) exec | dn, move
+		)(
+		hotnow =? ( bmouse 1? ( over 'active ! pick4 exec ) drop )
+		)
+	xymouse whin 0? ( nip 4drop ; ) drop
+	'hot ! 3drop ;
 
 ::guiEmpty | --
 	1 'id +!
-	id
-	xymouse whin 0? ( 2drop ; ) drop
-	activenow =? (
-		bmouse 0? ( 2drop ; ) drop |		*Up*
-		)
-	hotnow =? (
-		bmouse 1? ( over 'active ! ) drop
-		)
-	'hot ! 
+	xymouse whin 0? ( drop ; ) drop
+	id 'hot !
 	;
 
 |---------------------------
@@ -405,3 +411,9 @@
 	ink@ swap blanco v8draw ink
 	guiBtn
 	gc.pop ;
+
+::btnbox | 'event alto --
+	ccx ccy .at
+	dup .fbox
+	guiBtn
+	;
