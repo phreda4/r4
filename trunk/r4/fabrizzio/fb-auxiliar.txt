@@ -1,0 +1,166 @@
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Auxiliar Words
+
+|||| Words exported:
+| toInteger			arguments: float						returns: integer
+| toFloat			arguments: integer						returns: float
+| maxValue			arguments: value1 value2				returns: max
+| maxValueExt		arguments: value 0 value 1 value 2 etc	returns: representation of the maximum
+| minValue			arguments: value1 value2				returns: min
+| minValueExt		arguments: value 0 value 1 value 2 etc	returns: representation of the minimum
+| calcSpeeds		arguments: speed direction				returns: hspeed vspeed
+| calcSpeed			arguments: hspeed vspeed				returns: speed
+| calcDir			arguments: hspeed vspeed				returns: newDirection
+| calcFriction		arguments: hspeed friction				returns: newHspeed
+| pointDirection	arguments: x1 y1 x2 y2					returns: direction
+| pointDistSquared	arguments: x1 y1 x2 y2					returns: distSquared
+| addGravity		arguments: hspeed vspeed grav gravDir	returns: newHspeed newVspeed
+
+
+| argument: float | returns: integer
+::toInteger
+	16 >>
+	;
+
+| argument: integer | returns: float
+::toFloat
+	16 <<
+	;
+
+| arguments: value1 value2 | returns max
+::maxValue
+	over			| value1 value2 value1
+	<? (
+		drop
+	)(
+		nip
+	)
+	;
+
+| arguments: value 0 value 1 value 2 etc | returns: representation of the minimum
+| Starts from number 0, but other number can be anything else, they don't have to be in order
+::maxValueExt
+	dup >r
+	( 0 <>? )(
+		rdrop
+		pick3 pick2 >? (
+			drop
+			2drop
+			dup >r
+		)(
+			drop
+			rot 0 =? (
+				swap >r 0
+				drop rot drop
+			)(
+				drop rot drop
+				dup >r
+			)
+		)
+	)
+	2drop			| drops last value and number(0)
+	r>				| returns resulting number
+	;
+
+| arguments: value1 value2 | returns min
+::minValue
+	over			| value1 value2 value1
+	<? (
+		nip
+	)(
+		drop
+	)
+	;
+
+| arguments: value 0 value 1 value 2 etc | returns: representation of the minimum
+| Starts from number 0, but other number can be anything else, they don't have to be in order
+::minValueExt
+	dup >r
+	( 0 <>? )(
+		rdrop
+		pick3 pick2 <? (
+			drop
+			2drop
+			dup >r
+		)(
+			drop
+			rot 0 =? (
+				swap >r 0
+				drop rot drop
+			)(
+				drop rot drop
+				dup >r
+			)
+		)
+	)
+	2drop			| drops last value and number(0)
+	r>				| returns resulting number
+	;
+
+| arguments: speed direction | returns: hspeed vspeed
+::calcSpeeds
+	sincos		| speed sin(dir) cos(dir)
+	pick2 *.	| speed sin(dir) hspeed
+	rot rot		| hspeed speed sin(dir)
+	*.			| hspeed vspeed
+	;
+
+| arguments: hspeed vspeed | returns: speed
+::calcSpeed
+	dup			| hspeed vspeed vspeed
+	*.			| hspeed vspeed^2
+	swap		| vspeed^2 hspeed
+	dup			| vspeed^2 hspeed hspeed
+	*.			| vspeed^2 hspeed^2
+	+			| vspeed^2+hspeed^2
+	toInteger	| toInteger(vspeed^2+hspeed^2)
+	sqrt		| speed
+	toFloat		| toFloat(speed)
+	;
+
+| arguments: hspeed vspeed | returns: newDirection
+::calcDir
+	swap atan2
+	;
+
+| arguments: hspeed friction | returns: newHspeed
+::calcFriction
+	over abs 		| hspeed friction abs(hspeed)
+	>=? (			| hspeed friction
+		2drop 0
+	)(
+		swap -? (	| friction hspeed
+			+
+		)(
+			swap -
+		)
+	)
+	;
+
+| arguments: hspeed vspeed grav gravDir | returns: newHspeed newVspeed
+::addGravity 
+	sincos				| hspeed vspeed grav sin(gravDir) cos(gravDir)
+	pick2				| hspeed vspeed grav sin(gravDir) cos(gravDir) grav
+	*.					| hspeed vspeed grav sin(gravDir) hspeedGrav
+	rot rot				| hspeed vspeed hspeedGrav grav sin(gravDir)
+	*.					| hspeed vspeed hspeedGrav vspeedGrav
+	rot +				| hspeed hspeedGrav newVspeed
+	rot rot +			| newVspeed newHspeed
+	swap				| newHspeed newVspeed
+	;
+
+| arguments: x1 y1 x2 y2 | returns: direction
+::pointDirection
+	rot  - 			| x1 x2 y2-y1
+	rot rot swap -	| y2-y1 x2-x1
+	swap			| x2-x1 y2-y1
+	calcDir			| angle
+	;
+
+| arguments: x1 y1 x2 y2 | returns: distSquared
+::pointDistSquared
+	rot swap - dup *.	| x1 x2 (y1-y2)^2
+	rot rot - dup *.	| (y1-y2)^2 (x1-x2)^2
+	+					| (y1-y2)^2+(x1-x2)^2
+	;

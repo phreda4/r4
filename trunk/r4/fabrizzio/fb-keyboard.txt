@@ -1,0 +1,105 @@
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Keyboard Handling Procedures
+
+|||| Words exported:
+| assignKeys		arguments: --		returns: --
+| cleanKeys			arguments: --		returns: --
+| checkPressed		arguments: 'key 	returns: Boolean
+| checkReleased		arguments: 'key 	returns: Boolean
+| checkJustPressed	arguments: 'key 	returns: Boolean
+| downKey			arguments: --		returns: 'key
+| rightKey			arguments: --		returns: 'key
+| leftKey			arguments: --		returns: 'key
+| upKey				arguments: --		returns: 'key
+| jumpKey			arguments: --		returns: 'key
+| fireKey			arguments: --		returns: 'key
+
+|| Possible states for each key:
+|	0 idle
+|	1 justPressed
+|	2 released
+|	3 pressed
+
+#keys 0 0 0 0 0 0 99
+
+::downKey 	'keys ;
+::rightKey	'keys 4 + ;
+::leftKey	'keys 8 + ;
+::upKey		'keys 12 + ;
+::jumpKey	'keys 16 + ;
+::fireKey	'keys 20 + ;
+
+| arguments: 'Key | returns: --
+:pressed
+	dup @			| 'key key
+	1 and? (		| wasn't previously pressed (released or idle status)
+		drop		| 'key
+		3 swap !	| key = pressed
+	)(
+		drop		| 'key
+		1 swap !	| key = justPressed
+	)
+	;
+
+| arguments: 'Key | returns: --
+:released
+	2 swap !		| key = released
+	;
+
+| arguments: 'Key | returns: Boolean
+::checkPressed
+	@ 1 and? (
+		drop 1
+	)(
+		drop 0
+	)
+	;
+
+| arguments: 'Key | returns: Boolean
+::checkReleased
+	@ 2 =? (
+		drop 1
+	)(
+		drop 0
+	)
+	;
+
+| arguments: 'Key | returns: Boolean
+::checkJustPressed
+	@ 1 <>? (
+		drop 0
+	)
+	;
+
+| arguments: -- | returns: --
+::cleanKeys
+	'keys dup @				| 'key key
+	( 10 <? )(
+		2 =? (
+			drop			| 'key
+			0 over !		| 'key 			| key = idle
+		)(
+							| 'key key
+			1 =? (
+				drop		| 'key
+				3 over !	| 'key 			| key = pressed
+			)(
+				drop		| 'key
+			)
+		)
+		4 + dup @			| 'key(+4) key
+	)
+	2drop
+	;
+
+| arguments: -- | returns: --
+::assignKeys
+	'exit <enter> | >esc<
+	[ rightKey pressed ; ]	<ri>		[ rightKey released ; ]	>ri<
+	[ leftKey pressed ; ]	<le>		[ leftKey released ; ]	>le<
+	[ upKey pressed ; ]		<up>		[ upKey released ; ]	>up<
+	[ downKey Pressed ; ]	<dn>		[ downKey released ; ]	>dn<
+	[ jumpKey pressed ; ] 	$2C >key	[ jumpKey released ; ]	$2C >ukey	|	($2C = Z)
+	[ fireKey pressed ; ]	$2D >key	[ fireKey released ; ]	$2D >ukey	|	($2D = X)
+	;

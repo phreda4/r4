@@ -1,0 +1,330 @@
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Player-specific Words
+
+|||| Exported words:
+
+| playerAction		arguments: 'me				returns: 'me
+| playerHitAction	arguments: 'other 'me		returns: 'newMe
+| createPlayer		arguments:  --				returns: --
+| createHat			arguments:  x y				returns: --
+
+
+| arguments: 'me | returns: 'me
+:hatAction
+	dup @alpha dup dup					| 'me alpha alpha alpha
+	20 / pick3 @tl *					| 'me alpha alpha (alpha/20)*tl
+	- - alpha							| 'me			| alpha = alpha-(alpha-(alpha/20)*tl)
+	'spr_hat over @xy drawExt
+	255 alpha							| 'me			| alpha = 255
+	
+	dup 12 + 0.1 swap +!
+	
+	dup @xy 'listob listobCnt pick4		| 'me x y 'listob listobCnt 'me
+	cycleCollisionPoint					| 'me 'particle
+	1? (
+		dup @flagSemiSolid				| 'me 'particle flagSemiSolid
+		0? (
+			drop						| 'me 'particle
+			10
+			( 1? )(
+				over @xy 0.5 createDebri
+				1 -
+			)
+			drop						| 'me 'particle
+			'listobCnt 'listob pick2	| 'me 'particle 'listobCnt 'listob 'particle
+			delspr						| 'me 'particle
+			
+			>? (
+				nodeBytes -				| 'newMe (points to previous particle due to the way the particle cycling works
+										|		  when erasing others in same list as oneself)
+			)
+			
+			dup 'listobCnt 'listob rot	| 'me 'listobCnt 'listob 'me
+			delspr						| 'me
+			nodeBytes -					| 'newMe (points to previous particle due to the way the particle cycling works when erasing oneself)
+			;
+		)(
+			2drop
+		)
+	)(
+		drop
+	)
+	;
+
+| arguments: x y | returns: --
+::createHat
+	>r >r
+	20					| tl
+	255					| alpha
+	
+	'player @flagFacing 0? (
+		drop
+		2				| flags = visible
+	)(
+		drop
+		34				| flags = visible+facingleft
+	)
+	
+	'defaultHitAction	| hitAction
+	'hatAction			| action
+	0.25				| vmask
+	0.5					| hmask
+	0.25				| gravityDir
+	0.03				| gravity
+	0					| friction
+	-0.5				| vspeed
+	0					| hspeed
+	0					| direction
+	1.0					| scale
+	r> r> swap			| y x
+	'listob
+	'listobCnt
+	+list
+	;
+
+| arguments: 'me | returns: 'me
+:leftkeyCode
+	leftKey CheckPressed
+	1? (
+		drop
+		dup 1 !flagFacing		| 'me			| facing = left
+		dup 16 + dup @			| 'me 'hspeed hspeed
+		-0.2 >? (
+			drop				| 'me 'hspeed
+			-0.05 swap +!		| 'me 			| hspeed += -0.05
+		)(
+			2drop				| 'me
+		)
+	)(
+		drop					| 'me
+	)
+	;
+
+| arguments: 'me | returns: 'me
+:rightkeyCode
+	rightKey CheckPressed
+	1? (
+		drop
+		dup 0 !flagFacing		| 'me			| facing = right
+		dup 16 + dup @			| 'me 'hspeed hspeed
+		0.2 <? (
+			drop				| 'me 'hspeed
+			0.05 swap +!		| 'me 			| hspeed += 0.05
+		)(
+			2drop				| 'me
+		)
+	)(
+		drop					| 'me
+	)
+	;
+	
+| arguments: 'me | returns: 'me
+:jumpKeyCode
+	jumpKey CheckJustPressed
+	1? (
+		drop
+		10
+		( +? )(
+			0.125 createStar
+			1-
+		)
+		drop
+		
+		-0.7 over 20 + !	| 'me -0.7 'vspeed !
+	)(
+		drop
+	)
+	;
+	
+| arguments: 'me | returns: 'me
+:firekeyCode
+	fireKey CheckJustPressed
+	1? (
+		drop
+		dup @xy 0.8 - createHat
+	)(
+		drop
+	)
+	;
+
+| arguments: 'me | returns: 'me
+:gravityCode
+	jumpKey CheckPressed
+	1? (
+		drop
+		0.05 over 28 + !	| gravity = 0.05
+	)(
+		drop
+		0.09 over 28 + !	| gravity = 0.09
+	)
+	;
+
+| arguments: 'me | returns: 'me
+:falseBottom
+	dup 4 +	@				| 'me y
+	50.0 >=? (
+		drop
+		0 over 28 + !			| 'me	| gravity = 0
+		50.0 over 4 + !			| 'me	| y = 0
+		0 over 20 + !			| 'me	| vspeed = 0
+		
+		jumpKeyCode
+	)(
+		drop
+	)
+	;
+
+| arguments: 'me | returns: 'me
+:horizontalCollision
+	dup @hspeed								| 'me hspeed
+	0 >=? (
+		over @xy pick3 @hmask rot +			| 'me hspeed y hmask+x
+		rot + 0.01 + swap					| 'me hmask+x+hspeed+0.01 y
+		'listob listobCnt pick4				| 'me hmask+x+hspeed+0.01 y 'listob listobCnt 'me
+		cycleCollisionPoint					| 'me 'particle
+		1? (
+			dup @flagSemiSolid				| 'me 'particle flagSemiSolid
+			0? (
+				2drop						| 'me
+				0 over 16 + !				| hspeed = 0
+			)(
+				2drop
+			)
+		)(
+			drop
+		)
+	)(
+		over @xy pick3 @hmask rot swap -	| 'me hspeed y x-hmask
+		rot + 0.01 - swap					| 'me x-hmask+hspeed-0.01 y
+		'listob listobCnt pick4				| 'me x-hmask+hspeed-0.01 y 'listob listobCnt 'me
+		cycleCollisionPoint					| 'me 'particle
+		1? (
+			dup @flagSemiSolid				| 'me 'particle flagSemiSolid
+			0? (
+				2drop						| 'me
+				0 over 16 + !				| hspeed = 0
+			)(
+				2drop
+			)
+		)(
+			drop
+		)
+	)
+	;
+
+| arguments: 'me | returns: 'me
+:verticalCollision
+	dup @vspeed								| 'me vspeed
+	0 >=? (
+		over @xy pick3 @vmask +				| 'me vspeed x y+vmask
+		rot + 0.01 +						| 'me x y+vmask+vspeed+0.01
+		'listob listobCnt pick4				| 'me x y+vmask+vspeed 'listob listobCnt 'me
+		cycleCollisionPoint					| 'me 'particle
+		
+		1? (
+			dup @flagSemiSolid				| 'me 'particle flagSemiSolid
+			0? (
+				drop
+				over 3 moveContact			| 'me
+				
+				0 over 28 + !				| gravity = 0
+				0 over 20 + !				| vspeed = 0
+				
+				jumpKeyCode
+			)(
+				drop
+				downKey CheckPressed
+				0? (
+					drop
+					over 3 moveContact		| 'me
+					
+					0 over 28 + !			| gravity = 0
+					0 over 20 + !			| vspeed = 0
+					
+					jumpKeyCode
+				)(
+					2drop
+				)
+			)
+		)(
+			drop							| 'me
+		)
+	)(
+		over @xy pick3 @vmask -				| 'me vspeed x y-vmask
+		rot + 0.25 +						| 'me x y-vmask+vspeed-0.01
+		'listob listobCnt pick4				| 'me x y-vmask+vspeed 'listob listobCnt 'me
+		cycleCollisionPoint					| 'me 'particle
+		1? (
+			dup @flagSemiSolid				| 'me 'particle flagSemiSolid
+			0? (
+				drop
+				| dup 0 !flagSolid			| 'me 'particle
+				| 0 over 56 + !				| alpha = 0
+				
+				10
+				( 1? )(
+					over @xy 0.5 createDebri
+					1 -
+				)
+				drop
+				
+				dup pick2 1					| 'me 'particle 'particle 'me 1
+				moveContact					| 'me 'particle
+				0 over 20 + !				| 'me 'particle							| vspeed = 0
+				
+				'listobCnt 'listob pick2 delspr
+				drop
+			)(
+				2drop
+			)
+		)(
+			drop
+		)
+	)
+	;
+
+| arguments: 'me | returns: 'me
+::playerAction
+	dup @alpha alpha
+	playerSprite over @xy drawExt
+	255 alpha
+	
+	falseBottom
+	
+	| 'listenCnt 'listen 'player cycleHits		| check if colliding with an enemy
+	
+	leftkeyCode
+	rightkeyCode
+	firekeyCode
+	gravityCode
+	horizontalCollision
+	verticalCollision
+	;
+
+| arguments: 'other 'me | returns: 'newMe
+::playerHitAction
+	nip
+	;
+
+| arguments:  -- | returns: --
+::createPlayer
+	0					| tl
+	255					| alpha
+	3					| flags
+	'playerHitAction	| hitAction
+	'playerAction		| action
+	0.8					| vmask
+	0.5					| hmask
+	0.25				| gravityDir
+	0.05				| gravity
+	0.018				| friction
+	0					| vspeed
+	0					| hspeed
+	0					| direction
+	1.0					| scale
+	-8.0				| y
+	2.0					| x
+	'player
+	!+ !+ !+ !+ !+ !+ !+ !+ !+ !+ !+ !+ !+ !+ !+ !+ drop
+	;
