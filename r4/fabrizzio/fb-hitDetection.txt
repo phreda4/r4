@@ -1,0 +1,237 @@
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Hit Detection
+
+|||| Words exported:
+| moveContact			arguments: 'particle 'me direction				returns: --
+| collisionPoint		arguments: x y 'particle						returns: Boolean
+| cycleCollisionPoint	arguments: x y 'list listCnt 'me				returns: 'particle (0 if no collision)
+| hit?					arguments: addr addr2							returns: Boolean
+| cycleHits				arguments: 'listCnt 'list 'me(particle)			returns: --
+| defaultHitAction		arguments: 'act 'me								returns: 'newMe
+
+| arguments: 'particle 'me direction | returns: --
+::moveContact
+	| direction:
+	| 0 = right
+	| 1 = up
+	| 2 = left
+	| 3 = down
+	
+	1 and? (
+		| Vertical collision
+		1 =? (
+			| Collision with char going up (hitting head on block)
+			drop						| 'other 'me
+			dup 20 + 0 swap !			| vspeed = 0
+			| dup 28 + 0 swap !			| gravity = 0
+			
+			dup @vmask					| 'other 'me me.vmask
+			rot dup @vmask				| 'me me.vmask 'other other.vmask
+			swap @y						| 'me me.vmask other.vmask other.y
+			+ +							| 'me me.vmask+other.vmask+other.y
+			over 4 + !					| 'me		| me.y = me.vmask+other.vmask+other.y
+		)(
+			| Collision with char going down (standing on a block)
+			drop						| 'other 'me
+			dup 20 + 0 swap !			| vspeed = 0
+			dup 28 + 0 swap !			| gravity = 0
+			
+			dup @vmask					| 'other 'me me.vmask
+			rot dup @vmask				| 'me me.vmask 'other other.vmask
+			swap @y 					| 'me me.vmask other.vmask other.y
+			swap - swap -				| 'me other.y-other.vmask-me.vmask
+			over 4 + !					| 'me		| me.y = other.y-other.vmask-me.vmask
+		)
+	)(
+		| Horizontal collision
+		2 =? (
+			| Collision with char going to the left (from the right)
+			drop						| 'other 'me
+			dup 16 + 0 swap !			| hspeed = 0
+			
+			dup @hmask					| 'other 'me me.hmask
+			rot dup @hmask				| 'me me.hmask 'other other.hmask
+			swap @x						| 'me me.hmask other.hmask other.x
+			+ +							| 'me me.hmask+other.hmask+other.x
+			over !						| 'me		| me.x = me.hmask+other.hmask+other.x
+		)(
+			| Collision with char going to the right (from the left)
+			drop						| 'other 'me
+			dup 16 + 0 swap !			| hspeed = 0
+			
+			dup @hmask					| 'other 'me me.hmask
+			rot dup @hmask				| 'me me.hmask 'other other.hmask
+			swap @x						| 'me me.hmask other.hmask other.x
+			swap - swap -				| 'me other.x-other.hmask-me.hmask
+			over !						| 'me		| me.x = other.x-other.hmask-me.hmask
+		)
+	)
+	drop
+	;
+
+| arguments: x y 'particle | returns: Boolean
+::collisionPoint
+	dup @xy rot @hvmasks	| x y p.x p.y p.hmask p.vmask
+	rot 2dup +				| x y p.x p.hmask p.vmask p.y down
+	rot rot swap -			| x y p.x p.hmask down up
+	2swap 2dup +			| x y down up p.x p.hmask right
+	rot rot -				| x y down up right left
+	>r >r					| x y down up					| r:: left right
+	pick2					| x y down up y
+	<? (
+		drop					| x y down
+		<? (
+			drop r> r>			| x right left
+			pick2				| x right left x
+			<? (
+				drop			| x right
+				<? (
+					drop 1 ;
+				)
+				drop 0 ;
+			)
+			3drop 0 ;
+		)
+		rdrop rdrop 2drop 0 ;
+	)
+	rdrop rdrop 4drop 0
+	;
+
+| arguments: x y 'list listCnt 'me | returns: 'particle (0 if no collision)
+::cycleCollisionPoint
+	>r								| x y 'act cnt				| R: 'me
+	( 0 >? )(						| x y 'act cnt
+		swap r						| x y cnt 'act 'me
+		
+		<>? (						| x y cnt 'act
+			dup @flagSolid			| x y cnt 'act act.solid
+			1? (
+				drop				| x y cnt 'act
+				pick3 pick3 pick2	| x y cnt 'act x y 'act
+				collisionPoint		| x y cnt 'act Boolean
+				1? (
+					drop			| x y cnt 'act
+					nip nip nip		| 'act
+					rdrop
+					;
+				)(
+					drop			| x y cnt 'act
+				)
+			)(
+				drop				| x y cnt 'act
+			)
+		)
+		nodeBytes +
+		swap 1 -
+	)
+	4drop rdrop
+	0
+	;
+
+| arguments: addr addr2 | returns: x2+hmask2 x1-hmask1 x2-hmask2 x1+hmask1
+:boundariesX
+	dup @x			| addr addr2 x2
+	swap			| addr x2 addr2
+	@hmask			| addr x2 hmask2
+	rot				| x2 hmask2 addr
+	dup @x			| x2 hmask2 addr x1
+	swap			| x2 hmask2 x1 addr
+	@hmask			| x2 hmask2 x1 hmask1
+	2dup +			| x2 hmask2 x1 hmask1 x1+hmask1
+	rot rot -		| x2 hmask2 x1+hmask1 x1-hmask1
+	2swap			| x1+hmask1 x1-hmask1 x2 hmask2
+	2dup +			| x1+hmask1 x1-hmask1 x2 hmask2 x2+hmask2
+	rot rot -		| x1+hmask1 x1-hmask1 x2+hmask2 x2-hmask2
+	2swap			| x2+hmask2 x2-hmask2 x1+hmask1 x1-hmask1
+	rot rot			| x2+hmask2 x1-hmask1 x2-hmask2 x1+hmask1
+	;
+
+| arguments: addr addr2 | returns: y2+vmask2 y1-vmask1 y2-vmask2 y1+vmask1
+:boundariesY
+	dup @y				| addr addr2 y2
+	swap				| addr y2 addr2
+	@vmask				| addr y2 hmask2
+	rot					| y2 vmask2 addr
+	dup @y				| y2 vmask2 addr y1
+	swap				| y2 vmask2 y1 addr
+	@vmask				| y2 vmask2 y1 vmask1
+	2dup +				| y2 vmask2 y1 vmask1 y1+vmask1
+	rot rot -			| y2 vmask2 y1+vmask1 y1-vmask1
+	2swap				| y1+vmask1 y1-vmask1 y2 vmask2
+	2dup +				| y1+vmask1 y1-vmask1 y2 vmask2 y2+vmask2
+	rot rot -			| y1+vmask1 y1-vmask1 y2+vmask2 y2-vmask2
+	2swap				| y2+vmask2 y2-vmask2 y1+vmask1 y1-vmask1
+	rot rot				| y2+vmask2 y1-vmask1 y2-vmask2 y1+vmask1
+	;
+
+| arguments: addr addr2 | returns: Boolean
+::hit?
+	2dup >r >r		| addr addr2 | R:: addr2 addr
+	boundariesX		| x2+hmask2 x1-hmask1 x2-hmask2 x1+hmask1 | R:: addr2 addr
+	<? (
+		drop 		| x2+hmask2 x1-hmask1 | R:: addr2 addr
+		>? (
+			drop 			| -- | R:: addr2 addr
+			r> r>			| addr addr2 | R:: --
+			boundariesY		| y2+vmask2 y1-vmask1 y2-vmask2 y1+vmask1 | R:: --
+			
+			<? (
+				drop		| y2+vmask2 y1-vmask1 | R:: --
+				>? (
+					drop 1
+				)(
+					drop 0
+				)
+			)(
+				3drop 0
+			)
+		)(
+			drop rdrop rdrop 0
+		)
+	)(
+		3drop rdrop rdrop 0
+	)
+	;
+
+| arguments: 'listCnt 'list 'me | returns: --
+::cycleHits
+	>r							| 'listCnt 'list			| R: 'me
+	
+	dup dup pick3 @				| 'listCnt 'list 'act 'list listCnt
+	nodeBytes * +				| 'listCnt 'list 'act 'last
+	
+	( <? )(						| 'listCnt 'list 'act
+		r						| 'listCnt 'list 'act 'me
+		
+		<>? (					| 'listCnt 'list 'act
+			dup @flagSolid		| 'listCnt 'list 'act act.solid
+			1? (
+				drop			| 'listCnt 'list 'act
+				dup r			| 'listCnt 'list 'act 'act 'me
+				hit?			| 'listCnt 'list 'act Boolean
+				1? (
+					drop					| 'listCnt 'list 'act
+					dup r dup @hitAction	| 'listCnt 'list 'act 'act 'me 'hitAction
+					exec					| 'listCnt 'list 'act 'newMe
+					rdrop >r				| 'listCnt 'list 'act
+				)(
+					drop		| 'listCnt 'list 'act
+				)
+			)(
+				drop			| 'listCnt 'list 'act
+			)
+		)
+		
+		nodeBytes +				| 'listCnt 'list 'sig
+		over pick3 @			| 'listCnt 'list 'sig 'list listCnt
+		nodeBytes * +			| 'listCnt 'list 'sig 'last
+	)
+	3drop
+	rdrop
+	;
+
+| arguments: 'act 'me | returns: 'newMe
+::defaultHitAction
+	nip
+	;

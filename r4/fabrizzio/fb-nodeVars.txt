@@ -1,0 +1,189 @@
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Fetchers
+
+#:nodeBytes 64
+
+|||| Node Vars
+| x  | y  | scale | direction | hspeed | vspeed | friction | gravity 
+|    | 4  |   8   |    12     |   16   |   20   |    24    |  28     
+
+| gravityDir  | Hmask  | Vmask  | action/Sprite(for obstacles) | HitAction | flags | alpha | tl
+|     32      |  36    |  40    |             44               |    48     |  52   |  56   | 60
+
+| flags:
+| 1 = solid
+| 2 = visible
+| 3 = inanimate? (determines whether to just draw sprite or execute action)
+| 4 = harms player on contact
+| 5 = semi-solid
+| 6 = facing (0 = right)
+| 7 = 
+
+|| Posiblemente agregar: type, alarm1, alarm2, alarm3, alAction1, alAction2, alAction3
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Fetchers
+
+| arguments: addr | returns x
+::@x
+	@
+	;
+
+| arguments: addr | returns y
+::@y
+	4 + @
+	;
+
+| arguments: addr | returns x y
+::@xy
+	@+ swap		| x 'y
+	@			| x y
+	;
+
+| arguments: addr | returns scale
+::@scale
+	8 + @
+	;
+
+| arguments: addr | returns dir
+::@dir
+	12 + @
+	;
+
+| arguments: addr | returns hspeed
+::@hspeed
+	16 + @
+	;
+
+| arguments: addr | returns vspeed
+::@vspeed
+	20 + @
+	;
+
+| arguments: addr | returns hspeed vspeed
+::@hvspeeds
+	16 + @+ swap @
+	;
+
+| arguments: addr | returns friction
+::@friction
+	24 + @
+	;
+
+| arguments: addr | returns grav
+::@grav
+	28 + @
+	;
+
+| arguments: addr | returns gravDir
+::@dirGrav
+	32 + @
+	;
+
+| arguments: addr | returns grav gravDir
+::@gravDirGrav
+	28 + @+ swap @
+	;
+
+| arguments: addr | returns hmask
+::@hmask
+	36 + @
+	;
+
+| arguments: addr | returns vmask
+::@vmask
+	40 + @
+	;
+
+| arguments: addr | returns hmask vmask
+::@hvmasks
+	36 + @+ swap @
+	;
+
+::@action
+	44 + @
+	;
+
+::@hitAction
+	48 + @
+	;
+
+::@alpha
+	56 + @
+	;
+
+| arguments: addr | returns Time to live
+::@tl
+	60 + @
+	;
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Flag Fetchers
+
+| arguments: addr flagID | returns spriteDir
+:@flagValue
+	swap
+	52 + @			| flagID flags
+	swap 1 - >>		| flags flagID-1
+	
+	1 and? (
+		drop 1
+	)(
+		drop 0
+	)
+	;
+
+| arguments: addr | returns flagValue
+
+::@flagSolid		1 @flagValue ;
+::@flagVisible		2 @flagValue ;
+::@flagInanimate	3 @flagValue ;
+::@flagHostile		4 @flagValue ;
+::@flagSemiSolid	5 @flagValue ;
+::@flagFacing		6 @flagValue ;
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+|| Flag Asigners
+
+| arguments: addr value flagID | returns --
+:!flagValue
+	rot rot					| flagID addr value
+	0? (
+		drop				| flagID addr
+		dup pick2			| flagID addr addr flagID
+		@flagValue			| flagID addr Boolean
+		1 and? (
+			drop			| flagID addr
+			1 rot 1 - <<	| addr 2^flagID
+			neg swap 52 +	| -(2^(flagID-1)) addr+52
+			+!
+		)(
+			3drop			| --
+		)
+	)(
+		drop				| flagID addr
+		dup pick2			| flagID addr addr flagID
+		@flagValue			| flagID addr Boolean
+		1 and? (
+			3drop			| --
+		)(
+			drop			| flagID addr
+			1 rot 1 - <<	| addr 2^flagID
+			swap 52 +		| (2^(flagID-1)) addr+52
+			+!
+		)
+	)
+	;
+
+| arguments: addr value | returns --
+
+::!flagSolid		1 !flagValue ;
+::!flagVisible		2 !flagValue ;
+::!flagInanimate	3 !flagValue ;
+::!flagHostile		4 !flagValue ;
+::!flagSemiSolid	5 !flagValue ;
+::!flagFacing		6 !flagValue ;
