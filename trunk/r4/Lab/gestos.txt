@@ -157,21 +157,6 @@
 	;
 
 
-|---- cursor de dibujo
-#modot
-:creapoli | tr --
-	trazo>xy
-	xy> modot 1 =? ( 5 'modot ! ) or
-	,dib
-	;
-
-:addline
-	1 'modot !
-	trazo.cnt 2 <? ( drop trazo.cls ; ) drop
-	coloractual colorultimo <>? ( 'colorultimo ! ,dibcolor )( drop )
-	'creapoli trazo.map
-	trazo.cls
-	;
 
 |---- cursor de seleccion
 :cursorselec | --
@@ -192,29 +177,46 @@
 :test
 	'test.up 'test.move 'test.dn guiMap ;
 
-|--- modo de dibujo
-:dibujando  'trazo.start 'trazo.add  'addline guiMap ;
+|---- cursor de dibujo
+#modot
+:creapoli | tr --
+	trazo>xy
+	2dup whin 0? ( 3drop ; ) drop   | si no esta adentro no agrega
+	xy> modot 1 =? ( 5 'modot ! ) or
+	,dib
+	;
+
+:addline
+	1 'modot !
+	trazo.cnt 2 <? ( drop trazo.cls ; ) drop
+	coloractual colorultimo <>? ( 'colorultimo ! ,dibcolor )( drop )
+	'creapoli trazo.map
+	trazo.cls
+	;
+
+:dibujando
+	'trazo.start 'trazo.add 'addline guiMap ;
 
 |--- modo hoja
 #xv #yv
-:vista.up ;
+
 :vista.move
 	xymouse
-	over xv - 'xc +!
-	dup yv - 'yc +!
-	'yv ! 'xv !
+	dup yv - 'yc +! 'yv !
+	dup xv - 'xc +! 'xv !
 	savebox
 	;
 :vista.dn
 	xymouse 'yv ! 'xv ! ;
 
-:hojayzoom  'vista.dn 'vista.move 'vista.up guiMap ;
+:hojayzoom
+	'vista.dn 'vista.move guiDnMove ;
 
+|--- modo
 #cursormodo 'dibujando
 
 :modohoja!	'hojayzoom 'cursormodo ! ;
 :modolapiz! 'dibujando 'cursormodo ! ;
-
 
 |-- poligono
 #cursorp | poligono
@@ -222,7 +224,7 @@
 |--- MAIN ---
 :main
 	0 dup fpos
-	sw sh min -64 dup 2/ 'yc +! +
+	sw sh min -64 dup 2 >> 'yc +! +
 	dup dim
 	savebox
 
@@ -235,6 +237,7 @@
 |------ DIBUJO
 		loadbox
 		cursormodo exec
+|test
 		'dibujo nsprite
 	    coloractual ink
 		trazo.draw

@@ -9,11 +9,12 @@
 ^r4/lib/font.txt
 ^r4/lib/show.txt
 
-
-|--- state
+ |--- state
 #active
 #hot	#hotnow
 #foco	#foconow
+#pbmouse
+#evUp #evDn
 
 |--- id
 #id
@@ -40,25 +41,44 @@
 |	padf> "padf>| fin%d " print cr
 	;
 
+:apreto
+	hotnow dup 'active ! 'evDn ! ;
+
+:solto
+	active 0? ( drop ; )
+	hotnow =? ( 'evUp ! )( drop )
+	0 'active !
+	;
+
 ::clrscr
+	cls scr
+
 	idf 'idl !	| ultimo
 	hot 'hotnow !
 
 	0 'idf !	| primero foco
 	0 'id !     | primero hot
 	0 'hot !
+	0 'evUp ! 0 'evDn !
 
-	cls scr ;
+	bmouse pbmouse =? ( drop ; )
+	0? ( solto )( apreto ) 'pbmouse !
+	;
 
 ::xfb>scr
+	xfb> scr
+
 	idf 'idl !	| ultimo
 	hot 'hotnow !
 
 	0 'idf !	| primero foco
 	0 'id !     | primero hot
 	0 'hot !
+	0 'evUp ! 0 'evDn !
 
-	xfb> scr ;
+	bmouse pbmouse =? ( drop ; )
+	0? ( solto )( apreto ) 'pbmouse !
+	;
 
 ::inigui
 	0 'active !
@@ -71,7 +91,7 @@
 	0 'foco  ! -1 'foconow !
 	key.pop ;
 
-|--- in
+|--- in/out
 ::guiIn | 'vec --
 	xymouse whin 0? ( 2drop ; ) drop
 	exec ;
@@ -80,34 +100,11 @@
 	xymouse whin 1? ( 2drop )( drop nip )
 	exec ;
 
-::guiInOut | 'vec --
-	xymouse whin 0? ( 2drop ; ) drop
-	exec ;
-
-|--- boton
-::guiBtn | 'up  --
-	1 'id +!
-	xymouse whin 0? ( 2drop ; ) drop
-	id dup 'hot !
-	active =? (
-		bmouse 0? ( 2drop exec ; ) drop |		*Up*
-		)
-	hotnow =? (
-		bmouse 1? ( over 'active ! ) drop
-		)
-	2drop
-	;
-
-
+|-- boton
 ::guiBtn | 'click --
 	1 'id +!
 	id
-	active =? (
-		bmouse 0? ( 2drop exec 0 'active ! ; ) drop
-
-		)(
-		hotnow =? ( bmouse 1? ( over 'active ! ) drop )
-		)
+	evUp =? ( drop exec ; )
 	xymouse whin 0? ( 3drop ; ) drop
 	nip 'hot ! ;
 
@@ -116,42 +113,33 @@
 	1 'id +!
 	xymouse whin 0? ( 2drop ; ) drop
 	id dup 'hot !
-	hotnow =? (
-		bmouse 1? ( 2drop exec ; ) drop
-		)
+	active =? ( drop exec ; )
 	2drop
 	;
 
+|-- dnmove
+::guiDnMove | 'dn 'move --
+	1 'id +!
+	xymouse whin 0? ( 3drop ; ) drop
+	id dup 'hot !
+	active =? (
+		evDn =? ( 2drop exec ; )
+		drop nip exec ; )
+	3drop ;
+
 |-- mapa
-::guiMap2 | 'dn 'move 'up --
+::guiMap | 'dn 'move 'up --
 	1 'id +!
 	xymouse whin 0? ( 4drop ; ) drop
 	id dup 'hot !
+	evUp =? ( drop nip nip exec ; )
 	active =? (
-		bmouse 0? ( 2drop nip nip exec ; ) drop |		*Up*
-		'active !
-		drop nip exec |*move*
-		;
-		)
-	hotnow =? (
-		bmouse 1? ( drop 'active ! 2drop exec ; ) drop
-		)
-	4drop
-	;
+		evDn =? ( 3drop exec ; )
+		2drop nip exec ; )
+	4drop ;
 
-::guiMap | 'dn 'move 'up --
-	1 'id +!
-	id
-	active =? (
-		bmouse 0? ( 2drop nip nip exec 0 'active ! ; ) drop
-		hotnow <>? ( pick3 )( pick2 ) exec | dn, move
-		)(
-		hotnow =? ( bmouse 1? ( over 'active ! pick4 exec ) drop )
-		)
-	xymouse whin 0? ( nip 4drop ; ) drop
-	'hot ! 3drop ;
 
-::guiEmpty | --
+::guiEmpty | --		; si toca esta zona no hay interaccion
 	1 'id +!
 	xymouse whin 0? ( drop ; ) drop
 	id 'hot !
@@ -218,11 +206,6 @@
 	ink@ $444444 over
 	[ swap ; ] guiIn
 	hbtn ink ;
-
-
-
-|-----------------
-
 
 |-------- teclado para boton
 :keys-btn | 'acc xx --  ; boton con foco

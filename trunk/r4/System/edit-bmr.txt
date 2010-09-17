@@ -21,61 +21,50 @@
 
 |-- origen
 #xo #yo		| origen de pantalla
-#wo #ho		| ancho y alto que dibuja en pantalla
-#xd #yd
 
-#res 16
+#res 4
 
 #xa #ya	| dibujo con zoom
 #xs #ys
 
-::bmrW
+::bmrW | -- ancho para generar codigo
 	wpx ;
 
 :bmr!m | x y --
-	yi - res / swap xi - res / swap
+	2dup whin 0? ( 3drop ; ) drop | no dibuja afuera
+	yi - res >> swap xi - res >> swap
 :bmr!
 	wpx * + 2 <<
 	bmrmap + coloractual swap ! ;
 
 :bmr@m | x y -- c
-	yi - res / swap xi - res / swap
+	yi - res >> swap xi - res >> swap
 :bmr@ | x y -- c
 	wpx * + 2 << bmrmap + @ ;
 
 :ajustai |
-	| imagen real
-	wpx res * sw >? ( sw nip ) 'wi !
-	hpx res * sh >? ( sh nip ) 'hi !
+	wpx res << sw >? ( sw nip ) 'wi !
+	hpx res << sh >? ( sh nip ) 'hi !
 	sw 2/ wi 2/ - 'xi !
 	sh 2/ hi 2/ - 'yi !
-
+:ajustap
 	xi -? ( 0 nip ) 'xo !
 	yi -? ( 0 nip ) 'yo !
-
-	wi 'wo !
-	hi 'ho !
-	0 dup 'xd ! 'yd !
-|	xo wi + sw >? ( sw - ) 'wo !
-|	yo hi + sh >? ( sh - ) 'ho !
-
-	1.0 res / dup 'xs ! 'ys !
+	1.0 res >> dup 'xs ! 'ys !
 	;
 
 |-- dibujo
-
-
 :getxybmr | x y -- c
 	xa 16 >> ya 16 >>
 	wpx * + 2 << bmrmap + @ ;
 
 :drawmap | --
-	xi -? ( neg res / )( 0 nip ) 16 << dup 'xa !
-	yi -? ( neg res / )( 0 nip ) 16 << 'ya !
+	xi -? ( neg res >> )( 0 nip ) 16 << dup 'xa !
+	yi -? ( neg res >> )( 0 nip ) 16 << 'ya !
 	xo yo setxy
-	sw wo - | columna
-	0 ( ho <? )(
-		0 ( wo <? )(
+	sw wi - | columna
+	0 ( hi <? )(
+		0 ( wi <? )(
 			getxybmr px!+
 			xs 'xa +!
 			1+ ) drop
@@ -86,22 +75,42 @@
 	2drop
 	;
 
+|--- modo hoja
+#xv #yv
+
+:vista.move
+	xymouse
+	dup yv - 'yi +! 'yv !
+	dup xv - 'xi +! 'xv !
+	ajustap
+	xi wi 2/ + 1- yi hi 2/ + 1-  'yc ! 'xc !
+
+	;
+:vista.dn
+	xymouse 'yv ! 'xv ! ;
+
+:hojayzoom
+	'vista.dn 'vista.move guiDnMove ;
+
+|--- dibuja
 :drawbmr | --
 	xi wi 2/ + 1- yi hi 2/ + 1-  'yc ! 'xc !
+
+	hojayzoom
+|	[ 'bmr!m tpenini ; ] 'tpenline guiDnMove
 	wi 1+ 'w ! hi 1+ 'h !
 	blanco gc.box
 	-2 dup 'w +! 'h +!
-	[ 'bmr!m tpenini ; ] 'tpenline 0 guiMap
 	drawmap	;
 
 |---- zoom
 :bz+
-	res 1+ 16 >? ( 1 nip ) 'res !
+	res 1+ 8 >? ( 1 nip ) 'res !
 	ajustai
 	;
 
 :bz-
-	res 1- 0? ( 16 nip ) 'res !
+	res 1- 0? ( 8 nip ) 'res !
 	ajustai
 	;
 
