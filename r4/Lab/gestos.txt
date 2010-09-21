@@ -12,12 +12,6 @@
 #dibujo>
 #dibujo<
 
-#boxlist )( $ffff
-#boxlist>
-
-#string )( $ffff
-#string>
-
 #campocursor
 
 #colorultimo
@@ -41,20 +35,8 @@
 	coloractual 4 << $b  or ,dib ;
 
 |-------------
-:,str | c --
-	string> c!+ 'string> ! ;
-
-:+str | "" -- index
-	string> swap
-	( c@+ 1? )( ,str ) ,str
-	drop string - ;
-
-|-------------
 :reset
-	'boxlist 'boxlist> !
 	'dibujo dup 'dibujo> !+ !
-	'string 'string> !
-	0 'boxlist !
 	0 'dibujo !
 	coloractual 1- 'colorultimo !
 	trazo.cls
@@ -64,11 +46,6 @@
 	mark
 	'dibujo dibujo> over - 2 >> ,
 	( dibujo> <? )( @+ , ) drop
-	'boxlist boxlist> over - 2 >> ,
-	( boxlist> <? )( @+ , ) drop
-	'string string> over - ,
-	( string> <? )( c@+ ,c ) drop
-		|dibujo<
 	savemem
 	empty ;
 
@@ -83,69 +60,11 @@
 	( 1? )( 1- >r
 		swap @+ rot !+
 		r> ) drop 'dibujo> !
-	@+ 'boxlist swap
-	( 1? )( 1- >r
-		swap @+ rot !+
-		r> ) drop 'boxlist> !
-	@+ 'string swap
-	( 1? )( 1- >r
-		swap c@+ rot c!+
-		r> ) drop 'string> !
 	drop
 	dibujo> 'dibujo< !
 	empty ;
 
 :loadmem	"mem/test.gst" loadgst ;
-
-|------------------
-:box!+ | d c b a --
-	boxlist> !+ !+ !+ !+ 'boxlist> ! ;
-
-:0box
-	0 boxlist> ! ;
-
-:drawbox
-	gc.push
-	gris
-	'boxlist ( boxlist> <? )( >r
-		r@+ dup 16 >> swap $ffff and
-		r@+ dup 16 >> swap $ffff and
-		gcxyxy gc2win home
-		8 dup 'w +! 'h +!
-		gc.box
-		-8 dup 'w +! 'h +!
-
-		r@+ print
-		r@+ drop |drw.draw
-		r> ) drop
-	gc.pop ;
-
-:movebox |
-
-	;
-
-:campodraw
-	campocursor 0? ( drop ; ) >r
-	r@+ dup 16 >> swap $ffff and
-	r@+ dup 16 >> swap $ffff and
-	violeta
-	gcxyxy gc2win home
-	8 dup 'w +! 'h +!
-	gc.box
-	-8 dup 'w +! 'h +!
-	r@+ print
-	r@+ drop
-	rdrop ;
-
-|----------------
-:makebox
-	dibujo< dibujo> =? ( drop ; ) | no agrega si no hay trazo
-|	trazo.info
-	0
-	pick2 "(%d)" mprint
-|	trazobox box!+
-	dibujo> 'dibujo< !
-	;
 
 |-----------------
 |---- cursor de caja
@@ -155,27 +74,6 @@
 |	[ xymouse  'ycc ! 'xcc ! 0 dup 'hcc ! 'wcc ! ; ] onDn
 |	[ +box 0 dup 2dup 'bx1 !+ !+ !+ ! ; ] onClick
 	;
-
-
-
-|---- cursor de seleccion
-:cursorselec | --
-||	[ 0 'campocursor ! ; ] onDn
-|	[ 1 1 'dibujo trazo.move ; ] onMove
-	campodraw
-	;
-
-|--------- test
-#string )( 1024
-#string> 'string
-
-:.c string> c!+ 'string> ! ;
-:test.up 39 .c ;
-:test.move 35 .c ;
-:test.dn 36 .c ;
-
-:test
-	'test.up 'test.move 'test.dn guiMap ;
 
 |---- cursor de dibujo
 #modot
@@ -212,14 +110,27 @@
 :hojayzoom
 	'vista.dn 'vista.move guiDnMove ;
 
-|--- modo
-#cursormodo 'dibujando
+|---- modo linea
+:dibulinea 
+	;
 
-:modohoja!	'hojayzoom 'cursormodo ! ;
-:modolapiz! 'dibujando 'cursormodo ! ;
+|---- modo caja
+:dibucaja
+	;
+|---- modo circulo
+:dibucirc
+	;
+
+|--- modo
+#modov 0
+#listam 'idibuja 'imenos 'istop 'irec 'ilupa
+#listaa 'dibujando 'dibulinea 'dibucaja 'dibucirc 'hojayzoom
+#listac cminilapiz cminilapiz cminilapiz cminilapiz cminimano
 
 |-- poligono
 #cursorp | poligono
+
+
 
 |--- MAIN ---
 :main
@@ -236,8 +147,8 @@
 
 |------ DIBUJO
 		loadbox
-		cursormodo exec
-|test
+|		cursormodo exec
+		'listaa modov 2 << + @ exec | modo de cursor
 		'dibujo nsprite
 	    coloractual ink
 		trazo.draw
@@ -247,36 +158,27 @@
 		font-vard-12-bold home verde
 
 		verde dup " :R%d" print
-		blanco "GESTO " print
-|		scr
-|		fonti home blanco
-		blanco cr
+		blanco "GESTO " print cr
  		trazo.debug
-		gui.debug
-		 cr
-		'string print
-
+|		gui.debug
 |		'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop
 
 		32 gc.botton $00000f gc.hfill
 		home
 		dlg.color
-		acr2
+		cr2
 		"     " printx
 		cyan
-		'exit 'xcycwh @+ swap @ " %dx%d " btnt
+|		'exit 'xcycwh @+ swap @ " %dx%d " btnt
 
 		sp
-		'modolapiz! "L" sp btnt
-		'modohoja! "H" sp btnt
+		'modov 'listam 5 sp btnve
 
 		rojo
 		sp 'exit "esc-Exit" btnt
 		sp verde
 		sp 'reset dup <f1> "f1-Reset" btnt
 
-		sp [ makebox  ; ]
-		dup <f2> "f2-Box" btnt
 |		sp [ rand $ffffff and dup col.clapiz! d,color ; ]
 |		dup <f3> "f3-Color" btnt | color al azar
 |    	sp 'makemtr dup <f4> "f4-2mtr" btnt
@@ -285,10 +187,8 @@
 		'exit cursorp " %d " sp btnt
 		'exit ">" sp btnt
 
-		cursormodo
-		'dibujando =? ( drop cminilapiz ; )
-		'hojayzoom =? ( drop cminimano ; )
-		drop cminiflecha
+
+		'listac modov 2 << + @ exec | dibujo del cursor
 		;
 
 :
