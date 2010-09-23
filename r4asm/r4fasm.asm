@@ -4,6 +4,9 @@
 format PE GUI 4.0
 entry start
 
+DWEXSTYLE	equ WS_EX_APPWINDOW
+DWSTYLE		equ WS_VISIBLE+WS_CAPTION+WS_SYSMENU
+
 XRES equ 640
 YRES equ 480
 ;XRES equ 800
@@ -63,15 +66,13 @@ start:
 	mov	dword [wc.lpszMenuName],0
 	mov	dword [wc.lpszClassName],_class
 	invoke	RegisterClass,wc
-	mov [dwExStyle],WS_EX_APPWINDOW
-	mov [dwStyle],WS_VISIBLE+WS_CAPTION+WS_CLIPSIBLINGS+WS_CLIPCHILDREN+WS_SYSMENU
 	invoke ShowCursor,0
 	xor eax,eax
 	mov [rec.left],eax
 	mov [rec.top],eax
 	mov [rec.right],XRES
 	mov [rec.bottom],YRES
-	invoke AdjustWindowRect,rec,[dwStyle],0
+	invoke AdjustWindowRect,rec,DWSTYLE,0
 	mov eax,[rec.left]
 	sub [rec.right],eax
 	mov eax,[rec.top]
@@ -89,7 +90,7 @@ start:
 ;	invoke GetSystemMetrics,SM_CYSCREEN
 ;	mov [HSCR],eax
 
-	invoke	CreateWindowEx,[dwExStyle],_class,_title,[dwStyle],0,0,[rec.right],[rec.bottom],0,0,[hinstance],0
+	invoke	CreateWindowEx,DWEXSTYLE,_class,_title,DWSTYLE,0,0,[rec.right],[rec.bottom],0,0,[hinstance],0
 	mov	[hwnd],eax
 	invoke GetDC,[hwnd]
 	mov [hDC],eax
@@ -159,8 +160,6 @@ SYSRUN: ; ( "nombre" -- )
 align 16
 SYSREDRAW: ; ( -- )
 	pusha
-;	invoke StretchDIBits,[hDC],0,0,XRES,YRES,0,0,XRES,YRES,SYSFRAME,bmi,0,SRCCOPY
-		    ;SetDIBitsToDevice(hDC,0,0,gr_ancho,gr_alto,0,0,0,gr_alto,gr_buffer,&bmi,DIB_RGB_COLORS);
 	xor eax,eax
 	invoke SetDIBitsToDevice,[hDC],eax,eax,XRES,YRES,eax,eax,eax,YRES,SYSFRAME,bmi,eax
 	popa
@@ -169,12 +168,12 @@ SYSREDRAW: ; ( -- )
 ;===============================================
 align 16
 SYSCLS:		; ( -- )
-	pusha
+	push eax edi ecx
 	mov eax,[SYSPAPER]
 	lea edi,[SYSFRAME]
 	mov ecx,XRES*YRES
 	rep stosd
-	popa
+	pop ecx edi eax
 	ret
 
 ;===============================================
@@ -466,13 +465,10 @@ align 4
 	wc			WNDCLASS ;EX?
 	msg			MSG
 	hDC			dd 0
-	dwExStyle	dd 0
-	dwStyle 	dd 0
 	rec			RECT
 	bmi			BITMAPINFOHEADER
 	SysTime		SYSTEMTIME
 	Sfinddata	FINDDATA
-;	active		dd 0
 	hdir		dd 0
 	sfile 		dd 0
 	afile 		dd 0
