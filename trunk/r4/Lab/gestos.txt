@@ -8,13 +8,19 @@
 ^r4/lib/usedrw.txt
 ^r4/lib/trace.txt
 
-#dibujo )( $ffff
+#dibujo )( $3ffff
 #dibujo>
 #dibujo<
 
-#campocursor
+#seleccion )( $ffff
+#seleccion> 'seleccion
 
 #colorultimo
+
+#xa -1 #ya #xb #yb
+#cursorp
+#campocursor
+#modot	| modo aux para trazo
 
 #zoom
 #xd #yd
@@ -25,7 +31,6 @@
 
 :loadbox
 	'xcycwh @+ 'h ! @+ 'w ! @+ 'yc ! @ 'xc ! ;
-
 
 |----------------
 :,dib
@@ -66,17 +71,7 @@
 
 :loadmem	"mem/test.gst" loadgst ;
 
-|-----------------
-|---- cursor de caja
-#xcc #ycc #hcc #wcc
-:cursorcaja | --
-|	[ xymouse ycc - 'hcc ! xcc - 'wcc ! ; ] onMove
-|	[ xymouse  'ycc ! 'xcc ! 0 dup 'hcc ! 'wcc ! ; ] onDn
-|	[ +box 0 dup 2dup 'bx1 !+ !+ !+ ! ; ] onClick
-	;
-
 |---- cursor de dibujo
-#modot
 :creapoli | tr --
 	trazo>xy
 	2dup whin 0? ( 3drop ; ) drop   | si no esta adentro no agrega
@@ -111,26 +106,123 @@
 	'vista.dn 'vista.move guiDnMove ;
 
 |---- modo linea
-:dibulinea 
+:,dibline
+	xa -? ( drop xb yb 2dup 'ya ! 'xa ! xy> 1 or ,dib ; )
+	xb - abs ya yb - abs + 0? ( drop ; ) drop
+	xb yb 2dup 'ya ! 'xa ! xy> 5 or ,dib
+	;
+
+:dibulinea
+	[ xymouse 'yb ! 'xb ! ; ] dup
+|	[ xymouse 'yb ! 'xb ! ; ]
+	[ ,dibline ; ]
+	guiMap
+	xa -? ( drop ; )
+	ya op xb yb line
 	;
 
 |---- modo caja
-:dibucaja
+:,dibcaja
+	xa xb =? ( drop ; ) ya yb =? ( 2drop ; )
+	xy> dup 1 or ,dib
+	xa yb xy> 5 or ,dib
+	xb yb xy> 5 or ,dib
+	xb ya xy> 5 or ,dib
+	5 or ,dib
 	;
+
+:dibucaja
+	[ xymouse 2dup 'ya ! 'xa ! 'yb ! 'xb ! ; ]
+	[ xymouse 'yb ! 'xb ! ; ]
+	[ ,dibcaja -1 'xa ! ; ]
+	guiMap
+	xa -? ( drop ; ) ya xb yb caja
+	;
+
 |---- modo circulo
+:,dibelip
+	xa xb =? ( drop ; ) ya yb =? ( 2drop ; )
+	yb ya - abs xb xa - abs
+	>r >r r - 2dup
+	2dup xy> 1 or ,dib |op
+    swap r> r> dup >r swap >r  - swap 2dup xy> 2 or ,dib	|cp
+	r + 2dup xy> 6 or ,dib |curve
+	r + 2dup xy> 2 or ,dib |cp
+	swap r> r> dup >r swap >r + swap 2dup xy> 6 or ,dib |curve
+	swap r> r> dup >r swap >r + swap 2dup xy> 2 or ,dib |cp
+	r - 2dup xy> 6 or ,dib |curve
+	r> - xy> 2 or ,dib |cp
+	xy> 6 or ,dib |curve
+	rdrop
+	;
+
 :dibucirc
+	[ xymouse 2dup 'ya ! 'xa ! 'yb ! 'xb ! ; ]
+	[ xymouse 'yb ! 'xb ! ; ]
+	[ ,dibelip -1 'xa ! ; ]
+	guiMap
+	xa -? ( drop ; ) xb =? ( drop ; ) ya yb =? ( 2drop ; )
+	yb ya - abs xb xa - abs ellipse ;
+
+|---- modo seleccion
+:sortab
+	xa xb >? ( xb 'xa ! dup 'xb ! ) drop
+	ya yb >? ( yb 'ya ! dup 'yb ! ) drop
+	;
+
+:inab | x y -- 1/0
+	ya <? ( 2drop 0 ; ) yb >? ( 2drop 0 ; ) drop
+	xa <? ( drop 0 ; ) xb >? ( drop 0 ; ) drop
+	1
+	;
+
+#ycen #xcen
+
+:dd1 >xy 2 box ;
+:dd2 >xy 3 cruz ;
+:dd3 >xy 2 fbox ;
+:dd4 >xy 3 cruz ;
+:dd5 >xy 2 fbox ;
+:dd6 >xy 3 cruz ;
+:dd7 >xy 2dup 'ycen !+ ! 2 box ; | centro
+:dd8 >xy 2dup 2 cruz op xcen ycen line ; | relativo
+
+#acdd 0 dd1 dd2 dd3 dd4 dd5 dd6 dd7 dd8
+
+:selecc.draw
+	'seleccion ( seleccion> <? )(
+		@+ @
+		dup $f and 8 >? ( 2drop )( 2 << 'acdd + @ exec )
+		) drop ;
+
+:selecc.reset
+	'seleccion 'seleccion> ! ;
+
+:selecc.set
+	sortab
+	'dibujo ( dibujo> <? )(
+		@+ >xy inab 1? ( over 4 - seleccion> !+ 'seleccion> ! ) drop
+		) drop
+	;
+
+:seleccion | --
+	[ xymouse 2dup 'ya ! 'xa ! 'yb ! 'xb ! ; ]
+	[ xymouse 'yb ! 'xb ! ; ]
+	[ selecc.set -1 'xa ! ; ]
+	guiMap cyan
+	selecc.draw
+	xa -? ( drop ; ) ya xb yb caja
 	;
 
 |--- modo
 #modov 0
-#listam 'idibuja 'imenos 'istop 'irec 'ilupa
-#listaa 'dibujando 'dibulinea 'dibucaja 'dibucirc 'hojayzoom
-#listac cminilapiz cminilapiz cminilapiz cminilapiz cminimano
+#listam 'idibuja 'itrazo 'istop 'irec  'ifin 'ilupa
+#listaa 'dibujando 'dibulinea 'dibucaja 'dibucirc 'seleccion 'hojayzoom
+#listac cminilapiz cminilapiz cminilapiz cminilapiz cminiflecha cminimano
 
 |-- poligono
-#cursorp | poligono
-
-
+:cursor.draw
+	;
 
 |--- MAIN ---
 :main
@@ -152,6 +244,7 @@
 		'dibujo nsprite
 	    coloractual ink
 		trazo.draw
+		cursor.draw
 		gc.box
 
 		scr
@@ -172,7 +265,7 @@
 |		'exit 'xcycwh @+ swap @ " %dx%d " btnt
 
 		sp
-		'modov 'listam 5 sp btnve
+		'modov 'listam 6 sp btnve
 
 		rojo
 		sp 'exit "esc-Exit" btnt
