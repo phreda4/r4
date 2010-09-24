@@ -90,6 +90,10 @@
 :dibujando
 	'trazo.start 'trazo.add 'addline guiMap ;
 
+:bbdib
+	'reset "Clear" sp btnt
+	;
+
 |--- modo hoja
 #xv #yv
 
@@ -99,11 +103,31 @@
 	dup xv - 'xc +! 'xv !
 	savebox
 	;
+
 :vista.dn
 	xymouse 'yv ! 'xv ! ;
 
 :hojayzoom
 	'vista.dn 'vista.move guiDnMove ;
+
+:zoomin
+	loadbox
+	w $3fff >? ( drop ; )
+	2* 'w !
+	h 2* 'h !
+	savebox ;
+
+:zoomout
+	loadbox
+	w $3f <? ( drop ; )
+	2/ 'w !
+	h 2/ 'h !
+	savebox ;
+
+:bbhyz | zoom
+	'zoomin "Z+" sp btnt
+	'zoomout "Z-" sp btnt
+	;
 
 |---- modo linea
 :,dibline
@@ -119,6 +143,11 @@
 	guiMap
 	xa -? ( drop ; )
 	ya op xb yb line
+	;
+
+:bbtra
+	'reset "Clear" sp btnt
+	[ -1 'xa ! ; ] "Break" sp btnt
 	;
 
 |---- modo caja
@@ -137,6 +166,9 @@
 	[ ,dibcaja -1 'xa ! ; ]
 	guiMap
 	xa -? ( drop ; ) ya xb yb caja
+	;
+:bbcaj
+	'reset "Clear" sp btnt
 	;
 
 |---- modo circulo
@@ -163,6 +195,10 @@
 	guiMap
 	xa -? ( drop ; ) xb =? ( drop ; ) ya yb =? ( 2drop ; )
 	yb ya - abs xb xa - abs ellipse ;
+
+:bbcir
+	'reset "Clear" sp btnt
+	;
 
 |---- modo seleccion
 :sortab
@@ -214,15 +250,25 @@
 	xa -? ( drop ; ) ya xb yb caja
 	;
 
+
+:bbsel
+	'selecc.reset "Clear" sp btnt
+	'exit "<" sp btnt
+	'exit cursorp " %d " sp btnt
+	'exit ">" sp btnt
+
+	;
+
 |--- modo
 #modov 0
+| dibujo
 #listam 'idibuja 'itrazo 'istop 'irec  'ifin 'ilupa
+| accion sobre hoja
 #listaa 'dibujando 'dibulinea 'dibucaja 'dibucirc 'seleccion 'hojayzoom
+| cursor
 #listac cminilapiz cminilapiz cminilapiz cminilapiz cminiflecha cminimano
-
-|-- poligono
-:cursor.draw
-	;
+| botnes
+#listab bbdib bbtra bbcaj bbcir bbsel bbhyz
 
 |--- MAIN ---
 :main
@@ -244,7 +290,6 @@
 		'dibujo nsprite
 	    coloractual ink
 		trazo.draw
-		cursor.draw
 		gc.box
 
 		scr
@@ -252,8 +297,8 @@
 
 		verde dup " :R%d" print
 		blanco "GESTO " print cr
- 		trazo.debug
-|		gui.debug
+| 		trazo.debug
+		gui.debug
 |		'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop
 
 		32 gc.botton $00000f gc.hfill
@@ -268,19 +313,9 @@
 		'modov 'listam 6 sp btnve
 
 		rojo
-		sp 'exit "esc-Exit" btnt
+		sp 'exit "X" btnt
 		sp verde
-		sp 'reset dup <f1> "f1-Reset" btnt
-
-|		sp [ rand $ffffff and dup col.clapiz! d,color ; ]
-|		dup <f3> "f3-Color" btnt | color al azar
-|    	sp 'makemtr dup <f4> "f4-2mtr" btnt
-
-		'exit "<" sp btnt
-		'exit cursorp " %d " sp btnt
-		'exit ">" sp btnt
-
-
+		'listab modov 2 << + @ exec | botones de modo
 		'listac modov 2 << + @ exec | dibujo del cursor
 		;
 
