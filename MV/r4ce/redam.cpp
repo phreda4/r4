@@ -12,9 +12,13 @@ fputs(n,stream);
 if(fclose(stream)) return;
 }
 
+#define FMOD
+#define PRINTER
+#define NET
+
 
 //char *macrose[]={ ";","LIT","ADR","CALL","JMP","JMPR" };
-char *macros[]={// directivas del compilador     
+char *macros[]={// directivas del compilador
 ";","(",")",")(","[","]","EXEC",
 "0?","+?","-?","1?","=?","<?",">?","<=?",">=?","<>?","AND?","NAND?",
 
@@ -28,52 +32,81 @@ char *macros[]={// directivas del compilador
 "@","C@","W@","!","C!","W!","+!","C+!","W+!", //--- memoria
 "@+","!+","C@+","C!+","W@+","W!+",
 
-"MSEC","TIME","DATE","END","RUN",//--- sistema
-"SW","SH","CLS","REDRAW","FRAMEV","UPDATE",//--- pantalla
-"SETXY","PX+!","PX!+","PX@",
 
-"XYMOUSE","BMOUSE","KEY",
-"IPEN!","IKEY!","IJOY","ISON","INET",//---- raton, teclado
+"MOVE","MOVE>","CMOVE","CMOVE>",//-- movimiento de memoria
+"MEM","DIR","FILE","FSIZE","VOL","LOAD","SAVE",//--- memoria,bloques
+"UPDATE",
+"TPEN",
+"XYMOUSE","BMOUSE",     //-------- mouse
+"IKEY!","KEY",          //-------- teclado
+"CNTJOY","GETJOY",     //-------- joystick
+
+"MSEC","TIME","DATE","END","RUN",//--- sistema
+"SW","SH","CLS","REDRAW","FRAMEV",//--- pantalla
+"SETXY","PX+!","PX!+","PX@",
+"XFB",">XFB","XFB>",
 "PAPER","INK","INK@","ALPHA", //--- color
 "OP","CP","LINE","CURVE","PLINE","PCURVE","POLI",//--- dibujo
 "FCOL","FCEN","FMAT","SFILL","LFILL","RFILL","TFILL",
-
-"MEM","DIR","FILE","FSIZE","VOL","LOAD","SAVE",//--- memoria,bloques
-"MOVE","MOVE>","CMOVE","CMOVE>",//-- movimiento de memoria
-//"INICOM","ICOM","CBUFFER", // com1
+//---------------------
+#ifdef FMOD
+"SLOAD","SPLAY","MLOAD","MPLAY",    //-------- sonido
+#else
+"ISON!","SBO","SBI",    // Sound Buffer Ouput/input
+#endif
+//--------------------- red
+#ifdef NET
+"OPENURL",
+#endif
+//"TIMER",            //------- timer
+//---------------------
+#ifdef PRINTER
+"DOCINI","DOCEND","DOCAT","DOCLINE","DOCTEXT","DOCFONT","DOCBIT","DOCRES","DOCSIZE", //-- impresora
+#endif
+"SYSTEM",
 ""};
 
-// instrucciones de maquina (son compilables a assembler)
-enum {
-FIN,LIT,ADR,CALL,JMP,JMPR,EXEC,//hasta aqui no deberian ser visibles
-IF,PIF,NIF,UIF,IFN,IFL,IFG,IFLE,IFGE,IFNO,// condicionales 0 - y +  y no 0
-IFAND,IFNAND,
+FIN,LIT,ADR,CALL,JMP,JMPR, EXEC,//hasta JMPR no es visible
+IF,PIF,NIF,UIF,IFN,IFL,IFG,IFLE,IFGE,IFNO,IFAND,IFNAND,// condicionales 0 - y +  y no 0
 DUP,DROP,OVER,PICK2,PICK3,PICK4,SWAP,NIP,ROT,
 DUP2,DROP2,DROP3,DROP4,OVER2,SWAP2,//--- pila
 TOR,RFROM,ERRE,ERREM,ERRFM,ERRSM,ERRDR,//--- pila direcciones
 AND,OR,XOR,NOT,//--- logica
 SUMA,RESTA,MUL,DIV,MULDIV,MULSHR,DIVMOD,MOD,ABS,
+CSQRT,CLZ,CDIVSH,
 NEG,INC,INC4,DEC,DIV2,MUL2,SHL,SHR,//--- aritmetica
 FECH,CFECH,WFECH,STOR,CSTOR,WSTOR,INCSTOR,CINCSTOR,WINCSTOR,//--- memoria
 FECHPLUS,STOREPLUS,CFECHPLUS,CSTOREPLUS,WFECHPLUS,WSTOREPLUS,
-
-MSEC,TIME,EDATE,SISEND,SISRUN,//--- sistema
-WIDTH,HEIGHT,CLS,REDRAW,FRAMEV,UPDATE,//--- pantalla
-
+MOVED,MOVEA,CMOVED,CMOVEA,
+MEM,PATH,BFILE,BFSIZE,VOL,LOAD,SAVE,//--- bloques de memoria, bloques
+UPDATE,
+TPEN,
+XYMOUSE,BMOUSE,
+IRKEY,KEY,
+CNTJOY,GETJOY,
+MSEC,TIME,IDATE,SISEND,SISRUN,//--- sistema
+WIDTH,HEIGHT,CLS,REDRAW,FRAMEV,//--- pantalla
 SETXY,MPX,SPX,GPX,
-
-XYMOUSE,BMOUSE,KEY,
-IRMOU,IRKEY,IRJOY,IRSON,IRNET,//---- nuevas interrups
+VXFB,TOXFB,XFBTO,
 COLORF,COLOR,COLORA,ALPHA,//--- color
 OP,CP,LINE,CURVE,PLINE,PCURVE,POLI,//--- dibujo
 FCOL,FCEN,FMAT,SFILL,LFILL,RFILL,TFILL, //--- pintado
-MEM,PATH,BFILE,BFSIZE,VOL,LOAD,SAVE,//--- bloques de memoria, bloques
-MOVED,MOVEA,CMOVED,CMOVEA,
-//--- sockets//--- sonido
-//INIPORT,INET,IBUFFER, // -- linea
-
+#ifdef FMOD
+SLOAD,SPLAY,MLOAD,MPLAY,
+#else
+IRSON,SBO,SBI,
+#endif
+#ifdef NET
+OPENURL,
+#endif
+#ifdef PRINTER  //-- impresora
+DOCINI,DOCEND,DOCMOVE,DOCLINE,DOCTEXT,DOCFONT,DOCBIT,DOCRES,DOCSIZE,
+#endif
+SYSTEM,
 ULTIMAPRIMITIVA// de aqui en mas.. apila los numeros 0..255-ULTIMAPRIMITIVA
 };
+
+// instrucciones de maquina (son compilables a assembler)
 
 //----- PILAS
 int PSP[2048];// 2k pila de datos
@@ -89,7 +122,7 @@ char mindice[8192];// 8k de index 1024 archivos con nombres de 8 caracteres
 char *indexdir[512];
 int sizedir[512];
 int cntindex;
-char *subdirs[256]; 
+char *subdirs[256];
 int cntsubdirs;
 //---- eventos teclado y raton
 MSG msg;
@@ -131,6 +164,43 @@ if (hSearch!=INVALID_HANDLE_VALUE) {
  FindClose(hSearch); 
  }
 }
+#ifdef __GNUC__
+#define iclz32(x) __builtin_clz(x)
+#else
+static inline int popcnt(int x)
+{
+    x -= ((x >> 1) & 0x55555555);
+    x = (((x >> 2) & 0x33333333) + (x & 0x33333333));
+    x = (((x >> 4) + x) & 0x0f0f0f0f);
+    x += (x >> 8);
+    x += (x >> 16);
+    return x & 0x0000003f;
+}
+static inline int iclz32(int x)
+{
+    x |= (x >> 1);
+    x |= (x >> 2);
+    x |= (x >> 4);
+    x |= (x >> 8);
+    x |= (x >> 16);
+    return 32 - popcnt(x);
+}
+#endif
+
+// http://www.devmaster.net/articles/fixed-point-optimizations/
+static inline int isqrt32(int value) 
+{
+if (value==0) return 0;
+int g = 0;
+int bshft = (31-iclz32(value))>>1;  // spot the difference!
+int b = 1<<bshft;
+do {
+	int temp = (g+g+b)<<bshft;
+	if (value >= temp) { g += b;value -= temp;	}
+	b>>=1;
+} while (bshft--);
+return g;
+}
 
 
 //---------------------------------------------------------------
@@ -166,7 +236,7 @@ while (true)  {
     case IFG: W=*(char*)IP;IP++;if (TOS>=*NOS) IP+=W; TOS=*NOS;NOS--;continue;
     case IFLE: W=*(char*)IP;IP++;if (TOS<*NOS) IP+=W; TOS=*NOS;NOS--;continue;
     case IFGE: W=*(char*)IP;IP++;if (TOS>*NOS) IP+=W; TOS=*NOS;NOS--;continue;
-    case IFAND: W=*(char*)IP;IP++;if (!(TOS&*NOS)) IP+=W; 
+    case IFAND: W=*(char*)IP;IP++;if (!(TOS&*NOS)) IP+=W;
 		TOS=*NOS;NOS--;continue;
     case IFNAND: W=*(char*)IP;IP++;if (TOS&*NOS) IP+=W; 
 		TOS=*NOS;NOS--;continue;
@@ -201,7 +271,7 @@ while (true)  {
     case OR: TOS|=*NOS;NOS--;continue;
 	case XOR: TOS^=*NOS;NOS--;continue;
     case NOT: TOS=~TOS;continue;
-//--- aritmeticas	
+//--- aritmeticas
 	case SUMA: TOS=(*NOS)+TOS;NOS--;continue;
     case RESTA: TOS=(*NOS)-TOS;NOS--;continue;
 	case MUL: TOS=(*NOS)*TOS;NOS--;continue;
@@ -210,12 +280,17 @@ while (true)  {
 	case MULDIV: //if (TOS==0) { NOS--;TOS=*NOS;NOS--;continue; }
 	     TOS=(*(NOS-1))*(*NOS)/TOS;NOS-=2;continue;
 	case MULSHR: TOS=((__int64)(*(NOS-1))*(*NOS))>>TOS;NOS-=2;continue;
+    case CDIVSH: TOS=((__int64)(*(NOS-1)<<TOS)/(*NOS));NOS-=2;continue;
+
     case DIVMOD: //if (TOS==0) { NOS--;TOS=*NOS;NOS--;continue; }
 	     W=*NOS%TOS;*NOS=*NOS/TOS;TOS=W;continue;
 	case MOD: TOS=*NOS%TOS;NOS--;continue;
     case ABS: W=(TOS>>31);TOS=(TOS+W)^W;continue;
+    case CSQRT: TOS=isqrt32(TOS);continue;
+    case CLZ: TOS=iclz32(TOS);continue;
+
     case NEG: TOS=-TOS;continue;
-    case INC: TOS++;continue;	case INC4: TOS+=4;continue; case DEC: TOS--;continue;	
+    case INC: TOS++;continue;	case INC4: TOS+=4;continue; case DEC: TOS--;continue;
     case DIV2: TOS>>=1;continue;	case MUL2: TOS<<=1;continue;
 	case SHL: TOS=(*NOS)<<TOS;NOS--;continue;
     case SHR: TOS=(*NOS)>>TOS;NOS--;continue;
@@ -237,11 +312,11 @@ while (true)  {
     case WSTOREPLUS: *(short UNALIGNED *)TOS=(short)*NOS;TOS+=2;NOS--;continue;
 //--- sistema
 	case MSEC: NOS++;*NOS=TOS;TOS=GetTickCount();continue;
-    case EDATE: GetLocalTime(&sitime);NOS++;*NOS=TOS;TOS=sitime.wYear; 
+    case EDATE: GetLocalTime(&sitime);NOS++;*NOS=TOS;TOS=sitime.wYear;
 		NOS++;*NOS=TOS;TOS=sitime.wMonth;NOS++;*NOS=TOS;TOS=sitime.wDay;continue;
-    case TIME: GetLocalTime(&sitime);NOS++;*NOS=TOS;TOS=sitime.wHour; 
+    case TIME: GetLocalTime(&sitime);NOS++;*NOS=TOS;TOS=sitime.wHour;
 		NOS++;*NOS=TOS;TOS=sitime.wMinute;NOS++;*NOS=TOS;TOS=sitime.wSecond;continue;
-    case SISEND: return 0;  
+    case SISEND: return 0;
     case SISRUN: if (TOS!=0) strcpy(linea,(char*)TOS); return 1;
 
     case WIDTH: NOS++;*NOS=TOS;TOS=gr_ancho;continue;	// invirte xy
@@ -250,10 +325,11 @@ while (true)  {
     case REDRAW: gr_redraw();continue;
     case FRAMEV: NOS++;*NOS=TOS;TOS=(int)gr_buffer;continue;
 
-	case UPDATE: 
+	case UPDATE:
 	  if (evento!=0) { R++;*(int*)R=(int)IP;IP=(BYTE*)evento;evento=0; }
-	  if (PeekMessage(&msg,0,0,0,PM_NOREMOVE)==TRUE) { 
-		GetMessage(&msg,0,0,0);TranslateMessage(&msg);DispatchMessage(&msg); 
+	  if (PeekMessage(&msg,0,0,0,PM_NOREMOVE)==TRUE) {
+		GetMessage(&msg,0,0,0);//TranslateMessage(&msg);
+		DispatchMessage(&msg);
 		if (evento!=0) { R++;*(int*)R=(int)IP;IP=(BYTE*)evento;evento=0; }	}
 		continue;
     case XYMOUSE: NOS++;*NOS=TOS;NOS++;*NOS=mxpos;TOS=mypos;continue;// invierto
@@ -272,7 +348,7 @@ while (true)  {
     case IRSON: SYSirqsonido=TOS;TOS=*NOS;NOS--;continue;
     case IRNET: SYSirqred=TOS;TOS=*NOS;NOS--;continue;
 //--- color
-	case COLORF: gr_color2=gr_RGB(TOS);TOS=*NOS;NOS--;continue;    
+	case COLORF: gr_color2=gr_RGB(TOS);TOS=*NOS;NOS--;continue;
     case COLOR: gr_color1=gr_RGB(TOS);TOS=*NOS;NOS--;continue;
     case COLORA: NOS++;*NOS=TOS;TOS=RGB_gr(gr_color1);continue;// =>RGB
 	case ALPHA: if (TOS>254) gr_solid(); else { gr_alphav=(BYTE)(TOS);gr_alpha(); }
@@ -339,11 +415,42 @@ while (true)  {
     case CMOVEA: // | de sr cnt --
          W=(*(NOS-1))+TOS;W1=(*NOS)+TOS;
          while (TOS--) { *(char*)--W=*(char*)--W1; }         
-         NOS-=2;TOS=*NOS;NOS--;         
+         NOS-=2;TOS=*NOS;NOS--;
          continue;
+
+#ifdef FMOD
+case SLOAD: continue;
+case SPLAY: continue;
+case MLOAD: continue;
+case MPLAY: continue;
+
+#else
+case IRSON: continue;
+case SBO: continue;
+case SBI: continue;
+case
+#endif
+#ifdef NET
+OPENURL: continue;
+case
+#endif
+#ifdef PRINTER  //-- impresora
+DOCINI: continue;
+case DOCEND: continue;
+case DOCMOVE: continue;
+case DOCLINE: continue;
+case DOCTEXT: continue;
+case DOCFONT: continue;
+case DOCBIT: continue;
+case DOCRES: continue;
+case DOCSIZE: continue;
+case
+#endif
+SYSTEM,
+
 	default: // completa los 8 bits con apila numeros 0...
         NOS++;*NOS=TOS;TOS=W-ULTIMAPRIMITIVA;continue;
-	} } 
+	} }
 };
 
 

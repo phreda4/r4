@@ -696,7 +696,8 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
          do { W=fread((void*)TOS,sizeof(char),1024,file); TOS+=W; } while (W==1024);
          fclose(file);continue;
     case SAVE: // 'from cnt "filename" --
-         if (TOS==0||*NOS==0) { NOS-=2;TOS=*NOS;NOS--;continue; }
+         if (TOS==0||*NOS==0) { DeleteFile((char*)TOS);
+                              NOS-=2;TOS=*NOS;NOS--;continue; }
          file=fopen((char*)TOS,"wb");
          TOS=*NOS;NOS--;
          if (file==NULL) { NOS--;TOS=*NOS;NOS--;continue; }
