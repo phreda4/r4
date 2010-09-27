@@ -107,7 +107,7 @@ char *macros[]={// directivas del compilador
 "MEM","DIR","FILE","FSIZE","VOL","LOAD","SAVE",//--- memoria,bloques
 "UPDATE",
 "TPEN",
-"XYMOUSE","BMOUSE",     //-------- mouse
+"XYMOUSE","BMOUSE", //"MOUSE",     //-------- mouse
 "IKEY!","KEY",          //-------- teclado
 "CNTJOY","GETJOY",     //-------- joystick
 
@@ -153,7 +153,7 @@ MOVED,MOVEA,CMOVED,CMOVEA,
 MEM,PATH,BFILE,BFSIZE,VOL,LOAD,SAVE,//--- bloques de memoria, bloques
 UPDATE,
 TPEN,
-XYMOUSE,BMOUSE,
+XYMOUSE,BMOUSE, //MOUSE,
 IRKEY,KEY,
 CNTJOY,GETJOY,
 MSEC,TIME,IDATE,SISEND,SISRUN,//--- sistema
@@ -203,14 +203,16 @@ int SYSEVENT=0;
 
 int SYSXYM=0;
 int SYSBM=0;
+//int SYSBL=0;
+
 int SYSKEY=0;
 
 // vectores de interrupciones
 //int SYSirqmouse=0;
 int SYSirqteclado=0;
 //int SYSirqjoystick=0;
-int SYSirqsonido=0;
-int SYSirqred=0;
+//int SYSirqsonido=0;
+//int SYSirqred=0;
 //int SYSirqtime=0;
 
 //char kbuff[32];
@@ -254,17 +256,18 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 switch (message) {     // handle message
     case WM_MOUSEMOVE:
         if (SYSXYM==lParam) break;
-        mbuff[mcnt]=SYSXYM;mcnt=(mcnt+1)&127;
+        mbuff[mcnt]=lParam;mcnt=(mcnt+1)&127;
         SYSXYM=lParam;
 //         SYSEVENT=SYSirqmouse;
          break;
     case WM_LBUTTONUP: case WM_MBUTTONUP: case WM_RBUTTONUP:
     case WM_LBUTTONDOWN: case WM_MBUTTONDOWN: case WM_RBUTTONDOWN:
          SYSBM=wParam;
+//         SYSBL=lParam&0xff;
  //        SYSEVENT=SYSirqmouse;
          break;
-    case WM_MOUSEWHEEL:
-         SYSBM=((short)HIWORD(wParam)<0)?4:5;
+//    case WM_MOUSEWHEEL:
+//         SYSBM=((short)HIWORD(wParam)<0)?4:5;
   //       SYSEVENT=SYSirqmouse;
          break;
     case WM_SYSKEYUP:
@@ -440,8 +443,8 @@ int *vcursor;
 //SYSirqmouse=0;
 SYSirqteclado=0;
 //SYSirqjoystick=0;
-SYSirqsonido=0;
-SYSirqred=0;
+//SYSirqsonido=0;
+//SYSirqred=0;
 SYSEVENT=0;
 //kcnt=kcur=0;
 mcnt=1;
@@ -579,6 +582,8 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 //    case IRMOU: SYSirqmouse=TOS;TOS=*NOS;NOS--;continue;
     case XYMOUSE: NOS++;*NOS=TOS;NOS++;*NOS=SYSXYM&0xffff;TOS=(SYSXYM>>16);continue;
     case BMOUSE: NOS++;*NOS=TOS;TOS=SYSBM;continue;
+//    case MOUSE: NOS++;*NOS=TOS;TOS=(int)SYSBL;    continue;
+    
     case TPEN: NOS++;*NOS=TOS;TOS=(int)&mbuff[0];mbuff[0]=mcnt-1;mcnt=1;continue;
 //----- teclado
     case IRKEY: SYSirqteclado=TOS;TOS=*NOS;NOS--;continue;
