@@ -10,26 +10,17 @@
 
 #ierror 0
 #finprog ( 79 ) | end
-#inter )( 64
-#inter> 'inter
-#irqmou 0
-#irqkey 0
 
 |--- Pilas
-#PSP )( 1024 
+#PSP )( 1024
 #RSP )( 1024
 
-#TOS 0	
-#NOS 'PSP  
+#TOS 0
+#NOS 'PSP
 #RTOS 'RSP
 
 :errm | d d m -- 0
 	nip nip 'ierror ! 0 ;
-
-:+interrupcion | inter --
-	0? ( drop ; )
-	inter> !+ 'inter> >=? ( "Bucle infinito" errm ; )
-	'inter> ! ;
 
 :apilaD | --
 	NOS 'RSP >=? ( "Desborde Pila" errm ; ) drop ;
@@ -41,7 +32,7 @@
 	RTOS 'TOS >=? ( "Desborde Pila R" errm ; ) drop ;
 
 :desapilaR | --
-	RTOS 'RSP <? ( "Pila R Vacia" errm ; ) drop ; 
+	RTOS 'RSP <? ( "Pila R Vacia" errm ; ) drop ;
 
 |--Pila
 :iDUP	4 'NOS +! TOS NOS ! apilaD ;
@@ -62,7 +53,7 @@
 |-- Internas
 :i;		 RTOS @ nip -4 'RTOS +! desapilaR ;
 :iLIT	iDUP dup @ 'TOS ! 4+ ;
-:iADR	iDUP dup @ @ 'TOS ! 4+ ; 
+:iADR	iDUP dup @ @ 'TOS ! 4+ ;
 :iCALL	4 'RTOS +! dup 4+ RTOS ! @ apilaR ;
 :iJMP	@ ;
 |-- condicionales
@@ -134,20 +125,16 @@
 :iFRAMEV	iDUP framev 'TOS ! ;
 :iREDRAW
 |			fonti src home rojo inter> 'inter - 2 >> "%d" print
-			0 0 at blanco NOS 'RSP 'PSP "%d %d %d" print
-			0 0 at blanco inter> 'inter - "%d" print	| interrupcion
-			0 0 at blanco NOS 'RSP - 2 >> "%d" print
+			blanco  
+			NOS 'RSP 'PSP "%d %d %d" print
+			NOS 'RSP - 2 >> "%d" print
 			redraw ;
 
 :iEND		0 nip ;
 :iRUN		0 nip ; | falta guardar nombre
 
 :iUPDATE
-	inter> 'inter =? ( drop ; )
-	4 - dup 'inter> ! @ |0? ( drop ; )
-	swap  4 'RTOS +! RTOS ! apilaR
 	;
-|	'inter ( inter> <? )( @+ 1? ( 4 'RTOS +! RTOS ! apilarR )( drop ) )
 
 :iTPEN		iDUP tpen 'TOS ! ;
 :iXYMOUSE	iDUP iDUP xymouse 'TOS ! NOS ! ;
@@ -156,7 +143,6 @@
 :iCNTJOY iDUP cntjoy 'TOS ! ;
 :iGETJOY 	TOS getjoy 'TOS ! ;
 
-:iRKEY!		TOS 'irqkey ! iDROP ;
 :IJOY	iDROP ;
 :ISON iDROP ;
 :INET	iDROP ;
@@ -204,7 +190,7 @@
 	'iSW 'iSH 'iREDRAW 'iFRAMEV 'iUPDATE
 	'iXYMOUSE 'iBMOUSE 'iKEY  'iCNTJOY 'iGETJOY
 	'iTPEN
-	'iRKEY! 'IJOY 'ISON 'INET
+	'IJOY 'ISON 'INET
 	'iPAPER 'iINK 'iINKF 'iCLS 'iALPHA
 	'iOP 'iCP 'iLINE 'iCURVE 'iPLINE 'iPCURVE 'iPOLI |--- dibujo
 	'iMEM 'iDIR 'iFILE 'iFSIZE 'iVOL 'iLOAD 'iSAVE
@@ -212,18 +198,11 @@
 	'iSLOAD 'iSPLAY
 
 ::interpreta | -- ok / error
-	0 'irqkey !  | interrupciones
-	'inter 'inter> !
-	key.push
-	inikey
-	[ irqkey +interrupcion ; ] ikey!
-	[ 0 nip ; ] <f12>
 	'RSP 'RTOS ! 'finprog RTOS !	|....END
 	'PSP 'NOS ! 0 NOS ! 0 'TOS !
 	0 'ierror !
 	<<boot 	( update 1? )( c@+ 2 << 'tablai + @ exec ) drop
 
-	key.pop
 	ierror ;
 |		iprog <? ( "Sin Codigo" erri ; ) prog> >? ( "Sin Codigo" erri ; )
 
