@@ -65,7 +65,7 @@ start:
 	mov	[wc.hbrBackground],0
 	mov	dword [wc.lpszMenuName],0
 	mov	dword [wc.lpszClassName],_class
-	invoke	RegisterClass,wc
+	invoke RegisterClass,wc
 	invoke ShowCursor,0
 	xor eax,eax
 	mov [rec.left],eax
@@ -120,27 +120,20 @@ include 'cod.asm'
 align 16
 SYSUPDATE: ; ( -- )
 	push eax ebx edx ; falta guardar ecx!! y esi,edi!!
-	invoke	PeekMessage,msg,0,0,0,PM_NOREMOVE
+	xor eax,eax
+	mov [SYSKEY],eax
+	invoke PeekMessage,msg,eax,eax,eax,PM_NOREMOVE
 	or	eax,eax
-	jnz	@f
-	pop edx ebx eax
-	ret
-@@:
+	jz	.end
 	invoke	GetMessage,msg,0,0,0
 	or	eax,eax
-	jz	@isyse
-	invoke	TranslateMessage,msg
+	jz	.endstop
+;	invoke	TranslateMessage,msg
 	invoke	DispatchMessage,msg
+.end:
 	pop edx ebx eax
-
-	mov ecx,[SYSEVENT]
-	or ecx,ecx
-	jnz @dispara
 	ret
-@dispara:
-	mov [SYSEVENT],0
-	jmp ecx
-@isyse:
+.endstop:
 	pop edx ebx eax
 ;===============================================
 align 16
@@ -345,6 +338,10 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 	je	wmkeydown
     cmp	eax,WM_SYSKEYDOWN
     je	wmkeydown
+    cmp	eax,WM_CLOSE
+    je  SYSEND
+    cmp	eax,WM_DESTROY
+    je  SYSEND
   defwindowproc:
 	invoke	DefWindowProc,[hwnd],[wmsg],[wparam],[lparam]
 	ret
@@ -377,8 +374,6 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 	and eax,$7f
 	or eax,$80
 	mov [SYSKEY],eax
-	mov eax,[SYSiKEY]
-	mov [SYSEVENT],eax
 	xor eax,eax
 	ret
   wmkeydown:			; cmp [wparam],VK_ESCAPE ; je wmdestroy
@@ -391,8 +386,6 @@ proc WindowProc hwnd,wmsg,wparam,lparam
   @@:
 	and eax,$7f
 	mov [SYSKEY],eax
-	mov eax,[SYSiKEY]
-	mov [SYSEVENT],eax
 	xor eax,eax
 	ret
 endp
@@ -475,18 +468,16 @@ align 4
 	cntr		dd 0
 
 align 4
-	SYSEVENT	dd 0
 	SYSXYM	dd 0
 	SYSBM 	dd 0
 	SYSKEY	dd 0
-	SYSiKEY	dd 0
+	MCNT	dd 1
+	MBUFF	rd 128
+
 	SYSW	dd XRES
 	SYSH	dd YRES
 	SYSPAPER dd 0
 	SYSCDIR	dd 0
-
-	MCNT	dd 1
-	MBUFF	rd 128
 
 include 'dat.asm'
 
