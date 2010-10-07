@@ -9,25 +9,12 @@
 
 ^r4/lib/trace.txt
 
-
 |-- ancho alto
 #wpx #hpx
 #res |olucion
-#cnt
-#bmrmap
-#bmrmap>
-
-:bmr! | adr --
-	@+ 'wpx !
-	@+ 'hpx !
-	@+ 'res !
-	@+ dup 'cnt !
-	@+ here
-	dup 'bmrmap !
-	dup cnt + 'bmrmap> !
-	'here !
-	;
-
+#bytes
+#frame  | bitmap
+#name	| nombre
 
 |-- pantalla
 #xi #yi		| donde esta el pixel 0,0
@@ -49,14 +36,14 @@
 	yi - res >> swap xi - res >> swap
 :bmr!
 	wpx * + 2 <<
-	bmrmap + coloractual swap ! ;
+	frame + coloractual swap ! ;
 
 :bmr@m | x y -- c
 	yi - res >> swap xi - res >> swap
 :bmr@ | x y -- c
-	wpx * + 2 << bmrmap + @ ;
+	wpx * + 2 << frame + @ ;
 
-:ajustai |
+:ajusta |
 	wpx res << sw >? ( sw nip ) 'wi !
 	hpx res << sh >? ( sh nip ) 'hi !
 	sw 2/ wi 2/ - 'xi !
@@ -70,11 +57,11 @@
 |-- dibujo
 :getxybmr | x y -- c
 	xa 16 >> ya 16 >>
-	wpx * + 2 << bmrmap + @ ;
+	wpx * + 2 << frame + @ ;
 
 
 :getxybmr-modo-bit | .x .y -- c
-	wpx 16 *>> + res << bmrmap + @ ;
+	wpx 16 *>> + res << frame + @ ;
 |-- dibujar sobre w h cx cy
 :drawmap | --
 
@@ -146,18 +133,19 @@
 |---- zoom
 :bz+
 	res 1+ 6 >? ( 0 nip ) 'res !
-	ajustai
+	ajusta
 	;
 
 :bz-
 	res 1- -? ( 6 nip ) 'res !
-	ajustai
+	ajusta
 	;
 
 |-----------------------------------
 ::resetbmr
-	bmrmap ( bmrmap> <? )(
-		0 swap !+ ) drop
+	frame wpx hpx *
+	( 1? )( 1-
+		0 rot !+ swap ) 2drop
 	;
 
 :borrodib
@@ -172,12 +160,36 @@
  	;
 
 |---- cambia resolucion
-:resolucion!
+
+::bmr.size! | w h --
 	| falta ajustar el dibujo
 
-	2dup * 2 << bmrmap + 'bmrmap> !
-	'wpx ! 'hpx !
-	ajustai
+	2dup * 2 << 'bytes !
+	'hpx ! 'wpx !
+
+	ajusta
+	;
+
+#winsize 128 256 0 0 "Size"
+
+:winresol2
+	gris
+	tgc.push
+	'winsize guiWin
+
+|	128 256 gc.window
+|	guiEmpty
+|	gc.fbox home
+
+	cr2
+	[ 16 dup bmr.size! ; ] "16x16" sp btnt cr cr2
+	[ 32 dup bmr.size! ; ] "32x32" sp btnt cr cr2
+	[ 64 dup bmr.size! ; ] "64x64" sp btnt cr cr2
+	[ 128 dup bmr.size! ; ] "128x128" sp btnt cr cr2
+	[ 256 dup bmr.size! ; ] "256x256" sp btnt cr cr2
+	[ 1024 dup bmr.size! ; ] "1kx1k" sp btnt
+
+	tgc.pop
 	;
 
 :winresol
@@ -186,14 +198,15 @@
 	128 256 gc.window
 	guiEmpty
 	gc.fbox home cr2
-	[ 16 dup resolucion! ; ] "16x16" sp btnt cr cr2
-	[ 32 dup resolucion! ; ] "32x32" sp btnt cr cr2
-	[ 64 dup resolucion! ; ] "64x64" sp btnt cr cr2
-	[ 128 dup resolucion! ; ] "128x128" sp btnt cr cr2
-	[ 256 dup resolucion! ; ] "256x256" sp btnt cr cr2
-	[ 1024 dup resolucion! ; ] "1kx1k" sp btnt
+	[ 16 dup bmr.size! ; ] "16x16" sp btnt cr cr2
+	[ 32 dup bmr.size! ; ] "32x32" sp btnt cr cr2
+	[ 64 dup bmr.size! ; ] "64x64" sp btnt cr cr2
+	[ 128 dup bmr.size! ; ] "128x128" sp btnt cr cr2
+	[ 256 dup bmr.size! ; ] "256x256" sp btnt cr cr2
+	[ 1024 dup bmr.size! ; ] "1kx1k" sp btnt
 	tgc.pop
 	;
+
 
 #winr
 
@@ -219,34 +232,6 @@
 :clonebmr
 	;
 
-|-----------------------
-#interface 0
-
-:copy
-	here 'bmrmap !
-	interface @+ swap @ | start end
-	swap
-	@+ >uv 'wpx ! 'hpx !
-	( over <? )( @+ , ) 2drop
-	here 'bmrmap> !
-
-	ajustai	;
-
-:recopy
-	here
-	wpx hpx uv> ,
-	bmrmap ( bmrmap> <? )(
-		@+ , ) drop
-	here swap  interface !+ !
-	;
-
-:clsbmr
-	bmrmap ( bmrmap> <? )(
-		0 swap !+ ) drop ;
-
-:saveexit
-	recopy exit ;
-
 |-----------------------------------
 
 :mododibuja
@@ -255,7 +240,7 @@
 
 :bododibuja
 	cyan
-	'clsbmr "CLS" sp btnt
+|	'clsbmr "CLS" sp btnt
 	azul
 	'savebmr "SAVE" sp btnt
 	'clonebmr "CLONE" sp btnt
@@ -329,13 +314,10 @@
 #listab bododibuja bodozoom bodopick bodomenu
 #listas s00.spr s01.spr s10.spr s11.spr
 |-----------------------------------
-#name
-::bmrname!
-	'name ! ;
 
 :editabmr
-	inigui
-	'saveexit >esc<
+	usogui
+
 	trazo.ini
 	show clrscr
 
@@ -355,23 +337,27 @@
 		sp sp
 
 		rojo
-		'saveexit "EXIT" sp btnt
+		'exit "EXIT" sp btnt
 		'listab modov 2 << + @ exec
 		cyan
-
-
 
 		|scr	home
 	 	|trazo.debug
 		|gui.debug
-		;
+		'exit >esc<
+ 		;
 
+::bmr.name! | "nombre" --
+	'name ! ;
 
-::editandobmr  | 'datastart --
-	'interface !
-	mark
-	copy
+::bmr.here!
+	here 'frame !
+	$fffff + 'here !
+	;
+
+::editandobmr  | --
+	ajusta
 	editabmr
-	empty ;
+	;
 
 

@@ -108,7 +108,8 @@ char *macros[]={// directivas del compilador
 "UPDATE",
 "TPEN",
 "XYMOUSE","BMOUSE", //"MOUSE",     //-------- mouse
-"IKEY!","KEY",          //-------- teclado
+//"IKEY!",
+"KEY",          //-------- teclado
 "CNTJOY","GETJOY",     //-------- joystick
 
 "MSEC","TIME","DATE","END","RUN",//--- sistema
@@ -154,7 +155,8 @@ MEM,PATH,BFILE,BFSIZE,VOL,LOAD,SAVE,//--- bloques de memoria, bloques
 UPDATE,
 TPEN,
 XYMOUSE,BMOUSE, //MOUSE,
-IRKEY,KEY,
+//IRKEY,
+KEY,
 CNTJOY,GETJOY,
 MSEC,TIME,IDATE,SISEND,SISRUN,//--- sistema
 WIDTH,HEIGHT,CLS,REDRAW,FRAMEV,//--- pantalla
@@ -195,21 +197,17 @@ int gx1=0,gy1=0,gx2=0,gy2=0,gxc=0,gyc=0;// coordenadas de linea
 BYTE *bootaddr;
 FILE *file;
 //---- eventos
-//SDL_Event event;
+
 char linea[1024];// 1k linea
 char error[1024];
 //---- eventos teclado y raton
-int SYSEVENT=0;
-
 int SYSXYM=0;
 int SYSBM=0;
-//int SYSBL=0;
-
 int SYSKEY=0;
 
 // vectores de interrupciones
 //int SYSirqmouse=0;
-int SYSirqteclado=0;
+//int SYSirqteclado=0;
 //int SYSirqjoystick=0;
 //int SYSirqsonido=0;
 //int SYSirqred=0;
@@ -255,39 +253,26 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 {
 switch (message) {     // handle message
     case WM_MOUSEMOVE:
-        if (SYSXYM==lParam) break;
-        mbuff[mcnt]=lParam;mcnt=(mcnt+1)&127;
-        SYSXYM=lParam;
-//         SYSEVENT=SYSirqmouse;
+         if (SYSXYM==lParam) break;
+         mbuff[mcnt]=lParam;mcnt=(mcnt+1)&127;
+         SYSXYM=lParam;//         SYSEVENT=SYSirqmouse;
          break;
     case WM_LBUTTONUP: case WM_MBUTTONUP: case WM_RBUTTONUP:
     case WM_LBUTTONDOWN: case WM_MBUTTONDOWN: case WM_RBUTTONDOWN:
-         SYSBM=wParam;
-//         SYSBL=lParam&0xff;
- //        SYSEVENT=SYSirqmouse;
-         break;
-//    case WM_MOUSEWHEEL:
-//         SYSBM=((short)HIWORD(wParam)<0)?4:5;
-  //       SYSEVENT=SYSirqmouse;
+         SYSBM=wParam; //        SYSEVENT=SYSirqmouse;
          break;
     case WM_SYSKEYUP:
     case WM_KEYUP:        // (lparam>>24)     ==1 keypad
         lParam>>=16;
         if ((lParam&0x100)!=0) lParam=mapex[lParam&0x7f];
-
-//        kbuff[kcnt]=(lParam&0x7f)|0x80;;kcnt=(kcnt+1)&31;
-        SYSKEY=(lParam&0x7f)|0x80;
-        SYSEVENT=SYSirqteclado;
+        SYSKEY=(lParam&0x7f)|0x80; //        SYSEVENT=SYSirqteclado;
         break;
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
         lParam>>=16;
         if ((lParam&0x100)!=0) lParam=mapex[lParam&0x7f];
-       
-//        kbuff[kcnt]=lParam&0x7f;kcnt=(kcnt+1)&31;
-        SYSKEY=lParam&0x7f;
-        SYSEVENT=SYSirqteclado;
-         break;
+        SYSKEY=lParam&0x7f; //        SYSEVENT=SYSirqteclado;
+        break;
 //    case WM_TIMER:
 //        SYSEVENT=SYSirqtime;
 //        break;
@@ -295,7 +280,8 @@ switch (message) {     // handle message
    case WM_CLOSE:
         rebotea=2;// no reinicia
    case WM_DESTROY:
-        SYSEVENT=(int)&ultimapalabra; // ejecuta end
+        SYSKEY=-1;                   
+//        R++;*(int*)R=(int)&ultimapalabra; // ejecuta end
 //		DestroyWindow(hWnd);
 		break;
 /*    
@@ -441,11 +427,11 @@ int W,W1;			// palabra actual y auxiliar
 int *vcursor;
 
 //SYSirqmouse=0;
-SYSirqteclado=0;
+//SYSirqteclado=0;
 //SYSirqjoystick=0;
 //SYSirqsonido=0;
 //SYSirqred=0;
-SYSEVENT=0;
+//SYSEVENT=0;
 //kcnt=kcur=0;
 mcnt=1;
 
@@ -556,13 +542,14 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case WSTOREPLUS: *(short *)TOS=(short)*NOS;TOS+=2;NOS--;continue;
 //--- sistema
 	case UPDATE:
+         SYSKEY=0;
          Sleep(TOS);
-         if (PeekMessage(&msg,hWnd,0,0,PM_REMOVE)) // process messages
-//           if (PeekMessage(&msg,0,0,0,PM_REMOVE)) // process messages
+//         while (PeekMessage(&msg,hWnd,0,0,PM_REMOVE)) // process messages
+           if (PeekMessage(&msg,0,0,0,PM_REMOVE)) // process messages
             {  //TranslateMessage(&msg);
             DispatchMessage(&msg);
 // lleno pila con interrupciones
-            if (SYSEVENT!=0) { R++;*(int*)R=(int)IP;IP=(BYTE*)SYSEVENT;SYSEVENT=0; }
+//            if (SYSEVENT!=0) { R++;*(int*)R=(int)IP;IP=(BYTE*)SYSEVENT;SYSEVENT=0; }
 /*
             if (active==WA_INACTIVE) {
                while (active==WA_INACTIVE) {    // cambiar esto para poder prender 2 r4
@@ -575,6 +562,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         if (evtsound==1 && SYSirqsonido!=0)
             { R++;*(int*)R=(int)IP;IP=(BYTE*)SYSirqsonido;evtsound=0; }
 #endif
+            if (SYSKEY==-1) return 0;
             }
 		break;
 
@@ -586,24 +574,23 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     
     case TPEN: NOS++;*NOS=TOS;TOS=(int)&mbuff[0];mbuff[0]=mcnt-1;mcnt=1;continue;
 //----- teclado
-    case IRKEY: SYSirqteclado=TOS;TOS=*NOS;NOS--;continue;
+//    case IRKEY: SYSirqteclado=TOS;TOS=*NOS;NOS--;continue;
 	case KEY: NOS++;*NOS=TOS;TOS=SYSKEY&0xff;continue;
+	
 //----- joy
     case CNTJOY: NOS++;*NOS=TOS;TOS=cntJoy;continue;
     case GETJOY: TOS=getjoy(TOS);continue;
 
     case REDRAW:
-        gr_redraw();
-//        if (kcnt==kcur) { SYSKEY=0; } else { SYSKEY=kbuff[kcur];kcur=(kcur+1)&31; }
-        continue;
+        gr_redraw(); continue;
 
 	case MSEC: NOS++;*NOS=TOS;TOS=timeGetTime();continue;
     case IDATE: time(&sit);sitime=localtime(&sit);NOS++;*NOS=TOS;TOS=sitime->tm_year+1900;
         NOS++;*NOS=TOS;TOS=sitime->tm_mon+1;NOS++;*NOS=TOS;TOS=sitime->tm_mday;continue;
     case TIME: time(&sit);sitime=localtime(&sit);NOS++;*NOS=TOS;TOS=sitime->tm_sec; 
         NOS++;*NOS=TOS;TOS=sitime->tm_min;NOS++;*NOS=TOS;TOS=sitime->tm_hour;continue;
-    case SISEND: return 0;
-
+    case SISEND: 
+         return 0;
     case SISRUN: 
         exestr="";
         if (TOS==0) { rebotea=1;return 0; }
@@ -1390,7 +1377,7 @@ wc.hInstance     = GetModuleHandle(0);
 wc.lpszClassName = wndclass;
 if(!RegisterClass((WNDCLASSA*)&wc)) return -1;
 
-reboot: rebotea=SYSEVENT=0;
+reboot: rebotea=0;
 #ifdef LOGMEM
 ldebug("ini..");
 #endif
