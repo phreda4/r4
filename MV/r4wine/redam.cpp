@@ -108,8 +108,7 @@ char *macros[]={// directivas del compilador
 "UPDATE",
 "TPEN",
 "XYMOUSE","BMOUSE", //"MOUSE",     //-------- mouse
-//"IKEY!",
-"KEY",          //-------- teclado
+"KEY!", "KEY",          //-------- teclado
 "CNTJOY","GETJOY",     //-------- joystick
 
 "MSEC","TIME","DATE","END","RUN",//--- sistema
@@ -155,8 +154,7 @@ MEM,PATH,BFILE,BFSIZE,VOL,LOAD,SAVE,//--- bloques de memoria, bloques
 UPDATE,
 TPEN,
 XYMOUSE,BMOUSE, //MOUSE,
-//IRKEY,
-KEY,
+SKEY, KEY,
 CNTJOY,GETJOY,
 MSEC,TIME,IDATE,SISEND,SISRUN,//--- sistema
 WIDTH,HEIGHT,CLS,REDRAW,FRAMEV,//--- pantalla
@@ -574,7 +572,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     
     case TPEN: NOS++;*NOS=TOS;TOS=(int)&mbuff[0];mbuff[0]=mcnt-1;mcnt=1;continue;
 //----- teclado
-//    case IRKEY: SYSirqteclado=TOS;TOS=*NOS;NOS--;continue;
+    case SKEY: SYSKEY=TOS;TOS=*NOS;NOS--;continue;
 	case KEY: NOS++;*NOS=TOS;TOS=SYSKEY&0xff;continue;
 	
 //----- joy
