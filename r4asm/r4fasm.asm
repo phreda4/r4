@@ -104,7 +104,6 @@ start:
 	invoke UpdateWindow,[hwnd]
 ;---------- INICIO
 restart:
-	mov [MCNT],1
 	mov esi,Dpila
 	xor eax,eax
 	jmp inicio
@@ -347,15 +346,7 @@ proc WindowProc hwnd,wmsg,wparam,lparam
 	ret
   wmmousemove:
 	mov eax,[lparam]
-	cmp eax,[SYSXYM]
-	je @f
-	mov ebx,[MCNT]
-	mov [MBUFF+ebx*4],eax
-	inc ebx
-	and ebx,$7f
-	mov [MCNT],ebx
 	mov [SYSXYM],eax
-  @@:
 	xor eax,eax
 	ret
   wmmouseev:
@@ -471,8 +462,6 @@ align 4
 	SYSXYM	dd 0
 	SYSBM 	dd 0
 	SYSKEY	dd 0
-	MCNT	dd 1
-	MBUFF	rd 128
 
 	SYSW	dd XRES
 	SYSH	dd YRES

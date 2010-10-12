@@ -4,31 +4,29 @@
 |-------------
 ^r4/lib/trace.txt
 
-| trazointerno
-#trazo 0
-#trazo> 0
+#trazo )( 2048
+#trazo> 'trazo
 #bx1 #by1
 #bx2 #by2
 
-|-- inicializador
-::trazo.ini
-	here dup dup
-	'trazo ! 0 over ! 'trazo> !
-	$ffff + 'here ! ;
+:++trazo |
+	trazo> 4 - @ =? ( drop ; )
+:+trazo | u --
+	trazo> !+ 'trazo> ! ;
+:-trazo
+	'trazo 'trazo> ! ;
 
-|-- convierte  8 - 12 - 12
-::trazo>xy | val -- x y
-	dup 20 << 20 >>
-	swap 8 << 20 >> ;
+:trazodraw
+	'trazo @+ 0? ( 2drop ; ) >xy op
+	( trazo> <? )( @+ >xy line ) drop ;
+	;
 
-::xy>trazo | x y -- val
-	12 << $fff000 and swap $fff and or	;
-
-:16to12 | tpenxy -- val
-	>uv 12 << $fff000 and swap $fff and or ;
-
-::trazo.debug
-	trazo> trazo - 2 >> "T:%d" print cr ;
+::trazo.draw
+	[ xymouse xy> +trazo ; ]
+	[ xymouse xy> ++trazo ; ]
+	[ -trazo ; ]
+	guiMap
+	trazodraw ;
 
 |---
 :colineal | q1 q2 q3 -- 0/1
@@ -36,16 +34,16 @@
 	- + dup * r> - ;
 
 :Qab | a b -- q
-	over $fff and
-	over $fff and - dup * >r
-	swap 12 >> $fff and
-	swap 12 >> $fff and - dup * r> + ;
+	over $ffff and
+	over $ffff and - dup * >r
+	swap 16 >> $7fff and
+	swap 16 >> $7fff and - dup * r> + ;
 
 | a-b q1
 | b-c q2
 | a-c q3
 :checkline | --
-	trazo> 12 - trazo <? ( drop ; )
+	trazo> 12 - 'trazo <? ( drop ; )
 	>r r@+	r@+	r> @ | a b c
 	pick2 over Qab >r	| a b c r:q3
 	over swap Qab >r	| a b 	r:q2 q3
@@ -55,46 +53,30 @@
 	;
 
 :,tr | xy --
-	16to12
 	trazo> 4 - @ $ffffff and =? ( drop ; )
 	trazo> !+ 0 over ! 'trazo> !
 	checkline ;
 
 ::trazo.add | agrega trazo a linea actual
-	tpen @+ 0? ( 2drop ; )
-	( 1? )( 1- swap @+
-		,tr swap )
-	2drop ;
+	xymouse xy> ,tr ;
 
 ::trazo.start
-	tpen drop
-	xymouse xy>trazo $80000000 or
+	xymouse xy> $80000000 or
 	trazo> !+ 0 over ! 'trazo> !
 	;
 
 ::trazo.cnt | valor -- 1/0
-	trazo> trazo - 2 >> ;
-
-|------- habilita trazo y dibuja
-|::trazo.in
-|   'trazo.start onDn
-|	'trazo.add onMove
-::trazo.draw | --
-	trazo
-	( @+ 1? )(
-		$80000000 and? ( trazo>xy op )( trazo>xy line )
-		) 2drop ;
-
+	trazo> 'trazo - 2 >> ;
 
 ::trazo.cls
-	trazo 0 over ! 'trazo> !
-	tpen drop ;
+	'trazo 0 over ! 'trazo> !
+	;
 
 :trazo.info |
 	sh sw 'bx1 ! 'by1 !
 	0 0 'bx2 ! 'by2 !
-	trazo ( @+ 1? )(
-		trazo>xy
+	'trazo ( @+ 1? )(
+		>xy
 		by1 <? ( dup 'by1 ! )
 		by2 >? ( dup 'by2 ! ) drop
 		bx1 <? ( dup 'bx1 ! )
@@ -106,15 +88,10 @@
 
 | cadapunto | v81212 --
 ::trazo.map | 'cadapunto --
-	trazo
+	'trazo
 	( @+ 1? )(
 		pick2 exec
 		) 3drop ;
-
-::tpenmap | 'set --
-	tpen @+ 0? ( 2drop ; )
-	( 1? )( 1- swap @+ >uv pick4 exec swap )
-	3drop ;
 
 |----- algoritmo de linea
 #vec
@@ -151,10 +128,7 @@
 |---- recorre por punto
 ::tpenini | 'set --
 	'vec !
-	tpen drop
 	xymouse 'ya ! 'xa ! ;
 
 ::tpenline | --
-	tpen @+ 0? ( 2drop ; )
-	( 1? )( 1- swap @+ >uv vline! swap )
-	2drop ;
+	xymouse  vline! ;
