@@ -1,0 +1,133 @@
+| Crayon - dibujador simple
+| PHREDA
+|---------------------
+
+^r4/lib/btn.txt
+^r4/lib/dlg.txt
+
+^r4/lib/graf.txt
+^r4/lib/trazo.txt
+
+#sizebm
+#tecla
+#fondo 0
+#skip
+
+|------------ Grabar simple RLE
+#memc
+#memc>
+
+:,comp | v --
+	memc> !+ 'memc> ! ;
+
+#cnt
+#colact
+
+:scanlast | --
+	colact cnt ( 255 >? )( over $ff000000 or ,comp 255 - )
+	24 << or ,comp ;
+
+:scanconv | adr -- adr+
+	@+ $ffffff and | adr+ color
+	colact =? ( 1 'cnt +! drop ; )
+	scanlast
+:scanini | color --
+	$ffffff and 'colact ! 1 'cnt ! ;
+
+:grabar
+	mem @+ scanini
+	sizebm 2dup 2 << + dup 'memc ! 'memc> !
+	( 1- 1? )( >r scanconv r> ) 2drop
+	scanlast
+	memc memc> over - "bmr/test.bmr" save
+	;
+
+|-------------- Cargar simple RLE
+:cargar
+	mem sizebm 2 << + 'memc !
+	memc "bmr/test.bmr" load 'memc> !
+	mem >r
+	memc ( memc> <? )( @+
+		dup $ffffff and swap 24 >> $ff and | color cant
+		( 1? )( over r!+ 1- ) 2drop
+		) drop
+	rdrop
+	 ;
+
+|----------------------------------------
+#tinta $0
+#linegro 2
+
+#x1 #y1
+
+#trazo )( 2048
+#trazo> 'trazo
+
+:++trazo |
+	trazo> 4 - @ =? ( drop ; )
+:+trazo | u --
+	trazo> !+ 'trazo> ! ;
+:-trazo
+	'trazo 'trazo> ! ;
+
+:trazo.draw
+	'trazo @+ 0? ( 2drop ; ) >xy gop
+	( trazo> <? )( @+ >xy gline ) drop ;
+
+:refresca
+	scr trazo.draw
+	>XFB
+	;
+
+:trazodraw
+	[ xymouse xy> +trazo ; ]
+	[ xymouse xy> ++trazo ; ]
+	[ refresca -trazo ; ]
+	guiMap
+    trazo.draw
+	;
+
+:cambiagr
+	linegro 1+
+	10 >? ( 0 nip )
+	dup 'linegro !
+	dup gg gg
+	;
+
+:barra
+	usogui
+	trazo.ini
+	tinta col.clapiz!
+	linegro dup gg gg
+	show xfb>scr
+		tinta ink
+		trazodraw
+
+		scr fonti home
+		dlg.color
+		cr2
+		"      " printx
+
+		verde 'cambiagr dup linegro "G%d" sp btnt <spc>
+		rojo 'exit dup "EXIT" sp btnt >esc<
+
+	[ rand 'tinta ! ; ] <spc>
+	[ cls ; ] <enter>
+|	"F2" "Grabar" 'grabar dup <f2> .fbtn .>
+|	"F3" "Cargar" 'cargar dup <f3> .fbtn .>
+		cr cr azul
+		dup "%d" print cr
+		trazo> 'trazo - "%d" print cr
+
+	 	clapiz
+		;
+
+:inicio
+    $ffffff paper
+    cls >XFB
+
+	mark
+	sw sh *	'sizebm !
+	barra ;
+
+: inicio ;
