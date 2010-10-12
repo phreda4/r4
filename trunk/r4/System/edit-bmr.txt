@@ -25,8 +25,36 @@
 
 #res 2
 
-#xa #ya	| dibujo con zoom
+#xa #ya	| x y 16.16
 #xs #ys
+
+#xa1 #ya1
+
+|---------------------------------------
+
+::bmr.name! | "nombre" --
+	'name ! ;
+
+::bmr.data! | memoria --
+	'frame ! ;
+
+::bmr.size! | w h --
+	2dup * 2 << 'bytes !
+	'hpx ! 'wpx !
+
+:ajusta
+	wpx res << sw >? ( sw nip ) 'wi !
+	hpx res << sh >? ( sh nip ) 'hi !
+	sw 2/ wi 2/ - 'xi !
+	sh 2/ hi 2/ - 'yi !
+
+:ajustap
+	xi -? ( 0 nip ) 'xo !
+	yi -? ( 0 nip ) 'yo !
+	1.0 res >> dup 'xs ! 'ys !
+	;
+
+|---------------------------------------
 
 ::bmrW | -- ancho para generar codigo
 	wpx ;
@@ -43,16 +71,6 @@
 :bmr@ | x y -- c
 	wpx * + 2 << frame + @ ;
 
-:ajusta |
-	wpx res << sw >? ( sw nip ) 'wi !
-	hpx res << sh >? ( sh nip ) 'hi !
-	sw 2/ wi 2/ - 'xi !
-	sh 2/ hi 2/ - 'yi !
-:ajustap
-	xi -? ( 0 nip ) 'xo !
-	yi -? ( 0 nip ) 'yo !
-	1.0 res >> dup 'xs ! 'ys !
-	;
 
 |-- dibujo
 :getxybmr | x y -- c
@@ -62,8 +80,9 @@
 
 :getxybmr-modo-bit | .x .y -- c
 	wpx 16 *>> + res << frame + @ ;
+
 |-- dibujar sobre w h cx cy
-:drawmap | --
+:drawmap1 | --
 
 	xi -? ( neg res >> )( 0 nip ) 16 << dup 'xa !
 	yi -? ( neg res >> )( 0 nip ) 16 << 'ya !
@@ -81,26 +100,9 @@
 	2drop
 	;
 
-#xa1 #ya1
-:ajustai2 |
-	sw 2/ wi 2/ - 'xi !
-	sh 2/ hi 2/ - 'yi !
-
-
-:ajustap2
-	xi 16 << 'xa !
-	yi 16 << 'ya !
-
-	1.0 res >> dup 'xs ! 'ys !
-	xi -? ( neg xs * 'xa +! 0 ) dup
-	wpx res << + sw >? ( sw nip ) over - 'wi !
-	'xo !
-	xa 'xa1 !
-	yi -? ( neg ys * 'ya +! 0 ) dup
-	hpx res << + sh >? ( sh nip ) over - 'hi !
-	'yo !
-	ya 'ya1 !
-
+:framegetpixel
+	xa 16 >> ya 16 >>
+	wpx * + 2 << frame + @
 	;
 
 :drawmap2 | --
@@ -111,13 +113,32 @@
 	sw wi - | columna
 	0 ( hi <? )(
 		0 ( wi <? )(
-			getxybmr px!+
+			framegetpixel px!+
 			xs 'xa +!
 			1+ ) drop
 		over px+!
 		ys 'ya +!
 		pick2 'xa !
 		1+ ) drop
+	2drop
+	;
+
+
+:drawmap | --
+	xa1 'xa !
+	ya1 'ya !
+
+	xo yo setxy
+	sw wi - | columna
+	hi ( 1? )(
+		wi ( 1? )(
+			framegetpixel px!+
+			xs 'xa +!
+			1- ) drop
+		over px+!
+		ys 'ya +!
+		pick2 'xa !
+		1- ) drop
 	2drop
 	;
 
@@ -160,15 +181,6 @@
  	;
 
 |---- cambia resolucion
-
-::bmr.size! | w h --
-	| falta ajustar el dibujo
-
-	2dup * 2 << 'bytes !
-	'hpx ! 'wpx !
-
-	ajusta
-	;
 
 #winsize 128 256 0 0 "Size"
 
@@ -315,12 +327,10 @@
 #listas s00.spr s01.spr s10.spr s11.spr
 |-----------------------------------
 
-:editabmr
+::editandobmr
 	usogui
-
 	trazo.ini
 	show clrscr
-
         drawbmr
 		'listaa modov 2 << + @ exec
 
@@ -346,18 +356,4 @@
 		|gui.debug
 		'exit >esc<
  		;
-
-::bmr.name! | "nombre" --
-	'name ! ;
-
-::bmr.here!
-	here 'frame !
-	$fffff + 'here !
-	;
-
-::editandobmr  | --
-	ajusta
-	editabmr
-	;
-
 
