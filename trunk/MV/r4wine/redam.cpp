@@ -106,7 +106,7 @@ char *macros[]={// directivas del compilador
 "MOVE","MOVE>","CMOVE","CMOVE>",//-- movimiento de memoria
 "MEM","DIR","FILE","FSIZE","VOL","LOAD","SAVE",//--- memoria,bloques
 "UPDATE",
-"TPEN",
+//"TPEN",
 "XYMOUSE","BMOUSE", //"MOUSE",     //-------- mouse
 "KEY!", "KEY",          //-------- teclado
 "CNTJOY","GETJOY",     //-------- joystick
@@ -152,7 +152,7 @@ FECHPLUS,STOREPLUS,CFECHPLUS,CSTOREPLUS,WFECHPLUS,WSTOREPLUS,
 MOVED,MOVEA,CMOVED,CMOVEA,
 MEM,PATH,BFILE,BFSIZE,VOL,LOAD,SAVE,//--- bloques de memoria, bloques
 UPDATE,
-TPEN,
+//TPEN,
 XYMOUSE,BMOUSE, //MOUSE,
 SKEY, KEY,
 CNTJOY,GETJOY,
@@ -214,8 +214,8 @@ int SYSKEY=0;
 //char kbuff[32];
 //int kcnt=0,kcur=0;
 
-int mcnt=0;
-int mbuff[128];
+//int mcnt=0;
+//int mbuff[128];
 
 //----- Directorio 
 char mindice[8192];// 8k de index 1024 archivos con nombres de 8 caracteres
@@ -251,8 +251,8 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 {
 switch (message) {     // handle message
     case WM_MOUSEMOVE:
-         if (SYSXYM==lParam) break;
-         mbuff[mcnt]=lParam;mcnt=(mcnt+1)&127;
+  //       if (SYSXYM==lParam) break;
+  //       mbuff[mcnt]=lParam;mcnt=(mcnt+1)&127;
          SYSXYM=lParam;//         SYSEVENT=SYSirqmouse;
          break;
     case WM_LBUTTONUP: case WM_MBUTTONUP: case WM_RBUTTONUP:
@@ -261,12 +261,14 @@ switch (message) {     // handle message
          break;
     case WM_SYSKEYUP:
     case WM_KEYUP:        // (lparam>>24)     ==1 keypad
+//         SYSKEY=lParam;
         lParam>>=16;
         if ((lParam&0x100)!=0) lParam=mapex[lParam&0x7f];
         SYSKEY=(lParam&0x7f)|0x80; //        SYSEVENT=SYSirqteclado;
         break;
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
+//         SYSKEY=lParam;
         lParam>>=16;
         if ((lParam&0x100)!=0) lParam=mapex[lParam&0x7f];
         SYSKEY=lParam&0x7f; //        SYSEVENT=SYSirqteclado;
@@ -281,6 +283,8 @@ switch (message) {     // handle message
         SYSKEY=-1;                   
 //        R++;*(int*)R=(int)&ultimapalabra; // ejecuta end
 //		DestroyWindow(hWnd);
+        return 0;
+
 		break;
 /*    
 //        PostQuitMessage(0);
@@ -431,7 +435,7 @@ int *vcursor;
 //SYSirqred=0;
 //SYSEVENT=0;
 //kcnt=kcur=0;
-mcnt=1;
+//mcnt=1;
 
 vcursor=(int*)gr_buffer;
 
@@ -570,7 +574,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case BMOUSE: NOS++;*NOS=TOS;TOS=SYSBM;continue;
 //    case MOUSE: NOS++;*NOS=TOS;TOS=(int)SYSBL;    continue;
     
-    case TPEN: NOS++;*NOS=TOS;TOS=(int)&mbuff[0];mbuff[0]=mcnt-1;mcnt=1;continue;
+//    case TPEN: NOS++;*NOS=TOS;TOS=(int)&mbuff[0];mbuff[0]=mcnt-1;mcnt=1;continue;
 //----- teclado
     case SKEY: SYSKEY=TOS;TOS=*NOS;NOS--;continue;
 	case KEY: NOS++;*NOS=TOS;TOS=SYSKEY&0xff;continue;
