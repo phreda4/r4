@@ -1,12 +1,11 @@
 | gestos
 | PHREDA 2010
 |--------------
-^r4/lib/gui.txt
 ^r4/lib/dlg.txt
 ^r4/lib/fontt.txt
-^r4/lib/trazo.txt
-|^r4/lib/usedrw.txt
 ^r4/lib/trace.txt
+
+^r4/lib/polygr.txt
 
 #dibujo )( $3ffff
 #dibujo>
@@ -26,6 +25,37 @@
 #xd #yd
 #xcycwh 0 0 0 0
 
+|----------------------------------------
+#linegro 0
+
+#trazo )( 2048
+#trazo> 'trazo
+
+:++trazo | px --
+	trazo> 4 - @ =? ( drop ; )
+:+trazo | px --
+	trazo> !+ 'trazo> ! ;
+:-trazo
+	'trazo 'trazo> ! ;
+:trazo.cnt | -- cntpx
+	trazo> 'trazo - 2 >> ;
+
+:trazo.map | 'vec --
+	>r
+	'trazo @+ 0? ( 2drop ; ) r exec
+	( trazo> <? )( @+ r exec ) drop
+	rdrop ;
+
+:enlineas
+	'trazo @+ 0? ( 2drop ; ) >xy op
+	( trazo> <? )( @+ >xy line ) drop ;
+
+:engrosor
+	linegro 0? ( drop enlineas ; ) drop
+	'trazo @+ 0? ( 2drop ; ) >xy gop
+	( trazo> <? )( @+ >xy gline ) drop ;
+
+|----------------------------------------ç
 :savebox
 	xc yc w h 'xcycwh !+ !+ !+ ! ;
 
@@ -42,12 +72,13 @@
 :makepoli
 
 	,dibcolor ;
+
 |-------------
 :reset
 	'dibujo dup 'dibujo> !+ !
 	0 'dibujo !
 	coloractual 1- 'colorultimo !
-	trazo.cls
+	-trazo
     ;
 
 ::savegst | "nombre" --
@@ -84,14 +115,22 @@
 
 :addline
 	1 'modot !
-	trazo.cnt 2 <? ( drop trazo.cls ; ) drop
+	trazo.cnt 2 <? ( drop ; ) drop
 	coloractual colorultimo <>? ( 'colorultimo ! ,dibcolor )( drop )
-	'creapoli trazo.map
-	trazo.cls
+	linegro
+	0? ( drop 'creapoli trazo.map ; ) drop
+
+	'trazo trazo> polygr.do
+    'creapoli polygr.map
 	;
 
 :dibujando
-	'trazo.start 'trazo.add 'addline guiMap ;
+	coloractual ink
+	[ xymouse xy> +trazo ; ]
+	[ xymouse xy> ++trazo ; ]
+	[ addline -trazo ; ]
+	guiMap
+	;
 
 :bbdib
 	'reset "Clear" sp btnt
@@ -220,12 +259,6 @@
 	1
 	;
 
-|------- grosor
-#grosor
-
-:dibujagrosor | adr -- adr
-
-	;
 
 |-------- edicion
 #ycen #xcen
@@ -276,8 +309,20 @@
 	cminiflecha
 	;
 
-:cambiogrosor
+|--- grosor
+:gr!
+	dup 'linegro !
+	dup gg gg
+	;
 
+#winGr 1 10 32 90 200 "GROSOR"
+:dlgGr
+	linegro
+	0 ( 18 <? )(
+		over =? ( azul )( cyan )
+		[ dup gr! ; ] over "  %d  " sp btnt cr cr2
+		2 + ) drop
+	blanco "= %d =" printc
 	;
 
 |--- modo
@@ -299,7 +344,6 @@
 	savebox
 
     usogui
-
 	show clrscr
 
 |------ DIBUJO
@@ -307,28 +351,23 @@
 		'listaa modov 2 << + @ exec | modo de cursor
 		'dibujo nsprite
 	    coloractual ink
-		trazo.draw
+	    engrosor
 		gc.box
 
 |------  TOOLBAR
 		scr
-		font-vard-12-bold
+|		font-vard-12-bold
 		home blanco
 | 		trazo.debug
 |		gui.debug
 |		'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop
 
 		32 gc.botton $00000f gc.hfill
-		home
-		dlg.color
-		cr2
-		"      " printx
-		cyan
-|		'exit 'xcycwh @+ swap @ " %dx%d " btnt
-		'cambiogrosor grosor "%d" btnt
+		home cr2
 
-|	'pasatrazo <f1>
-|	'keyenter <enter>
+		sp dlg.color
+		cyan
+		'dlgGr 'winGr guiWin | grosor
 
 		'modov 'listam 6 sp btnve
 
@@ -341,7 +380,6 @@
 		'listab modov 2 << + @ exec | botones+cursor de modo
 
 		'exit >esc<
-
 		;
 
 :
