@@ -4,14 +4,9 @@
 
 ^r4/lib/btn.txt
 ^r4/lib/dlg.txt
-
 ^r4/lib/graf.txt
-^r4/lib/trazo.txt
 
 #sizebm
-#tecla
-#fondo 0
-#skip
 
 |------------ Grabar simple RLE
 #memc
@@ -55,78 +50,85 @@
 	 ;
 
 |----------------------------------------
-#tinta $0
-#linegro 2
-
-#x1 #y1
+#linegro 0
 
 #trazo )( 2048
 #trazo> 'trazo
 
-:++trazo |
+:++trazo | px --
 	trazo> 4 - @ =? ( drop ; )
-:+trazo | u --
+:+trazo | px --
 	trazo> !+ 'trazo> ! ;
 :-trazo
 	'trazo 'trazo> ! ;
 
-:trazo.draw
+:enlineas
+	'trazo @+ 0? ( 2drop ; ) >xy op
+	( trazo> <? )( @+ >xy line ) drop ;
+
+:engrosor
+	linegro 0? ( drop enlineas ; ) drop
 	'trazo @+ 0? ( 2drop ; ) >xy gop
 	( trazo> <? )( @+ >xy gline ) drop ;
 
-:refresca
-	scr trazo.draw
+:dibujalinea
+	scr engrosor
 	>XFB
 	;
 
-:trazodraw
-	[ xymouse xy> +trazo ; ]
-	[ xymouse xy> ++trazo ; ]
-	[ refresca -trazo ; ]
-	guiMap
-    trazo.draw
-	;
 
-:cambiagr
-	linegro 1+
-	10 >? ( 0 nip )
+|--- grosor
+:gr!
 	dup 'linegro !
 	dup gg gg
 	;
 
-:barra
+#winGr 1 10 32 90 200 "GROSOR"
+:dlgGr
+	linegro
+	0 ( 18 <? )(
+		over =? ( azul )( cyan )
+		[ dup gr! ; ] over "  %d  " sp btnt cr cr2
+		2 + ) drop
+	blanco "= %d =" printc
+	;
+
+|----- Main
+:main
 	usogui
-	tinta col.clapiz!
-	linegro dup gg gg
+	0 gr!
+	$ffff col!
+	sw 360 - sh 320 - dlgColat!
+
 	show xfb>scr
-		tinta ink
-		trazodraw
+		coloractual ink
+		[ xymouse xy> +trazo ; ]
+		[ xymouse xy> ++trazo ; ]
+		[ dibujalinea -trazo ; ]
+		guiMap
+		coloractual ink
 
-		scr fonti home
-		dlg.color
-		cr2
-		"      " printx
+	    engrosor
 
-		verde 'cambiagr dup linegro "G%d" sp btnt <spc>
+		scr fonti home 	cr2
 		rojo 'exit dup "EXIT" sp btnt >esc<
-
-	[ rand 'tinta ! ; ] <spc>
-	[ cls ; ] <enter>
-|	"F2" "Grabar" 'grabar dup <f2> .fbtn .>
-|	"F3" "Cargar" 'cargar dup <f3> .fbtn .>
-		cr cr azul
-		dup "%d" print cr
-		trazo> 'trazo - "%d" print cr
+		verde
+|		[ cls >xfb ; ] "CLS" sp btnt
+|		0 "SAVE" sp btnt
+|		0 "LOAD" sp btnt
+		coloractual ink
+		sp dlg.color
+		cyan
+		'dlgGr 'winGr guiWin | grosor
 
 	 	clapiz
 		;
 
-:inicio
-    $ffffff paper
+:
+    0 paper
     cls >XFB
 
 	mark
 	sw sh *	'sizebm !
-	barra ;
+	main ;
 
-: inicio ;
