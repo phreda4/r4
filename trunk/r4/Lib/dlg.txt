@@ -12,12 +12,27 @@
 #vhue #yluma #xluma
 #colorrampa $ff0000
 
+
+::setcol | color --
+	dup
+	>rgbf
+	rgb2hsv
+	'vhue !
+	'yluma !
+	'xluma !
+
 ::col! | color --
-	dup col.clapiz! 'coloractual ! ;
+	dup col.clapiz!
+	'coloractual ! ;
 
 :vhue! | nro --
 	dup 'vhue !
 	8 <<  1.0 1.0 hsv2rgb 'colorrampa !
+	tx1 xluma + ty1 yluma + getpixel col! ;
+
+:vhue!2 | nro --
+	dup 'vhue !
+	9 <<  1.0 1.0 hsv2rgb 'colorrampa !
 	tx1 xluma + ty1 yluma + getpixel col! ;
 
 :xyluma! | x y --
@@ -52,6 +67,30 @@
 	gc.box
 	;
 
+:lumagridmini
+	tx1 4+ ty1 28 +
+	256 ( 1? )( 2 -
+		dup 0 colorrampa lerpcol
+		over dup 8 << dup 8 << or or
+		degrade32!
+		>r
+		2dup setxy
+		128 ( 1? )( 1- deg@+ px!+ deg+! ) drop
+		1+ r> ) drop
+	2drop
+
+	gc.push
+	128 dup 'w ! 'h !
+	tx1 64 + 4+ ty1 64 + 28 + 'yc ! 'xc !
+    [ xymouse xyluma! ; ] guiMove
+	gc.pop
+
+	blanco
+	tx1 xluma + ty1 yluma + pos
+	6 dup dim
+	gc.box
+	;
+
 |--- precalculo
 #cromacol )( 1024
 
@@ -73,7 +112,6 @@
 
 |----
 :cromaline
-|	blanco
 	tx1 262 + ty1 28 + vhue +
 	over 32 + over op line
 
@@ -92,11 +130,32 @@
 	gc.pop
 	;
 
-#dlgwin 1 20 20 300 300 "Color"
+:cromalinemini
+	tx1 142 + ty1 28 + vhue +
+	over 32 + over op line
 
+	tx1 150 + ty1 28 + | ini croma
+	256 ( 1? )(
+		255 over - 8 <<  1.0 1.0 hsv2rgb ink
+		pick2 pick2 over 16 + over op line
+		swap 1+ swap 2 - ) drop
+	2drop
+
+	gc.push
+	tx1 142 + 16 + 'xc !
+	ty1 64 + 28 +  'yc !
+	32 'w ! 128  'h !
+    [ xymouse nip ty1 28 + - vhue!2 ; ] guiMove
+	gc.pop
+	;
+
+#dlgwin 1 20 20 180 200 "Color"
 :dlgvie
-	lumagrid
-	cromaline
+	lumagridMini
+	cromalineMini
+	ty1 160 + 'ccy !
+	negro
+	coloractual " $%h" print
 	;
 
 ::dlg.color | --
