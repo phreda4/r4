@@ -2,59 +2,141 @@
 | PHREDA
 |---------------------------------------
 ^r4/lib/math.txt
-|---- lineas gruesas
+
+|---- grosor GG1
 #gg1 4 #gg2 4
 #ss1 $200 #ss2 $200
-#ang
 
-|---- lineas gruesas
-|                    1      2,3  4-8    8-16   16-32  32-64  64-128 128-256 256-512  512-1024
-|#escala $400 $200 $100 $80     $40      $20      $10        $8	    $4             $2
-:calcsum | n -- n suma
-	2 <? ( $400 )( 4 <? ( $200 )( 8 <? ( $100 )( 16 <? ( $80 )( 32 <? ( $40 )( 64 <? ( $20 )( 128 <?  ( $10 )( $8 ) ) ) ) ) ) ) ;
-:lineag!	| grosor --
-	calcsum 'ss1 ! 'gg1 ! ;
-:calg1 | angulo -- x y
-	sincos gg1 16 *>> rot + swap gg1 16 *>> rot + swap ;
-:calg2 | angulo -- x y
-	sincos gg2 16 *>> rot + swap gg2 16 *>> rot + swap ;
-
-|-----------------------------------
-#grueso )( 32768
-#grueso> 'grueso
-
-#:gro 4
+#ang1 #ang2
 
 #x1 #y1 #x2 #y2
 #x3 #y3 #x4 #y4
 #xa #ya
 #xb #yb
 #xe #ye
-#ang1 #ang2
 
-:calg | x y angulo -- x y
-	sincos gro 16 *>> rot + swap gro 16 *>> rot + swap ;
+|---- lineas gruesas
+|                    1      2,3  4-8    8-16   16-32  32-64  64-128 128-256 256-512  512-1024
+|#escala $400 $200 $100 $80     $40      $20      $10        $8	    $4             $2
+:calcsum | n -- n suma
+	2 <? ( $400 )( 4 <? ( $200 )( 8 <? ( $100 )( 16 <? ( $80 )( 32 <? ( $40 )( 64 <? ( $20 )( 128 <?  ( $10 )( $8 ) ) ) ) ) ) ) ;
+
+::linegr!	| grosor --
+	calcsum 'ss1 ! 'gg1 ! ;
+
+::linegr	| -- grosor
+	gg1 ;
+
+::lineg2! | grosor --
+	gg2 'gg1 ! ss2 'ss1 !
+	calcsum 'ss2 ! 'gg2 ! ;
+
+::linegg! | grosor --
+	calcsum dup 'ss1 ! 'ss2 !
+	dup 'gg1 ! 'gg2 ! ;
+
+:calg1 | angulo -- x y
+	sincos gg1 16 *>> rot + swap gg1 16 *>> rot + swap ;
+
+:calg2 | angulo -- x y
+	sincos gg2 16 *>> rot + swap gg2 16 *>> rot + swap ;
+
+::gcursor | x y g --
+	linegr!
+	2dup 0 calg1 op
+	0 ( $10000 <? )( >r
+		2dup r calg1 line
+		r> ss1 + ) drop
+	0 calg1 line ;
+
+::glineg |x y x y g--
+	linegr!
+	pick3 pick2 - pick3 pick2 - atan2 $4000 + 'ang1 ! | +1/4 de angulo
+	2over ang1 calg1 op
+	0 ( $8000 <? )( >r
+		2dup ang1 r + calg1 pline
+		r> ss1 + ) drop
+	2dup ang1 $8000 + calg1 pline
+	2drop
+	$8000 ( $10000 <? )( >r
+		2dup ang1 r + calg1 pline
+		r> ss1 + ) drop
+	ang1 calg1 pline poli ;
+
+| lineas multigruesas
+:glinei |x y x y --
+	pick3 pick2 - pick3 pick2 - atan2 $4000 + 'ang1 ! | +1/4 de angulo
+	2over ang1 calg2 op
+	0 ( $8000 <? )( >r
+		2dup ang1 r + calg1 pline
+		r> ss1 + ) drop
+	2dup ang1 $8000 + calg1 pline
+	2drop
+	$8000 ( $10000 <? )( >r
+		2dup ang1 r + calg2 pline
+		r> ss2 + ) drop
+	ang1 calg2 pline poli ;
+
+
+::gop | x y --
+	'y1 ! 'x1 ! ;
+
+::gline | x y --
+	y1 =? ( swap x1 =? ( 2drop ; ) swap )
+	x1 y1 2over  'y1 ! 'x1 ! glinei ;
+
+::gcp | x y --
+	'y2 ! 'x2 ! ;
+
+|---------spline
+:sp-cal1 | x y _cx _cy px py -- x y xn yn
+	rot 2* + pick3 + 2 >> >r			| x y cx px   r: ye
+	swap 2* + pick2 + 2 >> r> ;		| x y xe ye
+
+:sp-cal2 | cx cy px py -- x y
+	rot + 2/ >r + 2/ r> ;
+
+:sp-dist | x y xe ye -- x y xe ye dd
+	pick3 pick2 - dup * pick3 pick2 - dup * + ;
+
+:spl | x y cx cy px py --
+	2dup >r >r 2over >r >r sp-cal1 r> r> 			| x y nx ny cx cy --  r: px py
+	sp-dist 96 <? ( nip 4drop rdrop rdrop 2 >> swap 2 >> swap gline ; ) drop
+	>r >r 2over r> r> 2dup >r >r sp-cal2 2swap		| x y xa ya nx ny -- r: cx cy px py
+	2dup r> r> r> r> 2dup >r >r sp-cal2 r> r> 		| x y xa ya nx ny nx ny xb yb px py
+	spl spl ;
+
+| falta cambiar tamanio en curvas
+|#ga #sa
+::gcurve | xy --
+|	gg2 'ga ! ss2 'sa !
+	2 << swap 2 << swap x2 2 << y2 2 << x1 2 << y1 2 << spl ;
+
+|-----------------------------------
+|------ poligono grueso
+|-----------------------------------
 
 :,gro | x y --
-	xy> grueso> !+ 'grueso> ! ;
+	xy>d , ;
 
 :caso1 | se cortan las lineas
-	xb yb ang1 calg ,gro
-	xb yb ang2 calg ,gro
+	xb yb ang1 calg1 ,gro
+	xb yb ang2 calg1 ,gro
 	;
 
 :parte2
-	xb 'xa ! yb 'ya ! ang2 'ang1 !
+	xb 'xa ! yb 'ya !
+	ang2 'ang1 !
 	xe 'xb ! ye 'yb !
 	;
 
 :res
-	xa ya ang1 calg 'y1 ! 'x1 !
-	xb yb ang1 calg  'y2 ! 'x2 !  | x2 y2
-	xb yb ang2 calg  'y3 ! 'x3 !  | x3 y3
+	xa ya ang1 calg1 'y1 ! 'x1 !
+	xb yb ang1 calg1  'y2 ! 'x2 !  | x2 y2
+	xb yb ang2 calg1  'y3 ! 'x3 !  | x3 y3
 	x2 x1 - dup * y2 y1 - dup * +
 	x3 x1 - dup * y3 y1 - dup * + <=? ( drop caso1 ; ) drop
-	xe ye ang2 calg  'y4 ! 'x4 !  | x4 y4
+	xe ye ang2 calg1  'y4 ! 'x4 !  | x4 y4
 	y2 y1 - x4 x3 - * y4 y3 - x2 x1 - * - | d
 	0? ( drop caso1 ; )
 	x4 x3 - y3 y1 - * y4 y3 - x3 x1 - * - | d la
@@ -64,43 +146,49 @@
 
 #desde
 #hasta
+#here>
+
 ::polygr.do | desde hasta --
 	over 8 + <? ( 2drop ; )  'hasta !  'desde !
-	'grueso 'grueso> !
+	mark
 	desde
-	@+ >xy 'ya ! 'xa !
-	@+ >xy 'yb ! 'xb !
-	xa ya ang1 calg op
-	xa xb - ya yb - atan2 $200 + 'ang1 !
-	xa ya ang1 calg ,gro | punto 0
+	@+ d>xy 'ya ! 'xa !
+	@+ d>xy 'yb ! 'xb !
+	xa ya ang1 calg1 op
+	xa xb - ya yb - atan2 $4000 + 'ang1 !
+	xa ya ang1 calg1 ,gro | punto 0
 	( hasta <? )(
-		@+ >xy 'ye ! 'xe !
-		xb xe - yb ye - atan2 $200 + 'ang2 !
+		@+ d>xy 'ye ! 'xe !
+		xb xe - yb ye - atan2 $4000 + 'ang2 !
 		res parte2 )
-	xb yb ang1 calg ,gro
-	-$400 'ang1 +!
+	xb yb ang1 calg1 ,gro
+	-$8000 'ang1 +!
 	xa xb 'xa ! 'xb !
 	ya yb 'ya ! 'yb !
-	xa ya ang1 calg ,gro
+	xa ya ang1 calg1 ,gro
 	8 -
-	(  desde >? )( 4 - dup
-		@ >xy 'ye ! 'xe !
-		xb xe - yb ye - atan2 $200 + 'ang2 !
+	( desde >? )( 4 - dup
+		@ d>xy 'ye ! 'xe !
+		xb xe - yb ye - atan2 $4000 + 'ang2 !
 		res parte2 ) drop
-	xb yb ang1 calg ,gro
-|	$400 'ang1 +!
-|	xa ya ang1 calg ,gro
+	xb yb ang1 calg1 ,gro
+
+|	$8000 'ang1 +!
+|	xa ya ang1 calg1 ,gro
+	here 'here> !
+	empty
 	;
 
-::polygr.draw
-	'grueso @+ dup >xy op swap
-	( grueso> <? )( @+ >xy pline ) drop
-	>xy pline poli
-	;
-
-::polygr.map | vec
+::polygr.map | vec --
 	>r
-	'grueso @+ dup r exec
-	( grueso> <? )( @+ r exec ) drop
-	r exec
+	here ( here> <? )( @+ r exec ) drop
 	rdrop ;
+
+|--------------------------------
+::fcircleg | x y g --
+	linegr!
+	2dup 0 calg1 op
+	0 ( $800 <? )( >r
+		2dup r calg1 pline
+		r> ss1 + ) drop
+	0 calg1 pline poli ;
