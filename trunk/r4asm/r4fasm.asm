@@ -255,25 +255,6 @@ SYSFSIZE: ; nro -- size
 	ret
 
 ;===============================================
-SYSLOAD: ; ( 'from "filename" -- 'to )
-	invoke CreateFile,eax,GENERIC_READ,FILE_SHARE_READ,0,OPEN_EXISTING,FILE_FLAG_NO_BUFFERING+FILE_FLAG_SEQUENTIAL_SCAN,0
-	mov [hdir],eax
-	or eax,eax
-	mov eax,[esi]
-	jz @loadend
-	mov [afile],eax
-@loadagain:
-	invoke ReadFile,[hdir],[afile],$ffffff,cntr,0 ; hasta 16MB
-;       or      eax,eax
-;       jnz     @loadend
-	invoke CloseHandle,[hdir]
-	mov eax,[afile]
-	add eax,[cntr]
-@loadend:
-	lea esi,[esi+4]
-	ret
-
-;===============================================
 SYSTOXFB:
 	pusha
 	lea esi,[SYSFRAME]
@@ -294,8 +275,27 @@ SYSXFBTO:
 	ret
 
 ;===============================================
+SYSLOAD: ; ( 'from "filename" -- 'to )
+	invoke CreateFile,eax,GENERIC_READ,FILE_SHARE_READ,0,OPEN_EXISTING,FILE_FLAG_SEQUENTIAL_SCAN,0
+	mov [hdir],eax
+	or eax,eax
+	mov eax,[esi]
+	jz @loadend
+	mov [afile],eax
+@loadagain:
+	invoke ReadFile,[hdir],[afile],$3fffff,cntr,0 ; hasta 4MB
+;       or      eax,eax
+;       jnz     @loadend
+	invoke CloseHandle,[hdir]
+	mov eax,[afile]
+	add eax,[cntr]
+@loadend:
+	lea esi,[esi+4]
+	ret
+
+;===============================================
 SYSSAVE: ; ( 'from cnt "filename" -- )
-	invoke CreateFile,eax,GENERIC_WRITE,0,0,CREATE_ALWAYS,FILE_FLAG_NO_BUFFERING+FILE_FLAG_SEQUENTIAL_SCAN,0
+	invoke CreateFile,eax,GENERIC_WRITE,0,0,CREATE_ALWAYS,FILE_FLAG_SEQUENTIAL_SCAN,0
 	mov [hdir],eax
 	or eax,eax
 	jz saveend
