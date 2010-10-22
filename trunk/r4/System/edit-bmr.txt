@@ -10,11 +10,11 @@
 ^r4/lib/trace.txt
 
 |-- ancho alto
-#wpx #hpx
-#res |olucion
-#bytes
-#frame  | bitmap
-#name	| nombre
+#name		| nombre
+#wpx #hpx	| size
+#res 		|olucion
+#frame  	| bitmap
+#inim
 
 |-- pantalla
 #xi #yi		| donde esta el pixel 0,0
@@ -31,15 +31,21 @@
 #xa1 #ya1
 
 |---------------------------------------
-
 ::bmr.name! | "nombre" --
 	'name ! ;
 
 ::bmr.data! | memoria --
+	@+
+	dup 12 >> $fff and 'wpx !
+	dup $fff and 'hpx !
+	24 >> 'res !
 	'frame ! ;
 
-::bmr.size! | w h --
-	2dup * 2 << 'bytes !
+|---------------------------------------
+:bmr.size! | w h --
+	over 12 << over or
+	res 24 << or
+	frame 4 - !
 	'hpx ! 'wpx !
 
 :ajusta
@@ -54,11 +60,14 @@
 	1.0 res >> dup 'xs ! 'ys !
 	;
 
-|---------------------------------------
-
-::bmrW | -- ancho para generar codigo
+|----- interface con el generador
+::bmrW | -- ancho ; en dwors para generar codigo
 	wpx ;
 
+::bmrSize | -- largo ; en bytes
+	wpx hpx * 2 << 4+ ; | 4+ por el dword de info(res|h|w)
+
+|---- dibujo en frame
 :bmr!m | x y --
 	2dup whin 0? ( 3drop ; ) drop | no dibuja afuera
 	yi - res >> swap xi - res >> swap
@@ -71,58 +80,19 @@
 :bmr@ | x y -- c
 	wpx * + 2 << frame + @ ;
 
-
 |-- dibujo
 :getxybmr | x y -- c
 	xa 16 >> ya 16 >>
 	wpx * + 2 << frame + @ ;
 
-
 :getxybmr-modo-bit | .x .y -- c
 	wpx 16 *>> + res << frame + @ ;
 
 |-- dibujar sobre w h cx cy
-:drawmap1 | --
-
-	xi -? ( neg res >> )( 0 nip ) 16 << dup 'xa !
-	yi -? ( neg res >> )( 0 nip ) 16 << 'ya !
-	xo yo setxy
-	sw wi - | columna
-	0 ( hi <? )(
-		0 ( wi <? )(
-			getxybmr px!+
-			xs 'xa +!
-			1+ ) drop
-		over px+!
-		ys 'ya +!
-		pick2 'xa !
-		1+ ) drop
-	2drop
-	;
-
 :framegetpixel
 	xa 16 >> ya 16 >>
 	wpx * + 2 << frame + @
 	;
-
-:drawmap2 | --
-	xa1 'xa !
-	ya1 'ya !
-
-	xo yo setxy
-	sw wi - | columna
-	0 ( hi <? )(
-		0 ( wi <? )(
-			framegetpixel px!+
-			xs 'xa +!
-			1+ ) drop
-		over px+!
-		ys 'ya +!
-		pick2 'xa !
-		1+ ) drop
-	2drop
-	;
-
 
 :drawmap | --
 	xa1 'xa !
@@ -139,9 +109,8 @@
 		ys 'ya +!
 		pick2 'xa !
 		1- ) drop
-	2drop
+	drop
 	;
-
 
 |--- dibuja
 :drawbmr | --
@@ -181,50 +150,14 @@
  	;
 
 |---- cambia resolucion
-
-#winsize 128 256 0 0 "Size"
-
-:winresol2
-	gris
-	tgc.push
-	'winsize guiWin
-
-|	128 256 gc.window
-|	guiEmpty
-|	gc.fbox home
-
-	cr2
+#winRes 0 10 32 128 256 "WxH"
+:dlgRes
 	[ 16 dup bmr.size! ; ] "16x16" sp btnt cr cr2
 	[ 32 dup bmr.size! ; ] "32x32" sp btnt cr cr2
 	[ 64 dup bmr.size! ; ] "64x64" sp btnt cr cr2
 	[ 128 dup bmr.size! ; ] "128x128" sp btnt cr cr2
 	[ 256 dup bmr.size! ; ] "256x256" sp btnt cr cr2
 	[ 1024 dup bmr.size! ; ] "1kx1k" sp btnt
-
-	tgc.pop
-	;
-
-:winresol
-	gris
-	tgc.push
-	128 256 gc.window
-	guiEmpty
-	gc.fbox home cr2
-	[ 16 dup bmr.size! ; ] "16x16" sp btnt cr cr2
-	[ 32 dup bmr.size! ; ] "32x32" sp btnt cr cr2
-	[ 64 dup bmr.size! ; ] "64x64" sp btnt cr cr2
-	[ 128 dup bmr.size! ; ] "128x128" sp btnt cr cr2
-	[ 256 dup bmr.size! ; ] "256x256" sp btnt cr cr2
-	[ 1024 dup bmr.size! ; ] "1kx1k" sp btnt
-	tgc.pop
-	;
-
-
-#winr
-
-:resolucion
-	winr 1? ( winresol ) drop
-	[ winr not 'winr ! ; ] hpx wpx " %dx%d " sp amarillo btnt
 	;
 
 |--- carga bmp
@@ -244,16 +177,16 @@
 :clonebmr
 	;
 
-|-----------------------------------
-
+|--- modo dibujando
 :mododibuja
-|	[ bmr!m ; ]  guiDnMove
+	[ 'bmr!m vop! ; ]
+	[ xymouse vline! ; ]  guiDnMove
 	;
 
 :bododibuja
+	violeta
+	'resetbmr "CLS" sp btnt
 	cyan
-|	'clsbmr "CLS" sp btnt
-	azul
 	'savebmr "SAVE" sp btnt
 	'clonebmr "CLONE" sp btnt
 	'exit "CANCEL" sp btnt
@@ -329,30 +262,29 @@
 
 ::editandobmr
 	usogui
+	ajusta
+	33
 	show clrscr
         drawbmr
 		'listaa modov 2 << + @ exec
 
-		scr 32 gc.botton home
+		scr 32 gc.botton home cr2
 		font-vard-12-bold
-		dlg.color
-		cr2 "       " print
+		dlg.color sp
 		'modov 'listas 4 sp btnvs
 
-		blanco
-		resolucion
+		gris
+		'dlgRes 'winRes guiWin | grosor
+
 		violeta
 		name dlg.file
 		sp sp
 
 		rojo
-		'exit "EXIT" sp btnt
+		'exit dup >esc< "EXIT" sp btnt
 		'listab modov 2 << + @ exec
-		cyan
 
-		|scr	home
-	 	|trazo.debug
-		|gui.debug
-		'exit >esc<
+		scr home verde
+		dup "%d" print
  		;
 
