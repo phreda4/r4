@@ -6,21 +6,28 @@
 ^r4/lib/graf.txt
 ^r4/lib/polygr.txt
 
-#sizebm
+#sizebmr
+#wbmr
+#hbmr
+#rbrm
+
+#nombre )( 256
+
+:resetbmr
+	sw dup 'wbmr !
+	sh dup 'hbmr !
+	* 'sizebmr !
+	32 'rbrm !
+	0 'nombre !
+	;
 
 |------------ Grabar simple RLE
-#memc
-#memc>
-
-:,comp | v --
-	memc> !+ 'memc> ! ;
-
 #cnt
 #colact
 
 :scanlast | --
-	colact cnt ( 255 >? )( over $ff000000 or ,comp 255 - )
-	24 << or ,comp ;
+	colact cnt ( 255 >? )( over $ff000000 or , 255 - )
+	24 << or , ;
 
 :scanconv | adr -- adr+
 	@+ $ffffff and | adr+ color
@@ -29,35 +36,83 @@
 :scanini | color --
 	$ffffff and 'colact ! 1 'cnt ! ;
 
-:grabar
-	mem @+ scanini
-	sizebm 2dup 2 << + dup 'memc ! 'memc> !
-	( 1- 1? )( >r scanconv r> ) 2drop
-	scanlast
-	memc memc> over - "bmr/test.bmr" save
+:grabarpad
+	mark	| guarda texto
+	"BMR." ,s
+	xfb
+	@+ scanini
+	sizebmr ( 1- 1? )( >r scanconv r> ) 2drop
+	nombre 0? ( "media/bmr/crayonpad.bmr" )( 'nombre ) nip
+	savemem
+	empty
 	;
 
 |-------------- Cargar simple RLE
-:cargar
-	mem sizebm 2 << + 'memc !
-	memc "bmr/test.bmr" load 'memc> !
-	mem >r
-	memc ( memc> <? )( @+
+:cargarpad
+	mark
+	here dup
+	nombre 0? ( "media/bmr/crayonpad.bmr" )( 'nombre ) nip
+	load 'here !
+	0 0 setxy
+	4+
+	( here <? )(
+		@+
 		dup $ffffff and swap 24 >> $ff and | color cant
-		( 1? )( over r!+ 1- ) 2drop
+		( 1? )( over px!+ 1- ) 2drop
 		) drop
-	rdrop
-	 ;
-|--- FILES
-#winFl 0 100 32 160 300 "FILES"
-:dlgFl
-	linegr
-	0 ( 18 <? )(
-		over =? ( azul )( cyan )
-		[ dup linegg! ; ] over " %d " sp btnt cr cr2
-		2 + ) drop
-	blanco "= %d =" printc
+	empty
+	>xfb
 	;
+
+|--- FILES
+#cntf
+#actf
+
+:clickf
+    cargarpad
+	exit ;
+
+:savefile
+	usogui
+	"media/bmr/" dir
+	0 ( dup file 1? )( drop 1+ ) drop 'cntf !
+	show xfb>scr
+		scr fonti home cr2
+		verde  [ "" dir exit ; ] dup "EDIT" sp btnt >esc<
+
+		cr cr
+		0 ( cntf <? )(
+			actf =? ( cyan )( negro )
+			'clickf
+			over file "%s" mprint
+			16 sp btntf cr cr
+			bout? 1? ( chome cr2 ) drop
+			1+ ) drop
+
+	 	clapiz 	;
+
+|---- nuevo archivo
+:clickf
+	;
+
+:finnew
+	exit
+	'nombre c@ 0? ( drop ; ) drop
+	'nombre "media/bmr/%s" mprint 'nombre strcpy
+    grabarpad
+	;
+
+:newfile
+	usogui
+	show xfb>scr
+		scr fonti home cr2
+		verde  [ "" dir exit ; ] dup "BACK" sp btnt >esc<
+		blanco
+		" NEW FILE" print cr cr
+		"media/bmr/" sp print
+		'nombre 32 sp getline
+		'finnew lostfoco
+	 	clapiz 	;
 
 |--- trazo
 #trazo )( 2048
@@ -83,7 +138,7 @@
 	engrosor >xfb ;
 
 |--- grosor
-#winGr 1 10 32 60 200 "GR"
+#winGr 1 0 0 80 200 "Line"
 :dlgGr
 	linegr
 	0 ( 18 <? )(
@@ -97,9 +152,11 @@
 :main
 	usogui
 	0 linegg!
+
 	$ffffff col!
 
-	10 sh 220 - dlgColat!
+	10 sh 230 - dlgColat!
+	sh 230 - 200 'winGr 4+ !+ !
 
 	show xfb>scr
 		coloractual ink
@@ -113,21 +170,24 @@
 		rojo 'exit dup "EXIT" sp btnt >esc<
 		verde
 		[ cls >xfb ; ] "CLS" sp btnt
-		'dlgFl 'winFl guiWin | grosor
-|		0 "FILES" sp btnt
+		azul
+		'savefile "LOAD" sp btnt
+		'newfile "NEW" sp btnt
+
+		0 rows 2 - gotoxy
 		coloractual ink
 		sp dlg.color
-		cyan
-		'dlgGr 'winGr guiWin | grosor
-
+		azul 'dlgGr 'winGr sp guiWin | grosor
 	 	clapiz
 		;
 
 :
     0 paper
     cls >XFB
-
 	mark
-	sw sh *	'sizebm !
-	main ;
+	resetbmr
+	cargarpad
+	main
+	grabarpad
+	;
 
