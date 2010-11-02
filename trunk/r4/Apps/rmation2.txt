@@ -5,9 +5,90 @@
 ^r4/lib/dlg.txt
 ^r4/lib/fontt.txt
 ^r4/lib/trazo.txt
-^r4/lib/usedrw.txt
+
+^r4/lib/polygr.txt
+
 ^r4/lib/trace.txt
 
+|--------- rmation sprite (3d+move)
+| 9 . 9 . 9 . 5 | tipo 1
+| x=9 bits y=9 bits z=9 bits control=5bit
+| 27 .5 | tipo 2
+
+| 3 << porque usa 14 bits a 17 bits queda 1.0
+:3d>xy | valor -- x y
+	dup 23 >> 8 <<
+	over 9 << 23 >> 8 <<
+	rot 18 << 23 >> 8 <<
+	project3d ;
+
+:>z 18 << 23 >> ;
+:>y 9 <<
+:>x 23 >> ;
+
+:>xyz | v -- x y z
+	dup >z 8 << >r dup >y 8 << >r  >x 8 << r> r> ;
+
+#p1 #p2 #p3
+
+|-------- ordenes de control
+:s0	| tiempo, fin
+	;
+:s1 | color
+	8 >> ink ;
+:s2 | poli
+	drop poli ;
+:s3 | param
+	23 >> linegr! ;
+:s4 | marca puntos
+	dup 8 >> $3fff and 'p1 !
+	14 8 + >> $3fff and 'p2 ! 0 'p3 !
+	;
+:s5 | marca puntos rle
+	dup 8 >> $3fff and 'p1 !
+	14 8 + >> $3fff and 'p3 ! 0 'p2 !
+	;
+:s6 | mueve punto
+	>xyz
+	drop drop drop
+	;
+:s7 | borra puntos
+	dup 8 >> $3fff and 'p1 !
+	14 8 + >> $3fff and 'p2 !
+	;
+|------- vacios por ahora
+:s8	:s9	:sa	:sb	:sc	:sd	:se	:sf drop ;
+|------- de aca dibujo/crea
+| linea
+:s10 3d>xy op ;			:s11 3d>xy line ;		:s12 3d>xy cp ;		:s13 3d>xy curve ;
+| glinea
+:s14 3d>xy gop ;		:s15 3d>xy gline ;		:s16 3d>xy gcp ;	:s17 3d>xy gcurve ;
+| poly
+:s18 3d>xy op ;			:s19 3d>xy pline ;		:s1a 3d>xy cp ;		:s1b 3d>xy pcurve ;
+| points
+:s1c 3d>xy circleg ;	:s1d 3d>xy circleg ;	:s1e 3d>xy cp ;		:s1f 3d>xy circleg ;
+
+#sa s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 sa sb sc sd se sf
+s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
+
+:rsdraw | ad --
+	( @+ 1? )(
+		dup $1f and 2 << 'sa + @ exec
+		) 2drop ;
+
+#testrm
+$00ff0001 | verde
+$10200010
+$20100011
+$0000ff00
+$00100205
+$10000006
+$00010006
+0
+
+
+
+|--------------
 #dibu1.spr
 #dibu2.spr
 #dibu3.spr
@@ -211,7 +292,7 @@
 :nextt
 	1 'ftime +! 
 	reajust ; 
-	
+
 :prevt
 	ftime 0? ( drop ; )
 	1- 'ftime ! 
@@ -234,7 +315,7 @@
 	
 :dclick | nro --
 	0 swap 200 200 sw 2/ sh 2/ 
-|		creadib exit 
+|		creadib exit
 		;
 
 :showtabla | v h --
@@ -252,7 +333,7 @@
 	0.1 dup fpos
 		0.8 0.1 fpos
 		
-|	1 1 .at 8 1 .to 
+|	1 1 .at 8 1 .to
 	'ddraw 'dclick 8 1 showtabla
 
 	 cflecha  
@@ -272,6 +353,7 @@
 		'actor ( actor> <? )( @+ "%d " print ) drop ;
 
 #estado 0
+
 
 :dodibs
 	0 dup fpos
