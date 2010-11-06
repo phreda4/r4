@@ -10,6 +10,16 @@
 
 ^r4/lib/trace.txt
 
+|--------------------------------
+#dibujo )( $3ffff
+#dibujo> 'dibujo
+#dibujo<
+
+#seleccion )( $ffff
+#seleccion> 'seleccion
+
+#colorultimo
+
 |--------- rmation sprite (3d+move)
 | 9 . 9 . 9 . 5 | tipo 1
 | x=9 bits y=9 bits z=9 bits control=5bit
@@ -28,6 +38,7 @@
 
 :>xyz | v -- x y z
 	dup >z 8 << >r dup >y 8 << >r  >x 8 << r> r> ;
+
 
 #p1 #p2 #p3
 
@@ -76,6 +87,21 @@ s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 		dup $1f and 2 << 'sa + @ exec
 		) 2drop ;
 
+|---------------------------------------
+:r0 :r1 :r2 :r3 :r4 :r5 :r6 :r7 :r8 :r9 :ra :rb :rc :rd :re :rf
+:r10 :r11 :r12 :r13 :r14 :r15 :r16 :r17 :r18 :r19 :r1a :r1b :r1c
+:r1d :r1e :r1f
+	drop ;
+
+#dr r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 ra rb rc rd re rf
+r10 r11 r12 r13 r14 r15 r16 r17 r18 r19 r1a r1b r1c r1d r1e r1f
+
+:rdrawstatic
+	( @+ 1? )(
+		dup $1f and 2 << 'dr + @ exec
+		) 2drop ;
+
+|---------------
 #testrm
 $00ff0001 | verde
 $10200010
@@ -86,9 +112,28 @@ $10000006
 $00010006
 0
 
+#rspr1 0 'testrm 0
 
+:inirdraw | adr+ 0 --
+	| calc espacio,
+	;
 
+:rdraw | 'rspr1 --
+	@+ 0? ( inirdraw ; ) | tiempo actual
+
+	;
+
+|---uso
+
+| 0 0 0 mtransi
+| 0 mrotzi
+| 'rauto rdraw | animacion anda sola
+|
 |--------------
+:playall
+	;
+|-----------
+
 #dibu1.spr
 #dibu2.spr
 #dibu3.spr
@@ -123,15 +168,6 @@ $00010006
 #irota ( -111 34 -71 28 -79 94 15 87 73 46 61 49 62 15 -41 -55 30 -15 36 -63 -36 -111 36 -55 -46 -67 -79 -98 -1 87 73 -26 105 -36 65 36 25 -36 57 -28 49 -66 -1 -41 -55 -42 0 )
 #ibotonera 'imueve 'iescala 'irota
 
-|--------------------------------
-#dibujo )( $3ffff
-#dibujo>
-#dibujo<
-
-#seleccion )( $ffff
-#seleccion> 'seleccion
-
-#colorultimo
 
 #xa -1 #ya #xb #yb
 #cursorp
@@ -200,15 +236,15 @@ $00010006
 
 :fcmd
 	2 >> 'nexttime ! rdrop 	;
-	
-:fcrea 
+
+:fcrea
 	2 >> | cnt de actores
 	drop
 	actor> >r @+ r!+ @+ r!+ @+ r!+ r> 'actor> !
 	;
 :fmod
 	2 >> | nro actor
-	drop 
+	drop
 	;
 :fera
 	2 >> | nro actor
@@ -232,13 +268,13 @@ $00010006
 
 |------ dibujos
 :adibuja
-	'actor ( actor> <? )( 
+	'actor ( actor> <? )(
 		@+ d>xy pos @+ d>xy dim @+ d>xy 2 << 'dibus + @ swap rnsprite
 		) drop ;
 
 :toconodo | x y -- x y 0/point
-	'actor ( actor> <? )( 
-		@+ d>xy pos @+ d>xy dim >r 
+	'actor ( actor> <? )(
+		@+ d>xy pos @+ d>xy dim >r
 		2dup whin 1? ( drop r> 8 - ; ) drop r> 4+
 		) drop 0 ;
 
@@ -258,7 +294,7 @@ $00010006
 		@+ d>xy pos @+ d>xy dim rojo gc.fbox
 		) drop 
 	adibuja ;
-		
+
 |----
 :esca.calc | x y b --
 	0? ( 3drop ; )
@@ -280,9 +316,9 @@ $00010006
 	drop toconodo dup 'tocado ! 1? ( 8 + @ d>xy drop 'aa ! 'dy ! 'dx ! )( 3drop ) ;
 
 :rota.draw
-	tocado 1? (	
+	tocado 1? (
 		@+ d>xy pos @+ d>xy dim verde gc.fbox
-		) drop 
+		) drop
 	adibuja	;
 
 |----
@@ -290,8 +326,8 @@ $00010006
 	;
 
 :nextt
-	1 'ftime +! 
-	reajust ; 
+	1 'ftime +!
+	reajust ;
 
 :prevt
 	ftime 0? ( drop ; )
@@ -312,9 +348,9 @@ $00010006
 |---- elige dibujo
 :ddraw | nro --
 	2 << 'dibus + @ 1? ( nsprite )( drop ) ;
-	
+
 :dclick | nro --
-	0 swap 200 200 sw 2/ sh 2/ 
+	0 swap 200 200 sw 2/ sh 2/
 |		creadib exit
 		;
 
@@ -332,14 +368,14 @@ $00010006
 	0 0.9 fpos 'ifin 'exit dup >esc< btnd
 	0.1 dup fpos
 		0.8 0.1 fpos
-		
+
 |	1 1 .at 8 1 .to
 	'ddraw 'dclick 8 1 showtabla
 
-	 cflecha  
+	 cflecha
 	'exit <esc>
 	;
-	
+
 |----
 :test
 	inidibus ;
@@ -353,37 +389,59 @@ $00010006
 		'actor ( actor> <? )( @+ "%d " print ) drop ;
 
 #estado 0
+#ractual )( 8192
 
+:gc2xyz | x y -- ntr
+	14 << swap 23 << or
+	;
+
+#modot
+:cadapunto | tr --
+	d>xy 5 >> $1ff and 14 << swap
+	5 >> $1ff and 23 <<
+	or
+	modot $10 =? ( $11 'modot ! ) or
+	,dib
+	;
+
+:intrazo
+	$10 'modot !
+	'cadapunto trazo.map
+	;
 
 :dodibs
 	0 dup fpos
 	sw sh min -64 dup 2 >> 'yc +! +
 	dup dim
 	savebox
-
+    inidibus
 	usogui
 	fonti
-	show clrscr font-vard-12-bold home cr
-		inidibus
+|font-vard-12-bold
+	show clrscr  cr
 		rojo oscuro
 		'exit dup >esc< "X" sp btnt
 		violeta oscuro
 		'prevt dup <f1> "<" sp btnt
 		'nextt dup <f2> ">" sp btnt
 		[ play ; ] dup <f3> "|>" sp btnt
-		[ addd ; ] dup <f4> "+" sp btnt
-		[ test ; ] dup <f4> "*" sp btnt
+|		[ addd ; ] dup <f4> "+" sp btnt
+|		[ test ; ] dup <f4> "*" sp btnt
 		nexttime ftime " %d %d" blanco print
-		drawguion cr
-		drawactor
-		|dup tocado "%d %d" blanco print
-		|drawd
+|		'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop
+
+|		drawguion cr
+|		drawactor
 
 		loadbox
-
 	    coloractual ink
-		trazo.in
+		'intrazo trazo.draw
 		gc.box
+
+		verde
+		omode
+		0 0 2.0 mtrans
+		'dibujo rsdraw
 
 		'exit >esc<
 		cminiflecha
