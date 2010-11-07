@@ -11,12 +11,27 @@
 ^r4/lib/trace.txt
 
 |--------------------------------
-#dibujo )( $3ffff
-#dibujo> 'dibujo
-#dibujo<
+#cuadrocursor 0
+#cuadroultimo 0
 
-#seleccion )( $ffff
-#seleccion> 'seleccion
+#dibujo )( $ffff
+#dibujo> 'dibujo
+
+#cambio )( $ffff
+#cambio> 'cambio
+
+#index )( 8192
+#index> 'index
+
+#rmation
+#rmation>
+
+|----------------
+:,dib
+	dibujo> !+ 0 over ! 'dibujo> ! ;
+
+#puntocursor -1
+#polycursor -1
 
 #colorultimo
 
@@ -24,21 +39,19 @@
 | 9 . 9 . 9 . 5 | tipo 1
 | x=9 bits y=9 bits z=9 bits control=5bit
 | 27 .5 | tipo 2
-
 | 3 << porque usa 14 bits a 17 bits queda 1.0
+
 :3d>xy | valor -- x y
 	dup 23 >> 8 <<
 	over 9 << 23 >> 8 <<
 	rot 18 << 23 >> 8 <<
 	project3d ;
 
-:>z 18 << 23 >> ;
-:>y 9 <<
-:>x 23 >> ;
-
-:>xyz | v -- x y z
-	dup >z 8 << >r dup >y 8 << >r  >x 8 << r> r> ;
-
+:xy>3d | x y -- valor
+	5 >> $1ff and 14 << swap
+	5 >> $1ff and 23 <<
+	or
+	;
 
 #p1 #p2 #p3
 
@@ -47,8 +60,8 @@
 	;
 :s1 | color
 	8 >> ink ;
-:s2 | poli
-	drop poli ;
+:s2 | color+poli
+	8 >> ink poli ;
 :s3 | param
 	23 >> linegr! ;
 :s4 | marca puntos
@@ -87,6 +100,57 @@ s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 		dup $1f and 2 << 'sa + @ exec
 		) 2drop ;
 
+|--------------------------------- EDITA NODO
+:espunto
+    3d>xy 2 box
+	;
+
+:rsdrawe | ad --
+	verde
+	( @+ 1? )(
+		dup $1f and $f >? ( drop espunto )( 2drop )
+		) 2drop
+	puntocursor 1+ 0? ( drop ; ) 1-
+	blanco
+	@ 3d>xy 4 box
+	;
+
+|---------------------------------
+:indot | x y x y -- 1/0
+	rot - dup * swap rot - dup * + | dx2+dy2
+	64 <=? ( 1 )( 0 ) nip ; |
+
+:tocopunto
+	3d>xy xymouse indot 0? ( drop ; ) drop
+	dup 4 - 'puntocursor !
+	;
+
+:rbuscapunto | ad --
+	-1 'puntocursor !
+	( @+ 1? )(
+		dup $1f and $f >? ( drop tocopunto )( 2drop )
+		) 2drop
+	;
+
+:rmuevepunto
+	puntocursor 1+ 0? ( drop ; ) 1-
+	xymouse xy>gc
+	d>xy 5 >> $1ff and 14 << swap
+	5 >> $1ff and 23 <<
+	or
+	over @ $1f and or
+	swap !
+	;
+
+:delnode
+	puntocursor 1+ 0? ( drop ; ) 1-
+	drop
+	;
+
+:newnode
+	puntocursor 1+ 0? ( drop ; ) 1-
+	drop
+	;
 |---------------------------------------
 :r0 :r1 :r2 :r3 :r4 :r5 :r6 :r7 :r8 :r9 :ra :rb :rc :rd :re :rf
 :r10 :r11 :r12 :r13 :r14 :r15 :r16 :r17 :r18 :r19 :r1a :r1b :r1c
@@ -134,45 +198,8 @@ $00010006
 	;
 |-----------
 
-#dibu1.spr
-#dibu2.spr
-#dibu3.spr
-#dibu4.spr
-#dibu5.spr
-#dibu6.spr
-#dibu7.spr
-#dibu8.spr
-
-#dibus 'dibu1.spr 'dibu2.spr 'dibu3.spr 'dibu4.spr 'dibu5.spr 'dibu6.spr 'dibu7.spr 'dibu8.spr
-#dibusc 8
-
+#nexttime 0
 #ftime 0
-
-#guion )( 8192
-#guion> 'guion
-
-#actor )( 8192 | pos dim rs
-#dactor )( 8192 | diferencia de actor
-#actor> 'actor
-
-#tocado 0
-
-#ifin ( -30 -31 -60 -55 -82 -71 -66 -87 -50 -63 -26 -31 4 -63 36 -87 62 -71 78 -55 94 -31 70 1 36 33 68 57 94 73 78 89 62 65 38 33 4 65 -28 89 -50 73 -66 57 -82 33 -58 1 -28 0 )
-#iok ( -95 -30 -41 -31 6 -15 -74 103 1 -26 -31 70 -47 -2 -95 -26 0 )
-#iplay ( -63 -62 65 4 -63 68 -60 0 )
-#iprev ( 65 -62 68 9 4 65 -60 -13 68 -71 4 -15 -60 0 )
-#inext ( 17 66 73 4 17 -60 68 -63 -62 68 -7 4 -63 -60 0 )
-#ireloj ( -78 -73 6 86 7 87 6 -74 7 2 -23 -12 -68 1 -28 4 17 -12 41 4 17 20 1 4 -7 -46 13 -60 -3 -44 -47 10 -4 -59 12 -43 49 -6 12 69 -4 53 -7 50 68 13 52 -3 0 )
-#imueve ( -63 34 20 -11 68 -27 1 116 33 68 21 20 61 36 105 4 57 -28 -12 21 -60 37 1 -108 -31 -60 -11 -12 -59 -28 -111 4 -63 36 0 )
-#iescala ( -79 -78 -28 -63 -44 -15 4 -63 52 -79 36 84 -27 -47 68 1 20 49 68 25 84 85 73 36 65 52 17 4 65 -44 73 -28 -76 37 49 -60 1 -12 -47 -60 -31 -76 -75 0 )
-#irota ( -111 34 -71 28 -79 94 15 87 73 46 61 49 62 15 -41 -55 30 -15 36 -63 -36 -111 36 -55 -46 -67 -79 -98 -1 87 73 -26 105 -36 65 36 25 -36 57 -28 49 -66 -1 -41 -55 -42 0 )
-#ibotonera 'imueve 'iescala 'irota
-
-
-#xa -1 #ya #xb #yb
-#cursorp
-#campocursor
-#modot	| modo aux para trazo
 
 #zoom
 #xd #yd
@@ -184,270 +211,190 @@ $00010006
 :loadbox
 	'xcycwh @+ 'h ! @+ 'w ! @+ 'yc ! @ 'xc ! ;
 
-|----------------
-:,dib
-	dibujo> !+ 0 over ! 'dibujo> ! ;
-
-:,dibcolor
-	coloractual 4 << $b  or ,dib ;
-
-|-------------
-:reset
-	'dibujo dup 'dibujo> !+ !
-	0 'dibujo !
-	coloractual 1- 'colorultimo !
-	-trazo
-    ;
-
-::savegst | "nombre" --
-	mark
-	'dibujo dibujo> over - 2 >> ,
-	( dibujo> <? )( @+ , ) drop
-	savemem
-	empty ;
-
-:savemem    "mem/test.gst" savegst ;
-
-::loadgst | "nombre" --
-	mark
-	here dup rot load
-	'here !
-	here =? ( drop empty reset ; )
-	@+ 'dibujo swap
-	( 1? )( 1- >r
-		swap @+ rot !+
-		r> ) drop 'dibujo> !
-	drop
-	dibujo> 'dibujo< !
-	empty ;
-
-:loadmem	"mem/test.gst" loadgst ;
-
-|---- GUION
-:creadib | nro ang sx sy x y --
-	guion> >r 1 r!+
-	xy>d r!+ xy>d r!+ xy>d r!+ r> 'guion> ! ;
-
-:modifica
-	;
-
-|---- FRAME
-#nexttime 0
-
-:fcmd
-	2 >> 'nexttime ! rdrop 	;
-
-:fcrea
-	2 >> | cnt de actores
-	drop
-	actor> >r @+ r!+ @+ r!+ @+ r!+ r> 'actor> !
-	;
-:fmod
-	2 >> | nro actor
-	drop
-	;
-:fera
-	2 >> | nro actor
-	drop
-	;
-
-#cmdfrm 'fcmd 'fcrea 'fmod 'fera
-
-:inidibus
-	'actor 'actor> !	| borrar todo
-	30 'nexttime !		| tiempo por omision
-	'guion ( guion> <? )(
-		@+ dup $3 and 2 <<  'cmdfrm + @ exec
-		) drop ;
-
-|------ ajusta guion
-:ajustaguion
-	'guion ( guion> <? )(
-		
-		) drop ;
-
-|------ dibujos
-:adibuja
-	'actor ( actor> <? )(
-		@+ d>xy pos @+ d>xy dim @+ d>xy 2 << 'dibus + @ swap rnsprite
-		) drop ;
-
-:toconodo | x y -- x y 0/point
-	'actor ( actor> <? )(
-		@+ d>xy pos @+ d>xy dim >r
-		2dup whin 1? ( drop r> 8 - ; ) drop r> 4+
-		) drop 0 ;
-
-:avanzat
-	;
-
-
-#dx #dy		
-|----
-:move.calc | x y b --
-	0? ( 3drop ; )
-	1- 0? ( drop tocado 1? ( >r dy + swap dx + swap xy>d r> ! )( 3drop ) ; )
-	drop toconodo dup 'tocado ! 1? ( @ d>xy rot - 'dy ! swap - 'dx ! )( 3drop ) ;
-
-:move.draw
-	tocado 1? (	
-		@+ d>xy pos @+ d>xy dim rojo gc.fbox
-		) drop 
-	adibuja ;
 
 |----
-:esca.calc | x y b --
-	0? ( 3drop ; )
-	1- 0? ( drop tocado 1? ( >r dy + swap dx + swap xy>d r> 4+ ! )( 3drop ) ; )
-	drop toconodo dup 'tocado ! 1? ( 4+ @ d>xy rot - 'dy ! swap - 'dx ! )( 3drop ) ;
-
-:esca.draw
-	tocado 1? (	
-		@+ d>xy pos @+ d>xy dim azul gc.fbox
-		) drop 
-	adibuja	;
-
-#aa
-
-|----
-:rota.calc | x y b --
-	0? ( 3drop ; )
-	1- 0? ( drop tocado 1? ( >r dy - swap dx - + aa + r> 8 + dup @ $ffff and rot 16 << or swap ! )( 3drop ) ; )
-	drop toconodo dup 'tocado ! 1? ( 8 + @ d>xy drop 'aa ! 'dy ! 'dx ! )( 3drop ) ;
-
-:rota.draw
-	tocado 1? (
-		@+ d>xy pos @+ d>xy dim verde gc.fbox
-		) drop
-	adibuja	;
-
-|----
-:reajust
+:setdibujo
+	cuadrocursor cuadroultimo =? ( drop ; ) drop
+	| retrocede y rearma dibujo
 	;
+
+:getdibujo
+	cuadrocursor cuadroultimo =? ( drop ; ) drop
+	;
+
+:primt
+	setdibujo
+	0 'cuadrocursor !
+	getdibujo ;
+
+:ultit
+	setdibujo
+	cuadroultimo 'cuadrocursor !
+	getdibujo ;
 
 :nextt
-	1 'ftime +!
-	reajust ;
+	cuadrocursor cuadroultimo >? ( drop ; )
+	setdibujo
+	1+ 'cuadrocursor !
+	getdibujo ;
 
 :prevt
-	ftime 0? ( drop ; )
-	1- 'ftime ! 
-	reajust ; 
+	cuadrocursor 0? ( drop ; )
+	setdibujo
+	1- 'cuadrocursor !
+	getdibujo ;
 
 |----
 :play | --
 	0 'ftime !
 	usogui
 	show clrscr
-		adibuja
-		avanzat
-	 
+
 		'exit >esc<
 		;
 
-|---- elige dibujo
-:ddraw | nro --
-	2 << 'dibus + @ 1? ( nsprite )( drop ) ;
+|---modos
+#modo 0
+#mododibu $10 | $10 $14 $18 $1c
 
-:dclick | nro --
-	0 swap 200 200 sw 2/ sh 2/
-|		creadib exit
-		;
-
-:showtabla | v h --
-	2drop
-	;
-
-|----
-:addd
-	usogui
-	show clrscr
-
-		rojo oscuro
-	0.1 dup fdim
-	0 0.9 fpos 'ifin 'exit dup >esc< btnd
-	0.1 dup fpos
-		0.8 0.1 fpos
-
-|	1 1 .at 8 1 .to
-	'ddraw 'dclick 8 1 showtabla
-
-	 cflecha
-	'exit <esc>
-	;
-
-|----
-:test
-	inidibus ;
-
-:drawguion
-		verde
-		'guion ( guion> <? )( @+ "%d " print ) drop ;
-
-:drawactor
-		azul
-		'actor ( actor> <? )( @+ "%d " print ) drop ;
-
-#estado 0
-#ractual )( 8192
-
-:gc2xyz | x y -- ntr
-	14 << swap 23 << or
-	;
-
-#modot
+#primero
 :cadapunto | tr --
 	d>xy 5 >> $1ff and 14 << swap
 	5 >> $1ff and 23 <<
 	or
-	modot $10 =? ( $11 'modot ! ) or
+	primero
+	$10 =? ( $11 'primero ! )
+	$14 =? ( $15 'primero ! )
+	$18 =? ( $19 'primero ! )
+	$1c =? ( $1d 'primero ! )
+	or
 	,dib
 	;
 
-:intrazo
-	$10 'modot !
+:addtrazo
+	trazo.cnt 2 <? ( drop ; ) drop
+	mododibu
+	$18 <>? ( coloractual colorultimo <>? ( dup 'colorultimo ! 8 << 2 or ,dib )( drop ) )
+	'primero !
 	'cadapunto trazo.map
+	mododibu
+	$18 =? ( coloractual dup 'colorultimo ! 8 << 2 or ,dib )
+	drop
 	;
 
+:mododraw
+	verde oscuro
+	[ 1 'modo ! ; ] "EDIT" sp btnt
+	verde
+	0 "DRAW" sp btnt
+	sp
+	cyan oscuro
+	[ $10 'mododibu ! ; ] "LINE" sp btnt
+	[ $14 'mododibu ! ; ] "GLINE" sp btnt
+	[ $18 'mododibu ! ; ] "POLY" sp btnt
+	[ $1c 'mododibu ! ; ] "CIRCLE" sp btnt
+	0 " DEL " sp btnt
+
+	loadbox
+    coloractual ink
+	'addtrazo trazo.draw
+
+	omode
+	0 0 2.5 mtrans
+	'dibujo rsdraw
+	;
+
+#xa #ya
+
+:modoedit
+	verde
+	0 "EDIT" sp btnt
+	verde oscuro
+	[ 0 'modo ! ; ] "DRAW" sp btnt
+	sp
+	cyan oscuro
+	[ newnode ; ] " NEW " sp btnt
+	[ delnode ; ] " DEL " sp btnt
+
+	loadbox
+    coloractual ink
+
+	omode
+	0 0 2.5 mtrans
+	'dibujo rsdraw
+	'dibujo rsdrawe
+	[ 'dibujo rbuscapunto ; ]
+	[ rmuevepunto ; ]
+	guiDnMove
+	;
+
+:modoactual
+	modo
+	0? ( drop mododraw ; )
+	1- 0? ( drop modoedit ; )
+	drop ;
+
 :dodibs
+	scr omode
+	0 0 2.5 mtrans
+	-1.0 -1.0 0 project3d
+	1.0 1.0 0 project3d rot - abs >r - abs r> dim
 	0 dup fpos
-	sw sh min -64 dup 2 >> 'yc +! +
-	dup dim
 	savebox
-    inidibus
+
+	10 sh 230 - dlgColat!
+
 	usogui
-	fonti
-|font-vard-12-bold
-	show clrscr  cr
-		rojo oscuro
-		'exit dup >esc< "X" sp btnt
-		violeta oscuro
-		'prevt dup <f1> "<" sp btnt
-		'nextt dup <f2> ">" sp btnt
-		[ play ; ] dup <f3> "|>" sp btnt
-|		[ addd ; ] dup <f4> "+" sp btnt
-|		[ test ; ] dup <f4> "*" sp btnt
-		nexttime ftime " %d %d" blanco print
+	fonti |font-vard-12-bold
+	show clrscr cr
+		modoactual
+		blanco | recuadro
+		-1.0 -1.0 0 project3d 2dup op
+		1.0 -1.0 0 project3d line
+		1.0 1.0 0 project3d line
+		-1.0 1.0 0 project3d line line
+
 |		'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop
+|		coloractual "%h" print
+		cr cr coloractual ink
+		dlg.color
 
-|		drawguion cr
-|		drawactor
+		violeta oscuro
+		'primt dup <f1> "|<" sp btnt
+		'prevt dup <f1> "<" sp btnt
+		blanco cuadrocursor " %d" print
+		violeta oscuro
+		'nextt dup <f2> ">" sp btnt
+		'ultit dup <f2> ">|" sp btnt
+		sp
+    	verde
+		[ play ; ] dup <f3> "|>" sp btnt
+		sp
+		rojo oscuro
+		'exit dup >esc< "EXIT" sp btnt
 
-		loadbox
-	    coloractual ink
-		'intrazo trazo.draw
-		gc.box
+		cminiflecha ;
 
-		verde
-		omode
-		0 0 2.0 mtrans
-		'dibujo rsdraw
+:clearanim
+	here 'rmation ! 'rmation> !
+	0 'cuadrocursor !
+	0 'cuadroultimo !
 
-		'exit >esc<
-		cminiflecha
+	'dibujo 'dibujo> !
+	'cambio 'cambio> !
+	'index 'index>  !
 
-		;
+	-1 'puntocursor !
+	-1 'polycursor !
 
+	coloractual 1- 'colorultimo !
+	4 linegr!
+	0 'modo !
+	;
 
-
-: 0 paper 33 dodibs ;
+|**********************************
+: 	0 paper
+	mark
+	clearanim
+	33
+	dodibs ;
