@@ -14,26 +14,42 @@
 #cuadrocursor 0
 #cuadroultimo 0
 
-#dibujo )( $ffff
-#dibujo> 'dibujo
-
-#cambio )( $ffff
-#cambio> 'cambio
-
 #index )( 8192
 #index> 'index
 
 #rmation
 #rmation>
 
-|----------------
-:,dib
-	dibujo> !+ 0 over ! 'dibujo> ! ;
+|---- cuadro actual
+
+#dibujo )( $ffff
+#dibujo> 'dibujo
+
+#cambio )( $ffff
+#cambio> 'cambio
+
+#seleccion )( $ffff
+#seleccion> 'seleccion
+
+#polys )( $fff
+#polys>
+
+#x1 #y1 #x2 #y2
 
 #puntocursor -1
 #polycursor -1
 
 #colorultimo
+
+|----------------
+:,dib
+	dibujo> !+ 0 over ! 'dibujo> ! ;
+
+:,sel
+	seleccion> !+ 'seleccion> ! ;
+
+:,poly
+	polys> !+ 'polys> ! ;
 
 |--------- rmation sprite (3d+move)
 | 9 . 9 . 9 . 5 | tipo 1
@@ -41,17 +57,22 @@
 | 27 .5 | tipo 2
 | 3 << porque usa 14 bits a 17 bits queda 1.0
 
+
+#xa #ya
+
 :3d>xy | valor -- x y
 	dup 23 >> 8 <<
 	over 9 << 23 >> 8 <<
 	rot 18 << 23 >> 8 <<
 	project3d ;
 
+
 :xy>3d | x y -- valor
 	5 >> $1ff and 14 << swap
 	5 >> $1ff and 23 <<
 	or
 	;
+
 
 #p1 #p2 #p3
 
@@ -61,6 +82,7 @@
 :s1 | color
 	8 >> ink ;
 :s2 | color+poli
+	xa ya pline
 	8 >> ink poli ;
 :s3 | param
 	23 >> linegr! ;
@@ -88,7 +110,17 @@
 | glinea
 :s14 3d>xy gop ;		:s15 3d>xy gline ;		:s16 3d>xy gcp ;	:s17 3d>xy gcurve ;
 | poly
-:s18 3d>xy op ;			:s19 3d>xy pline ;		:s1a 3d>xy cp ;		:s1b 3d>xy pcurve ;
+
+:s18
+	xa ya or $80000000 <>? ( xa ya line ) drop
+	3d>xy 2dup op
+	'ya ! 'xa !
+	;
+
+:s19 3d>xy pline ;
+:s1a 3d>xy cp ;
+:s1b 3d>xy pcurve ;
+
 | points
 :s1c 3d>xy circleg ;	:s1d 3d>xy circleg ;	:s1e 3d>xy cp ;		:s1f 3d>xy circleg ;
 
@@ -96,26 +128,58 @@
 s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 
 :rsdraw | ad --
+	$80000000 dup 'xa ! 'ya !
 	( @+ 1? )(
 		dup $1f and 2 << 'sa + @ exec
 		) 2drop ;
 
-|--------------------------------- EDITA NODO
+|------ dibuja nodos
 :espunto
     3d>xy 2 box
 	;
 
-:rsdrawe | ad --
+:seleccionycaja
+	cyan oscuro
+	x1 y1 x2 y2 cajaf
+	blanco
+	x1 y1 x2 y2 caja
+	'seleccion
+	( seleccion> <? )( @+ @ 3d>xy 3 box ) drop
+	;
+
+:drawedit | ad --
+	puntocursor 1+ 0? ( drop seleccionycaja ; ) 1-
 	verde
+	'dibujo
 	( @+ 1? )(
 		dup $1f and $f >? ( drop espunto )( 2drop )
 		) 2drop
-	puntocursor 1+ 0? ( drop ; ) 1-
 	blanco
 	@ 3d>xy 4 box
 	;
 
-|---------------------------------
+|------- ellije seleccion
+:adentro?
+	3d>xy
+	y2 >? ( 2drop ; ) y1 <? ( 2drop ; ) drop
+	x2 >? ( drop ; ) x1 <? ( drop ; ) drop
+	dup 4 - ,sel
+	;
+
+:2sort | x y -- max min
+	over >? ( swap ) ;
+
+:selecionelije
+	x1 x2 2sort 'x1 ! 'x2 !
+	y1 y2 2sort 'y1 ! 'y2 !
+	'seleccion 'seleccion>  !
+	'dibujo
+	( @+ 1? )(
+		dup $1f and $f >? ( drop adentro? )( 2drop )
+		) 2drop
+	;
+
+|------ elije nodo
 :indot | x y x y -- 1/0
 	rot - dup * swap rot - dup * + | dx2+dy2
 	64 <=? ( 1 )( 0 ) nip ; |
@@ -125,21 +189,30 @@ s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 	dup 4 - 'puntocursor !
 	;
 
-:rbuscapunto | ad --
+|---- edit
+:onDNedit | ad --
 	-1 'puntocursor !
+	'dibujo
 	( @+ 1? )(
 		dup $1f and $f >? ( drop tocopunto )( 2drop )
 		) 2drop
+	puntocursor 1+ 0? ( 'seleccion 'seleccion>  !
+ 						xymouse 2dup 'y1 ! 'x1 ! 'y2 ! 'x2 ! ) drop
 	;
 
-:rmuevepunto
-	puntocursor 1+ 0? ( drop ; ) 1-
+:onMOVEedit
+	puntocursor 1+ 0? ( drop xymouse 'y2 ! 'x2 ! ; ) 1-
 	xymouse xy>gc
 	d>xy 5 >> $1ff and 14 << swap
 	5 >> $1ff and 23 <<
 	or
 	over @ $1f and or
 	swap !
+	;
+
+:onUPedit
+	puntocursor 1+ 1? ( drop ; ) drop
+	selecionelije
 	;
 
 :delnode
@@ -150,6 +223,35 @@ s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 :newnode
 	puntocursor 1+ 0? ( drop ; ) 1-
 	drop
+	;
+
+|----- seleccion
+:limite | xy
+	3d>xy
+	y1 <? ( dup 'y1 ! ) y2 >? ( dup 'y2 ! ) drop
+	x1 <? ( dup 'x1 ! ) x2 >? ( dup 'x2 ! ) drop
+	;
+
+:allpolys
+	'seleccion 'seleccion>  !
+	1.0 dup 'x1 ! 'y1 !
+	-1.0 dup 'x2 ! 'y2 !
+	'dibujo
+	( @+ 1? )(
+		dup $1f and $f >? ( drop limite dup 4 - ,sel )( 2drop )
+		) 2drop
+	;
+
+:nonepolys
+	'seleccion 'seleccion>  !
+	0 dup 2dup 'x1 ! 'y1 ! 'x2 ! 'y2 !
+	;
+
+:moveseleccion
+	;
+:delseleccion
+	;
+:cloneseleccion
 	;
 |---------------------------------------
 :r0 :r1 :r2 :r3 :r4 :r5 :r6 :r7 :r8 :r9 :ra :rb :rc :rd :re :rf
@@ -196,14 +298,10 @@ $00010006
 |--------------
 :playall
 	;
-|-----------
 
-#nexttime 0
-#ftime 0
-
-#zoom
-#xd #yd
+|------ GC para dibujo
 #xcycwh 0 0 0 0
+#xcam 0 #ycam 0 #zcam 2.5
 
 :savebox
 	xc yc w h 'xcycwh !+ !+ !+ ! ;
@@ -211,6 +309,16 @@ $00010006
 :loadbox
 	'xcycwh @+ 'h ! @+ 'w ! @+ 'yc ! @ 'xc ! ;
 
+:genvista
+	scr omode
+	xcam ycam zcam mtrans
+	-1.0 -1.0 0 project3d
+	1.0 1.0 0 project3d      | x y x y
+	pick3 pick2 + 2/ 'xc !
+	pick2 over + 2/ 'yc !
+	rot - abs >r - abs r> dim
+	savebox
+	;
 
 |----
 :setdibujo
@@ -246,7 +354,6 @@ $00010006
 
 |----
 :play | --
-	0 'ftime !
 	usogui
 	show clrscr
 
@@ -283,10 +390,11 @@ $00010006
 	;
 
 :mododraw
-	verde oscuro
-	[ 1 'modo ! ; ] "EDIT" sp btnt
 	verde
 	0 "DRAW" sp btnt
+	verde oscuro
+	[ 1 'modo ! nonepolys ; ] "EDIT" sp btnt
+	[ 2 'modo ! ; ] "VISTA" sp btnt
 	sp
 	cyan oscuro
 	[ $10 'mododibu ! ; ] "LINE" sp btnt
@@ -298,7 +406,6 @@ $00010006
 	loadbox
     coloractual ink
 	'addtrazo trazo.draw
-
 	omode
 	0 0 2.5 mtrans
 	'dibujo rsdraw
@@ -307,45 +414,85 @@ $00010006
 #xa #ya
 
 :modoedit
+	verde oscuro
+	[ 0 'modo ! ; ] "DRAW" sp btnt
 	verde
 	0 "EDIT" sp btnt
 	verde oscuro
-	[ 0 'modo ! ; ] "DRAW" sp btnt
+	[ 2 'modo ! ; ] "VISTA" sp btnt
 	sp
 	cyan oscuro
 	[ newnode ; ] " NEW " sp btnt
 	[ delnode ; ] " DEL " sp btnt
 
 	loadbox
-    coloractual ink
+	omode
+	0 0 2.5 mtrans
+	drawedit
+	'dibujo rsdraw
 
+	'onDNedit
+	'onMOVEedit
+	'onUPedit
+	guiMap
+	;
+
+#xv #yv
+
+:vista.move
+	xymouse
+	dup yv - 'yc +! 'yv !
+	dup xv - 'xc +! 'xv !
+	savebox
+	;
+
+:vista.dn
+	xymouse 'yv ! 'xv ! ;
+
+:hojayzoom
+	;
+
+:modovista
+	verde oscuro
+	[ 0 'modo ! ; ] "DRAW" sp btnt
+	[ 1 'modo ! nonepolys ; ] "EDIT" sp btnt
+	verde
+	0 "VISTA" sp btnt
+	sp
+	cyan oscuro
+	[ ; ] " Z+ " sp btnt
+	[ ; ] " Z- " sp btnt
+	loadbox
 	omode
 	0 0 2.5 mtrans
 	'dibujo rsdraw
-	'dibujo rsdrawe
-	[ 'dibujo rbuscapunto ; ]
-	[ rmuevepunto ; ]
+
+	'vista.dn 
+	'vista.move 
 	guiDnMove
+
 	;
 
 :modoactual
 	modo
 	0? ( drop mododraw ; )
 	1- 0? ( drop modoedit ; )
+	1- 0? ( drop modovista ; )
 	drop ;
 
-:dodibs
-	scr omode
-	0 0 2.5 mtrans
-	-1.0 -1.0 0 project3d
-	1.0 1.0 0 project3d rot - abs >r - abs r> dim
-	0 dup fpos
-	savebox
+:dibcls
+	'dibujo 0 over ! 'dibujo> !
+	'cambio 'cambio> !
+	0 'modo !
+	;
 
+:dodibs
+	genvista
 	10 sh 230 - dlgColat!
 
 	usogui
 	fonti |font-vard-12-bold
+	scr
 	show clrscr cr
 		modoactual
 		blanco | recuadro
@@ -356,8 +503,7 @@ $00010006
 
 |		'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop
 |		coloractual "%h" print
-		cr cr coloractual ink
-		dlg.color
+		cr cr
 
 		violeta oscuro
 		'primt dup <f1> "|<" sp btnt
@@ -372,7 +518,18 @@ $00010006
 		sp
 		rojo oscuro
 		'exit dup >esc< "EXIT" sp btnt
+		'dibcls "CLS" sp btnt
 
+		scr home
+		0 rows 2 - gotoxy
+		coloractual ink
+		sp dlg.color
+		violeta
+		'nonepolys "0" sp btnt
+		'allpolys "ALL" sp btnt
+		0 'polys ( polys> <? )(
+			swap 1+ dup "%d" sp btnt
+			swap 4+ ) 2drop
 		cminiflecha ;
 
 :clearanim
