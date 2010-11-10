@@ -1,0 +1,135 @@
+|--- RMATION
+| #rauto 1.0 'rmation 0
+|
+| 0 0 0 mtransi
+| 0 mrotzi
+| 'rauto rplay | animacion anda sola
+|----------------
+| formato rmation
+| 0 fin de animacion-tiempo de cuadro (no puede ser 0)
+| 1 desde hasta... mueve nodos
+| 2 hasta desde... mueve nodos de poly
+| 3 cambia color
+| 4 borra nodos
+| 5 frame vacio, borra todos los nodos
+|...
+| $d color
+| $e color+poli
+| $f parametros
+| $10 $11 $12 $13 lineas
+| $14 $15 $16 $17 glineas  (mm)
+| $18 $19 $1a $1b poligonos
+| $1c $1d $1e $1f circulos (mm)
+|--------------
+
+#xa #ya
+#desde #hasta
+
+|--------- rmation sprite (3d+move)
+| 9 . 9 . 9 . 5 | tipo 1
+| x=9 bits y=9 bits z=9 bits control=5bit
+| 27 .5 | tipo 2
+| 8 << porque usa 9 bits a 17 bits queda 1.0
+
+::3d>xy | valor -- x y
+	dup 23 >> 8 <<
+	over 9 << 23 >> 8 <<
+	rot 18 << 23 >> 8 <<
+	project3d ;
+
+:xy>3d | x y -- valor
+	5 >> $1ff and 14 << swap
+	5 >> $1ff and 23 <<
+	or
+	;
+
+::3d>xyf | valor -- valor x y
+	dup 23 >>
+	over 9 << 23 >>
+	;
+
+::xyf>3d | valor x y -- valor'
+	$1ff and 14 << swap
+	$1ff and 23 <<
+	or
+	swap $1f and or ;
+
+
+|-------- ordenes de control
+:s0	| tiempo, fin
+	;
+:s1 | marca puntos
+	dup 8 >> $3fff and 'desde !
+	14 8 + >> $3fff and 'hasta !
+	;
+:s2 | marca puntos rle
+	dup 8 >> $3fff and 'hasta !
+	14 8 + >> $3fff and 'desde !
+	;
+:s3 | cambia color
+	8 >> ink ;
+:s4 | borra puntos
+	dup 8 >> $3fff and 'desde !
+	14 8 + >> $3fff and 'hasta !
+	;
+:s5 | borra todo el frame
+	drop
+	;
+|------- vacios por ahora
+:s6	:s7	:s8	:s9
+:sa	:sb	:sc
+	drop ;
+|------- de aca dibujo/crea
+:sd | color
+	8 >> ink ;
+:se | color+poli
+	xa ya pline
+	8 >> ink poli ;
+:sf | param
+	23 >> linegr! ;
+| linea
+:s10 3d>xy op ;
+:s11 3d>xy line ;
+:s12 3d>xy cp ;
+:s13 3d>xy curve ;
+| glinea
+:s14 3d>xy gop ;
+:s15 3d>xy gline ;
+:s16 3d>xy gcp ;
+:s17 3d>xy gcurve ;
+| poly
+:s18
+	xa ya or $80000000 <>? ( xa ya line ) drop
+	3d>xy 2dup 'ya ! 'xa !
+	op ;
+:s19 3d>xy pline ;
+:s1a 3d>xy cp ;
+:s1b 3d>xy pcurve ;
+| points
+:s1c 3d>xy circleg ;
+:s1d 3d>xy circleg ;
+:s1e 3d>xy cp ;
+:s1f 3d>xy circleg ;
+
+#sa s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 sa sb sc sd se sf
+s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
+
+::rsdraw | ad --
+	$80000000 dup 'xa ! 'ya !
+	( @+ 1? )(
+		dup $1f and 2 << 'sa + @ exec
+		) 2drop ;
+
+|---------------------------------------
+:r0 :r1 :r2 :r3 :r4 :r5 :r6 :r7 :r8 :r9 :ra :rb :rc :rd :re :rf
+:r10 :r11 :r12 :r13 :r14 :r15 :r16 :r17 :r18 :r19 :r1a :r1b :r1c
+:r1d :r1e :r1f
+	drop ;
+
+#dr r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 ra rb rc rd re rf
+r10 r11 r12 r13 r14 r15 r16 r17 r18 r19 r1a r1b r1c r1d r1e r1f
+
+:rdrawstatic
+	( @+ 1? )(
+		dup $1f and 2 << 'dr + @ exec
+		) 2drop ;

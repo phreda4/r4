@@ -5,29 +5,26 @@
 ^r4/lib/dlg.txt
 ^r4/lib/fontt.txt
 ^r4/lib/trazo.txt
+^r4/lib/rsprite.txt
 
 ^r4/lib/polygr.txt
 
 ^r4/lib/trace.txt
 
 |--------------------------------
-#cuadrocursor 0
-#cuadroultimo 0
-
-#index )( 8192
-#index> 'index
+#actframe 0
+#cntframes 0
+| 'rmation size
+#frames )( 8192
 
 #rmation
 #rmation>
 
 |---- cuadro actual
-
+#cambio )( $ffff
 #dibujo )( $ffff
 #dibujo> 'dibujo
 #dibujo< 'dibujo
-
-#cambio )( $ffff
-#cambio> 'cambio
 
 #seleccion )( $ffff
 #seleccion> 'seleccion
@@ -47,6 +44,10 @@
 #xv #yv
 #xf #yf
 
+|---modos
+#modo 0
+#mododibu $10 | $10 $14 $18 $1c
+
 |----------------
 :,dib
 	dibujo> !+ 0 over ! 'dibujo> ! ;
@@ -57,133 +58,148 @@
 :,poly
 	polys> !+ 'polys> ! ;
 
-|--------- rmation sprite (3d+move)
-| 9 . 9 . 9 . 5 | tipo 1
-| x=9 bits y=9 bits z=9 bits control=5bit
-| 27 .5 | tipo 2
-| 3 << porque usa 14 bits a 17 bits queda 1.0
+|---- dibujo
+:dibujo.size | -- cntdwords
+	dibujo> dibujo< - 2 >> | trazos nuevo
+		| falta sumar modificadores y borrados
 
-:3d>xy | valor -- x y
-	dup 23 >> 8 <<
-	over 9 << 23 >> 8 <<
-	rot 18 << 23 >> 8 <<
-	project3d ;
+|	'cambio 'dibujo
+|	( dibujo> <? )( 4+ swap @+ 1? ( 3drop 1 ; ) drop swap )
+|	2drop 0
 
-:xy>3d | x y -- valor
-	5 >> $1ff and 14 << swap
-	5 >> $1ff and 23 <<
-	or
+	1+ | la marca de tiempo..
 	;
 
-:3d>xyf | valor -- valor x y
-	dup 23 >>
-	over 9 << 23 >>
+:cambio.clear
+	'cambio 'dibujo
+	( dibujo> <? )( 4+ 0 rot !+ swap )
+	2drop
 	;
 
-:xyf>3d | valor x y -- valor'
-	$1ff and 14 << swap
-	$1ff and 23 <<
-	or
-	swap $1f and or ;
-
-
-#p1 #p2 #p3
-
-|-------- ordenes de control
-:s0	| tiempo, fin
-	;
-:s1 | color
-	8 >> ink ;
-:s2 | color+poli
-	xa ya pline
-	8 >> ink poli ;
-:s3 | param
-	23 >> linegr! ;
-:s4 | marca puntos
-	dup 8 >> $3fff and 'p1 !
-	14 8 + >> $3fff and 'p2 ! 0 'p3 !
-	;
-:s5 | marca puntos rle
-	dup 8 >> $3fff and 'p1 !
-	14 8 + >> $3fff and 'p3 ! 0 'p2 !
-	;
-:s6 | mueve punto
-	>xyz
-	drop drop drop
-	;
-:s7 | borra puntos
-	dup 8 >> $3fff and 'p1 !
-	14 8 + >> $3fff and 'p2 !
-	;
-|------- vacios por ahora
-:s8	:s9	:sa	:sb	:sc	:sd	:se	:sf drop ;
-|------- de aca dibujo/crea
-| linea
-:s10 3d>xy op ;			:s11 3d>xy line ;		:s12 3d>xy cp ;		:s13 3d>xy curve ;
-| glinea
-:s14 3d>xy gop ;		:s15 3d>xy gline ;		:s16 3d>xy gcp ;	:s17 3d>xy gcurve ;
-| poly
-
-:s18
-	xa ya or $80000000 <>? ( xa ya line ) drop
-	3d>xy 2dup op
-	'ya ! 'xa !
+:dibujo.clear
+	'dibujo 0 over ! dup 'dibujo> ! 'dibujo< !
 	;
 
-:s19 3d>xy pline ;
-:s1a 3d>xy cp ;
-:s1b 3d>xy pcurve ;
+:clearanim
+	here dup 'rmation ! 'rmation> !
+	0 dup 'actframe ! 'cntframes !
 
-| points
-:s1c 3d>xy circleg ;	:s1d 3d>xy circleg ;	:s1e 3d>xy cp ;		:s1f 3d>xy circleg ;
+	-1 dup 'puntocursor ! 'polycursor !
 
-#sa s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 sa sb sc sd se sf
-s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
-
-:rsdraw | ad --
-	$80000000 dup 'xa ! 'ya !
-	( @+ 1? )(
-		dup $1f and 2 << 'sa + @ exec
-		) 2drop ;
-
-|---------------------------------------
-:r0 :r1 :r2 :r3 :r4 :r5 :r6 :r7 :r8 :r9 :ra :rb :rc :rd :re :rf
-:r10 :r11 :r12 :r13 :r14 :r15 :r16 :r17 :r18 :r19 :r1a :r1b :r1c
-:r1d :r1e :r1f
-	drop ;
-
-#dr r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 ra rb rc rd re rf
-r10 r11 r12 r13 r14 r15 r16 r17 r18 r19 r1a r1b r1c r1d r1e r1f
-
-:rdrawstatic
-	( @+ 1? )(
-		dup $1f and 2 << 'dr + @ exec
-		) 2drop ;
-
-|------ dibuja nodos
-:espunto
-    3d>xy 2 box
+	coloractual 1- 'colorultimo !
+	4 linegr!
+	0 'modo !
+	dibujo.clear
 	;
 
-:seleccionycaja
-|	cyan oscuro
-|	x1 y1 x2 y2 cajaf
-	blanco
-	x1 y1 x2 y2 caja
-	'seleccion
-	( seleccion> <? )( @+ @ 3d>xy 3 box ) drop
+
+|------------------
+| copia el dibujo estatico
+:rframecopy | mem -- cini
+	( @+ dup $1f and $a >? )( drop ,dib ) 2drop
+	4 - ;
+
+| copia la modificacion
+:rframemodi | cini --
+	( @+ $1f nand? )( drop )
+	2drop ;
+
+|---- ANIMACION
+:,rm | var
+	rmation> !+ 0 over ! 'rmation> ! ;
+
+:setframe | size rm nro --
+	3 << 'frames + !+ ! ;
+
+:getframe | nro -- cini
+	3 << 'frames + @ rframecopy ;
+
+:setchange | cini ---
+	rframemodi
+	dibujo> 'dibujo< !
 	;
 
-:drawedit | ad --
-	puntocursor 1+ 0? ( drop seleccionycaja ; ) 1-
-	verde
-	'dibujo
-	( @+ 1? )(
-		dup $1f and $f >? ( drop espunto )( 2drop )
-		) 2drop
-	blanco
-	@ 3d>xy 4 box
+|--- dibujo > animacion
+:newframe | fa --
+	dibujo.size rmation> pick2 setframe
+	1+ 'cntframes !
+	dibujo< ( dibujo> <? )( @+ ,rm ) drop	| copio los nuevos
+	| copio los modificados
+	100 5 << ,rm | marca de frame
 	;
+
+:setdibujo
+|	dibujo.size 0? ( drop ; ) drop
+	actframe cntframes =? ( newframe ; )
+	|--- graba viejo
+	drop
+	;
+
+|-- animacion > dibujo
+:getdibujo
+	actframe cntframes =? ( drop ; )
+	| retrocede y rearma dibujo
+	| ** buscar primer cuadro 5!
+	dibujo.clear
+	0 ( over <=? )( dup getframe setchange 1+ ) 2drop
+	| refreshaux
+	;
+
+:getsubdibujo	| no limpia el trazo actual
+	dibujo> 'dibujo< !
+	cambio.clear
+	| refreshaux
+	;
+
+|------ GC para dibujo
+#xcycwh 0 0 0 0
+#xcam 0 #ycam 0 #zcam 2.5
+
+:savebox
+	xc yc w h 'xcycwh !+ !+ !+ ! ;
+
+:loadbox
+	'xcycwh @+ 'h ! @+ 'w ! @+ 'yc ! @ 'xc ! ;
+
+:genvista
+	scr omode
+	xcam ycam zcam mtrans
+	-1.0 -1.0 0 project3d
+	1.0 1.0 0 project3d      | x y x y
+	pick3 pick2 + 2/ 'xc !
+	pick2 over + 2/ 'yc !
+	rot - abs >r - abs r> dim
+	savebox
+	;
+
+:drawdibujo
+	loadbox
+	omode
+	xcam ycam zcam mtrans
+	'dibujo rsdraw
+	blanco gc.box | recuadro
+	;
+
+|----------- PLAY ---------------
+#timenow
+
+:play | --
+	usogui
+	dibujo.clear
+	0 dup getframe setchange
+	'timenow !
+	show clrscr verde
+		timenow "%d" print
+        drawdibujo
+		'exit >esc<
+		100 .mseg .restart
+		timenow
+		1+ cntframes >=? ( 0 nip dibujo.clear )
+		dup getframe setchange
+		'timenow !
+		;
+
+|----------- EDICION ---------------
 
 |------- ellije seleccion
 :inselm? | -- 0/1
@@ -281,7 +297,7 @@ r10 r11 r12 r13 r14 r15 r16 r17 r18 r19 r1a r1b r1c r1d r1e r1f
 :movesel
 	xymouse
 	2dup xy>gc d>xy
-	dup yf - 5 >> 'ya ! 'yf !	| voy perdiendo presicion
+	dup yf - 5 >> 'ya ! 'yf !	| voy perdiendo precision
 	dup xf - 5 >> 'xa ! 'xf !   | y el trazo de desplaza
 	dup yv -
 	dup 'y1 +! 'y2 +!
@@ -297,6 +313,26 @@ r10 r11 r12 r13 r14 r15 r16 r17 r18 r19 r1a r1b r1c r1d r1e r1f
 :cloneseleccion
 	;
 
+|---- draw
+:puntosedita
+	'dibujo
+	( @+ 1? )(
+		dup $1f and $f >? ( drop 3d>xy 2 box )( 2drop )
+		) 2drop 
+	;
+
+:seleccionycaja
+	x1 y1 x2 y2 caja
+	'seleccion seleccion> =? ( drop puntosedita ; )
+	( seleccion> <? )( @+ @ 3d>xy 2 box ) drop
+	;
+
+:drawedit | ad --
+	blanco
+	puntocursor 1+ 0? ( drop seleccionycaja ; ) 1-
+	puntosedita
+	@ 3d>xy 3 box
+	;
 
 |---- edit
 :onDNedit | ad --
@@ -328,96 +364,34 @@ r10 r11 r12 r13 r14 r15 r16 r17 r18 r19 r1a r1b r1c r1d r1e r1f
 	selecionelije
 	;
 
-|------ GC para dibujo
-#xcycwh 0 0 0 0
-#xcam 0 #ycam 0 #zcam 2.5
 
-:savebox
-	xc yc w h 'xcycwh !+ !+ !+ ! ;
-
-:loadbox
-	'xcycwh @+ 'h ! @+ 'w ! @+ 'yc ! @ 'xc ! ;
-
-:genvista
-	scr omode
-	xcam ycam zcam mtrans
-	-1.0 -1.0 0 project3d
-	1.0 1.0 0 project3d      | x y x y
-	pick3 pick2 + 2/ 'xc !
-	pick2 over + 2/ 'yc !
-	rot - abs >r - abs r> dim
-	savebox
-	;
-
-:drawdibujo
-	loadbox
-	omode
-	xcam ycam zcam mtrans
-	'dibujo rsdraw
-	blanco gc.box | recuadro
-|	-1.0 -1.0 0 project3d 2dup op
-|	1.0 -1.0 0 project3d line
-|	1.0 1.0 0 project3d line
-|	-1.0 1.0 0 project3d line line
-	;
-
-|----
-:setdibujo
-	cuadrocursor cuadroultimo =? ( drop ; ) drop
-	| retrocede y rearma dibujo
-	;
-
-:getdibujo
-	cuadrocursor cuadroultimo =? ( drop ; ) drop
-	;
-
+|-- moverse por la animacion
 :primt
 	setdibujo
-	0 'cuadrocursor !
+	0 'actframe !
 	getdibujo ;
 
 :ultit
 	setdibujo
-	cuadroultimo 'cuadrocursor !
+	cntframes 'actframe !
 	getdibujo ;
 
 :nextt
-	cuadrocursor cuadroultimo >? ( drop ; )
+	actframe
+	cntframes >? ( drop ; )
 	setdibujo
-	1+ 'cuadrocursor !
+	1+ 'actframe !
+	actframe cntframes =? ( drop getsubdibujo ; ) drop
 	getdibujo ;
 
 :prevt
-	cuadrocursor 0? ( drop ; )
+	actframe 0? ( drop ; )
 	setdibujo
-	1- 'cuadrocursor !
+	1- 'actframe !
 	getdibujo ;
 
-|----
-:playstep | time mem --
-	2drop
-	;
-#timenow
 
-:play | --
-	0 'timenow !
-	usogui
-	show clrscr verde
-		timenow "%d" print
-		'exit >esc<
-		timenow rmation playstep
-		1 'timenow +!
-		;
-
-|---uso
-| 0 0 0 mtransi
- 0 mrotzi
-| 'rauto rdraw | animacion anda sola
-
-|---modos
-#modo 0
-#mododibu $10 | $10 $14 $18 $1c
-
+|------------------------------
 #primero
 :cadapunto | tr --
 	d>xy 5 >> $1ff and 14 << swap
@@ -435,11 +409,11 @@ r10 r11 r12 r13 r14 r15 r16 r17 r18 r19 r1a r1b r1c r1d r1e r1f
 :addtrazo
 	trazo.cnt 2 <? ( drop ; ) drop
 	mododibu
-	$18 <>? ( coloractual colorultimo <>? ( dup 'colorultimo ! 8 << 2 or ,dib )( drop ) )
+	$18 <>? ( coloractual colorultimo <>? ( dup 'colorultimo ! 8 << $d or ,dib )( drop ) )
 	'primero !
 	'cadapunto trazo.map
 	mododibu
-	$18 =? ( coloractual dup 'colorultimo ! 8 << 2 or ,dib )
+	$18 =? ( coloractual dup 'colorultimo ! 8 << $e or ,dib )
 	drop
 	;
 
@@ -519,8 +493,7 @@ r10 r11 r12 r13 r14 r15 r16 r17 r18 r19 r1a r1b r1c r1d r1e r1f
 	drop ;
 
 :dibcls
-	'dibujo 0 over ! dup 'dibujo> ! 'dibujo< !
-	'cambio 'cambio> !
+	dibujo.clear
 	0 'modo !
 	;
 
@@ -533,24 +506,29 @@ r10 r11 r12 r13 r14 r15 r16 r17 r18 r19 r1a r1b r1c r1d r1e r1f
 	show clrscr cr
 		modoactual
 
-|		'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop
+|		blanco cr
+|		'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop cr
+|		rmation ( rmation> <? )( @+ "%h " allowcr print ) drop cr
+|		0 ( cntframes <? )( dup 3 << 'frames + @ "%h " print 1+ ) drop cr
 |		coloractual "%h" print
 		cr cr
 
 		violeta oscuro
-		'primt dup <f1> "|<" sp btnt
-		'prevt dup <f1> "<" sp btnt
-		blanco cuadrocursor " %d" print
+		'primt dup <pgup> "|<" sp btnt
+		'prevt dup <le> "<" sp btnt
+		blanco actframe " %d" print
 		violeta oscuro
-		'nextt dup <f2> ">" sp btnt
-		'ultit dup <f2> ">|" sp btnt
+		'nextt dup <ri> ">" sp btnt
+		'ultit dup <pgdn> ">|" sp btnt
 		sp
     	verde
-		[ play ; ] dup <f3> "|>" sp btnt
+		[ setdibujo play getdibujo ; ] dup <f3> cntframes "|%d>" sp btnt
 		sp
 		rojo oscuro
 		'exit dup >esc< "EXIT" sp btnt
 		'dibcls "CLS" sp btnt
+
+		verde dup " -%d-" print
 
 		scr home
 		0 rows 2 - gotoxy
@@ -564,22 +542,6 @@ r10 r11 r12 r13 r14 r15 r16 r17 r18 r19 r1a r1b r1c r1d r1e r1f
 			swap 4+ ) 2drop
 		cminiflecha ;
 
-:clearanim
-	here 'rmation ! 'rmation> !
-	0 'cuadrocursor !
-	0 'cuadroultimo !
-
-	'dibujo dup 'dibujo> ! 'dibujo< !
-	'cambio 'cambio> !
-	'index 'index>  !
-
-	-1 'puntocursor !
-	-1 'polycursor !
-
-	coloractual 1- 'colorultimo !
-	4 linegr!
-	0 'modo !
-	;
 
 |**********************************
 : 	0 paper
