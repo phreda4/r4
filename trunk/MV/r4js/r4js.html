@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>:r4js</title>
 <script type="text/javascript">
-
 var context;
 var imgd;
 var XRES=640,YRES=480,XI=0,YI=0;
@@ -11,8 +10,10 @@ var SYSXYMOUSE=0;
 var SYSBMOUSE=0;
 var SYSPAPER=0xff00f;
 var dpila=Array(1024),rpila=Array(1024);
+
+var MEMLAST;
 var IP,TOS,NOS,RTOS;
-var MEM;
+var mem=[0,1,5,0,0,0,7,8];// 5 redraw' 1- 1?goto 6
 
 window.onload=function(){
 context = document.getElementById('myCanvas').getContext('2d');
@@ -22,9 +23,12 @@ if (context.createImageData) { imgd = context.createImageData(XRES,YRES);
   } else { imgd = {'width':XRES,'height':YRES,'data':new Array(XRES*YRES*4)}; }
 
 SYSFRAME=imgd.data;
-TOS=NOS=RTOS=0;
+TOS=NOS=RTOS=1;
+rpila[0]=56;
 IP=1;
-setInterval(updater4, 35);
+//syscls();
+//sysredraw();
+update();
 }
 
 document.onkeydown=function(e){SYSKEY=e;}
@@ -39,125 +43,166 @@ function syscls() {
 
 function sysredraw() {  context.putImageData(imgd,XI,YI); }
 
+//SYSPAPER=SYSPAPER^0xffff;
+//syscls();
+//sysredraw();
+
 function update()
 {
 SYSPAPER=SYSPAPER^0xffff;
 syscls();
 sysredraw();
-}
 
-function updater4()
-{
-W=mem[IP];
-switch (W) {// obtener codigo de ejecucion
-	case FIN: IP=rpila[RTOS];RTOS--;break
-	case LIT: NOS++;dpila[NOS]=TOS;TOS=mem[IP]|mem;IP++;break;
-	case ADR: NOS++;dpila[NOS]=TOS;TOS=mem[W>>8];break;
-	case CALL: rtos++;rpila[RTOS]=IP;IP=W>>8;W=0;break;
-	case JMP: IP=W>>8;W=0;break;
-	case EXEC://hasta JMPR no es visible
-	case IF: if (TOS!=0) IP+=(W>>8);W=0;break;	// condicionales 0 - y +  y no 0
-
-	case 0:FIN: IP=*R;R--;continue;
-    case LIT: NOS++;*NOS=TOS;TOS=*(DWORD*)IP;IP+=sizeof(int);continue;
-    case ADR: NOS++;*NOS=TOS;W=*(DWORD*)IP;IP+=sizeof(int);TOS=*(DWORD*)W;continue;
-    case CALL: W=*(DWORD*)IP;IP+=sizeof(int);R++;*R=IP;IP=(BYTE*)W;continue;
-	case JMP: W=*(int*)IP;IP=(BYTE*)W;continue;
-    case JMPR: W=*(char*)IP;W++;IP+=W;continue;
-//-hasta aca solo lo escribe el compilador
+switch (mem[IP++]) {// obtener codigo de ejecucion
+case 0: IP=rpila[RTOS];RTOS--;break; //FIN
+case 1: NOS++;dpila[NOS]=TOS;TOS=mem[IP]|(mem[IP+1]<<8)|(mem[IP+2]<<16)|(mem[IP+3]<<24);IP+=4;break;//LIT
+case 2: NOS++;dpila[NOS]=TOS;TOS=mem[IP]|(mem[IP+1]<<8)|(mem[IP+2]<<16)|(mem[IP+3]<<24);TOS=mem[TOS];IP+=4;break;//ADR
+case 3: RTOS++;rpila[RTOS]=IP+4;IP=mem[IP]|(mem[IP+1]<<8)|(mem[IP+2]<<16)|(mem[IP+3]<<24);break;// call
+case 4: IP=mem[IP]|(mem[IP+1]<<8)|(mem[IP+2]<<16)|(mem[IP+3]<<24);break;//JMP
+case 5: IP+=mem[IP];break;//JMPR
+case 6: W=TOS;TOS=dpila[NOS];NOS--;if (W!=0) { RTOS++;rpila[RTOS]=IP;IP=W; };break;//EXEC
 //--- condicionales
-	case IF: W=*(char*)IP;IP++;if (TOS!=0) IP+=W; continue;
-    case PIF: W=*(char*)IP;IP++;if (TOS<=0) IP+=W; continue;
-	case NIF: W=*(char*)IP;IP++;if (TOS>=0) IP+=W; continue;
-    case UIF: W=*(char*)IP;IP++;if (TOS==0) IP+=W; continue;
-    case IFN: W=*(char*)IP;IP++;if (TOS!=*NOS) IP+=W;
-		TOS=*NOS;NOS--;continue;
-    case IFNO: W=*(char*)IP;IP++;if (TOS==*NOS) IP+=W;
-		TOS=*NOS;NOS--;continue;
-    case IFL: W=*(char*)IP;IP++;if (TOS<=*NOS) IP+=W;
-		TOS=*NOS;NOS--;continue;
-    case IFG: W=*(char*)IP;IP++;if (TOS>=*NOS) IP+=W;
-		TOS=*NOS;NOS--;continue;
-    case IFLE: W=*(char*)IP;IP++;if (TOS<*NOS) IP+=W;
-		TOS=*NOS;NOS--;continue;
-    case IFGE: W=*(char*)IP;IP++;if (TOS>*NOS) IP+=W;
-		TOS=*NOS;NOS--;continue;
-    case IFAND: W=*(char*)IP;IP++;if (!(TOS&*NOS)) IP+=W;
-		TOS=*NOS;NOS--;continue;
-    case IFNAND: W=*(char*)IP;IP++;if (TOS&*NOS) IP+=W;
-		TOS=*NOS;NOS--;continue;
-//--- fin condicionales dependiente de bloques
-	case EXEC:W=TOS;TOS=*NOS;NOS--;if (W!=0) { R++;*R=IP;IP=(BYTE*)W; } continue;
+case 7: SYSPAPER=SYSPAPER^0xffff;
+		syscls();
+		sysredraw();break;
+case 8: TOS--;if (TOS==0) return;
+		IP=6;
+		break;
+
+/*
+case 7: W=mem[IP];IP++;if (TOS!=0) IP+=W; break;//IF
+case 8: W=mem[IP];IP++;if (TOS<=0) IP+=W; break;//PIF
+case 9: W=mem[IP];IP++;if (TOS>=0) IP+=W; break;//NIF
+case 10:W=mem[IP];IP++;if (TOS==0) IP+=W; break;//UIF
+case 11:W=mem[IP];IP++;if (TOS!=dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFN
+case 12:W=mem[IP];IP++;if (TOS==dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFNO
+case 13:W=mem[IP];IP++;if (TOS<=dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFL
+case 14:W=mem[IP];IP++;if (TOS>=dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFG
+case 15:W=mem[IP];IP++;if (TOS<dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFLE
+case 16:W=mem[IP];IP++;if (TOS>dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFGE
+case 17:W=mem[IP];IP++;if (!(TOS&dpila[NOS])) IP+=W;TOS=dpila[NOS];NOS--;break;//IFAND
+case 18:W=mem[IP];IP++;if (TOS&dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFNAND
+*/
 //--- pila de datos
-	case DUP: NOS++;*NOS=TOS;continue;
-    case DROP: TOS=*NOS;NOS--;continue;
-    case OVER: NOS++;*NOS=TOS;TOS=*(NOS-1); continue;
-	case PICK2: NOS++;*NOS=TOS;TOS=*(NOS-2); continue;
-    case PICK3: NOS++;*NOS=TOS;TOS=*(NOS-3);continue;
-    case PICK4: NOS++;*NOS=TOS;TOS=*(NOS-4);continue;
-	case SWAP: W=*NOS;*NOS=TOS;TOS=W;continue;
-    case NIP: NOS--;continue;
-    case ROT: W=TOS;TOS=*(NOS-1);*(NOS-1)=*NOS;*NOS=W;continue;
-	case DUP2: W=*NOS;NOS++;*NOS=TOS;NOS++;*NOS=W;continue;// ( a b -- a b a b
-    case DROP2: NOS--;TOS=*NOS;NOS--;continue;
-    case DROP3: NOS-=2;TOS=*NOS;NOS--;continue;// ( a b c --
-    case DROP4: NOS-=3;TOS=*NOS;NOS--;continue;// ( a b c d --
-    case OVER2: NOS++;*NOS=TOS;TOS=*(NOS-3);// ( a b c d -- a b c d a b
-		NOS++;*NOS=TOS;TOS=*(NOS-3);continue;
-    case SWAP2: W=*NOS;*NOS=*(NOS-2);*(NOS-2)=W;// ( a b c d -- c d a b
-       W=TOS;TOS=*(NOS-1);*(NOS-1)=W;continue;
-	case TOR: R++;*R=(BYTE*)TOS;TOS=*NOS;NOS--;continue;
-    case RFROM: NOS++;*NOS=TOS;TOS=(int)*R;R--;continue;
-    case ERRE: NOS++;*NOS=TOS;TOS=(int)*R;continue;
-	case ERREM: (*(int*)R)+=TOS;TOS=*NOS;NOS--;continue;
-    case ERRFM: NOS++;*NOS=TOS;TOS=**(int**)R;(*(int*)R)+=4;continue;
-    case ERRSM: **(int**)R=TOS;TOS=*NOS;NOS--;(*(int*)R)+=4;continue;
-    case ERRDR: R--;continue;
-	case AND: TOS&=*NOS;NOS--;continue;
-    case OR: TOS|=*NOS;NOS--;continue;
-	case XOR: TOS^=*NOS;NOS--;continue;
-    case NOT: TOS=~TOS;continue;
-//--- aritmeticas
-	case SUMA: TOS=(*NOS)+TOS;NOS--;continue;
-    case RESTA: TOS=(*NOS)-TOS;NOS--;continue;
-	case MUL: TOS=(*NOS)*TOS;NOS--;continue;
-    case DIV: //if (TOS==0) { TOS=*NOS;NOS--;continue; }
-	     TOS=*NOS/TOS;NOS--;continue;
-	case MULDIV: //if (TOS==0) { NOS--;TOS=*NOS;NOS--;continue; }
-	     TOS=(*(NOS-1))*(*NOS)/TOS;NOS-=2;continue;
+case 19:NOS++;dpila[NOS]=TOS;break;//DUP
+case 20:TOS=dpila[NOS];NOS--;break;//DROP
+case 21:NOS++;dpila[NOS]=TOS;TOS=dpila[NOS-1];break;//OVER
+case 22:NOS++;dpila[NOS]=TOS;TOS=dpila[NOS-2];break;//PICK2
+case 23:NOS++;dpila[NOS]=TOS;TOS=dpila[NOS-3];break;//PICK3
+case 24:NOS++;dpila[NOS]=TOS;TOS=dpila[NOS-4];break;//PICK4
+case 25:W=dpila[NOS];dpila[NOS]=TOS;TOS=W;break;//SWAP
+case 26:NOS--;break; //NIP
+case 27:W=TOS;TOS=dpila[NOS-1];dpila[NOS-1]=dpila[NOS];dpila[NOS]=W;break;//ROT
+case 28:W=dpila[NOS];NOS++;dpila[NOS]=TOS;NOS++;dpila[NOS]=W;break;//DUP2
+case 29:NOS--;TOS=dpila[NOS];NOS--;break;//DROP2
+case 30:NOS-=2;TOS=dpila[NOS];NOS--;break;//DROP3
+case 31:NOS-=3;TOS=dpila[NOS];NOS--;break;//DROP4
+case 32:NOS++;dpila[NOS]=TOS;TOS=dpila[NOS-3];NOS++;dpila[NOS]=TOS;TOS=dpila[NOS-3];break;//OVER2
+case 33:W=dpila[NOS];dpila[NOS]=dpila[NOS-2];dpila[NOS-2]=W;W=TOS;TOS=dpila[NOS-1];dpila[NOS-1]=W;break;//SWAP2
+case 34:RTOS++;rpila[RTOS]=TOS;TOS=dpila[NOS];NOS--;break;//>r
+case 35:NOS++;dpila[NOS]=TOS;TOS=rpila[RTOS];RTOS--;break;//r>
+case 36: NOS++;dpila[NOS]=TOS;TOS=rpila[RTOS];break;//ERRE
+case 37: rpila[RTOS]+=TOS;TOS=dpila[NOS];NOS--;break;//ERREM:
+case 38: NOS++;dpila[NOS]=TOS;TOS=mem[rpila[RTOS]];rpila[RTOS]+=4;break;//ERRFM
+case 39: mem[rpila[RTOS]]=TOS;TOS=dpila[NOS];NOS--;rpila[RTOS]+=4;break;//ERRSM
+case 40: RTOS--;break;//ERRDR
+case 41: TOS&=dpila[NOS];NOS--;break;//AND
+case 42: TOS|=dpila[NOS];NOS--;break;//OR
+case 43: TOS^=dpila[NOS];NOS--;break;//XOR
+case 44: TOS=~TOS;break;//NOT
+case 45: TOS=dpila[NOS]+TOS;NOS--;break;//SUMA
+case 46: TOS=dpila[NOS]-TOS;NOS--;break;//RESTA
+case 47: TOS=dpila[NOS]*TOS;NOS--;break;//MUL
+case 48: TOS=dpila[NOS]/TOS;NOS--;break;//DIV
+case 49: TOS=(dpila[NOS-1]*dpila[NOS])/TOS;NOS-=2;break;//MULDIV
+case 50: TOS=(dpila[NOS-1]*dpila[NOS])>>TOS;NOS-=2;break;//MULSHR
+case 51: W=dpila[NOS]%TOS;dpila[NOS]=dpila[NOS]/TOS;TOS=W;break;//DIVMOD
+case 52: TOS=dpila[NOS]%TOS;NOS--;break;//MOD
+case 53: W=(TOS>>31);TOS=(TOS+W)^W;break;//ABS
+case 54: TOS=isqrt32(TOS);break;//CSQRT
+case 55: TOS=iclz32(TOS);break;//CLZ
+case 56: TOS=(dpila[NOS-1]<<TOS)/dpila[NOS];NOS-=2;break;//CDIVSH
+case 57: TOS=-TOS;break;//NEG
+case 58: TOS++;break;//INC
+case 59: TOS+=4;break;//INC4
+case 60: TOS--;break;//DEC
+case 61: TOS>>=1;break;//DIV2
+case 62: TOS<<=1;break;//MUL2
+case 63: TOS=dpila[NOS]<<TOS;NOS--;break;//SHL
+case 64: TOS=dpila[NOS]>>TOS;NOS--;break;//SHR
+case 65: TOS=mem[TOS]|(mem[TOS+1]<<8)|(mem[TOS+2]<<16)|(mem[TOS+3]<<24);break;//FECH
+case 66: TOS=mem[TOS];break;//CFECH
+case 67: TOS=mem[TOS]|(mem[TOS+1]<<8);break;//WFECH
+case 68: W=dpila[NOS];mem[TOS]=W&0xff;mem[TOS+1]=(W>>8)&0xff;mem[TOS+2]=(W>>16)&0xff;mem[TOS+3]=(W>>24)&0xff;
+			NOS--;TOS=dpila[NOS];NOS--;break;//STOR
+case 69: mem[TOS]=dpila[NOS];NOS--;TOS=dpila[NOS];NOS--;break;//CSTOR
+case 70: W=dpila[NOS];mem[TOS]=W&0xff;mem[TOS+1]=(W>>8)&0xff;NOS--;TOS=dpila[NOS];NOS--;break;//WSTOR
+/*
+	case INCSTOR: *((int *)TOS)+=(int)*NOS;NOS--;TOS=*NOS;NOS--;break;
+    case CINCSTOR: *((char*)TOS)+=(char)*NOS;NOS--;TOS=*NOS;NOS--;break;
+    case WINCSTOR: *((short *)TOS)+=(short)*NOS;NOS--;TOS=*NOS;NOS--;break;
+    case FECHPLUS: NOS++;*NOS=TOS+4;TOS=*(int *)TOS;break; //@+ | adr -- adr' v
+    case STOREPLUS: *(int *)TOS=(int)*NOS;TOS+=4;NOS--;break;//!+ | v adr -- adr'
+    case CFECHPLUS: NOS++;*NOS=TOS+1;TOS=*(char *)TOS;break;
+    case CSTOREPLUS: *(char *)TOS=(char)*NOS;TOS++;NOS--;break;
+    case WFECHPLUS: NOS++;*NOS=TOS+2;TOS=*(short *)TOS;break;
+    case WSTOREPLUS: *(short *)TOS=(short)*NOS;TOS+=2;NOS--;break;
+"MOVE"
+"MOVE>"
+"CMOVE"
+"CMOVE>",//-- movimiento de memoria
+case MEM:NOS++;dpila[NOS]=TOS;TOS=MEMLAST;break;
+"DIR"
+"FILE"
+"FSIZE"
+"VOL"
+"LOAD"
+"SAVE",//--- memoria,bloques
+case UPDATE: break;
+case XYMOUSE: NOS++;dpila[NOS]=TOS;NOS++;dpila[NOS]=SYSXYM&0xffff;TOS=(SYSXYM>>16);break;
+case BMOUSE: NOS++;dpila[NOS]=TOS;TOS=SYSBM;break;
+case SKEY: SYSKEY=TOS;TOS=dpila[NOS];NOS--;break;
+case KEY:NOS++;dpila[NOS]=TOS;TOS=SYSKEY;break;
+case CNTJOY:NOS++;dpila[NOS]=TOS;TOS=0;break;
+case GETJOY:NOS++;dpila[NOS]=TOS;TOS=0;break;
+case MSEC:NOS++;dpila[NOS]=TOS;TOS=XRES;break;
+case TIME",
+case DATE",
+case END:return;
+case RUN:return;
+case SW:NOS++;dpila[NOS]=TOS;TOS=XRES;break;
+case SH:NOS++;dpila[NOS]=TOS;TOS=YRES;break;
+case CLS:syscls();break;
+case REDRAW :sysredraw();break;
+"FRAMEV",//--- pantalla
+"SETXY",
+"PX+!",
+"PX!+",
+"PX@",
+"XFB",
+">XFB",
+"XFB>",
+"PAPER",
+"INK",
+"INK@",
+"ALPHA", //--- color
+"OP",
+"CP",
+"LINE",
+"CURVE",
+"PLINE",
+"PCURVE",
+"POLI",//--- dibujo
+"FCOL",
+"FCEN",
+"FMAT",
+"SFILL","LFILL","RFILL","TFILL",
 
-	case MULSHR: TOS=((long long)(*(NOS-1))*(*NOS))>>TOS;NOS-=2;continue;
-    case CDIVSH: TOS=((long long)(*(NOS-1)<<TOS)/(*NOS));NOS-=2;continue;
-
-    case DIVMOD: if (TOS==0) { NOS--;TOS=*NOS;NOS--;continue; }
-	     W=*NOS%TOS;*NOS=*NOS/TOS;TOS=W;continue;
-	case MOD: TOS=*NOS%TOS;NOS--;continue;
-    case ABS: W=(TOS>>31);TOS=(TOS+W)^W;continue;
-    case CSQRT: TOS=isqrt32(TOS);continue;
-    case CLZ: TOS=iclz32(TOS);continue;
-    case NEG: TOS=-TOS;continue;
-    case INC: TOS++;continue;	case INC4: TOS+=4;continue; case DEC: TOS--;continue;
-    case DIV2: TOS>>=1;continue;	case MUL2: TOS<<=1;continue;
-	case SHL: TOS=(*NOS)<<TOS;NOS--;continue;
-    case SHR: TOS=(*NOS)>>TOS;NOS--;continue;
-//--- memoria
-	case FECH: TOS=*(int *)TOS;continue;
-    case CFECH: TOS=*(char*)TOS;continue;
-    case WFECH: TOS=*(short *)TOS;continue;
-	case STOR: *(int *)TOS=(int)*NOS;NOS--;TOS=*NOS;NOS--;continue;
-    case CSTOR: *(char*)TOS=(char)*NOS;NOS--;TOS=*NOS;NOS--;continue;
-    case WSTOR: *(short *)TOS=(short)*NOS;NOS--;TOS=*NOS;NOS--;continue;
-	case INCSTOR: *((int *)TOS)+=(int)*NOS;NOS--;TOS=*NOS;NOS--;continue;
-    case CINCSTOR: *((char*)TOS)+=(char)*NOS;NOS--;TOS=*NOS;NOS--;continue;
-    case WINCSTOR: *((short *)TOS)+=(short)*NOS;NOS--;TOS=*NOS;NOS--;continue;
-    case FECHPLUS: NOS++;*NOS=TOS+4;TOS=*(int *)TOS;continue; //@+ | adr -- adr' v
-    case STOREPLUS: *(int *)TOS=(int)*NOS;TOS+=4;NOS--;continue;//!+ | v adr -- adr'
-    case CFECHPLUS: NOS++;*NOS=TOS+1;TOS=*(char *)TOS;continue;
-    case CSTOREPLUS: *(char *)TOS=(char)*NOS;TOS++;NOS--;continue;
-    case WFECHPLUS: NOS++;*NOS=TOS+2;TOS=*(short *)TOS;continue;
-    case WSTOREPLUS: *(short *)TOS=(short)*NOS;TOS+=2;NOS--;continue;
+*/
 	}
+setTimeout(update,0);
 }
+
 </script></head>
 <body><p><canvas id="myCanvas" width="640" height="480">nOTcANVAS
 <span style="display:block;width:50px;height:50px;background:#f77">&nbsp;</span>
