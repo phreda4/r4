@@ -5,15 +5,14 @@ var context;
 var imgd;
 var XRES=640,YRES=480,XI=0,YI=0;
 var SYSFRAME;
-var SYSKEY=0;
-var SYSXYMOUSE=0;
-var SYSBMOUSE=0;
-var SYSPAPER=0xff00f;
+var SYSFXB;
+var SYSKEY=0,SYSXYMOUSE=0,SYSBMOUSE=0;
+var SYSALPHA=0xff;SYSINK=0xffffff,SYSPAPER=0;
 var dpila=Array(1024),rpila=Array(1024);
 
-var MEMLAST;
+var MEMLAST,VMEM;
 var IP,TOS,NOS,RTOS;
-var mem=[0,1,5,0,0,0,7,8];// 5 redraw' 1- 1?goto 6
+var mem=[0,1,5,0,0,0,-1];// 5 redraw' 1- 1?goto 6
 
 window.onload=function(){
 context = document.getElementById('myCanvas').getContext('2d');
@@ -22,8 +21,9 @@ if (context.createImageData) { imgd = context.createImageData(XRES,YRES);
   } else if (context.getImageData) { imgd = context.getImageData(0, 0,XRES,YRES);
   } else { imgd = {'width':XRES,'height':YRES,'data':new Array(XRES*YRES*4)}; }
 
-SYSFRAME=imgd.data;
-TOS=NOS=RTOS=1;
+SYSFRAME=imgd.data;SYSFXB=new Array(XRES*YRES*4);
+VMEM=0;
+TOS=NOS=RTOS=0;
 rpila[0]=56;
 IP=1;
 //syscls();
@@ -36,24 +36,17 @@ document.onkeyup=function(e){SYSKEY=e;}
 
 function syscls() {
   for (var i=0,n=SYSFRAME.length;i<n;i+=4) {
-    SYSFRAME[i]=SYSPAPER&0xff;SYSFRAME[i+1]=(SYSPAPER>>8)&0xff;SYSFRAME[i+2]=(SYSPAPER>>16)&0xff;
-    SYSFRAME[i+3]=255;
+    SYSFRAME[i]=SYSPAPER&0xff;SYSFRAME[i+1]=(SYSPAPER>>8)&0xff;SYSFRAME[i+2]=(SYSPAPER>>16)&0xff;SYSFRAME[i+3]=255;
   }
 }
 
-function sysredraw() {  context.putImageData(imgd,XI,YI); }
-
-//SYSPAPER=SYSPAPER^0xffff;
-//syscls();
-//sysredraw();
+function systoxfb() { for (var i=0,n=SYSFRAME.length;i<n;i++) { SYSXFB[i]=SYSFRAME[i]; } }
+function sysxfbto() { for (var i=0,n=SYSFRAME.length;i<n;i++) { SYSFRAME[i]=SYSXFB[i]; } }
+function sysredraw() { context.putImageData(imgd,XI,YI); }
 
 function update()
 {
-SYSPAPER=SYSPAPER^0xffff;
-syscls();
-sysredraw();
-
-switch (mem[IP++]) {// obtener codigo de ejecucion
+switch (mem[IP++]&0xff) {// obtener codigo de ejecucion
 case 0: IP=rpila[RTOS];RTOS--;break; //FIN
 case 1: NOS++;dpila[NOS]=TOS;TOS=mem[IP]|(mem[IP+1]<<8)|(mem[IP+2]<<16)|(mem[IP+3]<<24);IP+=4;break;//LIT
 case 2: NOS++;dpila[NOS]=TOS;TOS=mem[IP]|(mem[IP+1]<<8)|(mem[IP+2]<<16)|(mem[IP+3]<<24);TOS=mem[TOS];IP+=4;break;//ADR
@@ -61,15 +54,6 @@ case 3: RTOS++;rpila[RTOS]=IP+4;IP=mem[IP]|(mem[IP+1]<<8)|(mem[IP+2]<<16)|(mem[I
 case 4: IP=mem[IP]|(mem[IP+1]<<8)|(mem[IP+2]<<16)|(mem[IP+3]<<24);break;//JMP
 case 5: IP+=mem[IP];break;//JMPR
 case 6: W=TOS;TOS=dpila[NOS];NOS--;if (W!=0) { RTOS++;rpila[RTOS]=IP;IP=W; };break;//EXEC
-//--- condicionales
-case 7: SYSPAPER=SYSPAPER^0xffff;
-		syscls();
-		sysredraw();break;
-case 8: TOS--;if (TOS==0) return;
-		IP=6;
-		break;
-
-/*
 case 7: W=mem[IP];IP++;if (TOS!=0) IP+=W; break;//IF
 case 8: W=mem[IP];IP++;if (TOS<=0) IP+=W; break;//PIF
 case 9: W=mem[IP];IP++;if (TOS>=0) IP+=W; break;//NIF
@@ -82,7 +66,6 @@ case 15:W=mem[IP];IP++;if (TOS<dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IF
 case 16:W=mem[IP];IP++;if (TOS>dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFGE
 case 17:W=mem[IP];IP++;if (!(TOS&dpila[NOS])) IP+=W;TOS=dpila[NOS];NOS--;break;//IFAND
 case 18:W=mem[IP];IP++;if (TOS&dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFNAND
-*/
 //--- pila de datos
 case 19:NOS++;dpila[NOS]=TOS;break;//DUP
 case 20:TOS=dpila[NOS];NOS--;break;//DROP
@@ -101,63 +84,63 @@ case 32:NOS++;dpila[NOS]=TOS;TOS=dpila[NOS-3];NOS++;dpila[NOS]=TOS;TOS=dpila[NOS
 case 33:W=dpila[NOS];dpila[NOS]=dpila[NOS-2];dpila[NOS-2]=W;W=TOS;TOS=dpila[NOS-1];dpila[NOS-1]=W;break;//SWAP2
 case 34:RTOS++;rpila[RTOS]=TOS;TOS=dpila[NOS];NOS--;break;//>r
 case 35:NOS++;dpila[NOS]=TOS;TOS=rpila[RTOS];RTOS--;break;//r>
-case 36: NOS++;dpila[NOS]=TOS;TOS=rpila[RTOS];break;//ERRE
-case 37: rpila[RTOS]+=TOS;TOS=dpila[NOS];NOS--;break;//ERREM:
-case 38: NOS++;dpila[NOS]=TOS;TOS=mem[rpila[RTOS]];rpila[RTOS]+=4;break;//ERRFM
-case 39: mem[rpila[RTOS]]=TOS;TOS=dpila[NOS];NOS--;rpila[RTOS]+=4;break;//ERRSM
-case 40: RTOS--;break;//ERRDR
-case 41: TOS&=dpila[NOS];NOS--;break;//AND
-case 42: TOS|=dpila[NOS];NOS--;break;//OR
-case 43: TOS^=dpila[NOS];NOS--;break;//XOR
-case 44: TOS=~TOS;break;//NOT
-case 45: TOS=dpila[NOS]+TOS;NOS--;break;//SUMA
-case 46: TOS=dpila[NOS]-TOS;NOS--;break;//RESTA
-case 47: TOS=dpila[NOS]*TOS;NOS--;break;//MUL
-case 48: TOS=dpila[NOS]/TOS;NOS--;break;//DIV
-case 49: TOS=(dpila[NOS-1]*dpila[NOS])/TOS;NOS-=2;break;//MULDIV
-case 50: TOS=(dpila[NOS-1]*dpila[NOS])>>TOS;NOS-=2;break;//MULSHR
-case 51: W=dpila[NOS]%TOS;dpila[NOS]=dpila[NOS]/TOS;TOS=W;break;//DIVMOD
-case 52: TOS=dpila[NOS]%TOS;NOS--;break;//MOD
-case 53: W=(TOS>>31);TOS=(TOS+W)^W;break;//ABS
-case 54: TOS=isqrt32(TOS);break;//CSQRT
-case 55: TOS=iclz32(TOS);break;//CLZ
-case 56: TOS=(dpila[NOS-1]<<TOS)/dpila[NOS];NOS-=2;break;//CDIVSH
-case 57: TOS=-TOS;break;//NEG
-case 58: TOS++;break;//INC
-case 59: TOS+=4;break;//INC4
-case 60: TOS--;break;//DEC
-case 61: TOS>>=1;break;//DIV2
-case 62: TOS<<=1;break;//MUL2
-case 63: TOS=dpila[NOS]<<TOS;NOS--;break;//SHL
-case 64: TOS=dpila[NOS]>>TOS;NOS--;break;//SHR
-case 65: TOS=mem[TOS]|(mem[TOS+1]<<8)|(mem[TOS+2]<<16)|(mem[TOS+3]<<24);break;//FECH
-case 66: TOS=mem[TOS];break;//CFECH
-case 67: TOS=mem[TOS]|(mem[TOS+1]<<8);break;//WFECH
-case 68: W=dpila[NOS];mem[TOS]=W&0xff;mem[TOS+1]=(W>>8)&0xff;mem[TOS+2]=(W>>16)&0xff;mem[TOS+3]=(W>>24)&0xff;
-			NOS--;TOS=dpila[NOS];NOS--;break;//STOR
-case 69: mem[TOS]=dpila[NOS];NOS--;TOS=dpila[NOS];NOS--;break;//CSTOR
-case 70: W=dpila[NOS];mem[TOS]=W&0xff;mem[TOS+1]=(W>>8)&0xff;NOS--;TOS=dpila[NOS];NOS--;break;//WSTOR
+case 36:NOS++;dpila[NOS]=TOS;TOS=rpila[RTOS];break;//ERRE
+case 37:rpila[RTOS]+=TOS;TOS=dpila[NOS];NOS--;break;//ERREM:
+case 38:NOS++;dpila[NOS]=TOS;TOS=mem[rpila[RTOS]];rpila[RTOS]+=4;break;//ERRFM
+case 39:mem[rpila[RTOS]]=TOS;TOS=dpila[NOS];NOS--;rpila[RTOS]+=4;break;//ERRSM
+case 40:RTOS--;break;//ERRDR
+case 41:TOS&=dpila[NOS];NOS--;break;//AND
+case 42:TOS|=dpila[NOS];NOS--;break;//OR
+case 43:TOS^=dpila[NOS];NOS--;break;//XOR
+case 44:TOS=~TOS;break;//NOT
+case 45:TOS=dpila[NOS]+TOS;NOS--;break;//SUMA
+case 46:TOS=dpila[NOS]-TOS;NOS--;break;//RESTA
+case 47:TOS=dpila[NOS]*TOS;NOS--;break;//MUL
+case 48:TOS=dpila[NOS]/TOS;NOS--;break;//DIV
+case 49:TOS=(dpila[NOS-1]*dpila[NOS])/TOS;NOS-=2;break;//MULDIV
+case 50:TOS=(dpila[NOS-1]*dpila[NOS])>>TOS;NOS-=2;break;//MULSHR
+case 51:W=dpila[NOS]%TOS;dpila[NOS]=dpila[NOS]/TOS;TOS=W;break;//DIVMOD
+case 52:TOS=dpila[NOS]%TOS;NOS--;break;//MOD
+case 53:W=(TOS>>31);TOS=(TOS+W)^W;break;//ABS
+case 54:TOS=isqrt32(TOS);break;//CSQRT
+case 55:TOS=iclz32(TOS);break;//CLZ
+case 56:TOS=(dpila[NOS-1]<<TOS)/dpila[NOS];NOS-=2;break;//CDIVSH
+case 57:TOS=-TOS;break;//NEG
+case 58:TOS++;break;//INC
+case 59:TOS+=4;break;//INC4
+case 60:TOS--;break;//DEC
+case 61:TOS>>=1;break;//DIV2
+case 62:TOS<<=1;break;//MUL2
+case 63:TOS=dpila[NOS]<<TOS;NOS--;break;//SHL
+case 64:TOS=dpila[NOS]>>TOS;NOS--;break;//SHR
+case 65:TOS=mem[TOS]|(mem[TOS+1]<<8)|(mem[TOS+2]<<16)|(mem[TOS+3]<<24);break;//FECH
+case 66:TOS=mem[TOS];break;//CFECH
+case 67:TOS=mem[TOS]|(mem[TOS+1]<<8);break;//WFECH
+case 68:W=dpila[NOS];mem[TOS]=W&0xff;mem[TOS+1]=(W>>8)&0xff;mem[TOS+2]=(W>>16)&0xff;mem[TOS+3]=(W>>24)&0xff;
+		NOS--;TOS=dpila[NOS];NOS--;break;//STOR
+case 69:mem[TOS]=dpila[NOS];NOS--;TOS=dpila[NOS];NOS--;break;//CSTOR
+case 70:W=dpila[NOS];mem[TOS]=W&0xff;mem[TOS+1]=(W>>8)&0xff;NOS--;TOS=dpila[NOS];NOS--;break;//WSTOR
 /*
-	case INCSTOR: *((int *)TOS)+=(int)*NOS;NOS--;TOS=*NOS;NOS--;break;
-    case CINCSTOR: *((char*)TOS)+=(char)*NOS;NOS--;TOS=*NOS;NOS--;break;
-    case WINCSTOR: *((short *)TOS)+=(short)*NOS;NOS--;TOS=*NOS;NOS--;break;
-    case FECHPLUS: NOS++;*NOS=TOS+4;TOS=*(int *)TOS;break; //@+ | adr -- adr' v
-    case STOREPLUS: *(int *)TOS=(int)*NOS;TOS+=4;NOS--;break;//!+ | v adr -- adr'
-    case CFECHPLUS: NOS++;*NOS=TOS+1;TOS=*(char *)TOS;break;
-    case CSTOREPLUS: *(char *)TOS=(char)*NOS;TOS++;NOS--;break;
-    case WFECHPLUS: NOS++;*NOS=TOS+2;TOS=*(short *)TOS;break;
-    case WSTOREPLUS: *(short *)TOS=(short)*NOS;TOS+=2;NOS--;break;
-"MOVE"
-"MOVE>"
-"CMOVE"
-"CMOVE>",//-- movimiento de memoria
+case INCSTOR: *((int *)TOS)+=(int)*NOS;NOS--;TOS=*NOS;NOS--;break;
+case CINCSTOR: *((char*)TOS)+=(char)*NOS;NOS--;TOS=*NOS;NOS--;break;
+case WINCSTOR: *((short *)TOS)+=(short)*NOS;NOS--;TOS=*NOS;NOS--;break;
+case FECHPLUS: NOS++;*NOS=TOS+4;TOS=*(int *)TOS;break; //@+ | adr -- adr' v
+case STOREPLUS: *(int *)TOS=(int)*NOS;TOS+=4;NOS--;break;//!+ | v adr -- adr'
+case CFECHPLUS: NOS++;*NOS=TOS+1;TOS=*(char *)TOS;break;
+case CSTOREPLUS: *(char *)TOS=(char)*NOS;TOS++;NOS--;break;
+case WFECHPLUS: NOS++;*NOS=TOS+2;TOS=*(short *)TOS;break;
+case WSTOREPLUS: *(short *)TOS=(short)*NOS;TOS+=2;NOS--;break;
+case MOVE:
+case MOVE>:
+case CMOVE:
+case CMOVE>:
 case MEM:NOS++;dpila[NOS]=TOS;TOS=MEMLAST;break;
-"DIR"
-"FILE"
-"FSIZE"
-"VOL"
-"LOAD"
-"SAVE",//--- memoria,bloques
+case DIR"
+case FILE"
+case FSIZE"
+case VOL"
+case LOAD"
+case SAVE"
 case UPDATE: break;
 case XYMOUSE: NOS++;dpila[NOS]=TOS;NOS++;dpila[NOS]=SYSXYM&0xffff;TOS=(SYSXYM>>16);break;
 case BMOUSE: NOS++;dpila[NOS]=TOS;TOS=SYSBM;break;
@@ -166,39 +149,51 @@ case KEY:NOS++;dpila[NOS]=TOS;TOS=SYSKEY;break;
 case CNTJOY:NOS++;dpila[NOS]=TOS;TOS=0;break;
 case GETJOY:NOS++;dpila[NOS]=TOS;TOS=0;break;
 case MSEC:NOS++;dpila[NOS]=TOS;TOS=XRES;break;
-case TIME",
-case DATE",
+case TIME
+case DATE
 case END:return;
 case RUN:return;
 case SW:NOS++;dpila[NOS]=TOS;TOS=XRES;break;
 case SH:NOS++;dpila[NOS]=TOS;TOS=YRES;break;
 case CLS:syscls();break;
 case REDRAW :sysredraw();break;
-"FRAMEV",//--- pantalla
-"SETXY",
-"PX+!",
-"PX!+",
-"PX@",
-"XFB",
-">XFB",
-"XFB>",
-"PAPER",
-"INK",
-"INK@",
-"ALPHA", //--- color
-"OP",
-"CP",
-"LINE",
-"CURVE",
-"PLINE",
-"PCURVE",
-"POLI",//--- dibujo
-"FCOL",
-"FCEN",
-"FMAT",
-"SFILL","LFILL","RFILL","TFILL",
+case FRAMEV:NOS++;dpila[NOS]=TOS;TOS=0;break;//** no va a andar
+case SETXY:VMEM=(dpila[NOS]+(TOS*XRES))<<2;break;
+case PX+!:VMEM+=TOS<<2;TOS=dpila[NOS];NOS--;break;
+case PX!+:SYSFRAME[VMEM]=TOS&0xff;SYSFRAME[VMEM+1]=(TOS>>8)&0xff;SYSFRAME[VMEM+2]=(TOS>>16)&0xff;SYSFRAME[VMEM+3]=255;
+	VMEM+=4;TOS=dpila[NOS];NOS--;break;
+case PX@:NOS++;dpila[NOS]=TOS;TOS=SYSFRAME[VMEM]&0xff|(SYSFRAME[VMEM+1]<<8)&0xff00|(SYSFRAME[VMEM+2]<<16)&0xff0000;break;
+case XFB:NOS++;dpila[NOS]=TOS;TOS=0;break;//** no va a andar
+case >XFB:systoxfb();break;
+case XFB>:sysxfbto();break;
+case PAPER:SYSPAPER=TOS;TOS=dpila[NOS];NOS--;break;
+case INK:SYSINK=TOS;TOS=dpila[NOS];NOS--;break;
+case INK@",
+case ALPHA:SYSALPHA=TOS;TOS=dpila[NOS];NOS--;break;
+case OP",
+case CP",
+case LINE",
+case CURVE",
+case PLINE",
+case PCURVE",
+case POLI",//--- dibujo
+case FCOL",
+case FCEN",
+case FMAT",
+case SFILL","
+case LFILL","
+case RFILL","
+case TFILL",
 
 */
+case 255:
+		SYSPAPER=SYSPAPER^0xffff;
+		syscls();
+		sysredraw();break;
+		TOS--;if (TOS==0) return;
+		IP=6;
+		break;
+
 	}
 setTimeout(update,0);
 }

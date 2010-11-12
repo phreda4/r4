@@ -21,6 +21,7 @@
 // PHREDA 9/8/2008  separar line para runtime error, manejo de signal
 // PHREDA 23/8/2008 switches
 // PHREDA 13/12/2008 fuera DLL!! version WINE
+// rest in googlecode http://code.google.com/p/reda4/
 
 #define WIN32_LEAN_AND_MEAN
 #define WIN32_EXTRA_LEAN
@@ -283,9 +284,7 @@ switch (message) {     // handle message
         SYSKEY=-1;                   
 //        R++;*(int*)R=(int)&ultimapalabra; // ejecuta end
 //		DestroyWindow(hWnd);
-        return 0;
-
-		break;
+        return 1;
 /*    
 //        PostQuitMessage(0);
         break;

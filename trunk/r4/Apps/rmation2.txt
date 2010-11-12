@@ -92,6 +92,19 @@
 	dibujo.clear
 	;
 
+|--- rearma indice
+:reindex
+	'frames >r
+	rmation dup
+	( rmation> <? )(
+		@+ $1f and | rm ac v
+		0? ( drop
+			over r!+
+			dup rot - 2 >>
+			r!+
+			dup dup )
+		drop )
+	2drop rdrop ;
 
 |------------------
 | copia el dibujo estatico
@@ -106,14 +119,21 @@
 		) 2drop ;
 
 |---- ANIMACION
-:,rm | var
+:,rm | val --
 	rmation> !+ 0 over ! 'rmation> ! ;
+
+#rmation<
+:,rmi | val --
+	rmation< !+ 'rmation< ! ;
 
 :setframe | size rm nro --
 	3 << 'frames + !+ ! ;
 
 :getframesize | nro -- size
 	3 << 'frames + 4+ @ ;
+
+:getframels | nro -- lugar size
+	3 << 'frames + @+ swap @ ;
 
 :getframe | nro -- cini
 	3 << 'frames + @ rframecopy ;
@@ -132,13 +152,33 @@
 	100 5 << ,rm | marca de frame
 	;
 
+:agrandalugar | antsize actsize --
+	2dup
+	2 << rmation< +
+	swap 2 << rmation< + | actual anterior
+	rmation> over - 2 >>
+	move>
+	swap - 2 << 'rmation> +!
+	;
+
+:ajustalugar | antsize actsize -- ; 'rmation< actul inico
+	over =? ( 2drop ; )
+	over >? ( agrandalugar ; )  | menor el anterior
+	| mayor el anterio
+	| buscar nodos perdidos ;ds sr cn
+	2 << rmation< +
+	swap 2 << rmation< +
+	rmation> over - 2 >>
+	move ;
+
 :setdibujo
 	actframe cntframes =? ( newframe ; )
-|	dup getframesize dibujo.size | frame antsize actsize
-
-	|--- graba viejo
-	drop
-	;
+	getframels dibujo.size rot 'rmation< !
+	ajustalugar
+	dibujo< ( dibujo> <? )( @+ ,rmi ) drop	| copio los nuevos
+	| copio los modificados
+	50 5 << ,rmi | marca de frame
+	reindex ;
 
 |-- animacion > dibujo
 :getdibujo
@@ -146,7 +186,9 @@
 	| retrocede y rearma dibujo
 	| ** buscar primer cuadro 5!
 	dibujo.clear
-	0 ( over <=? )( dup getframe setchange 1+ ) 2drop
+	0 ( over <? )( dup getframe setchange 1+ )
+	getframe rframemodi | el ultimo no ajusta dibujo<
+	drop
 	| refreshaux
 	;
 
@@ -511,11 +553,6 @@
 	show clrscr cr
 		modoactual
 
-|		blanco cr
-|		'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop cr
-|		rmation ( rmation> <? )( @+ "%h " allowcr print ) drop cr
-|		0 ( cntframes <? )( dup 3 << 'frames + @ "%h " print 1+ ) drop cr
-|		coloractual "%h" print
 		cr cr
 
 		violeta oscuro
@@ -532,10 +569,20 @@
 		rojo oscuro
 		'exit dup >esc< "EXIT" sp btnt
 		'dibcls "CLS" sp btnt
+		'reindex "RI" sp btnt
+		verde dup " -%d-" print cr cr
 
-		verde dup " -%d-" print
-
-		scr home
+|		blanco cr
+|		'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop cr
+|		rmation ( rmation> <? )( @+ "%h " allowcr print ) drop cr
+|		0 ( cntframes <? )( dup 3 << 'frames + @ "%h " print 1+ ) drop cr
+|		coloractual "%h" print
+|		0 ( cntframes <? )(
+|			dup "%d : " print
+|			dup 3 << 'frames + @+ swap @ | adr cnt
+|			( 1? )( swap @+ "%h " allowcr print swap 1- ) 2drop cr
+|			1+ ) drop cr
+|		scr home
 		0 rows 2 - gotoxy
 		coloractual ink
 		sp dlg.color
