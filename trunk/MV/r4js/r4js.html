@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>:r4js</title>
+<script type="text/javascript">
+
+var context;
+var imgd;
+var XRES=640,YRES=480,XI=0,YI=0;
+var SYSFRAME;
+var SYSKEY=0;
+var SYSXYMOUSE=0;
+var SYSBMOUSE=0;
+var SYSPAPER=0xff00f;
+var dpila=Array(1024),rpila=Array(1024);
+var IP,TOS,NOS,RTOS;
+var MEM;
+
+window.onload=function(){
+context = document.getElementById('myCanvas').getContext('2d');
+if (!context || !context.putImageData) { return; }
+if (context.createImageData) { imgd = context.createImageData(XRES,YRES);
+  } else if (context.getImageData) { imgd = context.getImageData(0, 0,XRES,YRES);
+  } else { imgd = {'width':XRES,'height':YRES,'data':new Array(XRES*YRES*4)}; }
+
+SYSFRAME=imgd.data;
+TOS=NOS=RTOS=0;
+IP=1;
+setInterval(updater4, 35);
+}
+
+document.onkeydown=function(e){SYSKEY=e;}
+document.onkeyup=function(e){SYSKEY=e;}
+
+function syscls() {
+  for (var i=0,n=SYSFRAME.length;i<n;i+=4) {
+    SYSFRAME[i]=SYSPAPER&0xff;SYSFRAME[i+1]=(SYSPAPER>>8)&0xff;SYSFRAME[i+2]=(SYSPAPER>>16)&0xff;
+    SYSFRAME[i+3]=255;
+  }
+}
+
+function sysredraw() {  context.putImageData(imgd,XI,YI); }
+
+function update()
+{
+SYSPAPER=SYSPAPER^0xffff;
+syscls();
+sysredraw();
+}
+
+function updater4()
+{
+W=mem[IP];
+switch (W) {// obtener codigo de ejecucion
+	case FIN: IP=rpila[RTOS];RTOS--;break
+	case LIT: NOS++;dpila[NOS]=TOS;TOS=mem[IP]|mem;IP++;break;
+	case ADR: NOS++;dpila[NOS]=TOS;TOS=mem[W>>8];break;
+	case CALL: rtos++;rpila[RTOS]=IP;IP=W>>8;W=0;break;
+	case JMP: IP=W>>8;W=0;break;
+	case EXEC://hasta JMPR no es visible
+	case IF: if (TOS!=0) IP+=(W>>8);W=0;break;	// condicionales 0 - y +  y no 0
+
+	case 0:FIN: IP=*R;R--;continue;
+    case LIT: NOS++;*NOS=TOS;TOS=*(DWORD*)IP;IP+=sizeof(int);continue;
+    case ADR: NOS++;*NOS=TOS;W=*(DWORD*)IP;IP+=sizeof(int);TOS=*(DWORD*)W;continue;
+    case CALL: W=*(DWORD*)IP;IP+=sizeof(int);R++;*R=IP;IP=(BYTE*)W;continue;
+	case JMP: W=*(int*)IP;IP=(BYTE*)W;continue;
+    case JMPR: W=*(char*)IP;W++;IP+=W;continue;
+//-hasta aca solo lo escribe el compilador
+//--- condicionales
+	case IF: W=*(char*)IP;IP++;if (TOS!=0) IP+=W; continue;
+    case PIF: W=*(char*)IP;IP++;if (TOS<=0) IP+=W; continue;
+	case NIF: W=*(char*)IP;IP++;if (TOS>=0) IP+=W; continue;
+    case UIF: W=*(char*)IP;IP++;if (TOS==0) IP+=W; continue;
+    case IFN: W=*(char*)IP;IP++;if (TOS!=*NOS) IP+=W;
+		TOS=*NOS;NOS--;continue;
+    case IFNO: W=*(char*)IP;IP++;if (TOS==*NOS) IP+=W;
+		TOS=*NOS;NOS--;continue;
+    case IFL: W=*(char*)IP;IP++;if (TOS<=*NOS) IP+=W;
+		TOS=*NOS;NOS--;continue;
+    case IFG: W=*(char*)IP;IP++;if (TOS>=*NOS) IP+=W;
+		TOS=*NOS;NOS--;continue;
+    case IFLE: W=*(char*)IP;IP++;if (TOS<*NOS) IP+=W;
+		TOS=*NOS;NOS--;continue;
+    case IFGE: W=*(char*)IP;IP++;if (TOS>*NOS) IP+=W;
+		TOS=*NOS;NOS--;continue;
+    case IFAND: W=*(char*)IP;IP++;if (!(TOS&*NOS)) IP+=W;
+		TOS=*NOS;NOS--;continue;
+    case IFNAND: W=*(char*)IP;IP++;if (TOS&*NOS) IP+=W;
+		TOS=*NOS;NOS--;continue;
+//--- fin condicionales dependiente de bloques
+	case EXEC:W=TOS;TOS=*NOS;NOS--;if (W!=0) { R++;*R=IP;IP=(BYTE*)W; } continue;
+//--- pila de datos
+	case DUP: NOS++;*NOS=TOS;continue;
+    case DROP: TOS=*NOS;NOS--;continue;
+    case OVER: NOS++;*NOS=TOS;TOS=*(NOS-1); continue;
+	case PICK2: NOS++;*NOS=TOS;TOS=*(NOS-2); continue;
+    case PICK3: NOS++;*NOS=TOS;TOS=*(NOS-3);continue;
+    case PICK4: NOS++;*NOS=TOS;TOS=*(NOS-4);continue;
+	case SWAP: W=*NOS;*NOS=TOS;TOS=W;continue;
+    case NIP: NOS--;continue;
+    case ROT: W=TOS;TOS=*(NOS-1);*(NOS-1)=*NOS;*NOS=W;continue;
+	case DUP2: W=*NOS;NOS++;*NOS=TOS;NOS++;*NOS=W;continue;// ( a b -- a b a b
+    case DROP2: NOS--;TOS=*NOS;NOS--;continue;
+    case DROP3: NOS-=2;TOS=*NOS;NOS--;continue;// ( a b c --
+    case DROP4: NOS-=3;TOS=*NOS;NOS--;continue;// ( a b c d --
+    case OVER2: NOS++;*NOS=TOS;TOS=*(NOS-3);// ( a b c d -- a b c d a b
+		NOS++;*NOS=TOS;TOS=*(NOS-3);continue;
+    case SWAP2: W=*NOS;*NOS=*(NOS-2);*(NOS-2)=W;// ( a b c d -- c d a b
+       W=TOS;TOS=*(NOS-1);*(NOS-1)=W;continue;
+	case TOR: R++;*R=(BYTE*)TOS;TOS=*NOS;NOS--;continue;
+    case RFROM: NOS++;*NOS=TOS;TOS=(int)*R;R--;continue;
+    case ERRE: NOS++;*NOS=TOS;TOS=(int)*R;continue;
+	case ERREM: (*(int*)R)+=TOS;TOS=*NOS;NOS--;continue;
+    case ERRFM: NOS++;*NOS=TOS;TOS=**(int**)R;(*(int*)R)+=4;continue;
+    case ERRSM: **(int**)R=TOS;TOS=*NOS;NOS--;(*(int*)R)+=4;continue;
+    case ERRDR: R--;continue;
+	case AND: TOS&=*NOS;NOS--;continue;
+    case OR: TOS|=*NOS;NOS--;continue;
+	case XOR: TOS^=*NOS;NOS--;continue;
+    case NOT: TOS=~TOS;continue;
+//--- aritmeticas
+	case SUMA: TOS=(*NOS)+TOS;NOS--;continue;
+    case RESTA: TOS=(*NOS)-TOS;NOS--;continue;
+	case MUL: TOS=(*NOS)*TOS;NOS--;continue;
+    case DIV: //if (TOS==0) { TOS=*NOS;NOS--;continue; }
+	     TOS=*NOS/TOS;NOS--;continue;
+	case MULDIV: //if (TOS==0) { NOS--;TOS=*NOS;NOS--;continue; }
+	     TOS=(*(NOS-1))*(*NOS)/TOS;NOS-=2;continue;
+
+	case MULSHR: TOS=((long long)(*(NOS-1))*(*NOS))>>TOS;NOS-=2;continue;
+    case CDIVSH: TOS=((long long)(*(NOS-1)<<TOS)/(*NOS));NOS-=2;continue;
+
+    case DIVMOD: if (TOS==0) { NOS--;TOS=*NOS;NOS--;continue; }
+	     W=*NOS%TOS;*NOS=*NOS/TOS;TOS=W;continue;
+	case MOD: TOS=*NOS%TOS;NOS--;continue;
+    case ABS: W=(TOS>>31);TOS=(TOS+W)^W;continue;
+    case CSQRT: TOS=isqrt32(TOS);continue;
+    case CLZ: TOS=iclz32(TOS);continue;
+    case NEG: TOS=-TOS;continue;
+    case INC: TOS++;continue;	case INC4: TOS+=4;continue; case DEC: TOS--;continue;
+    case DIV2: TOS>>=1;continue;	case MUL2: TOS<<=1;continue;
+	case SHL: TOS=(*NOS)<<TOS;NOS--;continue;
+    case SHR: TOS=(*NOS)>>TOS;NOS--;continue;
+//--- memoria
+	case FECH: TOS=*(int *)TOS;continue;
+    case CFECH: TOS=*(char*)TOS;continue;
+    case WFECH: TOS=*(short *)TOS;continue;
+	case STOR: *(int *)TOS=(int)*NOS;NOS--;TOS=*NOS;NOS--;continue;
+    case CSTOR: *(char*)TOS=(char)*NOS;NOS--;TOS=*NOS;NOS--;continue;
+    case WSTOR: *(short *)TOS=(short)*NOS;NOS--;TOS=*NOS;NOS--;continue;
+	case INCSTOR: *((int *)TOS)+=(int)*NOS;NOS--;TOS=*NOS;NOS--;continue;
+    case CINCSTOR: *((char*)TOS)+=(char)*NOS;NOS--;TOS=*NOS;NOS--;continue;
+    case WINCSTOR: *((short *)TOS)+=(short)*NOS;NOS--;TOS=*NOS;NOS--;continue;
+    case FECHPLUS: NOS++;*NOS=TOS+4;TOS=*(int *)TOS;continue; //@+ | adr -- adr' v
+    case STOREPLUS: *(int *)TOS=(int)*NOS;TOS+=4;NOS--;continue;//!+ | v adr -- adr'
+    case CFECHPLUS: NOS++;*NOS=TOS+1;TOS=*(char *)TOS;continue;
+    case CSTOREPLUS: *(char *)TOS=(char)*NOS;TOS++;NOS--;continue;
+    case WFECHPLUS: NOS++;*NOS=TOS+2;TOS=*(short *)TOS;continue;
+    case WSTOREPLUS: *(short *)TOS=(short)*NOS;TOS+=2;NOS--;continue;
+	}
+}
+</script></head>
+<body><p><canvas id="myCanvas" width="640" height="480">nOTcANVAS
+<span style="display:block;width:50px;height:50px;background:#f77">&nbsp;</span>
+</canvas></p></body></html>
