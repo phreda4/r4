@@ -34,7 +34,7 @@
 
 #x1 #y1 #x2 #y2
 
-#puntocursor -1
+#puntocursor 0
 #puntosel 0
 #polycursor -1
 
@@ -59,14 +59,18 @@
 	polys> !+ 'polys> ! ;
 
 |---- dibujo
+:dibujo.changes | -- cntdwords
+	0 'cambio 'dibujo
+	( dibujo< <? )( 4+ swap @+
+		1? ( drop rot 1+ rot rot  )( drop )
+		swap )
+	2drop
+	;
+
 :dibujo.size | -- cntdwords
 	dibujo> dibujo< - 2 >> | trazos nuevo
 		| falta sumar modificadores y borrados
-
-|	'cambio 'dibujo
-|	( dibujo> <? )( 4+ swap @+ 1? ( drop rot 1+ rot rot  )( drop ) swap )
-|	2drop
-
+|	dibujo.changes +
 	1+ | la marca de tiempo..
 	;
 
@@ -84,7 +88,7 @@
 	here dup 'rmation ! 'rmation> !
 	0 dup 'actframe ! 'cntframes !
 
-	-1 dup 'puntocursor ! 'polycursor !
+	0 dup 'puntocursor ! 'polycursor !
 
 	coloractual 1- 'colorultimo !
 	4 linegr!
@@ -289,13 +293,19 @@
 	;
 
 :delnode
-	puntocursor 1+ 0? ( drop ; ) 1-
+	puntocursor 0? ( drop ; )
 	drop
 	;
 
 :newnode
-	puntocursor 1+ 0? ( drop ; ) 1-
+	puntocursor 0? ( drop ; )
 	drop
+	;
+
+:marcapunto | punto --
+	dibujo> >=? ( drop ; ) | si es nuevo no marca
+    'dibujo - 'cambio +
+	dup @ 1 or swap !
 	;
 
 |----- seleccion
@@ -306,7 +316,7 @@
 	;
 
 :allpolys
-	-1 'puntocursor !
+	0 'puntocursor !
 	'seleccion 'seleccion>  !
 	1.0 dup 'x1 ! 'y1 !
 	-1.0 dup 'x2 ! 'y2 !
@@ -319,7 +329,7 @@
 	;
 
 :nonepolys
-	-1 'puntocursor !
+	0 'puntocursor !
 	'seleccion 'seleccion>  !
 	0 dup 2dup 'x1 ! 'y1 ! 'x2 ! 'y2 !
 	;
@@ -360,6 +370,13 @@
 :cloneseleccion
 	;
 
+:marcasel
+	'seleccion
+	( seleccion> <? )(
+		@+ marcapunto
+		) drop
+
+	;
 |---- draw
 :puntosedita
 	'dibujo
@@ -376,7 +393,7 @@
 
 :drawedit | ad --
 	blanco
-	puntocursor 1+ 0? ( drop seleccionycaja ; ) 1-
+	puntocursor 0? ( drop seleccionycaja ; )
 	puntosedita
 	@ 3d>xy 3 box
 	;
@@ -384,19 +401,19 @@
 |---- edit
 :onDNedit | ad --
 	inselm? 1? ( 'puntosel ! setmovesel ; ) drop
-	-1 'puntocursor !
+	0 'puntocursor !
 	'dibujo
 	( @+ 1? )(
 		dup $1f and $f >? ( drop tocopunto )( 2drop )
 		) 2drop
-   	puntocursor 1+ 1? ( drop ; ) drop
+   	puntocursor 1? ( drop ; ) drop
 	'seleccion 'seleccion>  !
  	xymouse 2dup 'y1 ! 'x1 ! 'y2 ! 'x2 !
 	;
 
 :onMOVEedit
 	puntosel 1? ( drop movesel ; ) drop
-	puntocursor 1+ 0? ( drop xymouse 'y2 ! 'x2 ! ; ) 1-
+	puntocursor 0? ( drop xymouse 'y2 ! 'x2 ! ; )
 	xymouse xy>gc
 	d>xy 5 >> $1ff and 14 << swap
 	5 >> $1ff and 23 <<
@@ -406,8 +423,8 @@
 	;
 
 :onUPedit
-	puntosel 1? ( 0 'puntosel ! drop ; ) drop
-	puntocursor 1+ 1? ( drop ; ) drop
+	puntosel 1? ( drop 0 'puntosel ! ; ) drop
+	puntocursor 1? ( marcapunto ; ) drop
 	selecionelije
 	;
 
@@ -583,6 +600,7 @@
 |			( 1? )( swap @+ "%h " allowcr print swap 1- ) 2drop cr
 |			1+ ) drop cr
 |		scr home
+
 		0 rows 2 - gotoxy
 		coloractual ink
 		sp dlg.color
