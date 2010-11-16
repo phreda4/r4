@@ -1,0 +1,356 @@
+| test-joy.txt
+| PhReda 2007
+|--------------------------
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+
+^inc/systemfailure.inc
+
+#xcam 0
+#ycam 0
+#zcam 30.0
+#ratio
+
+#playtime 60
+
+|--------- jugadores (hasta 16 !!)
+#colores )( 64
+
+#nroplayersj 0
+#nroplayersk 0
+#nroplayersb 0
+#nroplayers
+#playersv )( 512	| vx vy buttons X
+#playersp )( 512	| x y rot puntaje
+
+:playerxy | nro -- x y
+	4 << 'playersp + @+ swap @ swap ;
+
+:playerrot | nro -- rot
+	4 << 'playersp + 8 + @ ;
+
+:initgame
+	cntjoy 'nroplayersj !
+	1 'nroplayersk !
+	4 'nroplayersb !
+	sw 1.0 sh */ 'ratio !
+	nroplayersj nroplayersk + nroplayersb + 'nroplayers !
+	;
+
+:resetplayers
+	nroplayersj nroplayersk + nroplayersb + 'nroplayers !
+	'playersp >r
+	0 ( nroplayers <? )(
+		dup 1.0 nroplayers */	| angulo
+		dup 1.0 1.0 hsv2rgb pick2 2 << 'colores + !
+		dup 2.0 polar swap | ang y x
+		r!+ r!+ 0.5 + r!+
+		0 r!+
+		1+ ) drop
+	rdrop
+	;
+
+|--------- control joy
+:updatejoys
+	'playersv >r
+	nroplayersj ( 1? )( 1-
+		dup getjoy 	| cnt adr
+		8 +
+		@+ $7fff - r!+
+		@+ $7fff - r!+
+		16 + @ r!+
+		4 r+
+		) drop
+	rdrop ;
+
+#mup #mdn #mle #mri #mb
+:updatekey
+	[ $7fff 'mup ! ; ] <le> [ 0 'mup ! ; ] >le<
+	[ $7fff 'mdn ! ; ] <ri> [ 0 'mdn ! ; ] >ri<
+	[ $7fff 'mle ! ; ] <up> [ 0 'mle ! ; ] >up<
+	[ $7fff 'mri ! ; ] <dn> [ 0 'mri ! ; ] >dn<
+	[ 1 'mb ! ; ] <spc> [ 0 'mb ! ; ] >spc<
+    nroplayersj 4 << 'playersv + >r
+	mdn mup - r!+
+	mri mle - r!+
+	mb r> !
+	;
+
+:updatebot
+	nroplayersj nroplayersk + 4 << 'playersv + >r
+	nroplayersb ( 1? )( 1-
+		rand 8 >> $ffff and $7fff - r!+
+		rand 8 >> $ffff and $7fff - r!+
+		rand 15 >> $1 and r!+
+		4 r+
+		) drop
+	rdrop ;
+
+|--------- pos sprites
+:updatepos
+	'playersp >r
+	'playersv
+	nroplayers ( 1? )( 1-
+		swap
+		@+ dup 5 >> r +! 4 r+ | vx
+		swap
+		@+ dup 5 >> r +! 4 r+ | vy
+		rot
+		2dup or
+		0? ( 3drop 4 r+						| 0,0 no actualiza angulo
+			)( drop swap atan2 0.5 + r!+ )
+		8 + 4 r+
+		swap
+		) 2drop
+	rdrop ;
+
+
+:drawplayers
+	'playersp >r
+	nroplayers ( 1? )( 1-
+		mpush
+		r@+ r@+ 0 mtransi
+		r@+ mrotzi
+		'dib1 3dnsprite
+		4 r+
+		mpop
+		) drop
+	rdrop ;
+
+|--- particulas
+| color x y vx vy acc p1 p2
+#cntfx 0
+#fx )( $ffff
+
+:+fx | p2 p1 acc vy vx y x color --
+	cntfx 5 << 'fx +
+	!+ !+ !+ !+ !+ !+ !+ !
+	1 'cntfx +!
+	;
+
+:-fx | adrp1 0 -- 'adrp1 0
+	-1 'cntfx +!
+	swap
+	32 - | desde el anterior
+	dup 8 +
+	cntfx 5 << 'fx +
+	8 move |de sr cn
+	swap
+	;
+
+:drawfx
+	'fx >r
+	0 ( cntfx <? )( 1+
+		r@+ ink
+		r@+ r@+ 				| x y
+		2dup 0 project3d op
+
+		swap r@+ + swap r@+ +	| vx vy
+		2dup swap r 16 - !+ ! | pos=pos+vel
+		0 project3d line
+		r>
+		@+ exec 0? ( -fx ) drop
+		8 + >r
+		) drop
+	rdrop
+	;
+
+:timefx | adrp1 -- adrp1 0/x
+	dup @ 0? ( ; )
+	1- over !
+	1 ;
+
+:+crash
+	;
+
+|----
+#xmin #ymin #xmax #ymax
+:setout
+	zcam 2/ dup
+	neg dup ratio *. 'xmin ! 'ymin !
+	dup ratio *. 'xmax ! 'ymax !
+	;
+
+:outfx | adrp1 -- adrp1 0/x
+	dup 20 -
+	@+ xmin <? ( 2drop 0 ; ) xmax >? ( 2drop 0 ; ) drop
+	@  ymin <? ( drop 0 ; ) xmax >? ( drop 0 ; ) drop
+	1 ;
+
+
+|---------------------
+:hitplayer | x y -- 0/p
+	'playersp >r
+	nroplayers ( 1? )( 1-
+		r@+ pick3 -
+		r@+ pick3 -
+		distfast
+		0.5 <? ( 2drop r> 8 - ; )
+		drop
+		8 r+ ) drop
+	rdrop 0 ;
+
+:shootfx | adrp1 -- adrp1 0/x
+	dup 20 -
+	@+ xmin <? ( 2drop 0 ; ) xmax >? ( 2drop 0 ; )
+	swap @ ymin <? ( 2drop 0 ; ) xmax >? ( 2drop 0 ; )
+	hitplayer 0? ( 3drop 1 ; ) | x y nochoco
+	1 swap 12 + +!
+	2drop
+	0 ;
+
+|---------------
+:crash2 | p1 p2 -- p1 p2
+	;
+
+:crashplayers
+	0 ( nroplayers 1- <? )(
+		dup 1+ ( nroplayers <? )( | a b
+				crash2
+			1+ ) drop
+		1+ ) drop
+	;
+
+|---- FIRE
+:+fuego | nro b --
+	over >r
+	0 0
+	'shootfx
+	r playerrot sincos
+	-0.05 *. swap -0.05 *. | velocidad
+	r playerxy swap pick3 4 << + swap pick2 4 << +
+	r> 2 << 'colores + @
+	+fx ;
+
+:updatefire
+	'playersv >r
+	0 ( nroplayers <? )(
+		8 r+
+		r@+ 1 =? ( +fuego ) drop
+		4 r+
+		1+ ) drop
+	rdrop ;
+
+|----------------
+:r0.1 | -- r
+	rand 0.01 mod ;
+
+:r01 | -- r
+	rand 0.1 mod ;
+
+:agregalinea
+	0
+	1000
+	'timefx
+	r0.1 r0.1
+	0 0
+	$ff00ff
+	+fx | p2 p1 acc vy vx y x color --
+	;
+
+:debug
+	dup "%d " print
+	cntfx "%d " print cr
+	'playersp >r
+	0 ( nroplayers <? )(
+		r@+ " x:%d" print
+		r@+ " y:%d" print
+		r@+ " a:%d" print
+		r@+ " d:%d" print
+		cr
+		1+ ) drop rdrop
+	;
+
+:score
+	'colores
+	'playersp >r
+	0 ( nroplayers <? )( 1+
+		swap @+ ink
+		swap 12 r+ r@+ over  " %d:%d " print
+		) 2drop
+	rdrop
+	;
+
+:score2
+	'colores
+	'playersp >r
+	0 ( nroplayers <? )( 1+
+		swap @+ ink
+		over " %d:" print
+		swap 12 r+ r@+
+		( 1? )( 1- "*" print ) drop
+		cr
+		) 2drop
+	rdrop
+	;
+
+|--------------- juego
+:juego
+	setout
+	usogui fonti
+	resetplayers
+	show clrscr blanco
+|		debug
+		updatejoys
+		updatekey
+
+		updatepos
+
+		omode
+		xcam ycam zcam mtrans
+		drawplayers
+		drawfx
+
+		'exit >esc<
+
+ 		score2
+
+		100 .mseg .restart
+		updatefire
+|		agregalinea
+        updatebot
+
+    	;
+
+|------------------------------
+:keyplayer
+	nroplayersk 1 xor 'nroplayersk ! ;
+
+:botplayer
+	nroplayersb 1+ 4 >? ( 0 nip ) 'nroplayersb ! ;
+
+:1min
+	60 'playtime ! ;
+:3min
+	180 'playtime ! ;
+:5min
+	300 'playtime ! ;
+
+|------------------------------
+:main
+	usogui
+	show clrscr blanco 8 font cr2
+		"Shoot Party" printc cr
+		18 font cr
+		nroplayersj nroplayersk + nroplayersb +
+		"%d Players" printc cr cr
+		playtime "%d sec. to play" printc cr cr
+		cr cr violeta
+		'1min "1 Min" sp .btnt
+		'3min "3 Min" sp .btnt
+		'5min "5 Min" sp .btnt
+		cr cr cyan
+		'keyplayer "<f1> Key Player" sp .btnt
+		'botplayer "<f2> Bot Player" sp .btnt
+		cr cr verde
+		'juego dup <spc> "<SPACE> Play" sp .btnt
+		rojo
+		'exit dup >esc< "<ESC> Exit" sp .btnt
+		cmano ;
+
+
+: 0 paper
+	33
+	initgame
+	main
+	;
