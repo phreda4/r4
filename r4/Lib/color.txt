@@ -22,35 +22,15 @@
 	1- ( 1? )( 1- pasocol px!+ ) drop
 	;
 
-| diferencia de color
-|--------------------------------------
-|int DiffRGB2(unsigned long int a, unsigned long int b)
-|  return abs((a>>16)-(b>>16)) + abs(((a>>8)&255)-((b>>8)&255)) + abs((a&255)-(b&255));
+|--- diferencia de color
 ::diffrgb2 | a b -- v
 	over 16 >> over 16 >> - abs | a b a1
 	pick2 8 >> $ff and pick2 8 >> $ff and - abs + | a b a2
 	rot $ff and rot $ff and - abs + ;
 
-|uint32 vdavgpixel(uint32 a, uint32 b) {
-|	return (a|b) - (((a^b)&0xfefefefe)>>1);
+|--- promedio de color
 ::colavg | a b -- c
 	2dup xor $fefefefe and 2/ >r or r> - ;
-
-|uint32 vdlerppixel(uint32 a, uint32 b, unsigned alpha) {
-|	return a + (((((b&0xff00ff) - (a&0xff00ff))*alpha + 0x00800080)>>8) & 0xff00ff) +
-|				(((((b&0xff00) - (a&0xff00))*alpha + 0x008000)>>8) & 0xff00);
-::collerp | a b al --c
-	>r dup
-	$ff00ff and pick2 $ff00ff and - r * $800080 + 8 >> $ff00ff and r> swap >r >r
-	$ff00 and swap $ff00 and - r> * $8000 + 8 >> $ff00 and r> + ;
-
-|	punto de interpolacion
-|	lineal  time1=0 time2=$10000
-| mix=0		..a
-| mix=1.0	..b
-::interpolaf | a b mix -- v		;(a,b,mix) ((b*mix+a*((1<<16)-mix))>>16)
-	dup >r * swap 1.0 r> - * + 16 >> ;
-
 
 | yuv <-> rgb
 |-----------------------------
@@ -71,7 +51,6 @@
 	pick2 16 - 76283 * pick2 128 - 132252 * + 16 >> bound >r
 	pick2 16 - 76283 * pick2 128 - 25624 *  - pick2 128 - 53281 * - 16 >> bound 8 << $ff00 and >r
 	nip 128 - 104595 * swap 16 - 76283 * + 16 >> bound 16 << $ff0000 and r> or r> or ;
-
 
 | hsv 1.0 1.0 1.0 --> rgb
 
@@ -98,26 +77,10 @@
 	r> 2 << 'acch + @ exec | rgb
 	8 >> swap 8 >> 8 << or swap 8 >> 16 << or ;
 
-|	if (s == 0) RGB(v, v, v);
-|	i = floor(h);
-|	f = h - i;
-|	if ( !(i&1) ) f = 1 - f; // if i is even
-|	m = v * (1 - s);
-|	n = v * (1 - s * f);
-|	switch (i) {
-|		case 6:
-|		case 0: RGB(v, n, m);
-|		case 1: RGB(n, v, m);
-|		case 2: RGB(m, v, n)
-|		case 3: RGB(m, n, v);
-|		case 4: RGB(n, m, v);
-|		case 5: RGB(v, m, n);
-
-
 ::>rgbf | rgb32 -- r g v
 	dup $ff0000 and 8 >> dup 8 >> or
-	swap dup $ff00 and dup 8 >> or 
-	swap dup $ff and swap 8 << or ;
+	swap dup $ff00 and dup 8 >> or
+	swap $ff and dup 8 << or ;
 
 ::rgb2hsv | r g b -- h s v
 	pick2 pick2 pick2 max max
@@ -143,17 +106,3 @@
 	r 16 << /. | H S
 	r> 1.0 8 * >> | HSV
 	;
-|	x = min(R, G, B);
-|	v = max(R, G, B);
-|	if(v == x) HSV(UNDEFINED, 0, v);
-|	f = (R == x) ? G - B : ((G == x) ? B - R : R - G);
-|	i = (R == x) ? 3 : ((G == x) ? 5 : 1);
-|	HSV(i - f /(v - x), (v - x)/v, v);
-
-::32to12
-	dup 4 >> $f and | $f0 -> $f
-	over 8 >> $f0 and or
-	swap 12 >> $f00 and or ;
-
-::swap12bits
-	dup 12 << swap 12 >> $fff and or ;
