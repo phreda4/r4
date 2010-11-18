@@ -15,12 +15,21 @@
 #include <windows.h>
 #include <mmsystem.h> //Joystick support
 
+#define MAX_JOYSTICKS	16
+#define MAX_AXES	6       /* each joystick can have up to 6 axes */
+#define MAX_BUTTONS	32      /* and 32 buttons                      */
+
 extern int cntJoy;
+extern JOYINFOEX joy_info[MAX_JOYSTICKS];       
 
 void InitJoystick(HWND hWnd);
 void ReleaseJoystick();
 
-int getjoy(int j);
+inline int getjoy(int j)
+{
+joyGetPosEx(j, &joy_info[j]);
+return (int)&joy_info[j];
+}
 
 
 #endif
