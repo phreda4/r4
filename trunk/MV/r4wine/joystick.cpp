@@ -11,9 +11,6 @@
 
 #include "joystick.h"
 
-#define MAX_JOYSTICKS	16
-#define MAX_AXES	6       /* each joystick can have up to 6 axes */
-#define MAX_BUTTONS	32      /* and 32 buttons                      */
 
 int cntJoy;
 
@@ -76,9 +73,4 @@ typedef struct joyinfoex_tag {
 } JOYINFOEX,*PJOYINFOEX,*LPJOYINFOEX;
 */
 
-int getjoy(int j)
-{
-joyGetPosEx(j, &joy_info[j]);
-return (int)&joy_info[j];
-}
 

@@ -502,26 +502,26 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case OR: TOS|=*NOS;NOS--;continue;
 	case XOR: TOS^=*NOS;NOS--;continue;
     case NOT: TOS=~TOS;continue;
-//--- aritmeticas	
+//--- aritmeticas
 	case SUMA: TOS=(*NOS)+TOS;NOS--;continue;
     case RESTA: TOS=(*NOS)-TOS;NOS--;continue;
 	case MUL: TOS=(*NOS)*TOS;NOS--;continue;
     case DIV: //if (TOS==0) { TOS=*NOS;NOS--;continue; }
 	     TOS=*NOS/TOS;NOS--;continue;
 	case MULDIV: //if (TOS==0) { NOS--;TOS=*NOS;NOS--;continue; }
-	     TOS=(*(NOS-1))*(*NOS)/TOS;NOS-=2;continue;
+	     TOS=(long long)(*(NOS-1))*(*NOS)/TOS;NOS-=2;continue;
 
 	case MULSHR: TOS=((long long)(*(NOS-1))*(*NOS))>>TOS;NOS-=2;continue;
     case CDIVSH: TOS=((long long)(*(NOS-1)<<TOS)/(*NOS));NOS-=2;continue;
 
-    case DIVMOD: if (TOS==0) { NOS--;TOS=*NOS;NOS--;continue; }
+    case DIVMOD: //if (TOS==0) { NOS--;TOS=*NOS;NOS--;continue; }
 	     W=*NOS%TOS;*NOS=*NOS/TOS;TOS=W;continue;
 	case MOD: TOS=*NOS%TOS;NOS--;continue;
     case ABS: W=(TOS>>31);TOS=(TOS+W)^W;continue;
     case CSQRT: TOS=isqrt32(TOS);continue;
     case CLZ: TOS=iclz32(TOS);continue;
     case NEG: TOS=-TOS;continue;
-    case INC: TOS++;continue;	case INC4: TOS+=4;continue; case DEC: TOS--;continue;	
+    case INC: TOS++;continue;	case INC4: TOS+=4;continue; case DEC: TOS--;continue;
     case DIV2: TOS>>=1;continue;	case MUL2: TOS<<=1;continue;
 	case SHL: TOS=(*NOS)<<TOS;NOS--;continue;
     case SHR: TOS=(*NOS)>>TOS;NOS--;continue;
@@ -1195,7 +1195,7 @@ otrapalabra:
                 if (salto==1)  
                    { apila(cntprog);cntprog++;apila(aux);apila(3);salto=0; }
                 else { sprintf(error,")( falta condicion");goto error; }
-            } else  
+            } else
                 { sprintf(error,")( mal cerrado");goto error; }
             break;               
 		  case 4:// [ palabra anonima
@@ -1273,7 +1273,7 @@ FILE *stream;
  
 int imprime(int v)
 {
-if (v>(int)(&prog) && v<=(int)(&prog)+cntprog) 
+if (v>(int)(&prog) && v<=(int)(&prog)+cntprog)
    fprintf(stream,"$%x ",v-(int)&prog);
 else
    fprintf(stream,"%d ",v);
