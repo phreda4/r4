@@ -4,6 +4,7 @@
 ^r4/lib/gui.txt
 ^r4/lib/btn.txt
 ^r4/lib/sort.txt
+^r4/lib/fontj.txt
 
 #nave.spr
  $CFE8FC41 $C2040003 $CD3F2C62 $11305F4 $33D72E82 $40200444 $2E7CFC43 $1113C62 $CFE8FC49
@@ -17,6 +18,8 @@
 #xcam 0
 #ycam 0
 #zcam 30.0
+#zrotcam 0
+
 #ratio
 
 #playtime 60
@@ -24,9 +27,9 @@
 |--------- jugadores (hasta 16 !!)
 #colores )( 64
 
-#nroplayersj 0
-#nroplayersk 0
-#nroplayersb 0
+#nroplayersj 0	| jugadores con joystick
+#nroplayersk 0	| jugadores con teclado
+#nroplayersb 0	| jugadores robot
 #nroplayers
 #playersv )( 512	| vx vy buttons X
 #playersp )( 512	| x y rot daño
@@ -49,7 +52,7 @@
 	0 ( nroplayers <? )(
 		dup 1.0 nroplayers */	| angulo
 		dup 1.0 1.0 hsv2rgb pick2 2 << 'colores + !
-		dup 0.5 polar swap | ang y x
+		dup 2.0 polar swap | ang y x
 		r!+ r!+ 0.5 + r!+
 		0 r!+
 		1+ ) drop
@@ -97,27 +100,18 @@
 	'playersp >r
 	'playersv
 	nroplayers ( 1? )( 1-
-		swap
-		@+ dup 2 >>
-		r @ +
-		-50.0 <? ( -50.0 nip ) 50.0 >? ( 50.0 nip ) r!+ | vx
-		swap
-		@+ dup 2 >>
-		r @ +
-		-50.0 <? ( -50.0 nip ) 50.0 >? ( 50.0 nip ) r!+ | vx
+		swap @+ dup 2 >> r @ + r!+ | vx
+		swap @+ dup 2 >> r @ + r!+ | vx
 		rot
-		2dup or
-		0? ( 3drop 4 r+						| 0,0 no actualiza angulo
+		2dup or 0? ( 3drop 4 r+						| 0,0 no actualiza angulo
 			)( drop swap atan2 0.5 + r!+ )
 		8 + 4 r+
-		swap
-		) 2drop
+		swap ) 2drop
 	rdrop ;
-
 
 |----
 #x2 #x1 #y2 #y1
-#xmin -50.0 #ymin -50.0  #xmax 50.0 #ymax 50.0
+#xmin #ymin #xmax #ymax
 
 :outfx | adrp1 -- adrp1 0/x
 	dup 20 -
@@ -125,69 +119,43 @@
 	@  ymin <? ( drop 0 ; ) ymax >? ( drop 0 ; ) drop
 	1 ;
 
-
-:playplayers
+:drawplayers
 	0 0 0 0 'x2 !+ !+ !+ !
 	'colores
 	'playersp >r
 	nroplayers ( 1? )( 1-
 		mpush
-		r@+ r@+
-		2dup
-		y2 >? ( dup 'y2 ! ) y1 <? ( 'y1 ! )( drop )
-		x2 >? ( dup 'x2 ! ) x1 <? ( 'x1 ! )( drop )
+		r@+ x2 >? ( dup 'x2 ! ) x1 <? ( dup 'x1 ! )
+		r@+ y2 >? ( dup 'y2 ! ) y1 <? ( dup 'y1 ! )
 		0 mtransi
 		r@+ mrotzi
-		swap @+ | color
-		8 << $c or 'nave.col !
-		swap
-		'nave.spr 3dnsprite
-		4 r+
+		swap @+
+		8 << $c or 'nave.col ! 'nave.spr 3dnsprite
+		swap 4 r+
 		mpop
 		) 2drop
 	rdrop
-		| borde
-	cyan
-	-50.0 -50.0 0 project3d 50.0 50.0 0 project3d caja
-		| ajusta la camara
-	x2 x1
-|	2dup + 2/ xcam - -? ( -0.01 )( 0.01 ) 'xcam +! drop
-	-
-	y2 y1
-|	2dup + 2/ ycam - -? ( -0.01 )( 0.01 ) 'ycam +! drop
-	- ratio *.
-	max dup 2/ + |'zcam !
-	zcam >? ( 0.2 'zcam +! )
-	0.8 *.
-	zcam <? ( -0.2 'zcam +! )
-	drop
-
-
-:setout
+|--- ajusta la camara
+	x2 x1 - dup 2/ x1 + neg 'xcam !
+	y2 y1 - dup 2/ y1 + neg 'ycam !
+|	ratio *.
+	max dup 2/ +
+	'zcam !
+|---- ajusta limites
 	zcam 2/ dup
-	neg dup ratio *. 'xmin ! 'ymin !
-	dup ratio *. 'xmax ! 'ymax !
+	neg dup ratio *. xcam - 'xmin ! ycam - 'ymin !
+	dup ratio *. xcam - 'xmax ! ycam - 'ymax !
 	;
 
-:startplayer
-	'colores
+:movestart
 	'playersp >r
 	nroplayers ( 1? )( 1-
-		r 8 + @ 0.5 + 0.005 polar
+		r 8 + @ 0.5 + 0.02 polar
 		r 4+ +!
 		r +!
-		mpush
-		r@+ r@+ 0 mtransi
-		r@+ mrotzi
-		swap @+ | color
-		8 << $c or 'nave.col !
-		swap
-		'nave.spr 3dnsprite
-		4 r+
-		mpop
+		16 r+
 		) 2drop
-	rdrop
-	;
+	rdrop ;
 
 |--- particulas
 | color x y vx vy acc p1 p2
@@ -317,9 +285,6 @@
 	r playerrot sincos
 	-0.25 *. swap -0.25 *. | velocidad
 	r playerxy swap pick3 2* + swap pick2 2* +
-
-|	r playervxy r playerxy rot + >r + r>
-
 	r> 2 << 'colores + @
 	+fx ;
 
@@ -366,76 +331,59 @@
 #tic
 
 :score2
+	fontj4
 	cr blanco
 	tic timenow "%d.%d" printc
-
+	fontj2 home
 	0 rows nroplayers - 1- gotoxy
 	'colores
 	'playersp >r
 	0 ( nroplayers <? )( 1+
 		swap @+ ink
-		over "  %d:" print
+		over " %d:" print
 		swap 12 r+ r@+
-		( 1? )( 1- "*" print ) drop
+		( 50 >? )( 50 - "L" print )
+		( 10 >? )( 10 - "X" print )
+		( 5 >? )( 5 - "V" print )
+		( 1? )( 1- "I" print ) drop
 		cr
 		) 2drop
 	rdrop
 	;
 
-|--------------- juego
 :pausegame
 	usogui
-	show clrscr
+	show30 clrscr
 		omode
-		0 0 zcam mtrans
-		playplayers
+		xcam ycam zcam mtrans
+		drawplayers
 		sdrawfx
  		score2
-
-		blink 1? ( 0 rows 2/ gotoxy blanco "* PAUSE *" printc ) drop
+		blink 1? ( blanco )( negro ) drop
+		fontj4 home 0 rows 2/ gotoxy
+		"* PAUSE *" printc
 		'exit >esc<
 		;
 
-:startgame
-	30.0 'zcam !
-	usogui
-	font-vard-12-bold
-	3 'tic !
-	show clrscr
-		omode
-		0 0 zcam mtrans
-		startplayer
-		blanco
-		0 rows 2/ gotoxy
-		tic 1? ( "%d" )( "GO !" nip ) printc
-		1000 .mseg .restart
-		tic 0? ( drop exit ; ) 1- 'tic !
-		;
-
-
+|--------------- juego
 :juegoloop
-	startgame
 	usogui
-|	fonti |24 fonth
-	font-vard-12-bold
 	playtime 'timenow !
 	9 'tic !
-	show clrscr
+	show60 clrscr
 |		debug
-
 		updatejoys
 		updatekey
-		updatepos
-|		crashplayers
-
+		crashplayers
 		omode
-		0 0 zcam mtrans
-		playplayers
+		xcam ycam zcam mtrans
+		drawplayers
 		drawfx
+		updatepos
+
  		score2
 		'pausegame >esc<
 		'exit <f1>
-
 		100 .mseg .restart
 		updatefire
 		updatebot
@@ -466,55 +414,111 @@
 	rdrop
 	;
 
+:alineagame
+	zrotcam $ffff and 
+	0.1 <? ( $ffff + ) 'zrotcam !
+
+	usogui
+	fontj4
+	show30 clrscr
+		omode
+		xcam ycam zcam mtrans
+		zrotcam -? ( exit )
+		0.01 - dup 'zrotcam !
+        mrotz
+		drawplayers
+		blanco
+		0 rows 2/ gotoxy
+		"READY" printc
+		;
+
+:startgame
+	usogui
+	3 'tic !
+	fontj4
+	show30 clrscr
+		omode
+		xcam ycam zcam mtrans
+		drawplayers
+		movestart
+		blanco
+		0 rows 2/ gotoxy
+		tic 1? ( "%d" )( "GO!!" nip ) printc
+		1000 .mseg .restart
+		tic 0? ( drop exit ; ) 1- 'tic !
+		;
+
 :juego
-	setout
-	resetplayers
-	resetfx
+	alineagame
+	startgame
 	juegoloop
 	getandsort
+	0 'zrotcam !
 	show clrscr
+		0.0001 'zrotcam +!
 		omode
-		0 0 zcam mtrans
-		playplayers
+		xcam ycam zcam mtrans
+		zrotcam mrotz
+		drawplayers
 		sdrawfx
 		home blanco
+		fontj4
 		cr cr "END GAME" printc cr cr cr
+		fontj2
 		drawlist
-		blink 1? (
-			0 rows 2 - gotoxy blanco
-	    	"- ESC to Continue -" printc
-			) drop
+		blink 1? ( blanco )( negro ) drop
+		0 rows 2 - gotoxy
+	    "- ESC to Continue -" printc
 		'exit >esc<
 		;
 
 |------------------------------
-:keyplayer nroplayersk 1 xor 'nroplayersk ! ;
-:botplayer nroplayersb 1+ 4 >? ( 0 nip ) 'nroplayersb ! ;
+:resetgame
+	resetplayers
+	resetfx
+	;
+
+:keyplayer nroplayersk 1 xor 'nroplayersk ! resetgame ;
+:botplayer nroplayersb 1+ 14 >? ( 0 nip ) 'nroplayersb ! resetgame ;
 :1min	60 'playtime ! ;
 :3min   180 'playtime ! ;
 :5min   300 'playtime ! ;
 
 |------------------------------
 :main
+	resetgame
 	usogui
-	show clrscr blanco 8 font cr2
-		"Shoot Party" printc cr
-		18 font cr
+	show clrscr
+		0.0005 'zrotcam +!
+		omode
+		xcam ycam zcam mtrans
+		zrotcam mrotz
+		drawplayers
+		blanco fontj4 home cr cr
+		"Shoot Party" printc cr cr
 		nroplayersj nroplayersk + nroplayersb +
 		"%d Players" printc cr cr
 		playtime "%d sec. to play" printc cr cr
 		cr cr violeta
-		'1min "1 Min." sp .btnt
-		'3min "3 Min." sp .btnt
-		'5min "5 Min." sp .btnt
-		sp sp cyan
-		'keyplayer "Key Player" sp .btnt
-		'botplayer "Bot Player" sp .btnt
-		cr cr cr verde
-		'juego dup <spc> "[SPACE] Play" sp .btnt cr cr
+		fontj2
+		'1min "1 Min." sp .btnt cr cr
+		'3min "3 Min." sp .btnt cr cr
+		'5min "5 Min." sp .btnt cr cr
+|		cr cr cyan
+|		'keyplayer "Key Player" sp .btnt
+|		'botplayer "Bot Player" sp sp .btnt
+		'keyplayer <f1>
+		'botplayer <f2>
+		cr cr cr
+		verde
+		[ juego resetgame ; ] dup <spc> "[SPC] Play" sp .btnt cr cr
 		rojo
 		'exit dup >esc< "[ESC] Exit" sp .btnt
-		cmano ;
+		fontj home
+		0 rows 2 - gotoxy verde
+		" :R4 games - PHREDA 2010 " printc
+		cmano
+		;
 
 :initgame
 	mark 0 paper
