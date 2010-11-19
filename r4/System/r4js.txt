@@ -1,7 +1,21 @@
-| r4plain.txt
+| r4js.txt
 | PHREDA 2010
 |---------------------------------------
 ^r4/system/r4code.txt
+
+|------------------------------------------------
+| genera codigo de bytecodes con mapa de memoria
+| 0			-Reservado para null (podria poner un 0)
+| 1..		-Code
+| inidata..	-Data
+| inifree..	-Free
+|------------------------------------------------
+#lastbyte $98
+
+#mboot
+#sizenow 0
+#inidata 0
+#inifree 0
 
 |--------- edit-code
 #ncar
@@ -14,15 +28,13 @@
 :grabaeditornl
 	'ncar 72 "mem/edit-code.mem" save ;
 
-|------------------------------------------------
-| genera codigo en :r4 y lo graba en "plain.txt"
-| Sin includes
-| Sin locales/exportadas ::->:  ##->#
-|------------------------------------------------
+|---------- aux
+:isbyte | nro -- nro 1/0
+	-? ( 0 ; ) $ff lastbyte - >? ( 0 ; ) 1 ;
+
+
 :nro>dicn   8 >> "w%h" mprint ;		| w<nro palabra>
 
-:cpycad | adr --
-	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop ; ) ) ,c ) 2drop ;
 
 :coldefw ":" ,s nro>dicn ,s ;
 :coldefv "#" ,s nro>dicn ,s ;
@@ -77,15 +89,64 @@
 	drop
 	;
 
-:makeplain
+|--------- calc code&data size
+:sizcad | adr --
+	0 swap ( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop 1+ ; ) ) drop swap 1+ swap ) 2drop 1+ ;
+
+:cadaw
+	;
+
+:codesize
+	1 'sizenow !
+	'cadaw wordmap
+	sizenow 1+ 'inidata !
+	;
+
+:cadawd
+	;
+
+:cadadd
+	;
+
+:datasize
+	'cadawd wordmap
+	'cadadd	varmap
+	sizenow 1+ 'inifree !
+	;
+
+|-------- write code
+:bytew
+	;
+
+:writecode
+	'bytew wordmap
+	;
+
+|-------- write data
+:cpycad | adr --
+	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop "0," ,s ; ) ) "%d," ,print ) 2drop "0," ,s ;
+
+:bytedw
+	;
+:byted
+	;
+:writedata
+	'bytedw wordmap
+	'byted varmap
+	;
+
+:makejw
+	codesize
+	datasize
 	mark
-	"| plain.txt generator" ,s ,cr
-	"|---------------------" ,s ,cr
-	0 ( cntw <? )(
-		dup ind2nro gencodigo
-		1+ )
-	":" ,s ind2nro 5 << 'indicepal + 4+ gencod
-	"plain.txt" savemem
+	"// bytecode generator" ,s ,cr
+	"var ipm=" ,s mboot ,d ,cr
+	"var m=[0," ,s ,cr
+	writecode
+|	cntw ind2nro 5 << 'indicepal + 4+ gencod
+	writedata
+	"]" ,s ,cr
+	"mv/plain.txt" savemem
 	empty
 	;
 
@@ -94,12 +155,12 @@
 	mark
 	'nombre tokencomp
 	tokenpost
-	makeplain
+	makejs
 	empty
 	usogui
 	fonti blanco
 	show clrscr
-		"plain.txt generado" print
+		"mv/plain.txt generado" print
 		'exit >esc<
 		cmano ;
 
