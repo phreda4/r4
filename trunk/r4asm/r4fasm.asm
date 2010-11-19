@@ -7,10 +7,10 @@ entry start
 DWEXSTYLE	equ WS_EX_APPWINDOW
 DWSTYLE		equ WS_VISIBLE+WS_CAPTION+WS_SYSMENU
 
-XRES equ 640
-YRES equ 480
-;XRES equ 800
-;YRES equ 600
+;XRES equ 640
+;YRES equ 480
+XRES equ 800
+YRES equ 600
 ;XRES equ 1024
 ;YRES equ 768
 ;XRES equ 1280
@@ -119,6 +119,7 @@ include 'cod.asm'
 align 16
 SYSUPDATE: ; ( -- )
 	push eax ebx edx ; falta guardar ecx!! y esi,edi!!
+	invoke Sleep,eax
 	xor eax,eax
 	mov [SYSKEY],eax
 	invoke PeekMessage,msg,eax,eax,eax,PM_NOREMOVE
@@ -398,6 +399,7 @@ import kernel,\
 	 SetCurrentDirectory,'SetCurrentDirectoryA',\
 	 FindFirstFile,'FindFirstFileA',\
 	 FindNextFile,'FindNextFileA',\
+	 Sleep,'Sleep',\
 	 FindClose,'FindClose'
 ;        GetFileSize,'GetFileSize',\
 
