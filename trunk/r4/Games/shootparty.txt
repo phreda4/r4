@@ -40,6 +40,9 @@
 :playervxy | nro -- vx vy
 	4 << 'playersv + @+ swap @ swap ;
 
+:playerxy+! | dy dx nro -- adr
+	4 << 'playersp + >r r +! r> 4+ +! ;
+
 :playerrot | nro -- rot
 	4 << 'playersp + 8 + @ ;
 
@@ -264,9 +267,12 @@
 	rot - >r swap - r>
 	distfast
 	1.0 >? ( drop r> ; ) drop
-	r>
 	| desplaza por choque
-
+	dup playerxy r playerxy | x1 y1 x2 y2
+	rot - 2/ >r swap - 2/ r> | dy dx
+	over neg over neg pick4
+	playerxy+! r playerxy+!
+	r>
 	;
 
 :crashplayers
@@ -407,23 +413,23 @@
 :drawlist
 	'positions >r
 	0 ( nroplayers <? )(
+		dup 1+ "    %d - " blanco print
 		r@+ r@+  |daño nro
 		dup 2 << 'colores + @ ink
-		1+ "    Player %d : %d" print cr
+		1+ "Player %d : %d" print cr
 		1+ ) drop
 	rdrop
 	;
 
 :alineagame
-	zrotcam $ffff and 
+	zrotcam $ffff and
 	0.1 <? ( $ffff + ) 'zrotcam !
-
 	usogui
 	fontj4
 	show30 clrscr
 		omode
 		xcam ycam zcam mtrans
-		zrotcam -? ( exit )
+		zrotcam 10 <? ( exit )
 		0.01 - dup 'zrotcam !
         mrotz
 		drawplayers
@@ -494,29 +500,28 @@
 		xcam ycam zcam mtrans
 		zrotcam mrotz
 		drawplayers
-		blanco fontj4 home cr cr
+		blanco fontj4 home cr cr cr
 		"Shoot Party" printc cr cr
-		nroplayersj nroplayersk + nroplayersb +
-		"%d Players" printc cr cr
-		playtime "%d sec. to play" printc cr cr
-		cr cr violeta
-		fontj2
-		'1min "1 Min." sp .btnt cr cr
-		'3min "3 Min." sp .btnt cr cr
-		'5min "5 Min." sp .btnt cr cr
-|		cr cr cyan
-|		'keyplayer "Key Player" sp .btnt
-|		'botplayer "Bot Player" sp sp .btnt
+		fontj3
+		nroplayers
+		0? ( drop "No players to play!!" )( "%d Players" )
+		printc cr cr
+		playtime "%d seconds" printc
+		fontj2 home 0 rows 5 - gotoxy violeta
+		'1min "1 Min" sp .btnt
+		'3min "3 Min" sp .btnt
+		'5min "5 Min" sp .btnt
+		cr cr
+		verde
+		[ nroplayers 1? ( juego resetgame ) drop ; ] dup
+		<spc> "SPC Play" sp .btnt
+		rojo
+		'exit dup >esc< "ESC Exit" sp .btnt
 		'keyplayer <f1>
 		'botplayer <f2>
-		cr cr cr
-		verde
-		[ juego resetgame ; ] dup <spc> "[SPC] Play" sp .btnt cr cr
-		rojo
-		'exit dup >esc< "[ESC] Exit" sp .btnt
-		fontj home
-		0 rows 2 - gotoxy verde
-		" :R4 games - PHREDA 2010 " printc
+
+		fontj home 0 rows 2 - gotoxy verde
+		" :R4 games - PHREDA 2010 - http://code.google.com/p/reda4/" printc
 		cmano
 		;
 
@@ -524,8 +529,8 @@
 	mark 0 paper
 	here 'fx !
 	cntjoy 'nroplayersj !
-	1 'nroplayersk !
-	4 'nroplayersb !
+	0 'nroplayersk !
+	0 'nroplayersb !
 	sw 1.0 sh */ 'ratio !
 	nroplayersj nroplayersk + nroplayersb + 'nroplayers !
 	;
