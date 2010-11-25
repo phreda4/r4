@@ -32,6 +32,9 @@
 #polys )( $fff
 #polys>
 
+#cambio>
+#inipnt #finpnt
+
 #x1 #y1 #x2 #y2
 
 #puntocursor 0
@@ -60,11 +63,19 @@
 
 |---- dibujo
 :dibujo.changes | -- cntdwords
-	0 'cambio 'dibujo
-	( dibujo< <? )( 4+ swap @+
-		1? ( drop rot 1+ rot rot  )( drop )
-		swap )
-	2drop
+	dibujo< 'dibujo - 'cambio + 'cambio> !
+	0 'cambio
+	( cambio> <? )( @+
+		1? ( drop swap 1+ swap )( drop )
+		)
+	drop
+	2*
+	| resta 1 por cada lista de puntos consecutivas **
+	'cambio ( cambio> <? )( @+
+		1? ( drop dup @ 1? ( drop swap 1- swap )( drop ) )( drop )
+		)
+	drop
+1? ( trace )
 	;
 
 :dibujo.size | -- cntdwords
@@ -76,7 +87,7 @@
 
 :cambio.clear
 	'cambio 'dibujo
-	( dibujo> <? )( 4+ 0 rot !+ swap )
+	( dibujo> <=? )( 4+ 0 rot !+ swap )
 	2drop
 	;
 
@@ -110,6 +121,19 @@
 		drop )
 	2drop rdrop ;
 
+|--- rearma polys
+:repoly
+	'polys >r
+	'dibujo ( dibujo> <? )(
+		@+ $1f and
+		$10 =? ( over 4 - r!+ )
+		$14 =? ( over 4 - r!+ )
+		$18 =? ( over 4 - r!+ )
+		$1c =? ( over 4 - r!+ )
+		drop ) drop
+	r> 'polys> !
+	;
+
 |------------------
 | copia el dibujo estatico
 :rframecopy | mem -- cini
@@ -119,7 +143,10 @@
 
 | copia la modificacion
 :rframemodi | cini --
-	( @+ $1f nand? )( drop
+	( @+ $1f and? )(
+		dup 12 8 + >> 2 << 'dibujo + 'inipnt !
+		dup 8 >> $fff and 2 << 'dibujo + 'finpnt !
+		inipnt ( finpnt <? )( >r @+ r!+ r> ) drop
 		) 2drop ;
 
 |---- ANIMACION
@@ -130,6 +157,7 @@
 :,rmi | val --
 	rmation< !+ 'rmation< ! ;
 
+|----
 :setframe | size rm nro --
 	3 << 'frames + !+ ! ;
 
@@ -147,13 +175,46 @@
 	dibujo> 'dibujo< !
 	;
 
+|--- modificados
+
+:cadanewm | dir+4 1 -- dir+4 x
+	drop
+	dup 4 - 'cambio - 'inipnt !
+	( @+ 1? )( drop ) drop
+	dup 4 - 'cambio - 'finpnt !
+	inipnt 12 8 + << finpnt 8 << or 1 or ,rm
+	inipnt ( finpnt <? )(
+		dup 2 << 'dibujo + @ ,rm
+		1+ ) ;
+
+:newmodi
+	'cambio ( cambio> <? )(
+		@+ 1? ( cadanewm ) drop
+		) drop ;
+
+:cadacpym | dir+4 1 -- dir+4 x
+	drop
+	dup 4 - 'cambio - 'inipnt !
+	( @+ 1? )( drop ) drop
+	dup 4 - 'cambio - 'finpnt !
+	inipnt 12 8 + << finpnt 8 << or 1 or ,rmi
+	inipnt ( finpnt <? )(
+		dup 2 << 'dibujo + @ ,rmi
+		1+ ) ;
+
+:cpymodi
+	'cambio ( cambio> <? )(
+		@+ 1? ( cadacpym ) drop
+		) drop ;
+
 |--- dibujo > animacion
 :newframe | fa --
 	dibujo.size rmation> pick2 setframe
 	1+ 'cntframes !
 	dibujo< ( dibujo> <? )( @+ ,rm ) drop	| copio los nuevos
-	| copio los modificados
+|	newmodi	| copio los modificados
 	100 5 << ,rm | marca de frame
+	reindex
 	;
 
 :agrandalugar | antsize actsize --
@@ -180,8 +241,8 @@
 	getframels dibujo.size rot 'rmation< !
 	ajustalugar
 	dibujo< ( dibujo> <? )( @+ ,rmi ) drop	| copio los nuevos
-	| copio los modificados
-	50 5 << ,rmi | marca de frame
+|	cpymodi 	| copio los modificados
+	100 5 << ,rmi | marca de frame
 	reindex ;
 
 |-- animacion > dibujo
@@ -194,6 +255,7 @@
 	getframe rframemodi | el ultimo no ajusta dibujo<
 	drop
 	| refreshaux
+	repoly
 	;
 
 :getsubdibujo	| no limpia el trazo actual
@@ -309,13 +371,14 @@
 	;
 
 |----- seleccion
-:limite | xy
+:limite | xy --
 	3d>xy
 	y1 <? ( dup 'y1 ! ) y2 >? ( dup 'y2 ! ) drop
 	x1 <? ( dup 'x1 ! ) x2 >? ( dup 'x2 ! ) drop
 	;
 
 :allpolys
+	1 'modo !
 	0 'puntocursor !
 	'seleccion 'seleccion>  !
 	1.0 dup 'x1 ! 'y1 !
@@ -334,6 +397,20 @@
 	0 dup 2dup 'x1 ! 'y1 ! 'x2 ! 'y2 !
 	;
 
+:npoly | adr nro+1 -- adr nro+1
+	1 'modo !
+	0 'puntocursor !
+	'seleccion 'seleccion>  !
+	1.0 dup 'x1 ! 'y1 !
+	-1.0 dup 'x2 ! 'y2 !
+	over @
+	( @+ dup $1f and $f >? )(
+		drop limite dup 4 - ,sel
+		) 3drop
+	-4 dup 'x1 +! 'y1 +!
+	4 dup 'x2 +! 'y2 +!
+	;
+
 :setmovesel
 	xymouse
 	2dup 'yv ! 'xv !
@@ -347,7 +424,8 @@
 	( seleccion> <? )(
 		@+ dup @ 3d>xyv
 		ya + swap xa + swap
-		xyv>3d swap !
+		xyv>3d over !
+        'dibujo - 'cambio + 1 swap ! | marca cambio
 		) drop
 	;
 
@@ -419,7 +497,8 @@
 	5 >> $1ff and 23 <<
 	or
 	over @ $1f and or
-	swap !
+	over !
+    'dibujo - 'cambio + 1 swap ! | marca cambio
 	;
 
 :onUPedit
@@ -561,6 +640,20 @@
 	0 'modo !
 	;
 
+:debug
+	blanco cr
+	'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop cr
+	rmation ( rmation> <? )( @+ "%h " allowcr print ) drop cr
+	0 ( cntframes <? )( dup 3 << 'frames + @ "%h " print 1+ ) drop cr
+	coloractual "%h" print
+	0 ( cntframes <? )(
+		dup "%d : " print
+		dup 3 << 'frames + @+ swap @ | adr cnt
+		( 1? )( swap @+ "%h " allowcr print swap 1- ) 2drop cr
+		1+ ) drop cr
+	scr home
+	;
+
 :dodibs
 	genvista
 	10 sh 230 - dlgColat!
@@ -569,9 +662,7 @@
 	scr
 	show clrscr cr
 		modoactual
-
 		cr cr
-
 		violeta oscuro
 		'primt dup <pgup> "|<" sp btnt
 		'prevt dup <le> "<" sp btnt
@@ -579,28 +670,14 @@
 		violeta oscuro
 		'nextt dup <ri> ">" sp btnt
 		'ultit dup <pgdn> ">|" sp btnt
-		sp
-    	verde
+		sp verde
 		[ setdibujo play getdibujo ; ] dup <f3> cntframes "|%d>" sp btnt
-		sp
-		rojo oscuro
+		sp rojo oscuro
 		'exit dup >esc< "EXIT" sp btnt
 		'dibcls "CLS" sp btnt
 		'reindex "RI" sp btnt
 		verde dup " -%d-" print cr cr
-
-|		blanco cr
-|		'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop cr
-|		rmation ( rmation> <? )( @+ "%h " allowcr print ) drop cr
-|		0 ( cntframes <? )( dup 3 << 'frames + @ "%h " print 1+ ) drop cr
-|		coloractual "%h" print
-|		0 ( cntframes <? )(
-|			dup "%d : " print
-|			dup 3 << 'frames + @+ swap @ | adr cnt
-|			( 1? )( swap @+ "%h " allowcr print swap 1- ) 2drop cr
-|			1+ ) drop cr
-|		scr home
-
+|		debug
 		0 rows 2 - gotoxy
 		coloractual ink
 		sp dlg.color
@@ -608,10 +685,9 @@
 		'nonepolys "0" sp btnt
 		'allpolys "ALL" sp btnt
 		0 'polys ( polys> <? )(
-			swap 1+ dup "%d" sp btnt
+			swap 1+ 'npoly over "%d" sp btnt
 			swap 4+ ) 2drop
 		cminiflecha ;
-
 
 |**********************************
 : 	0 paper
