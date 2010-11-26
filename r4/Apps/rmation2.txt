@@ -63,31 +63,27 @@
 
 |---- dibujo
 :dibujo.changes | -- cntdwords
-	dibujo< 'dibujo - 'cambio + 'cambio> !
+	dibujo< 'dibujo - 'cambio + 0 over ! 'cambio> !
 	0 'cambio
-	( cambio> <? )( @+
-		1? ( drop swap 1+ swap )( drop )
-		)
-	drop
+	( cambio> <? )( @+ 1? ( drop swap 1+ swap )( drop )
+		) drop
 	2*
 	| resta 1 por cada lista de puntos consecutivas **
 	'cambio ( cambio> <? )( @+
 		1? ( drop dup @ 1? ( drop swap 1- swap )( drop ) )( drop )
 		)
 	drop
-1? ( trace )
 	;
 
 :dibujo.size | -- cntdwords
-	dibujo> dibujo< - 2 >> | trazos nuevo
-		| falta sumar modificadores y borrados
-|	dibujo.changes +
-	1+ | la marca de tiempo..
+	dibujo> dibujo< - 2 >>	| trazos nuevo
+	dibujo.changes + 		| modificados y borrados
+	1+ 						| la marca de tiempo..
 	;
 
 :cambio.clear
 	'cambio 'dibujo
-	( dibujo> <=? )( 4+ 0 rot !+ swap )
+	( dibujo< <=? )( 4+ 0 rot !+ swap )
 	2drop
 	;
 
@@ -142,12 +138,24 @@
 	4 - ;
 
 | copia la modificacion
-:rframemodi | cini --
+:setchangemodi | cini --
+    cambio.clear
 	( @+ $1f and? )(
 		dup 12 8 + >> 2 << 'dibujo + 'inipnt !
-		dup 8 >> $fff and 2 << 'dibujo + 'finpnt !
-		inipnt ( finpnt <? )( >r @+ r!+ r> ) drop
+		8 >> $fff and 2 << 'dibujo + 'finpnt !
+		inipnt ( finpnt <? )( >r
+			1 r 'dibujo - 'cambio + !
+			@+ r!+ r> ) drop
 		) 2drop ;
+
+:setchange | cini ---
+	( @+ $1f and? )(
+		dup 12 8 + >> 2 << 'dibujo + 'inipnt !
+		8 >> $fff and 2 << 'dibujo + 'finpnt !
+		inipnt ( finpnt <? )( >r @+ r!+ r> ) drop
+		) 2drop
+	dibujo> 'dibujo< !
+	;
 
 |---- ANIMACION
 :,rm | val --
@@ -170,11 +178,6 @@
 :getframe | nro -- cini
 	3 << 'frames + @ rframecopy ;
 
-:setchange | cini ---
-	rframemodi
-	dibujo> 'dibujo< !
-	;
-
 |--- modificados
 
 :cadanewm | dir+4 1 -- dir+4 x
@@ -182,10 +185,10 @@
 	dup 4 - 'cambio - 'inipnt !
 	( @+ 1? )( drop ) drop
 	dup 4 - 'cambio - 'finpnt !
-	inipnt 12 8 + << finpnt 8 << or 1 or ,rm
+	inipnt 2 >> 12 8 + << finpnt 2 >> 8 << or 1 or ,rm
 	inipnt ( finpnt <? )(
-		dup 2 << 'dibujo + @ ,rm
-		1+ ) ;
+		dup 'dibujo + @ ,rm
+		4+ ) ;
 
 :newmodi
 	'cambio ( cambio> <? )(
@@ -197,10 +200,10 @@
 	dup 4 - 'cambio - 'inipnt !
 	( @+ 1? )( drop ) drop
 	dup 4 - 'cambio - 'finpnt !
-	inipnt 12 8 + << finpnt 8 << or 1 or ,rmi
+	inipnt 2 >> 12 8 + << finpnt 2 >> 8 << or 1 or ,rmi
 	inipnt ( finpnt <? )(
-		dup 2 << 'dibujo + @ ,rmi
-		1+ ) ;
+		dup 'dibujo + @ ,rmi
+		4+ ) ;
 
 :cpymodi
 	'cambio ( cambio> <? )(
@@ -212,7 +215,9 @@
 	dibujo.size rmation> pick2 setframe
 	1+ 'cntframes !
 	dibujo< ( dibujo> <? )( @+ ,rm ) drop	| copio los nuevos
-|	newmodi	| copio los modificados
+
+	newmodi	| copio los modificados
+
 	100 5 << ,rm | marca de frame
 	reindex
 	;
@@ -241,7 +246,9 @@
 	getframels dibujo.size rot 'rmation< !
 	ajustalugar
 	dibujo< ( dibujo> <? )( @+ ,rmi ) drop	| copio los nuevos
-|	cpymodi 	| copio los modificados
+
+	cpymodi 	| copio los modificados
+
 	100 5 << ,rmi | marca de frame
 	reindex ;
 
@@ -252,7 +259,7 @@
 	| ** buscar primer cuadro 5!
 	dibujo.clear
 	0 ( over <? )( dup getframe setchange 1+ )
-	getframe rframemodi | el ultimo no ajusta dibujo<
+	getframe setchangemodi | el ultimo no ajusta dibujo<
 	drop
 	| refreshaux
 	repoly
@@ -642,24 +649,26 @@
 
 :debug
 	blanco cr
-	'dibujo ( dibujo> <? )( @+ "%h " allowcr print ) drop cr
-	rmation ( rmation> <? )( @+ "%h " allowcr print ) drop cr
-	0 ( cntframes <? )( dup 3 << 'frames + @ "%h " print 1+ ) drop cr
-	coloractual "%h" print
+	'cambio 'dibujo ( dibujo> <? )( dibujo< =? ( "* " print )
+		swap @+ 1? ( verde )( blanco ) drop swap
+		@+ "%h " allowcr print ) 2drop cr
+	amarillo
+|	rmation ( rmation> <? )( @+ "%h " allowcr print ) drop cr
+
+|	0 ( cntframes <? )( dup 3 << 'frames + @ "%h " print 1+ ) drop cr
+|	coloractual "%h" print
+	rojo
 	0 ( cntframes <? )(
 		dup "%d : " print
 		dup 3 << 'frames + @+ swap @ | adr cnt
 		( 1? )( swap @+ "%h " allowcr print swap 1- ) 2drop cr
 		1+ ) drop cr
-	scr home
 	;
 
 :dodibs
 	genvista
 	10 sh 230 - dlgColat!
-	usogui
-	fonti |font-vard-12-bold
-	scr
+	usogui fonti |font-vard-12-bold
 	show clrscr cr
 		modoactual
 		cr cr
@@ -675,9 +684,10 @@
 		sp rojo oscuro
 		'exit dup >esc< "EXIT" sp btnt
 		'dibcls "CLS" sp btnt
-		'reindex "RI" sp btnt
 		verde dup " -%d-" print cr cr
+
 |		debug
+
 		0 rows 2 - gotoxy
 		coloractual ink
 		sp dlg.color
