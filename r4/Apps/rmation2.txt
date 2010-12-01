@@ -155,19 +155,40 @@
 	dibujo> 'dibujo< !
 	;
 
-:lerp | t a b -- r | a + t * (b - a) | t 0.0 .. 1.0
-	over - rot 16 *>> + ;
+#timenow
+#tn #ct #cini
 
-:interpolavalores | cini --
-	( @+ $1f and? )(
-		dup 12 8 + >> 2 << 'dibujo + 'inipnt !
-		8 >> $fff and 2 << 'dibujo + 'finpnt !
-|		hereo swap
-		inipnt ( finpnt <? )( >r @+
-			rot @+
-			r!+ r> ) drop
-		) 2drop
-		;
+:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - ct 16 *>> + ;
+
+:minter | v1 v2 -- vr
+	over $1f and >r
+	over 23 >> over 23 >> lerp 23 <<
+	pick2 9 << 23 >> pick2 9 << 23 >> lerp $1ff and 14 << or
+	rot 18 << 23 >> rot 18 << 23 >> lerp $1ff and 5 << or
+	r> or ;
+
+:nextframe
+	101 'tn !
+
+	;
+
+:step
+	tn 0? ( drop nextframe ; )
+	1- dup 'tn !
+	1.0 swap 100 */ 'ct !
+|	avanza ;
+|:avanza
+	dibujo> 4+
+	cini
+	( @+ $1f and? )( swap
+		over 8 >> $fff and 2 << 'dibujo +
+		rot 12 8 + >> 2 << 'dibujo +
+		( over <? )(
+			rot @+ r@+ minter rot !+
+			rot swap ) 2drop
+		swap ) 3drop
+	;
 
 |---- ANIMACION
 :,rm | val --
@@ -281,6 +302,7 @@
 	cambio.clear
 	;
 
+
 |------ GC para dibujo
 #xcycwh 0 0 0 0
 #xcam 0 #ycam 0 #zcam 2.5
@@ -311,7 +333,6 @@
 	;
 
 |----------- PLAY ---------------
-#timenow
 
 :play | --
 	usogui
@@ -327,6 +348,25 @@
 		1+ cntframes >=? ( 0 nip dibujo.clear )
 		dup getframe setchange
 		'timenow !
+		;
+
+
+:play2 | --
+	usogui
+
+	dibujo.clear
+	0 dup getframe setchange
+	'timenow !
+	show clrscr verde
+		timenow "%d" print
+        drawdibujo
+		step
+		'exit >esc<
+|		100 .mseg .restart
+|		timenow
+|		1+ cntframes >=? ( 0 nip dibujo.clear )
+|		dup getframe setchange
+|		'timenow !
 		;
 
 |----------- EDICION ---------------
