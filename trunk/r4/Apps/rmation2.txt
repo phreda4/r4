@@ -131,8 +131,7 @@
 |------------------
 | copia el dibujo estatico
 :rframecopy | mem -- cini
-	( @+ dup $1f and $a >? )( drop ,dib
-		) 2drop
+	( @+ dup $1f and $a >? )( drop ,dib ) 2drop
 	4 - ;
 
 | copia la modificacion
@@ -155,8 +154,22 @@
 	dibujo> 'dibujo< !
 	;
 
+|-----------------
 #timenow
-#tn #ct #cini
+#cini #cfin
+#ct
+
+:rframeini | adr --
+	dup 'cini !
+	dibujo> 4+ >r
+	( @+ $1f and? )(
+		dup 8 >> $fff and 2 << 'dibujo + | fin
+		swap 12 8 + >> $fff and 2 << 'dibujo + | ini
+		( over <? )( @+ r!+ ) 2drop
+		) drop
+	'cfin !
+	rdrop
+	;
 
 :lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
 	over - ct 16 *>> + ;
@@ -169,25 +182,26 @@
 	r> or ;
 
 :nextframe
-	101 'tn !
+	100 'timenow !
+	cfin dup @ 0? ( 2drop dibujo.clear rmation )( drop )
+	rframecopy rframeini ;
 
-	;
-
-:step
-	tn 0? ( drop nextframe ; )
-	1- dup 'tn !
+:rframestep | --
+	timenow 0? ( drop nextframe ; )
+	1- dup 'timenow !
 	1.0 swap 100 */ 'ct !
 |	avanza ;
 |:avanza
-	dibujo> 4+
+	dibujo> 4+ >r
 	cini
 	( @+ $1f and? )( swap
 		over 8 >> $fff and 2 << 'dibujo +
-		rot 12 8 + >> 2 << 'dibujo +
+		rot 12 8 + >> $fff and 2 << 'dibujo +
 		( over <? )(
 			rot @+ r@+ minter rot !+
 			rot swap ) 2drop
-		swap ) 3drop
+		) 2drop
+	rdrop
 	;
 
 |---- ANIMACION
@@ -332,42 +346,6 @@
 	blanco gc.box | recuadro
 	;
 
-|----------- PLAY ---------------
-
-:play | --
-	usogui
-	dibujo.clear
-	0 dup getframe setchange
-	'timenow !
-	show clrscr verde
-		timenow "%d" print
-        drawdibujo
-		'exit >esc<
-		100 .mseg .restart
-		timenow
-		1+ cntframes >=? ( 0 nip dibujo.clear )
-		dup getframe setchange
-		'timenow !
-		;
-
-
-:play2 | --
-	usogui
-
-	dibujo.clear
-	0 dup getframe setchange
-	'timenow !
-	show clrscr verde
-		timenow "%d" print
-        drawdibujo
-		step
-		'exit >esc<
-|		100 .mseg .restart
-|		timenow
-|		1+ cntframes >=? ( 0 nip dibujo.clear )
-|		dup getframe setchange
-|		'timenow !
-		;
 
 |----------- EDICION ---------------
 
@@ -702,25 +680,60 @@
 	0 'modo !
 	;
 
-
 :debug
-	blanco cr
-	'cambio 'dibujo ( dibujo> <? )( dibujo< =? ( "* " print )
-		swap @+ 1? ( verde )( blanco ) drop swap
-		@+ "%h " allowcr print ) 2drop cr
+|	blanco cr
+|	'cambio 'dibujo ( dibujo> <? )( dibujo< =? ( "* " print )
+|		swap @+ 1? ( verde )( blanco ) drop swap
+|		@+ "%h " allowcr print ) 2drop cr
 	amarillo
-	rmation ( rmation> <? )( @+ "%h " allowcr print ) drop cr
+	rmation ( rmation> <=? )(
+|		cini =? ( verde ) cfin =? ( rojo )
+		@+
+|		$1f nand? ( verde )( rojo )
+
+		"%h " allowcr print ) drop cr
 	rmation rmation> over - cr "%h %h " print
 
 |	0 ( cntframes <? )( dup 3 << 'frames + @ "%h " print 1+ ) drop cr
 |	coloractual "%h" print
-	rojo
-	0 ( cntframes <? )(
-		dup "%d : " print
-		dup 3 << 'frames + @+ swap @ | adr cnt
-		( 1? )( swap @+ "%h " allowcr print swap 1- ) 2drop cr
-		1+ ) drop cr
+|	rojo
+|	0 ( cntframes <? )(
+|		dup "%d : " print
+|		dup 3 << 'frames + @+ swap @ | adr cnt
+|		( 1? )( swap @+ "%h " allowcr print swap 1- ) 2drop cr
+|		1+ ) drop cr
 	;
+
+|----------- PLAY ---------------
+
+:play | --
+	usogui
+	dibujo.clear
+	0 dup getframe setchange
+	'timenow !
+	show clrscr verde
+		timenow "%d" print
+        drawdibujo
+		'exit >esc<
+		100 .mseg .restart
+		timenow
+		1+ cntframes >=? ( 0 nip dibujo.clear )
+		dup getframe setchange
+		'timenow !
+		;
+
+
+:play2 | --
+	usogui
+	dibujo.clear
+	rmation rframecopy rframeini
+	0 'timenow !
+	show clrscr verde
+		timenow "%d" print
+        drawdibujo
+		rframestep
+		'exit >esc<
+		;
 
 :rmation.edit
 	genvista
@@ -738,7 +751,7 @@
 		'nextt dup <ri> ">" sp btnt
 		'ultit dup <pgdn> ">|" sp btnt
 		sp verde
-		[ setdibujo play getdibujo ; ] dup <f3> cntframes "|%d>" sp btnt
+		[ setdibujo play2 getdibujo ; ] dup <f3> cntframes "|%d>" sp btnt
 		sp rojo oscuro
 		[ setdibujo exit ; ] dup >esc< "EXIT" sp btnt
 		'resetdib "RESET" sp btnt
