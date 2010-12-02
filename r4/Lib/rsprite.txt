@@ -1,10 +1,4 @@
 |--- RMATION
-| #rauto 1.0 'rmation 0 0 | escala-tiempo animacion memoria arg
-|
-| 0 0 0 mtransi
-| 0 mrotzi
-| 'rauto rplay | animacion anda sola
-|----------------
 | formato rmation
 | 0 fin de animacion-tiempo de cuadro (no puede ser 0)
 | 1 desde hasta... mueve nodos
@@ -75,18 +69,11 @@
 	12 8 + >> $fff and 'hasta !
 	;
 :s2 | marca puntos rle
-	dup 8 >> $fff and 'hasta !
-	12 8 + >> $fff and 'desde !
-	;
 :s3 | cambia color
-	8 >> ink ;
 :s4 | borra puntos
-	dup 8 >> $fff and 'desde !
-	12 8 + >> $fff and 'hasta !
-	;
+	drop ;
 :s5 | borra todo el frame
-	drop
-	;
+	drop ;
 |------- vacios por ahora
 :s6	:s7	:s8	:s9
 :sa	:sb	:sc
@@ -132,36 +119,93 @@ s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 		dup $1f and 2 << 'sa + @ exec
 		) 2drop ;
 
-|---------------------------------------
-:r0 :r1 :r2 :r3 :r4 :r5 :r6 :r7 :r8 :r9 :ra :rb :rc :rd :re :rf
-:r10 :r11 :r12 :r13 :r14 :r15 :r16 :r17 :r18 :r19 :r1a :r1b :r1c
-:r1d :r1e :r1f
-	drop ;
+|-----------------
+#dibujo
+#dibujo>
+#cini #cfin
+#ct
 
-#dr r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 ra rb rc rd re rf
-r10 r11 r12 r13 r14 r15 r16 r17 r18 r19 r1a r1b r1c r1d r1e r1f
+:dibujoclear
+	0 dibujo dup 'dibujo> ! ! ;
 
-:rdrawstatic
-	( @+ 1? )(
-		dup $1f and 2 << 'dr + @ exec
-		) 2drop ;
+:rframecopy | mem -- cini
+	dibujo> swap
+	( @+ dup $1f and $a >? )( drop rot !+ swap ) 2drop
+	4 - swap 'dibujo> ! ;
 
-|----------- interpolar 2 sprites
-:lerp | t a b -- r | a + t * (b - a) | t 0.0 .. 1.0
-	over - rot 16 *>> + ;
+:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - ct 16 *>> + ;
 
-:inod | n s1 s2 v2 g -- n s1 s2 n
-	>r | n s1 s2
-	swap @+ r>  | n s2 s1 v1 v2
-	pick4 >r
-	r pick2 d>x pick2 d>x lerp | n s2 s1 v1 v2 xx
-	r> pick3 d>y pick3 d>y lerp xy>d
-	nip swap $f and or | n s2 s1 v
+:minter | v1 v2 -- vr
+	over $1f and >r
+	over 23 >> over 23 >> lerp 23 <<
+	pick2 9 << 23 >> pick2 9 << 23 >> lerp $1ff and 14 << or
+	rot 18 << 23 >> rot 18 << 23 >> lerp $1ff and 5 << or
+	r> or ;
+
+:cinter | v1 v2 -- vr
+	over $1f and
+	rot 8 >> rot 8 >> lerp
+	8 << or ;
+
+:nextframe | 'rvar 'timenow --
+	100 swap ! |	100 'timenow !
+	cfin dup @ 0? ( 2drop dibujoclear dup 4+ @ )( drop )
+	rframecopy
+:rframeini | adr --
+	dup 'cini !
+	dibujo> 4+ >r
+	( @+ $1f and? )(
+		dup 8 >> $fff and 2 << dibujo + | fin
+		swap 12 8 + >> $fff and 2 << dibujo + | ini
+		( over <? )( @+ r!+ ) 2drop
+		) drop
+	'cfin !
+	rdrop
 	;
 
-:icol | n s1 s2 v2 -- c
-	>r swap @+ 4 >> | n s2 s1 v1
-	pick3 1? ( 1- 8 >> ) swap r 4 >>
-	lerpcol
-	4 << r> $f and or
+
+:rframestep | 'rvar --
+	dup 12 + dup @ 0? ( drop nextframe ; )
+	1- 1.0 over 100 */ 'ct !
+	swap !
+
+|	timenow 0? ( drop nextframe ; )
+|	1- dup 'timenow !
+|	1.0 swap 100 */ 'ct !
+
+	dibujo> 4+ >r
+	cini
+	( @+ $1f and? )( swap
+		over 8 >> $fff and 2 << dibujo +
+		rot 12 8 + >> $fff and 2 << dibujo +
+		( over <? )(
+			rot @+ r@+ minter rot !+
+			rot swap ) 2drop
+		) 2drop
+	rdrop
+	;
+
+:asignamemoria | mem 0 -- mem newmem
+	drop
+	here dup dup 'dibujo ! pick2 8 + !
+	over 4+ @ dup ( @+ 1? )( drop ) drop
+	swap - 'here +!
+	0 over ! dup 'dibujo> !			|	dibujo.clear
+	over 4+ @ rframecopy rframeini	|	rmation rframecopy rframeini
+	0 pick2 12 + !					|	0 'timenow !
+ 	;
+
+|----------------
+| #rauto 1.0 'rmation 0 0 | escala-tiempo animacion memoria arg
+|
+| 0 0 0 mtransi
+| 0 mrotzi
+| 'rauto rplay | animacion anda sola
+|----------------
+:rplay | 'rvar --
+	dup 8 + @ 0? ( asignamemoria ) 'dibujo !
+	dibujo rsdraw
+	rframestep
+	drop
 	;
