@@ -1,0 +1,172 @@
+| Editor de includes en rmation
+| PHREDA 2010
+|--------------------------------------------------
+^r4/lib/btn.txt
+^r4/lib/parse.txt
+^r4/lib/rsprite.txt
+^r4/lib/trace.txt
+
+#nombre )( 256
+
+#orden 0
+#nrormt 0
+#nomrmt )( 32
+
+#cntvar
+#nombres )( 3200 | 100 nombres de 32
+#index )( 400
+
+|--- parse
+:getnro | txt -- txt' 0 / nro
+	( dup c@ 33 <? )( 0? ( ; ) drop 1+ ) drop
+	dup ?numero 0? ( ; )
+	drop rot drop ;
+
+:cpynom | adr en -- adr''
+	swap ( c@+ $ff and 32 >? )(
+		rot c!+ swap )
+	drop 0 rot c!
+	;
+:cadadibujo | adr $23 -- adr'
+	drop c@+ $3a <>? ( drop ; ) drop | #:
+	cntvar 5 << 'nombres + cpynom
+	here cntvar 2 << 'index + !
+	( getnro 1? )( , ) ,
+	1 'cntvar +!
+	;
+
+:parsefile | "" --
+	here dup rot load 0 swap !+ 'here !
+	0 'cntvar !
+	( c@+ 1? )(
+		$23 =? ( cadadibujo dup )
+		drop
+		) 2drop
+	;
+
+|--- write
+:,codigo | adr --
+	0
+	( @+ 1? )(
+		"$%h," ,print
+		swap 1+ 16 >? ( 0 nip ,cr ) swap
+		) 3drop
+	"0" ,s ,cr ;
+
+:writefile | "" --
+	mark
+	"| Rmation file" ,s ,cr
+	0 ( cntvar <? )(
+		'nombre over 5 << + "#:%s" ,print ,cr
+		dup 2 << 'index + @ ,codigo
+		1+ ) drop
+	savemem
+	empty ;
+
+
+|--------------------------------------------------
+#actual
+
+
+:editando
+	1 'orden !
+	actual 'nrormt !
+	actual 5 << 'nombres + 'nomrmt cpynom
+	'orden 40 "mem/inc-rtmo.mem" save
+	mark
+	actual 2 << 'index + @
+	( @+ 1? )( , ) , drop
+	"mem/cliprtm.mem" savemem
+	empty
+	"r4/system/edit-rtm.txt" run
+	;
+
+:newspr
+	2 'orden !
+	actual 'nrormt !
+	actual 5 << 'nombres + 'nomrmt cpynom
+	'orden 40 "mem/inc-rtmo.mem" save
+	mark
+	0 ,
+	"mem/cliprtm.mem" savemem
+	empty
+	"r4/system/edit-rtm.txt" run
+	;
+
+:actual! | nro
+	-? ( 0 nip )
+	cntvar >? ( cntvar nip )
+	'actual !
+	refreshfoco ;
+
+:cadadib | n n -- n n
+	[ 0.11 ; ] [ 0.09 ; ] guiInOutPre dup fdim
+	pick2 cntvar >=? ( drop ; )
+	[ dup actual! ; ] guiBtn
+	actual =? ( blanco gc.box )
+|	dup 2 << 'index + @ 1? ( rsdraw )( drop )
+	home verde
+	5 << 'nombres + printc
+	|1+ "%h" print
+	rot 1+ rot rot
+	;
+
+:tabladib
+	0 0.7 ( -0.7 >=? )(
+		-0.7 ( 0.7 <=? )(
+			2dup swap fpos
+			0.1 dup fdim
+			cadadib
+			0.2 + ) drop
+		0.2 - )
+	2drop ;
+
+|----------------------------
+:main
+	'nombre "mem/inc-rmt.mem" load drop
+	'nombre parsefile
+
+	'orden "mem/inc-rmto.mem" load drop
+
+	usogui
+	show clrscr
+|		32 gc.top $ccc gc.hfill
+		home cr2
+		verde dup " :R%d" print
+		blanco " EDIT RMATION " print
+		'nombre print
+		verde " : " print
+		actual 5 << 'nombres + 31 getline
+
+		26 gc.botton $ccc gc.hfill
+		home cr2
+
+	| acciones
+		rojo
+		sp 'exit dup >esc< "esc-Exit" btnt
+		sp verde
+		sp 'editando dup <f1> "f1-Edit" btnt
+|		sp 'newprg "f3-NewPrg" btnt
+|		violeta sp 'adddome "+Fold" btnt
+|		rojo sp 'borractual "Del" btnt
+		32 26 gc.vbetween
+		tabladib
+
+|	'copy-dibu <f2>
+|	'ante-dibu <f3>
+|	'post-dibu <f4>
+|	'borra-dibu <f5>
+	[ actual 1+ actual! ; ] <ri>
+	[ actual 1- actual! ; ] <le>
+|	'save-code <f6>
+|	'eligearchivo <esp>
+|	'editahoja <enter>
+
+		cmano ;
+
+|--------------------------------------------------
+:	4 0 paper
+	mark
+	main
+	;
+

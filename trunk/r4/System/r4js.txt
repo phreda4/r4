@@ -20,6 +20,8 @@
 #lastcall
 #salto
 
+#newaddress  | lista de nuevas direcciones
+
 |--------- edit-code
 #ncar
 #nlin
@@ -63,7 +65,8 @@
 
 :sdefc | --  define codigo
 :sdefv | --  define variable
-	drop ;
+	drop
+	;
 
 :slit
 	tok>cte 0 >=? ( 255 ULTIMAP - <? ( drop 1 'sizenow +! ; ) )
@@ -92,6 +95,7 @@
 
 :cadaw	| nropal cntlla -- nropal
 	drop
+	sizenow over 2 << 'newaddress + !
 	dup nro>toklen
 	( 1? )( swap stok swap 1- ) 2drop ;
 
@@ -103,14 +107,10 @@
 
 |---datasize
 
-:mem0 | nro --
-	drop 4 'sizenow +! ;
-:mem1 | nro --
-	drop 2 'sizenow +! ;
-:mem2 | nro --
-	drop 1 'sizenow +! ;
-:mem3 | nro --
-	'sizenow +! ;
+:mem0 drop 4 'sizenow +! ; | nro --
+:mem1 drop 2 'sizenow +! ; | nro --
+:mem2 drop 1 'sizenow +! ; | nro --
+:mem3 'sizenow +! ; | nro --
 
 #gmem 'mem0
 
@@ -161,7 +161,14 @@
 
 :cadawd | nropal cntlla -- nropal
 	drop
-	;
+	dup
+	nro>toklen
+	( 1? )( 1- swap
+		@+ dup $ff and
+		7 =? ( over 8 >>| a string ***
+			sizcad ) 2drop
+		swap )
+	2drop ;
 
 :datasize
 	'cadawd wordmap
@@ -203,10 +210,11 @@
 	tok>mem ",3" ,s ,4bytes ;
 
 :,var | n --  var
+	",2" ,s ,4bytes ;
 :,dword | n --  dir word
+	",1" ,s ,4bytes ;
 :,dvar | n --  dir var
-	drop
-	;
+	",1" ,s ,4bytes ;
 
 #macs ,defc ,defv ,lit ,lit ,lit ,lit ,litS ,word ,var ,dword ,dvar
 
@@ -289,6 +297,8 @@
 	;
 
 :makejs
+	here 'newaddress !
+	cntwords 1+ 2 << 'here +!
 	codesize
 	datasize
 	mark
