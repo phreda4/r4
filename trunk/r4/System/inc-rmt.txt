@@ -12,8 +12,9 @@
 #nrormt 0
 #nomrmt )( 32
 
+#actual
 #cntvar
-#nombres )( 3200 | 100 nombres de 32
+#indexn )( 3200 | 100 nombres de 32
 #index )( 400
 
 |--- parse
@@ -29,18 +30,16 @@
 	;
 :cadadibujo | adr $23 -- adr'
 	drop c@+ $3a <>? ( drop ; ) drop | #:
-	cntvar 5 << 'nombres + cpynom
+	cntvar 5 << 'indexn + cpynom
 	here cntvar 2 << 'index + !
 	( getnro 1? )( , ) ,
 	1 'cntvar +!
 	;
 
-#filetxt
 
 :parsefile | "" --
 	here dup rot load 0 swap !+ 'here !
 	0 'cntvar !
-	dup 'filetxt !
 	( c@+ 1? )(
 		$23 =? ( cadadibujo dup )
 		drop
@@ -49,18 +48,18 @@
 
 |--- write
 :,codigo | adr --
-	0
+	0 swap
 	( @+ 1? )(
-		"$%h," ,print
+		" $%h" ,print
 		swap 1+ 16 >? ( 0 nip ,cr ) swap
 		) 3drop
-	"0" ,s ,cr ;
+	" 0" ,s ,cr ;
 
 :writefile | "" --
 	mark
-	"| Rmation file" ,s ,cr
+	"| RMT file" ,s ,cr
 	0 ( cntvar <? )(
-		'nombre over 5 << + "#:%s" ,print ,cr
+		'indexn over 5 << + "#:%s" ,print ,cr
 		dup 2 << 'index + @ ,codigo
 		1+ ) drop
 	savemem
@@ -68,35 +67,51 @@
 
 
 |--------------------------------------------------
-#actual
-
-
-:editando
+:editdib
 	1 'orden !
 	actual 'nrormt !
-	actual 5 << 'nombres + 'nomrmt cpynom
-	'orden 40 "mem/inc-rtmo.mem" save
+	actual 5 << 'indexn + 'nomrmt strcpy
+	'orden 40 "mem/inc-rmto.mem" save
 	mark
 	actual 2 << 'index + @
 	( @+ 1? )( , ) , drop
-|	"mem/notepad.rmt" savemem
+	"mem/notepad.rmt" savemem
 	empty
 	"r4/system/edit-rmt.txt" run
 	;
 
-:newspr
-	2 'orden !
-	actual 'nrormt !
-	actual 5 << 'nombres + 'nomrmt cpynom
-	'orden 40 "mem/inc-rtmo.mem" save
+:newdib
+	1 'orden !
+	cntvar 'nrormt !
+|	actual 5 << 'indexn +
+	"new" 'nomrmt strcpy
+	'orden 40 "mem/inc-rmto.mem" save
 	mark
 	0 ,
-|	"mem/notepad.rmt" savemem
+	"mem/notepad.rmt" savemem
 	empty
 	"r4/system/edit-rmt.txt" run
 	;
 
 
+|----------------------------
+:insertamodificado
+	'orden "mem/inc-rmto.mem" load drop
+	orden 1- 1? ( drop ; ) drop
+
+	here
+	dup nrormt 2 << 'index + !
+	"mem/notepad.rmt" load 0 swap !+ 'here !
+	'nomrmt nrormt 5 << 'indexn + strcpy
+
+	nrormt cntvar =? ( 1 'cntvar +! ) 'actual !
+	'nombre writefile
+
+	0 'orden !
+	'orden 4 "mem/inc-rmto.mem" save
+	;
+
+|----------------------------
 :actual! | nro
 	-? ( 0 nip )
 	cntvar >? ( cntvar nip )
@@ -104,41 +119,42 @@
 	refreshfoco ;
 
 :cadadib | n n -- n n
-	[ 0.11 ; ] [ 0.09 ; ] guiInOutPre dup fdim
 	pick2 cntvar >=? ( drop ; )
+
+	-1.0 -1.0 0 project3d
+	1.0 1.0 0 project3d      | x y x y
+	pick3 pick2 + 2/ 'xc !
+	pick2 over + 2/ 'yc !
+	rot - abs >r - abs r> dim
+
+	[ 0.11 ; ] [ 0.09 ; ] guiInOutPre dup fdim
 	[ dup actual! ; ] guiBtn
 	actual =? ( blanco gc.box )
-|	dup 2 << 'index + @ 1? ( rsdraw )( drop )
+	dup 2 << 'index + @ 1? ( rsdraw )( drop )
 	home verde
-	5 << 'nombres + printc
+	5 << 'indexn + printc
 	|1+ "%h" print
 	rot 1+ rot rot
 	;
 
 :tabladib
-	0 0.7 ( -0.7 >=? )(
-		-0.7 ( 0.7 <=? )(
-			2dup swap fpos
-			0.1 dup fdim
+	omode
+	0 0 20.0 mtrans
+	0
+	-8.0 ( 8.0 <=? )(
+		-8.0 ( 8.0 <=? )(
+			mpush
+			2dup swap  0 mtrans
 			cadadib
-			0.2 + ) drop
-		0.2 - )
+			mpop
+			2.0 + ) drop
+		2.0 + )
 	2drop ;
 
-:agregaen
-	here dup nrormt 2 << 'index !
-	"mem/notepad.rmt" load 'here !
-	;
-
-|----------------------------
 :main
-	'nombre "mem/inc-rmt.mem" load 0 swap c!
+	'nombre "mem/inc-rmt.mem" load drop
 	'nombre parsefile
-
-	'orden "mem/inc-rmto.mem" load drop
-	orden 1- 0? ( agregaen ) | agregaen
-	drop
-
+	insertamodificado
 	usogui
 	show clrscr
 |		32 gc.top $ccc gc.hfill
@@ -147,7 +163,7 @@
 		blanco " EDIT RMATION " print
 		'nombre print
 		verde " : " print
-		actual 5 << 'nombres + 31 getline
+		actual 5 << 'indexn + 31 getline
 
 |		cr filetxt print
 		26 gc.botton $ccc gc.hfill
@@ -157,10 +173,13 @@
 		rojo
 		sp 'exit dup >esc< "esc-Exit" btnt
 		sp verde
-		sp 'editando dup <f1> "f1-Edit" btnt
-|		sp 'newprg "f3-NewPrg" btnt
+		sp 'editdib dup <f1> "f1-Edit" btnt
+		sp 'newdib dup <f2> "f2-New" btnt
 |		violeta sp 'adddome "+Fold" btnt
 |		rojo sp 'borractual "Del" btnt
+
+		[ actual 1+ actual! ; ] <ri>
+		[ actual 1- actual! ; ] <le>
 		32 26 gc.vbetween
 		tabladib
 
@@ -168,8 +187,6 @@
 |	'ante-dibu <f3>
 |	'post-dibu <f4>
 |	'borra-dibu <f5>
-	[ actual 1+ actual! ; ] <ri>
-	[ actual 1- actual! ; ] <le>
 |	'save-code <f6>
 |	'eligearchivo <esp>
 |	'editahoja <enter>
@@ -178,8 +195,8 @@
 
 |--------------------------------------------------
 :	4 0 paper
+	1 linegr!
 	mark
 	main
-	'nombre writefile
 	;
 

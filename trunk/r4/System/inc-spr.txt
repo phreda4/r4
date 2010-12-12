@@ -12,13 +12,14 @@
 #nrospr 0
 #nomspr )( 32
 
+#actual
 #cntvar
-#nombres )( 3200 | 100 nombres de 32
+#indexn )( 3200 | 100 nombres de 32
 #index )( 400
 
 |--- parse
 :getnro | txt -- txt' 0 / nro
-	( dup c@ 33 <? )( 0? ( ; ) drop 1+ ) drop
+	( dup c@ $ff and 33 <? )( 0? ( ; ) drop 1+ ) drop
 	dup ?numero 0? ( ; )
 	drop rot drop ;
 
@@ -29,7 +30,7 @@
 	;
 :cadadibujo | adr $23 -- adr'
 	drop c@+ $3a <>? ( drop ; ) drop | #:
-	cntvar 5 << 'nombres + cpynom
+	cntvar 5 << 'indexn + cpynom
 	here cntvar 2 << 'index + !
 	( getnro 1? )( , ) ,
 	1 'cntvar +!
@@ -46,18 +47,18 @@
 
 |--- write
 :,codigo | adr --
-	0
+	0 swap
 	( @+ 1? )(
-		"$%h," ,print
+		" $%h" ,print
 		swap 1+ 16 >? ( 0 nip ,cr ) swap
 		) 3drop
-	"0" ,s ,cr ;
+	" 0" ,s ,cr ;
 
 :writefile | "" --
 	mark
 	"| Nsprite file" ,s ,cr
 	0 ( cntvar <? )(
-		'nombre over 5 << + "#:%s" ,print ,cr
+		'indexn over 5 << + "#:%s" ,print ,cr
 		dup 2 << 'index + @ ,codigo
 		1+ ) drop
 	savemem
@@ -65,25 +66,23 @@
 
 
 |--------------------------------------------------
-#actual
-
-:editando
+:editdib
 	1 'orden !
 	actual 'nrospr !
-	actual 5 << 'nombres + 'nomspr cpynom
+	actual 5 << 'indexn + 'nomspr strcpy
 	'orden 40 "mem/inc-spro.mem" save
 	mark
 	actual 2 << 'index + @
 	( @+ 1? )( , ) , drop
-	"mem/clipspr.mem" savemem
+	"mem/notepad.spr" savemem
 	empty
 	"r4/system/edit-spr.txt" run
 	;
 
-:newspr
+:newdib
 	2 'orden !
 	actual 'nrospr !
-	actual 5 << 'nombres + 'nomspr cpynom
+	actual 5 << 'indexn + 'nomspr strcpy
 	'orden 40 "mem/inc-spro.mem" save
 	mark
 	0 ,
@@ -92,6 +91,25 @@
 	"r4/system/edit-spr.txt" run
 	;
 
+
+|----------------------------
+:insertamodificado
+	'orden "mem/inc-spro.mem" load drop
+	orden 1- 1? ( drop ; ) drop
+
+	here
+	dup nrospr 2 << 'index + !
+	"mem/notepad.spr" load 0 swap !+ 'here !
+	'nomspr nrospr 5 << 'indexn + strcpy
+
+	nrospr cntvar =? ( 1 'cntvar +! ) 'actual !
+	'nombre writefile
+
+	0 'orden !
+	'orden 4 "mem/inc-spro.mem" save
+	;
+
+|----------------------------
 :actual! | nro
 	-? ( 0 nip )
 	cntvar >? ( cntvar nip )
@@ -105,7 +123,7 @@
 	actual =? ( blanco gc.box )
 	dup 2 << 'index + @ 1? ( nsprite )( drop )
 	home verde
-	5 << 'nombres + printc
+	5 << 'indexn + printc
 	|1+ "%h" print
 	rot 1+ rot rot
 	;
@@ -120,13 +138,10 @@
 		0.2 - )
 	2drop ;
 
-|----------------------------
 :main
 	'nombre "mem/inc-spr.mem" load drop
 	'nombre parsefile
-
-	'orden "mem/inc-spro.mem" load drop
-
+	insertamodificado
 	usogui
 	show clrscr
 |		32 gc.top $ccc gc.hfill
@@ -135,7 +150,7 @@
 		blanco " EDIT SPRITE " print
 		'nombre print
 		verde " : " print
-		actual 5 << 'nombres + 31 getline
+		actual 5 << 'indexn + 31 getline
 
 		26 gc.botton $ccc gc.hfill
 		home cr2
@@ -143,8 +158,10 @@
 		rojo
 		sp 'exit dup >esc< "esc-Exit" btnt
 		sp verde
-		sp 'editando dup <f1> "f1-Edit" btnt
-		sp 'newspr dup <f2> "f2-New" btnt
+		sp 'editdib dup dup <enter> <f1> "f1-Edit" btnt
+		sp 'newdib dup <f2> "f2-New" btnt
+		[ actual 1+ actual! ; ] <ri>
+		[ actual 1- actual! ; ] <le>
 
 		32 26 gc.vbetween
 		tabladib
@@ -153,11 +170,8 @@
 |	'ante-dibu <f3>
 |	'post-dibu <f4>
 |	'borra-dibu <f5>
-	[ actual 1+ actual! ; ] <ri>
-	[ actual 1- actual! ; ] <le>
 |	'save-code <f6>
 |	'eligearchivo <esp>
-|	'editahoja <enter>
 
 		cmano ;
 
