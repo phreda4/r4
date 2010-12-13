@@ -4,6 +4,8 @@
 ^r4/lib/btn.txt
 ^r4/lib/parse.txt
 ^r4/lib/sprite.txt
+^r4/lib/bmr.txt
+
 ^r4/lib/trace.txt
 
 #nombre )( 256
@@ -28,11 +30,16 @@
 		rot c!+ swap )
 	drop 0 rot c!
 	;
+
 :cadadibujo | adr $23 -- adr'
 	drop c@+ $3a <>? ( drop ; ) drop | #:
 	cntvar 5 << 'indexn + cpynom
 	here cntvar 2 << 'index + !
-	( getnro 1? )( , ) ,
+
+	getnro dup , bmr.size
+	( 1? )( 1- swap getnro , swap )
+	drop
+
 	1 'cntvar +!
 	;
 
@@ -47,18 +54,20 @@
 
 |--- write
 :,codigo | adr --
+	@+ dup " $%h" ,print ,nl
+
 	0 swap
 	( @+ 1? )(
 		" $%h" ,print
-		swap 1+ 16 >? ( 0 nip ,cr ) swap
+		swap 1+ 16 >? ( 0 nip ,nl ) swap
 		) 3drop
-	" 0" ,s ,cr ;
+	" 0" ,s ,nl ;
 
 :writefile | "" --
 	mark
-	"| BMR file" ,s ,cr
+	"| BMR file" ,s ,nl
 	0 ( cntvar <? )(
-		'indexn over 5 << + "#:%s" ,print ,cr
+		'indexn over 5 << + "#:%s" ,print
 		dup 2 << 'index + @ ,codigo
 		1+ ) drop
 	savemem
@@ -73,7 +82,11 @@
 	'orden 40 "mem/inc-bmro.mem" save
 	mark
 	actual 2 << 'index + @
-	( @+ 1? )( , ) , drop
+
+	@+ dup , bmr.size
+	( 1? )( 1- swap @+ , swap )
+	2drop
+
 	"mem/notepad.bmr" savemem
 	empty
 	"r4/system/edit-bmr.txt" run
@@ -81,12 +94,12 @@
 
 :newdib
 	1 'orden !
-	actual 'nrobmr !
-|	actual 5 << 'indexn +
-	"new" 'nombmr strcpy
+	cntvar 'nrobmr !
+	actual "new%d" mprint 'nombmr strcpy
 	'orden 40 "mem/inc-bmro.mem" save
 	mark
-	0 ,
+	$10010 ,
+	256 ( 1? )( 0 , 1- ) drop
 	"mem/notepad.bmr" savemem
 	empty
 	"r4/system/edit-bmr.txt" run
@@ -112,7 +125,7 @@
 |------------------------------
 :actual! | nro
 	-? ( 0 nip )
-	cntvar >? ( cntvar nip )
+	cntvar >=? ( cntvar 1- nip )
 	'actual !
 	refreshfoco ;
 
@@ -121,8 +134,10 @@
 	[ 0.11 ; ] [ 0.09 ; ] guiInOutPre dup fdim
 	[ dup actual! ; ] guiBtn
 	actual =? ( blanco gc.box )
-|	dup 2 << 'index + @
-|	1? ( draw.bmr )( drop )
+	dup 2 << 'index + @
+	xc w 2/ - yc h 2/ - bmr.draw
+|	1? ( xc yc bmr.draw )( drop )
+
 	home verde
 	5 << 'indexn + printc
 	|1+ "%h" print
@@ -130,7 +145,8 @@
 	;
 
 :tabladib
-	0 0.7 ( -0.7 >=? )(
+	0
+	0.7 ( -0.7 >=? )(
 		-0.7 ( 0.7 <=? )(
 			2dup swap fpos
 			0.1 dup fdim
@@ -143,14 +159,13 @@
 :main
 	'nombre "mem/inc-bmr.mem" load drop
 	'nombre parsefile
-
 	insertamodificado
 	usogui
 	show clrscr
-|		32 gc.top $ccc gc.hfill
+		32 gc.top $ccc gc.hfill
 		home cr2
 		verde dup " :R%d" print
-		blanco " EDIT BITMAP " print
+		blanco " EDIT BMR " print
 		'nombre print
 		verde " : " print
 		actual 5 << 'indexn + 31 getline
@@ -166,6 +181,7 @@
 
 		[ actual 1+ actual! ; ] <ri>
 		[ actual 1- actual! ; ] <le>
+
 		32 26 gc.vbetween
 		tabladib
 

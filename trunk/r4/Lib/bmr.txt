@@ -1,0 +1,170 @@
+| bmr.txt (bitmap r)
+| PHREDA 2010
+|------------------------------
+| 000 tam pal
+|    0 paleta
+|      0000 tipo bitmap
+
+^r4/lib/trace.txt
+
+#wpx #hpx #palpx
+#paleta )( 1024
+
+#x1 #y1
+
+#xim #yim	| tamaño imagen
+#xa #ya		| lugar actual
+
+:axy!
+	2dup setxy
+	'ya ! 'xa ! ;
+
+:nextline
+	1 'ya +!
+	xc dup 'xa !
+	ya setxy ;
+
+:getcnt | cnt -- cntr
+	xa over + xim >=? ( nextline ; )
+	'xa ! ;
+
+:pal! | color --
+	drop ;
+
+:d00 | pixel
+	1 getcnt
+	$ffffff and px!+ ;
+:d01 | pixel + pal
+	1 getcnt
+	$ffffff and dup pal! px!+ ;
+:d02 | pal
+:d03 | cpy
+:d04 | delta cpy
+:d05 | degrade1
+:d06 | degrade2
+:d07 | degrade3
+	drop
+	;
+	| modos bitmap
+:d10 | 28 pixels
+	28 getcnt
+	( 1? )( 1-
+		swap dup 27 >>
+		$1 and 2 << 'paleta + @ px!+
+		2* swap ) 2drop
+	;
+:d11 | 14 pixels
+	14 getcnt
+	( 1? )( 1-
+		swap dup 26 >>
+		$3 and 2 << 'paleta + @ px!+
+		2* 2* swap ) 2drop
+	;
+:d12 | 9 pixels
+	9 getcnt
+	( 1? )( 1-
+		swap dup 25 >>
+		$4 and 2 << 'paleta + @ px!+
+		3 << swap ) 2drop
+	;
+:d13 | 7 pixels
+	7 getcnt
+	( 1? )( 1-
+		swap dup 24 >>
+		$f and 2 << 'paleta + @ px!+
+		4 << swap ) 2drop
+		;
+:d14 | 5 pixeles
+	5 getcnt
+	( 1? )( 1-
+		swap dup 23 >>
+		$1f and 2 << 'paleta + @ px!+
+		5 << swap ) 2drop
+	;
+
+:d15 | 4 pixeles
+	4 getcnt
+	( 1? )( 1-
+		swap dup 22 >>
+		$3f and 2 << 'paleta + @ px!+
+		6 << swap ) 2drop
+	;
+:d16 | 4 pixeles
+	4 getcnt
+	( 1? )( 1-
+		swap dup 21 >>
+		$7f and 2 << 'paleta + @ px!+
+		7 << swap ) 2drop
+	;
+:d17 | bajalinea
+	xa ya 1+ dup 'ya ! setxy
+	drop
+	;
+
+
+::bmrdrawtst | x y
+	sh >? ( 2drop ; )
+	-? ( 2drop ; ) | recorta
+	swap
+	sw >? ( 2drop ; )
+	-? ( 2drop ; ) | recorta
+	swap
+	axy! ;
+
+
+:t0 | 32 bit/pixel
+	>r
+	x1 y1 setxy
+	sw wpx - | columna
+	hpx ( 1? )(
+		wpx ( 1? )( r@+ px!+ 1- ) drop
+		over px+!
+		1- )
+	2drop rdrop ;
+
+:t1
+:t2
+:t3
+:t4
+:t5
+:t6
+:t7
+:t8
+:t9
+:tA
+:tB
+:tC
+:tD
+:tE
+:tF
+
+#tipobmr t0 t1 t2 t3 t4 t5 t6 t7 t8 t9 tA tB tC tD tE tF
+
+:tienepal | adr v --
+	1 over 5 >> $3 and << 1- 2 <<
+	rot	dup 'palpx ! + swap
+	;
+
+::bmr.draw | adr x y --
+	'y1 ! 'x1 !
+	@+
+	dup 12 >> $fff and 'wpx !
+	dup $fff and 'hpx !
+	24 >>
+	$10 and? ( tienepal )( 'paleta 'palpx ! )
+	$f and 2 << 'tipobmr + @ exec
+	;
+
+::bmr.size | val -- size(dwords)
+	dup 12 >> $fff and swap
+	dup $fff and swap
+	24 >>
+	$10 nand? ( drop * ; ) | falta
+	1 swap 5 >> $3 and << 1- 2 <<
+	rot rot * +
+	;
+
+::save.bmr | "" --
+	;
+::load.bmr | "" --
+	;
