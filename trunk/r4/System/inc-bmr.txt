@@ -9,11 +9,12 @@
 #nombre )( 256
 
 #orden 0
-#nrospr 0
-#nomspr )( 32
+#nrobmr 0
+#nombmr )( 32
 
+#actual
 #cntvar
-#nombres )( 3200 | 100 nombres de 32
+#indexn )( 3200 | 100 nombres de 32
 #index )( 400
 
 |--- parse
@@ -29,7 +30,7 @@
 	;
 :cadadibujo | adr $23 -- adr'
 	drop c@+ $3a <>? ( drop ; ) drop | #:
-	cntvar 5 << 'nombres + cpynom
+	cntvar 5 << 'indexn + cpynom
 	here cntvar 2 << 'index + !
 	( getnro 1? )( , ) ,
 	1 'cntvar +!
@@ -57,7 +58,7 @@
 	mark
 	"| BMR file" ,s ,cr
 	0 ( cntvar <? )(
-		'nombre over 5 << + "#:%s" ,print ,cr
+		'indexn over 5 << + "#:%s" ,print ,cr
 		dup 2 << 'index + @ ,codigo
 		1+ ) drop
 	savemem
@@ -65,33 +66,50 @@
 
 
 |--------------------------------------------------
-#actual
-
-:editando
+:editdib
 	1 'orden !
-	actual 'nrospr !
-	actual 5 << 'nombres + 'nomspr cpynom
+	actual 'nrobmr !
+	actual 5 << 'indexn + 'nombmr strcpy
 	'orden 40 "mem/inc-bmro.mem" save
 	mark
 	actual 2 << 'index + @
 	( @+ 1? )( , ) , drop
-	"mem/clipbmr.mem" savemem
+	"mem/notepad.bmr" savemem
 	empty
 	"r4/system/edit-bmr.txt" run
 	;
 
-:newspr
-	2 'orden !
-	actual 'nrospr !
-	actual 5 << 'nombres + 'nomspr cpynom
+:newdib
+	1 'orden !
+	actual 'nrobmr !
+|	actual 5 << 'indexn +
+	"new" 'nombmr strcpy
 	'orden 40 "mem/inc-bmro.mem" save
 	mark
 	0 ,
-	"mem/clipbmr.mem" savemem
+	"mem/notepad.bmr" savemem
 	empty
 	"r4/system/edit-bmr.txt" run
 	;
 
+|----------------------------
+:insertamodificado
+	'orden "mem/inc-bmro.mem" load drop
+	orden 1- 1? ( drop ; ) drop
+
+	here
+	dup nrobmr 2 << 'index + !
+	"mem/notepad.bmr" load 0 swap !+ 'here !
+	'nombmr nrobmr 5 << 'indexn + strcpy
+
+	nrobmr cntvar =? ( 1 'cntvar +! ) 'actual !
+|	'nombre writefile
+
+	0 'orden !
+	'orden 4 "mem/inc-bmro.mem" save
+	;
+
+|------------------------------
 :actual! | nro
 	-? ( 0 nip )
 	cntvar >? ( cntvar nip )
@@ -99,15 +117,14 @@
 	refreshfoco ;
 
 :cadadib | n n -- n n
-	[ 0.11 ; ] [ 0.09 ; ] guiInOutPre dup fdim
 	pick2 cntvar >=? ( drop ; )
+	[ 0.11 ; ] [ 0.09 ; ] guiInOutPre dup fdim
 	[ dup actual! ; ] guiBtn
 	actual =? ( blanco gc.box )
-	dup 2 << 'index + @ 
-|	1? ( nsprite )( drop )
-| 	draw.bmr
+|	dup 2 << 'index + @
+|	1? ( draw.bmr )( drop )
 	home verde
-	5 << 'nombres + printc
+	5 << 'indexn + printc
 	|1+ "%h" print
 	rot 1+ rot rot
 	;
@@ -127,8 +144,7 @@
 	'nombre "mem/inc-bmr.mem" load drop
 	'nombre parsefile
 
-	'orden "mem/inc-bmro.mem" load drop
-
+	insertamodificado
 	usogui
 	show clrscr
 |		32 gc.top $ccc gc.hfill
@@ -137,7 +153,7 @@
 		blanco " EDIT BITMAP " print
 		'nombre print
 		verde " : " print
-		actual 5 << 'nombres + 31 getline
+		actual 5 << 'indexn + 31 getline
 
 		26 gc.botton $ccc gc.hfill
 		home cr2
@@ -145,9 +161,11 @@
 		rojo
 		sp 'exit dup >esc< "esc-Exit" btnt
 		sp verde
-		sp 'editando dup <f1> "f1-Edit" btnt
-		sp 'newspr dup <f2> "f2-New" btnt
+		sp 'editdib dup <f1> "f1-Edit" btnt
+		sp 'newdib dup <f2> "f2-New" btnt
 
+		[ actual 1+ actual! ; ] <ri>
+		[ actual 1- actual! ; ] <le>
 		32 26 gc.vbetween
 		tabladib
 
@@ -155,8 +173,6 @@
 |	'ante-dibu <f3>
 |	'post-dibu <f4>
 |	'borra-dibu <f5>
-	[ actual 1+ actual! ; ] <ri>
-	[ actual 1- actual! ; ] <le>
 |	'save-code <f6>
 |	'eligearchivo <esp>
 |	'editahoja <enter>
