@@ -17,6 +17,7 @@
 | $1c $1d $1e $1f circulos (mm)
 |--------------
 ^r4/lib/polygr.txt
+^r4/lib/trace.txt
 
 #xa #ya
 #desde #hasta
@@ -78,6 +79,7 @@
 |------- vacios por ahora
 :s6	:s7	:s8	:s9
 :sa	:sb	:sc
+	trace
 	drop ;
 |------- de aca dibujo/crea
 :sd | color
@@ -127,13 +129,10 @@ s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 #cini #cfin
 #ct
 
-:dibujoclear
-	0 dibujo dup 'dibujo> ! ! ;
-
 :rframecopy | mem -- cini
 	dibujo> swap
 	( @+ dup $1f and $a >? )( drop rot !+ swap ) 2drop
-	4 - swap 'dibujo> ! ;
+	4 - swap 0 over ! 'dibujo> ! ;
 
 :lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
 	over - ct 16 *>> + ;
@@ -150,9 +149,9 @@ s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 	rot 8 >> rot 8 >> lerp
 	8 << or ;
 
-:nextframe | 'rvar 'timenow --
+:nextframe | 'rvar 'timenow -- 'rvar
 	30 swap ! |	100 'timenow !
-	cfin dup @ 0? ( 2drop dibujoclear dup 4+ @ )( drop )
+	cfin dup @ 0? ( 2drop dibujo 'dibujo> ! dup 4+ @ )( drop )
 	rframecopy
 :rframeini | adr --
 	dup 'cini !
@@ -167,14 +166,10 @@ s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 	;
 
 
-:rframestep | 'rvar --
+:rframestep | 'rvar -- 'rvar
 	dup 12 + dup @ 0? ( drop nextframe ; )
 	1- 1.0 over 30 */ 'ct !
 	swap !
-
-|	timenow 0? ( drop nextframe ; )
-|	1- dup 'timenow !
-|	1.0 swap 100 */ 'ct !
 
 	dibujo> 4+ >r
 	cini
@@ -193,8 +188,8 @@ s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 	here dup dup 'dibujo ! pick2 8 + !
 	over 4+ @ dup ( @+ 1? )( drop ) drop
 	swap - 'here +!
-	0 over ! dup 'dibujo> !			|	dibujo.clear
-	over 4+ @ rframecopy rframeini	|	rmation rframecopy rframeini
+	dup 'dibujo> !					|	dibujo.clear
+	over 4+ @ rframecopy rframeini
 	0 pick2 12 + !					|	0 'timenow !
  	;
 
@@ -206,8 +201,8 @@ s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 | 'rauto rplay | animacion anda sola
 |----------------
 ::rplay | 'rvar --
-	dup 8 + @ 0? ( asignamemoria ) 'dibujo !
-	dibujo rsdraw
+	dup 8 + @ 0? ( asignamemoria )( dup 'dibujo ! )
+	rsdraw
 	rframestep
 	drop
 	;
