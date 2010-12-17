@@ -126,7 +126,7 @@ s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 |-----------------
 #dibujo
 #dibujo>
-#cini #cfin
+|#cini #cfin
 #ct
 
 :rframecopy | mem -- cini
@@ -151,28 +151,28 @@ s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 
 :nextframe | 'rvar 'timenow -- 'rvar
 	30 swap ! |	100 'timenow !
-	cfin dup @ 0? ( 2drop dibujo 'dibujo> ! dup 4+ @ )( drop )
+	dup 20 + @ | cfin
+	dup @ 0? ( 2drop dibujo 'dibujo> ! dup 4+ @ )( drop )
 	rframecopy
-:rframeini | adr --
-	dup 'cini !
+:rframeini | 'rvar adr -- 'rvar
+	dup
+	pick2 16 + ! |'cini !
 	dibujo> 4+ >r
 	( @+ $1f and? )(
 		dup 8 >> $fff and 2 << dibujo + | fin
 		swap 12 8 + >> $fff and 2 << dibujo + | ini
 		( over <? )( @+ r!+ ) 2drop
 		) drop
-	'cfin !
+	over 20 + ! |'cfin !
 	rdrop
 	;
-
 
 :rframestep | 'rvar -- 'rvar
 	dup 12 + dup @ 0? ( drop nextframe ; )
 	1- 1.0 over 30 */ 'ct !
 	swap !
-
 	dibujo> 4+ >r
-	cini
+	dup 16 + @ | cini
 	( @+ $1f and? )( swap
 		over 8 >> $fff and 2 << dibujo +
 		rot 12 8 + >> $fff and 2 << dibujo +
@@ -187,22 +187,34 @@ s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 	drop
 	here dup dup 'dibujo ! pick2 8 + !
 	over 4+ @ dup ( @+ 1? )( drop ) drop
-	swap - 'here +!
+	swap - 2* 'here +!
 	dup 'dibujo> !					|	dibujo.clear
-	over 4+ @ rframecopy rframeini
-	0 pick2 12 + !					|	0 'timenow !
+	>r
+	dup 4+ @ rframecopy rframeini
+	0 over 12 + !					|	0 'timenow !
+	r>
  	;
 
 |----------------
-| #rauto 1.0 'rmation 0 0 | escala-tiempo animacion memoria arg
+| #rauto 1.0 'rmation 0 0 0 0
+| escala-tiempo animacion+4 memoria+8 timenow+12 cini+16 cfin+20 memoria>+24
 |
 | 0 0 0 mtransi
 | 0 mrotzi
 | 'rauto rplay | animacion anda sola
+
+| 'rauto rstep | paso de animacion sin dibujo
 |----------------
 ::rplay | 'rvar --
-	dup 8 + @ 0? ( asignamemoria )( dup 'dibujo ! )
+	dup 8 + @ 0? ( asignamemoria )( dup 'dibujo ! over 24 + @ 'dibujo> ! )
 	rsdraw
 	rframestep
+	dibujo> swap 24 + !
+	;
+
+::rstep | 'rvar --
+	dup 8 + @ 0? ( asignamemoria )( dup 'dibujo ! over 24 + @ 'dibujo> ! )
 	drop
+	rframestep
+	dibujo> swap 24 + !
 	;
