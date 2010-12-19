@@ -1,12 +1,11 @@
 #include <ma.h>
-
-#include <MAHeaders.h>
 #include <maapi.h>
-#include <MAFS/File.h>
-
 #include <matime.h>
 #include <mavsprintf.h>
 #include <mastring.h>
+#include <MAFS/File.h>
+#include "MAHeaders.h"
+
 #include "graf.h"
 
 #define BYTE unsigned char
@@ -167,7 +166,7 @@ BYTE *RSP[2048];// 2k pila de direcciones
 BYTE ultimapalabra[]={ SISEND };
 //--- Memoria
 BYTE prog[1024*256];// 256k de programa
-BYTE data[1024*1024*512];// 512 MB de datos
+BYTE data[1024*1024*1];// 1 MB de datos
 
 void mimemset(char *p,char v,int c)
 {
@@ -245,9 +244,9 @@ FindClose(hFind);
 */
 }
 
-#ifdef __GNUC__
-#define iclz32(x) __builtin_clz(x)
-#else
+//#ifdef __GNUC__
+//#define iclz32(x) __builtin_clz(x)
+//#else
 static inline int popcnt(int x)
 {
     x -= ((x >> 1) & 0x55555555);
@@ -266,7 +265,7 @@ static inline int iclz32(int x)
     x |= (x >> 16);
     return 32 - popcnt(x);
 }
-#endif
+//#endif
 
 // http://www.devmaster.net/articles/fixed-point-optimizations/
 static inline int isqrt32(int value)
@@ -1159,10 +1158,6 @@ h=EXTENT_Y(scrSize);
 	pilaexecl++;
 
 reboot: rebotea=0;
-	if (*aa==0) {
-	    file=fopen("r4.ini","rb");// cargar r4.ini
-	    if (file!=NULL) { fread(setings,sizeof(char),1024,file);fclose(file);aa=setings; }
-	    }
 	noborde=0;
 	while (*aa!=0) {
 	      if ('i'==*aa) { compilastr=aa+1; }
