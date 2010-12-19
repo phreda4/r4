@@ -12,7 +12,7 @@
 //#include <string.h>
 #include "graf.h"
 
- #include <MAUtil/FrameBuffer.h>
+#include <MAUtil/FrameBuffer.h>
 
 //---- buffer de video
 DWORD *gr_buffer; //[1280*1024] = { 0 };
@@ -86,15 +86,10 @@ int gr_init(int XRES,int YRES)
 MAFrameBufferInfo info;
 maFrameBufferGetInfo(&info);
 
-//MAExtent scrSize = maGetScrSize();
-//int width  = EXTENT_X(scrSize);
-//int height = EXTENT_Y(scrSize);
-//fbi->bytesPerPixel;
-
 gr_sizescreen=XRES*YRES;// tamanio en DWORD
 
 gr_buffer=new DWORD[info.sizeInBytes>>2];
-XFB=new DWORD[info.sizeInBytes>>2];
+//XFB=new DWORD[info.sizeInBytes/2];
 
 maFrameBufferInit(gr_buffer);
 
