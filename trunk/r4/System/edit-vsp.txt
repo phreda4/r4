@@ -6,43 +6,23 @@
 ^r4/lib/fontt.txt
 ^r4/lib/fontj.txt
 ^r4/lib/trazo.txt
-^r4/lib/rsprite.txt
+^r4/lib/vsprite.txt
 ^r4/lib/trace.txt
 
-|---- memoria de la animacion
-#rmation
-#rmation>
-
-|---- memoria aux para editar
-#actframe 0
-#cntframes 0
-| 'rmation size
-#frames )( 8192
-
-:savermt | "" --
-	rmation rmation> over - rot save ;
-
-:loadrmt | "" --
-	rmation swap load 'rmation> ! ;
 
 #orden 0
 #nrormt 0
 #nomrmt )( 32
 
 |---- cuadro actual
-#cambio )( $ffff
 #dibujo )( $ffff
 #dibujo> 'dibujo
-#dibujo< 'dibujo
 
 #seleccion )( $ffff
 #seleccion> 'seleccion
 
 #polys )( $fff
 #polys>
-
-#cambio>
-#inipnt #finpnt
 
 #x1 #y1 #x2 #y2
 
@@ -55,6 +35,12 @@
 #xa #ya
 #xv #yv
 #xf #yf
+
+:savevsp | "" --
+	'dibujo dibujo> over - rot save ;
+
+:loadvsp | "" --
+	'dibujo swap load 'dibujo> ! ;
 
 |--- modos
 #modo 0
@@ -69,55 +55,13 @@
 	polys> !+ 'polys> ! ;
 
 |---- dibujo
-:dibujo.changes | -- cntdwords
-	dibujo< 'dibujo - 'cambio + 0 over ! 'cambio> !
-	0 'cambio
-	( cambio> <? )( @+ 1? ( drop swap 1+ swap )( drop )
-		) drop
-	2* 	| resta 1 por cada lista de puntos consecutivas **
-	'cambio ( cambio> <? )( @+
-		1? ( drop dup @ 1? ( drop swap 1- swap )( drop ) )( drop )
-		)
-	drop
-	;
-
-:dibujo.size | -- cntdwords
-	dibujo> dibujo< - 2 >>	| trazos nuevo
-	dibujo.changes + 		| modificados y borrados
-	1+ 						| la marca de tiempo..
-	;
-
-:cambio.clear
-	'cambio 'dibujo
-	( dibujo< <=? )( 4+ 0 rot !+ swap )
-	2drop
-	;
-
 :dibujo.clear
-	'dibujo 0 over ! dup 'dibujo> ! 'dibujo< !
-	;
+	'dibujo 0 over ! 'dibujo> ! ;
 
 :resetedit
 	0 dup 'puntocursor ! 'polycursor !
 	coloractual 1- 'colorultimo !
 	;
-
-|--- rearma indice
-:reindex
-	0 'cntframes !
-	'frames >r
-	rmation dup
-	( rmation> <? )(
-		@+ $1f and | rm ac v
-		0? ( drop
-			over r!+
-			dup rot - 2 >>
-			r!+
-			1 'cntframes +!
-			dup dup )
-		drop )
-	0 swap !
-	drop rdrop ;
 
 |--- rearma polys
 :repoly
@@ -131,194 +75,6 @@
 		drop ) drop
 	r> 'polys> !
 	resetedit
-	;
-
-|------------------
-| copia el dibujo estatico
-:rframecopy | mem -- cini
-	( @+ dup $1f and $a >? )( drop ,dib ) 2drop
-	4 - ;
-
-| copia la modificacion
-:setchangemodi | cini --
-    cambio.clear
-	( @+ $1f and? )(
-		dup 8 >> $fff and 2 << 'dibujo +
-		swap 12 8 + >> $fff and 2 << 'dibujo +
-		( over <? )(
-			1 over 'dibujo - 'cambio + !
-			rot @+ rot !+ rot swap ) 2drop
-		) 2drop ;
-
-:setchange | cini ---
-	( @+ $1f and? )(
-		dup 8 >> $fff and 2 << 'dibujo +
-		swap 12 8 + >> $fff and 2 << 'dibujo +
-		( over <? )( rot @+ rot !+ rot swap ) 2drop
-		) 2drop
-	dibujo> 'dibujo< !
-	;
-
-|-----------------
-#timenow
-#cini #cfin
-#ct
-
-:rframeini | adr --
-	dup 'cini !
-	dibujo> 4+ >r
-	( @+ $1f and? )(
-		dup 8 >> $fff and 2 << 'dibujo + | fin
-		swap 12 8 + >> $fff and 2 << 'dibujo + | ini
-		( over <? )( @+ r!+ ) 2drop
-		) drop
-	'cfin !
-	rdrop
-	;
-
-:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
-	over - ct 16 *>> + ;
-
-:minter | v1 v2 -- vr
-	over $1f and >r
-	over 23 >> over 23 >> lerp 23 <<
-	pick2 9 << 23 >> pick2 9 << 23 >> lerp $1ff and 14 << or
-	rot 18 << 23 >> rot 18 << 23 >> lerp $1ff and 5 << or
-	r> or ;
-
-:nextframe
-	30 'timenow !
-	cfin dup @ 0? ( 2drop dibujo.clear rmation )( drop )
-	rframecopy rframeini ;
-
-:rframestep | --
-	timenow 0? ( drop nextframe ; )
-	1- dup 'timenow !
-	1.0 swap 30 */ 'ct !
-|	avanza ;
-|:avanza
-	dibujo> 4+ >r
-	cini
-	( @+ $1f and? )( swap
-		over 8 >> $fff and 2 << 'dibujo +
-		rot 12 8 + >> $fff and 2 << 'dibujo +
-		( over <? )(
-			rot @+ r@+ minter rot !+
-			rot swap ) 2drop
-		) 2drop
-	rdrop
-	;
-
-|---- ANIMACION
-:,rm | val --
-	rmation> !+ 'rmation> ! ;
-
-#rmation<
-:,rmi | val --
-	rmation< !+ 'rmation< ! ;
-
-|----
-:setframe | size rm nro --
-	3 << 'frames + !+ ! ;
-
-:getframesize | nro -- size
-	3 << 'frames + 4+ @ ;
-
-:getframels | nro -- lugar size
-	3 << 'frames + @+ swap @ ;
-
-:getframe | nro -- cini
-	3 << 'frames + @ rframecopy ;
-
-|--- modificados
-
-:cadanewm | dir+4 1 -- dir+4 x
-	drop
-	dup 4 - 'cambio - 'inipnt !
-	( @+ 1? )( drop ) drop
-	dup 4 - 'cambio - 'finpnt !
-	inipnt 2 >> 12 8 + << finpnt 2 >> 8 << or 1 or ,rm
-	inipnt ( finpnt <? )(
-		dup 'dibujo + @ ,rm
-		4+ ) ;
-
-:newmodi
-	'cambio ( cambio> <? )(
-		@+ 1? ( cadanewm ) drop
-		) drop ;
-
-:cadacpym | dir+4 1 -- dir+4 x
-	drop
-	dup 4 - 'cambio - 'inipnt !
-	( @+ 1? )( drop ) drop
-	dup 4 - 'cambio - 'finpnt !
-	inipnt 2 >> 12 8 + << finpnt 2 >> 8 << or 1 or ,rmi
-	inipnt ( finpnt <? )(
-		dup 'dibujo + @ ,rmi
-		4+ ) ;
-
-:cpymodi
-	'cambio ( cambio> <? )(
-		@+ 1? ( cadacpym ) drop
-		) drop ;
-
-|--- dibujo > animacion
-:newframe | fa --
-	dibujo.size rmation> pick2 setframe
-	1+ 'cntframes !
-	dibujo< ( dibujo> <? )( @+ ,rm ) drop	| copio los nuevos
-
-	newmodi	| copio los modificados
-
-	100 5 << ,rm | marca de frame
-	reindex
-	;
-
-:agrandalugar | antsize actsize --
-	2dup
-	2 << rmation< +
-	swap 2 << rmation< + | actual anterior
-	rmation> over - 2 >>
-	move>
-	swap - 2 << 'rmation> +!
-	;
-
-:ajustalugar | antsize actsize -- ; 'rmation< actul inico
-	over =? ( 2drop ; )
-	over >? ( agrandalugar ; )  | menor el anterior
-	| mayor el anterio
-	| buscar nodos perdidos ;ds sr cn
-	2 << rmation< +
-	swap 2 << rmation< +
-	rmation> over - 2 >>
-	move ;
-
-:setdibujo
-	actframe cntframes =? ( newframe ; )
-	getframels dibujo.size rot 'rmation< !
-	ajustalugar
-	dibujo< ( dibujo> <? )( @+ ,rmi ) drop	| copio los nuevos
-
-	cpymodi 	| copio los modificados
-
-	100 5 << ,rmi | marca de frame
-	reindex ;
-
-|-- animacion > dibujo
-:getdibujo
-	actframe cntframes =? ( drop ; )
-	| retrocede y rearma dibujo
-	| ** buscar primer cuadro 5!
-	dibujo.clear
-	0 ( over <? )( dup getframe setchange 1+ )
-	getframe setchangemodi | el ultimo no ajusta dibujo<
-	drop
-	repoly
-	;
-
-:getsubdibujo	| no limpia el trazo actual
-	dibujo> 'dibujo< !
-	cambio.clear
 	;
 
 |------ GC para dibujo
@@ -346,7 +102,7 @@
 	loadbox
 	omode
 	xcam ycam zcam mtrans
-	'dibujo rsdraw
+	'dibujo vsp.draw
 	blanco gc.box | recuadro
 	;
 
@@ -403,11 +159,6 @@
 	drop
 	;
 
-:marcapunto | punto --
-	dibujo> >=? ( drop ; ) | si es nuevo no marca
-    'dibujo - 'cambio +
-	dup @ 1 or swap !
-	;
 
 |----- seleccion
 :limite | xy --
@@ -464,7 +215,6 @@
 		@+ dup @ 3d>xyv
 		ya + swap xa + swap
 		xyv>3d over !
-        'dibujo - 'cambio + 1 swap ! | marca cambio
 		) drop
 	;
 
@@ -487,13 +237,6 @@
 :cloneseleccion
 	;
 
-:marcasel
-	'seleccion
-	( seleccion> <? )(
-		@+ marcapunto
-		) drop
-
-	;
 |---- draw
 :puntosedita
 	'dibujo
@@ -537,40 +280,14 @@
 	or
 	over @ $1f and or
 	over !
-    'dibujo - 'cambio + 1 swap ! | marca cambio
 	;
 
 :onUPedit
 	puntosel 1? ( drop 0 'puntosel ! ; ) drop
-	puntocursor 1? ( marcapunto ; ) drop
+|	puntocursor 1? ( marcapunto ; ) drop
 	selecionelije
 	;
 
-
-|-- moverse por la animacion
-:primt
-	setdibujo
-	0 'actframe !
-	getdibujo ;
-
-:ultit
-	setdibujo
-	cntframes 1? ( 1- ) 'actframe !
-	getdibujo ;
-
-:nextt
-	actframe
-	cntframes >? ( drop ; )
-	setdibujo
-	1+ 'actframe !
-	actframe cntframes =? ( drop getsubdibujo ; ) drop
-	getdibujo ;
-
-:prevt
-	actframe 0? ( drop ; )
-	setdibujo
-	1- 'actframe !
-	getdibujo ;
 
 
 |------------------------------
@@ -674,28 +391,16 @@
 :modoactual
 	modo 2 << 'modos + @ exec ;
 
-:resetdib
-	0 'actframe !
-	rmation 'rmation> !
-	reindex getdibujo
 :dibcls
 	dibujo.clear
 	0 'modo !
 	;
 
 :debug
-|	blanco cr
-|	'cambio 'dibujo ( dibujo> <? )( dibujo< =? ( "* " print )
-|		swap @+ 1? ( verde )( blanco ) drop swap
-|		@+ "%h " allowcr print ) 2drop cr
+	blanco cr
+	'dibujo ( dibujo> <? )(
+		@+ "%h " allowcr print ) drop cr
 	amarillo
-	rmation ( rmation> <=? )(
-		cini =? ( verde ) cfin =? ( rojo )
-		@+
-|		$1f nand? ( verde )( rojo )
-
-		"%h " allowcr print ) drop cr
-	rmation rmation> over - cr "%h %h " print
 
 |	0 ( cntframes <? )( dup 3 << 'frames + @ "%h " print 1+ ) drop cr
 |	coloractual "%h" print
@@ -708,21 +413,7 @@
 	;
 
 
-|----------- PLAY ---------------
-:play2 | --
-	usogui
-	dibujo.clear
-	rmation rframecopy rframeini
-	0 'timenow !
-	show clrscr verde fontj
-		timenow "%d" print
-|		debug
-        drawdibujo
-		rframestep
-		'exit >esc<
-		;
-
-:rmation.edit
+:vsprite.edit
 	genvista
 	10 sh 230 - dlgColat!
 	usogui fonti |font-vard-12-bold
@@ -731,21 +422,12 @@
 		modoactual
 		cr cr
 		violeta oscuro
-		'primt dup <pgup> "|<" sp btnt
-		'prevt dup <le> "<" sp btnt
-		blanco actframe " %d" print
-		violeta oscuro
-		'nextt dup <ri> ">" sp btnt
-		'ultit dup <pgdn> ">|" sp btnt
-		sp verde
-		[ setdibujo play2 getdibujo ; ] dup <f3> cntframes "|%d>" sp btnt
 		sp rojo oscuro
-		[ setdibujo exit ; ] dup >esc< "EXIT" sp btnt
-		'resetdib "RESET" sp btnt
+		'exit dup >esc< "EXIT" sp btnt
 		'dibcls "CLS" sp btnt
 		verde dup " -%d-" print cr cr
 
-|		debug
+		debug
 
 		0 rows 2 - gotoxy
 		coloractual ink
@@ -760,10 +442,8 @@
 		cminiflecha ;
 
 
-:rmation.mem
+:vsprite.mem
 	mark
-	here dup 'rmation ! 'rmation> !
-	0 dup 'actframe ! 'cntframes !
 	2 linegr!
 	0 'modo !
 	dibujo.clear
@@ -772,9 +452,8 @@
 
 |**********************************
 : 	33 0 paper
-	rmation.mem
-	"mem/notepad.rmt" loadrmt
-	reindex getdibujo
-	rmation.edit
-	"mem/notepad.rmt" savermt
+	vsprite.mem
+	"mem/notepad.vsp" loadvsp
+	vsprite.edit
+	"mem/notepad.vsp" savevsp
 	;
