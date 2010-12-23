@@ -283,6 +283,32 @@ return g;
 }
 
 MAEvent e;
+int getmem4(char *l)
+{
+return (*l)&0xff|
+		((*(l+1))&0xff)<<8|
+		((*(l+2))&0xff)<<16|
+		((*(l+3))&0xff)<<24;
+}
+
+inline int getmem2(char *l)
+{
+return (*l&0xff)|(*(l+1)&0xff)<<8;
+}
+
+inline void setmem4(char *m,int v)
+{
+*(m)=v&0xff;
+*(m+1)=(v>>8)&0xff;
+*(m+2)=(v>>16)&0xff;
+*(m+3)=(v>>24)&0xff;
+}
+
+inline void setmem2(char *m,int v)
+{
+*(m)=v&0xff;
+*(m+1)=(v>>8)&0xff;
+}
 
 //---------------------------------------------------------------
 int interprete(BYTE *codigo)// 1=recompilar con nombre en linea
@@ -303,10 +329,11 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     W=(BYTE)*IP++;
 	switch (W) {// obtener codigo de ejecucion
 	case FIN: IP=*R;R--;continue;
-    case LIT: NOS++;*NOS=TOS;TOS=*(DWORD*)IP;IP+=sizeof(int);continue;
-    case ADR: NOS++;*NOS=TOS;W=*(DWORD*)IP;IP+=sizeof(int);TOS=*(DWORD*)W;continue;
-    case CALL: W=*(DWORD*)IP;IP+=sizeof(int);R++;*R=IP;IP=(BYTE*)W;continue;
-	case JMP: W=*(int*)IP;IP=(BYTE*)W;continue;
+    case LIT: NOS++;*NOS=TOS;TOS=getmem4((char*)IP);IP+=sizeof(int);continue;
+    case ADR: NOS++;*NOS=TOS;W=getmem4((char*)IP);
+    		IP+=sizeof(int);TOS=getmem4((char*)W);continue;
+    case CALL: W=getmem4((char*)IP);IP+=sizeof(int);R++;*R=IP;IP=(BYTE*)W;continue;
+	case JMP: W=getmem4((char*)IP);IP=(BYTE*)W;continue;
     case JMPR: W=*(char*)IP;W++;IP+=W;continue;
 //-hasta aca solo lo escribe el compilador
 //--- condicionales
@@ -388,9 +415,9 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 	case FECH: TOS=*(int *)TOS;continue;
     case CFECH: TOS=*(char*)TOS;continue;
     case WFECH: TOS=*(short *)TOS;continue;
-	case STOR: *(int *)TOS=(int)*NOS;NOS--;TOS=*NOS;NOS--;continue;
+	case STOR: setmem4((char*)TOS,(int)*NOS);NOS--;TOS=*NOS;NOS--;continue;
     case CSTOR: *(char*)TOS=(char)*NOS;NOS--;TOS=*NOS;NOS--;continue;
-    case WSTOR: *(short *)TOS=(short)*NOS;NOS--;TOS=*NOS;NOS--;continue;
+    case WSTOR: setmem2(char*)TOS,(short)*NOS);NOS--;TOS=*NOS;NOS--;continue;
 	case INCSTOR: *((int *)TOS)+=(int)*NOS;NOS--;TOS=*NOS;NOS--;continue;
     case CINCSTOR: *((char*)TOS)+=(char)*NOS;NOS--;TOS=*NOS;NOS--;continue;
     case WINCSTOR: *((short *)TOS)+=(short)*NOS;NOS--;TOS=*NOS;NOS--;continue;
@@ -421,7 +448,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 	        rebotea=2;// no reinicia
     	    return 0;
         }
-		break;
+		continue;
 ///////////////////////////////////////////////////////////////////////
 /*
 LRESULT CALLBACK WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
@@ -778,11 +805,11 @@ void adato(const char *p)
 { strcpy((char*)&data[cntdato],p);cntdato+=strlen(p)+1; }
 
 void adatonro(int n,int u)
-{ BYTE *p=&data[cntdato];
+{ char *p=(char*)&data[cntdato];
 switch(u) {
-  case 1:*(char *)p=(char)n;break;// char
-  case 2:*(short *)p=(short)n;break;// short
-  case 4:*(int  *)p=(int)n;break;// int
+  case 1:*p=n;break;// char
+  case 2:setmem2(p,n);break;// short
+  case 4:setmem4(p,n);break;// int
   };
 cntdato+=u;  }
 
@@ -799,7 +826,7 @@ void aprognro(int n) // graba nro como literal
 if (n>=0 && n<255-ULTIMAPRIMITIVA) {
   *p=ULTIMAPRIMITIVA+n;cntprog++;
 } else {
-  *p=LIT;p++;*(int *)p=(int)n;
+  *p=LIT;p++;setmem4((char *)p,(int)n);
   cntprog+=5; } }
 
 void aprog(int n) // grabo primitiva
@@ -808,13 +835,13 @@ if (n==CALL) lastcall=p; else lastcall=NULL;
 cntprog++; }
 
 void aprogint(int n)
-{ BYTE *p=&prog[cntprog];*(DWORD*)p=(DWORD)&prog[n];cntprog+=4; }
+{ BYTE *p=&prog[cntprog];setmem4((char*)p,(int)&prog[n]);cntprog+=4; }
 
 void aprogaddr(int n) // grabo direccion
-{ BYTE *p=&prog[cntprog];*(DWORD*)p=(DWORD)indice[n].codigo;cntprog+=4; }
+{ BYTE *p=&prog[cntprog];setmem4((char*)p,(int)indice[n].codigo);cntprog+=4; }
 
 void aprogaddrex(int n) // grabo direccion exportada
-{ BYTE *p=&prog[cntprog];*(DWORD*)p=(DWORD)indiceex[n].codigo;cntprog+=4; }
+{ BYTE *p=&prog[cntprog];setmem4((char*)p,(int)indiceex[n].codigo);cntprog+=4; }
 
 //---- definicion
 void define(char *p)
