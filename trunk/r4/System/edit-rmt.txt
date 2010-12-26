@@ -60,6 +60,76 @@
 #modo 0
 #mododibu $10 | $10 $14 $18 $1c
 
+#timenow
+#cini #cfin
+#ct
+
+:debug
+|	blanco cr
+|	'cambio 'dibujo ( dibujo> <? )( dibujo< =? ( "* " print )
+|		swap @+ 1? ( verde )( blanco ) drop swap
+|		@+ "%h " allowcr print ) 2drop cr
+	amarillo
+	rmation ( rmation> <=? )(
+		cini =? ( verde ) cfin =? ( rojo )
+		@+
+|		$1f nand? ( verde )( rojo )
+
+		"%h " allowcr print ) drop cr
+	rmation rmation> over - cr "%h %h " print
+
+|	0 ( cntframes <? )( dup 3 << 'frames + @ "%h " print 1+ ) drop cr
+|	coloractual "%h" print
+|	rojo
+|	0 ( cntframes <? )(
+|		dup "%d : " print
+|		dup 3 << 'frames + @+ swap @ | adr cnt
+|		( 1? )( swap @+ "%h " allowcr print swap 1- ) 2drop cr
+|		1+ ) drop cr
+	;
+
+
+:dibujo.clear
+	'dibujo 0 over ! dup 'dibujo> ! 'dibujo< !
+	;
+
+:resetedit
+	0 dup 'puntocursor ! 'polycursor !
+	dlg.color@ 1- 'colorultimo !
+	;
+
+|--- rearma indice
+:reindex
+	0 'cntframes !
+	'frames >r
+	rmation dup
+	( rmation> <? )(
+		@+ $1f and | rm ac v
+		0? ( drop
+			over r!+
+			dup rot - 2 >>
+			r!+
+			1 'cntframes +!
+			dup dup )
+		drop )
+	0 swap !
+	drop rdrop ;
+
+
+|--- rearma polys
+:repoly
+	'polys >r
+	'dibujo ( dibujo> <? )(
+		@+ $1f and
+		$10 =? ( over 4 - r!+ )
+		$14 =? ( over 4 - r!+ )
+		$18 =? ( over 4 - r!+ )
+		$1c =? ( over 4 - r!+ )
+		drop ) drop
+	r> 'polys> !
+	resetedit
+	;
+
 |---
 :,dib | v --
 	dibujo> !+ 0 over ! 'dibujo> ! ;
@@ -93,46 +163,6 @@
 	2drop
 	;
 
-:dibujo.clear
-	'dibujo 0 over ! dup 'dibujo> ! 'dibujo< !
-	;
-
-:resetedit
-	0 dup 'puntocursor ! 'polycursor !
-	coloractual 1- 'colorultimo !
-	;
-
-|--- rearma indice
-:reindex
-	0 'cntframes !
-	'frames >r
-	rmation dup
-	( rmation> <? )(
-		@+ $1f and | rm ac v
-		0? ( drop
-			over r!+
-			dup rot - 2 >>
-			r!+
-			1 'cntframes +!
-			dup dup )
-		drop )
-	0 swap !
-	drop rdrop ;
-
-|--- rearma polys
-:repoly
-	'polys >r
-	'dibujo ( dibujo> <? )(
-		@+ $1f and
-		$10 =? ( over 4 - r!+ )
-		$14 =? ( over 4 - r!+ )
-		$18 =? ( over 4 - r!+ )
-		$1c =? ( over 4 - r!+ )
-		drop ) drop
-	r> 'polys> !
-	resetedit
-	;
-
 |------------------
 | copia el dibujo estatico
 :rframecopy | mem -- cini
@@ -157,56 +187,6 @@
 		( over <? )( rot @+ rot !+ rot swap ) 2drop
 		) 2drop
 	dibujo> 'dibujo< !
-	;
-
-|-----------------
-#timenow
-#cini #cfin
-#ct
-
-:rframeini | adr --
-	dup 'cini !
-	dibujo> 4+ >r
-	( @+ $1f and? )(
-		dup 8 >> $fff and 2 << 'dibujo + | fin
-		swap 12 8 + >> $fff and 2 << 'dibujo + | ini
-		( over <? )( @+ r!+ ) 2drop
-		) drop
-	'cfin !
-	rdrop
-	;
-
-:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
-	over - ct 16 *>> + ;
-
-:minter | v1 v2 -- vr
-	over $1f and >r
-	over 23 >> over 23 >> lerp 23 <<
-	pick2 9 << 23 >> pick2 9 << 23 >> lerp $1ff and 14 << or
-	rot 18 << 23 >> rot 18 << 23 >> lerp $1ff and 5 << or
-	r> or ;
-
-:nextframe
-	30 'timenow !
-	cfin dup @ 0? ( 2drop dibujo.clear rmation )( drop )
-	rframecopy rframeini ;
-
-:rframestep | --
-	timenow 0? ( drop nextframe ; )
-	1- dup 'timenow !
-	1.0 swap 30 */ 'ct !
-|	avanza ;
-|:avanza
-	dibujo> 4+ >r
-	cini
-	( @+ $1f and? )( swap
-		over 8 >> $fff and 2 << 'dibujo +
-		rot 12 8 + >> $fff and 2 << 'dibujo +
-		( over <? )(
-			rot @+ r@+ minter rot !+
-			rot swap ) 2drop
-		) 2drop
-	rdrop
 	;
 
 |---- ANIMACION
@@ -319,6 +299,17 @@
 :getsubdibujo	| no limpia el trazo actual
 	dibujo> 'dibujo< !
 	cambio.clear
+	;
+
+|-----------FIN GETSETDIBUJO
+
+:resetdib
+	0 'actframe !
+	rmation 'rmation> !
+	reindex getdibujo
+:dibcls
+	dibujo.clear
+	0 'modo !
 	;
 
 |------ GC para dibujo
@@ -593,17 +584,17 @@
 :addtrazo
 	trazo.cnt 2 <? ( drop ; ) drop
 	mododibu
-	$18 <>? ( coloractual colorultimo <>? ( dup 'colorultimo ! 8 << $d or ,dib )( drop ) )
+	$18 <>? ( dlg.color@ colorultimo <>? ( dup 'colorultimo ! 8 << $d or ,dib )( drop ) )
 	'primero !
 	'cadapunto trazo.map
 	mododibu
-	$18 =? ( coloractual dup 'colorultimo ! 8 << $e or ,dib )
+	$18 =? ( dlg.color@ dup 'colorultimo ! 8 << $e or ,dib )
 	drop
 	;
 
 :mododraw
 	drawdibujo
-    coloractual ink
+   dlg.color@ ink
 	'addtrazo trazo.draw
 
 	verde
@@ -617,9 +608,9 @@
 	[ $14 'mododibu ! ; ] "GLINE" sp btnt
 	[ $18 'mododibu ! ; ] "POLY" sp btnt
 	[ $1c 'mododibu ! ; ] "CIRCLE" sp btnt
-	0 " DEL " sp btnt
 	;
 
+:copynode ;
 :modoedit
 	drawdibujo
 	'onDNedit
@@ -636,8 +627,20 @@
 	[ 2 'modo ! ; ] "VISTA" sp btnt
 	sp
 	cyan oscuro
-	[ newnode ; ] " NEW " sp btnt
-	[ delnode ; ] " DEL " sp btnt
+	'copynode "CLONE" sp btnt
+	'dibcls "CLS" sp btnt
+
+	sp
+	cyan oscuro
+	[ newnode ; ] " NEW N" sp btnt
+	[ delnode ; ] " DEL N" sp btnt
+	cr cr
+	violeta
+	'nonepolys "0" sp btnt
+	'allpolys "ALL" sp btnt
+	0 'polys ( polys> <? )(
+		swap 1+ 'npoly over "%d" sp btnt
+		swap 4+ ) 2drop
 	;
 
 |-----------------------
@@ -654,9 +657,7 @@
 :modovista
 	drawdibujo
 
-	'vista.dn
-	'vista.move
-	guiDnMove
+	'vista.dn 'vista.move guiDnMove
 
 	verde oscuro
 	[ 0 'modo ! ; ] "DRAW" sp btnt
@@ -674,51 +675,14 @@
 :modoactual
 	modo 2 << 'modos + @ exec ;
 
-:resetdib
-	0 'actframe !
-	rmation 'rmation> !
-	reindex getdibujo
-:dibcls
-	dibujo.clear
-	0 'modo !
-	;
-
-:debug
-|	blanco cr
-|	'cambio 'dibujo ( dibujo> <? )( dibujo< =? ( "* " print )
-|		swap @+ 1? ( verde )( blanco ) drop swap
-|		@+ "%h " allowcr print ) 2drop cr
-	amarillo
-	rmation ( rmation> <=? )(
-		cini =? ( verde ) cfin =? ( rojo )
-		@+
-|		$1f nand? ( verde )( rojo )
-
-		"%h " allowcr print ) drop cr
-	rmation rmation> over - cr "%h %h " print
-
-|	0 ( cntframes <? )( dup 3 << 'frames + @ "%h " print 1+ ) drop cr
-|	coloractual "%h" print
-|	rojo
-|	0 ( cntframes <? )(
-|		dup "%d : " print
-|		dup 3 << 'frames + @+ swap @ | adr cnt
-|		( 1? )( swap @+ "%h " allowcr print swap 1- ) 2drop cr
-|		1+ ) drop cr
-	;
-
-
 |----------- PLAY ---------------
-:play2 | --
+#raux 1.0 0 0 0 0 0 0 0
+
+:play |
+	'dibujo rmation 'raux rset
 	usogui
-	dibujo.clear
-	rmation rframecopy rframeini
-	0 'timenow !
-	show clrscr verde fontj
-		timenow "%d" print
-|		debug
-        drawdibujo
-		rframestep
+	show clrscr
+	   'raux rplay
 		'exit >esc<
 		;
 
@@ -727,36 +691,29 @@
 	10 sh 230 - dlgColat!
 	usogui fonti |font-vard-12-bold
 	repoly
-	show clrscr cr
+	show fonti clrscr cr rojo oscuro
+		[ setdibujo exit ; ] dup >esc< "EXIT" sp btnt
+		'resetdib "RESET" sp btnt
+
 		modoactual
 		cr cr
 		violeta oscuro
 		'primt dup <pgup> "|<" sp btnt
 		'prevt dup <le> "<" sp btnt
-		blanco actframe " %d" print
-		violeta oscuro
 		'nextt dup <ri> ">" sp btnt
 		'ultit dup <pgdn> ">|" sp btnt
 		sp verde
-		[ setdibujo play2 getdibujo ; ] dup <f3> cntframes "|%d>" sp btnt
+		[ setdibujo play getdibujo ; ] dup <f3> cntframes "|%d>" sp btnt
 		sp rojo oscuro
-		[ setdibujo exit ; ] dup >esc< "EXIT" sp btnt
-		'resetdib "RESET" sp btnt
-		'dibcls "CLS" sp btnt
 		verde dup " -%d-" print cr cr
 
 |		debug
 
-		0 rows 2 - gotoxy
-		coloractual ink
-		sp dlg.color
-		violeta
-		'nonepolys "0" sp btnt
-		'allpolys "ALL" sp btnt
-		0 'polys ( polys> <? )(
-			swap 1+ 'npoly over "%d" sp btnt
-			swap 4+ ) 2drop
-
+		1 rows 2 - gotoxy dlg.color
+		verde
+		scr fontj4 home
+		cols 2 - rows 2 - gotoxy
+		actframe "%d" print
 		cminiflecha ;
 
 
