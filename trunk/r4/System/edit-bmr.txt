@@ -14,15 +14,83 @@
 #nomrmt )( 32
 #modo
 
-|---- zoom
-|:bz+ res 1+ 6 >? ( 0 nip ) 'res ! ajusta ;
-|:bz- res 1- -? ( 6 nip ) 'res ! ajusta ;
+|-- pantalla
+#zoom 2
+#xi #yi | donde esta el pixel 0,0
+#wi #hi		| ancho y alto de todo los pixels
+
+|-- origen
+#xo #yo		| origen de pantalla
+#xa #ya		| x y 16.16
+#xs #ys		| dx dy 16.16
+
+#xa1 #ya1
+#xim #yim	| tamaño imagen
+
+#xv #yv
+
+|---- dibujo en frame
+::bmr@m | x y -- c
+	2dup whin 0? ( 3drop ; ) drop | no obtiene
+	yi - zoom >> swap xi - zoom >> swap
+	bmr@ ;
+
+:bmr!m32
+	dlg.color@ rot rot
+:bmr!m | c x y --
+	2dup whin 0? ( 3drop ; ) drop | no dibuja afuera
+	yi - zoom >> swap xi - zoom >> swap
+	bmr! ;
+
+|-- dibujar sobre w h cx cy
+:getxybmr | x y -- c
+	xa 16 >> ya 16 >>
+	bmr@ ;
+
+:framegetpixel
+	xa 16 >> ya 16 >> bmr@ ;
+
+|*******************************
+:ajusta
+	bmr.wh@
+	sh 2/ swap zoom << 2/ - 'yi !
+	sw 2/ swap zoom << 2/ - 'xi !
+
+:ajustamov
+	bmr.wh@
+	zoom << sh >? ( sh nip ) 'hi !
+	zoom << sw >? ( sw nip ) 'wi !
+	xi -? ( 0 nip ) 'xo !
+	yi -? ( 0 nip ) 'yo !
+	1.0 zoom >> dup 'xs ! 'ys !
+	;
+|*******************************
+
+:drawbmr | --
+	xa1 'xa !
+	ya1 'ya !
+	xo yo setxy
+	sw wi - | columna
+	hi ( 1? )(
+		wi ( 1? )(
+			framegetpixel px!+
+			xs 'xa +!
+			1- ) drop
+		over px+!
+		ys 'ya +!
+		pick2 'xa !
+		1- ) drop
+	drop
+
+	xi wi 2/ + 1- yi hi 2/ + 1-  'yc ! 'xc !
+	wi 1+ 'w ! hi 1+ 'h !
+	blanco gc.box
+	;
 
 |-----------------------------------
-
 :borrodib
 	"Borro Dibujo ?" dlgsino
-	1? ( bmr.reset ) drop
+	1? ( bmr.clear ) drop
 	;
 
 |---- debug
@@ -42,111 +110,18 @@
 	[ 1024 dup bmr.size! ; ] "1kx1k" sp btnt
 	;
 
-|--- carga bmp
-:cargabmp
-	256 dup gc.window
-	guiEmpty
-
-	gc.fbox
-	;
-
-:modobmr
-	;
-
-
-:clonebmr
-	;
-
-|--- modo dibujando
-:mododibuja
-	[ 'bmr!m vop! ; ]
-	[ xymouse vline! ; ]  guiDnMove
-	;
-
-:bododibuja
-	violeta
-	'bmr.reset "CLS" sp btnt
-	cyan
-|	'savebmr "SAVE" sp btnt
-	'clonebmr "CLONE" sp btnt
-	'exit "CANCEL" sp btnt
-
-	cminilapiz  ;
-
-|--- modo hoja
-#xv #yv
-
-:vista.move
-|	xymouse
-|	dup yv - 'yi +! 'yv !
-|	dup xv - 'xi +! 'xv !
-|	ajustap
-|	xi wi 2/ + 1- yi hi 2/ + 1-  'yc ! 'xc !
-
-	;
-:vista.dn
-	xymouse 'yv ! 'xv ! ;
-
-:modozoom
-	'vista.dn 'vista.move guiDnMove ;
-
-:bodozoom
-|	'bz- "Z-" sp btnt
-|	'bz+ "Z+" sp btnt
-
-	cminimano ;
-
-|-------------------
-:pick.dn
-	xymouse getpixel dlg.color! ;
-
-:modopick
-	'pick.dn 'pick.dn guiDnMove ;
-
-:bodopick  cminiflecha ;
-
-|--------------------
-:modomenu
-	;
-
-:bodomenu
-	'cargabmp "BMP" sp btnt
-	'modobmr "MODO" sp btnt
-	cminimano  ;
-
 |------------------------------
-#primero
-:cadapunto | tr --
-	d>xy 5 >> $1ff and 14 << swap
-	5 >> $1ff and 23 <<
-	or
-	primero
-	$10 =? ( $11 'primero ! )
-
-
-	$14 =? ( $15 'primero ! )
-	$18 =? ( $19 'primero ! )
-	$1c =? ( $1d 'primero ! )
-	or
-|	,dib
-	drop
-	;
-
 :addtrazo
 	trazo.cnt 2 <? ( drop ; ) drop
-|	mododibu
-	|$18 <>? ( coloractual colorultimo <>? ( dup 'colorultimo ! 8 << $d or ,dib )( drop ) )
-	'primero !
-|	'cadapunto trazo.map
-|	mododibu
-|	$18 =? ( coloractual dup 'colorultimo ! 8 << $e or ,dib )
-|	drop
 	;
 
 :mododraw
-	bmr.drawmap
-   dlg.color@ ink
-	'addtrazo trazo.draw
+	drawbmr
+	[ 'bmr!m32 vop! ; ] [ xymouse vline! ; ]  guiDnMove
+
+|	xi yi bmr.drawin
+	dlg.color@ ink
+|	'addtrazo trazo.draw
 
 	verde
 	0 "DRAW" sp btnt
@@ -154,18 +129,32 @@
 	[ 1 'modo ! ; ] "EDIT" sp btnt
 	[ 2 'modo ! ; ] "VISTA" sp btnt
 	sp
-	cyan oscuro
-|	[ $10 'mododibu ! ; ] "LINE" sp btnt
-|	[ $14 'mododibu ! ; ] "GLINE" sp btnt
-|	[ $18 'mododibu ! ; ] "POLY" sp btnt
-|	[ $1c 'mododibu ! ; ] "CIRCLE" sp btnt
-	0 " DEL " sp btnt
+	violeta
+	cyan
+|	'savebmr "SAVE" sp btnt
+|	'exit "CANCEL" sp btnt
+	;
+
+|------EDIT
+:pick.dn
+	xymouse getpixel dlg.color! ;
+
+:modobmr
+	;
+
+:cargabmp
+	256 dup gc.window
+	guiEmpty
+
+	gc.fbox
+	;
+
+:clonebmr
 	;
 
 :modoedit
-	bmr.drawmap
-|	'onDNedit 	'onMOVEedit	'onUPedit	guiMap
-|	drawedit
+	drawbmr
+	'pick.dn 'pick.dn guiDnMove
 
 	verde oscuro
 	[ 0 'modo ! ; ] "DRAW" sp btnt
@@ -175,28 +164,30 @@
 	[ 2 'modo ! ; ] "VISTA" sp btnt
 	sp
 	cyan oscuro
-|	[ newnode ; ] " NEW " sp btnt
-|	[ delnode ; ] " DEL " sp btnt
+	'modobmr "MODO" sp btnt
+	'cargabmp "BMP" sp btnt
+	'clonebmr "CLONE" sp btnt
+	rojo oscuro
+	'bmr.clear "CLS" sp btnt
 	;
 
-|-----------------------
-:vista.move
-|	xymouse
-|	dup yv - 0.001 * 'ycam +! 'yv !
-|	dup xv - 0.001 * 'xcam +! 'xv !
-|	genvista
-	;
-
+|--- modo vista
 :vista.dn
 	xymouse 'yv ! 'xv ! ;
 
+:vista.move
+	xymouse
+	dup yv - 'yi +! 'yv !
+	dup xv - 'xi +! 'xv !
+	ajustamov
+	;
+
+:bz+ zoom 1+ 6 >? ( 0 nip ) 'zoom ! ajustamov ;
+:bz- zoom 1- -? ( 6 nip ) 'zoom ! ajustamov ;
+
 :modovista
-	bmr.drawmap
-
-	'vista.dn
-	'vista.move
-	guiDnMove
-
+	drawbmr
+	'vista.dn 'vista.move guiDnMove
 	verde oscuro
 	[ 0 'modo ! ; ] "DRAW" sp btnt
 	[ 1 'modo ! ; ] "EDIT" sp btnt
@@ -204,8 +195,9 @@
 	0 "VISTA" sp btnt
 	sp
 	cyan oscuro
-|	[ -0.1 'zcam +! genvista ; ] " Z+ " sp btnt
-|	[ 0.1 'zcam +! genvista ; ] " Z- " sp btnt
+	'ajusta "CENTER" sp btnt
+	'bz- "Z-" sp btnt
+	'bz+ "Z+" sp btnt
 	;
 
 #modos 'mododraw 'modoedit 'modovista
@@ -213,36 +205,26 @@
 :modoactual
 	modo 2 << 'modos + @ exec ;
 
-#modov 0
-#listaa mododibuja modozoom modopick modomenu
-#listab bododibuja bodozoom bodopick bodomenu
-
 :main
+	ajusta
 	usogui
-	show clrscr cr
+	show clrscr cr2
 		modoactual
-
-|		'listaa modov 2 << + @ exec
-
 		scr 32 gc.botton home cr2
 		font-vard-12-bold
 		dlg.color sp
-|		'modov 'listas 4 sp btnvs
-
 		gris
 		'dlgRes 'winRes guiWin | grosor
 		sp sp
 		rojo
 		'exit dup >esc< "EXIT" sp btnt
-		'listab modov 2 << + @ exec
-		scr home verde
-		dup "%d" print
+		verde dup "- %d -" print
+		cminiflecha
  		;
 
 
 :   33 mark
 	"mem/notepad.bmr" bmr.load
 	main
-|	"mem/notepad.bmr" bmr.save
-
+	"mem/notepad.bmr" bmr.save
 	;
