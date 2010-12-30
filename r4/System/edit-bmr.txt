@@ -42,29 +42,22 @@
 	yi - zoom >> swap xi - zoom >> swap
 	bmr! ;
 
-|-- dibujar sobre w h cx cy
-:getxybmr | x y -- c
-	xa 16 >> ya 16 >>
-	bmr@ ;
-
-:framegetpixel
-	xa 16 >> ya 16 >> bmr@ ;
-
 |*******************************
 :ajusta
 	bmr.wh@
 	sh 2/ swap zoom << 2/ - 'yi !
 	sw 2/ swap zoom << 2/ - 'xi !
-
 :ajustamov
-	bmr.wh@
-	zoom << sh >? ( sh nip ) 'hi !
-	zoom << sw >? ( sw nip ) 'wi !
-	xi -? ( 0 nip ) 'xo !
-	yi -? ( 0 nip ) 'yo !
 	1.0 zoom >> dup 'xs ! 'ys !
+	bmr.wh@
+	zoom << sh yi - >? ( sh yi - nip ) 'hi !
+	zoom << sw xi - >? ( sw xi - nip ) 'wi !
+	xi -? ( dup 'wi +! neg 16 << zoom >> 'xa1 ! 0 )( 0 'xa1 ! ) 'xo !
+	yi -? ( dup 'hi +! neg 16 << zoom >> 'ya1 ! 0 )( 0 'ya1 ! ) 'yo !
 	;
-|*******************************
+
+:framegetpixel
+	xa 16 >> ya 16 >> bmr@ ;
 
 :drawbmr | --
 	xa1 'xa !
@@ -78,12 +71,13 @@
 			1- ) drop
 		over px+!
 		ys 'ya +!
-		pick2 'xa !
+		xa1 'xa !
 		1- ) drop
 	drop
 
-	xi wi 2/ + 1- yi hi 2/ + 1-  'yc ! 'xc !
-	wi 1+ 'w ! hi 1+ 'h !
+	bmr.wh@
+	zoom << dup 2/ yi + 'yc ! 2 + 'h !
+	zoom << dup 2/ xi + 'xc ! 2 + 'w !
 	blanco gc.box
 	;
 
@@ -93,21 +87,20 @@
 	1? ( bmr.clear ) drop
 	;
 
-|---- debug
-:dumpdibujo
-	bmr.wh@ "%dx%d" print cr
-|	bmrmap> bmrmap ( over <? )( @+ "%d " print ) 2drop
- 	;
 
 |---- cambia resolucion
+:ajustawh! | w h --
+	bmr.size!
+	ajusta ;
+
 #winRes 0 10 32 128 256 "WxH"
 :dlgRes
-	[ 16 dup bmr.size! ; ] "16x16" sp btnt cr cr2
-	[ 32 dup bmr.size! ; ] "32x32" sp btnt cr cr2
-	[ 64 dup bmr.size! ; ] "64x64" sp btnt cr cr2
-	[ 128 dup bmr.size! ; ] "128x128" sp btnt cr cr2
-	[ 256 dup bmr.size! ; ] "256x256" sp btnt cr cr2
-	[ 1024 dup bmr.size! ; ] "1kx1k" sp btnt
+	[ 16 dup ajustawh! ; ] "16x16" sp btnt cr cr2
+	[ 32 dup ajustawh! ; ] "32x32" sp btnt cr cr2
+	[ 64 dup ajustawh! ; ] "64x64" sp btnt cr cr2
+	[ 128 dup ajustawh! ; ] "128x128" sp btnt cr cr2
+	[ 256 dup ajustawh! ; ] "256x256" sp btnt cr cr2
+	[ 1024 dup ajustawh! ; ] "1kx1k" sp btnt
 	;
 
 |------------------------------
@@ -209,15 +202,14 @@
 	ajusta
 	usogui
 	show clrscr cr2
+		rojo
+		'exit dup >esc< "EXIT" sp btnt
 		modoactual
 		scr 32 gc.botton home cr2
 		font-vard-12-bold
-		dlg.color sp
+		dlg.colormini sp
 		gris
 		'dlgRes 'winRes guiWin | grosor
-		sp sp
-		rojo
-		'exit dup >esc< "EXIT" sp btnt
 		verde dup "- %d -" print
 		cminiflecha
  		;
