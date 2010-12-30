@@ -50,7 +50,33 @@
 #nseed
 #rgecx
 
-::random
+::random | -- r
 	rgecx $a2348705 xor nseed xor
 	dup 'nseed +! dup 'rgecx !
 	;
+
+
+|---- xorshift
+
+#w #z #y #x
+
+| not all 0 !!!
+::xsseed | x y z w --
+	'w !+ !+ !+ ! ;
+
+::xsrand | -- r
+	x dup 23 << xor dup 24 >> xor
+	y 'x !
+	z 'y !
+	w dup 'z !
+	dup 3 >> xor xor dup 'w !
+	$ffffffff + ;
+
+|uint32_t xorshift_irand(xorshift_t *prng) {
+|  const uint32_t a = 23, b = 24, c = 3;
+|  uint32_t tmp = prng->x ^ (prng->x << a);
+|  prng->x = prng->y;
+|  prng->y = prng->z;
+|  prng->z = prng->w;
+|  prng->w = (prng->w ^ (prng->w >> c)) ^ (tmp ^ (tmp >> b));
+|  return UINT32_MAX - prng->w;
