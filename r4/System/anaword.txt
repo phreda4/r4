@@ -7,22 +7,41 @@
 #:anaword )( 8192 		| 256 palabras max
 #anaword> 'anaword
 
+| token(32) | accR(8) niva(8) niv(8) accD(8) |
+#accD | DeltaPilaD Acumulado
+#accR | DeltaPilaR Acumulado
+#niv  | nivel de condicionales
+#niva | nivel de anonimas
+
 :+tok
 	anaword> !+ !+ 'anaword> ! ;
 
-#accD
+:everyword | token rtoken --
+	13 =? ( 1 'niv +! ) | (
+	15 =? ( -1 'niv +! ) | )
+	16 =? ( 1 'niva +! ) | [
+	17 =? ( -1 'niva +! ) | ]
+	3 <? ( 2drop -1 'maxw +! ; )
+	drop
+	dup tok>udr
+	accR + dup 'accR ! >r
+	accD + dup 'accD ! $ff and
+	nip
+	niv 8 << or
+	niva 16 << or
+	r> 24 << or
+	swap +tok ;
+
 ::makeanaword | nro --
 	'anaword 'anaword> !
-	0 'accD !
+	0 'accD ! 0 'accR !
+	0 'niv ! 0 'niva !
 	nro>toklen dup 1- 'maxw !
 	( 1? )( 1-
 		swap @+
-		3 <? ( drop	-1 'maxw +! swap )(
-			dup tok>udr
-			drop nip | armar cambio progresivo
-			accD + dup 'accD ! swap +tok swap
-			)
-		) 2drop ;
+		dup $ff and
+		everyword
+		swap ) 2drop ;
 
 #movp )( 64
 #car
@@ -51,13 +70,12 @@
 	r> 'here !
 	'movp ;
 
+|-- imprime indentado y agrupado (salta cuando el nivel
+#prevn 0
 ::printanaword
 	'anaword ( anaword> <? )(
-		@+ dup tokenprint
-		tok>udr
-		rot "| %d" print
-		swap " %d" print
-	    " %d " print
-    	@+ "%h" print cr
+		@+ tokenprint sp
+    	@+ dup 24 << 24 >> prevn <? ( cr over 8 >> $ff and 2* col )
+		'prevn ! drop
 		) drop
 	;
