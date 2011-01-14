@@ -115,7 +115,6 @@ char *pilaexecl;
 
 char *compilastr="";
 char *bootstr="main.txt";
-char *exestr="main.r4x";
 
 //---------------------- Memoria de reda4
 int gx1=0,gy1=0,gx2=0,gy2=0,gxc=0,gyc=0;// coordenadas de linea
@@ -129,20 +128,6 @@ char error[1024];
 int SYSXYM=0;
 int SYSBM=0;
 int SYSKEY=0;
-
-// vectores de interrupciones
-//int SYSirqmouse=0;
-//int SYSirqteclado=0;
-//int SYSirqjoystick=0;
-//int SYSirqsonido=0;
-//int SYSirqred=0;
-//int SYSirqtime=0;
-
-//char kbuff[32];
-//int kcnt=0,kcur=0;
-
-//int mcnt=0;
-//int mbuff[128];
 
 //----- Directorio
 char mindice[8192];// 8k de index 1024 archivos con nombres de 8 caracteres
@@ -417,7 +402,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case WFECH: TOS=*(short *)TOS;continue;
 	case STOR: setmem4((char*)TOS,(int)*NOS);NOS--;TOS=*NOS;NOS--;continue;
     case CSTOR: *(char*)TOS=(char)*NOS;NOS--;TOS=*NOS;NOS--;continue;
-    case WSTOR: setmem2(char*)TOS,(short)*NOS);NOS--;TOS=*NOS;NOS--;continue;
+    case WSTOR: setmem2((char*)TOS,(short)*NOS);NOS--;TOS=*NOS;NOS--;continue;
 	case INCSTOR: *((int *)TOS)+=(int)*NOS;NOS--;TOS=*NOS;NOS--;continue;
     case CINCSTOR: *((char*)TOS)+=(char)*NOS;NOS--;TOS=*NOS;NOS--;continue;
     case WINCSTOR: *((short *)TOS)+=(short)*NOS;NOS--;TOS=*NOS;NOS--;continue;
@@ -449,42 +434,6 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     	    return 0;
         }
 		continue;
-///////////////////////////////////////////////////////////////////////
-/*
-LRESULT CALLBACK WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
-{
-switch (message) {     // handle message
-    case WM_MOUSEMOVE:
-         SYSXYM=lParam;//         SYSEVENT=SYSirqmouse;
-         break;
-    case WM_LBUTTONUP: case WM_MBUTTONUP: case WM_RBUTTONUP:
-    case WM_LBUTTONDOWN: case WM_MBUTTONDOWN: case WM_RBUTTONDOWN:
-         SYSBM=wParam; //        SYSEVENT=SYSirqmouse;
-         break;
-    case WM_SYSKEYUP:
-    case WM_KEYUP:        // (lparam>>24)     ==1 keypad
-        lParam>>=16;
-        if ((lParam&0x100)!=0) lParam=mapex[lParam&0x7f];
-        SYSKEY=(lParam&0x7f)|0x80; //        SYSEVENT=SYSirqteclado;
-        break;
-    case WM_SYSKEYDOWN:
-    case WM_KEYDOWN:
-        lParam>>=16;
-        if ((lParam&0x100)!=0) lParam=mapex[lParam&0x7f];
-        SYSKEY=lParam&0x7f; //        SYSEVENT=SYSirqteclado;
-        break;
-   case WM_CLOSE:
-        rebotea=2;// no reinicia
-   case WM_DESTROY:
-        SYSKEY=-1;
-        return 1;
-  default:
-       return DefWindowProc(hWnd,message,wParam,lParam);
-  }
-return 0;
-}
-*/
-
 //---- raton
     case XYMOUSE: NOS++;*NOS=TOS;NOS++;*NOS=SYSXYM&0xffff;TOS=(SYSXYM>>16);continue;
     case BMOUSE: NOS++;*NOS=TOS;TOS=SYSBM;continue;
@@ -512,7 +461,6 @@ return 0;
     case SISEND:
          return 0;
     case SISRUN:
-        exestr="";
         if (TOS==0) { rebotea=1;return 0; }
         strcpy(pilaexecl,(char*)TOS);
         while (*pilaexecl!=0) pilaexecl++;
@@ -618,25 +566,20 @@ return 0;
          NOS--;TOS=*NOS;NOS--;continue;
 // por velocidad
     case MOVED: // | de sr cnt --
-         W=*(NOS-1);W1=*NOS;
-         while (TOS--) { *(int *)W=*(int *)W1;W+=4;W1+=4; }
-         NOS-=2;TOS=*NOS;NOS--;
-         continue;
-    case MOVEA: // | de sr cnt --
-         W=(*(NOS-1))+(TOS<<2);W1=(*NOS)+(TOS<<2);
-         while (TOS--) { W-=4;W1-=4;*(int *)W=*(int *)W1; }
-         NOS-=2;TOS=*NOS;NOS--;
-         continue;
+		 TOS<<=4;
     case CMOVED: // | de sr cnt --
          W=*(NOS-1);W1=*NOS;
          while (TOS--) { *(char*)W++=*(char*)W1++; }
          NOS-=2;TOS=*NOS;NOS--;
          continue;
+    case MOVEA: // | de sr cnt --
+		TOS<<=4;
     case CMOVEA: // | de sr cnt --
          W=(*(NOS-1))+TOS;W1=(*NOS)+TOS;
          while (TOS--) { *(char*)--W=*(char*)--W1; }
          NOS-=2;TOS=*NOS;NOS--;
          continue;
+
 //--- red
 #ifdef NET
     case OPENURL: // url header buff -- buff/0
@@ -1160,8 +1103,6 @@ fputs(error,stream);
 if(fclose(stream)) return;
 }
 
-//char *NDEBUG="debug.txt";
-char *DEBUGR4X="debug.r4x";
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 //----------------- PRINCIPAL
@@ -1169,14 +1110,12 @@ extern "C" int MAMain() {
 
 	setCurrentFileSystem(R_FILESYSTEM, 0);
 
-	int w=640,h=480,silent=0;
-	int noborde,i=0;
+	int w=640,h=480;
 	char printername[32];
-	char *aa="";//(char*)lpCmdLine;
 
-MAExtent scrSize = maGetScrSize();
-w=EXTENT_X(scrSize);
-h=EXTENT_Y(scrSize);
+	MAExtent scrSize = maGetScrSize();
+	w=EXTENT_X(scrSize);
+	h=EXTENT_Y(scrSize);
 
 	// pila de ejecucion
 	pilaexecl=pilaexec;
@@ -1185,21 +1124,6 @@ h=EXTENT_Y(scrSize);
 	pilaexecl++;
 
 reboot: rebotea=0;
-	noborde=0;
-	while (*aa!=0) {
-	      if ('i'==*aa) { compilastr=aa+1; }
-	      if ('c'==*aa) {
-	        exestr="";
-	        strcpy(pilaexec,aa+1);pilaexecl=pilaexec;
-	        while (*pilaexecl>32) pilaexecl++;
-	        *pilaexecl=0;pilaexecl++;
-	        }
-	      if ('x'==*aa) { exestr=aa+1; }
-	      if ('s'==*aa) { silent=1; }
-	      if ('p'==*aa) { strcpy(printername,(aa+1)); } // pPrimo PDF
-	      while (*aa!=32&&*aa!=0) aa++;
-	      if (32==*aa) *aa=0;
-	      aa++; }
 
 	if (gr_init(w,h)<0) return -1;
 
@@ -1214,10 +1138,6 @@ reboot: rebotea=0;
 
 debugerr:
 	bootaddr=0;
-	if (exestr[0]!=0) {
-	   loadimagen(exestr);
-	   exestr="";
-	    }
 	if (bootaddr==0 && bootstr[0]!=0){
 	   strcpy(linea,bootstr);
 	   cntindiceex=cntnombreex=cntincludes=0;// espacio de nombres reset
@@ -1225,9 +1145,7 @@ debugerr:
 
 	   if (compilafile(linea)!=COMPILAOK) {
 	      grabalinea();
-	//        return 1;
-	      if (exestr==DEBUGR4X) return 1;
-	      exestr=DEBUGR4X;goto debugerr;
+	      return 1;
 	      }
 
 	   if (compilastr[0]!=0) {
@@ -1237,11 +1155,10 @@ debugerr:
 	if (bootaddr==0) {
 	   sprintf(error,"%s|0|0|NO BOOT",linea);
 	   grabalinea();
-	    if (exestr==DEBUGR4X) return 1;
-	   exestr=DEBUGR4X;goto recompila;//   strcpy(linea,NDEBUG);
+	   return 1;
 	   }
 	memlibre=data+cntdato; // comienzo memoria libre
-	if (silent!=1 && interprete(bootaddr)==1) goto recompila;
+	if (interprete(bootaddr)==1) goto recompila;
 	if (rebotea==0)
 	    {
 	    pilaexecl--;pilaexecl--;
@@ -1251,10 +1168,7 @@ debugerr:
 	    }
 	//--------------------------------------------------------------------------
 	gr_fin();
-	if (rebotea==1)  {
-	   *aa=0;
-	   goto reboot;
-	   }
+	if (rebotea==1) goto reboot;
 maExit(0);
 return 0;
 }
