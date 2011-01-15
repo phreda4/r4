@@ -1,50 +1,15 @@
-|--- Vsprite
-| formato rmation
-| 0 fin de sprite
-|...
-| $d color
-| $e color+poli
-| $f parametros
-| $10 $11 $12 $13 lineas
-| $14 $15 $16 $17 glineas  (mm)
-| $18 $19 $1a $1b poligonos
-| $1c $1d $1e $1f circulos (mm)
-|--------------
-^r4/lib/polygr.txt
-^r4/lib/trace.txt
+|--- sprite
 
+#:paltex 0
+#cosa #sina | para rotar
 #xa #ya
-#desde #hasta
 
-|--------- rmation sprite (3d+move)
+|----------------------------------------
 | 9 . 9 . 9 . 5 | tipo 1
 | x=9 bits y=9 bits z=9 bits control=5bit
 | 24 .8 | tipo 2
 | 8 << porque usa 9 bits a 17 bits queda 1.0
-
-::3d>xy | valor -- x y
-	dup 23 >> 8 <<
-	over 9 << 23 >> 8 <<
-	rot 18 << 23 >> 8 <<
-	project3d ;
-
-:xy>3d | x y -- valor
-	5 >> $1ff and 14 << swap
-	5 >> $1ff and 23 <<
-	or
-	;
-
-::3d>xyf | valor -- valor x y
-	dup 23 >>
-	over 9 << 23 >>
-	;
-
-::xyf>3d | valor x y -- valor'
-	$1ff and 14 << swap
-	$1ff and 23 <<
-	or
-	swap $1f and or ;
-
+|----------------------------------------
 ::3d>xyv | valor -- valor x y
 	dup 23 >> 5 << $10 +
 	over 9 << 23 >> 5 << $10 +
@@ -56,59 +21,254 @@
 	or
 	swap $1f and or ;
 
+::3d>xy | valor -- x y
+	dup 23 >> 8 <<
+	over 9 << 23 >> 8 <<
+	rot 18 << 23 >> 8 <<
+	project3d ;
 
-|-------- ordenes de control
-:s0	| tiempo, fin
-	2drop rdrop ; | solo 1 cuadro
-:s1 | marca puntos
-:s2 | marca puntos rle
-:s3 | cambia color
-:s4 | borra puntos
+:3d>xyf | valor -- x y
+	dup 23 >>
+	swap 9 << 23 >> ;
+
+:gc>xy | valor -- xy
+	dup 23 >> w 9 *>> xc +
+	swap 9 << 23 >> h 9 *>> yc + ;
+
+:rgc>xy | valor -- xy
+	3d>xyf
+	over sina * over cosa * + 16 >> h 9 *>> yc + >r
+	swap cosa * swap sina * - 16 >> w 9 *>> xc + r> ;
+
+|---  accion
+:s0	| fin, tiempo	000
+	2drop rdrop ;
+:s1 | mueve nodos	001
+:s2 | borra nodos	010
+:s3 | borra todo	011
 	drop ;
-:s5 | borra todo el frame
-	drop ;
-|------- vacios por ahora
-:s6	:s7	:s8	:s9
-:sa	:sb	:sc
-	drop ;
-|------- de aca dibujo/crea
-:sd | color
+|--- llenado de poligonoy y color
+:s4 | ink
 	8 >> ink ;
-:se | color+poli
+:s5 | color+spoli
 	xa ya pline
-	8 >> ink poli
+	8 >> ink sfill poli
 	$80000000 'xa ! ;
-:sf | param
-	23 >> linegr! ;
-| linea
-:s10 3d>xy op ;
-:s11 3d>xy line ;
-:s12 3d>xy cp ;
-:s13 3d>xy curve ;
-| glinea
-:s14 3d>xy gop ;
-:s15 3d>xy gline ;
-:s16 3d>xy gcp ;
-:s17 3d>xy gcurve ;
-| poly
-:s18
-	xa $80000000 <>? ( ya line )( drop )
-	3d>xy 2dup 'ya ! 'xa !
-	op ;
-:s19 3d>xy pline ;
-:s1a 3d>xy cp ;
-:s1b 3d>xy pcurve ;
-| points
-:s1c 3d>xy circleg ;
-:s1d 3d>xy circleg ;
-:s1e 3d>xy cp ;
-:s1f 3d>xy circleg ;
+:s6 | color+lpoli
+	xa ya pline
+	8 >> ink@ fcol lfill poli
+	$80000000 'xa ! ;
+:s7 | color+rpoli
+	xa ya pline
+	8 >> ink@ fcol rfill poli
+	$80000000 'xa ! ;
+:s8 | tpoli+Tpoli
+	xa ya pline
+	8 >> 2 << paltex + @ tfill poli
+	$80000000 'xa ! ;
+|--- deg
+:s9 | fcen fmat
+	3d>xy rot >r r@+ 3d>xy | xc yc xm ym
+	>r neg pick2 + r> neg pick2 +
+	over dup * over dup * + 0? ( 1 nip ) >r | xc yc xm ym d
+	swap neg r 16 <</
+	swap r> 16 <</ fmat r> ;
+|--- linea
+:sa 3d>xy op ;
+:sb 3d>xy line ;
+:sc 3d>xy cp ;
+:sd 3d>xy curve ;
+|--- poly
+:se xa $80000000 <>? ( ya line )( drop )
+	3d>xy 2dup 'ya ! 'xa ! op ;
+:sf 3d>xy pline ;
+:s10 3d>xy cp ;
+:s11 3d>xy pcurve ;
 
-#sa s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 sa sb sc sd se sf
+:s12 :s13 :s14 :s15 :s16 :s17 :s18
+:s19 :s1a :s1b :s1c :s1d :s1e :s1f drop ;
+
+#sav s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 sa sb sc sd se sf
 s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 
-::vsp.draw | ad --
+::vsprite | adr --
 	$80000000 'xa !
 	( @+ 1? )(
-		dup $1f and 2 << 'sa + @ exec
+		dup $1f and 2 << 'sav + @ exec
 		) 2drop ;
+
+|--- deg
+:s9g | fcen fmat
+	gc>xy rot >r r@+ gc>xy | xc yc xm ym
+	>r neg pick2 + r> neg pick2 +
+	over dup * over dup * + 0? ( 1 nip ) >r | xc yc xm ym d
+	swap neg r 16 <</
+	swap r> 16 <</ fmat r> ;
+
+|--- linea
+:sag gc>xy op ;
+:sbg gc>xy line ;
+:scg gc>xy cp ;
+:sdg gc>xy curve ;
+|--- poly
+:seg xa $80000000 <>? ( ya line )( drop )
+	gc>xy 2dup 'ya ! 'xa ! op ;
+:sfg gc>xy pline ;
+:s10g gc>xy cp ;
+:s11g gc>xy pcurve ;
+
+#sag s0 s1 s2 s3 s4 s5 s6 s7 s8 s9g sag sbg scg sdg seg sfg
+s10g s11g s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
+
+::gvsprite | adr --
+	$80000000 'xa !
+	( @+ 1? )(
+		dup $1f and 2 << 'sag + @ exec
+		) 2drop ;
+
+|--- deg
+:s9r | fcen fmat
+	rgc>xy rot >r r@+ rgc>xy | xc yc xm ym
+	>r neg pick2 + r> neg pick2 +
+	over dup * over dup * + 0? ( 1 nip ) >r | xc yc xm ym d
+	swap neg r 16 <</
+	swap r> 16 <</ fmat r> ;
+
+|--- linea
+:sar rgc>xy op ;
+:sbr rgc>xy line ;
+:scr rgc>xy cp ;
+:sdr rgc>xy curve ;
+|--- poly
+:ser xa $80000000 <>? ( ya line )( drop )
+	rgc>xy 2dup 'ya ! 'xa ! op ;
+:sfr rgc>xy pline ;
+:s10r rgc>xy cp ;
+:s11r rgc>xy pcurve ;
+
+#sar s0 s1 s2 s3 s4 s5 s6 s7 s8 s9r sar sbr scr sdr ser sfr
+s10r s11r s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
+
+::rvsprite | adr ang --
+	sincos 'cosa !+ !
+	$80000000 'xa !
+	( @+ 1? )(
+		dup $1f and 2 << 'sar + @ exec
+		) 2drop ;
+
+|-----------------
+#dibujo
+#dibujo>
+#ct
+
+:rframecopy | mem -- cini
+	dibujo> swap
+	( @+ dup $1f and $3 >? )( drop rot !+ swap ) 2drop
+	4 - swap 0 over ! 'dibujo> ! ;
+
+:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - ct 16 *>> + ;
+
+:minter | v1 v2 -- vr
+	over $1f and >r
+	over 23 >> over 23 >> lerp 23 <<
+	pick2 9 << 23 >> pick2 9 << 23 >> lerp $1ff and 14 << or
+	rot 18 << 23 >> rot 18 << 23 >> lerp $1ff and 5 << or
+	r> or ;
+
+:cinter | v1 v2 -- vr
+	over $1f and
+	rot 8 >> rot 8 >> lerp
+	8 << or ;
+
+:nextframe | 'rvar 'timenow -- 'rvar
+	30 swap ! |	100 'timenow !
+	dup 20 + @ | cfin
+	dup @ 0? ( 2drop dibujo 'dibujo> ! dup 4+ @ )( drop )
+	rframecopy
+:rframeini | 'rvar adr -- 'rvar
+	dup
+	pick2 16 + ! |'cini !
+	dibujo> 4+ >r
+	( @+ $1d and? )(
+		dup 8 >> $fff and 2 <<
+		swap 12 8 + >> $fff and 2 <<
+		2dup - rot dibujo + rot dibujo +
+		( over <? )( @+ r!+ ) 2drop
+		+ ) drop
+	over 20 + ! |'cfin !
+	rdrop
+	;
+
+:rframestep | 'rvar -- 'rvar
+	dup 12 + dup @ 0? ( drop nextframe ; )
+	1- 1.0 over 30 */ 'ct !
+	swap !
+	dibujo> 4+ >r
+	dup 16 + @ | cini
+	( @+ $1d and? )( swap
+		over 8 >> $fff and 2 << dibujo +
+		rot 12 8 + >> $fff and 2 << dibujo +
+		( over <? )(
+			rot @+ r@+ minter rot !+
+			rot swap ) 2drop
+		) 2drop
+	rdrop
+	;
+
+:asignamemoria | mem 0 -- mem newmem
+	drop
+	here dup dup 'dibujo ! pick2 8 + !
+	over 4+ @ dup ( @+ 1? )( drop ) drop
+	swap - 'here +! | uso de memoria
+	dup 'dibujo> !					|	dibujo.clear
+	>r
+	dup 4+ @ rframecopy rframeini
+	0 over 12 + !					|	0 'timenow !
+	r>
+ 	;
+
+:resetcold | mem -- mem
+	dup 4+ @ rframecopy rframeini
+	;
+
+|----------------
+| #rauto 1.0 'rmation 0 0 0 0
+| escala-tiempo animacion+4 memoria+8 timenow+12 cini+16 cfin+20 memoria>+24
+|
+| 0 0 0 mtransi
+| 0 mrotzi
+| 'rauto rplay | animacion anda sola
+| 'rauto rstep | paso de animacion sin dibujo
+| 'rauto rstop | animacion en inicio
+|----------------
+::rplay | 'rvar --
+	dup 8 + @ 0? ( asignamemoria )( dup 'dibujo ! over 24 + @ 'dibujo> ! )
+	vsprite
+	rframestep
+	dibujo> swap 24 + !
+	;
+
+::rstep | 'rvar --
+	dup 8 + @ 0? ( asignamemoria )( dup 'dibujo ! over 24 + @ 'dibujo> ! )
+	drop
+	rframestep
+	dibujo> swap 24 + !
+	;
+
+::rstop | 'rvar --
+	dup 8 + @ 0? ( asignamemoria )( dup 'dibujo ! over 24 + @ 'dibujo> ! )
+	drop
+	30 over 12 + !
+	dibujo 'dibujo> !
+	dup 4+ @ rframecopy rframeini
+	dibujo> swap 24 + !
+	;
+
+::rset | 'dibujo rmation 'raux --
+	swap over 4+ !
+	swap dup dup 'dibujo ! 'dibujo> !
+	over 8 + !
+	dup 4+ @ rframecopy rframeini
+	dibujo> swap 24 + !
+	;
