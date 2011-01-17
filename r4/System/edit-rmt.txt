@@ -9,50 +9,6 @@
 ^r4/lib/vsprite.txt
 ^r4/lib/trace.txt
 
-|--- modos
-#modo 6
-
-#nombresmm ( "POINT" "DRAW" 0 "BOX" 0 0 "CIRC" 0 "EDIT" 0 "VISTA" "VIDEO" )
-
-:elegido
-	dup 'modo ! ;
-
-:noelegido
-	dup 'modo ! ;
-
-:modomodo
-	'nombresmm
-	7 ( 1? )( 1-
-		verde modo =? ( 'elegido )( oscuro 'noelegido )
-		pick2 sp btnt
-		swap 6 + swap
-		) 2drop ;
-
-
-#mododibur
-#mododibu $a | $a $e
-
-#nombresmd ( "LINE" 0 "POLY" 0 "LPOLY" "RPOLY" "TPOLY" )
-#valormd $a $e $1a $1c $1d
-
-:clickmd
-	dup 'mododibur ! ;
-
-:mododibujo
-	'valormd 'nombresmd
-	5 ( 1? )( 1-
-		cyan mododibujor =? ( oscuro )
-		'clickmd pick2 sp btnt
-		swap 6 + swap 
-
-
-	[ $a 'mododibu ! ; ] "LINE" sp btnt
-	[ $e 'mododibu ! ; ] "POLY" sp btnt
-	[ $1a 'mododibu ! ; ] "LPOLY" sp btnt
-	[ $1c 'mododibu ! ; ] "RPOLY" sp btnt
-	[ $1d 'mododibu ! ; ] "TPOLY" sp btnt
-	;
-
 |---- memoria de la animacion
 #rmation
 #rmation>
@@ -102,7 +58,6 @@
 #xv #yv
 #xf #yf
 
-
 |----------- PLAY ---------------
 #raux 1.0 0 0 0 0 0 0 0
 
@@ -114,9 +69,45 @@
 		'exit >esc<
 		;
 
+|---------- MODOS ---------------
+#modo 6
+#nombresmm ( "POINT" "DRAW" 0 "BOX" 0 0 "CIRC" 0 "EDIT" 0 "VISTA" "VIDEO" )
+
+:elegido
+	dup 'modo ! ;
+
+:noelegido
+	dup 'modo !
+	-1 'xb ! ;
+
+:modomodo
+	'nombresmm
+	7 ( 1? )( 1-
+		verde modo =? ( 'elegido )( oscuro 'noelegido )
+		pick2 sp btnt
+		swap 6 + swap
+		) 2drop ;
+
+#mododibur 4
+#nombresmd ( "LINE" 0 "POLY" 0 "LPOLY" "RPOLY" "TPOLY" )
+
+:clickmd
+	dup 'mododibur ! ;
+
+:mododibujo
+	'nombresmd
+	5 ( 1? )( 1-
+		cyan mododibur <>? ( oscuro )
+		'clickmd pick2 sp btnt
+		swap 6 + swap
+		) 3drop ;
+
+
+
 |---------- VISTA ---------------
 #xcycwh 0 0 0 0
 #xcam 0 #ycam 0 #zcam 2.5
+#zrot
 |------ GC para dibujo
 
 :savebox
@@ -127,6 +118,7 @@
 
 :genvista
 	scr omode
+	zrot mrotz
 	xcam ycam zcam mtrans
 	-1.0 -1.0 0 project3d
 	1.0 1.0 0 project3d      | x y x y
@@ -137,16 +129,33 @@
 	;
 
 |---------- DIBUJO ACTUAL ---------------
+:drawgrid1
+	gris
+	-1.0 ( 1.0 <? )( 0.5 +
+		dup -1.0 0 project3d op
+		dup 1.0 0 project3d line
+		-1.0 over 0 project3d op
+		1.0 over 0 project3d line
+		) drop ;
+
+:drawgrid2
+	gris
+	-1.0 ( 0.8 <? )( 0.2 +
+		dup -1.0 0 project3d op
+		dup 1.0 0 project3d line
+		-1.0 over 0 project3d op
+		1.0 over 0 project3d line
+		) drop ;
+
 :drawdibujo
 	loadbox
 	omode
 	xcam ycam zcam mtrans
+	drawgrid1
 	'dibujo vsprite
 	blanco gc.box | recuadro
 	;
 
-:drawgrid1
-	;
 
 |---- DUBUG
 :debug
@@ -199,7 +208,43 @@
 	drop rdrop ;
 
 
+|--- graba dibujo
+:,dib | v --
+	dibujo> !+ 0 over ! 'dibujo> ! ;
+
+:,COLOR
+	8 << $4 or ,dib ;
+
+:,COLORnoset
+	dlg.color@
+	colorultimo =? ( drop ; )
+	dup 'colorultimo ! ,COLOR ;
+
+:,SPOLY | color --
+	8 << 5 or ,dib ;
+:,LPOLY | color --
+	8 << 6 or ,dib ;
+:,RPOLY | color --
+	8 << 7 or ,dib ;
+:,TPOLY | color --
+	8 << 8 or ,dib ;
+:,OP
+	$a or ,dib ;
+:,LINE
+	$b or ,dib ;
+:,CP
+	$c or ,dib ;
+:,CURVE
+	$d or ,dib ;
+
+|--- seleccion
+:,sel | v --
+	seleccion> !+ 'seleccion> ! ;
+
 |--- rearma polys
+:,poly | v --
+	polys> !+ 'polys> ! ;
+
 :repoly
 	'polys >r
 	'dibujo ( dibujo> <? )(
@@ -211,13 +256,30 @@
 	resetedit
 	;
 
-|---
-:,dib | v --
-	dibujo> !+ 0 over ! 'dibujo> ! ;
-:,sel | v --
-	seleccion> !+ 'seleccion> ! ;
-:,poly | v --
-	polys> !+ 'polys> ! ;
+:limite | xy --
+	3d>xy
+	y1 <? ( dup 'y1 ! ) y2 >? ( dup 'y2 ! ) drop
+	x1 <? ( dup 'x1 ! ) x2 >? ( dup 'x2 ! ) drop
+	;
+
+:allpolys
+	0 'puntocursor !
+	'seleccion 'seleccion>  !
+	1.0 dup 'x1 ! 'y1 !
+	-1.0 dup 'x2 ! 'y2 !
+	'dibujo
+	( @+ 1? )(
+		dup $1f and $9 >? ( drop limite dup 4 - ,sel )( 2drop )
+		) 2drop
+	-4 dup 'x1 +! 'y1 +!
+	4 dup 'x2 +! 'y2 +!
+	;
+
+:nonepolys
+	0 'puntocursor !
+	'seleccion 'seleccion>  !
+	0 dup 2dup 'x1 ! 'y1 ! 'x2 ! 'y2 !
+	;
 
 |---- dibujo
 :dibujo.changes | -- cntdwords
@@ -244,7 +306,7 @@
 	2drop
 	;
 
-|------------------
+|------------------ ANIMACION
 | copia el dibujo estatico
 :rframecopy | mem -- cini
 	( @+ dup $1f and $3 >? )( drop ,dib ) 2drop
@@ -292,7 +354,6 @@
 	3 << 'frames + @ rframecopy ;
 
 |--- modificados
-
 :cadanewm | dir+4 1 -- dir+4 x
 	drop
 	dup 4 - 'cambio - 'inipnt !
@@ -382,8 +443,32 @@
 	cambio.clear
 	;
 
-|-----------FIN GETSETDIBUJO
+|----- moverse por la animacion
+:primt
+	setdibujo
+	0 'actframe !
+	getdibujo ;
 
+:ultit
+	setdibujo
+	cntframes 1? ( 1- ) 'actframe !
+	getdibujo ;
+
+:nextt
+	actframe
+	cntframes >? ( drop ; )
+	setdibujo
+	1+ 'actframe !
+	actframe cntframes =? ( drop getsubdibujo ; ) drop
+	getdibujo ;
+
+:prevt
+	actframe 0? ( drop ; )
+	setdibujo
+	1- 'actframe !
+	getdibujo ;
+
+|-- resetdib
 :resetdib
 	0 'actframe !
 	rmation 'rmation> !
@@ -449,44 +534,7 @@
 	dup @ 1 or swap !
 	;
 
-|----- seleccion
-:limite | xy --
-	3d>xy
-	y1 <? ( dup 'y1 ! ) y2 >? ( dup 'y2 ! ) drop
-	x1 <? ( dup 'x1 ! ) x2 >? ( dup 'x2 ! ) drop
-	;
 
-:allpolys
-	0 'puntocursor !
-	'seleccion 'seleccion>  !
-	1.0 dup 'x1 ! 'y1 !
-	-1.0 dup 'x2 ! 'y2 !
-	'dibujo
-	( @+ 1? )(
-		dup $1f and $9 >? ( drop limite dup 4 - ,sel )( 2drop )
-		) 2drop
-	-4 dup 'x1 +! 'y1 +!
-	4 dup 'x2 +! 'y2 +!
-	;
-
-:nonepolys
-	0 'puntocursor !
-	'seleccion 'seleccion>  !
-	0 dup 2dup 'x1 ! 'y1 ! 'x2 ! 'y2 !
-	;
-
-:npoly | adr nro+1 -- adr nro+1
-	0 'puntocursor !
-	'seleccion 'seleccion>  !
-	1.0 dup 'x1 ! 'y1 !
-	-1.0 dup 'x2 ! 'y2 !
-	over @
-	( @+ dup $1f and $9 >? )(
-		drop limite dup 4 - ,sel
-		) 3drop
-	-4 dup 'x1 +! 'y1 +!
-	4 dup 'x2 +! 'y2 +!
-	;
 
 :setmovesel
 	xymouse
@@ -530,7 +578,6 @@
 	( seleccion> <? )(
 		@+ marcapunto
 		) drop
-
 	;
 |---- draw
 :puntosedita
@@ -553,7 +600,127 @@
 	@ 3d>xy 3 box
 	;
 
-|---- edit
+:gc>valor
+	xy>gc d>xy
+	5 >> $1ff and 14 << swap
+	5 >> $1ff and 23 << or
+	;
+
+|---- trazo
+:gc>valor
+	xy>gc
+:tr>valor | tr -- valor
+	d>xy
+	5 >> $1ff and 14 << swap
+	5 >> $1ff and 23 <<
+	or ;
+
+
+|---- modo point **
+:downP
+	,COLORnoset
+	xymouse
+	xb +? ( drop 'yb ! 'xb ! ; ) drop
+	2dup 'yb ! 'xb !
+	2dup 'ya ! 'xa !
+	gc>valor ,OP ;
+
+:upP
+	xb yb 2dup 'ya ! 'xa !
+	gc>valor ,LINE ;
+
+:modopoint
+	drawdibujo
+
+	'downP
+	[ xymouse 'yb ! 'xb ! ; ]
+	'upP
+	guiMap
+
+	xb +? (  xa ya op yb line )( drop )
+
+|	'reset "Clear" sp btnt
+
+	modomodo
+	sp dlg.colormini
+	[ -1 'xb ! ; ] "Break" sp btnt
+
+	cminiflecha ;
+
+|------ modo draw **
+:addtrazo
+	trazo.cnt 2 <? ( drop ; ) drop
+	,COLORnoset
+	[ tr>valor ,OP ; ] trazo.mapex0 | 'vector -- adr0
+	[ tr>valor ,LINE ; ] trazo.mapex | adr0 ' vector  --
+	;
+
+:mododraw
+	drawdibujo
+	dlg.color@ ink
+	'addtrazo trazo.draw
+
+	modomodo
+	sp dlg.colormini
+
+	cminilapiz
+	;
+
+|---- modo caja **
+:,dibcaja
+	xb -? ( drop ; ) drop
+	xa ya
+	,COLORnoset
+	gc>valor dup ,OP
+	xa yb gc>valor ,LINE
+	xb yb gc>valor ,LINE
+	xb ya gc>valor ,LINE
+	,LINE
+	;
+
+:modobox
+	drawdibujo
+	[ xymouse 2dup 'ya ! 'xa ! 'yb ! 'xb ! ; ]
+	[ xymouse 'yb ! 'xb ! ; ]
+	[ ,dibcaja -1 'xb ! ; ]
+	guiMap
+	xb +? (  xa ya rot yb caja )( drop )
+
+	modomodo
+|	'reset "Clear" sp btnt
+	cminilapiz ;
+
+|---- modo circulo **
+:,dibelip
+	xa xb =? ( drop ; ) ya yb =? ( 2drop ; )
+	yb ya - abs xb xa - abs
+	>r >r r - 2dup
+	,COLORnoset
+	2dup gc>valor ,OP
+    swap r> r> dup >r swap >r  - swap 2dup gc>valor ,CP
+	r + 2dup gc>valor ,CURVE
+	r + 2dup gc>valor ,CP
+	swap r> r> dup >r swap >r + swap 2dup gc>valor ,CURVE
+	swap r> r> dup >r swap >r + swap 2dup gc>valor ,CP
+	r - 2dup gc>valor ,CURVE
+	r> - gc>valor ,CP
+	gc>valor ,CURVE
+	rdrop
+	;
+
+:modocirc
+	drawdibujo
+	[ xymouse 2dup 'ya ! 'xa ! 'yb ! 'xb ! ; ]
+	[ xymouse 'yb ! 'xb ! ; ]
+	[ ,dibelip -1 'xb ! ; ]
+	guiMap
+	xb +? ( xa swap <>? ( ya yb <>? ( yb ya - abs xb xa - abs ellipse
+			)( drop ) )( drop ) )( drop )
+
+	modomodo
+	cminilapiz ;
+
+|---- modo edit **
 :onDNedit | ad --
 	inselm? 1? ( 'puntosel ! setmovesel ; ) drop
 	0 'puntocursor !
@@ -569,10 +736,13 @@
 :onMOVEedit
 	puntosel 1? ( drop movesel ; ) drop
 	puntocursor 0? ( drop xymouse 'y2 ! 'x2 ! ; )
+
 	xymouse xy>gc
+
 	d>xy 5 >> $1ff and 14 << swap
 	5 >> $1ff and 23 <<
 	or
+
 	over @ $1f and or
 	over !
     'dibujo - 'cambio + 1 swap ! | marca cambio
@@ -584,117 +754,58 @@
 	selecionelije
 	;
 
-
-|-- moverse por la animacion
-:primt
-	setdibujo
-	0 'actframe !
-	getdibujo ;
-
-:ultit
-	setdibujo
-	cntframes 1? ( 1- ) 'actframe !
-	getdibujo ;
-
-:nextt
-	actframe
-	cntframes >? ( drop ; )
-	setdibujo
-	1+ 'actframe !
-	actframe cntframes =? ( drop getsubdibujo ; ) drop
-	getdibujo ;
-
-:prevt
-	actframe 0? ( drop ; )
-	setdibujo
-	1- 'actframe !
-	getdibujo ;
-
-
-|------------------------------
-|------------------------------
-#primero
-
-:cadapunto | tr --
-	d>xy 5 >> $1ff and 14 << swap
-	5 >> $1ff and 23 <<
-	or
-	primero
-	$a =? ( $b 'primero ! )
-	$e =? ( $f 'primero ! )
-	or
-	,dib
-	;
-
-:addtrazo
-	trazo.cnt 2 <? ( drop ; ) drop
-	mododibu
-	$e <>? ( dlg.color@ colorultimo <>? ( dup 'colorultimo ! 8 << $4 or ,dib )( drop ) )
-	'primero !
-	'cadapunto trazo.map
-	mododibu
-	$e =? ( dlg.color@ dup 'colorultimo ! 8 << $5 or ,dib )
-	drop
-	;
-
-
-|-----
-:mododraw
-	drawdibujo
-	dlg.color@ ink
-	'addtrazo trazo.draw
-
-	modomodo
-	sp dlg.colormini
-	mododibujo
-	cminilapiz
-	;
-
-|------------------------------
-|---- modo linea
-:,dibline
-	xa -? ( drop xb yb 2dup 'ya ! 'xa ! xy>gc $a or ,dib ; )
-	xb - abs ya yb - abs + 0? ( drop ; ) drop
-	xb yb 2dup 'ya ! 'xa ! xy>gc $b or ,dib
-	;
-
-:modopoint
-	drawdibujo
-	[ xymouse 'yb ! 'xb ! ; ] dup
-|	[ xymouse 'yb ! 'xb ! ; ]
-	[ ,dibline ; ]
-	guiMap
-	xa +? ( ya op xb yb line )( drop )
-|	'reset "Clear" sp btnt
-
-	modomodo
-	sp dlg.colormini
-	mododibujo
-	[ -1 'xa ! ; ] "Break" sp btnt
-|	'makepoli "Poli" sp btnt
-
-
-	cminilapiz
-	;
-
-|------------------------------
-|------------------------------
-
 :copynode ;
 
-:modoedit
+#inipoligono
+#finpoligono
 
+
+:npoly | adr nro+1 -- adr nro+1
+	0 'puntocursor !
+	'seleccion 'seleccion>  !
+	1.0 dup 'x1 ! 'y1 !
+	-1.0 dup 'x2 ! 'y2 !
+	over @
+	dup 'inipoligono !
+	( @+ dup $1f and $9 >? )(
+		drop limite dup 4 - ,sel
+		) 2drop
+	'finpoligono !
+	-4 dup 'x1 +! 'y1 +!
+	4 dup 'x2 +! 'y2 +!
+	;
+
+
+:clickpoly
+	npoly ;
+
+:toLine
+	inipoligono
+	( finpoligono <? )(
+		dup @ dup $1f and 4 - swap $ffffffe0 and or
+		swap !+
+		) drop ;
+:toPoly
+	inipoligono
+	( finpoligono <? )(
+		dup @ dup $1f and 4+ swap $ffffffe0 and or
+		swap !+
+		) drop 
+	dlg.color@ ,SPOLY ;
+
+:modoedit
 	drawdibujo
 	'onDNedit
 	'onMOVEedit
 	'onUPedit
 	guiMap
 	drawedit
-
-
 	modomodo
 	sp dlg.colormini
 	cr cr cyan oscuro
+	'toLine ">Line" sp btnt
+	'toPoly ">Poly" sp btnt
+
 	'copynode "CLONE" sp btnt
 	'dibcls "CLS" sp btnt
 
@@ -703,17 +814,18 @@
 	[ newnode ; ] " NEW N" sp btnt
 	[ delnode ; ] " DEL N" sp btnt
 	cr cr
+
 	violeta
 	'nonepolys "0" sp btnt
 	'allpolys "ALL" sp btnt
 	0 'polys ( polys> <? )(
-		swap 1+ 'npoly over "%d" sp btnt
+		swap 1+
+		'clickpoly over "%d" sp btnt
 		swap 4+ ) 2drop
 
-	cminiflecha
-	;
+	cminiflecha ;
 
-|-----------------------
+|------------- modo vista **
 :vista.move
 	xymouse
 	dup yv - 0.001 * 'ycam +! 'yv !
@@ -733,13 +845,15 @@
 	cr cr cyan oscuro
 	[ -0.1 'zcam +! genvista ; ] " Z+ " sp btnt
 	[ 0.1 'zcam +! genvista ; ] " Z- " sp btnt
-	cminimano
-	;
 
-|----
+	[ -0.1 'zrot +! genvista ; ] " RZ+ " sp btnt
+	[ 0.1 'zrot +! genvista ; ] " RZ- " sp btnt
+
+	cminimano ;
+
+|------ modo video **
 :modovideo
 	drawdibujo
-
 
 	modomodo
 
@@ -751,62 +865,7 @@
 	sp verde
 	[ setdibujo play getdibujo ; ] cntframes "%d|>" sp btnt
 
-	cminimano
-	;
-
-|---- modo caja
-:,dibcaja
-	xa xb =? ( drop ; ) ya yb =? ( 2drop ; )
-	xy>gc dup 1 or ,dib
-	xa yb xy>gc 5 or ,dib
-	xb yb xy>gc 5 or ,dib
-	xb ya xy>gc 5 or ,dib
-	5 or ,dib
-	;
-
-:modobox
-	drawdibujo
-	[ xymouse 2dup 'ya ! 'xa ! 'yb ! 'xb ! ; ]
-	[ xymouse 'yb ! 'xb ! ; ]
-	[ ,dibcaja -1 'xa ! ; ]
-	guiMap
-	xa +? (  ya xb yb caja )( drop )
-
-	modomodo
-|	'reset "Clear" sp btnt
-	cminilapiz
-	;
-
-|---- modo circulo
-:,dibelip
-	xa xb =? ( drop ; ) ya yb =? ( 2drop ; )
-	yb ya - abs xb xa - abs
-	>r >r r - 2dup
-	2dup xy>gc 1 or ,dib |op
-    swap r> r> dup >r swap >r  - swap 2dup xy>gc 2 or ,dib	|cp
-	r + 2dup xy>gc 6 or ,dib |curve
-	r + 2dup xy>gc 2 or ,dib |cp
-	swap r> r> dup >r swap >r + swap 2dup xy>gc 6 or ,dib |curve
-	swap r> r> dup >r swap >r + swap 2dup xy>gc 2 or ,dib |cp
-	r - 2dup xy>gc 6 or ,dib |curve
-	r> - xy>gc 2 or ,dib |cp
-	xy>gc 6 or ,dib |curve
-	rdrop
-	;
-
-:modocirc
-	drawdibujo
-	[ xymouse 2dup 'ya ! 'xa ! 'yb ! 'xb ! ; ]
-	[ xymouse 'yb ! 'xb ! ; ]
-	[ ,dibelip -1 'xa ! ; ]
-	guiMap
-	xa +? ( xb <>? ( ya yb <>? ( yb ya - abs xb xa - abs ellipse
-			)( drop ) )( drop ) )( drop )
-
-	modomodo
-|	'reset "Clear" sp btnt
-	cminilapiz
-	;
+	cminimano ;
 
 |----------------------- MODOS
 #modos 'modovideo 'modovista 'modoedit 'modocirc 'modobox 'mododraw 'modopoint
@@ -820,15 +879,16 @@
 	10 sh 230 - dlgColat!
 	usogui fonti |font-vard-12-bold
 	repoly
-	show fonti clrscr
-		cr rojo oscuro
+	show fonti clrscr cr
+		modoactual
+
+		rojo oscuro
 		[ setdibujo exit ; ] dup >esc< "EXIT" sp btnt
 		'resetdib "RESET" sp btnt
 
-		modoactual
 		verde dup " -%d-" print cr cr
 
-|		debug
+		debug
 
 		verde
 		scr fontj4 home
@@ -838,9 +898,7 @@
 
 		'primt <pgup> 'prevt  <le> 'nextt <ri> 'ultit <pgdn>
 		[ setdibujo play getdibujo ; ] <enter>
-
 		;
-
 
 :rmation.mem
 	mark

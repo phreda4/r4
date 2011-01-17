@@ -20,6 +20,16 @@
 :grabaeditornl
 	'ncar 76 "mem/edit-code.mem" save ;
 
+|-------- imagen en disco
+#rinfo
+
+:rinfo.ok | -- 1/0
+	1 ;
+
+:rinfo.mapinc
+	;
+
+
 |--------------------
 #fuente 0 |)( $3ffff	| 256k de fuente editable
 #fuente> 'fuente	| cursor
@@ -36,11 +46,13 @@
 
 #helptxt 0
 
-#clipboard )( $3fff
+#clipboard 0 |)( $3fff
 #clipboard> 'clipboard
 
-#undobuffer )( $ffff
+#undobuffer 0 |)( $ffff
 #undobuffer> 'undobuffer
+
+#pad )( 1024
 
 |---- debug.err
 #nrolin )( 32
@@ -359,9 +371,21 @@
 	9 =? ( drop 1- dup c@ [ -1 'fuente> +! ; ] >r )
 	lins 'undobuffer> ! ;
 
+|-------------
+:controlf | search word
+	usogui
+	show clrscr
+		'exit >esc<
+		cminiflecha ;
+
+
 |-------------------- tecla control
 :modocontrol
-	home blanco "CNTRL" print redraw
+	32 gc.botton $0 gc.hfill
+	fonti2 |font-vard-8-bold
+	home blanco
+	"CTRL E-Edit H-Help Z-Undo X-Cut C-Copy V-Paste"
+	print redraw
 	1 ( 1? )(
 		30 update drop
 		'controle 18 ?key | ctrl-E dit
@@ -370,6 +394,7 @@
 		'controlx 45 ?key | cut
 		'controlc 46 ?key | copy
 		'controlv 47 ?key | paste
+		'controlf 33 ?key | buscar palabra
 		[ 0 nip ; ] >ctrl<
 
 		) drop
@@ -380,12 +405,6 @@
 	savetxt
 |	"" 0 "debug.err" save
 	"r4/system/debug-code.txt" run ;
-
-:searchw
-	;
-
-:medit
-	;
 
 |--------------------
 |--------------------
@@ -411,6 +430,14 @@
 	;
 
 |----------------------------
+:!cntlineas
+	scr 32 32 gc.vbetween
+	fonti
+    |font-vard-8
+	home
+	rows 'cntlineas !
+	;
+
 |||||||| Dibuja codigo
 :drawcur | com -- com
 	fuente> >? ( ; )
@@ -429,17 +456,8 @@
 	( finsel <? )( c@+ 13 =? ( 2drop $77 ink sel<< ; ) gemit )
 	drop $77 ink sel<< ;
 
-:!cntlineas
-	scr 32 26 gc.vbetween
-	fonti
-    |font-vard-8
-	home
-	rows 'cntlineas !
-	;
-
 :drawcode
-	fonti
-	|font-vard-8
+	fonti |font-vard-8
     home gris
 	0 ( cntlineas <? )(
 		dup prilinea +
@@ -447,7 +465,9 @@
 		cr
 		1+ ) drop
 	chome
-	pantaini> 0 ( cntlineas <? )(
+
+	pantaini>
+	0 ( cntlineas <? )(
 		swap
 		$fuente	<? (
 			drawsel lf
@@ -469,8 +489,9 @@
 	( pantafin> >? )( scrolldw )
 	( pantaini> <? )( scrollup )
 	drop
-
 	;
+
+
 
 :editor
 	usogui
@@ -478,7 +499,7 @@
 	show clrscr
 		32 gc.top $00000f gc.hfill
 		font-vard-12-bold home cr2
-		rojo sp 'exit "esc-Exit" btnt
+		rojo sp 'exit "esc" btnt
 		verde sp sp 'directrun dup <f1> "f1-Run" btnt
 		sp 'debugcode dup <f2> "f2-Debug" btnt
 		sp 'archivos dup <f3> "f3-File" btnt
@@ -492,17 +513,22 @@
 		modo 'lins =? ( "INS" verde )( "OVR" rojo ) nip printx sp|
 		finsel 0? ( drop "0" )( fuente - inisel fuente - "%d..%d" ) print sp|
 	 	clipboard> 'clipboard <>? ( "clip" print sp| ) drop
-		verde nlin 1+ "%d " print |sp|
+		verde nlin 1+ "%d " print sp|
+		'nombre sp print
 
+		32 gc.botton |$00000f gc.hfill
+		fonti2 |font-vard-8-bold
+		home blanco 'mensaje sp printx
 
-		26 gc.botton $00000f gc.hfill
-		font-vard-8-bold home
-		gris |[ end ; ] 'nombre sp btnt cr
-		'nombre sp print cr
-|		cntrl? 1? ( " CTRL E-Edit H-Help Z-Undo X-Cut C-Copy V-Paste" )( 'mensaje )
-|		nip sp blanco printx
+|		32 gc.botton |$00000f gc.hfill
+|		fonti2 |font-vard-8-bold
+|		home blanco
+|       fuente> 1- <<13 1+
+|		drawsel lf
+|		drawcur lf
+|		>>lineacolor>> drop |printx
 
-		blanco 'mensaje sp printx
+|		cntrl? 1? ( "CTRL E-Edit H-Help Z-Undo X-Cut C-Copy V-Paste" )( 'mensaje )
 |		'undobuffer 10 ( 1? )( 1- swap c@+ emit swap ) 2drop
 
 |------------------------------
@@ -511,8 +537,7 @@
 |------------------------------
 		keypad
 		[ key toasc modo exec ; ] <visible>
-		'kback	<back>
-		'kdel	<del>
+		'kback	<back>		'kdel	<del>
 		'karriba <up>		'kabajo	<dn>
 		'kder	<ri>		'kizq	<le>
 		'khome	<home>		'kend	<end>
@@ -523,18 +548,41 @@
 		'exit  >esc<
 		'modocontrol 		<ctrl> | control
 
-		cminiflecha
-		;
+		cminiflecha ;
 
 |---- Mantiene estado del editor
 
 :cpy|
     swap ( c@+ $7c <>? )( rot c!+ swap ) drop 0 rot c! ;
 
+|----
+:ram
+	here	| --- RAM
+	dup 'helptxt !
+	"doc/helpr4.txt" load 0 swap !+
+
+	dup 'fuente !
+	dup 'fuente> !
+	dup '$fuente !
+	$3ffff +			| 256kb texto
+	dup 'clipboard !
+	$3fff +				| 16KB
+	dup 'undobuffer !
+	$ffff +         	| 64kb
+	dup 'rinfo !
+	"mem/edit-code.mem" load
+	'here  ! | -- FREE
+	;
+
+
+:loadincludes
+	rinfo.ok 0? ( drop ; ) drop
+
+	;
+
 :cargaestado
 	mark
-	here
-	dup "debug.err" load
+	here dup "debug.err" load
 	empty
 	over 4+ <? ( 2drop cargaeditornl ; )
 	0 swap !
@@ -548,41 +596,15 @@
 	'error 'mensaje strcpy
 	;
 
-|----
-
-:combierterror
-	mark
-	here
-	dup "debug.err" load
-	empty
-	over 4+ <? ( 2drop ; )
-	0 swap !
-	| -- here  ...vacia antes de usarla
-	'nombre cpy|
-	'nrolin cpy|
-	'nrolin ?numero 1? ( drop nip ) -1 =? ( drop ; ) 'nlin !
-	'nrolin cpy|
-	'nrolin ?numero 1? ( drop nip )  'ncar !
-	'error swap ( c@+ 1? )( rot c!+ swap ) rot c! drop
-	'error 'mensaje strcpy
-	;
-
 |----------- principal
 :main
-	here dup 'helptxt !
-	"doc/helpr4.txt" load 0 swap !+ 'here !
-
+	ram
 	-1  'nlin ! 0 'ncar !
-    cargaestado
-	here dup 'fuente !	| -- MEM --
-	dup 'fuente> !
-	dup '$fuente !
-	$3ffff +			| 256kb texto
-	'here  !
+	cargaestado
+	loadincludes
 	loadtxt
 	editor
 	savetxt ;
-
 
 : 0 paper
 	mark

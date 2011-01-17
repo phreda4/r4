@@ -8,19 +8,30 @@
 | 9 . 9 . 9 . 5 | tipo 1
 | x=9 bits y=9 bits z=9 bits control=5bit
 | 24 .8 | tipo 2
-| 8 << porque usa 9 bits a 17 bits queda 1.0
 |----------------------------------------
 ::3d>xyv | valor -- valor x y
 	dup 23 >> 5 << $10 +
 	over 9 << 23 >> 5 << $10 +
 	;
 
+::3d>xyz | valor -- valor x y z
+	dup 23 >> 5 <<
+	over 9 << 23 >> 5 <<
+	pick2 18 << 23 >> 5 <<
+	;
+
 ::xyv>3d | valor x y -- valor'
 	5 >> $1ff and 14 << swap
-	5 >> $1ff and 23 <<
-	or
+	5 >> $1ff and 23 << or
 	swap $1f and or ;
 
+::xyz>3d | valor x y z -- valor'
+	5 >> $1ff and 5 << swap
+	5 >> $1ff and 14 << or swap
+	5 >> $1ff and 23 << or
+	swap $1f and or ;
+
+| 8 << porque usa 9 bits a 17 bits queda 1.0
 ::3d>xy | valor -- x y
 	dup 23 >> 8 <<
 	over 9 << 23 >> 8 <<
@@ -40,6 +51,25 @@
 	over sina * over cosa * + 16 >> h 9 *>> yc + >r
 	swap cosa * swap sina * - 16 >> w 9 *>> xc + r> ;
 
+|---
+
+:fcenfmat
+	3d>xy rot >r r@+ 3d>xy | xc yc xm ym
+	>r neg pick2 + r> neg pick2 +
+	over dup * over dup * + 0? ( 1 nip ) >r | xc yc xm ym d
+	swap neg r 16 <</
+	swap r> 16 <</
+	fmat fcen
+	r> ;
+
+:terminapoly
+	xa $80000000 =? ( drop ; ) $80000000 'xa !
+    ya
+|   pick2 8 - @ $1f and $10 =? ( drop pcurve )( drop pline )
+	pline
+	;
+
+
 |---  accion
 :s0	| fin, tiempo	000
 	2drop rdrop ;
@@ -51,35 +81,27 @@
 :s4 | ink
 	8 >> ink ;
 :s5 | color+spoli
-	xa ya pline
-	8 >> ink sfill poli
-	$80000000 'xa ! ;
+	terminapoly
+	8 >> ink poli ;
 :s6 | color+lpoli
-	xa ya pline
-	8 >> ink@ fcol lfill poli
-	$80000000 'xa ! ;
+	terminapoly
+	8 >> ink@ fcol lfill poli sfill ;
 :s7 | color+rpoli
-	xa ya pline
-	8 >> ink@ fcol rfill poli
-	$80000000 'xa ! ;
+	terminapoly
+	8 >> ink@ fcol rfill poli sfill ;
 :s8 | tpoli+Tpoli
-	xa ya pline
-	8 >> 2 << paltex + @ tfill poli
-	$80000000 'xa ! ;
+	terminapoly
+	8 >> 2 << paltex + @ tfill poli sfill ;
 |--- deg
 :s9 | fcen fmat
-	3d>xy rot >r r@+ 3d>xy | xc yc xm ym
-	>r neg pick2 + r> neg pick2 +
-	over dup * over dup * + 0? ( 1 nip ) >r | xc yc xm ym d
-	swap neg r 16 <</
-	swap r> 16 <</ fmat r> ;
+	fcenfmat ;
 |--- linea
 :sa 3d>xy op ;
 :sb 3d>xy line ;
 :sc 3d>xy cp ;
 :sd 3d>xy curve ;
 |--- poly
-:se xa $80000000 <>? ( ya line )( drop )
+:se terminapoly
 	3d>xy 2dup 'ya ! 'xa ! op ;
 :sf 3d>xy pline ;
 :s10 3d>xy cp ;
@@ -111,7 +133,7 @@ s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s1a s1b s1c s1d s1e s1f
 :scg gc>xy cp ;
 :sdg gc>xy curve ;
 |--- poly
-:seg xa $80000000 <>? ( ya line )( drop )
+:seg xa $80000000 <>? ( ya pline )( drop )
 	gc>xy 2dup 'ya ! 'xa ! op ;
 :sfg gc>xy pline ;
 :s10g gc>xy cp ;
