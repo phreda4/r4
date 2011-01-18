@@ -17,7 +17,9 @@
 |--------------------------------------------
 ^r4/lib/gui.txt
 ^r4/lib/parse.txt
+
 ^r4/system/r4code.txt
+^r4/system/vstack.txt
 
 ^r4/lib/trace.txt
 
@@ -30,7 +32,6 @@
 #niva 		| nivel de anonimo
 #compara?	| 0 si no esta comparado nos con tos
 #jmp?       | 1 si salto en la anterior (para no hacer ret)
-#uquieto	| pila de udato
 
 ::ini.compila
 	0 'nstr ! 0 'nlabel ! 0 'nanon ! ;
@@ -48,251 +49,6 @@
 :label	"_" ,s ,h 	;
 :jmp,	"jmp " ,s label ,cr ;
 
-|------ pila virtual
-| 		valor 		tipo
-| TOS = dpila>-4  dpila>-8
-|.. tipo valor tipo valor
-#dpila )( 2048
-#dpila> 'dpila
-
-:d.ini
-	'dpila 'dpila> ! ;
-:d.cnt | -- cnt
-	dpila> 'dpila - 3 >> ;
-:d.pop | -- nro
-	dpila> 8 -
-	dup 'dpila> ! 4+ @ ;
-:d.pop2 | -- nos tos
-	-16 'dpila> +!
-	dpila> 4+ @+ swap 4+ @ ;
-:d.pop3 | -- nos2 nos tos
-	-24 'dpila> +!
-	dpila> 4+ @+ swap 4+ @+ swap 4+ @ ;
-
-:d.get dpila> 4 - @ ;
-:d.get2 dpila> 12 - @ ;
-
-:d.TOSt | -- tipodetos
-	dpila> 8 - @ ;
-
-:d.NOSt | -- tipodenos
-	dpila> 16 - @ ;
-
-:d.NOS2t | -- tipodenos2
-	dpila> 24 - @ ;
-
-:d.push | nro tipo --
-	dpila> !+ !+ 'dpila> ! ;
-
-:d.setReg | nro tipo lugar --
-	1+ 3 << dpila> swap - !+ ! ;
-
-:d.u
-	d.cnt uquieto + ;
-:d.f
-	d.cnt uquieto - ;
-
-|----------- tipo de pila
-:d.pushReg	0 d.push ; | eax ebx ecx edx edi mm0 mm1 mm2 mm3 mm4 mm5 mm6 mm7
-:d.pushEsi  1 d.push ; | dword [esi+4*] ..
-:d.pushEsp	2 d.push ; | dword	[esp+4*] ..
-:d.pushVar	3 d.push ; | var	[w1]
-:d.pushIcod	4 d.push ; | dcod	'w2
-:d.pushDcod	5 d.push ; | dcod	'w2
-:d.pushDvar	6 d.push ; | dvar	w1
-:d.pushStr	7 d.push ; | str    "hola"
-:d.pushCte	8 d.push ; | cte	23
-
-#RegCount 5
-#ra "eax" #rb "ebx" #rc "ecx" #rd "edx" #re "edi"
-#reg 'ra 'rb 'rc 'rd 're
-
-#RegMCount 8
-#rm0 "mm0" #rm1 "mm1" #rm2 "mm2" #rm3 "mm3" #rm4 "mm4" #rm5 "mm5" #rm6 "mm6" #rm7 "mm7"
-#regmmx rm0 rm1 rm2 rm3 rm4 rm5 rm6 rm7
-
-:,Reg	RegCount <? ( 2 << 'reg + @ ; ) RegCount - 	| eax ebx ecx edx
-		RegMCount <? ( 	2 << 'regmmx + @ ; ) RegMCount -
-		1+ neg
-:,Esi	0? ( "dword [esi]" ,s drop ; )
-		-? ( neg "dword [esi-4*%d]" )( "dword [esi+4*%d]" )
-		mprint ;
-:,Esp	0? ( "dword [esp]" ,s drop ; )
-		-? ( neg "dword [esp-4*%d]" )( "dword [esp+4*%d]" )
-		mprint ;
-:,Var	"[w%h]" mprint ;
-:,Icod  "i%h" mprint ;
-:,Dcod
-:,Dvar	"w%h" mprint ;
-:,Str	"s%h" mprint ;
-:,Cte	"%d" mprint ;
-
-#tipopila ,Reg ,Esi ,Esp ,Var ,Icod ,Dcod ,Dvar ,Str ,Cte
-
-:,vstack | nro --
-	1+ 3 << dpila> swap -
-	@+ swap @ swap 2 << 'tipopila + @ exec ,s ;
-
-:,nreg ,reg ,s ;
-
-
-#rab "al" #rbb "bl" #rcb "cl" #rdb "dl"
-#regb 'rab 'rbb 'rcb 'rdb
-
-:,regB	2 << 'regb + @ ; | no esta edi!!
-:,esiB  0? ( "byte [esi]" ,s drop ; )
-		-? ( neg "byte [esi-4*%d]" )( "byte [esi+4*%d]" )
-		mprint ;
-:,EspB	0? ( "byte [esp]" ,s drop ; )
-		-? ( neg "byte [esp-4*%d]" )( "byte [esp+4*%d]" )
-		mprint ;
-:,VarB	"byte [w%h]" mprint ;
-
-#tipopilaB ,RegB ,EsiB ,EspB ,VarB
-
-:,vstackbyte | nro --
-	1+ 3 << dpila> swap -
-	@+ swap @ swap 2 << 'tipopilaB + @ exec ,s ;
-
-#raw "ax" #rbw "bx" #rcw "cx" #rdw "dx" #rew "di"
-#regw 'raw 'rbw 'rcw 'rdw 'rdw
-
-:,regW	2 << 'regw + @ ;
-:,esiW  0? ( "word [esi]" ,s drop ; )
-		-? ( neg "word [esi-4*%d]" )( "word [esi+4*%d]" )
-		mprint ;
-:,EspW	0? ( "word [esp]" ,s drop ; )
-		-? ( neg "word [esp-4*%d]" )( "word [esp+4*%d]" )
-		mprint ;
-:,VarW	"word [w%h]" mprint ;
-
-#tipopilaW ,RegW ,EsiW ,EspW ,VarW
-
-:,vstackword | nro --
-	1+ 3 << dpila> swap -
-	@+ swap @ swap 2 << 'tipopilaW + @ exec ,s ;
-
-:d.resortstack | --  convierto to eax [esi] ..
- 	trace
-	d.cnt
-	'dpila >r
-	1- 0 ( over <? )(
-		"mov [esi-" ,s uquieto ,d "]," ,s
-     	r@+ r@+ swap 2 << 'tipopilaW + @ exec ,s ,cr
-		1+ ) drop
-	1+ "mov eax," ,s
-	r@+ r@+ swap 2 << 'tipopilaW + @ exec ,s cr
-	rdrop
-	"lea esi,[esi" ,s d.f -? ( neg "-" )( "+" ) ,s 2 << ,d "]" ,ln
-	;
-
-:,TOS	0 ,vstack ;
-:,NOS	1 ,vstack ;
-:,NOS2	2 ,vstack ;
-:,TOSbyte 0 ,vstackbyte ;
-:,TOSword 0 ,vstackword ;
-:,NOSbyte 1 ,vstackbyte ;
-:,NOSword 1 ,vstackword ;
-
-:,RTOS
-	"edi" ;
-
-:,,
-	"," ,s ;
-
-:1cte? | -- f
-	dpila> 8 -
-	@ 8 <>? ( drop 0 ; ) drop
-	1 ;
-
-:2cte? | -- f
-	dpila> 16 -
-	@+ 8 <>? ( 2drop 0 ; ) drop
-	4+ @ 8 <>? ( drop 0 ; ) drop
-	1 ;
-
-:3cte? | -- f
-	dpila> 24 -
-	@+ 8 <>? ( 2drop 0 ; ) drop
-	4+ @+ 8 <>? ( 2drop 0 ; ) drop
-	4+ @ 8 <>? ( drop 0 ; ) drop
-	1 ;
-
-|----------- uso de registro
-#regused 0  0  0  0  0  0   0   0   0   0   0   0   0
-#regname ra rb rc rd re rm0 rm1 rm2 rm3 rm4 rm5 rm6 rm7
-
-:reg.free | -- nro
-	'regused
-	5 ( 1? )( swap @+
-		0? ( drop 'regused - 2 >> 1- nip ; )
-		drop swap ) 2drop
-	| si no hay uno, libera y asigna
-	4 ;
-|	-1 ;
-
-:regx.free | -- nro
-	reg.free 0 >=? ( ; )
-
-	;
-
-:reg.set | nro --
-	2 << 'regused + 1 swap ! ;
-
-:reg.refresh
-	0 0 0 0 0 'regused !+ !+ !+ !+ !
-	'dpila
-	( dpila> <? )(
-		@+ 0? ( over @ reg.set )
-		drop 4+ ) drop
-	;
-
-| NOS a un registro (si no esta)
-:TOSreg
-	d.TOSt 0? ( drop ; ) drop
-	reg.free
-	"mov " ,s dup ,nReg ,, ,TOS ,cr
-	0 0 d.setReg ;
-
-:TOSmem
-    d.TOSt 3 <? ( drop ; ) drop
-	reg.free
-	"mov " ,s dup ,nReg ,, ,TOS ,cr
-	0 0 d.setReg ;
-
-:NOSreg
-	d.NOSt 0? ( drop ; ) drop
-	reg.free
-	"mov " ,s dup ,nReg ,, ,NOS ,cr
-	0 1 d.setReg ;
-
-:NOSmem
-    d.NOSt 3 <? ( drop ; ) drop
-	reg.free
-	"mov " ,s dup ,nReg ,, ,NOS ,cr
-	0 1 d.setReg ;
-
-:NOSeax
-	|nos es eax..salir
-	|liberea eax
-	"mov eax," ,s ,NOS ,cr ;
-
-:NOS2eax
-	|nos es eax..salir
-	"mov eax," ,s ,NOS2 ,cr ;
-
-:FREEedx
-	|libera edx
-	;
-
-:TOSecx
-	"mov ecx," ,s ,TOS
-	;
-
-:eaxNOS
-	;
-:edxTOS
-	;
 |---------------------------
 :+etiqueta	| -- nueva   // y agrega a pila
 	nlabel 1+ dup 'nlabel ! dup >pilac ;
@@ -329,71 +85,6 @@
 :,]
 	-1 'niva +! ; |<pilac label ":" ,ln ;
 
-|----------------------------
-
-:*DROP  -8 'dpila> +! ;
-:*2DROP -16 'dpila> +! ;
-:*3DROP -24 'dpila> +! ;
-:*4DROP -32 'dpila> +! ;
-:*DUP
-	dpila> 8 - >r
-	r@+ r@+ swap
-	r!+ r!+ r> 'dpila> ! ;
-:*2DUP
-	dpila> 16 - >r
-	r@+ r@+ swap
-	r@+ r@+ swap 2swap
-	r!+ r!+ r!+ r!+
-	r> 'dpila> ! ;
-:*OVER
-	dpila> 16 - >r
-	r@+ r@+ swap r> 8 + >r
-	r!+ r!+ r> 'dpila> ! ;
-:*PICK2
-	dpila> 24 - >r
-	r@+ r@+ swap r> 16 + >r
-	r!+ r!+ r> 'dpila> ! ;
-:*PICK3
-	dpila> 32 - >r
-	r@+ r@+ swap r> 24 + >r
-	r!+ r!+ r> 'dpila> ! ;
-:*PICK4
-	dpila> 40 - >r
-	r@+ r@+ swap r> 32 + >r
-	r!+ r!+ r> 'dpila> ! ;
-:*SWAP
-	dpila> 16 - >r
-	r@+ r@+ swap
-	r@+ r> @ swap
-	dpila> 16 -
-	!+ !+ !+ ! ;
-:*NIP
-	dpila> 8 - >r
-	r@+ r@+ swap r> 16 -
-	!+ !+ 'dpila> ! ;
-:*ROT
-	dpila> 24 - >r
-	r@+ r@+ swap
-	r@+ r@+ swap
-	r@+ r> @ swap 2swap
-	dpila> 24 -
-	!+ !+ !+ !+ !+ ! ;
-:*2OVER
-	dpila> 32 - >r
-	r@+ r@+ swap
-	r@+ r@+ swap 2swap
-	r> 16 +
-	!+ !+ !+ !+ 'dpila> ! ;
-:*2SWAP
-	dpila> 32 - >r
-	r@+ r@+ swap
-	r@+ r@+ swap 2swap
-	r@+ r@+ swap
-	r@+ r@+ swap 2swap r> 32 -
-	!+ !+ !+ !+ !+ !+ !+ ! ;
-
-:*RDROP | libera edi
-	;
 |----------------------------
 :,DUP
 	"lea esi,[esi-4]" ,ln
@@ -1117,10 +808,6 @@
 ,DOCINI ,DOCEND ,DOCAT ,DOCLINE ,DOCTEXT ,DOCFONT ,DOCBIT ,DOCRES ,DOCSIZE  |-- impresora
 ,SYSTEM
 
-:print.dumpvstack
-	mark
-	d.cnt ( 1? )( 1- dup ,vstack ,sp ,sp ) drop ,eol
-	empty here print ;
 
 :print.regused
 	'regused
@@ -1136,7 +823,7 @@
 :printdebug
     fonti home verde
 	"-----------------------" print cr
-	print.dumpvstack cr
+	dumpvstack
 	"-----------------------" print cr
 	print.regused
 	"-----------------------" print cr
@@ -1163,7 +850,7 @@
 	;
 
 :makevstack | nro --
-	nro>mov @ 24 << 24 >> dup 'uquieto !
+	nro>mov @ 24 << 24 >> dup uquieto!
 	d.ini
 	0? ( drop ; )
 	neg 1- ( 1? )( dup d.pushEsi 1- )
@@ -1183,3 +870,4 @@
 
 	espera | para ver el resultado
 	;
+
