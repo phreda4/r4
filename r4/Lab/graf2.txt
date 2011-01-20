@@ -11,7 +11,8 @@
 
 | segmentos
 | ymin x deltax ymax
-#.... -1 -1 -1 -1
+|#....
+-1 -1 -1 -1
 #segs )( 2048
 #segs> 'segs
 
@@ -19,7 +20,6 @@
 | @segs
 #activos )( 1024
 #activos> 'activos
-
 
 | linea de segmentos
 #..... 0
@@ -207,12 +207,6 @@ $01005032
 	4 - 'activos> !
 	swap 4 - swap ;
 
-:getxn2 | adr seg -- adr x
-	dup 12 + @ pick3 =? ( 'deld >r ) drop
-	4+ dup @+ swap @ 	| dirx x deltx
-	over + | x newx		| dir x newx
-	rot !				| x1
-	16 >> ;
 
 :getxn | adr seg -- adr x
 	dup 12 + @ pick3 =? ( 'deld >r ) drop
@@ -264,6 +258,57 @@ $01005032
 		swap ( @+ pick2 =? )( drop addsort 12 + ) drop 4 - swap
 		filllines
 		1+ )
+	2drop
+	'segs 'segs> !
+	$ffff 'ymin ! -1 'ymax ! ;
+
+
+|-----
+
+:hline3 | x1 y1 x2 --    ; clip x1-x2
+	-? ( 3drop ; ) sw >? ( drop sw )
+	rot sw >? ( 3drop ; ) -? ( drop 0 )	| y1 x2 x1
+	rot over 1+ swap 						| x2 x1 x1 y1
+	setxy - |1+
+	( 1? )( 1- ink@ px!+ ) drop
+	;
+
+:scanline3
+	;
+
+:getxn3 | adr seg -- adr x
+	dup 12 + @ pick3 =? ( 'deld >r ) drop
+	4+ dup @+ swap @ 	| dirx x deltx
+	over + | x newx		| dir x newx
+	rot !				| x1
+	16 >> ;
+
+:filllines3 | y -- y
+	'activos
+	( activos> <? )(
+		@+ getxn3 >r
+		@+ getxn3 r>
+		over <? ( swap )
+		pick3 swap hline3
+		) drop
+	'activos @+ 4+ @ swap | x1 'activo
+	( activos> <? )( @+
+		4+ @ rot >? ( over 8 - dup @+ swap @ rot !+ ! )
+		swap ) 2drop ;
+
+:filllast3
+	;
+
+::poli3
+	sh ymax <? ( 'ymax ! )( drop ) |-
+	-1 segs> ! | marca ultimo
+	'activos 'activos> !
+	'segs
+	ymin ( ymax <? )(
+		swap ( @+ pick2 =? )( drop addsort 12 + ) drop 4 - swap
+		filllines3
+		1+ )
+	filllast3
 	2drop
 	'segs 'segs> !
 	$ffff 'ymin ! -1 'ymax ! ;
@@ -407,6 +452,51 @@ $01005032
 	rand $3ff and $ff -
 	;
 
+:setpixel | x y color -- x y
+	ink
+	12 pick2 - 3 <<
+	24 pick2 - 3 <<  |xr yr
+	swap
+	over 8 + over 8 +
+|	blanco
+	cajaf
+	;
+
+:zoom128
+	0 0 setxy
+	12 ( 1? )( 1-
+		24 ( 1? )( 1-
+        	px@ setpixel
+			1 px+!
+			) drop
+		sw 24 - px+!
+		) drop
+	blanco
+	8 dup 24 8 * 12 8 *
+	caja
+	;
+
+:test1
+	blanco
+	5 1 op2
+	8 6 pline2
+	9 4 pline2
+	1 5 pline2
+	5 1 pline2
+	poli2
+
+	rojo
+	15 1 op
+	18 6 pline
+	19 4 pline
+	11 5 pline
+	15 1 pline
+	poli
+
+	zoom128
+
+	;
+
 :testp
 |	iniseg
 	rand ink
@@ -455,7 +545,7 @@ $01005032
 
 		verde
 |		contorno1
-		poligono
+|		poligono
 
 |        testp
 |        BLANCO dumpseg
@@ -464,10 +554,12 @@ $01005032
 | 		verde contorno2
 
 |        stresst
-		cflecha
+|		cflecha
 
-		scr fonti home verde
+		test1
+		scr fonti home verde cr
 		dup "%d" print cr
+		cr
 	'exit >esc<
 	;
 
