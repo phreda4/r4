@@ -1,36 +1,35 @@
 |---- memoria persistente para info de debug
 
 ^r4/system/r4code.txt
+^r4/system/r4token.txt
+
+^r4/system/mem-ed.txt
 
 |-------- imagen en disco
-#memdebug
-#memincludes
+#memd
 
-:dic.cntwor | -- cnt
-	memdebug 64 + @ ;
-:dic.cntinc | -- cnt
-	memdebug 68 + @ ;
+::dic.cntw | -- cnt
+	memd @ ;
+::dic.word | nro -- dir
+	4 << memd  | n*16 m
+	4+ @ 3 << 12 64 + + + ;
 
-:dic.inc | nro -- valor
-	3 <<
-	memdebug 72 + + ;
+::dic.cnti | -- cnt
+	memd 4+ @ ;
+::dic.inc | nro -- valor
+	3 << memd	| n*8 m
+	12 64 + + + ;
 
-:dic.wor | nro -- dir
-	4 <<
-	memdebug 68 + @ 3 << +
-	memdebug 72 + + ;
-
-:dic.cntloc | -- cnt
-	memdebug 68 + @ ;
-
-
+::dic.neww | -- cnt
+	memd 8 + @ ;
 
 ::dumpdebug
 	"ACode:" verde print
-	memdebug dup blanco printx cr
-	64 +
+	memd dup 12 + blanco printx cr
+	@+ "Includes:%d  " amarillo  print cr
 	@+ "Words:%d  " rojo print
-	@ "Includes:%d  " rojo print
+	@ "Nuevas:%d  " azul print
+
 	cr ;
 
 :ncopy | adr nro --
@@ -39,33 +38,36 @@
 
 ::dic.save	| save memoria
 	mark
-
-
-	'ed.nombre 64 ncopy
+	cntincludes , | cantidad de includes
 	cntwords dup , | cantidad de palabras
-	cntinclu dup , | cantidad de includes
+	newwords - , | cantidad de usadas
+	| cantidad de ultimo archivo
+	| comienzo de palabras
+	'ed.nombre 64 ncopy
+
 	( 1? )( 1-
 		dup 4 << 'indiceinc +
-		dup @ inisrc - ,
+		dup @ inisrc - ,  | nombre
 		8 + @ ,
+
 		) drop
 	( 1? )( 1-
 		dup 5 << 'indicepal +
-		dup @ inisrc - ,
+		dup @ inisrc - , | nombre
 		dup 8 + @ , | info
 		20 + @+ , | calls
 		@+ , | mov
 		@ , | group
 		) drop
 
-	"mem/genera-code.mem" savemem
+	"mem/mem-dic.mem" savemem
 	empty
 	;
 
-::dic.load | here -- here
-	dup 'memdebug !
-	"mem/genera-code.mem" load
-|	here 4+
-	dup 'memincludes !
 
+::dic.load | here -- here
+	dup 'memd !
+	"mem/mem-dic.mem" load
+|	here 4+
 	;
+
