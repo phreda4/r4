@@ -71,7 +71,7 @@
 
 |---------- MODOS ---------------
 #modo 6
-#nombresmm ( "POINT" "DRAW" 0 "BOX" 0 0 "CIRC" 0 "EDIT" 0 "VISTA" "VIDEO" )
+#nombresmm ( "POINT" "DRAW" 0 "BOX" 0 0 "CIRC" 0 "EDIT" 0 "VISTA" "ANIMA" )
 
 :elegido
 	dup 'modo ! ;
@@ -101,8 +101,6 @@
 		'clickmd pick2 sp btnt
 		swap 6 + swap
 		) 3drop ;
-
-
 
 |---------- VISTA ---------------
 #xcycwh 0 0 0 0
@@ -155,7 +153,6 @@
 	'dibujo vsprite
 	blanco gc.box | recuadro
 	;
-
 
 |---- DUBUG
 :debug
@@ -228,14 +225,11 @@
 	8 << 7 or ,dib ;
 :,TPOLY | color --
 	8 << 8 or ,dib ;
-:,OP
-	$a or ,dib ;
-:,LINE
-	$b or ,dib ;
-:,CP
-	$c or ,dib ;
-:,CURVE
-	$d or ,dib ;
+
+:,OP	$a or ,dib ;
+:,LINE  $b or ,dib ;
+:,CP    $c or ,dib ;
+:,CURVE $d or ,dib ;
 
 |--- seleccion
 :,sel | v --
@@ -246,15 +240,15 @@
 	polys> !+ 'polys> ! ;
 
 :relinen | adr -- adr
-	( @+ 1? )(
+	( @+ 1? )( $1f and
 		$4 <>? (
 		$a <? ( drop ; )
 		$d >? ( drop ; ) )
 		drop
 		) drop ;
 
-:repolyn | adr--
-	( @+ 1? )(
+:repolyn | adr --
+	( @+ 1? )( $1f and
 		$5 <>? (
 		$e <? ( drop ; )
 		$11 >? ( drop ; ) )
@@ -301,13 +295,17 @@
 :dibujo.changes | -- cntdwords
 	dibujo< 'dibujo - 'cambio + 0 over ! 'cambio> !
 	0 'cambio
-	( cambio> <? )( @+ 1? ( drop swap 1+ swap )( drop )
+	( cambio> <? )( @+ 1 =? ( drop swap 1+ swap )( drop )
 		) drop
 	2* 	| resta 1 por cada lista de puntos consecutivas **
 	'cambio ( cambio> <? )( @+
-		1? ( drop dup @ 1? ( drop swap 1- swap )( drop ) )( drop )
-		)
-	drop
+		1 =? ( drop dup @ 1 =? ( drop swap 1- swap )( drop ) )( drop )
+		) drop
+	| calcula los borrados
+	'cambio ( cambio> <? )( @+
+		3 =? ( drop )( drop )
+		) drop
+
 	;
 
 :dibujo.size | -- cntdwords
@@ -534,10 +532,26 @@
 	dup 4 - 'puntocursor !
 	;
 
-:delnode
+|------- borrar nodos/sel
+:ajustaframes
+	'seleccion 'seleccion> ! ;
+
+:borrareal | adr --
+	dup 4 + dup 'dibujo - 2 >> move
+	-4 'dibujo> +! ;
+
+:delnodea | adr --
+	dibujo< >? ( borrareal ; )
+   'dibujo - 'cambio + 3 swap ! | marca delete
+
+:delseleccion
+	4 - ( 'seleccion >=? )( dup @ delnodea 4 - ) drop
+	ajustaframes ;
+
+:deledit
+	seleccion> 'seleccion >? ( delseleccion ; ) drop
 	puntocursor 0? ( drop ; )
-	drop
-	;
+	delnodea ;
 
 :newnode
 	puntocursor 0? ( drop ; )
@@ -549,8 +563,6 @@
     'dibujo - 'cambio +
 	dup @ 1 or swap !
 	;
-
-
 
 :setmovesel
 	xymouse
@@ -581,13 +593,15 @@
 	dup xv -
 	dup 'x1 +! 'x2 +!
 	'xv !
-	changesel
-	;
+	changesel ;
 
-:delseleccion
-	;
 :cloneseleccion
-	;
+	'seleccion
+	( seleccion> <? )(
+		@+ dup @ 3d>xyv
+		4+ swap 4+ swap
+		xyv>3d ,dib
+		) drop ;
 
 :marcasel
 	'seleccion
@@ -595,6 +609,7 @@
 		@+ marcapunto
 		) drop
 	;
+
 |---- draw
 :puntosedita
 	'dibujo
@@ -635,7 +650,6 @@
 |---- modo point **
 #modocurva
 
-
 :downP | -- aa
 	,COLORnoset
 	xymouse
@@ -659,7 +673,7 @@
 	xa ya 2dup 3 box
 	modocurva 0? ( drop op yb line ; ) drop
 	op x2 y2 cp yb curve
-	blink 1? ( blanco )( negro )
+	blink 1? ( blanco )( negro ) drop
 	x2 y2 3 box
 	;
 
@@ -766,7 +780,7 @@
 		dup $1f and $9 >? ( drop tocopunto )( 2drop )
 		) 2drop
    	puntocursor 1? ( drop ; ) drop
-	'seleccion 'seleccion>  !
+	'seleccion 'seleccion> !
  	xymouse 2dup 'y1 ! 'x1 ! 'y2 ! 'x2 !
 	;
 
@@ -795,7 +809,6 @@
 
 #inipoligono
 #finpoligono
-
 
 :npoly | adr nro+1 -- adr nro+1
 	0 'puntocursor !
@@ -850,8 +863,8 @@
 
 	sp
 	cyan oscuro
-	[ newnode ; ] " NEW N" sp btnt
-	[ delnode ; ] " DEL N" sp btnt
+	[ newnode ; ] "NEW" sp btnt
+	'deledit "DEL" sp btnt
 	cr cr
 
 	violeta
@@ -924,15 +937,16 @@
 		rojo oscuro
 		[ setdibujo exit ; ] dup >esc< "EXIT" sp btnt
 		'resetdib "RESET" sp btnt
-
+		'repoly "POLY" sp btnt
 		verde dup " -%d-" print cr cr
 
 |		debug
 
 		verde
 		scr fontj4 home
-		cols 2 - rows 2 - gotoxy
+		cols 2 - rows 1- gotoxy
 		actframe "%d" print
+
 |		cminiflecha
 
 		'primt <pgup> 'prevt  <le> 'nextt <ri> 'ultit <pgdn>
