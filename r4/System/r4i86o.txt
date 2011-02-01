@@ -102,19 +102,18 @@
 
 :,<</
 	"cdq" ,ln
-    "shld eax,edx," ,s ,TOSbyte ,cr
-	"idiv " ,s ,NOS ,cr ;
+    TOSb, "shld eax,edx,%w" ,print cr
+	NOS, "idiv %w" ,print ;
 
 :,/MOD
-	"cdq" ,ln
-	"idiv " ,s ,TOS ,cr ;
+	"cdq" ,ln TOS, "idiv %w" ,print ;
 
 :,MOD
-	"idiv " ,s ,TOS ,cr
+	TOS, "idiv %w" ,print ,cr
 	"mov eax,edx" ,ln ;
 
-:,<< "sal ",s ,NOS ,, ,TOS ,cr ;
-:,>> "sar ",s ,NOS ,, ,TOS ,cr ;
+:,<< TOS, NOS, "sal %w,%w" ,print ;
+:,>> TOS, NOS, "sar %w,%w" ,print ;
 
 :,ABS
 	"cdq" ,ln
@@ -122,73 +121,86 @@
 	NOS, "xor %w,edx" ,ln ;
 
 :,CLZ
-	"bsr " ,s ,TOS ,, ,TOS ,cr
-	"xor " ,s ,TOS ",31" ,ln ;
-:,NEG 	TOS, "neg" ,s ,TOS ,cr ;
-:,1+	TOS, "add " ,s ,TOS ",1" ,s ,cr ;
-:,1-	TOS, "add " ,s ,TOS ",-1" ,s ,cr ;
-:,4+ 	TOS, "add " ,s ,TOS ",4" ,s ,cr ;
-:,2/ 	TOS, "sar " ,s ,TOS ",1" ,s ,cr ;
-:,2* 	TOS, "sal " ,s ,TOS ",1" ,s ,cr ;
+	TOS, dup "bsr %w,%w" ,print ,cr
+	TOS, "xor %w,31" ,print ;
+
+:,NEG 	TOS, "neg %w" ,print ;
+:,1+	TOS, "add %w,1" ,print ;
+:,1-	TOS, "add %w,-1" ,print ;
+:,4+ 	TOS, "add %w,4" ,print ;
+:,2/ 	TOS, "sar %w,1" ,print ;
+:,2* 	TOS, "sal %w,1" ,print ;
 
 |---------------------
 :,EXEC
-|	-1 d.plain
-	"mov ecx," ,s ,TOS
+	TOS, "mov ecx,%w" ,print
    	"or ecx,ecx" ,ln
 	"jz @f" ,ln
 	"call ecx" ,ln
 	"@@:" ,ln ;
 	;
 
-:,>R	"push " ,s ,TOS ,cr *DROP ;
-| "mov " ,s ,RTOS ,, ,TOS *DROP ;
-:,R>    "pop " ,s ,TOS ,cr ;
-:,R 	"mov " ,s ,TOS ,RTOS ,cr ;
-:,RDROP *RDROP ;
-:,R+    "add [" ,s ,RTOS "]," ,s ,TOS ,cr ;
+:,EXECx1 | 2 >> + @ exec
+	"mov ecx,[eax*4+ebx]" ,ln
+	"call ecx" ,ln ;
+
+
+:,>R	TOS, "push %w" ,print ;
+:,>Rv	TOS, RTOS, "mov %w,%w" ,print ;
+
+:,R>    TOS, "pop %w" ,print ;
+:,R>v   ;
+
+:,R 	RTOS, TOS, "mov %w,%w" ,print ;
+:,R+    TOS, RTOS, "add [%w],%w" ,print ;
 
 :,R!+
-	"mov [" ,s ,RTOS "]," ,s ,TOS ,cr
-	"add " ,s ,RTOS ",4" ,ln ;
+	TOS, RTOS, "mov [%w],%w" ,print ,cr
+	RTOS, "add %w,4" ,print ;
 
 :,R@+
-	"mov " ,s ,TOS ",[" ,s ,RTOS "]" ,ln
-	"add " ,s ,RTOS ",4" ,ln ;
+	RTOS, TOS, "mov %w,[%w]" ,print ,cr
+	RTOS, "add %w,4" ,print ;
 
-:,@		"mov " ,s ,TOS "dword [" ,s ,TOS "]" ,s ,cr ;
-:,C@	"movsx " ,s ,TOS "byte [" ,s ,TOS "]" ,s ,cr ;
-:,W@    "movsx " ,s ,TOS "word [" ,s ,TOS "]" ,s ,cr ;
-:,!		"mov [" ,s ,TOS "]," ,s ,NOS ,cr ;
-:,C!    "mov byte [" ,s ,TOS "]," ,s ,NOSbyte ,cr ;
-:,W!    "mov word [" ,s ,TOS "]," ,s ,NOSword ,cr ;
-:,+!    "add [" ,s ,TOS "]," ,s ,NOS ,cr ;
-:,W+!   "add word [" ,s ,TOS "]," ,s ,NOSword ,cr ;
-:,C+!   "add byte [" ,s ,TOS "]," ,s ,NOSbyte ,cr ;
+:,@		TOS, TOS, "mov %w,dword [%w]" ,print ;
+:,C@	TOS, TOS, "movsx %w,byte [%w]" ,print ;
+:,W@    TOS, TOS, "movsx %w,word [%w]" ,print ;
+
+:,@x1	"lea %w,[%w+%w]" ,print ;
+:,@x2	"lea %w,[%w+%w*%w]" ,print ;
+:,@x3	"lea %w,[%w+%w+%w*%w]" ,print ;
+
+:,!ex	"mov [%w+%w*%w],%w" ,print ;
+
+:,!		NOS, TOS, "mov [%w],%w" ,print ;
+:,C!    NOS, TOS, "mov byte [%w],%w" ,print ;
+:,W!    NOS, TOS, "mov word [%w],%w" ,print ;
+
+:,+!    TOS, NOS, "add [%w],%w" ,print ;
+:,W+!   TOS, NOS, "add word [%w],%w" ,print ;
+:,C+!   TOS, NOS, "add byte [%w],%w" ,print ;
 
 :,!+
-	"mov [" ,s ,TOS "]," ,s ,NOS ,cr
-	"add " ,s ,TOS ",4" ,s ,cr ;
-
+	NOS, TOS, "mov [%w],%w" ,print ,cr
+	TOS, "add %w,4" ,print ;
 :,W!+
-	"mov word [" ,s ,TOS "]," ,s ,NOSword ,cr
-	"add " ,s ,TOS ",2" ,s ,cr ;
-
+	"mov word [%w],%w" ,print ,cr
+	TOS, "add %w,2" ,print ;
 :,C!+
-	"mov byte [" ,s ,TOS "]," ,s ,NOSbyte ,cr
-	"add " ,s ,TOS ",1" ,s ,cr ;
+	"mov byte [%w],%w" ,print ,cr
+	TOS, "add %w,1" ,print ;
 
 :,@+
-	"mov " ,s ,TOS ",[" ,s ,NOS "]" ,ln
-	"add " ,s ,NOS ",4" ,ln
+	"mov %w,[%w]" ,print ,cr
+	TOS, "add %w,4" ,print ;
 
 :,W@+
-	"movsx " ,s ,TOS ",word [" ,s ,NOS "]" ,ln
-	"add " ,s ,NOS ",2" ,ln ;
+	"movsx %w,word [%w]" ,print ,cr
+	TOS, "add %w,2" ,print ;
 
 :,C@+
-	"movsx " ,s ,TOS ",byte [" ,s ,NOS "]" ,ln
-	"add " ,s ,NOS ",1" ,ln ;
+	"movsx %w,byte [%w]" ,print ,cr
+	TOS, "add %w,1" ,print ;
 
 |------------------------------------
 :,0?
