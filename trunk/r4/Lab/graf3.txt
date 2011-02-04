@@ -1,0 +1,343 @@
+| rutinas graficas 2
+| para compilador
+| PHREDA 2009
+|----------------------------
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+| lineas
+#px #py
+#ymin $ffff #ymax -1
+
+| segmentos
+| ymin x deltax ymax
+|#....
+-1 -1 -1 -1
+#segs )( 2048
+#segs> 'segs
+
+| activos por linea
+| @segs
+#activos )( 1024
+#activos> 'activos
+
+| linea de segmentos
+#..... 0
+#linea )( 1024
+#linea> 'linea
+
+|--- with scanline
+:generoscanline
+	'linea 'linea> !
+	'activos
+	( activos> <? )( @+ | dir
+		4+ dup
+		@+ swap @ | dirx x deltax
+		over + | x newx
+		rot over swap ! | actualiza x
+		over >? ( swap ) | x2 x1
+		16 >> swap 16 >> over - | x1 dif
+		12 << $fff000 and or
+		$02000000 or | color
+|		addscan
+		) drop
+	0 linea> !
+|	'linea renderscanline
+|	'scanline3 renderscanline
+	;
+
+|--- putpixel w/alpha (invertido)
+:pxa | alpha --
+	0? ( drop ink@ px!+ ; )
+	$ff =? ( drop ; )
+	ink@ $ff00ff and
+	px@ dup $ff00ff and | alpha inkb px pxb
+	pick2 - pick4 * 8 >> rot + $ff00ff and | alpha px RB
+	>r
+	ink@ $ff00 and
+	swap $ff00 and 
+	over - rot * 8 >> rot + $ff00 and
+	r> or px!+ ;
+
+:blendpx!+ | color --
+	$ff000000 and? ( px!+ ; )
+	dup 24 >> $ff and swap  | alpha color
+:acpx!+ | alpha col --
+	dup $ff00ff and				| alpha color colorand
+	px@ dup $ff00ff and 		| alpha color colorand inkc inkcand
+	pick2 - pick4 * 8 >> rot +	| alpha color inkc inkcandl
+	$ff00ff and >r				| alpha color inkc
+	swap $ff00 and 				| alpha px colorand
+	swap $ff00 and 				| alpha colorand pxa
+	over - rot * 8 >> + $ff00 and
+	r> or px!+  ;
+
+|-------------------------
+:tipo0 | vacio
+	$ffffff and px+! ;
+:tipo1 | arriba
+	dup $fff and
+	swap 12 >> $fff and
+
+	;
+:tipo2 | abajo
+
+	;
+:tipo3 | fill
+	$3fffff and
+	( 1? )( 1- ink@ px!+ ) drop
+	;
+
+#tipos tipo0 tipo1 tipo2 tipo3
+
+:renderlinea
+	'linea ( linea> <? )(
+		@+
+		dup 30 >> 2 <<
+		'tipos + @ exec
+		) drop
+	;
+
+
+|---- agrega segmentos ordenados
+:insseg | ymax deltax x ymin seg --
+	16 + dup
+	16 + over segs> over - 2 >> move>
+	!+ !+ !+ !
+	16 'segs> +! ;
+
+:addseg | ymax deltax x ymin --
+	segs>
+	( 'segs >=? )( 16 -
+		dup @ pick2 <? ( drop insseg ; )
+		drop )
+	drop
+	segs> !+ !+ !+ !+ 'segs> ! ;
+
+|-----
+:pline3 | x y --
+	py =? ( drop 'px ! ; ) | no usa lineas horizontales
+	over px - 16 << over py - 				| x y dx dy
+	-? ( / py 2over )( / over px py )	| x y deltax ymax xmin ymin
+	sh >? ( 4drop 'py ! 'px ! ; )
+	-? ( neg pick3 16 *>> + 0 )
+	ymin <? ( dup 'ymin ! )
+	>r >r
+	-? ( rdrop rdrop 2drop 'py ! 'px ! ; )
+	ymax >? ( dup 'ymax ! )
+	1- swap r> 16 << r> | corta justo
+	addseg | ymax deltax xmin ymin --
+:op3 | x y --
+	'py ! 'px ! ;
+
+
+|---------- segs
+:dumpseg
+	'segs ,cr
+	( segs> <? )(
+		@+ "y:%d " ,print @+ "x:%f " ,print @+ "dx:%f " ,print @+ "ymax:%d " ,print ,cr
+		) drop ,cr ;
+
+:dumpact
+	'activos  ,cr
+	( activos> <? )( @+ "%h " ,print ) drop
+	,cr ;
+
+|-----
+:hline3 | x1 y1 x2 --    ; clip x1-x2
+	-? ( 3drop ; ) sw >? ( sw nip )
+	rot sw >? ( 3drop ; ) -? ( 0 nip )	| y1 x2 x1
+	rot over swap 						| x2 x1 x1 y1
+	setxy - 1+
+	( 1? )( 1- ink@ px!+ ) drop
+	;
+
+:hlineadd | x1 x2 --
+	swap -? ( 2drop ; ) sw >? ( drop sw )
+	swap sw >? ( 2drop ; ) -? ( drop 0 )	| x2 x1
+	linea> !+ ! 'linea> !
+	;
+
+|--- fill line
+
+:renderline | y
+	'linea
+	( linea> <? )( @+ | y adr x1
+		dup >r pick2 setxy
+		@+ r> - | x2 x
+		( 1? )( 1- ink@ px!+ ) drop
+		) drop
+	'linea 'linea> !
+	;
+
+|-----------------------
+:casoA | x delx -- x delx ;linea actual, rampa llegada
+	"A " ,print ;
+:casoB | x delx -- x delx ;linea siguiente, rampa llegada
+	"B " ,print ;
+:casoC | x delx -- x delx ;linea actual, rampa salida.
+	"C " ,print ;
+:casoD | x delx -- x delx ;linea siguiente, rampa salida.
+	"D " ,print ;
+
+#x1 #x2
+
+:fill&delete | y act p2 p1 -- act
+|	dup 12 + @ pick4 =? (	| borra 1
+	4+ dup @+ swap @ | y act p2 dir1 x1 d1
+
+	| DEBUG
+	over "%f " ,print |dup "%f " ,print
+
+	over $ffff and? ( 1.0 + ) 16 >> 'x1 !
+	-? ( casoA )( casoB )
+	+ swap !	| actualiza x
+
+|	dup 12 + @ pick4 =? (	| borra 2
+	4+ dup @+ swap @ | y activos x1+d1 x2 d2
+	| DEBUG
+	over "%f " ,print | dup "%f " ,print
+
+	over 16 >> 'x2 !
+	+? ( casoC )( casoD )
+	+ swap !	| actualiza x
+
+	x1 pick2 x2
+|	" %d %d %d linea " ,print
+	hline3
+	;
+
+:filllines3 | y -- y
+	| primero ordena
+	'activos @+ 4+ @ swap  | x1 'act
+	( activos <? )( @+ | x1 'act 'ac2
+		4+ @ | x1 'act x2
+		rot <? ( over 8 - dup @+ swap @ rot !+ !
+|				) | nada
+|				2drop 'activos @+ 4+ @ swap )	| reintenta principio
+				nip 8 - @+ 4+ @ swap ) 			| reintenta  anterior
+		swap ) 2drop
+
+	| ahora dibuja
+	'activos
+	( activos> <? )(
+		@+ swap @+ rot | act x2 x1
+		fill&delete
+		) drop
+	,cr
+	;
+
+|	'activos
+|	( activos> <? )(
+|		@+ getn1 @+ getn2
+|		) drop
+
+
+::poli3
+	sh ymax <? ( 'ymax ! )( drop ) |-
+	-1 segs> ! | marca ultimo
+	'activos 'activos> !
+	'segs
+	ymin ( ymax <? )(
+		swap ( @+ pick2 =? )( drop
+				dup 4 - activos> !+ 'activos> !
+				12 + ) drop 4 - swap	| agrega nuevos sin ordenar
+		filllines3
+		1+ )
+	2drop
+	'segs 'segs> !
+	$ffff 'ymin ! -1 'ymax ! ;
+
+
+
+|---------- zoom
+:rr
+	rand $3ff and $ff -
+	rand $3ff and $ff -
+	;
+
+:setpixel | x y color -- x y
+	ink
+	12 pick2 - 3 << 20 +
+	24 pick2 - 3 <<  |xr yr
+	swap
+	over 8 + over 8 +
+|	blanco
+	cajaf
+	;
+
+:zoom128
+	0 0 setxy
+	12 ( 1? )( 1-
+		24 ( 1? )( 1-
+        	px@ setpixel
+			1 px+!
+			) drop
+		sw 24 - px+!
+		) drop
+	blanco
+	8 dup 20 + 24 8 * 12 8 *
+	caja
+	;
+
+
+|----------------------------
+|----------------------------
+#consola
+
+:main
+	mark
+	here 'consola !
+	,cr ,cr ,cr ,cr ,cr
+
+	clrscr
+	verde
+	5 1 setxy ink@ px!+
+	8 6 setxy ink@ px!+
+	9 4 setxy ink@ px!+
+	1 5 setxy ink@ px!+
+
+	azul
+	5 1 op3
+	8 6 pline3
+	9 4 pline3
+	1 5 pline3
+	5 1 pline3
+	dumpseg
+	poli3
+	0 ,c
+
+
+	rojo
+	15 1 op
+	18 6 pline
+	19 4 pline
+	11 5 pline
+	15 1 pline
+	poli
+
+	verde
+	15 1 setxy ink@ px!+
+	18 6 setxy ink@ px!+
+	19 4 setxy ink@ px!+
+	11 5 setxy ink@ px!+
+
+	0 0 setxy
+	0 ( $ff <? )(
+		dup $ff00 acpx!+
+		$f + ) drop
+
+	ink@
+	zoom128
+
+	usogui
+	show
+
+		scr fonti home verde cr
+		dup "%d" print cr
+		cr
+		consola printx
+		'exit >esc<
+		cflecha ;
+
+: 33 main ;
