@@ -2,7 +2,10 @@
 | para compilador
 | PHREDA 2009
 |----------------------------
+
 ^r4/lib/gui.txt
+^r4/lib/fontj.txt
+
 ^r4/lib/trace.txt
 
 | lineas
@@ -21,6 +24,27 @@
 #activos )( 1024
 #activos> 'activos
 
+:activos!+ | v --
+	activos> !+ 'activos> ! ;
+
+:-activos	| --
+	'activos 'activos> ! ;
+
+
+#horiz )( 1024
+#horiz> 'horiz
+
+:horiz!+ | valor --
+	horiz> !+ 'horiz> ! ;
+
+:-horiz
+	'horiz 'horiz> ! ;
+
+:dumpho
+	'horiz ( horiz> <? )(
+		@+ " %d" print
+		) drop cr ;
+
 |anterior
 
 | linea de segmentos
@@ -30,15 +54,18 @@
 
 |---------- segs
 :dumpseg
-	'segs ,cr
+	'segs cr
 	( segs> <? )(
-		@+ "y:%d " ,print @+ "x:%f " ,print @+ "dx:%f " ,print @+ "ymax:%d " ,print ,cr
-		) drop ,cr ;
+		@+ "y:%d " print @+ "x:%f " print @+ "dx:%f " print @+ "ymax:%d " print cr
+		) drop cr ;
 
 :dumpact
-	'activos  ,cr
-	( activos> <? )( @+ "%h " ,print ) drop
-	,cr ;
+	'activos
+	( activos> <? )(
+		@+ "%h " print
+|		@+ @+ "%d " print @+ "%d " print @+ "%d " print @ "%d " print cr
+		) drop
+	cr ;
 
 |--- with scanline
 :generoscanline
@@ -165,8 +192,18 @@
 	segs> !+ !+ !+ !+ 'segs> ! ;
 
 |-----
+:plinehoriz  | x y --  /// xy
+	sh >=? ( -1 nip )
+	-? ( drop 'px ! ; )
+	horiz!+ 	| y
+	px over dup 'px !
+	>? ( swap )
+	horiz!+	| y x1
+	horiz!+	| y x1 x2
+	;
+
 :pline3 | x y --
-	py =? ( drop 'px ! ; ) | no usa lineas horizontales
+	py =? ( plinehoriz ; )
 	over px - 16 << over py - 				| x y dx dy
 	-? ( / py 2over )( / over px py )	| x y deltax ymax xmin ymin
 	sh >? ( 4drop 'py ! 'px ! ; )
@@ -175,27 +212,31 @@
 	>r >r
 	-? ( rdrop rdrop 2drop 'py ! 'px ! ; )
 	ymax >? ( dup 'ymax ! )
-	1-
-	swap r> 16 << r> | corta justo
+	1- | corta justo un pixel antes
+	swap r> 16 << r>
 	addseg | ymax deltax xmin ymin --
 :op3 | x y --
 	'py ! 'px ! ;
 
 
-
 |----- llenadores
 :hline3 | x1 y1 x2 --    ; clip x1-x2
-|	-? ( 3drop ; ) | quitar esto
-	sw >? ( sw nip )
-	rot 
-|	sw >? ( 3drop ; ) | quitar esto
-	-? ( 0 nip )	| y1 x2 x1
+|	pick2 <? ( trace )
+
+	-? ( 3drop ; ) sw >? ( sw 1- nip )
+	rot sw >? ( 3drop ; ) -? ( 0 nip )	| y1 x2 x1
 	rot over swap 	| x2 x1 x1 y1
 	setxy - 1+
 	( 1? )( 1- ink@ px!+ ) drop
 	;
 
 :hout3 | x1 y1 x2 --
+|	pick2 <? ( trace )
+
+	-? ( 3drop ; ) sw >? ( sw nip )
+	rot sw >? ( 4drop ; ) 0 <? ( 0 nip )
+	rot rot
+
 	pick2 - 0? ( 3drop ; )
 	$ffff swap /
 	>r setxy
@@ -203,157 +244,156 @@
 	( over >? )( dup 8 >> ink@ acpx!+ pick2 - ) 3drop ;
 
 :hin3 | x1 y1 x2 --
-	pick2 - 0? ( 3drop ; ) 1+
+|	pick2 <? ( trace )
+
+	-? ( 3drop ; ) 	sw >? ( sw nip )
+	rot sw >? ( 4drop ; )	-? ( 0 nip )
+	rot rot
+
+	pick2 - 0? ( 3drop ; )
 	$ffff swap /
 	>r setxy
 	r> $ffff 0
 	( over <? )( dup 8 >> ink@ acpx!+ pick2 + ) 3drop	;
 
-#x1 #x2
-
-|-----------------------
-
-:filline | y act p2 p1 -- act
-	dup 12 + @ pick4 =? ( 0 pick4 8 - ! ) drop | borra 1
-	4+ dup @+ swap @ | y act p2 dir1 x1 d1
-
-	| DEBUG
-	over "%f " ,print dup "%f " ,print
-
-	over $ffff and? ( 1.0 + ) 16 >> 'x1 !
-	+ swap !	| actualiza x
-
-	dup 12 + @ pick3 =? ( 0 pick3 4 - ! ) drop | borra 2
-	4+ dup @+ swap @ | y activos x1+d1 x2 d2
-	| DEBUG
-	over "%f " ,print dup "%f " ,print
-
-	over 16 >> 'x2 !
-	+ swap !	| actualiza x
-
-	x1 pick2 x2
-	" %d %d %d linea " ,print
-|	hline3
-	;
-
-:filllines3 | y -- y
-	'activos | primero ordena
-	@+ 4+ @ swap  | x1 'act
-	( activos> <? )( @+ | x1 'act 'ac2
-		4+ @ rot | 'act x2 x1
-		<? ( over 8 - dup @+ swap @ rot !+ !
-|				) | nada
-|				2drop 'activos @+ 4+ @ )	| reintenta principio
-				drop 8 - @+ 4+ @ ) 			| reintenta anterior
-		swap ) 2drop
-
-	'activos | ahora dibuja
-	( activos> <? )(
-		@+ swap @+ rot | act x2 x1
-		filline
-		) drop
-
-	'activos | ultimo borra
-	( activos> <? )(
-		@+ 0? ( drop 4 - activos> 4 - @ over ! -4 'activos> +! )( drop )
-		) drop
-	,cr
-	;
 
 |--------------- linea actual
-:espunto
+:espuntoi | y act dir1 x1 d1 -- y act
+	over + rot ! | y act x1 d1+x1
+	dup 16 >> -? ( 2drop ; ) sw >=? ( 2drop ; )
+	pick3 setxy
+	8 >> $ff and
+	ink@
+|	$ff0000
+	acpx!+
 	;
-:caso1 | y act p2 dir1 x1 d1 -- y act p2
-|	1.0 <? ( espunto ; )
-	over + rot over swap ! | y act p2 x1 d1+x1
+
+:espunto | y act dir1 x1 d1 -- y act
+	over + rot ! | y act x1 d1+x1
+	dup 16 >> 1+ -? ( 2drop ; ) sw >=? ( 2drop ; )
+	pick3 setxy
+	8 >> not $ff and
+	ink@
+|	$ff00
+	acpx!+
+	;
+
+:caso1 | y act dir1 x1 d1 -- y act
+	-1.0 >? ( espuntoi ; )
+	over + rot over swap ! | y act x1 d1+x1
 	16 >>
 	pick3
 	rot 16 >>
-	hout3 ;
-:caso2 | y act p2 dir1 x1 d1 -- y act p2
-|	1.0 <? ( espunto ; )
+	hout3 | x1 y x2
+	;
+:caso2 | y act dir1 x1 d1 -- y act
+	1.0 <? ( espuntoi ; )
 	over + rot over swap ! | y act p2 x1 d1+x1
 	swap 16 >>
-	pick3 1+
-	rot 16 >>
-	hout3 ;
+	pick3 1+ sh >=? ( 3drop ; )
+	rot 16 >> 1+
+|ink@ >r verde
+	hout3 | x1 y x2
+|	r> ink
+	;
 :caso3  | y act dir2 x2 d2 -- y act
-|	1.0 <? ( espunto ; )
+	1.0 <? ( espunto ; )
 	over + rot over swap !
 	swap 16 >>
 	pick3
 	rot 16 >>
-	hin3 ;
+	hin3 | x1 y x2
+
+	;
 :caso4  | y act dir2 x2 d2 -- y act
-|	1.0 <? ( espunto ; )
+	-1.0 >? ( espunto ; )
 	over + rot over swap !
 	16 >>
-	pick3 1+
+	pick3 1+ sh >=? ( 3drop ; )
 	rot 16 >>
-	hin3 ;
 
-#delact 0
-
-:filldel
+	hin3 | x1 y x2
 	;
 
-:setdel | adr --
-	delact 0? ( drop dup 4 - 'delact ! )( filldel )
-	0 over 4 - ! ;
+:dibujohor | y 'hor yac -- y 'hor+
+	swap >r
+	r@+ swap r@+ hline3 | x1 y1 x2 --
+|	3drop
+|	pick2 pick2 pick2 "x1=%d y1=%d x2=%d" print cr
+	r>
+	;
+
+:aristabajo | y act dir y -- y act dir y
+	0 pick3 4 - !	| 0 en activos para borrar
+	1+ 'horiz
+	( horiz> <? )(
+		@+ pick2 =? ( -1 pick2 4 - ! dibujohor )( drop 8 + )
+		) drop
+	;
+
+|	over "%f " ,print dup "%f " ,print | DEBUG
 
 :fillact | y act -- act'
-	@+
-	dup 12 + @ pick3 =? ( 0 pick3 4 - ! ) drop | borra 1
-	4+ dup @+ swap @ | y act dir1 x1 d1
-	over 16 >> 'x1 !
+	@+					| y act dirp1
+	dup 12 + @ pick3	| y act dirp1 ymax y
+	=? ( aristabajo ) drop | borra 1
+	4+ dup @+ swap @	| y act dir1 x1 d1
+	over $ffff and? ( 1.0 + ) 16 >> >r |'x1 !
 	1? ( -? ( caso1 )( caso2 ) )( 3drop )
-
-	@+
-	dup 12 + @ pick3 =? ( 0 pick3 4 - ! ) drop | borra 2
+	@+					| y act dirp2
+	dup 12 + @ pick3	| y act dirp2 ymax y
+	=? ( aristabajo ) drop | borra 2
 	4+ dup @+ swap @ | y act dir2 x2 d2
-	over 16 >> 'x2 !
+	over |$ffff and? ( 1.0 + )
+	16 >> >r |'x2 !
 	1? ( +? ( caso3 )( caso4 ) )( 3drop )
+	r> r> pick3 rot hline3
+|	nip >? ( "!!" print  cr ) drop | error
+;
 
-	x1 pick2 x2 hline3
-	;
-
-:fillact3 | y -- y
+:filline | y -- y
 	'activos | primero ordena
 	@+ 4+ @ swap  | x1 'act
 	( activos> <? )( @+ | x1 'act 'ac2
 		4+ @ rot | 'act x2 x1
 		<? ( over 8 - dup @+ swap @ rot !+ !
-|				) | nada
-|				2drop 'activos @+ 4+ @ )	| reintenta principio
-				drop 8 - @+ 4+ @ ) 			| reintenta anterior
+				drop 12 - @+ 4+ @ )
 		swap ) 2drop
-	0 'delact !
 	'activos | ahora dibuja
 	( activos> <? )(
 		fillact
-		) drop
+		) drop cr
 	'activos | borra
 	( activos> <? )(
 		@+ 0? ( drop 4 - activos> 4 - @ over ! -4 'activos> +! )( drop )
 		) drop
 	;
 
+:todohoriz
+	'horiz ( horiz> <? )(
+		@+ dibujohor
+		) drop
+	'segs 'segs> !
+ 	-horiz ;
+
 |---- poligono
 ::poli3
 	sh ymax <? ( 'ymax ! )( drop ) |-
 	-1 segs> ! | marca ultimo
-	'activos 'activos> !
+	-activos
 	'segs dup @
-	ymin ( ymax <? )(
-		( over =? )( nip | agrega nuevos sin ordenar
-			swap dup activos> !+ 'activos> !
+	ymin
+	$ffff =? ( 3drop todohoriz ; )
+	( ymax <? )(
+		( over =? )( nip
+			swap dup activos!+ | agrega nuevos
 			16 + dup @ rot )
-|		filllines3
-		fillact3
+		filline
 		1+ ) 3drop
-
 	'segs 'segs> !
-	$ffff 'ymin ! -1 'ymax ! ;
+	$ffff 'ymin ! -1 'ymax !
+	-horiz
+	;
 
 |-----------------------------------------
 |-----------------------------------------
@@ -366,7 +406,7 @@
 
 :setpixel | x y color -- x y
 	ink
-	12 pick2 - 3 << 20 +
+	24 pick2 - 3 << 20 +
 	48 pick2 - 3 <<  |xr yr
 	swap
 	over 8 + over 8 +
@@ -376,7 +416,7 @@
 
 :zoom128
 	0 0 setxy
-	12 ( 1? )( 1-
+	24 ( 1? )( 1-
 		48 ( 1? )( 1-
         	px@ setpixel
 			1 px+!
@@ -388,85 +428,82 @@
 |	caja
 	;
 
-
 |----------------------------
 |----------------------------
 #consola
 
-:main
-	mark
-	here 'consola !
-	,cr ,cr ,cr ,cr ,cr
+:test0
+	azul 5 1 op3 8 7 pline3 9 4 pline3 1 5 pline3 5 1 pline3 poli3
 
-	clrscr
+	5 1 setxy $c0 $ffffff acpx!+ 8 7 setxy $c0 $ffffff acpx!+
+	9 4 setxy $c0 $ffffff acpx!+ 1 5 setxy $c0 $ffffff acpx!+
 
-	azul
-	5 1 op3
-	8 7 pline3
-	9 4 pline3
-	1 5 pline3
-	5 1 pline3
-	dumpseg
-	poli3
-	,cr
+	rojo 15 1 op 18 7 pline 19 4 pline 11 5 pline 15 1 pline poli
 
-	5 1 setxy $c0 $ffffff acpx!+
-	8 7 setxy $c0 $ffffff acpx!+
-	9 4 setxy $c0 $ffffff acpx!+
-	1 5 setxy $c0 $ffffff acpx!+
+	15 1 setxy $c0 $ffffff acpx!+ 18 7 setxy $c0 $ffffff acpx!+
+	19 4 setxy $c0 $ffffff acpx!+  11 5 setxy $c0 $ffffff acpx!+
 
-	rojo
-	15 1 op
-	18 7 pline
-	19 4 pline
-	11 5 pline
-	15 1 pline
-	poli
+	azul 28 1 op3 21 2 pline3 21 8 pline3 28 5 pline3 28 1 pline3 poli3
 
-	15 1 setxy $c0 $ffffff acpx!+
-	18 7 setxy $c0 $ffffff acpx!+
-	19 4 setxy $c0 $ffffff acpx!+
-	11 5 setxy $c0 $ffffff acpx!+
+|	28 1 setxy $c0 $ffffff acpx!+ 21 2 setxy $c0 $ffffff acpx!+
+|	21 5 setxy $c0 $ffffff acpx!+ 28 7 setxy $c0 $ffffff acpx!+
 
-	azul
-	28 1 op3
-	21 2 pline3
-	21 8 pline3
-	28 5 pline3
-	28 1 pline3
-	poli3
-	0 ,c
+	rojo 38 1 op 31 2 pline 31 8 pline 38 5 pline 38 1 pline poli
 
-|	28 1 setxy $c0 $ffffff acpx!+
-|	21 2 setxy $c0 $ffffff acpx!+
-|	21 5 setxy $c0 $ffffff acpx!+
-|	28 7 setxy $c0 $ffffff acpx!+
-
-	rojo
-	38 1 op
-	31 2 pline
-	31 8 pline
-	38 5 pline
-	38 1 pline
-	poli
-
-|	38 1 setxy $c0 $ffffff acpx!+
-|	31 2 setxy $c0 $ffffff acpx!+
-|	31 5 setxy $c0 $ffffff acpx!+
-|	38 7 setxy $c0 $ffffff acpx!+
+|	38 1 setxy $c0 $ffffff acpx!+ 	31 2 setxy $c0 $ffffff acpx!+
+|	31 5 setxy $c0 $ffffff acpx!+ 	38 7 setxy $c0 $ffffff acpx!+
 
 |	0 0 setxy 0 ( $ff <? )( dup $ff00 acpx!+ $5 + ) drop
+		zoom128
+	;
 
-	zoom128
+:buscaerror
+		rojo xymouse 2dup op3 10 6 pline3 60 4 pline3 2dup swap pline3 pline3 poli3
+|		verde xymouse 2dup op 100 60 line 60 40 line line
+|		blink 1? ( xymouse 2dup swap setxy $ff00 px!+ setxy $ff00 px!+
+|					10 6 setxy $ff00 px!+
+|					60 4 setxy $ff00 px!+ ) drop
+|		zoom128
+	;
 
+:randpoli
+	rand ink
+	rand dup 16 >> $1ff and swap $1ff and
+	|xymouse
+	2dup op3
+	10 ( 1? )( 1-
+		rand dup 16 >> $1ff and swap $1ff and
+		pline3 ) drop
+	pline3 poli3 ;
+
+:dibujapoli
+|		msec 6 >> 'seed !
+	4 ( 1? )( 1- randpoli ) drop
+	;
+
+:cursor
+		xymouse
+		2dup op3
+		over 100 + over pline3
+		over 100 + over 100 + pline3
+		over -20 + over 20 - pline3
+		pline3
+		poli3
+	;
+
+:main
 	usogui
-	show
-
-		scr fonti home verde cr
+	show |clrscr
+		fontj home verde cr cr
 		dup "%d" print cr
-		cr
-		consola printx
+|		buscaerror
+
+|		test0
+
+|		cursor
+        'dibujapoli <f1>
+
 		'exit >esc<
-		cflecha ;
+		;
 
 : 33 main ;
