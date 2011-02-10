@@ -11,32 +11,13 @@
 ^r4/system/r4token.txt
 ^r4/system/r4post.txt
 
-#memvar
-#freemem
-
 #:<<ip
 
-|---------------------------------
-#viewcode )( 1024
-#viewcode> 'viewcode
-
-#viewdata )( 1024
-#viewdata> 'viewdata
-
-:viewreset
-	'viewcode 'viewcode> !
-	'viewdata 'viewdata> ! ;
-
-:+word | nro --
-	dup nro>var? 1? ( 'viewdata> )( 'viewcode> ) nip
-	swap over @ !+ swap ! | 'viewdata> n viewdata>
-	;
-
-|-------------------------------------
+#memvar
+#freemem
 #msg
 
 |---- Comprobaciones
-
 :dstack? | cnt --
 	3 << neg dpila> +
 	'dpila >=? ( drop ; ) drop
@@ -69,10 +50,11 @@
 |--------- ejecuta palabra
 :iwor	8 >> |dup +code
 		nro>tok swap r.pushEXE ;
+
 :iEXEC
-	drop d.pop 0? ( drop ; )
-	swap r.pushEXE
-	progmem? ;
+		drop d.pop 0? ( drop ; )
+		swap r.pushEXE
+		progmem? ;
 
 |-------- ejecuta palabra
 
@@ -83,7 +65,6 @@
 
 |--- retorna
 :i;		drop r.cnt 0? ( nip ; ) 2drop r.pop  ;
-:i;S	drop r.cnt 0? ( nip ; ) 2drop r.pop  ;
 
 :i)(
 :i)		8 >> + ;
@@ -148,11 +129,11 @@
 :iW!+	drop d.pop2 w!+ d.pushVar ;
 
 |---- pantalla
-:iSW 	drop sw d.pushDec ;
-:iSH    drop sh d.pushDec ;
+:iSW 		drop sw 2/ d.pushDec ;
+:iSH  		drop sh 2/ d.pushDec ;
 :iFRAMEV	drop framev d.pushVar ;
 :iREDRAW    drop redraw ;
-:iUPDATE    drop ;
+:iUPDATE    drop update ;
 
 |---- dibujo
 :iOP    	drop d.pop2 op ;
@@ -277,25 +258,6 @@ iOPENURL
 	4+ @ d.pushExe
 	;
 
-::stepvm | --
-	<<ip 0? ( drop ; )
-:step..
-	@+ dup $ff and
-	2 << 'tablai + @ exec
-	'<<ip ! ;
-
-::stepvmn | --
-	<<ip 0? ( drop ; )
-	dup @ $ff and 8 <>? ( drop step.. ; ) drop
-	dup 4+ swap
-	( over <>? )(
-		@+ dup $ff and
-		2 << 'tablai + @ exec
-		0? ( 2drop ; )
-		) nip
-	'<<ip ! ;
-
-
 
 |-------------------------------
 | Asigma memoria para ejecucion
@@ -344,7 +306,6 @@ iOPENURL
 	2drop
 	;
 
-
 |------ imprime codigo
 :nro>dicnr   8 >> 5 << 'indicepal + @ ;	| nombre de palabra
 
@@ -366,7 +327,6 @@ iOPENURL
 	dup $ff and
 	12 <? ( 2 << 'codei + @ exec ; ) nip
 	blanco nro>macro print ;
-
 
 :coldefws drop ":" ; |nro>dicnr ":%w" print ;
 :coldefvs drop "#" ; |nro>dicnr "#%w" print ;
@@ -392,20 +352,18 @@ iOPENURL
 		<<ip =? ( blink 1? ( negro )( blanco ) drop ">" print )
 		@+ tokenprint
 		<<ip 4+ =? ( blink 1? ( negro )( blanco ) drop "<" print )
-
 		sp lout? 1? ( cr ) drop
-
 		swap ) 2drop ;
-
 
 :esvar | adr --
 	dup @ "#%w " violeta print
-	12 + @ @ "%d" amarillo print
+	12 + @
+	0? ( "%h" print ; )
+	@ "%d" amarillo print
 	;
 
 ::printword | n --
 |	cntwords >=? ( drop ; )
-
 	5 << 'indicepal +
 	indicepal> >=? ( drop ; )
 	dup 8 + @ 1 and? ( drop esvar ; ) drop
@@ -421,12 +379,6 @@ iOPENURL
 	dup 8 + @ 1 and? ( violeta "#" )( rojo ":" ) print drop
 	@ "%w " print ;
 
-|---------------------------
-::vm.dumpcode
-	cr cr
-	'viewdata ( viewdata> <? )( @+ printword cr ) drop
-	'viewcode ( viewcode> <? )( @+ printword cr ) drop
-	;
 
 |--- reserva memoria para dicc de memoria y memoria de vars
 | 1do recorre variables,
@@ -441,6 +393,32 @@ iOPENURL
 	8 + ! drop
 	;
 
+|---- vista de palabras
+#viewexec )( 8192 | vista de ejecucion
+#viewexec> 'viewexec
+
+#viewstate )( 8192
+
+:+word | nro --
+	dup getllamadas 0? ( 2drop ; ) drop
+	0 viewexec> viewexec - viewstate + !
+	viewexec> !+ 'viewexec> !
+	;
+
+:viewset | nro --
+	2 << 'viewstate + 1 swap ! ;
+
+|---------------------------
+::vm.dumpcode
+	cr cr
+	'viewstate
+	'viewexec ( viewexec> <? )(
+		@+ rot @+
+		0? ( drop swap cr printname allowchome )( drop swap printword )
+		swap ) 2drop
+	cr
+	;
+
 ::startvm | --
 	here dup 'memvar ! 'freemem !
    'c/var varmap
@@ -448,8 +426,34 @@ iOPENURL
 	d.ini	| inicia pilad
 	r.ini	| inicia pilar
 	<<boot '<<ip !
-	viewreset
+
+	'viewexec 'viewexec> !
 	newwords ( cntwords <=? )(
 		dup +word
-		1+ ) drop
-	;
+		1+ ) drop ;
+
+::stepvm | --
+	<<ip 0? ( drop ; )
+:step..
+	@+ dup $ff and
+	2 << 'tablai + @ exec
+	'<<ip ! ;
+
+::stepvmn | --
+	<<ip 0? ( drop ; )
+	dup @ $ff and 8 <>? ( drop step.. ; ) drop
+	dup 4+ swap
+	( over <>? )(
+		@+ dup $ff and
+		2 << 'tablai + @ exec
+		0? ( 2drop ; )
+		) nip
+	'<<ip ! ;
+
+::runvm | --
+	<<ip 0? ( drop ; )
+	( 1? )(
+		@+ dup $ff and
+		2 << 'tablai + @ exec
+		)
+	'<<ip ! ;
