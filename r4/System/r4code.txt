@@ -58,7 +58,6 @@
 
 |-------- ejecuta palabra
 
-:iworS	8 >> nro>tok swap r.pushEXE ;
 :ivar	8 >> nro>mem @ d.pushVar ;
 :idvar	8 >> nro>mem d.pushDVar ;
 :idwor	8 >> nro>tok d.pushDCod ;
@@ -66,6 +65,7 @@
 |--- retorna
 :i;		drop r.cnt 0? ( nip ; ) 2drop r.pop  ;
 
+|--- estructuras de control
 :i)(
 :i)		8 >> + ;
 :i(     drop ;
@@ -84,32 +84,6 @@
 :i<>?   drop @+ d.get2 d.pop <>? ( 2drop ; ) drop 8 >> + ;
 :iAND?  drop @+ d.get2 d.pop AND? ( 2drop ; ) drop 8 >> + ;
 :iNAND? drop @+ d.get2 d.pop NAND? ( 2drop ; ) drop 8 >> + ;
-
-|--- aritmetica y logica
-:iAND   drop d.pop2 AND d.pushVar ;
-:iOR	drop d.pop2 OR d.pushVar ;
-:iXOR	drop d.pop2 XOR d.pushVar ;
-:iNOT	drop d.pop NOT d.pushVar ;
-:i+		drop d.pop2 + d.pushVar ;
-:i-     drop d.pop2 - d.pushVar ;
-:i*     drop d.pop2 * d.pushVar ;
-:i/     drop d.pop2 / d.pushVar ;
-:i*/    drop d.pop3 */ d.pushVar ;
-:i*>>   drop d.pop3 *>> d.pushVar ;
-:i/MOD  drop d.pop2 /MOD swap d.pushVar d.pushVar ;
-:iMOD   drop d.pop2 MOD d.pushVar ;
-:iABS   drop d.pop ABS d.pushVar ;
-:iSQRT	drop d.pop SQRT d.pushVar ;
-:iCLZ	drop d.pop CLZ d.pushVar ;
-:i<</	drop d.pop3 <</ d.pushVar ;
-:iNEG   drop d.pop NEG d.pushVar ;
-:i2/    drop d.pop 2/ d.pushVar ;
-:i2*    drop d.pop 2* d.pushVar ;
-:i<<    drop d.pop2 << d.pushVar ;
-:i>>    drop d.pop2 >> d.pushVar ;
-:i1-    drop d.pop 1- d.pushVar ;
-:i1+    drop d.pop 1+ d.pushVar ;
-:i4+    drop d.pop 4+ d.pushVar ;
 
 |--- memoria
 :i@     drop d.pop @ d.pushVar ;
@@ -133,7 +107,7 @@
 :iSH  		drop sh 2/ d.pushDec ;
 :iFRAMEV	drop framev d.pushVar ;
 :iREDRAW    drop redraw ;
-:iUPDATE    drop update ;
+:iUPDATE    drop ; |1 update drop ;
 
 |---- dibujo
 :iOP    	drop d.pop2 op ;
@@ -171,7 +145,6 @@
 :iDATE   	drop date rot d.pushVar swap d.pushVar d.pushVar ;
 :iEND    	2drop 0 ;
 :iRUNi   	vDROP ;
-|-----  Interrupciones
 |-----mouse
 |:iTPEN		drop tpen d.pushVar ;
 :iXYMOUSE	drop xymouse swap d.pushVar d.pushVar ;
@@ -208,8 +181,7 @@
 
 |---------- tabla de saltos
 #tablai	| tabla de saltos de instrucciones
-i0
-i: i#
+i0 i: i#
 idec ihex ibin ifix istr
 iwor ivar idwor idvar
 i;
@@ -217,10 +189,10 @@ i(		i)(		i)		i[		i]		iEXEC
 i0?		i+?		i-?		i1?		i=?		i<?		i>?		i<=?	i>=?	i<>?	iAND?	iNAND?
 vDUP	vDROP	vOVER	vPICK2	vPICK3	vPICK4	vSWAP	vNIP	vROT
 v2DUP	v2DROP	v3DROP	v4DROP	v2OVER	v2SWAP
-v>R	vR>		vR		vR+		vR@+	vR!+	vRDROP
-iAND	iOR		iXOR	iNOT	i+		i-		i*		i/		i*/
-i*>>	i/MOD	iMOD	iABS	iSQRT   iCLZ	i<</
-iNEG	i1+		i4+		i1-		i2/		i2*		i<<		i>>
+v>R		vR>		vR		vR+		vR@+	vR!+	vRDROP
+vAND	vOR		vXOR	vNOT	v+		v-		v*		v/		v*/
+v*>>	v/MOD	vMOD	vABS	vSQRT   vCLZ	v<</
+vNEG	v1+		v4+		v1-		v2/		v2*		v<<		v>>
 i@		iC@		iW@		i!		iC!		iW!		i+!		iC+!	iW+!	i@+		i!+		iC@+	iC!+	iW@+	iW!+
 iMOVE	iMOVE>	iCMOVE	iCMOVE>
 iMEM	iDIR	iFILE	iFSIZE	iVOL	iLOAD	iSAVE
@@ -238,8 +210,12 @@ iFCOL	iFCEN	iFMAT	iSFILL	iLFILL	iRFILL	iTFILL
 iSLOAD	iSPLAY	iMLOAD	iMPLAY					|--- Sonido
 iOPENURL
 
+::dumpta
+	'tablai memmap ;
+
 ::stepmacro | nro --
-  	dup 11 + 2 << 'tablai + @ exec ;
+  	dup 11 + 2 << 'tablai +  @
+	exec ;
 
 ::stepword | adr --
 	dup 8 + @ 1 and? ( drop 12 + @ @ d.pushVar ; ) drop
@@ -396,12 +372,17 @@ iOPENURL
 |---- vista de palabras
 #viewexec )( 8192 | vista de ejecucion
 #viewexec> 'viewexec
-
 #viewstate )( 8192
 
 :+word | nro --
 	dup getllamadas 0? ( 2drop ; ) drop
-	0 viewexec> viewexec - viewstate + !
+	1 viewexec> 'viewexec - 'viewstate + ! | modo
+	viewexec> !+ 'viewexec> !
+	;
+
+:+words | nro --
+	dup getllamadas 0? ( 2drop ; ) drop
+	1 viewexec> 'viewexec - 'viewstate + ! | modo
 	viewexec> !+ 'viewexec> !
 	;
 
@@ -413,7 +394,8 @@ iOPENURL
 	'viewstate
 	'viewexec ( viewexec> <? )(
 		@+ rot @+
-		0? ( drop swap cr printname allowchome )( drop swap printword )
+		0? ( drop swap cr printname )( drop swap cr printword )
+		allowchome
 		swap ) 2drop
 	cr
 	;
@@ -427,9 +409,11 @@ iOPENURL
 	<<boot '<<ip !
 
 	'viewexec 'viewexec> !
-	newwords ( cntwords <=? )(
+	newwords ( cntwords <? )(
 		dup +word
-		1+ ) drop ;
+		1+ )
+	+words
+	;
 
 ::stepvm | --
 	<<ip 0? ( drop ; )
@@ -454,5 +438,6 @@ iOPENURL
 	( 1? )(
 		@+ dup $ff and
 		2 << 'tablai + @ exec
+		update
 		)
 	'<<ip ! ;
