@@ -24,21 +24,6 @@
 #activos )( 2048
 #activos> 'activos
 
-:activos!+ | v --
-	activos> !+ 'activos> ! ;
-
-:-activos	| --
-	'activos 'activos> ! ;
-
-#horiz )( 1024
-#horiz> 'horiz
-
-:horiz!+ | valor --
-	horiz> !+ 'horiz> ! ;
-
-:-horiz
-	'horiz 'horiz> ! ;
-
 |----------- movimiento de memoria
 ::cmove | de sr cnt --
 	( 1? )( 1- >r c@+ rot c!+ swap r> ) 3drop ;
@@ -95,16 +80,6 @@
 ::FCOL  'col2 ! 'col1 ! ;
 
 |---------- mexcla de colores
-:acpx!+ | alpha col --
-	dup $ff00ff and				| alpha color colorand
-	px@ dup $ff00ff and 		| alpha color colorand inkc inkcand
-	pick2 - pick4 8 *>> rot +	| alpha color inkc inkcandl
-	$ff00ff and >r				| alpha color inkc
-	swap $ff00 and 				| alpha px colorand
-	swap $ff00 and 				| alpha colorand pxa
-	over - rot 8 *>> + $ff00 and
-	r> or px!+  ;
-
 :gr_mix | a b al -- c (DWORD col,BYTE alpha)
 	>r
 	dup $ff00ff and pick2 $ff00ff and over - r * 8 >> + $ff00ff and
@@ -241,217 +216,105 @@
 	2* swap 2* swap cx 2* cy 2* px 2* py 2* spl ;
 
 
-|---- agrega segmentos ordenados
+|------fill polygon
 :insseg | ymax deltax x ymin seg --
 	16 + dup
 	16 + over segs> over - 2 >> move>
 	!+ !+ !+ !
-	16 'segs> +! ;
+	16 'segs> +!
+	;
 
 :addseg | ymax deltax x ymin --
-	pick3 >? ( 4drop ; )
 	segs>
 	( 'segs >=? )( 16 -
-		dup @ pick2 <? ( drop insseg ; )	| ordena por ymin
-		pick2 =? ( drop dup 8 + @			| ordena por deltax si son =
-			pick4 <? ( drop insseg ; ) )
+		dup @ pick2 <? ( drop insseg ; )
 		drop )
 	drop
 	segs> !+ !+ !+ !+ 'segs> ! ;
 
-|-----
-:plinehoriz  | x y --  /// xy
-	sh >=? ( -1 nip ) -? ( drop 'px ! ; )
-	horiz!+ 	| y
-	px over dup 'px !
-	>? ( swap )
-|	sw >=? ( drop ; )
-	horiz!+	| y x1
-|	-? ( drop ; )
-	horiz!+	| y x1 x2
-	;
-
 |************************************
 ::PLINE | x y --
-	py =? ( plinehoriz ; )
+	py =? ( drop 'px ! ; ) | no usa lineas horizontales
 	over px - 16 << over py - 				| x y dx dy
 	-? ( / py 2over )( / over px py )	| x y deltax ymax xmin ymin
 	sh >? ( 4drop 'py ! 'px ! ; )
 	-? ( neg pick3 16 *>> + 0 )
-	ymin <? ( dup 'ymin ! )
+	ymin <? ( dup  'ymin ! )
 	>r >r
 	-? ( rdrop rdrop 2drop 'py ! 'px ! ; )
 	ymax >? ( dup 'ymax ! )
-	1-  | corta justo un pixel antes
-	swap r> 16 << r>
-	addseg | ymax deltax xmin ymin --
+	1- swap r> 16 << r>
+    addseg | ymax deltax xmin ymin --
 	'py ! 'px ! ;
 
+|-----------------------
+| seg
+| ymin x deltax ymax
 
-|---- poligono
-|----- llenadores
-:hline3 | x1 y1 x2 --    ; clip x1-x2
-	pick2 <? ( swap rot ) | asegura orden (****)TRACE
+:deld | ad+4 x
+	over
+	( activos> <? )( dup @ swap 4 - !+ 4+ )
+	4 - 'activos> !
+	swap 4 - swap ;
 
-	-? ( 3drop ; ) sw >=? ( sw 1- nip )
-	rot sw >? ( 3drop ; ) -? ( 0 nip )	| y1 x2 x1
+:getxn2 | adr seg -- adr x
+	dup 12 + @ pick3 =? ( 'deld >r ) drop
+	4+ dup @+ swap @ 	| dirx x deltx
+	over + | x newx		| dir x newx
+	rot !				| x1
+	16 >> ;
 
-	rot over swap 	| x2 x1 x1 y1
-	setxy - 1+
-	( 1? )( 1- ink@ px!+ ) drop ;
+:getxn | adr seg -- adr x
+	dup 12 + @ pick3 =? ( 'deld >r ) drop
+	4+ dup @+ swap @ 	| dirx x deltx
+	2dup
+	2/ + >r
+	+ swap !
+	r> 16 >> ;
 
-#alphaini
-
-:hout3 | x1 y1 x2 --    x1<=x2 x1<sw x2>0
-|	pick2 <? ( swap rot  trace )
-
-	dup pick3 - $ff00 swap / >r
-	$ff00 'alphaini !
-	sw >=? ( sw 1- nip )	| x1 y1 x2
-	rot	-? ( r * 'alphaini +! 0 )
-	rot over swap setxy | x2 x1
-	- r> alphaini	| cnt delta alphai
-	rot 			| delta alphai cnt
-	( 1? )( >r dup 8 >> ink@ acpx!+ over - r> 1- ) 3drop ;
-
-
-:hin3 | x1 y1 x2 --  x1<=x2 x1<sw x2>0
-|	pick2 <? ( swap rot  trace )
-
-	dup pick3 - $ff00 swap / >r
-	$0 'alphaini !
-	sw >=? ( sw 1- nip )
-	rot -? ( neg r * 'alphaini +! 0 )
-	rot over swap setxy | x2 x1
-	- r> alphaini	| cnt delta alphai
-	rot 			| delta alphai cnt
-	( 1? )( >r dup 8 >> ink@ acpx!+ over + r> 1- ) 3drop ;
-
-|--------------- linea actual
-:espuntoi | y act dir1 x1 d1 -- y act
-	over + rot ! | y act x1 d1+x1
-	dup 16 >>
-	-? ( 2drop ; ) sw >=? ( 2drop ; )
-	pick3 setxy
-	8 >> $ff and
-	ink@ acpx!+ ;
-
-:espunto | y act dir1 x1 d1 -- y act
-	over + rot ! | y act x1 d1+x1
-	dup 16 >> 1+
-	-? ( 2drop ; ) sw >=? ( 2drop ; )
-	pick3 setxy
-	8 >> not $ff and
-	ink@ acpx!+ ;
-
-
-:casoA | y act dir1 x1 d1 -- y act (-)
-	-1.0 >? ( espuntoi ; )
-	over + rot over swap ! | y act x1 d1+x1
-	16 >> sw >=? ( 2drop ; )
-	pick3
-	rot $ffff and? ( 1.0 + ) 16 >> -? ( 3drop ; )
-	hout3 | x1 y x2
-	;
-:casoB | y act dir1 x1 d1 -- y act
-	1.0 <? ( espuntoi ; )
-	over + rot over swap ! | y act x1 d1+x1
-	swap 16 >> sw >=? ( 2drop ; )
-	pick3 1+ sh >=? ( 3drop ; )
-	rot 16 >> 1+ -? ( 3drop ; )
-	hout3 | x1 y x2
-	;
-:casoC  | y act dir2 x2 d2 -- y act (-)
-	-1.0 >? ( espunto ; )
-	over + rot over swap ! | y act x1 d1+x1
-	16 >> sw >=? ( 2drop ; )
-	pick3 1+ sh >=? ( 3drop ; )
-	rot 16 >> -? ( 3drop ; )
-	hin3 | x1 y x2
-	;
-:casoD  | y act dir2 x2 d2 -- y act
-	1.0 <? ( espunto ; )
-	over + rot over swap !
-	swap 16 >> sw >=? ( 2drop ; )
-	pick3
-	rot 16 >> -? ( 3drop ; )
-	hin3 | x1 y x2
+|---- ordenando (en x)
+:addsortc | v po di+ v --
+	drop 4 -
+	dup @+ swap | v po di v di+
+	( activos> <? )( dup @ rot rot !+ )
+	!+ 'activos> ! !
 	;
 
-:dibujohor | y 'hor yac -- y 'hor+
-	swap >r
-	r@+ swap r@+ hline3 | x1 y1 x2 --
-	r>
-	;
+:addsort | v -- v
+	dup 4 - over @ | v po vx1
+	'activos
+	( activos> <? )( @+
+		4+ @ 		| v po vx1 di+ vx2
+		rot swap    | v po di+ vx1 vx2
+		>? ( addsortc ; )
+		swap )
+	nip !+ 'activos> ! ;
 
-:aristabajo | y act dir y -- y act dir y
-	0 pick3 4 - !	| 0 en activos para borrar
-	1+ 'horiz
-	( horiz> <? )(
-		@+ pick2 =? ( -1 pick2 4 - ! dibujohor )( drop 8 + )
-		) drop
-	;
-
-:fillact | y act -- act'
-	@+					| y act dirp1
-	dup 12 + @ pick3	| y act dirp1 ymax y
-	=? ( aristabajo ) drop | borra 1
-	4+ dup @+ swap @	| y act dir1 x1 d1
-	over $ffff and? ( 1.0 + ) 16 >> >r |'x1 !
-	1? ( -? ( casoA )( casoB ) )( 3drop )
-
-	@+					| y act dirp2
-	dup 12 + @ pick3	| y act dirp2 ymax y
-	=? ( aristabajo ) drop | borra 2
-	4+ dup @+ swap @ | y act dir2 x2 d2
-	over 16 >> |-? ( 4drop rdrop ; )
-		>r |'x2 !
-	1? ( -? ( casoC )( casoD ) )( 3drop )
-	r> r> pick3 rot
-	hline3
-	;
-
-:filline | y -- y
-	'activos | primero ordena
-	@+ 4+ @ swap  			| x1 'act
-	( activos> <? )( @+ 	| x1 'act 'ac2
-		4+ @ rot 			| 'act x2 x1
-		<? ( over 8 - dup @+ swap @ rot !+ !
-				drop 12 - 'activos <? ( 4+ ) @+ 4+ @ )
-		swap ) 2drop
-	'activos | ahora dibuja
+:filllines | y -- y
+	'activos
 	( activos> <? )(
-		fillact
+		@+ getxn >r
+		@+ getxn r>
+		over <? ( swap )
+		pick3 swap hline_ exec
 		) drop
-	'activos | borra
-	( activos> <? )(
-		@+ 0? ( drop 4 - activos> 4 - @ over ! -4 'activos> +! )( drop )
-		) drop
-	;
-
-:todohoriz
-	'horiz ( horiz> <? )(
-		@+ dibujohor
-		) drop
-	'segs 'segs> !
- 	-horiz ;
+	'activos @+ 4+ @ swap | x1 'activo
+	( activos> <? )( @+
+		4+ @ rot >? ( over 8 - dup @+ swap @ rot !+ ! )
+		swap ) 2drop ;
 
 |************************************
 ::POLI
 	sh ymax <? ( 'ymax ! )( drop ) |-
+
 	-1 segs> ! | marca ultimo
-	-activos
-	'segs dup @ ymin | 'seg y1 ymin
-	$ffff =? ( 3drop todohoriz ; )
-	( ymax <? )(
-		( over =? )( nip
-			swap dup activos!+ | agrega nuevos
-			16 + dup @ rot )
-		filline
-		1+ ) 3drop
+	'activos 'activos> !
+	'segs
+	ymin ( ymax <? )(
+		swap ( @+ pick2 =? )( drop addsort 12 + ) drop 4 - swap
+		filllines 1+ ) 2drop
 	'segs 'segs> !
-	$ffff 'ymin ! -1 'ymax !
-	-horiz ;
+	$ffff 'ymin ! -1 'ymax ! ;
 
 |-------------------------------------------
 :spp | x y cx cy px py --
