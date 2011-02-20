@@ -1,0 +1,58 @@
+^r4/lib/gui.txt
+
+#px #py
+#cx #cy
+
+| if(fabs(x1 + x3 - x2 - x2) +
+|       fabs(y1 + y3 - y2 - y2) +
+|       fabs(x2 + x4 - x3 - x3) +
+|       fabs(y2 + y4 - y3 - y3) <= minimo) | from AGG
+|:sp-dist | x1 y1 x2 y2 x3 y3
+|
+
+:sp-dist2 | x y xe ye -- x y xe ye dd
+	pick3 pick2 - dup * pick3 pick2 - dup * + ;
+
+:sp-dist | x y xe ye -- x y xe ye dd
+	pick3 pick2 - abs pick3 pick2 - abs + ;
+
+:sp-cal1 | x y _cx _cy px py -- x y xn yn
+	rot 2* + pick3 + 2 >> >r			| x y cx px   r: ye
+	swap 2* + pick2 + 2 >> r> ;			| x y xe ye
+
+:sp-cal2 | cx cy px py -- x y
+	rot + 2/ >r + 2/ r> ;
+
+|#:splineco 6	 o 2 son las mejores
+|-------------------------------------------
+:spl2 | x y cx cy px py --
+	2dup >r >r 2over >r >r sp-cal1 r> r> 			| x y nx ny cx cy --  r: px py
+	sp-dist 4 <? ( nip 4drop rdrop rdrop line ; ) drop
+	>r >r 2over r> r> 2dup >r >r sp-cal2 2swap		| x y xa ya nx ny -- r: cx cy px py
+	2dup r> r> r> r> 2dup >r >r sp-cal2 r> r> 		| x y xa ya nx ny nx ny xb yb px py
+	spl2 spl2 ;
+
+:spl | x y cx cy px py --
+	2dup >r >r 2over >r >r sp-cal1 r> r> 			| x y nx ny cx cy --  r: px py
+	sp-dist 6 <? ( 3drop rdrop rdrop rojo line verde line ; ) drop
+	>r >r 2over r> r> 2dup >r >r sp-cal2 2swap		| x y xa ya nx ny -- r: cx cy px py
+	2dup r> r> r> r> 2dup >r >r sp-cal2 r> r> 		| x y xa ya nx ny nx ny xb yb px py
+	spl spl ;
+
+|*******************************
+::CURVEt | xy --
+	cx cy px py spl2 ;
+
+:main
+	usogui
+	10 10 'py ! 'px !
+	show clrscr
+		fonti home dup "%d" print
+		xymouse 'cy ! 'cx !
+		blanco
+		px py op
+		200 400 curvet
+		'exit >esc<
+		cminiflecha ;
+
+: 33 main ;
