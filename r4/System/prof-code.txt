@@ -1,0 +1,384 @@
+| prof-code.txt
+| PHREDA 2010
+|---------------------------------------
+^r4/lib/gui.txt
+^r4/lib/parse.txt
+^r4/lib/codecolor.txt
+^r4/lib/fontt.txt
+^r4/lib/fontj.txt
+^r4/lib/dlgfile.txt
+^r4/lib/trace.txt
+
+^r4/lib/sort.txt
+^r4/lib/form.txt
+
+^r4/system/mem-ed.txt
+^r4/system/r4code.txt
+^r4/system/anaword.txt
+
+#mensaje )( 64
+#consola )( 1024
+#pagina
+#actual
+
+:mensaje! 'mensaje strcpy ;
+
+|----------------------------------
+:helpmodo
+	;
+
+:memmapv
+	d.get memmap
+	;
+
+#voc-system
+"BYE" "HELP" "RESETVM" "MEMMAP"
+( 0 )
+
+#exe-system
+'exit 'helpmodo 'resetvm 'memmapv
+0
+
+:nextw
+    ( c@+ 32 >? )( drop )
+	0? ( drop 1- )( drop )
+	;
+
+:pushnro | val --
+	basen
+	10 =? ( drop d.pushDec ; )
+	2 =? ( drop d.pushBin ; )
+	drop
+	d.pushHex ;
+	;
+
+:palabraconsola | str -- str'
+	( dup c@ 33 <? )( 0? ( nip ; ) drop 1+ )		| quitar espacios
+|	$5e =? ( drop esinclude ; )			| $5e ^  Include
+|	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
+|	$3A =? ( drop esdefinicion ; )		| $3a :  Definicion
+|	$23 =? ( drop esvariable ; )		| $23 #  Variable
+
+|	$22 =? ( drop escadena ; )			| $22 "	 Cadena
+
+	$27 =? ( drop 1+ dup 				| $27 ' Direccion
+		dup ?macro 1? ( 3drop "mACROnOTdIR" mensaje! 0 ; ) drop
+		?palabra 1? ( nip stepadr nextw ; ) 2drop
+		"NOTdIR" seterror 3 - 0 ; )
+	drop
+	dup ?numero 1? ( drop pushnro nip ; ) drop
+	dup ?fnumero 1? ( drop d.pushFix nip ; ) drop
+	dup 'voc-system inupp? 1? ( 1- 2 << 'exe-system + @ exec nextw ; ) drop
+	dup ?macro 1? ( stepmacro nextw ; ) drop
+	dup ?palabra 1? ( stepword nextw ; ) drop
+	2drop 0
+	"NOTfOUND" mensaje! ;
+
+:correconsola
+	'consola ( palabraconsola 0? ) drop
+	0 'consola !
+	;
+
+
+:mkplain
+	"r4/system/r4plain.txt" run ;
+
+:mkasm
+	"r4/system/r4fasm.txt" run ;
+
+:mkbyte
+	"r4/system/r4js.txt" run ;
+
+|-------- VER PALABRA
+#iniword 0
+#actualw 0
+
+|-------- grilla de analisis
+:gridl | n --
+	3 << 'anaword +
+	@+ dup tokenstr gcell
+	tok>udr
+	rot "%d" gcellc
+	swap "%d" gcellc
+    "%d" gcellc
+	@
+	|movpilas
+	"%d"
+	gcell
+	;
+
+#gridw 1 3 1 1 1 6
+:gridword
+	'gridw 6 0.96 grid
+	"Nro" gcellc
+	"token" gcellc
+	"USO" gcellc
+	"PILAD" gcellc
+	"PILAR" gcellc
+	"FORMA" gcellc
+	cr
+	iniword rows 8 - ( 1? )( 1- swap
+		maxw <=? ( rowg
+			dup actualw =? ( blanco "* %d *" )( verde " %d" ) gcellc
+			dup gridl cr )
+		1+ swap ) 2drop
+	gris $grid
+	;
+
+|------------------------------------------------
+:cadalinea | 'vector --
+	iniword rows 1- ( 1? )( 1- swap
+		maxw >? ( 3drop ; )
+		pick2 exec
+		1+ swap ) 3drop
+	;
+
+:ltoken
+	dup 3 << 'anaword +
+	dup 4+ @ 8 >> $ff and 2* col
+	@ tokenprint
+    cr ;
+
+:lcomme
+	dup 3 << 'anaword +
+|	@+ tok>udr rot "| %d" print swap " %d" print " %d" print
+	4+
+	@ 24 << 24 >> 
+	" %d" print
+|	( 1? )( 1- "a" print ) drop
+	cr ;
+
+:gridword11
+	[ dup actualw =? ( blanco " %d<" )( verde " %d ") print 4 col cr ; ] cadalinea chome
+	'ltoken cadalinea
+	chome gris
+	'lcomme cadalinea
+	chome
+	;
+
+|---------------------------------
+:refrescaw
+	actualw -? ( 0 nip )
+	maxw >? ( maxw nip )
+	iniword <? ( dup 'iniword ! )
+	iniword rows 2 - +  >? ( dup rows 2 - - 'iniword ! )
+	'actualw !
+	;
+
+:viewWord
+	0 'iniword !
+	0 'actualw !
+	actual ind2nro makeanaword | arma analisis
+	usogui
+	show clrscr
+		keypad
+		'exit >esc<
+
+		32 gc.top $f gc.hfill
+		font-vard-12-bold home cr2
+		verde dup " :R%d" print
+		blanco "WORD " print
+		actual ind2nro
+		dup nro>nom " :%w" rojo print
+		nro>mov @ blanco
+		dup movpilas "| %s  " print
+		dup 16 << 24 >> " nivel:%d " print
+		dup 24 << 24 >> "uso:%d " print
+		dup 24 >> "dR:%d " print
+		8 << 24 >> "dD:%d " print
+
+		26 gc.botton $00000f gc.hfill
+		font-vard-8-bold home cr2
+		rojo sp 'exit "esc-Exit" btnt
+		amarillo
+
+		32 26 gc.vbetween fonti home
+		|gridword
+		gridword11
+		[ 1 'actualw +! refrescaw ; ] <dn>
+		[ -1 'actualw +! refrescaw ; ] <up>
+		[ 20 'actualw +! refrescaw ; ] <pgdn>
+		[ -20 'actualw +! refrescaw ; ] <pgup>
+		cmano ;
+
+|-------- VER DICCIONARIO
+:tipomov
+	dup 24 << 24 >> swap
+	dup 16 << 24 >> swap
+	dup 8 << 24 >> swap
+	24 >> "R:%d D:%d N:%d U:%d" gcell
+	;
+
+:gridline2 | nro --
+	5 << 'indicepal +
+	indicepal> >? ( drop ; )
+	dup 8 + @ 1 and? ( violeta "#" )( rojo ":" ) nip
+	swap @+ rot
+	"%s%w" gcell
+	@+ "%h" gcell
+	@+ "%h" gcell
+	@+ "%h" gcell
+	@+ "%d" gcellr
+	@+ "%d" gcellr
+	@+ tipomov |	@+ "%h" gcell
+	@ "%d" gcell
+	;
+
+:refrescaind
+	actual -? ( 0 nip )
+	cntw >? ( cntw nip )
+	pagina <? ( dup 'pagina ! )
+	pagina 20 + >? ( dup 20 - 'pagina ! )
+	'actual !
+	;
+
+#grid1 1 4 3 4 3 1 1 6 4
+:gridindexwords
+	'grid1 9 0.96 grid
+	"Nro" gcellc
+	"string" gcellc
+	"token" gcellc
+	"info" gcellc
+	"mem" gcellc
+	"len" gcellc
+	"calls" gcellc
+	"dir" gcellc
+	"group" gcellc
+	cr
+	pagina 21 ( 1? )( 1- swap
+		cntw <=? ( rowg
+			dup actual =? ( blanco "* %d *" )( verde " %d" ) gcellc
+			dup ind2nro gridline2 cr )
+		1+ swap ) 2drop
+	gris $grid
+	;
+
+
+:viewDicc
+	usogui
+	show clrscr
+		keypad
+		'exit >esc<
+
+		32 gc.top $f gc.hfill
+		font-vard-12-bold home cr2
+		verde dup " :R%d" print
+		blanco "DICC " print
+		'mensaje print
+		cntw " %d palabras" print
+
+		26 gc.botton $00000f gc.hfill
+		font-vard-8-bold home cr2
+		rojo sp 'exit "esc-Exit" btnt
+		verde sp 'viewWord "enter-viewWord" btnt
+		amarillo
+
+		32 26 gc.vbetween fonti home
+		gridindexwords cr
+		actual ind2nro printword cr
+		[ 1 'actual +! refrescaind ; ] <dn>
+		[ -1 'actual +! refrescaind ; ] <up>
+		[ 20 'actual +! refrescaind ; ] <pgdn>
+		[ -20 'actual +! refrescaind ; ] <pgup>
+		'viewWord <enter>
+
+		cmano ;
+
+|-----------------------------------
+:clickvar
+	dup 'actual !
+	dup makeanaword ;
+
+:cadavariable
+	drop allowchome
+	violeta actual <>? ( oscuro )
+	'clickvar over 5 << 'indicepal + @ "#%w " link cr
+	;
+
+:clickpalabra
+	dup 'actual !
+	dup makeanaword ;
+
+:cadapalabra
+	drop allowchome
+	actual <>? ( rojo oscuro oscuro )( rojo )
+	'clickpalabra over 5 << 'indicepal + @ ":%w " link cr
+	;
+
+:listofwords
+	'cadavariable varmap | 'vector --
+	'cadapalabra wordmap | 'vector --
+	chome
+	actual printname cr verde
+	printanaword
+|	printcursoranaword
+	;
+
+|---------
+:fullrun
+	usogui
+	fontj
+	show xfb>scr
+		cr amarillo
+		dumpvstack
+		vm.dumpcode
+
+		stepvm
+		'exit >esc<
+		;
+
+
+:fullDicc
+	actual makeanaword | arma analisis
+	usogui
+	show clrscr
+		keypad
+		[ 1 'actual +! refrescaind ; ] <dn>
+		[ -1 'actual +! refrescaind ; ] <up>
+		[ 20 'actual +! refrescaind ; ] <pgdn>
+		[ -20 'actual +! refrescaind ; ] <pgup>
+
+		32 gc.top $f gc.hfill
+		font-vard-12-bold home cr2
+		verde dup " :R%d" print
+		blanco "DICC " print
+		'mensaje print
+		cntw " %d palabras" print
+
+		26 gc.botton $00000f gc.hfill
+		font-vard-8-bold home cr2
+		rojo sp 'exit dup >esc< "esc-Exit" btnt
+		verde sp 'viewWord dup <enter> "enter-viewWord" btnt
+		cyan
+		sp 'fullrun dup <f1> "f1-Run" btnt
+		sp 'stepvm dup <f2> "f2-Step" btnt
+		sp 'stepvmn dup <f3> "f3-StepN" btnt
+
+		amarillo
+
+		32 26 gc.vbetween
+		|fonti
+		home
+
+		listofwords
+		cmano ;
+
+
+
+|----------------------------------
+
+:main
+	ed.load
+	'ed.nombre tokencomp
+	msg 1? ( drop saverror ; ) drop
+	tokenpost
+	msg 1? ( drop saverror ; ) drop
+	startvm
+|		sp 'viewDicc dup <f4> "f4-ViewDicc" btnt
+	fullDicc
+	;
+
+: 0 paper
+	mark
+	4 main
+	empty ;
