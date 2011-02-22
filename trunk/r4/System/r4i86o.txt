@@ -20,66 +20,15 @@
 
 ^r4/system/r4code.txt
 ^r4/system/vstack.txt
+^r4/system/r4i86.txt
 
 ^r4/lib/trace.txt
 
-|----- nro de str y label
-#nstr	| nro de string
-#nlabel | nro de etiqueta
-#nanon	| nro de def anonima
-
-| por palabras
-#niva 		| nivel de anonimo
-#compara?	| 0 si no esta comparado nos con tos
-#jmp?       | 1 si salto en la anterior (para no hacer ret)
-
-::ini.compila
-	0 'nstr ! 0 'nlabel ! 0 'nanon ! ;
-
-|----- pila de compilador
-#pilac )( 256	#pilac> 'pilac
-
-:>pilac pilac> !+ 'pilac> ! ;
-:<pilac -4 'pilac> +! pilac> @ ;
-:pilac! 'pilac 'pilac> ! ;
-
-|:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
-:nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
-
-:label	"_" ,s ,h 	;
-:jmp,	"jmp " ,s label ,cr ;
-
-|---------------------------
-:+etiqueta	| -- nueva   // y agrega a pila
-	nlabel 1+ dup 'nlabel ! dup >pilac ;
-
-:salto? | adr++ xx xx -- adr++ xx xx 0/1
-	pick2 8 - @ $ff and
-	18 >? ( 31 <? ( 1 nip ; ) ) 0 nip ;
-
-:nextret? |
-	pick2 @ $ff and 12 =? ( 1 )( 0 ) nip ;
-
-:,lit
-	dup tok>cte d.pushCte ; |	dup tok>cte ,DUP "mov eax," ,s ,d ,cr ;
-:,lits
-	nstr d.pushStr 1 'nstr +! ; |	,DUP "mov eax,s" ,s nstr ,h ,cr 1 'nstr +! ;
-
-:,wor
-	d.resortstack
-	nextret? 1? ( 1 'jmp? ! "jmp " )( "call " ) nip
-	,s dup nro>dicn ,ln
-	;
-
-:,var 	dup 8 >> d.pushVar ; |	dup nro>dicn ,DUP "mov eax,[" ,s ,s "]" ,s ,cr ;
-:,dwo   dup 8 >> d.pushDcod ; |	dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
-:,dva   dup 8 >> d.pushDvar ; |	dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
-
-:,[
-	1 'niva +!
-	nanon d.pushIcod 1 'nanon +! ; |,DUP +etiqueta +etiqueta "mov eax," ,s label ,cr jmp, <pilac label ":" ,ln ;
-:,]
-	-1 'niva +! ; |<pilac label ":" ,ln ;
+:TOS,
+:TOSb,
+:NOS,
+:RTOS,
+	"*" ;
 
 |--------------------------------------------
 :,AND	NOS, TOS, "and %w,%w" ,print ;
@@ -162,6 +111,9 @@
 	RTOS, TOS, "mov %w,[%w]" ,print ,cr
 	RTOS, "add %w,4" ,print ;
 
+:,RDROP
+	;
+
 :,@		TOS, TOS, "mov %w,dword [%w]" ,print ;
 :,C@	TOS, TOS, "movsx %w,byte [%w]" ,print ;
 :,W@    TOS, TOS, "movsx %w,word [%w]" ,print ;
@@ -204,51 +156,41 @@
 
 |------------------------------------
 :,0?
-	"or " ,s ,TOS ,, ,TOS ,cr
+	TOS, dup "or %w,%w" ,print ,cr
 	"jnz " ,s ;
-
 :,+?
-	"or " ,TOS ,, ,TOS ,cr
+	TOS, dup "or %w,%w" ,print ,cr
 	"js " ,s ;
-
 :,-?
-	"or " ,s ,TOS ,, ,TOS ,cr
+	TOS, dup "or %w,%w" ,print ,cr
 	"jns " ,s ;
-
 :,1?
-	"or " ,s ,TOS ,, ,TOS ,cr
+	TOS, dup "or %w,%w" ,print ,cr
 	"jz " ,s ;
 
 :,=?
-	"cmp " ,s ,NOS ,, ,TOS ,cr *DROP
+	TOS, NOS, "cmp %w,%w" ,print ,cr
 	"jnz " ,s ;
-
 :,<?
-	"cmp " ,s ,NOS ,, ,TOS ,cr *DROP
+	TOS, NOS, "cmp %w,%w" ,print ,cr
 	"jge " ,s ;
-
 :,>?
-	"cmp " ,s ,NOS ,, ,TOS ,cr *DROP
+	TOS, NOS, "cmp %w,%w" ,print ,cr
 	"jle " ,s ;
-
 :,<=?
-	"cmp " ,s ,NOS ,, ,TOS ,cr *DROP
+	TOS, NOS, "cmp %w,%w" ,print ,cr
 	"jg " ,s ;
-
 :,>=?
-	"cmp " ,s ,NOS ,, ,TOS ,cr *DROP
+	TOS, NOS, "cmp %w,%w" ,print ,cr
 	"jl " ,s ;
-
 :,<>?
-	"cmp " ,s ,NOS ,, ,TOS ,cr *DROP
+	TOS, NOS, "cmp %w,%w" ,print ,cr
 	"jz " ,s ;
-
 :,and?
-	"test " ,s ,NOS ,, ,TOS ,cr *DROP
+	TOS, NOS, "test %w,%w" ,print ,cr
 	"jz " ,s ;
-
 :,nand?
-	"test " ,s ,NOS ,, ,TOS ,cr *DROP
+	TOS, NOS, "test %w,%w" ,print ,cr
 	"jnz " ,s ;
 
 |--------- Sistema
@@ -319,39 +261,11 @@
 :,DOCRES :,DOCSIZE
 
 :,SYSTEM ;
-|-----------definiciones en asmbase.txt ---------------
-
-:,defw :,defv ;
-
-:,;
-	jmp? 1? ( drop 0 'jmp? ! ; ) drop
-	|d.resortstack | reacomoda pila
-	"ret" ,ln ;
-:,(
-	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
-:,)(
-	<pilac salto? 0? ( drop
-			1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac drop ; )
-			)( drop
-			2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac drop ; ) )
-	drop ;
-:,)
-	<pilac salto? 0? ( drop
-			1 =? ( <pilac label ":" ,ln drop ; )
-			2 =? ( <pilac jmp, drop ; )
-			3 =? ( <pilac jmp, <pilac label ":" ,ln drop ; )
-		)( drop
-			2 =? ( <pilac label ,cr drop ; ) )
-	drop ;
 
 |---- nivel 0 - sin desordenar la pila
-#nivel0 0
-,defw ,defv ,lit ,lit ,lit ,lit ,lits ,wor ,var ,dwo ,dva
-,; ,( ,)( ,) ,[ ,] ,EXEC
-,0? ,+? ,-? ,1? ,=? ,<? ,>? ,<=? ,>=? ,<>? ,AND? ,NAND? |..30
+#nivel0
 
-*DUP *DROP *OVER *PICK2 *PICK3 *PICK4 *SWAP *NIP	|--- pila
-*ROT *2DUP *2DROP *3DROP *4DROP *2OVER *2SWAP
+,0? ,+? ,-? ,1? ,=? ,<? ,>? ,<=? ,>=? ,<>? ,AND? ,NAND? |..30
 
 ,>R ,R> ,R ,R+ ,R@+ ,R!+ ,RDROP					|--- pila direcciones  52
 ,AND ,OR ,XOR ,NOT  								|--- logicas
@@ -378,66 +292,16 @@
 ,DOCINI ,DOCEND ,DOCAT ,DOCLINE ,DOCTEXT ,DOCFONT ,DOCBIT ,DOCRES ,DOCSIZE  |-- impresora
 ,SYSTEM
 
-
-:print.regused
-	'regused
-	'regname
-	5 ( 1? )( rot @+ 0? ( " " )( ">" ) print drop
-			rot @+ print cr
-			rot 1- ) 3drop
-
-	;
-
-#nrcompila
-#codehere
-:printdebug
-    fonti home verde
-	"-----------------------" print cr
-	dumpvstack
-	"-----------------------" print cr
-	print.regused
-	"-----------------------" print cr
-	dup
-	11 >? ( 12 - macroname print  )( "%d" print ) cr cr
-	0 here ! codehere print
-
-	nrcompila printword
-	;
-
-:espera
-	inigui
-	'exit >esc<
-	show clrscr
-		printdebug cflecha ;
-
 | compila nivel 0 de palabras
-:,token0 | a -- a.
-	reg.refresh
+:,token1 | a -- a.
 	@+ dup
-	$ff and espera
-	2 << 'nivel0 + @ exec
-	drop
-	;
-
-:makevstack | nro --
-	nro>mov @ 24 << 24 >> dup uquieto!
-	d.ini
-	0? ( drop ; )
-	neg 1- ( 1? )( dup d.pushEsi 1- )
-	d.pushReg
-	reg.refresh ;
+	$ff and 2 << 'nivel0 + @ exec
+	drop ;
 
 ::,compword | nro --
-	0 'niva !
-	0 'compara? !
-	0 'jmp? !
-	dup 'nrcompila ! | solo para ver
-	dup makevstack
-	here 'codehere !
+	";OPTIMIZADO" ,print ,cr
+
 	nro>toklen
 	( 1? )( 1- swap	,token0 swap )
-	2drop
-
-	espera | para ver el resultado
-	;
+	2drop ;
 
