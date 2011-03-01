@@ -15,7 +15,6 @@
 ^r4/system/r4code.txt
 ^r4/system/anaword.txt
 
-#nroanon 0
 
 |-- nombre a nro
 |:nro>dicn   8 >> "w%h" mprint ;		| w<nro palabra>
@@ -45,19 +44,15 @@
 
 :,token | a -- a.
 	@+ dup $ff and
+:,tokenp | n t --
 	12 <? ( 2 << 'codei + @ exec ; ) nip
 	nro>macro ,s ;
 
-||| Codigo
-:gencod | adrr --
-	dup @ swap 12 + @
-	( 1? )( 1- swap ,sp ,token swap
-		$1f nand? ( ,cr ) )
-	2drop ;
 
-||| Variables
-:genvar | adrr --
-	@
+|--- Variables
+:esvariable | nro --
+	dup nro>nom "#%w" ,print
+	nro>tok
 	( @+ dup $ff and
 		1 =? ( 0 nip ) | corta con defc
 		2 =? ( 0 nip ) | corta con defv
@@ -68,33 +63,114 @@
 		)
 	3drop ,cr ;
 
+|----------------------
+#nroanon 0
+#nroanonc 0
+
+#totoken
+#niva	| nivel de anonimas
+
+#niv )( 1024
+#niv> 'niv
+
+:+niv | c --
+	niv> c!+ 'niv> ! ;
+
+#anonind )( 256
+#anonind> 'anonind
+
+:+ind | v --
+	anonind> !+ 'anonind> ! ;
+
+#buffaux )( 4096
+#buffaux> 'buffaux
+
+:+buf | v --
+	buffaux> !+ 'buffaux> ! ;
+
+:everyword | adr token rtoken -- adr
+	16 =? ( 1 'niva +! niv> +ind )	| [
+	17 =? ( -1 'niva +! )			| ]
+	2drop
+	niva +niv
+	;
+
+:marcaniveles | nro --
+	'niv 'niv> !
+	'anonind 'anonind> !
+	0 'niva !
+	nro>toklen over 'totoken  !
+	( 1? )( 1-
+		swap @+
+		dup $ff and
+		everyword
+		swap ) 2drop
+	-1 niv> c! ;
+
+:cpyn
+	over 1- 'niv - 2 << totoken +
+	@ dup $ff and
+	3 <? ( 2drop ; )
+	16 =? ( 2drop ; ) 				| ]
+	17 =? ( 2drop nroanonc " '_anon%h" ,print -1 'nroanonc +! ; )
+	,sp ,tokenp ;
+
+:copyr | n --
+	'niv ( niv> <? )(
+		c@+ pick2 =? ( cpyn ) drop
+		$1f nand? ( ,cr )
+		) 2drop ,cr ;
+
+:cpynl | token -- token.
+	@+ dup $ff and
+	3 <? ( 2drop ; )
+	16 =? ( 2drop ; )
+	17 =? ( 2drop ,sp nroanonc " '_anon%h" ,print 1 'nroanonc +! ; )
+	,sp ,tokenp ;
+
+:copynivl | lugarniv --
+	nroanon ":_anon%h" ,print
+	1 'nroanon +!
+	dup 'niv - 2 << totoken + | niv tok
+	over c@ swap rot | niv@ tok niv
+	( c@+ pick3 >=? )( | mismo nivel o mayor
+		pick3 >? ( drop swap 4+ )( drop swap cpynl )
+		swap ) 4drop
+	,cr ;
+
+|-------------------
+:escodigo | nro --
+	dup marcaniveles
+	'buffaux 'buffaux> !
+	|-- generar anonimos
+	anonind> ( 'anonind >? )(
+		4 - dup @ | lugar en niv
+		copynivl
+		) drop
+	|-- genera principal
+	nroanon 1- 'nroanonc !
+	nro>nom ":%w" ,print
+	0 copyr
+	nroanon 'nroanonc !
+	;
 
 :gencodigo | nro --
-	dup 5 << 'indicepal +
-	dup 8 + @ 1 and? ( 'genvar "#" )( 'gencod ":" ) ,s nip
-	swap 4+
-	pick2 8 << nro>dicn	| nombre palabra
-|	pick2 "w%h"  		| w<nro palabra>
-	,print
-	swap exec | ,cr
-	drop
+	dup nro>var?
+	1? ( drop esvariable )( drop escodigo )
 	;
 
-:gencodigo2 | nro --
-	makeanaword
-	mark
-	empty
-	;
-
+|----------------------
 :makeplain
 	0 'nroanon !
+	0 'nroanonc !
+
 	mark
-	"| plain.txt generator" ,s ,cr
-	"|---------------------" ,s ,cr
+	"| r4plaino.txt generator" ,s ,cr
+	"|-----------------------" ,s ,cr
 	0 ( cntw <? )(
 		dup ind2nro gencodigo
 		1+ )
-	":" ,s ind2nro 5 << 'indicepal + 4+ gencod
+	ind2nro escodigo
 	"plain.txt" savemem
 	empty
 	;
