@@ -1,0 +1,121 @@
+| r4plaino.txt
+| PHREDA 2011
+|---------------------------------------
+| genera codigo en :r4 y lo graba en "plain.txt"
+| Sin includes
+| Sin locales/exportadas ::->:  ##->#
+| * Sin Anonimas
+| * Reemplaza Ctes
+| * Copia Inlines
+| * Calcula Ctes
+| * Transforma Calculos
+|------------------------------------------------
+
+^r4/system/mem-ed.txt
+^r4/system/r4code.txt
+^r4/system/anaword.txt
+
+#nroanon 0
+
+|-- nombre a nro
+|:nro>dicn   8 >> "w%h" mprint ;		| w<nro palabra>
+:nro>dicn   8 >> 5 << 'indicepal + @ "%w" mprint ; | nombre
+
+|----------------
+:cpycad | adr --
+	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop ; ) ) ,c ) 2drop ;
+
+:coldefw ":" ,s nro>dicn ,s ;
+:coldefv "#" ,s nro>dicn ,s ;
+
+:colitd
+:colitf
+:colitb
+:colith tok>cte "%d" ,print ;
+:colits	34 ,c tok>str cpycad 34 ,c ;
+
+:colwor
+:colvar
+	nro>dicn ,s ;
+:coldwo
+:coldva
+	"'" ,s nro>dicn ,s ;
+
+#codei 0 coldefw coldefv colitd colith colitb colitf colits colwor colvar coldwo coldva
+
+:,token | a -- a.
+	@+ dup $ff and
+	12 <? ( 2 << 'codei + @ exec ; ) nip
+	nro>macro ,s ;
+
+||| Codigo
+:gencod | adrr --
+	dup @ swap 12 + @
+	( 1? )( 1- swap ,sp ,token swap
+		$1f nand? ( ,cr ) )
+	2drop ;
+
+||| Variables
+:genvar | adrr --
+	@
+	( @+ dup $ff and
+		1 =? ( 0 nip ) | corta con defc
+		2 =? ( 0 nip ) | corta con defv
+		1? )( 	 | dirv n c
+		,sp
+		12 <? ( 2 << 'codei + @ exec )( nip nro>macro ,s )
+		$7c nand? ( ,cr )
+		)
+	3drop ,cr ;
+
+
+:gencodigo | nro --
+	dup 5 << 'indicepal +
+	dup 8 + @ 1 and? ( 'genvar "#" )( 'gencod ":" ) ,s nip
+	swap 4+
+	pick2 8 << nro>dicn	| nombre palabra
+|	pick2 "w%h"  		| w<nro palabra>
+	,print
+	swap exec | ,cr
+	drop
+	;
+
+:gencodigo2 | nro --
+	makeanaword
+	mark
+	empty
+	;
+
+:makeplain
+	0 'nroanon !
+	mark
+	"| plain.txt generator" ,s ,cr
+	"|---------------------" ,s ,cr
+	0 ( cntw <? )(
+		dup ind2nro gencodigo
+		1+ )
+	":" ,s ind2nro 5 << 'indicepal + 4+ gencod
+	"plain.txt" savemem
+	empty
+	;
+
+:showprogreso
+	scr
+	32 gc.botton negro gc.fbox
+	fonti2 |font-vard-8-bold
+	home blanco
+	"plain.txt generado" print
+	redraw
+	;
+
+:main
+	ed.load
+	mark
+	'ed.nombre tokencomp
+	tokenpost
+	makeplain
+	empty
+	showprogreso
+	waitkey ;
+
+: main ;
