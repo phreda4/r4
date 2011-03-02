@@ -4,7 +4,7 @@
 | genera codigo en :r4 y lo graba en "plain.txt"
 | Sin includes
 | Sin locales/exportadas ::->:  ##->#
-| + Sin Anonimas (falta probar!!)
+| + Sin Anonimas
 | * Reemplaza Ctes
 | * Copia Inlines
 | * Calcula Ctes
@@ -65,117 +65,68 @@
 
 |----------------------
 #nroanon 0
-#nroanonc 0
 
 #totoken
 #niva	| nivel de anonimas
 
 #niv )( 1024
 #niv> 'niv
+:+niv	niv> c!+ 'niv> ! ;
+:-niv   'niv 'niv> ! ;
 
-:+niv | c --
-	niv> c!+ 'niv> ! ;
+#bufftipo )( 1024
+#bufftipo> 'bufftipo
+:+tipo  bufftipo> c!+ 'bufftipo> ! ;
 
 #anonind )( 256
 #anonind> 'anonind
+:+ind 	anonind> !+ 'anonind> ! ;
+:-ind	'anonind 'anonind> ! ;
 
-:+ind | v --
-	anonind> !+ 'anonind> ! ;
+#anons )( 128
+#anons> 'anons
+:>aa anons> !+ 'anons> ! ;
+:aa> -4 'anons> +! anons> @ ;
+:-aa 'anons 'anons> ! ;
 
 #buffaux )( 4096
 #buffaux> 'buffaux
+:+buff	buffaux> !+ 'buffaux> ! ;
+:-buff	'buffaux 'buffaux> ! ;
 
-:+buf | v --
-	buffaux> !+ 'buffaux> ! ;
+:es[
+	1 'niva +!
+	niv> +ind
+	nroanon dup >aa
+	8 << 16 or pick2 4 - ! | graba en token
+	1 'nroanon +!
+	;
+:es]
+	-1 'niva +!
+	aa> 8 << 17 or pick2 4 - ! | graba en token
+	;
 
-:everyword | adr token rtoken -- adr
-	16 =? ( 1 'niva +! niv> +ind )	| [
-	17 =? ( -1 'niva +! )			| ]
-	2drop
+:everyword | adr rtoken -- adr
+	16 =? ( es[ )
+	17 =? ( es] )
+	drop
 	niva +niv
 	;
 
 :marcaniveles | nro --
-	'niv 'niv> !
-	'anonind 'anonind> !
+	-aa -niv -ind
 	0 'niva !
 	nro>toklen over 'totoken  !
 	( 1? )( 1-
-		swap @+
-		dup $ff and
+		swap @+ $ff and
 		everyword
 		swap ) 2drop
 	-1 niv> c! ;
 
 |-----------------
-#bufftipo )( 4096
-#bufftipo> 'bufftipo
-
-:+tipo
-	bufftipo> c!+ 'bufftipo> ! ;
 
 #maptipos
-"0:#NNNFSWVwv;(-)[]x????¿¿¿¿¿¿¿¿PPPPPPPPPPPPPPPRRRRRRR222122223342111311111*<2@@@!!!!!!@!@!@!WWWWVWWWWWWWWWWVWWWWWerVVWWVWWWWWWWWWVWWWWWWWWWWWWWWWWWW"
-
-
-|---- optimizadores
-:resuelve11
-:resuelve21
-:resuelve31
-:resuelve22
-:buscacte
-:cambiajmp
-:buscainline
-:invierteysalta
-:invierteysalta2
-:calculo1
-:calculo2
-:calculo3
-:calculo4
-:esjmp
-:escall
-:es*@	| 2* [FONT,'FONT] + @
-:es<@	| [1,2,3,4,5,8,9] << [FONT,'FONT] + @
-:es*!	| 2* [FONT,'FONT] + !
-:es<!	| [1,2,3,4,5,8,9] << [FONT,'FONT] + !
-:es*
-:es<
-:<+exe	| 2 << 'dir + @ exec
-		| 2 << + @ exec
-
-	;
-:esstore	| !
-:esfetch	| @
-	;
-
-#reglastipo
-"N1"		'resuelve11
-"NN2"		'resuelve21
-"NNN3"		'resuelve31
-"NN4"		'resuelve22
-"V"			'buscacte
-"W;"		'cambiajmp
-"W"			'buscainline
-"v@"		'esvariable
-"?(W;)"		'invierteysalta
-"¿(W;)"		'invierteysalta2
-"1"			'calculo1
-"2"			'calculo2
-"3"			'calculo3
-"4"			'calculo4
-"wx;" 		'esjmp    | jmp
-"wx" 		'escall	| call
-"*v2@"		'es*@	| mov r0,[r1+r2*2]
-"N<v2@"		'es<@	| mov r0,[r1+r2*4(+r2)]
-"*v2!"		'es*!	| mov [r1+r2*2],r0
-"N<v2!"		'es<!	| mov [r1+r2*4(+r2)],r0
-"*v2"		'es*	| lea r0,[r1+r2*2]
-"N<v2"		'es<	| lea r0,[r1+r2*4(+r2)]
-"N<2@x"		'<+exe 	| mov rx,[r1+r0*4];call rx
-"!"			'esstore
-"@"			'esfetch
-0
-
+"0:#NNNFSWVwv;(|)[]x????¿¿¿¿¿¿¿¿PPPPPPPPPPPPPPPRRRRRRR222122223342111311111122@@@!!!!!!@!@!@!WWWWVWWWWWWWWWWVWWWWWerVVWWVWWWWWWWWWVWWWWWWWWWWWWWWWWWW"
 
 :evtipos | valor bytecode --
 	nip 'maptipos + c@ +tipo ;
@@ -191,56 +142,81 @@
 	0 +tipo
 	;
 
+|---- optimizadores
+:resuelve11
+:resuelve21
+:resuelve31
+:resuelve22
+:buscacte
+:buscainline
+	;
+
+#reglastipo
+"N1"		'resuelve11
+"NN2"		'resuelve21
+"NNN3"		'resuelve31
+"NN4"		'resuelve22
+"V"			'buscacte
+"W"			'buscainline
+0
+
+
+
+:= | adr c0 adrs --
+	( c@+ 1? )(
+		rot <>? ( exit ; )
+		drop rot c@+ 0? ( exit ; )
+		rot ) 4drop ;
+
+:buscarreglas | adr --
+	'reglastipo
+	( c@+ 1? )(
+		pick2 = 1? ( )
+		) drop
+	;
+
 |------------------------
-:cpyn
-	over 1- 'niv - 2 << totoken +
-	@ dup $ff and
-	3 <? ( 2drop ; )
-	16 =? ( 2drop ; ) 				| ]
-	17 =? ( 2drop nroanonc " '_anon%h" ,print -1 'nroanonc +! ; )
-	,sp ,tokenp ;
-
-:copyr | n --
-	'niv ( niv> <? )(
-		c@+ pick2 =? ( cpyn ) drop
-		$1f nand? ( ,cr )
-		) 2drop ,cr ;
-
-:cpynl | token -- token.
+:buffp
 	@+ dup $ff and
 	3 <? ( 2drop ; )
-	16 =? ( 2drop ; )
-	17 =? ( 2drop ,sp nroanonc " '_anon%h" ,print 1 'nroanonc +! ; )
+	16 =? ( drop 8 >> ":_aa%h" ,print ; )
+	17 =? ( drop 8 >> " '_aa%h" ,print ; )
 	,sp ,tokenp ;
 
-:copynivl | lugarniv --
-	nroanon ":_anon%h" ,print
-	1 'nroanon +!
+:+buffer | adr -- adr++
+	@+ dup $ff and
+	3 <? ( 2drop ; )
+	16 =? ( drop +buff ; )
+	17 =? ( drop +buff ; )
+	drop +buff ;
+
+:copynivlb | lugarniv --
 	dup 'niv - 2 << totoken + | niv tok
-	over c@ swap rot | niv@ tok niv
+	over c@
+:copynivrb | lugarniv tok v
+	-buff
+	swap rot | niv@ tok niv
 	( c@+ pick3 >=? )( | mismo nivel o mayor
-		pick3 >? ( drop swap 4+ )( drop swap cpynl )
+		pick3 >? ( drop swap 4+ )( drop swap +buffer )
 		swap ) 4drop
-	,cr ;
+	|--- descaga buffer
+	'buffaux ( buffaux> <? )( buffp ) drop
+	,cr
+	;
 
 |-------------------
 :escodigo | nro --
 	dup marcaniveles
-	dup calculotipos
-	'buffaux 'buffaux> !
 	|-- generar anonimos
-	anonind> ( 'anonind >? )(
-		4 - dup @ | lugar en niv
-		copynivl
+	anonind> ( 'anonind >? )( 4 -
+		dup @ copynivlb
 		) drop
 	|-- genera principal
-	nroanon 1- 'nroanonc !
 	nro>nom ":%w" ,print
-	0 copyr
-	nroanon 'nroanonc !
-	"| " ,s
-	'bufftipo ,print ,cr
+	'niv totoken 0 copynivrb
 	;
+|	dup calculotipos
+|	"| " ,s 'bufftipo ,print ,cr
 
 :gencodigo | nro --
 	dup nro>var?
@@ -250,8 +226,6 @@
 |----------------------
 :makeplain
 	0 'nroanon !
-	0 'nroanonc !
-
 	mark
 	"| r4plaino.txt generator" ,s ,cr
 	"|-----------------------" ,s ,cr
