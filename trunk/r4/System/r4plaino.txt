@@ -7,7 +7,7 @@
 | + Sin Anonimas
 | + Reemplaza Ctes
 | + Copia Inlines
-| * Calcula Ctes
+| + Calcula Ctes
 | * Transforma Calculos
 |------------------------------------------------
 
@@ -84,6 +84,7 @@
 :>aa anons> !+ 'anons> ! ;
 :aa> -4 'anons> +! anons> @ ;
 :-aa 'anons 'anons> ! ;
+:aa# anons> 'anons - 2 >> ;
 
 #buffaux )( 4096
 #buffaux> 'buffaux
@@ -158,46 +159,125 @@
 	drop +buff ;
 
 |--- optimiza
-:resuelve11
-:resuelve21
-:resuelve31
-:resuelve22
+:aa1@ | adr+ -- adr- a
+	4 - dup dup 4+ buffaux> over - move | d s c
+	-4 'buffaux> +!
+	aa> ;
+
+:aa2@ | adr+ -- adr- a b
+	8 - dup dup 8 + buffaux> over - move | d s c
+	-8 'buffaux> +!
+	aa> aa> swap ;
+
+:aa3@ | adr+ -- adr- a b c
+	12 - dup dup 12 + buffaux> over - move | d s c
+	-12 'buffaux> +!
+	aa> aa> aa> rot rot ;
+
+:aa1! | adr- v -- adr-
+	dup >aa genCTE over 4 - ! ;
+
+:aa2@! | adr+ -- adr- a b
+	4 - dup dup 4 + buffaux> over - move | d s c
+	-4 'buffaux> +!
+	aa> aa> swap ;
+
+:aa2! | adr- a b -- adr-
+	swap dup >aa genCTE pick2 8 - !
+	dup >aa genCTE over 4 - ! ;
+
+| adr+ val -- adr+
+:oAND	| 53 ab -- c
+	aa# 2 <? ( 2drop ; ) drop
+	drop aa2@ AND aa1! ;
+:oOR    |ab -- c
+	aa# 2 <? ( 2drop ; ) drop
+	drop aa2@ OR aa1! ;
+:oXOR   |ab -- c
+	aa# 2 <? ( 2drop ; ) drop
+	drop aa2@ XOR aa1! ;
+:oNOT   | a -- b
+	aa# 1 <? ( 2drop ; ) drop
+	drop aa1@ NOT aa1! ;
+:o+		|ab -- c
+	aa# 2 <? ( 2drop ; ) drop
+	drop aa2@ + aa1! ;
+:o-     |ab -- c
+	aa# 2 <? ( 2drop ; ) drop
+	drop aa2@ - aa1! ;
+:o*     |ab -- c
+	aa# 2 <? ( 2drop ; ) drop
+	drop aa2@ * aa1! ;
+:o/     |ab -- c
+	aa# 2 <? ( 2drop ; ) drop
+	drop aa2@ / aa1! ;
+:o*/    |abc -- d
+	aa# 3 <? ( 2drop ; ) drop
+	drop aa3@ */ aa1! ;
+:o*>>   |abc -- d
+	aa# 3 <? ( 2drop ; ) drop
+	drop aa3@ *>> aa1! ;
+:o/MOD  | ab -- cd
+	aa# 2 <? ( 2drop ; ) drop
+	drop aa2@! /MOD aa2! ;
+:oMOD   | ab -- c
+	aa# 2 <? ( 2drop ; ) drop
+	drop aa2@ MOD aa1! ;
+:oABS   | a -- b
+	aa# 1 <? ( 2drop ; ) drop
+	drop aa1@ ABS aa1! ;
+:oSQRT	|a -- b
+	aa# 1 <? ( 2drop ; ) drop
+	drop aa1@ SQRT aa1! ;
+:oCLZ	|a -- b
+	aa# 1 <? ( 2drop ; ) drop
+	drop aa1@ CLZ aa1! ;
+:o<</	|abc -- d
+	aa# 3 <? ( 2drop ; ) drop
+	drop aa3@ <</ aa1! ;
+:oNEG   | a -- b
+	aa# 1 <? ( 2drop ; ) drop
+	drop aa1@ NEG aa1! ;
+:o1+    | a -- b
+	aa# 1 <? ( 2drop ; ) drop
+	drop aa1@ 1+ aa1! ;
+:o4+    | a -- b
+	aa# 1 <? ( 2drop ; ) drop
+	drop aa1@ 4+ aa1! ;
+:o1-    | a -- b
+	aa# 1 <? ( 2drop ; ) drop
+	drop aa1@ 1- aa1! ;
+:o2/    | a -- b
+	aa# 1 <? ( 2drop ; ) drop
+	drop aa1@ 2/ aa1! ;
+:o2*    | a -- b
+	aa# 1 <? ( 2drop ; ) drop
+	drop aa1@ 2* aa1! ;
+:o<<    |ab -- c
+	aa# 2 <? ( 2drop ; ) drop
+	drop aa2@ << aa1! ;
+:o>>    | 76ab -- c
+	aa# 2 <? ( 2drop ; ) drop
+	drop aa2@ >> aa1! ;
+
+#optim oAND	oOR oXOR oNOT o+ o- o* o/ o*/ o*>> o/MOD oMOD oABS oSQRT oCLZ o<</ oNEG o1+ o4+ o1- o2/ o2* o<< o>>
+
+:optN | adr+ val tok -- adr+
+	53 - 2 << 'optim + @ exec ;
+
+:addN | adr+ val tok -- adr+
+	drop tok>cte >aa ;
+
+:untoken | adr+ val tok -- adr+
+	3 >=? ( 6 <=? ( addN ; ) )		| numero
+	53 >=? ( 76 <=? ( optN ; ) )	| operacion
+	2drop -aa
 	;
-
-#reglastipo
-"N1"		'resuelve11
-"NN2"		'resuelve21
-"NNN3"		'resuelve31
-"NN4"		'resuelve22
-0
-
-:= | adr c0 adrs --
-	( c@+ 1? )(
-		rot <>? ( exit ; )
-		drop rot c@+ 0? ( exit ; )
-		rot ) 4drop ;
-
-:buscarreglas | adr --
-	'reglastipo
-	( c@+ 1? )(
-		pick2 = 1? ( )
-		) drop
-	;
-
-#maptipos
-"0:#NNNFSWVwv;(|)[]x????真真真真PPPPPPPPPPPPPPPRRRRRRR222122223342111311111122@@@!!!!!!@!@!@!WWWWVWWWWWWWWWWVWWWWWerVVWWVWWWWWWWWWVWWWWWWWWWWWWWWWWWW"
-
-:evtipos | valor bytecode --
-	'maptipos + c@ +niv ;
 
 :optimizabuffer
-	-niv
 	'buffaux ( buffaux> <? )(
-		@+ $ff and evtipos
+		@+ dup $ff and untoken
 		) drop
-	0 +niv
-
-	" | " ,s 'niv ,print ,cr
 	;
 
 |--- imprime de buffer
