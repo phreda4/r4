@@ -3,10 +3,10 @@
 |---------------------------------------
 | genera codigo en :r4 y lo graba en "plain.txt"
 | Sin includes
-| Sin locales/exportadas ::->:  ##->#
+| Sin exportadas ::->:  ##->#
 | + Sin Anonimas
-| * Reemplaza Ctes
-| * Copia Inlines
+| + Reemplaza Ctes
+| + Copia Inlines
 | * Calcula Ctes
 | * Transforma Calculos
 |------------------------------------------------
@@ -14,7 +14,6 @@
 ^r4/system/mem-ed.txt
 ^r4/system/r4code.txt
 ^r4/system/anaword.txt
-
 
 |-- nombre a nro
 |:nro>dicn   8 >> "w%h" mprint ;		| w<nro palabra>
@@ -48,9 +47,10 @@
 	12 <? ( 2 << 'codei + @ exec ; ) nip
 	nro>macro ,s ;
 
-
 |--- Variables
 :esvariable | nro --
+	dup nro>info @
+	$1000 nand? ( 2drop ; ) drop | constante
 	dup nro>nom "#%w" ,print
 	nro>tok
 	( @+ dup $ff and
@@ -63,7 +63,7 @@
 		)
 	3drop ,cr ;
 
-|----------------------
+|--- Accion
 #nroanon 0
 
 #totoken
@@ -73,10 +73,6 @@
 #niv> 'niv
 :+niv	niv> c!+ 'niv> ! ;
 :-niv   'niv 'niv> ! ;
-
-#bufftipo )( 1024
-#bufftipo> 'bufftipo
-:+tipo  bufftipo> c!+ 'bufftipo> ! ;
 
 #anonind )( 256
 #anonind> 'anonind
@@ -123,32 +119,49 @@
 		swap ) 2drop
 	-1 niv> c! ;
 
-|-----------------
 
-#maptipos
-"0:#NNNFSWVwv;(|)[]x????真真真真PPPPPPPPPPPPPPPRRRRRRR222122223342111311111122@@@!!!!!!@!@!@!WWWWVWWWWWWWWWWVWWWWWerVVWWVWWWWWWWWWVWWWWWWWWWWWWWWWWWW"
+|------------------------
+:buscacte
+	drop
+	dup 8 >> nro>info @
+	$1000 and? ( drop +buff ; ) drop
+	8 >> nro>tok @ | token de variable
 
-:evtipos | valor bytecode --
-	nip 'maptipos + c@ +tipo ;
+	dup $ff and
+	2 =? ( 2drop 0 genCTE +buff ; ) | caso #cte #var
+	| 7 =? () | #v "hola"
+	8 =? ( 10 nip ) 10 =? ( drop $fffffff0 and 10 or +buff ; ) | caso #cte 'word
+	9 =? ( 11 nip ) 11 =? ( drop $fffffff0 and 11 or +buff ; ) | caso #cte 'var
+	drop
 
-:calculotipos | nro --
-	'bufftipo 'bufftipo> !
-	nro>toklen
-	( 1? )( 1-
-		swap @+
-		dup $ff and
-		evtipos
+	tok>cte genCTE	| caso #cte 4
+	+buff ;
+
+:buscainline
+	drop
+	dup 8 >> nro>info @
+	$100 nand? ( drop +buff ; ) drop
+	8 >> nro>toklen 1-
+	( 1? )( 1- swap
+		@+ dup $ff and
+		8 =? ( buscainline )( | es word? inline?
+			9 =? ( buscacte )( drop +buff ) ) | es var? cte?
+|		drop +buff
 		swap ) 2drop
-	0 +tipo
 	;
 
-|---- optimizadores
+:+buffer | adr -- adr++
+	@+ dup $ff and
+	3 <? ( 2drop ; )
+	8 =? ( buscainline ; )
+	9 =? ( buscacte ; )
+	drop +buff ;
+
+|--- optimiza
 :resuelve11
 :resuelve21
 :resuelve31
 :resuelve22
-:buscacte
-:buscainline
 	;
 
 #reglastipo
@@ -156,11 +169,7 @@
 "NN2"		'resuelve21
 "NNN3"		'resuelve31
 "NN4"		'resuelve22
-"V"			'buscacte
-"W"			'buscainline
 0
-
-
 
 := | adr c0 adrs --
 	( c@+ 1? )(
@@ -175,20 +184,29 @@
 		) drop
 	;
 
-|------------------------
+#maptipos
+"0:#NNNFSWVwv;(|)[]x????真真真真PPPPPPPPPPPPPPPRRRRRRR222122223342111311111122@@@!!!!!!@!@!@!WWWWVWWWWWWWWWWVWWWWWerVVWWVWWWWWWWWWVWWWWWWWWWWWWWWWWWW"
+
+:evtipos | valor bytecode --
+	'maptipos + c@ +niv ;
+
+:optimizabuffer
+	-niv
+	'buffaux ( buffaux> <? )(
+		@+ $ff and evtipos
+		) drop
+	0 +niv
+
+	" | " ,s 'niv ,print ,cr
+	;
+
+|--- imprime de buffer
 :buffp
 	@+ dup $ff and
 	3 <? ( 2drop ; )
 	16 =? ( drop 8 >> ":_aa%h" ,print ; )
 	17 =? ( drop 8 >> " '_aa%h" ,print ; )
 	,sp ,tokenp ;
-
-:+buffer | adr -- adr++
-	@+ dup $ff and
-	3 <? ( 2drop ; )
-	16 =? ( drop +buff ; )
-	17 =? ( drop +buff ; )
-	drop +buff ;
 
 :copynivlb | lugarniv --
 	dup 'niv - 2 << totoken + | niv tok
@@ -199,13 +217,17 @@
 	( c@+ pick3 >=? )( | mismo nivel o mayor
 		pick3 >? ( drop swap 4+ )( drop swap +buffer )
 		swap ) 4drop
-	|--- descaga buffer
+	|--- optimiza buffer
+	optimizabuffer
+	|--- descarga buffer
 	'buffaux ( buffaux> <? )( buffp ) drop
 	,cr
 	;
 
 |-------------------
 :escodigo | nro --
+	dup nro>info @
+	$100 and? ( 2drop ; ) drop | inline
 	dup marcaniveles
 	|-- generar anonimos
 	anonind> ( 'anonind >? )( 4 -
@@ -215,8 +237,6 @@
 	nro>nom ":%w" ,print
 	'niv totoken 0 copynivrb
 	;
-|	dup calculotipos
-|	"| " ,s 'bufftipo ,print ,cr
 
 :gencodigo | nro --
 	dup nro>var?
