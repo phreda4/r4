@@ -282,6 +282,7 @@ SYSLOAD: ; ( 'from "filename" -- 'to )
 	or eax,eax
 	mov eax,[esi]
 	jz @loadend
+
 	mov [afile],eax
 @loadagain:
 	invoke ReadFile,[hdir],[afile],$3fffff,cntr,0 ; hasta 4MB
@@ -289,6 +290,7 @@ SYSLOAD: ; ( 'from "filename" -- 'to )
 ;       jnz     @loadend
 	invoke CloseHandle,[hdir]
 	mov eax,[afile]
+
 	add eax,[cntr]
 @loadend:
 	lea esi,[esi+4]

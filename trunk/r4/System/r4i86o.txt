@@ -292,22 +292,11 @@
 ,DOCINI ,DOCEND ,DOCAT ,DOCLINE ,DOCTEXT ,DOCFONT ,DOCBIT ,DOCRES ,DOCSIZE  |-- impresora
 ,SYSTEM
 
-| compila nivel 0 de palabras
-:,token1 | a -- a.
-	@+ dup
-	$ff and 2 << 'nivel0 + @ exec
-	drop ;
-
-|----- compila
-::,compword | nro --
-	mark
-
-	empty
-	;
 
 
 |----- generacion de codigo
 :cambiajmp
+:esvariable
 :invierteysalta
 :invierteysalta2
 :esjmp
@@ -341,3 +330,40 @@
 "!"			'esstore
 "@"			'esfetch
 0
+
+|------------------------------
+#bufftok )( 4096
+#buffinf )( 4096
+#buff> 'bufftok
+
+:+buff | tok info --
+	buff> 4096 + !
+	buff> !+ 'buff> ! ;
+:-buff | --
+	'bufftok 'buff> ! ;
+
+|----- compila
+:niv0 | adr adri+ info -- adri+ adr+
+	drop swap
+	,token0 ;
+
+:niv1 | adr adri+ info -- adri+ adr+
+	drop swap
+	4+
+	;
+
+::,compword | nro --
+	| carga en buffer
+	-buff
+	nro>toklen ( 1? )( 1- swap
+		@+ 0 +buff
+		swap ) 2drop
+	| asigna registros
+
+	| genera codigo
+	'buffinf
+	'bufftok ( buff> <? )(
+		swap @+
+		0? ( niv0 )( niv1 )
+		) 2drop
+	;
