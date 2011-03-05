@@ -24,6 +24,43 @@
 
 ^r4/lib/trace.txt
 
+|--- pila actual
+#vstack )( 128
+#istack )( 128
+#vstack>
+
+:vpush | valor info --
+	vstack> 128 + !
+	vstack> !+ 'vstack> ! ;
+
+:*LIT | nro
+	1 vpush ;
+:*LITS | string
+	2 vpush ;
+:*LITV | variable [var1]
+	3 vpush ;
+:*LITDC | dir codigo word
+	4 vpush ;
+:*LITDD | dir variable var1
+	5 vpush ;
+
+:,DUP
+:,DROP
+:,NIP
+:,2DROP
+:,3DROP
+:,4DROP
+:,OVER
+:,PICK2
+:,PICK3
+:,PICK4
+:,SWAP
+:,ROT
+:,2DUP
+:,2OVER
+:,2SWAP
+	drop nip ;
+
 :TOS,
 :TOSb,
 :NOS,
@@ -39,6 +76,15 @@
 :,-		TOS, NOS, "sub %w,%w" ,print ;
 :,*		NOS, TOS, "imul %w,%w" ,print ;
 :,/		NOS, TOS, "idiv %w,%w" ,print ;
+:,<<	TOS, NOS, "sal %w,%w" ,print ;
+:,>>	TOS, NOS, "sar %w,%w" ,print ;
+:,NEG 	TOS, "neg %w" ,print ;
+:,1+	TOS, "add %w,1" ,print ;
+:,1-	TOS, "add %w,-1" ,print ;
+:,4+ 	TOS, "add %w,4" ,print ;
+:,2/ 	TOS, "sar %w,1" ,print ;
+:,2* 	TOS, "sal %w,1" ,print ;
+
 :,*/
 	"cdq" ,ln
 	NOS, "imul %w" ,print ,cr
@@ -61,9 +107,6 @@
 	TOS, "idiv %w" ,print ,cr
 	"mov eax,edx" ,ln ;
 
-:,<< TOS, NOS, "sal %w,%w" ,print ;
-:,>> TOS, NOS, "sar %w,%w" ,print ;
-
 :,ABS
 	"cdq" ,ln
 	NOS, "add %w,edx" ,ln
@@ -72,26 +115,6 @@
 :,CLZ
 	TOS, dup "bsr %w,%w" ,print ,cr
 	TOS, "xor %w,31" ,print ;
-
-:,NEG 	TOS, "neg %w" ,print ;
-:,1+	TOS, "add %w,1" ,print ;
-:,1-	TOS, "add %w,-1" ,print ;
-:,4+ 	TOS, "add %w,4" ,print ;
-:,2/ 	TOS, "sar %w,1" ,print ;
-:,2* 	TOS, "sal %w,1" ,print ;
-
-|---------------------
-:,EXEC
-	TOS, "mov ecx,%w" ,print
-   	"or ecx,ecx" ,ln
-	"jz @f" ,ln
-	"call ecx" ,ln
-	"@@:" ,ln ;
-	;
-
-:,EXECx1 | 2 >> + @ exec
-	"mov ecx,[eax*4+ebx]" ,ln
-	"call ecx" ,ln ;
 
 
 :,>R	TOS, "push %w" ,print ;
@@ -247,33 +270,64 @@
 	"shr eax,16" ,ln
 	"mov [esi],ecx" ,ln ;
 
-|-----------definiciones en asmbase.txt ---------------
-:,MOVE :,MOVE> :,CMOVE :,CMOVE>
-:,SQRT
-:,INK :,INK@ :,ALPHA :,OP :,CP :,LINE :,CURVE :,PLINE :,PCURVE
-:,POLI :,FCOL :,FCEN :,FMAT :,SFILL :,LFILL :,RFILL :,TFILL
-
 |-- falta definir
 :,CNTJOY :,GETJOY
 :,SLOAD :,SPLAY :,MLOAD :,MPLAY
 :,OPENURL
 :,DOCINI :,DOCEND :,DOCAT :,DOCLINE :,DOCTEXT :,DOCFONT :,DOCBIT
 :,DOCRES :,DOCSIZE
-
 :,SYSTEM ;
 
-|---- nivel 0 - sin desordenar la pila
-#nivel0
+|-----------definiciones en asmbase.txt ---------------
+:,MOVE :,MOVE> :,CMOVE :,CMOVE>
+:,SQRT
+:,INK :,INK@ :,ALPHA :,OP :,CP :,LINE :,CURVE :,PLINE :,PCURVE
+:,POLI :,FCOL :,FCEN :,FMAT :,SFILL :,LFILL :,RFILL :,TFILL ;
 
-,0? ,+? ,-? ,1? ,=? ,<? ,>? ,<=? ,>=? ,<>? ,AND? ,NAND? |..30
 
-,>R ,R> ,R ,R+ ,R@+ ,R!+ ,RDROP					|--- pila direcciones  52
+#nstr 0
+:nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
+
+
+:,defw :,defv :,;
+	drop nip ;
+
+:,lit	tok>cte *LIT nip ;
+:,lits	drop nstr *LITS nip 1 'nstr +! ;
+:,wor	nro>dicn "jmp " ,s ,s ,cr nip ;
+:,var   nro>dicn *LITV nip ;
+:,dwo   nro>dicn *LITDC nip ;
+:,dva   nro>dicn *LITDD nip ;
+
+:,( :,)( :,) :,[ :,]	| por ahora nada
+	drop nip ;
+
+:,EXEC
+	TOS, "mov ecx,%w" ,print
+   	"or ecx,ecx" ,ln
+	"jz @f" ,ln
+	"call ecx" ,ln
+	"@@:" ,ln ;
+	;
+
+:,EXECx1 | 2 >> + @ exec
+	"mov ecx,[eax*4+ebx]" ,ln
+	"call ecx" ,ln ;
+
+|---- nivel 1 - usando registros
+| info adr+ valor -- adr+
+#nivel1 0
+,defw ,defv ,lit ,lit ,lit ,lit ,lits ,wor ,var ,dwo ,dva
+,; ,( ,)( ,) ,[ ,] ,EXEC
+,0? ,+? ,-? ,1? ,=? ,<? ,>? ,<=? ,>=? ,<>? ,AND? ,NAND? | 30
+,DUP ,DROP ,OVER ,PICK2 ,PICK3 ,PICK4 ,SWAP ,NIP	|--- pila
+,ROT ,2DUP ,2DROP ,3DROP ,4DROP ,2OVER ,2SWAP
+,>R ,R> ,R ,R+ ,R@+ ,R!+ ,RDROP					|--- pila direcciones
 ,AND ,OR ,XOR ,NOT  								|--- logicas
-,+ ,- ,* ,/ ,*/ ,*>> ,/MOD ,MOD ,ABS  			|--- aritmeticas
-,SQRT ,CLZ ,<</
-,NEG ,1+ ,4+ ,1- ,2/ ,2* ,<< ,>> | 73
+,+ ,- ,* ,/ ,*/ ,*>> ,/MOD ,MOD ,ABS  			|--- aritmeticas | 65
+,SQRT ,CLZ ,<</ ,NEG ,1+ ,4+ ,1- ,2/ ,2* ,<< ,>>
 ,@ ,C@ ,W@ ,! ,C! ,W! ,+! ,C+! ,W+!  			|--- memoria
-,@+ ,!+ ,C@+ ,C!+ ,W@+ ,W!+ | 88
+,@+ ,!+ ,C@+ ,C!+ ,W@+ ,W!+
 ,MOVE ,MOVE> ,CMOVE ,CMOVE>
 ,MEM ,DIR ,FILE ,FSIZE ,VOL ,LOAD ,SAVE			|--- memoria bloques
 ,UPDATE
@@ -287,49 +341,10 @@
 ,PAPER ,INK ,INK@ ,ALPHA							|--- color
 ,OP ,CP ,LINE ,CURVE ,PLINE ,PCURVE ,POLI		|--- dibujo
 ,FCOL ,FCEN ,FMAT ,SFILL ,LFILL ,RFILL ,TFILL
-,SLOAD ,SPLAY	,MLOAD ,MPLAY					|--- Sonido
+,SLOAD ,SPLAY ,MLOAD ,MPLAY					|--- Sonido
 ,OPENURL
 ,DOCINI ,DOCEND ,DOCAT ,DOCLINE ,DOCTEXT ,DOCFONT ,DOCBIT ,DOCRES ,DOCSIZE  |-- impresora
 ,SYSTEM
-
-
-
-|----- generacion de codigo
-:cambiajmp
-:esvariable
-:invierteysalta
-:invierteysalta2
-:esjmp
-:escall
-:es*@	| 2* [FONT,'FONT] + @
-:es<@	| [1,2,3,4,5,8,9] << [FONT,'FONT] + @
-:es*!	| 2* [FONT,'FONT] + !
-:es<!	| [1,2,3,4,5,8,9] << [FONT,'FONT] + !
-:es*
-:es<
-:<+exe	| 2 << 'dir + @ exec
-		| 2 << + @ exec
-:esstore	| !
-:esfetch	| @
-	;
-
-#reglasgenera
-"W;"		'cambiajmp	| call w -> jump W
-"v@"		'esvariable	|
-"?(W;)"		'invierteysalta		| jz _1;call w;_1 -> jnz w
-"¿(W;)"		'invierteysalta2	| jz _1;call w;_1 -> jnz w
-"wx;" 		'esjmp				| ->jmp
-"wx" 		'escall				| ->call
-"*v2@"		'es*@	| mov r0,[r1+r2*2]
-"N<v2@"		'es<@	| mov r0,[r1+r2*4(+r2)]
-"*v2!"		'es*!	| mov [r1+r2*2],r0
-"N<v2!"		'es<!	| mov [r1+r2*4(+r2)],r0
-"*v2"		'es*	| lea r0,[r1+r2*2]
-"N<v2"		'es<	| lea r0,[r1+r2*4(+r2)]
-"N<2@x"		'<+exe 	| mov rx,[r1+r0*4];call rx
-"!"			'esstore
-"@"			'esfetch
-0
 
 |------------------------------
 #bufftok )( 4096
@@ -342,14 +357,58 @@
 :-buff | --
 	'bufftok 'buff> ! ;
 
+:buffmap | exec token --
+	'bufftok ( buff> <? )(
+		@+ $ff and pick2 =? ( drop pick2 exec )( drop )
+		) 3drop ;
+
+|--- optimizadores
+|"?(W;)"	| jz _1;call w;_1 -> jnz w
+|"¿(W;)"	| jz _1;call w;_1 -> jnz w
+|"x;" 		| ->jmp
+|"wx" 		| ->call
+|"*v2@"		| mov r0,[r1+r2*2]
+|"N<v2@"	| mov r0,[r1+r2*4(+r2)]
+|"*v2!"		| mov [r1+r2*2],r0
+|"N<v2!"	| mov [r1+r2*4(+r2)],r0
+|"*v2"		| lea r0,[r1+r2*2]
+|"N<v2"		| lea r0,[r1+r2*4(+r2)]
+|"N<2@x"	| mov rx,[r1+r0*4];call rx
+
+:calltojump | buff+4 -- buff+4
+	dup 8 - @ $ff and
+	8 =? ( 1 1 pick3 8 - 4096 + !+ ! ) | W; --> jmpW
+	| r>; --> jmp
+	| exec; -->jmp
+	drop
+	;
+
+|-------------
+:optimiza
+	'calltojump 12 buffmap	| ;
+	| !
+	| w!
+	| c!
+	| +!
+	| w+!
+	| c+!
+	| @
+	| w@
+	| c@
+	| *>>
+	| */
+	| <</
+	;
+
 |----- compila
 :niv0 | adr adri+ info -- adri+ adr+
 	drop swap
 	,token0 ;
 
 :niv1 | adr adri+ info -- adri+ adr+
-	drop swap
-	4+
+	rot					| adri+ info adr
+	@+ dup $ff and		| adri+ info adr+ valor token
+	2 << 'nivel1 + @ exec | adri+ adr+
 	;
 
 ::,compword | nro --
@@ -358,8 +417,7 @@
 	nro>toklen ( 1? )( 1- swap
 		@+ 0 +buff
 		swap ) 2drop
-	| asigna registros
-
+	optimiza
 	| genera codigo
 	'buffinf
 	'bufftok ( buff> <? )(
