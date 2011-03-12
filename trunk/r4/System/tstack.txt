@@ -1,0 +1,286 @@
+| register allocator and type control
+| PHREDA 2011
+|----------------------
+^r4/system/vstack.txt
+
+#tostr )( 4096
+#tostr> 'tostr
+
+#memp )( 4096
+#memp> 'memp
+
+#cntregs 0
+#regs )( 1024
+
+:+rn	| 12
+	drop
+	cntregs d.pushDec 1 'cntregs +! ;
+:+rs	| "kk"
+	drop
+	cntregs d.pushDec 1 'cntregs +! ;
+:+rw	| ww
+	drop
+|***	cntregs d.pushDec 1 'cntregs +!
+	;
+:+rv	| vv
+	drop
+	cntregs d.pushDec 1 'cntregs +! ;
+:+rdw	| 'w
+	drop
+	cntregs d.pushDec 1 'cntregs +! ;
+:+rdv	| 'v
+	drop
+	cntregs d.pushDec 1 'cntregs +! ;
+
+:TOSchange
+	;
+
+:TOSNOSchange
+	;
+
+:1dw 	| exec
+	vDrop ;
+:1a0	| =? ..
+	vDrop ;
+:2a1	| + - * and or xor << ..
+	vDrop TOSchange ;
+
+:1a1	| neg not 1+ 4+ 1- 2/ ..
+	drop TOSchange ;
+:3a1
+	v2drop TOSchange ;
+:2a2
+	drop TOSNOSchange ;
+:1@
+	drop TOSchange ;
+:1!
+	v2drop ;
+:2@
+:2!
+:2+!
+	drop ;
+:nop
+	drop ;
+
+| uso dD dR tipo
+#acctoken
+nop	| 0
+nop	|1 :,,defc
+nop	|2 :,,defv
++rn |3 :,,litd | --	n numero decimal
++rn |4 :,,lith | --	n numero hexa
++rn |5 :,,litb | -- n numero binario
++rn |6 :,,litf | --	n numero punto fijo
++rs |7 :,,lits | --	s string
++rw |8 :,,word 	| ..--..  word <---- debe ser calculado
++rv |9 :,,var 	| -- v var
++rdw |10:,,dword | -- dw dir word
++rdv |11:,,dvar 	| -- dv dir var
+nop	|; | fin de palabra (12)
+nop	|(
+nop	|)(
+nop	|)
+nop	|[
+nop	|]
+1dw	|EXEC  x/0 --    TOS es dcod
+nop	|0? a -- a
+nop	|+? a -- a
+nop	|-? a -- a
+nop	|1? a -- a
+1a0	|=?  ab -- a
+1a0	|<?  ab -- a
+1a0	|>?  ab -- a
+1a0	|<=? ab -- a
+1a0	|>=? ab -- a
+1a0	|<>? ab -- a
+1a0	|AND?  ab -- a
+1a0	|NAND? ab -- a
+vdup 	|DUP    a -- aa
+vdrop 	|DROP  a --
+vover 	|OVER   ab -- aba
+vpick2 	|PICK2  abc -- abca
+vpick3 	|PICK3  abcd -- abcda
+vpick4 	|PICK4  abcde -- abcdea
+vswap 	|SWAP   ab -- ba
+vnip	|NIP   ab -- b
+vrot	|ROT	abc -- bca
+v2dup	|2DUP   ab -- abab
+v2drop	|2DROP ab --
+v3drop	|3DROP abc --
+v4drop	|4DROP abcd --
+v2over	|2OVER  abcd -- abcdab
+v2swap	|2SWAP  abcd -- cdab
+v>R		|>R    a -- R: -- a
+vR>		|R>    -- a R: a --
+
+vR		|R      -- a R: a -- a
+vR+		|R+    a -- R: b -- c
+vR@+	|R@+    -- a R: b -- c
+vR!+	|R!+   a -- R: b -- c
+
+vrdrop	|RDROP	R: a --
+
+2a1 |53 AND	ab -- c
+2a1 |OR    ab -- c
+2a1 |XOR   ab -- c
+1a1 |NOT    a -- b
+2a1 |+		ab -- c
+2a1 |-     ab -- c
+2a1 |*     ab -- c
+2a1 |/     ab -- c		usa eax,edx
+3a1	|*/    abc -- d     usa eax,edx
+3a1	|*>>   abc -- d     usa eax,edx, ecx
+2a2	|/MOD   ab -- cd    usa eax,edx
+2a1 |MOD    ab -- c     usa eax,edx
+1a1 |ABS    a -- b      usa eax,edx
+1a1 |SQRT	a -- b
+1a1 |CLZ	a -- b     usa eax,edx
+3a1	|<</	abc -- d   usa eax,edx, ecx
+1a1 |NEG    a -- b
+1a1 |1+     a -- b
+1a1 |4+     a -- b
+1a1 |1-     a -- b
+1a1 |2/     a -- b
+1a1 |2*     a -- b
+2a1 |<<    ab -- c     usa ecx
+2a1 |76 >>    ab -- c  usa ecx
+1@	|@      a -- b     tos es ddat
+1@	|C@     a -- b		tos es ddat
+1@	|W@     a -- b      tos es ddat
+1!	|!     ab --        tos es ddat
+1!	|C!    ab --        tos es ddat
+1!	|W!    ab --        tos es ddat
+2+!	|+!    ab --        tos es ddat
+2+!	|C+!   ab --        tos es ddat
+2+!	|W+!   ab --        tos es ddat
+2@	|@+     a -- bc     tos es ddat
+2!	|!+    ab -- c      tos es ddat
+2@	|C@+    a -- bc     tos es ddat
+2!	|C!+   ab -- c      tos es ddat
+2@	|W@+    a -- bc     tos es ddat
+2!	|W!+   ab -- c      tos es ddat
+
+nop	|MOVE  abc --       a,b es ddat
+nop	|MOVE> abc --		a,b es ddat
+nop	|CMOVE abc --		a,b es ddat
+nop	|CMOVE> abc --		a,b es ddat
+
+nop	|MEM	-- a		a es ddat
+nop	|DIR    a --
+nop	|FILE   a -- b
+nop	|FSIZE  a -- b
+nop	|VOL    a -- b
+nop	|LOAD   ab -- c
+nop	|SAVE   abc --
+
+nop	|UPDATE  a -- a
+nop	|XYMOUSE -- ab
+nop	|BMOUSE  -- a
+nop	|IKEY!  a --
+nop	|KEY     -- a
+nop	|CNTJOY  -- a
+nop	|GETJOY  -- a
+
+nop	|MSEC    -- a
+nop	|TIME    -- abc
+nop	|DATE    -- abc
+nop	|END     --
+nop	|RUN    a --
+nop	|SW      -- a
+nop	|SH      -- a
+nop	|CLS     --
+nop	|REDRAW  --
+nop	|FRAMEV  -- a
+nop	|SETXY  ab --
+nop	|PX+!   a --
+nop	|PX!+   a --
+nop	|PX@     -- a
+
+nop	|XFB     -- a
+nop	|>XFB    --
+nop	|XFB>    --
+
+nop	|PAPER  a --
+nop	|INK    a --
+nop	|INK@    -- a
+nop	|ALPHA  a --
+nop	|OP     ab --
+nop	|CP     ab --
+nop	|LINE   ab --
+nop	|CURVE  ab --
+nop	|PLINE  ab --
+nop	|PCURVE ab --
+nop	|POLI    --
+nop	|FCOL   ab --
+nop	|FCEN   ab --
+nop	|FMAT   ab --
+nop	|SFILL   --
+nop	|LFILL   --
+nop	|RFILL   --
+nop	|TFILL  a --
+
+nop	|SLOAD   a -- a
+nop	|SPLAY  a --
+nop	|MLOAD   a -- a
+nop	|MPLAY  a --
+
+|---- falta
+nop	|OPENURL
+
+nop	|DOCINI
+nop	|DOCEND
+nop	|DOCAT
+nop	|DOCLINE
+nop	|DOCTEXT
+nop	|DOCFONT
+nop	|DOCBIT
+nop	|DOCRES
+nop	|DOCSIZE
+
+nop	|SYSTEM
+
+:+memp | c --
+	memp> c!+ 'memp> ! ;
+
+:+pre
+	cntregs d.pushDec 1 'cntregs +! ;
+
+::sregini | usados --
+	'tostr 'tostr> !
+	'memp 'memp> !
+	0 'cntregs !
+	d.ini
+	( 1? )( +pre 1- ) drop
+
+	memp> tostr> !+ 'tostr> !
+	[ 65 + +memp ; ] mappila
+	0 +memp
+	;
+
+::sregtok | adr -- adr+
+	@+ dup $ff and
+	2 << 'acctoken + @ exec
+
+	memp> tostr> !+ 'tostr> !
+	[ 65 + +memp ; ] mappila
+	0 +memp
+	;
+
+::sregend
+	;
+
+::sregdump
+	'tostr ( tostr> <? )(
+		@+ print cr
+		) drop
+	;
+
+::tstacklisis | nro --
+	dup nro>mov @ 24 << 24 >> | uso
+	neg sregini
+
+	nro>toklen
+	( 1? )( 1- swap
+		sregtok swap )
+	2drop
+	;
