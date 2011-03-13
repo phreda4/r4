@@ -13,26 +13,22 @@
 #regs )( 1024
 
 :+rn	| 12
-	drop
 	cntregs d.pushDec 1 'cntregs +! ;
 :+rs	| "kk"
-	drop
 	cntregs d.pushDec 1 'cntregs +! ;
 :+rw	| ww
-	drop
 |***	cntregs d.pushDec 1 'cntregs +!
 	;
 :+rv	| vv
-	drop
 	cntregs d.pushDec 1 'cntregs +! ;
 :+rdw	| 'w
-	drop
 	cntregs d.pushDec 1 'cntregs +! ;
 :+rdv	| 'v
-	drop
 	cntregs d.pushDec 1 'cntregs +! ;
 
 :TOSchange
+|	d.pop
+
 	;
 
 :TOSNOSchange
@@ -46,21 +42,37 @@
 	vDrop TOSchange ;
 
 :1a1	| neg not 1+ 4+ 1- 2/ ..
-	drop TOSchange ;
+	TOSchange ;
 :3a1
 	v2drop TOSchange ;
 :2a2
-	drop TOSNOSchange ;
+	TOSNOSchange ;
 :1@
-	drop TOSchange ;
+	TOSchange ;
 :1!
 	v2drop ;
 :2@
 :2!
 :2+!
-	drop ;
+	;
 :nop
-	drop ;
+	;
+
+:es(	|(
+	pushstack ;
+
+:es)(	|)(
+	;
+
+:es)	|)
+	popstack ;
+
+:es[	|[
+	cntregs d.pushDec 1 'cntregs +!
+	pushstack ;
+
+:es]	|]
+	popstack ;
 
 | uso dD dR tipo
 #acctoken
@@ -77,11 +89,11 @@ nop	|2 :,,defv
 +rdw |10:,,dword | -- dw dir word
 +rdv |11:,,dvar 	| -- dv dir var
 nop	|; | fin de palabra (12)
-nop	|(
-nop	|)(
-nop	|)
-nop	|[
-nop	|]
+es(	|(
+es)(	|)(
+es)	|)
+es[	|[
+es]	|]
 1dw	|EXEC  x/0 --    TOS es dcod
 nop	|0? a -- a
 nop	|+? a -- a
@@ -258,8 +270,7 @@ nop	|SYSTEM
 	;
 
 ::sregtok | adr -- adr+
-	@+ dup $ff and
-	2 << 'acctoken + @ exec
+	@+ $ff and 2 << 'acctoken + @ exec
 
 	memp> tostr> !+ 'tostr> !
 	[ 65 + +memp ; ] mappila
@@ -269,11 +280,6 @@ nop	|SYSTEM
 ::sregend
 	;
 
-::sregdump
-	'tostr ( tostr> <? )(
-		@+ print cr
-		) drop
-	;
 
 ::tstacklisis | nro --
 	dup nro>mov @ 24 << 24 >> | uso
@@ -283,4 +289,16 @@ nop	|SYSTEM
 	( 1? )( 1- swap
 		sregtok swap )
 	2drop
+	;
+
+::sregdump
+	'tostr ( tostr> <? )(
+		@+ print cr
+		) drop
+	;
+
+::sregdumpi | nro --
+	2 << 'tostr + ( tostr> <? )(
+		@+ print cr
+		) drop
 	;
