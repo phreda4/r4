@@ -3,36 +3,77 @@
 |----------------------
 ^r4/system/vstack.txt
 
-#tostr )( 4096
+#tostr )( 4096	| indice de dib pilas
 #tostr> 'tostr
 
-#memp )( 4096
+#memp )( 4096	| dibujo de pilas
 #memp> 'memp
 
 #cntregs 0
-#regs )( 1024
+#regs )( 1024	| info de registros
 
-:+rn	| 12
-	cntregs d.pushDec 1 'cntregs +! ;
-:+rs	| "kk"
-	cntregs d.pushDec 1 'cntregs +! ;
-:+rw	| ww
-|***	cntregs d.pushDec 1 'cntregs +!
+#sst )( 1024 | pila de pilas
+#sst> 'sst
+
+:+memp | c --
+	memp> c!+ 'memp> ! ;
+
+:stacks>str
+	memp> tostr> !+ 'tostr> !
+	[ 65 + +memp ; ] mappila
+	$3A +memp
+	[ 65 + +memp ; ] mappilar
+	0 +memp
 	;
+
+:str>stacks | "" -
+	d.ini
+	( c@+ $3a <>? )(
+		65 - d.pushDec
+		) drop
+	r.ini
+	( c@+ 1? )(
+		65 - r.pushDec
+		) 2drop
+	;
+
+:pushstack
+	tostr> 4 - @ sst> !+ 'sst> !
+	;
+:popstack
+	-4 'sst> +!
+	sst> @ str>stacks
+	;
+
+:newREG
+	cntregs d.pushDec 1 'cntregs +! ;
+:+rn	| 12
+	newREG ;
+:+rs	| "kk"
+	newREG ;
+
+:+rw	| ww
+|***	newREG
+	;
+
 :+rv	| vv
-	cntregs d.pushDec 1 'cntregs +! ;
+	newREG ;
 :+rdw	| 'w
-	cntregs d.pushDec 1 'cntregs +! ;
+	newREG ;
 :+rdv	| 'v
-	cntregs d.pushDec 1 'cntregs +! ;
+	newREG ;
 
 :TOSchange
-|	d.pop
-
-	;
+	findpilaT
+	0? ( drop ; ) drop
+	vDrop
+	newREG ;
 
 :TOSNOSchange
-	;
+	findpilaT
+	0? ( drop ; ) drop
+	v2Drop
+	newREG newREG ;
 
 :1dw 	| exec
 	vDrop ;
@@ -40,24 +81,37 @@
 	vDrop ;
 :2a1	| + - * and or xor << ..
 	vDrop TOSchange ;
-
 :1a1	| neg not 1+ 4+ 1- 2/ ..
 	TOSchange ;
 :3a1
-	v2drop TOSchange ;
+	v2Drop TOSchange ;
 :2a2
 	TOSNOSchange ;
 :1@
 	TOSchange ;
 :1!
-	v2drop ;
+	v2Drop ;
 :2@
+	TOSchange newReg ;
 :2!
+	vNip ;
 :2+!
-	;
-:nop
-	;
+	v2Drop ;
 
+:+mem
+	newREG ;
+
+:v3v newREG
+:v2v newREG
+:v1v newREG ;
+
+|--- condicionales
+| ?( v;) (push )pop ;=endonw
+| ?( v ) ..
+| ?( )( ) (push  )(  )pop
+| ( ? )(  )
+| (  ? )
+| (    )
 :es(	|(
 	pushstack ;
 
@@ -67,8 +121,9 @@
 :es)	|)
 	popstack ;
 
+|--- anonimas
 :es[	|[
-	cntregs d.pushDec 1 'cntregs +!
+	newREG
 	pushstack ;
 
 :es]	|]
@@ -76,9 +131,9 @@
 
 | uso dD dR tipo
 #acctoken
-nop	| 0
-nop	|1 :,,defc
-nop	|2 :,,defv
+0	| 0
+0	|1 :,,defc
+0	|2 :,,defv
 +rn |3 :,,litd | --	n numero decimal
 +rn |4 :,,lith | --	n numero hexa
 +rn |5 :,,litb | -- n numero binario
@@ -88,17 +143,17 @@ nop	|2 :,,defv
 +rv |9 :,,var 	| -- v var
 +rdw |10:,,dword | -- dw dir word
 +rdv |11:,,dvar 	| -- dv dir var
-nop	|; | fin de palabra (12)
+0	|; | fin de palabra (12)
 es(	|(
 es)(	|)(
 es)	|)
 es[	|[
 es]	|]
 1dw	|EXEC  x/0 --    TOS es dcod
-nop	|0? a -- a
-nop	|+? a -- a
-nop	|-? a -- a
-nop	|1? a -- a
+0	|0? a -- a
+0	|+? a -- a
+0	|-? a -- a
+0	|1? a -- a
 1a0	|=?  ab -- a
 1a0	|<?  ab -- a
 1a0	|>?  ab -- a
@@ -172,110 +227,97 @@ vrdrop	|RDROP	R: a --
 2@	|W@+    a -- bc     tos es ddat
 2!	|W!+   ab -- c      tos es ddat
 
-nop	|MOVE  abc --       a,b es ddat
-nop	|MOVE> abc --		a,b es ddat
-nop	|CMOVE abc --		a,b es ddat
-nop	|CMOVE> abc --		a,b es ddat
+v3drop	|MOVE  abc --       a,b es ddat
+v3drop	|MOVE> abc --		a,b es ddat
+v3drop	|CMOVE abc --		a,b es ddat
+v3drop	|CMOVE> abc --		a,b es ddat
 
-nop	|MEM	-- a		a es ddat
-nop	|DIR    a --
-nop	|FILE   a -- b
-nop	|FSIZE  a -- b
-nop	|VOL    a -- b
-nop	|LOAD   ab -- c
-nop	|SAVE   abc --
++mem |MEM	-- a		a es ddat
+vdrop	|DIR    a --
+0	|FILE   a -- b
+0	|FSIZE  a -- b
+0	|VOL    a -- b
+vdrop	|LOAD   ab -- c
+v3drop	|SAVE   abc --
 
-nop	|UPDATE  a -- a
-nop	|XYMOUSE -- ab
-nop	|BMOUSE  -- a
-nop	|IKEY!  a --
-nop	|KEY     -- a
-nop	|CNTJOY  -- a
-nop	|GETJOY  -- a
+0	|UPDATE  a -- a
+v2v	|XYMOUSE -- ab
+v1v	|BMOUSE  -- a
+vdrop	|IKEY!  a --
+v1v	|KEY     -- a
+v1v	|CNTJOY  -- a
+v1v	|GETJOY  -- a
 
-nop	|MSEC    -- a
-nop	|TIME    -- abc
-nop	|DATE    -- abc
-nop	|END     --
-nop	|RUN    a --
-nop	|SW      -- a
-nop	|SH      -- a
-nop	|CLS     --
-nop	|REDRAW  --
-nop	|FRAMEV  -- a
-nop	|SETXY  ab --
-nop	|PX+!   a --
-nop	|PX!+   a --
-nop	|PX@     -- a
+v1v	|MSEC    -- a
+v3v	|TIME    -- abc
+v3v	|DATE    -- abc
+0	|END     --
+vdrop	|RUN    a --
+v1v	|SW      -- a
+v1v	|SH      -- a
+0	|CLS     --
+0	|REDRAW  --
+v1v	|FRAMEV  -- a
+v2drop	|SETXY  ab --
+vdrop	|PX+!   a --
+vdrop	|PX!+   a --
+v1v	|PX@     -- a
 
-nop	|XFB     -- a
-nop	|>XFB    --
-nop	|XFB>    --
+v1v	|XFB     -- a
+0	|>XFB    --
+0	|XFB>    --
 
-nop	|PAPER  a --
-nop	|INK    a --
-nop	|INK@    -- a
-nop	|ALPHA  a --
-nop	|OP     ab --
-nop	|CP     ab --
-nop	|LINE   ab --
-nop	|CURVE  ab --
-nop	|PLINE  ab --
-nop	|PCURVE ab --
-nop	|POLI    --
-nop	|FCOL   ab --
-nop	|FCEN   ab --
-nop	|FMAT   ab --
-nop	|SFILL   --
-nop	|LFILL   --
-nop	|RFILL   --
-nop	|TFILL  a --
+vdrop	|PAPER  a --
+vdrop	|INK    a --
+v1v	|INK@    -- a
+vdrop	|ALPHA  a --
+v2drop	|OP     ab --
+v2drop	|CP     ab --
+v2drop	|LINE   ab --
+v2drop	|CURVE  ab --
+v2drop	|PLINE  ab --
+v2drop	|PCURVE ab --
+0	|POLI    --
+v2drop	|FCOL   ab --
+v2drop	|FCEN   ab --
+v2drop	|FMAT   ab --
+0	|SFILL   --
+0	|LFILL   --
+0	|RFILL   --
+vdrop	|TFILL  a --
 
-nop	|SLOAD   a -- a
-nop	|SPLAY  a --
-nop	|MLOAD   a -- a
-nop	|MPLAY  a --
+0	|SLOAD   a -- a
+vdrop	|SPLAY  a --
+0	|MLOAD   a -- a
+vdrop	|MPLAY  a --
 
 |---- falta
-nop	|OPENURL
+0	|OPENURL
 
-nop	|DOCINI
-nop	|DOCEND
-nop	|DOCAT
-nop	|DOCLINE
-nop	|DOCTEXT
-nop	|DOCFONT
-nop	|DOCBIT
-nop	|DOCRES
-nop	|DOCSIZE
+0	|DOCINI
+0	|DOCEND
+0	|DOCAT
+0	|DOCLINE
+0	|DOCTEXT
+0	|DOCFONT
+0	|DOCBIT
+0	|DOCRES
+0	|DOCSIZE
+0	|SYSTEM
 
-nop	|SYSTEM
-
-:+memp | c --
-	memp> c!+ 'memp> ! ;
-
-:+pre
-	cntregs d.pushDec 1 'cntregs +! ;
 
 ::sregini | usados --
 	'tostr 'tostr> !
 	'memp 'memp> !
 	0 'cntregs !
 	d.ini
-	( 1? )( +pre 1- ) drop
+	( 1? )( newREG 1- ) drop
 
-	memp> tostr> !+ 'tostr> !
-	[ 65 + +memp ; ] mappila
-	0 +memp
-	;
+	stacks>str ;
 
 ::sregtok | adr -- adr+
 	@+ $ff and 2 << 'acctoken + @ exec
-
-	memp> tostr> !+ 'tostr> !
-	[ 65 + +memp ; ] mappila
-	0 +memp
-	;
+	stacks>str ;
 
 ::sregend
 	;
@@ -298,7 +340,7 @@ nop	|SYSTEM
 	;
 
 ::sregdumpi | nro --
-	2 << 'tostr + ( tostr> <? )(
+	1+ 2 << 'tostr + ( tostr> <? )(
 		@+ print cr
 		) drop
 	;
