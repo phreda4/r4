@@ -9,16 +9,22 @@
 #memp )( 4096	| dibujo de pilas
 #memp> 'memp
 
-#cntregs 0
-#regs )( 1024	| info de registros
+:+memp | c --
+	memp> c!+ 'memp> ! ;
 
 #sst )( 1024 | pila de pilas
 #sst> 'sst
 
-:+memp | c --
-	memp> c!+ 'memp> ! ;
+:sst!
+	sst> !+ 'sst> ! ;
 
-:stacks>str
+:sst@
+	-4 'sst> +! sst> @ ;
+
+#cntregs 0
+#regs )( 1024	| info de registros
+
+:stacks>str | --
 	memp> tostr> !+ 'tostr> !
 	[ 65 + +memp ; ] mappila
 	$3A +memp
@@ -26,7 +32,7 @@
 	0 +memp
 	;
 
-:str>stacks | "" -
+:str>stacks | "" --
 	d.ini
 	( c@+ $3a <>? )(
 		65 - d.pushDec
@@ -37,16 +43,13 @@
 		) 2drop
 	;
 
-:pushstack
-	tostr> 4 - @ sst> !+ 'sst> !
-	;
-:popstack
-	-4 'sst> +!
-	sst> @ str>stacks
-	;
+:stacknow | -- now
+	tostr> 4 - @ ; | stack actual
 
 :newREG
 	cntregs d.pushDec 1 'cntregs +! ;
+
+|----------------------------
 :+rn	| 12
 	newREG ;
 :+rs	| "kk"
@@ -106,28 +109,59 @@
 :v1v newREG ;
 
 |--- condicionales
-| ?( v;) (push )pop ;=endonw
-| ?( v ) ..
-| ?( )( ) (push  )(  )pop
-| ( ? )(  )
-| (  ? )
-| (    )
+:salto? | -- 1/0
+	dup 8 - @ $ff and
+	18 >? ( 31 <? ( drop 1 ; ) )
+	drop 0 ;
+
+:;?
+	dup 8 - @ $ff and
+	12 =? ( drop 1 ; )
+	drop 0 ;
+
 :es(	|(
-	pushstack ;
+	stacknow sst!
+	salto? sst!
+	;
 
 :es)(	|)(
+	salto? 1? ( sst@ 2drop stacknow sst! 3 sst! ; ) | while
+	sst@ 2drop
+	sst@
+	stacknow sst! 2 sst!
+	str>stacks
+	;
+
+:tipo0 | (  ? ) o (    )
+	sst@ drop ;
+| salto? |?)
+
+:tipo1 | ?( )
+	sst@ drop ;
+|	stacknow =? (
+
+:tipo2 | ?( )( )
+|	;? 1? ( sst@ str>stacks sst@ 2drop ; )
+	sst@ str>stacks
 	;
 
 :es)	|)
-	popstack ;
+	sst@ 0? ( drop tipo0 ; )
+	1- 0? ( drop tipo1 ; )
+	1- 0? ( drop tipo2 ; )
+	drop | ( ? )(  )
+	sst@ str>stacks
+	sst@ drop
+	;
 
 |--- anonimas
 :es[	|[
-	newREG
-	pushstack ;
+	stacknow sst!
+	d.ini r.ini ;
 
 :es]	|]
-	popstack ;
+	sst@ str>stacks
+	newREG ;
 
 | uso dD dR tipo
 #acctoken
@@ -309,10 +343,10 @@ vdrop	|MPLAY  a --
 ::sregini | usados --
 	'tostr 'tostr> !
 	'memp 'memp> !
+	'sst 'sst> !
 	0 'cntregs !
-	d.ini
+	d.ini r.ini
 	( 1? )( newREG 1- ) drop
-
 	stacks>str ;
 
 ::sregtok | adr -- adr+
@@ -322,7 +356,7 @@ vdrop	|MPLAY  a --
 ::sregend
 	;
 
-
+|-------- analisadores
 ::tstacklisis | nro --
 	dup nro>mov @ 24 << 24 >> | uso
 	neg sregini
@@ -333,6 +367,13 @@ vdrop	|MPLAY  a --
 	2drop
 	;
 
+::tstacklisisb | fin ini uso --
+	sregini
+	( over <? )( sregtok ) 2drop
+	sregend
+	;
+
+|--------- dump
 ::sregdump
 	'tostr ( tostr> <? )(
 		@+ print cr
