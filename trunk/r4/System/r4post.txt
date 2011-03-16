@@ -22,23 +22,23 @@
 0 0 0 0 | 0
 0 0 0 0 |1 :,,defc | n --  define codigo
 0 0 0 0 |2 :,,defv | n --  define variable
-0 1 0 8 |3 :,,litd | n --	numero decimal
-0 1 0 8 |4 :,,lith | n --	numero hexa
-0 1 0 8 |5 :,,litb | n --	numero binario
-0 1 0 8 |6 :,,litf | n --	numero punto fijo
-0 1 0 9 |7 :,,lits | n --	string
+0 1 0 6 |3 :,,litd | n --	numero decimal
+0 1 0 6 |4 :,,lith | n --	numero hexa
+0 1 0 6 |5 :,,litb | n --	numero binario
+0 1 0 6 |6 :,,litf | n --	numero punto fijo
+0 1 0 7 |7 :,,lits | n --	string
 0 0 0 1 |8 :,,word | n --  word <---- debe ser calculado
 0 1 0 3 |9 :,,var | n --  var
 0 1 0 2 |10:,,dword | n --  dir word
 0 1 0 4 |11:,,dvar | n --  dir var
 )
 #deltamacros (
-0 0 0 10	|; | fin de palabra (12)
-0 0 0 6		|(
-0 0 0 0		|)(
-0 0 0 7		|)
-0 1 0 11	|[
-0 0 0 12	|]
+0 0 0 6	|; | fin de palabra (12)
+0 0 0 11		|(
+0 0 0 12		|)(
+0 0 0 13		|)
+0 1 0 9		|[
+0 0 0 10	|]
 1 -1 0 0	|EXEC  x/0 --
 1 0 0 0		|0? a -- a
 1 0 0 0		|+? a -- a
@@ -197,14 +197,26 @@
 #pilaint )( 1024
 #pilaint> 'pilaint
 
-:pushvars
-	deltaD deltaR pilaint> !+ !+ 'pilaint> ! ;
+:pushvar
+	deltaD deltaR 
+	pilaint> !+ !+ 'pilaint> ! ;
 
-:popvars
+:popvar
 	pilaint> 8 - dup 'pilaint> !
-	@+ 'deltaR ! @ 'deltaD !
-	;
+	@+ 'deltaR ! @ 'deltaD ! ;
 
+:dropvar
+	-8 'pilaint> +! ;
+
+|----- pila para condicionales
+#sst )( 1024 | pila de pilas
+#sst> 'sst
+
+:sst!
+	sst> !+ 'sst> ! ;
+
+:sst@
+	-4 'sst> +! sst> @ ;
 
 :esdpal | 'palabra
 	;
@@ -213,30 +225,63 @@
 :esdvar | 'variable
 	;
 
-:usaR	$1 flags or 'flags ! ;
+:usaR	
+	$1 flags or 'flags ! ;
 
 |--- Anonimas
 :iniAno
-	pushvars
+	pushvar
 	1 'pano +! 1 'cano +! ;
 
 :finAno
-	popvars
+	popvar
     -1 'pano +! ;
 
 |----- CONDICIONALES
-| (
-:apilae
-	pushvars
+
+|--- condicionales
+:salto? | -- 1/0
+	dup 8 - @ $ff and
+	18 >? ( 31 <? ( drop 1 ; ) )
+	drop 0 ;
+
+:;?
+	dup 8 - @ $ff and
+	12 =? ( drop 1 ; )
+	drop 0 ;
+
+:es(
+	pushvar
+	salto? sst!
 	;
 
 :es)(
+	salto? 1? ( drop dropvar pushvar 3 sst! ; ) | while
+	drop
+	popvar pushvar
+	2 sst!
 	;
 
-| )
-:desapilae
-	popvars
-	;
+:tipo0 | (  ? ) o (    )
+	dropvar ;
+
+:tipo1 | ?( )
+	;? 1? ( drop popvar ; )
+	drop dropvar ;
+
+:tipo2 | ?( )( )
+	;? 1? ( drop dropvar popvar ; )
+	drop
+	popvar
+	dropvar ;
+
+:es)	|)
+	sst@ 0? ( drop tipo0 ; )
+	1- 0? ( drop tipo1 ; )
+	1- 0? ( drop tipo2 ; )
+	drop | ( ? )(  )
+	popvar
+	dropvar	;
 
 |--------------------
 :escte | cte
@@ -264,19 +309,15 @@
 	8 << 24 >> 'deltaD +!
 	;
 
-#acct 0 'espal 'esdpal 'esvar 'esdvar 'usaR 'apilae 'desapilae 'escte 'esctes 'esfin
-	iniano finano
+#acct 0 espal esdpal esvar esdvar usaR escte esctes esfin iniano finano | 0..10
+es( es)( es)
 
 :prosstoken | a -- a.
-	@+ dup	| a. v v
-	$ff and
-	2 << 'deltainternos +
+	@+ $ff and 2 << 'deltainternos +
 	c@+ usoDcalc
 	c@+ 'deltaD +!
 	c@+ 'deltaR +!
-	c@ 2 << 'acct + @ exec
-	drop
-	;
+	c@ 2 << 'acct + @ exec ;
 
 |-----------------------------
 :resetvars | --
@@ -289,6 +330,7 @@
 	0 'pano !
 	0 'cano !
 	'pilaint 'pilaint> !
+	 'sst 'sst> !
 	;
 
 :setvars | nro -- nro
