@@ -117,16 +117,6 @@
 :,RTOS 	"edi" ;
 :,, "," ,s ;
 
-:*LIT | nro
-|	1 vpush ;
-:*LITS | string
-|	2 vpush ;
-:*LITV | variable [var1]
-|	3 vpush ;
-:*LITDC | dir codigo word
-|	4 vpush ;
-:*LITDD | dir variable var1
-|	5 vpush ;
 
 :,DUP
 :,DROP
@@ -407,12 +397,24 @@
 #nstr 0
 :nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
 
-
 :,defw :,defv :,;
 	drop nip ;
 
-:,lit	tok>cte *LIT nip ;
-:,lits	drop nstr *LITS nip 1 'nstr +! ;
+:*LIT | nro
+|	1 vpush ;
+:*LITS | string
+|	2 vpush ;
+:*LITV | variable [var1]
+|	3 vpush ;
+:*LITDC | dir codigo word
+|	4 vpush ;
+:*LITDD | dir variable var1
+|	5 vpush ;
+
+:,lit
+	tok>cte *LIT nip ;
+:,lits
+	drop nstr *LITS nip 1 'nstr +! ;
 
 :,wor	nro>dicn "jmp " ,s ,s ,cr nip ;
 
@@ -468,6 +470,7 @@
 ,SYSTEM
 
 |------------------------------
+0 | para salto?
 #bufftok )( 4096
 #buffinf )( 4096
 #buff> 'bufftok
@@ -485,10 +488,6 @@
 
 
 |--- optimizadores
-|"?(W;)"	| jz _1;call w;_1 -> jnz w
-|"¿(W;)"	| jz _1;call w;_1 -> jnz w
-|"x;" 		| ->jmp
-|"wx" 		| ->call
 |"*v2@"		| mov r0,[r1+r2*2]
 |"N<v2@"	| mov r0,[r1+r2*4(+r2)]
 |"*v2!"		| mov [r1+r2*2],r0
@@ -506,24 +505,19 @@
 	;
 
 |-------------
+:setctes | nro adr+ valor -- nro adr+
+	$ff00 and? ( drop ; ) | cte no hace otra cosa
+
+	drop ;
+
 :optimiza | nro --
 	nro>mov @ 24 << 24 >> neg | uso
 	buff> 'bufftok rot
 	tstacklisisb		| asignacion de registross
 
+	'setctes mapregs
+
 	'calltojump 12 buffmap	| ;
-	| !
-	| w!
-	| c!
-	| +!
-	| w+!
-	| c+!
-	| @
-	| w@
-	| c@
-	| *>>
-	| */
-	| <</
 	;
 
 |----- compila

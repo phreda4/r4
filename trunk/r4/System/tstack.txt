@@ -21,9 +21,61 @@
 :sst@
 	-4 'sst> +! sst> @ ;
 
+|--- registros  $iiffccss
+| ii inicio
+| ff fin
+| cc cntdeop ss:
+| cte 	$1 | str   $2 | var   $3 | dvar  $4
+| dcod  $5 | mem	$6 | orig 	$7 | []	$80
+|-----------
+
+#nroi 0
 #cntregs 0
 #regs )( 1024	| info de registros
+#regv )( 1024	| valor de registro
 
+:mcte "$%h" mprint ;
+:mstr "s%h" mprint ;
+:mvar "[w%h]" mprint ;
+:mdvar "w%h" mprint ;
+:mdcod "w%h" mprint ;
+:mmem ;
+:morig ;
+
+#accnreg 0 mcte mstr mvar mdvar mdcod mmem morig
+
+::,nreg | nro -- ""
+	2 << dup 'regv + @
+	swap 'regs + @
+	$7 and 2 << 'accnreg + @ exec ;
+
+:clrreg | --
+	0 'nroi !
+	0 'cntregs !
+	'regs 256 ( 1? )( 1- 0 rot !+ swap ) 2drop ;
+
+:setreg | valor --
+	nroi 24 << or	| inicio
+	cntregs 1- 2 << 'regs + !
+	;
+
+:usoreg | --
+	d.get 2 << 'regs + dup
+	@ dup $ffff00ff and swap
+	$ff00 and $100 + or
+	swap ! ;
+
+:usomreg | --
+	d.get 2 << 'regs + dup
+	@ $80 or swap ! ;
+
+:setrange | --
+	d.get 2 << 'regs + dup
+	@ $ff00ffff and
+	nroi 16 << or
+	swap ! ;
+
+|-------------------------------
 :stacks>str | --
 	memp> tostr> !+ 'tostr> !
 	[ 65 + +memp ; ] mappila
@@ -58,17 +110,12 @@
 	vDrop
 	newREG ;
 
-:TOSNOSchange
-	findpilaT
-	0? ( drop ; ) drop
-	v2Drop
-	newREG newREG ;
-
 |----------------------------
 :+rn	| 12
-	newREG ;
+	newREG $1 setreg ;
+
 :+rs	| "kk"
-	newREG ;
+	newREG $2 setreg ;
 
 :+rw	| ww
 	dup 4 - @ 8 >> nro>mov @
@@ -81,38 +128,70 @@
 	;
 
 :+rv	| vv
-	newREG ;
+	newREG $4 setreg ;
 :+rdw	| 'w
-	newREG ;
+	newREG $10 setreg ;
 :+rdv	| 'v
-	newREG ;
+	newREG $8 setreg ;
 
 
 :1dw 	| exec
-	vDrop ;
-:1a0	| =? ..
-	vDrop ;
+	setrange vdrop ;
+:c0 | 0? 1? ..
+	usoreg setrange ;
+:c1 | =? <? ..
+	setrange vdrop usoreg setrange ;
+
+:d4 | 4drop
+	setrange vdrop
+:d3 | 3drop
+	setrange vdrop
+:d2 | 2drop
+	setrange vdrop
+:d1 | drop
+	setrange vdrop ;
+
 :2a1	| + - * and or xor << ..
-	vDrop TOSchange ;
+	setrange vdrop toschange usoreg setrange ;
 :1a1	| neg not 1+ 4+ 1- 2/ ..
-	TOSchange ;
-:3a1
-	v2Drop TOSchange ;
-:2a2
-	TOSNOSchange ;
+	TOSchange usoreg setrange ;
+:3a1	| *>> /<< */
+	setrange vdrop setrange vdrop
+	TOSchange usoreg setrange ;
+:2a2	| mod/
+	setrange toschange vswap setrange toschange vswap
+	;
 :1@
-	TOSchange ;
+	TOSchange usomreg setrange ;
 :1!
-	v2Drop ;
-:2@
-	TOSchange newReg ;
-:2!
-	vNip ;
-:2+!
-	v2Drop ;
+	usomreg
+	d2 ;
+:2@	| @+
+	TOSchange usomreg setrange
+	newReg $20 setreg ;
+:2! | !+
+	usomreg setrange
+	vswap setrange vdrop ;
+:2+! | +!
+	usomreg
+	d2 ;
+
+
+:vr		|R      -- a R: a -- a
+	vr> setrange v>r ;
+:vr+		|R+    a -- R: b -- c
+	vr d1 ;
+:vr@+	|R@+    -- a R: b -- c
+	vr> setrange usomreg v>r 
+	newReg $20 setreg ;
+:vr!+	|R!+   a -- R: b -- c
+	vr> setrange usomreg v>r
+	d1 ;
+:vrdr
+	vr> d1 ;
 
 :+mem
-	newREG ;
+	newREG $8 setreg ;
 
 :v3v newREG
 :v2v newREG
@@ -168,7 +247,7 @@
 
 :es]	|]
 	sst@ str>stacks
-	newREG ;
+	newREG $10 setreg ;
 
 | uso dD dR tipo
 #acctoken
@@ -191,20 +270,20 @@ es)	|)
 es[	|[
 es]	|]
 1dw	|EXEC  x/0 --    TOS es dcod
-0	|0? a -- a
-0	|+? a -- a
-0	|-? a -- a
-0	|1? a -- a
-1a0	|=?  ab -- a
-1a0	|<?  ab -- a
-1a0	|>?  ab -- a
-1a0	|<=? ab -- a
-1a0	|>=? ab -- a
-1a0	|<>? ab -- a
-1a0	|AND?  ab -- a
-1a0	|NAND? ab -- a
+c0	|0? a -- a
+c0	|+? a -- a
+c0	|-? a -- a
+c0	|1? a -- a
+c1	|=?  ab -- a
+c1	|<?  ab -- a
+c1	|>?  ab -- a
+c1	|<=? ab -- a
+c1	|>=? ab -- a
+c1	|<>? ab -- a
+c1	|AND?  ab -- a
+c1	|NAND? ab -- a
 vdup 	|DUP    a -- aa
-vdrop 	|DROP  a --
+d1 	|DROP  a --
 vover 	|OVER   ab -- aba
 vpick2 	|PICK2  abc -- abca
 vpick3 	|PICK3  abcd -- abcda
@@ -213,19 +292,19 @@ vswap 	|SWAP   ab -- ba
 vnip	|NIP   ab -- b
 vrot	|ROT	abc -- bca
 v2dup	|2DUP   ab -- abab
-v2drop	|2DROP ab --
-v3drop	|3DROP abc --
-v4drop	|4DROP abcd --
+d2	|2DROP ab --
+d3	|3DROP abc --
+d4	|4DROP abcd --
 v2over	|2OVER  abcd -- abcdab
 v2swap	|2SWAP  abcd -- cdab
 
 v>R		|>R    a -- R: -- a
 vR>		|R>    -- a R: a --
-v1v		|R      -- a R: a -- a
-vdrop	|R+    a -- R: b -- c
-v1v		|R@+    -- a R: b -- c
-vdrop	|R!+   a -- R: b -- c
-vrdrop	|RDROP	R: a --
+vr		|R      -- a R: a -- a
+vr+		|R+    a -- R: b -- c
+vr@+	|R@+    -- a R: b -- c
+vr!+	|R!+   a -- R: b -- c
+vrdr	|RDROP	R: a --
 
 2a1 |53 AND	ab -- c
 2a1 |OR    ab -- c
@@ -309,7 +388,7 @@ v1v	|XFB     -- a
 
 vdrop	|PAPER  a --
 vdrop	|INK    a --
-v1v	|INK@    -- a
+v1v		|INK@    -- a
 vdrop	|ALPHA  a --
 v2drop	|OP     ab --
 v2drop	|CP     ab --
@@ -317,7 +396,7 @@ v2drop	|LINE   ab --
 v2drop	|CURVE  ab --
 v2drop	|PLINE  ab --
 v2drop	|PCURVE ab --
-0	|POLI    --
+0		|POLI    --
 v2drop	|FCOL   ab --
 v2drop	|FCEN   ab --
 v2drop	|FMAT   ab --
@@ -350,26 +429,26 @@ vdrop	|MPLAY  a --
 	'tostr 'tostr> !
 	'memp 'memp> !
 	'sst 'sst> !
-	0 'cntregs !
+	clrreg
 	d.ini r.ini
-	( 1? )( newREG 1- ) drop
+	( 1? )( newREG $40 setreg 1- ) drop
 	stacks>str ;
 
 ::sregtok | adr -- adr+
 	@+ $ff and 2 << 'acctoken + @ exec
-	stacks>str ;
+	stacks>str
+	1 'nroi +! ;
 
 ::sregend
+
 	;
 
-|-------- analisadores
+|-------- analizadores
 ::tstacklisis | nro --
 	dup nro>mov @ 24 << 24 >> | uso
 	neg sregini
-
 	nro>toklen
-	( 1? )( 1- swap
-		sregtok swap )
+	( 1? )( 1- swap sregtok swap )
 	2drop
 	;
 
@@ -378,6 +457,13 @@ vdrop	|MPLAY  a --
 	( over <? )( sregtok ) 2drop
 	sregend
 	;
+
+|-------- asignadores
+::mapregs | exe --
+	'regs 0 ( cntregs <? )(
+		swap
+		@+ pick3 exec
+		swap 1+ ) 3drop ;
 
 |--------- dump
 ::sregdump
@@ -390,4 +476,12 @@ vdrop	|MPLAY  a --
 	1+ 2 << 'tostr + ( tostr> <? )(
 		@+ print cr
 		) drop
+	;
+
+::dumpregs | --
+	| ctes
+	azul
+	[ $ff00 nand? ( pick2 65 + "%k %h |" allowcr print )( drop ) ; ] mapregs
+	cyan cr
+	[ $ff00 and? ( pick2 65 + "%k %h |" allowcr print )( drop ) ; ] mapregs
 	;
