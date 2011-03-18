@@ -1,3 +1,3 @@
-fasm.exe r4asm\r4fasm.asm r4asm\r4plain.exe
+fasm.exe r4asm\r4fasm.asm r4asm\r4fasm.exe -s r4asm\r4fasm.fas
 pause
-r4asm\r4plain.exe
+r4asm\r4fasm.exe
