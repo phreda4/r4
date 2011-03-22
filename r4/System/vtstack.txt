@@ -1,7 +1,21 @@
-| register allocator and type control
+| pilas virtuales (datos y retorno)
+| para emulador y compilador
 | PHREDA 2011
-|----------------------
-^r4/system/vstack.txt
+|------------------------------------
+
+^r4/system/r4token.txt
+
+|--- registros  $iiffccss
+| ii inicio
+| cc cntdeop
+| tipo  cte,str,var,dvar,dcod,mem,orig
+| flags final,registro
+|-----------
+
+#nroi 0
+#cntregs 0
+#regs )( 1024	| info de registros
+#regv )( 1024	| valor de registro
 
 #tostr )( 4096	| indice de dib pilas
 #tostr> 'tostr
@@ -21,18 +35,177 @@
 :sst@
 	-4 'sst> +! sst> @ ;
 
-|--- registros  $iiffccss
-| ii inicio
-| ff fin
-| cc cntdeop ss:
-| cte 	$1 | str   $2 | var   $3 | dvar  $4
-| dcod  $5 | mem	$6 | orig 	$7 | []	$80
-|-----------
 
-#nroi 0
-#cntregs 0
-#regs )( 1024	| info de registros
-#regv )( 1024	| valor de registro
+|--- Pila DATOS
+#:dpila )( 1024 | 8bits
+#:dpila> 'dpila
+
+#minpd #maxpd
+|----- PILA R
+#:rpila )( 1048
+#:rpila> 'rpila
+#minpr #maxpr
+
+::mappila | exe --
+	'dpila ( dpila> <? )( @+ pick2 exec ) 2drop ;
+
+::d.ini
+	'dpila 'dpila> !
+	0 dup 'minpd ! 'maxpd !
+	0 'dpila ( 'dpila> <? )( over 25 << 25 >> swap !+ ) 2drop
+	;
+
+::d.cnt dpila dpila> - 2 >> ;
+::d.pop -4 'dpila> +! dpila> @ ;
+::d.pop2 -8 'dpila> +! dpila> @+ swap @ ;
+::d.pop3 -12 'dpila> +! dpila> @+ swap @+ swap @ ;
+::d.push dpila> !+ 'dpila> ! ;
+::d.TOS dpila> 4 - @ ;
+::d.NOS dpila> 8 - @ ;
+
+::d.pushDec		d.push ;
+::d.pushHex		d.push ;
+::d.pushBin		d.push ;
+::d.pushFix		d.push ;
+::d.pushStr		d.push ;
+::d.pushVar		d.push ;
+::d.pushDVar	d.push ;
+::d.pushDCod	d.push ;
+::d.pushCNum	d.push ;
+::d.pushCStr	d.push ;
+::d.pushCDVar	d.push ;
+::d.pushCDCod	d.push ;
+
+::d.pushCalc	d.push ;
+::d.pushMem		d.push ;
+:d.pushcopy	d.push ;
+
+|-------- operaciones de pila
+::vDROP		-4 'dpila> +! ;
+::v2DROP 	-8 'dpila> +! ;
+::v3DROP 	-12 'dpila> +! ;
+::v4DROP 	-16 'dpila> +! ;
+::vDUP
+	dpila> 4 - @+ swap !+ 'dpila> ! ;
+::v2DUP
+	dpila> 8 - >r
+	r@+ r@+ swap
+	r!+ r!+
+	r> 'dpila> ! ;
+::vOVER
+	dpila> 8 - >r
+	r@+ r> 4+ !+ 'dpila> ! ;
+::vPICK2
+	dpila> 12 - >r
+	r@+ r> 8 + !+ 'dpila> ! ;
+::vPICK3
+	dpila> 16 - >r
+	r@+ r> 12 + !+ 'dpila> ! ;
+::vPICK4
+	dpila> 20 - >r
+	r@+ r> 16 + !+ 'dpila> ! ;
+::vSWAP
+	dpila> 8 - >r
+	r@+ r@+ r> 8 -
+	!+ ! ;
+::vNIP
+	dpila> 4 -
+	dup @ over 4 - ! 'dpila> ! ;
+::vROT
+	dpila> 12 - >r
+	r@+ r@+ r@+
+	swap r> 12 - !+ !+ ! ;
+::v2OVER
+	dpila> 16 - >r
+	r@+ r@+ swap
+	r> 8 + !+ !+ 'dpila> ! ;
+::v2SWAP
+	dpila> 16 - >r
+	r@+ r@+ r@+ r@+
+	r> 32 - !+ !+ !+ ! ;
+
+|--- aritmeticas y logica
+::vAND	d.pop2 AND d.pushVar ;
+::vOR	d.pop2 OR d.pushVar ;
+::vXOR	d.pop2 XOR d.pushVar ;
+::vNOT	d.pop NOT d.pushVar ;
+::v+	d.pop2 + d.pushVar ;
+::v-    d.pop2 - d.pushVar ;
+::v*    d.pop2 * d.pushVar ;
+::v/    d.pop2 / d.pushVar ;
+::v*/   d.pop3 */ d.pushVar ;
+::v*>>  d.pop3 *>> d.pushVar ;
+::v/MOD d.pop2 /MOD swap d.pushVar d.pushVar ;
+::vMOD  d.pop2 MOD d.pushVar ;
+::vABS  d.pop ABS d.pushVar ;
+::vSQRT	d.pop SQRT d.pushVar ;
+::vCLZ	d.pop CLZ d.pushVar ;
+::v<</	d.pop3 <</ d.pushVar ;
+::vNEG  d.pop NEG d.pushVar ;
+::v2/   d.pop 2/ d.pushVar ;
+::v2*   d.pop 2* d.pushVar ;
+::v<<   d.pop2 << d.pushVar ;
+::v>>   d.pop2 >> d.pushVar ;
+::v1-   d.pop 1- d.pushVar ;
+::v1+   d.pop 1+ d.pushVar ;
+::v4+   d.pop 4+ d.pushVar ;
+
+
+::mappilar | exe --
+	'rpila ( rpila> <? )( @+ pick2 exec ) 2drop ;
+
+::r.ini	
+	'rpila 'rpila> ! 
+	0 dup 'minpr ! 'maxpr !
+	0 'rpila ( 'rpila> <? )( over 25 << 25 >> swap !+ ) 2drop
+	;
+
+::r.pop	-4 'rpila> +! rpila> @ ;
+::r.push rpila> !+ 'rpila> ! ;
+::r.cnt	rpila> 'rpila - 2 >> ;
+::r.tos rpila> 4 - @ ;
+
+:r.pushCopy r.push ;
+:r.pushCalc r.push ;
+
+|--- pila de direccion
+::v>R		d.pop r.pushCopy ;
+::vR>		r.pop d.pushCopy ;
+::vR		r.tos d.pushCopy ;
+::vR+		r.pop d.pop + r.pushCalc ;
+::vR@+		r.pop @+ d.pushMem r.pushCopy ;
+::vR!+		d.pop r.pop !+ r.pushCopy ;
+::vRDROP	r.pop drop ;
+
+|----- imprime pilas
+
+:dec	@+ "%d" print ;	|::d.pushDec 0
+:hex    @+ "$%h" print ;	|::d.pushHex 1
+:bin    @+ "%%%b" print ;	|::d.pushBin 2
+:fix    @+ "%f" print ;	|::d.pushFix 3
+:str    @+ "%d" print ;	|::d.pushStr 4
+:var	@+ "%d" print ;	|::d.pushVar  5
+:dvar	@+ "%d" print ;	|::d.pushDVar 6
+:dcod	@+ "%d" print ;	|::d.pushDCod 7
+:cnum	@+ "%d" print ;	|::d.pushCNum 8
+:cstr	@+ "%d" print ;	|::d.pushCStr 9
+:cdvar	@+ "%d" print ;	|::d.pushCDVar 10
+:cdcod	@+ "%d" print ;	|::d.pushCDCod 11
+
+#accpp 'dec 'hex 'bin 'fix 'str 'var 'dvar 'dcod 'cnum 'cstr 'cdvar  'cdcod
+
+:printpilai | adr -- adr++
+	@+ $f and 2 << 'accpp + @ exec ;
+
+::dumpvstack
+	"D)" print
+	'dpila ( dpila> <? )( sp printpilai ) drop
+	cr
+	"R)" print
+	'rpila ( rpila> <? )( sp printpilai ) drop
+	cr
+	;
+
 
 :mcte "$%h" mprint ;
 :mstr "s%h" mprint ;
@@ -49,10 +222,6 @@
 	swap 'regs + @
 	$7 and 2 << 'accnreg + @ exec ;
 
-:clrreg | --
-	0 'nroi !
-	0 'cntregs !
-	'regs 256 ( 1? )( 1- 0 rot !+ swap ) 2drop ;
 
 :setreg | valor --
 	nroi 24 << or	| inicio
@@ -60,17 +229,17 @@
 	;
 
 :usoreg | --
-	d.get 2 << 'regs + dup
+	d.TOS 2 << 'regs + dup
 	@ dup $ffff00ff and swap
 	$ff00 and $100 + or
 	swap ! ;
 
 :usomreg | --
-	d.get 2 << 'regs + dup
+	d.TOS 2 << 'regs + dup
 	@ $80 or swap ! ;
 
 :setrange | --
-	d.get 2 << 'regs + dup
+	d.TOS 2 << 'regs + dup
 	@ $ff00ffff and
 	nroi 16 << or
 	swap ! ;
@@ -87,11 +256,11 @@
 :str>stacks | "" --
 	d.ini
 	( c@+ $3a <>? )(
-		65 - d.pushDec
+		65 - d.push
 		) drop
 	r.ini
 	( c@+ 1? )(
-		65 - r.pushDec
+		65 - r.push
 		) 2drop
 	;
 
@@ -99,19 +268,19 @@
 	tostr> 4 - @ ; | stack actual
 
 :newREG
-	cntregs d.pushDec 1 'cntregs +! ;
+	cntregs d.push 1 'cntregs +! ;
 
 :newREGR
-	cntregs r.pushDec 1 'cntregs +! ;
+	cntregs r.push 1 'cntregs +! ;
 
 |----------------------------
-:+rn	| 12
+:litN	| 12
 	newREG $1 setreg ;
 
-:+rs	| "kk"
+:litS	| "kk"
 	newREG $2 setreg ;
 
-:+rw	| ww
+:callW	| ww
 	dup 4 - @ 8 >> nro>mov @
 |	dup 24 >> | no se propaga es flujo de ejecucion
 |	-? ( ( 1? )( 1+ vrdrop ) drop )( ( 1? )( 1- newRegR ) drop ) 	|	'deltaR +!
@@ -120,11 +289,11 @@
 	-? ( ( 1? )( 1+ vdrop ) drop )( ( 1? )( 1- newReg ) drop ) 	|'deltaD +!
 	;
 
-:+rv	| vv
+:litV	| vv
 	newREG $3 setreg ;
-:+rdv	| 'v
+:litAV	| 'v
 	newREG $4 setreg ;
-:+rdw	| 'w
+:litAW	| 'w
 	newREG $5 setreg ;
 
 
@@ -262,15 +431,15 @@
 0	| 0
 0	|1 :,,defc
 0	|2 :,,defv
-+rn |3 :,,litd | --	n numero decimal
-+rn |4 :,,lith | --	n numero hexa
-+rn |5 :,,litb | -- n numero binario
-+rn |6 :,,litf | --	n numero punto fijo
-+rs |7 :,,lits | --	s string
-+rw |8 :,,word 	| ..--..  word <---- debe ser calculado
-+rv |9 :,,var 	| -- v var
-+rdw |10:,,dword | -- dw dir word
-+rdv |11:,,dvar 	| -- dv dir var
+litN |3 :,,litd | --	n numero decimal
+litN |4 :,,lith | --	n numero hexa
+litN |5 :,,litb | -- n numero binario
+litN |6 :,,litf | --	n numero punto fijo
+litS |7 :,,lits | --	s string
+callW |8 :,,word 	| ..--..  word <---- debe ser calculado
+litV |9 :,,var 	| -- v var
+litAW |10:,,dword | -- dw dir word
+litAV |11:,,dvar 	| -- dv dir var
 0	|; | fin de palabra (12)
 es(	|(
 es)(	|)(
@@ -433,37 +602,38 @@ vdrop	|MPLAY  a --
 0	|SYSTEM
 
 
-::sregini | usados --
+
+:vtini
 	'tostr 'tostr> !
 	'memp 'memp> !
 	'sst 'sst> !
-	clrreg
+	0 'nroi !
+	0 'cntregs !
+	'regs 256 ( 1? )( 1- 0 rot !+ swap ) 2drop
 	d.ini r.ini
-	( 1? )( newREG $40 setreg 1- ) drop
-	stacks>str ;
+	stacks>str
+	;
 
 ::sregtok | adr -- adr+
 	@+ $ff and 2 << 'acctoken + @ exec
 	stacks>str
 	1 'nroi +! ;
 
-::sregend
-
+:vtend
 	;
 
 |-------- analizadores
-::tstacklisis | nro --
-	dup nro>mov @ 24 << 24 >> | uso
-	neg sregini
-	nro>toklen
-	( 1? )( 1- swap sregtok swap )
+::vtstacknro | nro --
+	vtini
+	nro>toklen ( 1? )( 1- swap sregtok swap )
 	2drop
+	vtend
 	;
 
-::tstacklisisb | fin ini uso --
-	sregini
+::vtstack | fin ini --
+	vtini
 	( over <? )( sregtok ) 2drop
-	sregend
+	vtend
 	;
 
 |-------- asignadores
