@@ -17,215 +17,11 @@
 #regs )( 1024	| info de registros
 #regv )( 1024	| valor de registro
 
-#tostr )( 4096	| indice de dib pilas
-#tostr> 'tostr
-
-#memp )( 4096	| dibujo de pilas
-#memp> 'memp
-
-:+memp | c --
-	memp> c!+ 'memp> ! ;
-
-#sst )( 1024 | pila de pilas
-#sst> 'sst
-
-:sst!
-	sst> !+ 'sst> ! ;
-
-:sst@
-	-4 'sst> +! sst> @ ;
-
-
-|--- Pila DATOS
-#:dpila )( 1024 | 8bits
-#:dpila> 'dpila
-
-#minpd #maxpd
-|----- PILA R
-#:rpila )( 1048
-#:rpila> 'rpila
-#minpr #maxpr
-
-::mappila | exe --
-	'dpila ( dpila> <? )( @+ pick2 exec ) 2drop ;
-
-::d.ini
-	'dpila 'dpila> !
-	0 dup 'minpd ! 'maxpd !
-	0 'dpila ( 'dpila> <? )( over 25 << 25 >> swap !+ ) 2drop
-	;
-
-::d.cnt dpila dpila> - 2 >> ;
-::d.pop -4 'dpila> +! dpila> @ ;
-::d.pop2 -8 'dpila> +! dpila> @+ swap @ ;
-::d.pop3 -12 'dpila> +! dpila> @+ swap @+ swap @ ;
-::d.push dpila> !+ 'dpila> ! ;
-::d.TOS dpila> 4 - @ ;
-::d.NOS dpila> 8 - @ ;
-
-::d.pushDec		d.push ;
-::d.pushHex		d.push ;
-::d.pushBin		d.push ;
-::d.pushFix		d.push ;
-::d.pushStr		d.push ;
-::d.pushVar		d.push ;
-::d.pushDVar	d.push ;
-::d.pushDCod	d.push ;
-::d.pushCNum	d.push ;
-::d.pushCStr	d.push ;
-::d.pushCDVar	d.push ;
-::d.pushCDCod	d.push ;
-
-::d.pushCalc	d.push ;
-::d.pushMem		d.push ;
-:d.pushcopy	d.push ;
-
-|-------- operaciones de pila
-::vDROP		-4 'dpila> +! ;
-::v2DROP 	-8 'dpila> +! ;
-::v3DROP 	-12 'dpila> +! ;
-::v4DROP 	-16 'dpila> +! ;
-::vDUP
-	dpila> 4 - @+ swap !+ 'dpila> ! ;
-::v2DUP
-	dpila> 8 - >r
-	r@+ r@+ swap
-	r!+ r!+
-	r> 'dpila> ! ;
-::vOVER
-	dpila> 8 - >r
-	r@+ r> 4+ !+ 'dpila> ! ;
-::vPICK2
-	dpila> 12 - >r
-	r@+ r> 8 + !+ 'dpila> ! ;
-::vPICK3
-	dpila> 16 - >r
-	r@+ r> 12 + !+ 'dpila> ! ;
-::vPICK4
-	dpila> 20 - >r
-	r@+ r> 16 + !+ 'dpila> ! ;
-::vSWAP
-	dpila> 8 - >r
-	r@+ r@+ r> 8 -
-	!+ ! ;
-::vNIP
-	dpila> 4 -
-	dup @ over 4 - ! 'dpila> ! ;
-::vROT
-	dpila> 12 - >r
-	r@+ r@+ r@+
-	swap r> 12 - !+ !+ ! ;
-::v2OVER
-	dpila> 16 - >r
-	r@+ r@+ swap
-	r> 8 + !+ !+ 'dpila> ! ;
-::v2SWAP
-	dpila> 16 - >r
-	r@+ r@+ r@+ r@+
-	r> 32 - !+ !+ !+ ! ;
-
-|--- aritmeticas y logica
-::vAND	d.pop2 AND d.pushVar ;
-::vOR	d.pop2 OR d.pushVar ;
-::vXOR	d.pop2 XOR d.pushVar ;
-::vNOT	d.pop NOT d.pushVar ;
-::v+	d.pop2 + d.pushVar ;
-::v-    d.pop2 - d.pushVar ;
-::v*    d.pop2 * d.pushVar ;
-::v/    d.pop2 / d.pushVar ;
-::v*/   d.pop3 */ d.pushVar ;
-::v*>>  d.pop3 *>> d.pushVar ;
-::v/MOD d.pop2 /MOD swap d.pushVar d.pushVar ;
-::vMOD  d.pop2 MOD d.pushVar ;
-::vABS  d.pop ABS d.pushVar ;
-::vSQRT	d.pop SQRT d.pushVar ;
-::vCLZ	d.pop CLZ d.pushVar ;
-::v<</	d.pop3 <</ d.pushVar ;
-::vNEG  d.pop NEG d.pushVar ;
-::v2/   d.pop 2/ d.pushVar ;
-::v2*   d.pop 2* d.pushVar ;
-::v<<   d.pop2 << d.pushVar ;
-::v>>   d.pop2 >> d.pushVar ;
-::v1-   d.pop 1- d.pushVar ;
-::v1+   d.pop 1+ d.pushVar ;
-::v4+   d.pop 4+ d.pushVar ;
-
-
-::mappilar | exe --
-	'rpila ( rpila> <? )( @+ pick2 exec ) 2drop ;
-
-::r.ini	
-	'rpila 'rpila> ! 
-	0 dup 'minpr ! 'maxpr !
-	0 'rpila ( 'rpila> <? )( over 25 << 25 >> swap !+ ) 2drop
-	;
-
-::r.pop	-4 'rpila> +! rpila> @ ;
-::r.push rpila> !+ 'rpila> ! ;
-::r.cnt	rpila> 'rpila - 2 >> ;
-::r.tos rpila> 4 - @ ;
-
-:r.pushCopy r.push ;
-:r.pushCalc r.push ;
-
-|--- pila de direccion
-::v>R		d.pop r.pushCopy ;
-::vR>		r.pop d.pushCopy ;
-::vR		r.tos d.pushCopy ;
-::vR+		r.pop d.pop + r.pushCalc ;
-::vR@+		r.pop @+ d.pushMem r.pushCopy ;
-::vR!+		d.pop r.pop !+ r.pushCopy ;
-::vRDROP	r.pop drop ;
-
-|----- imprime pilas
-
-:dec	@+ "%d" print ;	|::d.pushDec 0
-:hex    @+ "$%h" print ;	|::d.pushHex 1
-:bin    @+ "%%%b" print ;	|::d.pushBin 2
-:fix    @+ "%f" print ;	|::d.pushFix 3
-:str    @+ "%d" print ;	|::d.pushStr 4
-:var	@+ "%d" print ;	|::d.pushVar  5
-:dvar	@+ "%d" print ;	|::d.pushDVar 6
-:dcod	@+ "%d" print ;	|::d.pushDCod 7
-:cnum	@+ "%d" print ;	|::d.pushCNum 8
-:cstr	@+ "%d" print ;	|::d.pushCStr 9
-:cdvar	@+ "%d" print ;	|::d.pushCDVar 10
-:cdcod	@+ "%d" print ;	|::d.pushCDCod 11
-
-#accpp 'dec 'hex 'bin 'fix 'str 'var 'dvar 'dcod 'cnum 'cstr 'cdvar  'cdcod
-
-:printpilai | adr -- adr++
-	@+ $f and 2 << 'accpp + @ exec ;
-
-::dumpvstack
-	"D)" print
-	'dpila ( dpila> <? )( sp printpilai ) drop
-	cr
-	"R)" print
-	'rpila ( rpila> <? )( sp printpilai ) drop
-	cr
-	;
-
-
-:mcte "$%h" mprint ;
-:mstr "s%h" mprint ;
-:mvar "[w%h]" mprint ;
-:mdvar "w%h" mprint ;
-:mdcod "w%h" mprint ;
-:mmem ;
-:morig ;
-
-#accnreg 0 mcte mstr mvar mdvar mdcod mmem morig
-
-::,nreg | nro -- ""
-	2 << dup 'regv + @
-	swap 'regs + @
-	$7 and 2 << 'accnreg + @ exec ;
-
-
+|-- registros
 :setreg | valor --
 	nroi 24 << or	| inicio
-	cntregs 1- 2 << 'regs + !
+	cntregs 1- 2 <<
+	'regs + !
 	;
 
 :usoreg | --
@@ -244,80 +40,101 @@
 	nroi 16 << or
 	swap ! ;
 
-|-------------------------------
-:stacks>str | --
-	memp> tostr> !+ 'tostr> !
-	[ 65 + +memp ; ] mappila
-	$3A +memp
-	[ 65 + +memp ; ] mappilar
-	0 +memp
+#tostr )( 4096	| indice de dib pilas
+#tostr> 'tostr
+
+#memp )( 4096	| dibujo de pilas
+#memp> 'memp
+
+:+memp | c --
+	memp> c!+ 'memp> ! ;
+
+#sst )( 1024 | pila de pilas
+#sst> 'sst
+
+:sst!
+	sst> !+ 'sst> ! ;
+
+:sst@
+	-4 'sst> +! sst> @ ;
+
+|--- Pila DATOS
+#:dpila )( 1024 | 8bits
+#:dpila> 'dpila
+|----- PILA R
+#:rpila )( 1048
+#:rpila> 'rpila
+
+::d.cnt dpila dpila> - 2 >> ;
+::d.pop -4 'dpila> +! dpila> @ ;
+::d.pop2 -8 'dpila> +! dpila> @+ swap @ ;
+::d.pop3 -12 'dpila> +! dpila> @+ swap @+ swap @ ;
+::d.push dpila> !+ 'dpila> ! ;
+::d.TOS dpila> 4 - @ ;
+::d.NOS dpila> 8 - @ ;
+::d.PK2 dpila> 12 - @ ;
+::d.PK3 dpila> 16 - @ ;
+::d.PK4 dpila> 20 - @ ;
+
+:d.pushNew | valor tipo --
+	cntregs dup d.push
+	2 << dup >r
+	'regs + !
+	r> 'regv + !
+	1 'cntregs +! ;
+
+::d.pushDec	1 d.pushNew ;
+::d.pushHex	1 d.pushNew ;
+::d.pushBin	1 d.pushNew ;
+::d.pushFix	1 d.pushNew ;
+::d.pushStr	2 d.pushNew ;
+::d.pushVar	3 d.pushNew ;
+::d.pushDVar 4 d.pushNew ;
+::d.pushDCod 5 d.pushNew ;
+
+:d.pushCalc		d.push ;
+:d.pushMem		d.push ;
+:d.pushCopy 6 d.pushNew ;
+
+
+|-------- operaciones de pila
+:vDROP		-4 'dpila> +! ;
+:v2DROP 	-8 'dpila> +! ;
+:v3DROP 	-12 'dpila> +! ;
+:v4DROP 	-16 'dpila> +! ;
+
+:vSWAP
+	dpila> 8 - >r
+	r@+ r@+ r> 8 -
+	!+ ! ;
+:vNIP
+	dpila> 4 -
+	dup @ over 4 - ! 'dpila> ! ;
+:vROT
+	dpila> 12 - >r
+	r@+ r@+ r@+
+	swap r> 12 - !+ !+ ! ;
+:v2SWAP
+	dpila> 16 - >r
+	r@+ r@+ swap r@+ r@+ swap
+	r> 32 - !+ !+ !+ ! ;
+
+:sdup | dup
+	| newreg con copy
+	d.TOS d.pushCopy
 	;
-
-:str>stacks | "" --
-	d.ini
-	( c@+ $3a <>? )(
-		65 - d.push
-		) drop
-	r.ini
-	( c@+ 1? )(
-		65 - r.push
-		) 2drop
-	;
-
-:stacknow | -- now
-	tostr> 4 - @ ; | stack actual
-
-:newREG
-	cntregs d.push 1 'cntregs +! ;
-
-:newREGR
-	cntregs r.push 1 'cntregs +! ;
-
-|----------------------------
-:litN	| 12
-	newREG $1 setreg ;
-
-:litS	| "kk"
-	newREG $2 setreg ;
-
-:callW	| ww
-	dup 4 - @ 8 >> nro>mov @
-|	dup 24 >> | no se propaga es flujo de ejecucion
-|	-? ( ( 1? )( 1+ vrdrop ) drop )( ( 1? )( 1- newRegR ) drop ) 	|	'deltaR +!
-	8 << 24 >>
-	0? ( drop ; )
-	-? ( ( 1? )( 1+ vdrop ) drop )( ( 1? )( 1- newReg ) drop ) 	|'deltaD +!
-	;
-
-:litV	| vv
-	newREG $3 setreg ;
-:litAV	| 'v
-	newREG $4 setreg ;
-:litAW	| 'w
-	newREG $5 setreg ;
-
-
-:1dw 	| exec
-	setrange vdrop ;
-:c0 | 0? 1? ..
-	usoreg setrange ;
-:c1 | =? <? ..
-	setrange vdrop usoreg setrange ;
-
-:s1 | dup
-	newREG ;
-:s2 | over
-	newREG ;
-:s3 	|PICK2  abc -- abca
-	newREG ;
-:s4 	|PICK3  abcd -- abcda
-	newREG ;
-:s5 	|PICK4  abcde -- abcdea
-	newREG ;
-:s6	|2DUP   ab -- abab
-	newREG newREG ;
-:s7	|2OVER  abcd -- abcdab
-	newREG newREG ;
+:sover | over
+	d.NOS d.pushCopy ;
+:spk2 	|PICK2  abc -- abca
+	d.PK2 d.pushCopy ;
+:spk3 	|PICK3  abcd -- abcda
+	d.PK3 d.pushCopy ;
+:spk4 	|PICK4  abcde -- abcdea
+	d.PK4 d.pushCopy ;
+:s2dup	|2DUP   ab -- abab
+	sover sover ;
+:s2over |2OVER  abcd -- abcdab
+	spk3 spk3 ;
 
 :d4 | 4drop
 	setrange vdrop
@@ -328,16 +145,120 @@
 :d1 | drop
 	setrange vdrop ;
 
-:2a1	| + - * and or xor << ..
+|--- aritmeticas y logica
+:op2a1	| + - * and or xor << ..
 	setrange vdrop usoreg setrange ;
-:1a1	| neg not 1+ 4+ 1- 2/ ..
- usoreg setrange ;
-:3a1	| *>> /<< */
+
+:op1a1	| neg not 1+ 4+ 1- 2/ ..
+	usoreg setrange ;
+
+:op3a1	| *>> /<< */
 	setrange vdrop setrange vdrop
- usoreg setrange ;
-:2a2	| mod/
+	usoreg setrange ;
+
+:op2a2	| mod/
 	setrange vswap setrange vswap
 	;
+
+|--- pila de direccion
+::r.pop	-4 'rpila> +! rpila> @ ;
+::r.push rpila> !+ 'rpila> ! ;
+::r.cnt	rpila> 'rpila - 2 >> ;
+::r.tos rpila> 4 - @ ;
+
+:r.pushNew | valor tipo --
+	cntregs dup r.push
+	2 << dup >r
+	'regs + !
+	r> 'regv + !
+	1 'cntregs +! ;
+
+
+:r.pushCopy r.push ;
+:r.pushCalc r.push ;
+
+:v>R		d.pop r.push ;
+:vR>		r.pop d.push ;
+
+:vr		|R      -- a R: a -- a
+	vr> setrange v>r ;
+:vr+		|R+    a -- R: b -- c
+	vr d1 ;
+:vr@+	|R@+    -- a R: b -- c
+	vr> setrange usoreg usomreg v>r
+	7 d.pushNew ;
+:vr!+	|R!+   a -- R: b -- c
+	vr> setrange usoreg usomreg v>r
+	d1 ;
+:vrdrop
+	vr> d1 ;
+
+
+|-------------------------------
+::mappila | exe --
+	'dpila ( dpila> <? )( @+ pick2 exec ) 2drop ;
+
+::mappilar | exe --
+	'rpila ( rpila> <? )( @+ pick2 exec ) 2drop ;
+
+:stacks>str | --
+	memp> tostr> !+ 'tostr> !
+	[ 65 + +memp ; ] mappila
+	$3A +memp
+	[ 65 + +memp ; ] mappilar
+	0 +memp
+	;
+
+:str>stacks | "" --
+	| copia tos?
+	'dpila 'dpila> !
+	( c@+ $3a <>? )(
+		65 - d.push
+		) drop
+	'rpila 'rpila> !
+	( c@+ 1? )(
+		65 - r.push
+		) 2drop
+	;
+
+:stacknow | -- now
+	tostr> 4 - @ ; | stack actual
+
+:value
+	dup 4 - @ 8 >> ;
+
+|----------------------------
+:litN	| 12
+	value d.pushDec ;
+
+:litS	| "kk"
+	value d.pushStr ;
+
+:callW	| ww
+	dup 4 - @ 8 >> nro>mov @
+|	dup 24 >> | no se propaga es flujo de ejecucion
+|	-? ( ( 1? )( 1+ vrdrop ) drop )( ( 1? )( 1- newRegR ) drop ) 	|	'deltaR +!
+	8 << 24 >>
+	0? ( drop ; )
+	-? ( ( 1? )( 1+ vdrop ) drop )( ( 1? )( 1- 0 d.pushDec ) drop ) 	|'deltaD +!
+	;
+
+:litV	| vv
+	value d.pushVar ;
+:litAV	| 'v
+	value d.pushDVar ;
+:litAW	| 'w
+	value d.pushDCod ;
+
+
+:1dw 	| exec
+	setrange vdrop ;
+:c0 | 0? 1? ..
+	usoreg setrange ;
+:c1 | =? <? ..
+	setrange vdrop usoreg setrange ;
+
+
 :1@
 	usomreg setrange ;
 :1!
@@ -345,7 +266,8 @@
 	d2 ;
 :2@	| @+
 	usomreg setrange
-	newReg $20 setreg ;
+	7 d.pushNew
+	;
 :2! | !+
 	usomreg setrange
 	vswap setrange vdrop ;
@@ -354,25 +276,13 @@
 	d2 ;
 
 
-:vr		|R      -- a R: a -- a
-	vr> setrange v>r ;
-:vr+		|R+    a -- R: b -- c
-	vr d1 ;
-:vr@+	|R@+    -- a R: b -- c
-	vr> setrange usoreg usomreg v>r
-	newReg $20 setreg ;
-:vr!+	|R!+   a -- R: b -- c
-	vr> setrange usoreg usomreg v>r
-	d1 ;
-:vrdr
-	vr> d1 ;
 
 :+mem
-	newREG $6 setreg ;
+	6 d.pushNew ;
 
-:v3v newREG
-:v2v newREG
-:v1v newREG ;
+:v3v 0 d.pushNew 
+:v2v 0 d.pushNew
+:v1v 0 d.pushNew  ;
 
 |--- condicionales
 :salto? | -- 1/0
@@ -419,12 +329,11 @@
 
 |--- anonimas
 :es[	|[
-	stacknow sst!
-	d.ini r.ini ;
+	stacknow sst! ;
 
 :es]	|]
 	sst@ str>stacks
-	newREG $5 setreg ;
+	7 d.pushNew ;
 
 | uso dD dR tipo
 #acctoken
@@ -459,20 +368,20 @@ c1	|>=? ab -- a
 c1	|<>? ab -- a
 c1	|AND?  ab -- a
 c1	|NAND? ab -- a
-s1	|DUP    a -- aa
+sdup	|DUP    a -- aa
 d1 	|DROP  a --
-s2 	|OVER   ab -- aba
-s3 	|PICK2  abc -- abca
-s4 	|PICK3  abcd -- abcda
-s5 	|PICK4  abcde -- abcdea
+sover 	|OVER   ab -- aba
+spk2 	|PICK2  abc -- abca
+spk3 	|PICK3  abcd -- abcda
+spk4 	|PICK4  abcde -- abcdea
 vswap 	|SWAP   ab -- ba
 vnip	|NIP   ab -- b
 vrot	|ROT	abc -- bca
-s6	|2DUP   ab -- abab
+s2dup	|2DUP   ab -- abab
 d2	|2DROP ab --
 d3	|3DROP abc --
 d4	|4DROP abcd --
-s7	|2OVER  abcd -- abcdab
+s2over	|2OVER  abcd -- abcdab
 v2swap	|2SWAP  abcd -- cdab
 
 v>R		|>R    a -- R: -- a
@@ -481,32 +390,32 @@ vr		|R      -- a R: a -- a
 vr+		|R+    a -- R: b -- c
 vr@+	|R@+    -- a R: b -- c
 vr!+	|R!+   a -- R: b -- c
-vrdr	|RDROP	R: a --
+vrdrop	|RDROP	R: a --
 
-2a1 |53 AND	ab -- c
-2a1 |OR    ab -- c
-2a1 |XOR   ab -- c
-1a1 |NOT    a -- b
-2a1 |+		ab -- c
-2a1 |-     ab -- c
-2a1 |*     ab -- c
-2a1 |/     ab -- c		usa eax,edx
-3a1	|*/    abc -- d     usa eax,edx
-3a1	|*>>   abc -- d     usa eax,edx, ecx
-2a2	|/MOD   ab -- cd    usa eax,edx
-2a1 |MOD    ab -- c     usa eax,edx
-1a1 |ABS    a -- b      usa eax,edx
-1a1 |SQRT	a -- b
-1a1 |CLZ	a -- b     usa eax,edx
-3a1	|<</	abc -- d   usa eax,edx, ecx
-1a1 |NEG    a -- b
-1a1 |1+     a -- b
-1a1 |4+     a -- b
-1a1 |1-     a -- b
-1a1 |2/     a -- b
-1a1 |2*     a -- b
-2a1 |<<    ab -- c     usa ecx
-2a1 |76 >>    ab -- c  usa ecx
+op2a1	|53 AND	ab -- c
+op2a1	|OR    ab -- c
+op2a1	|XOR   ab -- c
+op1a1	|NOT    a -- b
+op2a1	|+		ab -- c
+op2a1	|-     ab -- c
+op2a1	|*     ab -- c
+op2a1	|/     ab -- c		usa eax,edx
+op3a1	|*/    abc -- d     usa eax,edx
+op3a1	|*>>   abc -- d     usa eax,edx, ecx
+op2a2	|/MOD   ab -- cd    usa eax,edx
+op2a1	|MOD    ab -- c     usa eax,edx
+op1a1	|ABS    a -- b      usa eax,edx
+op1a1	|SQRT	a -- b
+op1a1	|CLZ	a -- b     usa eax,edx
+op3a1	|<</	abc -- d   usa eax,edx, ecx
+op1a1	|NEG    a -- b
+op1a1	|1+     a -- b
+op1a1	|4+     a -- b
+op1a1	|1-     a -- b
+op1a1	|2/     a -- b
+op1a1	|2*     a -- b
+op2a1	|<<    ab -- c     usa ecx
+op2a1	|76 >>    ab -- c  usa ecx
 1@	|@      a -- b     tos es ddat
 1@	|C@     a -- b		tos es ddat
 1@	|W@     a -- b      tos es ddat
@@ -609,9 +518,8 @@ vdrop	|MPLAY  a --
 	'sst 'sst> !
 	0 'nroi !
 	0 'cntregs !
-	'regs 256 ( 1? )( 1- 0 rot !+ swap ) 2drop
-	d.ini r.ini
-	stacks>str
+	'dpila 'dpila> !
+	'rpila 'rpila> !
 	;
 
 ::sregtok | adr -- adr+
@@ -625,6 +533,8 @@ vdrop	|MPLAY  a --
 |-------- analizadores
 ::vtstacknro | nro --
 	vtini
+	( 1? )( 0 d.pushNew 1- ) drop
+	stacks>str
 	nro>toklen ( 1? )( 1- swap sregtok swap )
 	2drop
 	vtend
@@ -632,9 +542,12 @@ vdrop	|MPLAY  a --
 
 ::vtstack | fin ini --
 	vtini
+	( 1? )( 0 d.pushNew 1- ) drop
+	stacks>str
 	( over <? )( sregtok ) 2drop
 	vtend
 	;
+
 
 |-------- asignadores
 ::mapregs | exe --
@@ -663,3 +576,21 @@ vdrop	|MPLAY  a --
 	cyan cr
 	[ $ff00 and? ( pick2 65 + "%k %h |" allowcr print )( drop ) ; ] mapregs
 	;
+
+|------------
+:mcte "$%h" mprint ;
+:mstr "s%h" mprint ;
+:mvar "[w%h]" mprint ;
+:mdvar "w%h" mprint ;
+:mdcod "w%h" mprint ;
+:mmem ;
+:morig ;
+
+#accnreg 0 mcte mstr mvar mdvar mdcod mmem morig
+
+::,nreg | nro -- ""
+	2 << dup 'regv + @
+	swap 'regs + @
+	$7 and 2 << 'accnreg + @ exec ;
+
+
