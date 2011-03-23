@@ -10,8 +10,8 @@
 #:rows 40
 #:cols 80		| filas/columnas texto
 
-#charsize 'charsize8i
-#charemit 'char8i
+#charsize 'charsize8i	| c - size
+#charemit 'char8i		| c -	| draw
 
 #:charrom
 #:charsiz
@@ -20,29 +20,11 @@
 
 #ccxmax
 
-|--------- palabras de dibujo de fuentes (reemplazables)
-
-::window | x1 y1 x2 y2 --
-	cch * 'ty2 ! ccw * 'tx2 !
-	cch * 'ty1 ! ccw * 'tx1 ! ;
-
-::win2gc
-	tx2 tx1 2dup - 'w ! + 2/ 'xc !
-	ty2 ty1 2dup - 'h ! + 2/ 'yc ! ;
-
-::gc2win
-	w xc over 2/ - dup 'tx1 ! + 'tx2 !
-	h yc over 2/ - dup 'ty1 ! + 'ty2 ! ;
-
-
-|------------------------------------------------------
-
 :dtab
 	ccx 5 >> 1+ 5 << 'ccx ! ;
 
 :ccxmax! | xcoor --
-	ccx ccxmax max 'ccxmax !
-	;
+	ccx ccxmax max 'ccxmax ! ;
 
 ::cr
 	ccxmax!
@@ -116,15 +98,17 @@
 	dup  ( c@+ 1? )( 32 =? ( 2drop r> ; ) $ff and charsize exec r+ )
 	2drop r> ;
 
-
 |------------------- ventana de texto
 ::fixsize | w h --
-|	gc2win
 	'cch ! 'ccw ! ;
 :filcol
 	ty2 ty1 - cch / 'rows !
 	tx2 tx1 - ccw / 'cols !
     ;
+::colum
+	ccx dup
+	'ccx ! 'tx1 !
+	filcol ;
 
 ::wtext | lin --		; texto en ventana de cursor
 	gc2win
@@ -136,7 +120,6 @@
 	gc2win
 	dup 'cch ! 'ccw !
 	filcol ;
-
 
 ::gotoxy | x y --
 	cch * ty1 + 'ccy !
@@ -161,11 +144,6 @@
 	ccxmax dup
 	'ccx ! 'tx1 !
 	ty1 'ccy !
-	filcol ;
-
-::colum |
-	ccx dup
-	'ccx ! 'tx1 !
 	filcol ;
 
 |--bajar si no entra en la linea
@@ -199,9 +177,15 @@
 	( 1? )( 1- swap c@+ 0? ( drop 1- 32 )
 		emit swap ) 2drop ;
 
+::allowcrx | --
+	dup $ff and charsize exec
+	ccx + tx2 >? ( cr ) drop ;
+
 ::text | "" --
+	mprint
 	( c@+ 1? )(
-		10 =? ( drop )( emit ) ) 2drop ;
+		allowcrx
+		emit ) 2drop ;
 
 |-----------------------------------------
 ::fontset | tipof --
@@ -250,7 +234,6 @@
 	poli ;
 
 |-----------------------------------------
-
 :stringbox | "" -- "" ancho alto
 	dup mprint sizeprint ccw
 	;
