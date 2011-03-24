@@ -234,11 +234,11 @@ int cntdato;
 int cntprog;
 BYTE *memlibre;
 //----- PILAS
-int PSP[2048];// 2k pila de datos
-BYTE *RSP[2048];// 2k pila de direcciones
+int PSP[1024];// 1k pila de datos
+BYTE *RSP[1024];// 1k pila de direcciones
 BYTE ultimapalabra[]={ SISEND };
 //--- Memoria
-BYTE prog[1024*256];// 256k de programa
+BYTE prog[1024*1024];// 1MB de programa
 BYTE data[1024*1024*512];// 512 MB de datos
 
 void mimemset(char *p,char v,int c)
@@ -858,12 +858,12 @@ int cntnombre;
 char nombre[1024*16];
 //---- diccionario exportados
 int cntindiceex;
-Indice indiceex[2048];
+Indice indiceex[4096];
 int cntnombreex;
 char nombreex[1024*32];
 //---- includes
 int cntincludes;
-Indice includes[50];
+Indice includes[100];
 //---- pila de compilador
 int cntpilaA;
 int cntpila;
@@ -1322,7 +1322,7 @@ fprintf(stream,"local:%d\r",*(int*)(e->ContextRecord->Ebp-16));
 fprintf(stream,"PSP:%d\r",(int)PSP);
 fprintf(stream,"RSP:%d\r",(int)RSP);
 */
-//fprintf(stream,"%d %d %d %d %d \r",cntindice,cntnombre,cntindiceex,cntnombreex,cntincludes);
+fprintf(stream,"IND:%d NOM:%d LOC:%d EXP:%d INC:%d \r",cntindice,cntnombre,cntindiceex,cntnombreex,cntincludes);
 fclose(stream);
 //SYSEVENT=(int)&ultimapalabra;
 return SHUTDOWN_NORETRY; //return EXCEPTION_CONTINUE_SEARCH;
