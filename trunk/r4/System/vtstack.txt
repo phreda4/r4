@@ -84,14 +84,14 @@
 	r> 'regv + !
 	1 'cntregs +! ;
 
-::d.pushDec	1 d.pushNew ;
-::d.pushHex	1 d.pushNew ;
-::d.pushBin	1 d.pushNew ;
-::d.pushFix	1 d.pushNew ;
-::d.pushStr	2 d.pushNew ;
-::d.pushVar	3 d.pushNew ;
-::d.pushDVar 4 d.pushNew ;
-::d.pushDCod 5 d.pushNew ;
+::d.pushDec	0 d.pushNew ;
+::d.pushHex	0 d.pushNew ;
+::d.pushBin	0 d.pushNew ;
+::d.pushFix	0 d.pushNew ;
+::d.pushStr	1 d.pushNew ;
+::d.pushVar	2 d.pushNew ;
+::d.pushDVar 3 d.pushNew ;
+::d.pushDCod 4 d.pushNew ;
 
 :d.pushCalc		d.push ;
 :d.pushMem		d.push ;
@@ -187,7 +187,7 @@
 	d1 ;
 :vr@+	|R@+    -- a R: b -- c
 	vr> setrange usoreg usomreg v>r
-	7 d.pushNew ;
+	7 0 d.pushNew ;
 :vr!+	|R!+   a -- R: b -- c
 	vr> setrange usoreg usomreg v>r
 	d1 ;
@@ -267,7 +267,7 @@
 	d2 ;
 :2@	| @+
 	usomreg setrange
-	7 d.pushNew
+	7 0 d.pushNew
 	;
 :2! | !+
 	usomreg setrange
@@ -279,11 +279,11 @@
 
 
 :+mem
-	6 d.pushNew ;
+	6 0 d.pushNew ;
 
-:v3v 0 d.pushNew 
-:v2v 0 d.pushNew
-:v1v 0 d.pushNew  ;
+:v3v 0 0 d.pushNew
+:v2v 0 0 d.pushNew
+:v1v 0 0 d.pushNew  ;
 
 |--- condicionales
 :salto? | -- 1/0
@@ -524,7 +524,8 @@ vdrop	|MPLAY  a --
 	;
 
 ::sregtok | adr -- adr+
-	@+ $ff and 2 << 'acctoken + @ exec
+	@+ $ff and |trace
+	2 << 'acctoken + @ exec
 	stacks>str
 	1 'nroi +! ;
 
@@ -572,12 +573,32 @@ vdrop	|MPLAY  a --
 		) drop
 	;
 
+:value
+	dup 1020 + @ ;
+
+:t0 "Cte " amarillo print
+		value "%d" print ;
+:t1 "Str " cyan print ;
+:t2 "Var " violeta print ;
+:t3 "'Var " azul print ;
+:t4 "'Cod " rojo print ;
+:t5 "Copy " print ;
+:t6 "Ext " print ;
+:t7 "Reg " print ;
+
+#tiposr t0 t1 t2 t3 t4 t5 t6 t7
+
+:cadaregistro
+	$ff00 nand? ( blanco )( verde )
+	pick2 65 + "%k" print
+	dup 8 >> $ff and " (%d) " print
+	$7 and 2 << 'tiposr + @ exec
+	cr ;
+
 ::dumpregs | --
-	| ctes
-	azul
-	[ $ff00 nand? ( pick2 65 + "%k %h |" allowcr print )( drop ) ; ] mapregs
-	cyan cr
-	[ $ff00 and? ( pick2 65 + "%k %h |" allowcr print )( drop ) ; ] mapregs
+|	azul [ $ff00 nand? ( pick2 65 + "%k %h |" allowcr print )( drop ) ; ] mapregs CR
+|	cyan [ $ff00 and? ( pick2 65 + "%k %h |" allowcr print )( drop ) ; ] mapregs
+	'cadaregistro mapregs
 	;
 
 |--- dword
