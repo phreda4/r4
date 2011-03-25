@@ -61,21 +61,29 @@
 ::d.PK3 dpila> 16 - @ ;
 ::d.PK4 dpila> 20 - @ ;
 
-:usoreg | --
+:reg+1 | --
 	d.TOS 2 << 'regs + dup
 	@ dup $ffff00ff and swap
 	$ff00 and $100 + or
 	swap ! ;
 
-:usomreg | --
-	d.TOS 2 << 'regs + dup
-	@ $80 or swap ! ;
-
-:setrange | --
+:setrangeo | --
 	d.TOS 2 << 'regs + dup
 	@ $ff00ffff and
 	nroi 16 << or
 	swap ! ;
+
+:memreg | --
+	d.TOS 2 << 'regs + dup
+	@ $80 or swap ! ;
+
+:endreg
+	d.TOS 2 << 'regs + dup
+	@ $40 or swap ! ;
+
+:codreg
+	d.TOS 2 << 'regs + dup
+	@ $20 or swap ! ;
 
 :d.pushNew | valor tipo --
 	cntregs dup d.push
@@ -93,9 +101,8 @@
 ::d.pushDVar 3 d.pushNew ;
 ::d.pushDCod 4 d.pushNew ;
 
-:d.pushCalc		d.push ;
-:d.pushMem		d.push ;
-:d.pushCopy 6 d.pushNew ;
+:d.pushCopy 5 d.pushNew ;
+:d.pushMem 6 d.pushNew ;
 
 
 |-------- operaciones de pila
@@ -121,9 +128,7 @@
 	r> 32 - !+ !+ !+ ! ;
 
 :sdup | dup
-	| newreg con copy
-	d.TOS d.pushCopy
-	;
+	d.TOS d.pushCopy ;
 :sover | over
 	d.NOS d.pushCopy ;
 :spk2 	|PICK2  abc -- abca
@@ -138,28 +143,28 @@
 	spk3 spk3 ;
 
 :d4 | 4drop
-	setrange vdrop
+	endreg vdrop
 :d3 | 3drop
-	setrange vdrop
+	endreg vdrop
 :d2 | 2drop
-	setrange vdrop
+	endreg vdrop
 :d1 | drop
-	setrange vdrop ;
+	endreg vdrop ;
 
 |--- aritmeticas y logica
 :op2a1	| + - * and or xor << ..
-	setrange vdrop usoreg setrange ;
+	endreg vdrop reg+1 ;
 
 :op1a1	| neg not 1+ 4+ 1- 2/ ..
-	usoreg setrange ;
+	reg+1 ;
 
 :op3a1	| *>> /<< */
-	setrange vdrop setrange vdrop
-	usoreg setrange ;
+	endreg vdrop
+	endreg vdrop
+	reg+1 ;
 
 :op2a2	| mod/
-	setrange vswap setrange vswap
-	;
+	reg+1 vswap reg+1 vswap ;
 
 |--- pila de direccion
 ::r.pop	-4 'rpila> +! rpila> @ ;
@@ -178,18 +183,20 @@
 :r.pushCopy r.push ;
 :r.pushCalc r.push ;
 
-:v>R		d.pop r.push ;
-:vR>		r.pop d.push ;
+:v>R	d.pop r.push ;
+:vR>	r.pop d.push ;
 
 :vr		|R      -- a R: a -- a
-	d.tos d.pushCopy ;
+	r.tos d.pushCopy ;
 :vr+		|R+    a -- R: b -- c
+	vr> reg+1 v>r
 	d1 ;
 :vr@+	|R@+    -- a R: b -- c
-	vr> setrange usoreg usomreg v>r
-	7 0 d.pushNew ;
+	vr> memreg reg+1 dup v>r
+	d.pushVar ;
+
 :vr!+	|R!+   a -- R: b -- c
-	vr> setrange usoreg usomreg v>r
+	vr> memreg reg+1 v>r
 	d1 ;
 :vrdrop
 	vr> d1 ;
@@ -230,10 +237,15 @@
 
 |----------------------------
 :litN	| 12
-	value d.pushDec ;
-
+	value cte + @ d.pushDec ;
 :litS	| "kk"
 	value d.pushStr ;
+:litV	| vv
+	value d.pushVar ;
+:litAV	| 'v
+	value d.pushDVar ;
+:litAW	| 'w
+	value d.pushDCod ;
 
 :callW	| ww
 	dup 4 - @ 8 >> nro>mov @
@@ -244,42 +256,33 @@
 	-? ( ( 1? )( 1+ vdrop ) drop )( ( 1? )( 1- 0 d.pushDec ) drop ) 	|'deltaD +!
 	;
 
-:litV	| vv
-	value d.pushVar ;
-:litAV	| 'v
-	value d.pushDVar ;
-:litAW	| 'w
-	value d.pushDCod ;
-
-
 :1dw 	| exec
-	setrange vdrop ;
+	codreg endreg vdrop ;
 :c0 | 0? 1? ..
-	usoreg setrange ;
-:c1 | =? <? ..
-	setrange vdrop usoreg setrange ;
-
-
-:1@
-	usomreg setrange ;
-:1!
-	usomreg
-	d2 ;
-:2@	| @+
-	usomreg setrange
-	7 0 d.pushNew
 	;
-:2! | !+
-	usomreg setrange
-	vswap setrange vdrop ;
-:2+! | +!
-	usomreg
+:c1 | =? <? ..
+	endreg vdrop
+	reg+1 ;
+
+
+:1@	| @ c@ w@
+	memreg reg+1 
+	d.tos d.pushMem ;
+:1!	| ! c! w!
+	memreg endreg vdrop
+	endreg vdrop ;
+:2@	| @+ c@+ w@+
+	memreg reg+1
+	d.tos d.pushMem ;
+:2!	| !+ c!+ w!+
+	memreg reg+1
+	vnip ;
+:2+! | +! c+! w+!
+	memreg
 	d2 ;
 
 
-
-:+mem
-	6 0 d.pushNew ;
+:+mem 	0 d.pushMem ;
 
 :v3v 0 0 d.pushNew
 :v2v 0 0 d.pushNew
@@ -511,8 +514,6 @@ vdrop	|MPLAY  a --
 0	|DOCSIZE
 0	|SYSTEM
 
-
-
 :vtini
 	'tostr 'tostr> !
 	'memp 'memp> !
@@ -579,9 +580,12 @@ vdrop	|MPLAY  a --
 :t0 "Cte " amarillo print
 		value "%d" print ;
 :t1 "Str " cyan print ;
-:t2 "Var " violeta print ;
-:t3 "'Var " azul print ;
-:t4 "'Cod " rojo print ;
+:t2 "Var " violeta print
+		value nro>nom "%w" print ;
+:t3 "'Var " azul print
+		value nro>nom "'%w" print ;
+:t4 "'Cod " rojo print
+		value nro>nom "'%w" print ;
 :t5 "Copy " print ;
 :t6 "Ext " print ;
 :t7 "Reg " print ;
