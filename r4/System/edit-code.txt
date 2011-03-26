@@ -253,7 +253,7 @@
 	"r4/system/inc-%w.txt" mprint run ;
 
 |-------------
-| Help CtrH
+| Help Ctr
 |-------------
 :getword | adr -- adr car ; palabra que apunta el cursor
 	( dup c@ 32 >? )( 0? ( ; ) drop 1- ) drop
@@ -277,7 +277,7 @@
 	"numero" 'mensaje strcpy
 	;
 
-:buscawhelp | str -- str l/0
+:buscawhelp | str -- wstr/0
 	helptxt
 	( 2dup =w 1? ( drop nip ; ) drop
 		( c@+ 13 >? )( drop )
@@ -300,30 +300,6 @@
 			drop 1- ) 2drop
 	"cadena" 'mensaje strcpy
 	;
-
-
-:helpcode
-	"" 'mensaje strcpy
-	fuente>
-	dup c@ 33 <? ( 2drop ; ) drop
-	getword 0? ( 2drop ; ) 		| -> inicio de palabra
-	$5e =? ( 2drop ayudainclude ; )	| $5e ^  Include
-	$3A =? ( 2drop ayudadef ; )		| $3a :  Definicion
-	$23 =? ( 2drop ayudavar ; )		| $23 #  Variable
-	$27 =? ( 2drop ayudadir ; )		| $27 ' direccion
-	drop
-|	dup ?numero  1? ( ayudanum ; ) drop | numero
-|	dup ?fnumero  1? ( drop rot drop -1 'basen ! esnumero ; ) drop | numero
-|	dup ?macro 1? ( rot drop esmacro ; ) drop		| macro
-|	dup	?palabra  1? ( nip espalabra ; ) drop		| palabra
-	buscawhelp 1? ( 'mensaje strcpyln ; ) drop	| en ayuda?
-	drop
-|	buscacad
-|	buscacom
-	;
-
-:controlh | help
-	helpcode ;
 
 |-------------
 :controlc | copy
@@ -361,31 +337,11 @@
 		cminiflecha ;
 
 :controlg | go
+
+
 	;
 
-|-------------------- tecla control
-:modocontrol
-	scr
-	32 gc.botton $0 gc.hfill
-	|fonti2 |font-vard-8-bold
-	fonta-Verdana14
-	home
-	" CTRL" blanco print
-	" E-Edit H-Help Z-Undo X-Cut C-Copy V-Paste" cyan print 
-	redraw
-	1 ( 1? )(
-		30 update drop
-		'controle 18 ?key | ctrl-E dit
-		'controlh 35 ?key | ctrl-H elp
-		'controlz 44 ?key | undo
-		'controlx 45 ?key | cut
-		'controlc 46 ?key | copy
-		'controlv 47 ?key | paste
-		'controlf 33 ?key | buscar palabra
-		[ 0 nip ; ] >ctrl<
 
-		) drop
-	;
 
 |----------------------------
 :debugcode
@@ -491,7 +447,6 @@
 	;
 
 #panel1	#panel2
-
 #panel1o #panel2o
 
 :panelswitch
@@ -503,8 +458,9 @@
 	panel1o over - 2/ 'panel1 +!
 	0? ( drop ; ) gc.right
 	$1f alpha violeta gc.fbox $ff alpha | gc.glass
-	fonta-dejavu10 home
-	verde "debug" PRINT
+	fonti home |fonta-dejavu10 home
+| draw debug info
+
 	;
 
 :drawpanel2
@@ -520,13 +476,69 @@
 |	rinfo.cntloc rinfo.cntwor rojo "%d/%d palabras " print cr
 	;
 
+
+|-------------------- tecla control
+#panelc #panelc2
+#wordact
+#wordhelp
+
+:modocontrol
+	128 'panelc2 !
+	fuente> getword
+	$5e =? ( "INCLUDE" 'wordhelp ! )	| $5e ^  Include
+	$3A =? ( "DEFINE" 'wordhelp ! )		| $3a :  Definicion
+	$23 =? ( "VARIABLE" 'wordhelp ! )		| $23 #  Variable
+	$27 =? ( "DIRECCION" 'wordhelp ! )		| $27 ' direccion
+	drop
+|	dup ?numero  1? ( ayudanum ; ) drop | numero
+|	dup ?fnumero  1? ( drop rot drop -1 'basen ! esnumero ; ) drop | numero
+|	dup ?macro 1? ( rot drop esmacro ; ) drop		| macro
+|	dup	?palabra  1? ( nip espalabra ; ) drop		| palabra
+
+	dup buscawhelp 'wordhelp !  	| en ayuda?
+|	buscacad
+|	buscacom
+
+	'wordact !
+	;
+
+:controloff
+	0 'panelc2 ! ;
+
+:drawpanelcontrol
+	panelc
+	panelc2 over - 2/ 'panelc +!
+	0? ( drop ; )
+	scr gc.botton |$f gc.hfill
+	gc.glass
+	fonta-dejavu10B home cr2
+	gris
+	'controle dup 18 ?key "E-Edit" sp btnt | ctrl-E dit
+|	'controlh dup 35 ?key "H-Help" sp btnt  | ctrl-H elp
+	" - " print
+	'controlz dup 44 ?key "Z-Undo" sp btnt
+	'controlx dup 45 ?key "X-Cut" sp btnt
+	'controlc dup 46 ?key "C-Copy" sp btnt
+	'controlv dup 47 ?key "V-Paste" sp btnt
+	" - " print
+	'controlf dup 33 ?key "F-Find" sp btnt
+	'controlg dup 34 ?key "G-Go" sp btnt
+	cyan " CTRL+* " printr
+	cr cr2
+	blanco
+	wordact 1? ( " %w" print cr )( drop )
+	wordhelp 1? ( " %l" print )( drop )
+	;
+
+
+|-------------------- pantalla editor
 :editor
 	usogui
     !cntlineas
 	panelswitch
 	show clrscr
 		60 gc.top $88800f gc.hfill
-		fonta-verdana14
+		fonta-verdana14b
 		home
 		verde dup " :R%d" print
 		blanco "eDIT " print
@@ -555,9 +567,11 @@
 		drawcode
         drawpanel1
 		drawpanel2
+		drawpanelcontrol
+
 |------------------------------
+		panelc 0? ( [ key toasc modo exec ; ] <visible> )  drop
 		keypad
-		[ key toasc modo exec ; ] <visible>
 		'kback	<back>		'kdel	<del>
 		'karriba <up>		'kabajo	<dn>
 		'kder	<ri>		'kizq	<le>
@@ -567,7 +581,8 @@
 		[ 13 modo exec ; ] <enter>
 		[ 9 modo exec ; ] <tab>
 		'exit  >esc<
-		'modocontrol 		<ctrl> | control
+		| control
+		'modocontrol <ctrl> 'controloff >ctrl<
 
 		cminiflecha ;
 
