@@ -5,25 +5,17 @@
 
 ^r4/system/r4token.txt
 
-|--- registros  $iiffccss
+|--- registros  $iiccffff
 | ii inicio
 | cc cntdeop
 | tipo  cte,str,var,dvar,dcod,mem,orig
-| flags final,registro
+| flags final,usoadx,usoecx,copia
 |-----------
 
-#nroi 0
 #cntregs 0
 #regs )( 1024	| info de registros
 #regv )( 1024	| valor de registro
-
-|-- registros
-:setreg | valor --
-	nroi 24 << or	| inicio
-	cntregs 1- 2 <<
-	'regs + !
-	;
-
+#regw )( 1024	| 2do parametro
 
 #tostr )( 4096	| indice de dib pilas
 #tostr> 'tostr
@@ -63,14 +55,8 @@
 
 :reg+1 | --
 	d.TOS 2 << 'regs + dup
-	@ dup $ffff00ff and swap
-	$ff00 and $100 + or
-	swap ! ;
-
-:setrangeo | --
-	d.TOS 2 << 'regs + dup
-	@ $ff00ffff and
-	nroi 16 << or
+	@ dup $ff00ffff and swap
+	$ff0000 and $10000 + or
 	swap ! ;
 
 :memreg | --
@@ -84,6 +70,16 @@
 :codreg
 	d.TOS 2 << 'regs + dup
 	@ $20 or swap ! ;
+
+|--- registro
+:usoadx
+	d.TOS 2 << 'regs + dup
+	@ $100 or swap ! ;
+
+:usoecx | si no es cte
+	d.TOS 2 << 'regs + dup
+	@ $200 or swap ! ;
+
 
 :d.pushNew | valor tipo --
 	cntregs dup d.push
@@ -104,20 +100,19 @@
 :d.pushCopy 5 d.pushNew ;
 :d.pushMem 6 d.pushNew ;
 
-
 |-------- operaciones de pila
-:vDROP		-4 'dpila> +! ;
-:v2DROP 	-8 'dpila> +! ;
-:v3DROP 	-12 'dpila> +! ;
-:v4DROP 	-16 'dpila> +! ;
+:vDrop	endreg -4 'dpila> +! ;
+
+:v4Drop vdrop
+:v3Drop vdrop
+:v2Drop vdrop vdrop ;
 
 :vSWAP
 	dpila> 8 - >r
 	r@+ r@+ r> 8 -
 	!+ ! ;
 :vNIP
-	dpila> 4 -
-	dup @ over 4 - ! 'dpila> ! ;
+	vswap vdrop ;
 :vROT
 	dpila> 12 - >r
 	r@+ r@+ r@+
@@ -127,44 +122,51 @@
 	r@+ r@+ swap r@+ r@+ swap
 	r> 32 - !+ !+ !+ ! ;
 
-:sdup | dup
+:vDup | dup
 	d.TOS d.pushCopy ;
-:sover | over
+:vOver | over
 	d.NOS d.pushCopy ;
-:spk2 	|PICK2  abc -- abca
+:vpk2 	|PICK2  abc -- abca
 	d.PK2 d.pushCopy ;
-:spk3 	|PICK3  abcd -- abcda
+:vpk3 	|PICK3  abcd -- abcda
 	d.PK3 d.pushCopy ;
-:spk4 	|PICK4  abcde -- abcdea
+:vpk4 	|PICK4  abcde -- abcdea
 	d.PK4 d.pushCopy ;
-:s2dup	|2DUP   ab -- abab
-	sover sover ;
-:s2over |2OVER  abcd -- abcdab
-	spk3 spk3 ;
-
-:d4 | 4drop
-	endreg vdrop
-:d3 | 3drop
-	endreg vdrop
-:d2 | 2drop
-	endreg vdrop
-:d1 | drop
-	endreg vdrop ;
+:v2Dup	|2DUP   ab -- abab
+	vOver vOver ;
+:v2Over |2OVER  abcd -- abcdab
+	vpk3 vpk3 ;
 
 |--- aritmeticas y logica
 :op2a1	| + - * and or xor << ..
-	endreg vdrop reg+1 ;
+	vdrop reg+1 ;
 
 :op1a1	| neg not 1+ 4+ 1- 2/ ..
 	reg+1 ;
 
+:vop1a1	| neg not 1+ 4+ 1- 2/ ..
+	reg+1 usoadx ;
+
+:vop2a1 | << >>
+	usoecx 	reg+1 ;
+
+:xop2a1 | << >>
+	usoecx 	reg+1 ;
+
 :op3a1	| *>> /<< */
-	endreg vdrop
-	endreg vdrop
-	reg+1 ;
+	vdrop vdrop reg+1 usoadx ;
+
+:vop3a1	| *>> /<< */
+	vdrop vdrop reg+1 usoadx ;
+
+:xop3a1	| *>> /<< */
+	vdrop vdrop reg+1 usoadx ;
 
 :op2a2	| mod/
-	reg+1 vswap reg+1 vswap ;
+	reg+1 vswap reg+1 vswap usoadx ;
+
+:vop2a2	| mod/
+	reg+1 vswap reg+1 vswap usoadx ;
 
 |--- pila de direccion
 ::r.pop	-4 'rpila> +! rpila> @ ;
@@ -190,17 +192,15 @@
 	r.tos d.pushCopy ;
 :vr+		|R+    a -- R: b -- c
 	vr> reg+1 v>r
-	d1 ;
+	vdrop ;
 :vr@+	|R@+    -- a R: b -- c
 	vr> memreg reg+1 dup v>r
 	d.pushVar ;
-
 :vr!+	|R!+   a -- R: b -- c
 	vr> memreg reg+1 v>r
-	d1 ;
+	vdrop ;
 :vrdrop
-	vr> d1 ;
-
+	vr> vdrop ;
 
 |-------------------------------
 ::mappila | exe --
@@ -249,28 +249,33 @@
 
 :callW	| ww
 	dup 4 - @ 8 >> nro>mov @
+
+|
 |	dup 24 >> | no se propaga es flujo de ejecucion
 |	-? ( ( 1? )( 1+ vrdrop ) drop )( ( 1? )( 1- newRegR ) drop ) 	|	'deltaR +!
+|
+
 	8 << 24 >>
 	0? ( drop ; )
+	| control de tipos
 	-? ( ( 1? )( 1+ vdrop ) drop )( ( 1? )( 1- 0 d.pushDec ) drop ) 	|'deltaD +!
+
 	;
 
 :1dw 	| exec
-	codreg endreg vdrop ;
+	codreg vdrop ;
 :c0 | 0? 1? ..
 	;
 :c1 | =? <? ..
-	endreg vdrop
-	reg+1 ;
+	vdrop reg+1 ;
 
 
 :1@	| @ c@ w@
-	memreg reg+1 
+	memreg reg+1
 	d.tos d.pushMem ;
 :1!	| ! c! w!
-	memreg endreg vdrop
-	endreg vdrop ;
+	memreg vdrop
+	vdrop ;
 :2@	| @+ c@+ w@+
 	memreg reg+1
 	d.tos d.pushMem ;
@@ -279,7 +284,7 @@
 	vnip ;
 :2+! | +! c+! w+!
 	memreg
-	d2 ;
+	v2drop ;
 
 
 :+mem 	0 d.pushMem ;
@@ -372,20 +377,20 @@ c1	|>=? ab -- a
 c1	|<>? ab -- a
 c1	|AND?  ab -- a
 c1	|NAND? ab -- a
-sdup	|DUP    a -- aa
-d1 	|DROP  a --
-sover 	|OVER   ab -- aba
-spk2 	|PICK2  abc -- abca
-spk3 	|PICK3  abcd -- abcda
-spk4 	|PICK4  abcde -- abcdea
+vdup	|DUP    a -- aa
+vdrop 	|DROP  a --
+vover 	|OVER   ab -- aba
+vpk2 	|PICK2  abc -- abca
+vpk3 	|PICK3  abcd -- abcda
+vpk4 	|PICK4  abcde -- abcdea
 vswap 	|SWAP   ab -- ba
 vnip	|NIP   ab -- b
 vrot	|ROT	abc -- bca
-s2dup	|2DUP   ab -- abab
-d2	|2DROP ab --
-d3	|3DROP abc --
-d4	|4DROP abcd --
-s2over	|2OVER  abcd -- abcdab
+v2dup	|2DUP   ab -- abab
+v2drop	|2DROP ab --
+v3drop	|3DROP abc --
+v4drop	|4DROP abcd --
+v2over	|2OVER  abcd -- abcdab
 v2swap	|2SWAP  abcd -- cdab
 
 v>R		|>R    a -- R: -- a
@@ -403,23 +408,23 @@ op1a1	|NOT    a -- b
 op2a1	|+		ab -- c
 op2a1	|-     ab -- c
 op2a1	|*     ab -- c
-op2a1	|/     ab -- c		usa eax,edx
-op3a1	|*/    abc -- d     usa eax,edx
-op3a1	|*>>   abc -- d     usa eax,edx, ecx
-op2a2	|/MOD   ab -- cd    usa eax,edx
-op2a1	|MOD    ab -- c     usa eax,edx
-op1a1	|ABS    a -- b      usa eax,edx
+vop2a1	|/     ab -- c		usa eax,edx
+vop3a1	|*/    abc -- d     usa eax,edx
+xop3a1	|*>>   abc -- d     usa eax,edx, ecx
+vop2a2	|/MOD   ab -- cd    usa eax,edx
+vop2a1	|MOD    ab -- c     usa eax,edx
+vop1a1	|ABS    a -- b      usa eax,edx
 op1a1	|SQRT	a -- b
-op1a1	|CLZ	a -- b     usa eax,edx
-op3a1	|<</	abc -- d   usa eax,edx, ecx
+vop1a1	|CLZ	a -- b     usa eax,edx
+xop3a1	|<</	abc -- d   usa eax,edx, ecx
 op1a1	|NEG    a -- b
 op1a1	|1+     a -- b
 op1a1	|4+     a -- b
 op1a1	|1-     a -- b
 op1a1	|2/     a -- b
 op1a1	|2*     a -- b
-op2a1	|<<    ab -- c     usa ecx
-op2a1	|76 >>    ab -- c  usa ecx
+xop2a1	|<<    ab -- c     usa ecx
+xop2a1	|76 >>    ab -- c  usa ecx
 1@	|@      a -- b     tos es ddat
 1@	|C@     a -- b		tos es ddat
 1@	|W@     a -- b      tos es ddat
@@ -518,7 +523,7 @@ vdrop	|MPLAY  a --
 	'tostr 'tostr> !
 	'memp 'memp> !
 	'sst 'sst> !
-	0 'nroi !
+|	0 'nroi !
 	0 'cntregs !
 	'dpila 'dpila> !
 	'rpila 'rpila> !
@@ -528,7 +533,8 @@ vdrop	|MPLAY  a --
 	@+ $ff and |trace
 	2 << 'acctoken + @ exec
 	stacks>str
-	1 'nroi +! ;
+|	1 'nroi +! 
+	;
 
 :vtend
 	;
@@ -570,38 +576,35 @@ vdrop	|MPLAY  a --
 
 ::sregdumpi | nro --
 	1+ 2 << 'tostr + ( tostr> <? )(
-		@+ sp print cr
+		@+ sp print sp cr
 		) drop
 	;
 
 :value
-	dup 1020 + @ ;
+	over 1020 + @ ;
 
-:t0 "Cte " amarillo print
-		value "%d" print ;
-:t1 "Str " cyan print ;
-:t2 "Var " violeta print
-		value nro>nom "%w" print ;
-:t3 "'Var " azul print
-		value nro>nom "'%w" print ;
-:t4 "'Cod " rojo print
-		value nro>nom "'%w" print ;
-:t5 "Copy " print ;
-:t6 "Ext " print ;
-:t7 "Reg " print ;
+:t0 amarillo "Cte " print value pick3 65 + "%k = %d" print ;
+:t1 azul "Str " print value cte + pick3 65 + "%k = %s" print ;
+:t2 violeta "Var " print value nro>nom pick3 65 + "%k = %w" print ;
+:t3 violeta oscuro "'Va " print value nro>nom pick3 65 + "%k = '%w" print ;
+:t4 rojo oscuro "'Co " print value nro>nom pick3 65 + "%k = '%w" print ;
+:t5 cyan "Cpy " print value pick3 65 + "%k = %d" print ;
+:t6 amarillo "Ext " print value pick3 65 + "%k = %s" print ;
+:t7 blanco "Reg " print value pick3 65 + "%k = %d" print ;
 
 #tiposr t0 t1 t2 t3 t4 t5 t6 t7
 
 :cadaregistro
-	$ff00 nand? ( blanco )( verde )
-	pick2 65 + "%k" print
-	dup 8 >> $ff and " (%d) " print
-	$7 and 2 << 'tiposr + @ exec
-	cr ;
+	dup $7 and 2 << 'tiposr + @ exec
+|	pick2 65 + "(%k- " print
+	16 >> $ff and
+	1? ( " << %d" print )( drop )
+
+	allowchome cr ;
 
 ::dumpregs | --
-|	azul [ $ff00 nand? ( pick2 65 + "%k %h |" allowcr print )( drop ) ; ] mapregs CR
-|	cyan [ $ff00 and? ( pick2 65 + "%k %h |" allowcr print )( drop ) ; ] mapregs
+|	azul [ $ff0000 nand? ( pick2 65 + "%k %h |" allowcr print )( drop ) ; ] mapregs CR
+|	cyan [ $ff0000 and? ( pick2 65 + "%k %h |" allowcr print )( drop ) ; ] mapregs
 	'cadaregistro mapregs
 	;
 
