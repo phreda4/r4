@@ -560,6 +560,35 @@ vdrop	|MPLAY  a --
 	;
 
 
+:cntinstr
+	tostr> 'tostr - 2 >> ;
+
+|--- genera info
+
+:getuso | token -- uso
+	;
+
+:completo? | str uso -- completo
+	2drop
+	0 ;
+
+:analizatoken | 'info 'code 'tostr
+	swap >r r@+	| 'info 'tostr token  r:'code1
+	getuso	| 'info 'tostr uso   r:'code1
+    rot @+ | 'info uso 'tostr1 str	r:'code1
+	rot completo?	| 'info 'tostr1 completo r:'code1
+	rot !+			| 'tostr1 'info  r:'code1
+	r> rot ;
+
+::generainfo | 'info 'code --
+	'tostr
+	cntinstr
+	( 1? )( 1- >r
+		analizatoken
+		r> )
+	4drop ;
+
+
 |-------- asignadores
 ::mapregs | exe --
 	'regs 0 ( cntregs <? )(
@@ -580,6 +609,7 @@ vdrop	|MPLAY  a --
 		) drop
 	;
 
+|--------- imprimir
 :value
 	over 1020 + @ ;
 
@@ -599,7 +629,6 @@ vdrop	|MPLAY  a --
 |	pick2 65 + "(%k- " print
 	16 >> $ff and
 	1? ( " << %d" print )( drop )
-
 	allowchome cr ;
 
 ::dumpregs | --
@@ -624,60 +653,11 @@ vdrop	|MPLAY  a --
 	swap 'regs + @
 	$7 and 2 << 'accnreg + @ exec ;
 
-|--- byte
-:mcteb "$%h" mprint ;
-:mstrb "s%h" mprint ;
-:mvarb "byte [w%h]" mprint ;
-:mdvarb "w%h" mprint ;
-:mdcodb "w%h" mprint ;
-:mmemb ;
-:morigb ;
-
-#accnregb 0 mcteb mstrb mvarb mdvarb mdcodb mmemb morigb
-
-:,nregb | nro -- ""
-	2 << dup 'regv + @
-	swap 'regs + @
-	$7 and 2 << 'accnregb + @ exec ;
-
-|--- word
-:mctew "$%h" mprint ;
-:mstrw "s%h" mprint ;
-:mvarw "word [w%h]" mprint ;
-:mdvarw "w%h" mprint ;
-:mdcodw "w%h" mprint ;
-:mmemw ;
-:morigw ;
-
-#accnregw 0 mctew mstrw mvarw mdvarw mdcodw mmemw morigw
-
-:,nregw | nro -- ""
-	2 << dup 'regv + @
-	swap 'regs + @
-	$7 and 2 << 'accnregw + @ exec ;
-
-
-|-----
-::,TOS
-	dup 24 >> $ff and ,nreg ;
-::,TOSb
-	dup 24 >> $ff and ,nregb ;
-::,NOS
-	dup 16 >> $ff and ,nreg ;
-::,NOS2
-	dup 8 >> $ff and ,nreg ;
-
-|--------------------------------------------
 #RegCount 5
 #ra "eax" #rb "ebx" #rc "ecx" #rd "edx" #re "edi"
 #reg 'ra 'rb 'rc 'rd 're
 
-#RegMCount 8
-#rm0 "mm0" #rm1 "mm1" #rm2 "mm2" #rm3 "mm3" #rm4 "mm4" #rm5 "mm5" #rm6 "mm6" #rm7 "mm7"
-#regmmx rm0 rm1 rm2 rm3 rm4 rm5 rm6 rm7
-
 :,Reg	RegCount <? ( 2 << 'reg + @ ; ) RegCount - 	| eax ebx ecx edx
-		RegMCount <? ( 	2 << 'regmmx + @ ; ) RegMCount -
 		1+ neg
 :,Esi	0? ( "dword [esi]" ,s drop ; )
 		-? ( neg "dword [esi-4*%d]" )( "dword [esi+4*%d]" )
@@ -697,6 +677,23 @@ vdrop	|MPLAY  a --
 :,vstack | nro --
 	1+ 3 << dpila> swap -
 	@+ swap @ swap 2 << 'tipopila + @ exec ,s ;
+
+|----------------------- byte
+:mcteb "$%h" mprint ;
+:mstrb "s%h" mprint ;
+:mvarb "byte [w%h]" mprint ;
+:mdvarb "w%h" mprint ;
+:mdcodb "w%h" mprint ;
+:mmemb ;
+:morigb ;
+
+#accnregb 0 mcteb mstrb mvarb mdvarb mdcodb mmemb morigb
+
+:,nregb | nro -- ""
+	2 << dup 'regv + @
+	swap 'regs + @
+	$7 and 2 << 'accnregb + @ exec ;
+
 
 :,nreg ,reg ,s ;
 
@@ -718,6 +715,22 @@ vdrop	|MPLAY  a --
 	1+ 3 << dpila> swap -
 	@+ swap @ swap 2 << 'tipopilaB + @ exec ,s ;
 
+|----------------------- word
+:mctew "$%h" mprint ;
+:mstrw "s%h" mprint ;
+:mvarw "word [w%h]" mprint ;
+:mdvarw "w%h" mprint ;
+:mdcodw "w%h" mprint ;
+:mmemw ;
+:morigw ;
+
+#accnregw 0 mctew mstrw mvarw mdvarw mdcodw mmemw morigw
+
+:,nregw | nro -- ""
+	2 << dup 'regv + @
+	swap 'regs + @
+	$7 and 2 << 'accnregw + @ exec ;
+
 #raw "ax" #rbw "bx" #rcw "cx" #rdw "dx" #rew "di"
 #regw 'raw 'rbw 'rcw 'rdw 'rdw
 
@@ -736,50 +749,4 @@ vdrop	|MPLAY  a --
 	1+ 3 << dpila> swap -
 	@+ swap @ swap 2 << 'tipopilaW + @ exec ,s ;
 
-:d.resortstack | --  convierto to eax [esi] ..
- 	trace
-|	d.cnt
-	'dpila >r
-	1- 0 ( over <? )(
-|		"mov [esi-" ,s uquieto ,d "]," ,s
-     	r@+ r@+ swap 2 << 'tipopilaW + @ exec ,s ,cr
-		1+ ) drop
-	1+ "mov eax," ,s
-	r@+ r@+ swap 2 << 'tipopilaW + @ exec ,s cr
-	rdrop
-|	"lea esi,[esi" ,s d.f -? ( neg "-" )( "+" ) ,s 2 << ,d "]" ,ln
-	;
-
-|----------- tipo de pila por registro
-|:d.pushReg	0 d.push ; | eax ebx ecx edx edi mm0 mm1 mm2 mm3 mm4 mm5 mm6 mm7
-|:d.pushEsi  1 d.push ; | dword [esi+4*] ..
-|:d.pushEsp	2 d.push ; | dword	[esp+4*] ..
-|:d.pushVar	3 d.push ; | var	[w1]
-|:d.pushIcod	4 d.push ; | dcod	'w2
-|:d.pushDcod	5 d.push ; | dcod	'w2
-|:d.pushDvar	6 d.push ; | dvar	w1
-|:d.pushStr	7 d.push ; | str    "hola"
-|:d.pushCte	8 d.push ; | cte	23
-|----------- uso de registro
-#regused 0  0  0  0  0  0   0   0   0   0   0   0   0
-#regname ra rb rc rd re rm0 rm1 rm2 rm3 rm4 rm5 rm6 rm7
-
-:reg.free | -- nro
-	'regused
-	5 ( 1? )( swap @+
-		0? ( drop 'regused - 2 >> 1- nip ; )
-		drop swap ) 2drop
-	| si no hay uno, libera y asigna
-	4 ;
-|	-1 ;
-
-:reg.set | nro --
-	2 << 'regused + 1 swap ! ;
-
-:reg.refresh
-	0 0 0 0 0 'regused !+ !+ !+ !+ !
-	'dpila
-	( dpila> <? )(
-		@+ 0? ( over @ reg.set )
-		drop 4+ ) drop
-	;
+|--------------------------------------------

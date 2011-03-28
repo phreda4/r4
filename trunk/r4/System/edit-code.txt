@@ -359,6 +359,13 @@
 |	"" 0 "debug.err" save
 	"r4/system/genera-code.txt" run ;
 
+|:mkplain	"r4/system/r4plain.txt" run ;
+:mkplain	"r4/system/r4plaino.txt" run ;
+
+:mkasm		"r4/system/r4fasm.txt" run ;
+:mkasmo		"r4/system/r4fasmo.txt" run ;
+:mkbyte		"r4/system/r4js.txt" run ;
+
 |--------------------
 |--------------------
 |--------------------
@@ -383,14 +390,6 @@
 	'ed.nombre c@ 1? ( loadtxt ) drop
 	;
 
-|----------------------------
-:!cntlineas
-	scr 32 32 gc.vbetween
-	fonti
-    |font-vard-8
-	home
-	rows 'cntlineas !
-	;
 
 |||||||| Dibuja codigo
 :drawcur | com -- com
@@ -449,28 +448,36 @@
 #panel1	#panel2
 #panel1o #panel2o
 
-:panelswitch
-	panel1o 0? ( sw 3 / dup 2*  )( 0 0 )
-	'panel1o !+ ! drop ;
+:helpcodeoff
+	0 'panel1o ! ;
 
-:drawpanel1
-	panel1
-	panel1o over - 2/ 'panel1 +!
+:helpcodeon
+	sw 3 / 2* 'panel1o ! ;
+
+:drawpanelhelpcode
+	panel1 panel1o over - 2/ 'panel1 +!
 	0? ( drop ; ) gc.right
-	$1f alpha violeta gc.fbox $ff alpha | gc.glass
-	fonti home |fonta-dejavu10 home
-| draw debug info
 
+	$1f alpha violeta gc.fbox $ff alpha | gc.glass
+
+	fonti home |fonta-dejavu10 home
+	blanco
+	"<-- Error de soquete" print cr
 	;
 
-:drawpanel2
-	panel2
-	panel2o over - 2/ 'panel2 +!
+| info token
+:drawpanelincludes
+	panel2 panel2o over - 2/ 'panel2 +!
 	0? ( drop ; ) gc.right |$f gc.hfill
 	$3f alpha azul gc.fbox $ff alpha | gc.glass
-	fonta-dejavu10B home
-	verde dic.debug
-	amarillo "= INCLUDES =" print cr
+|	fonta-dejavu10B
+	home
+	dic.btns
+|	dic.printinc
+
+|	cr	verde
+|	dic.debug
+|	amarillo "= INCLUDES =" print cr
 |	dumpdebug
 |	amarillo "%d includes " print cr
 |	rinfo.cntloc rinfo.cntwor rojo "%d/%d palabras " print cr
@@ -532,14 +539,29 @@
 
 
 |-------------------- pantalla editor
+
+#editortop 1
+#editortop2
+
 :editor
 	usogui
-    !cntlineas
-	panelswitch
+
+	scr 50 0 gc.vbetween
+	fonti    |font-vard-8
+	home
+	rows 'cntlineas !
+
+	50 'editortop2 !
+	dic.name 'ed.nombre
+	=w 1? ( sw 3 / 'panel2o ! ) drop
+
+	helpcodeon
 	show clrscr
-		60 gc.top $88800f gc.hfill
-		fonta-verdana14b
-		home
+		editortop
+		editortop2 over - 2/ 'editortop +!
+		gc.top
+		$88800f gc.hfill
+		fonta-verdana14b home
 		verde dup " :R%d" print
 		blanco "eDIT " print
 
@@ -552,21 +574,28 @@
 
 		cr cr2
 		fonta-verdana10b
-		rojo sp sp 'exit "esc" btnt
-		verde sp sp 'directrun dup <f1> "Run" btnt
+		rojo sp sp 'exit "esc" link
+		verde sp sp 'directrun dup <f1> "Run" link
 
-		sp 'generacode dup <f2> "Debug" btnt
-		sp 'debugcode dup <f3> "Xplore" btnt
-		sp 'profcode dup <f4> "Profile" btnt
-		sp 'archivos dup <f5> "File" btnt
-		'panelswitch <f6>
+		sp 'generacode dup <f2> "Debug" link
+		sp 'debugcode dup <f3> "Xplore" link
+		sp 'profcode dup <f4> "Profile" link
+		sp 'archivos dup <f5> "File" link
+|		'panelswitch7 <f6>
+		negro
+|	sp 'mkplain dup <f9> "f9-Plain" link
+		sp 'mkasm dup <f10> "f10-ASM" link
+		sp 'mkasmo dup <f11> "f11-ASMO" link
+|		sp 'mkbyte dup <f12> "f12-Byte" link
+
 		blanco 'mensaje "%s " printr
 
 |------------------------------
-		60 0 gc.vbetween
+		editortop 0 gc.vbetween
+		
 		drawcode
-        drawpanel1
-		drawpanel2
+        drawpanelhelpcode
+		drawpanelincludes
 		drawpanelcontrol
 
 |------------------------------

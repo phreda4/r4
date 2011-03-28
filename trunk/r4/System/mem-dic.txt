@@ -1,5 +1,6 @@
 |---- memoria persistente para info de debug
 
+^r4/lib/btn.txt
 ^r4/system/r4code.txt
 ^r4/system/r4token.txt
 
@@ -12,7 +13,8 @@
 	memd @ ;
 ::dic.word | nro -- dir
 	4 << memd  | n*16 m
-	4+ @ 3 << 12 64 + + + ;
+	4+ @ 3 << 
+	12 64 + + + ;
 
 ::dic.cnti | -- cnt
 	memd 4+ @ ;
@@ -23,25 +25,43 @@
 ::dic.neww | -- cnt
 	memd 8 + @ ;
 
-:printinc
-	memd 76 +
-	memd @
+::dic.printinc
+	memd @ |dup "Inc:%d  " blanco print
+	memd 76 + swap
+|	inisrc "%h" print cr
+	amarillo
 	( 1? )(  1-
-		swap @+
-		inisrc +
-		"%w" print cr 4+
+		swap @+ inisrc + "%w" print cr
 		swap ) 2drop ;
 
-::dic.debug
-	memd dup 12 + printx cr
-	@+ "Inc:%d  " print @+ "Words:%d  " print @ "News:%d  " print cr
-|	printinc
-	cr ;
+::dic.name
+	memd 12 + ;
 
+:click
+	;
+
+::dic.btns
+	memd @
+	dup verde dic.name "%w %d" print cr
+	memd 76 + swap
+	azul
+	( 1? )(  1-
+		swap @+ inisrc + "  %w "
+		mprint
+		| quitar hasta / y sin el .
+		'click swap link cr
+		swap ) 2drop ;
+
+
+::dic.debug
+	dic.name printx cr
+	memd @+ "Inc:%d  " print
+	@+ "Words:%d  " print
+	@ "News:%d  " print cr
+	cr ;
 
 :ncopy | adr nro --
 	( 1? )( 1- swap c@+ ,c swap ) 2drop ;
-
 
 ::dic.save	| save memoria
 	mark
@@ -52,13 +72,11 @@
 	| comienzo de palabras
 	'ed.nombre 64 ncopy
 
-	( 1? )( 1-
+	cntincludes ( 1? )( 1-
 		dup 4 << 'indiceinc +
-		dup @ inisrc - ,  | nombre
-		8 + @ ,
-
+		@ inisrc - ,  | nombre
 		) drop
-	( 1? )( 1-
+	cntwords ( 1? )( 1-
 		dup 5 << 'indicepal +
 		dup @ inisrc - , | nombre
 		dup 8 + @ , | info
@@ -66,8 +84,12 @@
 		@+ , | mov
 		@ , | group
 		) drop
-
 	"mem/mem-dic.mem" savemem
+	empty
+
+	mark
+	inisrc ( cte <? )( c@+ ,c ) drop
+	"mem/mem-src.mem" savemem
 	empty
 	;
 
@@ -75,6 +97,8 @@
 ::dic.load | here -- here
 	dup 'memd !
 	"mem/mem-dic.mem" load
+	dup 'inisrc !
+    "mem/mem-src.mem" load
 |	here 4+
 	;
 
