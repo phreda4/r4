@@ -24,25 +24,17 @@
 
 ^r4/lib/trace.txt
 
-:,DUP
-:,DROP
-:,NIP
-:,2DROP
-:,3DROP
-:,4DROP
-:,OVER
-:,PICK2
-:,PICK3
-:,PICK4
-:,SWAP
-:,ROT
-:,2DUP
-:,2OVER
-:,2SWAP
+#,TOS "n/a"
+#,TOSb "n/a"
+#,NOS "n/a"
+#,NOS2 "n/a"
+
+:,DUP :,DROP :,NIP
+:,2DROP :,3DROP :,4DROP
+:,OVER :,PICK2 :,PICK3 :,PICK4
+:,SWAP :,ROT :,2DUP :,2OVER :,2SWAP
 	drop nip ;
 
-
-|--------------------------------------------
 :,AND	,NOS ,TOS "and %w,%w" ,print ;
 :,OR	,NOS ,TOS "or %w,%w" ,print ;
 :,XOR	,NOS ,TOS "xor %w,%w" ,print ;
@@ -98,8 +90,11 @@
 :,R>    ,TOS "pop %w" ,print ;
 :,R>v   ;
 
-:,R 	,NOS ,TOS "mov %w,%w" ,print ;
-:,R+    ,TOS ,NOS "add [%w],%w" ,print ;
+:,R 	,TOS "mov %w,[esp]" ,print ;
+:,Rv 	,NOS ,TOS "mov %w,%w" ,print ;
+
+:,R+    ,TOS "add [esp],%w" ,print ;
+:,R+v    ,TOS ,NOS "add [%w],%w" ,print ;
 
 :,R!+
 	,TOS ,NOS "mov [%w],%w" ,print ,cr
@@ -263,18 +258,14 @@
 #nstr 0
 :nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
 
+|--- por ahora nada
 :,defw :,defv :,;
-:,lit
-:,lits
-:,var
-:,dwo
-:,dva
-
-:,( :,)( :,) :,[ :,]	| por ahora nada
-
+:,lit :,lits :,var :,dwo :,dva
+:,( :,)( :,) :,[ :,]
 	drop nip ;
 
-:,wor	nro>dicn "jmp " ,s ,s ,cr nip ;
+:,wor
+	nro>dicn "jmp " ,s ,s ,cr nip ;
 
 :,EXEC
 	,TOS "mov ecx,%w" ,print
@@ -337,16 +328,7 @@
 		@+ $ff and pick2 =? ( drop pick2 exec )( drop )
 		) 3drop ;
 
-
 |--- optimizadores
-|"*v2@"		| mov r0,[r1+r2*2]
-|"N<v2@"	| mov r0,[r1+r2*4(+r2)]
-|"*v2!"		| mov [r1+r2*2],r0
-|"N<v2!"	| mov [r1+r2*4(+r2)],r0
-|"*v2"		| lea r0,[r1+r2*2]
-|"N<v2"		| lea r0,[r1+r2*4(+r2)]
-|"N<2@x"	| mov rx,[r1+r0*4];call rx
-
 :calltojump | buff+4 -- buff+4
 	dup 8 - @ $ff and
 	8 =? ( 1 1 pick3 8 - 4096 + !+ ! ) | W; --> jmpW
@@ -366,9 +348,10 @@
 	buff> 'bufftok rot
 	vtstack
 
-|	'setctes mapregs
+	'buffinf 'bufftok generainfo
 
-	'calltojump 12 buffmap	| ;
+	'calltojump 12 buffmap	| transformo jmp
+
 	;
 
 |----- compila
@@ -376,10 +359,20 @@
 	drop swap
 	,token0 ;
 
+| extrae TOS NOS NOS2
+:extraeREGS | info -- info
+	"TOS" ',TOS !
+	"TOSb" ',TOSb !
+	"NOS" ',NOS !
+	"NOS2" ',NOS2 !
+	;
+
 :niv1 | adr adri+ info -- adri+ adr+
+	extraeREGS
 	rot					| adri+ info adr
 	@+ dup $ff and		| adri+ info adr+ valor token
 	2 << 'nivel1 + @ exec | adri+ adr+
+	| ordena registros ?
 	;
 
 ::,compword | nro --
