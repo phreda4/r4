@@ -17,8 +17,12 @@
 #regv )( 1024	| valor de registro
 #regw )( 1024	| 2do parametro
 
+#:buffinf )( 4096
 #tostr )( 4096	| indice de dib pilas
 #tostr> 'tostr
+
+:cntinstr
+	tostr> 'tostr - 2 >> ;
 
 #memp )( 4096	| dibujo de pilas
 #memp> 'memp
@@ -53,6 +57,26 @@
 ::d.PK3 dpila> 16 - @ ;
 ::d.PK4 dpila> 20 - @ ;
 
+:d.pushNew | valor tipo --
+	cntregs dup d.push
+	2 << dup >r
+	'regs + !
+	r> 'regv + !
+	1 'cntregs +! ;
+
+::d.pushDec	0 d.pushNew ;
+::d.pushHex	0 d.pushNew ;
+::d.pushBin	0 d.pushNew ;
+::d.pushFix	0 d.pushNew ;
+::d.pushStr	1 d.pushNew ;
+::d.pushVar	2 d.pushNew ;
+::d.pushDVar 3 d.pushNew ;
+::d.pushDCod 4 d.pushNew ;
+
+:d.pushCopy 5 d.pushNew ;
+:d.pushMem 6 d.pushNew ;
+:d.pushExt 7 d.pushNew ;
+
 :reg+1 | --
 	d.TOS 2 << 'regs + dup
 	@ dup $ff00ffff and swap
@@ -80,25 +104,6 @@
 	d.TOS 2 << 'regs + dup
 	@ $200 or swap ! ;
 
-
-:d.pushNew | valor tipo --
-	cntregs dup d.push
-	2 << dup >r
-	'regs + !
-	r> 'regv + !
-	1 'cntregs +! ;
-
-::d.pushDec	0 d.pushNew ;
-::d.pushHex	0 d.pushNew ;
-::d.pushBin	0 d.pushNew ;
-::d.pushFix	0 d.pushNew ;
-::d.pushStr	1 d.pushNew ;
-::d.pushVar	2 d.pushNew ;
-::d.pushDVar 3 d.pushNew ;
-::d.pushDCod 4 d.pushNew ;
-
-:d.pushCopy 5 d.pushNew ;
-:d.pushMem 6 d.pushNew ;
 
 |-------- operaciones de pila
 :vDrop	endreg -4 'dpila> +! ;
@@ -184,6 +189,7 @@
 
 :r.pushCopy r.push ;
 :r.pushCalc r.push ;
+
 
 :v>R	d.pop r.push ;
 :vR>	r.pop d.push ;
@@ -523,7 +529,6 @@ vdrop	|MPLAY  a --
 	'tostr 'tostr> !
 	'memp 'memp> !
 	'sst 'sst> !
-|	0 'nroi !
 	0 'cntregs !
 	'dpila 'dpila> !
 	'rpila 'rpila> !
@@ -532,55 +537,29 @@ vdrop	|MPLAY  a --
 ::sregtok | adr -- adr+
 	@+ $ff and |trace
 	2 << 'acctoken + @ exec
-	stacks>str
-|	1 'nroi +! 
-	;
-
-:vtend
-	;
-
-|-------- analizadores
-::vtstacknro | nro --
-	vtini
-	dup nro>udr 2drop
-	neg ( 1? )( 0 0 d.pushNew 1- ) drop
-	stacks>str
-
-	nro>toklen ( 1? )( 1- swap sregtok swap )
-	2drop
-	vtend
-	;
-
-::vtstack | fin ini used --
-	vtini
-	( 1? )( 0 0 d.pushNew 1- ) drop
-	stacks>str
-	( over <? )( sregtok ) 2drop
-	vtend
-	;
-
-
-:cntinstr
-	tostr> 'tostr - 2 >> ;
+	stacks>str ;
 
 |--- genera info
-
 :getuso | token -- uso
+    tok>udr 2drop
 	;
 
 :completo? | str uso -- completo
+	0? ( 2drop 1 ; )
+|	"%d %s" ,print ,cr
 	2drop
 	0 ;
 
 :analizatoken | 'info 'code 'tostr
 	swap >r r@+	| 'info 'tostr token  r:'code1
 	getuso	| 'info 'tostr uso   r:'code1
-    rot @+ | 'info uso 'tostr1 str	r:'code1
+    swap @+ | 'info uso 'tostr1 str	r:'code1
 	rot completo?	| 'info 'tostr1 completo r:'code1
 	rot !+			| 'tostr1 'info  r:'code1
 	r> rot ;
 
-::generainfo | 'info 'code --
+::generainfo | 'code --
+	'buffinf swap
 	'tostr
 	cntinstr
 	( 1? )( 1- >r
@@ -588,6 +567,36 @@ vdrop	|MPLAY  a --
 		r> )
 	4drop ;
 
+
+::generainfonro | nro --
+	'buffinf swap
+	nro>toklen 0? ( trace 3drop ; )
+	'tostr swap
+
+	( 1? )( 1- >r
+		analizatoken
+		r> )
+	4drop ;
+
+
+|-------- analizadores
+::vtstacknro | nro --
+	vtini
+	dup nro>udr 2drop
+	neg ( 1? )( dup d.pushExt 1- ) drop
+	stacks>str
+	nro>toklen ( 1? )( 1- swap sregtok swap ) 2drop
+| PARTE 2
+	;
+
+::vtstack | fin ini used --
+	vtini
+	( 1? )( dup d.pushExt 1- ) drop
+	stacks>str
+	( over <? )( sregtok ) 2drop
+| PARTE 2
+
+	;
 
 |-------- asignadores
 ::mapregs | exe --
@@ -603,11 +612,25 @@ vdrop	|MPLAY  a --
 		) drop
 	;
 
-::sregdumpi | nro --
-	1+ 2 << 'tostr + ( tostr> <? )(
-		@+ sp print sp cr
-		) drop
+#tipocolor $ffff00 $ffff00 $ff00ff  $770077 $ff $ffff $ffff00 $ffffff
+
+:printstackolor | "" --
+	( c@+ 1? )(
+
+		dup 65 - 2 << 'regs + @ | info reg
+		$7 and 2 << 'tipocolor + @ ink
+		emit
+		) 2drop
 	;
+
+::sregdumpi | nro --
+	1+ 2 << 'tostr +
+	'buffinf swap
+	( tostr> <? )(
+		swap @+ " %h " print swap
+		@+ sp printstackolor sp cr
+		)
+	2drop ;
 
 |--------- imprimir
 :value
@@ -618,8 +641,8 @@ vdrop	|MPLAY  a --
 :t2 violeta "Var " print value nro>nom pick3 65 + "%k = %w" print ;
 :t3 violeta oscuro "'Va " print value nro>nom pick3 65 + "%k = '%w" print ;
 :t4 rojo oscuro "'Co " print value nro>nom pick3 65 + "%k = '%w" print ;
-:t5 cyan "Cpy " print value pick3 65 + "%k = %d" print ;
-:t6 amarillo "Ext " print value pick3 65 + "%k = %s" print ;
+:t5 cyan "Cpy " print value 65 + pick3 65 + "%k = %k" print ;
+:t6 amarillo "Ext " print value pick3 65 + "%k = %d" print ;
 :t7 blanco "Reg " print value pick3 65 + "%k = %d" print ;
 
 #tiposr t0 t1 t2 t3 t4 t5 t6 t7
