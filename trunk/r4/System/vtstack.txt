@@ -17,7 +17,8 @@
 #regv )( 1024	| valor de registro
 #regw )( 1024	| 2do parametro
 
-#:buffinf )( 4096
+|------------------------------
+#:buffinf )( 4096 | informacion de registro
 #tostr )( 4096	| indice de dib pilas
 #tostr> 'tostr
 
@@ -56,6 +57,7 @@
 ::d.PK2 dpila> 12 - @ ;
 ::d.PK3 dpila> 16 - @ ;
 ::d.PK4 dpila> 20 - @ ;
+::d.PK5 dpila> 24 - @ ;
 
 :d.pushNew | valor tipo --
 	cntregs dup d.push
@@ -76,6 +78,19 @@
 :d.pushCopy 5 d.pushNew ;
 :d.pushMem 6 d.pushNew ;
 :d.pushReg 7 d.pushNew ;
+
+|--- pila de direccion
+::r.pop	-4 'rpila> +! rpila> @ ;
+::r.push rpila> !+ 'rpila> ! ;
+::r.cnt	rpila> 'rpila - 2 >> ;
+::r.tos rpila> 4 - @ ;
+
+:r.pushNew | valor tipo --
+	cntregs dup r.push
+	2 << dup >r
+	'regs + !
+	r> 'regv + !
+	1 'cntregs +! ;
 
 |---- marcas de registros
 :reg+1 | --
@@ -105,6 +120,16 @@
 	d.TOS 2 << 'regs + dup
 	@ $200 or swap ! ;
 
+|--- uso de registros
+:toinf tostr> 4096 - ! ;
+:usot	d.tos 24 << $10 or toinf ;
+:usotn  d.tos 24 << d.nos 16 << or $20 or toinf ;
+:usotn2 d.tos 24 << d.nos 16 << or d.pk2 8 << or $30 or toinf ;
+:uso2   d.tos 24 << d.pk2 8 << or $40 or toinf ;
+:uso3   d.tos 24 << d.pk3 8 << or $50 or toinf ;
+:uso4   d.tos 24 << d.pk4 8 << or $60 or toinf ;
+:uso5   d.tos 24 << d.pk5 8 << or $70 or toinf ;
+:usort  d.tos 24 << r.tos 8 << or $80 or toinf ;
 
 |-------- operaciones de pila
 :vDrop	endreg -4 'dpila> +! ;
@@ -129,15 +154,15 @@
 	r> 32 - !+ !+ !+ ! ;
 
 :vDup | dup
-	d.TOS d.pushCopy ;
+	d.TOS d.pushCopy usotn ;
 :vOver | over
-	d.NOS d.pushCopy ;
+	d.NOS d.pushCopy uso2 ;
 :vpk2 	|PICK2  abc -- abca
-	d.PK2 d.pushCopy ;
+	d.PK2 d.pushCopy uso3 ;
 :vpk3 	|PICK3  abcd -- abcda
-	d.PK3 d.pushCopy ;
+	d.PK3 d.pushCopy uso4 ;
 :vpk4 	|PICK4  abcde -- abcdea
-	d.PK4 d.pushCopy ;
+	d.PK4 d.pushCopy uso5 ;
 :v2Dup	|2DUP   ab -- abab
 	vOver vOver ;
 :v2Over |2OVER  abcd -- abcdab
@@ -146,59 +171,44 @@
 |--- aritmeticas y logica
 
 :op1a1	| neg not 1+ 4+ 1- 2/ ..
-	reg+1 ;
+	usot reg+1 ;
 
 :vop1a1	| abs  clz  ..
-	reg+1 usoadx ;
+	usot reg+1 usoadx ;
 
 :op2a1	| + - * and or xor ..
-	vdrop reg+1 ;
+	usotn vdrop reg+1 ;
 
 :vop2a1	| / mod
-	vdrop reg+1 usoadx ;
+	usotn vdrop reg+1 usoadx ;
 
 :xop2a1 | << >>
-	usoecx vdrop reg+1 ;
+	usotn usoecx vdrop reg+1 ;
 
 :op3a1	| */
-	v2drop reg+1 usoadx ;
+	usotn2 v2drop reg+1 usoadx ;
 
 :vop3a1	| *>> /<<
-	v2drop reg+1 usoadx usoecx ;
+	usotn2 v2drop reg+1 usoadx usoecx ;
 
 :op2a2	| mod/
-	reg+1 vswap reg+1 vswap usoadx ;
-
-|--- pila de direccion
-::r.pop	-4 'rpila> +! rpila> @ ;
-::r.push rpila> !+ 'rpila> ! ;
-::r.cnt	rpila> 'rpila - 2 >> ;
-::r.tos rpila> 4 - @ ;
-
-:r.pushNew | valor tipo --
-	cntregs dup r.push
-	2 << dup >r
-	'regs + !
-	r> 'regv + !
-	1 'cntregs +! ;
-
-
-:r.pushCopy r.push ;
-:r.pushCalc r.push ;
+	usotn reg+1 vswap reg+1 vswap usoadx ;
 
 
 :v>R	d.pop r.push ;
 :vR>	r.pop d.push ;
 
 :vr		|R      -- a R: a -- a
-	r.tos d.pushCopy ;
+	r.tos d.pushCopy usort ;
 :vr+		|R+    a -- R: b -- c
+	usort
 	vr> reg+1 v>r
 	vdrop ;
 :vr@+	|R@+    -- a R: b -- c
 	vr> memreg reg+1 dup v>r
-	d.pushVar ;
+	d.pushVar usort ;
 :vr!+	|R!+   a -- R: b -- c
+	usort
 	vr> memreg reg+1 v>r
 	vdrop ;
 :vrdrop
@@ -232,15 +242,15 @@
 	dup 4 - @ 8 >> ;
 
 :litN	| 12
-	value cte + @ d.pushDec ;
+	value cte + @ d.pushDec usot ;
 :litS	| "kk"
-	value d.pushStr ;
+	value d.pushStr usot ;
 :litV	| vv
-	value d.pushVar ;
+	value d.pushVar usot ;
 :litAV	| 'v
-	value d.pushDVar ;
+	value d.pushDVar usot ;
 :litAW	| 'w
-	value d.pushDCod ;
+	value d.pushDCod usot ;
 
 :callW	| ww
 	dup 4 - @ 8 >> nro>mov @
@@ -258,22 +268,22 @@
 	;
 
 :1dw 	| exec
-	codreg vdrop ;
+	usot codreg vdrop ;
 :c0 | 0? 1? ..
-	;
+	usot ;
 :c1 | =? <? ..
-	vdrop reg+1 ;
+	usotn vdrop reg+1 ;
 :1@	| @ c@ w@
-	memreg reg+1 ;
+	usot memreg reg+1 ;
 :1!	| ! c! w!
-	memreg v2drop ;
+	usotn memreg v2drop ;
 :2@	| @+ c@+ w@+
 	memreg reg+1
-	d.tos d.pushMem ;
+	d.tos d.pushMem usotn ;
 :2!	| !+ c!+ w!+
-	memreg reg+1 vnip ;
+	usotn memreg reg+1 vnip ;
 :2+! | +! c+! w+!
-	memreg v2drop ;
+	usotn memreg v2drop ;
 
 :+mem 	0 d.pushMem ;
 
@@ -330,9 +340,9 @@
 
 :es]	|]
 	sst@ str>stacks
-	0 7 d.pushNew ;
+	0 d.pushDCod ;
 
-| uso dD dR tipo
+
 #acctoken
 0	| 0
 0	|1 :,,defc
@@ -523,23 +533,41 @@ vdrop	|MPLAY  a --
 	stacks>str ;
 
 |--- genera info
-:getuso | token -- uso
-    tok>udr 2drop
+:opt? | nreg -- 1/0 ; vreg asignado?
+	2 << 'regs + @ $7 and
+
 	;
 
-:completo? | str uso -- completo
-	0? ( 2drop 0 ; )
-|	"%d %s" ,print ,cr
-	2drop
-	0 ;
+:t1 |:usot
+	24 >> $ff and opt? 0? ( drop ; ) drop
+	;
+:t2 |:usotn
+	dup 24 >> $ff and opt?
+	16 >> $ff and opt?
+	;
+:t3 |:usotn2
+	dup 24 >> $ff and opt?
+	dup 16 >> $ff and opt?
+	8 >> $ff and opt?
+	;
+:t4 |:uso2
+:t5 |:uso3
+:t6 |:uso4
+:t7 |:uso5
+:t8 |:usort
+	dup 24 >> $ff and opt?
+	8 >> $ff and opt?
+	;
 
-:analizatoken | 'info 'code 'tostr
-	swap >r r@+	| 'info 'tostr token  r:'code1
-	getuso		| 'info 'tostr uso   r:'code1
-    swap @+ | 'info uso 'tostr1 str	r:'code1
-	rot completo?	| 'info 'tostr1 completo r:'code1
-	rot !+			| 'tostr1 'info  r:'code1
-	r> rot ;
+#tipoi 0 t1 t2 t3 t4 t5 t6 t7 t8
+
+:analizatoken | 'info 'code -- 'info 'code
+	@+ dup
+	4 >> $f and 2 << 'tipoi + @ exec | info val -- info val
+	0? ( drop ; )
+	over 4 - @ $fffffff0 and or
+	over 4 - !
+	;
 
 |-------- analizadores
 ::vtstacknro | nro --
@@ -551,11 +579,10 @@ vdrop	|MPLAY  a --
 | PARTE 2
 	'buffinf swap
 	nro>toklen 0? ( trace 3drop ; )
-	'tostr swap
 	( 1? )( 1- >r
-		analizatoken
+|		analizatoken
 		r> )
-	4drop ;
+	3drop ;
 
 ::vtstack | fin ini used --
 	over >r
@@ -566,15 +593,14 @@ vdrop	|MPLAY  a --
 | PARTE 2
 	r>
 	'buffinf swap
-	'tostr
 	cntinstr
 	( 1? )( 1- >r
-		analizatoken
+|		analizatoken
 		r> )
-	4drop ;
+	3drop ;
 
 |---------- imprime pilas y registros
-#tipocolor $ffff00 $ffff00 $ff00ff  $7777 $ff $ffff $ffff00 $ffffff
+#tipocolor $ffff00 $ffff00 $ff00ff  $7777 $770000 $ffff $ffff00 $ffffff
 
 :printstackolor | "" --
 	( c@+ 1? )(
@@ -665,4 +691,11 @@ vdrop	|MPLAY  a --
 ::reg>str | nro -- ""
 	2 << 'regs + dup @
 	dup $7 and 2 << 'tiposrm + @ exec
+	nip nip ;
+
+#tiposrb mt0 mt1 mt2 mt3 mt4 mt5 mt6 mt7
+
+::reg>strb | nro -- ""
+	2 << 'regs + dup @
+	dup $7 and 2 << 'tiposrb + @ exec
 	nip nip ;
