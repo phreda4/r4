@@ -201,16 +201,11 @@
 :vr		|R      -- a R: a -- a
 	r.tos d.pushCopy usort ;
 :vr+		|R+    a -- R: b -- c
-	usort
-	vr> reg+1 v>r
-	vdrop ;
+	usort vr> reg+1 v>r vdrop ;
 :vr@+	|R@+    -- a R: b -- c
-	vr> memreg reg+1 dup v>r
-	d.pushVar usort ;
+	vr> memreg reg+1 dup v>r d.pushVar usort ;
 :vr!+	|R!+   a -- R: b -- c
-	usort
-	vr> memreg reg+1 v>r
-	vdrop ;
+	usort vr> memreg reg+1 v>r vdrop ;
 :vrdrop
 	vr> vdrop ;
 
@@ -342,39 +337,36 @@
 	sst@ str>stacks
 	0 d.pushDCod ;
 
-
 #acctoken
-0	| 0
-0	|1 :,,defc
-0	|2 :,,defv
-litN |3 :,,litd | --	n numero decimal
-litN |4 :,,lith | --	n numero hexa
-litN |5 :,,litb | -- n numero binario
-litN |6 :,,litf | --	n numero punto fijo
-litS |7 :,,lits | --	s string
-callW |8 :,,word 	| ..--..  word <---- debe ser calculado
-litV |9 :,,var 	| -- v var
-litAW |10:,,dword | -- dw dir word
-litAV |11:,,dvar 	| -- dv dir var
-0	|; | fin de palabra (12)
-es(	|(
+0 0 0	|0 1 :,,defc 2 :,,defv
+litN	|3 :,,litd | --	n numero decimal
+litN	|4 :,,lith | --	n numero hexa
+litN	|5 :,,litb | -- n numero binario
+litN	|6 :,,litf | --	n numero punto fijo
+litS	|7 :,,lits | --	s string
+callW	|8 :,,word 	| ..--..  word <---- debe ser calculado
+litV	|9 :,,var 	| -- v var
+litAW	|10:,,dword | -- dw dir word
+litAV	|11:,,dvar 	| -- dv dir var
+0		|; | fin de palabra (12)
+es(		|(
 es)(	|)(
-es)	|)
-es[	|[
-es]	|]
-1dw	|EXEC  x/0 --    TOS es dcod
-c0	|0? a -- a
-c0	|+? a -- a
-c0	|-? a -- a
-c0	|1? a -- a
-c1	|=?  ab -- a
-c1	|<?  ab -- a
-c1	|>?  ab -- a
-c1	|<=? ab -- a
-c1	|>=? ab -- a
-c1	|<>? ab -- a
-c1	|AND?  ab -- a
-c1	|NAND? ab -- a
+es)		|)
+es[		|[
+es]		|]
+1dw		|EXEC  x/0 --    TOS es dcod
+c0		|0? a -- a
+c0		|+? a -- a
+c0		|-? a -- a
+c0		|1? a -- a
+c1		|=?  ab -- a
+c1		|<?  ab -- a
+c1		|>?  ab -- a
+c1		|<=? ab -- a
+c1		|>=? ab -- a
+c1		|<>? ab -- a
+c1		|AND?  ab -- a
+c1		|NAND? ab -- a
 vdup	|DUP    a -- aa
 vdrop 	|DROP  a --
 vover 	|OVER   ab -- aba
@@ -534,21 +526,21 @@ vdrop	|MPLAY  a --
 
 |--- genera info
 :opt? | nreg -- 1/0 ; vreg asignado?
-	2 << 'regs + @ $7 and
-
+	2 << 'regs + @
+	$7 and drop 0
 	;
 
+:t0
+	drop 0 ;
 :t1 |:usot
-	24 >> $ff and opt? 0? ( drop ; ) drop
-	;
+	24 >> $ff and opt? ;
 :t2 |:usotn
 	dup 24 >> $ff and opt?
-	16 >> $ff and opt?
-	;
+	swap 16 >> $ff and opt? 2* or ;
 :t3 |:usotn2
 	dup 24 >> $ff and opt?
-	dup 16 >> $ff and opt?
-	8 >> $ff and opt?
+	swap dup 16 >> $ff and opt? 2*
+	swap 8 >> $ff and opt? 2 << or or
 	;
 :t4 |:uso2
 :t5 |:uso3
@@ -556,12 +548,11 @@ vdrop	|MPLAY  a --
 :t7 |:uso5
 :t8 |:usort
 	dup 24 >> $ff and opt?
-	8 >> $ff and opt?
-	;
+	swap 8 >> $ff and opt? 2* or ;
 
-#tipoi 0 t1 t2 t3 t4 t5 t6 t7 t8
+#tipoi t0 t1 t2 t3 t4 t5 t6 t7 t8
 
-:analizatoken | 'info 'code -- 'info 'code
+:analizatoken | 'info -- 'info+
 	@+ dup
 	4 >> $f and 2 << 'tipoi + @ exec | info val -- info val
 	0? ( drop ; )
@@ -577,27 +568,23 @@ vdrop	|MPLAY  a --
 	stacks>str
 	dup nro>toklen ( 1? )( 1- swap sregtok swap ) 2drop
 | PARTE 2
-	'buffinf swap
-	nro>toklen 0? ( trace 3drop ; )
+	'buffinf cntinstr
 	( 1? )( 1- >r
-|		analizatoken
+		analizatoken
 		r> )
-	3drop ;
+	2drop ;
 
 ::vtstack | fin ini used --
-	over >r
 	vtini
 	( 1? )( 1- dup neg d.pushReg ) drop
 	stacks>str
 	( over <? )( sregtok ) 2drop
 | PARTE 2
-	r>
-	'buffinf swap
-	cntinstr
+	'buffinf cntinstr
 	( 1? )( 1- >r
-|		analizatoken
+		analizatoken
 		r> )
-	3drop ;
+	2drop ;
 
 |---------- imprime pilas y registros
 #tipocolor $ffff00 $ffff00 $ff00ff  $7777 $770000 $ffff $ffff00 $ffffff
