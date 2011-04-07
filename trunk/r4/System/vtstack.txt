@@ -121,15 +121,19 @@
 	@ $200 or swap ! ;
 
 |--- uso de registros
-:toinf tostr> 4096 - ! ;
-:usot	d.tos 24 << $10 or toinf ;
-:usotn  d.tos 24 << d.nos 16 << or $20 or toinf ;
-:usotn2 d.tos 24 << d.nos 16 << or d.pk2 8 << or $30 or toinf ;
-:uso2   d.tos 24 << d.pk2 8 << or $40 or toinf ;
-:uso3   d.tos 24 << d.pk3 8 << or $50 or toinf ;
-:uso4   d.tos 24 << d.pk4 8 << or $60 or toinf ;
-:uso5   d.tos 24 << d.pk5 8 << or $70 or toinf ;
-:usort  d.tos 24 << r.tos 8 << or $80 or toinf ;
+:inf! tostr> 4096 - ! ;
+:usot	d.tos 24 << $10 or inf! ;
+:usotn  d.tos 24 << d.nos 16 << or $20 or inf! ;
+:usotn2 d.tos 24 << d.nos 16 << or d.pk2 8 << or $30 or inf! ;
+:uso2   d.tos 24 << d.pk2 8 << or $40 or inf! ;
+:uso3   d.tos 24 << d.pk3 8 << or $50 or inf! ;
+:uso4   d.tos 24 << d.pk4 8 << or $60 or inf! ;
+:uso5   d.tos 24 << d.pk5 8 << or $70 or inf! ;
+:usort  d.tos 24 << r.tos 8 << or $80 or inf! ;
+
+:usorv	r.tos 8 << $90 or inf! ;
+
+:opti d.tos 24 << $f0 or inf! ; 
 
 |-------- operaciones de pila
 :vDrop	endreg -4 'dpila> +! ;
@@ -137,14 +141,16 @@
 :v4Drop vdrop
 :v3Drop vdrop
 :v2Drop vdrop vdrop ;
+:vNIP
+	vswap vdrop ;
 
 :vSWAP
+	usotn
 	dpila> 8 - >r
 	r@+ r@+ r> 8 -
 	!+ ! ;
-:vNIP
-	vswap vdrop ;
 :vROT
+	usotn2
 	dpila> 12 - >r
 	r@+ r@+ r@+
 	swap r> 12 - !+ !+ ! ;
@@ -195,8 +201,8 @@
 	usotn reg+1 vswap reg+1 vswap usoadx ;
 
 
-:v>R	d.pop r.push ;
-:vR>	r.pop d.push ;
+:v>R	d.pop r.push usorv ;
+:vR>	usorv r.pop d.push ;
 
 :vr		|R      -- a R: a -- a
 	r.tos d.pushCopy usort ;
@@ -237,15 +243,15 @@
 	dup 4 - @ 8 >> ;
 
 :litN	| 12
-	value cte + @ d.pushDec usot ;
+	value cte + @ d.pushDec opti ;
 :litS	| "kk"
-	value d.pushStr usot ;
+	value d.pushStr opti ;
 :litV	| vv
-	value d.pushVar usot ;
+	value d.pushVar opti ;
 :litAV	| 'v
-	value d.pushDVar usot ;
+	value d.pushDVar opti ;
 :litAW	| 'w
-	value d.pushDCod usot ;
+	value d.pushDCod opti ;
 
 :callW	| ww
 	dup 4 - @ 8 >> nro>mov @
@@ -519,6 +525,7 @@ vdrop	|MPLAY  a --
 	;
 
 ::sregtok | adr -- adr+
+	0 inf! | limpia info
 	@+ $ff and |trace
 	3 <? ( drop ; )
 	2 << 'acctoken + @ exec
@@ -527,7 +534,10 @@ vdrop	|MPLAY  a --
 |--- genera info
 :opt? | nreg -- 1/0 ; vreg asignado?
 	2 << 'regs + @
-	$7 and drop 0
+	dup 16 >> $ff and 1? ( 2drop 0 ; ) drop
+	$7 and 0? ( ; )
+	drop 1
+|	$7 and drop 0
 	;
 
 :t0
@@ -550,7 +560,15 @@ vdrop	|MPLAY  a --
 	dup 24 >> $ff and opt?
 	swap 8 >> $ff and opt? 2* or ;
 
-#tipoi t0 t1 t2 t3 t4 t5 t6 t7 t8
+:t9 
+:ta 
+:tb 
+:tc 
+:td 
+:te drop 0 ;
+:tf drop 1 ;
+
+#tipoi t0 t1 t2 t3 t4 t5 t6 t7 t8 t9 ta tb tc td te tf
 
 :analizatoken | 'info -- 'info+
 	@+ dup
@@ -564,7 +582,8 @@ vdrop	|MPLAY  a --
 ::vtstacknro | nro --
 	vtini
 	dup nro>udr 2drop
-	neg ( 1? )( 1- dup neg d.pushReg ) drop
+	neg
+	( 1? )( 1- dup neg d.pushReg ) drop
 	stacks>str
 	dup nro>toklen ( 1? )( 1- swap sregtok swap ) 2drop
 | PARTE 2
@@ -605,64 +624,33 @@ vdrop	|MPLAY  a --
 	;
 
 ::sregdumpi | nro --
+	1+ 2 << 'tostr +
+	( tostr> <? )(
+		@+ sp printstackolor sp
+		cr )
+	drop ;
+
+::oregdumpi | nro --
 	1+ 2 <<
 	dup 'buffinf +
 	swap 'tostr +
 	( tostr> <? )(
-		blanco
-		swap @+ " %h " print swap
-		@+ sp printstackolor sp cr
-		)
+		4+ |@+ drop
+		swap @+ "%h " print swap
+		cr )
 	2drop ;
 
-|--------- registros
-::mapregs | exe --
-	'regs 4+ 1 ( cntregs <? )(
-		swap
-		@+ pick3 exec
-		swap 1+ ) 3drop ;
-
-:value
-	over 1020 + @ ;
-
-:t0 amarillo "Cte " print value pick3 64 + "%k = %d" print ;
-:t1 azul "Str " print value cte + pick3 64 + "%k = %s" print ;
-:t2 violeta "Var " print value nro>nom pick3 64 + "%k = %w" print ;
-:t3 cyan oscuro "'Va " print value nro>nom pick3 64 + "%k = '%w" print ;
-:t4 rojo oscuro "'Co " print value nro>nom pick3 64 + "%k = '%w" print ;
-:t5 cyan "Cpy " print value 64 + pick3 64 + "%k = %k" print ;
-:t6 amarillo "Ext " print value pick3 64 + "%k = %d" print ;
-:t7 blanco "Reg " print value pick3 64 + "%k = %d" print ;
-
-#tiposr t0 t1 t2 t3 t4 t5 t6 t7
-
-:cadaregistro
-	dup $7 and 2 << 'tiposr + @ exec
-	dup 16 >> $ff and 1? ( " << %d" print )( drop )
-	sp
-	$80 and? ( "M" print ) | como memoria
-	$40 and? ( "E" print ) | endreg
-	$20 and? ( "C" print ) | codreg
-	$100 and? ( "a" print ) | usoadx
-	$200 and? ( "c" print ) | usoecx | si no es cte
-	drop
-	allowchome cr ;
-
-::dumpregs | --
-|	azul [ $ff0000 nand? ( pick2 65 + "%k %h |" allowcr print )( drop ) ; ] mapregs CR
-|	cyan [ $ff0000 and? ( pick2 65 + "%k %h |" allowcr print )( drop ) ; ] mapregs
-	'cadaregistro mapregs
-	;
-
 |----------------- para generar codigo
+:value	over 1024 + @ ;
+
 :mt0 value "%d" mprint ;
 :mt1 value cte + "s%h" mprint ;
 :mt2 value "[w%h]" mprint ;
 :mt3 value "w%h" mprint ;
 :mt4 value "w%h" mprint ;
 
-:mt5 value "CC %d" print ;
-:mt6 value "EE %d" print ;
+:mt5 value "CC %d" mprint ;
+:mt6 value "EE %d" mprint ;
 
 #ra "eax" #rb "ebx" #rc "ecx" #rd "edx" #re "edi"
 #reg 'ra 'rb 'rc 'rd 're
@@ -686,3 +674,39 @@ vdrop	|MPLAY  a --
 	2 << 'regs + dup @
 	dup $7 and 2 << 'tiposrb + @ exec
 	nip nip ;
+
+|--------- registros
+:value	over 1020 + @ ;
+
+:t0 amarillo "Cte " print value pick3 64 + "%k = %d" print ;
+:t1 azul "Str " print value cte + pick3 64 + "%k = %s" print ;
+:t2 violeta "Var " print value nro>nom pick3 64 + "%k = %w" print ;
+:t3 cyan oscuro "'Va " print value nro>nom pick3 64 + "%k = '%w" print ;
+:t4 rojo oscuro "'Co " print value nro>nom pick3 64 + "%k = '%w" print ;
+:t5 cyan "Cpy " print value 64 + pick3 64 + "%k = %k" print ;
+:t6 amarillo "Ext " print value pick3 64 + "%k = %d" print ;
+:t7 blanco "Reg " print value pick3 64 + "%k = %d" print ;
+
+#tiposr t0 t1 t2 t3 t4 t5 t6 t7
+
+:cadaregistro
+	dup $7 and 2 << 'tiposr + @ exec
+	dup 16 >> $ff and 1? ( " << %d" print )( drop )
+	sp
+	$80 and? ( "M" print ) | como memoria
+	$40 and? ( "E" print ) | endreg
+	$20 and? ( "C" print ) | codreg
+	$100 and? ( "a" print ) | usoadx
+	$200 and? ( "c" print ) | usoecx | si no es cte
+	drop
+	over reg>str sp print
+	cr
+	allowchome ;
+
+::dumpregs | --
+	'regs 4+ 1 ( cntregs <? )(
+		swap
+		@+ cadaregistro
+		swap 1+ )
+	2drop ;
+
