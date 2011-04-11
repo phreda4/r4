@@ -35,18 +35,44 @@
 #,NOS 'bnos
 #,NOS2 'bnos2
 
-:,DROP :,NIP :,2DROP :,3DROP :,4DROP 	;
+#nstr 0
+:nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
 
-:,DUP
-	,NOS ,TOS "mov %s,%s" ,line ;
-:,OVER
-:,PICK2
-:,PICK3
-:,PICK4
-	,NOS2 ,TOS "mov %s,%s" ,line ;
+|--- por ahora nada
+:,defw :,defv :,;
+:,( :,)( :,) :,[ :,]
+	 ;
 
+:,lit
+	nopt 3 =? ( drop ; ) drop
+|	,TOS "mov %w,%w" ,line
+	;
 
-:,SWAP :,ROT :,2DUP :,2OVER :,2SWAP
+:,lits :,var :,dwo :,dva
+	;
+:,wor
+	dup 4 - @ nro>dicn "jmp " ,s ,s ,cr nip ;
+
+:,EXEC
+	,TOS "mov ecx,%w" ,line
+   	"or ecx,ecx" ,line
+	"jz @f" ,line
+	"call ecx" ,line
+	"@@:" ,line ;
+	;
+
+:,EXECx1 | 2 >> + @ exec
+	"mov ecx,[eax*4+ebx]" ,line
+	"call ecx" ,line ;
+
+:,DROP :,NIP :,2DROP :,3DROP :,4DROP ;
+
+:,DUP :,OVER  :,PICK2 :,PICK3 :,PICK4
+	nopt 3 =? ( drop ; ) drop
+	,NOS ,TOS "mov %w,%w" ,line ;
+
+:,SWAP :,ROT :,2SWAP
+:,2DUP :,2OVER
 	;
 
 :,AND	,TOS ,NOS "and %w,%w" ,line ;
@@ -271,31 +297,6 @@
 :,INK :,INK@ :,ALPHA :,OP :,CP :,LINE :,CURVE :,PLINE :,PCURVE
 :,POLI :,FCOL :,FCEN :,FMAT :,SFILL :,LFILL :,RFILL :,TFILL ;
 
-
-#nstr 0
-:nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
-
-|--- por ahora nada
-:,defw :,defv :,;
-:,lit :,lits :,var :,dwo :,dva
-:,( :,)( :,) :,[ :,]
-	 ;
-
-:,wor
-	nro>dicn "jmp " ,s ,s ,cr nip ;
-
-:,EXEC
-	,TOS "mov ecx,%w" ,line
-   	"or ecx,ecx" ,line
-	"jz @f" ,line
-	"call ecx" ,line
-	"@@:" ,line ;
-	;
-
-:,EXECx1 | 2 >> + @ exec
-	"mov ecx,[eax*4+ebx]" ,line
-	"call ecx" ,line ;
-
 |---- nivel 1 - usando registros
 | info adr+ valor -- adr+
 #nivel1 0
@@ -352,15 +353,6 @@
 	drop
 	;
 
-|-------------
-:optimiza | nro --
-	nro>mov @ 24 << 24 >> neg | uso
-	buff> 'bufftok rot vtstack | analisis
-
-|	'calltojump 12 buffmap	| transformo jmp
-
-	;
-
 |----- compila
 :niv0 | adr adri+ info -- adri+ adr+
 	drop swap
@@ -373,7 +365,7 @@
 	reg>strb 'btosb strcpy
 	dup 16 >> $ff and reg>str 'bnos strcpy
 	dup 8 >> $ff and reg>str 'bnos2 strcpy
-	$ff and 'nopt ! | celdas directas
+	$f and 'nopt ! | celdas directas
 	;
 
 :niv1 | adr adri+ info -- adri+ adr+
@@ -385,19 +377,19 @@
 	;
 
 ::,compwordopt | nro --
-	| carga en buffer
+|---- carga en buffer
 	-buff
 	dup nro>toklen
 	( 1? )( 1- swap
 		@+ +buff
 		swap ) 2drop
-
-	optimiza
-
-	| genera codigo
-	'buffinf
+|---- optimiza
+	nro>mov @ 24 << 24 >> neg | uso
+	buff> 'bufftok rot vtstack | analisis
+|---- genera codigo
+	'buffinf 4+
 	'bufftok ( buff> <? )(
-		swap @+
-		$f nand? ( niv0 )( niv1 )
+		swap @+ |dup "%h " ,print
+		$3 nand? ( niv0 )( niv1 )
 		) 2drop
 	;

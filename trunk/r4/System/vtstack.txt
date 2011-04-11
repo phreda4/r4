@@ -2,30 +2,61 @@
 | para emulador y compilador
 | PHREDA 2011
 |------------------------------------
-
 ^r4/system/r4token.txt
-
-|--- registros  $iiccffff
-| ii inicio
-| cc cntdeop
-| tipo  cte,str,var,dvar,dcod,mem,orig
-| flags final,usoadx,usoecx,copia
-|-----------
 
 #cntregs 1
 #regs )( 1024	| info de registros
 #regv )( 1024	| valor de registro
 #regw )( 1024	| 2do parametro
 
+:regPeso | nro -- peso
+	2 << 'regs + @ 16 >> $ff and ;
+:regFlag | nro -- tieneflag
+	2 << 'regs + @ 15 >> 1 and ;
+
 |------------------------------
+#registros )( 4096
 #:buffinf )( 4096 | informacion de registro
 #tostr )( 4096	| indice de dib pilas
 #tostr> 'tostr
 
-:cntinstr
-	tostr> 'tostr - 2 >> ;
+|--- buffinf | $iiccffff
+| ii inicio
+| cc cntdeop
+| tipo  cte,str,var,dvar,dcod,mem,orig
+| flags final,usoadx,usoecx,copia
+|-----------
 
-#memp )( 4096	| dibujo de pilas
+:cntinstr tostr> 'tostr - 2 >> ;
+:inf! tostr> 4096 - ! ;
+:inf!or tostr> 4096 - dup @ rot or swap ! ;
+
+|---- registros
+:reg! 1- 2 << 'registros + ! ;
+:reg@ 1- 2 << 'registros + @ ;
+
+#REGEAX 1
+#REGEBX 2
+#REGECX 4
+#REGEDX 8
+#REGEDI 16
+#REGESI 32
+#REGESP 64
+#REGEBP 128
+
+#reg>A 0
+:reg.clear 0 'reg>A ! ;
+:reg.set reg>A or 'reg>A ! ;
+
+:reg.fitset? | mask -- 0/Res
+	reg>A over and 1? ( nip ; ) drop
+	reg>A or ;
+
+:reg.diff | -- diff
+	reg>A and ;
+
+|---- string de pilas
+#memp )( 4096
 #memp> 'memp
 
 :+memp | c --
@@ -34,11 +65,8 @@
 #sst )( 1024 | pila de pilas
 #sst> 'sst
 
-:sst!
-	sst> !+ 'sst> ! ;
-
-:sst@
-	-4 'sst> +! sst> @ ;
+:sst!	sst> !+ 'sst> ! ;
+:sst@   -4 'sst> +! sst> @ ;
 
 |--- Pila DATOS
 #:dpila )( 1024 | 8bits
@@ -93,6 +121,7 @@
 	1 'cntregs +! ;
 
 |---- marcas de registros
+
 :reg+1 | --
 	d.TOS 2 << 'regs + dup
 	@ dup $ff00ffff and swap
@@ -113,15 +142,17 @@
 
 |--- registro
 :usoadx
+	REGEAX reg.set
+	REGEDX reg.set
 	d.TOS 2 << 'regs + dup
 	@ $100 or swap ! ;
 
 :usoecx | si no es cte
+	REGECX reg.set
 	d.TOS 2 << 'regs + dup
 	@ $200 or swap ! ;
 
 |--- uso de registros
-:inf! tostr> 4096 - ! ;
 :usot	d.tos 24 << $10 or inf! ;
 :usotn  d.tos 24 << d.nos 16 << or $20 or inf! ;
 :usotn2 d.tos 24 << d.nos 16 << or d.pk2 8 << or $30 or inf! ;
@@ -133,7 +164,13 @@
 
 :usorv	r.tos 8 << $90 or inf! ;
 
-:opti d.tos 24 << $f0 or inf! ; 
+:opti d.tos 24 << $f0 or inf! ;
+
+:optword $e0 inf! ;
+
+|:reguso | v --
+|	26 << inf!or ;
+
 
 |-------- operaciones de pila
 :vDrop	endreg -4 'dpila> +! ;
@@ -262,10 +299,14 @@
 |
 
 	8 << 24 >>
+
+	dup 28 << drop | set en info
+
 	0? ( drop ; )
 	| control de tipos
 	-? ( ( 1? )( 1+ vdrop ) drop )( ( 1? )( 1- 0 d.pushDec ) drop ) 	|'deltaD +!
 
+	optword
 	;
 
 :1dw 	| exec
@@ -531,79 +572,6 @@ vdrop	|MPLAY  a --
 	2 << 'acctoken + @ exec
 	stacks>str ;
 
-|--- genera info
-:opt? | nreg -- 1/0 ; vreg asignado?
-	2 << 'regs + @
-	dup 16 >> $ff and 1? ( 2drop 0 ; ) drop
-	$7 and 0? ( ; )
-	drop 1
-|	$7 and drop 0
-	;
-
-:t0
-	drop 0 ;
-:t1 |:usot
-	24 >> $ff and opt? ;
-:t2 |:usotn
-	dup 24 >> $ff and opt?
-	swap 16 >> $ff and opt? 2* or ;
-:t3 |:usotn2
-	dup 24 >> $ff and opt?
-	swap dup 16 >> $ff and opt? 2*
-	swap 8 >> $ff and opt? 2 << or or
-	;
-:t4 |:uso2
-:t5 |:uso3
-:t6 |:uso4
-:t7 |:uso5
-:t8 |:usort
-	dup 24 >> $ff and opt?
-	swap 8 >> $ff and opt? 2* or ;
-
-:t9 
-:ta 
-:tb 
-:tc 
-:td 
-:te drop 0 ;
-:tf drop 1 ;
-
-#tipoi t0 t1 t2 t3 t4 t5 t6 t7 t8 t9 ta tb tc td te tf
-
-:analizatoken | 'info -- 'info+
-	@+ dup
-	4 >> $f and 2 << 'tipoi + @ exec | info val -- info val
-	0? ( drop ; )
-	over 4 - @ $fffffff0 and or
-	over 4 - !
-	;
-
-|-------- analizadores
-::vtstacknro | nro --
-	vtini
-	dup nro>udr 2drop
-	neg
-	( 1? )( 1- dup neg d.pushReg ) drop
-	stacks>str
-	dup nro>toklen ( 1? )( 1- swap sregtok swap ) 2drop
-| PARTE 2
-	'buffinf cntinstr
-	( 1? )( 1- >r
-		analizatoken
-		r> )
-	2drop ;
-
-::vtstack | fin ini used --
-	vtini
-	( 1? )( 1- dup neg d.pushReg ) drop
-	stacks>str
-	( over <? )( sregtok ) 2drop
-| PARTE 2
-	'buffinf cntinstr
-	( 1? )( 1- >r
-		analizatoken
-		r> )
-	2drop ;
 
 |---------- imprime pilas y registros
 #tipocolor $ffff00 $ffff00 $ff00ff  $7777 $770000 $ffff $ffff00 $ffffff
@@ -640,10 +608,20 @@ vdrop	|MPLAY  a --
 		cr )
 	2drop ;
 
+::rregdumpi | nro --
+	1+ 2 <<
+	dup 'registros +
+	swap 'tostr +
+	( tostr> <? )(
+		4+ |@+ drop
+		swap @+ "%h " print swap
+		cr )
+	2drop ;
+
 |----------------- para generar codigo
 :value	over 1024 + @ ;
 
-:mt0 value "%d" mprint ;
+:mt0 value 9 >? ( "$%h" )( "%d" )  mprint ;
 :mt1 value cte + "s%h" mprint ;
 :mt2 value "[w%h]" mprint ;
 :mt3 value "w%h" mprint ;
@@ -652,8 +630,8 @@ vdrop	|MPLAY  a --
 :mt5 value "CC %d" mprint ;
 :mt6 value "EE %d" mprint ;
 
-#ra "eax" #rb "ebx" #rc "ecx" #rd "edx" #re "edi"
-#reg 'ra 'rb 'rc 'rd 're
+#ra "eax" #rb "ebx" #rc "ecx" #rd "edx" #re "edi" #rf "ebp"
+#reg 'ra 'rb 'rc 'rd 're 'rf
 
 :espila
 	neg 1- "[esi+%d*4]" mprint ;
@@ -698,6 +676,8 @@ vdrop	|MPLAY  a --
 	$20 and? ( "C" print ) | codreg
 	$100 and? ( "a" print ) | usoadx
 	$200 and? ( "c" print ) | usoecx | si no es cte
+	$8000 and? ( "+" print ) | flag
+
 	drop
 	over reg>str sp print
 	cr
@@ -710,3 +690,115 @@ vdrop	|MPLAY  a --
 		swap 1+ )
 	2drop ;
 
+
+|---- flags
+:cadaregistroflag
+	dup 16 >> $ff and 0? ( drop $8000 or over 4 - ! ; ) drop
+	dup 7 and 7 =? ( drop $8000 or over 4 - ! ; ) drop
+
+	drop
+	;
+
+::regsflags | --
+	'regs 4+ 1 ( cntregs <? )(
+		swap
+		@+ cadaregistroflag
+		swap 1+ )
+	2drop ;
+
+
+|--- genera info
+:t0
+	drop 0 ;
+:t1 |:usot
+	24 >> $ff and
+	RegFlag ;
+:t2 |:usotn | :+ nos tos -- nos
+	24 >> $ff and
+	regFlag 1? ( ; )
+	|drop 0
+|	swap 16 >> $ff and
+	;
+:t3 |:usotn2
+	dup 24 >> $ff and
+	regFlag
+	swap dup 16 >> $ff and
+	regFlag 2*
+	swap 8 >> $ff and
+	regFlag 2 <<
+	or or
+	;
+:t4 |:uso2
+:t5 |:uso3
+:t6 |:uso4
+:t7 |:uso5
+:t8 |:usort
+	dup 24 >> $ff and
+	regFlag
+	swap 8 >> $ff and
+	regFlag 2* or ;
+
+:t9
+:ta
+:tb
+:tc
+:td drop 0 ;
+:te | word
+	drop 0 ;
+
+:tf | lit, vars ,dvar, dcod
+	24 >> $ff and
+	regFlag 0? ( ; )
+	2 + ;
+
+#tipoi t0 t1 t2 t3 t4 t5 t6 t7 t8 t9 ta tb tc td te tf
+
+:marcatoken | 'info -- 'info+
+	@+ dup
+	4 >> $f and 2 << 'tipoi + @ exec | info val -- info val
+	0? ( drop ; )
+	over 4 - @ $fffffff0 and or
+	over 4 - !
+	;
+
+:asignoreg
+	regsflags
+
+	;
+
+|-------- analizadores
+::vtstacknro | nro --
+	vtini
+	dup nro>udr 2drop
+	neg
+	( 1? )( 1- dup neg d.pushReg ) drop
+	stacks>str
+| PARTE 1 - Crea registros
+	dup nro>toklen
+	( 1? )( 1- swap
+		sregtok swap ) 2drop
+| PARTE 2 - Asignacion de registros
+	AsignoReg
+| PARTE 3 - Marca
+	'buffinf cntinstr
+	( 1? )( 1- >r
+		marcatoken
+		r> )
+	3drop
+	;
+
+::vtstack | fin ini used --
+	vtini
+	( 1? )( 1- dup neg d.pushReg ) drop
+	stacks>str
+| PARTE 1 - Crea registros
+	( over <? )( sregtok ) 2drop
+| PARTE 2 - Asignacion de registros
+	AsignoReg
+| PARTE 3 - Marca
+	'buffinf cntinstr
+	( 1? )( 1- >r
+		marcatoken
+		r> )
+	2drop
+	;
