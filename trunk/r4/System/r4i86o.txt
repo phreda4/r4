@@ -44,8 +44,7 @@
 	 ;
 
 :,lit
-	nopt 3 =? ( drop ; ) drop
-|	,TOS "mov %w,%w" ,line
+	,TOS "mov %w,%w" ,line
 	;
 
 :,lits :,var :,dwo :,dva
@@ -68,11 +67,19 @@
 :,DROP :,NIP :,2DROP :,3DROP :,4DROP ;
 
 :,DUP :,OVER  :,PICK2 :,PICK3 :,PICK4
-	nopt 3 =? ( drop ; ) drop
 	,NOS ,TOS "mov %w,%w" ,line ;
+:,2DUP
+	,NOS ,TOS "mov %w,%w" ,line ;
+|	,NOS ,TOS "mov %w,%w" ,line ;
+	;
 
-:,SWAP :,ROT :,2SWAP
-:,2DUP :,2OVER
+:,SWAP
+	,NOS ,TOS "xchg %w,%w" ,line ;
+:,ROT
+	,NOS2 ,TOS "xchg %w,%w" ,line
+	,NOS ,TOS "xchg %w,%w" ,line ;
+:,2SWAP
+:,2OVER
 	;
 
 :,AND	,TOS ,NOS "and %w,%w" ,line ;
@@ -126,18 +133,22 @@
 
 
 :,>R
-		,TOS "push %w" ,line ;
-:,>Rv	 ,TOS ,NOS "mov %w,%w" ,line ;
-
+	nopt
+	2 =? ( drop ,TOS "push %w" ,line ; )
+	drop
+	,TOS ,NOS "mov %w,%w" ,line ;
 :,R>
-		,TOS "pop %w" ,line ;
-:,R>v    ;
-
-:,R 	 ,TOS "mov %w,[esp]" ,line ;
-:,Rv 	 ,NOS ,TOS "mov %w,%w" ,line ;
-
-:,R+     ,TOS "add [esp],%w" ,line ;
-:,R+v    ,TOS ,NOS "add [%w],%w" ,line ;
+	nopt
+	2 =? ( drop ,TOS "pop %w" ,line ; )
+	drop ;
+:,R
+	nopt
+	2 =? ( drop ,NOS ,TOS "mov %w,%w" ,line ; ) drop
+	,TOS "mov %w,[esp]" ,line ;
+:,R+
+	nopt
+	2 =? ( drop ,TOS ,NOS "add %w,%w" ,line  ; ) drop
+	,TOS "add [esp],%w" ,line ;
 
 :,R!+
 	,TOS ,NOS "mov [%w],%w" ,line
@@ -148,11 +159,16 @@
 	,NOS "add %w,4" ,line ;
 
 :,RDROP
-	 ;
+	nopt
+	2 =? ( drop "lea esp,[esp-4]" ,line ; )
+	drop ;
 
-:,@		 ,TOS ,TOS "mov %w,dword [%w]" ,line ;
-:,C@	 ,TOS ,TOS "movsx %w,byte [%w]" ,line ;
-:,W@     ,TOS ,TOS "movsx %w,word [%w]" ,line ;
+:,@		 
+	,TOS ,TOS "mov %w,dword [%w]" ,line ;
+:,C@	 
+	,TOS ,TOS "movsx %w,byte [%w]" ,line ;
+:,W@     
+	,TOS ,TOS "movsx %w,word [%w]" ,line ;
 
 :,@x1	"lea %w,[%w+%w]" ,line ;
 :,@x2	"lea %w,[%w+%w*%w]" ,line ;
@@ -172,22 +188,22 @@
 	,NOS ,TOS "mov [%w],%w" ,line
 	,TOS "add %w,4" ,line ;
 :,W!+
-	"mov word [%w],%w" ,line
+	,TOS ,NOS "mov word [%w],%w" ,line
 	,TOS "add %w,2" ,line ;
 :,C!+
-	"mov byte [%w],%w" ,line
+	,TOS ,NOS "mov byte [%w],%w" ,line
 	,TOS "add %w,1" ,line ;
 
 :,@+
-	"mov %w,[%w]" ,line
+	,TOS ,NOS "mov %w,[%w]" ,line
 	,TOS "add %w,4" ,line ;
 
 :,W@+
-	"movsx %w,word [%w]" ,line
+	,TOS ,NOS "movsx %w,word [%w]" ,line
 	,TOS "add %w,2" ,line ;
 
 :,C@+
-	"movsx %w,byte [%w]" ,line
+	,TOS ,NOS "movsx %w,byte [%w]" ,line
 	,TOS "add %w,1" ,line ;
 
 |------------------------------------
@@ -344,15 +360,6 @@
 		@+ $ff and pick2 =? ( drop pick2 exec )( drop )
 		) 3drop ;
 
-|--- optimizadores
-:calltojump | buff+4 -- buff+4
-	dup 8 - @ $ff and
-	8 =? ( 1 1 pick3 8 - 4096 + !+ ! ) | W; --> jmpW*****
-	| r>; --> jmp
-	| exec; -->jmp
-	drop
-	;
-
 |----- compila
 :niv0 | adr adri+ info -- adri+ adr+
 	drop swap
@@ -371,6 +378,7 @@
 :niv1 | adr adri+ info -- adri+ adr+
 	extraeREGS		| adr adri+
 	swap			| adri+ adr
+	nopt $f =? ( drop 4+ ; ) drop
 	@+ $ff and		| adri+ adr+ valor token
 |		trace
 	2 << 'nivel1 + @ exec | adri+ adr+
