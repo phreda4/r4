@@ -19,41 +19,7 @@
 #:buffinf )( 4096 | informacion de registro
 #tostr )( 4096	| indice de dib pilas
 #tostr> 'tostr
-
-|--- buffinf | $iiccffff
-| ii inicio
-| cc cntdeop
-| tipo  cte,str,var,dvar,dcod,mem,orig
-| flags final,usoadx,usoecx,copia
-|-----------
-
 :cntinstr tostr> 'tostr - 2 >> ;
-:inf! tostr> 4096 - ! ;
-:inf!or tostr> 4096 - dup @ rot or swap ! ;
-
-|---- registros
-:reg! 1- 2 << 'registros + ! ;
-:reg@ 1- 2 << 'registros + @ ;
-
-#REGEAX 1
-#REGEBX 2
-#REGECX 4
-#REGEDX 8
-#REGEDI 16
-#REGESI 32
-#REGESP 64
-#REGEBP 128
-
-#reg>A 0
-:reg.clear 0 'reg>A ! ;
-:reg.set reg>A or 'reg>A ! ;
-
-:reg.fitset? | mask -- 0/Res
-	reg>A over and 1? ( nip ; ) drop
-	reg>A or ;
-
-:reg.diff | -- diff
-	reg>A and ;
 
 |---- string de pilas
 #memp )( 4096
@@ -120,6 +86,49 @@
 	r> 'regv + !
 	1 'cntregs +! ;
 
+|--- registros
+| ii inicio
+| cc cntdeop
+| tipo  cte,str,var,dvar,dcod,mem,orig
+| flags final,usoadx,usoecx,copia
+|-----------
+:inf! tostr> 4096 - ! ;
+
+|--- buffinf
+| | TOS | NOS | NOS2 | Tipo | Compila |
+|    8     8     8      4       4
+| tipo
+|	1 usa tos
+|	2 usa tos+nos
+|	3 usa tos+nos+nos2
+|	4 usa tos+pk2
+|	5 usa tos+pk3
+|	6 usa tos+pk4
+|	7 usa tos+pk5
+|	8 usa tos+rtos
+|	e call
+| 	f lit, lits
+| compila
+| 	f no genera codigo
+|	7 tos+nos+nos2 se optimiza
+| 	3 tos+nos se optimiza
+|	1 tos se optimiza
+|	0 preservandopila
+
+|--- llena buffinf
+:usot	d.tos 24 << $10 or inf! ;
+:usotn  d.tos 24 << d.nos 16 << or $20 or inf! ;
+:usotn2 d.tos 24 << d.nos 16 << or d.pk2 8 << or $30 or inf! ;
+:uso2   d.tos 24 << d.pk2 8 << or $40 or inf! ;
+:uso3   d.tos 24 << d.pk3 8 << or $50 or inf! ;
+:uso4   d.tos 24 << d.pk4 8 << or $60 or inf! ;
+:uso5   d.tos 24 << d.pk5 8 << or $70 or inf! ;
+:usort  d.tos 24 << r.tos 8 << or $80 or inf! ;
+:usorv	r.tos 8 << $90 or inf! ;
+:optwor 8 << $e0 or inf! ;
+:opti	d.tos 24 << $f0 or inf! ;
+
+
 |---- marcas de registros
 
 :reg+1 | --
@@ -142,35 +151,15 @@
 
 |--- registro
 :usoadx
-	REGEAX reg.set
-	REGEDX reg.set
+|	REGEAX reg.set
+|	REGEDX reg.set
 	d.TOS 2 << 'regs + dup
 	@ $100 or swap ! ;
 
 :usoecx | si no es cte
-	REGECX reg.set
+|	REGECX reg.set
 	d.TOS 2 << 'regs + dup
 	@ $200 or swap ! ;
-
-|--- uso de registros
-:usot	d.tos 24 << $10 or inf! ;
-:usotn  d.tos 24 << d.nos 16 << or $20 or inf! ;
-:usotn2 d.tos 24 << d.nos 16 << or d.pk2 8 << or $30 or inf! ;
-:uso2   d.tos 24 << d.pk2 8 << or $40 or inf! ;
-:uso3   d.tos 24 << d.pk3 8 << or $50 or inf! ;
-:uso4   d.tos 24 << d.pk4 8 << or $60 or inf! ;
-:uso5   d.tos 24 << d.pk5 8 << or $70 or inf! ;
-:usort  d.tos 24 << r.tos 8 << or $80 or inf! ;
-
-:usorv	r.tos 8 << $90 or inf! ;
-
-:opti d.tos 24 << $f0 or inf! ;
-
-:optword $e0 inf! ;
-
-|:reguso | v --
-|	26 << inf!or ;
-
 
 |-------- operaciones de pila
 :vDrop	endreg -4 'dpila> +! ;
@@ -243,7 +232,7 @@
 
 :vr		|R      -- a R: a -- a
 	r.tos d.pushCopy usort ;
-:vr+		|R+    a -- R: b -- c
+:vr+	|R+    a -- R: b -- c
 	usort vr> reg+1 v>r vdrop ;
 :vr@+	|R@+    -- a R: b -- c
 	vr> memreg reg+1 dup v>r d.pushVar usort ;
@@ -299,14 +288,11 @@
 |
 
 	8 << 24 >>
-
 	dup 28 << drop | set en info
-
+	dup optwor
 	0? ( drop ; )
 	| control de tipos
 	-? ( ( 1? )( 1+ vdrop ) drop )( ( 1? )( 1- 0 d.pushDec ) drop ) 	|'deltaD +!
-
-	optword
 	;
 
 :1dw 	| exec
@@ -603,8 +589,7 @@ vdrop	|MPLAY  a --
 	dup 'buffinf +
 	swap 'tostr +
 	( tostr> <? )(
-		4+ |@+ drop
-		swap @+ "%h " print swap
+		4+ swap @+ "%h " print swap
 		cr )
 	2drop ;
 
@@ -613,8 +598,7 @@ vdrop	|MPLAY  a --
 	dup 'registros +
 	swap 'tostr +
 	( tostr> <? )(
-		4+ |@+ drop
-		swap @+ "%h " print swap
+		4+ swap @+ "%h " print swap
 		cr )
 	2drop ;
 
@@ -656,7 +640,7 @@ vdrop	|MPLAY  a --
 |--------- registros
 :value	over 1020 + @ ;
 
-:t0 amarillo "Cte " print value pick3 64 + "%k = %d" print ;
+:t0 amarillo "Cte " print pick2 64 + "%k = " print ;
 :t1 azul "Str " print value cte + pick3 64 + "%k = %s" print ;
 :t2 violeta "Var " print value nro>nom pick3 64 + "%k = %w" print ;
 :t3 cyan oscuro "'Va " print value nro>nom pick3 64 + "%k = '%w" print ;
@@ -669,6 +653,7 @@ vdrop	|MPLAY  a --
 
 :cadaregistro
 	dup $7 and 2 << 'tiposr + @ exec
+	dup " %h " print
 	dup 16 >> $ff and 1? ( " << %d" print )( drop )
 	sp
 	$80 and? ( "M" print ) | como memoria
@@ -678,7 +663,8 @@ vdrop	|MPLAY  a --
 	$200 and? ( "c" print ) | usoecx | si no es cte
 	$8000 and? ( "+" print ) | flag
 
-	drop
+	24 >> " %h" print
+|	drop
 	over reg>str sp print
 	cr
 	allowchome ;
@@ -694,8 +680,14 @@ vdrop	|MPLAY  a --
 |---- flags
 :cadaregistroflag
 	dup 16 >> $ff and 0? ( drop $8000 or over 4 - ! ; ) drop
-	dup 7 and 7 =? ( drop $8000 or over 4 - ! ; ) drop
-
+	dup 7 and
+|	1 =? ( drop $8000 or over 4 - ! ; ) drop
+|	2 =? ( drop $8000 or over 4 - ! ; ) drop
+|	3 =? ( drop $8000 or over 4 - ! ; ) drop
+|	4 =? ( drop $8000 or over 4 - ! ; ) drop
+|	5 =? ( drop $8000 or over 4 - ! ; ) drop
+|	6 =? ( drop $8000 or over 4 - ! ; ) drop
+	7 =? ( drop $8000 or over 4 - ! ; ) drop
 	drop
 	;
 
@@ -706,37 +698,37 @@ vdrop	|MPLAY  a --
 		swap 1+ )
 	2drop ;
 
+:asignoreg
+	regsflags
+	| busco lugar a optimizar
+	| busco registro libre
+	| recalculo estado
+	| si ya se puede compilar salgo
+	| si me quede sin registro ajusto
+	;
 
 |--- genera info
 :t0
 	drop 0 ;
 :t1 |:usot
-	24 >> $ff and
-	RegFlag ;
+	24 >> $ff and RegFlag ;
 :t2 |:usotn | :+ nos tos -- nos
-	24 >> $ff and
-	regFlag 1? ( ; )
-	|drop 0
-|	swap 16 >> $ff and
-	;
+	dup 24 >> $ff and regFlag
+	swap 16 >> $ff and regFlag 2*
+	or ;
 :t3 |:usotn2
-	dup 24 >> $ff and
-	regFlag
-	swap dup 16 >> $ff and
-	regFlag 2*
-	swap 8 >> $ff and
-	regFlag 2 <<
-	or or
-	;
+	dup 24 >> $ff and regFlag
+	swap dup 16 >> $ff and regFlag 2*
+	swap 8 >> $ff and regFlag 2 <<
+	or or ;
 :t4 |:uso2
 :t5 |:uso3
 :t6 |:uso4
 :t7 |:uso5
 :t8 |:usort
-	dup 24 >> $ff and
-	regFlag
-	swap 8 >> $ff and
-	regFlag 2* or ;
+	dup 24 >> $ff and regFlag
+	swap 8 >> $ff and regFlag 2*
+	or ;
 
 :t9
 :ta
@@ -748,8 +740,8 @@ vdrop	|MPLAY  a --
 
 :tf | lit, vars ,dvar, dcod
 	24 >> $ff and
-	regFlag 0? ( ; )
-	2 + ;
+	regFlag 1? ( drop $f ; )
+	;
 
 #tipoi t0 t1 t2 t3 t4 t5 t6 t7 t8 t9 ta tb tc td te tf
 
@@ -757,13 +749,9 @@ vdrop	|MPLAY  a --
 	@+ dup
 	4 >> $f and 2 << 'tipoi + @ exec | info val -- info val
 	0? ( drop ; )
+	$f and
 	over 4 - @ $fffffff0 and or
 	over 4 - !
-	;
-
-:asignoreg
-	regsflags
-
 	;
 
 |-------- analizadores
@@ -782,7 +770,7 @@ vdrop	|MPLAY  a --
 | PARTE 3 - Marca
 	'buffinf cntinstr
 	( 1? )( 1- >r
-		marcatoken
+|		marcatoken
 		r> )
 	3drop
 	;
