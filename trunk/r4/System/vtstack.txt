@@ -1,18 +1,42 @@
-| pilas virtuales (datos y retorno)
+| pilas virtuale (datos y retorno)
 | para emulador y compilador
 | PHREDA 2011
 |------------------------------------
 ^r4/system/r4token.txt
 
 #cntregs 1
+
+|--- registros
+| |par|costo|flags|Tipo|
+|   8    8    12    4
+| tipo
+|	0 nro
+|	1 str
+|	2 var
+|	3 dir var
+|	4 dir cod
+|	5 copy
+|	6 mem??
+|	7 reg??
+| flags
+|	$20 | es dir codigo
+|	$40 | temino uso
+|	$80 | es dir dato (indirecciona)
+|  $100 | usa eax,edx (si no son ctes)
+|  $200 | usa ecx (si no es cte)
+| $8000 | es cte optimizable
+| $4000 | es reg asignado???
+| costo: cantidad de operaciones(lecturas no se cuentan)
+| par: cuando es copia, accede al registro origen
+|-----------
+
 #regs )( 1024	| info de registros
 #regv )( 1024	| valor de registro
-#regm )( 1024	| mascara de instr1
-#regm2 )( 1024	| mascara de instr1
 
 :regPeso | nro -- peso
 	2 << 'regs + @ 16 >> $ff and ;
-:regFlag | nro -- tieneflag
+
+:regFlag | nro -- tieneflagcte
 	2 << 'regs + @ 15 >> 1 and ;
 
 |------------------------------
@@ -87,14 +111,6 @@
 	r> 'regv + !
 	1 'cntregs +! ;
 
-|--- registros
-| ii inicio
-| cc cntdeop
-| tipo  cte,str,var,dvar,dcod,mem,orig
-| flags final,usoadx,usoecx,copia
-|-----------
-:inf! tostr> 4096 - ! ;
-
 |--- buffinf
 | | TOS | NOS | NOS2 | Tipo | Compila |
 |    8     8     8      4       4
@@ -117,6 +133,8 @@
 |	0 preservandopila
 
 |--- llena buffinf
+:inf! tostr> 4096 - ! ;
+
 :usot	d.tos 24 << $10 or inf! ;
 :usotn  d.tos 24 << d.nos 16 << or $20 or inf! ;
 :usotn2 d.tos 24 << d.nos 16 << or d.pk2 8 << or $30 or inf! ;
@@ -129,38 +147,23 @@
 :optwor 8 << $e0 or inf! ;
 :opti	d.tos 24 << $f0 or inf! ;
 
-
 |---- marcas de registros
-
 :reg+1 | --
 	d.TOS 2 << 'regs + dup
 	@ dup $ff00ffff and swap
 	$ff0000 and $10000 + or
 	swap ! ;
 
-:memreg | --
-	d.TOS 2 << 'regs + dup
-	@ $80 or swap ! ;
-
-:endreg
-	d.TOS 2 << 'regs + dup
-	@ $40 or swap ! ;
-
-:codreg
-	d.TOS 2 << 'regs + dup
-	@ $20 or swap ! ;
-
-|--- registro
-:usoadx
-|	REGEAX reg.set
-|	REGEDX reg.set
-	d.TOS 2 << 'regs + dup
-	@ $100 or swap ! ;
-
-:usoecx | si no es cte
-|	REGECX reg.set
-	d.TOS 2 << 'regs + dup
-	@ $200 or swap ! ;
+:memreg | es dir dato
+	d.TOS 2 << 'regs + dup @ $80 or swap ! ;
+:endreg | temino uso
+	d.TOS 2 << 'regs + dup @ $40 or swap ! ;
+:codreg | es dir codigo
+	d.TOS 2 << 'regs + dup @ $20 or swap ! ;
+:usoadx | usa eax,edx
+	d.TOS 2 << 'regs + dup @ $100 or swap ! ;
+:usoecx | usa ecx
+	d.TOS 2 << 'regs + dup @ $200 or swap ! ;
 
 |-------- operaciones de pila
 :vDrop	endreg -4 'dpila> +! ;
@@ -168,14 +171,15 @@
 :v4Drop vdrop
 :v3Drop vdrop
 :v2Drop vdrop vdrop ;
-:vNIP
-	vswap vdrop ;
 
 :vSWAP
 	usotn
 	dpila> 8 - >r
 	r@+ r@+ r> 8 -
 	!+ ! ;
+:vNIP
+	vswap vdrop ;
+
 :vROT
 	usotn2
 	dpila> 12 - >r
@@ -639,6 +643,13 @@ vdrop	|MPLAY  a --
 	nip nip ;
 
 |--------- registros
+:mapregs | 'v --
+	'regs 4+ 1 ( cntregs <? )(
+		swap
+		@+ pick3 exec
+		swap 1+ )
+	3drop ;
+
 :value	over 1020 + @ ;
 
 :t0 amarillo "Cte " print pick2 64 + "%k = " print ;
@@ -671,52 +682,29 @@ vdrop	|MPLAY  a --
 	allowchome ;
 
 ::dumpregs | --
-	'regs 4+ 1 ( cntregs <? )(
-		swap
-		@+ cadaregistro
-		swap 1+ )
-	2drop ;
-
-|-------- string para optimizar
-#maptipos
-"0:#NNNFSWVwv;(|)[]x????真真真真PPPPPPPPPPPPPPPRRRRRRR222122223342111311111122@@@!!!!!!@!@!@!WWWWVWWWWWWWWWWVWWWWWerVVWWVWWWWWWWWWVWWWWWWWWWWWWWWWWWW"
-
-:evtipos | valor bytecode --
-	'maptipos + c@  ;
-
-:calculotipos | nro --
-	nro>toklen
-	( 1? )( 1-
-		swap @+
-		$ff and
-		evtipos
-		swap ) 2drop
-	;
+	'cadaregistro mapregs ;
 
 |---- flags
-
-:cadaregistroflag
-	dup 16 >> $ff and 0? ( drop $8000 or over 4 - ! ; ) drop
-	dup 7 and
-|	1 =? ( drop $8000 or over 4 - ! ; ) drop
-|	2 =? ( drop $8000 or over 4 - ! ; ) drop
-|	3 =? ( drop $8000 or over 4 - ! ; ) drop
-|	4 =? ( drop $8000 or over 4 - ! ; ) drop
-|	5 =? ( drop $8000 or over 4 - ! ; ) drop
-|	6 =? ( drop $8000 or over 4 - ! ; ) drop
-	7 =? ( drop $8000 or over 4 - ! ; ) drop
+:ctessincosto | nro reg -- nro
+	dup 16 >> $ff and
+	1? ( 2drop ; ) | tiene costo
 	drop
+	$40 nand? ( drop ; ) | no termino
+	$8000 or over 4 - ! | marca como cte
 	;
 
-::regsflags | --
-	'regs 4+ 1 ( cntregs <? )(
-		swap
-		@+ cadaregistroflag
-		swap 1+ )
-	2drop ;
+:cpydirecto | nro reg -- nro
+	dup $7 and 5 <>? ( 2drop ; ) drop	| no cpy
+	$40 nand? ( drop ; )				| no termino
+	dup 16 >> $ff and 1? ( 2drop ; )	| tiene costo
+
+	2drop
+	;
 
 :asignoreg
-	regsflags
+	'ctessincosto mapregs | marco constantes
+	'cpydirecto mapregs | copia de ctes
+
 	| busco lugar a optimizar
 	| busco registro libre
 	| recalculo estado
@@ -787,7 +775,7 @@ vdrop	|MPLAY  a --
 | PARTE 3 - Marca
 	'buffinf cntinstr
 	( 1? )( 1- >r
-|		marcatoken
+		marcatoken
 		r> )
 	3drop
 	;
