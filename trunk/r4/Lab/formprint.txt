@@ -1,0 +1,325 @@
+| formprint.txt
+| PHREDA 2011
+|-----------------------
+
+| res1: 4950x7000 ( a4? )
+|
+^r4/lib/btn.txt
+^r4/lib/fonth.txt
+^r4/lib/fontt.txt
+
+|--- posicion y tam ventana
+#xi 0 #yi 0
+#wi 0 #hi 0
+
+|--- RES impresora
+#wpr #hpr
+
+|--- miniatura
+#wm #hm | total
+#wc #hc | cursor
+
+|-- elemento de posicion
+#ccx #ccy
+#ccw #cch
+#ncmp #nrep
+#ptr
+
+#pad )( 64
+|-- conversion
+:r2m | x y -- xm ym
+	swap wm wpr */
+	swap hm hpr */ ;
+
+:boxx | w h x y --
+	2dup op
+	pick3 pick2 + over line
+	pick3 pick2 + pick3 pick2 + line
+	over pick3 pick2 + line
+	line 2drop ;
+
+|-- Formulario
+| x y | w h | info
+#campos )( 8192
+#campos> 'campos
+#camaux )( 8192
+#camaux> 'camaux
+
+:,campos | val --
+	campos> !+ 'campos> ! ;
+
+:+campo | tipo --
+	cch 16 << ccw or ,campos
+	ccy 16 << ccx or ,campos
+	nrep 16 << ncmp or ,campos
+	ptr 8 << or ,campos ;
+
+:campos.clear
+	'campos 'campos> !
+	'camaux 'camaux> !
+	0 'ptr ! ;
+
+:campos.dellast
+	campos> 'campos =? ( drop ; ) drop
+	-16 'campos> +! ;
+
+:,aux | c --
+	camaux> c!+ 'camaux> ! ;
+
+:+str | "" -- index
+	camaux> swap
+	( c@+ 1? )( ,aux ) ,aux
+	drop 'camaux - ;
+
+
+|---- load &save
+:loadform | "name" --
+	mark
+	here dup rot load 'here !
+	here =? ( drop empty ; )
+	@+ 'campos swap | adr 'campos cant
+	( 1? )( 1- >r
+		swap @+ rot !+
+		r> ) drop 'campos> !
+	@+ 'camaux swap
+	( 1? )( 1- >r
+		swap c@+ rot c!+
+		r> ) drop 'camaux> !
+	drop
+	empty ;
+
+:saveform | "name" --
+	mark
+	'campos campos> over - 2 >> ,
+	( campos> <? )( @+ , ) drop
+	'camaux camaux> over - ,
+	( camaux> <? )( c@+ ,c ) drop
+	savemem
+	empty ;
+
+:load.form
+	"mem/formp.frm" loadform ;
+:save.form
+	"mem/formp.frm" saveform ;
+
+|---------
+:clipxy | x y -- x y
+	-? ( -1 nip )
+	hi >? ( hi nip )
+	swap
+	-? ( -1 nip )
+	wi >? ( wi nip )
+	swap ;
+
+:boxxclip | w h x y --
+	2dup clipxy
+	over 4+ over 4+ atxy
+	op
+	pick3 pick2 + over clipxy line
+	pick3 pick2 + pick3 pick2 + clipxy line
+	over pick3 pick2 + clipxy line
+	clipxy line 2drop ;
+
+
+:drawcampos
+	rojo home
+	'campos
+	( campos> <? )( >r
+		r@+ >uv
+		r@+ >uv
+		swap xi -
+		swap yi -
+		boxxclip
+		r@+ drop
+		r@+ drop |printx
+		r> ) drop
+	;
+
+:drawcampominiatura
+	rojo
+	'campos
+	( campos> <? )( >r
+		r@+ >uv r2m
+		r@+ >uv r2m
+		swap wi +
+		swap
+		boxx
+		r@+ drop
+		r@+ drop
+		r> ) drop
+	;
+
+|----------- mover cursor y cambiar limites
+:cursormov | x y --
+	mshift 1? ( drop 3 << )( drop ) 'ccy +!
+	mshift 1? ( drop 3 << )( drop ) 'ccx +!
+
+	ccx -? ( 0 'ccx ! )
+	wpr ccw - swap <? ( 'ccx ! )( drop )
+	ccy -? ( 0 'ccy ! )
+	hpr cch - swap <? ( 'ccy ! )( drop )
+
+	ccx xi <? ( dup 'xi ! )
+	xi wi + swap ccw + <? ( ccx ccw + swap - 'xi +! )( drop )
+	ccy yi <? ( dup 'yi ! )
+	yi hi + swap cch + <? ( ccy cch + swap - 'yi +! )( drop )
+
+	xi -? ( 0 'xi ! )
+	wpr wi - swap <? ( 'xi ! )( drop )
+	yi -? ( 0 'yi ! )
+	hpr hi - swap <? ( 'yi ! )( drop )
+	;
+
+
+|-----------------------------------------------
+:miniatura
+	verde
+	wm hm wi 0 boxx
+	wc hc xi yi r2m swap wi + swap boxx
+	blink 1? ( blanco )( azul ) drop
+	ccw cch r2m ccx ccy r2m swap wi + swap boxx
+	drawcampominiatura
+	;
+
+:ventana
+	blink 1? ( negro )( azul ) drop
+	ccw cch ccx xi - ccy yi - boxx
+	drawcampos
+	;
+
+|------------- en impresora
+:boxprint | w h x y --
+	2dup docat
+	pick3 pick2 + over docline
+	pick3 pick2 + pick3 pick2 + docline
+	over pick3 pick2 + docline
+	docline 2drop ;
+
+:labelprint | x y w h
+|	8 >> 'cursoraux +
+	swap >uv
+|	14 0
+	"Arial" docfont
+	doctext ;
+
+:campoprint
+
+
+:t0
+:t1
+:t2
+:t3
+	2drop
+	boxprint ;
+|	4drop ;
+
+#tipocampo 't0 't1 't2 't3
+
+:cadacampo
+	dup $3 and 2 << 'tipocampo + @ exec ;
+
+:drawcamposprint
+	'campos
+	( campos> <? )( >r
+		r@+ >uv r@+ >uv
+		r@+ r@+ cadacampo
+		r> ) drop ;
+
+:imprimir
+	docini
+
+|	10 0 "Arial" docfont
+|	wpr 2/ hpr 2/ docat
+|	"texto de prueba" doctext
+	drawcamposprint
+	docend
+	;
+
+|--------
+:getpad
+	0 'pad !
+	usogui
+	show
+		scr
+		"ingrese texto" print cr
+		'pad 63 getline
+		'exit >esc<
+		;
+
+:addline	0 +campo ;
+:addbox     1 +campo ;
+:addlabel
+	getpad
+	'pad +str 'ptr !
+	2 +campo ;
+:addcampo
+	getpad
+	'pad +str 'ptr !
+	3 +campo ;
+
+|--------------
+|  EDITANDO
+|--------------
+:main
+	usogui
+	show clrscr
+
+		ventana
+        miniatura
+
+		azul fonti home
+		dup "(%d)" print cr
+		hpr wpr "prn %d %d " print cr
+
+		yi xi "x:%d y:%d " print
+		hi wi "wi:%d hi:%d " print cr cr
+
+		ccx ccy "ccx:%d ccy:%d " print cr
+		ccw cch "cch:%d cch:%d " print cr
+		ncmp nrep "nrep:%d ncmp:%d " print cr
+|		ptr 1? ( dup printx ) drop
+
+		scr
+		[ xymouse yi + 'ccy ! xi + 'ccx ! 0 dup 'cch ! 'ccw ! ; ] |onDn
+		[ xymouse yi + ccy - 'cch ! xi + ccx - 'ccw ! ; ] |onMove
+	|	[ +box 0 dup 2dup 'bx1 !+ !+ !+ ! ; ] onClick
+		0 guiMap
+
+		48 gc.botton $00000f gc.hfill
+		font-vard-8-bold home cr2
+		rojo sp 'exit dup >esc< "esc-Exit" btnt
+		verde
+		sp 'addline dup <f1> "f1-Line" btnt
+		sp 'addbox dup <f2> "f2-Box" btnt
+		sp 'addlabel dup <f3> "f3-Label" btnt
+		sp 'addcampo dup <f4> "f4-Campo" btnt
+
+		amarillo
+		sp 'load.form dup <f5> "f5-Load" btnt
+		sp 'save.form dup <f6> "f6-Save" btnt
+		sp 'imprimir dup <f7> "f7-Print" btnt
+		rojo
+       sp 'campos.clear dup <f9> "f9-Clear" btnt
+       sp 'campos.dellast dup <del> "Last" btnt cr cr2
+
+		cminiflecha
+		keypad
+		[ 0 -8 cursormov ; ] <up>
+		[ 0 8 cursormov ; ] <dn>
+		[ -8 0 cursormov ; ] <le>
+		[ 8 0 cursormov ; ] <ri>
+		;
+
+
+:init
+	campos.clear
+
+	docres 'hpr ! 'wpr !							| res. impresora
+	sw 2/ dup 2/ + 'wi ! sh 32 - 'hi !  			| res. pantalla (px)
+	sw wi - dup 'wm ! hpr wpr */ 'hm !				| res. ventana (px)
+	wi wm wpr */ 'wc ! hi hm hpr */ 'hc !			| segun impresora
+
+	0 'ccx ! 0 'ccy ! 200 'ccw ! 25 'cch ! 		| cursor
+	;
+
+: mark init main ;

@@ -1,5 +1,4 @@
-| formulario
-| ABM
+| formscr.txt
 | PHREDA 2010
 |----------------------
 ^r4/lib/btn.txt
@@ -33,7 +32,6 @@
 #campos> 'campos
 #camaux )( 8192
 #camaux> 'camaux
-
 #memedit )( 8192
 #memedit> 'memedit
 
@@ -115,12 +113,31 @@
 	over pick3 pick2 + line
 	line 2drop ;
 
+|--------- modo de ventana
+|---- caja
+:cursorcrea | --
+	[ xymouse xyr 'ycc ! 'xcc ! 0 dup 'hcc ! 'wcc ! ; ]
+	[ xymouse xyr ycc - 'hcc ! xcc - 'wcc ! ; ]
+	|[ +box 0 dup 2dup 'bx1 !+ !+ !+ ! ; ]
+	0 guiMap
+	cminiflecha ;
+
+|---- edit
+:cursoredit | --
+|	[ cursor* xymouse xyr searchcmp 0? ( *cursor ) 'campocursor !  ; ] onDn
+|	campocursor 1? ( campodraw ) drop
+	cminimano ;
+
+#modoc 'cursorcrea
+
+:modocursor | edit crea -- modo
+	modoc 'cursorcrea =? ( drop nip )( 2drop ) ;
+
 |------------ dibujo campos
 :c0 | box
 	drop azul
 	wcc hcc xcc ycc boxx ;
 :c1 | label
-|	dup memmap
 	xcc ycc rxy 'ccy ! 'ccx !
 	dup 4 >> $fff and ink12
 	16 >> 'camaux +
@@ -133,6 +150,7 @@
 	xcc ycc rxy 'ccy ! 'ccx !
 	dup 16 >> 'memedit +
 	swap 4 >> $fff and
+
 	getline
 	;
 :c2.foco
@@ -185,10 +203,7 @@
 :cursorlim
 |... form
 	xcc -? ( 0 'xcc ! ) drop
-|	bmp.ancho wcc - swap <? ( 'xcc ! )( drop )
 	ycc -? ( 0 'ycc ! ) drop
-|	bmp.alto hcc - swap <? ( 'ycc ! )( drop )
-
 |.... ventana
 	xcc xi <? ( dup 'xi ! )
 	xi wi + swap wcc + <? ( xcc wcc + swap - 'xi +! )( drop )
@@ -208,23 +223,6 @@
 	wcc hcc xcc ycc boxx
 	;
 
-|---- cursor de caja
-:cursorcaja | --
-	[ xymouse xyr 'ycc ! 'xcc ! 0 dup 'hcc ! 'wcc ! ; ]
-	[ xymouse xyr ycc - 'hcc ! xcc - 'wcc ! ; ]
-	|[ +box 0 dup 2dup 'bx1 !+ !+ !+ ! ; ]
-	0
-	guiMap
-
-	cflecha ;
-
-|---- cursor de seleccion
-:cursorselec | --
-|	[ cursor* xymouse xyr searchcmp 0? ( *cursor ) 'campocursor !  ; ] onDn
-	campocursor 1? ( campodraw ) drop
-	cmano ;
-
-#modoc
 |-----------------------------------------------
 :main
 	32 'sy !
@@ -232,7 +230,6 @@
 	sw dup 2 >> - 'wi !
 
 	usogui
-	'cursorcaja 'modoc !
 	show clrscr
 		ventana
 
@@ -251,22 +248,26 @@
 		sp 'exit "f4-List" btnt
 		sp 'exit "f5-Radio" btnt
 		rojo
-		sp 'exit "f10-Reset" btnt
+		sp 'resetcampo dup <f10> "f10-Reset" btnt
 
 		blanco
 		yi xi "  %d,%d | " print
 		hcc abs wcc abs ycc xcc " %d,%d (%d-%d) " print
+		"Edit" "Create" modocursor print
 
-		modoc 'cursorcaja =? ( "Create" )( "Edit" ) nip print
 		32 26 gc.vbetween
-		sw 2 >> gc.right $f gc.hfill
+		sw 2 >> gc.right
+		|$f gc.hfill
+		gris gc.fbox
 		blanco fonti home
 		campocursor "%d" print cr
 		"Fuente:" print cr
 		"Color:" print cr
 		"Evento:" print cr
+
 		scr
 		modoc exec
+
 	'exit >esc<
 	[ 0 -1 cursormov ; ] <up>
 	[ 0 1 cursormov ; ] <dn>
@@ -278,14 +279,10 @@
 	[ "Uno|dos|tres" +str 16 << 3 or addcampo ; ] <f4> | List
 	[ "Uno|dos|tres" +str 16 << 4 or addcampo ; ] <f5> | Radio
 
-	[ delcampo ; ] <del>
-	[ 1 'ctrl ! ; ] <ctrl>
-	[ 0 'ctrl ! ; ] >ctrl<
+		[ delcampo ; ] <del>
+		[ 1 'ctrl ! ; ] <ctrl> [ 0 'ctrl ! ; ] >ctrl<
 
-	'resetcampo <f10>
-
-	[ modoc 'cursorcaja =? ( 'cursorselec )( 'cursorcaja ) nip 'modoc ! ; ] <enter>
- 
+		[ 'cursorcrea 'cursoredit modocursor 'modoc ! ; ] <enter>
 		;
 
 

@@ -1,0 +1,201 @@
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+|---  Edita linea
+#cmax
+#padi>	| inicio
+#pad>	| cursor
+#padf>	| fin
+
+|-------  Edita linea
+:lins  | c --
+	padf> padi> - cmax >=? ( 2drop ; ) drop
+	pad> dup 1- padf> over - 1+ cmove> 1 'padf> +!
+:lover | c --
+	pad> c!+ dup 'pad> !
+	padf> >? (
+		dup padi> - cmax >=? ( swap 1- swap -1 'pad> +! ) drop
+		dup 'padf> ! ) drop
+:0lin | --
+	0 padf> c! ;
+:kdel
+	pad> padf> >=? ( drop ; ) drop
+	1 'pad> +!
+:kback
+	pad> padi> <=? ( drop ; )
+	dup 1- swap padf> over - 1+ cmove -1 'padf> +! -1 'pad> +! ;
+:kder
+	pad> padf> <? ( 1+ )  'pad> ! ;
+:kizq
+	 pad> padi> >? ( 1- ) 'pad> !  ;
+
+#modo 'lins
+
+
+|----- new imput rutine
+:makesizew | w --
+	ccw * dup 2/ + 'w ! ccx w 2/ + 'xc !
+	ccy cch dup 'h ! 2/ + 'yc ! ;
+
+:makesizehw | h w --
+	ccw * dup 2/ + 'w ! ccx w 2/ + 'xc !
+	cch * 'h ! ccy h 2/ + 'yc ! ;
+
+:drcursor
+	blink 1? ( drop ; ) drop
+	ink@ >r
+	modo 'lins =? ( verde )( rojo ) drop
+	printcur 1-
+	r> ink ;
+
+:iniinput | 'var max 'dr IDF -- 'var max 'dr IDF
+	pick2 'cmax !
+	pick3 dup 'padi> !
+	( c@+ 1? )( drop ) drop 1- dup
+	'pad> ! 'padf> !
+	'lins 'modo !
+	;
+
+:cursori
+	padi> ( pad> =? ( drcursor drop ; ) c@+ 1? )( gemit ) 2drop ;
+
+:proinputa | --
+	ink@ gris gc.fbox ink
+	ccx cursori 'ccx !
+	[ key toasc modo exec ; ] <visible>
+	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
+	'kback <back>	'kdel <del>
+	'kder <ri>		'kizq <le>
+	[ padi> 'pad> ! ; ] <home>
+	[ padf> 'pad> ! ; ] <end>
+	'ktab dup <tab> <enter>
+	'nextfoco <dn> 'prevfoco <up>
+	;
+
+::inputa | 'var max w --
+	gc.push
+	makesizew gc2win
+	'proinputa 'iniinput w/foco
+	'clickfoco guiBtn
+	drop
+	ccx w + >r printx
+	gc.pop r> 'ccx !
+	;
+
+:proinputt | --
+	ink@ gris gc.fbox ink
+	ccx cursori 'ccx !
+	[ key toasc modo exec ; ] <visible>
+	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
+	'kback <back>	'kdel <del>
+	'kder <ri>		'kizq <le>
+	[ padi> 'pad> ! ; ] <home>
+	[ padf> 'pad> ! ; ] <end>
+	'ktab dup <tab> <enter>
+	'nextfoco <dn> 'prevfoco <up>
+	;
+
+::inputt | 'var max w --
+	gc.push
+	makesizew gc2win
+	'proinputt 'iniinput w/foco
+	'clickfoco guiBtn
+	drop
+	ccx w + >r printx
+	gc.pop r> 'ccx !
+	;
+
+:iniinputm | 'var max 'dr IDF -- 'var max 'dr IDF
+	pick2 'cmax !
+	pick3 dup 'padi> !
+	( c@+ 1? )( drop ) drop 1- dup
+	'pad> ! 'padf> !
+	'lins 'modo !
+	;
+
+:cursorm
+	padi> ( pad> =? ( drcursor drop ; ) c@+ 1? )(
+		allowcrx gemit ) 2drop ;
+
+:proinputm | --
+	ink@ gris gc.fbox ink
+	ccy ccx cursorm 'ccx ! 'ccy !
+	[ key toasc modo exec ; ] <visible>
+	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
+	'kback <back>	'kdel <del>
+	'kder <ri>		'kizq <le>
+	[ padi> 'pad> ! ; ] <home>
+	[ padf> 'pad> ! ; ] <end>
+	'ktab <tab>
+	[ 13 modo exec ; ] <enter>
+	;
+
+::inputm	| 'var max h w --
+	gc.push
+	makesizehw gc2win
+	'proinputm 'iniinputm w/foco
+	'clickfoco guiBtn
+	drop
+	ccx w + >r text
+	gc.pop r> 'ccx !
+	;
+
+|---- LISTA
+#nowlist
+#cntlist
+
+:nextlst | 'var cnt 'list -- 'var cnt 'list
+	nowlist 1+
+	cntlist >=? ( 0 nip )	| .. now
+	pick3 pick2 pick2 lstcpy
+	'nowlist ! ;
+
+:prolist | 'var cnt 'list -- 'var cnt 'list
+	ink@ gris gc.fbox ink
+	'nextlst <spc>
+	'ktab dup <tab> <enter>
+	'nextfoco <dn> 'prevfoco <up>
+	;
+
+:inilist | 'var cnt list 'dr IDF -- 'var cnt list 'dr IDF
+	0 'nowlist !
+	pick2 lstcnt 'cntlist !
+	pick4 pick3 0 lstcpy |"xxx" swap strcpy
+	;
+
+::inputlist | 'var cnt 'list --
+	gc.push
+	over makesizew gc2win
+	'prolist 'inilist w/foco
+	'clickfoco guiBtn
+	2drop
+	ccx w + >r printx
+	gc.pop r> 'ccx !
+	;
+
+
+|---- RADIO
+#nowradi
+#cntradi
+
+:makesizel | 'list -- 'list
+	dup count makesizew ;
+
+:proradi
+	'ktab <tab>
+	'nextfoco <dn> 'prevfoco <up>
+	;
+
+:iniradi
+	;
+
+::inputradi | 'var 'list --
+	gc.push
+	makesizel gc2win
+	'proradi 'iniradi w/foco
+	'clickfoco guiBtn
+	ccx w + >r
+	[ dup "%a " print ; ] swap lstvec
+	drop
+	gc.pop r> 'ccx !
+	;
