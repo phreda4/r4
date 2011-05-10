@@ -8,35 +8,55 @@
 ^r4/lib/fonth.txt
 ^r4/lib/fontt.txt
 
+^r4/lib/leebmp.txt
+
+#docu0
+
 |--- posicion y tam ventana
 #xi 0 #yi 0
 #wi 0 #hi 0
 
-|--- RES impresora
+|--- tam impresora
 #wpr #hpr
+
+|--- tam ventana
+#wven #hven
 
 |--- miniatura
 #wm #hm | total
-#wc #hc | cursor
+#wc #hc | cursor en miniatura
 
 |-- elemento de posicion
 #ccx #ccy
 #ccw #cch
 #ncmp #nrep
-#ptr
-
 #pad )( 64
-|-- conversion
+
+|----- Conversiones
+| de real a miniatura
 :r2m | x y -- xm ym
 	swap wm wpr */
 	swap hm hpr */ ;
 
-:boxx | w h x y --
-	2dup op
-	pick3 pick2 + over line
-	pick3 pick2 + pick3 pick2 + line
-	over pick3 pick2 + line
-	line 2drop ;
+| de real a ventana
+:r2v | x y -- xv yv
+	swap wven wpr */
+	swap hven hpr */ ;
+
+| de ventana a real
+:v2r | xv yv -- x y
+	swap wpr wven */
+	swap hpr hven */ ;
+
+| de bmp a real
+:b2r | x y -- xp yp
+	swap wpr bmp.ancho */
+	swap hpr bmp.alto */ ;
+
+| de real a bmp
+:r2b | x y -- xp yp
+	swap bmp.ancho wpr */
+	swap bmp.alto hpr */ ;
 
 |-- Formulario
 | x y | w h | info
@@ -48,20 +68,21 @@
 :,campos | val --
 	campos> !+ 'campos> ! ;
 
-:+campo | tipo --
-	cch 16 << ccw or ,campos
-	ccy 16 << ccx or ,campos
+:+campo | tipo dir --
+	ccw cch v2r	16 << or ,campos
+	ccx ccy v2r 16 << or ,campos
 	nrep 16 << ncmp or ,campos
-	ptr 8 << or ,campos ;
+	8 << or ,campos ;
 
 :campos.clear
 	'campos 'campos> !
 	'camaux 'camaux> !
-	0 'ptr ! ;
+	;
 
 :campos.dellast
 	campos> 'campos =? ( drop ; ) drop
-	-16 'campos> +! ;
+	-16 'campos> +!
+	; | ** falta ajustar cmaaux
 
 :,aux | c --
 	camaux> c!+ 'camaux> ! ;
@@ -102,6 +123,36 @@
 :save.form
 	"mem/formp.frm" saveform ;
 
+
+|----- show bmp
+:showdocu1 | x y -- ; 1X
+	0 ( hi <? )(
+		pick2 pick2 pick2 + setxy
+		xi over yi + bmp.getm
+		0 ( wi <? )(
+			swap @+ px!+ | al sal anch
+			swap 1+ ) 2drop
+		1+ ) 3drop ;
+
+:showdocu2 | x y -- ; 2X
+	0 ( hi <? )(
+		pick2 pick2 pick2 + setxy
+		xi 2* over yi + 2* bmp.getm
+		0 ( wi <? )(
+			swap @+ px!+ | al sal anch
+			4+ swap 1+ ) 2drop
+		1+ ) 3drop ;
+
+:showdocu4 | x y -- ; 4X
+:showdocu8 | x y -- ; 8X
+	2drop ;
+
+#sd 0
+
+:drawbmp
+|	0 0 sd exec
+	;
+
 |---------
 :clipxy | x y -- x y
 	-? ( -1 nip )
@@ -113,7 +164,7 @@
 
 :boxxclip | w h x y --
 	2dup clipxy
-	over 4+ over 4+ atxy
+	|over 4+ over 4+ atxy
 	op
 	pick3 pick2 + over clipxy line
 	pick3 pick2 + pick3 pick2 + clipxy line
@@ -125,27 +176,13 @@
 	rojo home
 	'campos
 	( campos> <? )( >r
-		r@+ >uv
-		r@+ >uv
+		r@+ >uv r2v
+		r@+ >uv r2v
 		swap xi -
 		swap yi -
 		boxxclip
 		r@+ drop
 		r@+ drop |printx
-		r> ) drop
-	;
-
-:drawcampominiatura
-	rojo
-	'campos
-	( campos> <? )( >r
-		r@+ >uv r2m
-		r@+ >uv r2m
-		swap wi +
-		swap
-		boxx
-		r@+ drop
-		r@+ drop
 		r> ) drop
 	;
 
@@ -170,24 +207,14 @@
 	hpr hi - swap <? ( 'yi ! )( drop )
 	;
 
-
-|-----------------------------------------------
-:miniatura
-	verde
-	wm hm wi 0 boxx
-	wc hc xi yi r2m swap wi + swap boxx
-	blink 1? ( blanco )( azul ) drop
-	ccw cch r2m ccx ccy r2m swap wi + swap boxx
-	drawcampominiatura
-	;
-
-:ventana
-	blink 1? ( negro )( azul ) drop
-	ccw cch ccx xi - ccy yi - boxx
-	drawcampos
-	;
-
 |------------- en impresora
+
+|    case DOCMOVE: // x y --
+|    case DOCLINE: // x y --
+|    case DOCTEXT: // "tt" --
+|    case DOCSIZE: // "tt" -- w h
+|    case DOCFONT: // size angle "font" --
+
 :boxprint | w h x y --
 	2dup docat
 	pick3 pick2 + over docline
@@ -201,9 +228,6 @@
 |	14 0
 	"Arial" docfont
 	doctext ;
-
-:campoprint
-
 
 :t0
 :t1
@@ -246,16 +270,82 @@
 		'exit >esc<
 		;
 
-:addline	0 +campo ;
-:addbox     1 +campo ;
+:addline
+	0 +campo ;
+:addbox
+	1 +campo ;
 :addlabel
-	getpad
-	'pad +str 'ptr !
-	2 +campo ;
+	2 "label1" +str +campo ;
 :addcampo
-	getpad
-	'pad +str 'ptr !
-	3 +campo ;
+	3 "campo1" +str +campo ; | 'pad
+
+|----- zoom
+:partemin
+	wi wm wven */ 'wc ! hi hm hven */ 'hc !			| miniatura de pantalla
+	;
+
+:zoom1
+	'showdocu1 'sd !
+	wpr 'wven !
+	hpr 'hven !
+	partemin ;
+:zoom2
+	'showdocu2 'sd !
+	wpr 2/ 'wven !
+	hpr 2/ 'hven !
+	partemin ;
+:zoom4
+	'showdocu4 'sd !
+	wpr 2 >> 'wven !
+	hpr 2 >> 'hven !
+	partemin ;
+:zoom8
+	'showdocu8 'sd !
+	wpr 3 >> 'wven !
+	hpr 3 >> 'hven !
+	partemin ;
+
+|----- miniatura
+:boxx | w h x y --
+	2dup op
+	pick3 pick2 + over line
+	pick3 pick2 + pick3 pick2 + line
+	over pick3 pick2 + line
+	line 2drop ;
+
+:drawcampominiatura
+	rojo
+	'campos
+	( campos> <? )( >r
+		r@+ >uv r2m
+		r@+ >uv r2m
+		swap wi +
+		swap
+		boxx
+		r@+ drop
+		r@+ drop
+		r> ) drop
+	;
+
+:miniatura
+	verde
+	wm hm wi 0 boxx
+	wc hc xi yi r2m swap wi + swap boxx
+	blink 1? ( blanco )( azul ) drop
+	ccw cch r2m ccx ccy r2m swap wi + swap boxx
+	drawcampominiatura
+	;
+
+
+|----- CURSOR
+:ondn
+	xymouse
+	wm <? ( | cursor
+		; )
+	| pantalla
+	;
+:onmove
+	;
 
 |--------------
 |  EDITANDO
@@ -264,8 +354,13 @@
 	usogui
 	show clrscr
 
-		ventana
-        miniatura
+|	0 0 showdocu
+		drawbmp
+		blink 1? ( negro )( azul ) drop
+		ccw cch ccx xi - ccy yi - boxx
+
+		drawcampos
+		miniatura
 
 		azul fonti home
 		dup "(%d)" print cr
@@ -277,12 +372,10 @@
 		ccx ccy "ccx:%d ccy:%d " print cr
 		ccw cch "cch:%d cch:%d " print cr
 		ncmp nrep "nrep:%d ncmp:%d " print cr
-|		ptr 1? ( dup printx ) drop
 
 		scr
-		[ xymouse yi + 'ccy ! xi + 'ccx ! 0 dup 'cch ! 'ccw ! ; ] |onDn
-		[ xymouse yi + ccy - 'cch ! xi + ccx - 'ccw ! ; ] |onMove
-	|	[ +box 0 dup 2dup 'bx1 !+ !+ !+ ! ; ] onClick
+		[ xymouse yi + 'ccy ! xi + 'ccx ! 0 dup 'cch ! 'ccw ! ; ]	|onDn
+		[ xymouse yi + ccy - 'cch ! xi + ccx - 'ccw ! ; ] 			|onMove
 		0 guiMap
 
 		48 gc.botton $00000f gc.hfill
@@ -299,8 +392,13 @@
 		sp 'save.form dup <f6> "f6-Save" btnt
 		sp 'imprimir dup <f7> "f7-Print" btnt
 		rojo
-       sp 'campos.clear dup <f9> "f9-Clear" btnt
-       sp 'campos.dellast dup <del> "Last" btnt cr cr2
+		sp 'campos.clear dup <f9> "f9-Clear" btnt
+		sp 'campos.dellast dup <del> "DEL-Last" btnt cr cr2
+		cyan
+		sp 'zoom1 "ZoomX1" btnt
+		sp 'zoom2 "ZoomX2" btnt
+		sp 'zoom4 "ZoomX4" btnt
+		sp 'zoom8 "ZoomX8" btnt
 
 		cminiflecha
 		keypad
@@ -310,16 +408,32 @@
 		[ 8 0 cursormov ; ] <ri>
 		;
 
+:initbmp
+	campos.clear
+
+	"db/dbgestoria/form01-a.bmp" bmp.load 'docu0 !
+
+	docres 'hpr ! 'wpr !							| res. impresora
+	sw 2/ dup 2/ + 'wi ! sh 32 - 'hi !  			| res. pantalla (px)
+
+	sw wi - dup 'wm ! bmp.alto bmp.ancho */ 'hm !	| res. miniatura
+	wi wm bmp.ancho */ 'wc ! hi hm bmp.alto */ 'hc ! | segun bmp
+
+	0 'ccx ! 0 'ccy ! 200 'ccw ! 25 'cch ! 		| cursor
+	;
 
 :init
 	campos.clear
 
-	docres 'hpr ! 'wpr !							| res. impresora
-	sw 2/ dup 2/ + 'wi ! sh 32 - 'hi !  			| res. pantalla (px)
-	sw wi - dup 'wm ! hpr wpr */ 'hm !				| res. ventana (px)
-	wi wm wpr */ 'wc ! hi hm hpr */ 'hc !			| segun impresora
+	docres 'hpr ! 'wpr !							| tam. impresora
+	sw 2/ dup 2/ + 'wi ! sh 32 - 'hi !  			| tam. pantalla (px)
+	sw wi - dup 'wm ! hpr wpr */ 'hm !				| tam. miniatura
+
+	zoom1
 
 	0 'ccx ! 0 'ccy ! 200 'ccw ! 25 'cch ! 		| cursor
+
+	"db/dbgestoria/form01-a.bmp" bmp.load 'docu0 !
 	;
 
 : mark init main ;
