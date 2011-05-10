@@ -7,20 +7,21 @@
 
 ^r4/lib/trace.txt
 
-|----------- Formulario
+|----- Formulario
 #formnow 0		| formulario actual/mem asignada
 
 #campo	)( 1024	| titulo
 #memed	)( 1024	| memoria para editar
 #info1	)( 1024 | tipo y largo
-#info2	)( 1024 | parametro opcional
+#info2	)( 1024 | parametro
+#flags	)( 1024 | flags
 #campo> 'campo
 
 #grupos )( 1024	| ini-fin
 #grupon )( 1024 | nombre
 #grupos> 'grupos
 
-|---- layout
+|----- layout
 #wform			| ancho formulario px
 #hform			| alto formulario px
 #xf #yf			| posicion actual
@@ -33,6 +34,7 @@
 #lineaIni 0 | linea de inicio actual
 #lineaCnt 0 | cantidad de lineas visibles
 
+|-----
 ::form.empty | -- ; libera memoria
 	0 'formnow ! empty ;
 
@@ -90,17 +92,32 @@
 |--------
 :alfa	dup getM over getN dup inputa ;
 :text   dup getM over getN dup inputt ;
-:fech   dup getM over getN dup inputa ;
+:fech   dup getM 10 10 inputa
+		ink@ >r verde [ date "%d/%d/%d" mprint over getM strcpy ; ] " Hoy " link r> ink ;
 :memo	dup getM over getN 2 20 inputm ;
 :prec   dup getM over getN dup inputa ;
 :nume   dup getM over getN dup inputa ;
 :radi 	dup getM over getP inputradi ;
 :list	dup getM over getN pick2 getP inputlist ;
-:comb
+:comb	dup getM over getN pick2 getP inputlist ;
 :gril
 :exte	;
 
 #tlinedit 'alfa 'text 'fech 'memo 'prec 'nume 'radi 'list 'comb 'gril 'exte
+
+:galfa	dup getM over getN printa ;
+:gtext   dup getM over getN printa ;
+:gfech   dup getM printa ;
+:gmemo	dup getM over getN 2 20 printm ;
+:gprec   dup getM over getN printa ;
+:gnume   dup getM over getN printa ;
+:gradi 	dup getM over getP inputradi ;
+:glist	dup getM over getN pick2 getP inputlist ;
+:gcomb	dup getM over getN pick2 getP inputlist ;
+:ggril
+:gexte	;
+
+#glinedit 'galfa 'gtext 'gfech 'gmemo 'gprec 'gnume 'gradi 'glist 'gcomb 'ggril 'gexte
 
 :campoedit | 'campo -- 'campo
 	dup getT 2 << 'tlinedit + @ exec ;
@@ -199,25 +216,26 @@
 :endgrup
 	popa dup @ campo> 'campo - 16 << or swap ! ;
 
-:inipest
+:initabla
 	dup grupos> 1024 + !
 	campo> 'campo -
 	grupos> dup pusha
 	!+ 'grupos> ! ;
-:endpest
+:endtabla
 	popa dup @ campo> 'campo - 16 << or swap ! ;
 
 :linemem | adr car -- adr
 	$5b	=? ( drop inigrup ; ) | [
 	$5d	=? ( drop endgrup ; ) | ]
-	$28 =? ( drop inipest ; ) | (
-	$29 =? ( drop endpest ; ) | )
+	$28 =? ( drop initabla ; ) | (
+	$29 =? ( drop endtabla ; ) | )
 	drop
 	dup 1- campo> !+ 'campo> !
 	0 here dup campo> 1020 + ! c!	| memoria en here
 	>>s dup parseTN dup 1+ 'here +!
-	8 << or campo> 2044 + !	| tipo(8bits) y cantidad(24bits) y ..
+	8 << or campo> 2044 + !	| tipo(8bits),p1(12bits), p2(12bits)
 	>>s dup campo> 3068 + !	| parametros
+	0 campo> 4092 + !		| flags
 	;
 
 |---- layout
@@ -270,3 +288,4 @@
 ::form.fromdb | -- ;
 
 	;
+
