@@ -26,6 +26,7 @@
 
 |--- tam ventana
 #wven #hven
+#ww 0 #hw 0	| ventana por pantalla
 
 |--- miniatura
 #wm #hm | total
@@ -34,13 +35,17 @@
 |--- elemento de posicion
 #ccx #ccy
 #ccw #cch
+| fuente de letra, tamaño (orientacion?)
 #ncmp #nrep
 #pad
 
 |--- campos  x y | w h
 #cell )( 8192
 #cell> 'cell
-|--- a str
+|--- info | tipo+3param
+#info )( 8192
+#info> 'info
+|--- a str | string..
 #index )( 8192
 #index> 'index
 
@@ -69,6 +74,11 @@
 	swap wpr bmp.ancho */ swap hpr bmp.alto */ ;
 :r2b | x y -- xp yp ; de real a bmp
 	swap bmp.ancho wpr */ swap bmp.alto hpr */ ;
+
+:b2v | x y -- xp yp ; de bmp a real
+	swap wven bmp.ancho */ swap hven bmp.alto */ ;
+:v2b | x y -- xp yp ; de real a bmp
+	swap bmp.ancho wven */ swap bmp.alto hven */ ;
 
 |-- Formulario
 :,cell | v1 v2 --
@@ -112,18 +122,41 @@
 	rot + >r + r> 16 << or
 	r> ! ;
 
+|--- Tipo de campos
+| Alfanumerico
+| Texto Normalizado
+| Fecha	(dia)
+| Memo	(ancho,alto)
+| Precio (digitos,decimal)
+| Numero (digitos)
+| Radio (lista)
+| Lista	(lista)
+| Combo (lista o texto)
+| Grilla (tabla)
+| eXtendido
+| Etiqueta
+#tcampos "ATFMPNRLCGXE"
+
+:nrocampo | car -- nro/-1
+    'tcampos ( c@+ 1? )( | car tt c
+		pick2 =? ( drop 1- 'tcampos - nip ; )
+		drop ) 3drop
+	-1 ;
+
 |----- load txt sin cell
 :escape
 	over index> !+ 'index> !
+	over c@ nrocampo $f and
+	info> !+ 'info> !
 	+campo
-	20 'ccy +!
+	cch 2 + 'ccy +!
 	;
 
 :loadtxt
 	dom swap load 0 swap !+ '$dom !
 	cell.clear
 	dom ( c@+ 1? )(
-		$23 =? ( escape )
+		$7e =? ( escape )
 		drop )
 	2drop ;
 
@@ -131,7 +164,7 @@
 :makeindex
 	'index 'index> !
 	dom ( c@+ 1? )(
-		$23 =? ( over index> !+ 'index> ! )
+		$7e =? ( over index> !+ 'index> ! )
 		drop )
 	2drop ;
 
@@ -143,6 +176,10 @@
 	( 1? )( 1- >r
 		swap @+ rot !+
 		r> ) drop 'cell> !
+	@+ 'info swap
+	( 1? )( 1- >r
+		swap @+ rot !+
+		r> ) drop 'info> !
 	dom ( swap c@+ 1? )( rot c!+ ) rot c!+ '$dom !
 	drop
 	makeindex
@@ -152,6 +189,8 @@
 	mark
 	'cell cell> over - 2 >> ,
 	( cell> <? )( @+ , ) drop
+	'info info> over - 2 >> ,
+	( info> <? )( @+ , ) drop
 	dom ( c@+ 1? )( ,c ) ,c drop
 	savemem
 	empty ;
@@ -186,53 +225,13 @@
 		1- ) 2drop ;
 
 |---------
-:clipxy | x y -- x y
-	-? ( -1 nip )
-	hi >? ( hi nip )
-	swap
-	-? ( -1 nip )
-	wi >? ( wi nip )
-	swap ;
-
-:boxxclip | w h x y --
-	2dup clipxy
-	over 4+ over 4+ atxy
-	op
-	pick3 pick2 + over clipxy line
-	pick3 pick2 + pick3 pick2 + clipxy line
-	over pick3 pick2 + clipxy line
-	clipxy line 2drop ;
-
-|----------------------
-:clip? | x y -- x y -1/0
-	-? ( -1 ; ) hi >? ( -1 ; )
-	swap -? ( swap -1 ; ) wi >? ( swap -1 ; ) swap
-	0
-	;
-
-:tipo1 |
-	2dup clip? -? ( 4drop drop ; ) drop
-|*****
-	;
-:tipo2
-|*****
-	;
-:linecl	| x y x y --
-	2over clip? -? ( tipo1 ; ) drop
-	2dup clip? -? ( tipo2 ; ) drop
-	op line ;
-
-:drawcell
-	rojo home
-	'cell
-	( cell> <? )( >r
-		r@+ >uv r2v
-		r@+ >uv r2v
-		swap xi -
-		swap yi -
-		boxxclip
-		r> ) drop
-	;
+:boxx | w h x y --
+	2dup atxy
+	2dup op
+	pick3 pick2 + over line
+	pick3 pick2 + pick3 pick2 + line
+	over pick3 pick2 + line
+	line 2drop ;
 
 |---- tipo de cell
 #bx #by
@@ -240,8 +239,9 @@
 
 :tlabel | adr --
 	bh 0? ( drop ; ) fonthex
-	( c@+ 1? )( $23 =? ( 2drop ; )
-		emit ) 2drop ;
+	"%a" print ;
+|	( c@+ 1? )( $7e =? ( 2drop ; ) 	emit ) 2drop ;
+
 :tfield
 
 	;
@@ -253,28 +253,64 @@
 	2drop
 	;
 
-:drawcell | --
-	cyan
+:drawbox | nro --
+	3 << 'cell + >r
+	r@+ >uv r2v 2dup 'bh ! 'bw !
+	r@+ >uv r2v
+	swap xi -
+	swap yi - 2dup 'bx ! 'by !
+	boxx ;
+
+:s0
+:s1
+:s2
+:s3
+:s4
+:s5
+:s6
+:s7
+:s8
+:s9
+:sa
+:sb
+:sc
+:sd
+:se
+:sf
+	drop CYAN
+	over drawbox
+	bh 0? ( drop ; ) fonthex
+	over 2 << 'index + @ 0? ( drop ; ) "%a" print ;
+
+#tcells s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 sa sb sc sd se sf
+
+:cadacell | nro 'info info -- nro 'info
+	dup $f and 2 << 'tcells + @ exec ;
+
+:drawcellscr | --
+	0 'info
+	( info> <? )(
+		@+ cadacell
+		swap 1+ swap ) 2drop ;
+
 	'index 'cell
 	( cell> <? )( >r
 		r@+ >uv r2v 2dup 'bh ! 'bw !
 		r@+ >uv r2v
 		swap xi -
 		swap yi - 2dup 'bx ! 'by !
-		boxxclip
+		boxx
 		@+ felemento
 		r> ) 2drop
 	;
 
-
+|---- info de cel
 :draw1cell | nro --
 	cntcells >=? ( drop ; )
-	dup 2 << 'index + @
-	30 ( 1? )( 1- swap c@+ emit swap ) 2drop
-|	tlabel 
-	cr
-	3 << 'cell + @+ >uv "%d %d " print
-	@ >uv "%d %d " print cr
+	dup 3 << 'cell + >r
+	r@+ >uv r> @ >uv "[%d %d - %d %d]" print cr
+	dup 2 << 'info + @ "%h" print cr
+	2 << 'index + @ "%a" print cr
 	;
 
 |----------- mover cursor y cambiar limites
@@ -286,20 +322,15 @@
 	wpr ccw - swap <? ( 'ccx ! )( drop )
 	ccy -? ( 0 'ccy ! )
 	hpr cch - swap <? ( 'ccy ! )( drop )
+	;
 
-	ccx xi <? ( dup 'xi ! )
-	xi wi + swap ccw + <? ( ccx ccw + swap - 'xi +! )( drop )
-	ccy yi <? ( dup 'yi ! )
-	yi hi + swap cch + <? ( ccy cch + swap - 'yi +! )( drop )
-
-	xi -? ( 0 'xi ! )
-	wpr wi - swap <? ( 'xi ! )( drop )
-	yi -? ( 0 'yi ! )
-	hpr hi - swap <? ( 'yi ! )( drop )
+:ven.move | dx dy --
+	'yi +! 'xi +!
+	xi -? ( 0 'xi ! ) ww + wpr >? ( wpr ww - 'xi ! ) drop
+	yi -? ( 0 'yi ! ) hw + hpr >? ( hpr hw - 'yi ! ) drop
 
 	xi yi r2b 16 << 'ya1 ! 16 << 'xa1 !
 	;
-
 |------------- en impresora
 |    case DOCMOVE: // x y --
 |    case DOCLINE: // x y --
@@ -376,8 +407,11 @@
 :partemin
 	wi wm wven */ 'wc !
 	hi hm hven */ 'hc !			| miniatura de pantalla
+
+	wi hi v2r 'hw ! 'ww !		| ancho de ventana
+
 	|---- ajustes de bmp
-	wi hi v2r r2b | de ventana a real y luego a bmp
+	wi hi v2b  | de ventana a real y luego a bmp
 	hi 16 <</ 'ys !
 	wi 16 <</ 'xs !
 	;
@@ -394,12 +428,6 @@
 	wi 'wven ! hi hpr wpr */ 'hven ! partemin ;
 
 |----- miniatura
-:boxx | w h x y --
-	2dup op
-	pick3 pick2 + over line
-	pick3 pick2 + pick3 pick2 + line
-	over pick3 pick2 + line
-	line 2drop ;
 
 :drawcampominiatura
 	rojo
@@ -420,23 +448,41 @@
 	drawcampominiatura
 	;
 
-|----- Cursor Elije
+|----- CURSOR mueve ventana
 #dx #dy
 
-:ondne
-	xymouse cell.search
-	-? ( drop $80000000 'dx ! ; )
-	'cursor !
-	xymouse 'dy ! 'dx !
+#vecmove 0 |
+
+:onmovev	| mueve ventana
+	xymouse
+	over dx - over dy -
+	m2r
+	ven.move
+	'dy ! 'dx !
 	;
 
 :onmovee
-	dx $80000000 =? ( drop ; ) neg
-	dy neg
-	xymouse 2dup 'dy ! 'dx !
-	rot + >r + r>
+	xymouse
+	over dx - over dy -
 	cursor cell.move
+	'dy ! 'dx !
 	;
+
+:ondnv
+	'onmovev 'vecmove !
+	'dy ! 'dx !
+	;
+
+|----- CURSOR Elije y mueve
+:ondne
+	xymouse
+	over wi >? ( drop ondnv ; ) drop
+	cell.search -? ( drop 0 'vecmove ! ; )
+	'cursor !
+	xymouse 'dy ! 'dx !
+	'onmovee 'vecmove !
+	;
+
 |----- CURSOR dibuja
 :dven yi + 'ccy ! xi + 'ccx ! 0 dup 'cch ! 'ccw ! ;
 :mven yi + ccy - 'cch ! xi + ccx - 'ccw ! ;
@@ -471,13 +517,13 @@
 		ccw cch v2m ccx ccy v2m swap wi + swap boxx
 	|-----
 
-		drawcell
+		drawcellscr
 		fonti
 		miniatura
 
 		scr
 |		'onDn 'onMove guiDnMove
-		'onDne 'onMovee guiDnMove
+		'onDne vecmove guiDnMove
 
 		48 gc.botton $00000f gc.hfill
 		font-vard-8-bold home cr2
@@ -546,6 +592,7 @@
 	zoom1
 
 	0 'ccx ! 0 'ccy ! 200 'ccw ! 25 'cch ! 		| cursor
+
 |	"db/dbgestoria/form01-a.bmp" bmp.load 'bmpfondo !
 
 	here dup 'dom ! '$dom !
