@@ -1,11 +1,15 @@
 | formprint.txt
 | PHREDA 2011
 |-----------------------
-
-| res1: 4950x7000 ( a4? )
+| res1:		4950x7000 	1.41..
+| scan		21.6 29.7	1.375
+| 600dpi:	5076x7019	1.382
+|
 |
 ^r4/lib/btn.txt
 ^r4/lib/input.txt
+
+^r4/lib/dlgfile.txt
 
 ^r4/lib/fonth.txt
 ^r4/lib/fontt.txt
@@ -13,9 +17,14 @@
 ^r4/lib/leebmp.txt
 ^r4/lib/trace.txt
 
+#factual )( 64
+
 #dom
 #$dom
 #bmpfondo
+|--- escala de bmp
+#xa #xa1 #xs
+#ya #ya1 #ys
 
 |--- posicion y tam ventana
 #xi 0 #yi 0
@@ -52,7 +61,8 @@
 |--- cursor de elemento
 #cursor 0
 
-:cntcells index> 'index - 2 >> ;
+:cntcells 
+	cell> 'cell - 3 >> ;
 
 |----- Conversiones
 :r2m | x y -- xm ym	; de real a miniatura
@@ -80,14 +90,35 @@
 :v2b | x y -- xp yp ; de real a bmp
 	swap bmp.ancho wven */ swap bmp.alto hven */ ;
 
-|-- Formulario
-:,cell | v1 v2 --
-	cell> !+ !+ 'cell> ! ;
+|----- zoom
+:partemin
+	wi wm wven */ 'wc !
+	hi hm hven */ 'hc !			| miniatura de pantalla
 
-:+campo | --
+	wi hi v2r 'hw ! 'ww !		| ancho de ventana
+
+	|---- ajustes de bmp
+	wi hi v2b  | de ventana a real y luego a bmp
+	hi 16 <</ 'ys !
+	wi 16 <</ 'xs !
+	;
+
+:zoom1
+	wpr 'wven ! hpr 'hven ! partemin ;
+:zoom2
+	wpr 2/ 'wven ! hpr 2/ 'hven ! partemin ;
+:zoom4
+	wpr 2 >> 'wven ! hpr 2 >> 'hven ! partemin ;
+:zoom8
+	wpr 3 >> 'wven ! hpr 3 >> 'hven ! partemin ;
+:zoomf
+	wi 'wven ! hi hpr wpr */ 'hven ! partemin ;
+
+|-- Formulario
+:+cell | --
 	ccx ccy v2r 16 << or
 	ccw cch v2r	16 << or
-	,cell ;
+	cell> !+ !+ 'cell> ! ;
 
 :cell.clear
 	'cell 'cell> ! ;
@@ -97,7 +128,10 @@
 	-8 'cell> +! ;
 
 :cell.in | dir -- dir nro/-1
-	dup 4+ @ >uv r2v | x y dir x0 y0
+	dup 4+ @ >uv
+	swap xi - swap yi -
+
+	r2v | x y dir x0 y0
 	pick3 >? ( 2drop -1 ; )
 	swap pick4 >? ( 2drop -1 ; ) | x y dir y0 x0
 	pick2 @ >uv r2v | y0 x0 w0 h0
@@ -148,7 +182,7 @@
 	over index> !+ 'index> !
 	over c@ nrocampo $f and
 	info> !+ 'info> !
-	+campo
+	+cell
 	cch 2 + 'ccy +!
 	;
 
@@ -195,21 +229,28 @@
 	savemem
 	empty ;
 
+
 :load.form
-	"mem/formp.frm" loadform ;
+	'factual dlgfile
+	'factual "db/dbGestoria/forms/%s" mprint bmp.load 'bmpfondo !
+	'factual "db/dbGestoria/forms/%s.frm" mprint loadform
+
+    zoomf ;
+
+
 :save.form
-	"mem/formp.frm" saveform ;
+	'factual "db/dbGestoria/forms/%s.frm" mprint saveform
+	;
 
 
 |----- show bmp
-#xa #xa1 #xs
-#ya #ya1 #ys
 
 :framegetpixel | -- col
 	xa 16 >> ya 16 >> bmp.get ;
 
 :drawbmp
 	bmpfondo 0? ( drop ; ) drop
+
 	0 0 setxy
 	xa1 'xa !
 	ya1 'ya !
@@ -224,6 +265,45 @@
 		xa1 'xa !
 		1- ) 2drop ;
 
+:drawbmpfast
+	bmpfondo 0? ( drop ; ) drop
+	0 0 setxy
+	ya1 'ya !
+	sw wi -
+	hi ( 1? )(
+		xa1 'xa !
+	 	0 ya 16 >> bmp.getm
+		wi ( 1? )(
+			over xa 16 >> 2 << + @ px!+
+		xs 'xa +!
+		1- ) 2drop
+	  over px+!
+	  ys 'ya +!
+  1- ) 2drop ;
+
+|----- show bmp
+:drawbmp1 | -- ; 1X
+	bmpfondo 0? ( drop ; ) drop
+	0 0
+	0 ( hi <? )(
+		pick2 pick2 pick2 + setxy
+		xi over yi + bmp.getm
+		0 ( wi <? )(
+			swap @+ px!+ | al sal anch
+			swap 1+ ) 2drop
+		1+ ) 3drop ;
+
+:drawbmp2 | x y -- ; 2X
+	bmpfondo 0? ( drop ; ) drop
+	0 0
+	0 ( hi <? )(
+		pick2 pick2 pick2 + setxy
+		xi 2* over yi + 2* bmp.getm
+		0 ( wi <? )(
+			swap @+ px!+ | al sal anch
+			4+ swap 1+ ) 2drop
+		1+ ) 3drop ;
+
 |---------
 :boxx | w h x y --
 	2dup atxy
@@ -234,75 +314,32 @@
 	line 2drop ;
 
 |---- tipo de cell
-#bx #by
+|#bx #by
 #bh #bw
 
-:tlabel | adr --
-	bh 0? ( drop ; ) fonthex
-	"%a" print ;
-|	( c@+ 1? )( $7e =? ( 2drop ; ) 	emit ) 2drop ;
-
-:tfield
-
-	;
-
-:felemento | adr --
-	c@+
-	$4c =? ( drop tlabel ; ) | L
-|	$4c =? ( drop tlabel ; ) |
-	2drop
-	;
-
-:drawbox | nro --
-	3 << 'cell + >r
-	r@+ >uv r2v 2dup 'bh ! 'bw !
+:drawbox | nro -- nro
+	dup 3 << 'cell + >r
 	r@+ >uv r2v
-	swap xi -
-	swap yi - 2dup 'bx ! 'by !
-	boxx ;
+	2dup 'bh ! 'bw !
+	r> @ >uv
+	swap xi - swap yi -
+	r2v
+	2dup atxy |'bx ! 'by !
+	boxx
+	bh 0? ( drop ; ) fonthex
+	dup "%d" print
+	;
 
-:s0
-:s1
-:s2
-:s3
-:s4
-:s5
-:s6
-:s7
-:s8
-:s9
-:sa
-:sb
-:sc
-:sd
-:se
 :sf
 	drop CYAN
 	over drawbox
 	bh 0? ( drop ; ) fonthex
 	over 2 << 'index + @ 0? ( drop ; ) "%a" print ;
 
-#tcells s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 sa sb sc sd se sf
-
-:cadacell | nro 'info info -- nro 'info
-	dup $f and 2 << 'tcells + @ exec ;
-
 :drawcellscr | --
-	0 'info
-	( info> <? )(
-		@+ cadacell
-		swap 1+ swap ) 2drop ;
-
-	'index 'cell
-	( cell> <? )( >r
-		r@+ >uv r2v 2dup 'bh ! 'bw !
-		r@+ >uv r2v
-		swap xi -
-		swap yi - 2dup 'bx ! 'by !
-		boxx
-		@+ felemento
-		r> ) 2drop
-	;
+	rojo
+	0 ( cntcells <? )(
+		drawbox 1+ ) drop ;
 
 |---- info de cel
 :draw1cell | nro --
@@ -395,37 +432,11 @@
 		;
 
 :addline
-	0 +campo ;
 :addbox
-	1 +campo ;
 :addlabel
-	2 +campo ;
 :addcampo
-	3 +campo ; | 'pad
+	+cell ;
 
-|----- zoom
-:partemin
-	wi wm wven */ 'wc !
-	hi hm hven */ 'hc !			| miniatura de pantalla
-
-	wi hi v2r 'hw ! 'ww !		| ancho de ventana
-
-	|---- ajustes de bmp
-	wi hi v2b  | de ventana a real y luego a bmp
-	hi 16 <</ 'ys !
-	wi 16 <</ 'xs !
-	;
-
-:zoom1
-	wpr 'wven ! hpr 'hven ! partemin ;
-:zoom2
-	wpr 2/ 'wven ! hpr 2/ 'hven ! partemin ;
-:zoom4
-	wpr 2 >> 'wven ! hpr 2 >> 'hven ! partemin ;
-:zoom8
-	wpr 3 >> 'wven ! hpr 3 >> 'hven ! partemin ;
-:zoomf
-	wi 'wven ! hi hpr wpr */ 'hven ! partemin ;
 
 |----- miniatura
 
@@ -455,30 +466,33 @@
 
 :onmovev	| mueve ventana
 	xymouse
-	over dx - over dy -
-	m2r
+	over dx - over dy - m2r
 	ven.move
-	'dy ! 'dx !
-	;
+	'dy ! 'dx ! ;
 
 :onmovee
 	xymouse
 	over dx - over dy -
 	cursor cell.move
-	'dy ! 'dx !
-	;
+	'dy ! 'dx ! ;
+
+:onmoven
+	xymouse
+	yi + ccy - 'cch ! xi + ccx - 'ccw ! ;
+
+:ondnn
+	'onmoven 'vecmove !
+	xymouse
+	yi + 'ccy ! xi + 'ccx ! 0 dup 'cch ! 'ccw ! ;
 
 :ondnv
 	'onmovev 'vecmove !
-	'dy ! 'dx !
-	;
+	'dy ! 'dx ! ;
 
-|----- CURSOR Elije y mueve
 :ondne
 	xymouse
 	over wi >? ( drop ondnv ; ) drop
-	cell.search -? ( drop 0 'vecmove ! ; )
-	'cursor !
+	cell.search -? ( drop ondnn ; ) 'cursor !
 	xymouse 'dy ! 'dx !
 	'onmovee 'vecmove !
 	;
@@ -509,23 +523,19 @@
 :main
 	usogui
 	show clrscr
-		drawbmp
-
+		drawbmpfast
+		drawcellscr
+		miniatura
 	|----- cursores
 		blink 1? ( negro )( azul ) drop
 		ccw cch ccx xi - ccy yi - boxx
 		ccw cch v2m ccx ccy v2m swap wi + swap boxx
 	|-----
-
-		drawcellscr
-		fonti
-		miniatura
-
 		scr
 |		'onDn 'onMove guiDnMove
 		'onDne vecmove guiDnMove
 
-		48 gc.botton $00000f gc.hfill
+		48 gc.botton |$00000f gc.hfill
 		font-vard-8-bold home cr2
 		rojo sp 'exit dup >esc< "esc-Exit" btnt
 		verde
@@ -573,6 +583,7 @@
 		ccw cch "cch:%d cch:%d " print cr
 		ncmp nrep "nrep:%d ncmp:%d " print cr
 
+		bmpfondo "BMP:%d" print cr
 		cminiflecha
 		keypad
 		[ 0 -8 cursormov ; ] <up>
@@ -581,19 +592,19 @@
 		[ 8 0 cursormov ; ] <ri>
 		;
 
-:init
-	cell.clear
 
+:init
+	"./db/dbgestoria/forms" dir
+
+	cell.clear
 	docres 'hpr ! 'wpr !							| tam. impresora
-	sw 2/ dup 2/ + 'wi ! sh 32 - 'hi !  			| tam. pantalla (px)
+	sw 2/ dup 2/ + 'wi ! sh 48 - 'hi !  			| tam. pantalla (px)
 	sw wi - dup 'wm ! hpr wpr */ 'hm !				| tam. miniatura
 
 	xi yi r2b 16 << 'ya1 ! 16 << 'xa1 !
-	zoom1
+	zoomf
 
-	0 'ccx ! 0 'ccy ! 200 'ccw ! 25 'cch ! 		| cursor
-
-|	"db/dbgestoria/form01-a.bmp" bmp.load 'bmpfondo !
+	0 'ccx ! 0 'ccy ! 50 'ccw ! 50 'cch ! 		| cursor
 
 	here dup 'dom ! '$dom !
 	0 dom !
