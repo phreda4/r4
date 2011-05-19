@@ -4,6 +4,7 @@
 ^r4/lib/parse.txt
 ^r4/lib/fonta.txt
 ^r4/lib/input.txt
+^r4/lib/btn.txt
 
 ^r4/lib/trace.txt
 
@@ -21,12 +22,16 @@
 #grupon )( 1024 | nombre
 #grupos> 'grupos
 
+#panels )( 1024	| ini-fin
+#paneln )( 1024 | nombre
+#panel> 'panels
+
 |----- layout
 #wform			| ancho formulario px
 #hform			| alto formulario px
 #xf #yf			| posicion actual
 
-#lineas )( 1024	| ini-fin
+#lineas )( 1024	| x y
 #lineas> 'lineas
 
 :+linea		lineas> !+ 'lineas> ! ;
@@ -88,7 +93,7 @@
 
 |----- Edita en pantalla
 :campotitle | 'campo -- 'campo
-    dup @ " %a" print ;
+    dup @ " %a:" print ;
 
 |--------
 :alfa	dup getM over getN dup inputa ;
@@ -107,11 +112,11 @@
 #tlinedit 'alfa 'text 'fech 'memo 'prec 'nume 'radi 'list 'comb 'gril 'exte
 
 :galfa	dup getM over getN printa ;
-:gtext   dup getM over getN printa ;
-:gfech   dup getM printa ;
+:gtext  dup getM over getN printa ;
+:gfech  dup getM printa ;
 :gmemo	dup getM over getN 2 20 printm ;
-:gprec   dup getM over getN printa ;
-:gnume   dup getM over getN printa ;
+:gprec  dup getM over getN printa ;
+:gnume  dup getM over getN printa ;
 :gradi 	dup getM over getP inputradi ;
 :glist	dup getM over getN pick2 getP inputlist ;
 :gcomb	dup getM over getN pick2 getP inputlist ;
@@ -124,22 +129,23 @@
 	dup getT 2 << 'tlinedit + @ exec ;
 
 |--------
-:salfa	getN ccw * cch ;
-:stext	getN ccw * cch ;
-:sfech	getN ccw * cch ;
-:smemo	getN ccw * cch ;
-:sprec	getN ccw * cch ;
-:snume	getN ccw * cch ;
-:sradi	getN ccw * cch ;
-:slist	getN ccw * cch ;
-:scomb	getN ccw * cch ;
-:sgril	getN ccw * cch ;
-:sexte	getN ccw * cch ;
+:salfa	dup getN ccw * cch ;
+:stext	dup getN ccw * cch ;
+:sfech	dup getN ccw * cch ;
+:smemo	dup getN ccw * cch ;
+:sprec	dup getN ccw * cch ;
+:snume	dup getN ccw * cch ;
+:sradi	dup getN ccw * cch ;
+:slist	dup getN ccw * cch ;
+:scomb	dup getN ccw * cch ;
+:sgril	dup getN ccw * cch ;
+:sexte	dup getN ccw * cch ;
 
 #slinedit 'salfa 'stext 'sfech 'smemo 'sprec 'snume 'sradi 'slist 'scomb 'sgril 'sexte
 
 :camposize | 'campo -- 'campo w h
-	dup getT 2 << 'slinedit + @ exec ;
+	dup getT 
+	trace 2 << 'slinedit + @ exec ;
 
 |------------ dibujo
 #xa #ya
@@ -181,6 +187,7 @@
 
 |--------- Edit
 ::form.edit | --
+	chome!
 	'campo ( campo> <? )(
 		campotitle cr
 		4+
@@ -194,6 +201,53 @@
 		) drop
 	;
 
+::form.edit | --
+	chome!
+	'campo ( campo> <? )(
+		campotitle cr
+		campoedit cr
+		allowchome
+		4+
+		) drop
+	;
+	chome
+	;
+
+::form.editg | group --
+	chome!
+	2 << 'grupos + @ | ini-fin
+	dup 16 >> swap $ffff and
+	'campo + swap 'campo + swap
+	( over <? )(
+		fonta-dejavu10
+		campotitle cr
+		fonta-dejavu10b
+		campoedit cr
+		allowchome
+		4+ |@+ "%a" print cr
+		) 2drop
+	;
+
+::form.nameg | group --
+	2 << 'grupon + @ ;
+
+::form.editp | panel --
+	chome!
+	2 << 'panels + @ | ini-fin
+	dup 16 >> swap $ffff and
+	'campo + swap 'campo + swap
+	( over <? )(
+		fonta-dejavu10
+		campotitle
+		fonta-dejavu10b
+		campoedit cr
+		allowchome
+		4+ |@+ "%a" print cr
+		) 2drop
+	;
+
+::form.namep | panel --
+	2 << 'paneln + @ ;
 
 |---- memoria
 #astack )( 512
@@ -207,29 +261,29 @@
 :memini
     'campo 'campo> !
 	'grupos 'grupos> !
+	'panels 'panel> !
 	'astack 'astack> ! ;
 
 :inigrup
 	dup grupos> 1024 + !
 	campo> 'campo -
-	grupos> dup pusha
-	!+ 'grupos> ! ;
+	grupos> dup pusha !+ 'grupos> ! ;
 :endgrup
 	popa dup @ campo> 'campo - 16 << or swap ! ;
 
-:initabla
-	dup grupos> 1024 + !
+:inipanel
+	dup panel> 1024 + !
 	campo> 'campo -
-	grupos> dup pusha
-	!+ 'grupos> ! ;
-:endtabla
+	panel> dup pusha
+	!+ 'panel> ! ;
+:endpanel
 	popa dup @ campo> 'campo - 16 << or swap ! ;
 
 :linemem | adr car -- adr
 	$5b	=? ( drop inigrup ; ) | [
 	$5d	=? ( drop endgrup ; ) | ]
-	$28 =? ( drop initabla ; ) | (
-	$29 =? ( drop endtabla ; ) | )
+	$28 =? ( drop inipanel ; ) | (
+	$29 =? ( drop endpanel ; ) | )
 	drop
 	dup 1- campo> !+ 'campo> !
 	0 here dup campo> 1020 + ! c!	| memoria en here
@@ -241,15 +295,25 @@
 
 |---- layout
 :layini
-	w 'wform ! h 'hform !
+	|w 'wform !
+	h 'hform !
 	0 'xf ! 0 'yf !
-	'lineas 'lineas> ! 	;
-
-:layadd
+	'lineas 'lineas> !
 	;
 
+:layadd
+	0 dup 'xf ! 'yf ! ;
+
 :linelay | adr car -- adr
+	$5b	=? ( drop layadd ; ) | [
+	$5d	=? ( drop ; ) | ]
+	$28 =? ( drop ; ) | (
+	$29 =? ( drop ; ) | )
 	drop
+	dup camposize	| w h
+	swap 'xf +!
+	xf wform >? ( drop dup 'yf +! 0 dup 'xf ! ) nip
+	16 << yf or lineas> !+ 'lineas> !
 	;
 
 ::form.use | adrdb --
@@ -262,6 +326,22 @@
 	( c@+ 1? )(
 		linemem >>0 ) 2drop
 	|----- LAYOUT
+	layini
+|	( c@+ 1? )( linelay >>0 ) 2drop
+	0 'lineaIni !
+	;
+
+::form.usel | ancho adrdb --
+	formnow 1? ( form.empty ) drop
+	dup 'formnow !
+	mark
+	dup
+	|----- MEMORIA
+	memini
+	( c@+ 1? )(
+		linemem >>0 ) 2drop
+	|----- LAYOUT
+	swap 'wform !
 	layini
 	( c@+ 1? )(
 		linelay >>0 ) 2drop
