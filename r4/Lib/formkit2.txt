@@ -1,0 +1,303 @@
+| FormKit2.txt
+| PHREDA 2011
+|-----------------------------
+^r4/lib/parse.txt
+^r4/lib/fonta.txt
+^r4/lib/input.txt
+^r4/lib/btn.txt
+
+^r4/lib/trace.txt
+
+|----- Formulario
+#grupos )( 1024	| ini-fin
+#grupon )( 1024 | nombre
+#grupos> 'grupos
+
+|----- layout
+#wform			| ancho formulario px
+#hform			| alto formulario px
+#xf #yf			| posicion actual
+
+#lineas )( 1024	| x y
+#lineas> 'lineas
+
+:+linea		lineas> !+ 'lineas> ! ;
+
+#lineaIni 0 | linea de inicio actual
+#lineaCnt 0 | cantidad de lineas visibles
+
+|--- Tipo de campos
+| Etiqueta (solo texto)
+| Alfanumerico
+| Texto Normalizado
+| Fecha	(dia)
+| Memo	(ancho,alto)
+| Precio (digitos,decimal)
+| Numero (digitos)
+| Radio (lista)
+| Lista	(lista)
+| Combo (lista o texto)
+| Grilla (tabla)
+| eXtendido
+#tcampos "EATFMPNRLCGX"
+
+:nrocampo | car -- nro/0
+    'tcampos ( c@+ 1? )( | car tt c
+		pick2 =? ( drop 1- 'tcampos - nip ; )
+		drop )
+	nip nip ;
+
+:parseTN | adr -- t cantidad
+	dup c@ nrocampo
+	3 =? ( nip 11 ; )
+	swap 1+ ?0int ;
+
+|------------ dibujo
+#xa #ya
+:saa
+	ccx 'xa ! ccy 'ya ! ;
+:aas
+	xa 'ccx ! ya 'ccy ! ;
+
+:linelinea | --
+	negro 2 'ccy +!
+	ccy tx2 tx1 pick2 op swap line ;
+
+:subglinea
+	linelinea fonta-DejaVu14b
+	4 'ccy +!
+	dup "%l" printc cr ;
+
+:subclinea
+	linelinea  fonta-DejaVu10b
+	4 'ccy +!
+	dup "%l" print cr ;
+
+:lineedit | index adr car -- adr'
+	$5b	=? ( drop cr subclinea ; )	| [
+	$5d	=? ( drop linelinea ; )		| ]
+	$28 =? ( drop cr subglinea ; )	| (
+	$29 =? ( drop linelinea ; )		| )
+	drop
+	saa
+	font-vard-8 negro
+	dup 1-
+	" %a" print
+	aas 15 'ccy +! 2 'ccx +!
+	>>s
+	font-vard-12 blanco
+	swap @+ pick2 ?0int dup >r getline swap
+|	swap @+ drop swap
+	aas r> ccw * 2* 'ccx +! ;
+
+
+|---- memoria
+#astack )( 512
+#astack> 'astack
+
+:pusha | val --
+	astack> !+ 'astack> ! ;
+:popa | -- val
+	astack> 4 - dup 'astack> ! @ ;
+
+:memini
+	'grupos 'grupos> !
+	'astack 'astack> ! ;
+
+:inigrup
+	dup grupos> 1024 + !
+|	campo> 'campo -
+
+	grupos> dup pusha !+ 'grupos> ! ;
+:endgrup
+	popa dup @
+	|campo> 'campo -
+	16 << or swap ! ;
+
+|---- layout
+:layini
+	|w 'wform !
+	h 'hform !
+	0 'xf ! 0 'yf !
+	'lineas 'lineas> !
+	;
+
+:layadd
+	0 dup 'xf ! 'yf ! ;
+
+:linelay | adr car -- adr
+	$5b	=? ( drop layadd ; ) | [
+	$5d	=? ( drop ; ) | ]
+	$28 =? ( drop ; ) | (
+	$29 =? ( drop ; ) | )
+	drop
+|	dup camposize	| w h
+	swap 'xf +!
+	xf wform >? ( drop dup 'yf +! 0 dup 'xf ! ) nip
+	16 << yf or lineas> !+ 'lineas> !
+	;
+
+
+|------- inserta registro
+:,sfl | "" --
+	( c@+ 1? )( 	| conversion teclado-->print
+		$25 =? ( dup ,c ) | % -> %%
+	|	$5f =? ( 32 nip ) | no
+		$7c =? ( 32 nip ) | permite
+		$7e =? ( 32 nip ) | separadores
+		,c ) 2drop ;
+
+::form.todb | --  ; here --
+	mark
+	@+ @ ,sfl
+	( @+ 1? )( $7c ,c @ ,sfl ) 2drop
+	$7e ,c | " registro """ ,s1
+	13 ,c 10 ,c 0 ,c
+	empty ;
+
+
+::fkmap | vec 'dir -- ; vec | vec nro adri -- vec nro adri
+	@ @+ swap @  | cnt memind
+	( swap 1? )( 1- swap
+		dup pick3 exec
+		16 + ) 3drop ;
+
+::fkclear | 'fk -- ; limpia memoria de registros
+	[ 12 + @ 0 swap c! ; ]
+	swap fkmap ;
+
+|--- formulario para editar
+|mem
+| cnt total
+| cnt editables
+| indice
+|--- memoria de indice
+| name tam|tipo arg1 mem
+#cntcmp
+#inimem
+#indmem
+
+:>>.. | adr -- adr'
+	( c@+ 32 <? )( 0? ( drop 1- ; ) drop ) drop 1- ;
+
+:parsecmp! | ind adr -- ind+ adr
+	swap >r
+|	dup c@+
+|	$5b	=? ( drop cr subclinea ; )	| [
+|	$5d	=? ( drop linelinea ; )		| ]
+|	$28 =? ( drop cr subglinea ; )	| (
+|	$29 =? ( drop linelinea ; )		| )
+|	drop
+	dup r!+    									| Nombre
+	dup >fld> dup 1? ( parseTN 8 << or ) r!+	| tipo(8)tamaño(24<<8)
+	1? ( >fld> ) r!+							| parametros
+|	0 r!+										| memoria
+	r> 4+ swap
+	;
+
+:calculocampos | ind mem --
+	>>..
+	parsecmp! 		| registros 1
+	( c@+ 1? )(
+		$7e =? ( drop >>.. parsecmp! )( drop )
+		) 2drop
+	dup indmem - 4 >> 1- 'cntcmp !
+	| recalc here
+	dup 'here !
+	indmem ( over <? )(
+  		here over 12 + !
+		dup 4+ @ 8 >> 1? ( |here pick2 12 + !
+				1+ 'here +! )( drop )
+		16 + ) 2drop
+|	indmem memmap
+	;
+
+::fkload | 'dir --
+	dup
+	here dup 'inimem !
+	swap !+
+	here 16 + swap load
+	0 swap !+ dup 'indmem !
+	here 16 + | iniind initab
+	calculocampos
+	inimem >r
+	cntcmp r!+
+	indmem r!+
+	0 r!+
+	0 r> !
+	fkclear ;
+
+
+::fkdump | adr --
+	"dump" print cr
+	@ @+ swap @  | cnt memind
+	( swap 1? )( 1- swap
+		@+ "%h " print
+		@+ "%h " print
+		@+ "%h " print
+		@+ "%h " print cr
+		) 2drop
+	;
+
+::fkedit | 'fk --
+	0? ( drop ; )
+	[ @+ "%a* " print drop cr ; ]
+	swap fkmap ;
+
+|----- Edita en pantalla
+:getM 12 + @ ;			| memoria
+:getN 4+ @ 8 >> ;	| cantidad
+:getO 4+ @ 8 >> ;	| cantidad
+:getP 8 + @ ;			| parametro
+
+|--------
+:etiq	;
+:alfa	dup getM over getN dup inputa ;
+:text   dup getM over getN dup inputa ;
+:fech   dup getM 10 11 inputa
+		ink@ >r verde [ date "%d/%d/%d" mprint over getM strcpy ; ] " Hoy " link r> ink ;
+:memo	dup getM over getN 2 20 inputm ;
+:prec   dup getM over getN dup inputa ;
+:nume   dup getM over getN dup inputa ;
+:radi 	dup getM over getP inputradi ;
+:list	dup getM over getN pick2 getP inputlist ;
+:comb	dup getM over getN pick2 getP inputlist ;
+:gril
+:exte	;
+
+#tlinedit 'etiq 'alfa 'text 'fech 'memo 'prec 'nume 'radi 'list 'comb 'gril 'exte
+
+:galfa	dup getM over getN printa ;
+:gtext  dup getM over getN printa ;
+:gfech  dup getM printa ;
+:gmemo	dup getM over getN 2 20 printm ;
+:gprec  dup getM over getN printa ;
+:gnume  dup getM over getN printa ;
+:gradi 	dup getM over getP inputradi ;
+:glist	dup getM over getN pick2 getP inputlist ;
+:gcomb	dup getM over getN pick2 getP inputlist ;
+:ggril
+:gexte	;
+
+#glinedit 'galfa 'gtext 'gfech 'gmemo 'gprec 'gnume 'gradi 'glist 'gcomb 'ggril 'gexte
+
+:cmpedit | 'campo --
+	4+ @ $f and 2 << 'tlinedit + @ exec ;
+
+:cmptitle | 'campo --
+    @ " %a" print ;
+
+::fkedit1 | 'fk --
+	0? ( drop ; )
+	chome!
+	[ cmptitle cr ; ] over fkmap
+	chome
+	[ cmpedit cr ; ] swap fkmap
+	;
+
+::fkedit | 'fk --
+	0? ( drop ; )
+	chome!
+	[ dup cmptitle cmpedit cr ; ] swap fkmap
+	;
+
