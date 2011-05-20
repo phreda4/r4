@@ -8,29 +8,17 @@ var SYSFRAME;
 var SYSFXB;
 var SYSKEY=0,SYSXYMOUSE=0,SYSBMOUSE=0;
 var SYSALPHA=0xff;SYSINK=0xffffff,SYSPAPER=0;
-var dpila=Array(1024),rpila=Array(1024);
+
+var dpilab=new ArrayBuffer(1024),dpila=new Int32Array(dpilab);
+var rpilab=new ArrayBuffer(1024),rpila=new Int32Array(rpilab);
+
+var progb=new ArrayBuffer(1024*128),prog=new DataView(progb);
+var memb=new ArrayBuffer(1024*1024),mem=new DataView(memb);
 
 var MEMLAST,VMEM;
-var IP,TOS,NOS,RTOS;
-var lastbyte=$98;
-var mem=[0,1,5,0,0,0,-1];// 5 redraw' 1- 1?goto 6
+var IP=0,TOS,NOS,RTOS;
+var lastbyte=0x98;
 
-window.onload=function(){
-context = document.getElementById('myCanvas').getContext('2d');
-if (!context || !context.putImageData) { return; }
-if (context.createImageData) { imgd = context.createImageData(XRES,YRES);
-  } else if (context.getImageData) { imgd = context.getImageData(0, 0,XRES,YRES);
-  } else { imgd = {'width':XRES,'height':YRES,'data':new Array(XRES*YRES*4)}; }
-
-SYSFRAME=imgd.data;SYSFXB=new Array(XRES*YRES*4);
-VMEM=0;
-TOS=NOS=RTOS=0;
-rpila[0]=56;
-IP=1;
-//syscls();
-//sysredraw();
-update();
-}
 
 document.onmouse=function(e){SYSXYMOUSE=e.x<<16|e.y;}
 document.onkeydown=function(e){SYSKEY=e;}
@@ -48,27 +36,28 @@ function sysredraw() { context.putImageData(imgd,XI,YI); }
 
 function update()
 {
-W=mem[IP++];
-switch (W&0xff) {// obtener codigo de ejecucion
+//		SYSPAPER=0xff000;syscls();sysredraw();//break;
+//alert("w="+IP);
+switch (prog.getUint8(IP++)) {// obtener codigo de ejecucion
 case 0: IP=rpila[RTOS];RTOS--;break; //FIN
-case 1: NOS++;dpila[NOS]=TOS;TOS=mem[IP]|(mem[IP+1]<<8)|(mem[IP+2]<<16)|(mem[IP+3]<<24);IP+=4;break;//LIT
-case 2: NOS++;dpila[NOS]=TOS;TOS=mem[IP]|(mem[IP+1]<<8)|(mem[IP+2]<<16)|(mem[IP+3]<<24);TOS=mem[TOS];IP+=4;break;//ADR
-case 3: RTOS++;rpila[RTOS]=IP+4;IP=mem[IP]|(mem[IP+1]<<8)|(mem[IP+2]<<16)|(mem[IP+3]<<24);break;// call
-case 4: IP=mem[IP]|(mem[IP+1]<<8)|(mem[IP+2]<<16)|(mem[IP+3]<<24);break;//JMP
-case 5: IP+=mem[IP];break;//JMPR
+case 1: NOS++;dpila[NOS]=TOS;TOS=prog.getInt32(IP);IP+=4;break;//LIT
+case 2: NOS++;dpila[NOS]=TOS;TOS=mem.getInt32(prog.getInt32(IP));IP+=4;break;//ADR
+case 3: RTOS++;rpila[RTOS]=IP+4;IP=prog.getInt32(IP);break;// call
+case 4: IP=prog.getInt32(IP);break;//JMP
+case 5: IP+=prog.getInt8(IP);break;//JMPR
 case 6: W=TOS;TOS=dpila[NOS];NOS--;if (W!=0) { RTOS++;rpila[RTOS]=IP;IP=W; };break;//EXEC
-case 7: W=mem[IP];IP++;if (TOS!=0) IP+=W; break;//IF
-case 8: W=mem[IP];IP++;if (TOS<=0) IP+=W; break;//PIF
-case 9: W=mem[IP];IP++;if (TOS>=0) IP+=W; break;//NIF
-case 10:W=mem[IP];IP++;if (TOS==0) IP+=W; break;//UIF
-case 11:W=mem[IP];IP++;if (TOS!=dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFN
-case 12:W=mem[IP];IP++;if (TOS==dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFNO
-case 13:W=mem[IP];IP++;if (TOS<=dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFL
-case 14:W=mem[IP];IP++;if (TOS>=dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFG
-case 15:W=mem[IP];IP++;if (TOS<dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFLE
-case 16:W=mem[IP];IP++;if (TOS>dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFGE
-case 17:W=mem[IP];IP++;if (!(TOS&dpila[NOS])) IP+=W;TOS=dpila[NOS];NOS--;break;//IFAND
-case 18:W=mem[IP];IP++;if (TOS&dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFNAND
+case 7: W=prog.getInt8(IP);IP++;if (TOS!=0) IP+=W; break;//IF
+case 8: W=prog.getInt8(IP);IP++;if (TOS<=0) IP+=W; break;//PIF
+case 9: W=prog.getInt8(IP);IP++;if (TOS>=0) IP+=W; break;//NIF
+case 10:W=prog.getInt8(IP);IP++;if (TOS==0) IP+=W; break;//UIF
+case 11:W=prog.getInt8(IP);IP++;if (TOS!=dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFN
+case 12:W=prog.getInt8(IP);IP++;if (TOS==dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFNO
+case 13:W=prog.getInt8(IP);IP++;if (TOS<=dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFL
+case 14:W=prog.getInt8(IP);IP++;if (TOS>=dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFG
+case 15:W=prog.getInt8(IP);IP++;if (TOS<dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFLE
+case 16:W=prog.getInt8(IP);IP++;if (TOS>dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFGE
+case 17:W=prog.getInt8(IP);IP++;if (!(TOS&dpila[NOS])) IP+=W;TOS=dpila[NOS];NOS--;break;//IFAND
+case 18:W=prog.getInt8(IP);IP++;if (TOS&dpila[NOS]) IP+=W;TOS=dpila[NOS];NOS--;break;//IFNAND
 //--- pila de datos
 case 19:NOS++;dpila[NOS]=TOS;break;//DUP
 case 20:TOS=dpila[NOS];NOS--;break;//DROP
@@ -116,9 +105,9 @@ case 61:TOS>>=1;break;//DIV2
 case 62:TOS<<=1;break;//MUL2
 case 63:TOS=dpila[NOS]<<TOS;NOS--;break;//SHL
 case 64:TOS=dpila[NOS]>>TOS;NOS--;break;//SHR
-case 65:TOS=mem[TOS]|(mem[TOS+1]<<8)|(mem[TOS+2]<<16)|(mem[TOS+3]<<24);break;//FECH
-case 66:TOS=mem[TOS];break;//CFECH
-case 67:TOS=mem[TOS]|(mem[TOS+1]<<8);break;//WFECH
+case 65:TOS=mem.getInt32(TOS);break;//FECH
+case 66:TOS=mem.getInt8(TOS);break;//CFECH
+case 67:TOS=mem.getInt16(TOS);break;//WFECH
 case 68:W=dpila[NOS];mem[TOS]=W&0xff;mem[TOS+1]=(W>>8)&0xff;mem[TOS+2]=(W>>16)&0xff;mem[TOS+3]=(W>>24)&0xff;
 		NOS--;TOS=dpila[NOS];NOS--;break;//STOR
 case 69:mem[TOS]=dpila[NOS];NOS--;TOS=dpila[NOS];NOS--;break;//CSTOR
@@ -191,18 +180,40 @@ default:
 	NOS++;dpila[NOS]=TOS;TOS=W-lastbyte;
 */
 case 255:
-		SYSPAPER=SYSPAPER^0xffff;
-		syscls();
-		sysredraw();break;
-		TOS--;if (TOS==0) return;
-		IP=6;
-		break;
-
+	SYSPAPER^=0xfff0;syscls();sysredraw();//break;
+	TOS--;if (TOS==0) return;
+	IP=5;
+	break;
 	}
 setTimeout(update,0);
 }
 
 </script></head>
-<body><p><canvas id="myCanvas" width="640" height="480">nOTcANVAS
+<body>
+<canvas id="myCanvas" width="640" height="480">nOTcANVAS
 <span style="display:block;width:50px;height:50px;background:#f77">&nbsp;</span>
-</canvas></p></body></html>
+</canvas>
+</body></html>
+<script type="text/javascript">
+context = document.getElementById('myCanvas').getContext('2d');
+if (!context || !context.putImageData) { return; }
+if (context.createImageData) { imgd = context.createImageData(XRES,YRES);
+  } else if (context.getImageData) { imgd = context.getImageData(0, 0,XRES,YRES);
+  } else { imgd = {'width':XRES,'height':YRES,'data':new Array(XRES*YRES*4)}; }
+
+SYSFRAME=imgd.data;
+SYSFXB=new Array(XRES*YRES*4);
+VMEM=0;
+TOS=NOS=RTOS=0;
+rpila[0]=56;
+
+IP=0;
+prog.setInt8(0,1);
+prog.setInt32(1,5);
+prog.setInt8(5,-1);
+// 5 redraw' 1- 1?goto 6
+
+//syscls();
+//sysredraw();
+update();
+</script>
