@@ -39,7 +39,8 @@
 | Combo (lista o texto)
 | Grilla (tabla)
 | eXtendido
-#tcampos "EATFMPNRLCGX"
+| Boton
+#tcampos "EATFMPNRLCGXB"
 
 :nrocampo | car -- nro/0
     'tcampos ( c@+ 1? )( | car tt c
@@ -51,44 +52,6 @@
 	dup c@ nrocampo
 	3 =? ( nip 11 ; )
 	swap 1+ ?0int ;
-
-|------------ dibujo
-#xa #ya
-:saa
-	ccx 'xa ! ccy 'ya ! ;
-:aas
-	xa 'ccx ! ya 'ccy ! ;
-
-:linelinea | --
-	negro 2 'ccy +!
-	ccy tx2 tx1 pick2 op swap line ;
-
-:subglinea
-	linelinea fonta-DejaVu14b
-	4 'ccy +!
-	dup "%l" printc cr ;
-
-:subclinea
-	linelinea  fonta-DejaVu10b
-	4 'ccy +!
-	dup "%l" print cr ;
-
-:lineedit | index adr car -- adr'
-	$5b	=? ( drop cr subclinea ; )	| [
-	$5d	=? ( drop linelinea ; )		| ]
-	$28 =? ( drop cr subglinea ; )	| (
-	$29 =? ( drop linelinea ; )		| )
-	drop
-	saa
-	font-vard-8 negro
-	dup 1-
-	" %a" print
-	aas 15 'ccy +! 2 'ccx +!
-	>>s
-	font-vard-12 blanco
-	swap @+ pick2 ?0int dup >r getline swap
-|	swap @+ drop swap
-	aas r> ccw * 2* 'ccx +! ;
 
 
 |---- memoria
@@ -250,23 +213,7 @@
 :getO 4+ @ 8 >> ;	| cantidad
 :getP 8 + @ ;			| parametro
 
-|--------
-:etiq	;
-:alfa	dup getM over getN dup inputa ;
-:text   dup getM over getN dup inputa ;
-:fech   dup getM 10 11 inputa
-		ink@ >r verde [ date "%d/%d/%d" mprint over getM strcpy ; ] " Hoy " link r> ink ;
-:memo	dup getM over getN 2 20 inputm ;
-:prec   dup getM over getN dup inputa ;
-:nume   dup getM over getN dup inputa ;
-:radi 	dup getM over getP inputradi ;
-:list	dup getM over getN pick2 getP inputlist ;
-:comb	dup getM over getN pick2 getP inputlist ;
-:gril
-:exte	;
-
-#tlinedit 'etiq 'alfa 'text 'fech 'memo 'prec 'nume 'radi 'list 'comb 'gril 'exte
-
+:getiq	;
 :galfa	dup getM over getN printa ;
 :gtext  dup getM over getN printa ;
 :gfech  dup getM printa ;
@@ -278,8 +225,31 @@
 :gcomb	dup getM over getN pick2 getP inputlist ;
 :ggril
 :gexte	;
+:gbotn	;
 
-#glinedit 'galfa 'gtext 'gfech 'gmemo 'gprec 'gnume 'gradi 'glist 'gcomb 'ggril 'gexte
+#glinedit 'getiq 'galfa 'gtext 'gfech 'gmemo 'gprec 'gnume 'gradi 'glist 'gcomb 'ggril 'gexte 'gbotn
+
+:cmpgost | 'campo --
+	4+ @ $f and 2 << 'glinedit + @ exec ;
+
+|--------
+:etiq	;
+:alfa	dup getM over getN dup inputa ;
+:text   dup getM over getN dup inputa ;
+:fech   dup getM 10 11 inputa
+		ink@ >r verde [ date "%d/%d/%d" mprint over getM strcpy ; ] " Hoy " link r> ink
+		;
+:memo	dup getM over getN 2 20 inputm ;
+:prec   dup getM over getN dup inputa ;
+:nume   dup getM over getN dup inputa ;
+:radi 	dup getM over getP inputradi ;
+:list	dup getM over getN pick2 getP inputlist ;
+:comb	dup getM over getN pick2 getP inputlist ;
+:gril
+:exte	;
+:botn	 ;
+
+#tlinedit 'etiq 'alfa 'text 'fech 'memo 'prec 'nume 'radi 'list 'comb 'gril 'exte 'botn
 
 :cmpedit | 'campo --
 	4+ @ $f and 2 << 'tlinedit + @ exec ;
@@ -295,9 +265,74 @@
 	[ cmpedit cr ; ] swap fkmap
 	;
 
+|--------------------------------------
+|------------ dibujo
+#x1 #y1 #x2 #y2
+#yh
+
+
+#font1 font-vard-8
+#font2 font-vard-12
+#font3 font-vard-8-bold
+
+#font1 fonta-arial10
+#font2 fonta-arial14
+#font3 fonta-arial10b
+
+
+#font1 fonta-dejavu10
+#font2 fonta-dejavu14
+#font3 fonta-dejavu10b
+:crx-
+	yh neg 'ccy +! ;
+:crx
+	yh 'ccy +! tx1 'ccx ! ;
+
+:endlinea
+	2 'ccy +!
+	ccy tx2 tx1 pick2 op swap line
+	2 'ccy +! ;
+
+:inilinea | a b c --
+	endlinea
+	font3 exec
+	swap 1+ " %a" print
+	2drop ;
+
+:lineaform | index adr car -- adr'
+    dup @ "%a" mprint
+	dup c@
+	$28 =? ( inilinea ; )	| (
+	$29 =? ( 3drop endlinea ; )	| )
+	$5b	=? ( inilinea ; )	| [
+	$5d	=? ( 3drop endlinea ; )	| ]
+	32 <>? ( crx )( swap 1+ swap )
+	drop
+	font1 exec
+	ccy 'y1 ! ccx 'x1 !
+	print sp ccx 'x2 !	| titulo
+	cr x1 'ccx !
+	font2 exec
+	cmpedit sp			| edit
+	ccx x2 >? ( 'x2 ! )( drop )
+	ccy cch + 'y2 ! y1 'ccy ! x2 'ccx !
+|	x1 y1 x2 y2 caja
+	;
+
 ::fkedit | 'fk --
 	0? ( drop ; )
 	chome!
-	[ dup cmptitle cmpedit cr ; ] swap fkmap
+	ccy
+	font1 exec cr font2 exec cr
+	ccy swap - 'yh ! crx-
+	4 'tx1 +! -4 'tx2 +!
+|	[ dup cmptitle cmpedit ; ] swap fkmap
+	'lineaform swap fkmap
+	-4 'tx1 +! -4 'tx2 +!
 	;
 
+				   
+|----------------- GRILLA
+::fkgrid | 'fk --
+	drop
+	;
