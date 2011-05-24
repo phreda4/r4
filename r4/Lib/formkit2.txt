@@ -100,25 +100,6 @@
 	16 << yf or lineas> !+ 'lineas> !
 	;
 
-
-|------- inserta registro
-:,sfl | "" --
-	( c@+ 1? )( 	| conversion teclado-->print
-		$25 =? ( dup ,c ) | % -> %%
-	|	$5f =? ( 32 nip ) | no
-		$7c =? ( 32 nip ) | permite
-		$7e =? ( 32 nip ) | separadores
-		,c ) 2drop ;
-
-::form.todb | --  ; here --
-	mark
-	@+ @ ,sfl
-	( @+ 1? )( $7c ,c @ ,sfl ) 2drop
-	$7e ,c | " registro """ ,s1
-	13 ,c 10 ,c 0 ,c
-	empty ;
-
-
 ::fkmap | vec 'dir -- ; vec | vec nro adri -- vec nro adri
 	@ @+ swap @  | cnt memind
 	( swap 1? )( 1- swap
@@ -270,35 +251,40 @@
 #x1 #y1 #x2 #y2
 #yh
 
-
+#font1 fonta-dejavu10
+#font2 fonta-dejavu14
+#font3 fonta-dejavu10b
+#font1 fonta-arial10
+#font2 fonta-arial14
+#font3 fonta-arial10b
 #font1 font-vard-8
 #font2 font-vard-12
 #font3 font-vard-8-bold
 
-#font1 fonta-arial10
-#font2 fonta-arial14
-#font3 fonta-arial10b
-
-
-#font1 fonta-dejavu10
-#font2 fonta-dejavu14
-#font3 fonta-dejavu10b
 :crx-
 	yh neg 'ccy +! ;
 :crx
 	yh 'ccy +! tx1 'ccx ! ;
 
 :endlinea
-	2 'ccy +!
-	ccy tx2 tx1 pick2 op swap line
-	2 'ccy +! ;
+	cr
+	4 'ccy +!
+|	popa dup $ffff and swap 16 >>   | x1 y1
+|	ccxmax ccy cch +  caja
+	;
 
 :inilinea | a b c --
-	endlinea
+|	endlinea
+	cr
+	ccx ccy 16 << or pusha
 	font3 exec
-	swap 1+ " %a" print
+	swap 1+ " %a" cr cr2 print cr
 	2drop ;
 
+:icr
+	y2 2 + 'ccy ! lf ;
+
+#l
 :lineaform | index adr car -- adr'
     dup @ "%a" mprint
 	dup c@
@@ -306,17 +292,23 @@
 	$29 =? ( 3drop endlinea ; )	| )
 	$5b	=? ( inilinea ; )	| [
 	$5d	=? ( 3drop endlinea ; )	| ]
-	32 <>? ( crx )( swap 1+ swap )
+	32 <>? ( icr )( swap 1+ swap )
 	drop
 	font1 exec
 	ccy 'y1 ! ccx 'x1 !
+	2 'ccx +!
 	print sp ccx 'x2 !	| titulo
-	cr x1 'ccx !
+	cr x1 'ccx ! ccy 'l !
 	font2 exec
-	cmpedit sp			| edit
+	2 'ccx +! 2 'ccy +!
+	cmpedit 			| edit
 	ccx x2 >? ( 'x2 ! )( drop )
 	ccy cch + 'y2 ! y1 'ccy ! x2 'ccx !
-|	x1 y1 x2 y2 caja
+	sp
+	ink@ gris oscuro
+	x1 y1 x2 y2 caja
+	x1 l op x2 l line
+	ink
 	;
 
 ::fkedit | 'fk --
@@ -324,14 +316,60 @@
 	chome!
 	ccy
 	font1 exec cr font2 exec cr
-	ccy swap - 'yh ! crx-
+	ccy swap - 'yh ! crx- crx-
+
+	'astack 'astack> !
 	4 'tx1 +! -4 'tx2 +!
-|	[ dup cmptitle cmpedit ; ] swap fkmap
+	0 'y2 !
 	'lineaform swap fkmap
-	-4 'tx1 +! -4 'tx2 +!
+	-4 'tx1 +! 4 'tx2 +!
 	;
 
-				   
+
+|------- inserta registro
+:,sfl | "" --
+	( c@+ 1? )( 	| conversion teclado-->print
+		$25 =? ( dup ,c ) | % -> %%
+	|	$5f =? ( 32 nip ) | no
+		$7c =? ( 32 nip ) | permite
+		$7e =? ( 32 nip ) | separadores
+		,c ) 2drop ;
+
+
+|:form.todb | --  ; here --
+	|mark
+|	@+ @ ,sfl
+|	( @+ 1? )( $7c ,c @ ,sfl ) 2drop
+|	$7e ,c | " registro """ ,s1
+|	13 ,c 10 ,c 0 ,c
+|	empty ;
+
+
+:setiq	;
+:salfa	dup getM "%s|" mprint ,s ;
+:stext   dup getM "%s|" mprint ,s ;
+:sfech   dup getM "%s|" mprint ,s ;
+:smemo	dup getM "%s|" mprint ,s ;
+:sprec   dup getM "%s|" mprint ,s ;
+:snume   dup getM "%s|" mprint ,s ;
+:sradi 	dup getM "%s|" mprint ,s ;
+:slist	dup getM "%s|" mprint ,s ;
+:scomb	dup getM "%s|" mprint ,s ;
+:sgril
+:sexte	;
+:sbotn	 ;
+
+#slinedit setiq salfa stext sfech smemo sprec snume sradi slist scomb sgril sexte sbotn
+
+:cmpser | 'campo --
+	4+ @ $f and 2 << 'slinedit + @ exec ;
+
+::fkserialice | 'fk --
+	mark
+	'cmpser over fkmap
+	$7e ,c 13 ,c 10 ,c 0 ,c
+	empty ;
+
 |----------------- GRILLA
 ::fkgrid | 'fk --
 	drop
