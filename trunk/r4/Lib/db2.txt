@@ -64,8 +64,6 @@
 | ** indice	<-- indmem
 | ** indici <-- indmei
 
-|#actreg?????
-
 |--- tabla no modificable
 ::dbsload | 'db --
 	here dup 'inimem !
@@ -102,8 +100,8 @@
 	$ffff + | memoriafija
 	'here ! ;
 
-:dbreload | --
-	0 indfil indmem + !+ dup 'indmem !
+:dbreload | -- ; indmei = nueva cantidad
+	0 indfil indmei + !+ dup 'indmem !
 	indfil  | iniind initab
 	calculoregistros
 	dbname 4 - @ >r
@@ -145,11 +143,10 @@
 	dbuse
 	cntregi +? ( >=? ( 2drop 0 ; ) 2 << indmei + @ ; )( drop )
 :dbgetregp | nro -- 'reg
-|	dup 'actreg !
 |	cntreg >=? ( drop ; )
 	2 << indmem + @ ;
 
-|---- mapeo
+|--- MAP
 ::dbmap | vec 'db -- ; vec | vec nro adri adrr -- vec nro adri
 	@ @+ swap 8 + @ | cnt indmem
 	( swap 1? )( 1- swap
@@ -188,55 +185,66 @@
 		@+ pick3 exec
 		) 3drop ;
 
-|--- insert
+|--- INSERT
 ::dbinsert | 'db --   ; inserta memoria al final del archivo
 	dbuse
 	indmem 4 - here count | memd mems cnt
-	pick2 indfil - over + 'indmem !
+	pick2 indfil - over + 'indmei !
 	cmove
-	indfil indmem dbname save 	| copia a archivo
- 	dbreload
-	; | recarga
-
-|--- update
-:updultimo | act --
-|	2 << indmem + @ 'p1 !
-|	armareg
-|	inimemdb p1 over - dbname save 	| copia a archivo
-| 	dbreload ; | recarga
-	;
-
-::dbupdate | 'db --
-	dbuse
-
-|	actreg
-	cntreg >=? ( drop ; )
-	cntreg 1- =? ( updultimo ; ) | actualizo ultimo
-|    2 << indmem + @+ 'p1 ! @ 'psig ! | actual y siguiente
-|	sumreg psig p1 - - dup
-|	+? ( psig + psig indmem over - cmove> )( psig + psig indmem over - cmove ) | des src cant
-|	armareg
-	'indmem +!
-
-	indmem 1- ( dup c@ 32 <? )( drop 1- ) drop 1+ 'indmem !
-
-|	inimemdb indice0 over - dbname save 	| copia a archivo graba de mas
+	indfil indmei dbname save 	| copia a archivo
  	dbreload ; | recarga
 
-|--- delete
-::dblastdel
-|	cntreg 1- 2 << indmem + @ 'p1 !
-|	inimemdb p1 over - dbname save
-|	dbreload ;
-	;
+|--- UPDATE
+::dbupdate | nroreg 'db --
+	dbuse
+	cntregi >=? ( drop ; )
+	2 << indmei + @ | adrreg
+	here count 			| adr here ncnt
+	pick2 dup >reg> 	| adr here ncnt adr adrf
+	dup rot - 			| adr here ncnt adrf cntv
+	pick2 swap -        | adr here ncnt adrf dif
+	indmem 4 - over + indfil - 'indmei ! | *aux
+	+? ( over + swap indmem 4 - over - cmove> )( over + swap indmem 4 - over - cmove )
+	cmove	| memd s cnt
+	indfil indmei dbname save 	| copia a archivo
+ 	dbreload ; | recarga
 
-::dbdelete | nro --
+
+|--- DELETE
+::dbdelete | nro 'db --
+	dbuse
 	cntreg >=? ( drop ; )
-	1- =? ( drop dblastdel ; ) | borro ultimo
-|    2 << indmem + @+ 'p1 @ 'psig !
+	2 << indmei + @
+	dup >reg> | diri dirf
+	dup pick2 - indmem 4 - + indfil - 'indmei !
+	indmem 4 - over - cmove	| *****falta revidar
+	indfil indmei dbname save 	| copia a archivo
+ 	dbreload ; | recarga
 
-	drop
-	;
+|--- SORT
+:toval | adr -- int
+	| decimal
+	| string
+	?0int ; | entero
+
+:tovalstr | adr -- int
+	c@+ 24 << swap
+	c@+ $ff and 16 << swap
+	c@+ $ff and 8 << swap
+	c@ $ff and or or or ;
+
+::dbsort | fld 'db --
+	dbuse
+	-1 =? ( drop 0 dbsetregi! ; ) | -1 apaga orden
+	mark
+	[ dup >r pick4 >>fld toval , r> , ; ] dbusemap drop
+	empty
+	cntreg 1+ here shellsort | len lista --
+	cntreg dbsetregi!
+	indmei here |--copia
+	cntreg ( 1? )( 1- >r
+		4+ @+ rot !+ swap
+		r> ) 3drop ;
 
 |-------------SEARCH
 :=f | fs1 s2 -- 1/0
@@ -327,30 +335,6 @@
 	indf> indmei - 2 >> 'cntregi !
 	;
 
-|--------------
-:toval | adr -- int
-	| decimal
-	| string
-	?0int ; | entero
-
-:tovalstr | adr -- int
-	c@+ 24 << swap
-	c@+ $ff and 16 << swap
-	c@+ $ff and 8 << swap
-	c@ $ff and or or or ;
-
-::dbsort | fld 'db --
-	dbuse
-	-1 =? ( drop 0 dbsetregi! ; ) | -1 apaga orden
-	mark
-	[ dup >r pick4 >>fld toval , r> , ; ] dbusemap drop
-	empty
-	cntreg 1+ here shellsort | len lista --
-	cntreg dbsetregi!
-	indmei here |--copia
-	cntreg ( 1? )( 1- >r
-		4+ @+ rot !+ swap
-		r> ) 3drop ;
 
 |-------------FILTRO & SORT
 ::dbfiltersortv | sort 'que --
@@ -370,8 +354,8 @@
 		swap 4+ @+ rot !+
 		r> ) 3drop ;
 
-|------------------- GRILLA
-|||| #lista Act Pag c1 c2 c3 .. 0
+|--- GRILLA
+| #grlista Act Pag c1 c2 c3 .. 0 "titulos|lista"
 #grl
 #act
 
@@ -396,20 +380,19 @@
 	cntregi pick2 /
 	1? (
 		cyan cols 14 - col
-		[ over 4+ @ pick3 - -? ( 0 nip ) pick2 4+  ! ; ] " < " btnt
-		dup 1+ pick2 4+ @ pick4 / 1+ "  %d/%d  " print
-		[ over 4+ @ pick3 + cntregi >? ( pick3 - ) pick2 4+ ! ; ] " > " btnt
+		[ over 4+ @ 1- -? ( 0 nip ) pick2 4+ ! ; ] " < " btnt
+		dup 1+ pick2 4+ @ 1+ "  %d/%d  " print
+		[ over 4+ @ 1+ over >? ( over nip ) pick2 4+ ! ; ] " > " btnt
 		) drop
 	cr cr2
 	dup 0.99 grid2
 
 	$cccccc gfill negro
-	font-vard-8-bold
 	dup 8 + dup 'grl !
 	( @+ 1? )( drop ) drop
 	( dup "%a" gcellc >fld> 0? ) drop cr
 
-	font-vard-8 blanco
+	blanco
 	'dbline swap 4+ @ rot dbusemapage
 
 	gris $grid ;
