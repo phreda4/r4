@@ -24,9 +24,10 @@
 #grupos> 'grupos
 
 |----- layout
-#wform			| ancho formulario px
-#hform			| alto formulario px
 #xf #yf			| posicion actual
+#yscroll
+#ymin
+#ymax
 
 #lineas )( 1024	| x y
 #lineas> 'lineas
@@ -81,7 +82,9 @@
 
 ::fkclear | 'fk -- ; limpia memoria de registros
 	[ 12 + @ 0 swap c! ; ] swap fkmap
-	refreshfoco ;
+	refreshfoco
+	;
+
 
 |--- formulario para editar
 |mem
@@ -281,12 +284,19 @@
 	;
 
 |---- new edit
+
+|#gricap 20 20 10 10 0
+|"Cliente" "Vehiculo" "F.Inicio OP" "Estado" 0
+|		rows 12 - dbgrid3
+| 		"Rocallosas_Vectra_07/07/2009_en curso...|Zuares_Corsa Classic_07/08/2009_*Urgente:"
+|		'gricap 0.8 strgrilla
+
 #xi #yi
 :getsize | adr --
 	dup 16 +
-	@+ >uv xi + 'x1 ! yi + 'y1 !
-	@+ >uv xi + 'x2 ! yi + 'y2 !
-	@ >uv xi + 'xm ! yi + 'ym !
+	@+ >uv xi + 'x1 ! yi + yscroll + 'y1 !
+	@+ >uv xi + 'x2 ! yi + yscroll + 'y2 !
+	@ >uv xi + 'xm ! yi + yscroll + 'ym !
 	;
 
 :edittitle
@@ -298,16 +308,22 @@
 	x1 2 + y1 atxy ;
 
 :boxtitle
-	ink@
-	blanco x1 y1 x2 y2 cajaf
+	ink@ >r
+	esfoco? 1? ( azul oscuro )( gris ) drop
+	x1 y1 x2 ym cajaf
+	blanco x1 ym x2 y2 cajaf
 	gris oscuro x1 y1 x2 y2 caja x1 ym op x2 ym line
-	ink
-	font1 exec x1 2 + y1 atxy dup @ "%a" print ;
+	esfoco? 0? ( negro )( blanco ) drop
+	font1 exec x1 2 + y1 atxy dup @ "%a" print
+	r> ink
+	;
 
 :boxcmp
 	font2 exec x1 2 + ym 2 + atxy ;
+
 :boxtitlecmp
 	boxtitle boxcmp ;
+
 :betiq	edittitle ;
 :balfa	boxtitlecmp dup getM over getN dup inputa ;
 :btext  boxtitlecmp dup getM over getN dup inputa ;
@@ -325,13 +341,28 @@
 
 #blinedit 'betiq 'balfa 'btext 'bfech 'bmemo 'bprec 'bnume 'bradi 'blist 'bcomb 'bgril 'bexte 'bbotn
 
+:focof
+	esfoco? 0? ( drop focovoid ; ) drop
+	y2 ymax >? ( -2 'yscroll +! ) drop
+	y1 ymin <? ( 2 'yscroll +! ) drop
+	focovoid ;
+
+#blinedito 0 'focof 'focof 'focof 'focof 'focof 'focof 'focof 'focof 'focof 'focof 'focof 'focof
+
 :cadaedit | vec nro adri -- vec nro adri
 	getsize
-	4+ @ $f and 2 << 'blinedit + @ exec ;
+	4+ @ $f and 2 <<
+	y1 y2
+	ymax >? ( 2drop -1 -1 ) drop
+	ymin <? ( 'blinedito )( 'blinedit ) nip
+	+ @ exec ;
 
 ::fkedit | 'fk --
-	ccx 'xi ! ccy 'yi !
+	ccx 'xi ! ccy
+	dup 'ymin !  'yi !
+	sh 32 - 'ymax !
 	'cadaedit swap fkmap ;
+
 
 |--- SERIALISE
 :,sfl | "" --
@@ -372,6 +403,14 @@
 	$7e ,c 13 ,c 10 ,c 0 ,c
 	empty ;
 
+::fksserialice | 'fks --
+	mark
+	( @+ 1? )( 'cmpser swap fkmap ) 2drop
+	-1 'here +!
+	$7e ,c 13 ,c 10 ,c
+	0 ,c
+	empty ;
+
 |--- DESERIALISE
 |  reg vec nro adri -- reg vec nro adri
 :detiq	;
@@ -384,10 +423,10 @@
 :dradi
 :dlist
 :dcomb
-	>r
-	rot dup "%a" mprint r getM strcpy
-	>fld> rot rot
-	r> ;
+	>r rot
+	dup "%a" mprint r getM strcpy
+	>fld>
+	rot rot r> ;
 :dgril
 :dexte	;
 :dbotn	;
@@ -399,4 +438,15 @@
 
 ::fkdeserialice | reg 'fk --
 	'cmpdes swap fkmap drop ;
+
+|***
+::fksdeserialice | reg 'fks --
+	>r
+	( r@+ 1? )( 'cmpdes swap fkmap ) 2drop
+	rdrop ;
+
 |---
+::fksclear | 'fks -- ; limpia memoria de registros
+	>r
+	( r@+ 1? )( fkclear ) drop
+	rdrop ;
