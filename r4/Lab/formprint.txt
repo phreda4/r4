@@ -21,10 +21,7 @@
 
 #dom
 #$dom
-#bmpfondo
-|--- escala de bmp
-#xa #xa1 #xs
-#ya #ya1 #ys
+#bmpfondo 0
 
 |--- posicion y tam ventana
 #xi 0 #yi 0
@@ -34,6 +31,7 @@
 #wpr #hpr
 
 |--- tam ventana
+#xv #yv
 #wven #hven
 #ww 0 #hw 0	| ventana por pantalla
 
@@ -94,13 +92,9 @@
 :partemin
 	wi wm wven */ 'wc !
 	hi hm hven */ 'hc !			| miniatura de pantalla
-
 	wi hi v2r 'hw ! 'ww !		| ancho de ventana
-
 	|---- ajustes de bmp
-	wi hi v2b  | de ventana a real y luego a bmp
-	hi 16 <</ 'ys !
-	wi 16 <</ 'xs !
+	wi hi v2b bmpWH | de ventana a real y luego a bmp
 	;
 
 :zoom1
@@ -242,24 +236,6 @@
 	'factual "db/forms/%s.frm" mprint saveform
 	;
 
-
-|----- show bmp
-:drawbmpfast
-	bmpfondo 0? ( drop ; ) drop
-	0 0 setxy
-	ya1 'ya !
-	sw wi -
-	hi ( 1? )(
-		xa1 'xa !
-	 	0 ya 16 >> bmp.getm
-		wi ( 1? )(
-			over xa 16 >> 2 << + @ px!+
-		xs 'xa +!
-		1- ) 2drop
-	  over px+!
-	  ys 'ya +!
-  1- ) 2drop ;
-
 |---------
 :boxx | w h x y --
 	2dup atxy
@@ -322,7 +298,8 @@
 	xi -? ( 0 'xi ! ) ww + wpr >? ( wpr ww - 'xi ! ) drop
 	yi -? ( 0 'yi ! ) hw + hpr >? ( hpr hw - 'yi ! ) drop
 
-	xi yi r2b 16 << 'ya1 ! 16 << 'xa1 !
+	xi yi r2v 'yv ! 'xv !
+	xi yi r2b bmpXY
 	;
 |------------- en impresora
 |    case DOCMOVE: // x y --
@@ -434,12 +411,17 @@
 
 :onmoven
 	xymouse
-	yi + ccy - 'cch ! xi + ccx - 'ccw ! ;
+	yv + ccy - 'cch ! xv + ccx - 'ccw ! ;
+
+|	yi + ccy - 'cch ! xi + ccx - 'ccw ! ;
 
 :ondnn
 	'onmoven 'vecmove !
 	xymouse
-	yi + 'ccy ! xi + 'ccx ! 0 dup 'cch ! 'ccw ! ;
+|	yi + 'ccy ! xi + 'ccx !
+	yv + 'ccy ! xv + 'ccx !
+
+	0 dup 'cch ! 'ccw ! ;
 
 :ondnv
 	'onmovev 'vecmove !
@@ -479,12 +461,12 @@
 :main
 	usogui
 	show clrscr
-		drawbmpfast
+		bmpfondo 1? ( 0 0 bmpdrawfast ) drop
 		drawcellscr
 		miniatura
 	|----- cursores
 		blink 1? ( negro )( azul ) drop
-		ccw cch ccx xi - ccy yi - boxx
+		ccw cch ccx xv - ccy yv - boxx
 		ccw cch v2m ccx ccy v2m swap wi + swap boxx
 	|-----
 		scr
@@ -532,8 +514,8 @@
 		0 "<<" link
 		0 ">>" link
 
-		scr home
-		negro
+		scr home cr cr cr cr
+		blanco
 		cursor draw1cell
 		hpr wpr "prn %d %d " print cr
 		yi xi "xi:%d yi:%d " print hi wi "wi:%d hi:%d " print cr
@@ -565,7 +547,8 @@
 	sw 2/ dup 2/ + 'wi ! sh 4 - 'hi !  			| tam. pantalla (px)
 	sw wi - dup 'wm ! hpr wpr */ 'hm !				| tam. miniatura
 
-	xi yi r2b 16 << 'ya1 ! 16 << 'xa1 !
+	wi hi xi yi bmpPT
+	xi yi r2b bmpXY |16 << 'ya1 ! 16 << 'xa1 !
 	zoomf
 
 	0 'ccx ! 0 'ccy ! 50 'ccw ! 50 'cch ! 		| cursor
