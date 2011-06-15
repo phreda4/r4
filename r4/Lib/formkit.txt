@@ -60,21 +60,40 @@
 	swap 1+ ?0int ;
 
 |--- MAP
-::fkmap | vec 'dir -- ; vec | vec nro adri -- vec nro adri
+::fkmap | vec 'fk -- ; vec | vec nro adri -- vec nro adri
 	@ @+ swap @  | cnt memind
 	( swap 1? )( 1- swap
 		dup pick3 exec
 		32 + ) 3drop ;
 
+::fkmapmem | vec 'fk -- ; vec | v n adr -- v n adr
+	@ @+ swap @
+	( swap 1? )( 1- swap
+		dup 12 + @ 0?
+		( drop )( drop pick2 exec )
+		32 + ) 3drop ;
+
+::fkmapvis | vec 'fk -- ; vec | v n adr -- v n adr
+	@ @+ swap @
+	( swap 1? )( 1- swap
+		dup 4+ @
+		0 >? ( 13 <? ( drop pick2 exec )( drop ) )( drop )
+		32 + ) 3drop ;
+
 ::fkclear | 'fk -- ; limpia memoria de registros
-	[ 12 + @ 0 swap c! ; ] swap fkmap
+	[ dup 12 + @ 0 swap c! ; ] swap fkmapmem
 	refreshfoco ;
+
+::fkgetm | n 'fk -- str
+	@ 4+ @ swap 5 << +
+	12 + @ ;
 
 |--- formulario para editar
 |mem
 | cnt total
-| cnt editables
 | indice
+| 0
+| 0
 |--- memoria de indice
 | name tam|tipo arg1 mem x1|y1 x2|y2 xm|ym ???
 #cntcmp
@@ -113,9 +132,11 @@
 	|------------ recalc here
 	dup 'here !
 	indmem ( over <? )(
-  		here over 12 + !
+|  		here over 12 + !
 		dup 4+ @ 8 >>
-		1? ( 1+ 'here +! )( drop )
+		1? (
+			here pick2 12 + !
+			1+ 'here +! )( drop )
 		32 + ) 2drop
 	;
 
@@ -163,7 +184,7 @@
 :getiq	;
 :galfa	getN scrsizew makebox ;
 :gtext  getN scrsizew makebox ;
-:gfech  10 scrsizew makebox ;
+:gfech  11 scrsizew makebox ;
 :gmemo	getP2 scrsizehw makebox ;
 :gprec  getN scrsizew makebox ;
 :gnume  getN scrsizew makebox ;
@@ -321,6 +342,7 @@
 ::fkeditplain | 'fk --
 	chome! [ cmptitle cr ; ] over fkmap
 	chome  [ cmpedit cr ; ] swap fkmap
+|	chome  [ dup cmpedit cr ; ] swap fkmapmem
 	;
 
 |---- new edit
@@ -480,9 +502,7 @@
 :,| $7c ,c ;
 
 :salfa :stext :sfech :smemo :sprec :snume :sradi :slist
-:scomb
-	dup getM ,sfl ,| ;
-:sgril
+:scomb :sgril
 	dup getM ,sfl ,| ;
 :sexte	:sbotn 	;
 
@@ -494,11 +514,34 @@
 	12 >? ( drop ; )
 	2 << 'sline + @ exec ;
 
+:cmpser2 | 'campo --
+	dup getM ,sfl ,| ;
+
 ::fkserialice | 'fk --
 	mark
-	'cmpser swap fkmap
+|	'cmpser swap fkmap
+	'cmpser2 swap fkmapmem | vis
 	-1 'here +!
 	$7e ,c 13 ,c 10 ,c 0 ,c
+	empty ;
+
+|-------- name
+:nameser | 'campo --
+	dup @ >sp> "%a|" mprint ,s ; |"%a|" ,print ;
+
+::fkname | 'fk --
+	mark
+	'nameser swap fkmapmem
+	-1 'here +!
+	$7e ,c 13 ,c 10 ,c 0 ,c
+	empty ;
+
+::fksname | 'fks --
+	mark
+	( @+ 1? )( 'nameser swap fkmapmem ) 2drop
+	-1 'here +!
+	$7e ,c 13 ,c 10 ,c
+	0 ,c
 	empty ;
 
 
@@ -523,14 +566,20 @@
 	12 >? ( drop ; )
 	2 << 'dline + @ exec ;
 
+:cmpdes2
+	>r rot
+	1? ( r getM fldcpy )
+	rot rot r> ;
+
 ::fkdeserialice | reg 'fk --
-	'cmpdes swap fkmap drop ;
+|	'cmpdes swap fkmap drop ;
+	'cmpdes2 swap fkmapmem drop ;
 
 |--- lista fk
 
 ::fksserialice | 'fks --
 	mark
-	( @+ 1? )( 'cmpser swap fkmap ) 2drop
+	( @+ 1? )( 'cmpser2 swap fkmapmem ) 2drop
 	-1 'here +!
 	$7e ,c 13 ,c 10 ,c
 	0 ,c
@@ -538,7 +587,7 @@
 
 ::fksdeserialice | reg 'fks --
 	>r
-	( r@+ 1? )( 'cmpdes swap fkmap ) 2drop
+	( r@+ 1? )( 'cmpdes2 swap fkmapmem ) 2drop
 	rdrop ;
 
 ::fksclear | 'fks -- ; limpia memoria de registros
