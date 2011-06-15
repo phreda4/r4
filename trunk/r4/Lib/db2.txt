@@ -43,6 +43,11 @@
 		$7e =? ( drop >>.. ; )
 		drop ) nip ;
 
+::>sp> | adr -- adr'
+	( c@+ 1? )(
+		$ff and 32 >? ( drop 1- ; )
+		drop ) drop 1- ;
+
 ::regcpy | desde en -- desde'
 	( swap c@+ 1? )(
 		$7e =? ( drop 0 rot c! ; )
@@ -64,6 +69,8 @@
 #indmem
 #indmei
 #indfil
+
+#dbregnow 0 | registro actual
 
 :calculoregistros | ind mem -- ind
 	>>..
@@ -154,16 +161,25 @@
 	dbname 4 - @ 4+ ! ;
 
 ::dbcntregs | 'db -- cnt
-	dbuse
-	cntregi +? ( ; ) drop
-	cntreg ;
+	@ 4+ @ ;
 
 ::dbgetreg  | nro 'db -- 'reg
-	dbuse
-	cntregi +? ( >=? ( 2drop 0 ; ) 2 << indmei + @ ; )( drop )
+	@ 16 + @ swap 2 << + @ 
+	dup 'dbregnow ! ;
+
 :dbgetregp | nro -- 'reg
-|	cntreg >=? ( drop ; )
 	2 << indmem + @ ;
+
+::dbnfld | nro -- 'fld
+	dbregnow swap >>fld ;
+
+::dbnfld? | nro -- 1/0 ( 0=sin dato)
+	dbregnow swap >>fld
+	c@
+	$7e =? ( 0 nip ; )
+    $7c =? ( 0 nip ; )
+	$5f =? ( 0 nip ; )
+	;
 
 |--- MAP
 ::dbmap | vec 'db -- ; vec | vec nro adri adrr -- vec nro adri
@@ -228,7 +244,6 @@
 	indfil indmei dbname save 	| copia a archivo
  	dbreload ; | recarga
 
-
 |--- DELETE
 ::dbdelete | nro 'db --
 	dbuse
@@ -236,7 +251,7 @@
 	2 << indmei + @
 	dup >reg> | diri dirf
 	dup pick2 - indmem 4 - + indfil - 'indmei !
-	indmem 4 - over - cmove	| *****falta revidar
+	indmem 4 - over - cmove	| *****falta revisar
 	indfil indmei dbname save 	| copia a archivo
  	dbreload ; | recarga
 
@@ -416,4 +431,5 @@
 
 	gris $grid ;
 	;
+
 
