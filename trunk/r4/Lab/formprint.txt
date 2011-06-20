@@ -58,6 +58,7 @@
 
 |--- cursor de elemento
 #cursor 0
+#cursore -1
 
 :cntcells
 	cell> 'cell - 3 >> ;
@@ -250,6 +251,7 @@
 #bh #bw
 
 :drawbox | nro -- nro
+	cursor =? ( rojo )( verde )
 	dup 3 << 'cell + >r
 	r@+ >uv r2v
 	2dup 'bh ! 'bw !
@@ -265,7 +267,7 @@
 :sf
 	drop CYAN
 	over drawbox
-	bh 0? ( drop ; ) fonthex
+|	bh 0? ( drop ; ) fonthex
 	over 2 << 'index + @ 0? ( drop ; ) "%a" print ;
 
 :drawcellscr | --
@@ -276,11 +278,15 @@
 |---- info de cel
 :draw1cell | nro --
 	cntcells >=? ( drop ; )
-	dup 3 << 'cell + >r
+	3 << 'cell + >r
 	r@+ >uv r> @ >uv "[%d %d - %d %d]" print cr
-	dup 2 << 'info + @ "%h" print cr
-	2 << 'index + @ "%a" print cr
 	;
+
+|	dup 3 << 'cell + >r
+|	r@+ >uv r> @ >uv "[%d %d - %d %d]" print cr
+|	dup 2 << 'info + @ "%h" print cr
+|	2 << 'index + @ "%a" print cr
+|	;
 
 |----------- mover cursor y cambiar limites
 :cursormov | x y --
@@ -351,15 +357,7 @@
 		'exit >esc<
 		;
 
-:addline
-:addbox
-:addlabel
-:addcampo
-	+cell ;
-
-
 |----- miniatura
-
 :drawcampominiatura
 	rojo
 	'cell
@@ -400,14 +398,10 @@
 	xymouse
 	yv + ccy - 'cch ! xv + ccx - 'ccw ! ;
 
-|	yi + ccy - 'cch ! xi + ccx - 'ccw ! ;
-
 :ondnn
 	'onmoven 'vecmove !
 	xymouse
-|	yi + 'ccy ! xi + 'ccx !
 	yv + 'ccy ! xv + 'ccx !
-
 	0 dup 'cch ! 'ccw ! ;
 
 :ondnv
@@ -438,9 +432,63 @@
 	swap wi - swap m2v
 	ccy - 'cch ! ccx - 'ccw ! ;
 
-|		[ xymouse yi + 'ccy ! xi + 'ccx ! 0 dup 'cch ! 'ccw ! ; ]	|onDn
-|		[ xymouse yi + ccy - 'cch ! xi + ccx - 'ccw ! ; ] 			|onMove
-|		0 guiMap
+|---------
+#edcw )( 8
+#edch )( 8
+#edcx )( 8
+#edcy )( 8
+
+:editc
+	cursor cntcells >=? ( drop ; )
+	dup 'cursore !
+	3 << 'cell +
+	@+ >uv
+	"%d" mprint 'edch strcpy
+	"%d" mprint 'edcw strcpy
+	@ >uv
+	"%d" mprint 'edcy strcpy
+	"%d" mprint 'edcx strcpy
+	;
+
+:okedit
+	'edcx ?0int 'edcy ?0int 16 << or
+	'edcw ?0int 'edch ?0int 16 << or
+	cursore 3 << 'cell + !+ !
+	-1 'cursore !
+	;
+
+:editcc
+	cursore -? ( drop ; ) drop
+	blanco
+	"cx:" print 'edcx 8 getline cr cr2
+	"cy:" print 'edcy 8 getline cr cr2
+	"cw:" print 'edcw 8 getline cr cr2
+	"ch:" print 'edch 8 getline cr cr2
+	'okedit "ok" verde link
+	[ -1 'cursore ! ; ] "cancel" rojo link
+	;
+
+:upcel
+	cursor cntcells >=? ( drop ; )
+	1 <? ( drop ; )
+	-1 'cursor +!
+	3 << 'cell + 8 -
+:change
+	dup >r
+	@+ swap @+ swap @+ swap @
+	swap r!+ r!+ swap r!+ r> ! ;
+
+:dncel
+	cursor cntcells 1- >=? ( drop ; )
+	1 'cursor +!
+	3 << 'cell + change ;
+
+:delcel
+	cntcells 0? ( drop ; )
+|	-1 'cntcells +!
+|   3 << 'cell + dup
+|	8 + cntcells cursor - 2* move |*** 
+	;
 
 |--------------
 |  EDITANDO
@@ -464,10 +512,7 @@
 		font-vard-8-bold home cr2
 		rojo sp 'exit dup >esc< "esc-Exit" btnt
 		verde
-		sp 'addline dup <f1> "f1-Line" btnt
-		sp 'addbox dup <f2> "f2-Box" btnt
-		sp 'addlabel dup <f3> "f3-Label" btnt
-		sp 'addcampo dup <f4> "f4-Campo" btnt
+		sp '+cell dup <f1> "f1-add" btnt
 
 		amarillo
 		sp 'load.form dup <f5> "f5-Load" btnt
@@ -477,12 +522,12 @@
 
 		rojo
 		sp 'cell.clear dup <f9> "f9-Clear" btnt
-		sp 'cell.dellast dup <del> "DEL-Last" btnt cr cr2
+		sp 'cell.dellast dup <del> "DEL-Last" btnt
 		cyan
-		sp 'zoom1 "ZoomX1" btnt
-		sp 'zoom2 "ZoomX2" btnt
-		sp 'zoom4 "ZoomX4" btnt
-		sp 'zoom8 "ZoomX8" btnt
+|		sp 'zoom1 "ZoomX1" btnt
+		sp 'zoom2 "X2" btnt
+		sp 'zoom4 "X4" btnt
+		sp 'zoom8 "X8" btnt
 		sp 'zoomf "Full" btnt
 
 		scr wm gc.right hm gc.botton home
@@ -496,36 +541,28 @@
 		[ cursor 1+ cntcells >=? ( cntcells 1- nip ) 'cursor ! ; ] ">" link
 		[ cntcells 1- 'cursor ! ; ] ">|" link cr
 
-		0 "X" rojo link
 		verde
-		0 "<<" link
-		0 ">>" link cr
+		'editc "E" link
+		'upcel "<<" link
+		'dncel ">>" link
+		rojo
+		'delcel "X" link cr cr2
 
-|		scr home cr cr cr cr
 		blanco
 		cursor draw1cell
+editcc
+
+		cminiflecha ;
+:a
 		hpr wpr "prn %d %d " print cr
 		yi xi "xi:%d yi:%d " print hi wi "wi:%d hi:%d " print cr
 		hven wven "wven:%d hven:%d" print cr
 		wi hi v2r r2b "%d %d " print cr
-
 		ccx ccy "ccx:%d ccy:%d " print
 		ccw cch "cch:%d cch:%d " print cr
 		ccw cch v2r "h:%d w:%d " print cr
 		ncmp nrep "nrep:%d ncmp:%d " print cr
-
-		bmpfondo "BMP:%d" print cr
-|		scr home 0 rows 2 - gotoxy
-|		cursor draw1cell
-
-		cminiflecha
-		keypad
-		[ 0 -8 cursormov ; ] <up>
-		[ 0 8 cursormov ; ] <dn>
-		[ -8 0 cursormov ; ] <le>
-		[ 8 0 cursormov ; ] <ri>
-		;
-
+		bmpfondo "BMP:%d" print cr ;
 
 :init
 	"./db/forms" dir
