@@ -88,10 +88,8 @@
 
 :getMNP2 | adr -- adr M N p1 p2
 	dup 12 + @
-	over 4+ @ 8 >>
-	pick2 8 + @
-	dup $ff and
-	swap 8 >> $ff and ;
+	over 4+ @ 8 >> pick2 8 + @
+	dup $ff and swap 8 >> $ff and ;
 
 |--- tamaño en pantalla
 #x1 #y1 #x2 #y2 #xm #ym
@@ -126,24 +124,29 @@
 | 0 Alfanumerico
 | 1
 | 2
-| 3
+| 3 Date
 | 4 Memo
-
+| 5 Radio
+| 6 Check
+| 7 Boton con memoria
 | 10 Label
-| 11 Boton
+| 17 Boton sin memoria
 |---
 
 :sizelabel
 	xm xn - h1 makeboxl ;
-
+:sizebtn
+	xm xn - 8 + h1 makeboxl ;
 :sizeedit
 	dup 8 >> scrsizew makebox ;
-
 :sizememo
 	swap
 	?sint swap ?sint nip
 	2dup scrsizehw makebox
 	8 << or swap ;
+:sizelistb
+	over >reg> pick2 -
+	scrsizew makebox ;
 
 |--- grilla
 #ingrid 0
@@ -185,13 +188,20 @@
 :fm
 	nip swap ?sint swap	1- >fld> swap 8 << rot ingrid + or ;
 
+:fe
+	nip swap ?sint 1? ( swap 1- >fld> swap 8 << rot ingrid + or ; )
+	swap 1- >fld> swap 8 << rot $10 or ingrid + or ;
+
 :tipoefield | a d -- a param tamaño|tipo
 	0? ( drop 0 $10 sizelabel ; ) | etiqueta
 	c@+
 	$41 =? ( 0 fm sizeedit ; )	| Alfan 0
 
-	$46 =? ( drop 11 8 << 3 ingrid + or sizeedit ; )	| Fecha 3
+	$46 =? ( drop $b03 ingrid + sizeedit ; )	| Fecha 3
 	$4D =? ( 4 fm sizememo ; )	| Memo 4
+	$52 =? ( 5 fm sizelistb ; ) | Radio 5
+	$43 =? ( 6 fm sizelistb ; ) | Check 6
+	$42 =? ( 7 fe sizebtn ; ) | Boton 7
 
 	$47 =? ( finigrid ; ) | G Grilla 15
 	$2E =? ( fendgrid ; ) | . fin grilla 31
@@ -267,7 +277,8 @@
 
 :asignabtn | vbb vec nro adri -- vbb vec nro adri
 	dup 4+ @ $ff and
-	$c <>? ( 2drop ; ) drop | solo botones
+	7 =? ( $17 nip )
+	$17 <>? ( 2drop ; ) drop | solo botones
 	bb> @+ swap 'bb> !
 	swap 8 + !
 	;
@@ -311,15 +322,21 @@
 	font1 exec x1 2 + y1 atxy dup @ "%a" print
 	r> ink ;
 
+:boxtitle2
+	ink@ >r
+	esfoco? 1? ( azul oscuro )( gris ) drop
+	x1 y1 x2 ym cajaf
+	gris oscuro x1 y1 x2 y2 caja x1 ym op x2 ym line
+	esfoco? 0? ( negro )( blanco ) drop
+	font1 exec x1 2 + y1 atxy dup @ "%a" print
+	r> ink ;
+
 :boxcmp
 	font2 exec x1 2 + ym 2 + atxy ;
-
-:boxtitlecmp
-	boxtitle boxcmp ;
-
+:boxcmp2
+	font1 exec x1 2 + ym 2 + atxy ;
 :boxgrid
 	font2 exec x1 2 + y1 h2 7 + - atxy ;
-
 :boxbtn
 	font3 exec x1 2 + y1 2 + atxy ;
 
@@ -354,7 +371,7 @@
 	'xs 'xs> ! ym h1 - 'ys !
 	( over <? )(
 		getsize
-		x1 dup ys op dup yh line
+		x1 dup ys op dup yh ink@ >r negro line r> ink
 		2 + dup xs> !+ 'xs> !
 		ys atxy
 		dup @ "%a" print
@@ -370,34 +387,80 @@
 		>mfld> 0? )
 	2drop ;
 
+|--- LABEL
+:blabe
+	font3 exec x1 y1 atxy dup @ "%a" print ;
 
-:blabe	font3 exec x1 y1 atxy dup @ "%a" print ;
+|--- ALFA
+:balfa
+	boxtitle boxcmp getMN dup inputa ;
+:galfa
+	boxgrid getMN dup inputa ;
 
-:balfa	boxtitlecmp getMN dup inputa ;
-:galfa	boxgrid getMN dup inputa ;
+|--- DATE
+:bdate
+	boxtitle ink@ >r verde [ date "%d/%d/%d" mprint over getM strcpy ; ] "Hoy" link r> ink
+	boxcmp dup getM 10 11 inputa ;
+:gdate
+	boxgrid dup getM 10 11 inputa ;
 
-:bdate	boxtitle ink@ >r verde [ date "%d/%d/%d" mprint over getM strcpy ; ] "Hoy" link r> ink
-		boxcmp dup getM 10 11 inputa ;
-:gdate	boxgrid dup getM 10 11 inputa
-		|ccw 2 << neg 'ccx +!
-		|ink@ >r verde [ date "%d/%d/%d" mprint over getM strcpy ; ] "Hoy" link r> ink
-		;
+|--- MEMO
+:bmemo
+	boxtitle boxcmp getMNP2 inputm ;
+:gmemo	
+	boxgrid getMNP2 inputm ;
 
-:bmemo	boxtitlecmp getMNP2 inputm ;
-:gmemo	boxgrid getMNP2 inputm ;
+|--- RADIO
+#now
+#cnt
+:vecrad
+	cnt now =? ( verde )( gris ) 1+ 'cnt !
+	[ cnt $2f + pick3 getM c!+ 0 swap c! ; ] over "%a" .link ;
 
+:bradi
+	ink@ >r
+	boxtitle2 boxcmp2
+	0 'cnt !
+	dup getM c@ $30 <? ( -1 nip )( $30 - ) 'now !
+    'vecrad over getP lstvec
+	r> ink ;
+:gradi
+	;
 
-:bradi 	boxtitlecmp dup getM over getL inputradi ;
-:blist	boxtitlecmp getMN pick2 getL inputlist ;
-:bbotn	boxbtn dup getP over @ "%a" btnt ;
-:bgnume boxgrid getMN dup inputa ;
-:bgradi boxgrid dup getM over getL inputradi ;
-:bglist	boxgrid getMN pick2 getL inputlist ;
+|--- CHECK
+:vechec
+	now c@ 65 =? ( verde )( gris ) drop
+	[ now c@ 65 =? ( 32 )( 65 ) now c! drop ; ] over "%a" .link
+	1 'now +! ;
+
+:bchec
+	ink@ >r
+	boxtitle2 boxcmp2
+	dup getM 'now !
+    'vechec over getP lstvec
+	r> ink ;
+:gchec
+	;
+
+|--- BOTON
+:bbtn
+	boxbtn dup getP over @ "%a" .btnt ;
+:ebtn
+	boxbtn dup getP over @ "%a" .btnt ;
+:gbtn
+	;
+
+|:bradi 	boxtitlecmp dup getM over getL inputradi ;
+|:blist	boxtitlecmp getMN pick2 getL inputlist ;
+|:bbotn	boxbtn dup getP over @ "%a" btnt ;
+|:bgnume boxgrid getMN dup inputa ;
+|:bgradi boxgrid dup getM over getL inputradi ;
+|:bglist	boxgrid getMN pick2 getL inputlist ;
 
 #blinedit
-balfa 0 0 bdate bmemo 0 0 0 0 0 0 0 0 0 0 egrid	| solo guarda 16
-blabe 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0	| ni tienen memoria
-galfa 0 0 gdate gmemo 0 0 0 0 0 0 0 0 0 0 0
+balfa 0 0 bdate bmemo bradi bchec bbtn 0 0 0 0 0 0 0 egrid	| solo guarda 16
+blabe 0 0 0 0 0 0 ebtn 0 0 0 0 0 0 0 0	| ni tienen memoria
+galfa 0 0 gdate gmemo gradi gchec gbtn 0 0 0 0 0 0 0 0
 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 
 :focof
