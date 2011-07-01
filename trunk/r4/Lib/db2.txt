@@ -71,12 +71,13 @@
 #indfil
 
 #dbregnow 0 | registro actual
+#dbsortv 0	| orden actual
 
 :calculoregistros | ind mem -- ind
 	>>..
-	dup rot !+ swap 		| registros 0
+	dup rot !+ swap | registros 0
 	( c@+ 1? )(
-		$7e =? ( drop >>.. |dup memmap
+		$7e =? ( drop >>..
 			dup rot !+ swap )( drop )
 		) 2drop
 	dup indmem - 2 >> 1- 'cntreg ! ;
@@ -105,6 +106,7 @@
 	0 r!+ |**
 	indmem r!+
 	indmem cntreg 2 << + r> !
+	indmem dup cntreg 2 << + swap cntreg move
 	'here ! ;
 
 |--- tabla modificable
@@ -168,9 +170,6 @@
 ::dbgetreg  | nro 'db -- 'reg
 	@ 16 + @ swap 2 << + @
 	dup 'dbregnow ! ;
-
-:dbgetregp | nro -- 'reg
-	2 << indmem + @ ;
 
 ::dbnfld | nro -- 'fld
 	dbregnow swap >>fld ;
@@ -254,11 +253,30 @@
 	indmem over - cmove
  	dbreload ; | recarga
 
+|--- RESET
+:dbreset
+	indmem dup cntreg 2 << + swap cntreg move
+	cntreg dbsetregi! ;
+
 |--- SORT
 :toval | adr -- int
 	| decimal
 	| string
 	?0int ; | entero
+
+::dbsort | fld 'db -- ;
+	dbuse
+	0 =? ( drop dbreset ; ) | 0 apaga orden
+	mark
+	-? ( neg 1- [ dup >r pick4 >>fld toval neg , r> , ; ] )( 1- [ dup >r pick4 >>fld toval , r> , ; ] )
+	dbusemapi
+	'dbsortv !
+	empty
+	cntregi 1+ here shellsort | len lista --
+	indmei here |--copia
+	cntregi ( 1? )( 1- >r
+		4+ @+ rot !+ swap
+		r> ) 3drop ;
 
 :tovalstr | adr -- int
 	c@+ 24 << swap
@@ -266,126 +284,63 @@
 	c@+ $ff and 8 << swap
 	c@ $ff and or or or ;
 
-::dbsort | fld 'db --
+::dbsortstr | fld 'db -- ;
 	dbuse
-	-1 =? ( drop 0 dbsetregi! ; ) | -1 apaga orden
+	0 =? ( drop dbreset ; ) | 0 apaga orden
 	mark
-	[ dup >r pick4 >>fld toval , r> , ; ] dbusemap drop
+	-? ( neg 1- [ dup >r pick4 >>fld tovalstr neg , r> , ; ] )( 1- [ dup >r pick4 >>fld tovalstr , r> , ; ] )
+	dbusemapi
+	'dbsortv !
 	empty
-	cntreg 1+ here shellsort | len lista --
-	cntreg dbsetregi!
+	cntregi 1+ here shellsort | len lista --
 	indmei here |--copia
-	cntreg ( 1? )( 1- >r
+	cntregi ( 1? )( 1- >r
 		4+ @+ rot !+ swap
 		r> ) 3drop ;
 
-|-------------SEARCH
-:=f | fs1 s2 -- 1/0
-	( c@+ 1? )(
-		rot c@+ rot -
-		1? ( 3drop 0 ; ) drop
-		swap ) 2drop
-	c@ $ff and
-	$5f =? ( 1 nip ; )
-	$7c =? ( 1 nip ; )
-	$7e =? ( 1 nip ; )
-	33 <? ( 1 )( 0 ) nip ;
-
-::dbsearch | 'que fld -- reg
-	0
-	( cntreg <? )( | 'que fld nro
-|		dup dbreg@
-		pick2 >>fld  | 'que fld nro reg
-		pick3 =f 1? ( drop nip nip ; )
-		drop 1+ ) 3drop
-	-1 ;
-
-|--- case insensitive+all
-:=fi | fs1 s2 -- 1/0
-	( c@+ 1? )( toupp
-		rot c@+ toupp rot -
-		1? ( 3drop 0 ; ) drop
-		swap ) 3drop
-	1 ;
-
-#ultimoencontrado
-
-:encontrado | str c0 db fi -- reg
-	drop nip nip |db
-	dup 'ultimoencontrado !
-	indmem
-	( @+ pick2 <? )( drop ) drop nip
-	8 - indmem - 2 >>
-	;
-
-::dbsearchall | 'str -- reg/-1
-	dup c@ toupp | str c0
-|	inimemdb
-	( c@+ 1? )( toupp
-		pick2 =? | str c0 db cdb
-			( drop dup 1- pick3 =fi 1? ( encontrado ; ) )
-		drop ) 4drop
-|	inimemdb 'ultimoencontrado !
-	-1 ;
-
-::dbsearchnext | 'str -- reg/-1
-	dup c@ toupp | str c0
-|	ultimoencontrado 0? ( inimemdb nip ) 1+
-	( c@+ 1? )( toupp
-		pick2 =? | str c0 db cdb
-			( drop dup 1- pick3 =fi 1? ( encontrado ; ) )
-		drop ) 4drop
-|	inimemdb 'ultimoencontrado !
-	-1 ;
-
-|-------------FILTRO
+|--- FILTRO
 #indf>
+:addf over indf> !+ 'indf> ! ;
 
-:addf
-	over indf> !+ 'indf> ! ;
+:filterv | vec nro adri adrr -- vec nro adri
+	pick4 exec 1? ( addf ) 2drop ;
 
-::dbfilter | 'que fld --
-	-1 =? ( nip 'cntregi ! ; ) | -1 apaga filtro
+::dbfilterv | 'que 'db --
+	dbuse
+	0? ( drop dbreset ; ) | apaga filtro
 	indmei 'indf> !
-	0 ( cntreg <? )(
-|		dup dbreg@
-		pick2 >>fld
-		pick3 =f 1? ( addf )
-		drop 1+ )
+	'filterv dbusemap drop
+	indf> indmei - 2 >> dbsetregi! ;
+
+
+|---- comparadores para filtro y busqueda
+|--- strstr
+:inner | str c0 adr -- str c0 adr / 1 r:a--
+	dup pick3 1+ | adr' str'
+	( c@+ 1? )( toupp
+		rot c@+ toupp | str' CS adr' CA
+		rot <>? ( 3drop ; )
+		drop swap ) 3drop
 	3drop
-	indf> indmei - 2 >> 'cntregi !
-	;
+	1 rdrop ;
 
-::dbfilterv | 'que --
-	0? ( drop -1 'cntregi ! ; ) | 0 apaga filtro
-	indmei 'indf> !
-	0 ( cntreg <? )(
-|		dup getregp		| 'que nro
-		over exec 		| 'que nro 1/0
-		1? ( addf ) drop
-		1+ )
-	2drop
-	indf> indmei - 2 >> 'cntregi !
-	;
+::reg?i | str reg -- 1/0 ; busca en todo el registro
+	over c@ 0? ( 3drop 0 ; ) | "" da 0
+	toupp swap
+	( c@+ 1? )(
+		$7e =? ( 4drop 0 ; )
+		toupp pick2 =? ( drop inner )( drop )
+		) 4drop 0 ;
 
-
-|-------------FILTRO & SORT
-::dbfiltersortv | sort 'que --
-	dbfilterv
-	mark
-	0 ( cntregi <? )(
-		dup 2 << indmei + @
-|		dup dbreg@
-		pick3 >>fld
-		toval , ,
-		1+ ) 2drop
-	empty
-	cntregi 1+ here shellsort | len lista --
-
-	here indmei
-	cntregi ( 1? )( 1- >r
-		swap 4+ @+ rot !+
-		r> ) 3drop ;
+::nfld?i | str reg n -- 1/0 ; busca en el campo n
+	>>fld
+	over c@ 0? ( 3drop 0 ; ) | "" da 0
+	toupp swap
+	( c@+ 1? )(
+		$7c =? ( 4drop 0 ; )
+		$7e =? ( 4drop 0 ; )
+		toupp pick2 =? ( drop inner )( drop )
+		) 4drop 0 ;
 
 |--- GRILLA
 | #grlista Act Pag c1 c2 c3 .. 0 "titulos|lista"
@@ -429,6 +384,3 @@
 	'dbline swap 4+ @ rot dbusemapage
 
 	gris $grid ;
-	;
-
-
