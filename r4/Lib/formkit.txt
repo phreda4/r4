@@ -54,9 +54,12 @@
 		$f0 nand? ( drop pick2 exec )( drop )
 		32 + ) 3drop ;
 
+::fkinit
+	0 'yscroll ! 0 setfoco refreshfoco ;
+
 ::fkclear | 'fk -- ; limpia memoria de registros
 	[ dup 12 + @ 0 swap c! ; ] swap fkmapmem
-	refreshfoco ;
+	fkinit 	;
 
 ::fkgetm | n 'fk -- str
 	@ 4+ @ swap 5 << + 12 + @ ;
@@ -119,6 +122,7 @@
 #cntcmp
 #inimem
 #indmem
+#lastind
 
 |--- Tipo de campos
 | 0 Alfanumerico
@@ -201,11 +205,11 @@
 	$4D =? ( 4 fm sizememo ; )	| Memo 4
 	$52 =? ( 5 fm sizelistb ; ) | Radio 5
 	$43 =? ( 6 fm sizelistb ; ) | Check 6
-	$42 =? ( 7 fe sizebtn ; ) | Boton 7
+	$42 =? ( 7 fe sizebtn ; )	| Boton 7
 
 	$47 =? ( finigrid ; ) | G Grilla 15
 	$2E =? ( fendgrid ; ) | . fin grilla 31
-
+	$50 =? ( 2drop 0 $11 sizelabel ; ) | Pestaña
 	2drop 0 $10 | etiqueta por error
 	sizelabel ;
 
@@ -245,7 +249,7 @@
 	0 'ingrid !
 	0 ( drop spaces efield dup c@ 0? ) 2drop | recorre fk
 	dup indmem - 5 >> 'cntcmp ! | 5=32/ tam indice
-
+	dup 32 - 'lastind !
 	|---------| asigna lugar en memoria
 	dup 'here !
 	indmem ( over <? )(
@@ -267,7 +271,7 @@
 	inimem >r
 	cntcmp r!+
 	indmem r!+
-	0 r!+
+	lastind r!+
 	0 r> !
 	fkclear ;
 
@@ -310,6 +314,13 @@
 	@+ >uv xi + 'x1 ! yi + yscroll + 'y1 !
 	@+ >uv xi + 'x2 ! yi + yscroll + 'y2 !
 	@ >uv xi + 'xm ! yi + yscroll + 'ym !
+	;
+
+:getsizer
+	dup 16 +
+	@+ >uv xi + 'x1 ! yi + 'y1 !
+	@+ >uv xi + 'x2 ! yi + 'y2 !
+	@ >uv xi + 'xm ! yi + 'ym !
 	;
 
 :boxtitle
@@ -407,7 +418,7 @@
 |--- MEMO
 :bmemo
 	boxtitle boxcmp getMNP2 inputm ;
-:gmemo	
+:gmemo
 	boxgrid getMNP2 inputm ;
 
 |--- RADIO
@@ -450,6 +461,10 @@
 :gbtn
 	;
 
+|--- PESTAÑA
+:bpest
+	font3 exec x1 y1 atxy dup @ "%a" print ;
+
 |:bradi 	boxtitlecmp dup getM over getL inputradi ;
 |:blist	boxtitlecmp getMN pick2 getL inputlist ;
 |:bbotn	boxbtn dup getP over @ "%a" btnt ;
@@ -459,10 +474,11 @@
 
 #blinedit
 balfa 0 0 bdate bmemo bradi bchec bbtn 0 0 0 0 0 0 0 egrid	| solo guarda 16
-blabe 0 0 0 0 0 0 ebtn 0 0 0 0 0 0 0 0	| ni tienen memoria
+blabe bpest 0 0 0 0 0 ebtn 0 0 0 0 0 0 0 0	| ni tienen memoria
 galfa 0 0 gdate gmemo gradi gchec gbtn 0 0 0 0 0 0 0 0
 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 
+|---------------------
 :focof
 |	gris x1 y1 x2 y2 caja
 	esfoco? 0? ( drop focovoid ; ) drop
@@ -490,8 +506,47 @@ galfa 0 0 gdate gmemo gradi gchec gbtn 0 0 0 0 0 0 0 0
 	ty2 'ymax !
 	'cadaedit swap fkmap ;
 
-::fkinit
-	0 'yscroll ! 0 setfoco ;
+|------------------
+#pnow
+#pact
+#pest )( 128
+
+:setpest
+	pnow 'pact !
+	yi y1 - 'yscroll !
+    0 setfoco
+	refreshfoco ;
+
+:pestanias
+	4+ @ $ff and $11 <>? ( drop ; ) drop
+	dup 'pest pnow 2 << + !
+	getsizer
+   	pnow pact =? ( gris )( negro ) drop
+	'setpest over @ "%a" btnt sp
+	1 'pnow +! ;
+
+:cadaedit2 | vec nro adri -- vec nro adri
+	getsize
+	y2 ymax >? ( 2drop ; ) drop
+	y1 ymin <? ( 2drop ; ) drop
+	dup 4+ @ $ff and 2 << 'blinedit + @ exec ;
+
+:fkmappe | vec -- ; vec | vec nro adri -- vec nro adri
+	'pest pact 2 << + @+ swap @ swap
+	( over <? )(
+		pick2 exec
+		32 + ) 3drop ;
+
+::fkeditp | 'fk --
+	ccx 'xi ! ccy
+	h1 2* + dup 'ymin !  'yi !
+	ty2 'ymax !
+	0 'pnow !
+	font3 exec
+	'pestanias over fkmap
+	@ 8 + @ 'pest pnow 2 << + !
+	negro
+	'cadaedit2 fkmappe ;
 
 |--- SERIALISE
 :,sfl | "" --
