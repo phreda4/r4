@@ -94,7 +94,7 @@ start:
 	mov	[hwnd],eax
 	invoke GetDC,[hwnd]
 	mov [hDC],eax
-	mov [bmi.biSize],sizeof.BITMAPINFOHEADER
+ 	mov [bmi.biSize],sizeof.BITMAPINFOHEADER
 	mov [bmi.biWidth],XRES
 	mov [bmi.biHeight],-YRES
 	mov [bmi.biPlanes],1
@@ -466,11 +466,13 @@ align 4
 	SYSXYM	dd 0
 	SYSBM 	dd 0
 	SYSKEY	dd 0
-
-	SYSW	dd XRES
-	SYSH	dd YRES
 	SYSPAPER dd 0
 	SYSCDIR	dd 0
+
+;*** optimizable
+	SYSW	dd XRES
+	SYSH	dd YRES
+;*** optimizable
 
 include 'dat.asm'
 
@@ -483,6 +485,7 @@ align 16
 	SYSFRAME	rd XRES*YRES
 align 16
 	XFB			rd XRES*YRES
+
 align 16
 	FREE_MEM	rd 1024*1024*16 ; 16M(32bits) 64MB(8bits)
 
