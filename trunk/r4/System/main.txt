@@ -10,6 +10,8 @@
 ^r4/lib/btn.txt
 ^r4/lib/trazo.txt
 ^r4/lib/tex.txt
+^r4/lib/input.txt
+
 ^r4/lib/usebmr.txt
 
 ^r4/system/mem-ed.txt
@@ -28,6 +30,7 @@
 #actv
 #ruta )( 1024
 #ruta> 'ruta
+
 #screenshot
 
 #cntf
@@ -37,7 +40,9 @@
 #indexf> 'indexf
 #indexv )( 8192
 #indexv> 'indexv
-#paginas
+
+#nombres
+#paginas | iconos
 
 :ruta.push | "" --
 	ruta> strcpyl
@@ -79,6 +84,7 @@
 |---- genera indice y nombre
 :refresh
 	mark
+	nombres 'here !
 	'ruta dir
 	'indexv 'indexv> !
 	0 ( dup vol 1? )( ,cpyv 1+ ) drop 'cntv !
@@ -115,7 +121,7 @@
 		blanco
 		" NEW FILE" print cr cr
 		actv filev 'ruta "%s%s/" sp print
-		'ed.nombre 32 sp getline
+		'ed.nombre 32 sp input
 		'finnew lostfoco
 		;
 
@@ -215,25 +221,6 @@
 	0 'padin !
 	;
 
-:carpetasyarchivos
-	|---- carpetas
-	64 alpha cr cr
-	0 ( cntv <? )(
-		actv =? ( azul )( negro )
-		'clickv over filev
-		10 sp btntf cr cr
-		1+ ) drop cr cr
-	chome 
-	|---- archivos
-	0 ( cntf <? )(
-		actf =? ( verde )( negro )
-		'clickf over filex
-		12 sp btntf cr cr
-		bout? 1? ( chome cr2 ) drop
-		1+ ) drop
-	255 alpha
-	;
-
 #txtruntime 0
 |r4/system/f5-spr.txt
 |IP: -715345168 541487096
@@ -256,63 +243,49 @@
 
 :runtimeerror
 	txtruntime 0? ( drop ; ) drop
-	rojo cr2 [ "r4/system/runtime2.txt" run ; ] "RUNTIME ERROR" btnt
+	rojo
+	[ "r4/system/runtime2.txt" run ; ] "RUNTIME ERROR" sp sp link
 	[ 0 dup "runtime.err" save
 	  0 dup "debug.err" save
-		0 'txtruntime ! ; ] "DEL" sp violeta btnt
+		0 'txtruntime ! ; ] "DEL" sp violeta link
 	;
-:fillmem
-	actv 4194304 * paginas +
-	tex.scrshoot
-	icon.shoot
-	;
-	>r
-	1024 ( 1? )( 1-
-		1024 ( 1? )( 1-
-		2dup xor dup 16 << or r!+
-		) drop ) drop rdrop ;
 
 |----------------------------------
-#cya? 1
-#altoconsola
 :main
 	usogui
 	show clrscr
+		64 gc.top $00f gc.hfill
 
-		0 0 tex.xy 800 600 tex.wh
-		actv 4194304 * paginas + 0 0 799 599 tex.draw
+		'exit >esc<
 
-|		actv 4194304 * paginas + 0 0 799 599 tex.drawraw
+|		0 0 tex.xy 800 600 tex.wh
+|		actv 4194304 * paginas + 0 0 799 599 tex.draw
+		actv 4194304 * paginas + 0 100 799 499 tex.drawraw
 
-
-		fonta-verdana14b home
-		verde dup " :R%d (DEBUG)" print
+		fonta-verdana14b scr home
+		verde dup " :R%d " print
 		amarillo mensaje print
-		blanco 'lastrun "%s " printr
-		blanco cr ">" print 'padin 64 inputline cr
+		blanco 'lastrun "%s " printr cr
 
-                fonta-verdana10b
+		blanco " #" print 'padin 64 input
+		verde dumpvstack cr
+
+        fonta-verdana10b
+
 		rojo sp 'exit "esc-Exit" link
 		verde
 		sp 'runprg dup <f1> "f1-Run" link
 		sp 'editprg dup <f2> "f2-Edit" link
 		violeta 'clicknew dup <f3> "f3-New" sp link
-		[ cya? 1 xor 'cya? ! ; ] dup <f4> "f4-Menu" sp link
 		sp 'runprgshot dup <f5> "f5-Icon" sp link
+
 |		violeta sp 'adddome "+Fold" link
 |		rojo sp 'borractual "Del" link
 |		sp sp 'runtimeerr "f9-RUNERR" link
 |		sp 'confsis "f10-CONFIG" link
+|		'fillmem <f6>
 
-		verde
-		cr cr2 dumpvstack
 		runtimeerror
-|		blanco trazo.in
-
-		cya? 1? ( 128 32 gc.vbetween carpetasyarchivos ) drop
-
-		cminiflecha
-'fillmem <f6>
 
 		keypad
 		[ -1 actf+! ; ] <up>
@@ -320,26 +293,43 @@
 		[ -1 actv+! ; ] <pgup>
 		[ 1 actv+! ; ] <pgdn>
 		'correconsola <enter>
-		'exit >esc<
-		;
+
+		cr cr2
+	|---- carpetas
+		0 ( cntv <? )(
+			actv =? ( azul )( negro )
+			'clickv over filev sp btnt
+			1+ ) drop
+		cr cr
+		sp chome!
+	|---- archivos
+		0 ( cntf <? )(
+			actf =? ( verde )( negro )
+			'clickf over filex
+			12 sp btntf cr cr
+			bout? 1? ( chome ) drop
+			1+ ) drop
+		cminiflecha ;
 
 :memoria
 	"r4" ruta.push
-	'actf "mem/mp.mem" load 'here !
+	'actf "mem/mp.mem" load drop
 	'ruta count + 'ruta> !
-	'ruta dir 
+	'ruta dir
+	here 'nombres !
+	$ffff 'here +!
 	refresh | para saber cntv
+
 	here dup 'paginas !
 	"mem/mpa.mem" load drop
 	cntv 4194304 * 'here +! | 1024*1024*4 bytes
 	refresh | para tener los nombres
-	screenshot -1 <>? ( drop ; )
+	screenshot -1 <>? ( drop ; ) drop
 	0 'screenshot !
-	drop
 
 	icon.shoot
 	actv 4194304 * paginas +
-	actf dup $f and 6 << swap 4 >> $f and 6 << | x y 
+	actf dup $f and 6 << swap 4 >> $f and 6 << | x y
 	icon.attex
 
 	paginas cntv 4194304 * "mem/mpa.mem" save

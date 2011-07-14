@@ -11,6 +11,7 @@
 ^r4/lib/trazo.txt
 ^r4/lib/usetex.txt
 ^r4/lib/usebmr.txt
+^r4/lib/input.txt
 
 ^r4/system/mem-ed.txt
 ^r4/system/r4code.txt
@@ -27,6 +28,7 @@
 #actv
 #ruta )( 1024
 #ruta> 'ruta
+#screenshot
 
 #cntf
 #cntv
@@ -35,6 +37,8 @@
 #indexf> 'indexf
 #indexv )( 8192
 #indexv> 'indexv
+
+#nombres
 
 :ruta.push | "" --
 	ruta> strcpyl
@@ -53,12 +57,17 @@
 
 |----------- estado
 :grabaestado
-	'actf 1032 "mem/mp.mem" save ;
+	'actf 1040 "mem/mp.mem" save ;
 
 :restauraestado
 	'actf "mem/mp.mem" load drop
 	'ruta count + 'ruta> !
 	'ruta dir
+	screenshot
+	-1 <>? ( drop ; )
+	0 'screenshot !
+	drop
+	>xfb
 	;
 
 :,string | "" -- ""'
@@ -81,6 +90,7 @@
 |---- genera indice y nombre
 :refresh
 	mark
+	nombres 'here !
 	'ruta dir
 	'indexv 'indexv> !
 	0 ( dup vol 1? )( ,cpyv 1+ ) drop 'cntv !
@@ -117,7 +127,7 @@
 		blanco
 		" NEW FILE" print cr cr
 		actv filev 'ruta "%s%s/" sp print
-		'ed.nombre 32 sp getline
+		'ed.nombre 32 sp input
 		'finnew lostfoco
 		;
 
@@ -128,6 +138,11 @@
 	grabaestado
 	'lastrun run
 	;
+
+:runprgshot
+	-1 'screenshot !
+	grabaestado
+	'lastrun run ;
 
 :editprg
 	grabaestado
@@ -213,7 +228,6 @@
 	;
 
 :carpetasyarchivos
-	home cr2
 	|---- carpetas
 	0 ( cntv <? )(
 		actv =? ( azul )( negro )
@@ -223,14 +237,14 @@
 		 cr cr
 		1+ ) drop cr cr
 
-	chome cr2
+	chome
 	|---- archivos
 	0 ( cntf <? )(
 		actf =? ( verde )( negro )
 		'clickf
 		over filex
 		12 sp btntf cr cr
-		bout? 1? ( chome cr2 ) drop
+		bout? 1? ( chome ) drop
 		1+ ) drop
 	;
 
@@ -255,11 +269,11 @@
 	;
 
 :runtimeerror
-	txtruntime 0? ( drop ; ) drop 
-	rojo cr2 [ "r4/system/runtime2.txt" run ; ] "RUNTIME ERROR" btnt
+	txtruntime 0? ( drop ; ) drop
+	rojo [ "r4/system/runtime2.txt" run ; ] "RUNTIME ERROR" sp sp link
 	[ 0 dup "runtime.err" save
 	  0 dup "debug.err" save
-		0 'txtruntime ! ; ] "DEL" sp violeta btnt
+		0 'txtruntime ! ; ] "DEL" sp violeta link
 	;
 
 |----------------------------------
@@ -269,11 +283,15 @@
 	usogui
 	refresh
 	show clrscr
-		fonta-verdana14b home
+		64 gc.top $00f gc.hfill
+		fonta-verdana14b scr home
 		verde dup " :R%d " print
 		amarillo mensaje print
-		blanco 'lastrun "%s " printr
-		blanco cr ">" print 'padin 64 inputline cr
+		blanco 'lastrun "%s " printr cr
+
+		" #" print 'padin 64 input
+
+		verde dumpvstack cr
 
         fonta-verdana10b
 		rojo sp 'exit "esc-Exit" link
@@ -282,17 +300,14 @@
 		sp 'editprg dup <f2> "f2-Edit" link
 		violeta 'clicknew dup <f3> "f3-New" sp link
 		[ cya? 1 xor 'cya? ! ; ] dup <f4> "f4-Menu" sp link
+		sp 'runprgshot dup <f5> "f5-Icon" sp link
 |		violeta sp 'adddome "+Fold" link
 |		rojo sp 'borractual "Del" link
 |		sp sp 'runtimeerr "f9-RUNERR" link
 |		sp 'confsis "f10-CONFIG" link
-
-		verde
-		cr cr2 dumpvstack
 		runtimeerror
-|		blanco trazo.in
-
-		cya? 1? ( 128 32 gc.vbetween carpetasyarchivos ) drop
+		cr cr2 chome!
+		cya? 1? ( carpetasyarchivos ) drop
 
 		cminiflecha
 
@@ -309,7 +324,8 @@
 :	$0
 	paper
 	mark
-
+	here 'nombres !
+	$ffff 'here +!
 	"r4" ruta.push
 	restauraestado
 	leererrores
