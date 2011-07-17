@@ -8,78 +8,48 @@
 ^r4/lib/color.txt
 ^r4/lib/trace.txt
 
+|--- precalculo
+#cromacol )( 516
+#varc
+#xo #yo
+
 #vhue #yluma #xluma
 #colorrampa $ff0000
 
 |---- Dialogo Color
-#:dlg.color@ $ffffff
-
-::dlg.color! | color --
-	dup
-	>rgbf
-	rgb2hsv
-
-	17 >> 'vhue !
-	17 >> 'yluma !
-	17 >> 'xluma !
-
 :setcol | color --
 	dup col.clapiz!
-	'dlg.color@ ! ;
+	varc ! ;
 
 :vhue! | nro --
 	dup 'vhue !
-	8 <<  1.0 1.0 hsv2rgb 'colorrampa !
-	tx1 xluma + ty1 yluma + getpixel setcol ;
-
-:vhue!2 | nro --
-	dup 'vhue !
-	9 <<  1.0 1.0 hsv2rgb 'colorrampa !
+	9 << 1.0 1.0 hsv2rgb 'colorrampa !
 	tx1 xluma + ty1 yluma + getpixel setcol ;
 
 :xyluma! | x y --
+	ty1 28 + <? ( ty1 28 + nip )
+	ty1 156 + >? ( ty1 156 + nip )
+	swap
+	tx1 8 + <? ( tx1 8 + nip )
+	tx1 136 + >? ( tx1 136 + nip )
+	swap
 	2dup
 	getpixel setcol
 	ty1 - 'yluma ! tx1 - 'xluma ! ;
 
-#col.ram
-
-:lumagrid
-	tx1 4+ ty1 28 +
-	256 ( 1? )( 1-
-		dup 0 colorrampa lerpcol
-		over dup 8 << dup 8 << or or
-		degrade32!
-		>r
-		2dup setxy
-		256 ( 1? )( 1- deg@+ px!+ ) drop
-		1+ r> ) drop
-	2drop
-	gc.push
-	tx1 4+ ty1 28 +	256 dup gc.xywh | x y w h
-    [ xymouse xyluma! ; ] guiMove
-	gc.pop
-
-	blanco
-	tx1 xluma + ty1 yluma + pos
-	6 dup dim
-	gc.box
-	;
-
 :lumagridmini
-	tx1 4+ ty1 28 +
-	256 ( 1? )( 2 -
+	tx1 8 + ty1 28 +
+	255 ( +? )(
 		dup 0 colorrampa lerpcol
 		over dup 8 << dup 8 << or or
 		degrade32!
-		>r
-		2dup setxy
-		128 ( 1? )( 1- deg@+ px!+ deg+! ) drop
-		1+ r> ) drop
-	2drop
+		>r 2dup setxy
+		129 ( 1? )( 1- deg@+ px!+ deg+! ) drop
+		1+ r> 2 - ) drop
+	setxy 129 ( 1? )( 1- 0 px!+ ) drop
 
 	gc.push
-	tx1 4+ ty1 28 + 128 dup gc.xywh
+	tx1 4+ ty1 24 + 136 dup gc.xywh
     [ xymouse xyluma! ; ] guiMove
 	gc.pop
 
@@ -88,95 +58,76 @@
 	6 dup dim
 	gc.box
 	;
-
-|--- precalculo
-#cromacol )( 1024
-
-:cromaset
-	'cromacol >r
-	0 ( 256 <? )(
-		dup 8 << 1.0 1.0 hsv2rgb r!+
-		1+ ) drop
-	rdrop ;
-
-:cromadraw | x y --
-	'cromacol >r
-	256 ( 1? )( 1-
-		r@+ ink
-		pick2 pick2
-		over 16 + over op line
-		swap 1+ swap ) drop
-	rdrop ;
-
-|----
-:cromaline
-	tx1 262 + ty1 28 + vhue +
-	over 32 + over op line
-
-	tx1 270 + ty1 28 + | ini croma
-	256 ( 1? )( 1-
-		255 over - 8 <<  1.0 1.0 hsv2rgb ink
-		pick2 pick2 over 16 + over op line
-		swap 1+ swap ) drop
-	2drop
-
-	gc.push
-	tx1 262 + ty1 32 256 gc.xywh | x y w h
-    [ xymouse nip ty1 28 + - vhue! ; ] guiMove
-	gc.pop
-	;
-
 
 :cromalinemini
 	tx1 142 + ty1 28 + vhue +
 	over 32 + over op line
-
 	tx1 150 + ty1 28 + | ini croma
-	256 ( 1? )(
-		255 over - 8 <<  1.0 1.0 hsv2rgb ink
-		pick2 pick2 over 16 + over op line
-		swap 1+ swap 2 - ) drop
+	'cromacol >r
+	129 ( 1? )( 1-
+		r@+ ink
+		pick2 pick2
+		over 16 + over op line
+		swap 1+ swap ) drop
+	rdrop
 	2drop
 
 	gc.push
 	tx1 142 + ty1 28 + 32 128 gc.xywh | x y w h
-    [ xymouse nip ty1 28 + - vhue!2 ; ] guiMove
+    [ xymouse nip ty1 28 + - vhue! ; ] guiMove
 	gc.pop
 	;
 
-#winCol 0 10 30 290 330 "Color"
-:dlgCol
-	lumagrid
-	cromaline
-	ty1 290 + 'ccy !
-	blanco
-	dlg.color@ " $%h" print
-	;
+:showcolor
+	show xfb> guistart
+		xo yo 16 16 gc.xywh
+		varc @ ink gc.fbox
+		blanco 2+gc gc.box
+|		'exit guiBtn
+		lumagridmini
+		cromalinemini
+		cminiflecha
+		tx1 32 + ty1 4+ atxy blanco varc @ "$%h" print
+|		varc @ 	rgb2hsr " %h %h %h" print
+		tx1 ty1 180 190 gc.xywh
+		'exit guiOut ;
 
-::dlg.color | --
-	dlg.color@ ink
-	'dlgCol 'winCol guiWin
-	;
+:cromaset
+	'cromacol >r
+	0 ( 128 <=? )(
+		dup 9 << 1.0 1.0 hsv2rgb r!+
+		1+ ) drop
+	rdrop ;
 
+:setvxy | color -- ; no anda
+	rgb2hsv
+	neg 2/ $7f and 28 + 'yluma !
+	$ff >? ( $ff nip )
+	2/ $7f and 8 + 'xluma !
+	$ff $600 */
+	dup 8 << 1.0 1.0 hsv2rgb 'colorrampa !
+	2/ 'vhue ! ;
 
-|-----
-#winColm 0 10 30 180 190 "Color"
-:dlgColm
-	lumagridMini
-	cromalineMini
-	ty1 160 + 'ccy !
-	negro
-	dlg.color@ " $%h" print
-	;
+:indlgcolor
+	wgc.push
+	cromaset
+	ccx 1+ 'xo !
+	ccy 1+ 'yo !
+	ccx 180 + sw >? ( -180 'ccx +! ) drop
+	ccy 190 + sh >? ( -190 'ccy +! ) drop
+	ccx 'tx1 ! ccy 'ty1 !
+	tx1 ty1 180 190 gc.xywh
+	gris gc.fbox
+	varc @ setvxy
+	>xfb
+	showcolor
+	wgc.pop ;
 
-::dlg.colormini | --
-	dlg.color@ ink
-	'dlgColm 'winColm guiWin
-	;
-
-::dlgColat! | x y --
-	'winCol 8 + !
-	'winCol 4+ ! ;
+::dlgcolor | 'var --
+	dup 'varc ! @ ink
+	ccx 1+ ccy 1+ 16 16 gc.xywh
+	'indlgcolor guiBtn
+	gc.fbox ;
 
 |---- Dialogos Si No
 
@@ -229,36 +180,3 @@
 		"Imprimiendo..." printc cr cr cr
 		"Espere un momento..." printc
 		1 .segs exit ;
-
-|---- dlgcolor
-#varc
-#xo #yo
-
-:showcolor
-	show xfb>scr
-		xo yo 16 16 gc.xywh
-		varc @ ink gc.fbox
-		tx1 ty1
-		lumagridmini
-		cromalinemini
-
-		cminiflecha
-		'exit >esc<
-		;
-
-:indlgcolor
-	wgc.push
-	ccx 1+ 'xo !
-	ccy 1+ 'yo !
-	ccx 'tx1 ! ccy 17 + 'ty1 !
-	tx1 ty1 255 255 gc.xywh
-	blanco gc.box
-	>xfb
-	showcolor
-	wgc.pop ;
-
-::dlgcolor | 'var --
-	dup 'varc ! @ ink
-	ccx 1+ ccy 1+ 16 16 gc.xywh
-	gc.fbox
-	'indlgcolor guiBtn ;
