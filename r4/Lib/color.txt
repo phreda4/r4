@@ -79,38 +79,21 @@
 	$ff00 and or swap
 	8 << $ff0000 and or ;
 
-::>rgbf | rgb32 -- r g v
-	dup $ff0000 and 8 >> dup 8 >> or
-	swap dup $ff00 and dup 8 >> or
-	swap $ff and dup 8 << or ;
-
-::rgb2hsv | r g b -- h s v
+::rgb2hsv | argb -- h s l
+	dup 16 >> $ff and
+	over 8 >> $ff and
+	rot $ff and
 	pick2 pick2 over <? ( swap ) | min max
 	pick2 pick2 <? ( rot rot )( over <? ( swap ) )
 	nip | r g b min max
-
 	over =? ( nip nip nip nip dup dup ; )
-	pick2 =? ( >r >r drop - 4.0 r> )(		| max=B
-	pick3 =? ( >r >r rot - nip 2.0 r> )(	| max=G
-				>r >r - nip 1.0 r> ) )		| max=R
-	| g-b fac min  R:max
-	rot r pick2 - /. | fac min h  r:max
+	pick2 =? ( >r >r drop - $400 r> )(		| max=B
+	pick3 =? ( >r >r rot - nip $200 r> )(	| max=G
+				>r >r - nip 0 r> ) )		| max=R
+		| g-b fac min  R:max
+	rot 8 << r pick2 - / | fac min h  r:max
 	rot + 			| min H   r:max
-	r rot - r /. | H S
-	r> ;
-
-::rgb2hsl | r g b -- h s l
-	pick2 pick2 over <? ( swap ) | min max
-	pick2 pick2 <? ( rot rot )( over <? ( swap ) )
-	nip | r g b min max
-
-	over =? ( nip nip nip nip dup dup ; )
-	pick2 =? ( >r >r drop - 4.0 r> )(		| max=B
-	pick3 =? ( >r >r rot - nip 2.0 r> )(	| max=G
-				>r >r - nip 1.0 r> ) )		| max=R
-	| g-b fac min  R:max
-	rot r pick2 - /. | fac min h  r:max
-	rot + 			| min H   r:max
-	r rot + 2/ | H L
+	$600 mod -? ( $5ff + )
+	r rot - r 8 <</ | H S
 	r> ;
 
