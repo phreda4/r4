@@ -3,6 +3,9 @@
 |---------------------
 ^r4/lib/print.txt
 ^r4/lib/btn.txt
+^r4/lib/db2.txt
+
+^r4/lib/trace.txt
 
 |---------------- Grilla
 #colums
@@ -12,14 +15,11 @@
 #tabcols )( 256
 #tabcols>
 #xf
-
 #yi
 #tabrows )( 256
 #tabrows>
 #yf
-
 #col>
-
 #xxi
 
 |-------
@@ -76,7 +76,7 @@
 	'xf !
 	ccy 'yi !
 	'tabrows 'tabrows> !
-	rowg 
+	rowg
 	;
 
 |-------------------
@@ -153,11 +153,80 @@
 	"%a" mprint gcellc
 	$grid 	;
 
+|------ tipos de celdas
+#grl
+#act
 
-|  Pago:_10|Fecha:_10|Recibo:_16|Vencimiento:_10~
-|
-::simplegrid | "" --
-	tx2 tx1 - 'ancho !
-	0 over 1 >r
-|	( >reg> 1? )(  )|***
+:t0 "%a" gcell ;
+:t1 "%a" gcellc ;
+:t2 "%a" gcell ;
+:t3 "%a" gcellr ;
+:t4 "%a" mprint memnro2 gcellr ; | precio
+
+:t5
+:t6
+:t7
+:t8 ;
+
+#tiposg t0 t1 t2 t3 t4 t5 t6 t7
+
+|---- grilla de memoria
+| #grlista Act Pag c1 c2 c3 .. 0 "titulos|lista"
+::memgrid | rows 'mem 'memgrid --
+	dup 0.99 grid2
+	$cccccc gfill negro
+	dup 8 + dup 'grl !
+	( @+ 1? )( drop ) drop
+	dup @ 1? ( drop ( dup "%a" gcellc >fld> 0? ) 2drop cr )( 3drop -2 'ccy +! )
+
+	( swap 1? )( 1- swap
+		rowg
+|	[ dup 'act ! over indmei - 2 >> 1- grl 8 - ! ; ] onLineMove | click en linea
+|	act =? ( $7f gfill blanco )( $ffffff gfill negro )
+		$ffffff gfill negro
+
+		grl ( @+ 1? )( | cnt mem acol col
+			16 >> 7 and 2 << 'tiposg + @
+			rot | acol col mem
+			1? ( dup rot exec )( nip )
+			>fld> swap
+			) 2drop
+		cr
+		) 2drop
+	gris $grid
 	;
+
+
+|--- DBGRILLA
+| #grlista Act Pag c1 c2 c3 .. 0 "titulos|lista"
+
+:dbline
+	rowg
+	[ dup 'act ! over indmei - 2 >> 1- grl 8 - ! ; ] onLineMove | click en linea
+	act =? ( $7f gfill blanco )( $ffffff gfill negro )
+	grl ( @+ 1? )(
+		pick2 over $ff and >>fld
+		swap 16 >> 7 and 2 << 'tiposg + @ exec
+		) 3drop
+	cr ;
+
+::dbgrid | filas 'gr 'db --
+	dbuse
+	cntregi 1? ( 1- ) pick2 /
+	1? (
+		cyan cols 14 - col
+		[ over 4+ @ 1- -? ( 0 nip ) pick2 4+ ! ; ] " < " btnt
+		dup 1+ pick2 4+ @ 1+ "  %d/%d  " print
+		[ over 4+ @ 1+ over >? ( over nip ) pick2 4+ ! ; ] " > " btnt
+		) drop
+	cr cr2
+	dup 0.99 grid2
+
+	$cccccc gfill negro
+	dup 8 + dup 'grl !
+	( @+ 1? )( drop ) drop
+	( dup "%a" gcellc >fld> 0? ) drop cr
+
+	'dbline swap 4+ @ rot dbusemapage
+
+	gris $grid ;

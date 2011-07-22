@@ -18,14 +18,14 @@
 ^r4/lib/mem.txt
 ^r4/lib/gui.txt
 ^r4/lib/sort.txt
-^r4/lib/grid.txt
+|^r4/lib/grid.txt
 
 ^r4/lib/trace.txt
 
 |---- recorrido
 :>>.. | adr -- adr'
 	( c@+ 32 <? )( 0? ( drop 1- ; ) drop ) drop 1- ;
-:>>fld | reg fld -- reg'
+::>>fld | reg fld -- reg'
 	( 1? )( 1- swap >>f swap ) drop ;
 ::>mfld> | adr -- adr'/0
 	( c@+ 1? )(
@@ -34,6 +34,7 @@
 		$5f =? ( drop ; )
 		drop ) nip ;
 ::>fld> | adr -- adr'/0
+	0? ( ; )
 	( c@+ 1? )(
 		$7e =? ( 2drop 0 ; )
         $7c =? ( drop ; )
@@ -64,10 +65,10 @@
 #dbname
 #inimem
 #cntreg
-#cntregi
+#:cntregi
 #cntfld |**
 #indmem
-#indmei
+#:indmei
 #indfil
 
 #dbregnow 0 | registro actual
@@ -209,7 +210,7 @@
 
 ::dbmapage | vec nro largo 'db -- ; vec | vec last act  adrr -- vec last act
 	dbuse | vec nro pag
-:dbusemapage
+::dbusemapage
 	cntregi >=? ( 2drop dbusemapi ; )
 	over 1+	over *
 	cntregi >=? ( cntregi nip )
@@ -342,45 +343,24 @@
 		toupp pick2 =? ( drop inner )( drop )
 		) 4drop 0 ;
 
-|--- GRILLA
-| #grlista Act Pag c1 c2 c3 .. 0 "titulos|lista"
-#grl
-#act
+|----- SEARCH
+:=f | fs1 s2 -- 1/0
+	( c@+ 1? )(
+		rot c@+ rot -
+		1? ( 3drop 0 ; ) drop
+		swap ) 2drop
+	c@ $ff and
+	$5f =? ( 1 nip ; )
+	$7c =? ( 1 nip ; )
+	$7e =? ( 1 nip ; )
+	33 <? ( 1 )( 0 ) nip ;
 
-:t0 "%a" gcell ;
-:t1 "%a" gcellc ;
-:t2 "%a" gcell ;
-:t3 "%a" gcellr ;
-#tiposg t0 t1 t2 t3
-
-:dbline
-	rowg
-	[ dup 'act ! over indmei - 2 >> 1- grl 8 - ! ; ] onLineMove | click en linea
-	act =? ( $7f gfill blanco )( $ffffff gfill negro )
-	grl ( @+ 1? )(
-		pick2 over $ff and >>fld
-		swap 16 >> 3 and 2 << 'tiposg + @ exec
-		) 3drop
-	cr ;
-
-::dbgrid | filas 'gr 'db --
+::dbsearchstr | "" nro 'db --
 	dbuse
-	cntregi 1? ( 1- ) pick2 /
-	1? (
-		cyan cols 14 - col
-		[ over 4+ @ 1- -? ( 0 nip ) pick2 4+ ! ; ] " < " btnt
-		dup 1+ pick2 4+ @ 1+ "  %d/%d  " print
-		[ over 4+ @ 1+ over >? ( over nip ) pick2 4+ ! ; ] " > " btnt
-		) drop
-	cr cr2
-	dup 0.99 grid2
+	cntregi indmei
+	( swap 1? )( 1- swap
+		@+ | "" nro act indmei reg
+		pick3 >>fld
+		pick4 =f 1? ( drop nip nip nip 4 - ; )
+		drop ) 4drop 0 ;
 
-	$cccccc gfill negro
-	dup 8 + dup 'grl !
-	( @+ 1? )( drop ) drop
-	( dup "%a" gcellc >fld> 0? ) drop cr
-
-	blanco
-	'dbline swap 4+ @ rot dbusemapage
-
-	gris $grid ;
