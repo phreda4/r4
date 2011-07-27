@@ -18,49 +18,9 @@
 ^r4/lib/mem.txt
 ^r4/lib/gui.txt
 ^r4/lib/sort.txt
-|^r4/lib/grid.txt
+^r4/lib/grid.txt
 
 ^r4/lib/trace.txt
-
-|---- recorrido
-:>>.. | adr -- adr'
-	( c@+ 32 <? )( 0? ( drop 1- ; ) drop ) drop 1- ;
-::>>fld | reg fld -- reg'
-	( 1? )( 1- swap >>f swap ) drop ;
-::>mfld> | adr -- adr'/0
-	( c@+ 1? )(
-		$7e =? ( 2drop 0 ; )
-        $7c =? ( 2drop 0 ; )
-		$5f =? ( drop ; )
-		drop ) nip ;
-::>fld> | adr -- adr'/0
-	0? ( ; )
-	( c@+ 1? )(
-		$7e =? ( 2drop 0 ; )
-        $7c =? ( drop ; )
-		drop ) nip ;
-::>reg> | adr -- adr'/0
-	( c@+ 1? )(
-		$7e =? ( drop ; )
-		drop ) nip ;
-
-::>sp> | adr -- adr'
-	( c@+ 1? )(
-		$ff and 32 >? ( drop 1- ; )
-		drop ) drop 1- ;
-
-::regcpy | desde en -- desde'
-	( swap c@+ 1? )(
-		$7e =? ( drop 0 rot c! ; )
-		rot c!+ )
-	rot c! 1- ;
-
-::fldcpy | desde en -- desde'
-	( swap c@+ 1? )(
-		$7c =? ( $7e nip )
-		$7e =? ( drop 0 rot c! ; )
-		rot c!+ )
-	rot c! 1- ;
 
 #dbname
 #inimem
@@ -364,3 +324,55 @@
 		pick4 =f 1? ( drop nip nip nip 4 - ; )
 		drop ) 4drop 0 ;
 
+
+|--- DBGRILLA
+| #grlista Act Pag c1 c2 c3 .. 0 "titulos|lista"
+
+#act #grl
+
+:t0 "%a" gcell ;
+:t1 "%a" gcellc ;
+:t2 "%a" gcell ;
+:t3 "%a" gcellr ;
+:t4 "%a" mprint memnro2 gcellr ; | precio
+
+:t5
+:t6
+:t7
+:t8 ;
+
+#tiposg t0 t1 t2 t3 t4 t5 t6 t7
+
+:dbline
+	rowg
+	[ dup 'act ! over indmei - 2 >> 1- grl 8 - ! ; ] onLineMove | click en linea
+	act =? ( $7f gfill blanco )( $ffffff gfill negro )
+	grl ( @+ 1? )(
+		pick2 over $ff and >>fld
+		swap 16 >> 7 and 2 << 'tiposg + @ exec
+		) 3drop
+	cr ;
+
+::dbgrid | filas 'gr 'db --
+	dbuse
+	cntregi 1? ( 1- ) pick2 /
+	1? (
+		cyan
+		tx2 ccw 15 * - 'ccx !
+|		cols 14 - col
+		[ over 4+ @ 1- -? ( 0 nip ) pick2 4+ ! ; ] " < " btnt
+		dup 1+ pick2 4+ @ 1+ "  %d/%d  " print
+		[ over 4+ @ 1+ over >? ( over nip ) pick2 4+ ! ; ] " > " btnt
+		) drop
+	cr cr2
+	dup 0.99 grid2
+
+	$cccccc gfill negro
+|	dup @ 'act !
+	dup 8 + dup 'grl !
+	( @+ 1? )( drop ) drop
+	( dup "%a" gcellc >fld> 0? ) drop cr
+
+	'dbline swap 4+ @ rot dbusemapage
+
+	gris $grid ;
