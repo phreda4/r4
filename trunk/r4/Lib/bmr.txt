@@ -22,8 +22,11 @@
 |-- internas para clip
 #xi #yi
 #wi #hi
-#sx #sy
 
+|-- internas para scale
+#wr #hr
+#sx #sy
+#xa #ya
 
 :palb!+ | pal
 	2 << 'mempal + @ px!+ ;
@@ -77,7 +80,9 @@
 
 |----- MIXcolor
 :acpx!+ | col --
-	dup 24 >> $ff and | 0? ( 2drop 1 px+! ; )
+	dup 24 >> $ff and 
+	0? ( drop px!+ ; )
+	$ff =? ( 2drop 1 px+! ; )
 	swap
 	dup $ff00ff and				| alpha color colorand
 	px@ dup $ff00ff and 		| alpha color colorand inkc inkcand
@@ -87,6 +92,7 @@
 	swap $ff00 and 				| alpha colorand pxa
 	over - rot 8 *>> + $ff00 and
 	r> or px!+  ;
+
 
 |----- CLIP
 :clip | x y adr -- adr x y
@@ -98,10 +104,8 @@
 	-? ( dup 'hi +! neg 'yi ! 0 )( 0 'yi ! )
 	;
 
-|----------------------------------------
-| dibujo 1:1
-
-:t0 | x y adr -- ;32 bit/pixel 
+|----- DRAW 1:1
+:t0 | x y adr -- ;32 bit/pixel
 	clip | adr x y
 	wi hi or -? ( 4drop ; ) drop
 	setxy
@@ -163,28 +167,59 @@
 
 #ldraw t0 t1 t2 t3 t4 t5 t6 t7 t8 t9 tA tB tC tD tE tF
 
-:s0 | x y adr -- ;32 bit/pixel
-	clip | adr x y
+|----- DRAW N:N
+:clipsc | x y adr -- adr x y
+	rot | y adr x
+	wr over + sw >=? ( sw pick2 - 1- )( wr ) 'wi ! drop
+	-? ( dup 'wi +! neg 'xi ! 0 )( 0 'xi ! )
+	rot | adr x y
+	hr over + sh >=? ( sh pick2 - 1- )( hr ) 'hi ! drop
+	-? ( dup 'hi +! neg 'yi ! 0 )( 0 'yi ! )
+	wb wr 16 <</ dup 'sx ! xi * 'xi !
+	hb hr 16 <</ dup 'sy ! yi * 'yi !
+	;
+
+:s0 | x y adr --
+	clipsc
 	wi hi or -? ( 4drop ; ) drop
 	setxy
-	yi hb * xi + 2 << + >r
-	wb wi - 2 <<
-   	sw wi -
+	yi 'ya !
+	sw wi - | columna
 	hi ( 1? )(
-		wi ( 1? )( r@+ px!+ 1- ) drop
+		xi 'xa !
+	 	pick2 ya 16 >> wb * 2 << +
+		wi ( 1? )(
+			over xa 16 >> 2 << + @ px!+
+			sx 'xa +!
+			1- ) 2drop
 		over px+!
-		pick2 r+
-		1- ) 3drop
-	rdrop ;
+		sy 'ya +!
+		1- )
+	3drop ;
 
 :s1
+	clipsc
+	wi hi or -? ( 4drop ; ) drop
+	setxy
+	yi 'ya !
+	sw wi - | columna
+	hi ( 1? )(
+		xi 'xa !
+	 	pick2 ya 16 >> wb * 2 << +
+		wi ( 1? )(
+			over xa 16 >> 2 << + @ acpx!+
+			sx 'xa +!
+			1- ) 2drop
+		over px+!
+		sy 'ya +!
+		1- )
 	3drop ;
 
 #sdraw s0 s1 t2 t3 t4 t5 t6 t7 t8 t9 tA tB tC tD tE tF
 |----------------------------------------
 ::bmr.clear
 	frame wb hb *
-	( 1? )( 1- 	0 rot !+ swap ) 2drop
+	( 1? )( 1- 	$ff000000 rot !+ swap ) 2drop
 	;
 
 |----------draw
@@ -197,17 +232,20 @@
 	rot rot * +
 	;
 
-|*** change size
-::bmr.size! | w h --
-	'hb ! 'wb !
-	;
+|---- info
+::bmr.wh! | w h --
+	'hb ! 'wb ! ;
+::bmr.wh@ | -- w h
+	wb hb ;
+
+::bmr.res! | res --
+	$f and 'res ! ;
+::bmr.res@ | -- res
+	res ;
 
 |----- interface con el generador
 ::bmrW | -- ancho ; en dwors para generar codigo
 	wb ;
-
-::bmr.wh@ | -- w h
-	wb hb ;
 
 ::bmr! | c x y --
 	wb * + 2 << frame + ! ;
@@ -218,9 +256,42 @@
 ::bmrm | x y -- m
 	wb * + 2 << frame + ;
 
+:tienepal | adr v --
+	1 over 5 >> $3 and << 1- 2 <<
+	rot	dup 'mempal ! + swap
+	;
+
+::bmr.draw | x y 'bmr --
+	@+
+	dup 12 >> $fff and 'wb !
+	dup $fff and 'hb !
+	24 >>
+	$10 and? ( tienepal )( 'paleta 'mempal ! )
+	$f and 2 << 'ldraw + @ exec ;
+
+::bmr.drawi | x y --
+	frame res $f and 2 << 'ldraw + @ exec ;
+
+::bmr.drawscale | x y 'bmr wr hr --
+	0? ( 4drop drop ; ) 'hr !
+	0? ( 4drop ; ) 'wr !
+	@+
+	dup 12 >> $fff and 'wb !
+	dup $fff and 'hb !
+	24 >>
+	$10 and? ( tienepal )( 'paleta 'mempal ! )
+	$f and 2 << 'sdraw + @ exec ;
+
+::bmr.drawscalei | x y w h --
+	0? ( 4drop ; ) 'hr !
+	0? ( 3drop ; ) 'wr !
+	frame res $f and 2 << 'sdraw + @ exec ;
+
+
 |-----
 :savepal
 	;
+
 ::bmr.save | "" --
 	mark
 	wb $fff and 12 << hb or res 24 << or ,
@@ -229,11 +300,6 @@
 	( 1? )( 1- swap @+ , swap ) 2drop
 	savemem
 	empty
-	;
-
-:tienepal | adr v --
-	1 over 5 >> $3 and << 1- 2 <<
-	rot	dup 'mempal ! + swap
 	;
 
 ::bmr.load | "" --
@@ -247,19 +313,3 @@
 	'res !
 	'frame ! ;
 
-::bmr.draw | x y 'bmr --
-	@+
-	dup 12 >> $fff and 'wb !
-	dup $fff and 'hb !
-	24 >>
-	$10 and? ( tienepal )( 'paleta 'mempal ! )
-	$f and 2 << 'ldraw + @ exec ;
-
-
-::bmr.drawscale | x y 'bmr --
-	@+
-	dup 12 >> $fff and 'wb !
-	dup $fff and 'hb !
-	24 >>
-	$10 and? ( tienepal )( 'paleta 'mempal ! )
-	$f and 2 << 'sdraw + @ exec ;

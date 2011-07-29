@@ -2,6 +2,7 @@
 | PHREDA 2010
 |--------------------------------------------------
 ^r4/lib/gui.txt
+^r4/lib/input.txt
 ^r4/lib/dlg.txt
 ^r4/lib/trazo.txt
 ^r4/lib/leebmp.txt
@@ -9,26 +10,26 @@
 
 ^r4/lib/trace.txt
 
+#bmrm #bmrw #bmrh
+
 #orden 0
 #nrormt 0
 #nomrmt )( 32
 #modo
 
 #color $ff
-|-- pantalla
+
 #zoom 2
 #xi #yi | donde esta el pixel 0,0
-#wi #hi		| ancho y alto de todo los pixels
 
-|-- origen
-#xo #yo		| origen de pantalla
-#xa #ya		| x y 16.16
-#xs #ys		| dx dy 16.16
+#xv #yv	| aux para mover
 
-#xa1 #ya1
-#xim #yim	| tamaño imagen
-
-#xv #yv
+:refreshbmr
+	bmr.wh@
+	zoom << 'bmrh !
+	zoom << 'bmrw !
+	bmr.res@ 'bmrm !
+	;
 
 |---- dibujo en frame
 ::bmr@m | x y -- c
@@ -48,34 +49,13 @@
 	bmr.wh@
 	sh 2/ swap zoom << 2/ - 'yi !
 	sw 2/ swap zoom << 2/ - 'xi !
-:ajustamov
-	1.0 zoom >> dup 'xs ! 'ys !
-	bmr.wh@
-	zoom << sh yi - >? ( sh yi - nip ) 'hi !
-	zoom << sw xi - >? ( sw xi - nip ) 'wi !
-	xi -? ( dup 'wi +! neg 16 << zoom >> 'xa1 ! 0 )( 0 'xa1 ! ) 'xo !
-	yi -? ( dup 'hi +! neg 16 << zoom >> 'ya1 ! 0 )( 0 'ya1 ! ) 'yo !
 	;
 
 :drawbmr | --
-	xa1 'xa !
-	ya1 'ya !
-	xo yo setxy
-	sw wi - | columna
-	hi ( 1? )(
-		xa1 'xa !
-	 	0 ya 16 >> bmrm
-		wi ( 1? )(
-			over xa 16 >> 2 << + @ px!+
-			xs 'xa +!
-			1- ) 2drop
-		over px+!
-		ys 'ya +!
-		1- ) 2drop
-
-	bmr.wh@
-	zoom << dup 2/ yi + 'yc ! 2 + 'h !
-	zoom << dup 2/ xi + 'xc ! 2 + 'w !
+	bmrm 1 and? ( bmrw bmrh xi yi drawalphagrid ) drop
+	xi yi bmrw bmrh bmr.drawscalei
+	bmrh dup 2/ yi + 'yc ! 2 + 'h !
+	bmrw dup 2/ xi + 'xc ! 2 + 'w !
 	blanco gc.box
 	;
 
@@ -85,20 +65,33 @@
 	1? ( bmr.clear ) drop
 	;
 
-
 |---- cambia resolucion
 :ajustawh! | w h --
-	bmr.size!
+	bmr.wh!
 	ajusta ;
 
-#winRes 0 10 32 128 256 "WxH"
+:set32
+	0 bmr.res! refreshbmr ;
+:set32A
+	1 bmr.res! refreshbmr ;
+
+#wbs )( 8
+#hbs )( 8
+
+#winRes 0 10 32 256 256 "BMR"
 :dlgRes
-	[ 16 dup ajustawh! ; ] "16x16" sp btnt cr cr2
-	[ 32 dup ajustawh! ; ] "32x32" sp btnt cr cr2
-	[ 64 dup ajustawh! ; ] "64x64" sp btnt cr cr2
-	[ 128 dup ajustawh! ; ] "128x128" sp btnt cr cr2
-	[ 256 dup ajustawh! ; ] "256x256" sp btnt cr cr2
-	[ 1024 dup ajustawh! ; ] "1kx1k" sp btnt
+	" Tipo:" print cr
+	'set32 "32" sp link
+	'set32A "32A" sp link cr
+	" Resolucion:" print cr
+	[ 16 dup ajustawh! ; ] "16x16" sp link
+	[ 32 dup ajustawh! ; ] "32x32" sp link
+	[ 64 dup ajustawh! ; ] "64x64" sp link cr
+	[ 128 dup ajustawh! ; ] "128x128" sp link
+	[ 256 dup ajustawh! ; ] "256x256" sp link cr
+
+|	" Ancho:" print 'wbs 4 input cr
+|	" Alto:" print 'hbs 4 input cr
 	;
 
 |------------------------------
@@ -172,11 +165,10 @@
 	xymouse
 	dup yv - 'yi +! 'yv !
 	dup xv - 'xi +! 'xv !
-	ajustamov
 	;
 
-:bz+ zoom 1+ 6 >? ( 0 nip ) 'zoom ! ajustamov ;
-:bz- zoom 1- -? ( 6 nip ) 'zoom ! ajustamov ;
+:bz+ zoom 1+ 6 >? ( 0 nip ) 'zoom ! refreshbmr ;
+:bz- zoom 1- -? ( 6 nip ) 'zoom ! refreshbmr ;
 
 :modovista
 	drawbmr
@@ -206,7 +198,7 @@
 		modoactual
 		scr 32 gc.botton home cr2
 		font-vard-12-bold
-		sp 'color dlgcolor
+		sp 'color dlgcolora
 		gris
 		'dlgRes 'winRes guiWin | grosor
 		verde dup " - %d -" print
@@ -216,6 +208,7 @@
 
 :   33 mark
 	"mem/notepad.bmr" bmr.load
+	refreshbmr
 	main
 	"mem/notepad.bmr" bmr.save
 	;
