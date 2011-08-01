@@ -2,91 +2,112 @@
 | :r4 libreria de sistema - Fuente de letras
 |---------------------------------------------
 
-#mbuffer )( 4096 | 4kb linea
-#mbuffer> 'mbuffer
-#mbuffer2 )( 4096 | 4kb linea
+::, here !+ 'here ! ;
+::,c here c!+ 'here ! ;
+|::,w here w!+ 'here ! ;
+::,s ( c@+ 1? )( ,c ) 2drop ;
+::,w ( c@+ $ff and 32 >? )( ,c ) 2drop ;
+::,ln ,s
+::,cr 13 ,c ;
+::,eol 0 ,c ;
+::,sp 32 ,c ;
+::,nl 13 ,c 10 ,c ;
 
-:m, mbuffer> !+ 'mbuffer> ! ;
-:m,c mbuffer> c!+ 'mbuffer> ! ;
-
-:c0	| 'p
+:c0	| 'p                     (%p)
 	swap 0? ( drop ; )
 	( c@+ 1? )(
 		$7c =? ( 2drop ; )
 		$7e =? ( 2drop ; )
-		m,c ) 2drop ;
-:c1	| a,q		| para db _|
+		,c ) 2drop ;
+:c1	| a,q		| para db _| (%a)
 	swap 0? ( drop ; )
 	( c@+ 1? )(
 		$5f =? ( 2drop ; )
 		$7c =? ( 2drop ; )
 		$7e =? ( 2drop ; )
-		m,c ) 2drop ;
+		,c ) 2drop ;
 :c2	| b,r		(%b) binario
-	0 rot
-	( dup $1 and $30 + swap 2/ $7fffffff and 0? ) drop
-	( m,c 0? ) drop ;
+	swap
+::,b | bin --
+	0 swap ( dup $1 and $30 + swap 2/ $7fffffff and 0? ) drop
+	( ,c 0? ) drop ;
+
 :c3	| c,s		(%s) string
-	swap 0? ( drop ; )
-	( c@+ 1? )( m,c ) 2drop ;
+	swap 0? ( drop ; ) ,s ;
+
 :singular
-	drop
-	"-2147483648" ( c@+ 1? )( m,c ) 2drop ;
+	drop "-2147483648" ,s ;
+
 :c4	| d,t		(%d) decimal
 	swap
-	-? ( neg -? ( singular ; ) $2d m,c )
+::,d | dec --
+	-? ( neg -? ( singular ; ) $2d ,c )
 	0 swap ( 10 /mod $30 + swap 0? ) drop
-	( m,c 0? ) drop ;
+	( ,c 0? ) drop ;
+
 :c5	| e,u,%		(%%) caracter %
-	$25 m,c ;
+	$25 ,c ;
+
 :c6	| f,v		(%f) punto fijo
-	over 16 >> -? ( 1+ 0? ( $2d m,c ) ) swap
-	c4
-	$2e m,c | .
 	swap
-|:dec  | v --
+::,f | fix --
+	dup 16 >> -? ( 1+ 0? ( $2d ,c ) )
+	,d
+	$2e ,c | .
 	-? ( not ) $ffff and
 	100 $ff00 */ 100 +	| solo dos decimales *** ojo falta investigar
+|	,d
 	0 swap ( 10 /mod $30 + swap 0? ) drop
-	drop ( m,c 0? ) drop
+	drop ( ,c 0? ) drop
 	;
+
 :c7	| ..w		(%w) palabra
-	swap 0? ( drop ; )
-	( c@+ $ff and 32 >? )( m,c ) 2drop ;
+	swap 0? ( drop ; ) ,w ;
+
 :c8	| h..			(%h) hexa
-	0 rot
-	|-? ( $2d m,c neg )
-	( dup $f and $30 + swap 4 >> $FFFFFFF and 0? ) drop | quite and por -
-	( $39 >? ( 7 + ) m,c 0? ) drop ;
+	swap
+::,h | hex --
+	0 swap
+	( dup $f and $30 + swap 4 >> $fffffff and 0? ) drop
+	( $39 >? ( 7 + ) ,c 0? ) drop ;
+
 :c9	| i,y			(%i) parte entera fixed
-	swap 16 >> c4 ;
+	swap 16 >> ,d ;
 :ca	| j,z			(%j) parte decimal fixel
-	swap $ffff and c4 ; | <--- NO ES
+	swap $ffff and ,d ; | <--- NO ES
 :cb	| k,			(%k) caracter
-	swap m,c ;
+	swap ,c ;
 :cc	| l,			(%l) linea
 	swap 0? ( drop ; )
-	( c@+ 1? )( 13 =? ( 2drop ; ) m,c ) 2drop ;
+	( c@+ 1? )( 13 =? ( 2drop ; ) ,c ) 2drop ;
 :cd	| m,}
 	;
 :ce	| .	| cr		(%.) finlinea
-	13 m,c ;
+	13 ,c ;
 :cf	| o,			(%o) octal
-	0 rot
-	-? ( $2d m,c neg -? ( 0 nip ) )
+	swap
+::,o | octal --
+	-? ( neg -? ( 0 nip ) $2d ,c  ) | -0 como -2147483648
 	( dup $7 and $30 + swap 3 >> 0? ) drop | por -? quite $1fffffff and
-	( m,c 0? ) drop ;
+	( ,c 0? ) drop ;
 
 #control c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 ca cb cc cd ce cf
 
-:m,emit | c --
-	$25 <>? ( m,c ; ) drop c@+
-	$f and 2 << 'control + @ exec ;
+:,emit | c --
+	$25 <>? ( ,c ; ) drop
+	c@+ $f and 2 << 'control + @ exec ;
 
-::mprint | .. a b c adr -- addr
-	'mbuffer 'mbuffer> !
-	( c@+ 1? )( m,emit ) m,c drop
-	'mbuffer2 'mbuffer 1024 move
-	'mbuffer2 ;
+::,print | p p .. adr --
+	( c@+ 1? )( ,emit ) 2drop ;
 
+::,line ,print ,nl ;
 
+::mprint | ... a b c adr -- nadr
+	mark
+|	here 8192 + over =? ( 8192 + ) | puede llamarse otra vez!!
+|	here 4096 + over =? ( 4096 + ) | puede llamarse otra vez!!
+	here 2048 + over =? ( 2048 + ) | puede llamarse otra vez!!
+
+	dup 'here ! >r
+	( c@+ 1? )( ,emit ) ,c drop
+	empty r> ;
