@@ -68,6 +68,10 @@ HGDIOBJ hfnt, hfntPrev;
 int cWidthPels,cHeightPels;
 SIZE tsize;
 
+HDC tmpDC = 0;
+BITMAP info = { 0 };
+HBITMAP hBmp = 0;	
+
 //---------- SYSTEM word
 PROCESS_INFORMATION ProcessInfo; //This is what we get as an [out] parameter
 STARTUPINFO StartupInfo; //This is an [in] parameter
@@ -204,21 +208,7 @@ int SYSXYM=0;
 int SYSBM=0;
 int SYSKEY=0;
 
-// vectores de interrupciones
-//int SYSirqmouse=0;
-//int SYSirqteclado=0;
-//int SYSirqjoystick=0;
-//int SYSirqsonido=0;
-//int SYSirqred=0;
-//int SYSirqtime=0;
-
-//char kbuff[32];
-//int kcnt=0,kcur=0;
-
-//int mcnt=0;
-//int mbuff[128];
-
-//----- Directorio 
+//----- Directorio
 char mindice[8192];// 8k de index 1024 archivos con nombres de 8 caracteres
 char *indexdir[512];
 int sizedir[512];
@@ -252,8 +242,6 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 {
 switch (message) {     // handle message
     case WM_MOUSEMOVE:
-  //       if (SYSXYM==lParam) break;
-  //       mbuff[mcnt]=lParam;mcnt=(mcnt+1)&127;
          SYSXYM=lParam;//         SYSEVENT=SYSirqmouse;
          break;
     case WM_LBUTTONUP: case WM_MBUTTONUP: case WM_RBUTTONUP:
@@ -262,14 +250,12 @@ switch (message) {     // handle message
          break;
     case WM_SYSKEYUP:
     case WM_KEYUP:        // (lparam>>24)     ==1 keypad
-//         SYSKEY=lParam;
         lParam>>=16;
         if ((lParam&0x100)!=0) lParam=mapex[lParam&0x7f];
         SYSKEY=(lParam&0x7f)|0x80; //        SYSEVENT=SYSirqteclado;
         break;
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
-//         SYSKEY=lParam;
         lParam>>=16;
         if ((lParam&0x100)!=0) lParam=mapex[lParam&0x7f];
         SYSKEY=lParam&0x7f; //        SYSEVENT=SYSirqteclado;
@@ -281,27 +267,10 @@ switch (message) {     // handle message
    case WM_CLOSE:
         rebotea=2;// no reinicia
    case WM_DESTROY:
-        SYSKEY=-1;                   
+        SYSKEY=-1;
 //        R++;*(int*)R=(int)&ultimapalabra; // ejecuta end
 //		DestroyWindow(hWnd);
         return 1;
-/*    
-//        PostQuitMessage(0);
-        break;
-    case WM_ACTIVATEAPP:
-         active=wParam&0xff;
-         
-         if (active==WA_INACTIVE)
-            {
-  //          ChangeDisplaySettings(NULL,0);
-//            ShowWindow(hWnd,SW_MINIMIZE);
-         } else {
-    //        ShowWindow(hWnd,SW_NORMAL);//SW_RESTORE);
-//            UpdateWindow(hWnd);
-            }
-            
-         break;
-*/
   default:
        return DefWindowProc(hWnd,message,wParam,lParam);
   }
@@ -402,7 +371,7 @@ static inline int iclz32(int x)
 #endif
 
 // http://www.devmaster.net/articles/fixed-point-optimizations/
-static inline int isqrt32(int value) 
+static inline int isqrt32(int value)
 {
 if (value==0) return 0;
 int g = 0;
@@ -418,7 +387,7 @@ return g;
 
 //---------------------------------------------------------------
 int interprete(BYTE *codigo)// 1=recompilar con nombre en linea
-{      
+{
 if (codigo==NULL) return -1;
 register int TOS;			// Tope de la pila PSP
 register int *NOS;			// Next of stack
@@ -592,7 +561,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         NOS++;*NOS=TOS;TOS=sitime->tm_min;NOS++;*NOS=TOS;TOS=sitime->tm_hour;continue;
     case SISEND: 
          return 0;
-    case SISRUN: 
+    case SISRUN:
         exestr="";
         if (TOS==0) { rebotea=1;return 0; }
         strcpy(pilaexecl,(char*)TOS);
@@ -762,24 +731,30 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         TextOutA(phDC,0,0,(char*)(TOS),strlen((char*)(TOS)));
         TOS=*(NOS);NOS--;
         continue;
-    case DOCSIZE: // "tt" --
+    case DOCSIZE: // "tt" -- w h
         GetTextExtentPoint(phDC,(char*)(TOS),strlen((char*)(TOS)),&tsize);
         NOS++;*(NOS)=tsize.cx;TOS=tsize.cy;
         continue;
     case DOCFONT: // size angle "font" --
-        SelectObject(phDC, hfntPrev); 
-        DeleteObject(hfnt); 
+        SelectObject(phDC, hfntPrev);
+        DeleteObject(hfnt);
         strcpy(plf.lfFaceName,(char*)TOS);
         plf.lfWeight = FW_NORMAL;
-        plf.lfEscapement = *NOS; 
+        plf.lfEscapement = *NOS;
         plf.lfHeight= -MulDiv(*(NOS-1), GetDeviceCaps(phDC, LOGPIXELSY), 72);
-        hfnt = CreateFontIndirect(&plf); 
+        hfnt = CreateFontIndirect(&plf);
         hfntPrev = SelectObject(phDC, hfnt);
         NOS-=2;TOS=*(NOS);NOS--;
         continue;
     case DOCBIT: // bitmap x y --
-//      W=(*(NOS-1));
+        hBmp = (HBITMAP) LoadImage(0,(char*)(*(NOS-1)),IMAGE_BITMAP,0,0,LR_LOADFROMFILE | LR_CREATEDIBSECTION );
+        tmpDC = CreateCompatibleDC( phDC );
+        SelectObject( tmpDC, hBmp );
+        GetObject( hBmp, sizeof( info ), &info );
 //      StretchDIBits(phDC,(*NOS),TOS,bmih.biWidth,bmih.biHeight,0,0,bmih.biWidth, bmih.biHeight, lpBits, &lpBitsInfo, DIB_RGB_COLORS,SRCCOPY);
+        BitBlt( phDC,(*NOS),TOS, info.bmWidth, info.bmHeight, tmpDC, 0, 0, SRCCOPY );
+        DeleteDC( tmpDC );
+        DeleteObject(hBmp);
         NOS-=2;TOS=*(NOS);NOS--;
         continue;
     case DOCRES: // -- xmax ymax
@@ -788,7 +763,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         continue;
 #endif
     case SYSTEM: // "" --
-        //if (TOS!=0) 
+        //if (TOS!=0)
         //system((char*)TOS);
         ZeroMemory(&StartupInfo, sizeof(StartupInfo));
         StartupInfo.cb = sizeof StartupInfo ; //Only compulsory field
