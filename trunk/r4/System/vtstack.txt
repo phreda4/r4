@@ -657,7 +657,7 @@ vdrop	|MPLAY  a --
 :t2 violeta "Var " print value nro>nom "%w" print ;
 :t3 cyan oscuro "'Va " print value nro>nom "'%w" print ;
 :t4 rojo oscuro "'Co " print value nro>nom "'%w" print ;
-:t5 cyan "Cpy " print value 64 + "%k" print ;
+:t5 cyan "Cpy " print ; |value 64 + "%k" print ;
 :t6 amarillo "Ext " print value "%d" print ;
 :t7 blanco "Reg " print value "%d" print ;
 
@@ -665,19 +665,22 @@ vdrop	|MPLAY  a --
 
 :cadaregistro
 	blanco
-	pick2 dup 64 + swap "%d) %k =" print
+	pick2 dup 64 + swap "%d.%k=" print
 	dup $7 and 2 << 'tiposr + @ exec
-	dup " %h " print
+|	dup " %h " print
 	sp
 	$80 and? ( "M" print ) | como memoria
-	$40 and? ( "E" print ) | endreg
+	$40 nand? ( "S" print ) | no endreg (es salida)
 	$20 and? ( "C" print ) | codreg
 	$100 and? ( "a" print ) | usoadx
 	$200 and? ( "c" print ) | usoecx | si no es cte
 	$8000 and? ( "+" print ) | flag cte
-	dup 16 >> $ff and 1? ( " << %d" print )( drop )
-	24 >> " %h" print
-|	drop
+	dup 16 >> $ff and 1? ( "<%d>" print )( drop )
+
+|	24 >> " %h" print
+	drop
+
+	gris
 	over reg>str sp print
 	cr
 	allowchome ;
@@ -706,7 +709,7 @@ vdrop	|MPLAY  a --
 	2drop
 	;
 
-:asignoreg
+:AsignoReg
 	'ctessincosto mapregs | marco constantes
 |	'cpydirecto mapregs | copia de ctes
 
@@ -767,9 +770,8 @@ vdrop	|MPLAY  a --
 |-------- analizadores
 ::vtstacknro | nro --
 	vtini
-	dup nro>udr 2drop
-	neg
-	( 1? )( 1- dup neg d.pushReg ) drop
+	dup nro>udr 2drop |usadas
+	neg ( 1? )( 1- dup neg d.pushMem ) drop | como inicio
 	stacks>str
 | PARTE 1 - Crea registros
 	dup nro>toklen
@@ -787,7 +789,7 @@ vdrop	|MPLAY  a --
 
 ::vtstack | fin ini used --
 	vtini
-	( 1? )( 1- dup neg d.pushReg ) drop
+	( 1? )( 1- dup neg d.pushMem ) drop |usadas
 	stacks>str
 | PARTE 1 - Crea registros
 	( over <? )( sregtok ) 2drop
