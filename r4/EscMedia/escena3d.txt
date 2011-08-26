@@ -1,0 +1,204 @@
+| escena3d
+| PHReda 2011
+|--------------------------
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/sort.txt
+^r4/lib/fontj.txt
+^r4/lib/trace.txt
+
+^r4/juegosmedia/3dp.txt
+^r4/juegosmedia/laplegaria.spr
+
+#zombie1l indio1 indio2 indio3 indio4 indio3 | quieto y caminando
+#zombie1d indio5 indio5 indio5 indio5       | muerte
+#zombie2l zo3 zo1 zo2 zo1 zo2
+#zombie2d xo1 xo2 xo1 xo3
+
+#fondo 0 0
+#zombies 0 0
+#disparos 0 0
+#fxs 0 0
+#nubes 0 0
+
+#xcam 0
+#ycam 0
+#zcam 20.0
+
+#zrotcam 0
+
+#dx
+
+:debug
+	blanco
+	dup "%d " print  cr
+	xcam ycam zcam "z:%f y:%f x:%f" print cr
+	;
+
+:r0001 rand 0.001 mod ;
+:r001 rand 0.01 mod ;
+:r01 rand 0.1 mod ;
+:r1 rand 1.0 mod ;
+
+|--------------- nubes
+:nube
+	p3d.update
+	dup 4+ @ -16.0 <? ( drop 0 ; ) drop
+	mpush
+	p3d.pos
+	'nube1 3dnsprite
+	mpop
+	;
+
+:nubes+
+	'nube 'nubes p3d!+ >r
+	16.0 r!+ -8.0 r1 + r!+ 0 r!+ | x y z
+	0 r!+ 0 r!+ r001 r!+ | rx ry rz
+	r1 2.5 + r!+ 1.0 r01 + r!+ 1.0 r!+
+	r001 -0.01 + r!+ r0001 r!+ r0001 r!+ | vx vy vz
+	0 r!+ 0 r!+ 0 r!+ | vrx vry vrz
+	rdrop ;
+
+:nube+i
+	'nube 'nubes p3d!+ >r
+	rand 15.0 mod r!+ -8.0 r1 + r!+ 0 r!+ | x y z
+	0 r!+ 0 r!+ r001 r!+ | rx ry rz
+	r1 2.5 + r!+ 1.0 r01 + r!+ 1.0 r!+
+	r001 -0.01 + r!+ r0001 r!+ r0001 r!+ | vx vy vz
+	0 r!+ 0 r!+ 0 r!+ | vrx vry vrz
+	rdrop ;
+
+|--------------- cotorras
+
+|--------------- fx
+
+|--------------- disparo
+:disparo
+	;
+:disparodraw
+	;
+:disparo+
+	;
+
+|--------------- zombies
+:zombie1draw
+	mpush
+	p3d.pos
+	dup msec + 6 >> $c and 4+ 'zombie1l + @ 3dnsprite
+	mpop
+	;
+
+:zombie1
+	p3d.update
+	dup 12 + @ -16.0 <? ( drop 0 ; ) drop
+	p3d.z+
+	;
+
+:zombie1+
+	'zombie1 'zombies p3d!+ >r
+	rand 10.0 mod dup 'dx ! r!+ 0 r!+ 0 r!+ | x y z
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+	1.0 r!+ 1.0 r!+ 'zombie1draw r!+
+	dx 11 >> neg r!+ 0 r!+ -0.01 r!+ | VP
+	0 r!+ 0 r!+ 0 r!+ | VR
+	rdrop
+	;
+
+|--- z2
+:zombie2draw
+	mpush
+	p3d.pos
+	dup msec + 6 >> $c and 4+ 'zombie2l + @ 3dnsprite
+	mpop
+	;
+
+:zombie2
+	p3d.update
+	dup 12 + @ -16.0 <? ( drop 0 ; ) drop
+	p3d.z+
+	;
+
+:zombie2+
+	'zombie2 'zombies p3d!+ >r
+	rand 10.0 mod dup 'dx ! r!+ 0 r!+ 0 r!+ | x y z
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+	1.0 r!+ 1.0 r!+ 'zombie2draw r!+
+
+	dx 11 >> neg r!+ 0 r!+ -0.02 r!+ | VP
+	0 r!+ 0 r!+ 0 r!+ | VR
+	rdrop
+	;
+
+|--------------- main
+:dibfondo
+	| fondo quieto
+	'nubes dup
+	p3d.draw
+	p3d.cnt 50 <? ( nubes+ ) drop
+	'fondo p3d.draw
+	;
+
+:dibfrente
+	'fxs p3d.draw
+	| frente quietp
+	;
+
+:dibplay
+	p3d.zclear
+	'zombies p3d.draw
+	'disparos p3d.draw
+	p3d.zdraw
+	;
+
+#xr 0
+:main
+	'fondo p3d.clear
+	'zombies p3d.clear
+	'disparos p3d.clear
+	'fxs p3d.clear
+	'nubes p3d.clear
+	50 ( 1? )( 1- nube+i ) drop
+	show clrscr
+		debug
+		'zombies p3d.dump
+		omode
+		xr mrotx
+		xcam ycam zcam mtrans
+
+|		dibfondo
+		dibplay
+|		dibfrente
+
+		'exit >esc<
+		'zombie1+ <f1>
+		'zombie2+ <f2>
+
+|		[ 'zombies listpsort ; ] <f2>
+
+		[ 0.01 'xr +! ; ] <up>
+
+		xymouse pos 100 dup dim 'mira nsprite
+		;
+
+|----------------------------------
+:inimem
+	mark
+	$3fff 'nubes p3d.create
+	$3fff 'fondo p3d.create
+	$3fff 'zombies p3d.create
+	$3fff 'disparos p3d.create
+	$3fff 'fxs p3d.create
+	;
+
+:inisound
+|	"golpe.ogg" sload 'sgolpe !
+|	"laser.ogg" sload 'slaser !
+|	"start.ogg" sload 'sstart !
+|	"tono.ogg" sload 'stono !
+|	"tuc.ogg" sload 'stuc !
+	;
+
+:ini inimem inisound ;
+
+: ini 33 main ;
+
