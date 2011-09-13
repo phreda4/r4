@@ -168,7 +168,7 @@
 	,TOS ,TOS "mov %w,dword [%w]" ,line ;
 :,C@	 
 	,TOS ,TOS "movsx %w,byte [%w]" ,line ;
-:,W@     
+:,W@
 	,TOS ,TOS "movsx %w,word [%w]" ,line ;
 
 :,@x1	"lea %w,[%w+%w]" ,line ;
@@ -177,11 +177,65 @@
 
 :,!ex	"mov [%w+%w*%w],%w" ,line ;
 
-:,!		 ,NOS ,TOS "mov [%w],%w" ,line ;
-:,C!     ,NOS ,TOS "mov byte [%w],%w" ,line ;
-:,W!     ,NOS ,TOS "mov word [%w],%w" ,line ;
+:,!
+|--- caso 1
+	| 2 'var ! 		--> mov [var],2
+	| 'var1 'var2 ! --> mov [var2],var1
+	| 'cod 'var2 !  -->=mov [var2],cod
+	,NOS ,TOS "mov [%w],%w" ,line ;
+|--- caso 2
+	| var1 'var2 !	--> mov ebx,[var1];mov [var2],ebx; ** push ebx..pop ebx si ebx ocupado
+	| 2 var ! 		--> mov ebx,[var ];mov [ebx],2; ** push ebx..pop ebx si ebx ocupado
+	| var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
+	| 'var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
+	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; **
+	"push ebx" ,line
+	"mov ebx,dword [%w]" ,line
+	"mov [%w],%w" ,line
+	"pop ebx" ,line ;
 
-:,+!     ,TOS ,NOS "add [%w],%w" ,line ;
+:,C!
+|--- caso 1
+	| 2 'var ! 		--> mov [var],2
+	| 'var1 'var2 ! --> mov [var2],var1
+	| 'cod 'var2 !  -->=mov [var2],cod
+	,NOS ,TOS "mov byte [%w],%w" ,line ;
+|--- caso 2
+	| var1 'var2 !	--> mov ebx,[var1];mov [var2],ebx; ** push ebx..pop ebx si ebx ocupado
+	| 2 var ! 		--> mov ebx,[var ];mov [ebx],2; ** push ebx..pop ebx si ebx ocupado
+	| var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
+	| 'var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
+	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; **
+	"push ebx" ,line
+	"mov ebx,dword [%w]" ,line
+	"mov byte [%w],%w" ,line
+	"pop ebx" ,line ;
+
+:,W!
+|--- caso 1
+	| 2 'var ! 		--> mov [var],2
+	| 'var1 'var2 ! --> mov [var2],var1
+	| 'cod 'var2 !  -->=mov [var2],cod
+	,NOS ,TOS "mov word [%w],%w" ,line ;
+|--- caso 2
+	| var1 'var2 !	--> mov ebx,[var1];mov [var2],ebx; ** push ebx..pop ebx si ebx ocupado
+	| 2 var ! 		--> mov ebx,[var ];mov [ebx],2; ** push ebx..pop ebx si ebx ocupado
+	| var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
+	| 'var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
+	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; **
+	"push ebx" ,line
+	"mov ebx,dword [%w]" ,line
+	"mov word [%w],%w" ,line
+	"pop ebx" ,line ;
+
+:,+!
+|--- caso 1
+	| 2 'var +! 		--> mov [var],2
+	| 'var1 'var2 ! --> mov [var2],var1
+	| 'cod 'var2 !  -->=mov [var2],cod
+
+	,TOS ,NOS "add [%w],%w" ,line ;
+
 :,W+!    ,TOS ,NOS "add word [%w],%w" ,line ;
 :,C+!    ,TOS ,NOS "add byte [%w],%w" ,line ;
 
@@ -281,6 +335,10 @@
 	,TOS "imul %w,dword [SYSW]" ,line
 	,NOS ,TOS "add %w,%w" ,line
 	,TOS "lea ebp,[SYSFRAME+%w*4]" ,line ;
+|	"shl eax,10" ,ln
+|	"add eax,[esi]" ,ln
+|	"lea ebp,[SYSFRAME+eax*4]" ,ln
+
 
 :,PX+!	| s --
 	,TOS "lea ebp,[ebp+%w*4]" ,line ;
@@ -379,8 +437,9 @@
 
 :niv1 | adr adri+ info -- adri+ adr+
 	extraeREGS		| adr adri+
+	|dup $f and
 	$f =? ( drop swap 4+ ; )
-	$1 =? ( "eax" 'bnos strcpy ) |** NOS no optimizado
+|	$1 =? ( "eax" 'bnos strcpy ) |** NOS no optimizado
 	drop swap
 	@+ $ff and		| adri+ adr+ valor token
 	2 << 'nivel1 + @ exec | adri+ adr+
