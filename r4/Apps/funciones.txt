@@ -1,0 +1,167 @@
+|-------------------------------------------
+^r4/lib/gui.txt
+
+#xmin #ymin #xmax #ymax
+#xsum #ysum
+#xcam 0 #ycam 0 #zcam -10.0
+#xr 0.20
+
+:3dop project3d op ;
+:3dline project3d line ;
+:3dpline project3d pline ;
+
+
+:ejes
+	-5.0 0 0 3dop 5.0 0 0 3dline
+	0 -5.0 0 3dop 0 5.0 0 3dline
+	0 0 -5.0 3dop 0 0 5.0 3dline
+	;
+
+:marcas
+	-5.0 ( 5.0 <? )(
+		dup 0.01 0 3dop dup -0.01 0 3dline
+		0.01 over 0 3dop -0.01 over 0 3dline
+		0 0.01 pick2 3dop 0 -0.01 pick2 3dline
+		1.0 + ) drop
+	;
+
+:grillaxy
+	-5.0 ( 5.0 <=? )(
+		dup -5.0 0 3dop dup 5.0 0 3dline
+		-5.0 over 0 3dop 5.0 over 0 3dline
+		1.0 + ) drop ;
+
+:grillayz
+	-5.0 ( 5.0 <=? )(
+		0 over -5.0 3dop 0 over 5.0 3dline
+		0 -5.0 pick2 3dop 0 5.0 pick2 3dline
+		1.0 + ) drop ;
+
+:grillaxz
+	-5.0 ( 5.0 <=? )(
+		dup 0 -5.0 3dop dup 0 5.0 3dline
+		-5.0 0 pick2 3dop 5.0 0 pick2 3dline
+		1.0 + ) drop ;
+
+:drawfun | v --
+	>r
+	-5.0 dup r exec 0 3dop
+	-5.0 ( 5.0 <? )(
+		dup dup r exec 0 3dline
+		0.01 + ) drop
+	rdrop ;
+
+
+:drawfxinbox | fx --
+	mark
+	ymin ( ymax <? )(
+		xmin ( xmax <? )(
+			2dup pick2 exec ,
+			xsum + ) drop
+		ysum + ) drop
+	empty
+
+
+	xmin ymin 0 project3d
+	xmax ymax 0 project3d
+
+	;
+
+:drawfun2 | v --
+	>r
+	-5.0 ( 5.0 <? )(
+		dup -0.5 2dup r exec 3dop
+		-5.0 ( 5.0 <? )(
+			2dup 2dup r exec 3dline
+			0.05 + ) drop
+		0.05 + ) drop
+	-5.0 ( 5.0 <? )(
+		dup -5.0 swap 2dup r exec 3dop
+		-5.0 ( 5.0 <? )(
+			2dup swap 2dup r exec 3dline
+			0.05 + ) drop
+		0.05 + ) drop
+	rdrop ;
+
+:drawfun2x | v --
+	>r
+	-5.0 ( 5.0 <=? )(
+		dup 5.0 + $ff 10.0 */ ink
+		dup -5.0 2dup r exec 3dop
+
+		-5.0 ( 5.0 <? )( 0.1 +
+			2dup 2dup r exec 3dpline
+			) drop
+		dup 5.0 -2.0 3dpline
+		dup -5.0 -2.0 3dpline
+
+		dup -5.0 2dup r exec 3dpline
+		poli
+		0.2 + ) drop
+	rdrop ;
+
+|----------------------------------------
+| FUNCIONES XY
+:f(xy) | x y -- z
+	0.2 *. sin swap 0.2 *. sin *. ;
+:f(xy)2
+	dup *. swap dup *. + ;
+
+:f(xy)2
+	+ sin ;
+
+|----------------------------------------
+| FUNCIONES X
+
+:f(x) | X^3-9X
+	dup dup dup *. *. swap 9.0 *. - ;
+
+:frame
+|---- ajusta limites
+	zcam 2/ dup
+	neg dup xcam - 'xmin ! ycam - 'ymin !
+	dup xcam - 'xmax ! ycam - 'ymax !
+	xmax xmin - 4 >> 'xsum !
+	ymax ymin - 4 >> 'ysum !
+
+|	xmin ymin 2dup op xmax ymin line xmax ymax line xmin ymax line line
+	verde
+	xmax ymax 0 project3d
+	xmin ymin 0 project3d caja
+
+	;
+
+:inicio
+	0 paper
+	show clrscr
+	'exit >esc<
+	[ 0.1 'ycam +! ; ] <up>
+	[ -0.1 'ycam +! ; ] <dn>
+	[ 0.1 'xcam +! ; ] <le>
+	[ -0.1 'xcam +! ; ] <ri>
+	[ 0.1 'zcam +! ; ] <pgdn>
+	[ -0.1 'zcam +! ; ] <pgup>
+	[ 0.01 'xr +! ; ] <spc>
+
+		1.0 3dmode
+		0.25 mrotz
+		xr mrotx
+		xcam ycam zcam mtrans
+
+		gris grillaxy grillayz grillaxz
+|    	cyan frame
+
+		ejes
+		azul 'f(xy) drawfun2x
+
+|		verde 'sin drawfun
+|		violeta 'cos drawfun
+|		rojo 'tan drawfun
+|		cyan 'f(x) drawfun
+|		cyan 'sqrt. drawfun
+
+|		gris grillaxy grillayz grillaxz
+
+		cminiflecha ;
+
+: inicio ;
