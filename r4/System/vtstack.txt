@@ -126,11 +126,11 @@
 |	e call
 | 	f lit, lits
 | compila
-| 	f no genera codigo
+| 	f NO GENERA CODIGO
 |	7 tos+nos+nos2 se optimiza
 | 	3 tos+nos se optimiza
 |	1 tos se optimiza
-|	0 preservandopila
+|	0 NO OPTIMIZADO
 
 |--- llena buffinf
 :inf! tostr> 4096 - ! ;
@@ -559,7 +559,7 @@ vdrop	|MPLAY  a --
 ::sregtok | adr -- adr+
 	0 inf! | limpia info
 	@+ $ff and |trace
-	3 <? ( drop ; )
+	3 <? ( drop ; )	| quita :#
 	2 << 'acctoken + @ exec
 	stacks>str ;
 
@@ -570,13 +570,17 @@ vdrop	|MPLAY  a --
 :printstackolor | "" --
 	( c@+ 1? )(
 		dup 2 << 'regs + @ | info reg
-		$7 and 2 << 'tipocolor + @ ink
+|		$7 and 2 << 'tipocolor + @ ink
+		$8000 and? ( verde )( rojo )
+		$4000 and? ( blanco ) drop
 		64 + emit
 		) drop
 	c@+ 0? ( 2drop ; )
 	blanco ":" print
 	( 	dup 2 << 'regs + @ | info reg
-		$7 and 2 << 'tipocolor + @ ink
+|		$7 and 2 << 'tipocolor + @ ink
+		$8000 and? ( verde )( rojo ) 
+		$4000 and? ( blanco ) drop
 		64 + emit
 		c@+ 0? )
 	2drop
@@ -652,6 +656,9 @@ vdrop	|MPLAY  a --
 
 :value	over 1020 + @ ;
 
+:mapregs.next | -- regsig
+	over @ ;
+
 :t0 amarillo "Cte " print ;
 :t1 azul "Str " print value cte + "%s" print ;
 :t2 violeta "Var " print value nro>nom "%w" print ;
@@ -669,19 +676,22 @@ vdrop	|MPLAY  a --
 	dup $7 and 2 << 'tiposr + @ exec
 |	dup " %h " print
 	sp
+	$8000 and? ( "**" print ) | flag cte
+	$4000 and? ( "RR" print ) | flag cte
+
 	$80 and? ( "M" print ) | como memoria
 	$40 nand? ( "S" print ) | no endreg (es salida)
 	$20 and? ( "C" print ) | codreg
 	$100 and? ( "a" print ) | usoadx
 	$200 and? ( "c" print ) | usoecx | si no es cte
-	$8000 and? ( "+" print ) | flag cte
+
 	dup 16 >> $ff and 1? ( "<%d>" print )( drop )
 
 |	24 >> " %h" print
 	drop
 
 	gris
-	over reg>str sp print
+|	over reg>str sp print
 	cr
 	allowchome ;
 
@@ -693,25 +703,21 @@ vdrop	|MPLAY  a --
 	dup 16 >> $ff and
 	1? ( 2drop ; ) | tiene costo
 	drop
-	dup $f and 
-	5 =? ( 2drop ; )
-	7 =? ( 2drop ; )
+	dup $f and
+|	5 =? ( 2drop ; ) | cpy
+	7 =? ( 2drop ; )  | reg
 	drop
 	$40 nand? ( drop ; ) | no termino
 	$8000 or over 4 - ! | marca como cte
 	;
 
-:cpydirecto | nro reg -- nro
-	dup $7 and 5 <>? ( 2drop ; ) drop	| no cpy
-	$40 nand? ( drop ; )				| no termino
-	dup 16 >> $ff and 1? ( 2drop ; )	| tiene costo
-
-	2drop
+:call2jump | nro reg -- nro
+	mapregs.next $ff and
+	drop
 	;
 
 :AsignoReg
 	'ctessincosto mapregs | marco constantes
-|	'cpydirecto mapregs | copia de ctes
 
 	| busco lugar a optimizar
 	| busco registro libre
@@ -758,10 +764,17 @@ vdrop	|MPLAY  a --
 
 #tipoi t0 t1 t2 t3 t4 t5 t6 t7 t8 t9 ta tb tc td te tf
 
+:anteriorescall=>jump
+	dup 8 - @ $ff and
+	8 <>? ( drop ; )
+	drop
+	dup 8 -
+	;
+
 :marcatoken | 'info -- 'info+
 	@+ dup
 	4 >> $f and 2 << 'tipoi + @ exec | info val -- info val
-	0? ( drop ; )
+	0? ( drop anteriorescall=>jump ; )
 	$f and
 	over 4 - @ $fffffff0 and or
 	over 4 - !

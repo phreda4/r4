@@ -9,7 +9,8 @@ DWSTYLE		equ WS_VISIBLE+WS_CAPTION+WS_SYSMENU
 
 ;XRES equ 640
 ;YRES equ 480
-XRES equ 800
+XRES equ 1024
+;XRES equ 800
 YRES equ 600
 ;XRES equ 1024
 ;YRES equ 768
@@ -18,26 +19,26 @@ YRES equ 600
 
 ;		"if XRES=640" ,ln
 ;	"mov ebx,eax" ,ln
-;	"shr eax,7" ,ln
-;	"shr ebx,9" ,ln
+;	"shl eax,7" ,ln
+;	"shl ebx,9" ,ln
 ;	"add eax,[esi]" ,ln
 ;	"lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
 ;		"else if XRES=800" ,ln
 ;	"mov ebx,eax" ,ln
-;	"shr eax,5" ,ln
-;	"shr ebx,8" ,ln
+;	"shl eax,5" ,ln
+;	"shl ebx,8" ,ln
 ;	"add eax,ebx" ,ln
-;	"shr ebx,1" ,ln
+;	"shl ebx,1" ,ln
 ;	"add eax,[esi]" ,ln
 ;	"lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
 ;		"else if XRES=1024" ,ln
-;	"shr eax,10" ,ln
+;	"shl eax,10" ,ln
 ;	"add eax,[esi]" ,ln
 ;	"lea ebp,[SYSFRAME+eax*4]" ,ln
 ;		"else if XRES=1280" ,ln
 ;;	"mov ebx,eax" ,ln
-;	"shr eax,8" ,ln
-;	"shr ebx,10" ,ln
+;	"shl eax,8" ,ln
+;	"shl ebx,10" ,ln
 ;	"add eax,[esi]" ,ln
 ;;	"lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
 ;		"else" ,ln
