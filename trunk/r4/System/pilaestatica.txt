@@ -5,45 +5,19 @@
 ^r4/system/r4token.txt
 
 #cntregs 1
-
-|--- registros
-| |par|costo|flags|Tipo|
-|   8    8    12    4
-| tipo
-|	0 nro
-|	1 str
-|	2 var
-|	3 dir var
-|	4 dir cod
-|	5 copy
-|	6 mem??
-|	7 reg??
-| flags
-|	$20 | es dir codigo
-|	$40 | temino uso
-|	$80 | es dir dato (indirecciona)
-|  $100 | usa eax,edx (si no son ctes)
-|  $200 | usa ecx (si no es cte)
-| $8000 | es cte optimizable
-| $4000 | es reg asignado???
-| costo: cantidad de operaciones(lecturas no se cuentan)
-| par: cuando es copia, accede al registro origen
-|-----------
-
-#regs )( 1024	| info de registros
-#regv )( 1024	| valor de registro
+#regt		)( 4096	| tipo de registro
+#regv		)( 4096	| valor de registro
+#registros	)( 4096
+#:buffinf	)( 4096 | informacion de registro
+#tostr		)( 4096	| indice de dib pilas
+#tostr> 'tostr
 
 :regPeso | nro -- peso
-	2 << 'regs + @ 16 >> $ff and ;
+	2 << 'regt + @ 16 >> $ff and ;
 
 :regFlag | nro -- tieneflagcte
-	2 << 'regs + @ 15 >> 1 and ;
+	2 << 'regt + @ 15 >> 1 and ;
 
-|------------------------------
-#registros )( 4096
-#:buffinf )( 4096 | informacion de registro
-#tostr )( 4096	| indice de dib pilas
-#tostr> 'tostr
 :cntinstr tostr> 'tostr - 2 >> ;
 
 |---- string de pilas
@@ -63,7 +37,7 @@
 #:dpila )( 1024 | 8bits
 #:dpila> 'dpila
 |----- PILA R
-#:rpila )( 1048
+#:rpila )( 1024
 #:rpila> 'rpila
 
 ::d.cnt dpila dpila> - 2 >> ;
@@ -81,9 +55,48 @@
 :d.pushNew | valor tipo --
 	cntregs dup d.push
 	2 << dup >r
-	'regs + !
+	'regt + !
 	r> 'regv + !
 	1 'cntregs +! ;
+
+|--- registros
+| |par|costo|flags|Tipo|
+|   8    8    12    4
+| tipo
+:d.pushCTE	0 d.pushNew ;
+:d.pushCTEN	1 d.pushNew ;	|   1 cteNombre
+:d.pushCPY	2 d.pushNew ;	|	2 cpy
+:d.pushSTR	3 d.pushNew ;	|	3 str
+:d.pushDCOD	4 d.pushNew ;	|	4 'cod
+:d.pushDDAT	5 d.pushNew ;	|	5 'dat
+:d.pushDAT	6 d.pushNew ;	|	6 dat
+:d.pushVNUM	7 d.pushNew ;	|	7 varnum
+:d.pushVSTR	8 d.pushNew ;	|	8 varstr
+:d.pushVCOD	9 d.pushNew ;	|	9 varcod
+:d.pushVDAT	10 d.pushNew ;	|  10 vardat
+
+
+| flags
+|	$20 | es dir codigo
+|	$40 | temino uso
+|	$80 | es dir dato (indirecciona)
+|  $100 | usa eax,edx (si no son ctes)
+|  $200 | usa ecx (si no es cte)
+| $8000 | es cte optimizable
+| $4000 | es reg asignado???
+| costo: cantidad de operaciones(lecturas no se cuentan)
+| par: cuando es copia, accede al registro origen
+|-----------
+
+
+|	1 cpy
+|	2 str
+|	3 'cod
+|	4 'dat
+|	5 varnum
+|	6 varstr
+|	7 varcod
+|   8 vardat
 
 ::d.pushDec	0 d.pushNew ;
 ::d.pushHex	0 d.pushNew ;
@@ -107,7 +120,7 @@
 :r.pushNew | valor tipo --
 	cntregs dup r.push
 	2 << dup >r
-	'regs + !
+	'regt + !
 	r> 'regv + !
 	1 'cntregs +! ;
 
@@ -149,21 +162,21 @@
 
 |---- marcas de registros
 :reg+1 | --
-	d.TOS 2 << 'regs + dup
+	d.TOS 2 << 'regt + dup
 	@ dup $ff00ffff and swap
 	$ff0000 and $10000 + or
 	swap ! ;
 
 :memreg | es dir dato
-	d.TOS 2 << 'regs + dup @ $80 or swap ! ;
+	d.TOS 2 << 'regt + dup @ $80 or swap ! ;
 :endreg | temino uso
-	d.TOS 2 << 'regs + dup @ $40 or swap ! ;
+	d.TOS 2 << 'regt + dup @ $40 or swap ! ;
 :codreg | es dir codigo
-	d.TOS 2 << 'regs + dup @ $20 or swap ! ;
+	d.TOS 2 << 'regt + dup @ $20 or swap ! ;
 :usoadx | usa eax,edx
-	d.TOS 2 << 'regs + dup @ $100 or swap ! ;
+	d.TOS 2 << 'regt + dup @ $100 or swap ! ;
 :usoecx | usa ecx
-	d.TOS 2 << 'regs + dup @ $200 or swap ! ;
+	d.TOS 2 << 'regt + dup @ $200 or swap ! ;
 
 |-------- operaciones de pila
 :vDrop	endreg -4 'dpila> +! ;
@@ -569,7 +582,7 @@ vdrop	|MPLAY  a --
 
 :printstackolor | "" --
 	( c@+ 1? )(
-		dup 2 << 'regs + @ | info reg
+		dup 2 << 'regt + @ | info reg
 |		$7 and 2 << 'tipocolor + @ ink
 		$8000 and? ( verde )( rojo )
 		$4000 and? ( blanco ) drop
@@ -577,7 +590,7 @@ vdrop	|MPLAY  a --
 		) drop
 	c@+ 0? ( 2drop ; )
 	blanco ":" print
-	( 	dup 2 << 'regs + @ | info reg
+	( 	dup 2 << 'regt + @ | info reg
 |		$7 and 2 << 'tipocolor + @ ink
 		$8000 and? ( verde )( rojo ) 
 		$4000 and? ( blanco ) drop
@@ -635,20 +648,20 @@ vdrop	|MPLAY  a --
 #tiposrm mt0 mt1 mt2 mt3 mt4 mt5 mt6 mt7
 
 ::reg>str | nro -- ""
-	2 << 'regs + dup @
+	2 << 'regt + dup @
 	dup $7 and 2 << 'tiposrm + @ exec
 	nip nip ;
 
 #tiposrb mt0 mt1 mt2 mt3 mt4 mt5 mt6 mt7
 
 ::reg>strb | nro -- ""
-	2 << 'regs + dup @
+	2 << 'regt + dup @
 	dup $7 and 2 << 'tiposrb + @ exec
 	nip nip ;
 
 |--------- registros
 :mapregs | 'v --
-	'regs 4+ 1 ( cntregs <? )(
+	'regt 4+ 1 ( cntregs <? )(
 		swap
 		@+ pick3 exec
 		swap 1+ )
