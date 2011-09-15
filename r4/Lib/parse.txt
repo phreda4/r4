@@ -5,35 +5,49 @@
 ^r4/lib/optdiv.txt
 ^r4/lib/mprint.txt
 
-:base | str -- str base
-	dup c@ | str c
-	$24 =? ( drop 1+ 16 ; )	| $ hexa $24
-	$25 =? ( drop 1+ 2 ; ) 	| % bin  $25
-	drop 10 ;
+#:basen
 
 :signo | str -- str signo
 	dup c@
-	$2b =? ( drop 1+ 1 ; )		|+ $2b
-	$2d =? ( drop 1+ -1 ; )	| - $2d
-	drop 1 ;
+	$2b =? ( drop 1+ 0 ; )	| + $2b
+	$2d =? ( drop 1+ 1 ; )	| - $2d
+	drop 0 ;
 
-:digito | c --  dig / -1
+:dighex | c --  dig / -1
 	$3A <? ( $30 - ; )			| 0..9
-	$60 >? ( $57 - ; )			| a
-	$40 >? ( $37 - ; )			| A
+	$60 >? ( $57 - $f >? ( drop -1 ) ; )			| a
+	$40 >? ( $37 - $f >? ( drop -1 ) ; )			| A
 	drop -1 ;
 
-#:basen
+::str$>nro | adr -- adr' nro
+	0 swap ( c@+ $2f >? )(
+		dighex -? ( drop 1- swap ; )
+		rot 4 << + swap )
+	drop 1- swap ;
+
+::str%>nro | adr -- adr' nro
+	0 swap ( c@+ $2f >? )(
+		$31 >? ( drop 1- swap ; )
+		$30 - rot 2* + swap )
+	drop 1- swap ;
+
+::str>nro | adr -- adr' nro ;1234 $12f %101 -12
+	signo
+	over c@ 33 <? ( 2drop 1- 0 ; ) | caso + y - solos
+	swap  1? ( [ neg ; ] >r ) drop
+	$24 =? ( drop 1+ 16 'basen ! str$>nro ; )	| $ hexa $24
+	$25 =? ( drop 1+ 2 'basen ! str%>nro ; ) 	| % bin  $25
+	drop 10 'basen !
+	0 swap ( c@+ $2f >? )(	| 0 adr car
+		$39 >? ( drop 1- swap ; )			| 0..9
+		$30 - rot 10* + swap )
+	drop 1- swap ;
 
 ::?numero | str -- 0 / str' nro 1
-	signo swap base 'basen ! 			| -1 str
-	dup c@ 33 <? ( 3drop 0 ; ) drop
-	0 ( over c@ 32 >? )(
-		digito -? ( 4drop 0 ; )			| -1 str 0 dig
-		basen >=? ( 4drop 0 ; )		| -1 str 0 dig
-		swap basen * +				| -1 str dig+0*10
-		swap 1+ swap )
-	drop rot * 1 ;
+	|dup c@ 33 <? ( 2drop 0 ; ) drop
+	str>nro
+	over c@ 33 <? ( drop 1 ; )
+	3drop 0 ;
 
 |----- lee punto fijo ( -43.04 ==> 104 -43 t>fix16  --> $00eedddd
 #parte0
@@ -44,63 +58,56 @@
 	dup c@ 33 <? ( 3drop 0 ; ) drop
 |	dup 1+ c@ que pasa con .0?
 	0 ( over c@ 32 >? )(				| -1 str 0 dig
-		$2e =? (	 drop 'parte0 ! 1 )( 	| 1.33 .. parte0=1 retorna 133
-			digito -? ( 4drop 0 ; )
-			10 >=? ( 4drop 0 ; )
-			swap 10 * + )
+		$2e =? ( drop 'parte0 ! 1 )( 	| 1.33 .. parte0=1 retorna 133
+		         $30 <? ( 4drop 0 ; )
+		         $39 >? ( 4drop 0 ; )
+		         $30 - swap 10* + )
 		swap 1+ swap )
 	drop 1 =? ( parte0 0? ( 4drop 0 ; ) drop ) | casos -. y
 	rot >r
 	parte0
 	16 << $10000 rot
-	1 over ( 1 >? )( 10 / swap 10 * swap ) drop
+	1 over ( 1 >? )( 10 / swap 10* swap ) drop
 	*/ $ffff and or
-	r> *
+	r> 1? ( drop neg )( drop )
 	1 ;
 
 ::?int | adr -- adr' nro /-1
-	dup c@ digito -? ( 2drop -1 ; ) 9 >? (  2drop -1 ; ) drop
+	dup c@ 
+	$30 <? ( 2drop -1 ; ) 
+	$39 >? (  2drop -1 ; ) drop
 	0 swap ( c@+ $2f >? )(	| 0 adr car
-		digito -? ( 3drop -1 ; )
-		10 >=? ( 3drop -1 ; )
-		rot 2* dup 2 << + |10 *
-		+ swap )
+		$39 >? ( 3drop -1 ; )
+		$30 - rot 10* + swap )
 	drop 1- swap ;
 
 
 ::?0int | adr -- nro
 	0 swap ( c@+ $2f >? )(	| 0 adr car
-		digito -? ( 2drop ; )
-		10 >=? ( 2drop ; )
-		rot 2* dup 2 << + |10 *
-		+ swap )
+		$39 >? ( 2drop ; )
+		$30 - rot 10* + swap )
 	2drop ;
 
 ::?sint | adr -- adr' nro
 	0 swap ( c@+ $2f >? )(	| 0 adr car
-		digito -? ( drop swap ; )
-		10 >=? ( drop swap ; )
-		rot 2* dup 2 << + |10 *
-		+ swap )
+		$39 >? ( drop swap ; )
+		$30 - rot 10* + swap )
 	drop swap ;
 
 ::?real2 | adr -- adr' nro ; 123.22 123,22
 	| signo
 	0 swap ( c@+ $2f >? )(	| 0 adr car
-		digito -? ( drop swap 100* ; )
-		10 >=? ( drop swap 100* ; )
-		rot 2* dup 2 << + |10 *
-		+ swap )
+		$39 >? ( drop swap 100* ; )
+		$30 - rot 10* + swap )
 	$2e =? ( $2c nip )
 	$2c <>? ( drop swap 100* ; )
 	drop | , o .
-	c@+ $30 - 
+	c@+ $30 -
 	-? ( 0 nip ) 9 >? ( 0 nip )
 	rot 10* + swap
 	c@+ $30 -
 	-? ( 0 nip ) 9 >? ( 0 nip )
-	rot 10* +
-	;
+	rot 10* + ;
 
 |-----
 ::?lista  | str list -- str 0 / str' n
@@ -116,7 +123,6 @@
 	swap c@ $ff and 32 >? ( 0 )( 1 )
 	nip nip ;
 
-
 |------------- parseo
 ::trim | adr -- adr'	; proximo no espacio
 	( dup c@ 33 <? )(
@@ -128,8 +134,7 @@
 		rot c@+ | d2 c d1 c
 		rot <>? ( 3drop 0 ; )
 		drop | d2 d1
-		swap
-		)
+		swap )
 	2drop ;
 
 ::scanstr | adr 'str -- adr'
@@ -140,8 +145,7 @@
 
 ::scannro | adr 'nro -- adr'
 	over trim ?numero 0? ( 2drop ; ) drop
-	rot ! nip
-	;
+	rot ! nip ;
 
 ::scanc | c adr -- adr'/0
 	0? ( nip ; )
@@ -265,8 +269,6 @@
 		dup pick2 =l 1? ( 3drop r> ; ) drop
 		>>s 1 r+ )
 	3drop rdrop -1 ;
-
-
 
 |---- recorrido
 ::>>.. | adr -- adr'

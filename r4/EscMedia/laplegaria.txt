@@ -10,11 +10,16 @@
 
 ^r4/escmedia/3dp.txt
 ^r4/escmedia/laplegaria.spr
+^r4/escmedia/laplegaria.bmr
 
 #zombie1l indio1 indio2 indio3 indio4 indio3 | quieto y caminando
 #zombie1d indio5 indio5 indio5 indio5       | muerte
 #zombie2l zo3 zo1 zo2 zo1 zo2
 #zombie2d xo1 xo2 xo1 xo3
+
+#explosion explo1 explo2
+#cotorras l1 l2 l3 l4
+
 
 #fondo 0 0
 #zombies 0 0
@@ -71,15 +76,53 @@
 
 |--------------- cotorras
 
+:cotorras+
+	'nube 'fxs p3d!+ >r
+	rand 15.0 mod r!+ -8.0 r1 + r!+ 0 r!+ | x y z
+	0 r!+ 0 r!+ r001 r!+ | rx ry rz
+	r1 2.5 + r!+ 1.0 r01 + r!+ 1.0 r!+
+	r001 -0.01 + r!+ r0001 r!+ r0001 r!+ | vx vy vz
+	0 r!+ 0 r!+ 0 r!+ | vrx vry vrz
+	rdrop ;
+
 |--------------- fx
+
+:drawexpn
+	$1 and 2 << 'explosion + @ 3dnsprite ;
+
+:colision+
+	'nube 'nubes p3d!+ >r
+	rand 15.0 mod r!+ -8.0 r1 + r!+ 0 r!+ | x y z
+	0 r!+ 0 r!+ r001 r!+ | rx ry rz
+	r1 2.5 + r!+ 1.0 r01 + r!+ 1.0 r!+
+	r001 -0.01 + r!+ r0001 r!+ r0001 r!+ | vx vy vz
+	0 r!+ 0 r!+ 0 r!+ | vrx vry vrz
+	rdrop ;
 
 |--------------- disparo
 :disparo
+	p3d.update
+	dup 4+ @ 16.0 >? ( drop 0 ; ) drop
+	p3d.z+
 	;
 :disparodraw
+	mpush
+	p3d.pos
+	|'bala1
+	'bala1 3dnsprite
+	mpop
 	;
 :disparo+
-	;
+	'disparo 'disparos p3d!+ >r
+	0 r!+ 0 r!+ zcam neg r!+
+	0.20 r!+ 0 r!+
+	xymouse sh 2/ - 4 << swap sw 2/ - 4 <<
+	dup neg 
+	r!+ | rx ry rz
+	1.0 r!+ 1.0 r!+ 'disparodraw r!+
+	r!+ r!+ 0.1 r!+ | vx vy vz
+	0 r!+ 0 r!+ 0 r!+ | vrx vry vrz
+	rdrop ;
 
 |--------------- zombies
 :zombie1draw
@@ -91,7 +134,7 @@
 
 :zombie1
 	p3d.update
-	dup 12 + @ -16.0 <? ( drop 0 ; ) drop
+	dup 12 + @ -20.0 <? ( drop 0 ; ) drop
 	p3d.z+
 	;
 
@@ -146,10 +189,10 @@
 |--------------- main
 :dibfondo
 	| fondo quieto
-	'nubes dup
-	p3d.draw
-	p3d.cnt 50 <? ( nubes+ ) drop
-	'fondo p3d.draw
+	1.0 dup fdim 0 dup fpos 'fondodib nsprite
+|	'nubes dup p3d.draw
+|	p3d.cnt 50 <? ( nubes+ ) drop
+|	'fondo p3d.draw
 	;
 
 :dibfrente
@@ -170,18 +213,23 @@
 	'zombies p3d.clear
 	'disparos p3d.clear
 	'fxs p3d.clear
-	'nubes p3d.clear
-	50 ( 1? )( 1- nube+i ) drop
+|	'nubes p3d.clear
+|	50 ( 1? )( 1- nube+i ) drop
 	show clrscr
 |		debug
-		'zombies p3d.dump
+
+|		'zombies p3d.dump
+		'disparos p3d.dump
+		'fondo p3d.dump
+		'fxs p3d.dump
+
 		omode
 		-0.02 mrotx
 		xcam ycam zcam mtrans
 
-|		dibfondo
+		dibfondo
 		dibplay
-|		dibfrente
+		dibfrente
 
 		oleada1
 
@@ -193,12 +241,14 @@
 
 |		[ 0.01 'xr +! ; ] <up>
 
+		'disparo+ <spc>
 		xymouse pos 100 dup dim 'mira nsprite
 		;
 
 
 :presentacion
-	show clrscr blanco 
+	show clrscr 	1.0 dup fdim 0 dup fpos 'fondo nsprite
+		blanco
 		fonta-arial14 cr
 		"Todo  comienza cuando un grupo de jovenes amigos," printc cr
 		"se reunen para ir a una casa embrujada llamada" printc cr
@@ -235,7 +285,7 @@
 		;
 
 :main
-	presentacion
+|	presentacion
 	juego
 	;
 
