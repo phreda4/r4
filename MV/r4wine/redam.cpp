@@ -481,7 +481,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 	     TOS=(long long)(*(NOS-1))*(*NOS)/TOS;NOS-=2;continue;
 
 	case MULSHR: TOS=((long long)(*(NOS-1))*(*NOS))>>TOS;NOS-=2;continue;
-    case CDIVSH: TOS=((long long)(*(NOS-1)<<TOS)/(*NOS));NOS-=2;continue;
+    case CDIVSH: TOS=(((long long)(*(NOS-1))<<TOS)/(*NOS));NOS-=2;continue;
 
     case DIVMOD: //if (TOS==0) { NOS--;TOS=*NOS;NOS--;continue; }
 	     W=*NOS%TOS;*NOS=*NOS/TOS;TOS=W;continue;
@@ -752,6 +752,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         SelectObject( tmpDC, hBmp );
         GetObject( hBmp, sizeof( info ), &info );
 //      StretchDIBits(phDC,(*NOS),TOS,bmih.biWidth,bmih.biHeight,0,0,bmih.biWidth, bmih.biHeight, lpBits, &lpBitsInfo, DIB_RGB_COLORS,SRCCOPY);
+//BOOL StretchBlt(phDC,XO,YO,(info.bmWidth*SIZE)>>16,(info.bmHeight*SIZE)>>16,tmpDC,0,0,info.bmWidth, info.bmHeight,SRCCOPY);
         BitBlt( phDC,(*NOS),TOS, info.bmWidth, info.bmHeight, tmpDC, 0, 0, SRCCOPY );
         DeleteDC( tmpDC );
         DeleteObject(hBmp);
