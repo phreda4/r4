@@ -16,7 +16,6 @@
 ::sin | v -- r
 	$3fff + $8000 and? ( [ neg ; ] >r )
 	$7fff and $3fff -
-
 	6.2831 *. | radianes->bangle
 	dup dup *. | f sqr
 	dup 498 *. | f sqr resul
@@ -29,9 +28,7 @@
 ::tan | v -- f
 	$3fff +
 	$7fff and $3fff -
-
 	6.2831 *. | radianes->bangle
-
 	dup dup *.
 	dup 13323 *.
 	20810 +
@@ -68,18 +65,6 @@
 	0? ( nip nip nip ; )
 	*/ - ;
 
-::sqrt. | n -- v
-	dup 65536 + 2/ | s n
-	swap 2dup /. + 2/ swap
-	swap 2dup /. + 2/ swap
-	swap 2dup /. + 2/ swap
-	swap 2dup /. + 2/ swap
-	swap 2dup /. + 2/ swap
-	swap 2dup /. + 2/ swap
-	swap 2dup /. + 2/ swap
-	swap 2dup /. + 2/ nip
-	;
-
 ::distfast | dx dy -- dis
 	-? ( neg ) swap -? ( neg ) swap
 	over <? ( swap ) | min max
@@ -95,3 +80,31 @@
 
 ::max	| a b -- m
 	over >? ( nip )( drop ) ;
+
+::sqrt. | n -- v
+	1 <? ( drop 0 ; )
+	0 0 rot | root remhi remlo | 15 + bits/2+1
+	24 ( 1? )( 1- >r
+		dup 30 >> $3 and	| ro rh rl rnh
+		rot 2 << or			| ro rl rh
+		swap 2 << swap
+		rot 2* dup 2* 1+		| rl rh ro td
+		pick2 <=? ( swap 1+ >r - r> )( drop ) | rl rh ro
+		swap rot r> )
+    3drop ;
+
+::sqrti2 | n -- v
+	1 <? ( drop 0 ; )
+	0 swap | res op
+	$40000000
+	( over >? )( 2 >> ) | res op one
+	( 1? )(
+		pick2 over + | res op one r+o
+		pick2 <=? (
+			rot swap - | res one nop
+			rot pick2 2* + | one nop nres
+			swap rot
+			)( drop )
+		rot 2/
+		rot rot 2 >> )
+	2drop ;
