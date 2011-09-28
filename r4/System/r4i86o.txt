@@ -43,14 +43,21 @@
 :,( :,)( :,) :,[ :,]
 	 ;
 
-:,lit
-	,TOS "mov %w,%w" ,line
-	;
+:,lit :,lits :,dwo :,dva
+	,NOS ,TOS "mov %w,%w" ,line ;
 
-:,lits :,var :,dwo :,dva
-	;
+:,var
+	,NOS ,TOS "mov %w,[%w]" ,line ;
+
 :,wor
-	dup 4 - @ nro>dicn "jmp " ,s ,s ,cr nip ;
+	| ajustar pila
+	dup 4 - @ nro>dicn "jmp " ,s ,s ,cr nip
+
+| --- no optimiza call pero necesita ajustar pila
+| 	ajusta pila
+|	dup 4 - @ nro>dicn "call " ,s ,s ,cr nip
+|	reacomoda pil
+	;
 
 :,EXEC
 	,TOS "mov ecx,%w" ,line
@@ -64,7 +71,7 @@
 	"mov ecx,[eax*4+ebx]" ,line
 	"or ecx,ecx" ,line
 	"jz @f" ,line
-	"call ecx" ,line 
+	"call ecx" ,line
 	"@@:" ,line ;
 
 :,DROP :,NIP :,2DROP :,3DROP :,4DROP ;
@@ -112,7 +119,7 @@
 
 :,<</
 	"cdq" ,line
-    ,TOSb "shld eax,edx,%w" ,line
+    ,TOSb "shld edx,eax,%w" ,line
 	,NOS "idiv %w" ,line ;
 
 :,/MOD
@@ -166,7 +173,7 @@
 
 :,@
 	,TOS ,TOS "mov %w,dword [%w]" ,line ;
-:,C@	 
+:,C@
 	,TOS ,TOS "movsx %w,byte [%w]" ,line ;
 :,W@
 	,TOS ,TOS "movsx %w,word [%w]" ,line ;
@@ -189,17 +196,17 @@
 	| var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
 	| 'var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
 	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; **
-	"push ebx" ,line
+	"push ebx" ,line  | si esta ocupado ebx
 	"mov ebx,dword [%w]" ,line
 	"mov [%w],%w" ,line
-	"pop ebx" ,line ;
+	"pop ebx" ,line ; | si esta ocupado ebx
 
 :,C!
 |--- caso 1
 	| 2 'var ! 		--> mov [var],2
 	| 'var1 'var2 ! --> mov [var2],var1
 	| 'cod 'var2 !  -->=mov [var2],cod
-	,NOS ,TOS "mov byte [%w],%w" ,line ;
+	,NOSb ,TOS "mov byte [%w],%w" ,line
 |--- caso 2
 	| var1 'var2 !	--> mov ebx,[var1];mov [var2],ebx; ** push ebx..pop ebx si ebx ocupado
 	| 2 var ! 		--> mov ebx,[var ];mov [ebx],2; ** push ebx..pop ebx si ebx ocupado
@@ -208,7 +215,7 @@
 	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; **
 	"push ebx" ,line
 	"mov ebx,dword [%w]" ,line
-	"mov byte [%w],%w" ,line
+	"mov byte [%w],bl" ,line
 	"pop ebx" ,line ;
 
 :,W!
@@ -216,7 +223,7 @@
 	| 2 'var ! 		--> mov [var],2
 	| 'var1 'var2 ! --> mov [var2],var1
 	| 'cod 'var2 !  -->=mov [var2],cod
-	,NOS ,TOS "mov word [%w],%w" ,line ;
+	,NOSw ,TOS "mov word [%w],%w" ,line
 |--- caso 2
 	| var1 'var2 !	--> mov ebx,[var1];mov [var2],ebx; ** push ebx..pop ebx si ebx ocupado
 	| 2 var ! 		--> mov ebx,[var ];mov [ebx],2; ** push ebx..pop ebx si ebx ocupado
@@ -224,29 +231,57 @@
 	| 'var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
 	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; **
 	"push ebx" ,line
-	"mov ebx,dword [%w]" ,line
-	"mov word [%w],%w" ,line
+	,NOS "mov ebx,[%w]" ,line
+	,TOS "mov word [%w],bx" ,line
 	"pop ebx" ,line ;
 
 :,+!
 |--- caso 1
-	| 2 'var +! 		--> mov [var],2
-	| 'var1 'var2 ! --> mov [var2],var1
-	| 'cod 'var2 !  -->=mov [var2],cod
+	| 2 'var +! 		--> add dword[var],2
+	| 'var1 'var2 +! --> add [var2],var1
+	| 'cod 'var2 +!  --> add [var2],cod
+	,TOS ,NOS "add [%w],%w" ,line
+|--- caso 2
+	| var1 'var2 !	--> mov ebx,[var1];mov [var2],ebx; ** push ebx..pop ebx si ebx ocupado
+	| 2 var ! 		--> mov ebx,[var ];mov [ebx],2; ** push ebx..pop ebx si ebx ocupado
+	| var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
+	| 'var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
+	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; **
 
-	,TOS ,NOS "add [%w],%w" ,line ;
+	,NOS "mov ebx,[%w]" ,line
+	,TOS "add [%w],ebx" ,line
 
-:,W+!    ,TOS ,NOS "add word [%w],%w" ,line ;
-:,C+!    ,TOS ,NOS "add byte [%w],%w" ,line ;
+	;
+
+:,W+!
+	,TOS ,NOS "add word [%w],%w" ,line
+
+	,NOS "mov ebx,[%w]" ,line
+	,TOS "add word [%w],bx" ,line
+
+	;
+
+:,C+!
+	,TOS ,NOS "add byte [%w],%w" ,line
+
+	,NOS "mov ebx,[%w]" ,line
+	,TOS "add byte [%w],bl" ,line
+
+	;
 
 :,!+
+	| si NOS es unico y es una variable
+	,NOS "mov ebx,[%w]" ,line
+	,NOS ,TOS "mov [%w],ebx" ,line
+	,TOS "add %w,4" ,line ;
+	| si NOS no tiene indireccion
 	,NOS ,TOS "mov [%w],%w" ,line
 	,TOS "add %w,4" ,line ;
 :,W!+
-	,TOS ,NOS "mov word [%w],%w" ,line
+	,NOSw ,TOS "mov word [%w],%w" ,line
 	,TOS "add %w,2" ,line ;
 :,C!+
-	,TOS ,NOS "mov byte [%w],%w" ,line
+	,NOSb ,TOS "mov byte [%w],%w" ,line
 	,TOS "add %w,1" ,line ;
 
 :,@+
@@ -335,7 +370,7 @@
 	,TOS "imul %w,dword [SYSW]" ,line
 	,NOS ,TOS "add %w,%w" ,line
 	,TOS "lea ebp,[SYSFRAME+%w*4]" ,line ;
-|	"shl eax,10" ,ln
+|	"shl eax,10" ,ln             | 1024 en X
 |	"add eax,[esi]" ,ln
 |	"lea ebp,[SYSFRAME+eax*4]" ,ln
 
