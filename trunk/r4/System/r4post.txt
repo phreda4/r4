@@ -34,12 +34,12 @@
 )
 #deltamacros (
 0 0 0 7		|; | fin de palabra (12)
-0 0 0 2		|(
-0 0 0 3		|)(
-0 0 0 4		|)
-0 1 0 5		|[
-0 0 0 6		|]
-1 -1 0 0	|EXEC  x/0 --
+0 0 0 2		|13 (
+0 0 0 3		|14 )(
+0 0 0 4		|15 )
+0 1 0 5		|16 [
+0 0 0 6		|17 ]
+1 -1 0 0	|18 EXEC  x/0 --
 1 0 0 0		|0? a -- a
 1 0 0 0		|+? a -- a
 1 0 0 0		|-? a -- a
@@ -354,7 +354,9 @@
 	24 >> ;
 
 ::tok>udr | tok -- userd Dstack Rstack
-	dup $ff and 8 =? ( drop tokpal ; ) nip
+	dup $ff and
+	8 =? ( drop tokpal ; ) nip
+	|18 =? ( ) | exec modifica segun a quien llama
 	2 << 'deltainternos +
 	c@+ swap
 	c@+ swap
@@ -424,16 +426,62 @@
 	redraw ;
 
 |----- analiza variable
-:setvarlen! | nro len -- nro
-	over 5 << 'indicepal + 16 + ! ;
+#cntdv     | dir vars
+#cntdc     | dir codigo
+#cnts      | string
+#cntn0     | no ceros (0 puede ser direccion)
 
-:analisisvar | nro cntlla -- nro
+|3 :,,litd | n --	numero decimal
+|4 :,,lith | n --	numero hexa
+|5 :,,litb | n --	numero binario
+|6 :,,litf | n --	numero punto fijo
+|7 :,,lits | n --	string
+|8 :,,word | n --  word <---- debe ser calculado
+|9 :,,var | n --  var
+|10:,,dword | n --  dir word
+|11:,,dvar | n --  dir var
+:sumavars
+	2 >? ( 7 <? ( over 4 - @ tok>cte 1? ( 1 'cntn0 +! ) drop  ) )
+	7 =? ( 1 'cnts +! )
+	8 =? ( 1 'cntdc +! ) 10 =? ( 1 'cntdc +! )
+	9 =? ( 1 'cntdv +! ) 11 =? ( 1 'cntdv +! )
+	;
+
+|--- info de variables
+| valor               0
+| direccion           1
+| direccion codigo    2
+| string              3
+| lista valores       4
+| lista direcciones   5
+| lista dir codigos   6
+| lista strings       7
+| estructura multiple 8
+|--------------------
+:decodeinfov | cnt -- cnt iv
+	cntdv cntdc or cnts or
+	0? ( drop 2 <? ( 0 ; ) 4 ; ) drop | todos numeros
+	cntdv cntdc or
+	0? ( drop 2 <? ( 3 ; ) 7 ; ) drop | hay string, no dv ni dc
+	cntdv
+	0? ( drop 2 <? ( 2 ; ) 6 ; ) drop | direccion de codigo
+	2 <? ( 1 )( 5 ) ;                 | direccion de dato
+
+:analisisvar |  cntlla -- nro
 	drop
+	0 'cntdv !
+	0 'cntdc !
+	0 'cnts !
+	0 'cntn0 !
 	0 over nro>tok
 	( @+ $ff and 2 >? )( 	 | dirv n c
-		19 <? ( drop swap 1+ swap )( drop )
+		sumavars
+		18 <? ( drop swap 1+ swap )( drop )
 		) 2drop
-	setvarlen!
+	decodeinfov 16 <<
+	pick2 nro>info @ or pick2 nro>info !
+|:setvarlen! | nro len -- nro
+	over 5 << 'indicepal + 16 + !
 	;
 
 |--------- COMPILA TOKENS 2da PASADA
