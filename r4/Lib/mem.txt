@@ -31,37 +31,12 @@
 		rot c!+ swap ) 2drop
 	0 swap c! ;
 
-|-------------------
-::count | s1 -- s1 cnt
-	0 over ( c@+ 1? )( drop swap 1+ swap ) 2drop  ;
-
 ::toupp | c -- C
 	$40 and? ( $df and ) ; | cambia tambien[/]^_'
 |	$60 >? ( $7b <? ( $20 - ) ) ;
 ::tolow
 	$40 and? ( $20 or ) ;
 |	$40 >? ( $5b <? ( $20 + ) ) ;
-
-::strup | adr --	| EL GATO
-	( dup c@ 1? )( toupp swap c!+ ) 2drop ;
-
-::strnorm | adr --  | El Gato
-	( dup c@ 0? ( 2drop ; ) toupp swap c!+
-	( dup c@ $ff and 32 >? )( tolow swap c!+ ) drop
-	( dup c@ $ff and 33 <? )( 0? ( 2drop ; ) drop 1+ )
-	drop ) ;
-
-:accsp | adr1 adr2 32
-	( over c@ 32 =? )( drop swap 1+ swap )
-	drop ;
-
-::strtrim | adr -- | " hola  que(9) t " -> "hola que(9) t"
-	dup
-	( c@+ 1? )(
-		32 =? ( accsp )
-		rot c!+ swap )
-	rot c!
-	drop ;
 
 |----------------------
 ::=word= | s1 s2 -- 0 \ s2' 1
@@ -101,3 +76,46 @@
 	memmap> 4 - @ here over -
 	cmove ; | de sr cnt --
 
+|-------------------
+::count | s1 -- s1 cnt
+	0 over ( c@+ 1? )( drop swap 1+ swap ) 2drop  ;
+
+
+::strup | adr --	| EL GATO
+	( dup c@ 1? )( toupp swap c!+ ) 2drop ;
+
+::strnorm | adr --  | El Gato
+	( dup c@ 0? ( 2drop ; ) toupp swap c!+
+	( dup c@ $ff and 32 >? )( tolow swap c!+ ) drop
+	( dup c@ $ff and 33 <? )( 0? ( 2drop ; ) drop 1+ )
+	drop ) ;
+
+:accsp | adr1 adr2 32
+	( over c@ 32 =? )( drop swap 1+ swap )
+	drop ;
+
+::strtrim | adr -- | " hola  que(9) t " -> "hola que(9) t"
+	dup
+	( c@+ 1? )(
+		32 =? ( accsp )
+		rot c!+ swap )
+	rot c!
+	drop ;
+
+:accsp, | adr 32 -- adr' 32
+	swap ( dup c@ 32 =? )( drop 1+ ) | 32 adrns n32
+	$2c =? ( rot drop swap 1+ swap ; )
+	drop swap ;
+
+:,c here c!+ 'here ! ;
+
+::str,trim | adr -- |aa ,ss -> aa, ss  "   ,"
+	dup
+	mark
+	1024 'here +!
+	( c@+ 1? )(
+		32 =? ( accsp, )
+		$2c =? ( ,c 32 accsp )
+		,c ) ,c drop
+	empty
+	here 1024 + swap strcpy ;

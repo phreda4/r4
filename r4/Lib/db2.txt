@@ -206,6 +206,17 @@
 	cmove	| memd s cnt
  	dbreload ; | recarga
 
+::dbupdatem | mreg 'db --
+	dbuse
+	here count 			| adr here ncnt
+	pick2 dup >reg> >>..	| adr here ncnt adr adrf
+	dup rot - 			| adr here ncnt adrf cntv
+	pick2 swap -        | adr here ncnt adrf dif
+	indmem 4 - over + indfil - 'indmei ! | *aux
+	+? ( over + swap indmem 4 - over - cmove> )( over + swap indmem 4 - over - cmove )
+	cmove	| memd s cnt
+ 	dbreload ; | recarga
+
 |--- DELETE
 ::dbdelete | nro 'db --
 	dbuse
@@ -297,7 +308,7 @@
 
 ::nfld?i | str reg n -- 1/0 ; busca en el campo n
 	>>fld
-	over c@ 0? ( 3drop 0 ; ) | "" da 0
+	over c@ 0? ( nip nip ; ) | "" da 0
 	toupp swap
 	( c@+ 1? )(
 		$7c =? ( 4drop 0 ; )
@@ -305,7 +316,6 @@
 		toupp pick2 =? ( drop inner )( drop )
 		) 4drop 0 ;
 
-|----- SEARCH
 :=f | fs1 s2 -- 1/0
 	( c@+ 1? )(
 		rot c@+ rot -
@@ -315,8 +325,17 @@
 	$5f =? ( 1 nip ; )
 	$7c =? ( 1 nip ; )
 	$7e =? ( 1 nip ; )
-	33 <? ( 1 )( 0 ) nip ;
+	0? ( 1 nip ; )	| **
+	0 nip ;
+|	33 <? ( 1 )( 0 ) nip ;
 
+::nfld=?i | str reg n -- 1/0 ; exacto igual a str
+	>>fld
+	over c@ 0? ( nip nip ; ) | "" da 0
+	drop
+	swap =f ;
+
+|----- SEARCH
 ::dbsearchstr | "" nro 'db -- reg/0
 	dbuse
 	cntregi indmei
