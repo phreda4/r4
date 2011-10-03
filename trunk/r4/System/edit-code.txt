@@ -33,6 +33,10 @@
 #undobuffer 0 |)( $ffff
 #undobuffer> |'undobuffer
 
+#auxfile 0
+#auxfile> | 2file
+#iniaux>
+
 #pad )( 1024
 
 |---- palabra actual
@@ -190,9 +194,11 @@
 		10 =? ( drop swap fuente> <? ( -1 'fuente> +!  ) swap )( rot c!+ swap )
 		) 2drop '$fuente ! 0lin
 
+	|-- ubicar el cursor
 	ed.nlin 0 >? ( ( 1? )( 1- fuente> >>13 2 + 'fuente> ! ) ) drop
 	ed.ncar +? ( dup 'fuente> +! ) drop
 	0 'prilinea !
+
 	empty
 	;
 
@@ -201,7 +207,8 @@
 	fuente ( c@+ 1? )( 13 =? ( ,c 10 ) ,c ) 2drop
 	'ed.nombre savemem
 	empty
-	"" 1 "debug.err" save
+	0 dup "debug.err" save
+	0 dup "runtime.err" save
 	ed.save
 	;
 
@@ -332,35 +339,25 @@
 		cminiflecha ;
 
 :controlg | go
+	| si esta en definicion, retroceder en pila
+	| apilar lugar e ir a la definicion de esta palabra
 	;
 
+:controln  | new
+	| si no existe esta definicion
+	| ir justo antes de la definicion
+	| agregar palabra :new  ;
+	;
 |----------------------------
-:debugcode
-	savetxt
-|	0 dup "debug.err" save
-	"r4/system/debug-code.txt" run ;
-
-:profcode
-	savetxt
-|	"" 0 "debug.err" save
-	"r4/system/prof-code.txt" run ;
-
-:profcode2
-	savetxt
-|	"" 0 "debug.err" save
-	"r4/system/prof-code2.txt" run ;
-
-:generacode
-	savetxt
-|	"" 0 "debug.err" save
-	"r4/system/genera-code.txt" run ;
-
-:mkplain	"r4/system/r4plain.txt" run ;
-|:mkplain	"r4/system/r4plaino.txt" run ;
-
-:mkasm		"r4/system/r4fasm.txt" run ;
-:mkasmo		"r4/system/r4fasmo.txt" run ;
-:mkbyte		"r4/system/r4js.txt" run ;
+:debugcode  savetxt "r4/system/debug-code.txt" run ;
+:profcode   savetxt "r4/system/prof-code.txt" run ;
+:profcode2  savetxt "r4/system/prof-code2.txt" run ;
+:generacode savetxt "r4/system/genera-code.txt" run ;
+:mkplain	savetxt "r4/system/r4plain.txt" run ;
+|:mkplain  savetxt "r4/system/r4plaino.txt" run ;
+:mkasm		savetxt "r4/system/r4fasm.txt" run ;
+:mkasmo     savetxt "r4/system/r4fasmo.txt" run ;
+:mkbyte     savetxt "r4/system/r4js.txt" run ;
 
 |--------------------
 |--------------------
@@ -373,10 +370,7 @@
 	;
 
 :directrun
-	savetxt
-	"" 1 "debug.err" save
-	'ed.nombre run  ;
-
+	savetxt 'ed.nombre run  ;
 
 |----------------------------
 :archivos
@@ -407,31 +401,21 @@
 :drawcode
 	fonti |font-vard-8
     home gris
-	0 ( rows <? )(
-		dup prilinea +
-		ed.nlin =? ( blanco " %d " print gris )( " %d " print )
-		cr
-		1+ ) drop
-	chome
 
 	pantaini>
 	0 ( rows <? )(
-|        dup prilinea + ed.nlin =? ( fontj2 )( fonti ) drop
+		dup prilinea +
+		ed.nlin =? ( blanco )( gris ) |fontj2 )( gris fonti )
+		"%d" print
 		swap
-		$fuente	<? (
+		32 'tx1 !
+		$fuente	<=? (
 			drawsel lf
 			drawcur lf
 			>>lineacolor>>
-			) cr
-		$fuente	=? ( cr )
+			)
+		0 'tx1 ! cr
 		swap 1+ ) drop
-	chome gris
-	0 ( rows <? )(
-|		" |" print
-|		dup prilinea + getmsg
-		cr
-		1+ ) drop
-
 	$fuente <? ( 1- ) 'pantafin> !
 
 	fuente>
@@ -450,12 +434,10 @@
 :helpcodeon
 	sw 3 / 2* 'panel1o ! ;
 
-
 |-------- VER PALABRA
 :drawpanelhelpcode
 	panel1 panel1o over - 2/ 'panel1 +!
 	0? ( drop ; ) gc.right
-
 	$1f alpha violeta gc.fbox $ff alpha | gc.glass
 
 	fonti home |fonta-dejavu10 home
@@ -470,6 +452,7 @@
 	chome
 |	iniword sregdumpi
 	;
+
 
 |------------ info token
 #panel2
@@ -492,6 +475,11 @@
 |	rinfo.cntloc rinfo.cntwor rojo "%d/%d palabras " print cr
 	;
 
+:panelswitch
+	panel1o 0? ( drop helpcodeon sw 3 / 'panel2o ! ; ) drop
+	0 'panel2o !
+	helpcodeoff
+	;
 
 |-------------------- tecla control
 #panelc #panelc2
@@ -535,7 +523,7 @@
 	0? ( drop ; )
 	scr gc.botton |$f gc.hfill
 	gc.glass
-	fonta-dejavu10B home cr2
+	fonti home cr2
 	gris
 	'controle dup 18 ?key "E-Edit" sp btnt | ctrl-E dit
 |	'controlh dup 35 ?key "H-Help" sp btnt  | ctrl-H elp
@@ -547,6 +535,7 @@
 	" - " print
 	'controlf dup 33 ?key "F-Find" sp btnt
 	'controlg dup 34 ?key "G-Go" sp btnt
+	'controln dup 49 ?key "N-New" sp btnt
 	cyan " CTRL+* " printr
 	cr cr2
 |	wordact 1? ( " %w " blanco print )( drop )
@@ -563,9 +552,9 @@
 |-------------------- pantalla editor
 
 :editor
-	dic.name 'ed.nombre
-	=w 1? ( sw 3 / 'panel2o ! ) drop
-	helpcodeon
+|	dic.name 'ed.nombre
+|	=w 1? ( sw 3 / 'panel2o ! ) drop
+|	helpcodeon
 	show clrscr
 		50 gc.top $88800f gc.hfill
 		fonta-verdana14b home
@@ -580,21 +569,21 @@
 		'ed.nombre "%s " printr
 
 		cr cr2
-		fonta-verdana10b
-		rojo sp 'exit "esc" link
-		verde sp 'directrun dup <f1> "Run" link
+		fonta-verdana10b |fonti
+		rojo 'exit "esc" link
+		verde 'directrun dup <f1> "F1:Run" link
 
-		'generacode dup <f2> "Debug" link
-		'debugcode dup <f3> "Xplore" link
-		'profcode dup <f4> "Profile" link
-		'profcode2 dup <f5> "Profile2" link
-		'archivos dup <f6> "File" link
-|		'panelswitch <f6>
+		'generacode dup <f2> "F2:Debug" link
+		'debugcode dup <f3> "F3:Xplore" link
+		'profcode dup <f4> "F4:Profile" link
+		'profcode2 dup <f5> "F5:Profile2" link
+		'archivos dup <f6> "F6:File" link
+		'panelswitch dup <f7> "F7:Panel" link
 		negro
-		'mkplain dup <f9> "f9-Plain" link
-		'mkasm dup <f10> "f10-ASM" link
-		'mkasmo dup <f11> "f11-ASMO" link
-|		'mkbyte dup <f12> "f12-Byte" link
+		'mkplain dup <f9> "F9:Plain" link
+		'mkasm dup <f10> "F10:ASM" link
+		'mkasmo dup <f11> "F11:ASMO" link
+|		'mkbyte dup <f12> "F12:Byte" link
 
 		blanco 'mensaje "%s " printr
 
@@ -620,7 +609,7 @@
 		| control
 		'modocontrol <ctrl> 'controloff >ctrl<
 
-		cminiflecha ;
+		cminimano ;
 
 |---- Mantiene estado del editor
 
@@ -645,6 +634,10 @@
 	dup 'undobuffer !
 	dup 'undobuffer> !
 	$ffff +         	| 64kb
+
+	dup 'auxfile !
+	dup 'auxfile> !
+	$ffff + | 64kb
 
 |	loadincludes
 
