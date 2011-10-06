@@ -20,7 +20,8 @@
 
 ^r4/system/r4code.txt
 ^r4/system/r4i86.txt
-^r4/system/vtstack.txt
+|^r4/system/vtstack.txt
+^r4/system/pilaestatica.txt
 
 ^r4/lib/trace.txt
 
@@ -57,7 +58,7 @@
 
 :,wor
 	| ajustar pila
-	dup 4 - @ nro>dicn "jmp " ,s ,s ,cr nip
+	dup 4 - @ nro>dicn "jmp " ,s ,s ,cr
 
 | --- no optimiza call pero necesita ajustar pila
 | 	ajusta pila
@@ -445,14 +446,19 @@
 ,DOCINI ,DOCEND ,DOCAT ,DOCLINE ,DOCTEXT ,DOCFONT ,DOCBIT ,DOCRES ,DOCSIZE  |-- impresora
 ,SYSTEM
 
+|----- compila sin optimizar
+:niv0 | adr adri+ info -- adri+ adr+
+	drop swap ,token0 ;
+
 |------------------------------
-0 | para salto?
+#bufprim 0 | para salto?
 #bufftok )( 4096
 #buff> 'bufftok
 
 :+buff | tok --
 	buff> !+ 'buff> ! ;
 :-buff | --
+	0 'bufprim !
 	'bufftok 'buff> ! ;
 
 :buffmap | exec token --
@@ -460,10 +466,6 @@
 		@+ $ff and pick2 =? ( drop pick2 exec )( drop )
 		) 3drop ;
 
-|----- compila
-:niv0 | adr adri+ info -- adri+ adr+
-	drop swap
-	,token0 ;
 
 | extrae TOS NOS NOS2
 :extraeREGS | info -- INFO
@@ -478,7 +480,7 @@
 
 :niv1 | adr adri+ info -- adri+ adr+
 	extraeREGS		| adr adri+
-	|dup $f and
+	|dup $f and | sale de extraeREG**
 	$f =? ( drop swap 4+ ; )
 |	$1 =? ( "eax" 'bnos strcpy ) |** NOS no optimizado
 	drop swap
@@ -495,7 +497,7 @@
 		swap ) 2drop
 |---- optimiza
 	nro>mov @ 24 << 24 >> neg | uso
-	buff> 'bufftok rot vtstack | analisis
+	buff> 'bufftok rot analisabuf
 |---- genera codigo
 	'buffinf 4+
 	'bufftok ( buff> <? )(
