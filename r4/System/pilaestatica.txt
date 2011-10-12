@@ -5,10 +5,11 @@
 ^r4/system/r4token.txt
 
 #cntregs 1
-#regt		)( 1024	| tipo de registro
-#regv		)( 1024	| valor de registro
-|#registros	)( 4096
-#:buffinf	)( 4096 | informacion de registro
+#regt	)( 1024	| tipo de registro
+#regv	)( 1024	| valor de registro
+#regi	)( 1024 | info+ de registro
+
+#:buffinf	)( 4096 | info del buffer de codigo
 
 |---- indice de dib pilas
 #tostr	)( 4096
@@ -109,6 +110,7 @@
 |	6 usa tos+pk4
 |	7 usa tos+pk5
 |	8 usa tos+rtos
+|	9 usa rtos
 |   d ;
 |	e call
 | 	f lit, lits
@@ -131,9 +133,9 @@
 :uso5   d.tos 24 << d.pk5 8 << or $70 or inf! ;
 :usort  d.tos 24 << r.tos 8 << or $80 or inf! ;
 :usorv	r.tos 8 << $90 or inf! ;
+:opt;	$d0 inf! ;
 :optwor 8 << $e0 or inf! ;
 :opti	d.tos 24 << $f0 or inf! ;
-:opt;	$d0 inf! ;
 
 |---- marcas de registros
 :reg+1 | --
@@ -181,13 +183,13 @@
 :op2a2	usotn reg+1 vswap reg+1 vswap usoadx ; | mod/
 
 |--- pila R
-:v>r	d.pop r.push usorv ;
-:vr>	usorv r.pop d.push ;
+:v>r	d.pop r.push usort ;
+:vr>	usort r.pop d.push ;
 :vr		r.tos d.pushCPY usort ; |R      -- a R: a -- a
 :vr+	usort vr> reg+1 v>r vdrop ; |R+    a -- R: b -- c
 :vr@+	vr> memreg reg+1 dup v>r d.pushVar usort ; |R@+    -- a R: b -- c
 :vr!+	usort vr> memreg reg+1 v>r vdrop ; |R!+   a -- R: b -- c
-:vrdrop	vr> vdrop ;
+:vrdrop	r.pop drop usorv ;
 
 |-------------------------------
 ::mappila | exe --
@@ -696,25 +698,35 @@ vdrop	|MPLAY  a --
 	| si me quede sin registro ajusto
 	;
 
-
+|-----------------------
 :setOPT | adr --
 	dup @ $fffffff0 and 1 or swap !	;
 :setNO | adr --
 	dup @ $fffffff0 and $f or swap !	;
 
 :anteriorescall=>jump | 'i+ info -- 'i+
-	over 8 - @ $ff and
+	over 8 - @ $ff and	| anterior
 	$e0 <>? ( 2drop ; ) | no es call
 	2drop
 	dup 8 - setOPT
 	dup 4 - setNO
 	;
 
+:reg>cte
+	2 << 'regt + @ | info reg
+	$8000 and ;
+
+:cteusoinm
+	24 >> reg>cte
+	1? ( drop ; )
+	drop
+	;
+
 :marcatoken | 'info -- 'info+
 	@+ $ff and
 	$d0 =? ( anteriorescall=>jump ; ) | es ;
+|	$f0 =? ( cteusoinm ; ) | es LIT
 	drop
-
 	;
 
 |----- recorre 1

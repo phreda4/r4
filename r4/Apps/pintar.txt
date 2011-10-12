@@ -1,0 +1,310 @@
+| Pintar
+| PHREDA 2011
+|---------------------
+^r4/lib/btn.txt
+^r4/lib/input.txt
+^r4/lib/dlg.txt
+^r4/lib/graf.txt
+^r4/lib/polygr.txt
+
+#nombre )( 256
+#color $ff00
+#grosor 2
+
+#colora
+#grosora
+
+|--- capas 256
+#capas	1024
+#capas> 'capas
+|--- colores
+#colores 2048
+#colores> 'colores
+|---- memoria en bitmap
+#XYRES 2048
+#lienzo
+|---- memoria vectorial
+#todo  #todo> 'todo
+|--- trazo de capa actual
+#trazo  #trazo> 'trazo
+
+|--- xfb refresh
+:copybox | w h x y --
+	sw * + 2 << >r | w h  R:a
+	( 1? )( 1-
+		xfb r + framev r + pick3 move
+		sw 2 << r+ )
+	2drop rdrop ;
+
+|--- trazo actual
+:trazo.op | xy
+	$00000000 or trazo> !+ 'trazo> ! ;
+:trazo.line | xy
+	$10000000 or trazo> !+ 'trazo> ! ;
+:trazo.color | color
+	$20000000 or trazo> !+ 'trazo> ! ;
+:trazo.grosor | grosor
+	$30000000 or trazo> !+ 'trazo> ! ;
+
+:trazo.clear
+	trazo 'trazo> ! ;
+
+|---
+:t0	$fffffff and d>xy gop ;
+:t1	$fffffff and d>xy gline ;
+:t2	$ffffff and ink ;
+:t3	$fff and linegg! ;
+
+#acctr 't0 't1 't2 't3
+
+:trazo.draw | last ini --
+	( over <? )(
+		@+ dup 26 >> $c and 'acctr + @ exec
+		) 2drop
+	grosor linegg! ;
+
+:rehacexfb
+	cls
+	trazo> trazo trazo.draw
+	>xfb
+	;
+
+|---
+:indc+! | valor
+	colores> !+ 'colores> ! ;
+
+:indexcolor
+	'colores 'colores> !
+	trazo> trazo
+	( over <? )(
+		@+ 28 >>
+		2 =? ( over 4 - indc+! )
+		drop )
+	2drop ;
+
+:clickcolor
+	;
+
+:colormenu
+	1 'colores ( colores> <? )(
+		@+ @ $ffffff and ink
+		swap
+		'clickcolor over "[%d]" sp btnt
+		1+ swap ) 2drop ;
+
+|--- bitmap actual
+:XYL | x y -- adr
+	11 << or 2 << lienzo + ;
+:XYL! | c x y --
+	XYL ! ;
+:XYL@ | x y -- c
+	XYL @ ;
+
+#xi #yi
+:drawlienzo
+	yi $7ffff and 11 << xi $7ffff and or
+	;
+
+
+#sizebmr
+#wbmr
+#hbmr
+#rbrm
+
+
+:resetbmr
+	sw dup 'wbmr !
+	sh dup 'hbmr !
+	* 'sizebmr !
+	32 'rbrm !
+	0 'nombre c!
+	;
+
+|------------ Grabar simple RLE
+#cnt
+#colact
+
+:scanlast | --
+	colact cnt 0? ( 2drop ; )
+	( 255 >? )( over $ff000000 or , 255 - )
+	24 << or , ;
+
+:scanconv | adr -- adr+
+	@+ $ffffff and | adr+ color
+	colact =? ( 1 'cnt +! drop ; )
+	scanlast
+:scanini | color --
+	$ffffff and 'colact ! 1 'cnt ! ;
+
+:grabarpad
+	mark	| guarda texto
+	"BMR." ,s
+	xfb
+	@+ scanini
+	sizebmr ( 1- 1? )( >r scanconv r> ) 2drop
+	scanlast
+	'nombre c@ 0? ( "media/bmr/crayonpad.bmr" )( 'nombre ) nip
+	savemem
+	empty
+	;
+
+|-------------- Cargar simple RLE
+:cargarpad
+	mark
+	here dup
+	'nombre c@ 0? ( "media/bmr/crayonpad.bmr" )( 'nombre ) nip
+	load 'here !
+	0 0 setxy
+	4+
+	( here <? )(
+		@+
+		dup $ffffff and swap 24 >> $ff and | color cant
+		( 1? )( over px!+ 1- ) 2drop
+		) drop
+	empty
+	>xfb
+	;
+
+|--- FILES
+#cntf
+#actf
+
+:clickf
+	dup file "media/bmr/%s" mprint 'nombre strcpy
+    cargarpad
+	exit ;
+
+:loadfile
+	"media/bmr/" dir
+	0 ( dup file 1? )( drop 1+ ) drop 'cntf !
+	show xfb>scr
+		scr fonti home cr2
+		verde  [ "" dir exit ; ] dup "EDIT" sp btnt >esc<
+
+		cr cr
+		0 ( cntf <? )(
+			actf =? ( cyan )( negro )
+			'clickf
+			over file "%s" mprint
+			16 sp btntf cr cr
+			bout? 1? ( chome cr2 ) drop
+			1+ ) drop
+
+	 	clapiz 	;
+
+|---- nuevo archivo
+:finnew
+	exit
+	'nombre c@ 0? ( drop ; ) drop
+	'nombre "media/bmr/%s" mprint 'nombre strcpy
+	cls >xfb
+|    grabarpad
+	;
+
+:newfile
+	show xfb>scr
+		scr fonti home cr2
+		verde  [ "" dir exit ; ] dup "BACK" sp btnt >esc<
+		blanco
+		" NEW FILE" print cr cr
+		"media/bmr/" sp print
+		'nombre 32 sp input
+		'finnew lostfoco
+	 	clapiz 	;
+
+|---- MODO DIBUJO
+#xm #ym
+:dnCursor
+	color colora <>? ( dup trazo.color 'colora ! )( drop )
+	grosor grosora <>? ( dup trazo.grosor 'grosora ! )( drop )
+	xymouse
+	2dup gop
+	2dup 'ym ! 'xm !
+	xy>d trazo.op ;
+
+:movCursor
+	xymouse
+	ym =? ( swap xm =? ( 2drop ; ) swap )
+	2dup gline
+	xm pick2 <? ( pick2 )( pick2 swap ) over - grosor 2* + | x w
+	ym pick3 <? ( pick3 )( pick3 swap ) over - grosor 2* + | y h
+	swap >r rot grosor - r> grosor - copybox
+	2dup 'ym ! 'xm !
+	xy>d trazo.line ;
+
+:mododibujo
+	color ink 'dnCursor 'movCursor guiDnMove
+	[ -4 'trazo> +! rehacexfb ; ] <del>
+	;
+
+|---- MODO SELECCION
+#xa #ya #xb #yb
+:clearsel
+	-1 'xa ! ;
+
+:modoseleccion
+	[ xymouse 2dup 'yb ! 'xb ! 'ya ! 'xa ! ; ]
+	[ xymouse 'yb ! 'xb ! ; ]
+	[ ; ]
+	guiMap
+	xa -? ( drop ; ) ya xb yb caja
+	;
+
+|---- MODO POLIGONO
+:modopoligono
+	;
+
+#modo 'mododibujo
+|----- Main
+:main
+	grosor linegg!
+
+	color 1+ 'colora !
+	grosor 1+ 'grosora !
+
+	color col.clapiz!
+	fonti
+	show xfb>scr
+
+		modo exec
+		cr2
+		rojo 'exit dup "EXIT" sp btnt >esc<
+		verde
+		[ cls >xfb ; ] "CLS" sp btnt
+		azul
+		'loadfile "LOAD" sp btnt
+		'newfile "NEW" sp btnt
+		sp 'color dlgcolor
+        blanco 'nombre printx
+		colormenu
+		cr
+		dup "%d " print
+		trazo> trazo - 2 >> "T:(%d)" print
+		[ 'mododibujo 'modo ! ; ] <f1>
+		[ indexcolor 'modoseleccion 'modo ! ; ] <f2>
+		[ 'modopoligono 'modo ! ; ] <f3>
+
+	 	clapiz 	;
+
+:memlienzo
+	mark
+	here 'lienzo !
+	XYRES dup * 2 << 'here +!
+
+	here dup 'todo ! 'todo> !
+	$3ffff 'here +!
+	here dup 'trazo ! 'trazo> !
+	$ffff 'here +!
+	;
+
+:
+	memlienzo
+    0 paper
+    cls >XFB
+	mark
+	resetbmr
+|	cargarpad
+	33 main
+|	grabarpad
+	;
+
