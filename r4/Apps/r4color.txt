@@ -1,4 +1,5 @@
-| Pintar
+| r4color.txt
+| Integrar...integrar..
 | PHREDA 2011
 |---------------------
 ^r4/lib/btn.txt
@@ -14,11 +15,13 @@
 #colora
 #grosora
 
+#dibujos )( 2048
+#dibujo> 'dibujos
 |--- capas 256
-#capas	1024
+#capas )( 1024
 #capas> 'capas
 |--- colores
-#colores 2048
+#colores )( 2048
 #colores> 'colores
 |---- memoria en bitmap
 #XYRES 2048
@@ -92,125 +95,23 @@
 		'clickcolor over "[%d]" sp btnt
 		1+ swap ) 2drop ;
 
-|--- bitmap actual
-:XYL | x y -- adr
-	11 << or 2 << lienzo + ;
-:XYL! | c x y --
-	XYL ! ;
-:XYL@ | x y -- c
-	XYL @ ;
 
-#xi #yi
-:drawlienzo
-	yi $7ffff and 11 << xi $7ffff and or
-	;
-
-
-#sizebmr
-#wbmr
-#hbmr
-#rbrm
-
-
-:resetbmr
-	sw dup 'wbmr !
-	sh dup 'hbmr !
-	* 'sizebmr !
-	32 'rbrm !
-	0 'nombre c!
-	;
-
-|------------ Grabar simple RLE
-#cnt
-#colact
-
-:scanlast | --
-	colact cnt 0? ( 2drop ; )
-	( 255 >? )( over $ff000000 or , 255 - )
-	24 << or , ;
-
-:scanconv | adr -- adr+
-	@+ $ffffff and | adr+ color
-	colact =? ( 1 'cnt +! drop ; )
-	scanlast
-:scanini | color --
-	$ffffff and 'colact ! 1 'cnt ! ;
-
-:grabarpad
+|---- LOAD SAVE
+:saver4c | "" --
 	mark	| guarda texto
-	"BMR." ,s
-	xfb
-	@+ scanini
-	sizebmr ( 1- 1? )( >r scanconv r> ) 2drop
-	scanlast
-	'nombre c@ 0? ( "media/bmr/crayonpad.bmr" )( 'nombre ) nip
+	trazo> trazo - ,
+	trazo ( trazo> <? )( @+ , ) drop
 	savemem
-	empty
-	;
+	empty ;
 
 |-------------- Cargar simple RLE
-:cargarpad
+:loadr4c | "" --
 	mark
-	here dup
-	'nombre c@ 0? ( "media/bmr/crayonpad.bmr" )( 'nombre ) nip
-	load 'here !
-	0 0 setxy
-	4+
-	( here <? )(
-		@+
-		dup $ffffff and swap 24 >> $ff and | color cant
-		( 1? )( over px!+ 1- ) 2drop
-		) drop
+	here dup rot load 'here ! | -- iniload..here
+	@+ trazo + 'trazo> !
+	trazo ( trazo> <? )( swap @+ rot !+ ) 2drop
 	empty
-	>xfb
 	;
-
-|--- FILES
-#cntf
-#actf
-
-:clickf
-	dup file "media/bmr/%s" mprint 'nombre strcpy
-    cargarpad
-	exit ;
-
-:loadfile
-	"media/bmr/" dir
-	0 ( dup file 1? )( drop 1+ ) drop 'cntf !
-	show xfb>scr
-		scr fonti home cr2
-		verde  [ "" dir exit ; ] dup "EDIT" sp btnt >esc<
-
-		cr cr
-		0 ( cntf <? )(
-			actf =? ( cyan )( negro )
-			'clickf
-			over file "%s" mprint
-			16 sp btntf cr cr
-			bout? 1? ( chome cr2 ) drop
-			1+ ) drop
-
-	 	clapiz 	;
-
-|---- nuevo archivo
-:finnew
-	exit
-	'nombre c@ 0? ( drop ; ) drop
-	'nombre "media/bmr/%s" mprint 'nombre strcpy
-	cls >xfb
-|    grabarpad
-	;
-
-:newfile
-	show xfb>scr
-		scr fonti home cr2
-		verde  [ "" dir exit ; ] dup "BACK" sp btnt >esc<
-		blanco
-		" NEW FILE" print cr cr
-		"media/bmr/" sp print
-		'nombre 32 sp input
-		'finnew lostfoco
-	 	clapiz 	;
 
 |---- MODO DIBUJO
 #xm #ym
@@ -257,23 +158,23 @@
 #modo 'mododibujo
 |----- Main
 :main
+	rehacexfb
 	grosor linegg!
 
 	color 1+ 'colora !
 	grosor 1+ 'grosora !
-
 	color col.clapiz!
+
 	fonti
 	show xfb>scr
 
 		modo exec
-		cr2
-		rojo 'exit dup "EXIT" sp btnt >esc<
-		verde
-		[ cls >xfb ; ] "CLS" sp btnt
+		cr2 rojo 'exit dup "EXIT" sp btnt >esc<
+		verde [ cls >xfb trazo.clear ; ] "CLS" sp btnt
 		azul
 		'loadfile "LOAD" sp btnt
 		'newfile "NEW" sp btnt
+
 		sp 'color dlgcolor
         blanco 'nombre printx
 		colormenu
@@ -286,6 +187,7 @@
 
 	 	clapiz 	;
 
+|------ INI
 :memlienzo
 	mark
 	here 'lienzo !
@@ -303,8 +205,8 @@
     cls >XFB
 	mark
 	resetbmr
-|	cargarpad
+	"test.r4c" loadr4c
 	33 main
-|	grabarpad
+	"test.r4c" saver4c
 	;
 
