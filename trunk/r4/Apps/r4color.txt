@@ -12,20 +12,22 @@
 #color $ff00
 #grosor 2
 
+#rampag
+
 #colora
 #grosora
-
-#dibujos )( 2048
+|--- dibujos
+#dibujos )( 1024
 #dibujo> 'dibujos
-|--- capas 256
-#capas )( 1024
-#capas> 'capas
+|--- nombres
+#nombres )( 1024
+#nombres> 'nombres
 |--- colores
 #colores )( 2048
 #colores> 'colores
-|---- memoria en bitmap
-#XYRES 2048
-#lienzo
+
+|---- memoria para nombres
+#texto #texto> 'texto
 |---- memoria vectorial
 #todo  #todo> 'todo
 |--- trazo de capa actual
@@ -72,7 +74,20 @@
 	>xfb
 	;
 
-|---
+|----- grosor de linea
+:ingrosor
+	[ xymouse pick2 - swap pick3 - min abs dup 'grosor ! linegg! ; ] guiMove ;
+
+:btngrosor
+	ccx ccy pick2 dup gc.xywh
+	dup 2/ dup ccx + ccy rot +
+	'ingrosor guiIn
+	negro gc.fbox
+    color ink grosor fcircle
+	blanco grosor "%d" print
+	'ccx +! ;
+
+|----- trazo por colores
 :indc+! | valor
 	colores> !+ 'colores> ! ;
 
@@ -92,24 +107,25 @@
 	1 'colores ( colores> <? )(
 		@+ @ $ffffff and ink
 		swap
-		'clickcolor over "[%d]" sp btnt
+		'clickcolor over "%d" link
 		1+ swap ) 2drop ;
 
 
-|---- LOAD SAVE
+|---- SAVEALL
 :saver4c | "" --
 	mark	| guarda texto
 	trazo> trazo - ,
 	trazo ( trazo> <? )( @+ , ) drop
-	savemem
-	empty ;
 
-|-------------- Cargar simple RLE
+	savemem empty ;
+
+|---- LOADALL
 :loadr4c | "" --
 	mark
 	here dup rot load 'here ! | -- iniload..here
 	@+ trazo + 'trazo> !
 	trazo ( trazo> <? )( swap @+ rot !+ ) 2drop
+
 	empty
 	;
 
@@ -123,19 +139,28 @@
 	2dup 'ym ! 'xm !
 	xy>d trazo.op ;
 
+:copy0
+	xm pick2 <? ( pick2 )( pick2 swap ) over - 2 +  | x w
+	ym pick3 <? ( pick3 )( pick3 swap ) over - 2 +  | y h
+	swap >r rot 1- r> 1- copybox
+	'ym ! 'xm !
+	;
+
 :movCursor
 	xymouse
 	ym =? ( swap xm =? ( 2drop ; ) swap )
 	2dup gline
-	xm pick2 <? ( pick2 )( pick2 swap ) over - grosor 2* + | x w
-	ym pick3 <? ( pick3 )( pick3 swap ) over - grosor 2* + | y h
+	2dup xy>d trazo.line
+	grosor 0? ( drop copy0 ; ) drop
+	xm pick2 <? ( pick2 )( pick2 swap ) over - grosor 2* +  | x w
+	ym pick3 <? ( pick3 )( pick3 swap ) over - grosor 2* +  | y h
 	swap >r rot grosor - r> grosor - copybox
-	2dup 'ym ! 'xm !
-	xy>d trazo.line ;
+	'ym ! 'xm !
+	;
 
 :mododibujo
 	color ink 'dnCursor 'movCursor guiDnMove
-	[ -4 'trazo> +! rehacexfb ; ] <del>
+	[ trazo trazo> =? ( drop ; ) drop -4 'trazo> +! rehacexfb ; ] <del>
 	;
 
 |---- MODO SELECCION
@@ -169,32 +194,34 @@
 	show xfb>scr
 
 		modo exec
-		cr2 rojo 'exit dup "EXIT" sp btnt >esc<
-		verde [ cls >xfb trazo.clear ; ] "CLS" sp btnt
-		azul
-		'loadfile "LOAD" sp btnt
-		'newfile "NEW" sp btnt
 
-		sp 'color dlgcolor
-        blanco 'nombre printx
-		colormenu
-		cr
-		dup "%d " print
+		32 'color btncolora
+		32 btngrosor
+|		cr2
+
+|        blanco 'nombre printx
+
+		0 rows 2 - gotoxy
+		verde [ cls >xfb trazo.clear ; ] "CLS" sp btnt
+
+		sp colormenu
+		dup " (%d) " print
 		trazo> trazo - 2 >> "T:(%d)" print
 		[ 'mododibujo 'modo ! ; ] <f1>
 		[ indexcolor 'modoseleccion 'modo ! ; ] <f2>
 		[ 'modopoligono 'modo ! ; ] <f3>
-
-	 	clapiz 	;
+		'exit >esc<
+|	blink 1? ( blanco )( negro ) drop
+		blanco
+	 	cmira ;
 
 |------ INI
 :memlienzo
 	mark
-	here 'lienzo !
-	XYRES dup * 2 << 'here +!
-
 	here dup 'todo ! 'todo> !
 	$3ffff 'here +!
+	here dup 'texto ! 'texto> !
+	$ffff 'here + !
 	here dup 'trazo ! 'trazo> !
 	$ffff 'here +!
 	;
@@ -203,8 +230,6 @@
 	memlienzo
     0 paper
     cls >XFB
-	mark
-	resetbmr
 	"test.r4c" loadr4c
 	33 main
 	"test.r4c" saver4c
