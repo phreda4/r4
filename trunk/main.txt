@@ -8,9 +8,9 @@
 ^r4/lib/fonta.txt
 
 ^r4/lib/btn.txt
-^r4/lib/trazo.txt
-^r4/lib/bmr.txt
 ^r4/lib/input.txt
+
+^r4/lib/icon.txt
 
 ^r4/system/mem-ed.txt
 ^r4/system/r4code.txt
@@ -23,10 +23,12 @@
 #lastrun )( 1024
 #padin )( 1024
 
+|-------- memoria guardada
 #actf
 #actv
 #ruta )( 1024
 #ruta> 'ruta
+
 #screenshot
 
 #cntf
@@ -38,6 +40,7 @@
 #indexv> 'indexv
 
 #nombres
+#paginas | iconos
 
 :ruta.push | "" --
 	ruta> strcpyl
@@ -57,17 +60,6 @@
 |----------- estado
 :grabaestado
 	'actf 1040 "mem/mp.mem" save ;
-
-:restauraestado
-	'actf "mem/mp.mem" load drop
-	'ruta count + 'ruta> !
-	'ruta dir
-	screenshot
-	-1 <>? ( drop ; )
-	0 'screenshot !
-	drop
-	>xfb
-	;
 
 :,string | "" -- ""'
 	here swap ,s ,eol ;
@@ -119,26 +111,23 @@
 
 :clicknew
 	0 'ed.nombre !
-	show clrscr cr2
-		rojo
-		sp 'exit dup >esc< "esc-Exit" btnt
+	refreshfoco
+	show clrscr 
+		64 gc.top $00f gc.hfill
+		'exit >esc<
+		fonta-verdana14b scr home
+		verde dup " :R%d " print
 		blanco
 		" NEW FILE" print cr cr
-		actv filev 'ruta "%s%s/" sp print
-		'ed.nombre 32 sp input
+		actv filev 'ruta "%s%s/" print
+		'ed.nombre 32 input
 		'finnew lostfoco
 		;
 
 :clickv
 	dup 'actv ! refresh ;
 
-:clearerr
-	0 dup "runtime.err" save
-	0 dup "debug.err" save
-	;
-
 :runprg
-    clearerr
 	grabaestado
 	'lastrun run
 	;
@@ -149,7 +138,6 @@
 	'lastrun run ;
 
 :editprg
-	clearerr
 	grabaestado
 	ed.load
 	'lastrun 'ed.nombre = 0? (
@@ -232,27 +220,6 @@
 	0 'padin !
 	;
 
-:carpetasyarchivos
-	|---- carpetas
-	0 ( cntv <? )(
-		actv =? ( azul )( negro )
-		'clickv
-		over filev
-		8 sp btntf
-		 cr cr
-		1+ ) drop cr cr
-
-	chome
-	|---- archivos
-	0 ( cntf <? )(
-		actf =? ( verde )( negro )
-		'clickf
-		over filex
-		12 sp btntf cr cr
-		bout? 1? ( chome ) drop
-		1+ ) drop
-	;
-
 #txtruntime 0
 |r4/system/f5-spr.txt
 |IP: -715345168 541487096
@@ -267,7 +234,7 @@
 	dup "runtime.err" load
 	over <=? ( 	drop
 			dup "debug.err" load
-			over <=? ( 	2drop ; )
+			over <=? ( 2drop ; )
 			)
 	0 swap c!+ | termina con cero
 	'here ! 'txtruntime !
@@ -275,60 +242,97 @@
 
 :runtimeerror
 	txtruntime 0? ( drop ; ) drop
-	rojo [ "r4/system/runtime2.txt" run ; ] "RUNTIME ERROR" sp sp link
-	[ clearerr 0 'txtruntime ! ; ] "DEL" sp violeta link
+	rojo
+	[ "r4/system/runtime2.txt" run ; ] "RUNTIME ERROR" sp sp link
+	[ 0 dup "runtime.err" save
+	  0 dup "debug.err" save
+		0 'txtruntime ! ; ] "DEL" sp violeta link
 	;
 
 |----------------------------------
-#cya? 1
-#altoconsola
 :main
-	refresh
 	show clrscr
 		64 gc.top $00f gc.hfill
+		'exit >esc<
 		fonta-verdana14b scr home
 		verde dup " :R%d " print
 		amarillo mensaje print
 		blanco 'lastrun "%s " printr cr
 
-		" #" print 'padin 64 input
+		blanco " #" print 'padin 64 input
 		'correconsola lostfoco
 		verde dumpvstack cr
 
         fonta-verdana10b
-		rojo sp 'exit dup >esc< "esc-Exit" link
+
+		rojo sp 'exit "esc-Exit" link
 		verde
 		sp 'runprg dup <f1> "f1-Run" link
 		sp 'editprg dup <f2> "f2-Edit" link
 		violeta 'clicknew dup <f3> "f3-New" sp link
-		[ cya? 1 xor 'cya? ! ; ] dup <f4> "f4-Menu" sp link
 		sp 'runprgshot dup <f5> "f5-Icon" sp link
+
 |		violeta sp 'adddome "+Fold" link
 |		rojo sp 'borractual "Del" link
 |		sp sp 'runtimeerr "f9-RUNERR" link
 |		sp 'confsis "f10-CONFIG" link
-		runtimeerror
-		cr cr2 chome!
-		cya? 1? ( carpetasyarchivos ) drop
+|		'fillmem <f6>
 
-		cminiflecha
+		runtimeerror
 
 		keypad
 		[ -1 actf+! ; ] <up>
 		[ 1 actf+! ; ] <dn>
 		[ -1 actv+! ; ] <pgup>
 		[ 1 actv+! ; ] <pgdn>
-		;
 
+		cr cr2
+	|---- carpetas
+		0 ( cntv <? )(
+			actv =? ( azul )( negro )
+			'clickv over filev sp btnt
+			1+ ) drop
+		cr cr
+		sp chome!
+	|---- archivos
+		0 ( cntf <? )(
+			actf =? ( verde )( negro )
+			'clickf over filex
+			12 sp btntf cr cr
+			bout? 1? ( chome ) drop
+			1+ ) drop
+		cminiflecha ;
 
-:	$0
-	paper
-	mark
+:memoria
+	"r4" ruta.push
+	'actf "mem/mp.mem" load drop
+	'ruta count + 'ruta> !
+	'ruta dir
 	here 'nombres !
 	$ffff 'here +!
-	"r4" ruta.push
-	restauraestado
+	refresh | para saber cntv
+
+	here dup 'paginas !
+|	"mem/mpa.mem" load drop
+|	cntv 4194304 * 'here +! | 1024*1024*4 bytes
+	refresh | para tener los nombres
+	screenshot -1 <>? ( drop ; ) drop
+	0 'screenshot !
+
+|	icon.shoot ***************
+|	actv 4194304 * paginas +
+|	actf dup $f and 6 << swap 4 >> $f and 6 << | x y
+|	icon.attex
+
+|	paginas cntv 4194304 * "mem/mpa.mem" save
+	;
+
+
+:	$0 paper
+	mark
 	leererrores
+	memoria
+
 	4 main
 	grabaestado
 ;
