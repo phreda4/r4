@@ -65,36 +65,78 @@
 	1? ( bmr.clear ) drop
 	;
 
-|---- cambia resolucion
-:ajustawh! | w h --
-	bmr.wh!
-	ajusta ;
+|---- bmp
+#bmp
+#xa #ya #xb #yb
+#wb #hb
 
-:set32
-	0 bmr.res! refreshbmr ;
-:set32A
-	1 bmr.res! refreshbmr ;
+:clearsel
+	-1 'xa ! ;
 
-#wbs )( 8
-#hbs )( 8
-
-#winRes 0 10 32 256 256 "BMR"
-:dlgRes
-	" Tipo:" print cr
-	'set32 "32" sp link
-	'set32A "32A" sp link cr
-	" Resolucion:" print cr
-	[ 16 dup ajustawh! ; ] "16x16" sp link
-	[ 32 dup ajustawh! ; ] "32x32" sp link
-	[ 64 dup ajustawh! ; ] "64x64" sp link cr
-	[ 128 dup ajustawh! ; ] "128x128" sp link
-	[ 256 dup ajustawh! ; ] "256x256" sp link cr
-
-|	" Ancho:" print 'wbs 4 input cr
-|	" Alto:" print 'hbs 4 input cr
+:modoseleccion
+	[ xymouse 2dup 'yb ! 'xb ! 'ya ! 'xa ! ; ]
+	[ xymouse 'yb ! 'xb ! ; ]
+	[ ; ]
+	guiMap
+	blink 1? ( blanco )( negro ) drop
+	xa -? ( drop ; ) ya xb yb caja
 	;
 
+
+:getimagen
+	xa -? ( drop ; )
+	xb >? ( xb 'xa ! 'xb ! )( drop )
+	ya yb >? ( yb 'ya ! 'yb ! )( drop )
+	xb xa -	yb ya - bmr.wh!
+	ajusta
+    refreshbmr
+	xa ( xb <? )(
+		ya ( yb <? )(
+		2dup bmp.get $ffffff and pick2 xa - pick2 ya - bmr!
+		1+ ) drop
+	1+ ) drop
+	exit
+	;
+
+:freeget
+
+	;
+
+:cargabmps
+	bmr.wh@ 'hb ! 'wb !
+	clearsel fonti
+	show clrscr
+		0 0  bmp.xyreal
+		modoseleccion
+		blanco
+		0 rows 3 - gotoxy
+		xa "x1:%d " print
+		ya "y1:%d " print
+		xb "x2:%d " print
+		yb "y2:%d " print cr cr2
+		cyan
+		'getimagen dup <f1> "F1-GET" btnt
+		'freeget dup <f2> "F2-FREE" sp btnt
+		'exit >esc<
+		cminiflecha ;
+
+:cargabmp
+	mark
+	"r4/escmedia/personajes.bmp" bmp.load 'bmp !
+	cargabmps
+	empty
+	;
+
+:clonebmr
+	;
+
+
 |------------------------------
+:scrlizq	bmr.scrl ;
+:scrlder	bmr.scrr ;
+:scrlarr	bmr.scru ;
+:scrlaba	bmr.scrd ;
+
 :addtrazo
 	trazo.cnt 2 <? ( drop ; ) drop
 	;
@@ -115,6 +157,11 @@
 	sp
 	violeta
 	cyan
+	'scrlizq "<H" sp link
+	'scrlder "H>" sp link
+	'scrlarr "<V" sp link
+	'scrlaba "V>" sp link
+
 |	'savebmr "SAVE" sp btnt
 |	'exit "CANCEL" sp btnt
 	;
@@ -122,17 +169,6 @@
 |------EDIT
 :pick.dn
 	xymouse getpixel 'color ! ;
-
-:cargabmp
-| BMP FILE
-| LOAD
-	256 dup gc.window
-
-	gc.fbox
-	;
-
-:clonebmr
-	;
 
 :modoedit
 	drawbmr
@@ -186,18 +222,42 @@
 :modoactual
 	modo 2 << 'modos + @ exec ;
 
+|---- cambia resolucion
+:changew | dw
+	bmr.wh@ swap rot + swap
+	bmr.wh!
+	ajusta ;
+
+:changeh | dh
+	bmr.wh@ rot +
+	bmr.wh!
+	ajusta ;
+
+:changea
+	bmr.res@ 1 xor bmr.res!
+	refreshbmr ;
+
 :main
 	ajusta
 	show clrscr cr2
+		font-vard-12-bold
+		sp 'color dlgcolora sp
+		verde
+		[ 1 changew ; ] "+" link
+		[ -1 changew ; ] "-" link
+		blanco
+		bmr.wh@ swap " %dx%d " print
+		verde
+		[ 1 changeh ; ] "+" link
+		[ -1 changeh ; ] "-" link
+		amarillo
+		'changea "ALPHA" sp link
+		verde dup " - %d -" print
+
 		rojo
 		'exit dup >esc< "EXIT" sp btnt
 		modoactual
 		scr 32 gc.botton home cr2
-		font-vard-12-bold
-		sp 'color dlgcolora
-		gris
-		'dlgRes 'winRes guiWin | grosor
-		verde dup " - %d -" print
 		cminiflecha
  		;
 
