@@ -109,7 +109,7 @@ char *macros[]={// directivas del compilador
 "@","C@","W@","!","C!","W!","+!","C+!","W+!", //--- memoria
 "@+","!+","C@+","C!+","W@+","W!+",
 "MOVE","MOVE>","CMOVE","CMOVE>",//-- movimiento de memoria
-"MEM","DIR","FILE","FSIZE","VOL","LOAD","SAVE",//--- memoria,bloques
+"MEM","DIR","FILE","FSIZE","VOL","LOAD","SAVE","APPEND",//--- memoria,bloques
 "UPDATE",
 //"TPEN",
 "XYMOUSE","BMOUSE", //"MOUSE",     //-------- mouse
@@ -155,7 +155,7 @@ NEG,INC,INC4,DEC,DIV2,MUL2,SHL,SHR,//--- aritmetica
 FECH,CFECH,WFECH,STOR,CSTOR,WSTOR,INCSTOR,CINCSTOR,WINCSTOR,//--- memoria
 FECHPLUS,STOREPLUS,CFECHPLUS,CSTOREPLUS,WFECHPLUS,WSTOREPLUS,
 MOVED,MOVEA,CMOVED,CMOVEA,
-MEM,PATH,BFILE,BFSIZE,VOL,LOAD,SAVE,//--- bloques de memoria, bloques
+MEM,PATH,BFILE,BFSIZE,VOL,LOAD,SAVE,APPEND,//--- bloques de memoria, bloques
 UPDATE,
 //TPEN,
 XYMOUSE,BMOUSE, //MOUSE,
@@ -666,6 +666,15 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
          fwrite((void*)*NOS,sizeof(char),TOS,file);
          fclose(file);
          NOS--;TOS=*NOS;NOS--;continue;
+    case APPEND: // 'from cnt "filename" --
+         if (TOS==0||*NOS==0) { NOS-=2;TOS=*NOS;NOS--;continue; }
+         file=fopen((char*)TOS,"ab");
+         TOS=*NOS;NOS--;
+         if (file==NULL) { NOS--;TOS=*NOS;NOS--;continue; }
+         fwrite((void*)*NOS,sizeof(char),TOS,file);
+         fclose(file);
+         NOS--;TOS=*NOS;NOS--;continue;
+                  
 // por velocidad         
     case MOVED: // | de sr cnt --
          W=*(NOS-1);W1=*NOS;

@@ -146,6 +146,15 @@
 	$5f =? ( 0 nip ; )
 	;
 
+:dbcomparereg | mem -- mem 1/0 ; compara reg con here, si son iguales=>1
+	here over
+	( c@+ 1? )(
+		$7e =? ( 3drop 1 ; )
+		rot c@+ rot
+		<>? ( 3drop 0 ; )
+		drop swap )
+	3drop 1 ;
+
 |--- MAP
 ::dbmap | vec 'db -- ; vec | vec nro adri adrr -- vec nro adri
 	@ @+ swap 8 + @ | cnt indmem
@@ -193,11 +202,24 @@
 	cmove
  	dbreload ; | recarga
 
+::dbinsertlog | 'db --
+	mark
+	dbname ,s
+	"|I|" ,s
+	here ,s
+	"~" ,s
+	"log.db"
+	appendmem
+	empty
+	dbinsert ;
+
 |--- UPDATE
 ::dbupdate | nroreg 'db --
 	dbuse
 	cntregi >=? ( drop ; )
 	2 << indmei + @ | adrreg
+	dbcomparereg 1? ( 2drop ; ) drop
+:dbupdateplano
 	here count 			| adr here ncnt
 	pick2 dup >reg> >>..	| adr here ncnt adr adrf
 	dup rot - 			| adr here ncnt adrf cntv
@@ -206,6 +228,22 @@
 	+? ( over + swap indmem 4 - over - cmove> )( over + swap indmem 4 - over - cmove )
 	cmove	| memd s cnt
  	dbreload ; | recarga
+
+::dbupdatelog | nro 'db --
+	dbuse
+	cntregi >=? ( drop ; )
+	2 << indmei + @ | adrreg
+	dbcomparereg 1? ( 2drop ; ) drop
+	mark
+	dbname ,s
+	"|U|" ,s
+	dup ,d
+	"|" ,s
+	here ,s
+	"~" ,s   | here over dbname "%s|U|%d|%s~" mprint "log.db" append
+	"log.db" appendmem
+	empty
+	dbupdate ;
 
 ::dbupdatem | mreg 'db --
 	dbuse
@@ -218,6 +256,19 @@
 	cmove	| memd s cnt
  	dbreload ; | recarga
 
+::dbupdatemlog | mreg 'db --
+	mark
+	dbname ,s
+	"|U|" ,s
+	over ,d
+	"|" ,s
+	here ,s
+	"~" ,s
+	"log.db"
+	appendmem
+	empty
+	dbupdatem ;
+
 |--- DELETE
 ::dbdelete | nro 'db --
 	dbuse
@@ -227,6 +278,17 @@
 	2dup - indmem indfil - + 4 - 'indmei !
 	indmem over - cmove
  	dbreload ; | recarga
+
+::dbdeletelog | nro 'db
+	mark
+	dup dbname ,s
+	"|D|" ,s
+	over ,d
+	"~" ,s
+	"log.db"
+	appendmem
+	empty
+	dbdelete ;
 
 |--- RESET
 :dbreset
