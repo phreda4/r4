@@ -197,21 +197,11 @@
 |--- INSERT
 ::dbinsert | 'db --   ; inserta memoria al final del archivo
 	dbuse
+:insert
 	indmem 4 - here count | memd mems cnt
 	pick2 indfil - over + 'indmei !
 	cmove
  	dbreload ; | recarga
-
-::dbinsertlog | 'db --
-	mark
-	dbname ,s
-	"|I|" ,s
-	here ,s
-	"~" ,s
-	"log.db"
-	appendmem
-	empty
-	dbinsert ;
 
 |--- UPDATE
 ::dbupdate | nroreg 'db --
@@ -219,7 +209,7 @@
 	cntregi >=? ( drop ; )
 	2 << indmei + @ | adrreg
 	dbcomparereg 1? ( 2drop ; ) drop
-:dbupdateplano
+:updateplano
 	here count 			| adr here ncnt
 	pick2 dup >reg> >>..	| adr here ncnt adr adrf
 	dup rot - 			| adr here ncnt adrf cntv
@@ -229,21 +219,19 @@
 	cmove	| memd s cnt
  	dbreload ; | recarga
 
+|--- log
+::dbinsertlog | 'db --
+	dbuse
+	here dbname time date "%d/%d/%d:%d:%d:%d|%s|I|%s" mprint count 1+ "log.db" append
+	insert ;
+
 ::dbupdatelog | nro 'db --
 	dbuse
 	cntregi >=? ( drop ; )
-	2 << indmei + @ | adrreg
-	dbcomparereg 1? ( 2drop ; ) drop
-	mark
-	dbname ,s
-	"|U|" ,s
-	dup ,d
-	"|" ,s
-	here ,s
-	"~" ,s   | here over dbname "%s|U|%d|%s~" mprint "log.db" append
-	"log.db" appendmem
-	empty
-	dbupdate ;
+	dup 2 << indmei + @ | adrreg
+	dbcomparereg 1? ( 3drop ; ) drop
+	here rot dbname time date "%d/%d/%d:%d:%d:%d|%s|%d|U|%s" mprint count 1+ "log.db" append
+	updateplano ;
 
 ::dbupdatem | mreg 'db --
 	dbuse
