@@ -4,6 +4,9 @@
 ^r4/lib/gui.txt
 ^r4/lib/input.txt
 ^r4/lib/dlg.txt
+^r4/lib/dlgfile.txt
+^r4/lib/fonta.txt
+
 ^r4/lib/trazo.txt
 ^r4/lib/leebmp.txt
 ^r4/lib/bmr.txt
@@ -49,6 +52,7 @@
 	bmr.wh@
 	sh 2/ swap zoom << 2/ - 'yi !
 	sw 2/ swap zoom << 2/ - 'xi !
+    refreshbmr
 	;
 
 :drawbmr | --
@@ -73,11 +77,18 @@
 :clearsel
 	-1 'xa ! ;
 
-:modoseleccion
+:modoseleccion2
 	[ xymouse 2dup 'yb ! 'xb ! 'ya ! 'xa ! ; ]
 	[ xymouse 'yb ! 'xb ! ; ]
-	[ ; ]
-	guiMap
+	guiDnMove
+	blink 1? ( blanco )( negro ) drop
+	xa -? ( drop ; ) ya xb yb caja
+	;
+
+:modoseleccion
+	[ xymouse 2dup hb + 'yb ! wb + 'xb ! 'ya ! 'xa ! ; ]
+	dup
+	guiDnMove
 	blink 1? ( blanco )( negro ) drop
 	xa -? ( drop ; ) ya xb yb caja
 	;
@@ -88,7 +99,6 @@
 	ya yb >? ( yb 'ya ! 'yb ! )( drop )
 	xb xa -	yb ya - bmr.wh!
 	ajusta
-    refreshbmr
 	xa ( xb <? )(
 		ya ( yb <? )(
 		2dup bmp.get $ffffff and pick2 xa - pick2 ya - bmr!
@@ -102,13 +112,15 @@
 	;
 
 :cargabmps
-	bmr.wh@ 'hb ! 'wb !
-	clearsel fonti
+	bmr.wh@ 'hb ! 'wb !           /
+	clearsel
+	33
 	show clrscr
 		0 0  bmp.xyreal
 		modoseleccion
 		blanco
 		0 rows 3 - gotoxy
+		dup "%d " print
 		xa "x1:%d " print
 		ya "y1:%d " print
 		xb "x2:%d " print
@@ -121,14 +133,12 @@
 
 :cargabmp
 	mark
-	"r4/escmedia/personajes.bmp" bmp.load 'bmp !
+	"r4/escmedia/" "*.bmp" dlgfileload 0? ( drop empty ; )
+|	"r4/escmedia/personajes.bmp"
+	bmp.load 'bmp !
 	cargabmps
 	empty
 	;
-
-:clonebmr
-	;
-
 
 |------------------------------
 
@@ -140,11 +150,7 @@
 	drawbmr
 	[ 'bmr!m32 vop! ; ] [ xymouse vline! ; ]  guiDnMove
 
-|	xi yi bmr.drawin
-	color ink
-|	'addtrazo trazo.draw
-
-	verde
+	cr2 verde
 	0 "DRAW" sp btnt
 	verde oscuro
 	[ 1 'modo ! ; ] "EDIT" sp btnt
@@ -171,7 +177,7 @@
 	drawbmr
 	'pick.dn 'pick.dn guiDnMove
 
-	verde oscuro
+	cr2 verde oscuro
 	[ 0 'modo ! ; ] "DRAW" sp btnt
 	verde
 	0 "EDIT" sp btnt
@@ -180,7 +186,6 @@
 	sp
 	cyan oscuro
 	'cargabmp "BMP" sp btnt
-	'clonebmr "CLONE" sp btnt
 	rojo oscuro
 	'bmr.clear "CLS" sp btnt
 	;
@@ -201,6 +206,7 @@
 :modovista
 	drawbmr
 	'vista.dn 'vista.move guiDnMove
+	cr2 
 	verde oscuro
 	[ 0 'modo ! ; ] "DRAW" sp btnt
 	[ 1 'modo ! ; ] "EDIT" sp btnt
@@ -235,10 +241,11 @@
 	refreshbmr ;
 
 :main
-	ajusta
-	show clrscr cr2
-		font-vard-12-bold
-		sp 'color dlgcolora sp
+	ajusta fonta-verdana14
+	show clrscr
+		modoactual
+
+		cr cr2 sp 'color dlgcolora sp
 		verde
 		[ 1 changew ; ] "+" link
 		[ -1 changew ; ] "-" link
@@ -253,7 +260,6 @@
 
 		rojo
 		'exit dup >esc< "EXIT" sp btnt
-		modoactual
 		scr 32 gc.botton home cr2
 		cminiflecha
  		;
