@@ -197,7 +197,7 @@
 |--- INSERT
 ::dbinsert | 'db --   ; inserta memoria al final del archivo
 	dbuse
-:insert
+:insertplano
 	indmem 4 - here count | memd mems cnt
 	pick2 indfil - over + 'indmei !
 	cmove
@@ -219,43 +219,10 @@
 	cmove	| memd s cnt
  	dbreload ; | recarga
 
-|--- log
-::dbinsertlog | 'db --
-	dbuse
-	here dbname time date "%d/%d/%d:%d:%d:%d|%s|I|%s" mprint count 1+ "log.db" append
-	insert ;
-
-::dbupdatelog | nro 'db --
-	dbuse
-	cntregi >=? ( drop ; )
-	dup 2 << indmei + @ | adrreg
-	dbcomparereg 1? ( 3drop ; ) drop
-	here rot dbname time date "%d/%d/%d:%d:%d:%d|%s|%d|U|%s" mprint count 1+ "log.db" append
-	updateplano ;
-
 ::dbupdatem | mreg 'db --
 	dbuse
-	here count 			| adr here ncnt
-	pick2 dup >reg> >>..	| adr here ncnt adr adrf
-	dup rot - 			| adr here ncnt adrf cntv
-	pick2 swap -        | adr here ncnt adrf dif
-	indmem 4 - over + indfil - 'indmei ! | *aux
-	+? ( over + swap indmem 4 - over - cmove> )( over + swap indmem 4 - over - cmove )
-	cmove	| memd s cnt
- 	dbreload ; | recarga
-
-::dbupdatemlog | mreg 'db --
-	mark
-	dbname ,s
-	"|U|" ,s
-	over ,d
-	"|" ,s
-	here ,s
-	"~" ,s
-	"log.db"
-	appendmem
-	empty
-	dbupdatem ;
+	dbcomparereg 1? ( 2drop ; ) drop
+	updateplano ;
 
 |--- DELETE
 ::dbdelete | nro 'db --
@@ -267,15 +234,40 @@
 	indmem over - cmove
  	dbreload ; | recarga
 
-::dbdeletelog | nro 'db
+|--- LOG INSERT-UPDATE-DELETE
+::timedatelog | -- n
+	time 11 << swap 5 << or swap 2/ or
+	date swap 5 << or swap 9 << or 16 << or ; | d m a
+
+:dbnamelog | -- str
 	mark
-	dup dbname ,s
-	"|D|" ,s
-	over ,d
-	"~" ,s
-	"log.db"
-	appendmem
-	empty
+	$ffff 'here +! here
+	dbname ,s ".log" ,s 0 ,c
+	empty ;
+
+::dbinsertlog | 'db --
+	dbuse
+	here timedatelog "%h|I|%s" mprint count
+	dbnamelog append
+	insertplano ;
+
+::dbupdatelog | nro 'db --
+	dbuse
+	cntregi >=? ( drop ; )
+	dup 2 << indmei + @ | adrreg
+	dbcomparereg 1? ( 3drop ; ) drop
+	here rot timedatelog "%h|U|%d|%s" mprint count
+	dbnamelog append
+	updateplano ;
+
+::dbupdatemlog | mreg 'db --
+|	here rot timedatelog "%h|U|%d|%s" mprint count
+|	dbnamelog append
+	dbupdatem ;
+
+::dbdeletelog | nro 'db
+|	here rot timedatelog "%h|D|%d|%s" mprint count
+|	dbnamelog append
 	dbdelete ;
 
 |--- RESET
@@ -285,8 +277,6 @@
 
 |--- SORT
 :toval | adr -- int
-	| decimal
-	| string
 	?0int ; | entero
 
 ::dbsort | fld 'db -- ;
