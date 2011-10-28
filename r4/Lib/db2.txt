@@ -229,16 +229,13 @@
 	dbuse
 	cntregi >=? ( drop ; )
 	2 << indmei + @
+:deleteplano
 	dup >reg> >>.. | diri dirf
 	2dup - indmem indfil - + 4 - 'indmei !
 	indmem over - cmove
  	dbreload ; | recarga
 
 |--- LOG INSERT-UPDATE-DELETE
-::timedatelog | -- n
-	time 11 << swap 5 << or swap 2/ or
-	date swap 5 << or swap 9 << or 16 << or ; | d m a
-
 :dbnamelog | -- str
 	mark
 	$ffff 'here +! here
@@ -247,7 +244,7 @@
 
 ::dbinsertlog | 'db --
 	dbuse
-	here timedatelog "%h|I|%s" mprint count
+	here nowdt "%h|I|%s" mprint count
 	dbnamelog append
 	insertplano ;
 
@@ -256,19 +253,37 @@
 	cntregi >=? ( drop ; )
 	dup 2 << indmei + @ | adrreg
 	dbcomparereg 1? ( 3drop ; ) drop
-	here rot timedatelog "%h|U|%d|%s" mprint count
+	here rot nowdt "%h|U|%d|%s" mprint count
 	dbnamelog append
 	updateplano ;
 
-::dbupdatemlog | mreg 'db --
-|	here rot timedatelog "%h|U|%d|%s" mprint count
-|	dbnamelog append
-	dbupdatem ;
+:searchreg | reg -- reg nro
+	cntregi indmei
+	( swap 1? )( 1- swap
+		@+ | reg cnt indi r
+		pick3 =? ( drop nip indmei - 2 >> 1- ; )
+		drop )
+	2drop -1 ;
 
+::dbupdatemlog | mreg 'db --
+	dbuse
+	dbcomparereg 1? ( 2drop ; ) drop
+	searchreg | reg nro
+	here swap nowdt "%h|U|%d|%s" mprint count
+	dbnamelog append
+	updateplano ;
+
+#ends ( $7e 13 0 )
 ::dbdeletelog | nro 'db
-|	here rot timedatelog "%h|D|%d|%s" mprint count
-|	dbnamelog append
-	dbdelete ;
+	dbuse
+	cntregi >=? ( drop ; )
+	dup 2 << indmei + @
+	swap over | dir nro dir
+	here regcpy drop
+	'ends here strcat
+	here swap nowdt "%h|D|%d|%s" mprint count
+	dbnamelog append
+	deleteplano ;
 
 |--- RESET
 :dbreset

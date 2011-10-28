@@ -3,6 +3,7 @@
 ^r4/lib/fonth.txt
 ^r4/lib/trace.txt
 ^r4/fabrizzio/fb-sprites.inc
+^r4/lib/btn.txt
 
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
@@ -189,9 +190,46 @@
 
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+^r4/fabrizzio/fb-menu.txt
+
+|||| Imported vars:
+
+| isMenuVisible
+
+|||| Imported words:
+
+| executeMenu		arguments: -- 				returns: --
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 || Game Loop
 
-#menu 1
+#timer 0
+#maxTimer 10
+
+:spawnCloud
+	rand abs 120.0 mod rand abs 30.0 mod -30.0 + createCloud
+	;
+
+:trySpawnCloud
+	timer maxTimer =? (
+		drop
+		spawnCloud
+		0 'timer !
+	)(
+		drop
+		timer 1 + 'timer !
+	)
+	;
+
+:burstClouds
+	30
+	( +? )(
+		spawnCloud
+		1 -
+	)
+	drop
+	;
 
 | arguments: -- | returns: --
 :executeLayers
@@ -205,55 +243,11 @@
 	'listobCnt 'listob cycleLayer
 
 	'trail trail> 'player pushTrail
+	trySpawnCloud
 	cleanKeys
 	;
+	
 
-| arguments: -- | returns: --
-:executeMenu
-	xcam ycam zcam mtrans
-	drawBackground
-	scr home  
-	$ff0000 $0 fcol
-	5 bfont
-	"Platformer Engine" cr printc cr
-	menu 1 =? (
-		15 bfont 0 8 gotoxy
-		$ff0000 $0 fcol
-		"Play" printc cr
-
-		18 bfont 0 11 gotoxy
-		$00 $ffffff fcol
-		"Exit" printc cr
-	)(
-		18 bfont 0 10 gotoxy
-		$00 $ffffff fcol
-		"Play" printc cr
-
-		15 bfont 0 9 gotoxy
-		$ff0000 $0 fcol
-		"Exit" printc cr
-	)
-	drop
-
-	upKey CheckPressed
-	1? ( drop 1 'menu ! )( drop	)
-
-	downKey CheckPressed
-	1? ( drop 2 'menu ! )( drop )
-
-	fireKey CheckPressed
-	1? (
-		drop
-		menu 2 =? (
-			exit
-		)(
-			0 'menu !
-		)
-		drop
-	)(
-		drop
-	)
-	;
 
 | arguments: -- | returns: --
 :debug
@@ -275,19 +269,20 @@
 	83.0 -20.0 CreateGoal
 	| 3.0 -20.0 CreateGoal
 	trailSize 'trail> prepareTrail
-
+	burstClouds
+	
 	show30 clrscr
 		assignKeys
 
 		omode
-		menu 1? (
+		isMenuVisible 1? (
 			drop
 			executeMenu
 		)(
 			drop
 			executeLayers
-
-			changeLevel 1? (
+			
+			changeLevel 1? (			| if we should go to the next level
 				drop
 				0 'changeLevel !
 

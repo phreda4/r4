@@ -10,13 +10,14 @@
 | createHat			arguments:  x y				returns: --
 
 
-#:animationTimer 0
-#:maxTimer 10
+#animationTimer 0
+#maxTimer 10
 
-#:playerSprite 'spr_player1 'spr_player2 'spr_player4 'spr_player3 'spr_player1 'spr_player2 'spr_player4 'spr_player3 -1
-#:playerJumpingFrame 2
-#:playerFallingFrame 0
-
+#playerSprite 'spr_player1 'spr_player2 'spr_player4 'spr_player3 'spr_player1 'spr_player2 'spr_player4 'spr_player3 -1
+			   'spr_playerJumping 'spr_playerFalling -1
+#playerJumpingFrame 9
+#playerFallingFrame 10
+#lastWalkingFrame 7
 
 | arguments: 'me | returns: 'me
 :hatAction
@@ -269,18 +270,18 @@
 				drop
 				| dup 0 !flagSolid			| 'me 'particle
 				| 0 over 56 + !				| alpha = 0
-				
+
 				10
 				( 1? )(
 					over @xy 0.5 createDebri
 					1 -
 				)
 				drop
-				
+
 				dup pick2 1					| 'me 'particle 'particle 'me 1
 				moveContact					| 'me 'particle
 				0 over 20 + !				| 'me 'particle							| vspeed = 0
-				
+
 				'listobCnt 'listob pick2 delspr
 				drop
 			)(
@@ -294,54 +295,36 @@
 
 | arguments: 'me | returns: 'me
 | updates the imageIndex of player
-::animate
-	
+::playerAnimate
 	dup @vspeed												| 'me vspeed
-	0 <? (
-		| vspeed < 0
+	0 <? ( | vspeed < 0
 		drop
 		dup playerJumpingFrame !imageIndex					| imageIndex = playerJumpingFrame
 		0 'animationTimer !									| animationTimer = 0
-	)(
-		0 >? (
-			| vspeed > 0
-			drop											| 'me
-			dup playerFallingFrame !imageIndex				| imageIndex = playerFallingFrame
-			0 'animationTimer !								| animationTimer = 0
-		)(
-			| vspeed == 0
-			drop											| 'me
-			dup @hspeed										| 'me hspeed
-			0? (
-				drop
-				0 'animationTimer !							| animationTimer = 0
-			)(
-				abs 12 >> 									| 'me int(hspeed)
-				animationTimer + 'animationTimer !			| animationTimer += hspeed
-				
-				animationTimer maxTimer >=? (
-					drop
-					
-					0 'animationTimer !						| animationTimer = 0
-					
-					dup dup @imageIndex 1 + !imageIndex		| imageIndex += 1
-					
-					'playerSprite over @imageIndex			| 'me 'playerSprite imageIndex
-					2 << + @								| 'me @('playerSprite+(imageIndex*4))
-					
-					0 <=? (
-						drop
-						dup 0 !imageIndex
-					)(
-						drop
-					)
-				)(
-					drop
-				)
-			)
-		)
-	)
-	;
+		; )
+	0 >? ( 	| vspeed > 0
+		drop											| 'me
+		dup playerFallingFrame !imageIndex				| imageIndex = playerFallingFrame
+		0 'animationTimer !								| animationTimer = 0
+		; )
+	| vspeed == 0
+	drop											| 'me
+	dup @imageIndex lastWalkingFrame				| 'me imageIndex 7
+	minValue over swap !imageIndex					| 'me				| imageIndex = min(7,imageIndex)
+	dup @hspeed										| 'me hspeed
+	0? (
+		drop
+		0 'animationTimer !							| animationTimer = 0
+		; )
+	abs 12 >> 									| 'me int(hspeed)
+	animationTimer + 'animationTimer !			| animationTimer += hspeed
+	animationTimer maxTimer <? ( drop ; ) drop
+	0 'animationTimer !						| animationTimer = 0
+	dup dup @imageIndex 1 + !imageIndex		| imageIndex += 1
+	'playerSprite over @imageIndex			| 'me 'playerSprite imageIndex
+	2 << + @								| 'me @('playerSprite+(imageIndex*4))
+	0 <=? ( over 0 !imageIndex )
+	drop ;
 
 
 | arguments: 'me | returns: 'me
@@ -350,11 +333,11 @@
 	dup 'playerSprite over @xy	| 'me 'me 'sprite x y
 	drawExtFrame				| 'me
 	255 alpha
-	
-	animate
-	
+
+	playerAnimate
+
 	falseBottom
-	
+
 	| 'listenCnt 'listen 'player cycleHits		| check if colliding with an enemy
 	
 	leftkeyCode
