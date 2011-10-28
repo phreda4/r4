@@ -11,14 +11,14 @@
 | gravityDir  | Hmask  | Vmask  | action/Sprite(for obstacles) | HitAction | flags | alpha | tl
 |     32      |  36    |  40    |             44               |    48     |  52   |  56   | 60
 
-| flags:
-| 1 = solid
-| 2 = visible
-| 3 = inanimate? (determines whether to just draw sprite or execute action)
-| 4 = harms player on contact
-| 5 = semi-solid
-| 6 = facing (0 = right)
-| 7 = 
+|||| Flags:
+| bit 1:	flagSolid		= collides or not with players
+| bit 2:	flagVisible		= should draw or not sprite on screen
+| bit 3:	flagInanimate	= determines whether to just draw sprite or execute action
+| bit 4:	flagHostile		= harms player on contact
+| bit 5:	flagSemiSolid	= determines if player can go through it from below (requires solid flag)
+| bit 6:	flagFacing		= determines which way the particle is facing (0 = right)
+| bit 7-11:	imageIndex		= determines the subimage shown (max of 16 frames)
 
 || Posiblemente agregar: type, alarm1, alarm2, alarm3, alAction1, alAction2, alAction3
 
@@ -123,6 +123,18 @@
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 || Flag Fetchers
 
+| arguments: addr | returns Flags
+::@flags
+	52 + @
+	;
+
+| arguments: addr | returns imageIndex(frame number)
+::@imageIndex
+	52 + @			| flags
+	6 >>
+	$f and
+	;
+
 | arguments: addr flagID | returns spriteDir
 :@flagValue
 	swap
@@ -145,9 +157,24 @@
 ::@flagSemiSolid	5 @flagValue ;
 ::@flagFacing		6 @flagValue ;
 
+
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 || Flag Asigners
+
+| arguments: addr flags | returns --
+::!flags
+	swap 52 + !
+	;
+
+| arguments: 'particle value(0-15) | returns --
+::!imageIndex
+    $f and 6 <<		| 'particle value(limpiado)
+    over @flags		| 'particle value flags
+    $FFFFFC3F and	| 'particle value flags(con mascara para limpiar los bits)
+    or				| 'particle (value U flags)
+    !flags			|
+    ;
 
 | arguments: addr value flagID | returns --
 :!flagValue
@@ -172,8 +199,8 @@
 			3drop			| --
 		)(
 			drop			| flagID addr
-			1 rot 1 - <<	| addr 2^flagID
-			swap 52 +		| (2^(flagID-1)) addr+52
+			1 rot 1 - <<	| addr 2^(flagID-1)
+			swap 52 +		| 2^(flagID-1) addr+52
 			+!
 		)
 	)
