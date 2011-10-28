@@ -44,8 +44,31 @@
 	color rot rot
 :bmr!m | c x y --
 	2dup whin 0? ( 3drop ; ) drop | no dibuja afuera
-	yi - zoom >> swap xi - zoom >> swap
-	bmr! ;
+	yi - zoom >> -? ( 3drop ; )
+	swap xi - zoom >> -? ( 3drop ; )
+	swap bmr! ;
+
+#cf
+:fillcolor | c x y
+	swap -? ( ; ) bmrw >=? ( ; )
+	swap -? ( ; ) bmrh >=? ( ; )
+	2dup bmr@ cf <>? ( drop ; ) drop
+	pick2 pick2 pick2 bmr!
+	1+ fillcolor
+	2 - fillcolor
+	1+ swap 1+ swap fillcolor
+	swap 2 - swap fillcolor
+	swap 1+ swap
+	;
+
+:bmrfill! | c x y -
+	2dup whin 0? ( 4drop ; ) drop | no dibuja afuera
+	yi - zoom >> -? ( 3drop ; )
+	swap xi - zoom >> -? ( 3drop ; )
+	swap | c x y
+	2dup bmr@ 'cf ! | c x y
+	fillcolor
+	3drop ;
 
 |*******************************
 :ajusta
@@ -112,7 +135,7 @@
 	;
 
 :cargabmps
-	bmr.wh@ 'hb ! 'wb !           /
+	bmr.wh@ 'hb ! 'wb !
 	clearsel
 	33
 	show clrscr
@@ -141,7 +164,21 @@
 	;
 
 |------------------------------
+:modofill
+	drawbmr
+	[ color xymouse bmrfill! ; ] guiBtn
+	cr2
+	verde oscuro
+	[ 0 'modo ! ; ] "DRAW" sp btnt
+	[ 1 'modo ! ; ] "EDIT" sp btnt
+	[ 2 'modo ! ; ] "VISTA" sp btnt
+	verde
+	0 "FILL" sp btnt
+	sp
 
+	;
+
+|------------------------------
 :addtrazo
 	trazo.cnt 2 <? ( drop ; ) drop
 	;
@@ -155,6 +192,7 @@
 	verde oscuro
 	[ 1 'modo ! ; ] "EDIT" sp btnt
 	[ 2 'modo ! ; ] "VISTA" sp btnt
+	[ 3 'modo ! ; ] "FILL" sp btnt
 	sp
 	violeta
 	cyan
@@ -183,6 +221,7 @@
 	0 "EDIT" sp btnt
 	verde oscuro
 	[ 2 'modo ! ; ] "VISTA" sp btnt
+	[ 3 'modo ! ; ] "FILL" sp btnt
 	sp
 	cyan oscuro
 	'cargabmp "BMP" sp btnt
@@ -206,12 +245,15 @@
 :modovista
 	drawbmr
 	'vista.dn 'vista.move guiDnMove
-	cr2 
+	cr2
 	verde oscuro
 	[ 0 'modo ! ; ] "DRAW" sp btnt
 	[ 1 'modo ! ; ] "EDIT" sp btnt
 	verde
 	0 "VISTA" sp btnt
+	verde oscuro
+	[ 3 'modo ! ; ] "FILL" sp btnt
+
 	sp
 	cyan oscuro
 	'ajusta "CENTER" sp btnt
@@ -220,7 +262,7 @@
 	;
 
 |------- modos
-#modos 'mododraw 'modoedit 'modovista
+#modos 'mododraw 'modoedit 'modovista 'modofill
 
 :modoactual
 	modo 2 << 'modos + @ exec ;
@@ -267,7 +309,7 @@
 
 :   33 mark
 	"mem/notepad.bmr" bmr.load
-	$ffff 'here +!
+	$fffff 'here +!
 	refreshbmr
 	main
 	"mem/notepad.bmr" bmr.save
