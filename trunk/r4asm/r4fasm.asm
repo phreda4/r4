@@ -182,11 +182,11 @@ SYSTIME: ;  ( -- s m h )
 	lea esi,[esi-12]
 	mov [esi+8],eax
 	invoke GetLocalTime,SysTime
-	movzx eax,word [SysTime.wHour]
+	movzx eax,word [SysTime.wSecond]
 	mov [esi+4],eax
 	movzx eax,word [SysTime.wMinute]
 	mov [esi],eax
-	movzx eax,word [SysTime.wSecond]
+	movzx eax,word [SysTime.wHour]
 	ret
 
 ;===============================================
@@ -282,7 +282,7 @@ SYSLOAD: ; ( 'from "filename" -- 'to )
 	mov [hdir],eax
 	or eax,eax
 	mov eax,[esi]
-	jz .loadend
+	jz .end
 	mov [afile],eax
 .again:
 	invoke ReadFile,[hdir],[afile],$fffff,cntr,0
@@ -292,7 +292,7 @@ SYSLOAD: ; ( 'from "filename" -- 'to )
 	jnz .again
 	invoke CloseHandle,[hdir]
 	mov eax,[afile]
-.loadend:
+.end:
 	lea esi,[esi+4]
 	ret
 
@@ -301,16 +301,36 @@ SYSSAVE: ; ( 'from cnt "filename" -- )
 	invoke CreateFile,eax,GENERIC_WRITE,0,0,CREATE_ALWAYS,FILE_FLAG_SEQUENTIAL_SCAN,0
 	mov [hdir],eax
 	or eax,eax
-	jz saveend
+	jz .end
 	mov edx,[esi+4]
 	mov ecx,[esi]
     invoke WriteFile,[hdir],edx,ecx,cntr,0
     cmp [cntr],ecx
-    je	saveend
+    je	.end
     or eax,eax
-    jz	saveend
+    jz	.end
     invoke CloseHandle,[hdir]
-saveend:
+.end:
+	lea esi,[esi+8]
+	lodsd
+	ret
+
+;===============================================
+;FILE_APPEND_DATA=4
+SYSAPPEND: ; ( 'from cnt "filename" -- )
+	invoke CreateFile,eax,4,0,0,CREATE_ALWAYS,FILE_FLAG_SEQUENTIAL_SCAN,0
+	mov [hdir],eax
+	or eax,eax
+	jz .end
+	mov edx,[esi+4]
+	mov ecx,[esi]
+    invoke WriteFile,[hdir],edx,ecx,cntr,0
+    cmp [cntr],ecx
+    je	.end
+    or eax,eax
+    jz	.end
+    invoke CloseHandle,[hdir]
+.end:
 	lea esi,[esi+8]
 	lodsd
 	ret
