@@ -9,11 +9,13 @@
 #regv	)( 1024	| valor de registro
 #regi	)( 1024 | info+ de registro
 
+| 1024 tokens por palabra.. si modifica cambiar inf! y tok!
+#:bufftok	)( 4096 | tokens
 #:buffinf	)( 4096 | info del buffer de codigo
-
 |---- indice de dib pilas
 #tostr	)( 4096
 #tostr> 'tostr
+
 |---- string de pilas
 #memp )( 4096
 #memp> 'memp
@@ -124,7 +126,8 @@
 |	0 NO OPTIMIZADO
 
 |--- llena buffinf
-:inf! tostr> 4096 - ! ;
+:inf! tostr> 4096 - ! ; | OJO ctes para otros buff
+:tok! tostr> 8192 - ! ;
 
 :usot	d.tos 24 << $10 or inf! ;
 :usotn  d.tos 24 << d.nos 16 << or $20 or inf! ;
@@ -201,7 +204,7 @@
 	'rpila ( rpila> <? )( @+ pick2 exec ) 2drop ;
 
 :stacks>str | --
-	memp> tostr> !+ 'tostr> !
+	memp> tostr> !+ 'tostr> ! | suma a los buffer
 	[ +memp ; ] mappila 0 +memp
 	[ +memp ; ] mappilar 0 +memp
 	;
@@ -254,7 +257,7 @@
 :c0 | 0? 1? ..
 	usot ;
 :c1 | =? <? ..
-	usotn vdrop reg+1 ;
+	usotn vdrop ;
 :1@	| @ c@ w@
 	usot memreg reg+1 ;
 :1!	| ! c! w!
@@ -504,14 +507,20 @@ vdrop	|MPLAY  a --
 |----------------- para generar codigo
 :value	over 1024 + @ ;
 
-:mt0 value 9 >? ( "$%h" )( "%d" )  mprint ;
-:mt1 value cte + "s%h" mprint ;
-:mt2 value "[w%h]" mprint ;
-:mt3 value "w%h" mprint ;
+|--	0 cte 			33
+:mt0 value 99 >? ( "$%h" )( -99 <? ( "$%h" )( "%d" ) )  mprint ;
+|--	1 cteNombre     RESX
+:mt1 ;
+|--	2 cpy           dup
+:mt2 value "w%h" mprint ;
+|--	3 str           "hola"
+:mt3 value cte + "s%h" mprint ;
+|--	4 'cod          'func
 :mt4 value "w%h" mprint ;
-
-:mt5 value "CC %d" mprint ;
-:mt6 value "EE %d" mprint ;
+|--	5 'dat          'var
+:mt5 value "w%h" mprint ;
+|--	6 dat           var
+:mt6 value "[w%h]" mprint ;
 
 #ra "eax" #rb "ebx" #rc "ecx" #rd "edx" #re "edi" #rf "ebp"
 #reg 'ra 'rb 'rc 'rd 're 'rf
@@ -544,9 +553,51 @@ vdrop	|MPLAY  a --
 	nip nip ;
 
 |------------
+:gettok | buff -- tok
+	'buffinf - 'bufftok + @ $ff and ;
+:getinf | atok -- buffinf
+	'bufftok - 'buffinf + @ ;
+
 :,printcnt | "" cnt -
 	( swap c@+ 1? )( ,c swap 1- 0? ( 2drop ; ) ) 2drop
 	( 1? )( 1- ,sp ) drop ;
+
+:u0
+	drop ;
+:u1
+	24 >> $ff and " T=" ,s reg>str ,s
+	;
+:u2
+	dup 24 >> $ff and " T=" ,s reg>str ,s
+	16 >> $ff and " N=" ,s reg>str ,s
+	;
+:u3
+	dup 24 >> $ff and " T=" ,s reg>str ,s
+	dup 16 >> $ff and " N=" ,s reg>str ,s
+	8 >> $ff and " S=" ,s reg>str ,s
+	;
+
+:u4
+:u5
+:u6
+:u7
+:u8
+:u9
+:ua
+:ub
+:uc
+:ud
+:ue
+:uf
+	24 >> $ff and " ** T=" ,s reg>str ,s
+	;
+
+#tiposu u0 u1 u2 u3 u4 u5 u6 u7 u8 u9 ua ub uc ud ue uf
+:,printuso
+	dup 4 - getinf dup " %h " mprint 8 ,printcnt
+	dup $f and 0? ( 2drop ; ) drop
+	dup 4 >> $f and 2 << 'tiposu + @ exec
+	;
 
 :,printstack | "" --
 	( c@+ 1? )( 64 + ,c ) drop
@@ -557,21 +608,25 @@ vdrop	|MPLAY  a --
 :,print1tok
 	dup $ff and 3 <? ( 2drop ; ) drop	| quita :#
 	tokenstr 16 ,printcnt
-	"| " ,s swap @+ ,printstack swap ,cr ;
-
-#initok
+	"| " ,s swap @+ ,printstack swap
+	" ; " ,s
+	,printuso
+	,cr ;
 
 ::,printAnaSTACK
-	'tostr 4+ initok cntinstr
-	( 1- 1? )( >r @+ ,print1tok r> )
+	'tostr 4+ 'bufftok cntinstr
+	( 1? )( >r @+ ,print1tok r> 1- )
 	3drop ;
+
 
 ::oregdumpi | nro --
 	1+ 2 <<
 	dup 'buffinf +
 	swap 'tostr +
 	( tostr> <? )(
-		4+ swap @+ "%h " print swap
+		4+ swap @+ "%h " print
+		dup 4 - gettok "%h " print
+		swap
 		cr )
 	2drop ;
 
@@ -700,12 +755,10 @@ vdrop	|MPLAY  a --
 
 :AsignoReg
 	'ctessincosto mapregs | marco constantes
-
-	| busco lugar a optimizar
-	| busco registro libre
-	| recalculo estado
-	| si ya se puede compilar salgo
-	| si me quede sin registro ajusto
+| asigno ebx
+| asigno ecx (cuando puedo)
+| asigne edx (cp)
+| asigno edi
 	;
 
 |-----------------------
@@ -717,6 +770,7 @@ vdrop	|MPLAY  a --
 :setNO | adr --
 	dup @ $fffffff0 and $f or swap ! ;
 
+|--- tail call
 :anteriorescall=>jump | 'i+ info -- 'i+
 	over 8 - @ $ff and	| anterior
 	$e0 <>? ( 2drop ; ) | no es call
@@ -725,20 +779,25 @@ vdrop	|MPLAY  a --
 	dup 4 - setNO
 	;
 
+|--- uso cte imm
 :reg>cte
 	2 << 'regt + @ | info reg
 	$8000 and ;
 
 :cteusoinm
-	24 >> reg>cte
-	1? ( drop ; )
-	drop
+	over gettok | siguiente token
+	18 <? ( 2drop ; ) | condicionales
+	30 >? ( 53 <? ( 2drop ; ) ) | mov pila y r
+	92 >? ( 2drop ; )
+	2drop
+	dup 4 - setNO
+	dup setOPT1
 	;
 
 :marcatoken | 'info -- 'info+
 	@+ $ff and
-	$d0 =? ( anteriorescall=>jump ; ) | es ;
-|	$f0 =? ( cteusoinm ; ) | es LIT
+	$d0 =? ( anteriorescall=>jump ; )	| es call+;
+	$f0 =? ( cteusoinm ; )				| es LIT+op
 	drop
 	;
 
@@ -753,8 +812,8 @@ vdrop	|MPLAY  a --
 	;
 
 ::sregtok | adr -- adr+
-	0 inf! | limpia info
-	@+ $ff and |trace |	dup tokenstr ,s ,sp
+	@+ dup tok! 0 inf! | guarda token, limpia info
+	$ff and
 	3 <? ( drop ; )	| quita :#
 	2 << 'acctoken + @ exec
 	stacks>str ;
@@ -768,7 +827,6 @@ vdrop	|MPLAY  a --
 	stacks>str
 | PARTE 1 - Crea registros
 	dup nro>toklen
-	over 'initok !
 	( 1? )( 1- swap sregtok swap  )
 	2drop
 | PARTE 2 - Asignacion de registros
@@ -784,7 +842,6 @@ vdrop	|MPLAY  a --
 	( 1? )( 1- dup neg d.pushSTACK ) drop |usadas
 	stacks>str
 | PARTE 1 - Crea registros
-	dup 'initok !
 	( over <? )( sregtok ) 2drop
 | PARTE 2 - Asignacion de registros
 	AsignoReg
