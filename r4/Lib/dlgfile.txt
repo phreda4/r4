@@ -2,95 +2,18 @@
 | PHREDA 2006
 |---------------------------------------
 ^r4/lib/btn.txt
-^r4/lib/input.txt
-^r4/lib/fontt.txt
 ^r4/lib/cursor.txt
 ^r4/lib/fonta.txt
-
-#cntlineas 0
-#inifile 0
-#fileact 0
-#pnombre 0
-#entrada )( 64
-#sizep 0 | controls display of file size
-
-|---------------------------------------------------------
-:sumafile | nro --
-	fileact + dup file 0? ( 2drop ; ) 'entrada strcpy  'fileact !
-:ubicar
-	rows 1- 'cntlineas !
-	inifile cntlineas +  ( fileact <? )( 1+ ) cntlineas - 'inifile !
-	inifile ( fileact >? )(  1- ) 'inifile !
-	;
-
-:buscafile
-	'entrada c@ 0? ( drop ; ) drop
-	0 ( dup file 1? )(  | nro file
-		'entrada =pre 1? ( drop 'fileact ! ubicar ; ) drop 1+ )
-	2drop ;
-
-|---------------------------------------------------------
-:printsize | ( filen -- )
-	sizep 1? ( drop rojo fsize " - %d bytes" print  )( 2drop ) ;
-
-:cadafile | n -- n
-	blanco
-	dup inifile +
-	[ dup 'fileact ! dup file 1? ( 'entrada strcpy )( drop ) ; ] onLineMove |onClick
-	fileact =? ( $0 $ffffff )( $fffff 0 )
-	ink linefill ink
-	dup file 1? ( sp print printsize )( 2drop ) cr ;
-
-:eligeactual
-	fileact
-	file 1? ( pnombre strcpy exit ; )
-	drop ;
-
-:nuevonombre
-	'entrada c@ 0? ( drop ; ) drop
-	'entrada pnombre strcpy exit
-	;
-
-|---------------------------------------------------------
-::dlgfile | nn --
-	'pnombre !
-	0 'fileact !
-    pnombre 'entrada strcpy
-	show clrscr
-		32 gc.top $f gc.hfill
-		font-vard-12-bold home cr2
-		blanco pnombre " : %s : " print
-|		dup "(%d)" print
-		sp verde 'nuevonombre "Nuevo" btnt
-		sp amarillo 'eligeactual "Actual" btnt
-		sp azul [ 1 sizep - 'sizep ! ; ] "File size" btnt
-		sp rojo [ "" pnombre strcpy exit ; ] "Cancelar" btnt
-		blanco " : " print 'entrada 64 input
-		'eligeactual lostfoco
-		32 32 gc.vbetween home
-
-		0 ( rows <? )(
-			cadafile
-			1+ ) drop
-
-		buscafile
-	[ 1 sumafile ; ] <dn>
-	[ -1 sumafile ; ] <up>
-
-	[ cntlineas sumafile ; ] <pgdn>
-	[ cntlineas neg sumafile ; ] <pgup>
-	'exit  >esc<
-
-		cmano ;
 
 |---- dlgload
 #buffname )( 256
 #path
 #wild
 #name
-#act #maxf
+#inif #act #maxf #maxl
 
 :clickf
+	dup 'act !
 	mark
 	'buffname 'here !
 	path ,s dup file ,s 0 ,c
@@ -99,33 +22,54 @@
 	exit
 	;
 
+:actinpage
+	act inif <? ( maxl neg 'inif +! ) 
+	inif maxl 3 * >? ( maxl 'inif +! )
+	drop ;
+
 :showload
 	0 'act !
+	0 'inif !
 	fonta-verdana14
+	scr home
+	rows 3 - 2 3 */ 'maxl !
 	show clrscr
 		64 gc.top $00f gc.hfill
 		scr home
 		verde " Load FILE :" print
-		blanco path " %s" print wild "%s " printr cr
+		blanco path " %s" print wild "%s " printr cr cr2
 		rojo sp 'exit dup >esc< "ESC-Cancel" link
-		verde sp [ act clickf drop ; ] dup <enter> "ENTER-Ok" link cr cr
+		verde sp [ act clickf drop ; ] dup <enter> "ENTER-Ok" link cr cr2
 		chome!
-		0 ( act =? ( verde )( negro )
+		inif ( act =? ( verde )( negro )
 			dup file 1? )(
 			wild strwild 1? ( drop
-				'clickf swap 16 sp btntf cr cr2	allowchome
+				'clickf swap 16 sp btntf cr cr2
+				allowchome
 				)( 2drop )
 			1+ ) drop 1- 'maxf !
 		[ act maxf <? ( 1+ ) 'act ! ; ] <dn>
 		[ act 1? ( 1- ) 'act ! ; ] <up>
+		[ act maxl + maxf <=? ( dup 'act ! ) drop ; ] <ri>
+		[ act maxl - 0 >=? ( dup 'act ! ) drop ; ] <le>
+		[ inif maxl + maxf <? ( 'inif ! ) drop ; ] <pgup>
+		[ inif maxl - 0 >=? ( 'inif ! ) drop ; ] <pgdn>
 
 		cmano ;
 
 | "path" "wild"
-::dlgfileload | "path" "wild" -- 'nombre
+::dlgfileload | "path" "wild" -- "fullname"
 	'wild !
 	'path !
 	0 'name !
 	path dir
 	showload
 	name ;
+
+::dlgfilename | -- "name"
+	mark
+	'buffname 'here !
+	act file ,s 0 ,c
+	'buffname 'name !
+	empty name ;
+
