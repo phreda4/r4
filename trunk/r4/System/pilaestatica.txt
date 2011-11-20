@@ -5,11 +5,16 @@
 ^r4/system/r4token.txt
 
 #cntregs 1
+#tokact
+
 #regt	)( 1024	| tipo de registro
 #regv	)( 1024	| valor de registro
 #regi	)( 1024 | info+ de registro
+#regini )( 1024 | inicio de vida
+#reglen )( 1024 | largo de vida
 
 | 1024 tokens por palabra.. si modifica cambiar inf! y tok!
+#buffreg	)( 4096
 #:bufftok	)( 4096 | tokens
 #:buffinf	)( 4096 | info del buffer de codigo
 |---- indice de dib pilas
@@ -51,17 +56,47 @@
 ::d.PK4 dpila> 20 - @ ;
 ::d.PK5 dpila> 24 - @ ;
 
+|--- pila de direccion
+::r.pop	-4 'rpila> +! rpila> @ ;
+::r.push rpila> !+ 'rpila> ! ;
+::r.cnt	rpila> 'rpila - 2 >> ;
+::r.tos rpila> 4 - @ ;
+
 :d.pushNew | valor tipo --
 	cntregs dup d.push
 	2 << dup >r
 	'regt + !
-	r> 'regv + !
+	r 'regv + !
+	tokact r 'regini + !
+	0 r> 'reglen + !
+	1 'cntregs +!
+	;
+
+:r.pushNew | valor tipo --
+	cntregs dup r.push
+	2 << dup >r
+	'regt + !
+	r 'regv + !
+	tokact r 'regini + !
+	0 r> 'reglen + !
 	1 'cntregs +! ;
 
 |--- registros
 | |par|costo|flags|Tipo|
 |   8    8    12    4
 | tipos-- optimizables
+| flags
+|	$20 | es dir codigo
+|	$40 | temino uso
+|	$80 | es dir dato (indirecciona)
+|  $100 | usa eax,edx (si no son ctes)
+|  $200 | usa ecx (si no es cte)
+| $8000 | es cte optimizable  **
+| $4000 | es reg asignado???
+| costo: cantidad de operaciones(lecturas no se cuentan)
+| par: cuando es copia, accede al registro origen
+|-----------
+
 :d.pushCTE	0 d.pushNew ;	|	0 cte 			33
 :d.pushCTEN	1 d.pushNew ;	|   1 cteNombre     RESX
 :d.pushCPY	2 d.pushNew ;	|	2 cpy           dup
@@ -76,30 +111,6 @@
 :d.pushVDAT	10 d.pushNew ;	|  10 vardat        'dat+
 :d.pushSTACK 11 d.pushNew ;	|  11 stack         [esi+] .. eax
 
-| flags
-|	$20 | es dir codigo
-|	$40 | temino uso
-|	$80 | es dir dato (indirecciona)
-|  $100 | usa eax,edx (si no son ctes)
-|  $200 | usa ecx (si no es cte)
-| $8000 | es cte optimizable  **
-| $4000 | es reg asignado???
-| costo: cantidad de operaciones(lecturas no se cuentan)
-| par: cuando es copia, accede al registro origen
-|-----------
-
-|--- pila de direccion
-::r.pop	-4 'rpila> +! rpila> @ ;
-::r.push rpila> !+ 'rpila> ! ;
-::r.cnt	rpila> 'rpila - 2 >> ;
-::r.tos rpila> 4 - @ ;
-
-:r.pushNew | valor tipo --
-	cntregs dup r.push
-	2 << dup >r
-	'regt + !
-	r> 'regv + !
-	1 'cntregs +! ;
 
 |-----------------------------------------
 |--- buffinf
@@ -128,6 +139,7 @@
 |--- llena buffinf
 :inf! tostr> 4096 - ! ; | OJO ctes para otros buff
 :tok! tostr> 8192 - ! ;
+:bre! tostr> 12288 - ! ;
 
 :usot	d.tos 24 << $10 or inf! ;
 :usotn  d.tos 24 << d.nos 16 << or $20 or inf! ;
@@ -151,14 +163,19 @@
 
 :memreg | es dir dato
 	d.TOS 2 << 'regt + dup @ $80 or swap ! ;
-:endreg | temino uso
-	d.TOS 2 << 'regt + dup @ $40 or swap ! ;
 :codreg | es dir codigo
 	d.TOS 2 << 'regt + dup @ $20 or swap ! ;
 :usoadx | usa eax,edx
 	d.TOS 2 << 'regt + dup @ $100 or swap ! ;
 :usoecx | usa ecx
 	d.TOS 2 << 'regt + dup @ $200 or swap ! ;
+
+:endreg | temino uso
+	d.TOS 2 << dup
+	'regt + dup @ $40 or swap !
+	tokact swap 'reglen + !
+	;
+
 
 |--- pila D
 :vdrop	endreg -4 'dpila> +! ;
@@ -224,7 +241,10 @@
 	dup 4 - @ 8 >> ;
 
 :litN	| 12
-	value cte + @ d.pushCTE opti ;
+	value cte + @
+	d.pushCTE
+	opti
+	;
 :litS	| "kk"
 	value d.pushSTR opti ;
 :litV	| vv
@@ -552,6 +572,7 @@ vdrop	|MPLAY  a --
 	dup $7 and 2 << 'tiposrw + @ exec
 	nip nip ;
 
+
 |------------
 :gettok | buff -- tok
 	'buffinf - 'bufftok + @ $ff and ;
@@ -569,10 +590,26 @@ vdrop	|MPLAY  a --
 |	8 usa tos+rtos
 |	9 usa rtos
 
+:REGTOS
+	drop
+	"eax" ;
+:REGNOS
+	"[esi-4]" ;
+:REGPK2
+	"[esi-8]" ;
+:REGPK3
+	"[esi-12]" ;
+:REGPK4
+	"[esi-16]" ;
+:REGPK5
+	"[esi-20]" ;
+:REGR
+	"esp" ;
+
 :u0
 	drop ;
 :u1
-	24 >> $ff and " T=" ,s reg>str ,s ;
+	24 >> $ff and " T=" ,s regTOS ,s ;
 :u2
 	dup 24 >> $ff and " T=" ,s reg>str ,s
 	16 >> $ff and " N=" ,s reg>str ,s ;
@@ -659,7 +696,10 @@ vdrop	|MPLAY  a --
 #tiponm "cte" "cteN" "cpy" "str" "'cod" "'var" "var" "any+" "str+" "cod+" "dat+" "stack"
 
 :,cadaregistro
-	pick2 dup 64 + swap "|%d.%k=" ,print
+	over 2044 + @ " %h" ,print
+|		reg>str ,sp ,print
+
+	pick2 64 + "| %k =" ,print
 	'tiponm over $f and ( 1? )( 1- swap >>0 swap ) drop
 	,s ,sp
 	$8000 and? ( "**" ,print ) | flag cte
@@ -674,7 +714,8 @@ vdrop	|MPLAY  a --
 	dup 16 >> $ff and 1? ( "<%d>" ,print )( drop )
 |	24 >> " %h" ,print
 	drop
-|	over reg>str sp ,print
+	dup 3068 + @ " %d-" ,print
+	dup 4092 + @ "%d " ,print
 	,cr ;
 
 ::,printAnaREGS
@@ -716,6 +757,8 @@ vdrop	|MPLAY  a --
 	drop
 	gris
 |	over reg>str sp print
+
+|	dup 2044 + @ " %h" print
 	cr
 	allowchome ;
 
@@ -748,8 +791,12 @@ vdrop	|MPLAY  a --
 	drop ;
 
 |--------- analisis del buffer
+#usoreg
+#regactual
 
-|---- flags
+:clearinforegs
+	drop 0 over 2044 + ! ;
+
 :ctessincosto | nro reg -- nro
 	dup 16 >> $ff and
 	1? ( 2drop ; ) | tiene costo
@@ -760,14 +807,47 @@ vdrop	|MPLAY  a --
 	drop
 	$40 nand? ( drop ; ) | no termino
 	$8000 or over 4 - ! | marca como cte
+
+	7 over 2044 + !	| marca
+	;
+
+:ctessincosto | nro reg -- nro
+	dup 16 >> $ff and
+	1? ( 2drop ; ) | tiene costo
+	drop
+	3 pick2 2044 + !
+	$40 nand? ( drop ; ) | no termino
+
+	$8000 or over 4 - ! | marca como cte
+	over 2 << 'reglen + @
+	pick2 2 << 'regini + @ -
+	1 =? ( 1 )( 2 ) nip
+	over 2044 + !	| marca
+	;
+
+:eaxobligatorio | dir reg -- dir
+	drop
+	;
+:ecxobligatorio | dir reg -- dir
+	drop
+	;
+
+:asignoregistron | dir reg -- dir
+	drop
 	;
 
 :AsignoReg
-	'ctessincosto mapregs | marco constantes
-| asigno ebx
-| asigno ecx (cuando puedo)
-| asigne edx (cp)
-| asigno edi
+	0 'usoreg !
+	'clearinforegs mapregs
+	'ctessincosto mapregs
+	'eaxobligatorio mapregs
+	'ecxobligatorio mapregs
+
+
+	1 'regactual !
+
+	'asignoregistron mapregs
+
 	;
 
 |-----------------------
@@ -812,20 +892,25 @@ vdrop	|MPLAY  a --
 
 |----- recorre 1
 :vtini
+	'dpila 'dpila> !
+	'rpila 'rpila> !
 	'tostr 'tostr> !
 	'memp 'memp> !
 	'sst 'sst> !
 	1 'cntregs !
-	'dpila 'dpila> !
-	'rpila 'rpila> !
+	-1 'tokact !
 	;
 
 ::sregtok | adr -- adr+
-	@+ dup tok! 0 inf! | guarda token, limpia info
+	@+ dup tok!	| guarda token
+	0 inf!	| limpia info
+	0 bre!	| limpia uso reg
 	$ff and
 	3 <? ( drop ; )	| quita :#
 	2 << 'acctoken + @ exec
-	stacks>str ;
+	1 'tokact +!
+	stacks>str
+	;
 
 |-------- analizadores
 
@@ -833,6 +918,7 @@ vdrop	|MPLAY  a --
 	vtini
 	dup nro>udr 2drop |usadas
 	neg ( 1? )( 1- dup neg d.pushSTACK ) drop | como inicio
+	0 'tokact !
 	stacks>str
 | PARTE 1 - Crea registros
 	dup nro>toklen
