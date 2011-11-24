@@ -246,7 +246,9 @@
 	opti
 	;
 :litS	| "kk"
+	value cte + strusestack ( 1? )( 1- vdrop ) 2drop | correccion por "%d"
 	value d.pushSTR opti ;
+
 :litV	| vv
 	value d.pushVAR opti ;
 :litAV	| 'v
@@ -272,8 +274,24 @@
 		)( ( 1? )( 1- 0 d.pushVNUM ) drop ) 	|'deltaD +!
 	;
 
-:1dw 	| exec
-	usot codreg vdrop ;
+|------------------------------------
+:calcmovpilaexec | nro --
+	;
+
+|------------------------------------
+:exexec 	| exec
+|	dup 4 - @ 8 >> calcmovpilaexec
+
+	usot codreg vdrop
+|	obtener dD calculado
+
+|	es directo?
+|	es de un array?
+
+|	0? ( drop ; )
+|	-? ( ( 1? )( 1+ vdrop ) drop )( ( 1? )( 1- 0 d.pushVNUM ) drop )
+
+	;
 :c0 | 0? 1? ..
 	usot ;
 :c1 | =? <? ..
@@ -320,14 +338,14 @@
 	str>stacks
 	;
 
-:tipo0 | (  ? ) o (    )
+:tipo0 | (  ? ) o (    ) ; UNTIL REPEAT
 	sst@ drop ;
 
-:tipo1 | ?( )
+:tipo1 | ?( )	; IF
 	;? 1? ( sst@ str>stacks drop ; )
 	sst@ 2drop ;
 
-:tipo2 | ?( )( )
+:tipo2 | ?( )( ) ; IFELSE
 	;? 1? ( sst@ sst@ str>stacks 2drop ; )
 	sst@ str>stacks sst@ 2drop ;
 
@@ -336,7 +354,7 @@
 	0? ( drop tipo0 ; )
 	1- 0? ( drop tipo1 ; )
 	1- 0? ( drop tipo2 ; )
-	sst@ str>stacks	| ( ? )(  )
+	sst@ str>stacks	| ( ? )(  ) ; WHILE
 	sst@ 2drop
 	;
 
@@ -368,7 +386,7 @@ es)(	|)(
 es)		|)
 es[		|[
 es]		|]
-1dw		|EXEC  x/0 --    TOS es dcod (18)
+exexec	|EXEC  x/0 --    TOS es dcod (18)
 c0		|0? a -- a
 c0		|+? a -- a
 c0		|-? a -- a
@@ -480,7 +498,7 @@ v1v	|FRAMEV  -- a
 v2drop	|SETXY  ab --
 vdrop	|PX+!   a --
 vdrop	|PX!+   a --
-v1v	|PX@     -- a
+v1v	|PX@     -- a                                         
 
 v1v	|XFB     -- a
 0	|>XFB    --
@@ -696,7 +714,7 @@ vdrop	|MPLAY  a --
 #tiponm "cte" "cteN" "cpy" "str" "'cod" "'var" "var" "any+" "str+" "cod+" "dat+" "stack"
 
 :,cadaregistro
-	over 2044 + @ " %h" ,print
+	over 2044 + @ " %d " ,print
 |		reg>str ,sp ,print
 
 	pick2 64 + "| %k =" ,print
@@ -815,13 +833,13 @@ vdrop	|MPLAY  a --
 	dup 16 >> $ff and
 	1? ( 2drop ; ) | tiene costo
 	drop
-	3 pick2 2044 + !
+	-2 pick2 2044 + !
 	$40 nand? ( drop ; ) | no termino
 
 	$8000 or over 4 - ! | marca como cte
 	over 2 << 'reglen + @
 	pick2 2 << 'regini + @ -
-	1 =? ( 1 )( 2 ) nip
+	1 =? ( 1 )( -1 ) nip
 	over 2044 + !	| marca
 	;
 
