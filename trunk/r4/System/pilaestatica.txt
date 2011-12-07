@@ -161,6 +161,12 @@
 	$ff0000 and $10000 + or
 	swap ! ;
 
+:regr+1
+	d.TOS 2 << 'regt + dup
+	@ dup $ffffff and swap
+	$ff000000 and $1000000 + or
+	swap ! ;
+
 :memreg | es dir dato
 	d.TOS 2 << 'regt + dup @ $80 or swap ! ;
 :codreg | es dir codigo
@@ -197,20 +203,20 @@
 |--- aritmeticas y logicas
 :op1a1	usot reg+1 ; | neg not 1+ 4+ 1- 2/ ..
 :vop1a1	usot reg+1 usoadx ; | abs  clz  ..
-:op2a1	usotn vdrop reg+1 ; | + - * and or xor ..
-:vop2a1	usotn vdrop reg+1 usoadx ; | / mod
-:xop2a1	usotn usoecx vdrop reg+1 ; | << >>
-:op3a1	usotn2 v2drop reg+1 usoadx ; | */
-:vop3a1	usotn2 v2drop reg+1 usoadx usoecx ; | *>> /<<
+:op2a1	usotn regr+1 vdrop reg+1 ; | + - * and or xor ..
+:vop2a1	usotn regr+1 vdrop reg+1 usoadx ; | / mod
+:xop2a1	usotn usoecx regr+1 vdrop reg+1 ; | << >>
+:op3a1	usotn2 regr+1 vdrop regr+1 vdrop reg+1 usoadx ; | */
+:vop3a1	usotn2 regr+1 vdrop regr+1 vdrop reg+1 usoadx usoecx ; | *>> /<<
 :op2a2	usotn reg+1 vswap reg+1 vswap usoadx ; | mod/
 
 |--- pila R
 :v>r	d.pop r.push usort ;
 :vr>	usort r.pop d.push ;
 :vr		r.tos d.pushCPY usort ; |R      -- a R: a -- a
-:vr+	usort vr> reg+1 v>r vdrop ; |R+    a -- R: b -- c
+:vr+	usort vr> reg+1 v>r regr+1 vdrop ; |R+    a -- R: b -- c
 :vr@+	vr> memreg reg+1 dup v>r d.pushVar usort ; |R@+    -- a R: b -- c
-:vr!+	usort vr> memreg reg+1 v>r vdrop ; |R!+   a -- R: b -- c
+:vr!+	usort vr> memreg reg+1 v>r regr+1 vdrop ; |R!+   a -- R: b -- c
 :vrdrop	r.pop drop usorv ;
 
 |-------------------------------
@@ -293,20 +299,20 @@
 
 	;
 :c0 | 0? 1? ..
-	usot ;
+	regr+1 usot ;
 :c1 | =? <? ..
-	usotn vdrop ;
+	usotn regr+1 vdrop regr+1 ;
 :1@	| @ c@ w@
 	usot memreg reg+1 ;
 :1!	| ! c! w!
-	usotn memreg v2drop ;
+	usotn memreg regr+1 vdrop regr+1 vdrop ;
 :2@	| @+ c@+ w@+
 	memreg reg+1
 	d.tos d.pushVNUM usotn ;
 :2!	| !+ c!+ w!+
 	usotn memreg reg+1 vnip ;
 :2+! | +! c+! w+!
-	usotn memreg v2drop ;
+	usotn memreg regr+1 vdrop regr+1 vdrop ;
 
 :+mem 	0 d.pushVNUM ;
 
@@ -601,33 +607,11 @@ vdrop	|MPLAY  a --
 	( swap c@+ 1? )( ,c swap 1- 0? ( 2drop ; ) ) 2drop
 	( 1? )( 1- ,sp ) drop ;
 
-|	4 usa tos+pk2
-|	5 usa tos+pk3
-|	6 usa tos+pk4
-|	7 usa tos+pk5
-|	8 usa tos+rtos
-|	9 usa rtos
-
-:REGTOS
-	drop
-	"eax" ;
-:REGNOS
-	"[esi-4]" ;
-:REGPK2
-	"[esi-8]" ;
-:REGPK3
-	"[esi-12]" ;
-:REGPK4
-	"[esi-16]" ;
-:REGPK5
-	"[esi-20]" ;
-:REGR
-	"esp" ;
 
 :u0
 	drop ;
 :u1
-	24 >> $ff and " T=" ,s regTOS ,s ;
+	24 >> $ff and " T=" ,s reg>str ,s ;
 :u2
 	dup 24 >> $ff and " T=" ,s reg>str ,s
 	16 >> $ff and " N=" ,s reg>str ,s ;
@@ -714,8 +698,12 @@ vdrop	|MPLAY  a --
 #tiponm "cte" "cteN" "cpy" "str" "'cod" "'var" "var" "any+" "str+" "cod+" "dat+" "stack"
 
 :,cadaregistro
-	over 2044 + @ " %d " ,print
-|		reg>str ,sp ,print
+	| estado del registro
+	| 0 -- en pila
+	| 1 -- es cte
+	| 2 -- es registro
+	| 3 -- es memoria
+|	over 2044 + @ " %d " ,print
 
 	pick2 64 + "| %k =" ,print
 	'tiponm over $f and ( 1? )( 1- swap >>0 swap ) drop
@@ -729,7 +717,8 @@ vdrop	|MPLAY  a --
 	$100 and? ( " eaxedx" ,print ) | usoadx
 	$200 and? ( " ecx" ,print ) | usoecx | si no es cte
 
-	dup 16 >> $ff and 1? ( "<%d>" ,print )( drop )
+	dup 16 >> $ff and 1? ( "<%d>" ,print )( drop ) | cnt de escrituras
+	dup 24 >> $ff and 1? ( "[%d]" ,print )( drop ) | cnt de lecturas
 |	24 >> " %h" ,print
 	drop
 	dup 3068 + @ " %d-" ,print
@@ -891,7 +880,7 @@ vdrop	|MPLAY  a --
 	2 << 'regt + @ | info reg
 	$8000 and ;
 
-:cteusoinm
+:cteusoinm | *** cambiar por 1 uso de lectura
 	over gettok | siguiente token
 	18 <? ( 2drop ; ) | condicionales
 	30 >? ( 53 <? ( 2drop ; ) ) | mov pila y r
@@ -904,7 +893,7 @@ vdrop	|MPLAY  a --
 :marcatoken | 'info -- 'info+
 	@+ $ff and
 	$d0 =? ( anteriorescall=>jump ; )	| es call+;
-	$f0 =? ( cteusoinm ; )				| es LIT+op
+|	$f0 =? ( cteusoinm ; )				| es LIT+op
 	drop
 	;
 

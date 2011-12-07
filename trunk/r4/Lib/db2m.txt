@@ -1,0 +1,126 @@
+| Replicador de base de datos por log v.1
+| PHREDA 2011
+| uso:
+|	"db.db" "pathtonet/" "pathtolocalcopy/" dbrepli
+|------------------------------------------
+^r4/lib/db2.txt
+^r4/lib/mem.txt
+
+#pthmulti
+#pthdb
+#s1 )( 256
+#s2 )( 256
+#s3 )( 256
+
+:nameflag | -- "name"
+	pthmulti "%sflag.user" mprint ;
+
+:makenames | str -- str
+	dup pthdb "%s%s.log" mprint 's1 strcpy
+	dup pthmulti "%s%s" mprint 's2 strcpy
+	dup pthdb "%s%s" mprint 's3 strcpy ;
+
+:namelog 's1 ;
+:namedbm 's2 ;
+:namedb 's3 ;
+
+|--------------------------
+:copylm | -- ; copia local a multi
+	mark
+	here namedb load 'here !
+	namedbm savemem
+	empty ;
+
+:copyml | -- ; copia multi a local
+	mark
+	here namedbm load 'here !
+	namedb savemem
+	empty ;
+
+#mdb
+#mlog
+
+:nolog
+	here namedbm load here =? ( drop copylm ; ) drop
+	copyml ;
+
+:nodbm
+	copylm
+	0 0 namelog save ;
+
+#indmem
+#lasmem
+#lasdb
+
+:makeindex | ind mem --
+	>>..
+	dup rot !+ swap | registros 0
+	( c@+ 1? )(
+		$7e =? ( drop >>..
+			dup rot !+ swap )( drop )
+		) drop
+	1- 'lasdb !
+	'lasmem ! ;
+
+:insreg
+	13 lasdb c!+
+	pick2 2 + dup >reg> over -
+	0 pick3 pick2 + c!
+	cmove
+	indmem mdb makeindex ;
+
+:updreg
+	over 2 + ?sint 2 << indmem +
+	lasmem >? ( 2drop ; ) @ | dir adr
+	swap dup >reg> over - | adrn here ncnt
+	pick2 dup >reg> 	| adr here ncnt adr adrf
+	dup rot - 			| adr here ncnt adrf cntv
+	pick2 swap -        | adr here ncnt adrf dif
+	+? ( over + swap lasdb over - cmove> )( over + swap lasdb over - cmove )
+	cmove	| memd s cnt
+	indmem mdb makeindex ;
+
+|-- recorre log y actualiza db
+:updatedb
+	mdb $fffff over + dup 'indmem !
+	swap makeindex
+	mlog ( >>..
+		>fld> 1? ( dup c@
+			$49 =? ( insreg ) | Insert
+			$55 =? ( updreg ) | Update
+			| Delete
+			drop >reg> )
+		0? ) drop
+|	mdb memmap
+	mdb lasdb over - namedbm save
+	mdb lasdb over - namedb save
+	;
+
+|----------------------------------------
+:replicate | str -- str
+	here 'mlog !
+	here namelog load here =? ( drop nolog ; )
+	0 swap !+ 'here !
+	here 'mdb !
+	here namedbm load here =? ( drop nodbm ; )
+	( dup c@ $7e <>? )( drop 1- ) drop 1+
+	0 swap !+ 'here !
+	updatedb | copia a db
+	0 0 namelog save | borralog
+	;
+
+:waitflag | espera nameflag vacio o timeout
+	0 ( here nameflag load here <>? )(
+		1000 update 2drop
+		1+ 2 =? ( drop ; ) | timeout
+		) 2drop ;
+
+::dbrepli | db multi local --
+	'pthdb ! 'pthmulti !
+	waitflag
+	"f" 1 nameflag save
+	makenames
+	mark
+	replicate drop
+	empty
+	0 0 nameflag save ;

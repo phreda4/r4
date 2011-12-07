@@ -42,6 +42,12 @@
 #,NOSb 'bnosb
 #,NOS2 'bnos2
 
+:TOSM?
+	'btos c@ $5b =? ( 1 nip ; ) 0 nip ;
+
+:NOSM?
+	'bnos c@ $5b =? ( 1 nip ; ) 0 nip ;
+
 #nstr 0
 :nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
 
@@ -141,7 +147,7 @@
 	"mov eax,edx" ,line ;
 
 :,ABS
-	"cdq" ,line
+	"cdq" ,line | no funciona si no es eax !!!
 	,NOS "add %w,edx" ,line
 	,NOS "xor %w,edx" ,line ;
 
@@ -205,7 +211,7 @@
 	| 2 var ! 		--> mov ebx,[var ];mov [ebx],2; ** push ebx..pop ebx si ebx ocupado
 	| var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
 	| 'var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
-	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; **
+	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; *
 
 :,C!
 |--- caso 1
@@ -277,18 +283,18 @@
 	,TOS "add %w,1" ,line ;
 
 |------------------------------------
+:,condicion
+	TOSM? 1? ( drop ,TOS "cmp %w,0" ,line ; ) drop
+	,TOS dup "or %w,%w" ,line ;
+
 :,0?
-	,TOS dup "or %w,%w" ,line
-	"jnz " ,s ;
+	,condicion "jnz " ,s ;
 :,+?
-	,TOS dup "or %w,%w" ,line
-	"js " ,s ;
+	,condicion "js " ,s ;
 :,-?
-	,TOS dup "or %w,%w" ,line
-	"jns " ,s ;
+	,condicion "jns " ,s ;
 :,1?
-	,TOS dup "or %w,%w" ,line
-	"jz " ,s ;
+	,condicion "jz " ,s ;
 
 :,=?
 	,TOS ,NOS "cmp %w,%w" ,line
@@ -451,19 +457,15 @@
 | extrae TOS NOS NOS2
 :extraeREGS | info -- INFO
 	dup 24 >> $ff and
-	dup reg>str 'btos strcpy
-	reg>strb 'btosb strcpy
+	dup reg>str 'btos strcpy reg>strb 'btosb strcpy
 	dup 16 >> $ff and reg>str 'bnos strcpy
 	dup 8 >> $ff and reg>str 'bnos2 strcpy
-	$f and |'nopt ! | celdas directas
 	;
-
 
 :niv1 | adr adri+ info -- adri+ adr+
 	extraeREGS		| adr adri+
-	|dup $f and | sale de extraeREG**
-	$f =? ( drop swap 4+ ; )
-|	$1 =? ( "eax" 'bnos strcpy ) |** NOS no optimizado
+	$f and
+	$f =? ( drop swap 4+ ; ) | no genera codigo
 	drop swap
 	@+ $ff and		| adri+ adr+ valor token
 	2 << 'nivel1 + @ exec | adri+ adr+
