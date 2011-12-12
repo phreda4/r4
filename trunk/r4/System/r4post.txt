@@ -297,6 +297,14 @@
 	dup 4 - @ tok>str strusestack nip neg 'deltaD +! ;
 
 :esExe | calcular deltaD de palabra llamada
+	| averiguar palabra en pila !!!
+	dup 4 - @ 8 >> | NO
+
+	nro>mov @
+	dup 16 << 24 >> 1+ 'nivel !
+	dup 24 << 24 >> usoDcalc
+|	dup 24 >> 'deltaR +! | no se propaga, es flujo de ejecucion
+	8 << 24 >> 'deltaD +!
 	;
 
 #acct 0 esPal es( es)( es) es[ es] esFin usaR esStr esExe
@@ -343,13 +351,11 @@
 	;
 
 |----- analiza codigo
-:analisiscode | nro cntlla -- nro
-	drop
+:analisiscode | nro -- nro
 	resetvars
 	dup nro>toklen
 	( 1? )( 1- swap	prosstoken swap ) 2drop
-	setvars
-	;
+	setvars ;
 
 |-----------------
 :tokpal | tok -- userd Dstack Rstack
@@ -389,7 +395,7 @@
 |-------------------- caso !+ w!+ c!+
 	pick2 @ $ff and
 	85 <? ( drop ; ) 92 >? ( drop ; )
-	drop 
+	drop
 	over 8 >> 1+ useaddr
 |--------------------
 	;
@@ -444,6 +450,10 @@
 #cntdc     | dir codigo
 #cnts      | string
 #cntn0     | no ceros (0 puede ser direccion)
+#deltaS
+
+:copydeltaS | ar v -- ar v
+	over 4 - @ 8 >> nro>mov @ 'deltaS ! ;
 
 |3 :,,litd | n --	numero decimal
 |4 :,,lith | n --	numero hexa
@@ -457,7 +467,7 @@
 :sumavars
 	2 >? ( 7 <? ( over 4 - @ tok>cte 1? ( 1 'cntn0 +! ) drop  ) )
 	7 =? ( 1 'cnts +! )
-	8 =? ( 1 'cntdc +! ) 10 =? ( 1 'cntdc +! )
+	8 =? ( 1 'cntdc +! copydeltaS ) 10 =? ( 1 'cntdc +! copydeltaS )
 	9 =? ( 1 'cntdv +! ) 11 =? ( 1 'cntdv +! )
 	;
 
@@ -481,8 +491,9 @@
 	0? ( drop 2 <? ( 2 ; ) 6 ; ) drop | direccion de codigo
 	2 <? ( 1 )( 5 ) ;                 | direccion de dato
 
-:analisisvar |  cntlla -- nro
-	drop
+
+:analisisvar |  nro -- nro
+	0 'deltaS !
 	0 'cntdv !
 	0 'cntdc !
 	0 'cnts !
@@ -494,9 +505,15 @@
 		) 2drop
 	decodeinfov 16 <<
 	pick2 nro>info @ or pick2 nro>info !
-|:setvarlen! | nro len -- nro
 	over 5 << 'indicepal + 16 + !
+	deltaS over nro>mov !
 	;
+
+:analisis
+	drop 
+	dup 5 << 'indicepal + 8 + @
+	1 and? ( drop analisisvar ; )
+	drop analisiscode ;
 
 |--------- COMPILA TOKENS 2da PASADA
 ::tokenpost
@@ -516,6 +533,5 @@
 	|-------- indice de usadas
 	makeindex
 	|-------- analisis+profundo
-	'analisiscode wordmap
-	'analisisvar varmap
+	'analisis diccmap
 	;
