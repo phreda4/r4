@@ -6,6 +6,8 @@
 
 #cntregs 1
 #tokact
+#usedreg | cantidad de registros usados por palabra
+#lastp | p/calcular registros disjuntos
 
 #regt	)( 1024	| tipo de registro
 #regv	)( 1024	| valor de registro
@@ -726,6 +728,7 @@ vdrop	|MPLAY  a --
 	1 ( cntregs <? )(
 		swap @+ ,cadaregistro
 		swap 1+ ) 2drop
+	usedreg "| reales: %d" ,print ,cr
 	"|-----------------" ,s ,cr ;
 
 |--------- registros
@@ -749,7 +752,9 @@ vdrop	|MPLAY  a --
 	$20 and? ( "C" print ) | codreg
 	$100 and? ( "a" print ) | usoadx
 	$200 and? ( "c" print ) | usoecx | si no es cte
-	dup 16 >> $ff and 1? ( "<%d>" print )( drop )
+	dup 16 >> $ff and 1? ( "<%d>" print )( drop ) | cnt de escrituras
+	dup 24 >> $ff and 1? ( "[%d]" print )( drop ) | cnt de lecturas
+
 	drop
 	gris
 	dup 3068 + @ " %d-" print
@@ -757,17 +762,10 @@ vdrop	|MPLAY  a --
 	dup 5116 + @ " %d" print
 	cr allowchome ;
 
-:reg.t@ | n -- val
-	2 << 'regt + @ ;
-:reg.i@ | n -- val
-	2 << 'regini + @ ;
-:reg.l@ | n -- val
-	2 << 'reglen + @ ;
-:reg.g | n -- dir
-	2 << 'regagr + ;
-
 ::dumpregs | --
-	'cadaregistro mapregs ;
+	'cadaregistro mapregs 
+	usedreg "| reales: %d" print cr
+;
 
 |----- pirnt pilas
 :printstackolor | "" --
@@ -795,24 +793,24 @@ vdrop	|MPLAY  a --
 	drop ;
 
 |--------- analisis del buffer
-#usoreg
-#regactual
 
-:clearinforegs
-	drop 0 over 2044 + ! ;
+:reg.t@ | n -- val
+	2 << 'regt + @ ;
+:reg.i@ | n -- val
+	2 << 'regini + @ ;
+:reg.l@ | n -- val
+	2 << 'reglen + @ ;
+:reg.g | n -- dir
+	2 << 'regagr + ;
+:reg.in | n -- dir
+	2 << 'regi + ;
 
 :ctessincosto | nro reg -- nro
 	dup 16 >> $ff and
 	1? ( 2drop ; ) | tiene costo
 	drop
-	-2 pick2 2044 + !
 	$40 nand? ( drop ; ) | no termino
-
 	$8000 or over 4 - ! | marca como cte
-	over 2 << 'reglen + @
-	pick2 2 << 'regini + @ -
-	1 =? ( 1 )( -1 ) nip
-	over 2044 + !	| marca
 	;
 
 :eaxobligatorio | dir reg -- dir
@@ -828,36 +826,29 @@ vdrop	|MPLAY  a --
 
 |---- grupos de registros
 | busco los registros que son disjuntos
-#nrog
-#ing
-#lastp
-
 
 :candidato | n t i t -- n t i t
 	over reg.g @ 1? ( drop ; ) drop
 	over reg.i@
 	lastp
 	<? ( drop ; ) drop | se superponen
-	1 'ing !
-	nrog pick2 reg.g ! | marca grupo
+	usedreg pick2 reg.g ! | marca grupo
 	over reg.l@ 'lastp !
 	;
 
 :buscagrupo | n t -- n t
 	over reg.g @ 1? ( drop ; ) drop | ya fue asignado
-	0 'ing !
-	over reg.l@ 0? ( drop ; ) 'lastp !
+	over reg.l@ 0? ( drop ; ) 'lastp ! | es de salida
 	over 1+ ( cntregs <? )( | n t i
 		dup reg.t@
 		$8000 nand? ( candidato ) drop
 		1+ ) drop
-	ing 0? ( drop ; ) drop
-	nrog pick2 reg.g ! | marca grupo
-	1 'nrog +!
+	usedreg pick2 reg.g ! | marca grupo
+	1 'usedreg +!
 	;
 
 :armogrupos
-	1 'nrog !
+	1 'usedreg !
 	1 ( cntregs <? )(
 		dup reg.t@
 		$8000 nand? ( buscagrupo )
@@ -865,15 +856,12 @@ vdrop	|MPLAY  a --
 		1+ ) drop ;
 
 :AsignoReg
-	0 'usoreg !
-	'clearinforegs mapregs
 	'ctessincosto mapregs
 	armogrupos
 
 	'eaxobligatorio mapregs
 	'ecxobligatorio mapregs
 
-	1 'regactual !
 
 	'asignoregistron mapregs
 	;
@@ -900,7 +888,6 @@ vdrop	|MPLAY  a --
 :reg>cte
 	2 << 'regt + @ | info reg
 	$8000 and ;
-
 
 :marcatoken | 'info -- 'info+
 	@+ $ff and
