@@ -19,7 +19,6 @@
 ^r4/lib/parse.txt
 
 ^r4/system/r4code.txt
-^r4/system/r4i86.txt
 ^r4/system/pilaestatica.txt
 
 ^r4/lib/trace.txt
@@ -47,37 +46,97 @@
 :NOSM?
 	'bnos c@ $5b =? ( 1 nip ; ) 0 nip ;
 
-#nstr 0
-:nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
+|----- nro de str y label
+#nstr | nro de string
+#nlabel | nro de etiqueta
 
-|--- por ahora nada
-:,defw :,defv :,;
-:,( :,)( :,) :,[ :,]
-	 ;
+::ini.compila
+	0 'nstr ! 0 'nlabel ! ;
 
-:,lit :,lits :,dwo :,dva
-	,NOS ,TOS "mov %w,%w" ,line ;
+|----- pila de compilador
+#pilac )( 256	#pilac> 'pilac
 
-:,var
-	,NOS ,TOS "mov %w,[%w]" ,line ;
+:>pilac pilac> ! 4 'pilac> +! ;
+:<pilac -4 'pilac> +! pilac> @ ;
+:-pilac 'pilac 'pilac> ! ;
 
-:,wor
-	| ajustar pila
-	dup 4 - @ nro>dicn "jmp " ,s ,s ,cr
+|--- asm plano
+:label	"_" ,s ,h 	;
+:jmp,	"jmp " ,s label ,cr ;
 
-| --- no optimiza call pero necesita ajustar pila
-| 	ajusta pila
-|	dup 4 - @ nro>dicn "call " ,s ,s ,cr nip
-|	reacomoda pil
-	;
+:,DUP
+	"lea esi,[esi-4]" ,ln
+	"mov [esi],eax" ,ln ;
+
+:,DROP
+	"lodsd" ,ln ;
+:,NIP
+	"lea esi,[esi+4]" ,ln ;
+:,2DROP
+	,NIP ,DROP ;
+:,3DROP
+	"lea esi,[esi+8]" ,ln ,DROP ;
+:,4DROP
+	"lea esi,[esi+12]" ,ln ,DROP ;
+
+:,OVER
+	,DUP "mov eax,[esi+4]" ,ln ;
+:,PICK2
+	,DUP "mov eax,[esi+4*2]" ,ln ;
+:,PICK3
+	,DUP "mov eax,[esi+4*3]" ,ln ;
+:,PICK4
+	,DUP "mov eax,[esi+4*4]" ,ln ;
+:,SWAP
+	"xchg eax,[esi]" ,ln ;
+|	"push eax" ,ln	| otra version (sin dx)
+|	"mov eax,[esi]" ,ln
+|	"popd [esi]" ,ln ;
+:,ROT
+	"pushd [esi+4]" ,ln	| otra version (sin dx,cx)
+	"pushd [esi]" ,ln
+	"popd [esi+4]" ,ln
+	"mov [esi],eax" ,ln
+	"pop eax" ,ln ;
+:,2DUP
+	,OVER ,OVER ;
+:,2OVER
+	"mov [esi-4],eax" ,ln
+	"lea esi,[esi-8]" ,ln
+	"pushd [esi+16]" ,ln
+	"popd [esi]" ,ln
+	"mov eax,[esi+12]" ,ln ;
+:,2SWAP
+	"pushd [esi+4]" ,ln
+	"mov [esi+4],eax" ,ln
+	"pushd [esi+8]" ,ln
+	"mov eax,[esi]" ,ln
+	"mov [esi+8],eax" ,ln
+	"popd [esi]" ,ln
+	"pop eax" ,ln ;
+
+
+
+|:,DUP :,OVER  :,PICK2 :,PICK3 :,PICK4
+|	,NOS ,TOS "mov %w,%w" ,line ;
+|:,2DUP
+|	,NOS ,TOS "mov %w,%w" ,line ;
+
+|:,SWAP
+|	,NOS ,TOS "xchg %w,%w" ,line ;
+|:,ROT
+|	,NOS2 ,TOS "xchg %w,%w" ,line
+|	,NOS ,TOS "xchg %w,%w" ,line ;
+
 
 :,EXEC
-	,TOS "mov ecx,%w" ,line
-   	"or ecx,ecx" ,line
-	"jz @f" ,line
-	"call ecx" ,line
-	"@@:" ,line ;
-	;
+|	,TOS "mov ecx,%w" ,line
+	"mov ecx,eax" ,ln
+	,DROP
+	"or ecx,ecx" ,ln
+	"jz @f" ,ln
+	"call ecx" ,ln
+	"@@:" ,ln ;
 
 :,EXECx1 | 2 >> + @ exec
 	"mov ecx,[eax*4+ebx]" ,line
@@ -86,125 +145,279 @@
 	"call ecx" ,line
 	"@@:" ,line ;
 
-:,DROP :,NIP :,2DROP :,3DROP :,4DROP ;
-
-:,DUP :,OVER  :,PICK2 :,PICK3 :,PICK4
-	,NOS ,TOS "mov %w,%w" ,line ;
-:,2DUP
-	,NOS ,TOS "mov %w,%w" ,line ;
-
-:,SWAP
-	,NOS ,TOS "xchg %w,%w" ,line ;
-:,ROT
-	,NOS2 ,TOS "xchg %w,%w" ,line
-	,NOS ,TOS "xchg %w,%w" ,line ;
-:,2SWAP
-:,2OVER
-	;
-
-:,AND	,TOS ,NOS "and %w,%w" ,line ;
-:,OR	,TOS ,NOS "or %w,%w" ,line ;
-:,XOR	,TOS ,NOS "xor %w,%w" ,line ;
-:,NOT	,TOS "not %w" ,line ;
-:,+		,TOS ,NOS "add %w,%w" ,line ;
-:,-		,TOS ,NOS "sub %w,%w" ,line ;
-:,*		,TOS ,NOS "imul %w,%w" ,line ;
-:,/		,TOS ,NOS "idiv %w,%w" ,line ;
-:,<<	,TOS ,NOS "sal %w,%w" ,line ;
-:,>>	,TOS ,NOS "sar %w,%w" ,line ;
-:,NEG 	,TOS "neg %w" ,line ;
-:,1+	,TOS "add %w,1" ,line ;
-:,1-	,TOS "add %w,-1" ,line ;
-:,4+ 	,TOS "add %w,4" ,line ;
-:,2/ 	,TOS "sar %w,1" ,line ;
-:,2* 	,TOS "sal %w,1" ,line ;
-
-:,*/
-	"cdq" ,line
-	,NOS "imul %w" ,line
-	,TOS "idiv %w" ,line ;
-
-:,*>>
-	"cdq" ,line
-	,NOS "imul %w" ,line
-	,TOSb "shrd eax,edx,%w" ,line
-	,TOSb "shr edx,%w" ,line
-	;
-
-:,<</
-	"cdq" ,line
-    ,TOSb "shld edx,eax,%w" ,line
-	,TOSb "shl eax,%w" ,line
-	,NOS "idiv %w" ,line ;
-
-:,/MOD
-	"cdq" ,line
-	,TOS "idiv %w" ,line ;
-
-:,MOD
-	,TOS "idiv %w" ,line
-	"mov eax,edx" ,line ;
-
-:,ABS
-	"cdq" ,line | no funciona si no es eax !!!
-	,NOS "add %w,edx" ,line
-	,NOS "xor %w,edx" ,line ;
-
-:,CLZ
-	,TOS dup "bsr %w,%w" ,line
-	,TOS "xor %w,31" ,line ;
 
 
 :,>R
-	nopt
-	2 =? ( drop ,TOS "push %w" ,line ; )
-	drop
-	,TOS ,NOS "mov %w,%w" ,line ;
+	"push eax" ,ln ,DROP ;
 :,R>
-	nopt
-	2 =? ( drop ,TOS "pop %w" ,line ; )
-	drop ;
+	,DUP "pop eax" ,ln ;
 :,R
-	nopt
-	2 =? ( drop ,NOS ,TOS "mov %w,%w" ,line ; ) drop
-	,TOS "mov %w,[esp]" ,line ;
-:,R+
-	nopt
-	2 =? ( drop ,TOS ,NOS "add %w,%w" ,line  ; ) drop
-	,TOS "add [esp],%w" ,line ;
-
-:,R!+
-	,TOS ,NOS "mov [%w],%w" ,line
-	,NOS "add %w,4" ,line ;
-
-:,R@+
-	,NOS ,TOS "mov %w,[%w]" ,line
-	,NOS "add %w,4" ,line ;
-
+	,DUP "mov eax,[esp]" ,ln ;
 :,RDROP
-	nopt
-	2 =? ( drop "lea esp,[esp-4]" ,line ; )
-	drop ;
+	"lea esp,[esp+4]" ,ln ;
+:,R+
+	"add [esp],eax" ,ln ,DROP ;
+:,R!+
+	"pop edx" ,ln
+	"mov [edx],eax" ,ln
+	"add edx,4" ,ln
+	"push edx" ,ln
+	,DROP ;
+:,R@+
+	,DUP
+	"mov eax,[esp]" ,ln
+	"mov eax,[eax]" ,ln
+	"add dword [esp],4" ,ln ;
+
+|:,>R
+|	nopt
+|	2 =? ( drop ,TOS "push %w" ,line ; )
+|	drop
+|	,TOS ,NOS "mov %w,%w" ,line ;
+|:,R>
+|	nopt
+|	2 =? ( drop ,TOS "pop %w" ,line ; )
+|	drop ;
+|:,R
+|	nopt
+|	2 =? ( drop ,NOS ,TOS "mov %w,%w" ,line ; ) drop
+|	,TOS "mov %w,[esp]" ,line ;
+|:,R+
+|	nopt
+|	2 =? ( drop ,TOS ,NOS "add %w,%w" ,line  ; ) drop
+|	,TOS "add [esp],%w" ,line ;
+
+|:,R!+
+|	,TOS ,NOS "mov [%w],%w" ,line
+|	,NOS "add %w,4" ,line ;
+
+|:,R@+
+|	,NOS ,TOS "mov %w,[%w]" ,line
+|	,NOS "add %w,4" ,line ;
+
+|:,RDROP
+|	nopt
+|	2 =? ( drop "lea esp,[esp-4]" ,line ; )
+|	drop ;
+
+|:,AND	,TOS ,NOS "and %w,%w" ,line ;
+|:,OR	,TOS ,NOS "or %w,%w" ,line ;
+|:,XOR	,TOS ,NOS "xor %w,%w" ,line ;
+|:,NOT	,TOS "not %w" ,line ;
+|:,+		,TOS ,NOS "add %w,%w" ,line ;
+|:,-		,TOS ,NOS "sub %w,%w" ,line ;
+|:,*		,TOS ,NOS "imul %w,%w" ,line ;
+|:,/		,TOS ,NOS "idiv %w,%w" ,line ;
+|:,<<	,TOS ,NOS "sal %w,%w" ,line ;
+|:,>>	,TOS ,NOS "sar %w,%w" ,line ;
+|:,NEG 	,TOS "neg %w" ,line ;
+|:,1+	,TOS "add %w,1" ,line ;
+|:,1-	,TOS "add %w,-1" ,line ;
+|:,4+ 	,TOS "add %w,4" ,line ;
+|:,2/ 	,TOS "sar %w,1" ,line ;
+|:,2* 	,TOS "sal %w,1" ,line ;
+|:,*/
+|	"cdq" ,line
+|	,NOS "imul %w" ,line
+|	,TOS "idiv %w" ,line ;
+
+|:,*>>
+|	"cdq" ,line
+|	,NOS "imul %w" ,line
+|	,TOSb "shrd eax,edx,%w" ,line
+|	,TOSb "shr edx,%w" ,line
+|	;
+
+|:,<</
+|	"cdq" ,line
+|    ,TOSb "shld edx,eax,%w" ,line
+|	,TOSb "shl eax,%w" ,line
+|	,NOS "idiv %w" ,line ;
+
+|:,/MOD
+|	"cdq" ,line
+|	,TOS "idiv %w" ,line ;
+
+|:,MOD
+|	,TOS "idiv %w" ,line
+|	"mov eax,edx" ,line ;
+
+|:,ABS
+|	"cdq" ,line | no funciona si no es eax !!!
+|	,NOS "add %w,edx" ,line
+|	,NOS "xor %w,edx" ,line ;
+
+|:,CLZ
+|	,TOS dup "bsr %w,%w" ,line
+|	,TOS "xor %w,31" ,line ;
+
+:,AND
+	"and eax,[esi]" ,ln ,NIP ;
+:,OR
+	"or eax,[esi]" ,ln ,NIP ;
+:,XOR
+	"xor eax,[esi]" ,ln ,NIP ;
+:,NOT
+	"not eax" ,ln ;
+:,+
+	"add eax,[esi]" ,ln ,NIP ;
+:,-
+	"neg eax" ,ln
+	"add eax,[esi]" ,ln
+	,NIP ;
+:,*
+	"imul eax,dword [esi]" ,ln
+	,NIP ;
+:,/
+	"mov ecx,eax" ,ln
+	,DROP
+	"cdq" ,ln
+	"idiv ecx" ,ln ;
+:,*/
+	"mov ecx,eax" ,ln
+	,DROP
+	"cdq" ,ln
+	"imul dword [esi]" ,ln
+	"idiv ecx" ,ln
+	,NIP ;
+:,*>>
+	"mov ecx,eax" ,ln
+	,DROP
+	"cdq" ,ln
+	"imul dword [esi]" ,ln
+	"shrd eax,edx,cl" ,ln
+	"shr edx,cl" ,ln
+	,NIP ;
+:,<</
+	"mov ecx,eax" ,ln
+	"mov ebx,[esi]" ,ln
+	,2DROP
+	"cdq" ,ln
+    "shld edx,eax,cl" ,ln
+	"shl eax,cl" ,ln
+	"idiv ebx" ,ln ;
+:,/MOD
+	"mov ecx,eax" ,ln
+	"mov eax,[esi]" ,ln
+	"cdq" ,ln
+	"idiv ecx" ,ln
+	"mov [esi],eax" ,ln
+	"mov eax,edx" ,ln ;
+:,MOD
+	"mov ecx,eax" ,ln
+	,DROP
+	"cdq" ,ln
+	"idiv ecx" ,ln
+	"mov eax,edx" ,ln ;
+:,<<
+	"mov ecx,eax" ,ln ,DROP
+	"sal eax,cl" ,ln ;
+:,>>
+	"mov ecx,eax" ,ln ,DROP
+	"sar eax,cl" ,ln ;
+:,ABS
+	"cdq" ,ln
+	"add eax,edx" ,ln
+	"xor eax,edx" ,ln ;
+:,CLZ
+	"bsr eax,eax" ,ln
+	"xor eax,31" ,ln ;
+:,NEG
+	"neg eax" ,ln ;
+:,1+
+	"inc eax" ,ln ;
+:,4+
+	"add eax,4" ,ln ;
+:,1-
+	"dec eax" ,ln ;
+:,2/
+	"sar eax,1" ,ln ;
+:,2*
+	"sal eax,1" ,ln ; | "add eax,eax" ,ln
 
 :,@
-	,TOS ,TOS "mov %w,dword [%w]" ,line ;
+	"mov eax,dword [eax]" ,ln ;
 :,C@
-	,TOS ,TOS "movsx %w,byte [%w]" ,line ;
+	"movsx eax,byte [eax]" ,ln ;
 :,W@
-	,TOS ,TOS "movsx %w,word [%w]" ,line ;
-
-:,@x1	"lea %w,[%w+%w]" ,line ;
-:,@x2	"lea %w,[%w+%w*%w]" ,line ;
-:,@x3	"lea %w,[%w+%w+%w*%w]" ,line ;
-
-:,!ex	"mov [%w+%w*%w],%w" ,line ;
-
+	"movsx eax,word [eax]" ,ln ;
 :,!
+	"mov ecx,[esi]" ,ln
+	"mov [eax],ecx" ,ln
+	,2DROP ;
+:,C!
+	"mov ecx,[esi]" ,ln
+	"mov byte [eax],cl" ,ln
+	,2DROP ;
+:,W!
+	"mov ecx,[esi]" ,ln
+	"mov word [eax],cx" ,ln
+	,2DROP ;
+:,+!
+	"mov ecx,[esi]" ,ln
+	"add [eax],ecx" ,ln
+	,2DROP ;
+:,W+!
+	"mov ecx,[esi]" ,ln
+	"add word [eax],cx" ,ln
+	,2DROP ;
+:,C+!
+	"mov ecx,[esi]" ,ln
+	"add byte [eax],cl" ,ln
+	,2DROP ;
+:,!+
+	"mov ecx,[esi]" ,ln
+	"mov [eax],ecx" ,ln
+	"add eax,4" ,ln
+	,NIP ;
+:,W!+
+	"movsx ecx,word [esi]" ,ln
+	"mov [eax],cx" ,ln
+	"add eax,2" ,ln
+	,NIP ;
+:,C!+
+	"movsx ecx,byte [esi]" ,ln
+	"mov [eax],cl" ,ln
+	"inc eax" ,ln
+	,NIP ;
+:,@+
+	"mov ecx,[eax]" ,ln
+	"add eax,4" ,ln
+	"mov [esi-4],eax" ,ln
+	"mov eax,ecx" ,ln
+	"lea esi,[esi-4]" ,ln ;
+:,W@+
+	"movsx ecx,word [eax]" ,ln
+	"add eax,2" ,ln
+	"mov [esi-4],eax" ,ln
+	"mov eax,ecx" ,ln
+	"lea esi,[esi-4]" ,ln ;
+:,C@+
+	"movsx ecx,byte [eax]" ,ln
+	"inc eax" ,ln
+	"mov [esi-4],eax" ,ln
+	"mov eax,ecx" ,ln
+	"lea esi,[esi-4]" ,ln ;
+
+|:,@
+|	,TOS ,TOS "mov %w,dword [%w]" ,line ;
+|:,C@
+|	,TOS ,TOS "movsx %w,byte [%w]" ,line ;
+|:,W@
+|	,TOS ,TOS "movsx %w,word [%w]" ,line ;
+
+|:,@x1	"lea %w,[%w+%w]" ,line ;
+|:,@x2	"lea %w,[%w+%w*%w]" ,line ;
+|:,@x3	"lea %w,[%w+%w+%w*%w]" ,line ;
+
+|:,!ex	"mov [%w+%w*%w],%w" ,line ;
+
+|:,!
 |--- caso 1
 	| 2 'var ! 		--> mov [var],2
 	| 'var1 'var2 ! --> mov [var2],var1
 	| 'cod 'var2 !  -->=mov [var2],cod
-	,NOS ,TOS "mov [%w],%w" ,line ;
+|	,NOS ,TOS "mov [%w],%w" ,line ;
 |--- caso 2
 	| var1 'var2 !	--> mov ebx,[var1];mov [var2],ebx; ** push ebx..pop ebx si ebx ocupado
 	| 2 var ! 		--> mov ebx,[var ];mov [ebx],2; ** push ebx..pop ebx si ebx ocupado
@@ -212,12 +425,12 @@
 	| 'var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
 	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; *
 
-:,C!
+|:,C!
 |--- caso 1
 	| 2 'var ! 		--> mov [var],2
 	| 'var1 'var2 ! --> mov [var2],var1
 	| 'cod 'var2 !  -->=mov [var2],cod
-	,NOSb ,TOS "mov byte [%w],%w" ,line ;
+|	,NOSb ,TOS "mov byte [%w],%w" ,line ;
 |--- caso 2
 	| var1 'var2 !	--> mov ebx,[var1];mov [var2],ebx; ** push ebx..pop ebx si ebx ocupado
 	| 2 var ! 		--> mov ebx,[var ];mov [ebx],2; ** push ebx..pop ebx si ebx ocupado
@@ -225,12 +438,12 @@
 	| 'var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
 	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; **
 
-:,W!
+|:,W!
 |--- caso 1
 	| 2 'var ! 		--> mov [var],2
 	| 'var1 'var2 ! --> mov [var2],var1
 	| 'cod 'var2 !  -->=mov [var2],cod
-	,NOSw ,TOS "mov word [%w],%w" ,line ;
+|	,NOSw ,TOS "mov word [%w],%w" ,line ;
 |--- caso 2
 	| var1 'var2 !	--> mov ebx,[var1];mov [var2],ebx; ** push ebx..pop ebx si ebx ocupado
 	| 2 var ! 		--> mov ebx,[var ];mov [ebx],2; ** push ebx..pop ebx si ebx ocupado
@@ -238,12 +451,12 @@
 	| 'var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
 	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; **
 
-:,+!
+|:,+!
 |--- caso 1
 	| 2 'var +! 		--> add dword[var],2
 	| 'var1 'var2 +! --> add [var2],var1
 	| 'cod 'var2 +!  --> add [var2],cod
-	,TOS ,NOS "add [%w],%w" ,line ;
+|	,TOS ,NOS "add [%w],%w" ,line ;
 |--- caso 2
 	| var1 'var2 !	--> mov ebx,[var1];mov [var2],ebx; ** push ebx..pop ebx si ebx ocupado
 	| 2 var ! 		--> mov ebx,[var ];mov [ebx],2; ** push ebx..pop ebx si ebx ocupado
@@ -251,147 +464,244 @@
 	| 'var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
 	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; **
 
-:,W+!
-	,TOS ,NOS "add word [%w],%w" ,line
-	;
+|:,W+!
+|	,TOS ,NOS "add word [%w],%w" ,line ;
+|:,C+!
+|	,TOS ,NOS "add byte [%w],%w" ,line ;
+|:,!+
+|	,NOS ,TOS "mov [%w],%w" ,line ,TOS "add %w,4" ,line ;
+|:,W!+
+|	,NOSw ,TOS "mov word [%w],%w" ,line ,TOS "add %w,2" ,line ;
+|:,C!+
+|	,NOSb ,TOS "mov byte [%w],%w" ,line ,TOS "add %w,1" ,line ;
+|:,@+
+|	,TOS ,NOS "mov %w,[%w]" ,line ,TOS "add %w,4" ,line ;
+|:,W@+
+|	,TOS ,NOS "movsx %w,word [%w]" ,line ,TOS "add %w,2" ,line ;
+|:,C@+
+|	,TOS ,NOS "movsx %w,byte [%w]" ,line ,TOS "add %w,1" ,line ;
 
-:,C+!
-	,TOS ,NOS "add byte [%w],%w" ,line
-	;
-
-:,!+
-	,NOS ,TOS "mov [%w],%w" ,line
-	,TOS "add %w,4" ,line ;
-:,W!+
-	,NOSw ,TOS "mov word [%w],%w" ,line
-	,TOS "add %w,2" ,line ;
-:,C!+
-	,NOSb ,TOS "mov byte [%w],%w" ,line
-	,TOS "add %w,1" ,line ;
-
-:,@+
-	,TOS ,NOS "mov %w,[%w]" ,line
-	,TOS "add %w,4" ,line ;
-
-:,W@+
-	,TOS ,NOS "movsx %w,word [%w]" ,line
-	,TOS "add %w,2" ,line ;
-
-:,C@+
-	,TOS ,NOS "movsx %w,byte [%w]" ,line
-	,TOS "add %w,1" ,line ;
-
-|------------------------------------
-:,condicion
-	TOSM? 1? ( drop ,TOS "cmp %w,0" ,line ; ) drop
-	,TOS dup "or %w,%w" ,line ;
 
 :,0?
-	,condicion "jnz " ,s ;
+	"or eax,eax" ,ln
+	"jnz " ,s ;
 :,+?
-	,condicion "js " ,s ;
+	"or eax,eax" ,ln
+	"js " ,s ;
 :,-?
-	,condicion "jns " ,s ;
+	"or eax,eax" ,ln
+	"jns " ,s ;
 :,1?
-	,condicion "jz " ,s ;
+	"or eax,eax" ,ln
+	"jz " ,s ;
 
 :,=?
-	,TOS ,NOS "cmp %w,%w" ,line
+	"mov ecx,eax" ,ln ,DROP
+	"cmp eax,ecx" ,ln
 	"jnz " ,s ;
 :,<?
-	,TOS ,NOS "cmp %w,%w" ,line
+	"mov ecx,eax" ,ln ,DROP
+	"cmp eax,ecx" ,ln
 	"jge " ,s ;
 :,>?
-	,TOS ,NOS "cmp %w,%w" ,line
+	"mov ecx,eax" ,ln ,DROP
+	"cmp eax,ecx" ,ln
 	"jle " ,s ;
 :,<=?
-	,TOS ,NOS "cmp %w,%w" ,line
+	"mov ecx,eax" ,ln ,DROP
+	"cmp eax,ecx" ,ln
 	"jg " ,s ;
 :,>=?
-	,TOS ,NOS "cmp %w,%w" ,line
+	"mov ecx,eax" ,ln ,DROP
+	"cmp eax,ecx" ,ln
 	"jl " ,s ;
 :,<>?
-	,TOS ,NOS "cmp %w,%w" ,line
+	"mov ecx,eax" ,ln ,DROP
+	"cmp eax,ecx" ,ln
 	"jz " ,s ;
 :,and?
-	,TOS ,NOS "test %w,%w" ,line
+	"mov ecx,eax" ,ln ,DROP
+	"test eax,ecx" ,ln
 	"jz " ,s ;
 :,nand?
-	,TOS ,NOS "test %w,%w" ,line
+	"mov ecx,eax" ,ln ,DROP
+	"test eax,ecx" ,ln
 	"jnz " ,s ;
 
+|------------------------------------
+|:,condicion
+|	TOSM? 1? ( drop ,TOS "cmp %w,0" ,line ; ) drop
+|	,TOS dup "or %w,%w" ,line ;
+
+|:,0?
+|	,condicion "jnz " ,s ;
+|:,+?
+|	,condicion "js " ,s ;
+|:,-?
+|	,condicion "jns " ,s ;
+|:,1?
+|	,condicion "jz " ,s ;
+
+|:,=?
+|	,TOS ,NOS "cmp %w,%w" ,line
+|	"jnz " ,s ;
+|:,<?
+|	,TOS ,NOS "cmp %w,%w" ,line
+|	"jge " ,s ;
+|:,>?
+|	,TOS ,NOS "cmp %w,%w" ,line
+|	"jle " ,s ;
+|:,<=?
+|	,TOS ,NOS "cmp %w,%w" ,line
+|	"jg " ,s ;
+|:,>=?
+|	,TOS ,NOS "cmp %w,%w" ,line
+|	"jl " ,s ;
+|:,<>?
+|	,TOS ,NOS "cmp %w,%w" ,line
+|	"jz " ,s ;
+|:,and?
+|	,TOS ,NOS "test %w,%w" ,line
+|	"jz " ,s ;
+|:,nand?
+|	,TOS ,NOS "test %w,%w" ,line
+|	"jnz " ,s ;
+
 |--------- Sistema
-:,END   	 "jmp SYSEND" ,line ;
+:,END		"jmp SYSEND" ,ln ;
+:,DIR		"call SYSDIR" ,ln ;
+:,FILE  	"call SYSFILE" ,ln ;
+:,FSIZE		"call SYSFSIZE" ,ln ;
+:,VOL		"call SYSVOL" ,ln ;
+:,LOAD		"call SYSLOAD" ,ln ;
+:,SAVE		"call SYSSAVE" ,ln ;
+:,APPEND	"call SYSAPPEND" ,ln ;
 
-:,DIR		 "call SYSDIR" ,line ;
-:,FILE  	 "call SYSFILE" ,line ;
-:,FSIZE 	 "call SYSFSIZE" ,line ;
-:,VOL   	 "call SYSVOL" ,line ;
-:,LOAD  	 "call SYSLOAD" ,line ;
-:,SAVE  	 "call SYSSAVE" ,line ;
-:,APPEND	"call SYSAPPEND" ,line ;
-:,UPDATE 	 "call SYSUPDATE" ,line ;
-:,MSEC		 "call SYSMSEC" ,line ;
-:,TIME  	 "call SYSTIME" ,line ;
-:,DATE  	 "call SYSDATE" ,line ;
-:,RUN  		 "call SYSRUN" ,line ;
-:,CLS        "call SYSCLS" ,line ;
-:,REDRAW     "call SYSREDRAW" ,line ;
-:,>XFB       "call SYSTOXFB" ,line ;
-:,XFB>       "call SYSXFBTO" ,line ;
+:,UPDATE	"call SYSUPDATE" ,ln ;
+:,MSEC		"call SYSMSEC" ,ln ;
+:,TIME		"call SYSTIME" ,ln ;
+:,DATE		"call SYSDATE" ,ln ;
+:,RUN		"call SYSRUN" ,ln ;
+:,CLS		"call SYSCLS" ,ln ;
+:,REDRAW	"call SYSREDRAW" ,ln ;
+:,>XFB  	"call SYSTOXFB" ,ln ;
+:,XFB>  	"call SYSXFBTO" ,ln ;
 
-:,MEM   	 ,TOS "mov %w,FREE_MEM" ,line ;
-:,FRAMEV     ,TOS "mov %w,SYSFRAME" ,line ;
-:,XFB        ,TOS "mov %w,XFB" ,line ;
+:,SW		,DUP "mov eax,[SYSW]" ,ln ;
+:,SH		,DUP "mov eax,[SYSH]" ,ln ;
+:,MEM		,DUP "mov eax,FREE_MEM" ,ln ;
+:,FRAMEV	,DUP "mov eax,SYSFRAME" ,ln ;
+:,XFB		,DUP "mov eax,XFB" ,ln ;
 
-:,SW    	 ,TOS "mov %w,[SYSW]" ,line ;
-:,SH    	 ,TOS "mov %w,[SYSH]" ,line ;
-:,KEY		 ,TOS "mov %w,[SYSKEY]" ,line ;
-:,BMOUSE 	 ,TOS "mov %w,[SYSBM]" ,line ;
-
-:,KEY! 		 "mov [SYSKEY],eax" ,line ;
-:,PAPER		 "mov [SYSPAPER],eax" ,line ;
+:,PAPER		"mov [SYSPAPER],eax" ,ln ,DROP ;
 
 :,SETXY | x y --
-	,TOS "imul %w,dword [SYSW]" ,line
-	,NOS ,TOS "add %w,%w" ,line
-	,TOS "lea ebp,[SYSFRAME+%w*4]" ,line ;
-|	"shl eax,10" ,ln             | 1024 en X
+	"shl eax,10" ,ln
+	"add eax,[esi]" ,ln
+	"lea ebp,[SYSFRAME+eax*4]" ,ln
+|	"imul eax,dword [SYSW]" ,ln
 |	"add eax,[esi]" ,ln
 |	"lea ebp,[SYSFRAME+eax*4]" ,ln
-
+	,2DROP ;
 
 :,PX+!	| s --
-	,TOS "lea ebp,[ebp+%w*4]" ,line ;
-
+	"lea ebp,[ebp+eax*4]" ,ln
+	,DROP ;
 :,PX!+	| rgb --
-	,TOS "mov [ebp],%w" ,line
-	"add ebp,4" ,line ;
-
+	"mov [ebp],eax" ,ln
+	"add ebp,4" ,ln
+	,DROP ;
 :,PX@	| -- rgb
-	,TOS "mov %w,[ebp]" ,line ;
+	,DUP "mov eax,[ebp]" ,ln ;
 
 :,XYMOUSE | -- x y
-	"lea esi,[esi-4]" ,line
-	"mov eax,[SYSXYM]" ,line
-	"mov ecx,eax" ,line
-	"and ecx,$ffff" ,line
-	"shr eax,16" ,line
-	"mov [esi],ecx" ,line ;
+	,DUP
+	"lea esi,[esi-4]" ,ln
+	"mov eax,[SYSXYM]" ,ln
+	"mov ecx,eax" ,ln
+	"and ecx,$ffff" ,ln
+	"shr eax,16" ,ln
+	"mov [esi],ecx" ,ln ;
+:,BMOUSE | -- c
+	,DUP "mov eax,[SYSBM]" ,ln ;
 
-|-- falta definir
-:,CNTJOY :,GETJOY
-:,SLOAD :,SPLAY :,MLOAD :,MPLAY
-:,OPENURL
-:,DOCINI :,DOCEND :,DOCAT :,DOCLINE :,DOCTEXT :,DOCFONT :,DOCBIT
-:,DOCRES :,DOCSIZE
-:,SYSTEM ;
+:,KEY! | v --
+	"mov [SYSKEY],eax" ,ln ,DROP ;
+:,KEY	| -- c
+	,DUP "mov eax,[SYSKEY]" ,ln ;
 
-|-----------definiciones en asmbase.txt ---------------
-:,MOVE :,MOVE> :,CMOVE :,CMOVE>
+:,CNTJOY
+	,DUP "xor eax,eax" ,ln ;
+:,GETJOY ;
+:,SLOAD ;
+:,SPLAY  ,DROP ;
+:,MLOAD ;
+:,MPLAY  ,DROP ;
+
+|----------- en asmbase.txt
 :,SQRT
-:,INK :,INK@ :,ALPHA :,OP :,CP :,LINE :,CURVE :,PLINE :,PCURVE
-:,POLI :,FCOL :,FCEN :,FMAT :,SFILL :,LFILL :,RFILL :,TFILL ;
+:,MOVE :,MOVE> :,CMOVE :,CMOVE>
+:,INK :,INK@ :,ALPHA
+:,OP :,CP :,LINE :,CURVE :,PLINE :,PCURVE :,POLI
+:,FCOL :,FCEN :,FMAT :,SFILL :,LFILL :,RFILL :,TFILL
+:,OPENURL
+:,DOCINI :,DOCEND :,DOCAT :,DOCLINE :,DOCTEXT :,DOCFONT :,DOCBIT :,DOCRES :,DOCSIZE
+:,SYSTEM
+	;
+
+|------------ compila CODIGO
+|:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
+:nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
+
+:+etiqueta	| -- nueva   // y agrega a pila
+	nlabel 1+ dup 'nlabel ! dup >pilac ;
+
+:cpycad | adr --
+	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop ; ) ) ,c ) 2drop ;
+
+:salto? | adr++ xx xx -- adr++ xx xx 0/1
+	pick2 8 - @ $ff and
+	18 >? ( 31 <? ( 1 nip ; ) ) 0 nip ;
+
+:,defw
+:,defv ;
+
+|:,lit :,lits :,dwo :,dva
+|	,NOS ,TOS "mov %w,%w" ,line ;
+
+:,lit	dup tok>cte ,DUP "mov eax," ,s ,d ,cr ;
+:,lits	,DUP "mov eax,s" ,s nstr ,h ,cr 1 'nstr +! ;
+:,dwo   dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+:,dva   dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+
+:,wor	dup nro>dicn "call " ,s ,s ,cr ;
+:,var   dup nro>dicn ,DUP "mov eax,dword [" ,s ,s "]" ,s ,cr ;
+
+|:,wor 	dup 4 - @ nro>dicn "jmp " ,s ,s ,cr
+|:,var	,NOS ,TOS "mov %w,[%w]" ,line ;
+
+:,;
+	"ret" ,ln ;
+:,(
+	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
+:,)(
+	<pilac salto? 0? ( drop
+			1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac drop ; )
+			)( drop
+			2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac drop ; ) )
+	drop ;
+:,)
+	<pilac salto? 0? ( drop
+			1 =? ( <pilac label ":" ,ln drop ; )
+			2 =? ( <pilac jmp, drop ; )
+			3 =? ( <pilac jmp, <pilac label ":" ,ln drop ; )
+		)( drop
+			2 =? ( <pilac label ,cr drop ; ) )
+	drop ;
+
+
+:,[ :,] ;
+
 
 |---- nivel 1 - usando registros
 | info adr+ valor -- adr+
@@ -425,10 +735,6 @@
 ,DOCINI ,DOCEND ,DOCAT ,DOCLINE ,DOCTEXT ,DOCFONT ,DOCBIT ,DOCRES ,DOCSIZE  |-- impresora
 ,SYSTEM
 
-|----- compila sin optimizar
-:niv0 | adr adri+ info -- adri+ adr+
-	drop swap ,token0 ;
-
 |------------------------------
 #bufprim 0 | para salto?
 #bufftok )( 4096
@@ -461,13 +767,18 @@
 	dup 8 >> $ff and reg>str 'bnos2 strcpy
 	;
 
-:niv1 | adr adri+ info -- adri+ adr+
+:gencode | adr adri+ info -- adri+ adr+
 	extraeREGS		| adr adri+
 	$f and
-	$f =? ( drop swap 4+ ; ) | no genera codigo
+|	$f =? ( drop swap 4+ ; ) | no genera codigo
 	drop swap
-	@+ $ff and		| adri+ adr+ valor token
+	@+
+
+|dup tokenstr ";" ,s ,s 10 ,c
+
+	dup $ff and		| adri+ adr+ valor token
 	2 << 'nivel1 + @ exec | adri+ adr+
+	drop
 	;
 
 ::,compwordopt | nro --
@@ -484,6 +795,8 @@
 	'buffinf 4+
 	'bufftok ( buff> <? )(
 		swap @+ |dup "%h " ,print
-		$3 nand? ( niv0 )( niv1 )
+		gencode
+
+	"r4asm/cod.asm" savemem
 		) 2drop
 	;
