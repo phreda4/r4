@@ -559,7 +559,9 @@ vdrop	|MPLAY  a --
 |--	1 cteNombre     RESX
 :mt1 ;
 |--	2 cpy           dup
-:mt2 value "cpy(%h)" mprint ;
+:mt2
+	value "cpy(%h)" mprint
+	;
 |--	3 str           "hola"
 :mt3 value cte + "s%h" mprint ;
 |--	4 'cod          'func
@@ -581,8 +583,10 @@ vdrop	|MPLAY  a --
 #tiposrm mt0 mt1 mt2 mt3 mt4 mt5 mt6 mt7
 
 ::reg>str | nro -- ""
-	2 << 'regt + dup @
-	dup $7 and 2 << 'tiposrm + @ exec
+	( 2 << 'regt + dup @
+		dup $7 and
+		2 =? )( value nip nip nip )
+	2 << 'tiposrm + @ exec
 	nip nip ;
 
 #tiposrb mt0 mt1 mt2 mt3 mt4 mt5 mt6 mt7
@@ -701,24 +705,19 @@ vdrop	|MPLAY  a --
 #tiponm "cte" "cteN" "cpy" "str" "'cod" "'var" "var" "any+" "str+" "cod+" "dat+" "stack"
 
 :,cadaregistro
-	| estado del registro
-	| 0 -- en pila
-	| 1 -- es cte
-	| 2 -- es registro
-	| 3 -- es memoria
-|	over 2044 + @ " %d " ,print
-
 	pick2 64 + "| %k =" ,print
 	'tiponm over $f and ( 1? )( 1- swap >>0 swap ) drop
 	,s ,sp
 	$8000 and? ( "*" ,print ) | flag cte
-	$4000 and? ( "RR" ,print ) | flag cte
+	$4000 and? ( "Reg" ,print ) | flag reg
+
 	$80 and? ( "M" ,print ) | como memoria
 	$40 nand? ( "S" ,print ) | no endreg (es salida)
 	$20 and? ( "C" ,print ) | codreg
 
 	$100 and? ( " eaxedx" ,print ) | usoadx
 	$200 and? ( " ecx" ,print ) | usoecx | si no es cte
+
 
 	dup 16 >> $ff and 1? ( "<%d>" ,print )( drop ) | cnt de escrituras
 	dup 24 >> $ff and 1? ( "[%d]" ,print )( drop ) | cnt de lecturas
@@ -752,7 +751,7 @@ vdrop	|MPLAY  a --
 	'tiponm over $f and ( 1? )( 1- swap >>0 swap ) drop
 	print sp sp
 	$8000 and? ( "*" print ) | flag cte
-	$4000 and? ( "RR" print ) | flag cte
+	$4000 and? ( "Reg" print ) | flag reg
 	$80 and? ( "M" print ) | como memoria
 	$40 nand? ( "S" print ) | no endreg (es salida)
 	$20 and? ( "C" print ) | codreg
@@ -769,7 +768,7 @@ vdrop	|MPLAY  a --
 	cr allowchome ;
 
 ::dumpregs | --
-	'cadaregistro mapregs 
+	'cadaregistro mapregs
 	usedreg "| reales: %d" print cr
 ;
 
@@ -800,7 +799,7 @@ vdrop	|MPLAY  a --
 
 |--------- analisis del buffer
 
-:reg.t@ | n -- val
+::reg.t@ | n -- val
 	2 << 'regt + @ ;
 :reg.i@ | n -- val
 	2 << 'regini + @ ;
@@ -867,7 +866,6 @@ vdrop	|MPLAY  a --
 
 	'eaxobligatorio mapregs
 	'ecxobligatorio mapregs
-
 
 	'asignoregistron mapregs
 	;

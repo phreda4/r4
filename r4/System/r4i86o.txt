@@ -23,29 +23,6 @@
 
 ^r4/lib/trace.txt
 
-#btos )( 16
-#btosw )( 16
-#btosb )( 16
-#bnos )( 16
-#bnosw )( 16
-#bnosb )( 16
-#bnos2 )( 16
-
-#nopt
-#,TOS 'btos
-#,TOSw 'btosw
-#,TOSb 'btosb
-#,NOS 'bnos
-#,NOSw 'bnosw
-#,NOSb 'bnosb
-#,NOS2 'bnos2
-
-:TOSM?
-	'btos c@ $5b =? ( 1 nip ; ) 0 nip ;
-
-:NOSM?
-	'bnos c@ $5b =? ( 1 nip ; ) 0 nip ;
-
 |----- nro de str y label
 #nstr | nro de string
 #nlabel | nro de etiqueta
@@ -60,13 +37,129 @@
 :<pilac -4 'pilac> +! pilac> @ ;
 :-pilac 'pilac 'pilac> ! ;
 
-|--- asm plano
+
+|------ consulta sobre registros
+#regact
+#regval )( 32
+
+:regTOS		regact 24 >> $ff and ;
+:regNOS		regact 16 >> $ff and ;
+:regNOS2	regact 8 >> $ff and ;
+
+
+:cte1? | reg -- 1/0
+	reg.t@
+	$8000 nand? ( drop 0 ; )
+	24 >> 1 >? ( drop 0 ; )
+	drop 1 ;
+
+:reg? | reg -- 1/0
+	reg.t@
+	$4000 nand? ( drop 0 ; )
+	drop 1 ;
+
+:mem? | reg -- 1/0
+	reg.t@
+	$80 and? ( drop 1 ; )
+	drop 0 ;
+
+
+:ctelit? |
+	reg.t@
+	$f and 0? ( drop 1 ; )
+	drop 0 ;
+
+|------
+
+:,TOS
+	regTOS reg>str ,s ;
+
+:,NOS
+	regNOS reg>str ,s ;
+
+|------ asignacion de registros
+
+|------------ compila CODIGO
+
+|:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
+:nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
+
 :label	"_" ,s ,h 	;
 :jmp,	"jmp " ,s label ,cr ;
 
+:toknow
+	dup 4 - @ ;
+
 :,DUP
+	regTOS cte1? 1? ( drop "; *DUP*" ,s ,cr ; ) drop
 	"lea esi,[esi-4]" ,ln
 	"mov [esi],eax" ,ln ;
+
+:,lit
+	regTOS cte1? 1? ( drop "; *LIT*" ,s ,cr ; ) drop
+	toknow
+	tok>cte ,DUP "mov eax," ,s ,d ,cr ;
+
+:,lits
+	regTOS cte1? 1? ( drop "; *STR*" ,s ,cr ; ) drop
+	,DUP "mov eax,s" ,s nstr ,h ,cr 1 'nstr +! ;
+
+:,dwo
+	regTOS cte1? 1? ( drop "; *DW*" ,s ,cr ; ) drop
+	toknow
+	nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+
+:,dva
+	regTOS cte1? 1? ( drop "; *DV*" ,s ,cr ; ) drop
+	toknow
+	nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+
+:,wor
+	dup @ $ff and | word ;
+	12 =? ( "jmp " )( "call " )
+	,s drop
+	toknow
+	nro>dicn ,s ,cr ;
+
+:,var
+	toknow
+	nro>dicn ,DUP "mov eax,dword [" ,s ,s "]" ,s ,cr ;
+
+:,;
+	dup 8 - @ $ff and | word ;
+	8 =? ( drop ; ) drop
+	"ret" ,ln ;
+
+
+:+etiqueta	| -- nueva   // y agrega a pila
+	nlabel 1+ dup 'nlabel ! dup >pilac ;
+
+:salto? | adr++ xx -- adr++ xx 0/1
+	over 8 - @ $ff and
+	18 >? ( 31 <? ( 1 nip ; ) ) 0 nip ;
+
+:,(
+	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
+:,)(
+	<pilac salto? 0? ( drop
+			1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac drop ; )
+			)( drop
+			2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac drop ; ) )
+	drop ;
+:,)
+	<pilac salto? 0? ( drop
+			1 =? ( <pilac label ":" ,ln drop ; )
+			2 =? ( <pilac jmp, drop ; )
+			3 =? ( <pilac jmp, <pilac label ":" ,ln drop ; )
+		)( drop
+			2 =? ( <pilac label ,cr drop ; ) )
+	drop ;
+
+
+:,defw :,defv ;
+:,[ :,] ; | no hay anonimas en optimizado
+
+|--------- PILA
 
 :,DROP
 	"lodsd" ,ln ;
@@ -146,6 +239,7 @@
 	"@@:" ,line ;
 
 
+|------- PILAR
 
 :,>R
 	"push eax" ,ln ,DROP ;
@@ -200,6 +294,8 @@
 |	2 =? ( drop "lea esp,[esp-4]" ,line ; )
 |	drop ;
 
+|------- ARITMETICAS LOGICAS
+
 |:,AND	,TOS ,NOS "and %w,%w" ,line ;
 |:,OR	,TOS ,NOS "or %w,%w" ,line ;
 |:,XOR	,TOS ,NOS "xor %w,%w" ,line ;
@@ -208,8 +304,6 @@
 |:,-		,TOS ,NOS "sub %w,%w" ,line ;
 |:,*		,TOS ,NOS "imul %w,%w" ,line ;
 |:,/		,TOS ,NOS "idiv %w,%w" ,line ;
-|:,<<	,TOS ,NOS "sal %w,%w" ,line ;
-|:,>>	,TOS ,NOS "sar %w,%w" ,line ;
 |:,NEG 	,TOS "neg %w" ,line ;
 |:,1+	,TOS "add %w,1" ,line ;
 |:,1-	,TOS "add %w,-1" ,line ;
@@ -309,12 +403,33 @@
 	"cdq" ,ln
 	"idiv ecx" ,ln
 	"mov eax,edx" ,ln ;
+
+:,<<n
+	"mov ecx," ,s ,TOS ,cr
+	"sal " ,s ,NOS ",cl" ,ln ;
+
+:,<<1
+	regTOS ctelit? 0? ( drop ,<<n ; ) drop
+	"sal " ,s ,NOS "," ,s ,TOS ,cr ;
+
 :,<<
+	regTOS cte1? 1? ( drop ,<<1 ; ) drop
 	"mov ecx,eax" ,ln ,DROP
 	"sal eax,cl" ,ln ;
+
+:,>>n
+	"mov ecx," ,s ,TOS ,cr
+	"sar " ,s ,NOS ",cl" ,ln ;
+
+:,>>1
+	regTOS ctelit? 0? ( drop ,>>n ; ) drop
+	"sar " ,s ,NOS "," ,s ,TOS ,cr ;
+
 :,>>
+	regTOS cte1? 1? ( drop ,>>1 ; ) drop
 	"mov ecx,eax" ,ln ,DROP
 	"sar eax,cl" ,ln ;
+
 :,ABS
 	"cdq" ,ln
 	"add eax,edx" ,ln
@@ -335,16 +450,50 @@
 :,2*
 	"sal eax,1" ,ln ; | "add eax,eax" ,ln
 
+|------ MEMORIA
+
 :,@
 	"mov eax,dword [eax]" ,ln ;
 :,C@
 	"movsx eax,byte [eax]" ,ln ;
 :,W@
 	"movsx eax,word [eax]" ,ln ;
+
+|------------------
+:,!mm
+	"mov edx,[" ,s ,NOS "]" ,ln
+	"mov ecx,[" ,s ,TOS "]" ,ln
+	"mov [ecx],edx" ,ln
+	;
+:,!1m
+	"mov edx," ,s ,NOS ,cr
+	"mov [" ,s ,TOS "],edx" ,ln
+	;
+:,!11
+	regTOS mem? 2* regNOS mem? +
+	dup "; *!3 %d" ,print ,cr
+	3 =? ( drop ,!mm ; )
+|	2 =? ( drop ,!1m ; )
+	drop
+	"mov [" ,s ,TOS "]," ,s ,NOS ,cr
+	;
+
+:,!10
+	"; *!2" ,print ,cr ;
+:,!01
+	"; *!1" ,print ,cr ;
+
 :,!
+	regTOS cte1? 2* regNOS cte1? +
+	3 =? ( drop ,!11 ; )
+	2 =? ( drop ,!10 ; )
+	1? ( drop ,!01 ; )
+	drop
 	"mov ecx,[esi]" ,ln
 	"mov [eax],ecx" ,ln
 	,2DROP ;
+
+
 :,C!
 	"mov ecx,[esi]" ,ln
 	"mov byte [eax],cl" ,ln
@@ -412,18 +561,6 @@
 
 |:,!ex	"mov [%w+%w*%w],%w" ,line ;
 
-|:,!
-|--- caso 1
-	| 2 'var ! 		--> mov [var],2
-	| 'var1 'var2 ! --> mov [var2],var1
-	| 'cod 'var2 !  -->=mov [var2],cod
-|	,NOS ,TOS "mov [%w],%w" ,line ;
-|--- caso 2
-	| var1 'var2 !	--> mov ebx,[var1];mov [var2],ebx; ** push ebx..pop ebx si ebx ocupado
-	| 2 var ! 		--> mov ebx,[var ];mov [ebx],2; ** push ebx..pop ebx si ebx ocupado
-	| var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
-	| 'var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
-	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; *
 
 |:,C!
 |--- caso 1
@@ -434,7 +571,7 @@
 |--- caso 2
 	| var1 'var2 !	--> mov ebx,[var1];mov [var2],ebx; ** push ebx..pop ebx si ebx ocupado
 	| 2 var ! 		--> mov ebx,[var ];mov [ebx],2; ** push ebx..pop ebx si ebx ocupado
-	| var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
+	| var1 var2 !	-->= mov ebx,[var2];mov ecx,[var1];mov [ebx],ecx; **
 	| 'var1 var2 !	-->= mov ebx,[var2];mov [ebx],var1; **
 	|  'cod var2 !	-->= mov ebx,[var2];mov [ebx],cod ; **
 
@@ -482,6 +619,8 @@
 |	,TOS ,NOS "movsx %w,byte [%w]" ,line ,TOS "add %w,1" ,line ;
 
 
+|-------- CONDICIONALES
+
 :,0?
 	"or eax,eax" ,ln
 	"jnz " ,s ;
@@ -495,10 +634,16 @@
 	"or eax,eax" ,ln
 	"jz " ,s ;
 
+:,=?1
+	"cmp " ,s ,NOS "," ,s ,TOS ,cr
+	"jnz " ,s ;
+
 :,=?
+	regTOS cte1? 1? ( drop ,=?1 ; ) drop
 	"mov ecx,eax" ,ln ,DROP
 	"cmp eax,ecx" ,ln
 	"jnz " ,s ;
+
 :,<?
 	"mov ecx,eax" ,ln ,DROP
 	"cmp eax,ecx" ,ln
@@ -542,9 +687,6 @@
 |:,1?
 |	,condicion "jz " ,s ;
 
-|:,=?
-|	,TOS ,NOS "cmp %w,%w" ,line
-|	"jnz " ,s ;
 |:,<?
 |	,TOS ,NOS "cmp %w,%w" ,line
 |	"jge " ,s ;
@@ -587,8 +729,16 @@
 :,>XFB  	"call SYSTOXFB" ,ln ;
 :,XFB>  	"call SYSXFBTO" ,ln ;
 
-:,SW		,DUP "mov eax,[SYSW]" ,ln ;
-:,SH		,DUP "mov eax,[SYSH]" ,ln ;
+:,SW
+	regTOS cte1? 1? ( drop "; *SW* " ,ln ; ) drop
+	regTOS reg? 1? ( drop "mov " ,s ,TOS ",XRES" ,ln ; ) drop
+	,DUP "mov eax,XRES" ,ln ;
+
+:,SH
+	regTOS cte1? 1? ( drop "; *SH* " ,ln ; ) drop
+	regTOS reg? 1? ( drop "mov " ,s ,TOS ",YRES" ,ln ; ) drop
+	,DUP "mov eax,YRES" ,ln ;
+
 :,MEM		,DUP "mov eax,FREE_MEM" ,ln ;
 :,FRAMEV	,DUP "mov eax,SYSFRAME" ,ln ;
 :,XFB		,DUP "mov eax,XFB" ,ln ;
@@ -599,7 +749,7 @@
 	"shl eax,10" ,ln
 	"add eax,[esi]" ,ln
 	"lea ebp,[SYSFRAME+eax*4]" ,ln
-|	"imul eax,dword [SYSW]" ,ln
+|	"imul eax,XRES" ,ln
 |	"add eax,[esi]" ,ln
 |	"lea ebp,[SYSFRAME+eax*4]" ,ln
 	,2DROP ;
@@ -648,74 +798,6 @@
 :,DOCINI :,DOCEND :,DOCAT :,DOCLINE :,DOCTEXT :,DOCFONT :,DOCBIT :,DOCRES :,DOCSIZE
 :,SYSTEM
 	;
-
-|------------ compila CODIGO
-|:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
-:nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
-
-:,defw :,defv ;
-
-:toknow
-	dup 4 - @ ;
-
-:,lit
-
-	toknow
-	tok>cte ,DUP "mov eax," ,s ,d ,cr ;
-
-:,lits
-	,DUP "mov eax,s" ,s nstr ,h ,cr 1 'nstr +! ;
-
-:,dwo
-	toknow
-	nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
-
-:,dva
-	toknow
-	nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
-
-:,wor
-	dup @ $ff and | word ;
-	12 =? ( "jmp " )( "call " )
-	,s drop
-	toknow
-	nro>dicn ,s ,cr ;
-
-:,var
-	toknow
-	nro>dicn ,DUP "mov eax,dword [" ,s ,s "]" ,s ,cr ;
-
-:,;
-	dup 8 - @ $ff and | word ;
-	8 =? ( drop ; ) drop
-	"ret" ,ln ;
-
-
-:+etiqueta	| -- nueva   // y agrega a pila
-	nlabel 1+ dup 'nlabel ! dup >pilac ;
-
-:salto? | adr++ xx -- adr++ xx 0/1
-	over 8 - @ $ff and
-	18 >? ( 31 <? ( 1 nip ; ) ) 0 nip ;
-
-:,(
-	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
-:,)(
-	<pilac salto? 0? ( drop
-			1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac drop ; )
-			)( drop
-			2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac drop ; ) )
-	drop ;
-:,)
-	<pilac salto? 0? ( drop
-			1 =? ( <pilac label ":" ,ln drop ; )
-			2 =? ( <pilac jmp, drop ; )
-			3 =? ( <pilac jmp, <pilac label ":" ,ln drop ; )
-		)( drop
-			2 =? ( <pilac label ,cr drop ; ) )
-	drop ;
-
-:,[ :,] ; | no hay anonimas en optimizado
 
 |---- nivel 1 - usando registros
 | info adr+ valor -- adr+
@@ -768,20 +850,9 @@
 | en 2
 | eax nosr tosr
 
-| extrae TOS NOS NOS2
-:extraeREGS | info -- INFO
-	dup 24 >> $ff and
-	dup reg>str 'btos strcpy reg>strb 'btosb strcpy
-	dup 16 >> $ff and reg>str 'bnos strcpy
-	dup 8 >> $ff and reg>str 'bnos2 strcpy
-	;
 
-:gencode | adr adri+ info -- adri+ adr+
-|	extraeREGS		| adr adri+
-	$f and
-|	$f =? ( drop swap 4+ ; ) | no genera codigo
-	drop swap
-	@+
+:gencode | adr adri+ -- adri+ adr+
+	swap @+
 
 |dup tokenstr "; " ,s ,s 10 ,c | ** debug
 
@@ -801,7 +872,7 @@
 |---- genera codigo
 	'buffinf 4+
 	'bufftok ( buff> <? )(
-		swap @+ |dup "%h " ,print
+		swap @+ 'regact !
 		gencode
 
 |"r4asm/cod.asm" savemem | ****debug
