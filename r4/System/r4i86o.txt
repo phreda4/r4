@@ -653,35 +653,51 @@
 |:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
 :nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
 
+:,defw :,defv ;
+
+:toknow
+	dup 4 - @ ;
+
+:,lit
+
+	toknow
+	tok>cte ,DUP "mov eax," ,s ,d ,cr ;
+
+:,lits
+	,DUP "mov eax,s" ,s nstr ,h ,cr 1 'nstr +! ;
+
+:,dwo
+	toknow
+	nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+
+:,dva
+	toknow
+	nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+
+:,wor
+	dup @ $ff and | word ;
+	12 =? ( "jmp " )( "call " )
+	,s drop
+	toknow
+	nro>dicn ,s ,cr ;
+
+:,var
+	toknow
+	nro>dicn ,DUP "mov eax,dword [" ,s ,s "]" ,s ,cr ;
+
+:,;
+	dup 8 - @ $ff and | word ;
+	8 =? ( drop ; ) drop
+	"ret" ,ln ;
+
+
 :+etiqueta	| -- nueva   // y agrega a pila
 	nlabel 1+ dup 'nlabel ! dup >pilac ;
 
-:cpycad | adr --
-	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop ; ) ) ,c ) 2drop ;
-
-:salto? | adr++ xx xx -- adr++ xx xx 0/1
-	pick2 8 - @ $ff and
+:salto? | adr++ xx -- adr++ xx 0/1
+	over 8 - @ $ff and
 	18 >? ( 31 <? ( 1 nip ; ) ) 0 nip ;
 
-:,defw
-:,defv ;
-
-|:,lit :,lits :,dwo :,dva
-|	,NOS ,TOS "mov %w,%w" ,line ;
-
-:,lit	dup tok>cte ,DUP "mov eax," ,s ,d ,cr ;
-:,lits	,DUP "mov eax,s" ,s nstr ,h ,cr 1 'nstr +! ;
-:,dwo   dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
-:,dva   dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
-
-:,wor	dup nro>dicn "call " ,s ,s ,cr ;
-:,var   dup nro>dicn ,DUP "mov eax,dword [" ,s ,s "]" ,s ,cr ;
-
-|:,wor 	dup 4 - @ nro>dicn "jmp " ,s ,s ,cr
-|:,var	,NOS ,TOS "mov %w,[%w]" ,line ;
-
-:,;
-	"ret" ,ln ;
 :,(
 	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
 :,)(
@@ -699,9 +715,7 @@
 			2 =? ( <pilac label ,cr drop ; ) )
 	drop ;
 
-
-:,[ :,] ;
-
+:,[ :,] ; | no hay anonimas en optimizado
 
 |---- nivel 1 - usando registros
 | info adr+ valor -- adr+
@@ -746,11 +760,6 @@
 	0 'bufprim !
 	'bufftok 'buff> ! ;
 
-:buffmap | exec token --
-	'bufftok ( buff> <? )(
-		@+ $ff and pick2 =? ( drop pick2 exec )( drop )
-		) 3drop ;
-
 |--------- nivel de pila
 | si pila esta en 0
 | [esi+4] [esi] eax
@@ -768,17 +777,15 @@
 	;
 
 :gencode | adr adri+ info -- adri+ adr+
-	extraeREGS		| adr adri+
+|	extraeREGS		| adr adri+
 	$f and
 |	$f =? ( drop swap 4+ ; ) | no genera codigo
 	drop swap
 	@+
 
-|dup tokenstr ";" ,s ,s 10 ,c
+|dup tokenstr "; " ,s ,s 10 ,c | ** debug
 
-	dup $ff and		| adri+ adr+ valor token
-	2 << 'nivel1 + @ exec | adri+ adr+
-	drop
+	$ff and	2 << 'nivel1 + @ exec | adri+ adr+
 	;
 
 ::,compwordopt | nro --
@@ -797,6 +804,7 @@
 		swap @+ |dup "%h " ,print
 		gencode
 
-	"r4asm/cod.asm" savemem
+|"r4asm/cod.asm" savemem | ****debug
+
 		) 2drop
 	;
