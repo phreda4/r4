@@ -218,7 +218,8 @@
 :xop2a1	usotn usoecx regr+1 vdrop reg+1 ; | << >>
 :op3a1	usotn2 regr+1 vdrop regr+1 vdrop reg+1 usoadx ; | */
 :vop3a1	usotn2 regr+1 vdrop regr+1 vdrop reg+1 usoadx usoecx ; | *>> /<<
-:op2a2	usotn reg+1 vswap reg+1 vswap usoadx ; | mod/
+
+:op2a2	usotn reg+1 vdrop reg+1 0 d.pushSTACK usoadx ; | mod/
 
 |--- pila R
 :v>r	d.pop r.push usort ;
@@ -571,6 +572,16 @@ vdrop	|MPLAY  a --
 |--	6 dat           var
 :mt6 value "[w%h]" mprint ;
 
+|#X64Reg RBX RCX RDX RAX RDI R12 R13 R14 R8 R9 R10 R11
+|#X64Regf XMM6 XMM7 XMM8 XMM9 XMM10 XMM11 XMM12 XMM13 XMM14 XMM15 XMM2 XMM3 XMM4 XMM5
+|#maxreg 12
+|#maxregf 14
+
+#X64Reg "EBX" "EDI" "ECX" "EDX" "EAX"
+#X64Regf "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7"
+#maxreg 5
+#maxregf 6
+
 #ra "eax" #rb "ebx" #rc "ecx" #rd "edx" #re "edi" #rf "ebp"
 #reg 'ra 'rb 'rc 'rd 're 'rf
 
@@ -663,10 +674,26 @@ vdrop	|MPLAY  a --
 	":" ,s ( 64 + ,c c@+ 0? )
 	2drop ;
 
+:,primm | n --
+	dup 2 << 'regt + @
+	$8000 and? ( 2drop "*" ,s ; )
+	drop
+	64 + ,c
+	;
+:,printstacki
+	( c@+ 1? )( ,primm ) drop
+	c@+ 0? ( 2drop ; )
+	":" ,s ( ,primm c@+ 0? )
+	2drop ;
+
 :,print1tok
 	dup $ff and 3 <? ( 2drop ; ) drop	| quita :#
 	tokenstr 16 ,printcnt
-	"| " ,s swap @+ ,printstack swap
+	"| " ,s swap @+
+|	,printstack
+	,printstacki
+
+	swap
 	" ; " ,s
 	,printuso
 	,cr ;
@@ -688,19 +715,6 @@ vdrop	|MPLAY  a --
 	2drop ;
 
 |--- registros
-:t0 "Cte " print ;
-:t1 "Str " print value cte + "%s" print ;
-:t2 "Var " print value nro>nom "%w" print ;
-:t3 "'Va " print value nro>nom "'%w" print ;
-:t4 "'Co " print value nro>nom "'%w" print ;
-:t5 "Cpy " print ; |value 64 + "%k" print ;
-:t6 "Ext " print value "%d" print ;
-:t7 "Reg " print value "%d" print ;
-:t8 "Reg " print value "%d" print ;
-:t9 "Reg " print value "%d" print ;
-:t10 "Reg " print value "%d" print ;
-
-#tiposr t0 t1 t2 t3 t4 t5 t6 t7 t8 t9 t10
 
 #tiponm "cte" "cteN" "cpy" "str" "'cod" "'var" "var" "any+" "str+" "cod+" "dat+" "stack"
 
@@ -728,12 +742,11 @@ vdrop	|MPLAY  a --
 	,cr ;
 
 ::,printAnaREGS
-	cntregs 1- "|-- %d Registros --" ,print ,cr
+	usedreg cntregs 1- "|-- %d Registros -- %d Usados" ,print ,cr
 	'regt 4+
 	1 ( cntregs <? )(
 		swap @+ ,cadaregistro
 		swap 1+ ) 2drop
-	usedreg "| reales: %d" ,print ,cr
 	"|-----------------" ,s ,cr ;
 
 |--------- registros
@@ -798,7 +811,6 @@ vdrop	|MPLAY  a --
 	drop ;
 
 |--------- analisis del buffer
-
 ::reg.t@ | n -- val
 	2 << 'regt + @ ;
 :reg.i@ | n -- val
@@ -812,7 +824,12 @@ vdrop	|MPLAY  a --
 
 :ctessincosto | nro reg -- nro
 	dup 16 >> $ff and
-	1? ( 2drop ; ) | tiene costo
+	1? ( 2drop ; ) | fue escrito
+	drop
+	dup 24 >> $ff and
+	1 >? ( 2drop ; ) | fue leido +de 1
+	drop
+	dup $f and 7 =? ( 2drop ; ) | any+ no es cte
 	drop
 	$40 nand? ( drop ; ) | no termino
 	$8000 or over 4 - ! | marca como cte

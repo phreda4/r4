@@ -46,7 +46,6 @@
 :regNOS		regact 16 >> $ff and ;
 :regNOS2	regact 8 >> $ff and ;
 
-
 :cte1? | reg -- 1/0
 	reg.t@
 	$8000 nand? ( drop 0 ; )
@@ -70,7 +69,6 @@
 	drop 0 ;
 
 |------
-
 :,TOS
 	regTOS reg>str ,s ;
 
@@ -160,7 +158,6 @@
 :,[ :,] ; | no hay anonimas en optimizado
 
 |--------- PILA
-
 :,DROP
 	"lodsd" ,ln ;
 :,NIP
@@ -182,9 +179,6 @@
 	,DUP "mov eax,[esi+4*4]" ,ln ;
 :,SWAP
 	"xchg eax,[esi]" ,ln ;
-|	"push eax" ,ln	| otra version (sin dx)
-|	"mov eax,[esi]" ,ln
-|	"popd [esi]" ,ln ;
 :,ROT
 	"pushd [esi+4]" ,ln	| otra version (sin dx,cx)
 	"pushd [esi]" ,ln
@@ -242,132 +236,99 @@
 |------- PILAR
 
 :,>R
+|	nopt
+|	2 =? ( drop ,TOS "push %w" ,line ; )
+|	drop
+|	,TOS ,NOS "mov %w,%w" ,line ;
+
 	"push eax" ,ln ,DROP ;
 :,R>
+|	nopt
+|	2 =? ( drop ,TOS "pop %w" ,line ; )
+|	drop ;
+
 	,DUP "pop eax" ,ln ;
 :,R
+|	nopt
+|	2 =? ( drop ,NOS ,TOS "mov %w,%w" ,line ; ) drop
+|	,TOS "mov %w,[esp]" ,line ;
+
 	,DUP "mov eax,[esp]" ,ln ;
+
 :,RDROP
+|	nopt
+|	2 =? ( drop "lea esp,[esp-4]" ,line ; )
+|	drop ;
+
 	"lea esp,[esp+4]" ,ln ;
+
 :,R+
+|	,NOS ,TOS "mov %w,[%w]" ,line
+|	,NOS "add %w,4" ,line ;
+
 	"add [esp],eax" ,ln ,DROP ;
+
 :,R!+
+|	nopt
+|	2 =? ( drop ,TOS ,NOS "add %w,%w" ,line  ; ) drop
+|	,TOS "add [esp],%w" ,line ;
+
 	"pop edx" ,ln
 	"mov [edx],eax" ,ln
 	"add edx,4" ,ln
 	"push edx" ,ln
 	,DROP ;
+
 :,R@+
 	,DUP
 	"mov eax,[esp]" ,ln
 	"mov eax,[eax]" ,ln
 	"add dword [esp],4" ,ln ;
 
-|:,>R
-|	nopt
-|	2 =? ( drop ,TOS "push %w" ,line ; )
-|	drop
-|	,TOS ,NOS "mov %w,%w" ,line ;
-|:,R>
-|	nopt
-|	2 =? ( drop ,TOS "pop %w" ,line ; )
-|	drop ;
-|:,R
-|	nopt
-|	2 =? ( drop ,NOS ,TOS "mov %w,%w" ,line ; ) drop
-|	,TOS "mov %w,[esp]" ,line ;
-|:,R+
-|	nopt
-|	2 =? ( drop ,TOS ,NOS "add %w,%w" ,line  ; ) drop
-|	,TOS "add [esp],%w" ,line ;
-
-|:,R!+
-|	,TOS ,NOS "mov [%w],%w" ,line
-|	,NOS "add %w,4" ,line ;
-
-|:,R@+
-|	,NOS ,TOS "mov %w,[%w]" ,line
-|	,NOS "add %w,4" ,line ;
-
-|:,RDROP
-|	nopt
-|	2 =? ( drop "lea esp,[esp-4]" ,line ; )
-|	drop ;
-
 |------- ARITMETICAS LOGICAS
-
-|:,AND	,TOS ,NOS "and %w,%w" ,line ;
-|:,OR	,TOS ,NOS "or %w,%w" ,line ;
-|:,XOR	,TOS ,NOS "xor %w,%w" ,line ;
-|:,NOT	,TOS "not %w" ,line ;
-|:,+		,TOS ,NOS "add %w,%w" ,line ;
-|:,-		,TOS ,NOS "sub %w,%w" ,line ;
-|:,*		,TOS ,NOS "imul %w,%w" ,line ;
-|:,/		,TOS ,NOS "idiv %w,%w" ,line ;
-|:,NEG 	,TOS "neg %w" ,line ;
-|:,1+	,TOS "add %w,1" ,line ;
-|:,1-	,TOS "add %w,-1" ,line ;
-|:,4+ 	,TOS "add %w,4" ,line ;
-|:,2/ 	,TOS "sar %w,1" ,line ;
-|:,2* 	,TOS "sal %w,1" ,line ;
-|:,*/
-|	"cdq" ,line
-|	,NOS "imul %w" ,line
-|	,TOS "idiv %w" ,line ;
-
-|:,*>>
-|	"cdq" ,line
-|	,NOS "imul %w" ,line
-|	,TOSb "shrd eax,edx,%w" ,line
-|	,TOSb "shr edx,%w" ,line
-|	;
-
-|:,<</
-|	"cdq" ,line
-|    ,TOSb "shld edx,eax,%w" ,line
-|	,TOSb "shl eax,%w" ,line
-|	,NOS "idiv %w" ,line ;
-
-|:,/MOD
-|	"cdq" ,line
-|	,TOS "idiv %w" ,line ;
-
-|:,MOD
-|	,TOS "idiv %w" ,line
-|	"mov eax,edx" ,line ;
-
-|:,ABS
-|	"cdq" ,line | no funciona si no es eax !!!
-|	,NOS "add %w,edx" ,line
-|	,NOS "xor %w,edx" ,line ;
-
-|:,CLZ
-|	,TOS dup "bsr %w,%w" ,line
-|	,TOS "xor %w,31" ,line ;
-
 :,AND
+|	,TOS ,NOS "and %w,%w" ,line ;
+
 	"and eax,[esi]" ,ln ,NIP ;
 :,OR
+|	,TOS ,NOS "or %w,%w" ,line ;
+
 	"or eax,[esi]" ,ln ,NIP ;
 :,XOR
+|	,TOS ,NOS "xor %w,%w" ,line ;
+
 	"xor eax,[esi]" ,ln ,NIP ;
 :,NOT
+|	,TOS "not %w" ,line ;
+
 	"not eax" ,ln ;
 :,+
+|	,TOS ,NOS "add %w,%w" ,line ;
+
 	"add eax,[esi]" ,ln ,NIP ;
 :,-
+|	,TOS ,NOS "sub %w,%w" ,line ;
+
 	"neg eax" ,ln
 	"add eax,[esi]" ,ln
 	,NIP ;
 :,*
+|	,TOS ,NOS "imul %w,%w" ,line ;
+
 	"imul eax,dword [esi]" ,ln
 	,NIP ;
 :,/
+|	,TOS ,NOS "idiv %w,%w" ,line ;
+
 	"mov ecx,eax" ,ln
 	,DROP
 	"cdq" ,ln
 	"idiv ecx" ,ln ;
 :,*/
+|	"cdq" ,line
+|	,NOS "imul %w" ,line
+|	,TOS "idiv %w" ,line ;
+
 	"mov ecx,eax" ,ln
 	,DROP
 	"cdq" ,ln
@@ -375,6 +336,12 @@
 	"idiv ecx" ,ln
 	,NIP ;
 :,*>>
+|	"cdq" ,line
+|	,NOS "imul %w" ,line
+|	,TOSb "shrd eax,edx,%w" ,line
+|	,TOSb "shr edx,%w" ,line
+|	;
+
 	"mov ecx,eax" ,ln
 	,DROP
 	"cdq" ,ln
@@ -383,6 +350,11 @@
 	"shr edx,cl" ,ln
 	,NIP ;
 :,<</
+|	"cdq" ,line
+|    ,TOSb "shld edx,eax,%w" ,line
+|	,TOSb "shl eax,%w" ,line
+|	,NOS "idiv %w" ,line ;
+
 	"mov ecx,eax" ,ln
 	"mov ebx,[esi]" ,ln
 	,2DROP
@@ -390,14 +362,22 @@
     "shld edx,eax,cl" ,ln
 	"shl eax,cl" ,ln
 	"idiv ebx" ,ln ;
+
 :,/MOD
+|	"cdq" ,line
+|	,TOS "idiv %w" ,line ;
+
 	"mov ecx,eax" ,ln
 	"mov eax,[esi]" ,ln
 	"cdq" ,ln
 	"idiv ecx" ,ln
 	"mov [esi],eax" ,ln
 	"mov eax,edx" ,ln ;
+
 :,MOD
+|	,TOS "idiv %w" ,line
+|	"mov eax,edx" ,line ;
+
 	"mov ecx,eax" ,ln
 	,DROP
 	"cdq" ,ln
@@ -431,27 +411,48 @@
 	"sar eax,cl" ,ln ;
 
 :,ABS
+|	"mov ecx,ebx" ,ln
+|	"sar ebx,31" ,ln
+|	"add ecx,ebx" ,ln
+|	"xor ecx,ebx" ,ln
+
 	"cdq" ,ln
 	"add eax,edx" ,ln
 	"xor eax,edx" ,ln ;
+
 :,CLZ
+|	,TOS dup "bsr %w,%w" ,line
+|	,TOS "xor %w,31" ,line ;
+
 	"bsr eax,eax" ,ln
 	"xor eax,31" ,ln ;
+
 :,NEG
+| 	,TOS "neg %w" ,line ;
+
 	"neg eax" ,ln ;
 :,1+
+|	,TOS "add %w,1" ,line ;
+
 	"inc eax" ,ln ;
 :,4+
+| 	,TOS "add %w,4" ,line ;
+
 	"add eax,4" ,ln ;
 :,1-
+|	,TOS "add %w,-1" ,line ;
+
 	"dec eax" ,ln ;
 :,2/
+| 	,TOS "sar %w,1" ,line ;
+
 	"sar eax,1" ,ln ;
 :,2*
+| 	,TOS "sal %w,1" ,line ;
+
 	"sal eax,1" ,ln ; | "add eax,eax" ,ln
 
 |------ MEMORIA
-
 :,@
 	"mov eax,dword [eax]" ,ln ;
 :,C@
@@ -620,94 +621,37 @@
 
 
 |-------- CONDICIONALES
-
-:,0?
+:,condicion
+	regTOS mem? 1? ( drop
+		"cmp " ,s ,TOS ",0" ,ln ; ) drop
 	"or eax,eax" ,ln
-	"jnz " ,s ;
-:,+?
-	"or eax,eax" ,ln
-	"js " ,s ;
-:,-?
-	"or eax,eax" ,ln
-	"jns " ,s ;
-:,1?
-	"or eax,eax" ,ln
-	"jz " ,s ;
+	;
+:,0? ,condicion "jnz " ,s ;
+:,+? ,condicion "js " ,s ;
+:,-? ,condicion "jns " ,s ;
+:,1? ,condicion "jz " ,s ;
 
-:,=?1
-	"cmp " ,s ,NOS "," ,s ,TOS ,cr
-	"jnz " ,s ;
+:,condicion2
+	regTOS cte1? 1? ( drop
+    	"cmp " ,s ,NOS "," ,s ,TOS ,cr ; ) drop
+	"mov ecx,eax" ,ln ,DROP
+	"cmp eax,ecx" ,ln ;
 
-:,=?
-	regTOS cte1? 1? ( drop ,=?1 ; ) drop
-	"mov ecx,eax" ,ln ,DROP
-	"cmp eax,ecx" ,ln
-	"jnz " ,s ;
+:,=? ,condicion2	"jnz " ,s ;
+:,<? ,condicion2	"jge " ,s ;
+:,>? ,condicion2	"jle " ,s ;
+:,<=? ,condicion2	"jg " ,s ;
+:,>=? ,condicion2	"jl " ,s ;
+:,<>? ,condicion2	"jz " ,s ;
 
-:,<?
+:,condicion3
+	regTOS cte1? 1? ( drop
+    	"test " ,s ,NOS "," ,s ,TOS ,cr ; ) drop
 	"mov ecx,eax" ,ln ,DROP
-	"cmp eax,ecx" ,ln
-	"jge " ,s ;
-:,>?
-	"mov ecx,eax" ,ln ,DROP
-	"cmp eax,ecx" ,ln
-	"jle " ,s ;
-:,<=?
-	"mov ecx,eax" ,ln ,DROP
-	"cmp eax,ecx" ,ln
-	"jg " ,s ;
-:,>=?
-	"mov ecx,eax" ,ln ,DROP
-	"cmp eax,ecx" ,ln
-	"jl " ,s ;
-:,<>?
-	"mov ecx,eax" ,ln ,DROP
-	"cmp eax,ecx" ,ln
-	"jz " ,s ;
-:,and?
-	"mov ecx,eax" ,ln ,DROP
-	"test eax,ecx" ,ln
-	"jz " ,s ;
-:,nand?
-	"mov ecx,eax" ,ln ,DROP
-	"test eax,ecx" ,ln
-	"jnz " ,s ;
+	"test eax,ecx" ,ln ;
 
-|------------------------------------
-|:,condicion
-|	TOSM? 1? ( drop ,TOS "cmp %w,0" ,line ; ) drop
-|	,TOS dup "or %w,%w" ,line ;
-
-|:,0?
-|	,condicion "jnz " ,s ;
-|:,+?
-|	,condicion "js " ,s ;
-|:,-?
-|	,condicion "jns " ,s ;
-|:,1?
-|	,condicion "jz " ,s ;
-
-|:,<?
-|	,TOS ,NOS "cmp %w,%w" ,line
-|	"jge " ,s ;
-|:,>?
-|	,TOS ,NOS "cmp %w,%w" ,line
-|	"jle " ,s ;
-|:,<=?
-|	,TOS ,NOS "cmp %w,%w" ,line
-|	"jg " ,s ;
-|:,>=?
-|	,TOS ,NOS "cmp %w,%w" ,line
-|	"jl " ,s ;
-|:,<>?
-|	,TOS ,NOS "cmp %w,%w" ,line
-|	"jz " ,s ;
-|:,and?
-|	,TOS ,NOS "test %w,%w" ,line
-|	"jz " ,s ;
-|:,nand?
-|	,TOS ,NOS "test %w,%w" ,line
-|	"jnz " ,s ;
+:,and?  ,condicion3	"jz " ,s ;
+:,nand? ,condicion3	"jnz " ,s ;
 
 |--------- Sistema
 :,END		"jmp SYSEND" ,ln ;
@@ -729,23 +673,38 @@
 :,>XFB  	"call SYSTOXFB" ,ln ;
 :,XFB>  	"call SYSXFBTO" ,ln ;
 
-:,SW
-	regTOS cte1? 1? ( drop "; *SW* " ,ln ; ) drop
-	regTOS reg? 1? ( drop "mov " ,s ,TOS ",XRES" ,ln ; ) drop
-	,DUP "mov eax,XRES" ,ln ;
+:,ctesys
+	regTOS cte1? 1? ( drop "; *SYSCTE*" ,s ; ) drop
+	regTOS reg? 1? ( drop "mov " ,s ,TOS "," ,s ; ) drop
+	,DUP "mov eax," ,s ;
 
-:,SH
-	regTOS cte1? 1? ( drop "; *SH* " ,ln ; ) drop
-	regTOS reg? 1? ( drop "mov " ,s ,TOS ",YRES" ,ln ; ) drop
-	,DUP "mov eax,YRES" ,ln ;
-
-:,MEM		,DUP "mov eax,FREE_MEM" ,ln ;
-:,FRAMEV	,DUP "mov eax,SYSFRAME" ,ln ;
-:,XFB		,DUP "mov eax,XFB" ,ln ;
+:,SW 	,ctesys "XRES" ,ln ;
+:,SH	,ctesys "YRES" ,ln ;
+:,MEM	,ctesys "FREE_MEM" ,ln ;
+:,FRAMEV	,ctesys "SYSFRAME" ,ln ;
+:,XFB		,ctesys "XFB" ,ln ;
 
 :,PAPER		"mov [SYSPAPER],eax" ,ln ,DROP ;
 
+:,setxyopt
+	3 =? ( drop
+		"lea ebp,[SYSFRAME+((" ,s ,TOS "*XRES+" ,s ,NOS ")*4)]" ,ln ; )
+	2 =? ( drop | TOS=cte =Y
+		"mov edx," ,s ,TOS "*YRES" ,ln
+		"add edx," ,s ,NOS ,cr
+		"lea ebp,[SYSFRAME+edx*4]" ,ln
+		; )
+	drop | NOS=cte =X
+	"mov edx," ,s ,TOS ,cr
+	"shl edx,10" ,ln
+	"add edx," ,s ,NOS ,cr
+	"lea ebp,[SYSFRAME+" ,s ,NOS "+eax*4]" ,ln
+	;
+
 :,SETXY | x y --
+	regTOS cte1? 2* regNOS cte1? +
+	1? ( ,setxyopt ; )
+	drop
 	"shl eax,10" ,ln
 	"add eax,[esi]" ,ln
 	"lea ebp,[SYSFRAME+eax*4]" ,ln
@@ -849,7 +808,6 @@
 | [esi] eax tosr
 | en 2
 | eax nosr tosr
-
 
 :gencode | adr adri+ -- adri+ adr+
 	swap @+
