@@ -20,6 +20,7 @@
 
 ^r4/system/r4code.txt
 ^r4/system/pilaestatica.txt
+^r4/system/vstack2.txt
 
 ^r4/lib/trace.txt
 
@@ -39,6 +40,93 @@
 
 
 |------ consulta sobre registros
+
+|#sysregs "RAX" "RBX" "RCX" "RDX" "RDI" "R8" "R9" "R10" "R11" "R12" "R13" "R14"
+|#sysregsc 12
+|#sysregx "XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7" "XMM8" "XMM9" "XMM10" "XMM11" "XMM12" "XMM13" "XMM14" "XMM15"
+|#sysregxc 16
+
+#sysregs "EAX" "EBX" "ECX" "EDX" "EDI"  | "EBP"
+#sysregsc  5
+#sysregx "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7"
+#sysregxc  8
+
+#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
+#sysvars "[SYSPAPER]" "[SYSXYM]" "[SYSBM]" "[SYSKEY]"
+
+
+
+| NRO CTE 'STR 'COD 'DAT
+| DAT VAR
+| REG XREG
+|----- tipos de celdas
+
+:nrolist2str swap ( 1? )( 1- swap >>0 swap ) drop ;
+:value	over 1024 + @ ;
+
+|--	0 nro 	33
+:mt0 value 99 >? ( "$%h" )( -9999999 <? ( "$%h" )( "%d" ) )  mprint ;
+|--	1 cte	XRES
+:mt1 value 'syscons nrolist2str ;
+|--	2 str   "hola"
+:mt2 value cte + "s%h" mprint ;
+|--	3 'cod  'func
+:mt3 value "w%h" mprint ;
+|--	4 'dat  'var
+:mt4 value "w%h" mprint ;
+|--	5 dat   var
+:mt5 value "[w%h]" mprint ;
+|-- 6 var 	[SYSKEY]
+:mt6 value 'sysvars nrolist2str ;
+|-- 7 stack [esi+v*4]
+:mt7 value 0? ( drop "[esi]" )( "[esi+%d*4]" mprint ) ;
+|-- 8 reg 	eax
+:mt8 value 'sysregs nrolist2str ;
+|-- 9 regx 	xmm1
+:mt9 value 'sysregx nrolist2str ;
+
+#tiposrm mt0 mt1 mt2 mt3 mt4 mt5 mt6 mt7 mt8 mt9
+
+::reg>str | nro -- ""
+	( 2 << 'regt + dup @
+		dup $7 and
+		2 =? )( value nip nip nip )
+	2 << 'tiposrm + @ exec
+	nip nip ;
+
+#registrosusados
+
+#inivpcnt
+:inivpila  | usado --
+	inivstack
+	0? ( drop ; )
+	dup 'inivpcnt !
+	1-
+	( 1? )( 1-
+		dup 7 addcell d.push | [esi
+		) drop
+	0 8 addcell d.push | eax
+	;
+
+:cambiareg | deltaesi --
+	
+	;
+| eax [esi]
+| [esi] eax
+|  xx     xx    xx
+| [esi+4] [esi] eax
+
+:pila2normal | --  ;transforma la pila actual a normal
+	d.cnt 0? ( drop ; )
+	inivpcnt over - | actual-origen
+	1? ( "lea esi,[esi" ,s dup +? ( "+" ,s ) 2 << ,d "]" ,ln ) drop | corre esi
+
+	( 1? )( 1-
+		dup d.nro
+		) drop ;
+
+
+|-------------------------------------
 #regact
 #regval )( 32
 
@@ -61,7 +149,6 @@
 	reg.t@
 	$80 and? ( drop 1 ; )
 	drop 0 ;
-
 
 :ctelit? |
 	reg.t@
@@ -89,41 +176,38 @@
 	dup 4 - @ ;
 
 :,DUP
-	regTOS cte1? 1? ( drop "; *DUP*" ,s ,cr ; ) drop
 	"lea esi,[esi-4]" ,ln
 	"mov [esi],eax" ,ln ;
 
 :,lit
-	regTOS cte1? 1? ( drop "; *LIT*" ,s ,cr ; ) drop
-	toknow
-	tok>cte ,DUP "mov eax," ,s ,d ,cr ;
+	toknow tok>cte 0 addcell d.push ;
+|	toknow tok>cte ,DUP "mov eax," ,s ,d ,cr ;
 
 :,lits
-	regTOS cte1? 1? ( drop "; *STR*" ,s ,cr ; ) drop
-	,DUP "mov eax,s" ,s nstr ,h ,cr 1 'nstr +! ;
+	nstr 2 addcell d.push ;
+|	,DUP "mov eax,s" ,s nstr ,h ,cr 1 'nstr +! ;
 
 :,dwo
-	regTOS cte1? 1? ( drop "; *DW*" ,s ,cr ; ) drop
-	toknow
-	nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+	toknow nro>dicn 3 addcell d.push ;
+|	toknow nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
 
 :,dva
-	regTOS cte1? 1? ( drop "; *DV*" ,s ,cr ; ) drop
-	toknow
-	nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+	toknow nro>dicn 4 addcell d.push ;
+|	toknow nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
 
 :,wor
+	pila2normal
 	dup @ $ff and | word ;
 	12 =? ( "jmp " )( "call " )
 	,s drop
-	toknow
-	nro>dicn ,s ,cr ;
+	toknow nro>dicn ,s ,cr ;
 
 :,var
-	toknow
-	nro>dicn ,DUP "mov eax,dword [" ,s ,s "]" ,s ,cr ;
+	toknow nro>dicn 5 addcell d.push ;
+|	toknow nro>dicn ,DUP "mov eax,dword [" ,s ,s "]" ,s ,cr ;
 
 :,;
+	pila2normal
 	dup 8 - @ $ff and | word ;
 	8 =? ( drop ; ) drop
 	"ret" ,ln ;
@@ -137,14 +221,17 @@
 	18 >? ( 31 <? ( 1 nip ; ) ) 0 nip ;
 
 :,(
+	| reajusta pila
 	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
 :,)(
+	| reajusta pila
 	<pilac salto? 0? ( drop
 			1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac drop ; )
 			)( drop
 			2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac drop ; ) )
 	drop ;
 :,)
+	| reajusta pila
 	<pilac salto? 0? ( drop
 			1 =? ( <pilac label ":" ,ln drop ; )
 			2 =? ( <pilac jmp, drop ; )
@@ -154,7 +241,7 @@
 	drop ;
 
 
-:,defw :,defv ;
+:,defw :,defv ; | no hay definiciones en optimizado (investigar como)
 :,[ :,] ; | no hay anonimas en optimizado
 
 |--------- PILA
@@ -180,13 +267,15 @@
 :,SWAP
 	"xchg eax,[esi]" ,ln ;
 :,ROT
-	"pushd [esi+4]" ,ln	| otra version (sin dx,cx)
-	"pushd [esi]" ,ln
-	"popd [esi+4]" ,ln
+	"mov edx,[esi]" ,ln
 	"mov [esi],eax" ,ln
-	"pop eax" ,ln ;
+	"mov eax,[esi+4]" ,ln
+	"mov [esi+4],edx" ,ln ;
 :,2DUP
-	,OVER ,OVER ;
+	"mov edx,[esi]" ,ln
+	"mov [esi-4],eax" ,ln
+	"mov [esi-8],edx" ,ln
+	"lea esi,[esi-8]" ,ln ;
 :,2OVER
 	"mov [esi-4],eax" ,ln
 	"lea esi,[esi-8]" ,ln
@@ -828,6 +917,9 @@
 	nro>mov @ 24 << 24 >> neg | uso
 	buff> 'bufftok rot analisabuf
 |---- genera codigo
+
+	nro>mov @ 24 << 24 >> neg
+	inivpila
 	'buffinf 4+
 	'bufftok ( buff> <? )(
 		swap @+ 'regact !
