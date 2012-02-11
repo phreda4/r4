@@ -3,11 +3,6 @@
 | PHREDA 2012
 |------------------------------------
 
-#celln 0
-#cellt )( 1024	| tipo
-#cellv )( 1024	| valor
-#cells )( 1024  | suma
-
 |--- PILA DATOS
 #dpila )( 1024 | 8bits
 #dpila> 'dpila
@@ -15,20 +10,6 @@
 |--- PILA R
 #rpila )( 1024
 #rpila> 'rpila
-
-:inivstack
-	0 'celln !
-	'dpila 'dpila> !
-	'rpila 'rpila> !
-	;
-
-:addcell | valor tipo -- nro
-	celln 2 <<
-	'cellt + !+
-	1020 + !+
-	0 swap 1020 + !
-	1 'celln +!
-	;
 
 ::d.cnt dpila dpila> - 2 >> ;
 ::d.pop -4 'dpila> +! dpila> @ ;
@@ -48,83 +29,117 @@
 ::r.push rpila> !+ 'rpila> ! ;
 ::r.tos rpila> 4 - @ ;
 
-|------ consulta sobre registros
+|------ Celda de la pila
+#celln 0
+#cellt )( 1024	| tipo
+#cellv )( 1024	| valor
+#cella )( 1024  | suma
+#cells )( 1024  | shift
 
-|#sysregs "RAX" "RBX" "RCX" "RDX" "RDI" "R8" "R9" "R10" "R11" "R12" "R13" "R14"
-|#sysregsc 12
-|#sysregx "XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7" "XMM8" "XMM9" "XMM10" "XMM11" "XMM12" "XMM13" "XMM14" "XMM15"
-|#sysregxc 16
+:inivstack
+	0 'celln !
+	'dpila 'dpila> !
+	'rpila 'rpila> !
+	;
 
-#sysregs "EAX" "EBX" "ECX" "EDX" "EDI"  | "EBP"
-#sysregsc  5
-#sysregx "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7"
-#sysregxc  8
+:newcell | valor tipo -- nro
+	celln 2 <<
+	'cellt + !+
+	1020 + !+
+	0 swap 1020 + !+ | suma
+	0 swap 1020 + !+ | shift
+	1 'celln +!
+	;
 
+:cell+ | nro add -- nro
+	over 2 << 'cella + ! ;
+
+:cell>> | nro shi -- nro
+	over 2 << 'cells + ! ;
+
+:movestack | dd --
+	celln ( 1? )( 1-
+		dup 2 << dup
+		'cellt + @ 	5 =? ( drop 
+			dup 'cellv + @ 5 =? (
+				pick3 pick3
+				) )
+		2drop ) drop ;
+
+|-------- Registros del CPU
+#registros 0
+
+#sysregs "EAX" "EBX" "ECX" "EDX" "EDI" "ESI" "EBP"
+"XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7"
+#sysregsc  15
+
+| para x64
+|#sysregs "RAX" "RBX" "RCX" "RDX" "RDI" "RSI" "RBP" "R8" "R9" "R10" "R11" "R12" "R13" "R14" "R15"
+|"XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7" "XMM8" "XMM9" "XMM10" "XMM11" "XMM12" "XMM13" "XMM14" "XMM15"
+|#sysregsc 31
+
+:emptyreg
+	0 'registro ! ;
+
+:reg! | nro --
+	1 swap << registro or 'registro ! ;
+
+:reg? | nro -- 1/0
+	registro 1 rot << and ;
+
+:mainreg 
+:extreg
+:regget | -- nro/-1 si no puede
+
+
+|-------- constantes del sistema
 #syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
-#sysvars "[SYSPAPER]" "[SYSXYM]" "[SYSBM]" "[SYSKEY]"
+"SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY" | []
 
-
-
-| NRO CTE 'STR 'COD 'DAT
-| DAT VAR
-| REG XREG
+|-------- tipos de celdas
+| T Tipo (NUMERO CONSTANTE 'STRING CODIGO DATO REGISTRO COPIA)
+| M Indireccion de memoria
+| ...MTTTT
 |----- tipos de celdas
-
-:nrolist2str swap ( 1? )( 1- swap >>0 swap ) drop ;
-:value	over 1024 + @ ;
-
-:mt0 value "$%h" mprint ;			|--	0 nro 	33
-:mt1 value 'syscons nrolist2str ;	|--	1 cte	XRES
-:mt2 value cte + "s%h" mprint ;		|--	2 str   "hola"
-:mt3 value "w%h" mprint ;			|--	3 'cod  'func
-:mt4 value "w%h" mprint ;			|--	4 'dat  'var
-:mt5 value "[w%h]" mprint ;			|--	5 dat   var
-:mt6 value 'sysvars nrolist2str ;	|-- 6 var 	[SYSKEY]
-:mt7 value "[esi+%d*4]" mprint ;	|-- 7 stack [esi+v*4]
-:mt8 value 'sysregs nrolist2str ;	|-- 8 reg 	eax
-:mt9 value 'sysregx nrolist2str ;	|-- 9 regx 	xmm1
-
-#tiposrm mt0 mt1 mt2 mt3 mt4 mt5 mt6 mt7 mt8 mt9
-
-::reg>str | nro -- ""
-	( 2 << 'cellt + dup @
-		dup $7 and
-		2 =? )( value nip nip nip )
-	2 << 'tiposrm + @ exec
-	nip nip ;
-
 
 ::pushNRO	0 addcell d.push ;
 ::pushCTE	1 addcell d.push ;
 ::pushSTR	2 addcell d.push ;
-::pushDCO	3 addcell d.push ;
-::pushDDA	4 addcell d.push ;
-::pushDAT	5 addcell d.push ;
-::pushSTA	6 addcell d.push ;
+::pushCOD	3 addcell d.push ;
+::pushDAT	4 addcell d.push ;
+::pushVAR	4 $10 or addcell d.push ;
+::pushREG	5 addcell d.push ;
 
+::dropCELL
 
+|------------------------------------------
 #registrosusados
-
 #inivpcnt
-| inica vpila como normal
+
+|------------------------------------------
+| inicia vpila como normal con USADO celdas
+| de forma normal
+| [esi+4] [esi] eax -- para usado=3
+|------------------------------------------
 ::inivpila  | usado --
 	inivstack
 	0? ( drop ; )
 	dup 'inivpcnt !
 	1-
 	( 1? )( 1-
-		dup 7 addcell d.push | [esi
+		5 5 $10 or newcell
+		over 2 << cell+
+		d.push | [esi
 		) drop
-	0 8 addcell d.push | eax
+	0 5 newcell d.push | eax
+	emptyreg
+	5 reg! 0 reg!
 	;
+
 
 :cambiareg | deltaesi --
 
 	;
-| eax [esi]
-| [esi] eax
-|  xx     xx    xx
-| [esi+4] [esi] eax
 
 ::vpila2normal | --  ;transforma la pila actual a normal
 	d.cnt 0? ( drop ; )
@@ -135,3 +150,34 @@
 		dup d.nro
 		) drop ;
 
+
+|---- imprime celda
+:list2str swap ( 1? )( 1- swap >>0 swap ) drop ;
+:value	over 1024 + @ ;
+:suma	over 2048 + @ ;
+:shift	over 3072 + @ ;
+
+:mt0 value "$%h" ,print ;			|--	0 nro 	33
+:mt1 value 'syscons list2str ,s ;	|--	1 cte	XRES
+:mt2 value cte + "s%h" ,print ;		|--	2 str   "hola"
+:mt3 value "w%h" ,print ;			|--	3 cod  'func
+:mt4 value "w%h" ,print ;			|--	4 dat  'var
+:mt5 value 'sysregs list2str ,s ;	|-- 8 reg 	eax
+
+#tiposrm mt0 mt1 mt2 mt3 mt4 mt5 0 0 0
+
+::cell2str, | nro --
+	( 2 << 'cellt + dup @
+		dup $f and
+		6 =? )( value nip nip nip )
+	swap
+	$10 and? ( "[" ,s )
+	swap
+	2 << 'tiposrm + @ exec
+	shift 1? ( dup "*%d" ,print ) drop
+	suma 1? ( dup +? ( "+" ,s ) ,d ) drop
+	$10 and? ( "]" ,s )
+	2drop ;
+
+::cell2str | nro -- ""
+	mark cell2str empty here ;
