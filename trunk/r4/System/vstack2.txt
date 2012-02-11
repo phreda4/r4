@@ -16,13 +16,13 @@
 #rpila )( 1024
 #rpila> 'rpila
 
-::inivstack
+:inivstack
 	0 'celln !
 	'dpila 'dpila> !
 	'rpila 'rpila> !
 	;
 
-::addcell | valor tipo -- nro
+:addcell | valor tipo -- nro
 	celln 2 <<
 	'cellt + !+
 	1020 + !+
@@ -48,4 +48,90 @@
 ::r.push rpila> !+ 'rpila> ! ;
 ::r.tos rpila> 4 - @ ;
 
+|------ consulta sobre registros
+
+|#sysregs "RAX" "RBX" "RCX" "RDX" "RDI" "R8" "R9" "R10" "R11" "R12" "R13" "R14"
+|#sysregsc 12
+|#sysregx "XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7" "XMM8" "XMM9" "XMM10" "XMM11" "XMM12" "XMM13" "XMM14" "XMM15"
+|#sysregxc 16
+
+#sysregs "EAX" "EBX" "ECX" "EDX" "EDI"  | "EBP"
+#sysregsc  5
+#sysregx "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7"
+#sysregxc  8
+
+#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
+#sysvars "[SYSPAPER]" "[SYSXYM]" "[SYSBM]" "[SYSKEY]"
+
+
+
+| NRO CTE 'STR 'COD 'DAT
+| DAT VAR
+| REG XREG
+|----- tipos de celdas
+
+:nrolist2str swap ( 1? )( 1- swap >>0 swap ) drop ;
+:value	over 1024 + @ ;
+
+:mt0 value "$%h" mprint ;			|--	0 nro 	33
+:mt1 value 'syscons nrolist2str ;	|--	1 cte	XRES
+:mt2 value cte + "s%h" mprint ;		|--	2 str   "hola"
+:mt3 value "w%h" mprint ;			|--	3 'cod  'func
+:mt4 value "w%h" mprint ;			|--	4 'dat  'var
+:mt5 value "[w%h]" mprint ;			|--	5 dat   var
+:mt6 value 'sysvars nrolist2str ;	|-- 6 var 	[SYSKEY]
+:mt7 value "[esi+%d*4]" mprint ;	|-- 7 stack [esi+v*4]
+:mt8 value 'sysregs nrolist2str ;	|-- 8 reg 	eax
+:mt9 value 'sysregx nrolist2str ;	|-- 9 regx 	xmm1
+
+#tiposrm mt0 mt1 mt2 mt3 mt4 mt5 mt6 mt7 mt8 mt9
+
+::reg>str | nro -- ""
+	( 2 << 'cellt + dup @
+		dup $7 and
+		2 =? )( value nip nip nip )
+	2 << 'tiposrm + @ exec
+	nip nip ;
+
+
+::pushNRO	0 addcell d.push ;
+::pushCTE	1 addcell d.push ;
+::pushSTR	2 addcell d.push ;
+::pushDCO	3 addcell d.push ;
+::pushDDA	4 addcell d.push ;
+::pushDAT	5 addcell d.push ;
+::pushSTA	6 addcell d.push ;
+
+
+#registrosusados
+
+#inivpcnt
+| inica vpila como normal
+::inivpila  | usado --
+	inivstack
+	0? ( drop ; )
+	dup 'inivpcnt !
+	1-
+	( 1? )( 1-
+		dup 7 addcell d.push | [esi
+		) drop
+	0 8 addcell d.push | eax
+	;
+
+:cambiareg | deltaesi --
+
+	;
+| eax [esi]
+| [esi] eax
+|  xx     xx    xx
+| [esi+4] [esi] eax
+
+::vpila2normal | --  ;transforma la pila actual a normal
+	d.cnt 0? ( drop ; )
+	inivpcnt over - | actual-origen
+	1? ( "lea esi,[esi" ,s dup +? ( "+" ,s ) 2 << ,d "]" ,ln ) drop | corre esi
+
+	( 1? )( 1-
+		dup d.nro
+		) drop ;
 

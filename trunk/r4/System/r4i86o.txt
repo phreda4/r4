@@ -39,92 +39,6 @@
 :-pilac 'pilac 'pilac> ! ;
 
 
-|------ consulta sobre registros
-
-|#sysregs "RAX" "RBX" "RCX" "RDX" "RDI" "R8" "R9" "R10" "R11" "R12" "R13" "R14"
-|#sysregsc 12
-|#sysregx "XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7" "XMM8" "XMM9" "XMM10" "XMM11" "XMM12" "XMM13" "XMM14" "XMM15"
-|#sysregxc 16
-
-#sysregs "EAX" "EBX" "ECX" "EDX" "EDI"  | "EBP"
-#sysregsc  5
-#sysregx "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7"
-#sysregxc  8
-
-#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
-#sysvars "[SYSPAPER]" "[SYSXYM]" "[SYSBM]" "[SYSKEY]"
-
-
-
-| NRO CTE 'STR 'COD 'DAT
-| DAT VAR
-| REG XREG
-|----- tipos de celdas
-
-:nrolist2str swap ( 1? )( 1- swap >>0 swap ) drop ;
-:value	over 1024 + @ ;
-
-|--	0 nro 	33
-:mt0 value 99 >? ( "$%h" )( -9999999 <? ( "$%h" )( "%d" ) )  mprint ;
-|--	1 cte	XRES
-:mt1 value 'syscons nrolist2str ;
-|--	2 str   "hola"
-:mt2 value cte + "s%h" mprint ;
-|--	3 'cod  'func
-:mt3 value "w%h" mprint ;
-|--	4 'dat  'var
-:mt4 value "w%h" mprint ;
-|--	5 dat   var
-:mt5 value "[w%h]" mprint ;
-|-- 6 var 	[SYSKEY]
-:mt6 value 'sysvars nrolist2str ;
-|-- 7 stack [esi+v*4]
-:mt7 value 0? ( drop "[esi]" )( "[esi+%d*4]" mprint ) ;
-|-- 8 reg 	eax
-:mt8 value 'sysregs nrolist2str ;
-|-- 9 regx 	xmm1
-:mt9 value 'sysregx nrolist2str ;
-
-#tiposrm mt0 mt1 mt2 mt3 mt4 mt5 mt6 mt7 mt8 mt9
-
-::reg>str | nro -- ""
-	( 2 << 'regt + dup @
-		dup $7 and
-		2 =? )( value nip nip nip )
-	2 << 'tiposrm + @ exec
-	nip nip ;
-
-#registrosusados
-
-#inivpcnt
-:inivpila  | usado --
-	inivstack
-	0? ( drop ; )
-	dup 'inivpcnt !
-	1-
-	( 1? )( 1-
-		dup 7 addcell d.push | [esi
-		) drop
-	0 8 addcell d.push | eax
-	;
-
-:cambiareg | deltaesi --
-	
-	;
-| eax [esi]
-| [esi] eax
-|  xx     xx    xx
-| [esi+4] [esi] eax
-
-:pila2normal | --  ;transforma la pila actual a normal
-	d.cnt 0? ( drop ; )
-	inivpcnt over - | actual-origen
-	1? ( "lea esi,[esi" ,s dup +? ( "+" ,s ) 2 << ,d "]" ,ln ) drop | corre esi
-
-	( 1? )( 1-
-		dup d.nro
-		) drop ;
-
 
 |-------------------------------------
 #regact
@@ -179,35 +93,21 @@
 	"lea esi,[esi-4]" ,ln
 	"mov [esi],eax" ,ln ;
 
-:,lit
-	toknow tok>cte 0 addcell d.push ;
-|	toknow tok>cte ,DUP "mov eax," ,s ,d ,cr ;
-
-:,lits
-	nstr 2 addcell d.push ;
-|	,DUP "mov eax,s" ,s nstr ,h ,cr 1 'nstr +! ;
-
-:,dwo
-	toknow nro>dicn 3 addcell d.push ;
-|	toknow nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
-
-:,dva
-	toknow nro>dicn 4 addcell d.push ;
-|	toknow nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+:,lit	toknow tok>cte pushNRO ;
+:,lits  nstr pushSTR ;
+:,dwo	toknow nro>dicn pushDCO ;
+:,dva   toknow nro>dicn pushDDA ;
+:,var	toknow nro>dicn pushDAT ;
 
 :,wor
-	pila2normal
+	vpila2normal
 	dup @ $ff and | word ;
 	12 =? ( "jmp " )( "call " )
 	,s drop
 	toknow nro>dicn ,s ,cr ;
 
-:,var
-	toknow nro>dicn 5 addcell d.push ;
-|	toknow nro>dicn ,DUP "mov eax,dword [" ,s ,s "]" ,s ,cr ;
-
 :,;
-	pila2normal
+	vpila2normal
 	dup 8 - @ $ff and | word ;
 	8 =? ( drop ; ) drop
 	"ret" ,ln ;
@@ -290,19 +190,6 @@
 	"mov [esi+8],eax" ,ln
 	"popd [esi]" ,ln
 	"pop eax" ,ln ;
-
-
-
-|:,DUP :,OVER  :,PICK2 :,PICK3 :,PICK4
-|	,NOS ,TOS "mov %w,%w" ,line ;
-|:,2DUP
-|	,NOS ,TOS "mov %w,%w" ,line ;
-
-|:,SWAP
-|	,NOS ,TOS "xchg %w,%w" ,line ;
-|:,ROT
-|	,NOS2 ,TOS "xchg %w,%w" ,line
-|	,NOS ,TOS "xchg %w,%w" ,line ;
 
 
 :,EXEC
