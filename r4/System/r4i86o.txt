@@ -89,9 +89,8 @@
 :toknow
 	dup 4 - @ ;
 
-:,DUP
-	"lea esi,[esi-4]" ,ln
-	"mov [esi],eax" ,ln ;
+:,defw :,defv ; | no hay definiciones en optimizado (investigar como)
+:,[ :,] ; | no hay anonimas en optimizado
 
 :,lit	toknow tok>cte pushNRO ;
 :,lits  nstr pushSTR ;
@@ -106,13 +105,37 @@
 	,s drop
 	toknow nro>dicn ,s ,cr ;
 
+:,callsys
+	vpila2normal
+	dup @ $ff and | word ;
+	12 =? ( "jmp " )( "call " )
+	,s drop ;
+
+:,END		"jmp SYSEND" ,ln ;
+:,DIR		,callsys "SYSDIR" ,ln ;
+:,FILE  	,callsys "SYSFILE" ,ln ;
+:,FSIZE		,callsys "SYSFSIZE" ,ln ;
+:,VOL		,callsys "SYSVOL" ,ln ;
+:,LOAD		,callsys "SYSLOAD" ,ln ;
+:,SAVE		,callsys "SYSSAVE" ,ln ;
+:,APPEND	,callsys "SYSAPPEND" ,ln ;
+:,UPDATE	,callsys "SYSUPDATE" ,ln ;
+:,MSEC		,callsys "SYSMSEC" ,ln ;
+:,TIME		,callsys "SYSTIME" ,ln ;
+:,DATE		,callsys "SYSDATE" ,ln ;
+:,RUN		,callsys "SYSRUN" ,ln ;
+:,CLS		,callsys "SYSCLS" ,ln ;
+:,REDRAW	,callsys "SYSREDRAW" ,ln ;
+:,>XFB  	,callsys "SYSTOXFB" ,ln ;
+:,XFB>  	,callsys "SYSXFBTO" ,ln ;
+
 :,;
 	vpila2normal
 	dup 8 - @ $ff and | word ;
 	8 =? ( drop ; ) drop
 	"ret" ,ln ;
 
-
+|----- auxiliares bloques
 :+etiqueta	| -- nueva   // y agrega a pila
 	nlabel 1+ dup 'nlabel ! dup >pilac ;
 
@@ -120,6 +143,7 @@
 	over 8 - @ $ff and
 	18 >? ( 31 <? ( 1 nip ; ) ) 0 nip ;
 
+|----------------------
 :,(
 	| reajusta pila
 	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
@@ -141,10 +165,9 @@
 	drop ;
 
 
-:,defw :,defv ; | no hay definiciones en optimizado (investigar como)
-:,[ :,] ; | no hay anonimas en optimizado
-
 |--------- PILA
+:,DUP
+	;
 :,DROP
 	"lodsd" ,ln ;
 :,NIP
@@ -191,7 +214,7 @@
 	"popd [esi]" ,ln
 	"pop eax" ,ln ;
 
-
+|--------------------- Exec
 :,EXEC
 |	,TOS "mov ecx,%w" ,line
 	"mov ecx,eax" ,ln
@@ -630,24 +653,6 @@
 :,nand? ,condicion3	"jnz " ,s ;
 
 |--------- Sistema
-:,END		"jmp SYSEND" ,ln ;
-:,DIR		"call SYSDIR" ,ln ;
-:,FILE  	"call SYSFILE" ,ln ;
-:,FSIZE		"call SYSFSIZE" ,ln ;
-:,VOL		"call SYSVOL" ,ln ;
-:,LOAD		"call SYSLOAD" ,ln ;
-:,SAVE		"call SYSSAVE" ,ln ;
-:,APPEND	"call SYSAPPEND" ,ln ;
-
-:,UPDATE	"call SYSUPDATE" ,ln ;
-:,MSEC		"call SYSMSEC" ,ln ;
-:,TIME		"call SYSTIME" ,ln ;
-:,DATE		"call SYSDATE" ,ln ;
-:,RUN		"call SYSRUN" ,ln ;
-:,CLS		"call SYSCLS" ,ln ;
-:,REDRAW	"call SYSREDRAW" ,ln ;
-:,>XFB  	"call SYSTOXFB" ,ln ;
-:,XFB>  	"call SYSXFBTO" ,ln ;
 
 :,ctesys
 	regTOS cte1? 1? ( drop "; *SYSCTE*" ,s ; ) drop
