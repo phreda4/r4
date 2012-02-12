@@ -210,24 +210,19 @@
 
 
 |--------- PILA
-:,DUP	
-	d.dup ;
-:,DROP
-	d.drop ;
-:,NIP
-	d.nip ;
-:,2DROP
-	,NIP ,DROP ;
-:,3DROP
-	,NIP ,2DROP ;
-:,4DROP
-	,NIP ,3DROP ;
+:,NIP   d.nip ;
+:,4DROP	d.nip
+:,3DROP	d.nip
+:,2DROP d.nip
+:,DROP	d.drop ;
 
+:,DUP	d.dup ;
 :,OVER
 	d.over ;
 :,PICK2
 :,PICK3
 :,PICK4
+
 :,SWAP
 :,ROT
 :,2DUP
@@ -235,20 +230,11 @@
 :,2SWAP
 
 |--------------------- Exec
-:,EXEC
-|	,TOS "mov ecx,%w" ,ln
-	"mov ecx,eax" ,ln
-	,DROP
-	"or ecx,ecx" ,ln
+:,EXEC | v --
+	d.tos needREG
+	"or " ,s ,TOS "," ,s ,TOS ,cr
 	"jz @f" ,ln
-	"call ecx" ,ln
-	"@@:" ,ln ;
-
-:,EXECx1 | 2 >> + @ exec
-	"mov ecx,[eax*4+ebx]" ,ln
-	"or ecx,ecx" ,ln
-	"jz @f" ,ln
-	"call ecx" ,ln
+	"call " ,s ,TOS ,cr
 	"@@:" ,ln ;
 
 
@@ -256,17 +242,19 @@
 :,>R	d.pop r.push ;
 :,R>    r.pop d.push ;
 :,R		r.tos d.push ;
-
 :,RDROP r.drop ;
 
 :,R+
+	d.tos needRead
+	r.tos needWrite
 	,TOS ,RTOS "add %w,%w" ,ln ;
-	;
+	d.drop ;
 
 :,R!+
 	d.tos needRead
 	r.tos needWriteM
-	,TOS ,RTOS "mov [%w],%w" ,ln
+	,TOS ,RTOS 
+	"mov [" ,s ,RTOS "]," ,s ,TOS ,cr
 	| add 4
 	d.drop
 	;
@@ -274,45 +262,46 @@
 :,R@+
 |	d.pushCPY
 	r.tos needReadM
-	,RTOS ,NTOS "mov %w,[%w]" ,ln
+	"mov " ,s ,NTOS ",[" , s ,RTOS "]" ,ln
 	| add 4
+	d.dup
 	;
 
 |------- ARITMETICAS LOGICAS
 :,AND
-	d.nos needRead
-	d.tos needWrite
-	,TOS ,NOS "and %w,%w" ,ln
+	d.tos needRead
+	d.nos needWrite
+	"and " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,OR
-	d.nos needRead
-	d.tos needWrite
-	,TOS ,NOS "or %w,%w" ,ln
+	d.tos needRead
+	d.nos needWrite
+	"or " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,XOR
-	d.nos needRead
-	d.tos needWrite
-	,TOS ,NOS "xor %w,%w" ,ln
+	d.tos needRead
+	d.nos needWrite
+	"xor " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,+
-	d.nos needRead
-	d.tos needWrite
-	,TOS ,NOS "add %w,%w" ,ln
+	d.tos needRead
+	d.nos needWrite
+	"add " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,-
-	d.nos needRead
-	d.tos needWrite
-	,TOS ,NOS "sub %w,%w" ,ln
+	d.tos needRead
+	d.nos needWrite
+	"sub " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,*
-	d.nos needRead
-	d.tos needWrite
-	,TOS ,NOS "imul %w,%w" ,ln
+	d.tos needRead
+	d.nos needWrite
+	"imul " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,/
-	d.nos needRead
-	d.tos needWrite
-	,TOS ,NOS "idiv %w,%w" ,ln
+	d.tos needRead
+	d.nos needWrite
+	"idiv " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,*/
 	useEDX
@@ -320,8 +309,8 @@
 	d.nos needRead
 	d.tos needWrite
 	"cdq" ,ln
-	,NOS "imul %w" ,ln
-	,TOS "idiv %w" ,ln
+	"imul " ,s ,NOS ,cr
+	"idiv " ,s ,TOS ,cr
 	d.2drop
 	d.tos setEAX
 	freeEDX ;
@@ -332,9 +321,9 @@
 	d.nos needRead
 	d.tos cteorECX
 	"cdq" ,ln
-	,NOS2 "imul %w" ,ln
-	,TOSb "shrd eax,edx,%w" ,ln
-	,TOSb "shr edx,%w" ,ln
+	"imul " ,s ,NOS2 ,cr
+	"shrd eax,edx," ,s ,TOSb ,cr
+	"shr edx," ,s ,TOSb ,cr
 	d.2drop
 	d.tos setEAX
 	freeEDX
@@ -346,9 +335,9 @@
 	d.nos needRead
 	d.tos cteorECX
 	"cdq" ,ln
-    ,TOSb "shld edx,eax,%w" ,ln
-	,TOSb "shl eax,%w" ,ln
-	,NOS "idiv %w" ,ln
+    "shld edx,eax," ,s ,TOSb ,cr
+	"shl eax," ,s ,TOSb ,cr
+	"idiv " ,s ,NOS ,cr
 	d.2drop
 	d.tos setEAX
 	freeEDX
@@ -359,7 +348,7 @@
 	d.nos needEAX
 	d.tos needRead
 	"cdq" ,ln
-	,TOS "idiv %w" ,ln
+	"idiv " ,TOS ,cr
 	d.nos setEAX
 	d.tos setEDX
 	;
@@ -369,7 +358,7 @@
 	d.nos needEAX
 	d.tos needRead
 	"cdq" ,ln
-	,TOS "idiv %w" ,ln
+	"idiv " ,s ,TOS ,cr
 	d.drop
 	d.tos setEDX
 	freeEAX ;
@@ -377,13 +366,13 @@
 :,<<
 	d.tos cteorECX
 	d.nos needWrite
-	,TOSb ,NOS "sal %w,%w" ,ln
+	"sal " ,s ,NOS "," ,s TOSb ,cr
 	d.drop	;
 
 :,>>
 	d.tos cteorECX
 	d.nos needWrite
-	,TOSb ,NOS "sar %w,%w" ,ln
+	"sar " ,s ,NOS "," ,s TOSb ,cr
 	d.drop	;
 
 :,ABS
@@ -396,16 +385,16 @@
 
 :,CLZ
 	d.tos needREG
-	,TOS dup "bsr %w,%w" ,ln
-	,TOS "xor %w,31" ,ln ;
+	"bsr " ,s ,TOS  "," ,s ,TOS ,cr
+	"xor " ,s ,TOS ",31" ,ln ;
 
 :,NOT
 	d.tos needWrite
-	,TOS "not %w" ,ln ;
+	"not " ,s ,TOS ,cr ;
 
 :,NEG
 	d.tos needWrite
-	,TOS "neg %w" ,ln ;
+	"neg " ,s ,TOS ,cr ;
 
 :,1+
 	1 d.tos addCell ;
@@ -415,55 +404,57 @@
 	-1 d.tos addCell ;
 :,2/
 	d.tos needWrite
- 	,TOS "sar %w,1" ,ln ;
+	"sar " ,s ,TOS ",1" ,ln ;
 :,2*
 	d.tos needWrite
- 	,TOS "sal %w,1" ,ln ;
+	"sal " ,s ,TOS ",1" ,ln ;
 
 |------ MEMORIA
 :,@
 	d.tos needReadM
-	,NTOS ,TOS "mov %w,dword [%w]" ,ln ;
+	"mov " ,s ,NTOS ",dword [" ,s ,TOS" ]" ,ln ;
+
 :,C@
 	d.tos needReadM
-	,NTOS ,TOS "movsx %w,byte [%w]" ,ln ;
+	"movsx " ,s ,NTOS ",byte [" ,s ,TOS" ]" ,ln ;
+
 :,W@
 	d.tos needReadM
-	,NTOS ,TOS "movsx %w,word [%w]" ,ln ;
+	"movsx " ,s ,NTOS ",word [" ,s ,TOS" ]" ,ln ;
 
 :,!
 	d.tos needWriteM
 	d.nos needRead
-	,NOS ,TOS "mov [%w],%w" ,ln
+	"mov [" ,s ,TOS "]," ,s ,NOS ,cr
 	d.2drop ;
 
 :,C!
 	d.tos needWriteM
 	d.nos needReadB
-	,NOSb ,TOS "mov byte [%w],%w" ,ln
+	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	d.2drop ;
 :,W!
 	d.tos needWriteM
 	d.nos needReadW
-	,NOSw ,TOS "mov word [%w],%w" ,ln
+	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	d.2drop ;
 
 :,+!
 	d.nos needRead
 	d.tos needWriteN
-	,NOS ,TOS "add [%w],%w" ,ln
+	"add [" ,s ,TOS "]," ,s ,NOS ,cr
 	d.2drop ;
 
 :,W+!
 	d.nos needRead
 	d.tos needWriteN
-	,NOS ,TOSw "add word [%w],%w" ,ln
+	"add word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	d.2drop ;
 
 :,C+!
 	d.nos needRead
 	d.tos needWriteN
-	,NOS ,TOSb "add byte [%w],%w" ,ln
+	"add byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	d.2drop ;
 
 :,!+
@@ -488,37 +479,52 @@
 |:,!ex	"mov [%w+%w*%w],%w" ,ln ;
 
 |-------- CONDICIONALES
-:,condicion
-	regTOS mem? 1? ( drop
+:,simple?
+	d.tos needRead
+	d.tos MEM? 1? ( drop
 		"cmp " ,s ,TOS ",0" ,ln ; ) drop
-	"or eax,eax" ,ln
+	"or " ,s ,TOS "," ,s ,TOS ,cr
 	;
-:,0? ,condicion "jnz " ,s ;
-:,+? ,condicion "js " ,s ;
-:,-? ,condicion "jns " ,s ;
-:,1? ,condicion "jz " ,s ;
 
-:,condicion2
-	regTOS cte1? 1? ( drop
-    	"cmp " ,s ,NOS "," ,s ,TOS ,cr ; ) drop
-	"mov ecx,eax" ,ln ,DROP
-	"cmp eax,ecx" ,ln ;
+:,0? ,simple?	"jnz " ,s ;
+:,+? ,simple?	"js " ,s ;
+:,-? ,simple?	"jns " ,s ;
+:,1? ,simple?	"jz " ,s ;
 
-:,=? ,condicion2	"jnz " ,s ;
-:,<? ,condicion2	"jge " ,s ;
-:,>? ,condicion2	"jle " ,s ;
-:,<=? ,condicion2	"jg " ,s ;
-:,>=? ,condicion2	"jl " ,s ;
-:,<>? ,condicion2	"jz " ,s ;
+:,doble?
+	d.tos needRead
+	d.nos needRead
+	d.tos MEM? 1? ( drop
+		d.nos MEM? 1? ( drop
+			NEWreg
+			"mov " ,s ,NEW "," ,s ,TOS ,cr
+			"cmp " ,s ,NOS "," ,s ,NEW ,cr
+			d.2drop ;
+			) )( drop )
+    "cmp " ,s ,NOS "," ,s ,TOS ,cr
+	d.drop ;
 
-:,condicion3
-	regTOS cte1? 1? ( drop
-    	"test " ,s ,NOS "," ,s ,TOS ,cr ; ) drop
-	"mov ecx,eax" ,ln ,DROP
-	"test eax,ecx" ,ln ;
+:,=? ,doble?	"jnz " ,s ;
+:,<? ,doble?	"jge " ,s ;
+:,>? ,doble?	"jle " ,s ;
+:,<=? ,doble?	"jg " ,s ;
+:,>=? ,doble?	"jl " ,s ;
+:,<>? ,doble?	"jz " ,s ;
 
-:,and?  ,condicion3	"jz " ,s ;
-:,nand? ,condicion3	"jnz " ,s ;
+:,bit?
+	d.tos needRead
+	d.nos needRead
+	d.tos MEM? 1? ( drop
+		d.nos MEM? 1? ( drop
+			"mov " ,s ,NEW "," ,s ,TOS ,cr
+			"test " ,s ,NOS "," ,s ,NEW ,cr
+			d.2drop ;
+			) )( drop )
+    "test " ,s ,NOS "," ,s ,TOS ,cr
+	d.drop ;
+
+:,and?  bit?	"jz " ,s ;
+:,nand? bit?	"jnz " ,s ;
 
 |--------- Sistema
 |#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB" | [] | "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY"
@@ -545,40 +551,39 @@
 	,TOS "mov [SYSKEY],%w" ,ln
 	d.drop ;
 
-:,setxyopt
-	3 =? ( drop
-		"lea ebp,[SYSFRAME+((" ,s ,TOS "*XRES+" ,s ,NOS ")*4)]" ,ln ; )
-	2 =? ( drop | TOS=cte =Y
-		"mov edx," ,s ,TOS "*YRES" ,ln
-		"add edx," ,s ,NOS ,cr
-		"lea ebp,[SYSFRAME+edx*4]" ,ln
-		; )
-	drop | NOS=cte =X
-	"mov edx," ,s ,TOS ,cr
-	"shl edx,10" ,ln
-	"add edx," ,s ,NOS ,cr
-	"lea ebp,[SYSFRAME+" ,s ,NOS "+eax*4]" ,ln
-	;
-
 :,SETXY | x y --
-	regTOS cte1? 2* regNOS cte1? +
-	1? ( ,setxyopt ; )
-	drop
-	"shl eax,10" ,ln
-	"add eax,[esi]" ,ln
-	"lea ebp,[SYSFRAME+eax*4]" ,ln
-|	"imul eax,XRES" ,ln
-|	"add eax,[esi]" ,ln
-|	"lea ebp,[SYSFRAME+eax*4]" ,ln
-	,2DROP ;
+	d.TOS needRead
+	d.TOS NRO? 1? ( drop
+		d.NOS needRead
+		d.nos NRO? 1? ( drop
+			"lea ebp,[SYSFRAME+(" ,s ,TOS "*XRES+" ,s ,NOS ")*4]" ,ln
+			)( drop
+			d.NOS needWrite | x
+		|	"imul " ,s ,NOS ",XRES" ,ln	| cualquier ancho
+			"shl ",s ,NOS  ",10" ,ln	| 1024 de ancho
+			"lea ebp,[SYSFRAME+" ,s ,TOS "+" ,s ,NOS "*4]" ,ln
+			)
+		)( drop
+		d.NOS needWrite | x
+|		"imul " ,s ,NOS ",XRES" ,ln	| cualquier ancho
+		"shl ",s ,NOS  ",10" ,ln	| 1024 de ancho
+
+		"add " ,s ,NOS  "," ,s ,TOS  "" ,ln
+		"lea ebp,[SYSFRAME+", ,NOS "*4]" ,ln
+		)
+	d.2DROP ;
 
 :,PX+!	| s --
-	"lea ebp,[ebp+eax*4]" ,ln
-	,DROP ;
+	d.TOS needREG
+	"lea ebp,[ebp+" ,s ,TOS "*4]" ,ln
+	d.drop ;
+
 :,PX!+	| rgb --
-	"mov [ebp],eax" ,ln
+	d.tos needRead
+	"mov [ebp]," ,s ,TOS  ,ln
 	"add ebp,4" ,ln
-	,DROP ;
+	d.DROP ;
+
 :,PX@	| -- rgb
 	,DUP "mov eax,[ebp]" ,ln ;
 
