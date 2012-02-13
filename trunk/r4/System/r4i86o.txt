@@ -44,10 +44,6 @@
 #regact
 #regval )( 32
 
-:regTOS		regact 24 >> $ff and ;
-:regNOS		regact 16 >> $ff and ;
-:regNOS2	regact 8 >> $ff and ;
-
 :cte1? | reg -- 1/0
 	reg.t@
 	$8000 nand? ( drop 0 ; )
@@ -113,14 +109,16 @@
 :setEAX | cell --
 	;
 
-|------
-:,TOS
-	regTOS reg>str ,s ;
+|------ codigo para acceso a celdas
 
-:,NOS
-	regNOS reg>str ,s ;
+:,TOS	d.tos cell2str, ;
+:,NOS	d.nos cell2str, ;
 
-|------ asignacion de registros
+:,NOSb	d.nos cell2str, ;
+:,NOSw	d.nos cell2str, ;
+
+:,NOS2	d.pk2 cell2str, ;
+:,RTOS	r.tos cell2str, ;
 
 |------------ compila CODIGO
 
@@ -130,17 +128,16 @@
 :label	"_" ,s ,h 	;
 :jmp,	"jmp " ,s label ,cr ;
 
-:toknow
-	dup 4 - @ ;
+:toknow		dup 4 - @ ;
 
 :,defw :,defv ; | no hay definiciones en optimizado (investigar como)
 :,[ :,] ; | no hay anonimas en optimizado
 
 :,lit	toknow tok>cte pushNRO ;
 :,lits  nstr pushSTR ;
-:,dwo	toknow nro>dicn pushDCO ;
-:,dva   toknow nro>dicn pushDDA ;
-:,var	toknow nro>dicn pushDAT ;
+:,dwo	toknow nro>dicn pushCOD ;
+:,dva   toknow nro>dicn pushDAT ;
+:,var	toknow nro>dicn pushVAR ;
 
 :,wor
 	vpila2normal
@@ -237,7 +234,6 @@
 	"call " ,s ,TOS ,cr
 	"@@:" ,ln ;
 
-
 |------- PILAR
 :,>R	d.pop r.push ;
 :,R>    r.pop d.push ;
@@ -253,7 +249,7 @@
 :,R!+
 	d.tos needRead
 	r.tos needWriteM
-	,TOS ,RTOS 
+	,TOS ,RTOS
 	"mov [" ,s ,RTOS "]," ,s ,TOS ,cr
 	| add 4
 	d.drop
@@ -326,8 +322,7 @@
 	"shr edx," ,s ,TOSb ,cr
 	d.2drop
 	d.tos setEAX
-	freeEDX
-	;
+	freeEDX ;
 
 :,<</
 	useEDX
@@ -340,8 +335,7 @@
 	"idiv " ,s ,NOS ,cr
 	d.2drop
 	d.tos setEAX
-	freeEDX
-	;
+	freeEDX ;
 
 :,/MOD
 	useEDX
@@ -350,8 +344,7 @@
 	"cdq" ,ln
 	"idiv " ,TOS ,cr
 	d.nos setEAX
-	d.tos setEDX
-	;
+	d.tos setEDX ;
 
 :,MOD
 	useEDX
@@ -367,13 +360,13 @@
 	d.tos cteorECX
 	d.nos needWrite
 	"sal " ,s ,NOS "," ,s TOSb ,cr
-	d.drop	;
+	d.drop ;
 
 :,>>
 	d.tos cteorECX
 	d.nos needWrite
 	"sar " ,s ,NOS "," ,s TOSb ,cr
-	d.drop	;
+	d.drop ;
 
 :,ABS
 	useEDX
@@ -458,25 +451,39 @@
 	d.2drop ;
 
 :,!+
-	,NOS ,TOS "mov [%w],%w" ,ln ,TOS "add %w,4" ,ln ;
+    d.nos needRead
+	d.tos needWriteN
+	"mov [" ,s ,TOS "]," ,s ,NOS ,cr
+	"add " ,s ,TOS ",4" ,ln
+	d.nip ;
 :,W!+
-	,NOSw ,TOS "mov word [%w],%w" ,ln ,TOS "add %w,2" ,ln ;
+    d.nos needRead
+	d.tos needWriteN
+	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
+	"add " ,s ,TOS ",2" ,ln
+	d.nip ;
 :,C!+
-	,NOSb ,TOS "mov byte [%w],%w" ,ln ,TOS "add %w,1" ,ln ;
+    d.nos needRead
+	d.tos needWriteN
+	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
+	"add " ,s ,TOS ",1" ,ln
+	d.nip ;
 
 :,@+
-	,TOS ,NOS "mov %w,[%w]" ,ln ,TOS "add %w,4" ,ln ;
+	d.tos needReadN
+	| newTOS
+	"mov " ,s ,NEW ",[" ,TOS "]" ,ln
+	"add " ,s ,TOS ",4" ,ln ;
 :,W@+
-	,TOS ,NOS "movsx %w,word [%w]" ,ln ,TOS "add %w,2" ,ln ;
+	d.tos needReadN
+	| newTOS
+	"movsx " ,s ,NEW ",word [" ,TOS "]" ,ln
+	"add " ,s ,TOS ",2" ,ln ;
 :,C@+
-	,TOS ,NOS "movsx %w,byte [%w]" ,ln ,TOS "add %w,1" ,ln ;
-
-
-|:,@x1	"lea %w,[%w+%w]" ,ln ;
-|:,@x2	"lea %w,[%w+%w*%w]" ,ln ;
-|:,@x3	"lea %w,[%w+%w+%w*%w]" ,ln ;
-
-|:,!ex	"mov [%w+%w*%w],%w" ,ln ;
+	d.tos needReadN
+	| newTOS
+	"movsx " ,s ,NEW ",byte [" ,TOS "]" ,ln
+	"add " ,s ,TOS ",1" ,ln ;
 
 |-------- CONDICIONALES
 :,simple?
@@ -533,7 +540,7 @@
 :,SH		1 pushCTE ;
 :,MEM		2 pushCTE ;
 :,FRAMEV	3 pushCTE ;
-:,XFB		4 pushCTE
+:,XFB		4 pushCTE ;
 
 :,BMOUSE | -- c
 	7 pushCTE d.tos setMEM ;
