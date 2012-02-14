@@ -38,8 +38,6 @@
 :<pilac -4 'pilac> +! pilac> @ ;
 :-pilac 'pilac 'pilac> ! ;
 
-
-
 |-------------------------------------
 #regact
 #regval )( 32
@@ -69,57 +67,53 @@
 :REG? | nro -- valor
 	;
 :useREG | nro --
-	;
+	drop ;
 :freeREG | nro --
-	;
+	drop ;
 
 :useEDX ;
-:freeEDX  ;
+:freeEDX ;
+:freeEAX ;
 
 :needEAX | cell --
-	drop
-	;
+	drop ;
 :needREG | cell --
-	drop
-	;
+	drop ;
 :needReadM | cell --
-	drop
-	;
+	drop ;
 :needRead | cell --
-	drop
-	;
+	drop ;
 :needReadW | cell --
-	drop
-	;
+	drop ;
 :needReadB | cell --
-	drop
-	;
+	drop ;
 
 :needWrite | cell
-	drop
-	;
-:needWriteN | cell -- ; no puede ser []
-	drop
-	;
+	drop ;
+:needWriteM | cell -- ; no puede ser []
+	drop ;
 
 :cteorECX | cell --
-	drop
-	;
+	drop ;
 
 :setEAX | cell --
-	;
+	drop ;
+:setEDX | cell --
+	drop ;
 
 |------ codigo para acceso a celdas
 
 :,TOS	d.tos cell2str, ;
-:,NOS	d.nos cell2str, ;
+:,TOSb	d.tos cell2str, ; | b
 
+:,NOS	d.nos cell2str, ;
 :,NOSb	d.nos cell2str, ;
 :,NOSw	d.nos cell2str, ;
 
 :,NOS2	d.pk2 cell2str, ;
 :,RTOS	r.tos cell2str, ;
 
+:,NTOS	;
 |------------ compila CODIGO
 
 |:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
@@ -207,24 +201,23 @@
 
 
 |--------- PILA
-:,NIP   d.nip ;
-:,4DROP	d.nip
-:,3DROP	d.nip
-:,2DROP d.nip
+:,NIP   d.swap d.drop ;
+:,4DROP	d.drop
+:,3DROP	d.drop
+:,2DROP d.drop
 :,DROP	d.drop ;
 
 :,DUP	d.dup ;
-:,OVER
-	d.over ;
-:,PICK2
-:,PICK3
-:,PICK4
+:,OVER	d.over ;
+:,PICK2 d.pk2 ;
+:,PICK3	d.pk3 ;
+:,PICK4	d.pk4 ;
 
-:,SWAP
-:,ROT
-:,2DUP
-:,2OVER
-:,2SWAP
+:,SWAP	d.swap ;
+:,ROT	d.rot ;
+:,2DUP	d.2dup ;
+:,2OVER	d.2over ;
+:,2SWAP	d.2swap ;
 
 |--------------------- Exec
 :,EXEC | v --
@@ -252,16 +245,14 @@
 	,TOS ,RTOS
 	"mov [" ,s ,RTOS "]," ,s ,TOS ,cr
 	| add 4
-	d.drop
-	;
+	d.drop ;
 
 :,R@+
 |	d.pushCPY
 	r.tos needReadM
-	"mov " ,s ,NTOS ",[" , s ,RTOS "]" ,ln
+	"mov " ,s ,NTOS ",[" ,s ,RTOS "]" ,ln
 	| add 4
-	d.dup
-	;
+	d.dup  ;
 
 |------- ARITMETICAS LOGICAS
 :,AND
@@ -301,39 +292,39 @@
 	d.drop ;
 :,*/
 	useEDX
-	d.nos2 needEAX
+	d.pk2 needEAX
 	d.nos needRead
 	d.tos needWrite
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
-	d.2drop
+	d.drop d.drop
 	d.tos setEAX
 	freeEDX ;
 
 :,*>>
 	useEDX
-	d.nos2 needEAX
+	d.pk2 needEAX
 	d.nos needRead
 	d.tos cteorECX
 	"cdq" ,ln
 	"imul " ,s ,NOS2 ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
 	"shr edx," ,s ,TOSb ,cr
-	d.2drop
+	d.drop d.drop
 	d.tos setEAX
 	freeEDX ;
 
 :,<</
 	useEDX
-	d.nos2 needEAX
+	d.pk2 needEAX
 	d.nos needRead
 	d.tos cteorECX
 	"cdq" ,ln
     "shld edx,eax," ,s ,TOSb ,cr
 	"shl eax," ,s ,TOSb ,cr
 	"idiv " ,s ,NOS ,cr
-	d.2drop
+	d.drop d.drop
 	d.tos setEAX
 	freeEDX ;
 
@@ -359,13 +350,13 @@
 :,<<
 	d.tos cteorECX
 	d.nos needWrite
-	"sal " ,s ,NOS "," ,s TOSb ,cr
+	"sal " ,s ,NOS "," ,s ,TOSb ,cr
 	d.drop ;
 
 :,>>
 	d.tos cteorECX
 	d.nos needWrite
-	"sar " ,s ,NOS "," ,s TOSb ,cr
+	"sar " ,s ,NOS "," ,s ,TOSb ,cr
 	d.drop ;
 
 :,ABS
@@ -375,6 +366,11 @@
 	"add eax,edx" ,ln
 	"xor eax,edx" ,ln
 	freeEDX ;
+
+|	"mov edx,tos"
+|	"sar edx,31"
+|	"add tos,edx"
+|	"xor tos,edx"
 
 :,CLZ
 	d.tos needREG
@@ -434,53 +430,53 @@
 
 :,+!
 	d.nos needRead
-	d.tos needWriteN
+	d.tos needWriteM
 	"add [" ,s ,TOS "]," ,s ,NOS ,cr
 	d.2drop ;
 
 :,W+!
 	d.nos needRead
-	d.tos needWriteN
+	d.tos needWriteM
 	"add word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	d.2drop ;
 
 :,C+!
 	d.nos needRead
-	d.tos needWriteN
+	d.tos needWriteM
 	"add byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	d.2drop ;
 
 :,!+
     d.nos needRead
-	d.tos needWriteN
+	d.tos needWriteM
 	"mov [" ,s ,TOS "]," ,s ,NOS ,cr
 	"add " ,s ,TOS ",4" ,ln
 	d.nip ;
 :,W!+
     d.nos needRead
-	d.tos needWriteN
+	d.tos needWriteM
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	"add " ,s ,TOS ",2" ,ln
 	d.nip ;
 :,C!+
     d.nos needRead
-	d.tos needWriteN
+	d.tos needWriteM
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	"add " ,s ,TOS ",1" ,ln
 	d.nip ;
 
 :,@+
-	d.tos needReadN
+	d.tos needReadM
 	| newTOS
 	"mov " ,s ,NEW ",[" ,TOS "]" ,ln
 	"add " ,s ,TOS ",4" ,ln ;
 :,W@+
-	d.tos needReadN
+	d.tos needReadM
 	| newTOS
 	"movsx " ,s ,NEW ",word [" ,TOS "]" ,ln
 	"add " ,s ,TOS ",2" ,ln ;
 :,C@+
-	d.tos needReadN
+	d.tos needReadM
 	| newTOS
 	"movsx " ,s ,NEW ",byte [" ,TOS "]" ,ln
 	"add " ,s ,TOS ",1" ,ln ;
@@ -549,12 +545,12 @@
 	8 pushCTE d.tos setMEM ;
 
 :,PAPER | n --
-	d.tos needReadN | no memoria []
+	d.tos needReadM | no memoria []
 	,TOS "mov [SYSPAPER],%w" ,ln
 	d.drop ;
 
 :,KEY! | v --
-	d.tos needReadN | no memoria []
+	d.tos needReadM | no memoria []
 	,TOS "mov [SYSKEY],%w" ,ln
 	d.drop ;
 
@@ -589,10 +585,11 @@
 	d.tos needRead
 	"mov [ebp]," ,s ,TOS  ,ln
 	"add ebp,4" ,ln
-	d.DROP ;
+	d.drop ;
 
 :,PX@	| -- rgb
-	,DUP "mov eax,[ebp]" ,ln ;
+	d.dup
+	"mov " ,s ,NTOS ",[ebp]" ,ln ;
 
 :,XYMOUSE | -- x y
 	,DUP
