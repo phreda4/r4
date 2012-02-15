@@ -3,6 +3,31 @@
 | PHREDA 2012
 |------------------------------------
 
+|-------- Registros del CPU
+#registros 0
+
+#sysregs "EAX" "EBX" "ECX" "EDX" "EDI" "ESI" "EBP"
+"XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7"
+#sysregsc  15
+
+| para x64
+|#sysregs "RAX" "RBX" "RCX" "RDX" "RDI" "RSI" "RBP" "R8" "R9" "R10" "R11" "R12" "R13" "R14" "R15"
+|"XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7" "XMM8" "XMM9" "XMM10" "XMM11" "XMM12" "XMM13" "XMM14" "XMM15"
+|#sysregsc 31
+
+:emptyreg
+	0 'registros ! ;
+
+:reg! | nro --
+	1 swap << registros or 'registros ! ;
+
+|:reg? | nro -- 1/0
+|	registros 1 rot << and ;
+
+|-------- constantes del sistema
+#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
+"SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY" | []
+
 |------ Celda de la pila
 #celln 0
 #cellt )( 1024	| tipo
@@ -25,11 +50,22 @@
 	1 'celln +!
 	;
 
-:cell+ | nro add -- nro
-	over 2 << 'cella + ! ;
+:resolversihaymemroia | nro -- nro
+	dup 2 <<
+	dup 'cellt + @ $10 nand? ( 2drop ; ) | si no es [] seguir
+	drop
+|	d.tos needReg
+|	"lea " ,s ,TOS "," ,s
 
-:cell>> | nro shi -- nro
-	over 2 << 'cells + ! ;
+	;
+
+::cell+ | add nro --
+	| si hay mem resolver
+	2 << 'cella + ! ;
+
+::cell>> | shi nro --
+	| si hay mem resolver
+	2 << 'cells + ! ;
 
 :movestack | dd --
 	celln ( 1? )( 1-
@@ -39,36 +75,6 @@
 				pick3 pick3
 				) )
 		2drop ) drop ;
-
-|-------- Registros del CPU
-#registros 0
-
-#sysregs "EAX" "EBX" "ECX" "EDX" "EDI" "ESI" "EBP"
-"XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7"
-#sysregsc  15
-
-| para x64
-|#sysregs "RAX" "RBX" "RCX" "RDX" "RDI" "RSI" "RBP" "R8" "R9" "R10" "R11" "R12" "R13" "R14" "R15"
-|"XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7" "XMM8" "XMM9" "XMM10" "XMM11" "XMM12" "XMM13" "XMM14" "XMM15"
-|#sysregsc 31
-
-:emptyreg
-	0 'registros ! ;
-
-:reg! | nro --
-	1 swap << registros or 'registros ! ;
-
-:reg? | nro -- 1/0
-	registros 1 rot << and ;
-
-:mainreg
-:extreg
-:regget | -- nro/-1 si no puede
-
-
-|-------- constantes del sistema
-#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
-"SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY" | []
 
 |-------- tipos de celdas
 | T Tipo (NUMERO CONSTANTE 'STRING CODIGO DATO REGISTRO COPIA)
@@ -85,8 +91,20 @@
 ::pushREG	5 newcell d.push ;
 ::pushCPY 	6 newcell d.push ;
 
-::setMem
-	drop ;
+::cellNRO? | nro -- 1/0
+	2 << 'cellt + @ $1f and
+	0? ( 1 )( 0 ) nip ;
+
+::cellREG? | nro -- nroreg
+	2 << dup 'cellt + @ $1f and
+	5 <>? ( 2drop -1 ; ) drop
+	'cellv + @ ;
+
+::cellMEM! | nro --
+	2 << 'cellt + dup @ $10 or swap ! ;
+
+::cellMEM? | nro --
+	2 << 'cellt + @ $10 and? ( 1 )( 0 ) drop ;
 
 |------------------------------------------
 #registrosusados
