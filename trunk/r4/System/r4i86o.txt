@@ -40,45 +40,34 @@
 
 |-------------------------------------
 #regact
-#regval )( 32
-
-:cte1? | reg -- 1/0
-	reg.t@
-	$8000 nand? ( drop 0 ; )
-	24 >> 1 >? ( drop 0 ; )
-	drop 1 ;
-
-:reg? | reg -- 1/0
-	reg.t@
-	$4000 nand? ( drop 0 ; )
-	drop 1 ;
-
-:mem? | reg -- 1/0
-	reg.t@
-	$80 and? ( drop 1 ; )
-	drop 0 ;
-
-:ctelit? |
-	reg.t@
-	$f and 0? ( drop 1 ; )
-	drop 0 ;
 
 |--- para registros de vpila vstack2
-:REG? | nro -- valor
-	;
 :useREG | nro --
 	drop ;
 :freeREG | nro --
 	drop ;
 
-:useEDX ;
-:freeEDX ;
-:freeEAX ;
+:useEDX
+	| ocupo EDX
+	;
+:freeEDX
+	| libero EDX
+	;
+:freeEAX
+    	| libero EAX
+	;
 
 :needEAX | cell --
+	| si es registro a o numero salir
+	| liberar y ocupar a ( puede ser xchg eax,.. )
 	drop ;
+
 :needREG | cell --
+	| si es registro o numero salir
+	| buscar registro libre
+	| asignar si hay que resolver
 	drop ;
+
 :needReadM | cell --
 	drop ;
 :needRead | cell --
@@ -113,7 +102,6 @@
 :,NOS2	d.pk2 cell2str, ;
 :,RTOS	r.tos cell2str, ;
 
-:,NTOS	;
 |------------ compila CODIGO
 
 |:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
@@ -236,23 +224,25 @@
 :,R+
 	d.tos needRead
 	r.tos needWrite
-	,TOS ,RTOS "add %w,%w" ,ln ;
+	"add " ,s ,RTOS "," ,s ,TOS ,cr
+|	d.tos Cellval+ r.tos Cell+ |
 	d.drop ;
 
 :,R!+
 	d.tos needRead
 	r.tos needWriteM
-	,TOS ,RTOS
 	"mov [" ,s ,RTOS "]," ,s ,TOS ,cr
-	| add 4
+	"add " ,s ,RTOS ",4" ,ln
+|	4 r.tos Cell+ | add 4
 	d.drop ;
 
 :,R@+
-|	d.pushCPY
+	d.dup d.tos needReg
 	r.tos needReadM
-	"mov " ,s ,NTOS ",[" ,s ,RTOS "]" ,ln
-	| add 4
-	d.dup  ;
+	"mov " ,s ,TOS ",[" ,s ,RTOS "]" ,ln
+	"add " ,s ,RTOS ",4" ,ln
+|	4 r.tos Cell+ | add 4
+	;
 
 |------- ARITMETICAS LOGICAS
 :,AND
@@ -274,6 +264,7 @@
 	d.tos needRead
 	d.nos needWrite
 	"add " ,s ,NOS "," ,s ,TOS ,cr
+|	d.tos Cell.value d.nos Cell+ | add 4
 	d.drop ;
 :,-
 	d.tos needRead
@@ -298,7 +289,7 @@
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
-	d.drop d.drop
+	,2DROP
 	d.tos setEAX
 	freeEDX ;
 
@@ -311,7 +302,7 @@
 	"imul " ,s ,NOS2 ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
 	"shr edx," ,s ,TOSb ,cr
-	d.drop d.drop
+	,2DROP
 	d.tos setEAX
 	freeEDX ;
 
@@ -324,7 +315,7 @@
     "shld edx,eax," ,s ,TOSb ,cr
 	"shl eax," ,s ,TOSb ,cr
 	"idiv " ,s ,NOS ,cr
-	d.drop d.drop
+	,2DROP
 	d.tos setEAX
 	freeEDX ;
 
@@ -361,16 +352,16 @@
 
 :,ABS
 	useEDX
-	d.tos needEAX
-	"cdq" ,ln
-	"add eax,edx" ,ln
-	"xor eax,edx" ,ln
+	d.tos needREG
+	d.tos cellREG? 0? ( | EAX
+		"cdq" ,ln
+		)(
+		"mov edx," ,s ,TOS ,cr
+		"sar edx,31" ,ln
+		) drop
+	"add " ,s ,TOS ",edx" ,ln
+	"xor " ,s ,TOS ",edx" ,ln
 	freeEDX ;
-
-|	"mov edx,tos"
-|	"sar edx,31"
-|	"add tos,edx"
-|	"xor tos,edx"
 
 :,CLZ
 	d.tos needREG
@@ -386,11 +377,11 @@
 	"neg " ,s ,TOS ,cr ;
 
 :,1+
-	1 d.tos addCell ;
+	1 d.tos Cell+ ;
 :,4+
-	4 d.tos addCell ;
+	4 d.tos Cell+ ;
 :,1-
-	-1 d.tos addCell ;
+	-1 d.tos Cell+ ;
 :,2/
 	d.tos needWrite
 	"sar " ,s ,TOS ",1" ,ln ;
@@ -401,90 +392,94 @@
 |------ MEMORIA
 :,@
 	d.tos needReadM
-	"mov " ,s ,NTOS ",dword [" ,s ,TOS" ]" ,ln ;
+	"mov " ,s ,TOS ",dword [" ,s ,TOS "]" ,ln ;
 
 :,C@
 	d.tos needReadM
-	"movsx " ,s ,NTOS ",byte [" ,s ,TOS" ]" ,ln ;
+	"movsx " ,s ,TOS ",byte [" ,s ,TOS "]" ,ln ;
 
 :,W@
 	d.tos needReadM
-	"movsx " ,s ,NTOS ",word [" ,s ,TOS" ]" ,ln ;
+	"movsx " ,s ,TOS ",word [" ,s ,TOS "]" ,ln ;
 
 :,!
 	d.tos needWriteM
 	d.nos needRead
 	"mov [" ,s ,TOS "]," ,s ,NOS ,cr
-	d.2drop ;
+	,2DROP ;
 
 :,C!
 	d.tos needWriteM
 	d.nos needReadB
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
-	d.2drop ;
+	,2DROP ;
 :,W!
 	d.tos needWriteM
 	d.nos needReadW
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
-	d.2drop ;
+	,2DROP ;
 
 :,+!
 	d.nos needRead
 	d.tos needWriteM
 	"add [" ,s ,TOS "]," ,s ,NOS ,cr
-	d.2drop ;
+	,2DROP ;
 
 :,W+!
 	d.nos needRead
 	d.tos needWriteM
 	"add word [" ,s ,TOS "]," ,s ,NOSw ,cr
-	d.2drop ;
+	,2DROP ;
 
 :,C+!
 	d.nos needRead
 	d.tos needWriteM
 	"add byte [" ,s ,TOS "]," ,s ,NOSb ,cr
-	d.2drop ;
+	,2DROP ;
 
 :,!+
     d.nos needRead
 	d.tos needWriteM
 	"mov [" ,s ,TOS "]," ,s ,NOS ,cr
 	"add " ,s ,TOS ",4" ,ln
-	d.nip ;
+|	4 d.tos Cell+
+	,NIP ;
+
 :,W!+
     d.nos needRead
 	d.tos needWriteM
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	"add " ,s ,TOS ",2" ,ln
-	d.nip ;
+|	2 d.tos Cell+
+	,NIP ;
 :,C!+
     d.nos needRead
 	d.tos needWriteM
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	"add " ,s ,TOS ",1" ,ln
-	d.nip ;
+|	1 d.tos Cell+
+	,NIP ;
 
 :,@+
 	d.tos needReadM
-	| newTOS
-	"mov " ,s ,NEW ",[" ,TOS "]" ,ln
-	"add " ,s ,TOS ",4" ,ln ;
+	| d.dup newReg
+	"mov " ,s ,TOS ",[" ,NOS "]" ,ln
+	"add " ,s ,NOS ",4" ,ln ;
 :,W@+
 	d.tos needReadM
-	| newTOS
-	"movsx " ,s ,NEW ",word [" ,TOS "]" ,ln
-	"add " ,s ,TOS ",2" ,ln ;
+	| d.dup newReg
+	"movsx " ,s ,TOS ",word [" ,NOS "]" ,ln
+	"add " ,s ,NOS ",2" ,ln ;
 :,C@+
 	d.tos needReadM
-	| newTOS
-	"movsx " ,s ,NEW ",byte [" ,TOS "]" ,ln
-	"add " ,s ,TOS ",1" ,ln ;
+	| d.dup newReg
+	"movsx " ,s ,TOS ",byte [" ,NOS "]" ,ln
+	"add " ,s ,NOS ",1" ,ln ;
 
 |-------- CONDICIONALES
 :,simple?
 	d.tos needRead
-	d.tos MEM? 1? ( drop
+	d.tos cellMEM? 1? ( drop
 		"cmp " ,s ,TOS ",0" ,ln ; ) drop
 	"or " ,s ,TOS "," ,s ,TOS ,cr
 	;
@@ -497,12 +492,12 @@
 :,doble?
 	d.tos needRead
 	d.nos needRead
-	d.tos MEM? 1? ( drop
-		d.nos MEM? 1? ( drop
-			NEWreg
-			"mov " ,s ,NEW "," ,s ,TOS ,cr
-			"cmp " ,s ,NOS "," ,s ,NEW ,cr
-			d.2drop ;
+	d.tos cellMEM? 1? ( drop
+		d.nos cellMEM? 1? ( drop
+			d.dup d.tos needREG
+			"mov " ,s ,TOS "," ,s ,NOS ,cr
+			"cmp " ,s ,NOS2 "," ,s ,TOS ,cr
+			,2DROP ;
 			) )( drop )
     "cmp " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
@@ -517,17 +512,18 @@
 :,bit?
 	d.tos needRead
 	d.nos needRead
-	d.tos MEM? 1? ( drop
-		d.nos MEM? 1? ( drop
-			"mov " ,s ,NEW "," ,s ,TOS ,cr
-			"test " ,s ,NOS "," ,s ,NEW ,cr
-			d.2drop ;
+	d.tos cellMEM? 1? ( drop
+		d.nos cellMEM? 1? ( drop
+			d.dup d.tos needREG
+			"mov " ,s ,TOS "," ,s ,NOS ,cr
+			"test " ,s ,NOS2 "," ,s ,TOS ,cr
+			,2DROP ;
 			) )( drop )
     "test " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 
-:,and?  bit?	"jz " ,s ;
-:,nand? bit?	"jnz " ,s ;
+:,and?  ,bit?	"jz " ,s ;
+:,nand? ,bit?	"jnz " ,s ;
 
 |--------- Sistema
 |#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB" | [] | "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY"
@@ -539,26 +535,26 @@
 :,XFB		4 pushCTE ;
 
 :,BMOUSE | -- c
-	7 pushCTE d.tos setMEM ;
+	7 pushCTE d.tos cellMEM! ;
 
 :,KEY	| -- c
-	8 pushCTE d.tos setMEM ;
+	8 pushCTE d.tos cellMEM! ;
 
 :,PAPER | n --
 	d.tos needReadM | no memoria []
-	,TOS "mov [SYSPAPER],%w" ,ln
+	"mov [SYSPAPER]," ,s ,TOS ,cr
 	d.drop ;
 
 :,KEY! | v --
 	d.tos needReadM | no memoria []
-	,TOS "mov [SYSKEY],%w" ,ln
+	"mov [SYSKEY]," ,s ,TOS ,cr
 	d.drop ;
 
 :,SETXY | x y --
-	d.TOS needRead
-	d.TOS NRO? 1? ( drop
-		d.NOS needRead
-		d.nos NRO? 1? ( drop
+	d.tos needRead
+	d.tos cellNRO? 1? ( drop
+		d.nos needRead
+		d.nos cellNRO? 1? ( drop
 			"lea ebp,[SYSFRAME+(" ,s ,TOS "*XRES+" ,s ,NOS ")*4]" ,ln
 			)( drop
 			d.NOS needWrite | x
@@ -574,7 +570,7 @@
 		"add " ,s ,NOS  "," ,s ,TOS  "" ,ln
 		"lea ebp,[SYSFRAME+", ,NOS "*4]" ,ln
 		)
-	d.2DROP ;
+	,2DROP ;
 
 :,PX+!	| s --
 	d.TOS needREG
@@ -588,8 +584,8 @@
 	d.drop ;
 
 :,PX@	| -- rgb
-	d.dup
-	"mov " ,s ,NTOS ",[ebp]" ,ln ;
+	d.dup d.tos needREG
+	"mov " ,s ,TOS ",[ebp]" ,ln ;
 
 :,XYMOUSE | -- x y
 	,DUP
