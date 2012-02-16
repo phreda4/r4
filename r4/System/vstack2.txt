@@ -16,7 +16,8 @@
 |#sysregsc 31
 
 :emptyreg
-	0 'registros ! ;
+	%1010001 | eax y esi,ebp siempre ocupados
+	'registros ! ;
 
 :reg! | nro --
 	1 swap << registros or 'registros ! ;
@@ -35,18 +36,13 @@
 #cella )( 1024  | suma
 #cells )( 1024  | shift
 
-:inivstack
-	0 'celln !
-	'dpila 'dpila> !
-	'rpila 'rpila> !
-	;
-
 :newcell | valor tipo -- nro
 	celln 2 <<
 	'cellt + !+
 	1020 + !+
 	0 swap 1020 + !+ | suma
-	0 swap 1020 + !+ | shift
+	0 swap 1020 + ! | shift
+	celln
 	1 'celln +!
 	;
 
@@ -72,6 +68,7 @@
 		dup 2 << dup
 		'cellt + @ 	5 =? ( drop
 			dup 'cellv + @ 5 =? (
+
 				pick3 pick3
 				) )
 		2drop ) drop ;
@@ -82,14 +79,6 @@
 | ...MTTTT
 |----- tipos de celdas
 
-::pushNRO	0 newcell d.push ;
-::pushCTE	1 newcell d.push ;
-::pushSTR	2 newcell d.push ;
-::pushCOD	3 newcell d.push ;
-::pushDAT	4 newcell d.push ;
-::pushVAR	4 $10 or newcell d.push ;
-::pushREG	5 newcell d.push ;
-::pushCPY 	6 newcell d.push ;
 
 ::cellNRO? | nro -- 1/0
 	2 << 'cellt + @ $1f and
@@ -103,46 +92,8 @@
 ::cellMEM! | nro --
 	2 << 'cellt + dup @ $10 or swap ! ;
 
-::cellMEM? | nro --
-	2 << 'cellt + @ $10 and? ( 1 )( 0 ) drop ;
-
-|------------------------------------------
-#registrosusados
-#inivpcnt
-
-|------------------------------------------
-| inicia vpila como normal con USADO celdas
-| de forma normal
-| [esi+4] [esi] eax -- para usado=3
-|------------------------------------------
-::inivpila  | usado --
-	inivstack
-	0? ( drop ; )
-	dup 'inivpcnt !
-	1-
-	( 1? )( 1-
-		5 5 $10 or newcell
-		over 2 << cell+
-		d.push | [esi
-		) drop
-	0 5 newcell d.push | eax
-	emptyreg
-	5 reg! 0 reg!
-	;
-
-
-:cambiareg | deltaesi --
-
-	;
-
-::vpila2normal | --  ;transforma la pila actual a normal
-	d.cnt 0? ( drop ; )
-	inivpcnt over - | actual-origen
-	1? ( "lea esi,[esi" ,s dup +? ( "+" ,s ) 2 << ,d "]" ,ln ) drop | corre esi
-
-	( 1? )( 1-
-|		dup d.nro
-		) drop ;
+::cellMEM? | nro -- 1/0
+	2 << 'cellt + @ $10 and? ( 1 )( 0 ) nip ;
 
 
 |---- imprime celda
@@ -164,13 +115,13 @@
 ::cell2str, | nro --
 	( 2 << 'cellt + dup @
 		dup $f and
-		6 =? )( value nip nip nip )
+		6 =? )( drop value nip nip )
 	swap
 	$10 and? ( "[" ,s )
 	swap
 	2 << 'tiposrm + @ exec
-	shift 1? ( dup "*%d" ,print ) drop
-	suma 1? ( dup +? ( "+" ,s ) ,d ) drop
+	shift 1? ( "*" ,s dup ,d ) drop
+	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
 	$10 and? ( "]" ,s )
 	2drop ;
 
@@ -193,6 +144,12 @@
 #rpila )( 1024
 #rpila> 'rpila
 
+:inivstack
+	0 'celln !
+	'dpila 'dpila> !
+	'rpila 'rpila> !
+	;
+
 ::d.nro 	2 << 'dpila + @ ;
 ::d.cnt		dpila dpila> - 2 >> ;
 ::d.pop		-4 'dpila> +! dpila> @ ;
@@ -211,6 +168,15 @@
 ::d.rot		dpila> 12 - >r r@+ r@+ r@+ swap r> 12 - !+ !+ ! ;
 ::d.2swap	dpila> 16 - >r r@+ r@+ swap r@+ r@+ swap r> 32 - !+ !+ !+ ! ;
 
+::pushNRO	0 newcell d.push ;
+::pushCTE	1 newcell d.push ;
+::pushSTR	2 newcell d.push ;
+::pushCOD	3 newcell d.push ;
+::pushDAT	4 newcell d.push ;
+::pushVAR	4 $10 or newcell d.push ;
+::pushREG	5 newcell d.push ;
+::pushCPY 	6 newcell d.push ;
+
 ::d.dup		d.TOS pushCPY ;
 ::d.over	d.NOS pushCPY ;
 ::d.pk2		d.PK2 pushCPY ; |PICK2  abc -- abca
@@ -225,3 +191,95 @@
 ::r.push	rpila> !+ 'rpila> ! ;
 ::r.tos		rpila> 4 - @ ;
 
+#vpmem )( $ffff
+#vpmem> 'vpmem
+
+:,vp vpmem> !+ 'vpmem> ! ;
+:vp@ vpmem> 4 - dup 'vpmem> ! @ ;
+::vpini 'vpmem 'vpmem> ! ;
+
+:,cpcell | nro --
+	2 <<
+	dup 'cellt + @ ,vp
+	dup 'cellv + @ ,vp
+	dup 'cella + @ ,vp
+	'cells + @ ,vp
+	;
+
+:cpcell@ | nro --
+	2 << 
+	vp@ over 'cellt + ! 
+	vp@ over 'cellv + !
+	vp@ over 'cella + !
+	vp@ swap 'cells + !
+	;
+
+::vpCopy | --
+	dpila> 'dpila - 2 >> ,vp
+	'dpila ( dpila> <? )(
+		@+ dup ,vp ,cpcell
+		) drop
+	rpila> 'rpila - 2 >> ,vp
+	'rpila ( rpila> <? )(
+		@+ dup ,vp ,cpcell
+		) drop
+	;
+
+::vpRestore |
+	'dpila 'dpila> !
+	vp@ ( 1? )( 1-
+		vp@ dup d.push
+		cpcell@
+		) drop
+	'rpila 'rpila> !
+	vp@ ( 1? )( 1-
+		vp@ dup r.push
+		cpcell@
+		) drop
+	;
+
+
+|------------------------------------------
+#registrosusados
+#inivpcnt
+
+|------------------------------------------
+| inicia vpila como normal con USADO celdas
+| de forma normal
+| [esi+4] [esi] eax -- para usado=3
+|------------------------------------------
+::inivpila  | usado --
+	inivstack
+	0? ( drop emptyreg ; )
+	dup 'inivpcnt !
+	1-
+	( 1? )( 1-
+		5 $15 newcell
+		over 2 << over cell+
+		d.push | [esi+..|
+		) drop
+	0 5 newcell d.push | eax
+	emptyreg ;
+
+
+:cambiareg | deltaesi --
+
+	;
+
+::vpila2normal | --  ;transforma la pila actual a normal
+	;
+	d.cnt 0? ( drop ; )
+	inivpcnt over - | actual-origen
+	1? ( "lea esi,[esi" ,s dup +? ( "+" ,s ) 2 << ,d "]" ,ln ) drop | corre esi
+
+	( 1? )( 1-
+|		dup d.nro
+		) drop ;
+
+
+::printddvtack
+	dpila> 'dpila - 2 >> ,d ":" ,s
+	'dpila ( dpila> <? )(
+		@+ cell2str, ,sp ) drop
+	":" ,s registros ,b ,cr
+	;
