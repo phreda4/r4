@@ -71,6 +71,7 @@
 :needReadM | cell --
 	drop ;
 :needRead | cell --
+	| si tiene escrituras convertir a REG
 	drop ;
 :needReadW | cell --
 	drop ;
@@ -117,9 +118,9 @@
 
 :,lit	toknow tok>cte pushNRO ;
 :,lits  nstr pushSTR ;
-:,dwo	toknow nro>dicn pushCOD ;
-:,dva   toknow nro>dicn pushDAT ;
-:,var	toknow nro>dicn pushVAR ;
+:,dwo	toknow 8 >> pushCOD ;
+:,dva   toknow 8 >> pushDAT ;
+:,var	toknow 8 >> pushVAR ;
 
 :,wor
 	vpila2normal
@@ -169,6 +170,7 @@
 |----------------------
 :,(
 	| reajusta pila
+|	vpCopy
 	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
 :,)(
 	| reajusta pila
@@ -179,6 +181,7 @@
 	drop ;
 :,)
 	| reajusta pila
+|	vpRestore
 	<pilac salto? 0? ( drop
 			1 =? ( <pilac label ":" ,ln drop ; )
 			2 =? ( <pilac jmp, drop ; )
@@ -377,11 +380,17 @@
 	"neg " ,s ,TOS ,cr ;
 
 :,1+
-	1 d.tos Cell+ ;
+	"add " ,s ,TOS ",1" ,ln
+|	1 d.tos Cell+
+	;
 :,4+
-	4 d.tos Cell+ ;
+	"add " ,s ,TOS ",4" ,ln
+|	4 d.tos Cell+
+	;
 :,1-
-	-1 d.tos Cell+ ;
+	"sub " ,s ,TOS ",1" ,ln
+|	-1 d.tos Cell+
+	;
 :,2/
 	d.tos needWrite
 	"sar " ,s ,TOS ",1" ,ln ;
@@ -462,18 +471,18 @@
 
 :,@+
 	d.tos needReadM
-	| d.dup newReg
-	"mov " ,s ,TOS ",[" ,NOS "]" ,ln
+	d.dup d.tos needReg
+	"mov " ,s ,TOS ",[" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",4" ,ln ;
 :,W@+
 	d.tos needReadM
-	| d.dup newReg
-	"movsx " ,s ,TOS ",word [" ,NOS "]" ,ln
+	d.dup d.tos needReg
+	"movsx " ,s ,TOS ",word [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",2" ,ln ;
 :,C@+
 	d.tos needReadM
-	| d.dup newReg
-	"movsx " ,s ,TOS ",byte [" ,NOS "]" ,ln
+	d.dup d.tos needReg
+	"movsx " ,s ,TOS ",byte [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",1" ,ln ;
 
 |-------- CONDICIONALES
@@ -498,7 +507,7 @@
 			"mov " ,s ,TOS "," ,s ,NOS ,cr
 			"cmp " ,s ,NOS2 "," ,s ,TOS ,cr
 			,2DROP ;
-			) )( drop )
+			)( drop ) )( drop )
     "cmp " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 
@@ -662,9 +671,13 @@
 :gencode | adr adri+ -- adri+ adr+
 	swap @+
 
-|dup tokenstr "; " ,s ,s 10 ,c | ** debug
+"; " ,s
+printddvtack	| ** debug
+dup tokenstr "; " ,s ,s 10 ,c | ** debug
 
-	$ff and	2 << 'nivel1 + @ exec | adri+ adr+
+	$ff and
+	2 << 'nivel1 + @ exec | adri+ adr+
+
 	;
 
 ::,compwordopt | nro --
@@ -679,14 +692,13 @@
 	buff> 'bufftok rot analisabuf
 |---- genera codigo
 
-	nro>mov @ 24 << 24 >> neg
+	dup nro>mov @ 24 << 24 >> neg
 	inivpila
 	'buffinf 4+
 	'bufftok ( buff> <? )(
 		swap @+ 'regact !
 		gencode
-
-|"r4asm/cod.asm" savemem | ****debug
+"r4asm/cod.asm" savemem | ****debug
 
 		) 2drop
 	;
