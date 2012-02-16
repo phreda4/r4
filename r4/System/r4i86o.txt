@@ -78,10 +78,17 @@
 :needReadB | cell --
 	drop ;
 
-:needWrite | cell
-	drop ;
-:needWriteM | cell -- ; no puede ser []
-	drop ;
+:needWrite | cell -- ; pone en registro si no esta
+	dup cellREG? 0 >=? ( 2drop ; ) drop | ya esta en registro
+	newREG | cell reg
+	"mov " ,s dup ,REG "," ,s
+	over ,CELL ,cr
+	dup reg!
+	5 rot cell!	;
+
+:needWriteM | cell -- ; registro o direccion cte
+	dup cellADR? 1? ( drop needWrite ; )
+	2drop ;
 
 :cteorECX | cell --
 	drop ;
@@ -170,18 +177,20 @@
 |----------------------
 :,(
 	| reajusta pila
-|	vpCopy
-	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
+	vpPush
+	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 )
+	>pilac drop ;
 :,)(
 	| reajusta pila
-	<pilac salto? 0? ( drop
-			1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac drop ; )
-			)( drop
-			2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac drop ; ) )
+	<pilac salto? 0? ( drop	| ELSE
+		1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac drop
+			vpPop vpPush ; )
+		)( drop	| WHILE
+		2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac drop ; ) )
 	drop ;
 :,)
 	| reajusta pila
-|	vpRestore
+	vpPop
 	<pilac salto? 0? ( drop
 			1 =? ( <pilac label ":" ,ln drop ; )
 			2 =? ( <pilac jmp, drop ; )
@@ -200,9 +209,9 @@
 
 :,DUP	d.dup ;
 :,OVER	d.over ;
-:,PICK2 d.pk2 ;
-:,PICK3	d.pk3 ;
-:,PICK4	d.pk4 ;
+:,PICK2 d.pick2 ;
+:,PICK3	d.pick3 ;
+:,PICK4	d.pick4 ;
 
 :,SWAP	d.swap ;
 :,ROT	d.rot ;
@@ -288,7 +297,7 @@
 	useEDX
 	d.pk2 needEAX
 	d.nos needRead
-	d.tos needWrite
+	d.tos needRead
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
@@ -327,7 +336,7 @@
 	d.nos needEAX
 	d.tos needRead
 	"cdq" ,ln
-	"idiv " ,TOS ,cr
+	"idiv " ,s ,TOS ,cr
 	d.nos setEAX
 	d.tos setEDX ;
 
@@ -487,7 +496,7 @@
 
 |-------- CONDICIONALES
 :,simple?
-	d.tos needRead
+	d.tos needWrite
 	d.tos cellMEM? 1? ( drop
 		"cmp " ,s ,TOS ",0" ,ln ; ) drop
 	"or " ,s ,TOS "," ,s ,TOS ,cr
@@ -500,7 +509,7 @@
 
 :,doble?
 	d.tos needRead
-	d.nos needRead
+	d.nos needWrite
 	d.tos cellMEM? 1? ( drop
 		d.nos cellMEM? 1? ( drop
 			d.dup d.tos needREG
@@ -520,7 +529,7 @@
 
 :,bit?
 	d.tos needRead
-	d.nos needRead
+	d.nos needWrite
 	d.tos cellMEM? 1? ( drop
 		d.nos cellMEM? 1? ( drop
 			d.dup d.tos needREG
@@ -559,25 +568,28 @@
 	"mov [SYSKEY]," ,s ,TOS ,cr
 	d.drop ;
 
+:setxyNOS
+	d.nos needWrite | x
+|	"imul " ,s ,NOS ",XRES" ,ln	| cualquier ancho
+	"shl " ,s ,NOS  ",10" ,ln	| 1024 de ancho
+	"lea ebp,[SYSFRAME+" ,s ,TOS "+" ,s ,NOS "*4]" ,ln ;
+
+
 :,SETXY | x y --
 	d.tos needRead
 	d.tos cellNRO? 1? ( drop
 		d.nos needRead
 		d.nos cellNRO? 1? ( drop
 			"lea ebp,[SYSFRAME+(" ,s ,TOS "*XRES+" ,s ,NOS ")*4]" ,ln
-			)( drop
-			d.NOS needWrite | x
-		|	"imul " ,s ,NOS ",XRES" ,ln	| cualquier ancho
-			"shl ",s ,NOS  ",10" ,ln	| 1024 de ancho
-			"lea ebp,[SYSFRAME+" ,s ,TOS "+" ,s ,NOS "*4]" ,ln
-			)
+			)( drop 
+			setxyNOS )
 		)( drop
-		d.NOS needWrite | x
+		d.nos needWrite | x
 |		"imul " ,s ,NOS ",XRES" ,ln	| cualquier ancho
-		"shl ",s ,NOS  ",10" ,ln	| 1024 de ancho
+		"shl " ,s ,NOS ",10" ,ln	| 1024 de ancho
 
-		"add " ,s ,NOS  "," ,s ,TOS  "" ,ln
-		"lea ebp,[SYSFRAME+", ,NOS "*4]" ,ln
+		"add " ,s ,NOS "," ,s ,TOS ,cr
+		"lea ebp,[SYSFRAME+" ,s ,NOS "*4]" ,ln
 		)
 	,2DROP ;
 
@@ -588,7 +600,7 @@
 
 :,PX!+	| rgb --
 	d.tos needRead
-	"mov [ebp]," ,s ,TOS  ,ln
+	"mov [ebp]," ,s ,TOS ,cr
 	"add ebp,4" ,ln
 	d.drop ;
 
@@ -597,13 +609,13 @@
 	"mov " ,s ,TOS ",[ebp]" ,ln ;
 
 :,XYMOUSE | -- x y
-	,DUP
-	"lea esi,[esi-4]" ,ln
-	"mov eax,[SYSXYM]" ,ln
-	"mov ecx,eax" ,ln
-	"and ecx,$ffff" ,ln
-	"shr eax,16" ,ln
-	"mov [esi],ecx" ,ln ;
+	d.dup d.tos needREG
+	d.dup d.tos needREG
+	"mov " ,s ,TOS ",[SYSXYM]" ,ln
+	"mov " ,s ,NOS "," ,s ,TOS ,cr
+	"and " ,s ,NOS ",$ffff" ,ln
+	"shr " ,s ,TOS ",16" ,ln
+	;
 
 :,CNTJOY
 	,DUP "xor eax,eax" ,ln ;
@@ -671,12 +683,12 @@
 :gencode | adr adri+ -- adri+ adr+
 	swap @+
 
-"; " ,s
-printddvtack	| ** debug
 dup tokenstr "; " ,s ,s 10 ,c | ** debug
 
 	$ff and
 	2 << 'nivel1 + @ exec | adri+ adr+
+
+"; " ,s printddvtack	| ** debug
 
 	;
 
