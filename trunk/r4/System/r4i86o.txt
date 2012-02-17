@@ -54,7 +54,7 @@
 	| libero EDX
 	;
 :freeEAX
-    	| libero EAX
+   	| libero EAX
 	;
 
 :needEAX | cell --
@@ -68,16 +68,6 @@
 	| asignar si hay que resolver
 	drop ;
 
-:needReadM | cell --
-	drop ;
-:needRead | cell --
-	| si tiene escrituras convertir a REG
-	drop ;
-:needReadW | cell --
-	drop ;
-:needReadB | cell --
-	drop ;
-
 :needWrite | cell -- ; pone en registro si no esta
 	dup cellREG? 0 >=? ( 2drop ; ) drop | ya esta en registro
 	newREG | cell reg
@@ -87,6 +77,18 @@
 	5 rot cell!	;
 
 :needWriteM | cell -- ; registro o direccion cte
+	dup cellADR? 1? ( drop needWrite ; )
+	2drop ;
+
+:needRead | cell --
+	| si tiene escrituras convertir a REG
+	drop ;
+:needReadW | cell --
+	drop ;
+:needReadB | cell --
+	drop ;
+
+:needReadM | cell --
 	dup cellADR? 1? ( drop needWrite ; )
 	2drop ;
 
@@ -161,9 +163,9 @@
 :,XFB>  	,callsys "SYSXFBTO" ,ln ;
 
 :,;
-	vpila2normal
 	dup 8 - @ $ff and | word ;
 	8 =? ( drop ; ) drop
+	vpila2normal
 	"ret" ,ln ;
 
 |----- auxiliares bloques
@@ -183,9 +185,10 @@
 :,)(
 	| reajusta pila
 	<pilac salto? 0? ( drop	| ELSE
-		1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac drop
-			vpPop vpPush ; )
+		vpPop vpPush
+		1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac drop ; )
 		)( drop	| WHILE
+		vpDrop vpPush
 		2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac drop ; ) )
 	drop ;
 :,)
@@ -422,35 +425,34 @@
 
 :,!
 	d.tos needWriteM
-	d.nos needRead
+	d.nos needReadM
 	"mov [" ,s ,TOS "]," ,s ,NOS ,cr
 	,2DROP ;
-
 :,C!
 	d.tos needWriteM
-	d.nos needReadB
+	d.nos needReadM
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	,2DROP ;
 :,W!
 	d.tos needWriteM
-	d.nos needReadW
+	d.nos needReadM
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	,2DROP ;
 
 :,+!
-	d.nos needRead
+	d.nos needReadM
 	d.tos needWriteM
 	"add [" ,s ,TOS "]," ,s ,NOS ,cr
 	,2DROP ;
 
 :,W+!
-	d.nos needRead
+	d.nos needReadM
 	d.tos needWriteM
 	"add word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	,2DROP ;
 
 :,C+!
-	d.nos needRead
+	d.nos needReadM
 	d.tos needWriteM
 	"add byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	,2DROP ;
@@ -581,7 +583,7 @@
 		d.nos needRead
 		d.nos cellNRO? 1? ( drop
 			"lea ebp,[SYSFRAME+(" ,s ,TOS "*XRES+" ,s ,NOS ")*4]" ,ln
-			)( drop 
+			)( drop
 			setxyNOS )
 		)( drop
 		d.nos needWrite | x
