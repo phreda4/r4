@@ -8,6 +8,11 @@
 
 #sysregs "EAX" "EBX" "ECX" "EDX" "EDI" "ESI" "EBP"
 "XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7"
+#sysregw "AX" "BX" "CX" "DX" "DI" "SI" "BP"
+"*" "*" "*" "*" "*" "*" "*" "*"
+#sysregb "AL" "BL" "CL" "DL" "*" "*" "*"
+"*" "*" "*" "*" "*" "*" "*" "*"
+
 #sysregsc  15
 
 | para x64
@@ -16,7 +21,7 @@
 |#sysregsc 31
 
 :emptyreg
-	%1010001 | eax y esi,ebp siempre ocupados
+	%1100001 | eax y esi,ebp siempre ocupados
 	'registros ! ;
 
 ::reg! | nro --
@@ -28,12 +33,28 @@
 |:reg? | nro -- 1/0
 |	registros 1 rot << and ;
 
-::newReg | -- reg | busca un registro libre o lo fabrica
+::newReg | -- reg | busca un registro libre
 	0 registros
 	( 1? )( 1 nand? ( drop ; ) | libre?
 		2/ $7fffffff and
 		swap 1+ swap )
 	drop ;
+
+::useEDX
+	registros %1000 nand? ( drop ; ) drop
+	"movd XMM7,EDX" ,ln ;
+
+::backEDX
+	registros %1000 nand? ( drop ; ) drop
+	"movd EDX,XMM7" ,ln ;
+
+::useECX
+	registros %100 nand? ( drop ; ) drop
+	"movd XMM6,ECX" ,ln ;
+
+::backECX
+	registros %100 nand? ( drop ; ) drop
+	"movd ECX,XMM6" ,ln ;
 
 |-------- constantes del sistema
 #syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
@@ -133,6 +154,14 @@
 
 #tiposrm mt0 mt1 mt2 mt3 mt4 mt5 0 0 0
 
+:mt5b value 'sysregb list2str ,s ;
+
+#tiposrmb mt0 mt1 mt2 mt3 mt4 mt5b 0 0 0
+
+:mt5w value 'sysregw list2str ,s ;
+
+#tiposrmw mt0 mt1 mt2 mt3 mt4 mt5w 0 0 0
+
 :cellCOPYN | nro -- adr t T
 	( 2 << 'cellt + dup @
 		dup $f and
@@ -147,6 +176,28 @@
 	$10 and? ( "[" ,s )
 	swap
 	2 << 'tiposrm + @ exec
+	shift 1? ( "*" ,s dup ,d ) drop
+	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	$10 and? ( "]" ,s )
+	2drop ;
+
+::cell2strb, | nro --
+	cellCOPYN
+	swap
+	$10 and? ( "[" ,s )
+	swap
+	2 << 'tiposrmb + @ exec
+	shift 1? ( "*" ,s dup ,d ) drop
+	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	$10 and? ( "]" ,s )
+	2drop ;
+
+::cell2strw, | nro --
+	cellCOPYN
+	swap
+	$10 and? ( "[" ,s )
+	swap
+	2 << 'tiposrmw + @ exec
 	shift 1? ( "*" ,s dup ,d ) drop
 	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
 	$10 and? ( "]" ,s )
@@ -191,8 +242,6 @@
 ::d.nro 	2 << 'dpila + @ ;
 ::d.cnt		dpila> 'dpila - 2 >> ;
 ::d.pop		-4 'dpila> +! dpila> @ ;
-::d.pop2 	-8 'dpila> +! dpila> @+ swap @ ;
-::d.pop3 	-12 'dpila> +! dpila> @+ swap @+ swap @ ;
 ::d.push 	dpila> !+ 'dpila> ! ;
 ::d.TOS		dpila> 4 - @ ;
 ::d.NOS 	dpila> 8 - @ ;
@@ -290,6 +339,10 @@
 	-4 'vpst> +!
 	vpst> @ 'vpmem> ! ;
 
+::vpEqual | reacomoda los registro en los lugares
+	vpst> 4 - @ | pila objetivo
+	;
+
 |------------------------------------------
 #registrosusados
 #inivpcnt
@@ -317,7 +370,6 @@
 :cellESI | cell deltasi --
 	over cellREG? 5 <>? ( 3drop ; ) drop | si es ESI
 	swap Cell+ | ***??
-
 	;
 
 :correESI | deltaesi --
@@ -331,7 +383,6 @@
 		) drop
 	drop ;
 
-
 :resolveADR | nro xx cell yy -- nro xx cell yy
 	newReg | nro xx cell yy reg
 	"mov " ,s dup ,REG "," ,s
@@ -341,8 +392,9 @@
 	;
 
 :genRST | nro XX cell -- nro XX
+|	dup cellREG? 5 =? ( ) drop | si esta en el lugar no generar
 	dup cellADR? 1? ( resolveADR ) drop
-	"mov [esi+" ,s pick2 2 << ,d "]," ,s ,CELL ,cr
+	"mov dword [esi+" ,s pick2 2 << ,d "]," ,s ,CELL ,cr
 	;
 
 :genEAX | cell --

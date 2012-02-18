@@ -42,17 +42,6 @@
 #regact
 
 |--- para registros de vpila vstack2
-:useREG | nro --
-	drop ;
-:freeREG | nro --
-	drop ;
-
-:useEDX
-	| ocupo EDX
-	;
-:freeEDX
-	| libero EDX
-	;
 :freeEAX
    	| libero EAX
 	;
@@ -66,7 +55,9 @@
 	| si es registro o numero salir
 	| buscar registro libre
 	| asignar si hay que resolver
-	drop ;
+	newReg dup reg!
+	5 rot cell!
+	;
 
 :needWrite | cell -- ; pone en registro si no esta
 	dup cellREG? 0 >=? ( 2drop ; ) drop | ya esta en registro
@@ -94,7 +85,6 @@
 
 :cteorECX | cell --
 	drop ;
-
 :setEAX | cell --
 	drop ;
 :setEDX | cell --
@@ -103,11 +93,11 @@
 |------ codigo para acceso a celdas
 
 :,TOS	d.tos cell2str, ;
-:,TOSb	d.tos cell2str, ; | b
+:,TOSb	d.tos cell2strb, ;
 
 :,NOS	d.nos cell2str, ;
-:,NOSb	d.nos cell2str, ;
-:,NOSw	d.nos cell2str, ;
+:,NOSb	d.nos cell2strb, ;
+:,NOSw	d.nos cell2strw, ;
 
 :,NOS2	d.pk2 cell2str, ;
 :,RTOS	r.tos cell2str, ;
@@ -306,7 +296,7 @@
 	"idiv " ,s ,TOS ,cr
 	,2DROP
 	d.tos setEAX
-	freeEDX ;
+	backEDX ;
 
 :,*>>
 	useEDX
@@ -319,7 +309,7 @@
 	"shr edx," ,s ,TOSb ,cr
 	,2DROP
 	d.tos setEAX
-	freeEDX ;
+	backEDX ;
 
 :,<</
 	useEDX
@@ -332,7 +322,7 @@
 	"idiv " ,s ,NOS ,cr
 	,2DROP
 	d.tos setEAX
-	freeEDX ;
+	backEDX ;
 
 :,/MOD
 	useEDX
@@ -376,7 +366,7 @@
 		) drop
 	"add " ,s ,TOS ",edx" ,ln
 	"xor " ,s ,TOS ",edx" ,ln
-	freeEDX ;
+	backEDX ;
 
 :,CLZ
 	d.tos needREG
@@ -701,7 +691,15 @@ dup tokenstr "; " ,s ,s 10 ,c | ** debug
 	( 1? )( 1- swap
 		@+ +buff
 		swap ) 2drop
-|---- optimiza
+|--- sin pilaestatica
+	nro>mov @ 24 << 24 >> neg inivpila
+	'bufftok ( buff> <? )(
+		@+ $ff and
+		2 << 'nivel1 + @ exec | adri+ adr+
+		) drop ;
+
+
+|---- optimiza pilaestatica
 	nro>mov @ 24 << 24 >> neg | uso
 	buff> 'bufftok rot analisabuf
 |---- genera codigo
@@ -716,3 +714,6 @@ dup tokenstr "; " ,s ,s 10 ,c | ** debug
 
 		) 2drop
 	;
+
+
+
