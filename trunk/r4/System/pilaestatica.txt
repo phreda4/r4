@@ -115,53 +115,31 @@
 :d.pushVDAT	10 d.pushNew ;	|  10 vardat        'dat+
 :d.pushSTACK 11 d.pushNew ;	|  11 stack         [esi+] .. eax
 
-
-|-----------------------------------------
-|--- buffinf
-| | TOS | NOS | NOS2 | Tipo | Compila |
-|    8     8     8      4       4
-| tipo
-|	1 usa tos
-|	2 usa tos+nos
-|	3 usa tos+nos+nos2
-|	4 usa tos+pk2
-|	5 usa tos+pk3
-|	6 usa tos+pk4
-|	7 usa tos+pk5
-|	8 usa tos+rtos
-|	9 usa rtos
-|   d ;
-|	e call
-| 	f lit, lits
-| compila
-| 	f NO GENERA CODIGO
-|	7 tos+nos+nos2 se optimiza
-| 	3 tos+nos se optimiza
-|	1 tos se optimiza
-|	0 NO OPTIMIZADO
-
 |--- llena buffinf
 |:inf! tostr> 4096 - ! ; | OJO ctes para otros buff
 :tok! tostr> 8192 - ! ;
 
 |---- marcas de registros
-:reg+1 | --
+:reg+1 | -- ; celda que se escribio
 	d.TOS 2 << 'regt + dup
 	@ dup $ff00ffff and swap
 	$ff0000 and $10000 + or
 	swap ! ;
 
-:regr+1
+:regr+1 | -- ; celda que se leyo
 	d.TOS 2 << 'regt + dup
 	@ dup $ffffff and swap
 	$ff000000 and $1000000 + or
 	swap ! ;
 
-:regrr+1
+:regrr+1 | -- ; celda que se leyo en R
 	r.TOS 2 << 'regt + dup
 	@ dup $ffffff and swap
 	$ff000000 and $1000000 + or
 	swap ! ;
+
+:regst | -- ; tos es pila obligada
+	d.TOS 2 << 'regt + dup @ $10 or swap ! ;
 
 :memreg | es dir dato
 	d.TOS 2 << 'regt + dup @ $80 or swap ! ;
@@ -184,7 +162,6 @@
 	tokact swap 'reglen + !
 	;
 
-
 |--- pila D
 :vdrop	endreg -4 'dpila> +! ;
 :v4drop vdrop
@@ -201,6 +178,14 @@
 :vpk4	d.PK4 d.pushCPY ; |PICK4  abcde -- abcdea
 :v2dup	vover vover ;	|2DUP   ab -- abab
 :v2over	vpk3 vpk3 ; |2OVER  abcd -- abcdab
+
+:vuso3 regr+1 vdrop
+:vuso2 regr+1 vdrop
+:vuso1 regr+1 vdrop ;
+
+:vuso11 regr+1 ;
+:vuso21 regr+1 vdrop regr+1 ;
+
 
 |--- aritmeticas y logicas
 :op1a1	reg+1 ; | neg not 1+ 4+ 1- 2/ ..
@@ -254,7 +239,7 @@
 	d.pushCTE
 	;
 :litS	| "kk"
-	value cte + strusestack ( 1? )( 1- vdrop ) 2drop | correccion por "%d"
+	value cte + strusestack ( 1? )( 1- regr+1 regst vdrop ) 2drop | correccion por "%d"
 	value d.pushSTR  ;
 
 #lastdircode
@@ -277,26 +262,21 @@
 |	-? ( ( 1? )( 1+ vrdrop ) drop )( ( 1? )( 1- newRegR ) drop ) 	|	'deltaR +!
 |
 	dup 24 << 24 >> |duso
-	dup ( 1? )( 1+ vdrop ) drop
+	dup ( 1? )( 1+ regr+1 vdrop ) drop
 	swap 8 << 24 >>
 	- abs
 	( 1? )( 1- 0 d.pushVNUM ) drop
-	;
-| antes
-
-	8 << 24 >> |dD
-	0? ( drop ; )
-	| control de tipos aqui
-	-? ( ( 1? )( 1+ vdrop ) drop )( ( 1? )( 1- 0 d.pushVNUM ) drop ) 	|'deltaD +!
 	;
 
 :exexec 	| exec
     regr+1
 	codreg vdrop
-	lastdircode
-	nro>mov @ 8 << 24 >> | dD
-	0? ( drop ; )
-	-? ( ( 1? )( 1+ vdrop ) drop )( ( 1? )( 1- 0 d.pushVNUM ) drop )
+	lastdircode nro>mov @
+	dup 24 << 24 >> |duso
+	dup ( 1? )( 1+ regr+1 vdrop ) drop
+	swap 8 << 24 >>
+	- abs
+	( 1? )( 1- 0 d.pushVNUM ) drop
 	;
 
 :c0 | 0? 1? ..
@@ -311,7 +291,7 @@
 	memreg reg+1
 	d.tos d.pushVNUM  ;
 :2!	| !+ c!+ w!+
-	memreg reg+1 vnip ;
+	vswap regr+1 vswap memreg reg+1 vnip ;
 :2+! | +! c+! w+!
 	memreg regr+1 vdrop regr+1 vdrop ;
 
@@ -350,8 +330,10 @@
 	sst@ drop ;
 
 :tipo1 | ?( )	; IF
-	;? 1? ( sst@ str>stacks drop ; )
-	sst@ 2drop ;
+	sst@ str>stacks
+|	;? 1? ( sst@ str>stacks drop ; )
+|	sst@ 2drop
+	;
 
 :tipo2 | ?( )( ) ; IFELSE
 	;? 1? ( sst@ sst@ str>stacks 2drop ; )
@@ -471,24 +453,24 @@ xop2a1	|76 >>    ab -- c  usa ecx
 2@	|W@+    a -- bc     tos es ddat
 2!	|W!+   ab -- c      tos es ddat
 
-v3drop	|MOVE  abc --       a,b es ddat
-v3drop	|MOVE> abc --		a,b es ddat
-v3drop	|CMOVE abc --		a,b es ddat
-v3drop	|CMOVE> abc --		a,b es ddat
+vuso3	|MOVE  abc --       a,b es ddat
+vuso3	|MOVE> abc --		a,b es ddat
+vuso3	|CMOVE abc --		a,b es ddat
+vuso3	|CMOVE> abc --		a,b es ddat
 
 v1cte |MEM	-- a		a es ddat
-vdrop	|DIR    a --
-0	|FILE   a -- b
-0	|FSIZE  a -- b
-0	|VOL    a -- b
-vdrop	|LOAD   ab -- c
-v3drop	|SAVE   abc --
-v3drop	|APPEND   abc --
+vuso1	|DIR    a --
+vuso11	|FILE   a -- b
+vuso11	|FSIZE  a -- b
+vuso11	|VOL    a -- b
+vuso21	|LOAD   ab -- c
+vuso3	|SAVE   abc --
+vuso3	|APPEND   abc --
 
-0	|UPDATE  a -- a
+vuso11	|UPDATE  a -- a
 v2v	|XYMOUSE -- ab
 v1v	|BMOUSE  -- a
-vdrop	|IKEY!  a --
+vuso1	|IKEY!  a --
 v1v	|KEY     -- a
 v1v	|CNTJOY  -- a
 v1v	|GETJOY  -- a
@@ -497,44 +479,44 @@ v1v	|MSEC    -- a
 v3v	|TIME    -- abc
 v3v	|DATE    -- abc
 0	|END     --
-vdrop	|RUN    a --
+vuso1	|RUN    a --
 v1cte	|SW      -- a
 v1cte	|SH      -- a
 0	|CLS     --
 0	|REDRAW  --
 v1v	|FRAMEV  -- a
-v2drop	|SETXY  ab --
-vdrop	|PX+!   a --
-vdrop	|PX!+   a --
+vuso2	|SETXY  ab --
+vuso1	|PX+!   a --
+vuso1	|PX!+   a --
 v1v	|PX@     -- a
 
 v1cte	|XFB     -- a
 0	|>XFB    --
 0	|XFB>    --
 
-vdrop	|PAPER  a --
-vdrop	|INK    a --
+vuso1	|PAPER  a --
+vuso1	|INK    a --
 v1v		|INK@    -- a
-vdrop	|ALPHA  a --
-v2drop	|OP     ab --
-v2drop	|CP     ab --
-v2drop	|LINE   ab --
-v2drop	|CURVE  ab --
-v2drop	|PLINE  ab --
-v2drop	|PCURVE ab --
+vuso1	|ALPHA  a --
+vuso2	|OP     ab --
+vuso2	|CP     ab --
+vuso2	|LINE   ab --
+vuso2	|CURVE  ab --
+vuso2	|PLINE  ab --
+vuso2	|PCURVE ab --
 0		|POLI    --
-v2drop	|FCOL   ab --
-v2drop	|FCEN   ab --
-v2drop	|FMAT   ab --
+vuso2	|FCOL   ab --
+vuso2	|FCEN   ab --
+vuso2	|FMAT   ab --
 0	|SFILL   --
 0	|LFILL   --
 0	|RFILL   --
-vdrop	|TFILL  a --
+vuso1	|TFILL  a --
 
-0	|SLOAD   a -- a
-vdrop	|SPLAY  a --
-0	|MLOAD   a -- a
-vdrop	|MPLAY  a --
+vuso11	|SLOAD   a -- a
+vuso1	|SPLAY  a --
+vuso11	|MLOAD   a -- a
+vuso1	|MPLAY  a --
 
 |---- falta
 0	|OPENURL
@@ -569,7 +551,7 @@ vdrop	|MPLAY  a --
 
 :,primm | n --
 	dup 2 << 'regt + @
-	$8000 and? ( 2drop "*" ,s ; )
+	$8000 and? ( drop 64 + ,c ; ) |2drop "*" ,s ; )
 	drop
 	64 + ,c
 	;
@@ -599,6 +581,7 @@ vdrop	|MPLAY  a --
 	swap 'tostr +
 	( tostr> <? )(
 		4+ swap @+ "%h " print
+
 		swap cr )
 	2drop ;
 
@@ -616,6 +599,7 @@ vdrop	|MPLAY  a --
 	$80 and? ( "M" ,print ) | como memoria
 	$40 nand? ( "S" ,print ) | no endreg (es salida)
 	$20 and? ( "C" ,print ) | codreg
+	$10 and? ( "." ,print ) | pila obligada
 
 	$100 and? ( " eaxedx" ,print ) | usoadx
 	$200 and? ( " ecx" ,print ) | usoecx | si no es cte
@@ -623,8 +607,9 @@ vdrop	|MPLAY  a --
 	$400 and? ( "[R]" ,print ) | lee de r
 	$800 and? ( "<R>" ,print ) | escribe en r
 
-	dup 16 >> $ff and 1? ( "<%d>" ,print )( drop ) | cnt de escrituras
-	dup 24 >> $ff and 1? ( "[%d]" ,print )( drop ) | cnt de lecturas
+	dup 16 >> $ff and 1? ( " %dW" ,print )( drop ) | cnt de escrituras
+	dup 24 >> $ff and 1? ( " %dR" ,print )( drop ) | cnt de lecturas
+	dup 16 >> $ff and over 24 >> $ff and or 0? ( "<vacia>" ,s ) drop
 	drop
 	dup 3068 + @ " %d-" ,print
 	dup 4092 + @ "%d " ,print
@@ -658,13 +643,16 @@ vdrop	|MPLAY  a --
 	$80 and? ( "M" print ) | como memoria
 	$40 nand? ( "S" print ) | no endreg (es salida)
 	$20 and? ( "C" print ) | codreg
+	$10 and? ( "." print ) | pila obligada
+
 	$100 and? ( "a" print ) | usoadx
 	$200 and? ( "c" print ) | usoecx | si no es cte
 	$400 and? ( "[R]" print ) | lee en r
 	$800 and? ( "<R>" print ) | escribe en r
 
-	dup 16 >> $ff and 1? ( "<%d>" print )( drop ) | cnt de escrituras
-	dup 24 >> $ff and 1? ( "[%d]" print )( drop ) | cnt de lecturas
+	dup 16 >> $ff and 1? ( " %dW" print )( drop ) | cnt de escrituras
+	dup 24 >> $ff and 1? ( " %dR" print )( drop ) | cnt de lecturas
+	dup 16 >> $ff and over 24 >> $ff and or 0? ( "<vacia>" print ) drop
 
 	drop
 	gris
@@ -779,6 +767,8 @@ vdrop	|MPLAY  a --
 	@+ dup tok!	| guarda token
 	$ff and
 	3 <? ( drop ; )	| quita :#
+|	dup "%d " mprint count "log.txt" append
+
 	2 << 'acctoken + @ exec
 	1 'tokact +!
 	stacks>str
@@ -796,9 +786,9 @@ vdrop	|MPLAY  a --
 	dup nro>toklen
 	( 1? )( 1- swap sregtok swap  )
 	3drop
+
 | PARTE 2 - Asignacion de registros
-	AsignoReg
-	;
+	AsignoReg ;
 
 ::analisabuf | fin ini used --
 	vtini
@@ -807,6 +797,5 @@ vdrop	|MPLAY  a --
 | PARTE 1 - Crea registros
 	( over <? )( sregtok ) 2drop
 | PARTE 2 - Asignacion de registros
-	AsignoReg
-	;
+	AsignoReg ;
 
