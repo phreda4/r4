@@ -174,6 +174,7 @@
 :bloqueentrada
 |	celdasque necesitan registros
 |	copia a registros asignados
+|	libera registros necesarios
 	;
 
 :bloquesalida
@@ -206,25 +207,6 @@
 			2 =? ( <pilac label ,cr drop ; ) )
 	drop ;
 
-
-|--------- PILA
-:,NIP   d.swap d.drop ;
-:,4DROP	d.drop
-:,3DROP	d.drop
-:,2DROP d.drop
-:,DROP	d.drop ;
-
-:,DUP	d.dup ;
-:,OVER	d.over ;
-:,PICK2 d.pick2 ;
-:,PICK3	d.pick3 ;
-:,PICK4	d.pick4 ;
-
-:,SWAP	d.swap ;
-:,ROT	d.rot ;
-:,2DUP	d.2dup ;
-:,2OVER	d.2over ;
-:,2SWAP	d.2swap ;
 
 |--------------------- Exec
 :,EXEC | v --
@@ -308,7 +290,7 @@
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
-	,2DROP
+	d.2DROP
 	d.tos setEAX
 	backEDX ;
 
@@ -321,7 +303,7 @@
 	"imul " ,s ,NOS2 ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
 |	"shr edx," ,s ,TOSb ,cr | no hace falta!!
-	,2DROP
+	d.2DROP
 	d.tos setEAX
 	backEDX ;
 
@@ -334,7 +316,7 @@
     "shld edx,eax," ,s ,TOSb ,cr
 	"shl eax," ,s ,TOSb ,cr
 	"idiv " ,s ,NOS ,cr
-	,2DROP
+	d.2DROP
 	d.tos setEAX
 	backEDX ;
 
@@ -431,35 +413,35 @@
 	d.tos needWriteM
 	d.nos needReadM
 	"mov [" ,s ,TOS "]," ,s ,NOS ,cr
-	,2DROP ;
+	d.2DROP ;
 :,C!
 	d.tos needWriteM
 	d.nos needReadM
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
-	,2DROP ;
+	d.2DROP ;
 :,W!
 	d.tos needWriteM
 	d.nos needReadM
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
-	,2DROP ;
+	d.2DROP ;
 
 :,+!
 	d.nos needReadM
 	d.tos needWriteM
 	"add [" ,s ,TOS "]," ,s ,NOS ,cr
-	,2DROP ;
+	d.2DROP ;
 
 :,W+!
 	d.nos needReadM
 	d.tos needWriteM
 	"add word [" ,s ,TOS "]," ,s ,NOSw ,cr
-	,2DROP ;
+	d.2DROP ;
 
 :,C+!
 	d.nos needReadM
 	d.tos needWriteM
 	"add byte [" ,s ,TOS "]," ,s ,NOSb ,cr
-	,2DROP ;
+	d.2DROP ;
 
 :,!+
     d.nos needRead
@@ -467,7 +449,7 @@
 	"mov [" ,s ,TOS "]," ,s ,NOS ,cr
 	"add " ,s ,TOS ",4" ,ln
 |	4 d.tos Cell+
-	,NIP ;
+	d.NIP ;
 
 :,W!+
     d.nos needRead
@@ -475,14 +457,14 @@
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	"add " ,s ,TOS ",2" ,ln
 |	2 d.tos Cell+
-	,NIP ;
+	d.NIP ;
 :,C!+
     d.nos needRead
 	d.tos needWriteM
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	"add " ,s ,TOS ",1" ,ln
 |	1 d.tos Cell+
-	,NIP ;
+	d.NIP ;
 
 :,@+
 	d.tos needReadM
@@ -521,7 +503,7 @@
 			d.dup d.tos needREG
 			"mov " ,s ,TOS "," ,s ,NOS ,cr
 			"cmp " ,s ,NOS2 "," ,s ,TOS ,cr
-			,2DROP ;
+			d.2DROP ;
 			)( drop ) )( drop )
     "cmp " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
@@ -541,7 +523,7 @@
 			d.dup d.tos needREG
 			"mov " ,s ,TOS "," ,s ,NOS ,cr
 			"test " ,s ,NOS2 "," ,s ,TOS ,cr
-			,2DROP ;
+			d.2DROP ;
 			) )( drop )
     "test " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
@@ -597,7 +579,7 @@
 		"add " ,s ,NOS "," ,s ,TOS ,cr
 		"lea ebp,[SYSFRAME+" ,s ,NOS "*4]" ,ln
 		)
-	,2DROP ;
+	d.2DROP ;
 
 :,PX+!	| s --
 	d.TOS needREG
@@ -624,12 +606,12 @@
 	;
 
 :,CNTJOY
-	,DUP "xor eax,eax" ,ln ;
+	d.DUP "xor eax,eax" ,ln ;
 :,GETJOY ;
 :,SLOAD ;
-:,SPLAY  ,DROP ;
+:,SPLAY  d.DROP ;
 :,MLOAD ;
-:,MPLAY  ,DROP ;
+:,MPLAY  d.DROP ;
 
 |----------- en asmbase.txt
 :,SQRT
@@ -642,14 +624,14 @@
 :,SYSTEM
 	;
 
-|---- nivel 1 - usando registros
-| info adr+ valor -- adr+
 #nivel1 0
 ,defw ,defv ,lit ,lit ,lit ,lit ,lits ,wor ,var ,dwo ,dva | 11
 ,; ,( ,)( ,) ,[ ,] ,EXEC	| 18
 ,0? ,+? ,-? ,1? ,=? ,<? ,>? ,<=? ,>=? ,<>? ,AND? ,NAND? | 30
-,DUP ,DROP ,OVER ,PICK2 ,PICK3 ,PICK4 ,SWAP ,NIP	|--- pila 38
-,ROT ,2DUP ,2DROP ,3DROP ,4DROP ,2OVER ,2SWAP	| 45
+
+d.DUP d.DROP d.OVER d.PICK2 d.PICK3 d.PICK4 d.SWAP d.NIP	|--- pila 38
+d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
+
 ,>R ,R> ,R ,R+ ,R@+ ,R!+ ,RDROP					|--- pila direcciones 52
 ,AND ,OR ,XOR ,NOT  								|--- logicas        56
 ,+ ,- ,* ,/ ,*/ ,*>> ,/MOD ,MOD ,ABS  			|--- aritmeticas | 65
@@ -685,18 +667,6 @@
 	0 'bufprim !
 	'bufftok 'buff> ! ;
 
-|--------- nivel de pila
-:gencode | adr adri+ -- adri+ adr+
-	swap @+
-
-dup tokenstr "; " ,s ,s 10 ,c | ** debug
-
-	$ff and
-	2 << 'nivel1 + @ exec | adri+ adr+
-
-"; " ,s printddvtack	| ** debug
-
-	;
 
 ::,compwordopt | nro --
 |---- carga en buffer
@@ -706,33 +676,19 @@ dup tokenstr "; " ,s ,s 10 ,c | ** debug
 		@+ +buff
 		swap ) 2drop
 
-|--- sin pilaestatica
+	buff> 'bufftok pick2 nro>mov @ 24 << 24 >> neg | finbuff buff use
+	calccell
+
 	nro>mov @ 24 << 24 >> neg inivpila
 	'bufftok ( buff> <? )(
-		@+ $ff and
-		2 << 'nivel1 + @ exec | adri+ adr+
+		@+
+|dup tokenstr "; " ,s ,s 10 ,c | ** debug
+
+		$ff and 2 << 'nivel1 + @ exec | adri+ adr+
+
+|"; " ,s printddvtack	| ** debug
 
 | ****debug
 		"r4asm/cod.asm" savemem
 | ****debug
-
 		) drop ;
-
-
-|---- optimiza pilaestatica
-|	nro>mov @ 24 << 24 >> neg | uso
-|	buff> 'bufftok rot analisabuf
-|---- genera codigo
-
-|	dup nro>mov @ 24 << 24 >> neg
-|	inivpila
-|	'buffinf 4+
-|	'bufftok ( buff> <? )(
-|'		swap @+ 'regact !
-|		gencode
-|"r4asm/cod.asm" savemem | ****debug
-|		) 2drop
-	;
-
-
-
