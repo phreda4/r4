@@ -93,24 +93,24 @@
 :setEDX | cell --
 	drop ;
 
-|------ codigo para acceso a celdas
+|------ acceso a celdas
 
-:,TOS	d.tos cell2str, ;
-:,TOSb	d.tos cell2strb, ;
+:,TOS	d.tos ,cell ;
+:,TOSb	d.tos ,cellb ;
 
-:,NOS	d.nos cell2str, ;
-:,NOSb	d.nos cell2strb, ;
-:,NOSw	d.nos cell2strw, ;
+:,NOS	d.nos ,cell ;
+:,NOSb	d.nos ,cellb ;
+:,NOSw	d.nos ,cellw ;
 
-:,NOS2	d.pk2 cell2str, ;
-:,RTOS	r.tos cell2str, ;
+:,NOS2	d.pk2 ,cell ;
+:,RTOS	r.tos ,cell ;
 
 |------------ compila CODIGO
 
 |:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
 :nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
 
-:label	"_" ,s ,h 	;
+:label	"_" ,s ,h ;
 :jmp,	"jmp " ,s label ,cr ;
 
 :toknow		dup 4 - @ ;
@@ -182,30 +182,58 @@
 |	reasigna registros con nueva denominacion
 	;
 
+:(IF
+:(IFELSE
+:(WHILE
+:(UNTIL
+:(REPEAT
+	;
 :,(
+	block.new
 	| reajusta pila entrada
+	blockt
+	0 =? (
+	
+	block.now "; block %d" ,print
+
 	vpPush
 	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 )
-	>pilac drop ;
+	>pilac drop
+	;
+
+:)(ELSE
+:)(WHILE
+	;
 :,)(
 	| reajusta pila
 	<pilac salto? 0? ( drop	| ELSE
 		vpPop vpPush
-		1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac drop ; )
+		1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac )
 		)( drop	| WHILE
 		vpDrop vpPush
-		2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac drop ; ) )
-	drop ;
+		2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac ) )
+	drop
+	block.now "; block %d" ,print
+	;
+:)IF
+:)IFELSE
+:)WHILE
+:)UNTIL
+:)REPEAT
+	;
+
 :,)
 	| reajusta pila
-	vpPop
 	<pilac salto? 0? ( drop
-			1 =? ( <pilac label ":" ,ln drop ; )
-			2 =? ( <pilac jmp, drop ; )
-			3 =? ( <pilac jmp, <pilac label ":" ,ln drop ; )
+			1 =? ( <pilac label ":" ,ln )
+			2 =? ( <pilac jmp, )
+			3 =? ( <pilac jmp, <pilac label ":" ,ln  )
 		)( drop
-			2 =? ( <pilac label ,cr drop ; ) )
-	drop ;
+			2 =? ( <pilac label ,cr  ) )
+	drop
+	block.now "; block %d" ,print ,cr
+	vpPop
+	block.end ;
 
 
 |--------------------- Exec
@@ -582,7 +610,7 @@
 	d.2DROP ;
 
 :,PX+!	| s --
-	d.TOS needREG
+	d.tos needRead
 	"lea ebp,[ebp+" ,s ,TOS "*4]" ,ln
 	d.drop ;
 
@@ -682,13 +710,13 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	nro>mov @ 24 << 24 >> neg inivpila
 	'bufftok ( buff> <? )(
 		@+
-|dup tokenstr "; " ,s ,s 10 ,c | ** debug
 
-		$ff and 2 << 'nivel1 + @ exec | adri+ adr+
+		dup tokenstr "; " ,s ,s 10 ,c | palabra que compila
 
-|"; " ,s printddvtack	| ** debug
+		$ff and 2 << 'nivel1 + @ exec
 
 | ****debug
+|		"; " ,s printddvtack			| pila actual
 		"r4asm/cod.asm" savemem
 | ****debug
 		) drop ;
