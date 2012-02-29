@@ -19,11 +19,7 @@
 ^r4/lib/parse.txt
 
 ^r4/system/r4code.txt
-
-|^r4/system/pilaestatica.txt
-
 ^r4/system/vstack2.txt
-|^r4/system/stacktype.txt
 
 ^r4/lib/trace.txt
 
@@ -65,8 +61,12 @@
 :needWrite | cell -- ; pone en registro si no esta
 	dup cellREG? 0 >=? ( 2drop ; ) drop | ya esta en registro
 	newREG | cell reg
-	"mov " ,s dup ,REG "," ,s
-	over ,CELL ,cr
+	over cell0? 0? ( drop
+		"mov " ,s dup ,REG "," ,s over ,CELL
+		)( drop
+		"xor " ,s dup ,REG "," ,s dup ,REG
+		)
+	,cr
 	dup reg!
 	5 rot cell!	;
 
@@ -74,17 +74,27 @@
 	dup cellADR? 1? ( drop needWrite ; )
 	2drop ;
 
+
+:resolveCPY | cell --
+	( dup cellNEED? 0? )( drop
+		cellCPYTO
+		dup cellCPY? 0? ( drop needWrite ; )
+		drop ) drop
+	needWrite
+	;
+
+|--- va a leer, no puede []
+:needReadM | cell --
+	dup cellADR? 1? ( drop needWrite ; ) drop
+	dup cellCPY? 1? ( drop resolveCPY ; )
+	2drop ;
+
 :needRead | cell --
-	| si tiene escrituras convertir a REG
 	drop ;
 :needReadW | cell --
 	drop ;
 :needReadB | cell --
 	drop ;
-
-:needReadM | cell --
-	dup cellADR? 1? ( drop needWrite ; )
-	2drop ;
 
 :cteorECX | cell --
 	drop ;
@@ -182,28 +192,24 @@
 |	reasigna registros con nueva denominacion
 	;
 
-:(IF
-:(IFELSE
-:(WHILE
-:(UNTIL
-:(REPEAT
-	;
+|:blIF      0
+|:blELSE  	1
+|:blWHILE  	2
+|:blUNTIL  	3
+|:blREPEAT  4
+
 :,(
 	block.new
 	| reajusta pila entrada
-	blockt
-	0 =? (
-	
-	block.now "; block %d" ,print
+
+|	block.now "; block %d" ,print
+    block.now dumpblock,
 
 	vpPush
 	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 )
 	>pilac drop
 	;
 
-:)(ELSE
-:)(WHILE
-	;
 :,)(
 	| reajusta pila
 	<pilac salto? 0? ( drop	| ELSE
@@ -213,13 +219,7 @@
 		vpDrop vpPush
 		2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac ) )
 	drop
-	block.now "; block %d" ,print
-	;
-:)IF
-:)IFELSE
-:)WHILE
-:)UNTIL
-:)REPEAT
+|	block.now "; block %d" ,print
 	;
 
 :,)
@@ -231,7 +231,8 @@
 		)( drop
 			2 =? ( <pilac label ,cr  ) )
 	drop
-	block.now "; block %d" ,print ,cr
+|	block.now "; block %d" ,print ,cr
+    block.now dumpblock,
 	vpPop
 	block.end ;
 
@@ -438,18 +439,18 @@
 	"movsx " ,s ,TOS ",word [" ,s ,TOS "]" ,ln ;
 
 :,!
-	d.tos needWriteM
+	d.tos needReadM
 	d.nos needReadM
 	"mov [" ,s ,TOS "]," ,s ,NOS ,cr
 	d.2DROP ;
 :,C!
-	d.tos needWriteM
-	d.nos needReadM
+	d.tos needReadM
+	d.nos needReadB
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	d.2DROP ;
 :,W!
-	d.tos needWriteM
-	d.nos needReadM
+	d.tos needReadM
+	d.nos needReadW
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	d.2DROP ;
 
@@ -513,7 +514,7 @@
 |-------- CONDICIONALES
 :,simple?
 	d.tos needWrite
-	d.tos cellMEM? 1? ( drop
+	d.tos cellADR? 1? ( drop
 		"cmp " ,s ,TOS ",0" ,ln ; ) drop
 	"or " ,s ,TOS "," ,s ,TOS ,cr
 	;
@@ -526,8 +527,8 @@
 :,doble?
 	d.tos needRead
 	d.nos needWrite
-	d.tos cellMEM? 1? ( drop
-		d.nos cellMEM? 1? ( drop
+	d.tos cellADR? 1? ( drop
+		d.nos cellADR? 1? ( drop
 			d.dup d.tos needREG
 			"mov " ,s ,TOS "," ,s ,NOS ,cr
 			"cmp " ,s ,NOS2 "," ,s ,TOS ,cr
@@ -546,8 +547,8 @@
 :,bit?
 	d.tos needRead
 	d.nos needWrite
-	d.tos cellMEM? 1? ( drop
-		d.nos cellMEM? 1? ( drop
+	d.tos cellADR? 1? ( drop
+		d.nos cellADR? 1? ( drop
 			d.dup d.tos needREG
 			"mov " ,s ,TOS "," ,s ,NOS ,cr
 			"test " ,s ,NOS2 "," ,s ,TOS ,cr
@@ -706,17 +707,19 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 
 	buff> 'bufftok pick2 nro>mov @ 24 << 24 >> neg | finbuff buff use
 	calccell
-
+	dumpcells,
 	nro>mov @ 24 << 24 >> neg inivpila
 	'bufftok ( buff> <? )(
 		@+
 
+| ****debug
 		dup tokenstr "; " ,s ,s 10 ,c | palabra que compila
+| ****debug
 
 		$ff and 2 << 'nivel1 + @ exec
 
 | ****debug
-|		"; " ,s printddvtack			| pila actual
+		"; " ,s printddvtack			| pila actual
 		"r4asm/cod.asm" savemem
 | ****debug
 		) drop ;

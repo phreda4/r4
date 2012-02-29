@@ -85,6 +85,12 @@
 	2 << 'cellt + @ $1f and
 	0? ( 1 )( 0 ) nip ;
 
+::cell0? | nro -- 1/0 (1 si es 0 literal)
+	2 << dup 'cellt + @ $1f and 
+	1? ( 2drop 0 ; ) drop
+	'cellv + @ 1? ( drop 0 ; ) drop
+	1 ;
+
 ::cellREG? | nro -- nroreg
 	2 << dup 'cellt + @ $1f and
 	5 <>? ( 2drop -1 ; ) drop
@@ -95,14 +101,25 @@
 	$10 and? ( drop 1 ; )
 	drop 0 ;
 
+::cellCPY? | nro -- 0/1
+	2 << 'cellt + @ $f and
+	6 =? ( drop 1 ; )
+	drop 0 ;
+
+::cellCPYTO | nro -- nro
+    2 << 'cellv + @ ;
+
 ::cellMEM! | nro --
 	2 << 'cellt + dup @ $10 or swap ! ;
 
-::cellMEM? | nro -- 1/0
-	2 << 'cellt + @ $10 and? ( 1 )( 0 ) nip ;
+::cellNEED? | nro -- 0/1
+	2 << 'celli + @
+	dup 24 >> $ff and 1 >? ( 2drop 1 ; ) | tiene + de una lectura
+	drop 16 >> $ff and 0 >? ( drop 1 ; ) | tiene escritura
+	drop 0 ;
 
 :newcell | valor tipo -- nro
-	celln 2 << 'cellt + 
+	celln 2 << 'cellt +
 	!+
 	1020 + !+
 	0 swap 1020 + !+ | suma
@@ -368,8 +385,9 @@
 	-4 'vpst> +!
 	vpst> @ 'vpmem> ! ;
 
-::vpEqual | reacomoda los registro en los lugares
+::vpEqual
 	vpst> 4 - @ | pila objetivo
+	@+
 	;
 
 |------------------------------------------
@@ -414,8 +432,7 @@
 
 :resolveADR | nro xx cell yy -- nro xx cell yy
 	newReg | nro xx cell yy reg
-	"mov " ,s dup ,REG "," ,s
-	pick2 ,CELL ,cr
+	"mov " ,s dup ,REG "," ,s pick2 ,CELL ,cr
 |	dup reg!
 	5 pick3 cell!
 	;
@@ -452,13 +469,25 @@
 	":" ,s registros ,b ,cr
 	;
 
-|-------------------------------------------
-|  preasigna registros para bloques
-|-------------------------------------------
-::vpilaprereg
-
+::dumpcells, | -- ; imprime info celdas
+|	"Nro:Read:Write:T" ,print ,cr
+	0 ( celln <? )(
+		dup "%h:" ,print
+		dup 2 << 'celli + @
+		dup 24 >> $ff and "%d:" ,print
+		dup 16 >> $ff and "%d:" ,print
+		$ff and  "%h" ,print ,cr
+		1+ ) drop
 	;
 
+::dumpblock, | n --
+	2 <<
+	dup 'block + @ "BL %d (" ,print
+	dup 'blocks + @ "%h-" ,print
+	dup 'blocke + @ "%h)" ,print
+	'blocki + @ "%h" ,print
+	,cr
+	;
 
 |-------------------------------------------
 | calcula informacion de celdas
@@ -488,6 +517,14 @@
 	d.tos 2 << 'celli + dup
 	@ $4 or swap ! ;
 
+:cellEx | celda es direccion de codigo
+	d.tos 2 << 'celli + dup
+	@ $8 or swap ! ;
+
+:cellClone | clone es igual a otra celda (para bloques)
+	d.tos 2 << 'celli + dup
+	@ $10 or swap ! ;
+
 :toknow	dup 4 - @ ;
 :valnow	dup 4 - @ 8 >> ;
 
@@ -500,6 +537,7 @@
 :es(
 	block.new vpPush blINI
 	salto? 1? ( 1 )( 2 ) >pilac drop ;
+
 :es)(
 	salto? 0? ( | ELSE
 		vpPop vpPush
@@ -508,12 +546,36 @@
 		vpDrop vpPush
 		<pilac drop 3 >pilac
 		) drop ;
+
+|----------------------------------------
+:blConsume | bloa cntpilad --
+	2drop
+	1 block.now 2 << 'blocki + !
+	;
+
+:blProduce | bloa cntpilad --
+	2drop
+	2 block.now 2 << 'blocki + !
+	;
+
+:blSTACK | busca y marca celdas que deben estar en pila
+	vpst> 4 - @ |
+	@+ | cntdpila
+	d.cnt <? ( blConsume ; )
+	d.cnt >? ( blProduce ; )
+	2drop
+	;
+
+:blCLONE | marca celdas clones
+
+	;
+
 :es)
-	salto? 1? ( <pilac drop blUNTIL )(
+	salto? 1? ( <pilac drop blUNTIL blSTACK )(
 		<pilac
 		1 =? ( blIF )
-		2 =? ( blREPEAT )
-		3 =? ( blWHILE )
+		2 =? ( blREPEAT blSTACK )
+		3 =? ( blWHILE blSTACK )
 		4 =? ( blELSE )
 		drop
 		) drop
@@ -522,14 +584,13 @@
 |---	 anonimas
 :es[	|[
 :es]	|]
-:es;
-	 ;
+:es;	;
 
 #lastdircode
 
 :litN	toknow tok>cte pushNRO ;
 :litS
-|	valnow cte + strusestack ( 1? )( 1- cellR1 cellST d.drop ) 2drop | correccion por "%d"
+	valnow cte + strusestack ( 1? )( 1- cellR1 cellST d.drop ) 2drop | correccion por "%d"
 	0 pushSTR ;
 :litAW	valnow dup 'lastdircode ! pushCOD ;
 :litAV	valnow dup 'lastdircode ! pushDAT ;
