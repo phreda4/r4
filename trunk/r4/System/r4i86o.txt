@@ -58,7 +58,16 @@
 	5 rot cell!
 	;
 
+:resolveCLON | cell -- cell
+	dup cellCLON? 0? ( drop ; ) drop
+	dup cellCLONTO | clon origen
+	over cellREG? over cellREG? - 0? ( 2drop ; ) drop
+	"mov " ,s dup ,CELL "," ,s swap dup ,CELL ,cr
+	over swap cell2cell!
+	;
+
 :needWrite | cell -- ; pone en registro si no esta
+	resolveCLON
 	dup cellREG? 0 >=? ( 2drop ; ) drop | ya esta en registro
 	newREG | cell reg
 	over cell0? 0? ( drop
@@ -192,6 +201,25 @@
 |	reasigna registros con nueva denominacion
 	;
 
+|--- asignas celdas que no estan en registros MMMM
+:areg | cell
+	dup cellREG? 0 >=? ( 2drop ; ) drop
+	newREG | cell reg
+	over cell0? 0? ( drop
+		"mov " ,s dup ,REG "," ,s over ,CELL
+		)( drop
+		"xor " ,s dup ,REG "," ,s dup ,REG
+		)
+	,cr
+	dup reg!
+	5 rot cell!	;
+
+
+:asignacell
+	d.cnt ( 1? )( 1-
+		dup d.rel areg
+		) drop ;
+
 |:blIF      0
 |:blELSE  	1
 |:blWHILE  	2
@@ -203,7 +231,7 @@
 	| reajusta pila entrada
 
 |	block.now "; block %d" ,print
-    block.now dumpblock,
+|    block.now dumpblock,
 
 	vpPush
 	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 )
@@ -213,7 +241,8 @@
 :,)(
 	| reajusta pila
 	<pilac salto? 0? ( drop	| ELSE
-		vpPop vpPush
+		asignacell
+		vpPop vpPush | vpDrop vpPush
 		1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac )
 		)( drop	| WHILE
 		vpDrop vpPush
@@ -232,7 +261,7 @@
 			2 =? ( <pilac label ,cr  ) )
 	drop
 |	block.now "; block %d" ,print ,cr
-    block.now dumpblock,
+|    block.now dumpblock,
 	vpPop
 	block.end ;
 
@@ -706,20 +735,29 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 		swap ) 2drop
 
 	buff> 'bufftok pick2 nro>mov @ 24 << 24 >> neg | finbuff buff use
+
+	";--pre" ,ln
+	"r4asm/cod.asm" savemem
+
 	calccell
+
+|**** debug
 	dumpcells,
+	"r4asm/cod.asm" savemem
+|**** debug
+
 	nro>mov @ 24 << 24 >> neg inivpila
 	'bufftok ( buff> <? )(
 		@+
 
 | ****debug
-		dup tokenstr "; " ,s ,s 10 ,c | palabra que compila
+|		dup tokenstr "; " ,s ,s 10 ,c | palabra que compila
 | ****debug
 
 		$ff and 2 << 'nivel1 + @ exec
 
 | ****debug
-		"; " ,s printddvtack			| pila actual
+|		"; " ,s printddvtack			| pila actual
 		"r4asm/cod.asm" savemem
 | ****debug
 		) drop ;

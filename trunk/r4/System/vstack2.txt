@@ -6,11 +6,11 @@
 |-------- Registros del CPU
 #registros 0
 
-#sysregs "EAX" "EBX" "ECX" "EDX" "EDI" "ESI" "EBP"
+#sysregs "eax" "ebx" "ecx" "edx" "edi" "esi" "ebp"
 "XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7"
-#sysregw "AX" "BX" "CX" "DX" "DI" "SI" "BP"
+#sysregw "ax" "bx" "cx" "dx" "di" "si" "bp"
 "*" "*" "*" "*" "*" "*" "*" "*"
-#sysregb "AL" "BL" "CL" "DL" "*" "*" "*"
+#sysregb "al" "bl" "cl" "dl" "*" "*" "*"
 "*" "*" "*" "*" "*" "*" "*" "*"
 #sysregsc  15
 
@@ -86,7 +86,7 @@
 	0? ( 1 )( 0 ) nip ;
 
 ::cell0? | nro -- 1/0 (1 si es 0 literal)
-	2 << dup 'cellt + @ $1f and 
+	2 << dup 'cellt + @ $1f and
 	1? ( 2drop 0 ; ) drop
 	'cellv + @ 1? ( drop 0 ; ) drop
 	1 ;
@@ -107,7 +107,10 @@
 	drop 0 ;
 
 ::cellCPYTO | nro -- nro
-    2 << 'cellv + @ ;
+|	dup ,d "->" ,s
+    2 << 'cellv + @
+|	dup ,d ,cr
+	;
 
 ::cellMEM! | nro --
 	2 << 'cellt + dup @ $10 or swap ! ;
@@ -117,6 +120,15 @@
 	dup 24 >> $ff and 1 >? ( 2drop 1 ; ) | tiene + de una lectura
 	drop 16 >> $ff and 0 >? ( drop 1 ; ) | tiene escritura
 	drop 0 ;
+
+::cellCLON? | nro -- 0/1
+	2 << 'celli + @ $10 and? ( drop 1 ; ) drop 0 ;
+
+::cellCLONTO | nro -- nro
+|	dup ,d "=>" ,s
+	2 << 'celli + @ 8 >> $ff and
+|	dup ,d ,cr
+	;
 
 :newcell | valor tipo -- nro
 	celln 2 << 'cellt +
@@ -151,6 +163,14 @@
 	0 swap 1020 + !+ | suma
 	0 swap 1020 + ! | shift
 	;
+
+::cell2cell! | origen destino --
+	2 << 'cellt +
+	swap 2 << 'cellt +
+	@+ rot !+
+	swap 1020 + @+ rot 1020 + !+
+	swap 1020 + @+ rot 1020 + !+
+	swap 1020 + @ swap 1020 + ! ;
 
 :movestack | dd --
 	celln ( 1? )( 1-
@@ -282,6 +302,7 @@
 	;
 
 ::d.nro 	2 << 'dpila + @ ;
+::d.rel		1+ 2 << dpila> swap - @ ;
 ::d.cnt		dpila> 'dpila - 2 >> ;
 ::d.pop		-4 'dpila> +! dpila> @ ;
 ::d.push 	dpila> !+ 'dpila> ! ;
@@ -326,10 +347,10 @@
 ::r.tos		rpila> 4 - @ ;
 
 |--- pila de estado de pila y registros para bloques
-#vpmem )( $3fff
-#vpmem> 'vpmem
 #vpst )( 1024
 #vpst> 'vpst
+#vpmem )( $3fff
+#vpmem> 'vpmem
 
 :,vp vpmem> !+ 'vpmem> ! ;
 :vp@ vpmem> @+ swap 'vpmem> ! ;
@@ -365,7 +386,7 @@
 	registros ,vp
 	;
 
-::vpPop |
+::vpPop | --
 	-4 'vpst> +!
 	vpst> @ 'vpmem> !
 	'dpila 'dpila> !
@@ -381,13 +402,15 @@
 	vp@ 'registros !
 	;
 
-::vpDrop
+::vpDrop | --
 	-4 'vpst> +!
 	vpst> @ 'vpmem> ! ;
 
-::vpEqual
+::vpMapD | 'x --  ; npila adr nrocell x
 	vpst> 4 - @ | pila objetivo
-	@+
+	@+ ( 1? )( 1-
+		swap @+ pick3 exec
+		4 2 << + swap ) 3drop
 	;
 
 |------------------------------------------
@@ -445,15 +468,21 @@
 
 :genEAX | cell --
 	dup cellREG? 0? ( 2drop ; ) drop
-	"mov eax," ,s ,CELL ,cr
-	;
+	"mov eax," ,s ,CELL ,cr ;
+
+:vpconsume
+	1- 1? ( "lea esi,[esi+" ,s dup 2 << ,d "]" ,ln ) drop
+	"lodsd" ,ln ;
 
 ::vpila2normal | --  ;transforma la pila actual a normal
 	inivpcnt d.cnt
+	2dup ";------- now:%d inicio:%d" ,print ,cr
 	- | actual-origen
+	0 >? ( vpconsume ; )
+	0? ( drop ; ) | solo reacomoda eax
+|:vpproduce
 	correESI
 	'dpila d.cnt
-	0? ( 2drop ; ) | ****reacomodar EAX!!!
 	1- ( 1? )( 1-
 		swap @+ genRST
 		swap ) drop
@@ -469,6 +498,13 @@
 	":" ,s registros ,b ,cr
 	;
 
+::printdvtack
+	d.cnt ,d ":" ,s
+	'dpila ( dpila> <? )(
+		@+ ,d ,sp ) drop
+	":" ,s registros ,b ,cr
+	;
+
 ::dumpcells, | -- ; imprime info celdas
 |	"Nro:Read:Write:T" ,print ,cr
 	0 ( celln <? )(
@@ -476,6 +512,7 @@
 		dup 2 << 'celli + @
 		dup 24 >> $ff and "%d:" ,print
 		dup 16 >> $ff and "%d:" ,print
+		dup 8 >> $ff and "%d:" ,print
 		$ff and  "%h" ,print ,cr
 		1+ ) drop
 	;
@@ -491,7 +528,16 @@
 
 |-------------------------------------------
 | calcula informacion de celdas
-| RRRRRRRRWWWWWWWW.............BMS
+| RRRRRRRRWWWWWWWWcccccccc...CXBMS
+| R cnt de lecturas
+| W cnt de escrituras
+| c celda clon nro
+| flags........
+| C clon
+| X direccion de codigo
+| B usa byte / Word
+| M usa memoria
+| S es stack puro
 |-------------------------------------------
 :cellW1	| celda+1W
 	d.TOS 2 << 'celli + dup
@@ -521,9 +567,13 @@
 	d.tos 2 << 'celli + dup
 	@ $8 or swap ! ;
 
-:cellClone | clone es igual a otra celda (para bloques)
-	d.tos 2 << 'celli + dup
-	@ $10 or swap ! ;
+| clone es igual a otra celda (para bloques)
+
+:cellClon | original clon --
+	2 << 'celli + dup @
+	$10 or
+	rot $ff and 8 << or
+	swap ! ;
 
 :toknow	dup 4 - @ ;
 :valnow	dup 4 - @ 8 >> ;
@@ -548,6 +598,8 @@
 		) drop ;
 
 |----------------------------------------
+| busca y marca celdas que deben estar en pila
+
 :blConsume | bloa cntpilad --
 	2drop
 	1 block.now 2 << 'blocki + !
@@ -558,7 +610,7 @@
 	2 block.now 2 << 'blocki + !
 	;
 
-:blSTACK | busca y marca celdas que deben estar en pila
+:blSTACK
 	vpst> 4 - @ |
 	@+ | cntdpila
 	d.cnt <? ( blConsume ; )
@@ -566,19 +618,28 @@
 	2drop
 	;
 
-:blCLONE | marca celdas clones
+|----------------------------------------
+| marca celdas que son clones de otras
 
+:cadacell | npila adr nrocell -- npila adr
+	pick2 d.rel | original clon
+|	2dup "clone %d %d" ,print ,cr
+	cellClon
 	;
 
+:blCLONE
+|	printdvtack
+	'cadacell vpMapD ;
+
 :es)
-	salto? 1? ( <pilac drop blUNTIL blSTACK )(
-		<pilac
-		1 =? ( blIF )
+	salto? 1? ( <pilac drop
+		blUNTIL blSTACK
+		)( <pilac
+		1 =? ( blIF blCLONE )
 		2 =? ( blREPEAT blSTACK )
 		3 =? ( blWHILE blSTACK )
-		4 =? ( blELSE )
-		drop
-		) drop
+		4 =? ( blELSE blCLONE )
+		drop ) drop
 	blEND vpPop block.end ;
 
 |---	 anonimas
@@ -836,5 +897,11 @@ vuso1	|MPLAY  a --
 	inivpila
 	( over <? )(
 		@+ $ff and
+
+|**** debug
+		dup ,d ,sp
+		"r4asm/cod.asm" savemem
+|**** debug
+
 		2 << 'usocelda + @ exec | adri+ adr+
 		) 2drop ;
