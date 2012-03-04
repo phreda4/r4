@@ -6,6 +6,43 @@
 |-------- Registros del CPU
 #registros 0
 
+|------ Celda de la pila
+| T Tipo (NUMERO CONSTANTE 'STRING CODIGO DATO REGISTRO COPIA)
+| M Indireccion de memoria
+| ...MTTTT
+|-------- tipos de celdas
+
+#celln 0
+#cellt )( 1024	| tipo
+#cellv )( 1024	| valor
+#cella )( 1024  | suma
+#cells )( 1024  | shift
+#celli )( 1024 	| info de celda
+
+|------ bloques de codigo
+#blockn 0
+#block )( 1024	| tipo+info
+#blocks )( 1024 | celda comienzo
+#blocke )( 1024 | celda fin
+#blocki )( 1024 | info de las celdas en bloque
+
+|----- pila para bloques
+#pilab )( 256	#pilab> 'pilab
+
+|----- pila de compilador
+#pilac )( 256	#pilac> 'pilac
+
+#... 0 |... dpila soobreescribe ********!!!!!!!!!!!
+|--- PILA DATO
+#dpila )( 1024
+#dpila> 'dpila
+
+|--- PILA RETORNO
+#rpila )( 1024
+#rpila> 'rpila
+
+
+
 #sysregs "eax" "ebx" "ecx" "edx" "edi" "esi" "ebp"
 "XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7"
 #sysregw "ax" "bx" "cx" "dx" "di" "si" "bp"
@@ -18,6 +55,10 @@
 |#sysregs "RAX" "RBX" "RCX" "RDX" "RDI" "RSI" "RBP" "R8" "R9" "R10" "R11" "R12" "R13" "R14" "R15"
 |"XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7" "XMM8" "XMM9" "XMM10" "XMM11" "XMM12" "XMM13" "XMM14" "XMM15"
 |#sysregsc 31
+
+|-------- constantes del sistema
+#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
+"SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY" | []
 
 :emptyreg
 	%1100001 | eax y esi,ebp siempre ocupados
@@ -63,23 +104,6 @@
 	registros %1 nand? ( drop ; ) drop
 	"movd EAX,XMM5" ,ln ;
 
-|-------- constantes del sistema
-#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
-"SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY" | []
-
-|------ Celda de la pila
-#celln 0
-#cellt )( 1024	| tipo
-#cellv )( 1024	| valor
-#cella )( 1024  | suma
-#cells )( 1024  | shift
-#celli )( 1024 	| info de celda
-
-|-------- tipos de celdas
-| T Tipo (NUMERO CONSTANTE 'STRING CODIGO DATO REGISTRO COPIA)
-| M Indireccion de memoria
-| ...MTTTT
-|----- tipos de celdas
 
 ::cellNRO? | nro -- 1/0
 	2 << 'cellt + @ $1f and
@@ -242,30 +266,9 @@
 	$10 and? ( "]" ,s )
 	2drop ;
 
-|---- celda a registro
-::cell2reg, | reg cell --
-	"lea " ,s
-	swap 'sysregs list2str ,s
-	"," ,s
-	,cell
-|	dup cellreset
-|	dup cellreg
-	;
-
-|------ bloques de codigo
-#blockn 0
-#block )( 1024	| tipo+info
-#blocks )( 1024 | celda comienzo
-#blocke )( 1024 | celda fin
-#blocki )( 1024 | info de las celdas en bloque
-
-|----- pila para bloques
-#pilab )( 256	#pilab> 'pilab
-
-::block.new blockn pilab> ! 4 'pilab> +! 1 'blockn +! ;
+::block.new blockn pilab> !+ 'pilab> ! 1 'blockn +! ;
 ::block.end -4 'pilab> +! ;
 ::block.now pilab> 4 - @ ; | -- nblo
-
 ::blockt block.now 2 << 'block + @ $f and ;
 
 :blockT!	block.now 2 << 'block + ! ;
@@ -278,28 +281,8 @@
 :blINI	celln block.now 2 << 'blocks + ! ;
 :blEND	celln block.now 2 << 'blocke + ! ;
 
-|--- PILA DATO
-#dpila )( 1024
-#dpila> 'dpila
-
-|--- PILA RETORNO
-#rpila )( 1024
-#rpila> 'rpila
-
-|----- pila de compilador
-#pilac )( 256	#pilac> 'pilac
-
-:>pilac pilac> ! 4 'pilac> +! ;
+:>pilac pilac> !+ 'pilac> ! ;
 :<pilac -4 'pilac> +! pilac> @ ;
-
-:inivstack
-	0 'celln !
-	0 'blockn !
-	'dpila 'dpila> !
-	'rpila 'rpila> !
-	'pilac 'pilac> !
-	'pilab 'pilab> !
-	;
 
 ::d.nro 	2 << 'dpila + @ ;
 ::d.rel		1+ 2 << dpila> swap - @ ;
@@ -334,7 +317,7 @@
 ::d.pick3	d.PK3 pushCPY ; |PICK3  abcd -- abcda
 ::d.pick4	d.PK4 pushCPY ; |PICK4  abcde -- abcdea
 ::d.2dup	d.over d.over ;	|2DUP   ab -- abab
-::d.2over	d.pk3 d.pk3 ; |2OVER  abcd -- abcdab
+::d.2over	d.pick3 d.pick3 ; |2OVER  abcd -- abcdab
 ::d.nip		d.swap d.drop ;
 ::d.4DROP	d.drop
 ::d.3DROP	d.drop
@@ -355,8 +338,6 @@
 :,vp vpmem> !+ 'vpmem> ! ;
 :vp@ vpmem> @+ swap 'vpmem> ! ;
 
-::vpini 'vpmem 'vpmem> ! 'vpst 'vpst> ! ;
-
 :,cpcell | nro --
 	2 <<
 	dup 'cellt + @ ,vp
@@ -375,11 +356,13 @@
 
 ::vpPush | --
 	vpmem> vpst> !+ 'vpst> !
-	dpila> 'dpila - 2 >> ,vp
+	dpila> 'dpila - 2 >>
+	,vp
 	'dpila ( dpila> <? )(
 		@+ dup ,vp ,cpcell
 		) drop
-	rpila> 'rpila - 2 >> ,vp
+	rpila> 'rpila - 2 >>
+	,vp
 	'rpila ( rpila> <? )(
 		@+ dup ,vp ,cpcell
 		) drop
@@ -390,12 +373,14 @@
 	-4 'vpst> +!
 	vpst> @ 'vpmem> !
 	'dpila 'dpila> !
-	vp@ ( 1? )( 1-
+	vp@
+	( 1? )( 1-
 		vp@ dup d.push
 		cpcell@
 		) drop
 	'rpila 'rpila> !
-	vp@ ( 1? )( 1-
+	vp@
+	( 1? )( 1-
 		vp@ dup r.push
 		cpcell@
 		) drop
@@ -422,10 +407,21 @@
 | de forma normal, guarda nivel en INIVPCNT
 | [esi+4] [esi] eax -- para usado=3
 |------------------------------------------
+:inivstack
+	0 'celln !
+	0 'blockn !
+	'dpila 'dpila> !
+	'rpila 'rpila> !
+	'pilac 'pilac> !
+	'pilab 'pilab> !
+	'vpmem 'vpmem> !
+	'vpst 'vpst> !
+	;
+
 ::inivpila  | usado --
+	dup 'inivpcnt !
 	inivstack
 	0? ( drop emptyreg ; )
-	dup 'inivpcnt !
 	1- ( 1? )( 1-
 		5 $15 newcell
 		over 2 << over cell+
@@ -508,7 +504,7 @@
 ::dumpcells, | -- ; imprime info celdas
 |	"Nro:Read:Write:T" ,print ,cr
 	0 ( celln <? )(
-		dup "%h:" ,print
+		dup "; %h:" ,print
 		dup 2 << 'celli + @
 		dup 24 >> $ff and "%d:" ,print
 		dup 16 >> $ff and "%d:" ,print
@@ -585,7 +581,8 @@
 	drop 0 ;
 
 :es(
-	block.new vpPush blINI
+	block.new vpPush
+	blINI
 	salto? 1? ( 1 )( 2 ) >pilac drop ;
 
 :es)(
@@ -628,7 +625,6 @@
 	;
 
 :blCLONE
-|	printdvtack
 	'cadacell vpMapD ;
 
 :es)
@@ -637,7 +633,7 @@
 		)( <pilac
 		1 =? ( blIF blCLONE )
 		2 =? ( blREPEAT blSTACK )
-		3 =? ( blWHILE blSTACK )
+		3 =? ( blWHILE blSTACK 	)
 		4 =? ( blELSE blCLONE )
 		drop ) drop
 	blEND vpPop block.end ;
@@ -713,7 +709,6 @@
 :v>R	d.pop r.push ;
 :vR>    r.pop d.push ;
 :vR		r.tos d.push ;
-:vRDROP r.drop ;
 
 :vr+	r.tos d.push cellW1 d.2drop ; |R+    a -- R: b -- c
 :vr@+	r.tos d.push cellW1 cellMem d.drop d.tos pushREG ; |R@+    -- a R: b -- c
@@ -771,7 +766,7 @@ vr		|R      -- a R: a -- a
 vr+		|R+    a -- R: b -- c
 vr@+	|R@+    -- a R: b -- c
 vr!+	|R!+   a -- R: b -- c
-vrdrop	|RDROP	R: a --
+r.drop	|RDROP	R: a --
 
 op2a1	|53 AND	ab -- c
 op2a1	|OR    ab -- c
@@ -904,8 +899,8 @@ vuso1	|MPLAY  a --
 		@+ $ff and
 
 |**** debug
-		dup ,d ,sp
-		"r4asm/cod.asm" savemem
+|		dup ,d ,sp
+|		"r4asm/cod.asm" savemem
 |**** debug
-		2 << 'usocelda + @	exec | adri+ adr+
+		2 << 'usocelda + @ exec | adri+ adr+
 		) 2drop ;
