@@ -2,6 +2,7 @@
 | para compilador
 | PHREDA 2012
 |------------------------------------
+^r4/system/r4token.txt
 
 |-------- Registros del CPU
 #registros 0
@@ -11,7 +12,6 @@
 | M Indireccion de memoria
 | ...MTTTT
 |-------- tipos de celdas
-
 #celln 0
 #cellt )( 1024	| tipo
 #cellv )( 1024	| valor
@@ -41,8 +41,6 @@
 #rpila )( 1024
 #rpila> 'rpila
 
-
-
 #sysregs "eax" "ebx" "ecx" "edx" "edi" "esi" "ebp"
 "XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7"
 #sysregw "ax" "bx" "cx" "dx" "di" "si" "bp"
@@ -50,11 +48,6 @@
 #sysregb "al" "bl" "cl" "dl" "*" "*" "*"
 "*" "*" "*" "*" "*" "*" "*" "*"
 #sysregsc  15
-
-| para x64
-|#sysregs "RAX" "RBX" "RCX" "RDX" "RDI" "RSI" "RBP" "R8" "R9" "R10" "R11" "R12" "R13" "R14" "R15"
-|"XMM0" "XMM1" "XMM2" "XMM3" "XMM4" "XMM5" "XMM6" "XMM7" "XMM8" "XMM9" "XMM10" "XMM11" "XMM12" "XMM13" "XMM14" "XMM15"
-|#sysregsc 31
 
 |-------- constantes del sistema
 #syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
@@ -104,7 +97,6 @@
 	registros %1 nand? ( drop ; ) drop
 	"movd EAX,XMM5" ,ln ;
 
-
 ::cellNRO? | nro -- 1/0
 	2 << 'cellt + @ $1f and
 	0? ( 1 )( 0 ) nip ;
@@ -117,6 +109,11 @@
 
 ::cellREG? | nro -- nroreg
 	2 << dup 'cellt + @ $1f and
+	5 <>? ( 2drop -1 ; ) drop
+	'cellv + @ ;
+
+::cellREGM?
+	2 << dup 'cellt + @ $f and
 	5 <>? ( 2drop -1 ; ) drop
 	'cellv + @ ;
 
@@ -174,7 +171,7 @@
 
 ::cell+ | add nro --
 	| si hay mem resolver
-	2 << 'cella + ! ;
+	2 << 'cella + +! ;
 
 ::cell>> | shi nro --
 	| si hay mem resolver
@@ -201,7 +198,6 @@
 		dup 2 << dup
 		'cellt + @ 	5 =? ( drop
 			dup 'cellv + @ 5 =? (
-
 				pick3 pick3
 				) )
 		2drop ) drop ;
@@ -375,14 +371,12 @@
 	'dpila 'dpila> !
 	vp@
 	( 1? )( 1-
-		vp@ dup d.push
-		cpcell@
+		vp@ dup d.push cpcell@
 		) drop
 	'rpila 'rpila> !
 	vp@
 	( 1? )( 1-
-		vp@ dup r.push
-		cpcell@
+		vp@ dup r.push cpcell@
 		) drop
 	vp@ 'registros !
 	;
@@ -419,6 +413,7 @@
 	;
 
 ::inivpila  | usado --
+	dup "; u:%d" ,print ,cr
 	dup 'inivpcnt !
 	inivstack
 	0? ( drop emptyreg ; )
@@ -430,13 +425,14 @@
 	0 5 newcell d.push | eax
 	emptyreg ;
 
-|-------------------------------------------
-| Transforma pila virtual a real
-|-------------------------------------------
+
+|------------------------------------------
+| restaura la pila a su forma normal
+|
+|------------------------------------------
 :cellESI | cell deltasi --
-	over cellREG? 5 <>? ( 3drop ; ) drop | si es ESI
-	swap Cell+ | ***??
-	;
+	over cellREGM? 5 <>? ( 3drop ; ) drop | si es ESI
+	neg 2 << swap Cell+ ;
 
 :correESI | deltaesi --
 	0? ( drop ; )
@@ -459,43 +455,59 @@
 :genRST | nro XX cell -- nro XX
 |	dup cellREG? 5 =? ( ) drop | si esta en el lugar no generar
 	dup cellADR? 1? ( resolveADR ) drop
-	"mov dword [esi+" ,s pick2 2 << ,d "]," ,s ,CELL ,cr
+	"mov dword [esi" ,s 
+	pick2 1? ( +? ( "+" ,s ) 2 << ,d )( drop )
+	"]," ,s ,CELL ,cr
 	;
 
 :genEAX | cell --
 	dup cellREG? 0? ( 2drop ; ) drop
 	"mov eax," ,s ,CELL ,cr ;
 
+:vpcopia
+	'dpila d.cnt 0? ( 2drop ; )
+	1- ( 1? )( 1-
+		swap @+ genRST
+		swap ) drop
+	@ genEAX ;
+
 :vpconsume
-	1- 1? ( "lea esi,[esi+" ,s dup 2 << ,d "]" ,ln ) drop
-	"lodsd" ,ln ;
+	dup "%d" ,print ,cr
+	correESI
+	vpcopia
+|	1- 1? ( "lea esi,[esi+" ,s dup 2 << ,d "]" ,ln ) drop
+|	"lodsd" ,ln
+	;
 
 ::vpila2normal | --  ;transforma la pila actual a normal
 	inivpcnt d.cnt
 	2dup ";------- now:%d inicio:%d" ,print ,cr
 	- | actual-origen
 	0 >? ( vpconsume ; )
-	0? ( drop ; ) | solo reacomoda eax
 |:vpproduce
 	correESI
-	'dpila d.cnt
+	'dpila d.cnt 0? ( 2drop ; )
 	1- ( 1? )( 1-
 		swap @+ genRST
 		swap ) drop
 	@ genEAX ;
 
+::vpilaPreUso | uso --
+	;
+::vpilaPosUso | uso --
+	;
 |-------------------------------------------
 | DEBUG: imprime pila virtual
 |-------------------------------------------
 ::printddvtack
-	d.cnt ,d ":" ,s
+|	d.cnt ,d ":" ,s
 	'dpila ( dpila> <? )(
 		@+ ,cell ,sp ) drop
 	":" ,s registros ,b ,cr
 	;
 
 ::printdvtack
-	d.cnt ,d ":" ,s
+|	d.cnt ,d ":" ,s
 	'dpila ( dpila> <? )(
 		@+ ,d ,sp ) drop
 	":" ,s registros ,b ,cr
@@ -599,30 +611,25 @@
 
 :blConsume | bloa cntpilad --
 	2drop
-	1 block.now 2 << 'blocki + !
-	;
+	1 block.now 2 << 'blocki + ! ;
 
 :blProduce | bloa cntpilad --
 	2drop
-	2 block.now 2 << 'blocki + !
-	;
+	2 block.now 2 << 'blocki + ! ;
 
 :blSTACK
 	vpst> 4 - @
 	@+ | cntdpila
 	d.cnt <? ( blConsume ; )
 	d.cnt >? ( blProduce ; )
-	2drop
-	;
+	2drop ;
 
 |----------------------------------------
 | marca celdas que son clones de otras
-
 :cadacell | npila adr nrocell -- npila adr
 	pick2 d.rel | original clon
 |	2dup "clone %d %d" ,print ,cr
-	cellClon
-	;
+	cellClon ;
 
 :blCLONE
 	'cadacell vpMapD ;
@@ -639,9 +646,7 @@
 	blEND vpPop block.end ;
 
 |---	 anonimas
-:es[	|[
-:es]	|]
-:es;	;
+:es[ :es] :es;	;
 
 #lastdircode
 
@@ -661,6 +666,7 @@
 	( 1? )( 1- 0 pushREG ) drop ;
 
 :exexec 	| exec
+	cellEx
     cellR1 d.drop
 	lastdircode nro>mov @
 	dup 24 << 24 >> |duso
@@ -694,71 +700,39 @@
 :2+! | +! c+! w+!
 	cellMem cellR1 d.drop cellR1 d.drop ;
 
-:vuso3 cellR1 d.drop
-:vuso2 cellR1 d.drop
-:vuso1 cellR1 d.drop ;
-
-:vuso11 cellR1 ;
-:vuso21 cellR1 d.drop cellR1 ;
-
+:vuso3	cellR1 d.drop
+:vuso2	cellR1 d.drop
+:vuso1	cellR1 d.drop ;
+:vuso11	cellR1 ;
+:vuso21	cellR1 d.drop cellR1 ;
 :v1cte	0 pushCTE ;
 :v3v	0 pushREG
 :v2v	0 pushREG
 :v1v	0 pushREG ;
-
 :v>R	d.pop r.push ;
 :vR>    r.pop d.push ;
 :vR		r.tos d.push ;
-
 :vr+	r.tos d.push cellW1 d.2drop ; |R+    a -- R: b -- c
 :vr@+	r.tos d.push cellW1 cellMem d.drop d.tos pushREG ; |R@+    -- a R: b -- c
 :vr!+	r.tos d.push cellW1 cellMem d.drop cellR1 d.drop ; |R!+   a -- R: b -- c
 
 #usocelda
 0 0 0	|0 1 :,,defc 2 :,,defv
-litN	|3 :,,litd | --	n numero decimal
-litN	|4 :,,lith | --	n numero hexa
-litN	|5 :,,litb | -- n numero binario
-litN	|6 :,,litf | --	n numero punto fijo
+litN litN litN litN	|3 :,,litd | --	n numero decimal
 litS	|7 :,,lits | --	s string
 callW	|8 :,,word 	| ..--..  word <---- debe ser calculado
 litV	|9 :,,var 	| -- v var
 litAW	|10:,,dword | -- dw dir word
 litAV	|11:,,dvar 	| -- dv dir var
 es;		|; | fin de palabra (12)
-es(		|(
-es)(	|)(
-es)		|)
-es[	es]		|[ ]
+es( es)( es)
+es[	es]
 exexec	|EXEC  x/0 --    TOS es dcod (18)
-c0		|0? a -- a
-c0		|+? a -- a
-c0		|-? a -- a
-c0		|1? a -- a
-c1		|=?  ab -- a
-c1		|<?  ab -- a
-c1		|>?  ab -- a
-c1		|<=? ab -- a
-c1		|>=? ab -- a
-c1		|<>? ab -- a
-c1		|AND?  ab -- a
-c1		|NAND? ab -- a
+c0 c0 c0 c0					|0? a -- a
+c1 c1 c1 c1 c1 c1 c1 c1		|=?  ab -- a
 
-d.dup	|DUP    a -- aa
-d.drop 	|DROP  a --
-d.over 	|OVER   ab -- aba
-d.pick2 	|PICK2  abc -- abca
-d.pick3 	|PICK3  abcd -- abcda
-d.pick4 	|PICK4  abcde -- abcdea
-d.swap 	|SWAP   ab -- ba
-d.nip	|NIP   ab -- b
-d.rot	|ROT	abc -- bca
-d.2dup	|2DUP   ab -- abab
-d.2drop	|2DROP ab --
-d.3drop	|3DROP abc --
-d.4drop	|4DROP abcd --
-d.2over	|2OVER  abcd -- abcdab
-d.2swap	|2SWAP  abcd -- cdab
+d.dup d.drop d.over d.pick2 d.pick3 d.pick4 d.swap d.nip
+d.rot d.2dup d.2drop d.3drop d.4drop d.2over d.2swap
 
 v>R		|>R    a -- R: -- a
 vR>		|R>    -- a R: a --
@@ -813,7 +787,7 @@ vuso3	|MOVE> abc --		a,b es ddat
 vuso3	|CMOVE abc --		a,b es ddat
 vuso3	|CMOVE> abc --		a,b es ddat
 
-v1cte |MEM	-- a		a es ddat
+v1cte	|MEM	-- a		a es ddat
 vuso1	|DIR    a --
 vuso11	|FILE   a -- b
 vuso11	|FSIZE  a -- b
@@ -823,12 +797,12 @@ vuso3	|SAVE   abc --
 vuso3	|APPEND   abc --
 
 vuso11	|UPDATE  a -- a
-v2v	|XYMOUSE -- ab
-v1v	|BMOUSE  -- a
+v2v		|XYMOUSE -- ab
+v1v		|BMOUSE  -- a
 vuso1	|IKEY!  a --
-v1v	|KEY     -- a
-v1v	|CNTJOY  -- a
-v1v	|GETJOY  -- a
+v1v		|KEY     -- a
+v1v		|CNTJOY  -- a
+v1v		|GETJOY  -- a
 
 v1v	|MSEC    -- a
 v3v	|TIME    -- abc
@@ -863,9 +837,7 @@ vuso2	|PCURVE ab --
 vuso2	|FCOL   ab --
 vuso2	|FCEN   ab --
 vuso2	|FMAT   ab --
-0	|SFILL   --
-0	|LFILL   --
-0	|RFILL   --
+0 0 0	|SFILL LFILL RFILL  --
 vuso1	|TFILL  a --
 
 vuso11	|SLOAD   a -- a
@@ -875,7 +847,6 @@ vuso1	|MPLAY  a --
 
 |---- falta
 0	|OPENURL
-
 0	|DOCINI
 0	|DOCEND
 0	|DOCAT
@@ -889,18 +860,15 @@ vuso1	|MPLAY  a --
 
 :iniregi
 	'celli 256 ( 0 rot !+ swap 1- 0? ) 2drop
-	'block 256 4 * ( 0 rot !+ swap 1- 0? ) 2drop
-	;
+	'block 256 4 * ( 0 rot !+ swap 1- 0? ) 2drop ;
 
 ::calccell | fin buff use
 	iniregi
 	inivpila
 	( over <? )(
 		@+ $ff and
-
 |**** debug
-|		dup ,d ,sp
-|		"r4asm/cod.asm" savemem
+|		dup ,d ,sp "r4asm/cod.asm" savemem
 |**** debug
 		2 << 'usocelda + @ exec | adri+ adr+
 		) 2drop ;
