@@ -111,7 +111,6 @@
 	drop ;
 
 |------ acceso a celdas
-
 :,TOS	d.tos ,cell ;
 :,TOSb	d.tos ,cellb ;
 
@@ -178,6 +177,7 @@
 	vpila2normal
 	"ret" ,ln ;
 
+
 |----- auxiliares bloques
 :+etiqueta	| -- nueva   // y agrega a pila
 	nlabel 1+ dup 'nlabel ! dup >pilac ;
@@ -218,51 +218,42 @@
 		dup d.rel areg
 		) drop ;
 
-|:blIF      0
-|:blELSE  	1
-|:blWHILE  	2
-|:blUNTIL  	3
-|:blREPEAT  4
-
+|-------------------------------------
 :,(
 	block.new
+
 	| reajusta pila entrada
-
 |	block.now "; block %d" ,print
-|    block.now dumpblock,
-
+    block.now dumpblock,
 	vpPush
-	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 )
-	>pilac drop
-	;
+
+	blockt
+	0 =? ( +etiqueta label ,cr )		| IF
+	1 =? ( +etiqueta label ,cr )		| ELSE
+	2 =? ( +etiqueta label ":" ,ln )	| WHILE
+	3 =? ( +etiqueta label ":" ,ln )	| UNTIL
+	4 =? ( +etiqueta label ":" ,ln )	| REPEAT
+	drop ;
+
 
 :,)(
-	| reajusta pila
-	<pilac salto? 0? ( drop	| ELSE
-		asignacell
-		vpPop vpPush | vpDrop vpPush
-		1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac )
-		)( drop	| WHILE
-		vpDrop vpPush
-		2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac ) )
-	drop
-|	block.now "; block %d" ,print
-	;
+	blockt
+	1 =? ( asignacell vpPop vpPush <pilac +etiqueta jmp, label ":" ,ln )	| ELSE
+	2 =? ( vpDrop vpPush <pilac +etiqueta label ,cr >pilac )		| WHILE
+	drop ;
 
 :,)
-	| reajusta pila
-	<pilac salto? 0? ( drop
-			1 =? ( <pilac label ":" ,ln )
-			2 =? ( <pilac jmp, )
-			3 =? ( <pilac jmp, <pilac label ":" ,ln  )
-		)( drop
-			2 =? ( <pilac label ,cr  ) )
+	blockt
+	0 =? ( <pilac label ":" ,ln )				| IF
+	1 =? ( <pilac label ":" ,ln )				| ELSE
+	2 =? ( <pilac jmp, <pilac label ":" ,ln )	| WHILE
+	3 =? ( <pilac label ,cr )					| UNTIL
+	4 =? ( <pilac jmp, )						| REPEAT
 	drop
 |	block.now "; block %d" ,print ,cr
-|    block.now dumpblock,
+    block.now dumpblock,
 	vpPop
 	block.end ;
-
 
 |--------------------- Exec
 :,EXEC | v --
@@ -736,8 +727,8 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	calccell
 
 |**** debug
-|	dumpcells,
-|	"r4asm/cod.asm" savemem
+	dumpcells,
+	"r4asm/cod.asm" savemem
 |**** debug
 
 	nro>mov @ 24 << 24 >> neg inivpila
@@ -751,7 +742,7 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 		$ff and 2 << 'nivel1 + @ exec
 
 | ****debug
-|		"; " ,s printddvtack			| pila actual
+		"; " ,s printddvtack			| pila actual
 		"r4asm/cod.asm" savemem
 | ****debug
 		) drop ;
