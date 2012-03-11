@@ -3,6 +3,7 @@
 | PHREDA 2012
 |------------------------------------
 ^r4/system/r4token.txt
+^r4/lib/trace.txt
 
 |-------- Registros del CPU
 #registros 0
@@ -117,6 +118,9 @@
 	5 <>? ( 2drop -1 ; ) drop
 	'cellv + @ ;
 
+::cellSUM | nro -- sum
+	2 << 'cella + @ ;
+
 ::cellADR? | nro -- 0/1
 	2 << 'cellt + @
 	$10 and? ( drop 1 ; )
@@ -132,6 +136,13 @@
     2 << 'cellv + @
 |	dup ,d ,cr
 	;
+
+::cellFREE | nro --
+	cellREG? -? ( drop ; ) reg!! ;
+
+:resCPY | cell -- cell
+	( dup cellCPY? 0? ( drop ; ) drop
+	cellCPYTO ) ;
 
 ::cellMEM! | nro --
 	2 << 'cellt + dup @ $10 or swap ! ;
@@ -448,49 +459,62 @@
 :resolveADR | nro xx cell yy -- nro xx cell yy
 	newReg | nro xx cell yy reg
 	"mov " ,s dup ,REG "," ,s pick2 ,CELL ,cr
-|	dup reg!
+	dup reg!
 	5 pick3 cell!
 	;
 
 :genRST | nro XX cell -- nro XX
-|	dup cellREG? 5 =? ( ) drop | si esta en el lugar no generar
+	resCPY
+	dup cellREGM? 5 =? (
+		drop dup cellSUM
+		pick3 2 << =? ( 2drop ; ) | si esta en el lugar no generar
+		) drop
 	dup cellADR? 1? ( resolveADR ) drop
-	"mov dword [esi" ,s 
+	"mov dword [esi" ,s
 	pick2 1? ( +? ( "+" ,s ) 2 << ,d )( drop )
-	"]," ,s ,CELL ,cr
+	"]," ,s dup ,CELL ,cr
+	cellFREE
 	;
 
 :genEAX | cell --
+	resCPY
 	dup cellREG? 0? ( 2drop ; ) drop
 	"mov eax," ,s ,CELL ,cr ;
 
+:inuse | ao no nro adr cell -- nro adr
+	dup cellREGM? 5 <>? ( 2drop ; ) drop
+	dup cellSUM pick4 2 <<
+	<>? ( 2drop ; ) drop
+	newReg
+	"mov " ,s dup ,REG ",dword [esi" ,s
+	dup reg! 5 rot cell!
+	pick2 1? ( +? ( "+" ,s ) 2 << ,d )( drop )
+	"]" ,s ,cr
+	;
+
+:isused | adr nro -- adr  nro
+	over 4+ over 1+
+	( 1? )( 1-
+		swap @+ inuse
+		swap ) 2drop ;
+
+:vplast
+	"mov eax,[esi-4]" ,s ,cr ;
+
 :vpcopia
-	'dpila d.cnt 0? ( 2drop ; )
+	'dpila d.cnt 0? ( 2drop vplast ; )
 	1- ( 1? )( 1-
+		isused
 		swap @+ genRST
 		swap ) drop
 	@ genEAX ;
-
-:vpconsume
-	dup "%d" ,print ,cr
-	correESI
-	vpcopia
-|	1- 1? ( "lea esi,[esi+" ,s dup 2 << ,d "]" ,ln ) drop
-|	"lodsd" ,ln
-	;
 
 ::vpila2normal | --  ;transforma la pila actual a normal
 	inivpcnt d.cnt
-	2dup ";------- now:%d inicio:%d" ,print ,cr
+|	2dup ";------- now:%d inicio:%d" ,print ,cr
 	- | actual-origen
-	0 >? ( vpconsume ; )
-|:vpproduce
 	correESI
-	'dpila d.cnt 0? ( 2drop ; )
-	1- ( 1? )( 1-
-		swap @+ genRST
-		swap ) drop
-	@ genEAX ;
+	vpcopia ;
 
 ::vpilaPreUso | uso --
 	;
