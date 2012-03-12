@@ -39,22 +39,20 @@
 #regact
 
 |--- para registros de vpila vstack2
-:freeEAX
-   	| libero EAX
-	;
+:freeEAX | libero EAX
+	0 reg!! ;
 
 :needEAX | cell --
+	dup cellREG? 0? ( 2drop ; ) drop
+
 	| si es registro a o numero salir
 	| liberar y ocupar a ( puede ser xchg eax,.. )
 	drop ;
 
 :needREG | cell --
-	| si es registro o numero salir
-	| buscar registro libre
-	| asignar si hay que resolver
-	newReg dup reg!
-	5 rot cell!
-	;
+	dup cellREG? 0 >=? ( 2drop ; ) drop	| ya es registro salir
+	newReg dup reg! 	| buscar registro libre
+	5 rot cell! ;
 
 :resolveCLON | cell -- cell
 	dup cellCLON? 0? ( drop ; ) drop
@@ -74,21 +72,18 @@
 		"xor " ,s dup ,REG "," ,s dup ,REG
 		)
 	,cr
-	dup reg!
-	5 rot cell!	;
+	dup reg! 5 rot cell!	;
 
 :needWriteM | cell -- ; registro o direccion cte
 	dup cellADR? 1? ( drop needWrite ; )
 	2drop ;
-
 
 :resolveCPY | cell --
 	( dup cellNEED? 0? )( drop
 		cellCPYTO
 		dup cellCPY? 0? ( drop needWrite ; )
 		drop ) drop
-	needWrite
-	;
+	needWrite ;
 
 |--- va a leer, no puede []
 :needReadM | cell --
@@ -103,12 +98,26 @@
 :needReadB | cell --
 	drop ;
 
+:needREGorMEM | cell --
+	dup cellREG? 0 >=? ( 2drop ; ) drop
+	dup cellADR? 1? ( 2drop ; ) drop
+	newREG | cell reg
+	over cell0? 0? ( drop
+		"mov " ,s dup ,REG "," ,s over ,CELL
+		)( drop
+		"xor " ,s dup ,REG "," ,s dup ,REG
+		)
+	,cr
+	dup reg! 5 rot cell! ;
+
 :cteorECX | cell --
 	drop ;
+
 :setEAX | cell --
-	drop ;
+	0 dup reg! 5 rot cell! ;
+
 :setEDX | cell --
-	drop ;
+	3 dup reg! 5 rot cell! ;
 
 |------ acceso a celdas
 :,TOS	d.tos ,cell ;
@@ -135,17 +144,31 @@
 :,[ :,] ; | no hay anonimas en optimizado
 
 :,lit	toknow tok>cte pushNRO ;
-:,lits  nstr pushSTR ;
+:,lits  
+		toknow 8 >> cte + strusestack 
+		( 1? )( 1- |cellR1 cellST
+			| cargar en pila directo
+			d.drop ) 2drop | correccion por "%d"
+		nstr pushSTR ;
 :,dwo	toknow 8 >> pushCOD ;
 :,dva   toknow 8 >> pushDAT ;
 :,var	toknow 8 >> pushVAR ;
 
-:,wor
+:,worjmp
 	vpila2normal
+	"jmp " ,s toknow nro>dicn ,s ,cr ;
+
+:,wor
 	dup @ $ff and | word ;
-	12 =? ( "jmp " )( "call " )
-	,s drop
-	toknow nro>dicn ,s ,cr ;
+	12 =? ( drop ,worjmp ; ) drop
+
+|	vpila2normal
+
+ 	toknow 8 >> nro>mov @ 24 << 24 >> neg |duso
+	vpilaPreUso
+	"call " ,s toknow nro>dicn ,s ,cr
+	vpilaPostUso
+	;
 
 :,callsys
 	vpila2normal
@@ -187,19 +210,8 @@
 	18 >? ( 31 <? ( 1 nip ; ) ) 0 nip ;
 |   18 31 in? ( 1 nip ; ) 0 nip ; | futura palabra??
 
-|----------------------
-:bloqueentrada
-|	celdasque necesitan registros
-|	copia a registros asignados
-|	libera registros necesarios
-	;
 
-:bloquesalida
-|	copia a pila los marcados
-|	reasigna registros con nueva denominacion
-	;
-
-|--- asignas celdas que no estan en registros MMMM
+|--- asigna celdas que no estan en registros
 :areg | cell
 	dup cellREG? 0 >=? ( 2drop ; ) drop
 	newREG | cell reg
@@ -212,11 +224,39 @@
 	dup reg!
 	5 rot cell!	;
 
-
 :asignacell
-	d.cnt ( 1? )( 1-
-		dup d.rel areg
-		) drop ;
+	d.cnt ( 1? )( 1- dup d.rel areg ) drop ;
+
+|--- asigna celdas que necesitan registros
+:aregw | cell
+	dup cellNEED? 0? ( 2drop ; ) drop
+	dup cellREG? 0 >=? ( 2drop ; ) drop
+	newREG | cell reg
+	over cell0? 0? ( drop
+		"mov " ,s dup ,REG "," ,s over ,CELL
+		)( drop
+		"xor " ,s dup ,REG "," ,s dup ,REG
+		)
+	,cr
+	dup reg!
+	5 rot cell!	;
+
+
+:asignacellw | asigna celdas si es write
+	d.cnt ( 1? )( 1- dup d.rel aregw ) drop ;
+
+|----------------------
+:blIN
+	asignacellw
+|	celdasque necesitan registros
+|	copia a registros asignados
+|	libera registros necesarios
+	;
+
+:blOUT
+|	copia a pila los marcados
+|	reasigna registros con nueva denominacion
+	;
 
 |-------------------------------------
 :,(
@@ -224,15 +264,15 @@
 
 	| reajusta pila entrada
 |	block.now "; block %d" ,print
-    block.now dumpblock,
+|    block.now dumpblock,
 	vpPush
 
 	blockt
 	0 =? ( +etiqueta label ,cr )		| IF
 	1 =? ( +etiqueta label ,cr )		| ELSE
-	2 =? ( +etiqueta label ":" ,ln )	| WHILE
-	3 =? ( +etiqueta label ":" ,ln )	| UNTIL
-	4 =? ( +etiqueta label ":" ,ln )	| REPEAT
+	2 =? ( blIN +etiqueta label ":" ,ln )	| WHILE
+	3 =? ( blIN +etiqueta label ":" ,ln )	| UNTIL
+	4 =? ( blIN +etiqueta label ":" ,ln )	| REPEAT
 	drop ;
 
 
@@ -246,12 +286,12 @@
 	blockt
 	0 =? ( <pilac label ":" ,ln )				| IF
 	1 =? ( <pilac label ":" ,ln )				| ELSE
-	2 =? ( <pilac jmp, <pilac label ":" ,ln )	| WHILE
+	2 =? ( blOUT <pilac jmp, <pilac label ":" ,ln )	| WHILE
 	3 =? ( <pilac label ,cr )					| UNTIL
-	4 =? ( <pilac jmp, )						| REPEAT
+	4 =? ( blOUT <pilac jmp, )						| REPEAT
 	drop
 |	block.now "; block %d" ,print ,cr
-    block.now dumpblock,
+|   block.now dumpblock,
 	vpPop
 	block.end ;
 
@@ -260,7 +300,11 @@
 	d.tos needREG
 	"or " ,s ,TOS "," ,s ,TOS ,cr
 	"jz @f" ,ln
+
+|	lastdircode nro>mov @
 	"call " ,s ,TOS ,cr
+|	postexec
+
 	"@@:" ,ln ;
 
 |------- PILAR
@@ -332,8 +376,8 @@
 :,*/
 	useEDX
 	d.pk2 needEAX
-	d.nos needRead
-	d.tos needRead
+	d.nos needREGorMEM
+	d.tos needREGorMEM
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
@@ -344,7 +388,7 @@
 :,*>>
 	useEDX
 	d.pk2 needEAX
-	d.nos needRead
+	d.nos needREGorMEM
 	d.tos cteorECX
 	"cdq" ,ln
 	"imul " ,s ,NOS2 ,cr
@@ -357,7 +401,7 @@
 :,<</
 	useEDX
 	d.pk2 needEAX
-	d.nos needRead
+	d.nos needREGorMEM
 	d.tos cteorECX
 	"cdq" ,ln
     "shld edx,eax," ,s ,TOSb ,cr
@@ -370,7 +414,7 @@
 :,/MOD
 	useEDX
 	d.nos needEAX
-	d.tos needRead
+	d.tos needREGorMEM
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 	d.nos setEAX
@@ -379,7 +423,7 @@
 :,MOD
 	useEDX
 	d.nos needEAX
-	d.tos needRead
+	d.tos needREGorMEM
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 	d.drop
@@ -459,7 +503,7 @@
 :,!
 	d.tos needReadM
 	d.nos needReadM
-	"mov [" ,s ,TOS "]," ,s ,NOS ,cr
+	"mov dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	d.2DROP ;
 :,C!
 	d.tos needReadM
@@ -475,7 +519,7 @@
 :,+!
 	d.nos needReadM
 	d.tos needWriteM
-	"add [" ,s ,TOS "]," ,s ,NOS ,cr
+	"add dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	d.2DROP ;
 
 :,W+!
@@ -491,23 +535,23 @@
 	d.2DROP ;
 
 :,!+
-    d.nos needRead
-	d.tos needWriteM
-	"mov [" ,s ,TOS "]," ,s ,NOS ,cr
+    d.nos needReadM
+	d.tos needWrite
+	"mov dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	"add " ,s ,TOS ",4" ,ln
 |	4 d.tos Cell+
 	d.NIP ;
 
 :,W!+
-    d.nos needRead
-	d.tos needWriteM
+    d.nos needReadM
+	d.tos needWrite
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	"add " ,s ,TOS ",2" ,ln
 |	2 d.tos Cell+
 	d.NIP ;
 :,C!+
-    d.nos needRead
-	d.tos needWriteM
+    d.nos needReadM
+	d.tos needWrite
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	"add " ,s ,TOS ",1" ,ln
 |	1 d.tos Cell+
@@ -516,7 +560,7 @@
 :,@+
 	d.tos needReadM
 	d.dup d.tos needReg
-	"mov " ,s ,TOS ",[" ,s ,NOS "]" ,ln
+	"mov " ,s ,TOS ",dword [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",4" ,ln ;
 :,W@+
 	d.tos needReadM
@@ -635,13 +679,13 @@
 
 :,PX!+	| rgb --
 	d.tos needRead
-	"mov [ebp]," ,s ,TOS ,cr
+	"mov dword [ebp]," ,s ,TOS ,cr
 	"add ebp,4" ,ln
 	d.drop ;
 
 :,PX@	| -- rgb
 	d.dup d.tos needREG
-	"mov " ,s ,TOS ",[ebp]" ,ln ;
+	"mov " ,s ,TOS ",dword [ebp]" ,ln ;
 
 :,XYMOUSE | -- x y
 	d.dup d.tos needREG
@@ -715,6 +759,8 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	'bufftok 'buff> ! ;
 
 
+#registeruse
+
 ::,compwordopt | nro --
 |---- carga en buffer
 	-buff
@@ -727,11 +773,12 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	calccell
 
 |**** debug
-	dumpcells,
-	"r4asm/cod.asm" savemem
+|	dumpcells,
+|	"r4asm/cod.asm" savemem
 |**** debug
 
-	nro>mov @ 24 << 24 >> neg inivpila
+	dup nro>mov @ 24 << 24 >> neg inivpila
+	0 'registeruse !
 	'bufftok ( buff> <? )(
 		@+
 
@@ -740,9 +787,11 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 | ****debug
 
 		$ff and 2 << 'nivel1 + @ exec
-
+		registros registeruse or 'registeruse !
 | ****debug
-		"; " ,s printddvtack			| pila actual
-		"r4asm/cod.asm" savemem
+|		"; " ,s printddvtack			| pila actual
+|		"r4asm/cod.asm" savemem
 | ****debug
-		) drop ;
+		) drop
+	registeruse swap nro>mem!
+	;
