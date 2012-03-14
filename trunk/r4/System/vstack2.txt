@@ -155,13 +155,16 @@
 	drop 0 ;
 
 ::cellCLON? | nro -- 0/1
-	2 << 'celli + @ $10 and? ( drop 1 ; ) drop 0 ;
+	2 << 'celli + @ $10 and ;
 
 ::cellCLONTO | nro -- nro
 |	dup ,d "=>" ,s
 	2 << 'celli + @ 8 >> $ff and
 |	dup ,d ,cr
 	;
+
+::cellST? | cell -- 0/1
+	2 << 'celli + @ $1 and ;
 
 :newcell | valor tipo -- nro
 	celln 2 << 'cellt +
@@ -204,16 +207,6 @@
 	swap 1020 + @+ rot 1020 + !+
 	swap 1020 + @+ rot 1020 + !+
 	swap 1020 + @ swap 1020 + ! ;
-
-:movestack | dd --
-	celln ( 1? )( 1-
-		dup 2 << dup
-		'cellt + @ 	5 =? ( drop
-			dup 'cellv + @ 5 =? (
-				pick3 pick3
-				) )
-		2drop ) drop ;
-
 
 |---- imprime celda
 :list2str swap ( 1? )( 1- swap >>0 swap ) drop ;
@@ -276,7 +269,8 @@
 
 ::block.new blockn pilab> !+ 'pilab> ! 1 'blockn +! ;
 ::block.end -4 'pilab> +! ;
-::block.now pilab> 4 - @ ; | -- nblo
+::block.now pilab> 	4 - @ ; | -- nblo
+::block.in? pilab> 'pilab - ;
 ::blockt block.now 2 << 'block + @ $f and ;
 
 :blockT!	block.now 2 << 'block + ! ;
@@ -289,7 +283,7 @@
 :blINI	celln block.now 2 << 'blocks + ! ;
 :blEND
 	celln block.now 2 << 'blocke + !
-	
+
 	;
 
 :>pilac pilac> !+ 'pilac> ! ;
@@ -500,9 +494,6 @@
 	$1000000 + $ff000000 and or
 	swap ! ;
 
-:cellST | celda es stack
-	d.tos 2 << 'celli + dup
-	@ $1 or swap ! ;
 
 :cellMem | celda que es direccion de memoria
 	d.tos 2 << 'celli + dup
@@ -551,15 +542,23 @@
 |----------------------------------------
 | busca y marca celdas que deben estar en pila
 
+:cellST | cell -- celda es stack
+	2 << 'celli + dup
+	@ $1 or swap ! ;
+
 :blConsume | bloa cntpilad --
 	2drop
 	1 block.now 2 << 'blocki + !
-
+	d.cnt 0? ( drop ; )
+	1- ( 1? )( 1- dup d.rel cellST ) drop
 	;
 
 :blProduce | bloa cntpilad --
 	2drop
-	2 block.now 2 << 'blocki + ! ;
+	2 block.now 2 << 'blocki + !
+	d.cnt 0? ( drop ; )
+	1- ( 1? )( 1- dup d.rel cellST ) drop
+	;
 
 :blSTACK
 	vpst> 4 - @
@@ -596,7 +595,7 @@
 
 :litN	toknow tok>cte pushNRO ;
 :litS
-	valnow cte + strusestack ( 1? )( 1- cellR1 cellST d.drop ) 2drop | correccion por "%d"
+	valnow cte + strusestack ( 1? )( 1- cellR1 d.tos cellST d.drop ) 2drop | correccion por "%d"
 	0 pushSTR ;
 :litAW	valnow dup 'lastdircode ! pushCOD ;
 :litAV	valnow dup 'lastdircode ! pushDAT ;
@@ -901,14 +900,17 @@ vuso1	|MPLAY  a --
 #backp )( 256
 #backp>
 
+:bakRST | nro adr cell -- nro adr
+	drop
+	;
 ::vpilaPreUso | uso --
 	dup 'prec !
 	'backp 'backp> !
 	0? ( drop ; )
 |	"push eax" ,ln
 	1- ( 1? )( 1-
-		dup d.rel dup backp> !+ 'backp> !
-		genRst
+		dup 1+ d.rel dup genRST
+		backp> !+ 'backp> !
 		)
 	d.rel dup backp> !+ 'backp> ! genEAX
 	;
@@ -917,7 +919,15 @@ vuso1	|MPLAY  a --
 	prec
 	0? ( drop ; )
 |	"pop eax" ,ln
+	'backp
 	1- ( 1? )( 1-
+		swap |@+ bakRST
+		swap ) 2drop
+	;
 
-		) drop
+|-- fija una pila con n niveles en registros (para bloques)
+
+::vpilafixin | nivel --
+	;
+::vpilafixout | nivel --
 	;

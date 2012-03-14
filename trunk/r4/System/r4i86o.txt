@@ -59,11 +59,10 @@
 	dup cellCLONTO | clon origen
 	over cellREG? over cellREG? - 0? ( 2drop ; ) drop
 	"mov " ,s dup ,CELL "," ,s swap dup ,CELL ,cr
-	over swap cell2cell!
-	;
+	over swap cell2cell! ;
 
 :needWrite | cell -- ; pone en registro si no esta
-	resolveCLON
+	block.in? 1? ( drop resolveCLON )( drop ) | solo deltro de bloques
 	dup cellREG? 0 >=? ( 2drop ; ) drop | ya esta en registro
 	newREG | cell reg
 	over cell0? 0? ( drop
@@ -72,7 +71,7 @@
 		"xor " ,s dup ,REG "," ,s dup ,REG
 		)
 	,cr
-	dup reg! 5 rot cell!	;
+	dup reg! 5 rot cell! ;
 
 :needWriteM | cell -- ; registro o direccion cte
 	dup cellADR? 1? ( drop needWrite ; )
@@ -144,8 +143,8 @@
 :,[ :,] ; | no hay anonimas en optimizado
 
 :,lit	toknow tok>cte pushNRO ;
-:,lits  
-		toknow 8 >> cte + strusestack 
+:,lits
+		toknow 8 >> cte + strusestack
 		( 1? )( 1- |cellR1 cellST
 			| cargar en pila directo
 			d.drop ) 2drop | correccion por "%d"
@@ -228,7 +227,7 @@
 	d.cnt ( 1? )( 1- dup d.rel areg ) drop ;
 
 |--- asigna celdas que necesitan registros
-:aregw | cell
+:aregw | cell --
 	dup cellNEED? 0? ( 2drop ; ) drop
 	dup cellREG? 0 >=? ( 2drop ; ) drop
 	newREG | cell reg
@@ -245,12 +244,20 @@
 :asignacellw | asigna celdas si es write
 	d.cnt ( 1? )( 1- dup d.rel aregw ) drop ;
 
+|--- guarda en pila
+:arest | cell --
+	dup cellST? 0? ( 2drop ; ) drop
+	"add esi,-4" ,ln
+	"mov dword [esi]," ,s ,CELL ,cr
+	;
+
+:asignastack
+	d.cnt ( 1? )( 1- dup d.rel arest ) drop ;
+
 |----------------------
 :blIN
-	asignacellw
-|	celdasque necesitan registros
-|	copia a registros asignados
-|	libera registros necesarios
+	asignacellw | celdas que necesitan registros
+|	asignastack	| celdas que son pila
 	;
 
 :blOUT
@@ -773,7 +780,7 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	calccell
 
 |**** debug
-|	dumpcells,
+	dumpcells,
 |	"r4asm/cod.asm" savemem
 |**** debug
 
@@ -790,7 +797,7 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 		registros registeruse or 'registeruse !
 | ****debug
 |		"; " ,s printddvtack			| pila actual
-|		"r4asm/cod.asm" savemem
+		"r4asm/cod.asm" savemem
 | ****debug
 		) drop
 	registeruse swap nro>mem!
