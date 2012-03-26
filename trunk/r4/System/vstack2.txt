@@ -272,6 +272,7 @@
 ::block.now pilab> 	4 - @ ; | -- nblo
 ::block.in? pilab> 'pilab - ;
 ::blockt block.now 2 << 'block + @ $f and ;
+::blockin block.now 2 << 'blocki + @ ;
 
 :blockT!	block.now 2 << 'block + ! ;
 :blIF       0 blockT! ;
@@ -546,6 +547,12 @@
 	2 << 'celli + dup
 	@ $1 or swap ! ;
 
+:prevcond
+	over 8 - dup @ $ff and
+	19 <? ( 2drop ; ) 30 >? ( 2drop ; ) | es condicional?
+	$100 or swap !
+	;
+
 :blConsume | bloa cntpilad --
 	2drop
 	1 block.now 2 << 'blocki + !
@@ -579,7 +586,7 @@
 
 :es)
 	salto? 1? ( <pilac drop
-		blUNTIL blSTACK
+		blUNTIL blSTACK prevcond
 		)( <pilac
 		1 =? ( blIF blCLONE )
 		2 =? ( blREPEAT blSTACK )
@@ -852,13 +859,17 @@ vuso1	|MPLAY  a --
 	"mov dword [esi" ,s
 	pick2 1? ( +? ( "+" ,s ) 2 << ,d )( drop )
 	"]," ,s dup ,CELL ,cr
-	cellFREE
+	dup cellFREE
+	5 $15 pick2 cell!
+	pick2 2 << swap cell+
 	;
 
 :genEAX | cell --
 	resCPY
 	dup cellREG? 0? ( 2drop ; ) drop
-	"mov eax," ,s ,CELL ,cr ;
+	"mov eax," ,s dup ,CELL ,cr
+	0 5 rot cell!
+	;
 
 :inuse | ao no nro adr cell -- nro adr
 	dup cellREGM? 5 <>? ( 2drop ; ) drop
@@ -894,7 +905,9 @@ vuso1	|MPLAY  a --
 |	2dup ";------- now:%d inicio:%d" ,print ,cr
 	- | actual-origen
 	correESI
-	vpcopia ;
+	vpcopia
+	d.cnt 'inivpcnt ! | ahora vpila tiene...
+	;
 
 #prec 0
 #backp )( 256
@@ -903,11 +916,11 @@ vuso1	|MPLAY  a --
 :bakRST | nro adr cell -- nro adr
 	drop
 	;
+
 ::vpilaPreUso | uso --
 	dup 'prec !
 	'backp 'backp> !
 	0? ( drop ; )
-|	"push eax" ,ln
 	1- ( 1? )( 1-
 		dup 1+ d.rel dup genRST
 		backp> !+ 'backp> !
@@ -918,7 +931,6 @@ vuso1	|MPLAY  a --
 ::vpilaPostUso | --
 	prec
 	0? ( drop ; )
-|	"pop eax" ,ln
 	'backp
 	1- ( 1? )( 1-
 		swap |@+ bakRST
@@ -931,3 +943,4 @@ vuso1	|MPLAY  a --
 	;
 ::vpilafixout | nivel --
 	;
+
