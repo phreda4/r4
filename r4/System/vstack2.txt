@@ -282,10 +282,7 @@
 :blREPEAT  	4 blockT! ;
 
 :blINI	celln block.now 2 << 'blocks + ! ;
-:blEND
-	celln block.now 2 << 'blocke + !
-
-	;
+:blEND	celln block.now 2 << 'blocke + ! ;
 
 :>pilac pilac> !+ 'pilac> ! ;
 :<pilac -4 'pilac> +! pilac> @ ;
@@ -331,9 +328,10 @@
 
 ::r.cnt		rpila> 'rpila - 2 >> ;
 ::r.pop		-4 'rpila> +! rpila> @ ;
-::r.drop	-4 'rpila> +! ;
 ::r.push	rpila> !+ 'rpila> ! ;
 ::r.tos		rpila> 4 - @ ;
+::r.drop	r.tos cellREG? 0 >=? ( dup reg!! ) drop | si es registro limpia
+			-4 'rpila> +! ;
 
 |--- pila de estado de pila y registros para bloques
 #vpst )( 1024
@@ -402,6 +400,16 @@
 		4 2 << + swap ) 3drop
 	;
 
+:vpConvert | cell
+	;
+
+::vpGenerate | tengo una pila y genero la equivalente en vp
+	vpst> 4 - @ | pila objetivo
+	@+ ( 1? )( 1-
+		swap @+ pick3 exec
+		4 2 << + swap ) 3drop
+	;
+
 |------------------------------------------
 | inicia vpila como normal con USADO celdas
 | de forma normal, guarda nivel en INIVPCNT
@@ -436,18 +444,12 @@
 | DEBUG: imprime pila virtual
 |-------------------------------------------
 ::printddvtack
-|	d.cnt ,d ":" ,s
-	'dpila ( dpila> <? )(
-		@+ ,cell ,sp ) drop
-	":" ,s registros ,b ,cr
-	;
-
-::printdvtack
-|	d.cnt ,d ":" ,s
-	'dpila ( dpila> <? )(
-		@+ ,d ,sp ) drop
-	":" ,s registros ,b ,cr
-	;
+	registros ,b ":" ,s
+	'dpila ( dpila> <? )( @+ ,cell ,sp ) drop
+	'rpila
+	rpila> <>? ( " :R " ,s )
+	( rpila> <? )( @+ ,cell ,sp ) drop
+	,cr ;
 
 ::dumpcells, | -- ; imprime info celdas
 |	"Nro:Read:Write:T" ,print ,cr
@@ -550,7 +552,7 @@
 :prevcond
 	over 8 - dup @ $ff and
 	19 <? ( 2drop ; ) 30 >? ( 2drop ; ) | es condicional?
-	$100 or swap !
+	$100 or swap !  | marca condicional
 	;
 
 :blConsume | bloa cntpilad --
@@ -845,8 +847,7 @@ vuso1	|MPLAY  a --
 :resolveADR | nro xx cell yy -- nro xx cell yy
 	newReg | nro xx cell yy reg
 	"mov " ,s dup ,REG "," ,s pick2 ,CELL ,cr
-	dup reg!
-	5 pick3 cell!
+	dup reg! 5 pick3 cell!
 	;
 
 :genRST | nro XX cell -- nro XX
@@ -859,7 +860,7 @@ vuso1	|MPLAY  a --
 	"mov dword [esi" ,s
 	pick2 1? ( +? ( "+" ,s ) 2 << ,d )( drop )
 	"]," ,s dup ,CELL ,cr
-	dup cellFREE
+|	dup cellFREE
 	5 $15 pick2 cell!
 	pick2 2 << swap cell+
 	;
@@ -890,7 +891,9 @@ vuso1	|MPLAY  a --
 
 :vplast
 	inivpcnt 0? ( drop ; ) drop
-	"mov eax,[esi-4]" ,s ,cr ;
+	"mov eax,[esi-4]" ,s ,cr
+	0 5 d.tos cell!
+	;
 
 :vpcopia
 	'dpila d.cnt 0? ( 2drop vplast ; )
@@ -900,47 +903,71 @@ vuso1	|MPLAY  a --
 		swap ) drop
 	@ genEAX ;
 
-::vpila2normal | --  ;transforma la pila actual a normal
-	inivpcnt d.cnt
-|	2dup ";------- now:%d inicio:%d" ,print ,cr
-	- | actual-origen
+|---- transforma la pila actual a normal
+::vpila2normal | --
+	inivpcnt d.cnt - | actual-origen
 	correESI
 	vpcopia
 	d.cnt 'inivpcnt ! | ahora vpila tiene...
+|	";*** " ,s printddvtack
+|	r.cnt ( 1? )( 1- dup r.tos "%d " mprint ,s ,cr r.drop ) drop
 	;
 
-#prec 0
-#backp )( 256
-#backp>
+|---- acomoda pila actual
+::vpila2call | nro --
+	nro>mov @ 8 << 24 >>
+
+|	dup "; %d---reacomoda" ,print ,cr
+
+	0? ( drop ; )
+	dup correESI
+	-? ( ( 1? )( 1+ d.drop ) )( ( 1? )( 1- d.dup ) )
+	drop
+	d.cnt 0? ( drop ; )
+	1- ( 1? )( 1-
+		dup 1+ d.rel
+		5 $15 pick2 cell!
+		over 2 << swap cell+
+		)
+	d.rel 0 5 rot cell!
+
+|	";*** " ,s printddvtack
+	;
+
+#nrow
+
+| transforma la pila actual en normal ( solo la parte que necesita)
+::vpilaPreUso | nro --
+	dup 'nrow !
+	nro>mov @ 24 << 24 >> neg |duso
+	0? ( drop ; )
+	1- ( 1? )( 1-
+		dup 1+ d.rel genRST
+		)
+	d.rel genEAX
+	;
+
 
 :bakRST | nro adr cell -- nro adr
 	drop
 	;
 
-::vpilaPreUso | uso --
-	dup 'prec !
-	'backp 'backp> !
-	0? ( drop ; )
-	1- ( 1? )( 1-
-		dup 1+ d.rel dup genRST
-		backp> !+ 'backp> !
-		)
-	d.rel dup backp> !+ 'backp> ! genEAX
-	;
-
 ::vpilaPostUso | --
-	prec
+	nrow nro>mov @
+
+
 	0? ( drop ; )
-	'backp
 	1- ( 1? )( 1-
-		swap |@+ bakRST
+		swap @+ bakRST
 		swap ) 2drop
 	;
+
 
 |-- fija una pila con n niveles en registros (para bloques)
 
 ::vpilafixin | nivel --
 	;
+
 ::vpilafixout | nivel --
 	;
 
