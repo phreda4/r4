@@ -17,6 +17,8 @@
 |--------------------------------------------
 ^r4/lib/gui.txt
 ^r4/lib/parse.txt
+^r4/system/r4print.txt
+
 ^r4/system/vstack2.txt
 
 ^r4/lib/trace.txt
@@ -154,52 +156,43 @@
 :,var	toknow 8 >> pushVAR ;
 
 :,worjmp
-	vpila2normal
 	"jmp " ,s toknow nro>dicn ,s ,cr ;
 
 :,wor
+	vpila2normal
 	dup @ $ff and | word ;
 	12 =? ( drop ,worjmp ; ) drop
+	"call " ,s toknow nro>dicn ,s ,cr ;
 
-	vpila2normal	| todos-----
-| 	toknow 8 >> vpilaPreUso
-
-	"call " ,s toknow nro>dicn ,s ,cr
-
-	toknow 8 >> vpila2call | todos-----
-|	vpilaPostUso
-	;
-
-:,callsys
-	vpila2normal
+:,callsys | usapila? --
+	1? ( vpila2normal ) drop
 	dup @ $ff and | word ;
 	12 =? ( "jmp " )( "call " )
 	,s drop ;
 
 :,END		"jmp SYSEND" ,ln ;
-:,DIR		,callsys "SYSDIR" ,ln ;
-:,FILE  	,callsys "SYSFILE" ,ln ;
-:,FSIZE		,callsys "SYSFSIZE" ,ln ;
-:,VOL		,callsys "SYSVOL" ,ln ;
-:,LOAD		,callsys "SYSLOAD" ,ln ;
-:,SAVE		,callsys "SYSSAVE" ,ln ;
-:,APPEND	,callsys "SYSAPPEND" ,ln ;
-:,UPDATE	,callsys "SYSUPDATE" ,ln ;
-:,MSEC		,callsys "SYSMSEC" ,ln ;
-:,TIME		,callsys "SYSTIME" ,ln ;
-:,DATE		,callsys "SYSDATE" ,ln ;
-:,RUN		,callsys "SYSRUN" ,ln ;
-:,CLS		,callsys "SYSCLS" ,ln ;
-:,REDRAW	,callsys "SYSREDRAW" ,ln ;
-:,>XFB  	,callsys "SYSTOXFB" ,ln ;
-:,XFB>  	,callsys "SYSXFBTO" ,ln ;
+:,DIR		1 ,callsys "SYSDIR" ,ln ;
+:,FILE  	1 ,callsys "SYSFILE" ,ln ;
+:,FSIZE		1 ,callsys "SYSFSIZE" ,ln ;
+:,VOL		1 ,callsys "SYSVOL" ,ln ;
+:,LOAD		1 ,callsys "SYSLOAD" ,ln ;
+:,SAVE		1 ,callsys "SYSSAVE" ,ln ;
+:,APPEND	1 ,callsys "SYSAPPEND" ,ln ;
+:,UPDATE	1 ,callsys "SYSUPDATE" ,ln ;
+:,MSEC		1 ,callsys "SYSMSEC" ,ln ;
+:,TIME		1 ,callsys "SYSTIME" ,ln ;
+:,DATE		1 ,callsys "SYSDATE" ,ln ;
+:,RUN		1 ,callsys "SYSRUN" ,ln ;
+:,CLS		0 ,callsys "SYSCLS" ,ln ;
+:,REDRAW	0 ,callsys "SYSREDRAW" ,ln ;
+:,>XFB  	0 ,callsys "SYSTOXFB" ,ln ;
+:,XFB>  	0 ,callsys "SYSXFBTO" ,ln ;
 
 :,;
 	dup 8 - @ $ff and | word ;
 	8 =? ( drop ; ) drop
 	vpila2normal
 	"ret" ,ln ;
-
 
 |----- auxiliares bloques
 :+etiqueta	| -- nueva   // y agrega a pila
@@ -221,7 +214,7 @@
 		"xor " ,s dup ,REG "," ,s dup ,REG
 		)
 	,cr
-	dup reg! 5 rot cell!	;
+	dup reg! 5 rot cell! ;
 
 :asignacell
 	d.cnt ( 1? )( 1- dup d.rel areg ) drop ;
@@ -252,47 +245,43 @@
 :asignastack
 	d.cnt ( 1? )( 1- dup d.rel arest ) drop ;
 
-|----------------------
-:blIN
-	blockin 0? ( drop asignacellw ; ) drop | celdas que necesitan registros
-	vpila2normal | celdas que son pila
-	;
 
-:blOUT
-|	vpGenerate | reacomoda pila
-	;
 
 |-------------------------------------
 :,(
+
 	block.new
 
-	| reajusta pila entrada
+| reajusta pila entrada
 |	block.now "; block %d" ,print
 |    block.now dumpblock,
+
 	vpPush
 
 	blockt
 	0 =? ( +etiqueta label ,cr )		| IF
 	1 =? ( +etiqueta label ,cr )		| ELSE
-	2 =? ( blIN +etiqueta label ":" ,ln )	| WHILE
-	3 =? ( blIN +etiqueta label ":" ,ln )	| UNTIL
-	4 =? ( blIN +etiqueta label ":" ,ln )	| REPEAT
+	2 =? ( vpila2normal +etiqueta label ": ; ((((WHILE" ,ln  )	| WHILE
+	3 =? ( vpila2normal +etiqueta label ": ; ((((UNTIL " ,ln )	| UNTIL
+	4 =? ( +etiqueta label ": ; REPEAT" ,ln )	| REPEAT
 	drop ;
 
 
 :,)(
 	blockt
-	1 =? ( asignacell vpPop vpPush <pilac +etiqueta jmp, label ":" ,ln )	| ELSE
+	1 =? ( asignacell vpPop vpPush <pilac +etiqueta jmp, label ": ; )()(ELSE" ,ln )	| ELSE
 	2 =? ( vpDrop vpPush <pilac +etiqueta label ,cr >pilac )		| WHILE
 	drop ;
 
 :,)
 	blockt
-	0 =? ( <pilac label ":" ,ln )				| IF
-	1 =? ( <pilac label ":" ,ln )				| ELSE
-	2 =? ( blOUT <pilac jmp, <pilac label ":" ,ln )	| WHILE
-	3 =? ( <pilac label ,cr vpDrop vpPush )					| UNTIL
-	4 =? ( blOUT <pilac jmp, )						| REPEAT
+	0 =? ( <pilac label ": ; ))))IF" ,ln )				| IF
+	1 =? ( <pilac label ": ; ))))ELSE" ,ln )				| ELSE
+	2 =? ( <pilac jmp, <pilac
+			label ": ; ))))WHILE" ,ln )	| WHILE
+	3 =? ( <pilac label ,cr
+			vpDrop vpPush )			| UNTIL
+	4 =? ( <pilac jmp, )						| REPEAT
 	drop
 |	block.now "; block %d" ,print ,cr
 |   block.now dumpblock,
@@ -301,6 +290,7 @@
 
 |--------------------- Exec
 :,EXEC | v --
+	vpila2normal
 	d.tos needREG
 	"or " ,s ,TOS "," ,s ,TOS ,cr
 	"jz @f" ,ln
@@ -578,11 +568,8 @@
 	"add " ,s ,NOS ",1" ,ln ;
 
 |-------- CONDICIONALES
-:ajustapila
-	vpila2normal ;
-
 :,simple?
-	toknow 8 >> 1? ( ajustapila ) drop
+	toknow 8 >> 1? ( vpila2normal ) drop
 	d.tos needWrite
 	d.tos cellADR? 1? ( drop
 		"cmp " ,s ,TOS ",0" ,ln ; ) drop
@@ -595,7 +582,7 @@
 :,1? ,simple?	"jz " ,s ;
 
 :,doble?
-	toknow 8 >> 1? ( ajustapila ) drop
+	toknow 8 >> 1? ( vpila2normal ) drop
 	d.tos needRead
 	d.nos needWrite
 	d.tos cellADR? 1? ( drop
@@ -616,7 +603,7 @@
 :,<>? ,doble?	"jz " ,s ;
 
 :,bit?
-	toknow 8 >> 1? ( ajustapila ) drop
+	toknow 8 >> 1? ( vpila2normal ) drop
 	d.tos needRead
 	d.nos needWrite
 	d.tos cellADR? 1? ( drop
@@ -775,15 +762,13 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 |---- carga en buffer
 	-buff
 	dup nro>toklen
-	( 1? )( 1- swap
-		@+ +buff
-		swap ) 2drop
+	( 1? )( 1- swap @+ +buff swap ) 2drop
 
 	buff> 'bufftok pick2 nro>mov @ 24 << 24 >> neg | finbuff buff use
 	calccell
 
 |**** debug
-	dumpcells,
+|	dumpcells,
 |	"r4asm/cod.asm" savemem
 |**** debug
 
@@ -791,17 +776,18 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	0 'registeruse !
 	'bufftok ( buff> <? )(
 		@+
-
 | ****debug
-|		dup tokenstr "; " ,s ,s 10 ,c | palabra que compila
+
+		dup 13 - $ff and
+		15 >? (
+			over tokenstr " ; " ,s ,s  | palabra que compila
+			" :" ,s printddvtack
+			"r4asm/cod.asm" savemem
+			) drop
 | ****debug
 
 		$ff and 2 << 'nivel1 + @ exec
 		registros registeruse or 'registeruse !
-| ****debug
-		"; " ,s printddvtack			| pila actual
-		"r4asm/cod.asm" savemem
-| ****debug
 		) drop
 	registeruse swap nro>mem!
 	;
