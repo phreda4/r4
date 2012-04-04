@@ -139,11 +139,14 @@
 :,defw :,defv ; | no hay definiciones en optimizado (investigar como)
 :,[ :,] ; | no hay anonimas en optimizado
 
+:vpmove
+	toknow 8 >> vpila2callV ;
+
 :,wor
 	vpila2normal
 	dup @ $ff and | word ;
-	12 =? ( "jmp " )( " call " ) nip
-	,s toknow nro>dicn ,s ,cr ;
+	12 =? ( "jmp " )( "call " 'vpmove >r ) nip ,s
+	toknow nro>dicn ,s ,cr ;
 
 :,callsys | usapila? --
 	1? ( vpila2normal ) drop
@@ -178,9 +181,7 @@
 :,lit	toknow tok>cte pushNRO ;
 :,lits
 		toknow 8 >> cte + strusestack
-		( 1? )( 1- |cellR1 cellST
-			| cargar en pila directo
-			d.drop ) 2drop | correccion por "%d"
+		( 1? )( 1- d.nip ) 2drop | correccion por "%d"
 		nstr pushSTR ;
 :,dwo	toknow 8 >> pushCOD ;
 :,dva   toknow 8 >> pushDAT ;
@@ -194,40 +195,99 @@
 :+etiqueta	| -- nueva   // y agrega a pila
 	nlabel 1+ dup 'nlabel ! dup >pilac ;
 
+|-------- CONDICIONALES
 #jmpstr 0
 
-|-------------------------------------
+:,simple?
+	'jmpstr !
+	d.tos needWrite
+	d.tos cellADR? 1? ( drop
+		"cmp " ,s ,TOS ",0" ,ln ; ) drop
+	"or " ,s ,TOS "," ,s ,TOS ,cr
+	;
+
+:,0? "jnz " ,simple? ;
+:,+? "js "  ,simple? ;
+:,-? "jns " ,simple? ;
+:,1? "jz "  ,simple? ;
+
+:,doble?
+	'jmpstr !
+	d.tos needRead
+	d.nos needWrite
+	d.tos cellADR? 1? ( drop
+		d.nos cellADR? 1? ( drop
+			newReg
+			"mov " ,s dup ,REG "," ,s ,TOS ,cr
+			"cmp " ,s ,NOS "," ,s ,REG ,cr
+			d.drop ;
+			)( drop ) )( drop )
+    "cmp " ,s ,NOS "," ,s ,TOS ,cr
+	d.drop ;
+
+:,=? "jnz " ,doble?	;
+:,<? "jge " ,doble?	;
+:,>? "jle " ,doble?	;
+:,<=? "jg " ,doble?	;
+:,>=? "jl " ,doble?	;
+:,<>? "jz " ,doble?	;
+
+:,bit?
+	'jmpstr !
+	d.tos needRead
+	d.nos needWrite
+	d.tos cellADR? 1? ( drop
+		d.nos cellADR? 1? ( drop
+			newReg
+			"mov " ,s dup ,REG "," ,s ,TOS ,cr
+			"cmp " ,s ,NOS "," ,s ,REG ,cr
+			d.drop ;
+			) )( drop )
+    "test " ,s ,NOS "," ,s ,TOS ,cr
+	d.drop ;
+
+:,and?  "jz " ,bit?	;
+:,nand? "jnz " ,bit? ;
+
+:,etiqueta
+	label ":" ,ln ;
+:,jmpcond
+	jmpstr ,s label ,cr ;
+
+|----- BLOQUES
 :,(
 	vpila2normal
 	block.new vpPush
 	blockt
-	0 =? ( +etiqueta jmpstr ,s label "; IF(" ,s ,cr )		| IF
-	1 =? ( +etiqueta jmpstr ,s label "; IF(" ,s ,cr )		| ELSE
-	2 =? ( +etiqueta label ": ; WHILE(" ,ln  )	| WHILE
-	3 =? ( +etiqueta label ": ; UNTIL(" ,ln )	| UNTIL
-	4 =? ( +etiqueta label ": ; REPEAT(" ,ln )	| REPEAT
+	0 =? ( +etiqueta ,jmpcond )		| IF
+	1 =? ( +etiqueta ,jmpcond )		| ELSE
+	2 =? ( +etiqueta ,etiqueta )	| WHILE
+	3 =? ( +etiqueta ,etiqueta )	| UNTIL
+	4 =? ( +etiqueta ,etiqueta )	| REPEAT
 	drop ;
-
 
 :,)(
 	vpila2normal
 	blockt
-	1 =? (  vpPop vpPush <pilac +etiqueta jmp, label ": ; ELSE)( " ,ln )
-	2 =? ( vpDrop vpPush <pilac +etiqueta jmpstr ,s label "; WHILE)( " ,s ,cr >pilac )
+	1 =? ( vpPop vpPush <pilac +etiqueta jmp, label ":" ,ln )	| ELSE
+	2 =? ( vpDrop vpPush <pilac +etiqueta ,jmpcond >pilac )		| WHILE
 	drop ;
 
 :,)
+	vpila2normal
 	blockt
-	0 =? ( <pilac label ": ; )IF" ,ln )
-	1 =? ( vpila2normal <pilac label ": ; )ELSE" ,ln )
-	2 =? ( vpila2normal <pilac jmp,  <pilac label ": ; )WHILE" ,ln )
-	3 =? ( <pilac jmpstr ,s label " ; )UNTIL" ,ln vpDrop vpPush )
-	4 =? ( <pilac jmp, "; )REPEAT" ,ln )
+	0 =? ( <pilac label ":" ,ln )          		| IF
+	1 =? ( <pilac ,etiqueta )					| ELSE
+	2 =? ( <pilac jmp, <pilac label ":" ,ln )	| WHILE
+	3 =? ( <pilac ,jmpcond vpDrop vpPush )		| UNTIL
+	4 =? ( <pilac jmp, ,cr  )					| REPEAT
 	drop
 |	block.now "; block %d" ,print ,cr |   block.now dumpblock,
-	vpPop block.end ;
+	vpPop block.end
+	0 vpila2callV
+	;
 
-|--------------------- Exec
+|------- EXEC
 :,EXEC | v --
 	d.tos needREG
 	"or " ,s ,TOS "," ,s ,TOS ,cr
@@ -404,14 +464,17 @@
 	"neg " ,s ,TOS ,cr ;
 
 :,1+
+	d.tos needWrite
 	"add " ,s ,TOS ",1" ,ln
 |	1 d.tos Cell+
 	;
 :,4+
+	d.tos needWrite
 	"add " ,s ,TOS ",4" ,ln
 |	4 d.tos Cell+
 	;
 :,1-
+	d.tos needWrite
 	"sub " ,s ,TOS ",1" ,ln
 |	-1 d.tos Cell+
 	;
@@ -508,57 +571,6 @@
 	"movsx " ,s ,TOS ",byte [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",1" ,ln ;
 
-|-------- CONDICIONALES
-:,simple?
-	'jmpstr !
-	d.tos needWrite
-	d.tos cellADR? 1? ( drop
-		"cmp " ,s ,TOS ",0" ,ln ; ) drop
-	"or " ,s ,TOS "," ,s ,TOS ,cr
-	;
-
-:,0? "jnz " ,simple? ;
-:,+? "js "  ,simple? ;
-:,-? "jns " ,simple? ;
-:,1? "jz "  ,simple? ;
-
-:,doble?
-	'jmpstr !
-	d.tos needRead
-	d.nos needWrite
-	d.tos cellADR? 1? ( drop
-		d.nos cellADR? 1? ( drop
-			d.dup d.tos needREG
-			"mov " ,s ,TOS "," ,s ,NOS ,cr
-			"cmp " ,s ,NOS2 "," ,s ,TOS ,cr
-			d.2DROP ;
-			)( drop ) )( drop )
-    "cmp " ,s ,NOS "," ,s ,TOS ,cr
-	d.drop ;
-
-:,=? "jnz " ,doble?	;
-:,<? "jge " ,doble?	;
-:,>? "jle " ,doble?	;
-:,<=? "jg " ,doble?	;
-:,>=? "jl " ,doble?	;
-:,<>? "jz " ,doble?	;
-
-:,bit?
-	'jmpstr !
-	d.tos needRead
-	d.nos needWrite
-	d.tos cellADR? 1? ( drop
-		d.nos cellADR? 1? ( drop
-			d.dup d.tos needREG
-			"mov " ,s ,TOS "," ,s ,NOS ,cr
-			"test " ,s ,NOS2 "," ,s ,TOS ,cr
-			d.2DROP ;
-			) )( drop )
-    "test " ,s ,NOS "," ,s ,TOS ,cr
-	d.drop ;
-
-:,and?  "jz " ,bit?	;
-:,nand? "jnz " ,bit? ;
 
 |--------- Sistema
 |#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB" | [] | "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY"
@@ -717,14 +729,11 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	0 'registeruse !
 	'bufftok ( buff> <? )(
 		@+
-| ****debug
 
-		dup 13 - $ff and
-		3 >? (
-			over tokenstr " ; " ,s ,s  | palabra que compila
-			" :" ,s printddvtack
-			"r4asm/cod.asm" savemem
-			) drop
+| ****debug
+		dup tokenstr " ; " ,s ,s  | palabra que compila
+		" :" ,s printddvtack
+		"r4asm/cod.asm" savemem
 | ****debug
 
 		$ff and 2 << 'nivel1 + @ exec

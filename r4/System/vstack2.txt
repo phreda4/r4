@@ -221,15 +221,12 @@
 :mt3 value "w%h" ,print ;			|--	3 cod  'func
 :mt4 value "w%h" ,print ;			|--	4 dat  'var
 :mt5 value 'sysregs list2str ,s ;	|-- 8 reg 	eax
-
 #tiposrm mt0 mt1 mt2 mt3 mt4 mt5 0 0 0
 
 :mt5b value 'sysregb list2str ,s ;
-
 #tiposrmb mt0 mt1 mt2 mt3 mt4 mt5b 0 0 0
 
 :mt5w value 'sysregw list2str ,s ;
-
 #tiposrmw mt0 mt1 mt2 mt3 mt4 mt5w 0 0 0
 
 :cellCOPYN | nro -- adr t T
@@ -267,6 +264,7 @@
 	$10 and? ( "]" ,s )
 	2drop ;
 
+|------------------------BLOQUES
 ::block.new blockn pilab> !+ 'pilab> ! 1 'blockn +! ;
 ::block.end -4 'pilab> +! ;
 ::block.now pilab> 	4 - @ ; | -- nblo
@@ -905,22 +903,19 @@ vuso1	|MPLAY  a --
 
 |---- transforma la pila actual a normal
 ::vpila2normal | --
-	"; ***********************" ,s ,cr
 	inivpcnt d.cnt - | actual-origen
+	dup "; **** %d NORMAL " ,print ,cr
 	correESI
 	vpcopia
 	d.cnt 'inivpcnt ! | ahora vpila tiene...
 |	";*** " ,s printddvtack
 |	r.cnt ( 1? )( 1- dup r.tos "%d " mprint ,s ,cr r.drop ) drop
-	emptyreg
-	;
+	emptyreg ;
 
 |---- acomoda pila actual
 ::vpila2call | nro --
 	nro>mov @ 8 << 24 >>
-
-|	dup "; %d---reacomoda" ,print ,cr
-
+|	dup "; **** %d  DELTA" ,print ,cr
 	0? ( drop ; )
 	dup correESI
 	-? ( ( 1? )( 1+ d.drop ) )( ( 1? )( 1- d.dup ) )
@@ -932,9 +927,25 @@ vuso1	|MPLAY  a --
 		over 2 << swap cell+
 		)
 	d.rel 0 5 rot cell!
+	d.cnt 'inivpcnt ! | ahora vpila tiene...
+	emptyreg ;
 
-|	";*** " ,s printddvtack
-	;
+::vpila2callV | nro --
+	nro>mov @ 8 << 24 >>
+|	dup "; **** %d  DELTA" ,print ,cr
+	0? ( drop ; )
+|	dup correESI
+	-? ( ( 1? )( 1+ d.drop ) )( ( 1? )( 1- d.dup ) )
+	drop
+	d.cnt 0? ( drop ; )
+	1- ( 1? )( 1-
+		dup 1+ d.rel
+		5 $15 pick2 cell!
+		over 2 << swap cell+
+		)
+	d.rel 0 5 rot cell!
+	d.cnt 'inivpcnt ! | ahora vpila tiene...
+	emptyreg ;
 
 #nrow
 
