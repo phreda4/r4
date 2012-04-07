@@ -182,7 +182,7 @@
 :,lits
 		toknow 8 >> cte + strusestack
 		( 1? )( 1- d.nip ) 2drop | correccion por "%d"
-		nstr pushSTR ;
+		nstr pushSTR 1 'nstr +! ;
 :,dwo	toknow 8 >> pushCOD ;
 :,dva   toknow 8 >> pushDAT ;
 :,var	toknow 8 >> pushVAR ;
@@ -250,7 +250,7 @@
 :,nand? "jnz " ,bit? ;
 
 :,etiqueta
-	label ":" ,ln ;
+	label ": " ,s ;
 :,jmpcond
 	jmpstr ,s label ,cr ;
 
@@ -268,39 +268,35 @@
 
 :,)(
 	vpila2normal
+	vpDrop vpPush
 	blockt
-	1 =? ( vpPop vpPush <pilac +etiqueta jmp, label ":" ,ln )	| ELSE
-	2 =? ( vpDrop vpPush <pilac +etiqueta ,jmpcond >pilac )		| WHILE
+	1 =? ( <pilac +etiqueta jmp, ,etiqueta )	| ELSE
+	2 =? ( <pilac +etiqueta ,jmpcond >pilac )		| WHILE
 	drop ;
 
 :,)
 	vpila2normal
 	blockt
-	0 =? ( <pilac label ":" ,ln )          		| IF
+	0 =? ( <pilac ,etiqueta )          		| IF
 	1 =? ( <pilac ,etiqueta )					| ELSE
-	2 =? ( <pilac jmp, <pilac label ":" ,ln )	| WHILE
+	2 =? ( <pilac jmp, <pilac ,etiqueta )	| WHILE
 	3 =? ( <pilac ,jmpcond vpDrop vpPush )		| UNTIL
 	4 =? ( <pilac jmp, ,cr  )					| REPEAT
 	drop
 |	block.now "; block %d" ,print ,cr |   block.now dumpblock,
 	vpPop block.end
-	0 vpila2callV
 	;
 
 |------- EXEC
 :,EXEC | v --
 	d.tos needREG
 	"or " ,s ,TOS "," ,s ,TOS ,cr
-	"jz @f" ,ln
-
 	vpila2normal
-|	-1 VPILA2NORMAL+
-
-|	lastdircode nro>mov @
+	"jz @f" ,ln
 	"call " ,s ,TOS ,cr
-|	postexec
-
-	"@@:" ,ln ;
+	"@@:" ,ln
+|	lastdircode vpila2callV
+	;
 
 |------- PILAR
 :,>R	d.pop r.push ;

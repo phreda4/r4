@@ -431,7 +431,7 @@
 	0? ( drop emptyreg ; )
 	1- ( 1? )( 1-
 		5 $15 newcell
-		over 2 << over cell+
+		over 2 << over cell+ 
 		d.push | [esi+..|
 		) drop
 	0 5 newcell d.push | eax
@@ -833,7 +833,11 @@ vuso1	|MPLAY  a --
 
 :correESI | deltaesi --
 	0? ( drop ; )
-	"lea esi,[esi" ,s +? ( "+" ,s ) dup 2 << ,d "]" ,ln
+	registros
+	%1 nand? ( "mov dword [esi-4" ,s
+|			over 1+ 1? ( +? ( "+" ,s ) 2 << ,d )( drop )
+			"],eax" ,s ,cr ) drop
+	"lea esi,[esi" ,s dup +? ( "+" ,s ) 2 << ,d "]" ,ln
 	'dpila ( dpila> <? )(
 		@+ pick2 cellESI
 		) drop
@@ -855,6 +859,7 @@ vuso1	|MPLAY  a --
 		pick3 2 << =? ( 2drop ; ) | si esta en el lugar no generar
 		) drop
 	dup cellADR? 1? ( resolveADR ) drop
+
 	"mov dword [esi" ,s
 	pick2 1? ( +? ( "+" ,s ) 2 << ,d )( drop )
 	"]," ,s dup ,CELL ,cr
@@ -904,18 +909,19 @@ vuso1	|MPLAY  a --
 |---- transforma la pila actual a normal
 ::vpila2normal | --
 	inivpcnt d.cnt - | actual-origen
-	dup "; **** %d NORMAL " ,print ,cr
+|	dup "; **** %d NORMAL :" ,print printddvtack
 	correESI
 	vpcopia
 	d.cnt 'inivpcnt ! | ahora vpila tiene...
-|	";*** " ,s printddvtack
+
 |	r.cnt ( 1? )( 1- dup r.tos "%d " mprint ,s ,cr r.drop ) drop
+
 	emptyreg ;
 
 |---- acomoda pila actual
 ::vpila2call | nro --
 	nro>mov @ 8 << 24 >>
-|	dup "; **** %d  DELTA" ,print ,cr
+|	dup "; **** %d  DELTA" ,print printddvtack
 	0? ( drop ; )
 	dup correESI
 	-? ( ( 1? )( 1+ d.drop ) )( ( 1? )( 1- d.dup ) )
@@ -932,9 +938,8 @@ vuso1	|MPLAY  a --
 
 ::vpila2callV | nro --
 	nro>mov @ 8 << 24 >>
-|	dup "; **** %d  DELTA" ,print ,cr
+|	dup "; **** %d  DELTA" ,print printddvtack
 	0? ( drop ; )
-|	dup correESI
 	-? ( ( 1? )( 1+ d.drop ) )( ( 1? )( 1- d.dup ) )
 	drop
 	d.cnt 0? ( drop ; )
