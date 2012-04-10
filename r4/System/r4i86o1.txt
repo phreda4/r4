@@ -187,14 +187,6 @@
 :,dva   toknow 8 >> pushDAT ;
 :,var	toknow 8 >> pushVAR ;
 
-|----- auxiliares bloques
-
-:label	"_" ,s ,h ;
-:jmp,	"jmp " ,s label ,cr ;
-
-:+etiqueta	| -- nueva   // y agrega a pila
-	nlabel 1+ dup 'nlabel ! dup >pilac ;
-
 |-------- CONDICIONALES
 #jmpstr 0
 
@@ -249,10 +241,14 @@
 :,and?  "jz " ,bit?	;
 :,nand? "jnz " ,bit? ;
 
-:,etiqueta
-	label ": " ,s ;
-:,jmpcond
-	jmpstr ,s label ,cr ;
+|----- auxiliares bloques
+:label		"_" ,s ,h ;
+:jmp,		"jmp " ,s label ,cr ;
+:,etiqueta	label ": " ,s ;
+:,jmpcond   jmpstr ,s label ,cr ;
+
+:+etiqueta	| -- nueva   // y agrega a pila
+	nlabel 1+ dup 'nlabel ! dup >pilac ;
 
 |----- BLOQUES
 :,(
@@ -281,7 +277,7 @@
 	1 =? ( <pilac ,etiqueta )					| ELSE
 	2 =? ( <pilac jmp, <pilac ,etiqueta )	| WHILE
 	3 =? ( <pilac ,jmpcond vpDrop vpPush )		| UNTIL
-	4 =? ( <pilac jmp, ,cr  )					| REPEAT
+	4 =? ( <pilac jmp, )					| REPEAT
 	drop
 |	block.now "; block %d" ,print ,cr |   block.now dumpblock,
 	vpPop block.end
@@ -601,7 +597,7 @@
 
 
 :,SETXY | x y --
-	d.tos needRead
+	d.tos needWrite
 	d.tos cellNRO? 1? ( drop
 		d.nos needRead
 		d.nos cellNRO? 1? ( drop
@@ -609,12 +605,11 @@
 			)( drop
 			setxyNOS )
 		)( drop
-		d.nos needWrite | x
-|		"imul " ,s ,NOS ",XRES" ,ln	| cualquier ancho
-		"shl " ,s ,NOS ",10" ,ln	| 1024 de ancho
-
-		"add " ,s ,NOS "," ,s ,TOS ,cr
-		"lea ebp,[SYSFRAME+" ,s ,NOS "*4]" ,ln
+|		"imul " ,s ,TOS ",XRES" ,ln	| cualquier ancho
+		"shl " ,s ,TOS ",10" ,ln	| 1024 de ancho
+|		d.nos needRead | x
+		d.nos cell0? 0? ( "add " ,s ,TOS "," ,s ,NOS ,cr ) drop
+		"lea ebp,[SYSFRAME+" ,s ,TOS "*4]" ,ln
 		)
 	d.2DROP ;
 
@@ -707,6 +702,22 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 
 #registeruse
 
+:imprimedebug | token -- token
+	dup tokenstr " ; " ,s ,s | palabra que compila
+	dup $ff and
+	8 <? ( drop ; )
+	9 >=? ( 11 <=? ( drop  ; ) )
+	31 >=? ( 47 <=? ( drop  ; ) )
+	52 =? ( drop ; )
+	96 =? ( drop ; )
+	116 =? ( drop ; )
+	117 =? ( drop ; )
+	125 =? ( drop ; )
+	drop
+	":" ,s printddvtack
+	"r4asm/cod.asm" savemem
+	;
+
 ::,compwordopt | nro --
 |---- carga en buffer
 	-buff
@@ -725,13 +736,7 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	0 'registeruse !
 	'bufftok ( buff> <? )(
 		@+
-
-| ****debug
-		dup tokenstr " ; " ,s ,s  | palabra que compila
-		" :" ,s printddvtack
-		"r4asm/cod.asm" savemem
-| ****debug
-
+		imprimedebug
 		$ff and 2 << 'nivel1 + @ exec
 		registros registeruse or 'registeruse !
 		) drop
