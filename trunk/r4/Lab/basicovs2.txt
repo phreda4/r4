@@ -8,10 +8,69 @@
 #p3
 #res
 
+|---- test1 - volver a normal
+:tonormal
+	vpila2normal
+	13 ,c
+	printddvtack ;
+
+|---- test2 - condiciones de celdas
+
+:needREG | cell --
+	dup cellREG? 0 >=? ( 2drop ; ) drop	| ya es registro salir
+	newReg dup reg! 	| buscar registro libre
+	5 rot cell! ;
+
+:resolveCLON | cell -- cell
+	dup cellCLON? 0? ( drop ; ) drop
+	dup cellCLONTO | clon origen
+	over cellREG? over cellREG? - 0? ( 2drop ; ) drop
+	"mov " ,s dup ,CELL "," ,s swap dup ,CELL ,cr
+	over swap cell2cell! ;
+
+:needWrite | cell -- ; pone en registro si no esta
+	block.in? 1? ( drop resolveCLON )( drop ) | solo deltro de bloques
+	dup cellREG? 0 >=? ( 2drop ; ) drop | ya esta en registro
+	newREG | cell reg
+	over cell0? 0? ( drop
+		"mov " ,s dup ,REG "," ,s over ,CELL
+		)( drop
+		"xor " ,s dup ,REG "," ,s dup ,REG
+		)
+	,cr
+	dup reg! 5 rot cell! ;
+
+:needWriteM | cell -- ; registro o direccion cte
+	dup cellADR? 1? ( drop needWrite ; )
+	2drop ;
+
+:resolveCPY | cell --
+	( dup cellNEED? 0? )( drop
+		cellCPYTO
+		dup cellCPY? 0? ( drop needWrite ; )
+		drop ) drop
+	needWrite ;
+
+:needReadM | cell --
+	dup cellADR? 1? ( drop needWrite ; ) drop
+	dup cellCPY? 1? ( drop resolveCPY ; )
+	2drop ;
+
+|---TESTS
+:,TOS	d.tos ,cell ;
+:,NOS	d.nos ,cell ;
+
+:needread
+	d.tos needReadM
+	d.nos needReadM
+	"mov dword [" ,s ,TOS "]," ,s ,NOS ,cr
+	d.2drop
+	13 ,c
+	printddvtack ;
 
 :main
 
-	1 inivpila
+	4 inivpila
 	here 'p1 !
 	printddvtack
 	0 ,c
@@ -21,15 +80,17 @@
 |	d.swap
 |	d.rot
 |	0 pushNRO
-	0 pushCTE
+|	0 pushCTE
 |	d.swap
+	d.dup
+	0 pushCTE
+
 	printddvtack
 	0 ,c
 
 	here 'res !
-	vpila2normal
-	13 ,c
-	printddvtack
+|	tonormal
+	needread
 	0 ,c
 
 	show clrscr

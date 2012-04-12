@@ -132,11 +132,8 @@
 	6 =? ( drop 1 ; )
 	drop 0 ;
 
-::cellCPYTO | nro -- nro
-|	dup ,d "->" ,s
-    2 << 'cellv + @
-|	dup ,d ,cr
-	;
+::cellCPYTO | nro -- cnro
+    2 << 'cellv + @ ;
 
 ::cellFREE | nro --
 	cellREG? -? ( drop ; ) reg!! ;
@@ -345,6 +342,18 @@
 ::r.tos		rpila> 4 - @ ;
 ::r.drop	r.pop d.push d.drop ;
 
+:estareg | val reg dir cell -- val reg dir
+	cellREG? pick2 <>? ( drop ; ) drop
+	rot drop
+	dup 4 - @
+	rot rot ;
+
+::REGcell | reg -- cell
+	-1 swap
+	'dpila ( dpila> <? )( @+ estareg ) drop
+	'rpila ( rpila> <? )( @+ estareg ) drop
+	drop ;
+
 |--- pila de estado de pila y registros para bloques
 #vpst )( 1024
 #vpst> 'vpst
@@ -383,6 +392,8 @@
 		@+ dup ,vp ,cpcell
 		) drop
 	registros ,vp
+	inivpcnt ,vp
+
 	;
 
 ::vpPop | --
@@ -399,6 +410,7 @@
 		vp@ dup r.push cpcell@
 		) drop
 	vp@ 'registros !
+	vp@ 'inivpcnt !
 	;
 
 ::vpDrop | --
@@ -456,12 +468,16 @@
 |-------------------------------------------
 | DEBUG: imprime pila virtual
 |-------------------------------------------
+:,cellinfo
+	dup 2 << 'cellt + @ $f and 6 =? ( "." ,s ) drop
+	,cell ;
+
 ::printddvtack
 	registros ,b ":" ,s
-	'dpila ( dpila> <? )( @+ ,cell ,sp ) drop
+	'dpila ( dpila> <? )( @+ ,cellinfo ,sp ) drop
 	'rpila
 	rpila> <>? ( " :R " ,s )
-	( rpila> <? )( @+ ,cell ,sp ) drop
+	( rpila> <? )( @+ ,cellinfo ,sp ) drop
 	,cr ;
 
 ::dumpcells, | -- ; imprime info celdas
@@ -706,11 +722,11 @@ c0
 c0
 c0					|0? a -- a  (19-22)
 c1 
-c1 
 c1
 c1
+c1
 c1 
-c1 
+c1
 c1
 c1		|=?  ab -- a (23-30)
 d.dup
@@ -726,7 +742,7 @@ d.2dup
 d.2drop 
 d.3drop 
 d.4drop 
-d.2over 
+d.2over
 d.2swap     | ( 39--45)
 v>R		|>R    a -- R: -- a	(46)
 vR>		|R>    -- a R: a -- (47)

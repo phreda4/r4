@@ -42,14 +42,28 @@
 
 |--- para registros de vpila vstack2
 :freeEAX | libero EAX
-	0 reg!! ;
+	0 reg!!
+|	0 REGCell -? ( drop ; ) drop
+	;
+
+:freeEDX
+	3 reg!!
+	3 REGCell -? ( drop ; ) drop
+	trace
+	;
+
+:libreEAX
+	"mov eax," ,s dup ,CELL ,cr
+	0 5 rot cell! ;
 
 :needEAX | cell --
 	dup cellREG? 0? ( 2drop ; ) drop
-
-	| si es registro a o numero salir
-	| liberar y ocupar a ( puede ser xchg eax,.. )
-	drop ;
+	registros %1 nand? ( drop libreEAX ; ) drop
+	newReg	| buscar registro libre	| c r
+	"mov " ,s dup ,REG ",eax" ,ln | c r
+	"mov eax," ,s over ,CELL ,cr
+	dup reg! 5 0 REGCell cell!	| cell(eax) en newreg
+	0 5 rot cell! ;				| cell en eax
 
 :needREG | cell --
 	dup cellREG? 0 >=? ( 2drop ; ) drop	| ya es registro salir
@@ -80,11 +94,10 @@
 	2drop ;
 
 :resolveCPY | cell --
-	( dup cellNEED? 0? )( drop
-		cellCPYTO
-		dup cellCPY? 0? ( drop needWrite ; )
-		drop ) drop
-	needWrite ;
+	cellCPYTO
+	dup cellADR? 1? ( drop needWrite ; ) drop
+	dup cellCPY? 1? ( drop resolveCPY ; )
+	2drop ;
 
 |--- va a leer, no puede []
 :needReadM | cell --
@@ -264,23 +277,28 @@
 
 :,)(
 	vpila2normal
-	vpDrop vpPush
 	blockt
-	1 =? ( <pilac +etiqueta jmp, ,etiqueta )	| ELSE
-	2 =? ( <pilac +etiqueta ,jmpcond >pilac )		| WHILE
+	1 =? ( <pilac +etiqueta jmp, ,etiqueta vppop vppush )	| ELSE
+	2 =? ( <pilac +etiqueta ,jmpcond >pilac vpdrop vppush )	| WHILE
 	drop ;
 
 :,)
 	vpila2normal
 	blockt
 	0 =? ( <pilac ,etiqueta )          		| IF
-	1 =? ( <pilac ,etiqueta )					| ELSE
+	1 =? ( <pilac ,etiqueta
+
+			over 8 - @ $ff and | ;)
+			12 <>? ( vpdrop vppush )
+			drop
+			)				| ELSE
 	2 =? ( <pilac jmp, <pilac ,etiqueta )	| WHILE
-	3 =? ( <pilac ,jmpcond vpDrop vpPush )		| UNTIL
+	3 =? ( <pilac ,jmpcond ) |vpDrop vpPush )		| UNTIL
 	4 =? ( <pilac jmp, )					| REPEAT
 	drop
-|	block.now "; block %d" ,print ,cr |   block.now dumpblock,
-	vpPop block.end
+	block.now "; block %d" ,print ,cr |   block.now dumpblock,
+	vpPop
+	block.end
 	;
 
 |------- EXEC
@@ -356,10 +374,32 @@
 	"imul " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,/
-	d.tos needRead
-	d.nos needWrite
-	"idiv " ,s ,NOS "," ,s ,TOS ,cr
-	d.drop ;
+	useEDX
+	d.nos needEAX
+	d.tos needREGorMEM
+	"cdq" ,ln
+	"idiv " ,s ,TOS ,cr
+	d.drop
+	backEDX ;
+:,/MOD
+	freeEDX
+	d.nos needEAX
+	d.tos needREGorMEM
+	"cdq" ,ln
+	"idiv " ,s ,TOS ,cr
+	d.nos setEAX
+	d.tos setEDX ;
+
+:,MOD
+	useEDX
+	d.nos needEAX
+	d.tos needREGorMEM
+	"cdq" ,ln
+	"idiv " ,s ,TOS ,cr
+	d.drop
+	d.tos setEDX
+	freeEAX ;
+
 :,*/
 	useEDX
 	d.pk2 needEAX
@@ -373,10 +413,15 @@
 	backEDX ;
 
 :,*>>
+	";1 " ,s printddvtack
 	useEDX
+	";2 " ,s printddvtack
 	d.pk2 needEAX
+	";3 " ,s printddvtack
 	d.nos needREGorMEM
+	";4 " ,s printddvtack
 	d.tos cteorECX
+	";5 " ,s printddvtack
 	"cdq" ,ln
 	"imul " ,s ,NOS2 ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
@@ -397,25 +442,6 @@
 	d.2DROP
 	d.tos setEAX
 	backEDX ;
-
-:,/MOD
-	useEDX
-	d.nos needEAX
-	d.tos needREGorMEM
-	"cdq" ,ln
-	"idiv " ,s ,TOS ,cr
-	d.nos setEAX
-	d.tos setEDX ;
-
-:,MOD
-	useEDX
-	d.nos needEAX
-	d.tos needREGorMEM
-	"cdq" ,ln
-	"idiv " ,s ,TOS ,cr
-	d.drop
-	d.tos setEDX
-	freeEAX ;
 
 :,<<
 	d.tos cteorECX
@@ -481,11 +507,9 @@
 :,@
 	d.tos needReadM
 	"mov " ,s ,TOS ",dword [" ,s ,TOS "]" ,ln ;
-
 :,C@
 	d.tos needReadM
 	"movsx " ,s ,TOS ",byte [" ,s ,TOS "]" ,ln ;
-
 :,W@
 	d.tos needReadM
 	"movsx " ,s ,TOS ",word [" ,s ,TOS "]" ,ln ;
@@ -511,13 +535,11 @@
 	d.tos needWriteM
 	"add dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	d.2DROP ;
-
 :,W+!
 	d.nos needReadM
 	d.tos needWriteM
 	"add word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	d.2DROP ;
-
 :,C+!
 	d.nos needReadM
 	d.tos needWriteM
@@ -531,7 +553,6 @@
 	"add " ,s ,TOS ",4" ,ln
 |	4 d.tos Cell+
 	d.NIP ;
-
 :,W!+
     d.nos needReadM
 	d.tos needWrite
@@ -562,7 +583,6 @@
 	d.dup d.tos needReg
 	"movsx " ,s ,TOS ",byte [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",1" ,ln ;
-
 
 |--------- Sistema
 |#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB" | [] | "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY"
