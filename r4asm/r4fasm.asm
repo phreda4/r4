@@ -65,7 +65,7 @@ start:
 	mov	[wc.hInstance],eax
 	mov	[wc.hbrBackground],0
 	mov	dword [wc.lpszMenuName],0
-	mov	dword [wc.lpszClassName],_class
+	mov	dword [wc.lpszClassName],_title
 	invoke RegisterClass,wc
 	invoke ShowCursor,0
 	xor eax,eax
@@ -91,7 +91,7 @@ start:
 ;	invoke GetSystemMetrics,SM_CYSCREEN
 ;	mov [HSCR],eax
 
-	invoke	CreateWindowEx,DWEXSTYLE,_class,_title,DWSTYLE,0,0,[rec.right],[rec.bottom],0,0,[hinstance],0
+	invoke	CreateWindowEx,DWEXSTYLE,_title,_title,DWSTYLE,0,0,[rec.right],[rec.bottom],0,0,[hinstance],0
 	mov	[hwnd],eax
 	invoke GetDC,[hwnd]
 	mov [hDC],eax
@@ -107,11 +107,81 @@ start:
 restart:
 	mov esi,Dpila
 	xor eax,eax
-	jmp inicio
+	call inicio
+	jmp SYSEND
 ;----- CODE -----
 include 'cod.asm'
 ;----- CODE -----
-	jmp SYSEND
+
+;--------------------------------------
+align 16
+proc WindowProc hwnd,wmsg,wparam,lparam
+	mov	eax,[wmsg]
+	cmp eax,WM_MOUSEMOVE
+	je	wmmousemove
+	cmp eax,WM_LBUTTONUP
+	je	wmmouseev
+	cmp eax,WM_MBUTTONUP
+	je	wmmouseev
+	cmp eax,WM_RBUTTONUP
+	je	wmmouseev
+	cmp eax,WM_LBUTTONDOWN
+	je	wmmouseev
+	cmp eax,WM_MBUTTONDOWN
+	je	wmmouseev
+	cmp eax,WM_RBUTTONDOWN
+	je	wmmouseev
+	cmp eax,WM_KEYUP
+	je	wmkeyup
+    cmp eax,WM_SYSKEYUP
+    je	wmkeyup
+	cmp	eax,WM_KEYDOWN
+	je	wmkeydown
+    cmp	eax,WM_SYSKEYDOWN
+    je	wmkeydown
+    cmp	eax,WM_CLOSE
+    je  SYSEND
+    cmp	eax,WM_DESTROY
+    je  SYSEND
+  defwindowproc:
+	invoke	DefWindowProc,[hwnd],[wmsg],[wparam],[lparam]
+	ret
+  wmmousemove:
+	mov eax,[lparam]
+	mov [SYSXYM],eax
+	xor eax,eax
+	ret
+  wmmouseev:
+	mov eax,[wparam]
+	mov [SYSBM],eax
+	xor eax,eax
+	ret
+  wmkeyup:
+	mov eax,[lparam]
+	shr eax,16
+	test eax,$100
+	jz @f
+	and eax,$7f
+	mov al,[mapex+eax]
+  @@:
+	and eax,$7f
+	or eax,$80
+	mov [SYSKEY],eax
+	xor eax,eax
+	ret
+  wmkeydown:			; cmp [wparam],VK_ESCAPE ; je wmdestroy
+	mov eax,[lparam]
+	shr eax,16
+	test eax,$100
+	jz @f
+	and eax,$7f
+	mov al,[mapex+eax]
+  @@:
+	and eax,$7f
+	mov [SYSKEY],eax
+	xor eax,eax
+	ret
+endp
 
 ; OS inteface
 ; stack............
@@ -335,74 +405,6 @@ SYSAPPEND: ; ( 'from cnt "filename" -- )
 	lodsd
 	ret
 
-;--------------------------------------
-proc WindowProc hwnd,wmsg,wparam,lparam
-	mov	eax,[wmsg]
-	cmp eax,WM_MOUSEMOVE
-	je	wmmousemove
-	cmp eax,WM_LBUTTONUP
-	je	wmmouseev
-	cmp eax,WM_MBUTTONUP
-	je	wmmouseev
-	cmp eax,WM_RBUTTONUP
-	je	wmmouseev
-	cmp eax,WM_LBUTTONDOWN
-	je	wmmouseev
-	cmp eax,WM_MBUTTONDOWN
-	je	wmmouseev
-	cmp eax,WM_RBUTTONDOWN
-	je	wmmouseev
-	cmp eax,WM_KEYUP
-	je	wmkeyup
-    cmp eax,WM_SYSKEYUP
-    je	wmkeyup
-	cmp	eax,WM_KEYDOWN
-	je	wmkeydown
-    cmp	eax,WM_SYSKEYDOWN
-    je	wmkeydown
-    cmp	eax,WM_CLOSE
-    je  SYSEND
-    cmp	eax,WM_DESTROY
-    je  SYSEND
-  defwindowproc:
-	invoke	DefWindowProc,[hwnd],[wmsg],[wparam],[lparam]
-	ret
-  wmmousemove:
-	mov eax,[lparam]
-	mov [SYSXYM],eax
-	xor eax,eax
-	ret
-  wmmouseev:
-	mov eax,[wparam]
-	mov [SYSBM],eax
-	xor eax,eax
-	ret
-  wmkeyup:
-	mov eax,[lparam]
-	shr eax,16
-	test eax,$100
-	jz @f
-	and eax,$7f
-	mov al,[mapex+eax]
-  @@:
-	and eax,$7f
-	or eax,$80
-	mov [SYSKEY],eax
-	xor eax,eax
-	ret
-  wmkeydown:			; cmp [wparam],VK_ESCAPE ; je wmdestroy
-	mov eax,[lparam]
-	shr eax,16
-	test eax,$100
-	jz @f
-	and eax,$7f
-	mov al,[mapex+eax]
-  @@:
-	and eax,$7f
-	mov [SYSKEY],eax
-	xor eax,eax
-	ret
-endp
 
 ;----- DATA -----
 section '.idata' import data readable
@@ -464,7 +466,7 @@ section '.data' data readable writeable
 			db	 96, 97, 98, 99,100,101,102,103,104,105,106,107,108,109,110,111
 			db	112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127
 	_title	db ':r4',0
-	_class	db ':r4',0
+;	_class	db ':r4',0
 	_dir 	db '*',0
 
 align 4
@@ -490,22 +492,21 @@ align 4
 	SYSCDIR	dd 0
 
 ;*** optimizable
-	SYSW	dd XRES
-	SYSH	dd YRES
+;	SYSW	dd XRES
+;	SYSH	dd YRES
 ;*** optimizable
 
 include 'dat.asm'
 
 align 16
-	SYSNDIR	rd 8192
-	SYSIDIR	rd 1024
-	SYSSDIR	rd 1024
-	Dpila 	rd 1024
-align 16
 	SYSFRAME	rd XRES*YRES
+	DATASTK 	rd 1023
+	Dpila 		rd 0
 align 16
 	XFB			rd XRES*YRES
-
+	SYSNDIR		rd 8192
+	SYSIDIR		rd 1024
+	SYSSDIR		rd 1024
 align 16
 	FREE_MEM	rd 1024*1024*16 ; 16M(32bits) 64MB(8bits)
 
