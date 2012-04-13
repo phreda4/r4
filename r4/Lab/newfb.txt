@@ -148,15 +148,84 @@
 |-----------------------------------
 #yrenglon
 
+:view8bit | 8 bit/canal
+	2dup 0 >> $ff and 300 + setxy $ff px!+
+	2dup 8 >> $ff and 300 + setxy $ff00 px!+
+	2dup 16 >> $ff and 300 + setxy $ff0000 px!+
+	;
+
+:view4bit | 4 bit/canal
+	2dup 4 >> $f and 300 + setxy $ff px!+
+	2dup 12 >> $f and 300 + setxy $ff00 px!+
+	2dup 20 >> $f and 300 + setxy $ff0000 px!+
+	;
+
+:viewycc
+	2dup rgb2ycc 2drop $ff and 300 + setxy $ffff px!+
+	2dup rgb2ycc xor nip $ff and 300 + setxy $ff00ff px!+
+	;
+
+:viewmatcol
+	'matcol >r
+	$7f ( 1? )(
+		500 over setxy
+		$7f ( 1? )( 1-
+			r@+ px!+
+			) drop
+		1- ) drop rdrop
+	;
+
+#buff2
+
+:copynew
+	buff2 >r
+	0 ( bmp.alto <? )(
+		0 ( bmp.ancho <? )(
+			2dup swap bmp.get 
+|			rgb2ycc 2drop dup 8 << or dup 8 << or
+			rgb2ycc 8 << or nip
+			r!+
+			1+ ) drop
+		1+ ) drop
+	rdrop ;
+
+:viewbuff2
+	400 0 setxy
+	buff2 >r
+	0 ( bmp.alto <? )(
+		0 ( bmp.ancho <? )(
+			r@+ px!+ | al sal anch
+			1+ ) drop
+		sw bmp.ancho - px+!
+		1+ )  drop
+	rdrop ;
+
+:lineahisto
+	2dup * 2 << imagen1 + >r
+	inistat
+	( 1? )( 1-
+		bmp.ancho over -
+		r@+ |addstat
+		view8bit
+		viewycc
+		2drop
+		) drop
+	rdrop
+	endstat
+	;
 :main
 |	"media/bmp/pasto.bmp" bmp.load 'imagen1 !
 	"media/bmp/cerezop.bmp" bmp.load 'imagen1 !
 | 	"media/bmp/logo-clubpesca.bmp" bmp.load 'imagen1 !
+	here 'buff2 !
+
 
 	histogramacolor
 
 |	testcomprime
 	0 'yrenglon !
+	copynew
+
 	show clrscr
 		0 0 bmp.xyreal
 |		200 0 setxy scanline frameline
@@ -166,6 +235,7 @@
 		dup "(%d) " print
 		verde scanline# "%d " print
 		$fff noceros - "Colores:%d " print
+
 		yrenglon
 		bmp.ancho
 		2dup * 2 << imagen1 + >r
@@ -176,37 +246,15 @@
 		2dup * 2 << imagen1 + >r
 		dup ( 1? )( 1- r@+ px!+ ) drop
 		rdrop
+		lineahisto
 
-		2dup * 2 << imagen1 + >r
-		inistat
-		( 1? )( 1-
-			bmp.ancho over -
-			r@+ |addstat
-| 8 bit/canal
-			2dup 0 >> $ff and 300 + setxy $ff px!+
-			2dup 8 >> $ff and 300 + setxy $ff00 px!+
-			16 >> $ff and 300 + setxy $ff0000 px!+
-| 4 bit/canal
-|			2dup 4 >> $f and 300 + setxy $ff px!+
-|			2dup 12 >> $f and 300 + setxy $ff00 px!+
-|			20 >> $f and 300 + setxy $ff0000 px!+
-
-			) drop
-		rdrop
-		endstat
 		bmp.ancho over op
 		sw swap line
 
-		0 0 setxy
-		'matcol >r
-		$7f ( 1? )(
-			500 over setxy
-			$7f ( 1? )( 1-
-				r@+ px!+
-				) drop
-			1- ) drop rdrop
-
- h2
+|        viewmatcol
+		viewbuff2
+|		trace
+|		 h2
 		cflecha
 	'exit >esc<
 	[ yrenglon 0? ( drop ; ) 1- 'yrenglon ! ; ] <up>

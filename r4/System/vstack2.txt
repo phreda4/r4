@@ -122,11 +122,6 @@
 ::cellSUM | nro -- sum
 	2 << 'cella + @ ;
 
-::cellADR? | nro -- 0/1
-	2 << 'cellt + @
-	$10 and? ( drop 1 ; )
-	drop 0 ;
-
 ::cellCPY? | nro -- 0/1
 	2 << 'cellt + @ $f and
 	6 =? ( drop 1 ; )
@@ -135,12 +130,16 @@
 ::cellCPYTO | nro -- cnro
     2 << 'cellv + @ ;
 
+::resCPY | cell -- cell
+	( dup cellCPY? 1? )( drop cellCPYTO ) drop ;
+
+::cellADR? | nro -- 0/1
+|	resCPY
+	2 << 'cellt + @ $10 and ;
+
 ::cellFREE | nro --
 	cellREG? -? ( drop ; ) reg!! ;
 
-:resCPY | cell -- cell
-	( dup cellCPY? 0? ( drop ; ) drop
-	cellCPYTO ) ;
 
 ::cellMEM! | nro --
 	2 << 'cellt + dup @ $10 or swap ! ;
@@ -155,10 +154,7 @@
 	2 << 'celli + @ $10 and ;
 
 ::cellCLONTO | nro -- nro
-|	dup ,d "=>" ,s
-	2 << 'celli + @ 8 >> $ff and
-|	dup ,d ,cr
-	;
+	2 << 'celli + @ 8 >> $ff and ;
 
 ::cellST? | cell -- 0/1
 	2 << 'celli + @ $1 and ;
@@ -185,6 +181,9 @@
 	| si hay mem resolver
 	2 << 'cella + +! ;
 
+::cell+! | add nro --
+	| si hay mem resolver
+	2 << 'cella + ! ;
 
 ::cell>> | shi nro --
 	| si hay mem resolver
@@ -458,7 +457,7 @@
 	0? ( drop emptyreg ; )
 	1- ( 1? )( 1-
 		5 $15 newcell
-		over 2 << over cell+ 
+		over 2 << over cell+
 		d.push | [esi+..|
 		) drop
 	0 5 newcell d.push | eax
@@ -473,6 +472,7 @@
 	,cell ;
 
 ::printddvtack
+	dpila> 'dpila - -? ( "(-)" ,s ) drop
 	registros ,b ":" ,s
 	'dpila ( dpila> <? )( @+ ,cellinfo ,sp ) drop
 	'rpila
@@ -564,12 +564,13 @@
 
 :es)(
 	salto? 0? ( | ELSE
-		vpPop vpPush
+		vpPop 
 		<pilac drop 4 >pilac
 	)( | WHILE
-		vpDrop vpPush
+		vpDrop
 		<pilac drop 3 >pilac
-		) drop ;
+		) drop
+	vpPush ;
 
 |----------------------------------------
 | busca y marca celdas que deben estar en pila
@@ -622,9 +623,14 @@
 		1 =? ( blIF blCLONE )
 		2 =? ( blREPEAT blSTACK )
 		3 =? ( blWHILE blSTACK 	)
-		4 =? ( blELSE blCLONE )
+		4 =? ( blELSE blCLONE
+|			over 8 - @ $ff and | ;)
+|			12 <>? ( vpdrop vppush )
+|			drop
+			)
 		drop ) drop
-	blEND vpPop block.end ;
+	blEND vpPop
+	block.end ;
 
 |---	 anonimas
 :es[ :es] :es;	;
@@ -703,7 +709,7 @@
 0	|0 1 :,,defc 2 :,,defv
 litN
 litN
-litN 
+litN
 litN	|3 :,,litd | --	n numero decimal
 litS	|7 :,,lits | --	s string
 callW	|8 :,,word 	| ..--..  word <---- debe ser calculado
@@ -741,7 +747,7 @@ d.rot
 d.2dup
 d.2drop 
 d.3drop 
-d.4drop 
+d.4drop
 d.2over
 d.2swap     | ( 39--45)
 v>R		|>R    a -- R: -- a	(46)
@@ -863,13 +869,19 @@ vuso1	|MPLAY  a --
 	'celli 256 ( 0 rot !+ swap 1- 0? ) 2drop
 	'block 256 4 * ( 0 rot !+ swap 1- 0? ) 2drop ;
 
+:,dumpstate
+
+	printddvtack
+	;
+
 ::calccell | fin buff use
 	iniregi
 	inivpila
 	( over <? )(
 		@+ $ff and
 |**** debug
-|		dup ,d ,sp "r4asm/cod.asm" savemem
+		,dumpstate
+		dup ,d ,sp "r4asm/cod.asm" savemem
 |**** debug
 		2 << 'usocelda + @ exec | adri+ adr+
 		) 2drop ;
@@ -902,12 +914,11 @@ vuso1	|MPLAY  a --
 		"xor " ,s dup ,REG "," ,s dup ,REG ,cr
 		)
 |	"mov " ,s dup ,REG "," ,s pick2 ,CELL ,cr
-	dup reg! 5 pick3 cell!
+	|dup reg!
+	5 pick3 cell!
 	;
 
-
 :genRST | nro XX cell -- nro XX
-	resCPY
 	dup cellREGM? 5 =? (
 		drop dup cellSUM
 		pick3 2 << =? ( 2drop ; ) | si esta en el lugar no generar
@@ -918,11 +929,10 @@ vuso1	|MPLAY  a --
 	"]," ,s dup ,CELL ,cr
 |	dup cellFREE
 	5 $15 pick2 cell!
-	pick2 2 << swap cell+
+	pick2 2 << swap cell+!
 	;
 
 :genEAX | cell --
-	resCPY
 	dup cellREG? 0? ( 2drop ; ) drop
 |	"mov eax," ,s dup ,CELL ,cr
 	dup cell0? 0? ( drop
@@ -962,17 +972,30 @@ vuso1	|MPLAY  a --
 		isused
 		swap @+ genRST
 		swap ) drop
-	@ genEAX ;
+	@ genEAX
+	;
+
+|---- quita referencias de copia
+:quitacp
+	dup cellCPY? 0? ( 2drop ; ) drop
+	dup resCPY | copia origen
+	swap cell2cell!
+	;
+
+:vpquitacp
+	'dpila ( dpila> <? )(
+		@+ quitacp ) drop ;
 
 |---- transforma la pila actual a normal
 ::vpila2normal | --
 	inivpcnt d.cnt - | actual-origen
-|	dup "; **** %d NORMAL :" ,print printddvtack
+vpquitacp
 	correESI
 	vpcopia
 	d.cnt 'inivpcnt ! | ahora vpila tiene...
 
 |	r.cnt ( 1? )( 1- dup r.tos "%d " mprint ,s ,cr r.drop ) drop
+|	dup "; **** %d NORMAL :" ,print printddvtack
 
 	emptyreg ;
 
@@ -988,7 +1011,7 @@ vuso1	|MPLAY  a --
 	1- ( 1? )( 1-
 		dup 1+ d.rel
 		5 $15 pick2 cell!
-		over 2 << swap cell+
+		over 2 << swap cell+! |**
 		)
 	d.rel 0 5 rot cell!
 	d.cnt 'inivpcnt ! | ahora vpila tiene...
@@ -1003,7 +1026,7 @@ vuso1	|MPLAY  a --
 	1- ( 1? )( 1-
 		dup 1+ d.rel
 		5 $15 pick2 cell!
-		over 2 << swap cell+
+		over 2 << swap cell+! |**
 		)
 	d.rel 0 5 rot cell!
  	d.cnt 'inivpcnt ! | ahora vpila tiene...
