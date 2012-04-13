@@ -63,6 +63,7 @@
 	"mov " ,s dup ,REG ",eax" ,ln | c r
 	"mov eax," ,s over ,CELL ,cr
 	dup reg! 5 0 REGCell cell!	| cell(eax) en newreg
+	dup cellREG? +? ( dup reg!! ) drop
 	0 5 rot cell! ;				| cell en eax
 
 :needREG | cell --
@@ -93,17 +94,10 @@
 	dup cellADR? 1? ( drop needWrite ; )
 	2drop ;
 
-:resolveCPY | cell --
-	cellCPYTO
-	dup cellADR? 1? ( drop needWrite ; ) drop
-	dup cellCPY? 1? ( drop resolveCPY ; )
-	2drop ;
-
 |--- va a leer, no puede []
 :needReadM | cell --
-	dup cellADR? 1? ( drop needWrite ; ) drop
-	dup cellCPY? 1? ( drop resolveCPY ; )
-	2drop ;
+	resCPY
+	dup cellADR? 1? ( drop needWrite ; ) 2drop ;
 
 :needRead | cell --
 	drop ;
@@ -113,6 +107,7 @@
 	drop ;
 
 :needREGorMEM | cell --
+	resCPY
 	dup cellREG? 0 >=? ( 2drop ; ) drop
 	dup cellADR? 1? ( 2drop ; ) drop
 	newREG | cell reg
@@ -245,7 +240,7 @@
 		d.nos cellADR? 1? ( drop
 			newReg
 			"mov " ,s dup ,REG "," ,s ,TOS ,cr
-			"cmp " ,s ,NOS "," ,s ,REG ,cr
+			"test " ,s ,NOS "," ,s ,REG ,cr
 			d.drop ;
 			) )( drop )
     "test " ,s ,NOS "," ,s ,TOS ,cr
@@ -273,21 +268,24 @@
 	2 =? ( +etiqueta ,etiqueta )	| WHILE
 	3 =? ( +etiqueta ,etiqueta )	| UNTIL
 	4 =? ( +etiqueta ,etiqueta )	| REPEAT
-	drop ;
+	drop
+|	block.now "; block %d " ,print printddvtack
+	,cr |   block.now dumpblock,
+	;
 
 :,)(
 	vpila2normal
 	blockt
 	1 =? ( <pilac +etiqueta jmp, ,etiqueta vppop vppush )	| ELSE
 	2 =? ( <pilac +etiqueta ,jmpcond >pilac vpdrop vppush )	| WHILE
-	drop ;
+	drop
+	;
 
 :,)
 	vpila2normal
 	blockt
 	0 =? ( <pilac ,etiqueta )          		| IF
 	1 =? ( <pilac ,etiqueta
-
 			over 8 - @ $ff and | ;)
 			12 <>? ( vpdrop vppush )
 			drop
@@ -413,21 +411,19 @@
 	backEDX ;
 
 :,*>>
-	";1 " ,s printddvtack
-	useEDX
-	";2 " ,s printddvtack
 	d.pk2 needEAX
 	";3 " ,s printddvtack
 	d.nos needREGorMEM
 	";4 " ,s printddvtack
 	d.tos cteorECX
 	";5 " ,s printddvtack
+	useEDX
 	"cdq" ,ln
-	"imul " ,s ,NOS2 ,cr
+	"imul " ,s ,NOS ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
 |	"shr edx," ,s ,TOSb ,cr | no hace falta!!
 	d.2DROP
-	d.tos setEAX
+|	d.tos setEAX
 	backEDX ;
 
 :,<</
@@ -748,8 +744,8 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	calccell
 
 |**** debug
-|	dumpcells,
-|	"r4asm/cod.asm" savemem
+	dumpcells,
+	"r4asm/cod.asm" savemem
 |**** debug
 
 	dup nro>mov @ 24 << 24 >> neg inivpila
