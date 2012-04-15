@@ -7,7 +7,9 @@
 
 |-------- Registros del CPU
 #:registros 0    | uso de registros
-#inivpcnt		| nivel de inicio
+
+#inivpcnt		| nivel de inicio de pila D
+#inivrcnt		| nivel de inicio de pila R
 
 |------ Celda de la pila
 | T Tipo (NUMERO CONSTANTE 'STRING CODIGO DATO REGISTRO COPIA)
@@ -236,7 +238,7 @@
 
 ::,cell | nro --
 	cellCOPYN
-	swap $10 and? ( "[" ,s )
+	swap $10 and? ( "dword [" ,s )
 	swap 2 << 'tiposrm + @  exec
 	shift 1? ( "*" ,s dup ,d ) drop
 	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
@@ -245,7 +247,7 @@
 
 ::,cellb | nro --
 	cellCOPYN
-	swap $10 and? ( "[" ,s )
+	swap $10 and? ( "byte [" ,s )
 	swap 2 << 'tiposrmb + @ exec
 	shift 1? ( "*" ,s dup ,d ) drop
 	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
@@ -254,7 +256,7 @@
 
 ::,cellw | nro --
 	cellCOPYN
-	swap $10 and? ( "[" ,s )
+	swap $10 and? ( "word [" ,s )
 	swap 2 << 'tiposrmw + @ exec
 	shift 1? ( "*" ,s dup ,d ) drop
 	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
@@ -341,6 +343,9 @@
 ::r.tos		rpila> 4 - @ ;
 ::r.drop	r.pop d.push d.drop ;
 
+:r.rel		1+ 2 << rpila> swap - @ ;
+:r.ini 		'rpila 'rpila> ! ;
+
 :estareg | val reg dir cell -- val reg dir
 	cellREG? pick2 <>? ( drop ; ) drop
 	rot drop
@@ -392,7 +397,7 @@
 		) drop
 	registros ,vp
 	inivpcnt ,vp
-
+	inivrcnt ,vp
 	;
 
 ::vpPop | --
@@ -410,6 +415,7 @@
 		) drop
 	vp@ 'registros !
 	vp@ 'inivpcnt !
+	vp@ 'inivrcnt !
 	;
 
 ::vpDrop | --
@@ -453,6 +459,7 @@
 |	dup "; u:%d" ,print ,cr
 	0? ( 1 nip )
 	dup 'inivpcnt !
+	0 'inivrcnt !
 	inivstack
 	0? ( drop emptyreg ; )
 	1- ( 1? )( 1-
@@ -469,7 +476,13 @@
 |-------------------------------------------
 :,cellinfo
 	dup 2 << 'cellt + @ $f and 6 =? ( "." ,s ) drop
-	,cell ;
+	cellCOPYN
+	swap $10 and? ( "[" ,s )
+	swap 2 << 'tiposrm + @  exec
+	shift 1? ( "*" ,s dup ,d ) drop
+	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	$10 and? ( "]" ,s )
+	2drop ;
 
 ::printddvtack
 	dpila> 'dpila - -? ( "(-)" ,s ) drop
@@ -564,7 +577,7 @@
 
 :es)(
 	salto? 0? ( | ELSE
-		vpPop 
+		vpPop
 		<pilac drop 4 >pilac
 	)( | WHILE
 		vpDrop
@@ -624,9 +637,9 @@
 		2 =? ( blREPEAT blSTACK )
 		3 =? ( blWHILE blSTACK 	)
 		4 =? ( blELSE blCLONE
-|			over 8 - @ $ff and | ;)
-|			12 <>? ( vpdrop vppush )
-|			drop
+			pick2 8 - @ $ff and | ;)
+			12 <>? ( vpdrop vppush )
+			drop
 			)
 		drop ) drop
 	blEND vpPop
@@ -717,7 +730,7 @@ litV	|9 :,,var 	| -- v var
 litAW	|10:,,dword | -- dw dir word
 litAV	|11:,,dvar 	| -- dv dir var
 es;		|; | fin de palabra (12)
-es( 
+es(
 es)(
 es)
 es[
@@ -736,11 +749,11 @@ c1
 c1
 c1		|=?  ab -- a (23-30)
 d.dup
-d.drop 
+d.drop
 d.over 
-d.pick2 
+d.pick2
 d.pick3
-d.pick4 
+d.pick4
 d.swap
 d.nip | ( 31--38)
 d.rot
@@ -880,8 +893,8 @@ vuso1	|MPLAY  a --
 	( over <? )(
 		@+ $ff and
 |**** debug
-		,dumpstate
-		dup ,d ,sp "r4asm/cod.asm" savemem
+|		,dumpstate
+|		dup ,d ,sp "r4asm/cod.asm" savemem
 |**** debug
 		2 << 'usocelda + @ exec | adri+ adr+
 		) 2drop ;
@@ -986,18 +999,36 @@ vuso1	|MPLAY  a --
 	'dpila ( dpila> <? )(
 		@+ quitacp ) drop ;
 
+|---- back & restore de pila R
+:pilarback
+	dup ( 1? )( 1+
+
+		) drop
+	r.ini
+	;
+
+:pilarmove | cntr -- cntr
+	-? ( pilarback ; )
+	dup ( 1? )( 1-
+		dup r.rel
+		"push " ,s ,cell ,cr
+|		"%d " mprint ,s ,cr
+		) drop
+	;
+
 |---- transforma la pila actual a normal
 ::vpila2normal | --
+	r.cnt 1? ( pilarmove ) 'inivrcnt !
+
 	inivpcnt d.cnt - | actual-origen
-vpquitacp
+	vpquitacp | quita copia
 	correESI
 	vpcopia
 	d.cnt 'inivpcnt ! | ahora vpila tiene...
 
-|	r.cnt ( 1? )( 1- dup r.tos "%d " mprint ,s ,cr r.drop ) drop
 |	dup "; **** %d NORMAL :" ,print printddvtack
-
 	emptyreg ;
+
 
 |---- acomoda pila actual
 ::vpila2call | nro --
