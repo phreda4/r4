@@ -40,17 +40,40 @@
 |-------------------------------------
 #regact
 
-|--- para registros de vpila vstack2
+|--EDX
+
+:freeEDX
+	3 reg!!
+	3 REGCell -? ( drop ; ) drop
+|	trace | hay un edx en la pila
+	;
+
+:usoEDX
+	3 reg!
+	3 REGCell -? ( drop ; )
+	newReg
+	6 >? ( drop freelastreg newReg )
+	dup reg!
+	"mov " ,s dup ,REG ",edx" ,ln
+	| cell newreg
+	5 rot cell!
+	;
+
+:setEDX | cell --
+	3 dup reg! 5 rot cell! ;
+
+:cteorECX | cell --
+	drop ;
+
+|--EAX
+
 :freeEAX | libero EAX
 	0 reg!!
 |	0 REGCell -? ( drop ; ) drop
 	;
 
-:freeEDX
-	3 reg!!
-	3 REGCell -? ( drop ; ) drop
-	trace
-	;
+:setEAX | cell --
+	0 dup reg! 5 rot cell! ;
 
 :libreEAX
 	"mov eax," ,s dup ,CELL ,cr
@@ -60,6 +83,8 @@
 	dup cellREG? 0? ( 2drop ; ) drop
 	registros %1 nand? ( drop libreEAX ; ) drop
 	newReg	| buscar registro libre	| c r
+	6 >? ( drop freelastreg newReg )
+
 	"mov " ,s dup ,REG ",eax" ,ln | c r
 	"mov eax," ,s over ,CELL ,cr
 	dup reg! 5 0 REGCell cell!	| cell(eax) en newreg
@@ -68,7 +93,10 @@
 
 :needREG | cell --
 	dup cellREG? 0 >=? ( 2drop ; ) drop	| ya es registro salir
-	newReg dup reg! 	| buscar registro libre
+	newReg
+	6 >? ( drop freelastreg newReg )
+
+	dup reg! 	| buscar registro libre
 	5 rot cell! ;
 
 :resolveCLON | cell -- cell
@@ -82,6 +110,8 @@
 |	block.in? 1? ( drop resolveCLON )( drop ) | solo deltro de bloques
 	dup cellREG? 0 >=? ( 2drop ; ) drop | ya esta en registro
 	newREG | cell reg
+	6 >? ( drop freelastreg newReg )
+
 	over cell0? 0? ( drop
 		"mov " ,s dup ,REG "," ,s over ,CELL
 		)( drop
@@ -111,6 +141,8 @@
 	dup cellREG? 0 >=? ( 2drop ; ) drop
 	dup cellADR? 1? ( 2drop ; ) drop
 	newREG | cell reg
+	6 >? ( drop freelastreg newReg )
+
 	over cell0? 0? ( drop
 		"mov " ,s dup ,REG "," ,s over ,CELL
 		)( drop
@@ -118,15 +150,6 @@
 		)
 	,cr
 	dup reg! 5 rot cell! ;
-
-:cteorECX | cell --
-	drop ;
-
-:setEAX | cell --
-	0 dup reg! 5 rot cell! ;
-
-:setEDX | cell --
-	3 dup reg! 5 rot cell! ;
 
 |------ acceso a celdas
 :,TOS	d.tos ,cell ;
@@ -148,13 +171,18 @@
 :,[ :,] ; | no hay anonimas en optimizado
 
 :vpmove
-	toknow 8 >> vpila2callV ;
+	toknow 8 >> vpila2callV
+	;
 
 :,wor
 	vpila2normal
 	dup @ $ff and | word ;
 	12 =? ( "jmp " )( "call " 'vpmove >r ) nip ,s
-	toknow nro>dicn ,s ,cr ;
+	toknow nro>dicn ,s ,cr
+
+|	toknow 8 >> nro>mov @ 8 << 24 >>
+|	" ; %d---" ,print ,cr
+	;
 
 :,callsys | usapila? --
 	1? ( vpila2normal ) drop
@@ -200,6 +228,7 @@
 
 :,simple?
 	'jmpstr !
+	d.cnt 0? ( vpila2normal ) drop
 	d.tos needWrite
 	d.tos cellADR? 1? ( drop
 		"cmp " ,s ,TOS ",0" ,ln ; ) drop
@@ -276,10 +305,10 @@
 :,)(
 	vpila2normal
 	blockt
-	1 =? ( <pilac +etiqueta jmp, ,etiqueta vppop )	| ELSE
-	2 =? ( <pilac +etiqueta ,jmpcond >pilac vpdrop )	| WHILE
+	1 =? ( <pilac +etiqueta jmp, ,etiqueta vppop vppush )	| ELSE
+	2 =? ( <pilac +etiqueta ,jmpcond >pilac vpdrop vppush )	| WHILE
 	drop
-	vppush ;
+	;
 
 :,)
 	vpila2normal
@@ -299,11 +328,13 @@
 
 |------- EXEC
 :,EXEC | v --
-	d.tos needREG
-	"or " ,s ,TOS "," ,s ,TOS ,cr
+	"push " ,s d.tos ,CELL ,cr
+	d.drop
 	vpila2normal
+	"pop ecx" ,ln
+	"or ecx,ecx" ,ln
 	"jz @f" ,ln
-	"call " ,s ,TOS ,cr
+	"call ecx" ,ln
 	"@@:" ,ln
 |	lastdircode vpila2callV
 	;
@@ -336,6 +367,28 @@
 	"add " ,s ,RTOS ",4" ,ln
 |	4 r.tos Cell+ | add 4
 	;
+
+|------ sin rpila virtual
+
+:,>R	"push " ,s ,TOS ,cr d.drop ;
+:,R>    d.dup d.tos needReg "pop " ,s ,TOS ,cr ;
+:,R     d.dup d.tos needReg "mov " ,s ,TOS ",[esp]" ,ln ;
+:,RDROP "lea esp,[esp+4]" ,ln ;
+:,R+	d.tos needReadM "add [esp]," ,s ,TOS ,cr d.drop ;
+
+:,R!+
+	d.tos needReadM
+	newReg
+	"mov " ,s dup ,REG ",dword [esp]" ,ln
+	"mov [" ,s ,REG "]," ,s ,TOS ,ln
+	"add dword [esp],4" ,ln
+	d.drop ;
+
+:,R@+
+	d.dup d.tos needReg
+	"mov " ,s ,TOS ",[esp]" ,ln
+	"mov " ,s ,TOS ",[" ,s ,TOS "]" ,ln
+	"add dword [esp],4" ,ln ;
 
 |------- ARITMETICAS LOGICAS
 :,AND
@@ -370,15 +423,15 @@
 	"imul " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,/
-	useEDX
+	usoEDX
 	d.nos needEAX
 	d.tos needREGorMEM
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 	d.drop
-	backEDX ;
+	freeEDX ;
 :,/MOD
-	freeEDX
+	usoEDX
 	d.nos needEAX
 	d.tos needREGorMEM
 	"cdq" ,ln
@@ -387,7 +440,7 @@
 	d.tos setEDX ;
 
 :,MOD
-	useEDX
+	usoEDX
 	d.nos needEAX
 	d.tos needREGorMEM
 	"cdq" ,ln
@@ -397,35 +450,35 @@
 	freeEAX ;
 
 :,*/
-	useEDX
+	usoEDX
 	d.pk2 needEAX
 	d.nos needREGorMEM
 	d.tos needREGorMEM
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
-	d.2DROP
+	d.2drop
 	d.tos setEAX
-	backEDX ;
+	freeEDX ;
 
 :,*>>
+	usoEDX
 	d.pk2 needEAX
-	";3 " ,s printddvtack
+|	";3 " ,s printddvtack
 	d.nos needREGorMEM
-	";4 " ,s printddvtack
+|	";4 " ,s printddvtack
 	d.tos cteorECX
-	";5 " ,s printddvtack
-	useEDX
+|	";5 " ,s printddvtack
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
 |	"shr edx," ,s ,TOSb ,cr | no hace falta!!
 	d.2DROP
 |	d.tos setEAX
-	backEDX ;
+	freeEDX ;
 
 :,<</
-	useEDX
+	usoEDX
 	d.pk2 needEAX
 	d.nos needREGorMEM
 	d.tos cteorECX
@@ -435,7 +488,7 @@
 	"idiv " ,s ,NOS ,cr
 	d.2DROP
 	d.tos setEAX
-	backEDX ;
+	freeEDX ;
 
 :,<<
 	d.tos cteorECX
@@ -450,7 +503,7 @@
 	d.drop ;
 
 :,ABS
-	useEDX
+	usoEDX
 	d.tos needREG
 	d.tos cellREG? 0? ( | EAX
 		"cdq" ,ln
@@ -460,7 +513,7 @@
 		) drop
 	"add " ,s ,TOS ",edx" ,ln
 	"xor " ,s ,TOS ",edx" ,ln
-	backEDX ;
+	freeEDX ;
 
 :,CLZ
 	d.tos needREG
@@ -721,8 +774,8 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	dup $ff and
 	8 <? ( drop ; )
 	9 >=? ( 11 <=? ( drop  ; ) )
-	31 >=? ( 47 <=? ( drop  ; ) )
-	52 =? ( drop ; )
+	31 >=? ( 45 <=? ( drop  ; ) )
+|	52 =? ( drop ; )
 	96 =? ( drop ; )
 	116 =? ( drop ; )
 	117 =? ( drop ; )
