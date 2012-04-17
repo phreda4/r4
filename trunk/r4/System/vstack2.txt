@@ -77,30 +77,6 @@
 		swap 1+ swap )
 	drop ;
 
-::useEDX
-	registros %1000 nand? ( drop ; ) drop
-	"movd XMM7,EDX" ,ln ;
-
-::backEDX
-	registros %1000 nand? ( drop ; ) drop
-	"movd EDX,XMM7" ,ln ;
-
-::useECX
-	registros %100 nand? ( drop ; ) drop
-	"movd XMM6,ECX" ,ln ;
-
-::backECX
-	registros %100 nand? ( drop ; ) drop
-	"movd ECX,XMM6" ,ln ;
-
-::useEAX
-	registros %1 nand? ( drop ; ) drop
-	"movd XMM5,EAX" ,ln ;
-
-::backEAX
-	registros %1 nand? ( drop ; ) drop
-	"movd EAX,XMM5" ,ln ;
-
 ::cellNRO? | nro -- 1/0
 	2 << 'cellt + @ $1f and
 	0? ( 1 )( 0 ) nip ;
@@ -357,6 +333,23 @@
 	'dpila ( dpila> <? )( @+ estareg ) drop
 	'rpila ( rpila> <? )( @+ estareg ) drop
 	drop ;
+
+|----
+:freelreg | adr cell reg --
+	"mov " ,s
+	pick2 'dpila - 1+ inivpcnt 2 << swap -
+	"[esi" ,s +? ( "+" ,s ) 2 << ,d "],"  ,s dup ,REG ,cr
+	reg!!
+	5 $15 pick2 cell!
+	swap 'dpila - 1+ inivpcnt 2 << swap -
+	2 << swap cell+!
+	;
+
+::freelastreg | --
+	'dpila ( dpila> <? )(
+		@+ dup
+		cellREG? 0 >=? ( freelreg ; )
+		2drop ) drop ;
 
 |--- pila de estado de pila y registros para bloques
 #vpst )( 1024
@@ -744,7 +737,7 @@ c1
 c1
 c1
 c1
-c1 
+c1
 c1
 c1
 c1		|=?  ab -- a (23-30)
@@ -758,7 +751,7 @@ d.swap
 d.nip | ( 31--38)
 d.rot
 d.2dup
-d.2drop 
+d.2drop
 d.3drop 
 d.4drop
 d.2over
@@ -883,7 +876,6 @@ vuso1	|MPLAY  a --
 	'block 256 4 * ( 0 rot !+ swap 1- 0? ) 2drop ;
 
 :,dumpstate
-
 	printddvtack
 	;
 
@@ -919,8 +911,13 @@ vuso1	|MPLAY  a --
 	drop ;
 
 
+:resolveADRMMX
+	"movd " ,s dup ,REG "," ,s pick2 ,CELL ,cr
+	5 pick3 cell! ;
+
 :resolveADR | nro xx cell yy -- nro xx cell yy
 	newReg | nro xx cell yy reg
+	6 >? ( resolveADRMMX ; )
 	pick2 cell0? 0? ( drop
 		"mov " ,s dup ,REG "," ,s pick2 ,CELL ,cr
 		)( drop
@@ -931,12 +928,20 @@ vuso1	|MPLAY  a --
 	5 pick3 cell!
 	;
 
+:genRSTMMX
+	"movd dword [esi" ,s
+	pick2 1? ( +? ( "+" ,s ) 2 << ,d )( drop )
+	"]," ,s dup ,CELL ,cr
+	5 $15 pick2 cell!
+	pick2 2 << swap cell+! ;
+
 :genRST | nro XX cell -- nro XX
 	dup cellREGM? 5 =? (
 		drop dup cellSUM
 		pick3 2 << =? ( 2drop ; ) | si esta en el lugar no generar
 		) drop
 	dup cellADR? 1? ( resolveADR ) drop
+	dup cellREG? 6 >? ( drop genRSTMMX ; ) drop
 	"mov dword [esi" ,s
 	pick2 1? ( +? ( "+" ,s ) 2 << ,d )( drop )
 	"]," ,s dup ,CELL ,cr
@@ -956,11 +961,19 @@ vuso1	|MPLAY  a --
 	0 5 rot cell!
 	;
 
+:inuseMMX
+	"movd " ,s dup ,REG ",dword [esi" ,s
+	dup reg! 5 rot cell!
+	pick2 1? ( +? ( "+" ,s ) 2 << ,d )( drop )
+	"]" ,s ,cr
+	;
+
 :inuse | ao no nro adr cell -- nro adr
 	dup cellREGM? 5 <>? ( 2drop ; ) drop
 	dup cellSUM pick4 2 <<
 	<>? ( 2drop ; ) drop
 	newReg
+	6 >? ( inuseMMX ; )
 	"mov " ,s dup ,REG ",dword [esi" ,s
 	dup reg! 5 rot cell!
 	pick2 1? ( +? ( "+" ,s ) 2 << ,d )( drop )
@@ -1001,9 +1014,7 @@ vuso1	|MPLAY  a --
 
 |---- back & restore de pila R
 :pilarback
-	dup ( 1? )( 1+
-
-		) drop
+	dup ( 1? )( 1+ 	) drop
 	r.ini
 	;
 
@@ -1018,19 +1029,29 @@ vuso1	|MPLAY  a --
 
 |---- transforma la pila actual a normal
 ::vpila2normal | --
-	r.cnt 1? ( pilarmove ) 'inivrcnt !
+|	r.cnt 1? ( pilarmove ) 'inivrcnt !
 
 	inivpcnt d.cnt - | actual-origen
+|	dup "; **** %d NORMAL :" ,print printddvtack
+
 	vpquitacp | quita copia
 	correESI
 	vpcopia
 	d.cnt 'inivpcnt ! | ahora vpila tiene...
-
-|	dup "; **** %d NORMAL :" ,print printddvtack
 	emptyreg ;
 
 
 |---- acomoda pila actual
+:rearma
+	d.cnt 0? ( drop ; )
+	1- ( 1? )( 1-
+		dup 1+ d.rel
+		5 $15 pick2 cell!
+		over 2 << swap cell+!
+		)
+	d.rel 0 5 rot cell!
+	;
+
 ::vpila2call | nro --
 	nro>mov @ 8 << 24 >>
  |	dup "; **** %d  DELTA" ,print printddvtack
@@ -1038,27 +1059,15 @@ vuso1	|MPLAY  a --
 	dup correESI
 	-? ( ( 1? )( 1+ d.drop ) )( ( 1? )( 1- d.dup ) )
 	drop
-	d.cnt 0? ( drop ; )
-	1- ( 1? )( 1-
-		dup 1+ d.rel
-		5 $15 pick2 cell!
-		over 2 << swap cell+! |**
-		)
-	d.rel 0 5 rot cell!
+	rearma
 	d.cnt 'inivpcnt ! | ahora vpila tiene...
 	emptyreg ;
 
 ::vpila2callV | nro --
 	nro>mov @ 8 << 24 >>
-|	dup "; **** %d  DELTA:" ,print printddvtack
+	dup "; **** %d  DELTA:" ,print printddvtack
 	1? ( -? ( ( 1? )( 1+ d.drop ) )( ( 1? )( 1- d.dup ) ) )
 	drop
-	d.cnt 0? ( drop ; )
-	1- ( 1? )( 1-
-		dup 1+ d.rel
-		5 $15 pick2 cell!
-		over 2 << swap cell+! |**
-		)
-	d.rel 0 5 rot cell!
+	rearma
  	d.cnt 'inivpcnt ! | ahora vpila tiene...
 	emptyreg ;
