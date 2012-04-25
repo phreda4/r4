@@ -20,6 +20,7 @@
 ^r4/system/r4print.txt
 
 ^r4/system/vstack2.txt
+|^r4/system/calccell.txt
 
 ^r4/lib/trace.txt
 
@@ -29,6 +30,9 @@
 
 ::ini.compila
 	0 'nstr ! 0 'nlabel ! ;
+
+:,dumpdebug | "" --
+	mprint ,s "r4asm/cod.asm" savemem ;
 
 |----- pila de compilador
 #pilac )( 256	#pilac> 'pilac
@@ -103,13 +107,12 @@
 
 :libreEAX
 	"mov eax," ,s dup ,CELL ,cr
-	0 5 rot cell! ;
+	0 dup reg! 5 rot cell! ;
 
 :needEAX | cell --
 	dup cellREG? 0? ( 2drop ; ) drop
 	registros %1 nand? ( drop libreEAX ; ) drop
-	newReg	| buscar registro libre	| c r
-	6 >? ( drop freelastreg newReg )
+	newReg 6 >? ( drop freelastreg newReg )
 
 	"mov " ,s dup ,REG ",eax" ,ln | c r
 	"mov eax," ,s over ,CELL ,cr
@@ -119,8 +122,7 @@
 
 :needREG | cell --
 	dup cellREG? 0 >=? ( 2drop ; ) drop	| ya es registro salir
-	newReg
-	6 >? ( drop freelastreg newReg )
+	newReg 6 >? ( drop freelastreg newReg )
 
 	dup reg! 	| buscar registro libre
 	5 rot cell! ;
@@ -135,8 +137,7 @@
 :needWrite | cell -- ; pone en registro si no esta
 |	block.in? 1? ( drop resolveCLON )( drop ) | solo deltro de bloques
 	dup cellREG? 0 >=? ( 2drop ; ) drop | ya esta en registro
-	newREG | cell reg
-	6 >? ( drop freelastreg newReg )
+	newREG 6 >? ( drop freelastreg newReg )
 
 	over cell0? 0? ( drop
 		"mov " ,s dup ,REG "," ,s over ,CELL
@@ -166,8 +167,7 @@
 	resCPY
 	dup cellREG? 0 >=? ( 2drop ; ) drop
 	dup cellADR? 1? ( 2drop ; ) drop
-	newREG | cell reg
-	6 >? ( drop freelastreg newReg )
+	newREG 6 >? ( drop freelastreg newReg )
 
 	over cell0? 0? ( drop
 		"mov " ,s dup ,REG "," ,s over ,CELL
@@ -196,9 +196,14 @@
 :,defw :,defv ; | no hay definiciones en optimizado (investigar como)
 :,[ :,] ; | no hay anonimas en optimizado
 
+#strpending
+
 :vpmove
 	toknow 8 >> vpila2callV
+	strpending neg vpila2v
+	0 'strpending !
 	;
+
 
 :,wor
 	vpila2normal
@@ -240,8 +245,10 @@
 	vpila2normal
 	"ret" ,ln ;
 
+
 :,lit	toknow tok>cte pushNRO ;
 :,lits
+		toknow 8 >> cte + strusestack 'strpending ! drop
 |		toknow 8 >> cte + strusestack
 |		( 1? )( 1- d.drop ) 2drop 		| correccion por "%d"..
 		nstr pushSTR 1 'nstr +! ;
@@ -272,7 +279,7 @@
 	d.nos needWrite
 	d.tos cellADR? 1? ( drop
 		d.nos cellADR? 1? ( drop
-			newReg
+			newReg 6 >? ( drop freelastreg newReg )
 			"mov " ,s dup ,REG "," ,s ,TOS ,cr
 			"cmp " ,s ,NOS "," ,s ,REG ,cr
 			d.drop ;
@@ -293,7 +300,7 @@
 	d.nos needWrite
 	d.tos cellADR? 1? ( drop
 		d.nos cellADR? 1? ( drop
-			newReg
+			newReg 6 >? ( drop freelastreg newReg )
 			"mov " ,s dup ,REG "," ,s ,TOS ,cr
 			"test " ,s ,NOS "," ,s ,REG ,cr
 			d.drop ;
@@ -324,7 +331,9 @@
 	3 =? ( +etiqueta ,etiqueta )	| UNTIL
 	4 =? ( +etiqueta ,etiqueta )	| REPEAT
 	drop
+
 |	block.now "; block %d " ,print printddvtack
+|	"r4asm/cod.asm" savemem
 |	,cr |   block.now dumpblock,
 	;
 
@@ -381,7 +390,7 @@
 :,R!+
 	d.tos needRead
 	r.tos needWriteM
-	"mov [" ,s ,RTOS "]," ,s ,TOS ,cr
+	"mov dword [" ,s ,RTOS "]," ,s ,TOS ,cr
 	"add " ,s ,RTOS ",4" ,ln
 |	4 r.tos Cell+ | add 4
 	d.drop ;
@@ -398,15 +407,15 @@
 
 :,>R	"push " ,s ,TOS ,cr d.drop ;
 :,R>    d.dup d.tos needReg "pop " ,s ,TOS ,cr ;
-:,R     d.dup d.tos needReg "mov " ,s ,TOS ",[esp]" ,ln ;
+:,R     d.dup d.tos needReg "mov " ,s ,TOS ",dword [esp]" ,ln ;
 :,RDROP "lea esp,[esp+4]" ,ln ;
-:,R+	d.tos needReadM "add [esp]," ,s ,TOS ,cr d.drop ;
+:,R+	d.tos needReadM "add dword [esp]," ,s ,TOS ,cr d.drop ;
 
 :,R!+
 	d.tos needReadM
-	newReg
+	newReg 6 >? ( drop freelastreg newReg )
 	"mov " ,s dup ,REG ",dword [esp]" ,ln
-	"mov [" ,s ,REG "]," ,s ,TOS ,cr
+	"mov dword [" ,s ,REG "]," ,s ,TOS ,cr
 	"add dword [esp],4" ,ln
 	d.drop ;
 
@@ -490,11 +499,8 @@
 :,*>>
 	usoEDX
 	d.pk2 needEAX
-|	";3 " ,s printddvtack
 	d.nos needREGorMEM
-|	";4 " ,s printddvtack
 	d.tos cteorECX
-|	";5 " ,s printddvtack
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
@@ -530,7 +536,7 @@
 
 :,ABS
 	usoEDX
-	d.tos needREG
+	d.tos needWrite
 	d.tos cellREG? 0? ( | EAX
 		"cdq" ,ln
 		)(
@@ -605,17 +611,17 @@
 
 :,+!
 	d.nos needReadM
-	d.tos needWriteM
+	d.tos needWrite
 	"add dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	d.2DROP ;
 :,W+!
 	d.nos needReadM
-	d.tos needWriteM
+	d.tos needWrite
 	"add word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	d.2DROP ;
 :,C+!
 	d.nos needReadM
-	d.tos needWriteM
+	d.tos needWrite
 	"add byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	d.2DROP ;
 
@@ -797,6 +803,8 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 
 :imprimedebug | token -- token
 	dup tokenstr " ; " ,s ,s | palabra que compila
+	"r4asm/cod.asm" savemem
+
 	dup $ff and
 	8 <? ( drop ; )
 	9 >=? ( 11 <=? ( drop  ; ) )
@@ -806,7 +814,7 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	117 =? ( drop ; )
 	125 =? ( drop ; )
 	drop
-	":" ,s printddvtack
+	" :" ,s printddvtack
 	"r4asm/cod.asm" savemem
 	;
 
@@ -826,6 +834,7 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 
 	dup nro>mov @ 24 << 24 >> neg inivpila
 	0 'registeruse !
+	0 'strpending !
 	'bufftok ( buff> <? )(
 		@+
 		imprimedebug
