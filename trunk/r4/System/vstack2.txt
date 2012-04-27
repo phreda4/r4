@@ -107,7 +107,6 @@
 |	resCPY
 	2 << 'cellt + @ $10 and ;
 
-
 ::cellMEM! | nro --
 	2 << 'cellt + dup @ $10 or swap ! ;
 
@@ -126,6 +125,16 @@
 ::cellST? | cell -- 0/1
 	2 << 'celli + @ $1 and ;
 
+::cellVAR | cell -- cell -1/nrovar
+	dup 2 << 'cellt + @ $1f and
+	$14 <>? ( -1 nip ; ) drop
+	dup 2 << 'cellv + @ ;
+
+::cellDVAR | cell -- cell -1/nrovar
+	dup 2 << 'cellt + @ $1f and
+	$4 <>? ( -1 nip ; ) drop
+	dup 2 << 'cellv + @ ;
+
 |------ bloques de codigo
 #blockn 0
 #block )( 1024	| tipo+info
@@ -139,7 +148,7 @@
 |----- pila de compilador
 #pilac )( 256	#pilac> 'pilac
 
-#... )( 1020 |... dpila soobreescribe ********!!!!!!!!!!!
+#... )( 1024 |... dpila soobreescribe ********!!!!!!!!!!!
 |--- PILA DATO
 #dpila )( 1024
 #dpila> 'dpila
@@ -878,14 +887,11 @@ vuso1	|MPLAY  a --
 
 ::reemplazaenreg | cell reg -- cell reg
 |	";" ,s inivpcnt ,d printddvtack |,cr
-
 	'dpila ( dpila> 4 - <? )( @+ | cell reg adr c0
 		resCPY cellREG? | cell reg adr reg
 		pick2 =? ( dup 5 pick3 4 - @ cell! )
 		drop ) drop
-
 |	";" ,s inivpcnt ,d printddvtack |,cr
-
 	'dpila ( dpila> 4 - <? )( @+ | cell reg adr c0
 		pick3 <>? (
 			cellREG? | cell reg adr reg
@@ -893,8 +899,23 @@ vuso1	|MPLAY  a --
 			)
 		drop ) drop
 |	";" ,s inivpcnt ,d printddvtack |,cr
-
 	;
+
+
+|-----------------
+:esvari | cell var adr c0 -- cell var adr
+	cellVAR |-? ( 2drop ; ) | c0 var
+	pick3 <>? ( 2drop ; )
+	newReg 6 >? ( drop freelastreg newreg ) | c0 var reg
+	"mov " ,s dup ,REG ",dword [w" ,s swap ,h "]" ,s ,cr
+	dup reg! 5 rot cell!
+	;
+
+::resguardavar | cell --
+	cellDVAR -? ( 2drop ; ) | cell var
+	'dpila ( dpila> 4 - <? )( | cell var adr
+		@+ esvari
+		) 3drop ;
 
 |------------------------------------------
 | inicia vpila como normal con USADO celdas
@@ -1173,23 +1194,21 @@ vuso1	|MPLAY  a --
 |---- transforma la pila actual a normal
 ::vpila2normal | --
 	inivpcnt d.cnt - | actual-origen
-
 |	dup "; **** %d NORMAL :" ,print ,cr
 |	";" ,s printddvtack
-
 	vpquitacp | quita copia
 	correESI
 |	";" ,s printddvtack
 	vpcopia
 	d.cnt 'inivpcnt ! | ahora vpila tiene...
-
 	emptyreg
 |	";" ,s printddvtack
 	;
 
-
 |---- acomoda pila actual
-:rearma
+::vpila2v | cnt --
+	1? ( -? ( ( 1? )( 1+ d.drop ) )( ( 1? )( 1- d.dup ) ) )
+	drop
 	emptyreg
 	d.cnt dup 'inivpcnt ! | ahora vpila tiene...
 	0? ( drop ; )
@@ -1205,18 +1224,9 @@ vuso1	|MPLAY  a --
  |	dup "; **** %d  DELTA" ,print printddvtack
 	0? ( drop ; )
 	dup correESI
-	-? ( ( 1? )( 1+ d.drop ) )( ( 1? )( 1- d.dup ) )
-	drop
-	rearma ;
+	vpila2v ;
 
 ::vpila2callV | nro --
 	nro>mov @ 8 << 24 >>
 |	dup "; **** %d  DELTA:" ,print printddvtack
-	1? ( -? ( ( 1? )( 1+ d.drop ) )( ( 1? )( 1- d.dup ) ) )
-	drop
-	rearma ;
-
-::vpila2v | cnt --
-	1? ( -? ( ( 1? )( 1+ d.drop ) )( ( 1? )( 1- d.dup ) ) )
-	drop
-	rearma ;
+	vpila2v ;

@@ -31,9 +31,6 @@
 ::ini.compila
 	0 'nstr ! 0 'nlabel ! ;
 
-:,dumpdebug | "" --
-	mprint ,s "r4asm/cod.asm" savemem ;
-
 |----- pila de compilador
 #pilac )( 256	#pilac> 'pilac
 
@@ -136,13 +133,6 @@
 	dup cellREG? +? ( dup reg!! ) drop
 	0 5 rot cell! ;				| cell en eax
 
-:needAMC | ---
-
-	;
-
-:needAM
-	;
-
 :needREG | cell --
 	dup cellREG? 0 >=? ( 2drop ; ) drop	| ya es registro salir
 	newReg 6 >? ( drop freelastreg newReg )
@@ -227,7 +217,6 @@
 	0 'strpending !
 	;
 
-
 :,wor
 	vpila2normal
 	dup @ $ff and | word ;
@@ -277,7 +266,17 @@
 		nstr pushSTR 1 'nstr +! ;
 :,dwo	toknow 8 >> pushCOD ;
 :,dva   toknow 8 >> pushDAT ;
-:,var	toknow 8 >> pushVAR ;
+
+:,var
+	toknow 8 >> pushVar ;
+
+:,varresuelto | evita perder valor de variables
+	toknow 8 >>
+	newReg 6 >? ( drop freelastreg newreg )
+	dup reg! dup pushREG
+	,cr
+	"mov " ,s ,REG ",dword [w" ,s ,h "]" ,s ,cr
+	;
 
 |-------- CONDICIONALES
 #jmpstr 0
@@ -617,38 +616,45 @@
 	"movsx " ,s ,TOS ",word [" ,s ,TOS "]" ,ln ;
 
 :,!
+	d.tos resguardavar
 	d.tos needReadM
 	d.nos needReadM
 	"mov dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	d.2DROP ;
 :,C!
+	d.tos resguardavar
 	d.tos needReadM
 	d.nos needReadB
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	d.2DROP ;
 :,W!
+	d.tos resguardavar
 	d.tos needReadM
 	d.nos needReadW
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	d.2DROP ;
 
 :,+!
+	d.tos resguardavar
 	d.nos needReadM
 	d.tos needWrite
 	"add dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	d.2DROP ;
 :,W+!
+	d.tos resguardavar
 	d.nos needReadM
 	d.tos needWrite
 	"add word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	d.2DROP ;
 :,C+!
+	d.tos resguardavar
 	d.nos needReadM
 	d.tos needWrite
 	"add byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	d.2DROP ;
 
 :,!+
+	d.tos resguardavar
     d.nos needReadM
 	d.tos needWrite
 	"mov dword [" ,s ,TOS "]," ,s ,NOS ,cr
@@ -656,6 +662,7 @@
 |	4 d.tos Cell+
 	d.NIP ;
 :,W!+
+	d.tos resguardavar
     d.nos needReadM
 	d.tos needWrite
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
@@ -663,6 +670,7 @@
 |	2 d.tos Cell+
 	d.NIP ;
 :,C!+
+	d.tos resguardavar
     d.nos needReadM
 	d.tos needWrite
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
@@ -821,12 +829,11 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	0 'bufprim !
 	'bufftok 'buff> ! ;
 
-
 #registeruse
 
 :imprimedebug | token -- token
 	dup tokenstr " ; " ,s ,s | palabra que compila
-	"r4asm/cod.asm" savemem
+|	"r4asm/cod.asm" savemem
 
 	dup $ff and
 	8 <? ( drop ; )
