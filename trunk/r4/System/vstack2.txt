@@ -865,6 +865,37 @@ vuso1	|MPLAY  a --
 		@+ dup cellREG? 0 >=? ( freelreg ; )
 		2drop ) drop ;
 
+|------------------------------------------------
+:back2stack | cell reg adr reg -- cell reg adr reg
+	over dpila> - 2 >> 1+ neg d.cnt inivpcnt - -
+	"mov dword [esi" ,s
+	1? ( +? ( "+" ,s ) 2 << ,d )( drop )
+	"]," ,s dup ,REG ,cr
+	5 $15 pick3 4 - @ cell!
+	over dpila> - 4+ neg d.cnt inivpcnt - 2 << -
+	pick2 4 - @ cell+!
+	;
+
+::reemplazaenreg | cell reg -- cell reg
+|	";" ,s inivpcnt ,d printddvtack |,cr
+
+	'dpila ( dpila> 4 - <? )( @+ | cell reg adr c0
+		resCPY cellREG? | cell reg adr reg
+		pick2 =? ( dup 5 pick3 4 - @ cell! )
+		drop ) drop
+
+|	";" ,s inivpcnt ,d printddvtack |,cr
+
+	'dpila ( dpila> 4 - <? )( @+ | cell reg adr c0
+		pick3 <>? (
+			cellREG? | cell reg adr reg
+			pick2 =? ( back2stack )
+			)
+		drop ) drop
+|	";" ,s inivpcnt ,d printddvtack |,cr
+
+	;
+
 |------------------------------------------
 | inicia vpila como normal con USADO celdas
 | de forma normal, guarda nivel en INIVPCNT
@@ -1010,11 +1041,9 @@ vuso1	|MPLAY  a --
 :saveused | adr cell esi -- adr
 	-? ( 2drop ; )
 	pick2 dpila> - 2 >> 1+ neg | corresponde
-|	1? (
 	2 << over
 |	over over ,d "=" ,s ,d ,sp
 	=? ( 3drop ; )
-|	) | 0 usa siempre
 	drop
 |	,d "_" ,s
 |	dup ,d ,sp	| de donde sale
@@ -1077,12 +1106,13 @@ vuso1	|MPLAY  a --
 	'listausados + @
 	0? ( 2drop ; ) drop
 	newReg | adr cell reg
+	6 >? ( 2drop ; ) | no alcanzan registros
 	"mov " ,s dup ,REG ",dword [esi" ,s
 	pick2 dpila> - 4+ neg
 	1? ( +? ( "+" ,s ) dup ,d )
 	"]" ,ln
 	over reg!
-	esitoreg2mov | cell reg esi
+	esitoreg2 | cell reg esi
 	3drop ;
 
 :pasada_free_cell
@@ -1121,6 +1151,8 @@ vuso1	|MPLAY  a --
 	d.cnt 0? ( drop vplast ; ) drop
 	pasada_free_reg
 	pasada_free_cell
+	pasada_free_reg	| cantidad de pasadas
+	pasada_free_cell | cuando no tiene registros disponibles
 
 	'dpila d.cnt |	copia resto
 	 1- ( 1? )( 1-
