@@ -20,8 +20,6 @@
 ^r4/system/r4print.txt
 
 ^r4/system/vstack2.txt
-|^r4/system/calccell.txt
-
 ^r4/lib/trace.txt
 
 |----- nro de str y label
@@ -76,6 +74,7 @@
 	2 5 rot cell!
 	2 reg!
 	;
+
 :regECX | cell reg --
 	2 =? ( 2drop ; )
 	registros %100 nand? ( drop soloECX ; ) drop
@@ -109,19 +108,14 @@
 	0 dup reg! 5 rot cell! ;
 
 |----------------------------
-
 :copiaEAX | cell reg --  ; ya esta en a pero hay otra copia
 	reemplazaenreg
-	5 rot cell!
-	;
+	5 rot cell! ;
 
 :needEAX | cell --
 	dup cellREG? 0? ( 2drop ; ) drop
 	registros %1 nand? ( drop libreEAX ; ) drop
 
-|	dup cellCPY? 1? ( drop
-|		resCPY dup cellREG? 0? ( copiaEAX ; )
-|		) drop
 	dup resCPY cellREG? 0? ( copiaEAX ; ) drop
 
 	newReg 6 >? ( drop freelastreg newReg )
@@ -147,11 +141,8 @@
 	"mov " ,s dup ,CELL "," ,s swap dup ,CELL ,cr
 	over swap cell2cell! ;
 
-:needWrite | cell -- ; pone en registro si no esta
-|	block.in? 1? ( drop resolveCLON )( drop ) | solo deltro de bloques
-	dup cellREG? 0 >=? ( 2drop ; ) drop | ya esta en registro
+:cell2newReg
 	newREG 6 >? ( drop freelastreg newReg )
-
 	over cell0? 0? ( drop
 		"mov " ,s dup ,REG "," ,s over ,CELL
 		)( drop
@@ -159,6 +150,11 @@
 		)
 	,cr
 	dup reg! 5 rot cell! ;
+
+:needWrite | cell -- ; pone en registro si no esta
+|	block.in? 1? ( drop resolveCLON )( drop ) | solo deltro de bloques
+	dup cellREG? 0 >=? ( 2drop ; ) drop | ya esta en registro
+    cell2newReg ;
 
 :needWriteM | cell -- ; registro o direccion cte
 	dup cellADR? 1? ( drop needWrite ; )
@@ -180,15 +176,7 @@
 	resCPY
 	dup cellREG? 0 >=? ( 2drop ; ) drop
 	dup cellADR? 1? ( 2drop ; ) drop
-	newREG 6 >? ( drop freelastreg newReg )
-
-	over cell0? 0? ( drop
-		"mov " ,s dup ,REG "," ,s over ,CELL
-		)( drop
-		"xor " ,s dup ,REG "," ,s dup ,REG
-		)
-	,cr
-	dup reg! 5 rot cell! ;
+	cell2newReg ;
 
 |------ acceso a celdas
 :,TOS	d.tos ,cell ;
@@ -211,17 +199,15 @@
 
 #strpending
 
-:vpmove
+:,wor
+	vpila2normal
+	dup @ $ff and 			| word ;
+	12 =? ( "jmp " )( "call " ) nip ,s
+	toknow nro>dicn ,s ,cr
+
 	toknow 8 >> vpila2callV
 	strpending neg vpila2v
 	0 'strpending !
-	;
-
-:,wor
-	vpila2normal
-	dup @ $ff and | word ;
-	12 =? ( "jmp " )( "call " 'vpmove >r ) nip ,s
-	toknow nro>dicn ,s ,cr
 
 |	toknow 8 >> nro>mov @ 8 << 24 >>
 |	" ; %d---" ,print ,cr
@@ -257,12 +243,11 @@
 	vpila2normal
 	"ret" ,ln ;
 
-
 :,lit	toknow tok>cte pushNRO ;
 :,lits
-		toknow 8 >> cte + strusestack 'strpending ! drop
-|		toknow 8 >> cte + strusestack
+		toknow 8 >> cte + strusestack
 |		( 1? )( 1- d.drop ) 2drop 		| correccion por "%d"..
+		'strpending ! drop
 		nstr pushSTR 1 'nstr +! ;
 :,dwo	toknow 8 >> pushCOD ;
 :,dva   toknow 8 >> pushDAT ;
@@ -370,7 +355,10 @@
 :,)
 	vpila2normal
 	blockt
-	0 =? ( <pilac ,etiqueta )          		| IF
+	0 =? ( <pilac ,etiqueta 
+			over 8 - @ $ff and 				| ;)
+			12 <>? ( vpdrop vppush )
+			drop )          		| IF
 	1 =? ( <pilac ,etiqueta
 			over 8 - @ $ff and 				| ;)
 			12 <>? ( vpdrop vppush )
@@ -384,11 +372,21 @@
 	block.end ;
 
 |------- EXEC
-:,EXEC | v --
+:,execpp | v --
 	"push " ,s d.tos ,CELL ,cr
-	d.drop
-	vpila2normal
+	d.drop vpila2normal
 	"pop ecx" ,ln
+	"or ecx,ecx" ,ln
+	"jz @f" ,ln
+	"call ecx" ,ln
+	"@@:" ,ln
+|	lastdircode vpila2callV
+	;
+
+:,EXEC | v --
+	d.tos cellVAR -? ( 2drop ,execpp ; ) 2drop
+	d.tos d.drop vpila2normal
+	"mov ecx," ,s ,CELL ,cr
 	"or ecx,ecx" ,ln
 	"jz @f" ,ln
 	"call ecx" ,ln
@@ -637,19 +635,19 @@
 :,+!
 	d.tos resguardavar
 	d.nos needReadM
-	d.tos needWrite
+	d.tos needReadM
 	"add dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	d.2DROP ;
 :,W+!
 	d.tos resguardavar
 	d.nos needReadM
-	d.tos needWrite
+	d.tos needReadM
 	"add word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	d.2DROP ;
 :,C+!
 	d.tos resguardavar
 	d.nos needReadM
-	d.tos needWrite
+	d.tos needReadM
 	"add byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	d.2DROP ;
 
@@ -775,16 +773,34 @@
 :,MLOAD ;
 :,MPLAY  d.DROP ;
 
+:,DOCINI :,DOCEND
+	;
+:,OPENURL	| url header buff -- buff/0
+	d.2drop ;
+:,DOCAT     | x y --
+	d.2drop ;
+:,DOCLINE	| x y --
+	d.2drop ;
+:,DOCTEXT	| "tt" --
+	d.drop ;
+:,DOCFONT	| size angle "font" --
+	d.3drop ;
+:,DOCBIT	| bitmap x y --
+	d.3drop ;
+:,DOCRES	| -- xmax ymax
+	d.2dup ;
+:,DOCSIZE	| "tt" -- w h
+	d.dup ;
+:,SYSTEM	| "sys" --
+	d.drop ;
+
 |----------- en asmbase.txt
 :,SQRT
 :,MOVE :,MOVE> :,CMOVE :,CMOVE>
 :,INK :,INK@ :,ALPHA
 :,OP :,CP :,LINE :,CURVE :,PLINE :,PCURVE :,POLI
-:,FCOL :,FCEN :,FMAT :,SFILL :,LFILL :,RFILL :,TFILL
-:,OPENURL
-:,DOCINI :,DOCEND :,DOCAT :,DOCLINE :,DOCTEXT :,DOCFONT :,DOCBIT :,DOCRES :,DOCSIZE
-:,SYSTEM
-	;
+:,FCOL :,FCEN :,FMAT :,SFILL :,LFILL :,RFILL :,TFILL ;
+
 
 #nivel1 0
 ,defw ,defv ,lit ,lit ,lit ,lit ,lits ,wor ,var ,dwo ,dva | 11
@@ -820,7 +836,7 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 
 |------------------------------
 #bufprim 0 | para salto?
-#bufftok )( 4096
+#bufftok )( 8192
 #buff> 'bufftok
 
 :+buff | tok --
@@ -844,8 +860,8 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	117 =? ( drop ; )
 	125 =? ( drop ; )
 	drop
-	" :" ,s printddvtack
-	"r4asm/cod.asm" savemem
+	,cr "; " ,s printddvtack
+|	"r4asm/cod.asm" savemem
 	;
 
 ::,compwordopt | nro --

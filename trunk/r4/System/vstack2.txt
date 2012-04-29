@@ -8,6 +8,11 @@
 |-------- Registros del CPU
 #:registros 0    | uso de registros
 
+#inivpcnt		| nivel de inicio de pila D
+#inivrcnt		| nivel de inicio de pila R
+
+#strpending		| pendientes para %d
+
 |-------- constantes del sistema
 #syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
 "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY" | []
@@ -36,9 +41,6 @@
 		2/ $7fffffff and
 		swap 1+ swap )
 	drop ;
-
-#inivpcnt		| nivel de inicio de pila D
-#inivrcnt		| nivel de inicio de pila R
 
 |------ Celda de la pila
 | T Tipo (NUMERO CONSTANTE 'STRING CODIGO DATO REGISTRO COPIA)
@@ -401,8 +403,6 @@
 	swap 1020 + @ swap 1020 + ! ;
 
 
-
-
 |---------------------------------------------
 |-------------------------------------------
 | calcula informacion de celdas
@@ -428,7 +428,6 @@
 	@ dup $ffffff and swap
 	$1000000 + $ff000000 and or
 	swap ! ;
-
 
 :cellMem | celda que es direccion de memoria
 	d.tos 2 << 'celli + dup
@@ -622,7 +621,9 @@
 
 :litN	toknow tok>cte pushNRO ;
 :litS
-	valnow cte + strusestack ( 1? )( 1- cellR1 d.tos cellST d.drop ) 2drop | correccion por "%d"
+	valnow cte + strusestack
+	|( 1? )( 1- cellR1 d.tos cellST d.drop ) 2drop | correccion por "%d"
+	'strpending ! drop
 	0 pushSTR ;
 :litAW	valnow dup 'lastdircode ! pushCOD ;
 :litAV	valnow dup 'lastdircode ! pushDAT ;
@@ -631,9 +632,13 @@
 :callW	| ww
 	valnow nro>mov @
 	dup 24 << 24 >> |duso
+|	strpending +
 	dup ( 1? )( 1+ cellR1 d.drop ) drop
 	swap 8 << 24 >> - abs
-	( 1? )( 1- 0 pushREG ) drop ;
+|	strpending +
+	( 1? )( 1- 0 pushREG ) drop
+	0 'strpending !
+	;
 
 :exexec 	| exec
 	cellEx
@@ -951,6 +956,7 @@ vuso1	|MPLAY  a --
 ::calccell | fin buff use
 	iniregi
 	inivpila
+	0 'strpending !
 	( over <? )(
 		@+ $ff and
 |**** debug
@@ -965,9 +971,6 @@ vuso1	|MPLAY  a --
 | restaura la pila a su forma normal
 |
 |------------------------------------------
-:,dumpdebug | "" --
-	mprint ,s "r4asm/cod.asm" savemem ;
-
 :cellESI | cell deltasi --
 	over cellREGM? 5 <>? ( 3drop ; ) drop | si es ESI
 	neg 2 << swap Cell+ ;
@@ -1064,10 +1067,7 @@ vuso1	|MPLAY  a --
 	pick2 dpila> - 2 >> 1+ neg | corresponde
 	2 << over
 |	over over ,d "=" ,s ,d ,sp
-	=? ( 3drop ; )
-	drop
-|	,d "_" ,s
-|	dup ,d ,sp	| de donde sale
+	=? ( 3drop ; ) drop
 	1 over 'listausados + +!
 	2drop ;
 
@@ -1076,9 +1076,8 @@ vuso1	|MPLAY  a --
 	'listausados >r
 	dup ( 1? )( 1- 0 r!+ ) drop
 	rdrop
-	'dpila ( dpila> <? )( @+ esesi? saveused ) drop
+	'dpila ( dpila> <? )( @+ esesi? saveused ) 2drop
 |	,cr 'listausados >r ( 1? )( 1- r@+ ,d ,sp ) rdrop ,cr
-	drop
 	;
 
 :regcnt? | reg -- reg cnt
@@ -1100,7 +1099,6 @@ vuso1	|MPLAY  a --
 	swap cell+!
 |	printddvtack
 	;
-
 
 :copiareglimpio | adr cell -- adr
 	dup cellREG? -? ( 2drop ; ) | adr cell reg
