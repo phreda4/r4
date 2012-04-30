@@ -40,7 +40,6 @@
 #regact
 
 |--EDX
-
 :freeEDX
 	3 reg!!
 	3 REGCell -? ( drop ; ) drop
@@ -206,11 +205,10 @@
 	toknow nro>dicn ,s ,cr
 
 	toknow 8 >> vpila2callV
-	strpending neg vpila2v
+	strpending neg
+|	1? ( "; strpending:" ,s dup ,d ,cr )
+	vpila2v
 	0 'strpending !
-
-|	toknow 8 >> nro>mov @ 8 << 24 >>
-|	" ; %d---" ,print ,cr
 	;
 
 :,callsys | usapila? --
@@ -329,8 +327,10 @@
 
 |----- BLOQUES
 :,(
+	block.new
+	block.now "; BLK %d PUSH " ,print printddvtack
 	vpila2normal
-	block.new vpPush
+	vpPush
 	blockt
 	0 =? ( +etiqueta ,jmpcond )		| IF
 	1 =? ( +etiqueta ,jmpcond )		| ELSE
@@ -339,35 +339,38 @@
 	4 =? ( +etiqueta ,etiqueta )	| REPEAT
 	drop
 
-|	block.now "; block %d " ,print printddvtack
 |	"r4asm/cod.asm" savemem
 |	,cr |   block.now dumpblock,
 	;
 
 :,)(
+	block.now ";BLK%d PREV " ,print printddvtack
 	vpila2normal
 	blockt
-	1 =? ( <pilac +etiqueta jmp, ,etiqueta vppop vppush )	| ELSE
+	1 =? ( <pilac +etiqueta jmp, ,etiqueta
+			vppop vppush
+			)	| ELSE
 	2 =? ( <pilac +etiqueta ,jmpcond >pilac vpdrop vppush )	| WHILE
 	drop
 	;
 
 :,)
+	block.now ";BLK%d POP " ,print printddvtack
 	vpila2normal
 	blockt
-	0 =? ( <pilac ,etiqueta 
+	0 =? ( <pilac ,etiqueta
 			over 8 - @ $ff and 				| ;)
 			12 <>? ( vpdrop vppush )
 			drop )          		| IF
 	1 =? ( <pilac ,etiqueta
 			over 8 - @ $ff and 				| ;)
 			12 <>? ( vpdrop vppush )
-			drop )							| ELSE
+			drop
+			)							| ELSE
 	2 =? ( <pilac jmp, <pilac ,etiqueta )	| WHILE
 	3 =? ( <pilac ,jmpcond )				| UNTIL
 	4 =? ( <pilac jmp, )					| REPEAT
 	drop
-|	block.now ";BLK%d " ,print |   block.now dumpblock,
 	vpPop
 	block.end ;
 
