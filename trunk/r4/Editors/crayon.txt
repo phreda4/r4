@@ -1,0 +1,223 @@
+| Crayon - dibujador simple
+| PHREDA
+|---------------------
+^r4/lib/btn.txt
+^r4/lib/input.txt
+^r4/lib/dlg.txt
+^r4/lib/graf.txt
+^r4/lib/polygr.txt
+
+#sizebmr
+#wbmr
+#hbmr
+#rbrm
+
+#nombre )( 256
+#color $ff00
+
+:resetbmr
+	sw dup 'wbmr !
+	sh dup 'hbmr !
+	* 'sizebmr !
+	32 'rbrm !
+	0 'nombre c!
+	;
+
+|------------ Grabar simple RLE
+#cnt
+#colact
+
+:scanlast | --
+	colact cnt 0? ( 2drop ; )
+	( 255 >? )( over $ff000000 or , 255 - )
+	24 << or , ;
+
+:scanconv | adr -- adr+
+	@+ $ffffff and | adr+ color
+	colact =? ( 1 'cnt +! drop ; )
+	scanlast
+:scanini | color --
+	$ffffff and 'colact ! 1 'cnt ! ;
+
+:grabarpad
+	mark	| guarda texto
+	"BMR." ,s
+	xfb
+	@+ scanini
+	sizebmr ( 1- 1? )( >r scanconv r> ) 2drop
+	scanlast
+	'nombre c@ 0? ( "media/bmr/crayonpad.bmr" )( 'nombre ) nip
+	savemem
+	empty
+	;
+
+|-------------- Cargar simple RLE
+:cargarpad
+	mark
+	here dup
+	'nombre c@ 0? ( "media/bmr/crayonpad.bmr" )( 'nombre ) nip
+	load 'here !
+	0 0 setxy
+	4+
+	( here <? )(
+		@+
+		dup $ffffff and swap 24 >> $ff and | color cant
+		( 1? )( over px!+ 1- ) 2drop
+		) drop
+	empty
+	>xfb
+	;
+
+|--- FILES
+#cntf
+#actf
+
+:clickf
+	dup file "media/bmr/%s" mprint 'nombre strcpy
+    cargarpad
+	exit ;
+
+:loadfile
+	"media/bmr/" dir
+	0 ( dup file 1? )( drop 1+ ) drop 'cntf !
+	show xfb>scr
+		scr fonti home cr2
+		verde  [ "" dir exit ; ] dup "EDIT" sp btnt >esc<
+
+		cr cr
+		0 ( cntf <? )(
+			actf =? ( cyan )( negro )
+			'clickf
+			over file "%s" mprint
+			16 sp btntf cr cr
+			bout? 1? ( chome cr2 ) drop
+			1+ ) drop
+
+	 	clapiz 	;
+
+|---- nuevo archivo
+:finnew
+	exit
+	'nombre c@ 0? ( drop ; ) drop
+	'nombre "media/bmr/%s" mprint 'nombre strcpy
+	cls >xfb
+|    grabarpad
+	;
+
+:newfile
+	show xfb>scr
+		scr fonti home cr2
+		verde  [ "" dir exit ; ] dup "BACK" sp btnt >esc<
+		blanco
+		" NEW FILE" print cr cr
+		"media/bmr/" sp print
+		'nombre 32 sp input
+		'finnew lostfoco
+	 	clapiz 	;
+
+|--- trazo
+#trazo )( 8192
+#trazo> 'trazo
+
+:++trazo | px --
+	trazo> 4 - @ =? ( drop ; )
+:+trazo | px --
+	trazo> !+ 'trazo> ! ;
+:-trazo
+	'trazo 'trazo> ! ;
+
+:enlineas
+	'trazo @+ 0? ( 2drop ; ) d>xy op
+	( trazo> <? )( @+ d>xy line ) drop ;
+
+:engrosor
+	linegr 0? ( drop enlineas ; ) drop
+	'trazo @+ 0? ( 2drop ; ) d>xy gop
+	( trazo> <? )( @+ d>xy gline ) drop ;
+
+:dibujalinea
+	engrosor >xfb ;
+
+|--- Paleta          1
+#paleta )( 1024
+
+:fillpaleta
+	'paleta
+
+	256 ( 1? )( 1-
+		dup 8 << 1.0 1.0 hsv2rgb rot !+ swap
+		) 2drop
+	;
+
+:clickpal
+	;
+
+#winPa 0 0 0 262 100 "Paleta"
+:dlgPa
+	4 'tx1 +!
+	22 'ty1 +!
+	'paleta
+    0 ( 8 <? )(
+		0 ( 32 <? )(
+         		rot @+ ink
+				rot rot
+				dup 3 << tx1 + pick2 3 << ty1 + .at
+				7 7 .fbox
+			1+ ) drop
+		1+ ) drop
+	drop
+	;
+
+|--- grosor
+#winGr 0 0 0 70 200 "Line"
+:dlgGr
+	linegr
+	0 ( 18 <? )(
+		over =? ( azul )( cyan )
+		[ dup linegg! ; ] over "%d" 4 sp btntf cr cr2
+		2 + ) drop
+	blanco "= %d =" printc
+	;
+
+|----- Main
+:main
+	1 linegg!
+
+	sh 230 - 200 'winGr 4+ !+ !
+	sh 130 - 280 'winPa 4+ !+ !
+
+	show xfb>scr
+		color ink
+		[ xymouse xy>d +trazo ; ]
+		[ xymouse xy>d ++trazo ; ]
+		[ dibujalinea -trazo ; ]
+		guiMap
+	    engrosor
+
+		scr fonti home cr2
+
+		rojo 'exit dup "EXIT" sp btnt >esc<
+		verde
+		[ cls >xfb ; ] "CLS" sp btnt
+		azul
+		'loadfile "LOAD" sp btnt
+		'newfile "NEW" sp btnt
+		sp 'color dlgcolor
+		azul 'dlgGr 'winGr guiWin | grosor
+		azul 'dlgPa 'winPa guiWin | paleta
+
+        blanco 'nombre printx
+
+	 	clapiz
+		;
+:
+	fillpaleta
+    0 paper
+    cls >XFB
+	mark
+	resetbmr
+	cargarpad
+	main
+	grabarpad
+	;
+
