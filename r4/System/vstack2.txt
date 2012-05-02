@@ -350,6 +350,9 @@
 ::block.now pilab> 	4 - @ ; | -- nblo
 ::block.in? pilab> 'pilab - ;
 ::blockt block.now 2 << 'block + @ $f and ;
+
+::blockNS block.now 2 << 'block + @ $10 and ;
+
 ::blockin block.now 2 << 'blocki + @ ;
 
 :blockT!	block.now 2 << 'block + ! ;
@@ -358,6 +361,7 @@
 :blWHILE	2 blockT! ;
 :blUNTIL  	3 blockT! ;
 :blREPEAT  	4 blockT! ;
+:blNOSPLIT	block.now 2 << 'block + dup @ $10 or swap ! ;
 
 :blINI	celln block.now 2 << 'blocks + ! ;
 :blEND	celln block.now 2 << 'blocke + ! ;
@@ -548,6 +552,10 @@
 	salto? 0? ( | ELSE
 		vpPop
 		<pilac drop 4 >pilac
+		blELSE
+		over 8 - @ $ff and | ;)
+		12 =? ( blNOSPLIT )
+		drop
 	)( | WHILE
 		vpDrop
 		<pilac drop 3 >pilac
@@ -602,12 +610,16 @@
 	salto? 1? ( <pilac drop
 		blUNTIL blSTACK prevcond
 		)( <pilac
-		1 =? ( blIF blCLONE )
+		1 =? ( blIF
+			pick2 8 - @ $ff and | ;)
+			12 =? ( blNOSPLIT )( blCLONE )
+			drop
+			)
 		2 =? ( blREPEAT blSTACK )
 		3 =? ( blWHILE blSTACK 	)
-		4 =? ( blELSE blCLONE
+		4 =? (
 			pick2 8 - @ $ff and | ;)
-			12 <>? ( vpdrop vppush )
+			12 <>? ( vpdrop vppush blCLONE )( blNOSPLIT )
 			drop
 			)
 		drop ) drop
@@ -1080,6 +1092,15 @@ vuso1	|MPLAY  a --
 |	,cr 'listausados >r ( 1? )( 1- r@+ ,d ,sp ) rdrop ,cr
 	;
 
+:cellused? | -- 0/n
+	0
+	'listausados
+	dpila> 'dpila - 2 >>
+	( 1? )( 1- swap @+
+		1? ( drop rot 1+ rot rot )( drop )
+		swap ) 2drop
+	;
+
 :regcnt? | reg -- reg cnt
 	0 'dpila ( dpila> <? )( @+ | reg sum adr cel
 		cellREG? pick3 =? ( rot 1+ rot rot )
@@ -1158,7 +1179,8 @@ vuso1	|MPLAY  a --
 
 :genEAX | cell --
 	dup cellREG? 0? ( 2drop ; ) drop	| ya es eax!
-	dup 0 ,cell2REG
+|	dup 0 ,cell2REG | si usa xor limpia flags
+	"mov eax," ,s dup ,CELL ,cr
 	0 5 rot cell! ;
 
 :vplast
@@ -1168,10 +1190,10 @@ vuso1	|MPLAY  a --
 
 :vpcopia
 	d.cnt 0? ( drop vplast ; ) drop
-	pasada_free_reg
-	pasada_free_cell
-	pasada_free_reg	| cantidad de pasadas
-	pasada_free_cell | cuando no tiene registros disponibles
+
+	( 	pasada_free_reg 
+		pasada_free_cell 
+		cellused? 1? )( drop ) drop
 
 	'dpila d.cnt |	copia resto
 	 1- ( 1? )( 1-
