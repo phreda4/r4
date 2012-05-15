@@ -1,0 +1,218 @@
+#option1 "Play"
+#option2 "Load Second Level"
+#option3 "Execute Ostrich Algorithm"
+#option4 "Forfeit"
+#option5 "Quit"
+
+#title "Fabrizzio Bros."
+#highlight 1
+
+| arguments: alpha | returns: --
+:spawnCloud
+	rand abs 120.0 mod rand abs 30.0 mod -30.0 + rot createCloud
+	;
+
+| arguments: -- | returns: --
+:burstClouds
+	30
+	( +? )(
+		rand abs 150 mod spawnCloud
+		1 -
+	)
+	drop
+	;
+
+| play
+| arguments: -- | returns: --
+:optionAction1
+	1 gotoLevel
+	83.0 -20.0 CreateGoal
+	1 'stage !
+	trailSize 'trail> prepareTrail
+	burstClouds
+	;
+
+| load second level
+| arguments: -- | returns: --
+:optionAction2
+	2 gotoLevel
+	83.0 -20.0 CreateGoal
+	1 'stage !
+	trailSize 'trail> prepareTrail
+	burstClouds
+	;
+
+| Ostrich algorithm
+| arguments: -- | returns: --
+:optionAction3
+	;
+
+| quit
+| arguments: -- | returns: --
+:optionAction4
+	exit
+	;
+
+#options 5 'option1 'option2 'option3 'option4 'option5
+#optionsActions 'optionAction1 'optionAction2 'optionAction3 'optionAction4 'optionAction4
+
+| arguments: -- | returns: --
+:checkKeys
+	upKey checkJustPressed
+	1? (
+		drop
+		1 highlight 1 - maxValue 'highlight !
+	)(
+		drop
+	)
+
+	downKey checkJustPressed
+	1? (
+		drop
+		options highlight 1 + minValue 'highlight !
+	)(
+		drop
+	)
+
+	fireKey checkJustPressed
+	1? (
+		drop
+		highlight 1 - 2 << 'optionsActions + @ exec
+	)(
+		drop
+	)
+	;
+
+#timer 0
+#maxTimer 10
+
+| arguments: -- | returns: --
+:trySpawnCloud
+	timer maxTimer =? (
+		drop
+		0 spawnCloud
+		0 'timer !
+	)(
+		drop
+		timer 1 + 'timer !
+	)
+	;
+
+| arguments: -- | returns: --
+:executeLayers
+	'player updateCamSmooth
+	xcam ycam zcam mtrans
+	drawBackground
+	'listfxCnt 'listfx cycleLayer
+	trail> 'trail drawTrail
+	'player GeneralUpdate drop
+	'listenCnt 'listen cycleLayer
+	'listobCnt 'listob cycleLayer
+
+	'trail trail> 'player pushTrail
+	trySpawnCloud
+	;
+
+| arguments: -- | returns: --
+:debug
+	scr home fonti verde
+	dup "Must be 33: %d" print cr
+	listfxCnt "cnt FX: %d" print cr
+	listenCnt "cnt EN: %d" print cr
+	listobCnt "cnt OB: %d" print cr
+
+	'player @xy swap "pl.x: %f pl.y: %f" print cr
+	'player @hvspeeds swap 'player @grav "pl.grav: %f pl.hspeed: %f pl.vspeed: %f" print cr
+	;
+
+| arguments: -- | returns: --
+:executeMenu
+	xcam ycam zcam mtrans
+	drawBackground
+	scr home
+	$ff0000 $0 gc.vdeg
+	5 bfont
+	'title cr printc cr
+
+	1						| i
+	( options <=? )(		| while (i<=options)
+		18 bfont
+		highlight =? (		| if (i==highlight)
+			$ff0000 $0 fcol
+		)(
+			$00 $ffffff fcol
+		)
+		0 over 8 + gotoxy
+		'options over 2 << + @ printc cr
+		
+		1 +					| i+=1
+	)
+	drop
+	
+	checkKeys
+	;
+
+| arguments: -- | returns: --
+:executeGame
+	executeLayers
+	
+	changeLevel 1? (			| if we should go to the next level
+		drop
+		0 'changeLevel !
+
+		gotoNextLevel
+		1? (
+			83.0 -20.0 CreateGoal
+		)(
+			2 'stage !
+		)
+		drop
+	)(
+		drop
+	)
+
+	| debug
+	;
+
+
+
+| arguments: String | returns: --
+:endScreen
+	>r
+	xcam ycam zcam mtrans
+	drawBackground
+	scr home
+
+	5 bfont
+	$ff0000 $0 gc.vdeg
+	r> cr printc cr cr cr
+
+
+	16 bfont
+    $0 $0 gc.vdeg
+	"Press Fire or Esc to return to menu" printc cr
+
+	fireKey checkPressed
+	1? (
+		drop
+		0 'stage !
+	)(
+		drop
+	)
+	;
+
+| arguments: -- | returns: --
+:executeWin
+	"You Won!" endScreen
+	;
+
+| arguments: -- | returns: --
+:executeGameOver
+	"You Lost!" endScreen
+	;
+
+#stages 'executeMenu 'executeGame 'executeWin 'executeGameOver
+
+::executeStage
+	'stages stage 2 << + @ exec
+	;
