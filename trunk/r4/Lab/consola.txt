@@ -1,0 +1,84 @@
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+#c.atrib $ff00
+#c.scrn 0
+#c.w
+#c.h
+#c.cursor
+
+
+:c.full
+	here dup 'c.scrn ! 'c.cursor !
+	sw 3 >> 'c.w !
+	sh 12 / 'c.h !
+	c.w c.h * 2 << 'here +!
+	;
+
+:c.linen
+	$80 ( 1? )(
+		over and? ( ink@ px!+ )( 1 px+! )
+		2/ ) 2drop ;
+
+:c.linei
+	neg c.linen ;
+
+:c.drawfont | c --
+	3 << dup 2/ + 'rom8x12 +
+	sw 8 - swap
+	12 ( 1? )( 1-
+		swap c@+
+		$80 ( 1? )(
+			over and? ( ink@ px!+ )( 1 px+! )
+			2/ ) 2drop
+		pick2 px+!
+		swap )
+	sw 12 * neg 8 + px+!
+	3drop
+	;
+
+:c.draw
+	c.scrn >r
+	0 0 setxy
+	c.h ( 1? )( 1-
+		c.w ( 1? )( 1-
+			r@+
+			| decode color
+			dup 8 >> ink12
+			$ff and c.drawfont
+			) drop
+		sw 11 * px+!
+		) drop
+	rdrop
+	;
+
+:c.emit | char --
+	c.atrib or c.cursor !+ 'c.cursor ! ;
+
+:c.print | "" --
+	mprint ( c@+ 1? )( c.emit ) 2drop ;
+
+:c.cls
+	c.scrn dup 'c.cursor !
+	c.w c.h * ( 1? )( 1- 0 rot !+ swap ) 2drop ;
+
+:c.rand
+	c.scrn c.w c.h * ( 1? )( 1- rnd rot !+ swap ) 2drop ;
+
+:c.ink | color --
+	8 << $fff00 and c.atrib $fff000ff and or ;
+
+:inicio
+	mark
+	c.full
+	show clrscr
+
+
+		[ "hola" c.print ; ] <f1>
+		[ c.cls ; ] <f2>
+		[ c.rand ; ] <f3>
+		[ key toasc c.emit ; ] <visible>
+		c.draw
+		'exit >esc< ;
+
+: inicio ;

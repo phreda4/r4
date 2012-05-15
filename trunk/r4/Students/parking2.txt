@@ -1,0 +1,194 @@
+|--------------------------|
+|-----Desarrollado por-----|
+|------Juan M. Loubet------|
+|---juanmloubet@gmail.com--|
+|--------------------------|
+^r4/lib/btn.txt
+^inc/park.inc
+
+|variables de el auto
+#car_ang 0 #ang 0 #rot_ang 0 #car_vel 20 #car_x 0.5 #car_y 0.5 #car_vel_cala 10 #car_vel_calb -30 #car_dib 'dib2
+|variables del nivel y juego
+#lvl_dib 'dib1 #lvl_act 0 #totPark 0 #ahora -1
+|variables del bot
+#bot 0 #bot_x -60000 #bot_y 0 #bot_visible 0 #bot_ace 0.000002 #bot_onroad 1 #bot_dib #car_cars 'dib3 'dib4 'dib5 'dib6
+
+:resetLvl |Reinicia nivel
+    -60000 'bot_x ! 0 'bot_y ! 1 'bot_onroad ! |variables del bot
+    -1 'ahora ! 0 'totPark ! |variables del juego
+    20 'car_vel ! 0.5 'car_x ! 0.5 'car_y !	0 'car_ang ! 0 'ang ! 0 'rot_ang ! 10 'car_vel_cala ! -30 'car_vel_calb ! 'dib2 'car_dib ! |variables del auto
+;
+:carExplosion |Explota el coche
+        -1 'totPark ! 0 'bot_onroad ! 0 'car_vel ! 0 'car_vel_cala ! 0 'car_vel_calb ! 'dib8 'car_dib !
+;
+:winOrLose |Detecta si coliciono contra una pared o llego al area de parking
+	dup
+	16777215 <>? ( carExplosion )(
+		-1 totPark <>? (
+                    4 totPark >? (
+			1 'totPark +!
+                    ) drop
+		) drop
+	) drop
+;
+:onRoad | Informa que hay al menos una rueda en la ruta
+        -1 totPark <>? (
+            |3 totPark >? (
+                    0 'totPark !
+            |) drop
+        ) drop
+;
+:inPath |Deteccion si estoy sobre el camino
+	car_x car_y fpos
+	xc yc 0.2 ang - 19 xy+polar drop dup |33 x x
+	0 >? ( | x x
+		760 <? ( | x x
+			xc yc 0.2 ang - 19 xy+polar getpixel 5592405 <>? ( winOrLose )( onRoad ) drop
+		)
+	) drop drop
+	xc yc 0.3 ang - 19 xy+polar drop dup
+	0 >? (
+		760 <? (
+			xc yc 0.3 ang - 19 xy+polar getpixel 5592405 <>? ( winOrLose )( onRoad ) drop
+		)
+	) drop drop
+	xc yc 0.7 ang - 19 xy+polar drop dup
+	0 >? (
+		760 <? (
+			xc yc 0.7 ang - 19 xy+polar getpixel 5592405 <>? ( winOrLose )( onRoad ) drop
+		)
+	) drop drop
+	xc yc 0.8 ang - 19 xy+polar drop dup
+	0 >? (
+		760 <? (
+			xc yc 0.8 ang - 19 xy+polar getpixel 5592405 <>? ( winOrLose )( onRoad ) drop
+		)
+	) drop drop
+;
+:pickBotDib | Busca imagen para el bot
+	rand 8 >> 3 and 2 << 'car_cars + @
+	'bot_dib !
+;
+:scrLimits |Fuera de pantalla
+	car_x
+	1.09 >? ( -1.09 nip )
+	-1.09 <? ( 1.09 nip )
+	'car_x !
+;
+:carTurn |Calcula posicion cuando dobla.
+	car_ang 'ang +!
+
+	ang 1.0 >? ( drop 0 'ang ! )( drop )
+	ang -1.0 <? ( drop 0 'ang ! )( drop )
+
+	ang sincos car_vel * 15 >> 'car_x +! car_vel * 15 >> neg 'car_y +!
+	car_x car_y fpos 0.1 0.1 fdim car_dib ang rnsprite
+;
+:limitTurn	|Limita rotacion para evitar que el auto gire en posicion neutra
+	car_vel 0 <? ( -1 * )
+	30 <? ( 0 'rot_ang ! )( 0.009 'rot_ang ! ) drop
+;
+:friction   | Friccion
+    0 car_vel >? ( 1 )( -1 ) 'car_vel +! drop
+;
+:keysActions
+    'exit >esc<
+    [ car_vel_cala 'car_vel +! ; ] <dn> [ car_vel_calb 'car_vel +! ; ] <up>
+    [ rot_ang 'car_ang ! ; ] <ri> [ rot_ang -1 * 'car_ang ! ; ] <le>
+    [ 0 'car_ang ! ; ] dup >ri< >le<
+;
+:bots
+	bot_visible 0 =? (
+		|cargo en bot_x el val aleatorio
+	    bot 0 =? (
+			rand 43000 mod abs |entre 0 y 44000
+			'bot_y !
+			1 'bot !
+			pickBotDib
+		)
+		drop
+		bot_x bot_y fpos 0.1 0.1 fdim bot_dib 0.5 rnsprite
+		bot_onroad 1 =? (
+			bot_x 1.09 >? ( 0 'bot ! -60000 'bot_x ! )( bot_ace 'bot_x +! ) drop
+		)
+		drop
+
+	)
+	drop
+;
+:winner
+    'exit >esc<
+    show clrscr
+        16 font home azul 0 7 gotoxy "Sos un maestro guru Parkeador!!!" printc
+        8  font home rojo 0 1 gotoxy "BUUM BOOM CAR" printc cr cr cr cr cr
+        sp rojo 'exit "Chau" btnt
+        cmano
+;
+:lvlControl
+    lvl_act "Nivel:%d" printc cr
+    1 lvl_act <=? (
+        2 lvl_act <=? (
+            3 lvl_act <=? (
+                4 lvl_act <=? (
+                    winner
+                )(
+                    0.000008 'bot_ace !
+                    'dibf 'lvl_dib !
+                ) drop
+            )(
+                0.000004 'bot_ace !
+                'dibe 'lvl_dib !
+            ) drop
+        )(
+            'dibb 'lvl_dib !
+        ) drop
+    ) drop
+;
+:lvlStatus
+    4 lvl_act <? ( "Nivel:%d" printc cr ) drop
+    -1 totPark =? (
+            "Perdio!" printc cr
+            ahora -1 =? ( msec 5000 + 'ahora ! ) drop
+            ahora msec <? (
+                    resetLvl
+            ) drop
+    ) drop
+    3 totPark <? (
+            ahora msec -  "Gana en: %d" printc cr
+            ahora -1 =? (	msec 5000 + 'ahora ! ) drop
+            ahora msec <? (
+                    1 'lvl_act +!
+                    resetLvl
+            ) drop
+    ) drop
+;
+:juego
+	show clrscr
+		90000 90000  fdim 0 0 fpos lvl_dib nsprite     |Muestra fondo de lvl
+       lvlControl
+		lvlStatus
+		bots
+		limitTurn |Limita rotacion para evitar que el auto gire en posicion neutra
+       inPath |Deteccion si estoy sobre el camino
+		friction   | Friccion
+       carTurn |Calcula posicion cuando dobla.
+		scrLimits	|Fuera de pantalla 
+ 
+		keysActions
+
+		scr home dup "%d " print
+	; 
+
+:presentation
+    show clrscr
+        16 font home azul 0 7 gotoxy "Parkea como un campeon!!!" printc
+        8  font home rojo 0 1 gotoxy "BUUM BOOM CAR" printc cr cr cr cr cr
+        sp sp sp sp sp sp sp sp verde 'juego "Jugar" .btnt
+
+        sp rojo 'exit "Chau" .btnt
+        cmano 
+    'exit >esc<
+    'juego >spc<
+
+;
+: 33 presentation ;
