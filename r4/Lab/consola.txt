@@ -1,40 +1,70 @@
 ^r4/lib/gui.txt
 ^r4/lib/trace.txt
 
-#c.atrib $ff00
+#c.x #c.y
+#c.w #c.h
 #c.scrn 0
-#c.w
-#c.h
 #c.cursor
+#c.atrib $ff00
 
-
-:c.full
+:c.full | w h --
+	12 / 'c.h !
+	3 >> 'c.w !
 	here dup 'c.scrn ! 'c.cursor !
-	sw 3 >> 'c.w !
-	sh 12 / 'c.h !
+	0 'c.x ! 0 'c.y !
 	c.w c.h * 2 << 'here +!
 	;
 
-:c.linen
-	$80 ( 1? )(
-		over and? ( ink@ px!+ )( 1 px+! )
-		2/ ) 2drop ;
-
-:c.linei
-	neg c.linen ;
-
-:c.drawfont | c --
-	3 << dup 2/ + 'rom8x12 +
-	sw 8 - swap
+|------- render
+:nor | adr --
 	12 ( 1? )( 1-
 		swap c@+
 		$80 ( 1? )(
 			over and? ( ink@ px!+ )( 1 px+! )
 			2/ ) 2drop
-		pick2 px+!
-		swap )
-	sw 12 * neg 8 + px+!
-	3drop
+		sw 8 - px+!
+		swap )  2drop
+	sw 12 * neg 8 + px+! ;
+
+:inv
+	12 ( 1? )( 1-
+		swap c@+
+		$80 ( 1? )(
+			over nand? ( ink@ px!+ )( 1 px+! )
+			2/ ) 2drop
+		sw 8 - px+!
+		swap )  2drop
+	sw 12 * neg 8 + px+! ;
+
+:und
+	11 ( 1? )( 1-
+		swap c@+
+		$80 ( 1? )(
+			over and? ( ink@ px!+ )( 1 px+! )
+			2/ ) 2drop
+		sw 8 - px+!
+		swap )  2drop
+	8 ( 1? )( 1- ink@ px!+ ) drop
+	sw 8 - px+!
+	sw 12 * neg 8 + px+! ;
+
+:iun
+	11 ( 1? )( 1-
+		swap c@+
+		$80 ( 1? )(
+			over nand? ( ink@ px!+ )( 1 px+! )
+			2/ ) 2drop
+		sw 8 - px+!
+		swap )  2drop
+	sw px+!
+	sw 12 * neg 8 + px+! ;
+
+#modo nor inv und iun
+
+:drawcell | c --
+	dup 8 >> ink12							| decode color
+	dup $ff and 3 << dup 2/ + 'rom8x12 +	| decode font
+	swap 18 >> $c and 'modo + @ exec		| jmp modo
 	;
 
 :c.draw
@@ -42,43 +72,118 @@
 	0 0 setxy
 	c.h ( 1? )( 1-
 		c.w ( 1? )( 1-
-			r@+
-			| decode color
-			dup 8 >> ink12
-			$ff and c.drawfont
+			r@+ drawcell
 			) drop
 		sw 11 * px+!
 		) drop
-	rdrop
+	rdrop ;
+
+|	c.cursor dup
+|	@ $ffe000ff and
+|	msec 13 << $100000 and or
+|	c.atrib or
+|	swap !
+
+:c.drawc
+	blink 1? ( drop ; ) drop
+	c.x 3 << c.y 12 * setxy
+	12 ( 1? )( 1-
+		8 ( 1? )( 1- $ffffff px!+ ) drop
+		sw 8 - px+!
+		) drop ;
+
+:c.in
+	c.x c.y
+:c.at | x y --
+	c.w * + 2 <<
+	c.scrn + 'c.cursor ! ;
+
+:c.uscroll
+	c.scrn
+	c.w 2 << over +
+	c.w c.h *
+	move
 	;
 
+:c.cr
+	0 'c.x !
+	c.y c.h <? ( 1+ 'c.y ! c.in ; ) drop
+	1- 'c.y ! c.in
+	c.uscroll ;
+
 :c.emit | char --
-	c.atrib or c.cursor !+ 'c.cursor ! ;
+	c.atrib or c.cursor !+ 'c.cursor !
+	c.x c.w <? ( 1+ 'c.x ! c.in ; ) drop
+	0 'c.x !
+	c.y c.h <? ( 1+ 'c.y ! c.in ; ) drop
+	1- 'c.y !
+	c.uscroll c.in ;
 
 :c.print | "" --
 	mprint ( c@+ 1? )( c.emit ) 2drop ;
 
 :c.cls
 	c.scrn dup 'c.cursor !
+	0 'c.x ! 0 'c.y !
 	c.w c.h * ( 1? )( 1- 0 rot !+ swap ) 2drop ;
 
 :c.rand
 	c.scrn c.w c.h * ( 1? )( 1- rnd rot !+ swap ) 2drop ;
 
 :c.ink | color --
-	8 << $fff00 and c.atrib $fff000ff and or ;
+	8 << $fff00 and c.atrib $fff000ff and or 'c.atrib ! ;
+
+:c.le
+	-4 'c.cursor +!
+	c.x 0 >? ( 1- 'c.x ! c.in ; ) drop
+	c.w 1- 'c.x !
+	c.y 0 >? ( 1- 'c.y ! c.in ; ) drop
+	c.in ;
+
+:c.ri
+	4 'c.cursor +!
+	;
+:c.up
+	c.w 2 << neg 'c.cursor +!
+	;
+:c.dn
+	c.w 2 << 'c.cursor +!
+	;
+
+|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
 :inicio
 	mark
-	c.full
+	sw sh c.full
+	c.cls
+	$0f0 c.ink
+	":r4 Command Console" c.print c.cr
+	$fff c.ink
+	">" c.print
 	show clrscr
 
 
 		[ "hola" c.print ; ] <f1>
 		[ c.cls ; ] <f2>
 		[ c.rand ; ] <f3>
-		[ key toasc c.emit ; ] <visible>
+		[
+	c.cursor dup @
+	msec 10 << $100000 and
+	xor swap !
+		; ] <f4>
+		[ key toasc $ff and c.emit ; ] <visible>
+		[ c.cr ; ] <enter>
+		'c.le <le>
+		'c.ri <ri>
+		'c.up <up>
+		'c.dn <dn>
+
+
 		c.draw
+		c.drawc
+|		blanco
+|		c.y c.x "%d %d" print
+
 		'exit >esc< ;
 
 : inicio ;
