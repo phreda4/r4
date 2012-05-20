@@ -1,3 +1,4 @@
+| sprite file
 #:dibu1 $485E4 $6DCD5 $E006DCD7 $E007BC07 $E0049B27 $49B27 $20009B27 $2003BC07 $2002DCD7
  $6DCD7 $FFFFFF4 $1AFF2CC5 $177B2A26 $127F2D56 $10BF3BB6 $110B49D6 $147B59A6 $1AEF5CD6
  $1E3B5C46 $1CE745F6 $4 $1BF339F5 $1BA739F6 $1A8F3BB6 $199B3F86 $193F4526 $199B4C76
@@ -335,8 +336,3 @@
  $6DF19A46 $4EC5A416 $3CB47B16 $42758D26 0
 #:dibu28 $FF004 $AC513CB5 $E83AA776 $22DEA286 $589D53B6 $25BD5066 $189C9066 $ED8C9066 $E6953CB6
  $ED240EC5 $13B5076 $11380D26 0
-#:dibu29
-#:cntdibu 41
-#:dibus 'dibu1 'dibu2 'dibu3 'dibu4 'dibu5 'dibu6 'dibu7 'dibu8 'dibu9 'dibuA 'dibuB 'dibuC 'dibuD 'dibuE 'dibuF 'dibu10
- 'dibu11 'dibu12 'dibu13 'dibu14 'dibu15 'dibu16 'dibu17 'dibu18 'dibu19 'dibu1A 'dibu1B 'dibu1C 'dibu1D 'dibu1E 'dibu1F 'dibu20
- 'dibu21 'dibu22 'dibu23 'dibu24 'dibu25 'dibu26 'dibu27 'dibu28 'dibu29

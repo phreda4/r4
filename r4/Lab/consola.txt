@@ -78,12 +78,6 @@
 		) drop
 	rdrop ;
 
-|	c.cursor dup
-|	@ $ffe000ff and
-|	msec 13 << $100000 and or
-|	c.atrib or
-|	swap !
-
 :c.drawc
 	blink 1? ( drop ; ) drop
 	c.x 3 << c.y 12 * setxy
@@ -107,16 +101,14 @@
 
 :c.cr
 	0 'c.x !
-	c.y c.h <? ( 1+ 'c.y ! c.in ; ) drop
-	1- 'c.y ! c.in
-	c.uscroll ;
+	c.y 1+ c.h <? ( 'c.y ! c.in ; ) drop
+	c.uscroll c.in ;
 
 :c.emit | char --
-	c.atrib or c.cursor !+ 'c.cursor !
-	c.x c.w <? ( 1+ 'c.x ! c.in ; ) drop
+	c.atrib or c.cursor ! |+ 'c.cursor !
+	c.x 1+ c.w <? ( 'c.x ! c.in ; ) drop
 	0 'c.x !
-	c.y c.h <? ( 1+ 'c.y ! c.in ; ) drop
-	1- 'c.y !
+	c.y 1+ c.h <? ( 'c.y ! c.in ; ) drop
 	c.uscroll c.in ;
 
 :c.print | "" --
@@ -134,21 +126,23 @@
 	8 << $fff00 and c.atrib $fff000ff and or 'c.atrib ! ;
 
 :c.le
-	-4 'c.cursor +!
 	c.x 0 >? ( 1- 'c.x ! c.in ; ) drop
 	c.w 1- 'c.x !
 	c.y 0 >? ( 1- 'c.y ! c.in ; ) drop
 	c.in ;
-
 :c.ri
-	4 'c.cursor +!
-	;
+	c.x c.w <? ( 1+ 'c.x ! c.in ; ) drop
+	0 'c.x !
+	c.y c.h <? ( 1+ 'c.y ! c.in ; ) drop
+	c.in ;
 :c.up
-	c.w 2 << neg 'c.cursor +!
-	;
+	c.y 0 >? ( 1- 'c.y ! c.in ; ) drop
+	c.h 1- 'c.y !
+	c.in ;
 :c.dn
-	c.w 2 << 'c.cursor +!
-	;
+	c.y c.h <? ( 1+ 'c.y ! c.in ; ) drop
+	0 'c.y !
+	c.in ;
 
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
@@ -156,33 +150,29 @@
 	mark
 	sw sh c.full
 	c.cls
-	$0f0 c.ink
-	":r4 Command Console" c.print c.cr
-	$fff c.ink
-	">" c.print
-	show clrscr
+	$0f0 c.ink ":r4 Command Console" c.print c.cr
+	$fff c.ink "# " c.print
+	$f00 c.ink
 
+	show clrscr
 
 		[ "hola" c.print ; ] <f1>
 		[ c.cls ; ] <f2>
-		[ c.rand ; ] <f3>
-		[
-	c.cursor dup @
-	msec 10 << $100000 and
-	xor swap !
-		; ] <f4>
+		[ c.uscroll ; ] <f3>
+
 		[ key toasc $ff and c.emit ; ] <visible>
-		[ c.cr ; ] <enter>
+		'c.cr <enter>
 		'c.le <le>
 		'c.ri <ri>
 		'c.up <up>
 		'c.dn <dn>
 
 
+		azul fonti2
+		c.y c.x "%d %d" print
+
 		c.draw
 		c.drawc
-|		blanco
-|		c.y c.x "%d %d" print
 
 		'exit >esc< ;
 
