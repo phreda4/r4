@@ -4,10 +4,13 @@
 |--------------------------------------------------
 ^r4/lib/gui.txt
 ^r4/lib/dlg.txt
+^r4/lib/dlgfile.txt
+^r4/lib/dlgcolor.txt
+
 ^r4/lib/sprite.txt
 ^r4/lib/trace.txt
 
-^r4/lib/dlgcolor.txt
+^r4/lib/leebmp.txt
 
 #modo 0
 #etrazo 1
@@ -25,8 +28,12 @@
 #xd #yd
 #xi #yi
 #xl #yl
-#grillamodo
+
 #egrilla 2
+
+#grillamodo
+#bmpfondo
+#bmpfondor
 
 |-----------------
 #dibujoed )( $1000
@@ -141,6 +148,7 @@
 #xcycwh 0 0 0 0
 
 :savebox
+	w h 0 0 bmppt
 	xc yc w h 'xcycwh !+ !+ !+ ! ;
 
 :loadbox
@@ -148,15 +156,43 @@
 
 :drawdibujo
 	loadbox
-|	grillamodo 0? ( blanco gc.fbox ) drop
-	'dibujoed nsprite
+
+	grillamodo 0? ( blanco gc.fbox ) drop
+	bmpfondo 1? ( xc w 2/ - yc h 2/ - bmpdrawfast ) drop
 	egrilla gris 2* rgrilla
+
+	bmpfondo 1? ( 200 alpha ) drop
+	'dibujoed nsprite
+	bmpfondo 1? ( 255 alpha ) drop
+
 	lastnodo 0? ( drop ; )
 	blink 1? ( negro )( blanco ) drop
 	@ gc>xy 4 box
 	loadbox
 	;
 
+:cambiofondo
+	grillamodo 1 xor 'grillamodo !
+	bmpfondo 1? ( 0 'bmpfondo ! )( bmpfondor 1? ( 'bmpfondo ! )( drop ) ) drop
+	;
+
+|--------------------------------------------------
+#filebmpback )( 256
+#bmphh
+#bmpww
+
+:bmpback
+	fonti
+	"media/bmp/" "*.bmp" dlgfileload 0? ( drop ; )
+	'filebmpback strcpy
+	'filebmpback bmp.load 0? ( trace )
+	dup 'bmpfondor ! 'bmpfondo !
+
+	loadbox
+	w h 0 0 bmppt
+	bmp.alto 'bmphh !
+	bmp.ancho 'bmpww !
+	;
 |--------------------------------------------------
 :indot | x y x y --
 	rot - dup * swap rot - dup * + | dx2+dy2
@@ -467,14 +503,24 @@
     drawnodos
 	;
 
+
 |--------------------------------------------------
 :vistamode
 	loadbox
 	[ xymouse 'yd ! 'xd ! ; ]
 	[ xymouse loadbox dup yd - 'yc +! 'yd ! dup xd - 'xc +! 'xd ! savebox ;	] guiDnMove
-
 	zoom 1.3 + sh 16 *>> dup 'w ! 'h !
 	savebox
+	drawdibujo
+	;
+
+:changexy
+	bmpXY
+	;
+
+:bmpmode
+	[ xymouse 'yd ! 'xd ! ; ]
+	[ xymouse yd - swap xd - swap changexy ; ] guiDnMove
 	drawdibujo
 	;
 
@@ -527,100 +573,85 @@
 	0 'modo !
 	haceindice ;
 
-:nuevopoli
-	'polinuevo guiBtn
-	policursor  -1 <>? ( 0.8 blanco )( colorb colora vbtn
-    	blink 1? ( verde )( amarillo ) drop
-		1.0 ) fzoom drop
-	gc2win 2 sfont home cr2 "*" printc ;
-
-:cadapoli | n -- n
-	maxpoli >? ( ; )
-	maxpoli =? ( nuevopoli ; )
-	policursor =? ( 0.9 )( 0.8 ) fzoom
-	dup 2 << 'indpol +
-    'policlick  guiBtn
-	4+ @ dup 8 - @ 4 >> swap 4 - @ 4 >> vbtn | col1 col2 --
-	policursor <>? ( ; )
-	gc2win 2 sfont home cr2
-	blink 0? ( negro )( blanco ) drop
-	dup "%d" printc ;
-
-:vlist | cnt 'acc --
-	>r
-	1.0 over / | cnt sw
-	0 ( pick2 <? )( | cnt sw a
-		gc.push
-		1.0 pick2 2over * over 2/ + 0.5 - 0 swap
-		gc.conv | w h xc yc --
-		r exec
-		gc.pop 1+ )
-	3drop rdrop ;
-
 :viewpolis
-	| poner cantidad de poligonos
-	modo 5 =? ( drop 'zoom vslide ; ) drop
-	indpol> 'indpol - 2 >> dup 'maxpoli ! 1+
-	8 max
-	'cadapoli vlist ;
+	1 rows 3 - gotoxy
+	0 'indpol ( indpol> <? )(
+		dup @ $ffffff and ink
+		'policlick pick2
+		policursor =? ( "<%d>" )( " %d " )
+		allowcr link
+      	4+ swap 1+ swap ) 2drop
+    'polinuevo
+	policursor -1 =? ( "<*>" )( " * " ) nip
+	allowcr link
+	;
 
-:eslinea	0 'modo ! ;
-:escaja     2 'modo ! ;
-:eselipse   3 'modo ! ;
-:opczoom    5 'modo ! ;
+|-----------------------------------------------------------
+:todosmodos
+	rojo
+	'exit 'ifin btnd gc>>
+	verde
+	[ 0 'modo ! ; ] 'idibuja btnd gc>>
+	[ 2 'modo ! ; ] 'istop btnd gc>>
+	[ 3 'modo ! ; ] 'irec btnd gc>>
+	[ 5 'modo ! ; ] 'ilupa btnd gc>>
+	;
 
+|-----------------------------
 :zoom1 	-0.5 'zoom ! ;
-:zoom2 	-0.2 'zoom ! ;
 :zoom3 	0.0 'zoom ! ;
-:zoom4 	0.2 'zoom ! ;
 :zoom5	0.4 'zoom !	;
 
-|--------------------------------------------------
+:changewh
+	bmpww bmphh bmpWH ;
+
+:btnbmp
+	azul
+	[ bmpww 2* 0? ( 2 nip ) 'bmpww ! changewh ; ] 'imenos btnd gc>>
+	[ bmpww 2/ 0? ( 2 nip ) 'bmpww ! changewh ; ] 'imas btnd gc>>
+	verde
+	[ bmphh 2* 0? ( 2 nip ) 'bmphh ! changewh ; ] 'imenos btnd gc>>
+	[ bmphh 2/ 0? ( 2 nip ) 'bmphh ! changewh ; ] 'imas btnd gc>>
+	;
+
 :btnvista
-	'eslinea 'ifin btnd gcup
-	'zoom1 'imenos btnd gcup
-	'zoom2 'imenos btnd gcup
-	'zoom3 'istop btnd gcup
-	'zoom4 'imas btnd gcup
-	'zoom5 'imas btnd
+	violeta
+	'zoom1 'imenos btnd gc>>
+	'zoom3 'istop btnd gc>>
+	'zoom5 'imas btnd gc>>
+
+	w 2 << dup 2/ 'xc +! 'w !
+	'zoom Hslide
 	;
 
 :btnnuevo
 	rojo
-	'exit 'ifin btnd gcup
-	verde
-	'opczoom 'ilupa btnd gcup
-	'eslinea 'idibuja btnd gcup
-	'escaja 'istop btnd gcup
-	'eselipse 'irec btnd gcup
 	'deltrazo 'imenos btnd
 	;
 
 :btnnodos
-	rojo
-	'exit 'ifin btnd gcup
-	verde
-	'del-nodo 'imenos btnd gcup
-	'ins-nodo 'imas btnd gcup
-	'abapoli 'iarr btnd gcup
-	'curv-nodo 'icurva btnd gcup
+	azul
+	'del-nodo 'imenos btnd gc>>
+	'ins-nodo 'imas btnd gc>>
+	'curv-nodo 'icurva btnd gc>>
+	violeta
+	'abapoli 'iizq btnd gc>>
 	'del-poli 'imenos btnd
 	;
 
 :btntrazo 6
 	rojo
-	'exit 'ifin btnd gcup
 	'deltrazo 'iborrar btnd
 	;
 
-#btns 'btnnuevo 'btnnodos 'btnnuevo 'btnnuevo 'btntrazo 'btnvista
+#btns 'btnnuevo 'btnnodos 'btnnuevo 'btnnuevo 'btntrazo 'btnvista 'btnbmp
 
 :botonherra
 	modo 2 << 'btns + @ exec ;
 
 
 |||||||||||||||||||||||||||||
-#accmodos 'nodomode 'editmode 'cajamode 'circlemode 'trazomode 'vistamode
+#accmodos 'nodomode 'editmode 'cajamode 'circlemode 'trazomode 'vistamode 'bmpmode
 
 :viewdibujo
 	modo 2 << 'accmodos + @ exec ;
@@ -664,18 +695,18 @@
 	savebox
 	0 'modo !
 	show clrscr
-|		0.8 dup fdim 0 dup fpos
 		viewdibujo
-
-		0.1 1.0 fdim 0.9 0 fpos
 		viewpolis
 
-		0.1 dup fdim -0.9 0.9 fpos
-		btncolor gcdn
-		violeta 'borrodib 'iborrar btnd
+		-0.9 0.9 fpos 0.08 hdim
+		todosmodos botonherra
 
-		0.1 dup fdim -0.9 -0.9 fpos
-		botonherra
+		-0.9 0.72 fpos 0.08 hdim
+		btncolor gcdn
+		violeta 'borrodib 'iborrar btnd gcdn
+		gris 'cambiofondo 'idiamante btnd gcdn
+		azul 'bmpback 'icopia btnd gcdn
+		azul [ 6 'modo ! ; ] 'icopia btnd gcdn
 		cflecha
 |		scr home dumpdibujo
 		'exit >esc<
