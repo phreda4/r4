@@ -26,12 +26,15 @@
 #colores )( 2048
 #colores> 'colores
 
+|--- seleccion
+#seleccion #seleccion>
+
 |---- memoria para nombres
-#texto #texto> 'texto
+#texto #texto>
 |---- memoria vectorial
-#todo  #todo> 'todo
+#todo  #todo>
 |--- trazo de capa actual
-#trazo  #trazo> 'trazo
+#trazo  #trazo>
 
 |--- xfb refresh
 :copybox | w h x y --
@@ -98,9 +101,93 @@
 		@+ 28 >>
 		2 =? ( over 4 - indc+! )
 		drop )
-	2drop ;
+	colores> !
+	drop ;
+
+|---- MODO SELECCION
+#xa #ya #xb #yb
+#ycen #xcen
+#xa1 #ya1 #xb1 #yb1
+
+:sortab
+	xa xb >? ( xb 'xa ! dup 'xb ! ) drop
+	ya yb >? ( yb 'ya ! dup 'yb ! ) drop
+	;
+
+:inab | x y -- 1/0
+	ya <? ( 2drop 0 ; ) yb >? ( 2drop 0 ; ) drop
+	xa <? ( drop 0 ; ) xb >? ( drop 0 ; ) drop
+	1 ;
+
+:boxmm | x y --
+	xa1 -1 =? ( drop dup 'ya1 ! 'yb1 ! dup 'xa1 ! 'xb1 ! ; ) drop
+	ya1 <? ( dup 'ya1 ! ) yb1 >? ( dup 'yb1 ! ) drop
+	xa1 <? ( dup 'xa1 ! ) xb1 >? ( dup 'xb1 ! ) drop
+	;
+
+:boxselect
+	-1 'xa1 !
+	seleccion ( seleccion> <? )(
+		@+ @ dup 28 >> $3 and
+		2 <? ( drop $fffffff and d>xy boxmm )( 2drop )
+		) drop
+	xa1 xb1 + 2/ 'xcen !
+	ya1 yb1 + 2/ 'ycen !
+	-4 dup 'xa1 +! 'ya1 +!
+	4 dup 'xb1 +! 'yb1 +!
+	;
+
+|-------- edicion
+
+:dd0 $fffffff and d>xy 2 box ;
+:dd1 $fffffff and d>xy 2 box ;
+:dd2 drop ;
+:dd3 drop ;
+
+#acdd dd0 dd1 dd2 dd3
+
+:selecc.draw
+	seleccion ( seleccion> <? )(
+		@+ @
+		dup 26 >> $c and 'acdd + @ exec
+		) drop
+	cyan
+	xa1 -? ( drop ; ) ya1 xb1 yb1 caja
+	amarillo
+	xcen ycen 4 box
+	;
+
+:selecc.reset
+	-1 'xa ! -1 'xa1 !
+	seleccion 'seleccion> ! ;
+
+:selecc.set
+	sortab
+	trazo ( trazo> <? )(
+		@+ $fffffff and d>xy inab 1? ( over 4 - seleccion> !+ 'seleccion> ! ) drop
+		) drop
+	boxselect
+	;
+
+:modoseleccion | --
+	[ xymouse 2dup 'ya ! 'xa ! 'yb ! 'xb ! ; ]
+	[ xymouse 'yb ! 'xb ! ; ]
+	[ selecc.set -1 'xa ! ; ]
+	guiMap
+	cyan
+	selecc.draw
+	xa -? ( drop ; ) ya xb yb caja
+	;
 
 
+:btnseleccion
+	'selecc.reset "Clear" sp btnt
+	'exit "<" sp btnt
+|	'exit cursorp " %d " sp btnt
+	'exit ">" sp btnt
+
+	cminimano
+	;
 
 |---- SAVEALL
 :saver4c | "" --
@@ -155,37 +242,87 @@
 	[ trazo trazo> =? ( drop ; ) drop -4 'trazo> +! rehacexfb ; ] <del>
 	;
 
-|---- MODO POLIGONO
-:modopoligono
+:btndibujo
+	0 "DEL" sp btnt
+	cminilapiz
 	;
 
+|------------------------------------------------
 #modo 'mododibujo
+#modobtn 'btndibujo
+|------------------------------------------------
 
-|---- MODO SELECCION
-#xa #ya #xb #yb
-:clearsel
-	-1 'xa ! ;
-
-:modoseleccion
-	[ xymouse 2dup 'yb ! 'xb ! 'ya ! 'xa ! ; ]
-	[ xymouse 'yb ! 'xb ! ; ]
-	[ ; ]
-	guiMap
-	xa -? ( drop ; ) ya xb yb caja
+|---- MODO POLIGONO
+:,dibline
+	xa -? ( drop xb yb 2dup 'ya ! 'xa ! xy>d trazo.op ; )
+	xb - abs ya yb - abs + 0? ( drop ; ) drop
+	xb yb xa ya gop
+	2dup gline
+	2dup xy>d trazo.line
+	xa pick2 <? ( pick2 )( pick2 swap ) over - grosor 2* +  | x w
+	ya pick3 <? ( pick3 )( pick3 swap ) over - grosor 2* +  | y h
+	swap >r rot grosor - r> grosor - copybox
+	'ya ! 'xa !
 	;
 
+:btnpoligono
+|	'reset "Clear" sp btnt
+	[ -1 'xa ! ; ] "Break" sp btnt
+|	'makepoli "Poli" sp btnt
+
+	blanco cmira
+	;
+
+:modopoligono
+	color ink
+	[ xymouse 'yb ! 'xb ! ; ] dup
+	[ ,dibline ; ]
+	guiMap
+	xa -? ( drop ; )
+	ya op xb yb line
+	;
+
+|---- BOTONES TRAZOS
 :clickcolor
-	| seleccionar
+	indexcolor
+	selecc.reset
+	dup 1- 2 << 'colores +
+	@+ swap @ swap
+	( over <? )(
+		dup seleccion> !+ 'seleccion> !
+		4+ ) 2drop
+
 	'modoseleccion 'modo !
+	'btnseleccion 'modobtn !
+	boxselect
 	;
 
 :colormenu
-	1 'colores ( colores> <? )(
+	0 'colores ( colores> <? )(
 		@+ @ $ffffff and ink
-		swap
+		swap 1+
 		'clickcolor over "%d" link
-		1+ swap ) 2drop ;
+		swap ) 2drop ;
 
+:clsframe
+	cls >xfb trazo.clear
+	indexcolor
+	color 1+ 'colora !
+	grosor 1+ 'grosora !
+	color col.clapiz!
+	;
+
+|----- modos
+:modoimagen
+	;
+
+:btnimagen
+	'clsframe "CLS" sp btnt
+	0 "LOAD" sp btnt
+	0 "SAVE" sp btnt
+
+	cminimano
+	;
 
 |----- Main
 :main
@@ -198,35 +335,40 @@
 	color col.clapiz!
 
 	fonti
-	show xfb>scr
-
+	show
+		xfb>scr
 		modo exec
 
 		32 'color btncolora
-
-|		32 btngrosor
+		32 btngrosor
 |		cr2
-
 |        blanco 'nombre printx
 
 		0 rows 3 - gotoxy
-		verde [ cls >xfb trazo.clear ; ] "CLS" sp btnt
-
-		[ 'mododibujo 'modo ! ; ] dup "DRAW" sp btnt <f1>
-		[ 'modopoligono 'modo ! ; ] dup "POLI" sp btnt <f3>
-
-		cr cr2 sp colormenu
+		sp colormenu
 		dup " (%d) " print
 		trazo> trazo - 2 >> "T:(%d)" print
-|		[ 'modoseleccion 'modo ! ; ] <f2>
+		cr cr2
+		modo
+		'modoimagen =? ( verde )( negro )
+		[ 'modoimagen 'modo ! 'btnimagen 'modobtn ! ; ] "IMAGEN" sp btnt
+		'mododibujo =? ( verde )( negro )
+		[ 'mododibujo 'modo ! 'btndibujo 'modobtn ! ; ] "DRAW" sp btnt
+		'modopoligono =? ( verde )( negro )
+		[ 'modopoligono 'modo ! -1 'xa ! 'btnpoligono 'modobtn ! ; ] "POLI" sp btnt
+		'modoseleccion =? ( verde )( negro )
+		[ 'modoseleccion 'modo ! 'btnseleccion 'modobtn ! selecc.reset ; ] "SELE" sp btnt
+		drop
+		violeta modobtn exec
+
 		'exit >esc<
-|	blink 1? ( blanco )( negro ) drop
-		blanco
-	 	cmira ;
+		;
 
 |------ INI
 :memlienzo
 	mark
+	here dup 'seleccion ! 'seleccion> !
+	$ffff 'here +!
 	here dup 'todo ! 'todo> !
 	$3ffff 'here +!
 	here dup 'texto ! 'texto> !
