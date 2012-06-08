@@ -108,10 +108,28 @@
 	scanlast
 	0 ,scanline ;
 
+#miny #maxy
+#minco #maxco
+#mincg #maxcg
+#matcolor )( $3ffff
+
 :inistat
+	0 'miny ! 0 'maxy !
+	0 'minco ! 0 'maxco !
+	0 'mincg ! 0 'maxcg !
+	'matcolor >r
+	$ffff ( 1? )( 0 r!+ 1- ) drop rdrop
 	;
 :addstat
-	drop ;
+	rgb2ycc
+	2dup $ff and swap $ff and 8 << or 2 << 'matcolor + 1 swap +!
+	mincg <? ( dup 'mincg ! )
+	maxcg >? ( dup 'maxcg ! ) drop
+	minco <? ( dup 'minco ! )
+	maxco >? ( dup 'maxco ! ) drop
+	miny <? ( dup 'miny ! )
+	maxy >? ( dup 'maxy ! ) drop
+	;
 :endstat
 
 	;
@@ -130,9 +148,10 @@
 :h2
 	imagen1 >r
 	bmp.ancho bmp.alto
+	inistat
 	( 1? )( 1-
 		over ( 1? )( 1-
-			r@+ to12+
+			r@+ dup addstat to12+
 			) drop
 		) 2drop
 	rdrop
@@ -187,8 +206,8 @@
 		0 ( bmp.ancho <? )(
 			2dup swap bmp.get
 			rgb2ycc
-			|2drop
-			$55 and swap $aa and or nip
+			2drop
+			|$55 and swap $aa and or nip
 			dup 8 << or dup 8 << or
 
 			r!+
@@ -227,21 +246,22 @@
 
 :lineahisto
 	2dup * 2 << imagen1 + >r
-	inistat
+|	inistat
 	( 1? )( 1-
 		bmp.ancho over -
-		r@+ |addstat
+		r@+ |dup addstat
 		view8bit
 		viewycc
 		2drop
 		) drop
 	rdrop
-	endstat
+|	endstat
 	;
+
 :main
 |	"media/bmp/pasto.bmp" bmp.load 'imagen1 !
-	"media/bmp/cerezop.bmp" bmp.load 'imagen1 !
-| 	"media/bmp/logo-clubpesca.bmp" bmp.load 'imagen1 !
+|	"media/bmp/cerezop.bmp" bmp.load 'imagen1 !
+ 	"media/bmp/mandel.bmp" bmp.load 'imagen1 !
 	here 'buff2 !
 
 
@@ -261,6 +281,10 @@
 		verde scanline# "%d " print
 		$fff noceros - "Colores:%d " print
 
+		0 0 gotoxy
+		miny maxy minco maxco mincg maxcg "%d %d %d %d %d %d" print
+
+
 		yrenglon
 		bmp.ancho
 		2dup * 2 << imagen1 + >r
@@ -273,6 +297,14 @@
 		rdrop
 		lineahisto
 
+		'matcolor >r
+		$ff ( 1? )( 1-
+			400 over 300 + setxy
+			$ff ( 1? )( 1-
+				r@+ 7 << px!+
+				) drop
+			) drop rdrop
+
 		bmp.ancho over op
 		sw swap line
 
@@ -281,15 +313,17 @@
 |		trace
 |		 h2
 		cflecha
+
+
 	'exit >esc<
 
 	[ yrenglon 0? ( drop ; ) 1- 'yrenglon ! ; ] <up>
 	[ yrenglon 1+ 'yrenglon ! ; ] <dn>
 
-	[ 1 'cgd +! copynewm ; ] <le>
-	[ -1 'cgd +! copynewm ; ] <ri>
-	[ 1 'cod +! copynewm ; ] <up>
-	[ -1 'cod +! copynewm ; ] <dn>
+|	[ 1 'cgd +! copynewm ; ] <le>
+|	[ -1 'cgd +! copynewm ; ] <ri>
+|	[ 1 'cod +! copynewm ; ] <up>
+|	[ -1 'cod +! copynewm ; ] <dn>
 
 ;
 
