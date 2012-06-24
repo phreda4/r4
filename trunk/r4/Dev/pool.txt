@@ -1,0 +1,133 @@
+| pool
+| PHREDA 2012
+
+^r4/lib/gui.txt
+^r4/lib/part16.txt
+^r4/dev/pool.spr
+
+#FRICTION	0.982
+#BALL_M		160.0
+
+#power 2.0
+#x1 #y1
+#x2 #y2
+
+|c m dy dx y x
+#balllist 0 0
+
+#xcam #ycam #zcam 50.0
+
+:hitwall | adr --
+	dup @ neg swap ! ;
+
+:pball
+	mpush
+	>r
+	r@+	| X
+	15.0 >? ( r 4+ hitwall ) -15.0 <? ( r 4+ hitwall )
+	r@+	| Y
+	20.0 >? ( r 4+ hitwall ) -20.0 <? ( r 4+ hitwall )
+	0 mtransi
+	r@+ r 12 - +!	| VX
+	r 4 - dup @ FRICTION *. swap !
+	r@+ r 12 - +!	| VY
+	r 4 - dup @ FRICTION *. swap !
+	r@+ drop		| MASS
+	r> @ 4 << $f or 'new1 8 - ! | COLOR
+	'sball 3dnsprite
+	mpop ;
+
+:+pball | color x y --
+	'pball 'balllist p!+ >r
+	r!+ r!+
+	0 0 r!+ r!+
+	BALL_M r!+
+	r> ! ;
+
+|------
+:everyb | p1 p2 -- p1 p2
+	over 4+ @ over 4+ @ - dup *. | (x1-x2)^2
+	pick2 8 + @ pick2 8 + @ - dup *. +
+	4.0 >=? ( drop ; ) sqrt. 2.0 swap - >r
+	over 4+ @ over 4+ @ - dup *.
+	pick2 8 + @ pick2 8 + @ - dup *.
+	atan2 sincos swap				| p1 p2 si co
+	dup r 2/ *. pick4 4+ +!
+	dup r 2/ *. neg pick3 4+ +!
+	over r 2/ *. pick4 8 + +!
+	over r 2/ *. neg pick3 8 + +!
+
+
+	dup r 2/ *. pick4 12 + +!
+	dup r 2/ *. neg pick3 12 + +!
+	over r 2/ *. pick4 16 + +!
+	over r 2/ *. neg pick3 16 + +!
+
+	2drop
+	rdrop
+	;
+|------
+:hitmove
+	rojo x1 y1 op xymouse 2dup line
+	'y2 ! 'x2 !
+	x1 x2 - dup * y1 y2 - dup * + 2* 'power !
+	;
+
+:hit
+	'balllist 4+ @ | 1er
+	12 + >r | vx vy
+	x1 x2 - y1 y2 -
+	atan2 sincos swap
+	power *. r!+
+	power *. r!+
+	rdrop
+	;
+
+:resethit
+	0 'x1 ! 0 'y1 ! 0 'x2 ! 0 'y2 ! ;
+
+:resetgame
+	'balllist p.clear
+	 $f0f0f0 -9.0 0.0 +pball
+	5 ( 1? )(
+		1 ( over <? )(
+				rand
+				pick2 5 - 2.0 * 10.0 +
+				pick3 1.0 * pick3 2.0 * -
+				+pball
+			1+ ) drop
+		1- ) drop
+	;
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - 7 << swap
+	neg mrotx mroty ;
+
+|-----
+:main
+	mark
+	50 'balllist p.ini
+	resetgame
+	resethit
+	fonti2
+	33
+	show clrscr blanco
+		dup "%d" print cr
+		power " POWER:%f" print
+
+		[ xymouse 'y1 ! 'x1 ! ; ] 'hitmove 'hit  guiMap
+
+		omode
+|		freelook
+		xcam ycam zcam mtrans
+
+		'balllist p.draw
+		'everyb 'balllist p.map2
+		'hit <spc>
+		'exit >esc<
+		cflecha ;
+
+: main ;
+
