@@ -1253,7 +1253,7 @@ if(fclose(stream)) return;
 //----------------- PRINCIPAL
 #ifndef RUNER
  #ifdef WIN32
-
+/*
 FILE *stream;
  
 int imprime(int v)
@@ -1296,22 +1296,23 @@ fprintf(stream,")\r");
 
 fprintf(stream,"code:%d cnt:$%x\r",&prog,cntprog);
 fprintf(stream,"data:%d cnt:$%x\r",&data,cntdato);
-/*
-fprintf(stream,"Esi:%d\r",(int)e->ContextRecord->Esi);
-fprintf(stream,"Edi:%d\r",(int)e->ContextRecord->Edi);
-fprintf(stream,"Eax:%d\r",(int)e->ContextRecord->Eax);
-fprintf(stream,"Ebx:%d\r",(int)e->ContextRecord->Ebx);
-fprintf(stream,"Ecx:%d\r",(int)e->ContextRecord->Ecx);
-fprintf(stream,"Edx:%d\r",(int)e->ContextRecord->Edx);
-fprintf(stream,"local:%d\r",*(int*)(e->ContextRecord->Ebp-16));
-fprintf(stream,"PSP:%d\r",(int)PSP);
-fprintf(stream,"RSP:%d\r",(int)RSP);
-*/
+
+//fprintf(stream,"Esi:%d\r",(int)e->ContextRecord->Esi);
+//fprintf(stream,"Edi:%d\r",(int)e->ContextRecord->Edi);
+//fprintf(stream,"Eax:%d\r",(int)e->ContextRecord->Eax);
+//fprintf(stream,"Ebx:%d\r",(int)e->ContextRecord->Ebx);
+//fprintf(stream,"Ecx:%d\r",(int)e->ContextRecord->Ecx);
+//fprintf(stream,"Edx:%d\r",(int)e->ContextRecord->Edx);
+//fprintf(stream,"local:%d\r",*(int*)(e->ContextRecord->Ebp-16));
+//fprintf(stream,"PSP:%d\r",(int)PSP);
+//fprintf(stream,"RSP:%d\r",(int)RSP);
+
 fprintf(stream,"IND:%d NOM:%d LOC:%d EXP:%d INC:%d \r",cntindice,cntnombre,cntindiceex,cntnombreex,cntincludes);
 fclose(stream);
 //SYSEVENT=(int)&ultimapalabra;
 return SHUTDOWN_NORETRY; //return EXCEPTION_CONTINUE_SEARCH;
 }
+*/
 #endif
 
 #endif
@@ -1337,7 +1338,7 @@ char *DEBUGR4X="debug.r4x";
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 #ifndef RUNER
-SetUnhandledExceptionFilter(&MyUnhandledExceptionFilter);
+//SetUnhandledExceptionFilter(&MyUnhandledExceptionFilter);
 #endif
 
 int w=640,h=480,silent=0;
