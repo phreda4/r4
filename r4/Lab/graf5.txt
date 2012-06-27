@@ -357,87 +357,6 @@
 |	pick2 <? ( swap rot  trace )
 	hlin_ exec ;
 
-|--------------- linea actual
-:espuntoi | y act dir1 x1 d1 -- y act
-	over + rot ! | y act x1 d1+x1
-	dup 16 >>
-	-? ( 2drop ; ) sw >=? ( 2drop ; )
-	pick3 setxy
-	8 >> $ff and
-	hcol_ exec
-	acpx!+ ;
-
-:espunto | y act dir1 x1 d1 -- y act
-	over + rot ! | y act x1 d1+x1
-	dup 16 >> 1+
-	-? ( 2drop ; ) sw >=? ( 2drop ; )
-	pick3 setxy
-	8 >> not $ff and
-	hcol_ exec
-	acpx!+ ;
-
-:casoA | y act dir1 x1 d1 -- y act (-)
-	-1.0 >? ( espuntoi ; )
-	over + rot over swap ! | y act x1 d1+x1
-	16 >> sw >=? ( 2drop ; )
-	pick3
-	rot $ffff and? ( 1.0 + ) 16 >> -? ( 3drop ; )
-	hout3 | x1 y x2
-	;
-:casoB | y act dir1 x1 d1 -- y act
-	1.0 <? ( espuntoi ; )
-	over + rot over swap ! | y act x1 d1+x1
-	swap 16 >> sw >=? ( 2drop ; )
-	pick3 1+ sh >=? ( 3drop ; )
-	rot 16 >> 1+ -? ( 3drop ; )
-	hout3 | x1 y x2
-	;
-:casoC  | y act dir2 x2 d2 -- y act (-)
-	-1.0 >? ( espunto ; )
-	over + rot over swap ! | y act x1 d1+x1
-	16 >> sw >=? ( 2drop ; )
-	pick3 1+ sh >=? ( 3drop ; )
-	rot 16 >> -? ( 3drop ; )
-	hin3 | x1 y x2
-	;
-:casoD  | y act dir2 x2 d2 -- y act
-	1.0 <? ( espunto ; )
-	over + rot over swap !
-	swap 16 >> sw >=? ( 2drop ; )
-	pick3
-	rot 16 >> -? ( 3drop ; )
-	hin3 | x1 y x2
-	;
-
-:dibujohor | y 'hor yac -- y 'hor+
-	swap >r
-	r@+ dup 16 >> swap $ffff and
-	rot swap hline3 | x1 y1 x2 --
-	r>
-	;
-
-:aristabajo | y act dir y -- y act dir y
-	0 pick3 4 - !	| 0 en activos para borrar
-|	1+ 'horiz
-|	( horiz> <? )( @+ pick2 =? ( -1 pick2 4 - ! dibujohor )( drop 4+ ) ) drop
-	;
-
-:fillact2 | y act -- act'
-	@+					| y act dirp1
-	dup 12 + @ pick3	| y act dirp1 ymax y
-	=? ( aristabajo ) drop | borra 1
-	4+ dup @+ swap @	| y act dir1 x1 d1
-	over $ffff and? ( 1.0 + ) 16 >> >r |'x1 !
-	1? ( -? ( casoA )( casoB ) )( 3drop )
-	@+					| y act dirp2
-	dup 12 + @ pick3	| y act dirp2 ymax y
-	=? ( aristabajo ) drop | borra 2
-	4+ dup @+ swap @ | y act dir2 x2 d2
-	over 16 >> >r |'x2 !
-	1? ( -? ( casoC )( casoD ) )( 3drop )
-	r> r> pick3 rot
-	hline3
-	;
 
 |-----------------------------------------
 :fadeout | x1 x2 --  x1<x2 x1<sw x2>0
@@ -517,53 +436,107 @@
 |---------------------------------------
 |---------------------------------------
 |---------------------------------------
+#xb
+:nx! | x
+	dup 'xb ! px+! ;
+:nx+
+	'xb +! ;
+:n@
+	xb neg px+! ;
+
+:fout | x1 x2 --  x1<x2 x1<sw x2>0
+|	dup pick2 - "O (%d) %d %d " print ;
+	-? ( 2drop ; )
+	dup pick2 - |-? ( 3drop ; )
+	$ff00 swap / >r | x1 x2 r:delta
+	$0 rot rot 					| alpha x1 x2
+	sw 1- clampmax
+	swap -? ( neg r * rot + swap 0 ) | alpha x2 x1
+	dup nx!
+	- r> rot rot 					| delta alphai cnt
+	dup nx+
+	( 1? )( 1- >r
+		dup 8 >> ink@ acpx!+ over + r> ) 3drop
+	n@ ;
+
+:fin | x1 x2 --    x1<x2 x1<sw x2>0
+|	dup pick2 - "I (%d) %d %d " print ;
+	-? ( 2drop ; )
+	dup pick2 - |-? ( trace 3drop ; )
+	$ff00 swap / >r
+	$ff00 rot rot		| al x1 x2
+	sw 1- clampmax
+	swap -? ( neg r * rot + swap 0 ) | alpha x2 x1
+	dup nx!
+	- r> rot rot
+	1+ dup nx+
+	( 1? )( 1- >r
+		dup 8 >> ink@ acpx!+ over - r> )
+	3drop
+	n@ ;
+
+:fline | x1 x2 --
+|	dup pick2 - "L (%d) %d %d " print ;
+	over <? ( swap )
+	-? ( 2drop ; )
+	sw 1- clampmax
+	swap clamp0
+	dup nx!
+	- dup nx+
+	( 1? )( 1- col1 px!+ ) drop
+	n@ ;
+
+
 :ttap | y x2 d2 x1 -- y x2 d2 x1.
-	dup 16 >> clamp0 pick4 setxy
-	-? ( 16 >> ; )
-	dup 8 >> $ff and ink@ acpx!+
-	16 >> ;
+	dup 16 >> -? ( nip ; )
+	dup px+!
+	swap 8 >> $ff and ink@ acpx!+
+	dup 1+ neg px+! 1+ ;
 
 :ttA | y x2 d2 x1 d1+ -- y x2 d2 x1.
 	1.0 <? ( drop ttap ; )
-	over + 16 >> >r
-	16 >> dup clamp0 pick4 setxy
-	r> swap over
-	rojo
-	fadein  ;
+	over + 16 >> >r 16 >> r>  | x1 x2
+|	swap over                 | x2 x1 x2
+	over 1- swap
+	rojo sw px+! fin sw neg px+! 1+ ;
 
 :ttB | y x2 d2 x1 d1- -- y x2 d2 x1.
 	-1.0 >? ( drop ttap ; )
-	over + 16 >> dup >r clamp0 pick4 setxy
-	16 >> r> over
-	verde
-	fadein ;
+	over + 16 >> swap 16 >> swap over
+	verde fin
+	1+ ;
 
 :ttcp | x1. x2 d2+ --
 	+ -? ( 2drop ; )
-	dup 16 >> rot swap fillline
+	violeta
+	dup 16 >> rot swap fline
+	dup 16 >> nx!
 	8 >> not $ff and ink@ acpx!+
+	1 nx+
+	n@
 	;
 
 :ttC | x1. x2 d2+ --
+|	drop 16 >> fline ;
 	1.0 <? ( ttcp ; )
-	over + 16 >> | x1. x2 x2.
-	swap 16 >>	| x1. x2+. x2.
+	over + 16 >> 1+ | x1. x2 x2.
+	swap 16 >> 1+ | x1. x2+. x2.
 	swap rot pick2 | x2. x2+ x1. x2.
 	azul
-|	pick4 <? ( trace 4drop ; )
-	fillline fadeout ;
+	fline fout ;
 
 :ttD | x1. x2 d2- --
 	-1.0 >? ( ttcp ; )
 	over + 16 >> | x1. x2 x2+.
 	swap 16 >> | x1. x2+. x2.
-	rot pick2 	| x2+. x2. x1. x2.
+|	rot pick2 	| x2+. x2. x1. x2.
+	rot over
 	amarillo
-|	pick3 >? ( trace 4drop ; )
-	fillline fadeout ;
+	fline
+	sw px+! fout sw neg px+! ;
 
 :ttF | x1+ x2 --
-	16 >> fillline ;
+	16 >> fline ;
 
 :fillact | y adr -- y adr
 	>r r@+ r@+  	| y p1 p2
@@ -575,10 +548,33 @@
 	dup 8 + @ pick4 =? ( 0 r 8 - ! ) drop
 	dup @+ swap @ rot over swap +!
 					| y x2 d2 x1 d1
-	0? ( drop 16 >> dup clamp0 pick4 setxy )( +? ( ttA )( ttB ) )
+	0? ( drop 16 >> )( +? ( ttA )( ttB ) )
 	rot rot
 	0? ( drop ttF )( +? ( ttC )( ttD ) )
 	r> ;
+
+
+|--------------- SCANLINE
+
+:cA
+:cB
+:cC
+:cD
+	drop 16 >>
+	;
+:fillacts | y adr -- y adr'
+    @+ 4+ 	| y ad p1 x 0
+	dup 8 + @ pick3 =? ( 0 pick3 4 - ! ) drop
+	dup @+ swap @ over + rot over swap !	| y adr x dx
+	over =? ( drop 16 >> )( over <? ( cA )( cB ) )
+	>r
+	@+ 4+
+	dup 8 + @ pick3 =? ( 0 pick3 4 - ! ) drop
+	dup @+ swap @ over + rot over swap !	| y adr x2 x3
+	over =? ( drop 16 >> )( over <? ( cC )( cD ) )
+	r>
+	fline
+	;
 
 |------------------------------------
 :fillactp | y adr -- y adr
@@ -615,7 +611,6 @@
 		@+ 0? ( drop 4 - activos> 4 - @ over ! -4 'activos> +! )( drop )
 		) drop
 	;
-
 
 :enddraw
 	'segs 'segs> !
@@ -690,7 +685,7 @@
 
 #puntos
 	10 5
-	4 10
+	4 9
 	19 15
 	16 10
 	-$ffffff
@@ -727,7 +722,6 @@
 	setxy ink@ px!+ ;
 
 :test2
-	blanco cr cr
 	'puntos >r
 	r@+ r@+ 2dup op4
 	( r@+ -$ffffff <>? )( r@+ pline4 ) drop rdrop
@@ -739,12 +733,12 @@
 	( r@+ -$ffffff <>? )( 30 + r@+ 10 + pline ) drop rdrop
 	pline poli
 
-	azul
+	blanco
 	blink 1? (
 	'puntos >r ( r@+ -$ffffff <>? )( r@+ pnt ) drop rdrop
 	) drop
 
-	blanco
+	blanco cr cr cr cr
 	scr 2dup  "%d %d" print
 	zoom128
 	movep
