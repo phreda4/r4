@@ -151,7 +151,8 @@
 |---- agrega segmentos ordenados
 :calt | dx -- t
 	0? ( ; )		| tipo 0, line vertical
-	$ffff0000 nand? ( 0 nip )( 16 >> )
+	-? ( -1.0 >? ( 0 nip ) )
+	16 >>
 	0? ( 1+ ; )		| tipo 1, vertical suave
 	$ff00 swap / 4 <<
 	+? ( 2 or ; )	| tipo 2, positivo
@@ -328,27 +329,38 @@
 	cr
 	r> ;
 
+:log | "" --
+	drop ;
+	count "trace.log" append ;
+
 |---------------------------------------------------
 |---------------------------------------------------
 :inaa | x1 x2 t --    x1<x2 x1<sw x2>0
+|	"-i-" log
 	>r
 	$ff00 rot rot		| al x1 x2
 	sw 1- clampmax
 	swap -? ( r * rot + swap 0 ) | alpha x2 x1
+	swap
 	2dup px+! 1+ 'xb !
-	- r> rot rot
-	hink_ exec 'col1 !
+	- r> rot rot                | t alpha cnt
+|	hink_ exec 'col1 !
+|	$ff00 'col1 !
+|	dup "|%d|" mprint log
 	1+ ( 1? )( 1- >r dup 8 >> col1 acpx!+ over - r> )
-	3drop n@ ;
+	3drop n@
+|	"*i*" log
+	;
 
-:outa | x1 x2 t -- ;x1<x2 x1<sw x2>0
+:outaa | x1 x2 t -- ;x1<x2 x1<sw x2>0
 	>r 				| x1 x2 r:delta
 	$0 rot rot 		| alpha x1 x2
 	sw 1- clampmax
 	swap -? ( neg r * rot + swap 0 ) | alpha x2 x1
 	2dup px+! 'xb !
 	- r> rot rot 					| delta alphai cnt
-	hink_ exec 'col1 !
+|	hink_ exec 'col1 !
+|	$ff0000 'col1 !
 	( 1? )( 1- >r dup 8 >> col1 acpx!+ over + r> )
 	3drop n@ ;
 
@@ -357,33 +369,50 @@
 	sw 1- clampmax
 	swap clamp0 |>r pick4 over hmix_ exec r>
 	2dup px+! 'xb !
-	- hlin_ exec
+	- -? ( drop ; ) |trace )
+	hlin_ exec
 	n@ ;
 
 :i0 | y adr p1 x1 xd t -- y adr xi	| recta
 	2drop nip 16 >> ;
 :i1 | y adr p1 x1 xd t -- y adr xi	| punto
+|	"i1" log
+	$ff00ff 'col1 !
+
 	drop over + rot !	| y adr x1
 	dup 16 >> -? ( nip ; ) sw >=? ( nip ; )
-	pick3 over hmix_ exec
+|	pick3 over hmix_ exec
 	dup px+!
-	swap 8 >> $ff and ink@ acpx!+
-	dup 1+ neg px+! 1+ ;
+	swap 8 >> $ff and col1 acpx!+
+	1+ dup neg px+! ;
 
 :i2	| y adr p1 x1 xd t -- y adr xi	| in positivo
+	"i2" log
 	>r
-	over + rot over swap !	| y adr x1<x2
+	over + rot over swap !	| y adr x1 < x2
 	16 >> -? ( rdrop nip ; )
 	swap 16 >> sw >=? ( rdrop drop ; )
 	pick3 sh 1- =? ( rdrop 2drop 1+ ; ) drop
-	1- swap r> 4 >>
+	| y adr x2 > x1
+	1- swap over
+	r> 4 >>
+	sw px+! inaa sw neg px+! 1+
+	;
+
+	1- swap
+	r> 4 >>
 	sw px+! inaa sw neg px+! 1+ ;
 
 :i3 | y adr p1 x1 xd t -- y adr xi | in negativo
+	"i3" log
+	$ff00 'col1 !
+
 	>r
-	over + rot over swap !	| y adr x1>x2
+	over + rot over swap !	| y adr x1 > x2
 	16 >> sw >=? ( rdrop nip ; )
 	swap 16 >> -? ( rdrop drop ; )
+	|dup rot |
+	over
 	r> 4 >> inaa ;
 
 #tin i0 i1 i2 i3
@@ -391,20 +420,31 @@
 |......
 
 :o0	| y adr p2 x2 xd t xi -- y adr
+|	"o0" log
+|	$ff00ff 'col1 !
+|	trace
 	nip nip sw >=? ( 3drop ; )	| y adr p2 x2 xi
 	swap 16 >> 1+ -? ( 3drop ; )
 	swap fillaa drop ;
 
 :o1 | y adr p2 x2 xd t xi -- y adr
-	nip nip sw >=? ( 3drop ; ) | y adr p2 x2 xi
-	over 16 >> 1+ -? ( 4drop ; )	| y adr p2 x2 xi < xj
-	fillaa nip | y adr x2
+|	"o1" log
+	$ff 'col1 !
+	nip >r + dup rot ! r> | y adr x2. xi
+	sw >=? ( 2drop ; ) 				| y adr x2 xi
+	over 16 >> 1+ -? ( 3drop ; )	| y adr x2 xi < xj
+	fillaa 							| y adr x2
+
+	$ff00 'col1 !
 	dup 16 >> 1+ sw >=? ( 2drop ; )
 	dup px+! 1+ 'xb !
-	8 >> not $ff and ink@ acpx!+
+	8 >> not $ff and col1 acpx!+
 	n@ ;
 
 :o2	| y adr p2 x2 xd t xi -- y adr
+|	"o2" log
+	$ff0000 'col1 !
+
 	swap >r >r
 	over + rot over swap ! | y adr x1 < x2
 	16 >> -? ( rdrop rdrop 2drop ; )
@@ -412,28 +452,44 @@
 	swap r> pick2 1+ fillaa r> outaa ;
 
 :o3	| y adr p2 x2 xd t xi -- y adr
+|	"o3" log
+
+	$ffff 'col1 !
+
 	swap >r >r
 	over + rot over swap ! | y adr x1 > x2
 	16 >> sw >=? ( rdrop rdrop 2drop ; )
 	swap 16 >> -? ( rdrop rdrop 2drop ; )
 	over r> fillaa | y adr x1 x2
 	pick3 sh 1- =? ( rdrop 3drop ; ) drop
+	$FF00 'col1 !
 	sw px+! r> outaa sw neg px+!
 	;
 
 #tout o0 o1 o2 o3
 
-:fillacts | y adr -- y adr'
+:ddddd
+	redraw show
+	'exit <f1> ;
+
+:testgood
+	'activos <? ( trace )
+	activos> >? ( trace )
+	;
+
+:fillact | y adr -- y adr'
     @+ 4+ 	| y ad p1 x 0
 	dup 8 + @ pick3 =? ( 0 pick3 4 - ! ) drop
-	dup @+ swap @+ 4+ @	| y adr p1 x1 xd t
+	dup @+ swap @+ swap 4+ @	| y adr p1 x1 xd t
 	dup $3 and 2 << 'tin + @ exec | y adr x1.
+|	ddddd
 	>r
 	@+ 4+
 	dup 8 + @ pick3 =? ( 0 pick3 4 - ! ) drop
-	dup @+ swap @+ 4+ @	| y adr p2 x1 xd t
+	dup @+ swap @+ swap 4+ @	| y adr p2 x1 xd t
 	r>
-	over $3 and 2 << 'tout + @ exec ;
+	over $3 and 2 << 'tout + @ exec
+	;
 
 |------------------------------------
 :filline | y -- y
@@ -522,7 +578,7 @@
 #puntoss
 5 5 20 5 20 20 5 20 -$ffffff
 
-#puntos )( 1024
+#puntoss )( 1024
 #nrop 16
 
 :movep
@@ -559,6 +615,13 @@
 	setxy ink@ px!+ ;
 
 :test2
+	blanco
+	'puntos >r
+	r@+ r@+ 2dup op
+	( r@+ -$ffffff <>? )( r@+ pline ) drop rdrop
+	pline poli
+
+
 	'puntos >r
 	r@+ r@+ 2dup op4
 	( r@+ -$ffffff <>? )( r@+ pline4 ) drop rdrop
@@ -589,7 +652,7 @@
 
 	blanco cr cr cr cr
 	scr 2dup  "%d %d" print
-|	zoom128
+	zoom128
 |	movep
 	movea
 	;
@@ -626,6 +689,10 @@
 :main
 	makepoli
 	show clrscr
+		cr cr cr
+		-0.1 $ffff0000 nand? ( 1 )( 0 ) "%d %f" print cr
+		-1.1 $ffff0000 nand? ( 1 )( 0 ) "%d %f" print
+
 		test2
 		|dibujapoli
 		cflecha
