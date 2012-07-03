@@ -5,6 +5,8 @@
 
 #col1 $ffffff
 #col2 0
+#col
+
 #tex
 #mtx #mty
 #ma #mb
@@ -240,10 +242,6 @@
 	0? ( ; )		| tipo 0, linea vertical
 	-? ( -1.0 >? ( 0 nip ) )
 	16 >> 0? ( 1+ ; )		| tipo 1, vertical suave
-
-|	$ff00 swap / 4 <<
-|	-? ( neg 3 or ; ) 2 or ;
-
 	-? ( neg 3 )( 2 )	| tipo 2, positivo tipo 3, negativo
 	$ff00 rot 1+ / 4 << or ;
 
@@ -297,9 +295,9 @@
 	-? ( r * rot + swap 0 ) | alpha x2 x1
 	2dup px+! 'xb !
 	- r> rot rot                | t alpha cnt
-	hink_ exec 'col1 !
+	hink_ exec 'col !
 |	-? ( trace )
-	( 1? )( 1- >r dup 8 >> col1 acpx!+ over - r> )
+	( 1? )( 1- >r dup 8 >> col acpx!+ over - r> )
 	3drop n@ ;
 
 :outaa | x1 x2 t -- ;x1>x2
@@ -309,9 +307,9 @@
 	-? ( neg r * rot + swap 0 ) | alpha x2 x1
 	2dup px+! 'xb !
 	- r> rot rot 		| delta alphai cnt
-	hink_ exec 'col1 !
+	hink_ exec 'col !
 |	-? ( trace )
-	( 1? )( 1- >r dup 8 >> col1 acpx!+ over + r> )
+	( 1? )( 1- >r dup 8 >> col acpx!+ over + r> )
 	3drop n@ ;
 
 :fillaa | x1 x2 --
@@ -325,25 +323,19 @@
 |---------------------------------------------------
 
 :i0 | y adr p1 x1 xd t -- y adr xi	| recta
-	2drop nip 16 >>
-	pick2 over clamp0 hmix_ exec
-	;
+	2drop nip 16 >> ;
 
 :i1 | y adr p1 x1 xd t -- y adr xi	| punto
 	drop over + rot !		| y adr x1
-	dup 16 >>
-	pick3 over clamp0 hmix_ exec
-	-? ( nip ; ) sw >=? ( nip ; )
+	dup 16 >> -? ( nip ; ) sw >=? ( nip ; )
 	dup px+!
-	swap 8 >> $ff and col1 acpx!+
+	swap 8 >> $ff and hink_ exec acpx!+
 	1+ dup neg px+! ;
 
 :i2	| y adr p1 x1 xd t -- y adr xi	| in positivo
 	>r
 	over + rot over swap !	| y adr x1 < x2
-	16 >>
-	pick3 over clamp0 hmix_ exec
-	-? ( rdrop nip ; )
+	16 >> -? ( rdrop nip ; )
 	swap 16 >> sw >=? ( rdrop drop ; )
 	pick3 sh 1- =? ( rdrop 2drop 1+ ; ) drop 	| y adr x2 > x1
 	1- swap over
@@ -353,9 +345,7 @@
 	>r
 	over + rot over swap !	| y adr x1 > x2
 	16 >> sw >=? ( rdrop nip ; )
-	swap 16 >>
-	pick3 over clamp0 hmix_ exec
-	-? ( rdrop drop ; )
+	swap 16 >> -? ( rdrop drop ; )
 	dup rot
 	r> 4 >> inaa ;
 
@@ -374,7 +364,7 @@
 	-? ( drop ; )
 	dup 16 >> 1+ sw >=? ( 2drop ; )
 	dup px+! 1+ 'xb !
-	8 >> not $ff and col1 acpx!+
+	8 >> not $ff and hink_ exec acpx!+
 	n@ ;
 
 :o2	| y adr p2 x2 xd t xi -- y adr
@@ -401,7 +391,9 @@
 :fillact | y adr -- y adr'
     @+ 4+ 	| y ad p1 x 0
 	dup 8 + @ pick3 =? ( 0 pick3 4 - ! ) drop
-	dup @+ swap @+ swap 4+ @	| y adr p1 x1 xd t
+	dup @+
+	pick4 over 16 >> clamp0 hmix_ exec
+	swap @+ swap 4+ @	| y adr p1 x1 xd t
 	dup $3 and 2 << 'tin + @ exec | y adr x1.
 	>r
 	@+ 4+
