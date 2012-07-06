@@ -175,9 +175,28 @@
 	segs> !+ !+ over >r !+ !+
 	r> calt swap !+ 'segs> ! ;
 
+#horiz )( 2048
+#horiz> 'horiz
+
+:-horiz		'horiz 'horiz> ! ;
+:horiz!+	horiz> !+ 'horiz> ! ;  | valor --
+
+:plinehoriz | x y --
+	sh >=? ( -1 nip ) -? ( drop 'px ! ; )
+	horiz!+ 	| y
+	px over dup 'px !
+	>? ( swap ) | max min
+ 	sw >=? ( 2drop -4 'horiz> +! ; )
+	clamp0
+	swap -? ( 2drop -4 'horiz> +! ; )
+	sw clampmax
+	16 << or
+	horiz!+	| y x1 x2
+	;
+
 |************************************
 ::PLINE4 | x y --
-	py =? ( drop 'px ! ; )
+	py =? ( plinehoriz ; ) |drop 'px ! ; )
 	over px - 16 << over py - 				| x y dx dy
 	-? ( / py 2over )( / over px py )	| x y deltax ymax xmin ymin
 	sh >? ( 4drop 'py ! 'px ! ; )
@@ -362,7 +381,16 @@
 		) drop
 	;
 
+:cadahor | adr -- adr'
+	>r
+	r@+ r@+ dup $ffff and swap 16 >> | y x1 x2
+	rot pick2 | x1 x2 y x1
+	2dup hmix_ exec
+	swap setxy swap - hlin_ exec
+	r> ;
+
 :enddraw
+	-horiz
 	'segs 'segs> !
 	$ffff dup  'xmin ! 'ymin !
 	-1 dup 'xmax ! 'ymax !
@@ -372,7 +400,6 @@
 ::POLI4
 	xmin sw >? ( drop enddraw ; ) drop
 	xmax -? ( drop enddraw ; ) drop
-
 	sh ymax <? ( 'ymax ! )( drop )
 	-1 segs> ! | marca ultimo
 	-activos
@@ -385,6 +412,7 @@
 		filline
 		sw px+!
 		1+ ) 3drop
+	'horiz ( horiz> <? )( cadahor ) drop
 	enddraw ;
 
 |---------- zoom
@@ -547,6 +575,7 @@
 |	makepoli
 	show clrscr
 		cr cr cr
+
 		test2
 		|dibujapoli
 |		cflecha
