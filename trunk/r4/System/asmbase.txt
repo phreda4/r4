@@ -12,8 +12,8 @@
 #ma #mb
 #mex #mey
 
-::ink 'col1 ! ;
-::ink@ col1 ;
+::ink 'col ! ;
+::ink@ col ;
 
 #px #py
 #cx #cy
@@ -109,7 +109,7 @@
 	-? ( 3drop ; ) sw >=? ( drop sw 1- rot sw >=? ( 3drop ; ) )( rot )
 	clamp0 rot over swap 						| x2 x1 x1 y1
 	setxy - 1+
-	( 1? )( 1- col1 px!+ ) drop ;
+	( 1? )( 1- col px!+ ) drop ;
 
 |*******************************
 ::CP | xy --
@@ -176,9 +176,9 @@
 |----------- internas de pintado
 |----------------- solido
 :_setmixs	2drop ;	| y x --
-:_inkmixs	col1 ;	| -- c
+:_inkmixs	col ;	| -- c
 :_lines 			| cnt --
-	( 1? )( 1- col1 px!+ ) drop ;
+	( 1? )( 1- col px!+ ) drop ;
 
 |----------------- degrade lineal
 :_setmixl | y x --
@@ -262,9 +262,28 @@
 	segs> !+ !+ over >r !+ !+
 	r> calt swap !+ 'segs> ! ;
 
+#horiz )( 2048
+#horiz> 'horiz
+
+:-horiz		'horiz 'horiz> ! ;
+:horiz!+	horiz> !+ 'horiz> ! ;  | valor --
+:plinehoriz | x y --
+	sh >=? ( -1 nip ) -? ( drop 'px ! ; )
+	horiz!+ 	| y
+	px over =? ( 2drop -4 'horiz> +! ; )
+	over dup 'px !
+	>? ( swap ) | max min
+ 	sw >=? ( 2drop -4 'horiz> +! ; )
+	clamp0
+	swap -? ( 2drop -4 'horiz> +! ; )
+	sw clampmax
+	16 << or
+	horiz!+	| y x1 x2
+	;
+
 |************************************
 ::PLINE | x y --
-	py =? ( drop 'px ! ; )
+	py =? ( plinehoriz ; ) |drop 'px ! ; )
 	over px - 16 << over py - 				| x y dx dy
 	-? ( / py 2over )( / over px py )	| x y deltax ymax xmin ymin
 	sh >? ( 4drop 'py ! 'px ! ; )
@@ -423,7 +442,16 @@
 		) drop
 	;
 
+:cadahor | adr -- adr'
+	>r
+	r@+ r@+ dup $ffff and swap 16 >> | y x1 x2
+	rot pick2 | x1 x2 y x1
+	2dup hmix_ exec
+	swap setxy swap - hlin_ exec
+	r> ;
+
 :enddraw
+	-horiz
 	'segs 'segs> !
 	$ffff dup  'xmin ! 'ymin !
 	-1 dup 'xmax ! 'ymax !
@@ -433,7 +461,6 @@
 ::POLI
 	xmin sw >? ( drop enddraw ; ) drop
 	xmax -? ( drop enddraw ; ) drop
-
 	sh ymax <? ( 'ymax ! )( drop )
 	-1 segs> ! | marca ultimo
 	-activos
@@ -446,6 +473,7 @@
 		filline
 		sw px+!
 		1+ ) 3drop
+	'horiz ( horiz> <? )( cadahor ) drop
 	enddraw ;
 
 |-------------------------------------------
