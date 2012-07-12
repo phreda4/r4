@@ -109,7 +109,9 @@ char *macros[]={// directivas del compilador
 "@","C@","W@","!","C!","W!","+!","C+!","W+!", //--- memoria
 "@+","!+","C@+","C!+","W@+","W!+",
 "MOVE","MOVE>","CMOVE","CMOVE>",//-- movimiento de memoria
-"MEM","DIR","FILE","FSIZE","VOL","LOAD","SAVE","APPEND",//--- memoria,bloques
+"MEM", //"DIR","FILE","FSIZE","VOL",
+"FFIRST","FNEXT",
+"LOAD","SAVE","APPEND",//--- memoria,bloques
 "UPDATE",
 //"TPEN",
 "XYMOUSE","BMOUSE", //"MOUSE",     //-------- mouse
@@ -155,7 +157,9 @@ NEG,INC,INC4,DEC,DIV2,MUL2,SHL,SHR,//--- aritmetica
 FECH,CFECH,WFECH,STOR,CSTOR,WSTOR,INCSTOR,CINCSTOR,WINCSTOR,//--- memoria
 FECHPLUS,STOREPLUS,CFECHPLUS,CSTOREPLUS,WFECHPLUS,WSTOREPLUS,
 MOVED,MOVEA,CMOVED,CMOVEA,
-MEM,PATH,BFILE,BFSIZE,VOL,LOAD,SAVE,APPEND,//--- bloques de memoria, bloques
+MEM, //PATH,BFILE,BFSIZE,VOL,
+FFIRST,FNEXT,
+LOAD,SAVE,APPEND,//--- bloques de memoria, bloques
 UPDATE,
 //TPEN,
 XYMOUSE,BMOUSE, //MOUSE,
@@ -209,12 +213,17 @@ int SYSBM=0;
 int SYSKEY=0;
 
 //----- Directorio
+/*
 char mindice[8192];// 8k de index 1024 archivos con nombres de 8 caracteres
 char *indexdir[512];
 int sizedir[512];
 int cntindex;
 char *subdirs[255]; 
 int cntsubdirs;
+*/
+
+WIN32_FIND_DATA ffd;
+HANDLE hFind=NULL;
 
 //---- Date & Time
 time_t sit;
@@ -316,6 +325,20 @@ fputs(n,stream); if(fclose(stream)) return; }
 void dumpest(void) {ldebug(linea);}
 #endif
 
+/*
+
+typedef struct _WIN32_FIND_DATA {
+  DWORD    dwFileAttributes;    // +0
+  FILETIME ftCreationTime;      // +4
+  FILETIME ftLastAccessTime;    // +12
+  FILETIME ftLastWriteTime;     // +20
+  DWORD    nFileSizeHigh;       // +28
+  DWORD    nFileSizeLow;        // +32
+  DWORD    dwReserved0;         // +36
+  DWORD    dwReserved1;         // +40
+  TCHAR    cFileName[MAX_PATH]; // +44
+  TCHAR    cAlternateFileName[14];
+
 void loaddir(char *path)
 {
 cntindex=cntsubdirs=0;
@@ -346,7 +369,7 @@ do {
 	} while (FindNextFile(hFind, &ffd) != 0);
 FindClose(hFind);
 }
-
+*/
 #ifdef __GNUC__
 #define iclz32(x) __builtin_clz(x)
 #else
@@ -639,6 +662,18 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 //--- bloque de memoria
     case MEM: NOS++;*NOS=TOS;TOS=(int)memlibre;continue; // inicio de n-MB de datos
 //--- bloques
+
+    case FFIRST: // "" -- fdd/0
+         if (hFind!=NULL) FindClose(hFind);
+         hFind=FindFirstFile((char*)TOS, &ffd);
+         if (hFind == INVALID_HANDLE_VALUE) TOS=0; else TOS=(int)&ffd;
+         continue;
+    case FNEXT: // -- fdd/0
+         NOS++;*NOS=TOS;
+         if (FindNextFile(hFind, &ffd)==0) TOS=0; else TOS=(int)&ffd;
+         continue ;
+           
+/*
 	case PATH: if (TOS!=0) { loaddir((char*)TOS); }
          TOS=*NOS;NOS--;continue;
     case BFILE: // nro -- "nombre" o 0
@@ -650,6 +685,8 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 	case VOL:// nro -- "nombre" o 0
          if (TOS>=cntsubdirs || TOS<0) TOS=0; else TOS=(int)subdirs[TOS];
          continue;
+*/       
+
 	case LOAD: // 'from "filename" -- 'to
          if (TOS==0||*NOS==0) { TOS=*NOS;NOS--;continue; }
          file=fopen((char*)TOS,"rb");
@@ -1433,7 +1470,7 @@ hfntPrev = SelectObject(phDC, hfnt);
 SetTextAlign(phDC,TA_UPDATECP);
 
 InitJoystick(hWnd);
-loaddir(".//");
+//loaddir(".//");
 //WSAStartup(2, &wsaData);
 
 #ifdef FMOD

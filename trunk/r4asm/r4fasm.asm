@@ -272,43 +272,39 @@ SYSDATE: ;  ( -- y m d )
 	ret
 
 ;===============================================
-SYSDIR: ; ( "path" -- )
-	push eax ebx esi edi
-	invoke SetCurrentDirectory,eax
-	or eax,eax
-	jz @dirfin
-	mov edi,SYSNDIR
-	mov ebx,0
-	invoke FindFirstFile,_dir,Sfinddata
-	mov [hdir],eax
+SYSFFIRST: ; ( "path" -- fdd )
+	push ebx ecx edx edi esi
+	mov ebx,[hfind]
+	or ebx,ebx
+	jz .noc
+	invoke FindClose,[hfind]
+.noc
+	invoke FindFirstFile,eax,fdd
+	mov [hfind],eax
 	cmp eax,INVALID_HANDLE_VALUE
-	je @dirfin
-@dirotro:
-	mov eax,[Sfinddata.dwFileAttributes]
-	cmp eax,FILE_ATTRIBUTE_DIRECTORY
-	je @noguarda
-	mov [SYSIDIR+4*ebx],edi
-	mov eax,Sfinddata.cFileName
-@dircp:
-	mov cl,byte [eax]
-	mov byte [edi],cl
-	inc edi
-	inc eax
-	or cl,cl
-	jnz @dircp
-	mov eax,[Sfinddata.nFileSizeLow]
-	mov edx,[Sfinddata.nFileSizeHigh] ; en bytes.. pasar a kb para que sea 32bit?
-	mov [SYSSDIR+4*ebx],eax
-	inc ebx
-@noguarda:
-	invoke FindNextFile,[hdir],Sfinddata
+	je .nin
+	mov eax,fdd
+	jmp .fin
+.nin
+	xor eax,eax
+.fin
+	pop esi edi edx ecx ebx
+	ret
+
+;===============================================
+SYSFNEXT: ; ( -- fdd/0)
+	lea esi,[esi-4]
+	mov [esi], eax
+	push ebx ecx edx edi esi
+	invoke FindNextFile,[hfind],fdd
 	or eax,eax
-	jnz @dirotro
-@dirfin:
-	mov [SYSCDIR],ebx
-	invoke FindClose,[hdir]
-	pop edi esi ebx eax
-	lodsd
+	jz .nin
+	mov eax,fdd
+	jmp .fin
+.nin
+	xor eax,eax
+.fin
+	pop esi edi edx ecx ebx
 	ret
 
 ;===============================================
@@ -478,7 +474,9 @@ align 4
 	rec			RECT
 	bmi			BITMAPINFOHEADER
 	SysTime		SYSTEMTIME
-	Sfinddata	FINDDATA
+	fdd			FINDDATA
+	hfind		dd 0
+
 	hdir		dd 0
 	sfile 		dd 0
 	afile 		dd 0
@@ -504,9 +502,6 @@ align 16
 	Dpila 		rd 0
 align 16
 	XFB			rd XRES*YRES
-	SYSNDIR		rd 8192
-	SYSIDIR		rd 1024
-	SYSSDIR		rd 1024
 align 16
 	FREE_MEM	rd 1024*1024*16 ; 16M(32bits) 64MB(8bits)
 
