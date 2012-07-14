@@ -29,15 +29,8 @@
 #ruta )( 1024
 #ruta> 'ruta
 
-#screenshot
-
 #cntf
 #cntv
-
-#indexf )( 8192
-#indexf> 'indexf
-#indexv )( 8192
-#indexv> 'indexv
 
 #nombres
 #paginas | iconos
@@ -59,61 +52,11 @@
 :grabaestado
 	'actf 1040 "mem/mp.mem" save ;
 
-:,string | "" -- ""'
-	here swap ,s ,eol ;
-
-|------------------
-:filex | nro -- "name"
-	2 << 'indexf + @ ;
-
-:filev | nro -- "name"
-	2 << 'indexv + @ ;
-
-|------------------
-:,cpyv | vol
-	,string indexv> !+ 'indexv> ! ;
-
-:,cpyf | file
-	,string indexf> !+ 'indexf> ! ;
-
-|---- genera indice y nombre
-:refresh
-	mark
-	nombres 'here !
-	'indexv 'indexv> !
-
-|	'ruta "%s\\*.*" mprint FFIRST
-|	( 1? )( 44 + ,cpyv 	FNEXT ) drop
-	indexv> 'indexv - 2 >> 'cntv !
-
-|	0 ( dup vol 1? )( ,cpyv 1+ ) drop 'cntv !
-
-	actv filev ruta.push
-
-	'indexf 'indexf> !
-
-|	'ruta "%s\\*.*" mprint FFIRST
-|	( 1? )( 44 + ,cpyf 	FNEXT ) drop
-	indexf> 'indexf - 2 >> 'cntf !
-
-|	0 ( dup file 1? )( ,cpyf 1+ ) drop 'cntf !
-
-	ruta.pop
-
-	actf filex actv filev 'ruta
-	"%s%s/%s" mprint 'lastrun strcpy
-	empty
-	;
-
-|---- nuevo archivo
-:clickf
-	dup 'actf ! refresh ;
-
 :finnew
 	'ed.nombre c@ 0? ( drop exit ; ) drop
 	grabaestado
 	0 0 'ed.ncar ! 'ed.nlin !
-	'ed.nombre actv filev 'ruta "%s%s/%s" mprint 'ed.nombre strcpy
+	'ed.nombre 'ruta "%s%s" mprint 'ed.nombre strcpy
 	ed.save
 	"r4/system/edit-code.txt" run
 	;
@@ -128,13 +71,10 @@
 		verde " :R4 " print
 		blanco
 		" NEW FILE" print cr cr
-		actv filev 'ruta " %s%s/" print
+		'ruta " %s" print
 		'ed.nombre 32 input
 		'finnew lostfoco
 		;
-
-:clickv
-	dup 'actv ! refresh ;
 
 :runprg
 	grabaestado
@@ -142,7 +82,6 @@
 	;
 
 :runprgshot
-	-1 'screenshot !
 	grabaestado
 	'lastrun run ;
 
@@ -157,21 +96,6 @@
 
 	"r4/system/edit-code.txt" run
 	;
-|----------------------------------
-:actv+! | nro --
-	actv +
-	cntv >=? ( cntv 1- nip )
-	-? ( 0 nip )
-	'actv !
-	refresh
-	cntf 1- actf min 'actf ! ;
-
-:actf+! | nro --
-	actf +
-	cntf >=? ( cntf 1- nip )
-	-? ( 0 nip )
-	'actf !
-	refresh ;
 
 |----------------------------------
 :helpmodo
@@ -230,6 +154,27 @@
 	refreshfoco
 	;
 
+:clickdir
+	dup 44 +
+	dup ".." = 1? ( drop ruta.pop 'ruta 'lastrun strcpy ; ) drop
+	ruta.push
+	'ruta 'lastrun strcpy ;
+
+:clickfile
+	dup 44 + 'ruta "%s%s" mprint 'lastrun strcpy
+	;
+
+:cadafile | adr --
+	dup @
+	$10 =? ( drop verde 'clickdir )( drop azul 'clickfile )
+	over 44 +
+	dup "." = 1? ( 4drop ; ) drop
+	12 sp btntf
+	drop
+	cr cr2
+	bout? 1? ( chome ) drop
+	;
+
 |----------------------------------
 :main
 	show clrscr
@@ -258,30 +203,14 @@
 |		sp sp 'runtimeerr "f9-RUNERR" link
 |		sp 'confsis "f10-CONFIG" link
 |		'fillmem <f6>
-		cminiflecha ;
 
+		cr cr2 chome!
 
-		keypad
-		[ -1 actf+! ; ] <up>
-		[ 1 actf+! ; ] <dn>
-		[ -1 actv+! ; ] <pgup>
-		[ 1 actv+! ; ] <pgdn>
+		'ruta "%s\\*.*" mprint FFIRST
+		( 1? )(
+			cadafile
+			FNEXT ) drop
 
-		cr cr2
-	|---- carpetas
-		0 ( cntv <? )(
-			actv =? ( azul )( negro )
-			'clickv over filev allow2cr sp btnt
-			1+ ) drop
-		cr cr
-		sp chome!
-	|---- archivos
-		0 ( cntf <? )(
-			actf =? ( verde )( negro )
-			'clickf over filex
-			12 sp btntf cr cr
-			bout? 1? ( chome ) drop
-			1+ ) drop
 		cminiflecha ;
 
 :memoria
