@@ -278,16 +278,16 @@ SYSFFIRST: ; ( "path" -- fdd )
 	or ebx,ebx
 	jz .noc
 	invoke FindClose,[hfind]
-.noc
+.noc:
 	invoke FindFirstFile,eax,fdd
 	mov [hfind],eax
 	cmp eax,INVALID_HANDLE_VALUE
 	je .nin
 	mov eax,fdd
 	jmp .fin
-.nin
+.nin:
 	xor eax,eax
-.fin
+.fin:
 	pop esi edi edx ecx ebx
 	ret
 
@@ -301,45 +301,30 @@ SYSFNEXT: ; ( -- fdd/0)
 	jz .nin
 	mov eax,fdd
 	jmp .fin
-.nin
+.nin:
 	xor eax,eax
-.fin
+.fin:
 	pop esi edi edx ecx ebx
 	ret
 
 ;===============================================
-SYSFILE: ; ( nro -- "name" )
-	cmp eax,[SYSCDIR]
-	jnl @nof
-	mov eax,[SYSIDIR+4*eax]
-	ret
-SYSFSIZE: ; nro -- size
-	cmp eax,[SYSCDIR]
-	jnl @nof
-	mov eax,[SYSSDIR+4*eax]
-	ret
-@nof:
-	xor eax,eax
-	ret
-
-;===============================================
 SYSTOXFB:
-	pusha
+	push eax edi esi ecx
 	lea esi,[SYSFRAME]
 	lea edi,[XFB]
 	mov ecx,XRES*YRES
 	rep movsd
-	popa
+	pop ecx esi edi eax
 	ret
 
 ;===============================================
 SYSXFBTO:
-	pusha
+	push eax edi esi ecx
 	lea esi,[XFB]
 	lea edi,[SYSFRAME]
 	mov ecx,XRES*YRES
 	rep movsd
-	popa
+	pop ecx esi edi eax
 	ret
 
 ;===============================================
@@ -487,7 +472,6 @@ align 4
 	SYSBM 	dd 0
 	SYSKEY	dd 0
 	SYSPAPER dd 0
-	SYSCDIR	dd 0
 
 ;*** optimizable
 ;	SYSW	dd XRES
