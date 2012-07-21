@@ -25,15 +25,12 @@
 
 |-------- memoria guardada
 #actf
-#actv
 #ruta )( 1024
 #ruta> 'ruta
 
-#cntf
-#cntv
+#cnta
 
-#nombres
-
+|-------- manejo de path
 :ruta.push | "" --
 	ruta> strcpyl
 	"/" swap 1- strcpyl
@@ -49,7 +46,7 @@
 
 |----------- estado
 :grabaestado
-	'actf 1040 "mem/mp.mem" save ;
+	'actf 1028 "mem/mp.mem" save ;
 
 :finnew
 	'ed.nombre c@ 0? ( drop exit ; ) drop
@@ -155,32 +152,40 @@
 
 :clickdir
 	dup 44 +
-	dup ".." = 1? ( 2drop ruta.pop 'ruta 'lastrun strcpy ; ) drop
+	dup ".." = 1? ( 2drop ruta.pop -1 'actf ! 'ruta 'lastrun strcpy ; ) drop
 	ruta.push
+	-1 'actf !
 	'ruta 'lastrun strcpy ;
 
 :clickfile
-	dup 44 + 'ruta "%s%s" mprint 'lastrun strcpy
-	;
+	cnta 'actf !
+	dup 44 + 'ruta "%s%s" mprint 'lastrun strcpy ;
 
-:nclickfile | n --
-	'ruta "%s\\*.*" mprint FFIRST
-	( 1? )( 1- FNEXT drop ) drop
-	FNEXT clickfile
-	;
-
+:nclickfile
+	actf -? ( drop ; )
+	'ruta "%s\\*.*" mprint ffirst drop
+	( 1? )( 1- fnext drop ) drop
+	fnext
+	44 + 'ruta "%s%s" mprint 'lastrun strcpy ;
 
 :cadafile | adr --
 	dup @
-	$10 =? ( drop verde 'clickdir )( drop azul 'clickfile )
+	$10 =? ( drop azul 'clickdir )( drop cnta actf <>? ( negro )( verde ) drop 'clickfile )
 	over 44 +
 	dup "." = 1? ( 4drop ; ) drop
+
 	12 sp btntf
 	drop
 	cr cr2
 	bout? 1? ( chome ) drop
+	1 'cnta +!
 	;
 
+:printfiles
+	0 'cnta !
+	'ruta "%s\\*.*" mprint ffirst
+	( 1? )( cadafile fnext ) drop
+	;
 
 |----------------------------------
 :main
@@ -206,15 +211,8 @@
 |		verde dumpvstack cr
 
         fonta-verdana10b
-
-
 		cr cr2 chome!
-
-		'ruta "%s\\*.*" mprint FFIRST
-		( 1? )(
-			cadafile
-			FNEXT ) drop
-
+		printfiles
 		cminiflecha ;
 
 :memoria
@@ -222,9 +220,8 @@
 	"r4" ruta.push
 	'actf "mem/mp.mem" load drop
 	'ruta count + 'ruta> !
-
-	here 'nombres !
-	$ffff 'here +!
+	nclickfile
+	|$ffff 'here +!
 	;
 
 :	$0 paper
