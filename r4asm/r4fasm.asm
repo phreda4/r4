@@ -4,6 +4,10 @@
 format PE GUI 4.0
 entry start
 
+;MAXMEM		equ	1373741824
+;MAXMEM		equ 1073741824 	; 1GB
+MAXMEM		equ 536870912	; 512MB
+
 DWEXSTYLE	equ WS_EX_APPWINDOW
 DWSTYLE		equ WS_VISIBLE+WS_CAPTION+WS_SYSMENU
 
@@ -103,6 +107,12 @@ start:
 	mov [bmi.biCompression],BI_RGB
 	invoke ShowWindow,[hwnd],SW_NORMAL
 	invoke UpdateWindow,[hwnd]
+
+	invoke VirtualAlloc,0,MAXMEM,MEM_COMMIT+MEM_RESERVE,PAGE_READWRITE ;
+	or eax,eax
+	jz SYSEND
+	mov [FREE_MEM],eax
+
 ;---------- INICIO
 restart:
 	mov esi,Dpila
@@ -211,6 +221,7 @@ align 16
 SYSEND: ; ( -- )
 	invoke ReleaseDC,[hwnd],[hDC]
 	invoke DestroyWindow,[hwnd]
+	invoke VirtualFree, [FREE_MEM], 0, MEM_RELEASE
 	invoke ExitProcess,0
 	ret
 
@@ -405,6 +416,8 @@ import kernel,\
 	 FindFirstFile,'FindFirstFileA',\
 	 FindNextFile,'FindNextFileA',\
 	 Sleep,'Sleep',\
+	 VirtualAlloc,'VirtualAlloc',\
+	 VirtualFree,'VirtualFree',\
 	 FindClose,'FindClose'
 ;        GetFileSize,'GetFileSize',\
 
@@ -451,27 +464,24 @@ section '.data' data readable writeable
 	_dir 	db '*',0
 
 align 4
-	hinstance	dd 0
-	hwnd		dd 0
-	wc			WNDCLASS ;EX?
-	msg			MSG
-	hDC			dd 0
-	rec			RECT
-	bmi			BITMAPINFOHEADER
-	SysTime		SYSTEMTIME
-	fdd			FINDDATA
-	hfind		dd 0
-
-	hdir		dd 0
-	sfile 		dd 0
-	afile 		dd 0
-	cntr		dd 0
-
-align 4
 	SYSXYM	dd 0
 	SYSBM 	dd 0
 	SYSKEY	dd 0
 	SYSPAPER dd 0
+	FREE_MEM dd 0
+	hinstance	dd 0
+	hwnd		dd 0
+	hDC			dd 0
+	hfind		dd 0
+	hdir		dd 0
+	afile 		dd 0
+	cntr		dd 0
+	wc			WNDCLASS ;EX?
+	msg			MSG
+	rec			RECT
+	bmi			BITMAPINFOHEADER
+	SysTime		SYSTEMTIME
+	fdd			FINDDATA
 
 ;*** optimizable
 ;	SYSW	dd XRES
@@ -484,9 +494,7 @@ align 16
 	SYSFRAME	rd XRES*YRES
 	DATASTK 	rd 1023
 	Dpila 		rd 0
-align 16
 	XFB			rd XRES*YRES
-align 16
-	FREE_MEM	rd 1024*1024*16 ; 16M(32bits) 64MB(8bits)
+;	FREE_MEM	rd 1024*1024*16 ; 16M(32bits) 64MB(8bits)
 
 
