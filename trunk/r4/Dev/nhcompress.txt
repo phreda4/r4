@@ -1,9 +1,8 @@
 | NoHash Compressor
+| Delta
 | phreda 2012
 |-----------------------
 ^r4/lib/gui.txt
-^r4/lib/sort.txt
-
 ^r4/lib/trace.txt
 
 :timelog | str --
@@ -11,38 +10,40 @@
 
 #cntbytes
 #inic	| datos a comprimir
-#inis	| arreglo contenido-direccion
-#inio	| arreglo direccion
+#inis	| arreglo direccion
+#inio	| datos a comprimir delta
 #iniu   | datos comprimidos
 #endu
 #arena
 
-:sorta
-	cntbytes 1+ inis shellsort
-	inis dup @ 1+ swap 8 - ! | marca limite como distinto
-	inio dup 8 - @ 1+ swap ! | marca ultimo como distinto
-	;
+|--------------- aremo arreglo de links
+:buscolink | last pos -- last pos link
+	dup @
+	over 1+		| pos v poss
+	( pick3 <? )(
+		dup @ pick2 =? ( drop nip ; )
+		drop 1+ ) 2drop
+	-1 ;
 
-:resorta
+:linkigual
+	inis >r
+	cntbytes ( 1? )( 1- -1 r!+ ) drop
+	rdrop | inicializo puntero a -1
+	inic cntbytes +
+	inic ( over <? )(
+		buscolink
+		-1 =? ( drop )( inic - 2 << inis + over swap ! )
+		1+ ) 2drop ;
+
+#vac
+:calccoin
+	0 'vac !
 	inis
-	( inio <? )(
-		dup @+ | adri adr+ valor
-		( over 4+ @ =? )( swap 8 + swap )
-		drop 4+	| adri adrf
-		swap 2dup - 3 >> | adrf adri cnt
-		1 >? ( 1+ swap shellsort2 )( 2drop )
-		) drop ;
-
-:gena
-	inis
-	cntbytes |1+
-	( 1? )( 1- >r
-		4+ @+ | adr+1 valor
-		2 << inio +
-		over 8 - swap !
-		r> ) 2drop
+	cntbytes ( 1? )( 1-
+		swap @+ -1 =? ( 1 'vac +! ) drop
+		swap ) 2drop
 	;
-
+|--------------
 :,w here w!+ 'here ! ;
 :,cw dup $ff and ,c 8 >> ,w ;
 :cw@+ c@+ $ff and >r w@+ 8 << r> or ;
@@ -83,12 +84,11 @@
 	$10000 <? ( 254 ,c ,w ,litc ; )
 	255 ,c , ,litc ;
 
-:dumplit
+:,literal
 	cntlit 0? ( ,c ; )
 	inilit inic +
 	swap ,lit
-	0 'cntlit !
-	;
+	0 'cntlit ! ;
 
 |......................
 :cntcopy | rel byt cnt -- rel
@@ -111,49 +111,39 @@
 	, ;
 
 |......................
-:ultimodes | val -- val cnt
-	$ffffff00 nand? ( 3 ; )
-	$ffff0000 nand? ( 2 ; )
-	$ff000000 nand? ( 1 ; )
-	0 ;
-
-:largoigual  | has1 hash2 -- largo
-	0 rot rot
-	( over @ over @ - 0? )( drop
-		rot 4+ rot rot
-		4+ @ 4+ |cntbytes >=? ( 33 trace 3drop ; )
-		2 << inio + @
-		swap
-		4+ @ 4+ cntbytes >=? ( 2drop ; ) |34 trace drop ; )
-		2 << inio + @
-		swap ) drop
-	@ swap @ xor ultimodes nip + ;
-
 #maxl 0
 #howl 0
 
+| little endian
+:ultimodes | val -- val cnt
+	$ffffff nand? ( 3 ; )
+	$ffff nand? ( 2 ; )
+	$ff nand? ( 1 ; )
+	0 ;
+
+:largoigualc | pos1 pos2 -- largo
+	4+ >r | es menor
+	4+ 4 swap | la primer comprobacion ya esta hecha
+	( @+ r@+ xor 0? )( drop
+		swap 4+ swap
+		inis >=? ( drop rdrop ; )
+		)
+	ultimodes nip nip rdrop
+	+ ;
+
 :cadac | pos -- pos
-	dup 2 << inio + @	| pos h
-	dup @ over 8 - @	| pos h v v-1
-	<>? ( 2drop 1 'cntlit +! ; )	| no hay repetidos
-	dumplit	| pos hi valor ; hay cadena repetida
-
-	over 8 -	| pos hi v hi-
-	0 'maxl !
-	( dup @ pick2 =? )( drop
-	    pick2 over	| pos hi val hi- hi hi-
-		largoigual	| pos hi val hi- largo
+	dup 2 << inis + @			| pos link
+	-1 =? ( drop 1 'cntlit +! ; )
+	0 'maxl !	| pos link
+	over inic + swap | pos p1 p2
+	( -1 <>? )(
+		2dup largoigualc
 		maxl >? ( 'maxl ! dup 'howl ! )( drop )
-		8 - ) 4drop | pos    hi val hi- v
-
-	howl 4+ @ over - neg	| relativo al actual
-	maxl					| cantidad
-	swap ,copy
-
-	maxl +
-	dup 'inilit !
-	1-
-	;
+		inic - 2 << inis + @ ) drop
+	,literal
+	howl - maxl swap ,copy
+	maxl + dup 'inilit !
+	1- ;
 
 :scangen
 	iniu 'here !
@@ -161,7 +151,7 @@
 	0 'inilit !
 	mark
 	0 ( cntbytes <? )( cadac 1+ ) drop
-	dumplit
+	,literal
 	here 'endu !
 	here 4+ 'arena !
 	"compresso" savemem
@@ -229,10 +219,6 @@
 :printinfo
 	[ iniv 40 - -? ( 0 nip ) 'iniv ! ; ] <up>
 	[ iniv 40 + cntbytes >? ( 40 - ) 'iniv ! ; ] <dn>
-	'sorta <f1>
-	'resorta <f2>
-	'gena <f3>
-	'scangen <f4>
 
 	cr chome!
 	blanco
@@ -256,9 +242,23 @@
 		swap ) 2drop
 	chome< ;
 
+:printinfo2
+	[ iniv 20 - -? ( 0 nip ) 'iniv ! ; ] <up>
+	[ iniv 20 + cntbytes >? ( 20 - ) 'iniv ! ; ] <dn>
+
+	cr chome!
+	blanco
+	0 ( 20 <? )(
+		dup iniv + inic + " %h. " print
+		dup iniv + inic + c@ $ff and dup "%h " print 32 <? ( 32 nip ) emit sp sp
+		dup iniv + 2 << inis + @ " %h " print
+		cr
+		1+ ) drop
+	chome< ;
+
 :printraw
 	inic >r
-	15 ( 1? )( 1-
+	5 ( 1? )( 1-
 		90 ( 1? )( 1-
 				r> c@+ 32 <? ( 33 nip )
 				"%k" print
@@ -269,11 +269,12 @@
 	rdrop
 	cr
 	arena >r
-	15 ( 1? )( 1-
+	5 ( 1? )( 1-
 		90 ( 1? )( 1-
 				r arena - inic + c@
 				r> c@+
 				rot =? ( verde )( rojo )
+
 				32 <? ( 33 nip )
 				"%k" print
 				>r
@@ -283,10 +284,10 @@
 	rdrop
 	blanco
 	iniu >r
-	10 ( 1? )( 1-
+	5 ( 1? )( 1-
 		90 ( 1? )( 1-
 				r>
-				iniv =? ( verde )( blanco )
+			|	iniv iniu + =? ( verde )( blanco )
 				c@+ 32 <? ( 33 nip )
 				"%k" print
 				>r
@@ -294,35 +295,45 @@
 			cr
 		) drop
 	rdrop
+
 	[ 1 'iniv +! ; ] <ri>
 	[ -1 'iniv +! ; ] <le>
 
 	cr
-	iniv 5 ( 1? )( 1-
-		swap c@+ "%h " print swap ) 2drop
+|	iniv iniu + 5 ( 1? )( 1- swap c@+ "%h " print swap ) 2drop
 	;
 
-#men 
+#men
 :scc
+	timelog
 |	dup timelog
-	'men !
-	show clrscr blanco
-		men print
-		'exit >esc< ;
+|	'men !
+	;
+|	show clrscr blanco
+|		men print
+|		'exit >esc< ;
 
-	
+
+:gendelta
+	inio inic c@+ rot over swap c!+ rot rot
+	cntbytes ( 1? )( 1- >r
+		swap c@+ rot over - >r
+		rot r> swap c!+
+		rot rot
+		r> ) 4drop ;
+:testg
+	gendelta
+	inic inio cntbytes cmove
+	linkigual
+	calccoin
+	;
+
 :main
-	"sorta" scc
-	sorta
-	"resorta" scc
-	resorta
-	"gena" scc
-	gena
 	"scangen" scc
 	scangen
 	"finish" scc
-	;
-:a	iniu 'iniv !
+	0 'iniv !
+	calccoin
 	show clrscr
 		verde
 		inic "c:%h " print
@@ -331,58 +342,43 @@
 		iniu "u:%h " print
 		cntbytes "bytes:%d " print
 		endu iniu - "-> %d bytes" print
+		vac " %d vacios " print
 		cr
+
+
+		printinfo2
 		printraw
 
 		'testd <f5>
+
+		'testg <f1>
+		'scangen <f2>
 		'exit >esc<
 		;
 
-#ah
-
-:slot!
-	$ff and ah 8 << or 'ah ! ;
-
-| tabla de contenido-direccion
-:antihash
-	inic
-	c@+ slot!
-	c@+ slot!
-	c@+ slot!
-	c@+ slot!
-	( inis <? )(
-		ah , dup 4 - inic - ,
-		c@+ slot!
-		)
-	ah , dup 4 - inic - ,
-	0 slot! 1+
-	ah , dup 4 - inic - ,
-	0 slot! 1+
-	ah , dup 4 - inic - ,
-	0 slot! 1+
-	ah , dup 4 - inic - ,
-	drop ;
 
 :m
 	mark
 |	"load time" timelog
 	here dup 'inic !
-	"db/corpus/enwik8"
+|	"db/corpus/enwik8"
+|	"db/corpus/calgary.tar"
+	"db/corpus/calgary2.tar"
+
 	load
 	dup inic - 'cntbytes !
 	0 swap !+
-	8 + | 1 lugar mas para marcar el primero
 	dup 'inis ! 'here !
-
-	"antihash" scc
-
-	antihash | tabla contenido-direccion
+	linkigual
+	cntbytes 2 << 'here +!
 	here 'inio !
-	inio cntbytes 2 << + dup
+|	gendelta
+	inio cntbytes + dup
 	dup 'iniu ! 'endu !
 	'here !
 	here 'arena !
 	;
+
 
 #inic
 #endc
@@ -397,5 +393,6 @@
 	"decompresso" savemem
 	empty
 	;
+
 
 : m main ;
