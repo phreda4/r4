@@ -1,0 +1,224 @@
+#define MULTIPLY_FP_RESOLUTION_BITS	15
+
+int16_t atan2_fp(int16_t y_fp, int16_t x_fp)
+{
+int32_t coeff_1 = 45;
+int32_t coeff_1b = -56;	// 56.24;
+int32_t coeff_1c = 11;	// 11.25
+int16_t coeff_2 = 135;
+
+int16_t angle = 0;
+
+int32_t r;
+int32_t r3;
+
+int16_t y_abs_fp = y_fp;
+if (y_abs_fp < 0)
+y_abs_fp = -y_abs_fp;
+
+if (y_fp == 0)
+{
+if (x_fp >= 0)
+{
+angle = 0;
+}
+else
+{
+angle = 180;
+}
+}
+else if (x_fp >= 0)
+{
+r = (((int32_t)(x_fp - y_abs_fp)) << MULTIPLY_FP_RESOLUTION_BITS) /
+((int32_t)(x_fp + y_abs_fp));
+
+r3 = r * r;
+r3 = r3 >> MULTIPLY_FP_RESOLUTION_BITS;
+r3 *= r;
+r3 = r3 >> MULTIPLY_FP_RESOLUTION_BITS;
+r3 *= coeff_1c;
+angle = (int16_t) ( coeff_1 + ((coeff_1b * r + r3) >>
+MULTIPLY_FP_RESOLUTION_BITS) );
+}
+else
+{
+r = (((int32_t)(x_fp + y_abs_fp)) << MULTIPLY_FP_RESOLUTION_BITS) /
+((int32_t)(y_abs_fp - x_fp));
+r3 = r * r;
+r3 = r3 >> MULTIPLY_FP_RESOLUTION_BITS;
+r3 *= r;
+r3 = r3 >> MULTIPLY_FP_RESOLUTION_BITS;
+r3 *= coeff_1c;
+angle = coeff_2 + ((int16_t)	(((coeff_1b * r + r3) >>
+MULTIPLY_FP_RESOLUTION_BITS))	);
+}
+
+if (y_fp < 0)
+return (-angle); // negate if in quad III or IV
+else
+return (angle);
+}
+
+
+---------------------------------------------------------------------------
+
+float arctan2(float y, float x)
+{
+   coeff_1 = pi/4;
+   coeff_2 = 3*coeff_1;
+   abs_y = fabs(y)+1e-10      // kludge to prevent 0/0 condition
+   if (x>=0)
+   {
+      r = (x - abs_y) / (x + abs_y);
+      angle = coeff_1 - coeff_1 * r;
+   }
+   else
+   {
+      r = (x + abs_y) / (abs_y - x);
+      angle = coeff_2 - coeff_1 * r;
+   }
+   if (y < 0)
+   return(-angle);     // negate if in quad III or IV
+   else
+   return(angle);
+}
+
+::atan2 | x y -- bangle
+	swap
+	-? ( [ neg ; ] >r neg )
+	swap
+	+? (		| absy x
+		swap 2dup + >r - >r
+		$1fff
+        dup
+	)(
+		2dup - >r + >r
+		$5fff
+		$1fff
+	)
+	r> r>
+	0? ( nip nip nip ; )
+	*/ - ;
+
+-----------------------------------------------------------------------------
+
+int i_atan2(int y, int x)
+	{
+		int result = 0;
+		int y2;
+
+		if ((x | y) == 0)
+			return 0;	/* give up */
+
+		if (y < 0)	/* if we point downward */
+		{
+			result += -180_deg;
+			y = -y;
+			x = -x;
+		}
+		if (x < 0)	/* if we point left */
+		{
+			result += 90_deg;
+			y2 = y;
+			y = -x;
+			x = y2;
+		}
+		if (y > x)	/* 45 degrees or beyond */
+		{
+			result += 45_deg;
+			y2 = y;
+			y -= x;
+			x += y2;
+		}
+		if (2 * y > x)	/* 26.565 degrees */
+		{
+			result += 26.565_deg;
+			y2 = y;
+			y = 2 * y - x;
+			x = 2 * x + y2;
+		}
+		if (4 * y > x)	/* 14.036 degrees */
+		{
+			result += 14.036_deg;
+			y2 = y;
+			y = 4 * y - x;
+			x = 4 * x + y2;
+		}
+		if (8 * y > x)	/* 7.125 degrees */
+		{
+			result += 7.125_deg;
+			y2 = y;
+			y = 8 * y - x;
+			x = 8 * x + y2;
+		}
+
+		/* linear interpolation of the remaining 64-ant */
+		result += (7.125_deg * 8) * y / x;
+		return result;
+	}
+
+
+-------------------------------------------------------------------
+
+	int i_atan2(int y, int x)
+	{
+		int result = 0;
+		int y2;
+
+		if ((x | y) == 0) return 0;
+		if (y < 0) { result += -32768; y = -y, x = -x; }
+		if (x < 0) { result += 16384; y2 = y; y = -x; x = y2; }
+		if (y > x) { result += 8192; y2 = y; y -= x; x += y2; }
+		if (2 * y > x)
+		{
+			result += 4836;	/* atan(1/2) * 32768/M_PI */
+			y2 = y;
+			y = 2 * y - x;
+			x = 2 * x + y2;
+		}
+	#if 1
+		if (4 * y > x)
+		{
+			result += 2555;	/* atan(1/4) * 32768/M_PI */
+			y2 = y;
+			y = 4 * y - x;
+			x = 4 * x + y2;
+		}
+	#if 1
+		if (8 * y > x)
+		{
+			result += 1297;	/* atan(1/8) * 32768/M_PI */
+			y2 = y;
+			y = 8 * y - x;
+			x = 8 * x + y2;
+		}
+	#if 1
+		if (16 * y > x)
+		{
+			result += 651;	/* atan(1/16) * 32768/M_PI */
+			y2 = y;
+			y = 16 * y - x;
+			x = 16 * x + y2;
+		}
+	#if 0
+		if (32 * y > x)
+		{
+			result += 326;	/* atan(1/32) * 32768/M_PI */
+			y2 = y;
+			y = 32 * y - x;
+			x = 32 * x + y2;
+		}
+		return result + 10427 * y / x;	/* up to atan(1/32) */
+	#else
+		return result + 10417 * y / x;	/* up to atan(1/16) */
+	#endif
+	#else
+		return result + 10377 * y / x;	/* up to atan(1/8) */
+	#endif
+	#else
+		return result + 10221 * y / x;	/* up to atan(1/4) */
+	#endif
+	#else
+		return result + 9672 * y / x;	/* up to atan(1/2) */
+	#endif
+	}

@@ -1,0 +1,118 @@
+|  Escena 3d - PHREDA 2011
+|          12
+| 'UPD x y z rx ry rz sx sy 'DRAW 0 0 0 0 0 0
+|
+^r4/lib/3dmat.txt
+^r4/lib/mem.txt
+^r4/lib/sort.txt
+
+::actor+! | org x y z --
+	pick3 4+ >r
+	rot r +! 4 r+
+	swap r +! 4 r+
+	r> +!
+	;
+
+:actor*!
+	;
+
+::esc.pos | org -- org
+	dup 4+ >r
+	r@+ r@+ r@+ mtransi
+	rdrop ;
+
+::esc.posrot | org -- org
+	dup 4+ >r
+	r@+ r@+ r@+ mtransi
+	r@+ 1? ( mrotxi )( drop )
+	r@+ 1? ( mrotyi )( drop )
+	r@+ 1? ( mrotzi )( drop )
+	rdrop ;
+
+::esc.posrotscale | org -- org
+	dup 4+ >r
+	r@+ r@+ r@+ mtransi
+	r@+ 1? ( mrotxi )( drop )
+	r@+ 1? ( mrotyi )( drop )
+	r@+ 1? ( mrotzi )( drop )
+	r@+ r@+ 1.0 mscalei
+	rdrop ;
+
+::esc.create | size 'fx --
+	here over 4+ !
+	swap 'here +!
+::esc.clear | 'fx --
+	dup 4+ @ swap ! ;
+
+::esc!+ | 'vec 'fx -- adr
+	dup >r @ !+
+	64 r> +! ;
+
+::esc. | 'fx -- adr
+	dup @ 64 rot +! ;
+
+::esc.del1 | 'fx last now -- 'fx last now
+	dup pick2 64 - 16 move
+	-64 pick3 +!
+	swap 64 - swap 64 - ;
+
+::esc.draw | 'fx --
+	dup @+ swap @
+	( over <? )(
+		dup @ exec 0? ( drop esc.del1 )
+		64 + ) 3drop ;
+
+::esc.mapo | vec 'fx --
+	dup @+ swap @
+	( over <? )(
+		pick3 exec 0? ( drop esc.del1 )
+		64 + ) 4drop ;
+
+::esc.map0o | vec 'fx --
+	dup @+ swap @
+	( over <? )(
+		pick3 exec 0? ( drop esc.del1 4drop 0 ; )
+		64 + ) 4drop ;
+
+::esc.deln | adr 'fx --
+	dup @ -64 rot +!
+	64 - 16 move ;
+
+::esc.cnt | 'fx -- cnt
+	@+ swap @ - 6 >> ;
+
+::esc.dump | 'fx
+	dup @+ swap @
+	( over <? )(
+		dup 4+
+		@+ "x:%f " print
+		@+ "y:%f " print
+		@ "z:%f " print cr
+		64 + ) 3drop ;
+
+|---- zbuffer
+#zbuffer
+::esc.zclear |
+	mark
+	here 'zbuffer !
+	;
+
+::esc.z+ | --
+	mpush
+	esc.pos
+	oztransform neg ,
+	mpop
+	dup ,	| graba direccion particula
+	;
+
+::esc.zdraw
+	here zbuffer - 3 >> >r
+	empty
+	r 1+ here shellsort
+	here r>
+	( 1? )( 1-
+		swap 4+ @+
+		dup 36 + @ exec drop | llama a dibujar
+		swap )
+	2drop ;
+

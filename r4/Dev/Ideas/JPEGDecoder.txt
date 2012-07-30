@@ -1,0 +1,226 @@
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+
+#DU |[][][]= new int[10][4][64];   //at most 10 data units in a MCU
+                       |at most 4 data units in one component
+
+#IDCT_Source |[]=new int[64];
+
+#IDCT_P
+   0   5  40  16  45   2   7  42
+  21  56   8  61  18  47   1   4
+  41  23  58  13  32  24  37  10
+  63  17  44   3   6  43  20  57
+  15  34  29  48  53  26  39   9
+  60  19  46  22  59  12  33  31
+  50  55  25  36  11  62  14  35
+  28  49  52  27  38  30  51  54
+
+#table
+	0	1	5	6	14	15	27	28
+	2	4	7	13	16	26	29	42
+	3	8	12	17	25	30	41	43
+	9	11	18	24	31	40	44	53
+	10	19	23	32 	39	45	52	54
+	20	22	33	38	46	51	55	60
+	21	34	37	47	50	56	59	61
+	35	36	48	49	57	58	62	63
+
+|--------- IO
+:get8 | adr -- adr+ 8b
+	c@+ $ff and ;
+:get16 | adr -- adr+ 16b
+	c@+ $ff and 8 << swap c@+ $ff and rot or ;
+:readNumber | adr -- adr+ 16b
+	get16 drop get16 ;
+:readComm | adr -- adr+
+	get16 2 - ( 1? )( 1- swap 1+ swap ) drop ;
+
+|------------------
+
+#YH
+#YV
+#Xsize
+#Ysize
+#Ri	| RestartInterval
+
+|----------------- ScanHeader
+|  Ls=get16(in);  2 +0
+|  Ns=get8(in);   1 +2
+|					2*ns
+| 	CS 		1		+3
+| 	td ta	1       +4
+|
+| Ss=get8(in);   1   +5
+| Se=get8(in);   1   +6
+| temp=get8(in); 1   +7
+| Ah=temp>>4;
+| Al=temp&0x0F;
+
+#SH
+:SH.get
+	dup 'SH !
+	2 + get8 2* +
+	3 + ;
+
+:SH.Ns
+	SH 2 + get8 nip ;
+
+|----------------- QuantizationTable
+#Q )( 1024 | 64 *4 *4
+
+:tab* | qtab nro mul index -- qtab nro
+	2 << 'table + @ 2 << pick3 + swap over @ * swap ! ;
+
+:EnhanceQuantizationTable | qtab -- ( int qtab[] ){
+	0 ( 8 <? )(
+		90 over 0 8 * + tab*
+		90 over 4 8 * + tab*
+		118 over 2 8 * + tab*
+		49 over 6 8 * + tab*
+		71 over 5 8 * + tab*
+		126 over 1 8 * + tab*
+		25 over 7 8 * + tab*
+		106 over 3 8 * + tab*
+		1+ ) drop
+	0 ( 8 <? )(
+		90 over 8 * 0 + tab*
+		90 over 8 * 4 + tab*
+		118 over 8 * 2 + tab*
+		49 over 8 * 6 + tab*
+		71 over 8 * 5 + tab*
+		126 over 8 * 1 + tab*
+		25 over 8 * 7 + tab*
+		106 over 8 * 3 + tab*
+		1+ ) drop
+	64 ( 1? )( 1- swap
+		dup @ 6 >> swap !+
+		swap ) 2drop
+	;
+
+:set8 | nro adr Q -- nro adr
+	swap over | Q adr Q
+	64 ( 1? )( 1- >r | Q adr Q
+		swap get8		| Q adr n
+    	rot !+			| adr Q.
+		r> ) 2drop
+	swap
+	EnhanceQuantizationTable
+	;
+
+:set16 | nro adr Q -- nro adr
+	swap over | Q adr Q
+	64 ( 1? )( 1- >r | Q adr Q
+		swap get16		| Q adr n
+    	rot !+			| adr Q.
+		r> ) 2drop
+	swap
+	EnhanceQuantizationTable
+	;
+
+:QT.get
+	get16 2 - | Lq
+	( 1? )( swap
+		get8 dup $f and
+		8 << 'Q +
+		swap 4 >>	| nro adr Q bit
+		0? ( drop set8 -64 )( drop set16 -128 )
+		rot + 1- ) drop
+	;
+
+|----------------- HuffmanTable
+#HT
+#HT.s
+:HT.get
+	dup 'HT !
+	get16 'HT.s !
+
+|	trace
+	;
+
+|----------------- FrameHeader
+#FH
+:FH.get | (InputStream in, int sof) throws Exception{
+	2 - dup 'FH !
+	9 + get8 3 * + | componentes
+	;
+:FH.X | -- X
+	FH 7 + get16 nip ;
+:FH.Y | -- Y
+	FH 5 + get16 nip ;
+
+:FH.YX | -- Y X
+	FH 5 + get16 swap get16 nip ;
+
+|-------- Startscan
+:startscan | adr -- adr.
+	| out init??
+	SH.get
+
+	;
+|--------- output frame
+#img
+#sizeimg
+#ximg #yimg
+
+:setout | y x --
+	2dup 'ximg ! 'yimg !
+	* 2 << 'sizeimg !
+	;
+:putpix! | c x y --
+	ximg * + 2 << img + ! ;
+
+:getpix | x y --
+	ximg * + 2 << img + @ ;
+
+|-----------------
+:decodetype | adr v -- adr
+	$ffc4 =? ( drop HT.get ; )
+	$ffdb =? ( drop QT.get ; )
+	$ffdd =? ( drop readNumber 'Ri ! ; )
+
+	$ffc0 =? ( drop FH.get FH.YX setout ; )
+	$ffc2 =? ( drop FH.get FH.YX setout ; )
+	$ffda =? ( drop startscan ; )
+
+	$fffe =? ( drop readComm ; )
+	$ffe0 >=? ( $ffef <=? ( drop readComm ; ) )
+
+	drop 0 ;
+|	$ffd9 =? ( drop 0 ; ) | end
+|	$ffcc =? ( 2drop 0 ; ) |DAC no soportado7
+|	drop ; | if(current>>8 != 0xFF){ error("ERROR: format error! (decode)"); }
+
+:decodejpg | adr -- adr .
+	get16 $ffd8 <>? ( 2drop 0 ; ) drop
+	( get16 decodetype 0? ) drop
+	;
+
+:loadjpg | "" -- adr
+	here swap load 'img !
+	here decodejpg
+	;
+
+|-------- TEST MAIN
+#im1
+
+:main
+	mark
+	"media/jpg/imagen011.jpg" loadjpg 'im1 !
+	clrscr
+	0 ( yimg <? )(
+		10 over 20 + setxy
+		0 ( ximg <? )(
+			2dup getpix px!+
+			1+ ) drop
+		1+ ) drop
+	im1 "%d" print cr
+	FH.Y FH.X "%d %d" print cr
+	usogui
+	show
+		'exit >esc<
+		cminiflecha
+		;
+
+: 33 main ;

@@ -1,0 +1,196 @@
+| new frame buffer
+| PHREDA 2010
+|---------------
+^r4/lib/gui.txt
+^r4/lib/color.txt
+^r4/lib/leebmp.txt
+^r4/lib/trace.txt
+
+|-------------------------------
+
+#miny #maxy
+#minco #maxco
+#mincg #maxcg
+#matcolor )( $3ffff
+
+:inistat
+	0 'miny ! 0 'maxy !
+	0 'minco ! 0 'maxco !
+	0 'mincg ! 0 'maxcg !
+	'matcolor >r
+	$ffff ( 1? )( 0 r!+ 1- ) drop rdrop
+	;
+:addstat
+	rgb2ycc
+	2dup $ff and swap $ff and 8 << or 2 << 'matcolor + 1 swap +!
+	mincg <? ( dup 'mincg ! )
+	maxcg >? ( dup 'maxcg ! ) drop
+	minco <? ( dup 'minco ! )
+	maxco >? ( dup 'maxco ! ) drop
+	miny <? ( dup 'miny ! )
+	maxy >? ( dup 'maxy ! ) drop
+	;
+:endstat
+
+	;
+|-----------------------------------
+#matcol )( $ffff
+
+:rescol
+	'matcol >r 0 0 ( $fff <? )( 1+ over r!+ ) 2drop rdrop ;
+
+:to12+ | rgb -- ; matcol(rgb12)++
+	dup 4 >> $f and over 8 >> $f0 and or swap 12 >> $f00 and or
+	2 << 'matcol + 1 swap +! ;
+
+
+:noceros | -- cntceros
+	'matcol >r
+	0 0 ( $fff <? )( 1+
+		r@+ 0? ( drop swap 1+ swap )( drop )
+		) drop rdrop
+	;
+
+|-----------------------------------
+#yrenglon
+
+:view8bit | 8 bit/canal
+	2dup 0 >> $ff and 300 + setxy $ff px!+
+	2dup 8 >> $ff and 300 + setxy $ff00 px!+
+	2dup 16 >> $ff and 300 + setxy $ff0000 px!+
+	;
+
+:view4bit | 4 bit/canal
+	2dup 4 >> $f and 300 + setxy $ff px!+
+	2dup 12 >> $f and 300 + setxy $ff00 px!+
+	2dup 20 >> $f and 300 + setxy $ff0000 px!+
+	;
+
+:viewycc
+	2dup rgb2ycc 2drop $ff and 300 + setxy $ffff px!+
+	2dup rgb2ycc xor nip $ff and 300 + setxy $ff00ff px!+
+	;
+
+:viewmatcol
+	'matcol >r
+	$7f ( 1? )(
+		500 over setxy
+		$7f ( 1? )( 1-
+			r@+ px!+
+			) drop
+		1- ) drop rdrop
+	;
+
+#buff2
+
+#ys
+#cod
+#cgd
+
+:copynew
+	buff2 >r
+	0 ( bmp.alto <? )(
+		0 ( bmp.ancho <? )(
+			2dup swap bmp.get
+			rgb2ycc
+			2drop
+			|$55 and swap $aa and or nip
+			dup 8 << or dup 8 << or
+
+			r!+
+			1+ ) drop
+		1+ ) drop
+	rdrop ;
+
+:copynewm
+	buff2 >r
+	0 ( bmp.alto <? )(
+		0 ( bmp.ancho <? )(
+			2dup swap bmp.get
+			rgb2ycc
+
+			cgd + | varia cg
+			$55 and swap
+			cod +
+			$aa and or nip
+			dup 8 << or dup 8 << or
+
+			r!+
+			1+ ) drop
+		1+ ) drop
+	rdrop ;
+
+:viewbuff2
+	400 0 setxy
+	buff2 >r
+	0 ( bmp.alto <? )(
+		0 ( bmp.ancho <? )(
+			r@+ px!+ | al sal anch
+			1+ ) drop
+		sw bmp.ancho - px+!
+		1+ )  drop
+	rdrop ;
+
+
+
+|Y = R/4 + G/2 + B/4
+|Co = R/2 - B/2
+|Cg = -R/4 + G/2 - B/4
+
+:rgb2ycc2 | rgb -- y cg co
+	dup 16 >> $ff and 2/ swap
+	dup 8 >> $ff and 2/ swap
+	$ff and 2/ | r/2 g/2 b/2
+	pick2 over - >r | co
+	2/ pick2 2/ neg pick2 + over - >r
+	rot 2/ +
+	swap +
+	r> r> ;
+
+|R = Y + Co - Cg
+|G = Y + Cg
+|B = Y - Co - Cg
+
+:ycc2rgb2 | y cg co -- rgb
+	over - | y cg co-cg
+	pick2 over neg + >r
+	pick2 pick2 + >r
+	nip +
+	$ff and 16 <<
+	r> $ff and 8 << or
+	r> $ff and or
+
+	;
+
+#color 0
+:main2
+	clrscr
+	$ffffff ( 1? )(
+		dup rgb2ycc2
+
+		300 + swap 300 + swap setxy
+		drop
+|		px@ $1 + px!+
+		dup px!+
+		1- ) drop
+	verde
+	300 128 - dup 2dup op
+	2dup 256 + line
+	over 256 + over 256 + line
+	over 256 + over line
+	line
+	show
+		'exit >esc<
+		;
+
+:main
+	show clrscr
+		color
+		dup rgb2ycc2 ycc2rgb2
+		over "%h %h" print
+		drop
+		1 'color +!
+		'exit >esc<
+		;
+
+: mark 33 main  ;

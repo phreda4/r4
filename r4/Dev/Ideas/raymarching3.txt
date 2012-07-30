@@ -1,0 +1,2247 @@
+class PolarCamera
+{
+  PVector  m_camPos = new PVector(0.0f,2.4f,0.0f);
+  float   m_CamAngleX = 0.f;
+  float   m_CamAngleY = -0.3f;
+  PVector  m_camDir;
+   
+  PolarCamera(PVector cpos, float angX, float angY )
+  {
+    m_camPos =cpos;
+    m_CamAngleX = angX;
+    m_CamAngleY = angY;
+    update(0,0);
+  }
+  PolarCamera()
+  {
+    update(0,0);
+  }
+  void update(float dy, float dz)
+  {
+     m_CamAngleX += dy;
+     m_CamAngleY += -dz;
+     m_camDir = new PVector(sin(m_CamAngleX)*cos(m_CamAngleY),
+               sin(m_CamAngleY),cos(m_CamAngleX)*cos(m_CamAngleY));
+  }
+  void forward(float v )
+  {
+    PVector f =new PVector();
+    f.set(m_camDir);
+    f.mult(v*0.25);
+    m_camPos.add(f);
+  }
+  void side(float v )
+  {
+    PVector f =m_camDir.cross(new PVector(0,1,0));
+    f.normalize();;
+    f.mult(v*0.25);
+    m_camPos.add(f);
+  }
+}
+ 
+class Camera
+{
+  PVector position;
+  PVector lower_left_corner;
+  PVector uvw_u;
+  PVector uvw_v;
+  PVector uvw_w;
+ 
+  public Camera(PVector eye, PVector up, PVector gaze,
+  float resX, float resY, float d)
+  {
+    position = eye;
+    uvw_v = up;
+    uvw_w = gaze;
+    uvw_u = uvw_v.cross(uvw_w);
+    uvw_u.normalize();
+     
+    uvw_v = uvw_w.cross(uvw_u );
+    uvw_v.normalize();
+     
+    uvw_w.normalize();
+     
+    float sX = -resX/2;
+    float sY = -resY/2;
+    float eX = resX/2;
+    float eY = resY/2;
+     
+    lower_left_corner = new PVector();
+    PVector t1= new PVector();
+    PVector t2= new PVector();
+    t1.set( uvw_w);
+    t1.mult(d);
+    t2.set(uvw_v);
+    t2.mult(sY);
+    lower_left_corner.set( uvw_u);
+    lower_left_corner.mult(sX);
+    lower_left_corner.add(t1);
+    lower_left_corner.add(t2);
+         
+    //uvw_u.mult(resX);
+    //uvw_v.mult( resY);
+  }
+ 
+  Ray generateRay( float screenCoordX, float screenCoordY )
+  {
+    PVector origin =new PVector();
+    PVector up =new PVector();
+    PVector acc =new PVector();
+    PVector direction = new PVector();
+    direction.set( lower_left_corner );
+    up.set( uvw_v);
+    up.mult( screenCoordY);
+    acc.set(uvw_u);
+    acc.mult( screenCoordX);
+    direction.add(up);
+    direction.add(acc);
+    direction.normalize();
+    origin.set(position);
+    return new Ray( origin, direction);
+  }
+};
+
+PVector applyClouds( PVector c1, Lighting lgt, PVector p, PVector d, float maxT , boolean LQ)
+{
+  if (!lgt.useClouds )
+  {
+    return c1;
+  }
+  int numSteps = LQ ? 4 : 12;//24;//8;//16;//8;
+   
+  float cloudsSize=0.7;//1.3; //0.7
+  float cloudHieght = 4.5;//5;//2.5;//- random(0,1/(float)numSteps);
+  float cloudEnd = cloudHieght-cloudsSize;
+  float cloudCover =LQ ? .6 : .7;
+  final float invCC = 1./cloudCover;
+  float t0 =max((cloudHieght-p.y)/d.y,0);
+  float t1 =(cloudEnd-p.y)/d.y;
+  float tmin =max(min(t0,t1),0);
+  float tmax = max(t0,t1);
+ 
+  if ( tmin > maxT || tmax <0.0)
+  {
+    return c1;
+  }
+   
+  PVector np = new PVector();
+  float ccv= 0.0;
+ 
+  noiseDetail(5,0.7);
+  PVector cCol = new PVector(1.,1.,1.);
+ 
+  float dt = (tmin-tmax)/(float)numSteps;
+  tmin = max(min(maxT,tmin),0);
+  tmax = max(min(maxT,tmax),0);
+ 
+  int numShadSamples=0;
+  PVector sray = new PVector();
+  PVector snp = new PVector();
+  snp.set(d);
+  snp.mult(tmin);
+  snp.add(p);
+  sray.set( lgt._sd);
+  sray.mult(10000.0);
+  sray.sub(snp);
+  sray.normalize();
+   
+  sray.mult(new PVector(0.35,.5,0.35));
+  sray.mult(-dt);
+   
+  PVector nd = new PVector(d.x*0.35, d.y*.5,d.z*0.35);
+  PVector nsp = new PVector(p.x*0.35+13.5, p.y*.5,p.z*0.35+5.7);
+  float slabSize = 1./(cloudHieght-cloudEnd);
+   
+  // go back to front
+  // TODO : allow for step size in calc
+  for (float t = tmax+dt*.5; t > tmin; t+= dt)
+  {
+    np.set(nd);
+    np.mult(t);
+    np.add(nsp);
+     
+    float cv = max(noise(np.x, np.y,np.z)-cloudCover,0)*invCC;
+    cv = min(cv,1);
+    // blend over the old one
+    cCol.mult(1.-cv);
+    PVector bcol = new PVector();
+    float nc ;
+     if ( g_doCloudShadows)
+     {
+       float shad=0;
+       PVector ss = new PVector();
+        ss.set(np);
+        
+       for (int i = 0; i < numShadSamples; i++ )
+       {
+         ss.add(sray);
+         shad += max(noise(ss.x, ss.y,ss.z)-cloudCover,0)*invCC*.5;
+       }
+       nc = constrain(1-shad,0,1);
+       numShadSamples++;
+     }
+     else
+     {
+       float py = p.y + d.y*t;
+       nc = (py-cloudEnd)*slabSize;
+     }
+    nc = nc*0.9+.1;
+    nc*=cv;
+     
+    bcol.set(nc,nc,nc);
+    cCol.add(bcol);
+    ccv = (1.-cv)*ccv + cv;
+  }
+  cCol.mult(1.3);
+  // TODO : add detail noise
+  // from http://freespace.virgin.net/hugo.elias/models/m_clouds.htm
+  float cloudSharpness = 0.75;
+  //ccv =max(ccv +(noise(np.x*5.,np.z*5.)*2.-1)*0.2,0);
+  float cd= min(pow( ccv, cloudSharpness),1);
+  PVector colCol = cCol;//lerp(new PVector(1.,1.,1.),new PVector(0.0,0.0,0.0),shadow);//(cd-.75)*4);
+  PVector sunTint = new PVector();
+  sunTint.set(1,1,1);
+  sunTint.add(lgt._sc);
+  sunTint.mult(0.5);
+  colCol.mult(sunTint);
+  cd *= exp(-tmin*1/50);
+ 
+  return lerp( c1, colCol,cd);
+}
+PVector skyColor( Lighting lgt, PVector d )
+{
+  float blendv = sqrt(max(d.y+0.03,0.000001));
+  float blendv2 = constrain(blendv*2.-1.,0.,1.);
+  blendv = constrain(blendv*2.,0.,1.);
+   
+  PVector sky= lerp( lgt.skybot, lgt.skymid,blendv);
+  sky = lerp( sky, lgt.skytop,blendv2);
+   
+  PVector sun = new PVector();
+  sun.set( lgt._sc);
+  float sf = pow( max(d.dot(lgt._sd),0), 64.);
+  sun.mult(sf);
+  sky.add(sun);
+  return sky;
+}
+float fresnel( PVector i, PVector n)
+{
+  float f = abs(i.dot(n));
+  f=pow(1.-f,5);
+  float r=0.05;
+  return r+(1-r)*(f);
+}
+ 
+PVector GetWaterSurface( QualitySettings qs, HieghtField hgts, Ray ray, Lighting lgt,
+float t, int depth, float fogLength, PVector p, PVector n )
+{
+    PVector m =new PVector();
+    // apply water fog
+     
+    float wfd = 1/0.05f;//1/0.25;
+    float fm = exp(-fogLength*wfd);
+    if ( fm >0.001)
+    {
+      Material mat = hgts.GetMaterial( p, n,t );
+      m = lgt.getShading( qs, hgts, p, n, ray.direction, mat, t, depth,0 );
+      m = lerp( new PVector(0,0.12,0.05), m, fm);    
+    }
+    else
+      m = new PVector(0,0.1,0.05);
+ 
+    // find water intsection point
+    PVector np = new PVector();
+    np.set(ray.direction);
+    np.mult(-fogLength);
+    np.add(p);
+ 
+    // get hieght at this point
+    float wd = hgts.GetWaterHieght() -hgts.GetHieght( np.x, np.z,t);
+//    float foamDepth = 0.02;
+//
+//    float nv = max(g_NoiseGen.Fbm( np.x*64.,np.z*64., 3,0.7,2.189),0)*3;
+//    float foamAmount = constrain(nv-wd/foamDepth,0,1);
+    assert( abs(np.y -hgts.GetWaterHieght())<0.0001);
+     
+    float foamAmount = 0;
+    int oct = CalcNoiseOctaves( t, 32., 2.,1./2.189);
+    float[] d = new float[3];
+    g_NoiseGen.dFbm( np.x*32.,np.z*32., oct,0.5,2.189,d);
+    float waterBumpStrength = 12;
+    PVector waterN = new PVector( d[1], 32. * waterBumpStrength, d[2]);
+    waterN.normalize(); 
+    // add in reflection
+ 
+    PVector ref = reflection( qs, hgts, lgt, ray.direction, np, waterN, t , wd);
+    m = lerp( m, ref, fresnel( ray.direction, waterN ));
+    m = lerp( m, new PVector(0.75,0.75,0.75),foamAmount);
+    return m;
+}
+PVector applyFog( Lighting lgt, PVector d, PVector c, float t )
+{
+  float b =1./35;
+  t = max(t-10,0);
+  float fogAmount = exp( -t*b );
+  float sunAmount = pow(max( d.dot(lgt._sd), 0.0 ), 6.);
+  PVector fogColor  =  lerp( lgt.fogcol,
+  lgt._sc, sunAmount*.75);
+  return lerp(  fogColor, c, fogAmount );
+}
+PVector applyHieghtFog( Lighting lgt, PVector p, PVector d, PVector o, PVector c, float t )
+{
+  float b =1./.5;
+  float e = 0.01;
+   
+  float fa =e * exp( -(o.y-2.)*b );
+   
+  float fogAmount = constrain(fa*(1.-exp( -t*b*d.y))/d.y,0,1);
+  float sunAmount = pow(max( d.dot(lgt._sd), 0.0 ), 6.);
+  PVector fogColor  =  lerp( lgt.fogcol,
+  lgt._sc, sunAmount*.75);
+  return lerp(  fogColor, c, 1.-fogAmount );
+}
+
+int CalcNoiseOctaves2( float pixSize, float s, float octSize, float lac )
+{
+   pixSize = pixSize*octSize ;
+   float si = 1/s;
+  int numOctaves = 0;
+  println("pix size " + pixSize);
+  while( si > pixSize)
+  {
+    si*=lac;
+    numOctaves++;
+    assert(numOctaves < 30);
+  }
+  return numOctaves;
+}
+ 
+// http://developer.amd.com/assets/Tatarchuk-Noise(GDC07-D3D_Day).pdf
+ 
+// Creates a precomputed table of random gradients
+// for fast generation of gradient noise
+//
+class GradientNoise
+{
+   
+ 
+  float[] ranGradTable;
+  int wMask;
+  int wShift;
+ 
+  float[] genTab(int w)
+  {
+    float[] gradTable = {
+        1,1, -1,1,  1,-1, -1,-1,
+//      1,0, -1,0,  0,1,  0,-1,
+          sqrt(2),0 , -sqrt(2),0,  0,sqrt(2),  0,-sqrt(2)
+    };
+    assert( gradTable.length == 16);
+    float[] tab  = new float[w*w*2];
+    for (int i =0; i < w*w; i++)
+    {
+      int idx = (int)floor(random(0,8));
+      tab[i*2+0] = gradTable[idx*2];
+      tab[i*2+1] = gradTable[idx*2+1];
+    }
+    // build 2x2 nearbourhood
+ 
+    float[] ptab  = new float[w*w*2*4];
+    for (int y =0; y < w; y++)
+    {
+      for (int x =0; x < w; x++)
+      {
+        int i = x + y*w;
+        int j=i;
+        assert( j < w*w);
+        ptab[i*8+0] = tab[j*2+0];
+        ptab[i*8+1] = tab[j*2+1];
+ 
+        j= ((x+1)&wMask) + y*w;
+        assert( j < w*w);
+        ptab[i*8+2] = tab[j*2+0];
+        ptab[i*8+3] = tab[j*2+1];
+ 
+        j= ((x)&wMask) + ((y+1)&wMask)*w;
+        assert( j < w*w);
+        ptab[i*8+4] = tab[j*2+0];
+        ptab[i*8+5] = tab[j*2+1];
+ 
+        j= ((x+1)&wMask) + ((y+1)&wMask)*w;
+        assert( j < w*w);
+        ptab[i*8+6] = tab[j*2+0];
+        ptab[i*8+7] = tab[j*2+1];
+      }
+    }
+    return ptab;
+  }
+  GradientNoise( int wS )
+  {
+    int w = 1<<wS;
+    wShift = wS;
+    wMask = w-1;
+    ranGradTable = genTab(w);
+  }
+  float Get( float x, float y )
+  {
+     x = abs(x);
+    y = abs(y);
+    int i = (int)(x);
+    int j = (int)(y);
+    float u = x -(float)i;
+    float v = y -(float)j;
+    float iu= u-1;
+    float iv = v-1;
+ 
+    i &=wMask;
+    j &=wMask;
+    int idx = (((j <<wShift) + i)<<3);
+ 
+    // Sample 2x2 neighborhood of gradient values for each dimension
+    // and Extrapolate gradients. Distance in X,Y from each vertex.
+    float xg0=ranGradTable[idx+0] * u;
+    float yg0=ranGradTable[idx+1] * v;
+ 
+    float xg1=ranGradTable[idx+2] * iu;
+    float yg1=ranGradTable[idx+3] * v;
+ 
+    float xg2=ranGradTable[idx+4] * u;
+    float yg2=ranGradTable[idx+5] * iv;
+ 
+    float xg3=ranGradTable[idx+6] * iu;
+    float yg3=ranGradTable[idx+7] * iv;
+ 
+    // Distance in Y from each vertex.
+ 
+ 
+    //This now contains the 2D dot product between the gradient vector
+    // and the x, y offsets from lattice point in the current 2x2
+    // neighborhood.
+    float a = xg0+yg0;
+    float b = xg1+yg1;
+    float c = xg2+yg2;
+    float d = xg3+yg3;
+ 
+    u = u*u*u*(u*(u*6.0f-15.0f)+10.0f);
+    v = v*v*v*(v*(v*6.0f-15.0f)+10.0f);
+ 
+    float k0 =   a;
+    float k1 =   b - a;
+    float k2 =   c - a;
+    float k4 =   a - b - c + d;
+ 
+    return k0 + k1*u + k2*v + k4*u*v ;
+  }
+ 
+ 
+  void GetWithNormal( float x, float y, float[] r )
+  {
+    x = abs(x);
+    y = abs(y);
+    int i = (int)(x);
+    int j = (int)(y);
+    float u = x -(float)i;
+    float v = y -(float)j;
+    float iu= u-1;
+    float iv = v-1;
+ 
+    i &=wMask;
+    j &=wMask;
+    int idx = (((j <<wShift) + i)<<3);
+ 
+    // Sample 2x2 neighborhood of gradient values for each dimension
+    // and Extrapolate gradients. Distance in X,Y from each vertex.
+    float xga=ranGradTable[idx+0] ;
+    float yga=ranGradTable[idx+1] ;
+ 
+    float xgb=ranGradTable[idx+2];
+    float ygb=ranGradTable[idx+3];
+ 
+    float xgc=ranGradTable[idx+4];
+    float ygc=ranGradTable[idx+5];
+ 
+    float xgd=ranGradTable[idx+6] ;
+    float ygd=ranGradTable[idx+7] ;
+ 
+    // Distance in Y from each vertex.
+ 
+ 
+    //This now contains the 2D dot product between the gradient vector
+    // and the x, y offsets from lattice point in the current 2x2
+    // neighborhood.
+    float pa = xga* u+yga* v;
+    float pb = xgb * iu+ygb * v;
+    float pc = xgc * u+ygc * iv;
+    float pd = xgd* iu+ygd* iv;
+ 
+    // get derivatives
+    float du = 30.0f*u*u*(u*(u-2.0f)+1.0f);
+    float dv = 30.0f*v*v*(v*(v-2.0f)+1.0f);
+     
+    u = u*u*u*(u*(u*6.0f-15.0f)+10.0f);
+    v = v*v*v*(v*(v*6.0f-15.0f)+10.0f);
+     
+    float k0 =   pa;
+    float k1 =   pb - pa;
+    float k2 =   pc - pa;
+    float k4 =   pa - pb - pc + pd;
+ 
+    float dk1x = xgb-xga;
+    float dk1y = ygb-yga;
+     
+    float dk2x = xgc-xga;
+    float dk2y = ygc-yga;
+         
+    float dk4x = xga - xgb - xgc + xgd;
+    float dk4y = yga - ygb - ygc + ygd;
+ 
+    float dx = xga + u*dk1x + k1*du + dk2x*v  + dk4x*u*v + k4*v*du;
+    float dy = yga  + u*dk1y + k2*dv  + dk2y*v+ k4*u*dv + dk4y*u*v ;
+ 
+    r[0] = k0 + k1*u + k2*v + k4*u*v ;
+    r[1] = dx;
+    r[2] = dy;
+  }
+  float Fbm( float x, float y, int oct,  float p, float l )
+  {
+    float s =0;
+    float amp=1;
+    for (int i=0; i<oct; i++)
+    {
+      s+= amp*Get(x,y);
+      x*=l;
+      y*=l;
+      amp *= p;
+    }
+    return s;
+  }
+   float dFbm( float x, float y, int oct,  float g, float l, float r[] )
+  {
+    float s =0;
+    float amp=1;
+    float[] t= new float[3];
+    r[0]=r[1]=r[2]=0;
+    for (int i=0; i<oct; i++)
+    {
+      GetWithNormal( x,y,t);
+      r[0]+= amp*t[0];
+      r[1]+= t[1];
+      r[2]+= t[2];
+      x*=l;
+      y*=l;
+      amp *= g;
+    }
+    return s;
+  }
+   float FbmAO(float x, float z, int oct,  float g, float l )
+  {
+    float r = 1.;//1.;
+    float am=1.;
+    x*=l;
+    z*=l;
+    for (int i =1; i < oct;i++)
+    {
+      float localAo = am*(Get(x,z)*.5+.5)+.45;
+      //localAo = localAo < 1.2 ? 0.2 : 1.;
+       
+      float n = constrain( localAo,0,1);
+      n = pow4(n);
+      r *=n;
+      x*=l;
+      z*=l;
+      am*=0.96;
+   }
+    r = sqrt(r);
+    return constrain(r,0,1);
+  }
+  float TurbAO(float x, float z, int oct,  float g, float l )
+  {
+    float r = 1.;//1.;
+    float am=1;
+    x*=l;
+    z*=l;
+    for (int i =1; i < oct;i++)
+    {
+      float n = min(abs(Get(x,z))+.6,1);
+      r *=n;
+      x*=l;
+      z*=l;
+   }
+    r = sqrt(r);
+    return constrain(r,0,1);
+  }
+  float Turb( float x, float y, int oct,  float g, float l )
+  {
+    float s =0;
+    float amp=1;
+    float sc=0;
+    for (int i=0; i<oct; i++)
+    {
+      s+= amp*abs(Get(x,y));
+      sc+=amp;
+      x*=l;
+      y*=l;
+      amp *= g;
+    }
+    return s/sc;
+  }
+   void dTurb( float x, float y, int oct,  float g, float l, float r[] )
+  {
+    float s =0;
+    float amp=1;
+    float sc=0;
+    float[] t= new float[3];
+    r[0]=r[1]=r[2]=0;
+    for (int i=0; i<oct; i++)
+    {
+      GetWithNormal( x,y,t);
+      if ( t[0] < 0 )
+      {
+        t[0]=-t[0];
+        t[1]=-t[1];
+        t[2]=-t[2];
+      }
+      r[0]+= amp*t[0];
+      sc+=amp;
+      r[1]+= t[1];
+      r[2]+= t[2];
+      x*=l;
+      y*=l;
+      amp *= g;
+    }
+    r[0]/=sc;
+ 
+  }
+};
+
+// http://developer.nvidia.com/object/siggraph-2008-HBAO.html
+float CalcAO( HieghtField hgts, PVector p, PVector nor,
+          float sampleRadius, int numSamples,int horizonSteps, float t ) {
+  PVector n=new PVector();
+  PVector l=new PVector();
+ 
+  float tao = 0;
+  float off = random(0,1.);
+ 
+  // calculate tangent plane
+ 
+  for (int i = 0; i < numSamples; i++)
+  {
+    float ang = 2.0*PI*(((float)i+off)/(float)numSamples);
+    n.set( cos(ang), 0.0, sin(ang));
+ 
+    float d = sampleRadius;
+    float dm = sampleRadius;
+    PVector tang = new PVector();
+    tang.set(nor);
+    tang.mult(-nor.dot(n));
+    tang.add(n);
+    assert( abs(tang.dot(nor))<0.01);
+ 
+    float mgrad =-1000.0;
+    float tanGrad = tang.y/mag(tang.x,tang.z);
+    float tangentAngle = sin(atan(tanGrad));
+    // could do multiple samples and cal max gradient
+    for (int j =0; j< horizonSteps; j++)
+    {
+      float hl=hgts.GetHieght(p.x+n.x*d,p.z+n.z*d, t);
+      // get max angle
+      float grad = (hl-p.y)/d;
+      grad = max( tanGrad, grad);
+      mgrad = max(grad, mgrad);
+      d += dm;
+      dm*=3.;
+    }
+    float horizonAngle = sin(atan(mgrad));
+    tao = tao  + constrain(horizonAngle-tangentAngle,0,1);
+  }
+  float ao =1. - constrain(tao/(numSamples),0,1);
+  return ao*ao;
+}
+ 
+ 
+float pow4(float a)
+{
+  a = a*a;
+  return a*a; 
+}
+float pow16(float a)
+{
+  a =pow4(a);
+  return pow4(a);
+}
+class Lighting
+{
+    PVector _sd;
+    PVector _sc;
+    PVector _am;
+    PVector skytop;
+    PVector skymid;
+    PVector skybot;
+    PVector fogcol;
+    float   shadowDist;
+    boolean useClouds;
+     
+     
+    Lighting( PVector sunDirection, float sunUp , boolean uc )
+   {
+      useClouds = uc;
+      // simple time of day stuff sunset -> sunrise
+       
+      _sc = smoothblend(new PVector(1.,0.3,0.05), new PVector(1.,0.8,0.4), sunUp);
+      skytop = smoothblend(new PVector(0.1,0.3,0.6), new PVector(0.25,0.4,0.7), sunUp);
+      skymid = smoothblend(new PVector(1.,1.,0.3), new PVector(0.5,0.8,1.0), sunUp);     
+      skybot = smoothblend(new PVector(1.2,0.5,0.05), new PVector(0.9,0.9,1.0), sunUp);
+      fogcol =smoothblend(new PVector(1.,0.5,0.05),new PVector(0.45,0.65,0.9), sunUp);
+      _am  = smoothblend(new PVector(0.5,0.4,0.3), new PVector(0.25,0.4,0.7), sunUp);
+      _sd = sunDirection;    
+      _sd.normalize();
+ 
+    }
+    PVector getShading( QualitySettings qs, HieghtField hgts,
+            PVector p, PVector n,  PVector I, Material  mat, float t, int depth, float localAO )
+   {
+     //? shot shadow ray?
+     PVector amb = new PVector();
+     amb.set(_am);
+     float normFactor = n.y*.5 +.5;
+      
+     float abFactor;
+    if ( g_UseExpensiveAO)
+      abFactor =CalcAO( hgts, p, n,0.01, 6,4, t);
+    else
+      abFactor = hgts.GetAO(p.x, p.y, p.z ,t );//
+    amb.mult(abFactor);//*normFactor);
+       
+     float shadow=0.;
+     float nd =max( n.dot(_sd),0);
+     if ( nd>0)
+       shadow=castShadowRay( qs, hgts, p, _sd, t*qs.shadowRayStartRatio, t );
+ 
+     // apply bounce depending on in shadow
+     float bounceStrength = 1.;
+     PVector bounceCol  = new PVector();
+     bounceCol.set(mat.surfcol);
+     bounceCol.mult(_sc);
+     float bshadFactor =1;//(shadow*.5+.5);
+     bounceCol.mult(bshadFactor*bounceStrength);
+     amb = lerp(bounceCol, amb, normFactor);
+      
+     PVector sunLight  = new PVector();
+     sunLight.set( _sc);
+     sunLight.mult( nd* shadow);
+     sunLight.add(amb);
+      
+     // specular
+     PVector hangle = new PVector();
+     hangle.set(I);
+     hangle.mult(-1);
+     hangle.add(_sd);
+     hangle.normalize();
+      
+     float spec = pow16(max(hangle.dot(n),0))*mat.specAmount* shadow;
+     PVector speccol =new PVector();
+     speccol.set(_sc);
+     speccol.mult(spec);
+      
+     float edgelight =pow4(1.- max(-I.dot(n),0)) ;
+     edgelight*=mat.rimAmount* shadow*nd;
+     PVector edgecol =new PVector();
+     edgecol.set(_sc);
+     edgecol.mult(edgelight);
+      
+     
+      sunLight.mult(mat.surfcol);  // diffuse
+      sunLight.add(speccol);      // spec
+      sunLight.add(edgecol); 
+     //sunLight.set(shadow,shadow,shadow);
+ // sunLight.set(abFactor,abFactor,abFactor);
+    //sunLight.set(amb);
+      return sunLight;    
+   }
+   
+};
+ 
+ 
+ 
+PVector reflection( QualitySettings qs, HieghtField hgts, Lighting  lgt, PVector d, PVector p, PVector n, float oldt, float errFactor)
+ {
+   float r = 2.*d.dot(n);
+   PVector rv = new PVector();
+   rv.set(n);
+   rv.mult(-r);
+   rv.add(d);
+   rv.normalize();
+ 
+// always go up
+  //rv.y =max(rv.y, 0.001f);
+  //rv.normalize();
+   PVector np = new PVector();
+   np.set(p);
+   Ray ray = new Ray(np,rv);
+   PVector c;
+   rayRes t = castRay( qs,hgts, np, rv, 0.05,30-oldt, max(oldt*2.,1) );
+   if( t.t>0.0 )
+    c= terrainColor( qs, hgts, ray, lgt, t.t,1 );      
+  else
+    c= skyColor( lgt, ray.direction);
+ 
+  return applyClouds( c, lgt, ray.origin, ray.direction, t.t>0.0 ? t.t: 1000.0, true );
+}
+ float pow5(float a)
+ {
+   return pow4(a)*a;
+ }
+ 
+float CalcLocalAO( float cds[], float y, float t)
+{
+  float ratio = (.2*min(1/t,1))/g_eps;
+  float ao = max(cds[0]-y,0);
+  ao +=max(cds[1]-y,0);
+  ao +=max(cds[2]-y,0);
+  ao +=max(cds[3]-y,0);
+   
+  return constrain(1.0 - ao*ratio,0,1);
+}
+PVector terrainColor( QualitySettings qs, HieghtField hgts, Ray ray, Lighting lgt,
+            float t, int depth )
+{
+  PVector p = new PVector();
+  p.set(ray.direction);
+  p.mult(t);
+  p.add( ray.origin);
+ 
+// use central difference hieght values
+  float[] surfhgts= getSurfaceCDS(  hgts, p, t );
+  PVector sn = genNormal( surfhgts);
+   
+  PVector m = new PVector();
+  if( p.y < hgts.GetWaterHieght() && depth==0 && qs.useReflection)
+  {
+      float fogLength = -(hgts.GetWaterHieght()-p.y)/ray.direction.y;
+      m = GetWaterSurface( qs, hgts, ray, lgt, t, depth, fogLength,p,sn );
+      t -= fogLength;
+  }
+  else
+  {
+    Material mat = hgts.GetMaterial( p, sn,t );
+    //p.y += bumpHieght(p.x, p.z,mat.bs, mat.btile, 3); // add bump mod
+     
+    //float[] bumphgts = getBumpCDs(p.x,p.z,mat.bs, mat.btile, t);
+    //for(int i =0; i < 4; i++)
+    //  surfhgts[i] += bumphgts[i];
+    m =lgt.getShading( qs, hgts, p, sn /*genNormal(surfhgts)*/, ray.direction,mat, t, depth,0 );
+  }
+  return applyFog( lgt, ray.direction, m, t );
+}
+//raymarch
+ 
+ 
+class Material
+{
+  float   bs;
+  float   btile;
+  float   rimAmount;
+  float   specAmount;
+  PVector surfcol;
+   
+  Material( PVector c, float _bs)
+  { 
+    bs=_bs;
+    btile=32.;
+    rimAmount=0;
+    specAmount=0;
+    surfcol=c;
+  }
+  Material( PVector c, float _bs, float _bt, float _ra, float _sa)
+  {  
+    bs=_bs;
+    btile=_bt;
+    rimAmount=_ra;
+    specAmount=_sa;
+    surfcol=c;
+  }
+};
+Material lerp( Material a, Material b, float t)
+{
+  return new Material( lerp(a.surfcol,b.surfcol,t),
+                lerp(a.bs, b.bs,t),
+                lerp( a.btile, b.btile,t),
+                lerp( a.rimAmount, b.rimAmount,t),
+                lerp(a.specAmount, b.specAmount,t));
+}
+interface HieghtField
+{
+  float GetHieght(float x, float z, float t);
+  float GetFinalHieght(float x, float z, float t);
+   
+  float GetAO(float x, float y, float z, float t);
+  Material   GetMaterial(PVector p, PVector sn, float t);
+  float             GetWaterHieght();
+}
+ 
+int g_numHieghtSamples = 0;
+int g_numHieghtShadowSamples = 0;
+class QualitySettings
+{
+  public boolean useSubSampling=false;
+  public float   shadowRayDeltaRatio=0.025f;//0.025f;
+  public float   shadowRayStartRatio=0.008f;//0.008f;
+  public float   rayDeltaRatio = 0.05f;//5;//35;//1;//1f;// 0.005f;
+  public boolean useReflection = true;
+  public float   maxHgt=1.5;
+  void SetFast()
+  {
+    shadowRayDeltaRatio*=4.;
+    rayDeltaRatio*=4.;
+    useReflection=true;
+    maxHgt=1.0;
+    shadowRayStartRatio*=4.;
+  }
+};
+ class rayRes
+ {
+   float t;
+   float pt;
+ };
+ 
+ rayRes interp( float t, float dt, float h, float lh, float py, float ly)
+ {
+   // interpolate the intersection distance
+   rayRes rr = new rayRes();
+   rr.pt = t-dt;
+   rr.t = t - dt + dt*(lh-ly)/(py-ly-h+lh);
+   return  rr;
+ }
+ rayRes castRay( QualitySettings qs, HieghtField hgts, PVector ro, PVector rd, float mint, float maxt, float erratio )
+{
+   float dt = max( qs.rayDeltaRatio*mint, 0.001f);
+  float lh = 0.0f;
+  float ly = 0.0f;
+  PVector p = new PVector();
+  PVector rp = new PVector();
+  float err = erratio;
+  erratio = erratio *qs.rayDeltaRatio;
+   
+  for( float t = mint; t < maxt; t += dt )
+  {
+    p.set(rd);
+    p.mult(t);
+    p.add(ro);
+    float h = hgts.GetHieght( p.x, p.z, t*err);
+    g_numHieghtSamples++;
+    if( p.y < h )
+    {
+      if ( g_UseRefinement )
+      {
+         float dt2 = dt*.25;
+        t = t-dt*.75;
+        for (int i=0;i<3;i++,t+=dt2)
+        {
+          rp.set(rd);
+          rp.mult(t);
+          rp.add(ro);
+          float h0 = hgts.GetHieght( rp.x, rp.z, t );
+          if (rp.y<h0)
+          {
+            return interp( t, dt2, h0, lh, rp.y, ly);   
+          }
+          lh=h0;
+          ly=rp.y;
+        }
+        dt = dt2;
+      }
+      return interp( t, dt, h, lh, p.y, ly);        
+    }
+    // allow the error to be proportional to the distance
+    dt = erratio*t;
+    lh = h;
+    ly = p.y;
+  }
+  rayRes r = new rayRes();
+  r.t=-1;
+  r.pt=-1;
+  return r;
+}
+ 
+//float bSample( HieghtField hgts, float x, float z, float bs )
+//{
+//  return hgts.GetHieght(x,z) + detailBumpNoise(x,z)*bs;
+//}
+//PVector getNormal( HieghtField hgts, PVector  p )
+//{
+//  float bs = hgts.GetBumpStrength(p);
+//  bs/=4;
+//  float eps =0.01f;
+//  PVector n = new PVector ( bSample(hgts,p.x-eps,p.z,bs) - bSample(hgts,p.x+eps,p.z,bs),
+//  2.0f*eps,
+//  bSample(hgts,p.x,p.z-eps,bs) - bSample(hgts,p.x,p.z+eps,bs) );
+//  n.normalize(); 
+//  return n;
+//}
+float g_eps =0.001f;
+float[] getSurfaceCDS( HieghtField hgts, PVector  p, float t )
+{
+  float[] ps = new float[4]; 
+  ps[0]=hgts.GetFinalHieght(p.x-g_eps,p.z,t);
+  ps[1]=hgts.GetFinalHieght(p.x+g_eps,p.z,t);
+  ps[2]=hgts.GetFinalHieght(p.x,p.z-g_eps,t);
+  ps[3]=hgts.GetFinalHieght(p.x,p.z+g_eps,t);
+  return ps;
+}
+float bumpHieght(float x, float z,float bs, float btile, int oct)
+{
+ return g_NoiseGen.Fbm( x*btile,z*btile, oct,0.5,2.189)*bs*0.01;
+//  return (noise(x*btile,z*btile)*2.-1)*bs;
+}
+float[] getBumpCDs(float x, float z,float bs, float btile, float t)
+{
+  int numBumpOctaves = CalcNoiseOctaves( t, btile*4, 1.,1./2.189);
+  float[] ps = new float[4];
+   if ( numBumpOctaves ==0 )
+  {    
+    ps[0]=ps[1]=ps[2]=ps[3]=0.0;
+    return ps;
+  }
+  float eps = g_eps;
+  ps[0]=bumpHieght((x-eps),z,bs,btile,numBumpOctaves)*5.;
+  ps[1]=bumpHieght((x+eps),z,bs,btile,numBumpOctaves)*5.;
+  ps[2]=bumpHieght(x,(z-eps),bs,btile,numBumpOctaves)*5.;
+  ps[3]=bumpHieght(x,(z+eps),bs,btile,numBumpOctaves)*5.;
+  return ps;
+}
+PVector genNormal( float[] h)
+{
+  PVector n = new PVector ( h[0]-h[1],  2.0f*g_eps, h[2]-h[3] );
+  n.normalize(); 
+  return n;
+}
+final float LightAngleRatio = tan(radians(4.));
+ 
+float castShadowRay( QualitySettings qs, HieghtField hgts, PVector ro,
+                PVector rd, float mint,  float baseT)
+{
+    float dt = max( qs.shadowRayStartRatio*mint, 0.001f);
+    float lh = 0.0f;
+    float ly = 0.0f;
+    float deltay = 1./max(rd.y,0.1f);
+    float maxt = (qs.maxHgt -ro.y )* deltay;  // find maximum distance
+   float sratio = qs.shadowRayDeltaRatio;
+   deltay = -deltay*0.3f;
+   int bsampleCnt = 0;
+   PVector p = new PVector();
+   float sdist = 0.;
+   float sratioM = 1.3;// random(1.2,1.3);
+  for( float t = mint; t < maxt; t += dt )
+   {
+     p.set(rd);
+     p.mult(t);
+     p.add(ro);
+     float h;
+     g_numHieghtShadowSamples++;
+     h = hgts.GetHieght( p.x, p.z ,baseT +t);
+ 
+     float d = LightAngleRatio *t;
+     float sy = p.y - sdist*d*2;
+     float sI=(d+h-sy)/((1.-sdist)*2.*d);
+     sdist += max(sI,0.);
+     if ( sdist>1)
+     {
+       return 0;
+     }
+ 
+      bsampleCnt++;
+       
+   // allow the error to be proportional to the distance
+      sratio *=sratioM ;
+      dt = sratio*t;
+      lh = h;
+     ly = p.y;
+   }
+  // println(bsampleCnt);
+  return 1 - constrain(sdist,0,1);//smoothstep(0,shadowSoftness,sdist);
+}
+ 
+class Ray
+{
+  public PVector origin;
+  public PVector direction;
+  Ray( PVector o, PVector d)
+  {
+    origin=o;
+    direction=d;
+  }
+}
+PVector  postEffect( float u, float v,PVector c )
+{
+  u=(u-.5 )*0.8;
+  v=(v-.5)*0.8;
+  float vignetting = max(1.-sqrt(u*u + v*v),0)*1.2;
+  c.mult(vignetting);
+  return c;
+}
+ 
+// TODO : add hdr here
+class GammaTable
+{
+  int tSize = 2048;
+  float tSizef = (float)tSize;
+  int[] g_tab= new int[tSize];
+  GammaTable()
+  {
+    for (int i = 0; i < tSize; i++)
+    {
+      g_tab[i] = (int)(pow( (float)i/tSize, 1/2.2 )*255.);
+    }
+  }
+  int Get( float v )
+  {
+    int iv = max(min((int)(v*tSizef),tSize-1),0);
+    return g_tab[ iv];
+  }
+}
+GammaTable g_GTable = new GammaTable();
+ 
+void renderImage( QualitySettings qs, Camera cam, PImage img, Lighting  lgt, HieghtField hgts,
+            int xStart, int xEnd, boolean usePost,
+            boolean useGamma)
+{
+  int xres = img.width;
+  int yres = img.height;
+ 
+  g_numHieghtSamples = 0;
+  g_numHieghtShadowSamples =0;
+   
+  PVector c = new PVector();
+  int numSamples = qs.useSubSampling ? 4 : 1;
+  PVector finalC = new PVector();
+   float subSampleScale = 1./numSamples;
+  float[] sampleoffsetx4={0.85f,0.3f, 0.15,0.6f };
+  float[] sampleoffsety4={0.15, 0.3f, 0.6,0.85f };
+  float[] sampleoffsetx1={0.5f };
+  float[] sampleoffsety1={0.5f };
+  float[] sampleoffsetx=qs.useSubSampling ? sampleoffsetx4: sampleoffsetx1;
+  float[] sampleoffsety=qs.useSubSampling ? sampleoffsety4: sampleoffsety1;
+  
+   float maxT = 70;
+  for( int i=xStart; i < xEnd; i++ )
+  {
+     float startT = 0.01;
+     for( int j=0; j < yres; j++ )
+    {
+      finalC.set(0.,0.,0.);
+      for( int k = 0; k < numSamples; k++)
+      {
+        Ray ray = cam.generateRay( (float)i+sampleoffsetx[k], (float)j+sampleoffsety[k]); 
+        rayRes t = null;
+        if ( startT != -1.)
+        {
+          t=castRay( qs, hgts, ray.origin, ray.direction,startT,maxT, 1. );
+        }
+   
+        if( t != null && t.t>0.0 )
+        {
+ //        c = new PVector(1,1,1);
+          c = terrainColor( qs,hgts, ray, lgt, t.t ,0);
+          startT = t.pt;//max(t-0.1f,0.01);
+        }
+        else
+        {
+           c = skyColor( lgt, ray.direction);
+           startT=-1.;
+            //         c = new PVector(0,0,0);  
+        }
+         c = applyClouds(c, lgt, ray.origin, ray.direction, t != null && t.t>0.0f ? t.t : 50.0f, false);
+        finalC.add(c);
+      }
+      finalC.mult(subSampleScale);
+      c=finalC;
+      if (usePost)
+        c = postEffect( (float)i/(float)xres, (float)j/(float)yres,c );
+      if (useGamma )
+      {
+        img.pixels[xres*(yres-j-1)+i] = color(g_GTable.Get(c.x),g_GTable.Get(c.y),g_GTable.Get(c.z));
+      }
+      else
+         img.pixels[xres*(yres-j-1)+i] = color(c.x*255.,c.y*255.,c.z*255.);
+    }
+  }
+  println("| NumSamples " + g_numHieghtSamples + "| Shadow Samples "+g_numHieghtShadowSamples);
+}
+ 
+PVector lerp( PVector a, PVector b, float t)
+{
+  return new PVector( lerp(a.x,b.x,t),lerp(a.y,b.y,t),lerp(a.z,b.z,t));
+}
+float smoothstep (float edge0, float edge1, float x)
+{
+  x =  min(max((x - edge0) / (edge1 - edge0),0.0f),1.0f);
+  return x*x*(3-2*x);
+}
+PVector smoothblend( PVector a, PVector b, float x)
+{
+  x = x*x*(3-2*x);
+  return lerp(a,b,x);
+}
+//scenes
+ 
+float Rocks2( float x, float z, int numSamples, float rad )
+{
+   float s = 4 *1/rad;
+  float msk = constrain(g_NoiseGen.Fbm( x*.25,z*.25,4,0.5,2.189)*4.,0,1);
+  float nv = max(abs(g_NoiseGen.Get( x*s,z*s)),0);
+  nv = sqrt(nv);
+  nv = sqrt(nv);
+  return nv*msk;
+} 
+float RocksAO( float x, float z, int numSamples, float rad )
+{
+  float s = 4 *1/rad;
+  float msk = constrain(g_NoiseGen.Fbm( x*.25,z*.25,4,0.5,2.189)*4.,0,1);
+  float nv = max(abs(g_NoiseGen.Get( x*s,z*s)),0.4);
+   
+  return max(nv, 1-msk);
+}
+class SimplePlane implements HieghtField
+{
+  final float treeHieght=0.3;
+  float GetFinalHieght(float x, float z, float t)
+  {
+    return GetHieghtVal(x,z,t,true);
+  }
+   
+  float GetHieghtVal(float x, float z, float t, boolean addGrass)
+  {
+  x+=17.0;
+ z-=15.0;
+     float bh = g_NoiseGen.Fbm( x*.1,z*.1, 4, 0.5,2.189);
+     int goct = CalcNoiseOctaves(t,32.,1.,1/3.189);
+     float grass = 0.0f;
+     if ( addGrass)
+       grass = g_NoiseGen.Fbm( x*32,z*32, goct, 0.5,3.189)*0.005;
+   
+ x+=17.0;
+ z-=15.0;
+    float r = Rocks2(x,z,4,treeHieght);
+    return bh+lerp(grass, r*treeHieght,min(r*4,1));//multiFractal( x, z, t,0.4 )*1/0.4;
+  }
+  float GetHieght(float x, float z, float t)
+  {
+    return GetHieghtVal( x,z,t,false);
+  }
+  float GetAO(float x, float y, float z, float t)
+  {
+    x += 17;
+    z -=15;  
+     x += 17;
+    z -=15;
+   int goct = CalcNoiseOctaves(t,32.,1.,1/3.189);
+   float grassAO = g_NoiseGen.FbmAO( x*32,z*32, goct, 0.5,3.189)*.8+.2;
+    
+    return RocksAO(x,z,4,treeHieght)*grassAO;
+  }
+  Material   GetMaterial(PVector p, PVector n, float t)
+  {
+    float x = p.x + 17.*2;
+    float z = p.z - 15*2;
+    float dn = detailNoiseLod(p.x,p.z, t);
+  
+    float r = Rocks2(x,z,4,treeHieght);
+    Material mat = lerp( matYellowGrass,matDarkGrass, dn);
+    return lerp(mat, matDarkTrees, min(r*8,1));
+  }
+  float     GetWaterHieght()
+  {
+     return -1000.0f;
+  }
+}
+ 
+class Wavey implements HieghtField
+{
+  float GetHieght(float x, float z, float t)
+  {
+    return sin(x)*sin(z)*1.5 + cos(x*8.)*cos(z*8.)*.25;
+  }
+  float GetFinalHieght(float x, float z, float t)
+  {
+    return GetHieght(x,z,t);
+  }
+  float GetAO(float x, float y, float z, float t)
+  {
+    y/=1.5;
+    y=y+1;
+    return min(y*y,1)*0.5;
+  }
+  Material   GetMaterial(PVector p, PVector n, float t)
+  {
+    return new Material(new PVector(0.75,0.55,0.4), 0.01);
+  }
+  float     GetWaterHieght()
+  {
+     return -10000.0;
+  }
+}
+ 
+float g_FovRatio = 0;
+ 
+void SetFovRatio( float fov, int w )
+{
+  g_FovRatio = tan(radians(45)/2)  /((float)w/2);
+}
+ 
+int CalcNoiseOctaves( float t, float s, float octSize, float lac )
+{
+   float pixSize = t*g_FovRatio*octSize ; // 8 pixels is done by bump mapping
+   float si = 1/s;
+    int numOctaves = 0;
+  while( si > pixSize)
+  {
+    si*=lac;
+    numOctaves++;
+    if (numOctaves >12)
+      return numOctaves;
+  }
+  return numOctaves;
+}
+float detailNoiseLod(float x, float z,float t)
+{
+  return   g_NoiseGen.Fbm( x*4.,z*4.,CalcNoiseOctaves(t,4.,2.,1/2.189),0.9,2.189);
+}
+int g_lastOctaves =0;
+float terrain( float x, float z, float t , float minDetail)
+{
+ x+=17.0;
+ z-=15.0;
+  int oct = CalcNoiseOctaves(t,0.3,minDetail,1./2.189);
+  float tn = 0;
+  tn =g_NoiseGen.Turb( x*0.3,z*.3,oct,0.5,2.189);//*.5+.5;
+  float tn2 =tn*tn;
+  return tn2*3.;
+}
+ 
+float ambTerrain( float x, float y, float z, float t, float minDetail )
+{
+  x+=17.0;
+ z-=15.0;
+   int oct = CalcNoiseOctaves(t,0.3,minDetail,1./2.189);
+  float tn =g_NoiseGen.TurbAO( x*0.3,z*.3,oct,0.5,2.189);
+  return tn;
+}
+float snowTerrain( float x, float z, float t, float minDetail)
+{
+  x+=17.0;
+ z-=15.0;
+  int oct =  CalcNoiseOctaves(t,0.3,minDetail,1./2.189);
+  float tn =g_NoiseGen.Fbm( x*0.3,z*.3,oct,0.5,2.189)*.5+.5;
+  
+  float tn2 =tn*tn;
+  tn2*=tn2;
+  return tn2*2;
+}
+float ambSnow( float x, float y, float z, float t,float minDetail )
+{
+ x+=17.0;
+ z-=15.0;
+   int oct = CalcNoiseOctaves(t,0.3,minDetail,1./2.189);
+  float tn =g_NoiseGen.FbmAO( x*0.3,z*.3,oct,0.5,2.189);
+  return lerp(1,tn,constrain(y*4.,0,1));
+}
+// look at fracplanet
+ 
+ 
+PVector getTerrainMaterial( HieghtField hgts, PVector p, PVector n, float t )
+{
+  PVector base= new PVector(0.75,0.75,0.75);
+  PVector layer1 = new PVector(0.75,1.,0.3);
+   
+  PVector layer2 = new PVector(0.65,0.5,0.2);
+  float dn = detailNoiseLod(p.x,p.z, t);
+  float blendLayer2 = smoothstep(0.4,1.0,n.y+ dn*.1);
+  float blendLayer1 = smoothstep(0.9,1.0,n.y+ dn*.025);
+ 
+  return lerp(lerp(base, layer2, blendLayer2), layer1, blendLayer1);
+}
+// Material library
+Material matLightGrass = new Material( new PVector(0.75,0.9,0.3),  0.01, 32.*4,0.5,0.1);
+Material matYellowGrass = new Material( new PVector(0.75,0.8,0.3),  0.01, 32.*4,0.2,0.01);
+ 
+Material matDarkGrass = new Material( new PVector(0.45,0.6,0.2),  0.01, 32.*4,0.3,0.1);
+Material matDarkTrees = new Material( new PVector(0.35,0.5,0.3),  0.2, 32.*4,0.0,0.01);
+ 
+Material matSand = new Material(  new PVector(0.7,0.7,0.3),  0.0, 32.*5,0,0.1);//new PVector(0.65,0.5,0.35)
+Material matDarkSand = new Material(  new PVector(0.6,0.6,0.4),  0.0, 32.*5,0,0.1);//new PVector(0.65,0.5,0.35)
+ 
+Material matRock = new Material( new PVector(0.35,0.35,0.35),  0.0, 32.*4,0,0.3);
+Material matDirt = new Material(  new PVector(0.55,0.55,0.55),  0.01, 32.*4,0,0.1);//new PVector(0.65,0.5,0.35)
+Material matDarkDirt = new Material(  new PVector(0.45,0.4,0.2),  0.01, 32.*3,0,0.01);//new PVector(0.65,0.5,0.35)
+ 
+Material matSnow = new Material( new PVector(1.,1.,1.),  0.005, 32.*4,0,0.6);
+Material matDarkRock = new Material( new PVector(0.15,0.15,0.15),  0.1, 32.,0,0.3);
+Material matBlank = new Material( new PVector(0.5,0.5,0.5),  0.1, 16.,0.0,0.0);
+ 
+Material  getTerrainMaterial4( HieghtField hgts, PVector p, PVector n, float t )
+{
+  return matBlank;//new Material( lerp(new PVector(1,0,0),new PVector(0,0,1),(float)g_lastOctaves/24),0.5);
+}
+   
+Material  getSimpleTerrainMaterial( HieghtField hgts, PVector p, PVector n, float t )
+{ 
+  float dn = detailNoiseLod(p.x,p.z,t);
+  float dn2 = detailNoiseLod(p.x+13.89,p.z-1.95,t);
+  float blendLayer2 = smoothstep(0.7,0.9,n.y+ dn*.4);
+  float blendLayer1 = smoothstep(0.85,1.,n.y+ dn*.1);
+ 
+  float blendLayer0 = constrain(min(dn2*2,1) * blendLayer1,0,1);
+ 
+   Material mat =lerp(matRock, matDirt, blendLayer2);
+   mat= lerp(mat, matDarkGrass, blendLayer1);
+   mat= lerp(mat, matLightGrass, blendLayer0);
+   return mat;
+}
+ 
+ 
+Material  getSnowMaterial( HieghtField hgts, PVector p, PVector n, float t )
+{ 
+  float dn2 = detailNoiseLod(p.x,p.z,t);
+  float blendLayer1 = smoothstep(0.85,0.9,n.y+ dn2*.05 + constrain(0.2-p.y,0,1));
+ 
+ return lerp(matDarkRock, matSnow, blendLayer1);
+}
+class Terrain implements HieghtField
+{
+  float GetHieght(float x, float z, float t)
+  {
+    return terrain(x,z,t,12);
+  }
+  float GetFinalHieght(float x, float z, float t)
+  {
+    return terrain(x,z,t,2.);
+  }
+  float GetAO(float x, float y, float z, float t)
+  {
+    return ambTerrain( x,y,z,t,2.);
+  }
+  Material   GetMaterial(PVector p, PVector n, float t)
+  {
+    return getSimpleTerrainMaterial(this,p,n,t);
+  }
+  float     GetWaterHieght()
+  {
+     return -10000.0;
+  }
+}
+ 
+class Perturb implements HieghtField
+{
+  final float power=0.04f;
+  final float freq= 8;
+  HieghtField m_child;
+  Perturb( HieghtField c )
+  {
+    m_child = c;
+  }
+   
+  float GetHieght(float x, float y, float t) {
+    float tx = g_NoiseGen.Fbm(x*freq,y*freq,3,0.5,2.1);
+    float ty = g_NoiseGen.Fbm(y*freq,x*freq,3,0.5,2.1);
+    return m_child.GetHieght( x +tx*power, y + ty*power,t);
+  }
+  float GetAO(float x, float u, float y, float t) {
+    float tx = g_NoiseGen.Fbm(x*freq,y*freq,3,0.5,2.1);
+    float ty = g_NoiseGen.Fbm(y*freq,x*freq,3,0.5,2.1);
+    return m_child.GetAO( x +tx*power,u, y + ty*power,t);
+  }
+ 
+  Material   GetMaterial(PVector p, PVector n, float t)
+  {
+    return m_child.GetMaterial(p,n,t);
+  }
+  float GetFinalHieght(float x, float z, float t)
+  {
+    return GetHieght(x,z,t);
+  }
+  float     GetWaterHieght()
+  {
+     return m_child.GetWaterHieght();
+  }
+};
+ 
+ 
+class SnowTerrain extends Terrain
+{
+  float GetHieght(float x, float z, float t)
+  {
+    return snowTerrain( x,z,t,8);
+  }
+  float GetFinalHieght(float x, float z, float t)
+  {
+    return snowTerrain( x,z,t,2);
+  }
+ 
+  Material   GetMaterial(PVector p, PVector n, float t)
+  {
+    return getSnowMaterial(this,p,n,t);
+  }
+   float GetAO(float x, float y, float z, float t)
+  {
+    return ambSnow( x,y,z,t,2);
+  }
+}
+float rollingHills( float x, float z, float t, float minDetail)
+{
+   x+=17.0;
+   z-=15.0;
+   int oct =  CalcNoiseOctaves(t,0.15,minDetail,1./2.189);
+   float h = g_NoiseGen.Fbm( x*0.15,z*.15,oct,0.4,2.189)+.2;
+   return h;
+}
+class WetTerrain extends Terrain
+{
+  float GetHieght(float x, float z, float t)
+  {
+    return rollingHills( x,z,t,8);
+  }
+  float GetFinalHieght(float x, float z, float t)
+  {
+    return rollingHills(x,z,t,1);
+  }
+  float GetWaterHieght()
+  {
+    return g_WaterHieght;
+  }
+  Material   GetMaterial(PVector p, PVector n, float t)
+  {
+    float wh = GetWaterHieght();
+   float dn = detailNoiseLod(p.x-1.2,p.z-10.,t);
+   float dn2 = detailNoiseLod(p.x+13.89,p.z-1.95,t);
+    
+   Material grass =lerp( matDarkDirt, matDarkGrass, smoothstep(0.85,0.9,n.y+dn*.1));
+   dn = smoothstep(-0.2,.8,dn);
+   Material sand = lerp(matSand, matDarkSand, dn );
+   return lerp( sand, grass, smoothstep(wh+0.05,wh+.2,p.y+dn2*0.1));
+}
+// do water depending on water hieght
+  float GetAO(float x, float y, float z, float t)
+  {
+    x+=17.0;
+     z-=15.0;
+    int oct =  CalcNoiseOctaves(t,0.15,1.,1./2.189);
+    return g_NoiseGen.FbmAO( x*0.15,z*.15,oct,0.4,2.189)*.8+.2;
+  }
+}
+ 
+float IntNoise( int x, int y )
+{
+  int n =x + y *57;
+  return IntNoise(n);
+}
+float IntNoise( int n )
+{
+  final float ratio = 1. /32767.;
+  n = (n<<13)^n;
+  float ret = 1-(float)((n*(n *n*19417+189851)+4967243)&0xffff)*ratio;
+  return ret;
+}
+PVector IntNoise3( int x, int y )
+{
+  float a = IntNoise(x + y *57);
+  float b = IntNoise(x*57 + y *13);
+  float c = IntNoise(x*13 + y *47);
+  return new PVector( a,b,c);
+}
+   
+ 
+float Block( float x, float y )
+{
+  float v = IntNoise((int)x,(int)y);
+  return v;
+}
+float BlockFBM( float x, float y, int oct,  float g, float l )
+  {
+    float s =0;
+    float amp=1;
+    for (int i=0; i<oct; i++)
+    {
+      s+= amp*Block(x,y);
+      x*=l;
+      y*=l;
+      amp *= g;
+    }
+    return s;
+ }
+ /*
+PVector BlockColor( float x, float y, int oct,  float g, float l )
+  {
+    float s =0;
+    float amp=1;
+    PVector c = new PVector(0,0,0);
+    for (int i=0; i<oct; i++)
+    {
+      c+= amp*Block(x,y);
+      x*=l;
+      y*=l;
+      amp *= g;
+    }
+    return s;
+ }*/
+   
+ 
+class BlockCity implements HieghtField
+{
+  float GetHieght(float x, float z, float t)
+  {
+     return BlockFBM( x*.25, z*.25, 3, 0.5, 3. );
+      /*x *=0.5;
+      z *=0.5;
+      float xf = x - floor(x);
+      float xz = z - floor(z);
+      if ( x < 0 )
+      {
+        return 0;
+      }
+      float h = noise(floor(x+.5),floor(z+.5));
+      return min(abs(xf-.5)*3,1.) *min(abs(xz-.5)*3,1)*3.*h;*/
+   }
+  float GetFinalHieght(float x, float z, float t)
+  {
+    //return GetHieght(x,z,t);
+    return BlockFBM( x*.25, z*.25, 5, 0.5, 3. );
+  }
+ 
+  float GetAO(float x, float y, float z, float t)
+  {
+    return .5;//min(y*.25,1);
+  }
+  Material   GetMaterial(PVector p, PVector n, float t)
+  {
+    float s = pow4(2.);
+    p.x+= 15.7;
+    p.z-=14.5;
+    float ix = floor(p.x*s+.5);
+    float iz = floor(p.z*s+.5);
+    float n1 =IntNoise((int)ix,(int)iz);
+    float n2 = IntNoise((int)iz,(int)ix);
+    return new Material( new PVector(n1,0.5,n2),0.0);
+  }
+  float     GetWaterHieght()
+  {
+     return -1000.0;
+  }
+}
+float sphereFunc( float x, float z, float r)
+{
+  x/=r;
+  z/=r;
+  return max(sqrt(1 - x*x - z*z),0)*r;
+}
+//float building( float x, float z)
+//{
+//  return sphereFunc( x, z, 2) - sphereFunc( x-.5, z-0.8, 1.5);
+//}
+ 
+float building( float x, float z)
+{
+  float ang = atan(x/z);
+  float hDiff = max(sin(ang*6),0);
+  float s = sphereFunc( x, z, 2);
+  float rd = min(cos(s*40),0)*.1;
+  return max(s*hDiff, s*0.4)+rd;
+}
+ 
+float quantize(float a, float q)
+{
+  return floor(a*q)/q;
+}
+float pyramid(float x, float z)
+{
+  return flatPyramid(x,z);
+//  return quantize(max( 1.-(max(abs(x),abs(z))),0),16.);
+}
+float flatPyramid(float x, float z)
+{
+  return max( 1.-(max(abs(x),abs(z))),0);
+}
+float tile( float x, float y, float rad)
+{
+   x/=rad;
+   y/=rad;
+   x = x - floor(x);
+   y = y - floor(y);
+   float h = (x<0.9)&&(y<0.9) ? 1: 0;
+   return h;
+}
+class TerrainWithBuildings extends Terrain
+{
+  float Buildings( float x, float z)
+  {
+    return building(x-1, z-6)*0.5 + building((x+3)*.25, (z-15.)*.25)*1.;
+  }
+  float GetFinalHieght(float x, float z, float t)
+  {
+    return GetHieght(x,z,t);
+  }
+ 
+  float GetHieght(float x, float z, float t)
+  {
+    //float d = tile(x,z,.05);
+   // float f = max(g_NoiseGen.Get(x*.5,z*.5),0);//*.5+.5;
+   // f =  sqrt(f);
+  //  f += f * g_NoiseGen.Turb( x*8.,z*8.,2,0.5,2.189)*.1;
+//return f;
+    return max(Buildings(x,z),super.GetHieght( x, z,t));
+  }
+  float GetAO(float x, float y, float z, float t)
+  {
+    if (abs( y - Buildings(x,z))<0.01f)
+   {
+     return 0.5f;
+   }
+    return super.GetAO(x,y,z,t);
+  }
+  Material   GetMaterial(PVector p, PVector n, float t)
+  {
+    if ( Buildings(p.x,p.z)>0.0001f)
+   {
+     float bl = min(g_NoiseGen.Turb( p.x,p.z,8,0.5,2.189)*6,1);
+     return lerp(matRock,matDarkDirt, bl);
+     //return matDarkDirt;//new Material(new PVector(1.0f,0.8f,1.0f),0.0);
+   }
+    return super.GetMaterial(p,n,t);
+  }
+}
+ 
+float oldPyramid(float x, float z)
+{
+  float h = flatPyramid(x, z);
+  return h;// + n*.3* min(h*40,1);
+}
+class Egypt implements HieghtField
+{
+  float Buildings( float x, float z)
+  {
+    float p1 = oldPyramid((x+2), (z-12.))*2.;
+    float p2 =oldPyramid((x), (z-10))*1.5;
+     float p3 =oldPyramid((x-2)*.75, (z-8)*.5)*2.5;
+    float v = max(max(p1,p2),p3);
+     float nv  =g_NoiseGen.Fbm( x*20.+13.4,z*20.+7.5,2,0.5,2.189);
+    
+    v += nv*.025* min(v*40,1);
+    return v;               
+  }
+  float GetFinalHieght(float x, float z, float t)
+  {
+    return GetHieght(x,z,t);
+  }
+ 
+  final float DuneLac = 4.;
+  float GetHieght(float x, float z, float t)
+  {
+    float xf =x/8;
+    float zf =(z-10)/8;
+    float d= min(xf*xf+zf*zf,1.);
+    float b = Buildings(x,z);
+    int oct = CalcNoiseOctaves(t,0.5,2,1./DuneLac);
+     
+    float nv  =g_NoiseGen.Fbm( x*0.5+13.4,z*.5+7.5,oct,0.2,DuneLac)*.5+.5;
+     
+    float dune =nv*d*1.5;
+    return max(b,dune);
+  }
+  float GetAO(float x, float y, float z, float t)
+  {
+    int oct = CalcNoiseOctaves(t,0.5,2,1./DuneLac);
+    float nv  =g_NoiseGen.FbmAO( x*0.5+13.4,z*.5+7.5,oct,0.2,DuneLac)*.5+.5;
+     
+    return max(nv,.5);
+  }
+  Material   GetMaterial(PVector p, PVector n, float t)
+  {
+     return new Material(new PVector(0.9,0.7,0.5),0.01);
+  }
+  float     GetWaterHieght()
+  {
+     return -1000.0f;
+  }
+}
+class Crator implements HieghtField
+{
+   float GetHieghtVal(float x, float z, float t, float minDetail)
+  {
+    float xf =x/6;
+    float zf =(z-8)/6;
+    float d= 1. - min(xf*xf+zf*zf,1.);
+    float h =smoothstep(0,1.,d)*2.;
+     h = h - sphereFunc(  x+0, z-8, 3.5);
+     
+    int oct = CalcNoiseOctaves(t,0.5,minDetail,1./2.189);
+     
+    float rock= smoothstep(0,1,min(h*2.,1));
+      
+    float nv =g_NoiseGen.Fbm( x*0.5+13.4,z*.5+7.5,oct,0.4+rock*.2,2.189);
+      
+    h += nv*0.5 ;
+     
+    return h;
+  }
+  float GetHieght(float x, float z, float t)
+  {
+     return GetHieghtVal(x,z,t,8);
+  }
+  float GetFinalHieght(float x, float z, float t)
+  {
+    return GetHieghtVal(x,z,t,2);
+  }
+ 
+  float GetAO(float x, float y, float z, float t)
+  {
+     
+    int oct = CalcNoiseOctaves(t,0.5,2,1./2.189);
+    float rock= smoothstep(0,1,min(y*2.,1));
+     
+    float nv  =g_NoiseGen.FbmAO( x*0.5+13.4,z*.5+7.5,oct,0.4+rock*.2,2.189);
+     
+    // darken in crator
+    float incrator =  constrain(mag(x,z-8)-2.5,0,1);
+    return incrator*nv;//abs(y-nv) ;
+  }
+  Material   GetMaterial(PVector p, PVector n, float t)
+  {
+     float rock= smoothstep(0,1,min(p.y*2.,1));
+     return new Material(lerp(  new PVector(0.4,0.5,0.2), new PVector(0.5,0.4,0.2), rock ),min(p.y*2,1)*.1);
+  }
+  float     GetWaterHieght()
+  {
+     return -1000.0f;
+  }
+}
+
+// ray marching technique for procedural hieght field
+// rendering based heavily on
+// http://iquilezles.org/www/articles/terrainmarching/terrainmarching.htm
+// with each optimizations from 'procedural texturing
+// and modeling' book.
+//
+// Controls
+// use mouse to look around
+// cursor keys to move abount
+// +/- to select scene
+ 
+ 
+ 
+HieghtField[] Scenes=new HieghtField[] {
+  new Terrain(),
+  new TerrainWithBuildings(),
+  new BlockCity(),
+  new WetTerrain(),
+  new Crator(),
+  new Egypt(),
+  new Wavey(),      
+  new SimplePlane(),
+  new SnowTerrain(),
+};
+Photo[] photographs = new Photo[]{
+  new Photo( "Terrain", 0, new PVector(1.,0.5,1),
+    new PVector(0.0f,2.0f,0.0f),0.,-0.25, 1789235, false, false),
+  new Photo("Valley",0,new PVector(0.75711614,0.35974383,0.54530686),
+new PVector(5.7643337,0.24380729,1.2518655),0.9031241,-0.013541698,1789235,true,true),
+new Photo( "Terrain with Water", 3, new PVector(1.,0.5,1),
+    new PVector(0.0f,2.0f,0.0f),0.,-0.25, 1789235, false, false),
+ new Photo("Block City",2,new PVector(0.76745266,0.13576707,0.62656504),
+new PVector(-1.9958267,4.6237698,-11.27423),0.915625,-0.12499994,1789235,false,false),
+ 
+  new Photo("Crator",4,new PVector(0.7794047,0.420355,0.46457517),
+new PVector(-1.0333986,0.100956775,0.40554827),0.35312504,0.099999785,1789235,true,false),
+new Photo("Reflections",3,new PVector(-0.25588194,0.23144478,0.9385935),
+new PVector(27.797665,0.15013918,-2.2791333),6.0093794,-0.07499951,1789235,false,true),
+new Photo("Forests",7,new PVector(0.71523553,0.36930996,0.59333664),
+new PVector(-13.837193,0.92376465,-1.1682764),0.109375134,-0.2150001,1789235,false,false),
+   new Photo("Snowy Rocks",8,new PVector(0.70858866,0.258834,0.6564352),
+new PVector(-5.7562084,0.7503891,5.645005),0.9,0.0,1789235,true,true),
+  new Photo("rock",8,new PVector(-0.1716191,0.5352259,-0.82709134),
+new PVector(-6.1476126,0.16771004,7.3597717),2.0187488,0.1291665,1789235,false,true),
+new Photo("Crator II",4,new PVector(0.6666667,0.33333334,0.6666667),
+  new PVector(11.495641,5.169949,8.202846),-1.6156223,-0.42916673,1789235,true,false),
+  new Photo("Pyramids",5,new PVector(0.68041384,0.27216554,0.68041384),
+  new PVector(6.9793053,0.736299,11.575281),4.284375,-0.025000066,1789235,true,false),
+new Photo("sunset",0,new PVector(0.90130556,0.05478374,0.42970574),
+new PVector(-2.2255332,0.888599,-2.7276325),0.89375,-0.054166615,167267927,true,true),
+};
+ 
+boolean g_HiQuality=false;
+boolean g_usePost = false;
+boolean g_useGamma = true;
+PImage  g_workScreen= null;
+PImage  g_screen= null;
+PImage  g_selectScreen=null;
+int      g_res = 16;
+int     minRes = 8;
+float   g_renderTime = 0.0;
+int     g_xloc = 200000;
+int     g_maxPixelStep = 2*5000;
+boolean MoveSun = false;
+boolean ApplyMove = false;
+PVector g_mpos;
+int   g_NoiseSeed = 1789235;
+int g_SceneIdx =0;
+boolean g_useClouds = false;
+PVector g_sunDir = new PVector(1.,0.5,1);
+int g_CurrentPhotograph=0;  // start on selectScreen
+int g_PhotoIconSize=30;
+boolean g_EditWater = false;
+boolean g_UseExpensiveAO = false;
+boolean g_UseRefinement = true;
+boolean g_doCloudShadows = false;
+boolean g_walk = false;
+boolean g_perturb = false;
+ 
+float   g_WaterHieght = -0.2f;
+PolarCamera g_camControl = new PolarCamera();
+GradientNoise g_NoiseGen;
+ 
+PImage CreateScreen( int w, int h )
+{   
+  return createImage( w,h,RGB);
+}
+void CreateStrip( PImage sc, int xStart, int xEnd )
+{   
+  float w = sc.width;
+  float h = sc.height;
+   
+  if ( g_walk )
+  {
+    g_camControl.m_camPos.y = Scenes[g_SceneIdx].GetHieght(
+          g_camControl.m_camPos.x , g_camControl.m_camPos.z,0.)+0.1f;
+  }
+   
+  Camera cam = new Camera( g_camControl.m_camPos,
+  new PVector(0.0f,1.0f,0.0f),
+  g_camControl.m_camDir,
+  w, h,w);
+   
+  SetFovRatio( 45, sc.width);
+   
+  Lighting  lgt = new Lighting( g_sunDir, constrain( g_sunDir.y*4,0,1), g_useClouds);
+ 
+  xEnd = (int)min( xEnd,w);
+  QualitySettings qs = new QualitySettings();
+  qs.useSubSampling = g_HiQuality && w==width;
+  if ( sc.width < 320)
+     qs.SetFast();
+  
+  HieghtField hgt =  Scenes[g_SceneIdx%Scenes.length];
+  if (g_perturb )
+  {
+    hgt= new Perturb(hgt);
+  } 
+  renderImage( qs,cam, sc, lgt, hgt,
+  xStart,  xEnd, g_usePost,g_useGamma);
+}
+ 
+ 
+void setup()
+{
+  g_sunDir.normalize();
+  size(700,440);//  360);  // HD quater rez works better
+  randomSeed(12789);
+  Reset();
+  PhotoSizeX = width/4;
+  PhotoSizeY = height/3;
+}
+boolean regenImage = false;
+void Reset()
+{
+  g_xloc = 200000;
+  g_res = minRes;
+  g_renderTime = (float)millis()/1000.0;
+  regenImage = true;
+  noiseSeed(g_NoiseSeed );
+  randomSeed(g_NoiseSeed );
+  g_NoiseGen = new GradientNoise(7);
+  g_HiQuality = false;
+}
+ 
+class Photo
+{
+  int noiseSeedValue;
+  int sceneId;
+  float cangX;
+  float cangY;
+  PVector cpos;
+  PVector sunDir;
+  String name;
+  boolean applyPost;
+  boolean useClouds;
+   
+  Photo( String n, int scene, PVector sd, PVector _cpos,
+          float _cangX, float _cangY, int noiseS, boolean post,
+          boolean uc )
+  {
+    name = n; sceneId =scene; sunDir=sd;
+    sunDir.normalize();
+    cpos = _cpos;
+    cangX = _cangX;
+    cangY = _cangY;
+    noiseSeedValue = noiseS;
+    applyPost=post;
+    useClouds = uc;
+  }
+   
+  void Output()
+  {
+    PrintWriter output = createWriter("photo.txt");
+    output.print( "new Photo(\"name\","+g_SceneIdx +",");
+    output.println( "new PVector("+g_sunDir.x +"," + g_sunDir.y +"," +g_sunDir.z +"),");
+    output.print( "new PVector("+g_camControl.m_camPos.x +"," + g_camControl.m_camPos.y +"," +g_camControl.m_camPos.z +"),");
+    output.print( g_camControl.m_CamAngleX +","+g_camControl.m_CamAngleY +"," + g_NoiseSeed +",");
+    output.print( g_usePost +","+g_useClouds +"),");
+    output.flush();
+    output.close();
+  }
+  void Set()
+  {
+    g_NoiseSeed = noiseSeedValue;
+    g_SceneIdx = sceneId;
+    g_sunDir.set(sunDir);
+    g_camControl = new PolarCamera( cpos, cangX, cangY);
+    g_usePost = applyPost;
+    g_useClouds = useClouds;
+    Reset();
+  }
+};
+int PhotoSizeX = width/5;
+int PhotoSizeY = height/3;
+ 
+void mousePressed()
+{
+  if ( g_CurrentPhotograph != -1 ) // photo mode
+  {
+    float photof = floor((float)mouseX/(float)PhotoSizeX)
+            + floor((float)mouseY/(float)PhotoSizeY)*4.;
+    int p = min( (int)photof, photographs.length-1);
+    photographs[p].Set();
+    Reset();
+    g_CurrentPhotograph = -1;
+    return;
+  }
+  else if ( mouseX < g_PhotoIconSize && mouseY < g_PhotoIconSize)
+  {
+     g_CurrentPhotograph = 0;
+     g_walk = false;
+     Reset();
+     return;
+  }
+  Camera cam = new Camera( g_camControl.m_camPos,
+  new PVector(0.0f,1.0f,0.0f),
+  g_camControl.m_camDir,
+  width, height,width);
+  Ray ray = cam.generateRay( mouseX, height- mouseY);
+  float dds =ray.direction.dot(g_sunDir);
+  MoveSun = dds>0.96;
+}
+float GetMouseAltitude()
+{
+     Camera cam = new Camera( g_camControl.m_camPos,
+    new PVector(0.0f,1.0f,0.0f),
+    g_camControl.m_camDir,
+    width, height,width);
+    Ray ray = cam.generateRay( mouseX, height- mouseY);
+    rayRes t= castRay(new QualitySettings(), Scenes[g_SceneIdx],
+      ray.origin, ray.direction,0.001,50,1);
+    if ( t.t <0)
+    {
+      return -1;
+    }
+   float wh = ray.origin.y+ t.t* ray.direction.y;
+    return wh;
+}
+void mouseClicked()
+{
+  if (g_EditWater)
+  {
+    g_WaterHieght = GetMouseAltitude();
+    Reset();
+    return;
+  }
+}
+void mouseDragged()
+{
+   if (MoveSun)
+  {
+    Camera cam = new Camera( g_camControl.m_camPos,
+    new PVector(0.0f,1.0f,0.0f),
+    g_camControl.m_camDir,
+    width, height,width);
+    Ray ray = cam.generateRay( mouseX, height- mouseY);
+    g_sunDir.set(ray.direction);
+    g_sunDir.normalize();
+    Reset();
+    return;
+  }
+  PVector mpos =  new PVector( (float)mouseX/(float)width, (float)mouseY/(float)height, 0.0);
+  if (!ApplyMove)
+  {
+    ApplyMove = true;
+    g_mpos = new PVector();
+    g_mpos.set(mpos);
+  }
+  else
+  {
+    float dz = (mpos.y-g_mpos.y)*2.;
+    float dy = (mpos.x-g_mpos.x)*2.;
+    g_camControl.update(dy,dz);
+    g_mpos = mpos;  
+    Reset();
+  }
+}
+void keyPressed()
+{
+  if (keyCode == UP) {
+    g_camControl.forward(1.);
+  }
+  if (keyCode == DOWN) {
+    g_camControl.forward(-1);
+  }
+  if (keyCode == LEFT) {
+    g_camControl.side(1.);
+  }
+  if (keyCode == RIGHT) {
+    g_camControl.side(-1);
+  }
+  if (key =='-' || key=='_') {
+    g_SceneIdx--;
+  }
+  if (key =='=' || key=='+') {
+    g_SceneIdx++;
+  }
+  if (key =='e' || key=='E') {
+    g_EditWater = !g_EditWater;
+  }
+  if (key =='c' || key=='C') {
+    g_useClouds = !g_useClouds;
+  }   
+  if (key =='v' || key=='V') {
+    g_usePost = !g_usePost;
+  }
+  if (key =='g' || key=='G') {
+    g_useGamma = !g_useGamma  ;
+  }
+  if (key=='r' || key=='R'){
+     g_NoiseSeed+=27579782;
+  }
+  if (key=='p' || key=='P'){
+     g_CurrentPhotograph = g_CurrentPhotograph ==-1 ? 0 : -1;
+  }
+  if ( key=='t' || key=='T')
+  {
+    g_perturb = !g_perturb;
+  }
+  if (key=='s' || key=='S'){
+    photographs[0].Output();
+  }
+  if ( key=='a' || key=='A'){
+   g_UseExpensiveAO = !g_UseExpensiveAO;
+  }
+  if (key =='w' || key=='W') {
+    g_walk= !g_walk  ;
+  }
+  if ( key=='j' || key=='J'){
+    g_doCloudShadows = !g_doCloudShadows;
+  }
+  if ( key=='r' || key=='R'){
+   g_UseRefinement = !g_UseRefinement;
+  }
+  Reset();
+}
+void mouseReleased()
+{
+  MoveSun=false;
+  ApplyMove = false;
+}
+int MiniPhotoSizeW = 2*80;
+int MiniPhotoSizeH = 2*60;
+ 
+void draw()
+{
+  boolean needRefresh =false;
+  boolean needNewSmallPhoto = g_CurrentPhotograph!=-1 && g_CurrentPhotograph < photographs.length;
+   
+  if ( g_CurrentPhotograph!=-1)
+  {
+    if ( g_CurrentPhotograph==0)
+    {
+      g_selectScreen = CreateScreen( width, height);
+    }
+      if ( g_CurrentPhotograph < photographs.length)
+      {
+        g_workScreen = CreateScreen( MiniPhotoSizeW, MiniPhotoSizeH );
+         photographs[g_CurrentPhotograph].Set();
+         needRefresh=true;
+        CreateStrip( g_workScreen, 0,g_workScreen.height);
+        g_selectScreen.copy(g_workScreen, 0,0,
+                    g_workScreen.width,g_workScreen.height,
+                      (g_CurrentPhotograph%4)*80*2+45,
+                      (g_CurrentPhotograph/4)*70*2+20,
+                      g_workScreen.width,g_workScreen.height );
+         g_CurrentPhotograph++;
+      }
+      image( g_selectScreen,0,0,width,height);
+     text( "Please Click on a Scene to Explore it", 200,11);
+  
+       noFill();
+      stroke ( ~0);
+      int x = (mouseX/PhotoSizeX);
+      int y = (mouseY/PhotoSizeY);
+      rect(x*160+45,y*140+20,120,120);
+      text(photographs[x + y*4].name, x*160+45,y*140+155);
+      return;
+  }
+  else if ( regenImage)
+  { 
+    if ( g_workScreen==null || g_xloc >=  g_workScreen.width)
+    {
+      g_xloc =0;
+         g_workScreen = CreateScreen( width/g_res,(height-60)/g_res);
+       g_res>>=1;
+    }
+    int numPixels = g_workScreen.width*g_workScreen.height;
+    int numSteps =  (int)ceil((float)numPixels/(float)g_maxPixelStep);
+    int step = g_workScreen.width/numSteps;
+ 
+    CreateStrip( g_workScreen, g_xloc,g_xloc + step);
+    g_xloc+=step;
+    if ( g_xloc >=  g_workScreen.width )    
+    {
+       g_screen = g_workScreen;  
+      needRefresh=true;
+      if ( g_res==0)       
+       {
+         if ( g_HiQuality == false )
+         {
+           g_HiQuality = true;
+           g_res = 1;
+         }
+         else
+           regenImage=false;
+       }
+    }
+  }
+ 
+  if ( needRefresh )
+  {
+    assert( g_screen != null );
+    background(0);
+    image( g_screen,0,30,width,height-60);
+     if ( g_screen.width > 120 && g_screen.width < width)
+       filter(BLUR,1.);
+     // draw photo Icon
+      image(g_selectScreen, 0,0,g_PhotoIconSize,g_PhotoIconSize);
+         
+    fill(~0);
+    text( "Time For Image :" + (int)((float)millis()/1000.0- g_renderTime )+
+      " secs | fps "+(int)frameRate + "| HQ "+g_HiQuality +"| Image Res " + g_screen.width +"| Clouds "+g_useClouds + ( g_EditWater ? " | Edit Water |" : ""), g_PhotoIconSize +10,20);
+  }
+  noFill();
+  stroke ( mouseX < g_PhotoIconSize && mouseY < g_PhotoIconSize ? ~0 : 0);
+  rect(0,0,g_PhotoIconSize,g_PhotoIconSize);
+ 
+}
