@@ -1,0 +1,95 @@
+| RMATION
+| PHREDA
+|-----------------------
+^r4/lib/gui.txt
+^r4/lib/polygr.txt
+
+#tinta $ff00
+#lgro 10
+
+#trazo #trazo> 
+
+:getang | v1 v2 -- a
+	d>xy rot d>xy rot - swap rot - atan2 ;
+
+:testrect | u --
+	trazo> 8 -
+	@+ dup $f and 2 <>? ( 3drop ; ) drop | u adr v1
+	swap @ dup $f and 2 <>? ( 3drop ; ) drop | u v1 v2
+	pick3 getang >r | u v1 a1
+	over getang r> - | u d
+	abs $1ff <? ( -4 'trazo> +! ) drop ;
+
+:++trazo | u --
+	trazo> 4 - @ =? ( drop ; )
+|	testrect
+:+trazo | u --
+	trazo> !+ 0 over ! 'trazo> ! ;
+
+:+tr trazo> 4 - @ $f and over $f and =? ( -4 'trazo> +!  ) drop
+	+trazo ;
+:+color | color --
+	4 << %0100 or +tr ;
+:+gros | gros --
+	4 << %1000 or +tr ;
+
+|---------------------trazog
+#fc
+:s0 drop ;
+:s1 4 >> ink ; | color
+:s2 4 >> linegr! ;	 |grosor
+:s3 drop ;
+#subc s0 s1 s2 s3
+:c0 dup $c and 'subc + @ exec ;
+:c1 d>xy gop ;
+:c2 d>xy gline ;
+:c3 d>xy fc 0? ( >r cp )( >r gcurve ) r> not 'fc ! ;
+#comand c0 c1 c2 c3
+:rtrazo | adr --
+	( @+ 1? )( dup $3 and 2 << 'comand + @ exec ) 2drop ;
+
+|---------------------------------------
+:a0 drop ;
+:a1 d>xy rand 8 mod + swap rand 8 mod + swap xy>d 1 or over 4 - ! ;
+:a2 d>xy rand 8 mod + swap rand 8 mod + swap xy>d 2 or over 4 - ! ;
+:a3 drop ;
+#accm a0 a1 a2 a3
+:avanza
+	trazo ( @+ 1? )(
+		dup $3 and 2 << 'accm + @ exec
+|		dup $f and? ( dup >xy rand 4 mod + swap rand 4 mod + swap xy> swap $f and or swap 4 - !+ )( drop )
+		) 2drop ;
+
+:anima
+	usogui
+	show clrscr
+		trazo rtrazo
+		avanza
+		'exit >esc<
+		;
+
+|---------------------------------------
+:trazo.cal |
+	[ xymouse xy>d 1 or +trazo ; ] |onDn | down
+	[ xymouse xy>d 2 or ++trazo ; ] |onMove   | move
+	0 guiMap
+
+	;
+:main
+	mem dup 'trazo ! 'trazo> !
+	lgro +gros
+	tinta +color
+	usogui
+	show clrscr
+		trazo rtrazo
+		trazo.cal
+		tinta ink xymouse lgro gcursor
+		25 font home
+		blanco trazo> trazo - 2 >> "%d" print
+	'exit >esc<
+	[ rand dup +color 'tinta ! ; ] <f1>
+	[ rand $3f and 1+ dup +gros 'lgro ! ; ] <f2>
+	'anima <f3>
+		;
+
+: 0 paper main ;

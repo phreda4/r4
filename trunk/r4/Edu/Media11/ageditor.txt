@@ -1,0 +1,159 @@
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/trace.txt
+
+^r4/escmedia/escena.txt
+^r4/escmedia/ageditor.spr
+^r4/escmedia/ageditor.bmr
+
+|-----------------------------
+:3dop project3d op ;
+:3dline project3d line ;
+
+:grillaxy
+	-5.0 ( 5.0 <=? )(
+		dup -5.0 0 3dop dup 5.0 0 3dline
+		-5.0 over 0 3dop 5.0 over 0 3dline
+		1.0 + ) drop ;
+
+:grillayz
+	-5.0 ( 5.0 <=? )(
+		0 over -5.0 3dop 0 over 5.0 3dline
+		0 -5.0 pick2 3dop 0 5.0 pick2 3dline
+		1.0 + ) drop ;
+
+:grillaxz
+	-5.0 ( 5.0 <=? )(
+		dup 0 -5.0 3dop dup 0 5.0 3dline
+		-5.0 0 pick2 3dop 5.0 0 pick2 3dline
+		1.0 + ) drop ;
+
+|---------------------------------------------
+:r0001 rand 0.001 mod ;
+:r001 rand 0.01 mod ;
+:r01 rand 0.1 mod ;
+:r1 rand 1.0 mod ;
+:r10 rand 10.0 mod ;
+
+|---------------------------------------------
+#xvaso #yvaso
+#xcam #ycam #zcam 10.0
+
+#cosas 0 0
+
+|---------------------------------------------
+:mesaupd
+	r01 r01 r01 actor+!
+	dup 12 + @ abs 8.0 >? ( drop 0 ; ) drop
+	dup 4 + @ abs 8.0 >? ( drop 0 ; ) drop
+	esc.z+ ;
+
+:mesadraw
+	mpush
+	esc.pos 'spr.vaso 3dnsprite
+	mpop ;
+
+:cosa+
+	'cosas esc. >r
+	'mesaupd r!+ |'cosas esc!+ >r
+	r10 r!+ r01 r!+ r10 r!+ | x y z
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+	2.0 r!+ 1.0 r!+ 'mesadraw r!+
+	rdrop
+	;
+
+|---------------------------------------------
+:fijoupd
+	esc.z+ ;
+
+:fijodraw
+	mpush esc.pos dup 40 + @ 3dnsprite mpop ;
+
+:fijo+ | 'spr x y z --
+	'cosas esc. >r
+	'fijoupd r!+ |'cosas esc!+ >r
+	rot r!+ swap r!+ r!+ | x y z
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+	1.0 r!+ 1.0 r!+ 'fijodraw r!+
+	r!+
+	rdrop ;
+
+|---------------------------------------------
+:fijodrawf
+	mpush esc.posrotscale dup 40 + @ 3dnsprite mpop ;
+
+:fijof+ | 'spr sx sy x y z --
+	'cosas esc. >r
+	'fijoupd r!+ |'cosas esc!+ >r
+	rot r!+ swap r!+ r!+ | x y z
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+	swap r!+ r!+ 'fijodrawf r!+
+	r!+
+	rdrop ;
+
+:fijoa+ | 'spr sx sy rx ry rz x y z --
+	'cosas esc. >r
+	'fijoupd r!+ |'cosas esc!+ >r
+	rot r!+ swap r!+ r!+ | x y z
+	rot r!+ swap r!+ r!+ | x y z
+	swap r!+ r!+ 'fijodrawf r!+
+	r!+
+	rdrop ;
+
+|-----------------------------------
+| estados
+| 0 tiempo vars
+#silla
+
+:>estado | nro --
+	2.0 * silla 4 +  !
+	;
+
+:continuo
+	;
+
+|-----------------------------------
+:loadescena
+	'spr.pared 2.0 2.0 0 0 0 fijof+
+	'spr.piso 2.0 2.0 0.25 0 0 0 1.0 1.0 fijoa+
+	'spr.mesa 0 0 2.0 fijo+
+	'spr.silla 0.2 0 1.6 fijo+
+	cosas 64 - 'silla !
+
+	;
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - 7 << swap
+	neg mrotx
+	mroty ;
+
+:main
+	loadescena
+	show clrscr
+		omode
+		freelook
+		xcam ycam zcam mtrans
+
+        grillaxy
+        grillayz
+        grillaxz
+
+		esc.zclear
+		'cosas esc.draw
+		esc.zdraw
+
+		'cosa+ <f1>
+		[ 0 >estado ; ] <f2>
+		[ 1 >estado ; ] <f3>
+		'exit >esc<
+		cminiflecha
+		;
+
+:inimem
+	mark
+	$3fff 'cosas esc.create
+	;
+
+: inimem main ;

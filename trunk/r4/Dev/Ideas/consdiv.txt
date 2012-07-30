@@ -1,0 +1,102 @@
+#include stdio.h
+
+/* Program to generate "star-chain-sequence" for division of an unsigned
+16-bit integer numerator by an unsigned 16-bit integer constant denominator.
+It assumes the existence of two 32-bit integer "registers", add, subtract, and
+shift instructions. It uses the "star-chain" multiplication routine from DDJ
+#125, March 1987 page 35 */
+
+static unsigned int mult; /* global variable for trim_trailing() & binmul() */
+
+/* Support subroutine to trim trailing 0s or 1s from global variable "mult". */
+int trim_trailing(one_zero) int one_zero;
+{ /* if one_zero   == 0, trim trailing zeros in "mult", return "count"
+         == 1, ones                                       */
+   int c; /* bit counter */
+   for (c = 0; ((mult & 1) == one_zero); c++, mult >>= 1) ;
+   return c;
+}
+
+/* Slightly modified version of multiplication routine */
+binmul(m) long m;
+{
+   int   last_shift,   /* final shift count */
+      last_cnt,   /* count of low-order zeros */
+      stkptr,    /* pointer to "stack[]" */
+      cnt,      /* bit counter */
+      ts,      /* top-of-stack element */
+      flag,      /* flag for special-case */
+      stack[16];   /* stack for shift-add/subs */
+   mult = m;
+   stkptr = last_cnt = 0;   /* init. stack ptr. and count */
+   last_shift = trim_trailing(0);   /* trim trailing 0s */
+   while (1)
+   { /* loop to decompose "mult", building stack */
+      cnt = trim_trailing(1); /* count low-order 1s */
+      if (cnt > 1)
+      { /* more than 1 bit, shift-subtract */
+         flag = 0;
+         if (last_cnt == 1)
+    /* shift "k",sub,shift 1,add --> shift "k+1", sub */
+            stack[stkptr-1] = -(cnt+1); /* overwrite */
+         else
+            stack[stkptr++] = -cnt;
+      }
+      else
+         flag = 1; /* need another shift-add */
+      if (mult == 0) break; /* decomp. "mult", now output */
+      last_cnt = trim_trailing(0) + flag; /* low-order 0s */
+      stack[stkptr++] = last_cnt; /* shift-add */
+   }
+   while (stkptr > 0)
+   { /* output code from stack */
+      ts = stack[--stkptr]; /* get top stack element */
+      if (ts < 0)
+      { /* generate shift-subtract instructions */
+         printf("\nRw <<= %d",-ts);
+         printf("\nRw -= R1");
+      }
+      else
+      { /* generate shift-add instructions */
+         printf("\nRw <<= %d",ts);
+         printf("\nRw += R1");
+      }
+   }
+   if (last_shift != 0) printf("\nRw <<= %d",last_shift);
+}
+
+main()
+{ /* generate pseudo-instructions for star-chain division */
+   int   a,b,r, /* computed multiplier, addend, and remainder */
+      i2,   /* number of bits to scale divisor */
+      denom,   /* intended divisor */
+      denom2; /* divisor scaled by powers-of-2 */
+   int z = 65536;   /* 2^16 */
+   printf("\nEnter positive integer denominator: ");
+   scanf("%d",&denom);
+   if (denom != 0)
+   { /* scale denominator by powers-of-2 */
+      mult = denom;
+      i2 = trim_trailing(0); /* how many powers-of-2? */
+      denom2 = mult;
+      if (denom2 == 1)
+      { /* divisor was power-of-2, simply scale it */
+         printf("\nRw = R1");
+         if (i2 > 0) printf("\nRw >>= %d",i2);
+      }
+      else
+      { /* divisor not power-of-2, scale and more */
+         if (i2 > 0)
+             printf("\nR1 >>= %d",i2); /* handle scaling */
+         printf("\nRw = R1");   /* load work register */
+         a = z / denom2;    /* scaled reciprocal */
+          r = z % denom2;   /* remainder of recip. */
+         b = a + r - 1;
+         binmul(a);
+         printf("\nRw += %d",b);
+         printf("\nRw >>= 16");
+      }
+   }
+   else
+      printf("\nCannot divide by zero\n"); /* special case */
+}

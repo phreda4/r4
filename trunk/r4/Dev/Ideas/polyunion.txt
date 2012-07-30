@@ -1,0 +1,242 @@
+public static class PolygonUnion
+{
+        public static bool PolyUnion(Vector2[] polya, Vector2[] polyb, out Vector2[] union, out Vector2[] intersection)
+        {
+            if (!Intersects(polya, polyb))
+            {
+                union = polya;
+                intersection = polyb;
+                return false;
+            }
+ 
+            LList a = new LList(polya), b = new LList(polyb);
+            List<Intersection> intersections = new List<Intersection>();
+ 
+            Vector2 vert;
+            VNode aNode = a.First, bNode = b.First;
+            //Find intersection points between the polygons
+            do
+            {
+                do
+                {
+                    if (EdgeIntersects(aNode.Value, (aNode.Next == null) ? a.First.Value : aNode.Next.Value, bNode.Value,
+(bNode.Next == null) ? b.First.Value : bNode.Next.Value, out vert))
+                    {
+                        //An intersection point has been found!
+                        intersections.Add(new Intersection(vert, aNode, bNode, (aNode.Next == null) ? a.First : aNode.Next,
+(bNode.Next == null) ? b.First : bNode.Next));
+                    }
+                    bNode = bNode.Next;
+                }
+                while (bNode != null);
+                bNode = b.First;
+                aNode = aNode.Next;
+            }
+            while (aNode != null);
+            //Perform surgery on these intersections
+            Intersection i;
+            for (int j = 0; j < intersections.Count; j++)
+            {
+                i = intersections[j];
+                i.aIn.Next = new VNode(i.Position, i.bOut, i.aIn);
+                i.bOut.Prev = i.aIn.Next;
+ 
+                i.bIn.Next = new VNode(i.Position, i.aOut, i.bIn);
+                i.aOut.Prev = i.bIn.Next;
+            }
+            //Decompose and simplify polygons into arrays
+            union = a.ToArray();
+            intersection = b.ToArray();
+ 
+            //Find exterior polygon
+            if (union.Length < intersection.Length)
+            {
+                //Polygons need swapping!
+                Vector2[] u = union;
+                union = intersection;
+                intersection = u;
+            }
+            return true;
+        }
+ 
+        private class Intersection
+        {
+            public Intersection(Vector2 position, VNode aIn, VNode bIn, VNode aOut, VNode bOut)
+            {
+                this.aIn = aIn;
+                this.bIn = bIn;
+                this.aOut = aOut;
+                this.bOut = bOut;
+                this.Position = position;
+            }
+ 
+            public VNode aIn, bIn, aOut, bOut;
+            public Vector2 Position;
+        }
+ 
+        private class LList
+        {
+            public LList(Vector2[] poly)
+            {
+                First = new VNode(poly[0], null, null);
+ 
+                current = First;
+                for (int i = 1; i < poly.Length; i++)
+                {
+                    Add(current, poly[i]);
+                    current = current.Next;
+                }
+                current = First;
+            }
+ 
+            private void Add(VNode prev, Vector2 pos)
+            {
+                prev.Next = new VNode(pos, null, prev);
+            }
+ 
+            public VNode First;
+            private VNode current;
+ 
+            public Vector2[] ToArray()
+            {
+                List<Vector2> ret = new List<Vector2>();
+                current = First;
+                int timeout = 1000;
+                bool starting = true;
+ 
+                while (current != null)
+                {
+                    if (current.Prev != null && current.Value == current.Prev.Value)
+                    {
+                        current = current.Next;
+                        if (current.Value == current.Next.Value && current.Value == current.Prev.Value) break;
+                        continue;
+                    }
+                    if (!starting && current.Value == First.Value) break;
+                    starting = false;
+ 
+                    ret.Add(current.Value);
+                    current = current.Next;
+ 
+                    timeout--;
+                    if (timeout <= 0) break;
+                }
+                return Simplify(ret.ToArray());
+            }
+        }
+ 
+        private class VNode
+        {
+            public VNode(Vector2 value, VNode next, VNode prev)
+            {
+                Value = value;
+                Next = next;
+                Prev = prev;
+            }
+ 
+            public VNode Next;
+            public VNode Prev;
+            public Vector2 Value;
+ 
+            public override string ToString()
+            {
+                return Value.ToString();
+            }
+        }
+ 
+        private static Vector2[] Simplify(Vector2[] poly)
+        {
+            const float tolerance = 25f;//5 pixels tolerance. (5^2 to save sqrt)
+            if (poly.Length == 0) return poly;
+ 
+            List<Vector2> ret = new List<Vector2>(1);
+            ret.Add(poly[0]);
+            float dist;
+ 
+            for (int i = 1; i < poly.Length; i++)
+            {
+                dist = (poly[ret.Count - 1] - poly[i]).LengthSquared();
+                if (dist < tolerance) continue;
+                if (ret.Contains(poly[i])) continue;
+ 
+                ret.Add(poly[i]);
+            }
+            return ret.ToArray();
+        }
+ 
+        /// <summary>
+        /// Checks if the line segments intersect.
+        /// </summary>
+        private static bool EdgeIntersects(Vector2 x, Vector2 y, Vector2 a, Vector2 b, out Vector2 i)
+        {
+            i = Vector2.Zero;
+            float dx, dy, da, db, t, s;
+ 
+            dx = y.X - x.X;
+            dy = y.Y - x.Y;
+            da = b.X - a.X;
+            db = b.Y - a.Y;
+            if ((da * dy - db * dx) == 0) return false;
+ 
+            s = (dx * (a.Y - x.Y) + dy * (x.X - a.X)) / (da * dy - db * dx);
+            t = (da * (x.Y - a.Y) + db * (a.X - x.X)) / (db * dx - da * dy);
+            i = new Vector2(x.X + t * dx, x.Y + t * dy);
+            return (bool)(s >= 0 && s <= 1 && t >= 0 && t <= 1);
+        }
+ 
+        #region Intersection Test
+        /// <summary>
+        /// Checks if two polygons intersect.
+        /// </summary>
+        public static bool Intersects(Vector2[] aPoints, Vector2[] bPoints)
+        {
+            Vector2 edge, axis;
+            float minA, maxA, minB, maxB, overlap;
+            //Loop through all edges until a seperating axis is found
+            for (int x = 0; x < aPoints.Length + bPoints.Length; x++)
+            {
+                //Calculate the current edge
+                if (x < aPoints.Length) edge = aPoints[(x == aPoints.Length - 1 ? 0 : x + 1)] - aPoints[x];
+                else
+                {
+                    x -= aPoints.Length;
+                    edge = bPoints[(x == bPoints.Length - 1 ? 0 : x + 1)] - bPoints[x];
+                    x += aPoints.Length;
+                }
+                //Find the axis perpendicular to current edge
+                axis = new Vector2(-edge.Y, edge.X);
+                axis.Normalize();
+                //Project the two shapes onto this axis
+                //Project this
+                ProjectPoly(aPoints, axis, out maxA, out minA);
+                ProjectPoly(bPoints, axis, out maxB, out minB);
+                //Find the overlap between them
+                if (minA < minB) overlap = minB - maxA;
+                else overlap = minA - maxB;
+                //If the overlap is negative then they are overlapping and the smallest
+                //overlap must be found to find the minumum translation.
+                //If it is bigger than 0 then they won't overlap at all.
+                if (overlap < 0) return true;
+            }
+            return false;
+        }
+        /// <summary>
+        /// Projects a polygon onto the axis, giving the maximum and minimum positions.
+        /// </summary>
+        /// <param name="points">Points that are in world space with origin at the centre</param>
+        private static void ProjectPoly(Vector2[] points, Vector2 axis, out float max, out float min)
+        {
+            //Projecting a point onto an axis uses a dot product.
+            float dotProduct = Vector2.Dot(axis, points[0]);
+            min = dotProduct;
+            max = dotProduct;
+            //Now project the rest of the polygon...
+            for (int i = 1; i < points.Length; i++)
+            {
+                dotProduct = Vector2.Dot(axis, points[i]);
+                if (dotProduct < min) min = dotProduct;
+                else if (dotProduct > max) max = dotProduct;
+            }
+        }
+        #endregion
+}

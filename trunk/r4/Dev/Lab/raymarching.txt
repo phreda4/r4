@@ -1,0 +1,76 @@
+|const float minThreshold = 0.0001,maxDepth=8.0;//8.0 is about right for most fractals
+
+#minThreshold 0.0001
+#maxDepth 8.0 |8.0 is about right for most fractals
+
+float DE(float x, float y, float z){//this is our old friend menger
+	int n,iters=5;float t;
+	for(n=0;n<iters;n++){
+		x=fabs(x);y=fabs(y);z=fabs(z);//fabs is just abs for floats
+		if(x<y){t=x;x=y;y=t;}
+		if(y<z){t=y;y=z;z=t;}
+		if(x<y){t=x;x=y;y=t;}
+		x=x*3.0-2.0;y=y*3.0-2.0;z=z*3.0-2.0;
+		if(z<-1.0)z+=2.0;
+	}
+	return (sqrt(x*x+y*y+z*z)-1.5)*pow(3.0,-(float)iters);
+}
+
+void draw() {
+  loadPixels();
+  for (int i = 0; i < width; i++) {
+    for (int j = 0; j < height; j++) {
+      float dx=(float)i/(float)width-0.5;
+      float dy=((float)j/(float)height-0.5)*(float)height/(float)width;
+      float dz=1.0,r=1.0/sqrt(dx*dx+dy*dy+1.0);dx*=r;dy*=r;dz*=r;
+      float x=0,y=0,z=0,rayLen=0,dist=maxDepth;
+      int steps = 255;
+      while (steps-- > 0 && dist>=minThreshold && rayLen < maxDepth) {
+        rayLen += dist = DE(x,y,z-4.0)*0.5;
+        x=dx*rayLen;y=dy*rayLen;z=dz*rayLen;
+      }
+      if(dist<minThreshold){//eventually you will want to do more here
+        //... like find the surface normal and calculate lighting
+        pixels[i+j*width] = (steps<<16)+(steps<<8)+steps;
+      }
+    }
+  }
+  updatePixels();
+}
+
+:DE | x y z -- d
+	pick2 dup *
+	pick2 dup * +
+	pick2 dup * +
+	sqrt.
+	1.5 -
+	3.0 ... pow.
+	*.
+	;
+
+:searchmin | dy dx --
+	over dup *. over dup *. + 1.0 + sqrt.
+	rot over /. 	| dy
+	rot pick2 /. 	| dx
+	rot 1.0 swap /. | dz
+
+	;
+
+:generaimagen
+	0 0 setxy
+	0 ( sh <? )(
+		0 ( sw <? )(
+        	over 1.0 sh */ 0.5 - | dy
+			over 1.0 sw */ 0.5 - | dx
+
+			px!+
+			1+ ) drop
+		redraw
+		1+ ) drop
+	;
+
+:main
+	generaimagen
+	show 'exit >esc< ;
+
+: main ;

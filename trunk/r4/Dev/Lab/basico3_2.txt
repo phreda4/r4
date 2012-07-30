@@ -1,0 +1,235 @@
+| test para compilador
+^r4/lib/gui.txt
+|^r4/lib/btn.txt
+
+:fib | n --
+	2 <? ( 1 nip ; )
+	1- dup 1- fib swap fib + ;
+
+
+|---- agrega segmentos ordenados
+
+#px #py
+#cx #cy
+#dx
+
+| lineas
+#ymin $ffff
+#ymax -1
+-1 -1 -1 -1
+|#.... -1 -1 -1 -1 | lo borra el optimizador..por eso en ymax
+| segmentos
+| ymin x deltax ymax
+#segs )( 8192
+#segs> 'segs
+
+| activos por linea
+| @segs
+#activos )( 2048
+#activos> 'activos
+
+:activos!+ | v --
+	activos> !+ 'activos> ! ;
+
+:-activos	| --
+	'activos 'activos> ! ;
+
+#horiz )( 2048
+#horiz> 'horiz
+
+:horiz!+ | valor --
+	horiz> !+ 'horiz> ! ;
+
+:-horiz
+	'horiz 'horiz> ! ;
+
+:insseg | ymax deltax x ymin seg --
+	16 + dup
+	16 + over segs> over - 2 >> move>
+	!+ !+ !+ !
+	16 'segs> +! ;
+
+:addseg | ymax deltax x ymin --
+	pick3 >? ( 4drop ; )
+	segs>
+	( 'segs >=? )( 16 -
+		dup @ pick2 <? ( drop insseg ; )	| ordena por ymin
+		pick2 =? ( drop dup 8 + @			| ordena por deltax si son =
+			pick4 <? ( drop insseg ; ) )
+		drop )
+	drop
+	segs> !+ !+ !+ !+ 'segs> ! ;
+
+|-----
+:plinehoriz  | x y --  /// xy
+	sh >=? ( -1 nip ) -? ( drop 'px ! ; )
+	horiz!+ 	| y
+	px over dup 'px !
+	>? ( swap )
+ 	sw >=? ( 2drop -4 'horiz> +! ; )
+	-? ( 0 nip )
+	swap -? ( 2drop -4 'horiz> +! ; )
+	sw >=? ( sw 1- nip )
+	2dup "x:%d x:%d " print cr
+	16 << or
+	horiz!+	| y x1 x2
+	;
+
+|************************************
+::PLINE2 | x y --
+	py =? ( plinehoriz ; )
+	over px - 16 << over py - 				| x y dx dy
+	-? ( / py 2over )( / over px py )	| x y deltax ymax xmin ymin
+	sh >? ( 4drop 'py ! 'px ! ; )
+	-? ( neg pick3 16 *>> + 0 )
+	ymin <? ( dup 'ymin ! )
+	>r >r
+	-? ( rdrop rdrop 2drop 'py ! 'px ! ; )
+	ymax >? ( dup 'ymax ! )
+	1-  | corta justo un pixel antes
+	swap r> 16 << r>
+	addseg | ymax deltax xmin ymin --
+	'py ! 'px ! ;
+
+
+:OP2
+	'py ! 'px ! ;
+
+
+|----- llenadores
+:hline3 | x1 y1 x2 --    ; clip x1-x2
+	"l x2:%d y1:%d x1:%d" print cr
+	;
+
+:hout3 | x1 y1 x2 --    x1<=x2 x1<sw x2>0
+	"o x2:%d y1:%d x1:%d" print cr
+	;
+
+:hin3 | x1 y1 x2 --  x1<=x2 x1<sw x2>0
+	"i x2:%d y1:%d x1:%d" print cr
+	;
+
+|--------------- linea actual
+:espuntoi | y act dir1 x1 d1 -- y act
+	3drop ;
+
+:espunto | y act dir1 x1 d1 -- y act
+	3drop ;
+
+
+:dibujohor | y 'hor yac -- y 'hor+
+	swap >r
+	r@+
+	dup "%h " print
+	dup 16 >> swap $ffff and
+	rot swap hline3 | x1 y1 x2 --
+	r>
+	;
+
+:aristabajo | y act dir y -- y act dir y
+	0 pick3 4 - !	| 0 en activos para borrar
+|	1+ 'horiz
+|	( horiz> <? )(
+|		@+ pick2 =? ( -1 pick2 4 - ! dibujohor )( drop 4+ )
+|		) drop
+	;
+
+:fillact | y act -- act'
+	@+					| y act dirp1
+	dup 12 + @ pick3	| y act dirp1 ymax y
+	=? ( aristabajo ) drop | borra 1
+	4+ dup @+ swap @	| y act dir1 x1 d1
+	over $ffff and? ( 1.0 + ) 16 >> >r |'x1 !
+3drop
+
+	@+					| y act dirp2
+	dup 12 + @ pick3	| y act dirp2 ymax y
+	=? ( aristabajo ) drop | borra 2
+	4+ dup @+ swap @ | y act dir2 x2 d2
+	over 16 >> |-? ( 4drop rdrop ; )
+		>r |'x2 !
+3drop
+	r> r> pick3 rot
+	hline3
+	;
+
+:filline | y -- y
+	'activos | primero ordena
+	@+ 0? ( 2drop ; )
+	4+ @ swap  			| x1 'act
+	( activos> <? )( @+ 	| x1 'act 'ac2
+		4+ @ rot 			| 'act x2 x1
+		<? ( over 8 - dup @+ swap @ rot !+ !
+				drop 12 - 'activos <? ( 4+ ) @+ 4+ @ )
+		swap ) 2drop
+	'activos | ahora dibuja
+	( activos> <? )(
+		fillact
+		) drop
+	'activos | borra
+	( activos> <? )(
+		@+ 0? ( drop 4 - activos> 4 - @ over ! -4 'activos> +! )( drop )
+		) drop
+	;
+
+:todohoriz
+	'horiz ( horiz> <? )(
+		@+ dibujohor
+		) drop
+	'segs 'segs> !
+ 	-horiz ;
+
+::POLI2
+	sh ymax <? ( 'ymax ! )( drop ) |-
+	-1 segs> ! | marca ultimo
+	-activos
+	'segs dup @ ymin | 'seg y1 ymin
+|	$ffff =? ( 3drop todohoriz ; )
+	( ymax <? )(
+		( over =? )( nip
+			swap dup activos!+ | agrega nuevos
+			16 + dup @ rot )
+		filline
+		1+ ) 3drop
+	todohoriz | ***
+	'segs 'segs> !
+	$ffff 'ymin ! -1 'ymax !
+	-horiz ;
+
+
+#xc 100 #yc 100
+:circle | largo -- largo
+	0 dup pick2 polar swap xc + swap yc + 2dup op2 rot
+	( 0.3 <? )( 0.04 +
+		dup pick2 dup 4 >> - polar swap xc + swap yc + pline2
+		) drop
+	pline2
+	poli2 ;
+
+|************************************
+
+:main
+	show clrscr
+|	16 font
+
+	cr verde
+|	sp 0 "Hola" .btnt
+	cr cr blanco
+|	5 fib " 5 fib=%d" print
+
+	blanco
+	200 dup pos
+	200 100 dim
+	80 circle drop
+|	caja
+
+|	rojo
+|	10 400 op2 200 400 pline2
+|	200 401 pline2 10 401 pline2
+|	10 400 pline2 poli2
+|	cflecha
+	'exit >esc<
+	;
+
+: main ;
+

@@ -1,0 +1,718 @@
+
+public class PNGDecoder {
+  public static void main(String[] args) throws Exception {
+    String name = "logo.png";
+    if (args.length > 0)
+      name = args[0];
+    InputStream in = PNGDecoder.class.getResourceAsStream(name);
+    final BufferedImage image = PNGDecoder.decode(in);
+    in.close();
+
+    JFrame f = new JFrame() {
+      public void paint(Graphics g) {
+        Insets insets = getInsets();
+        g.drawImage(image, insets.left, insets.top, null);
+      }
+    };
+    f.setVisible(true);
+    Insets insets = f.getInsets();
+    f.setSize(image.getWidth() + insets.left + insets.right, image
+        .getHeight()
+        + insets.top + insets.bottom);
+  }
+
+  public static BufferedImage decode(InputStream in) throws IOException {
+    DataInputStream dataIn = new DataInputStream(in);
+    readSignature(dataIn);
+    PNGData chunks = readChunks(dataIn);
+
+    long widthLong = chunks.getWidth();
+    long heightLong = chunks.getHeight();
+    if (widthLong > Integer.MAX_VALUE || heightLong > Integer.MAX_VALUE)
+      throw new IOException("That image is too wide or tall.");
+    int width = (int) widthLong;
+    int height = (int) heightLong;
+
+    ColorModel cm = chunks.getColorModel();
+    WritableRaster raster = chunks.getRaster();
+
+    BufferedImage image = new BufferedImage(cm, raster, false, null);
+
+    return image;
+  }
+
+  protected static void readSignature(DataInputStream in) throws IOException {
+    long signature = in.readLong();
+    if (signature != 0x89504e470d0a1a0aL)
+      throw new IOException("PNG signature not found!");
+  }
+
+  protected static PNGData readChunks(DataInputStream in) throws IOException {
+    PNGData chunks = new PNGData();
+
+    boolean trucking = true;
+    while (trucking) {
+      try {
+        // Read the length.
+        int length = in.readInt();
+        if (length < 0)
+          throw new IOException("Sorry, that file is too long.");
+        // Read the type.
+        byte[] typeBytes = new byte[4];
+        in.readFully(typeBytes);
+        // Read the data.
+        byte[] data = new byte[length];
+        in.readFully(data);
+        // Read the CRC.
+        long crc = in.readInt() & 0x00000000ffffffffL; // Make it
+        // unsigned.
+        if (verifyCRC(typeBytes, data, crc) == false)
+          throw new IOException("That file appears to be corrupted.");
+
+        PNGChunk chunk = new PNGChunk(typeBytes, data);
+        chunks.add(chunk);
+      } catch (EOFException eofe) {
+        trucking = false;
+      }
+    }
+    return chunks;
+  }
+
+  protected static boolean verifyCRC(byte[] typeBytes, byte[] data, long crc) {
+    CRC32 crc32 = new CRC32();
+    crc32.update(typeBytes);
+    crc32.update(data);
+    long calculated = crc32.getValue();
+    return (calculated == crc);
+  }
+}
+
+class PNGData {
+  private int mNumberOfChunks;
+
+  private PNGChunk[] mChunks;
+
+  public PNGData() {
+    mNumberOfChunks = 0;
+    mChunks = new PNGChunk[10];
+  }
+
+  public void add(PNGChunk chunk) {
+    mChunks[mNumberOfChunks++] = chunk;
+    if (mNumberOfChunks >= mChunks.length) {
+      PNGChunk[] largerArray = new PNGChunk[mChunks.length + 10];
+      System.arraycopy(mChunks, 0, largerArray, 0, mChunks.length);
+      mChunks = largerArray;
+    }
+  }
+
+  public long getWidth() {
+    return getChunk("IHDR").getUnsignedInt(0);
+  }
+
+  public long getHeight() {    return getChunk("IHDR").getUnsignedInt(4);
+  }
+
+  public short getBitsPerPixel() {
+    return getChunk("IHDR").getUnsignedByte(8);
+  }
+
+  public short getColorType() {
+    return getChunk("IHDR").getUnsignedByte(9);
+  }
+
+  public short getCompression() {
+    return getChunk("IHDR").getUnsignedByte(10);
+  }
+
+  public short getFilter() {
+    return getChunk("IHDR").getUnsignedByte(11);
+  }
+
+  public short getInterlace() {
+    return getChunk("IHDR").getUnsignedByte(12);
+  }
+
+  public ColorModel getColorModel() {
+    short colorType = getColorType();
+    int bitsPerPixel = getBitsPerPixel();
+
+    if (colorType == 3) {
+      byte[] paletteData = getChunk("PLTE").getData();
+      int paletteLength = paletteData.length / 3;
+      return new IndexColorModel(bitsPerPixel, paletteLength,
+          paletteData, 0, false);
+    }
+    System.out.println("Unsupported color type: " + colorType);
+    return null;
+  }
+
+  public WritableRaster getRaster() {
+    int width = (int) getWidth();
+    int height = (int) getHeight();
+    int bitsPerPixel = getBitsPerPixel();
+    short colorType = getColorType();
+
+    if (colorType == 3) {
+      byte[] imageData = getImageData();
+      DataBuffer db = new DataBufferByte(imageData, imageData.length);
+      WritableRaster raster = Raster.createPackedRaster(db, width,
+          height, bitsPerPixel, null);
+      return raster;
+    } else
+      System.out.println("Unsupported color type!");
+    return null;
+  }
+
+  public byte[] getImageData() {
+    try {
+      ByteArrayOutputStream out = new ByteArrayOutputStream();
+      // Write all the IDAT data into the array.
+      for (int i = 0; i < mNumberOfChunks; i++) {
+        PNGChunk chunk = mChunks[i];
+        if (chunk.getTypeString().equals("IDAT")) {
+          out.write(chunk.getData());
+        }
+      }
+      out.flush();
+      // Now deflate the data.
+      InflaterInputStream in = new InflaterInputStream(
+          new ByteArrayInputStream(out.toByteArray()));
+      ByteArrayOutputStream inflatedOut = new ByteArrayOutputStream();
+      int readLength;
+      byte[] block = new byte[8192];
+      while ((readLength = in.read(block)) != -1)
+        inflatedOut.write(block, 0, readLength);
+      inflatedOut.flush();
+      byte[] imageData = inflatedOut.toByteArray();
+      // Compute the real length.
+      int width = (int) getWidth();
+      int height = (int) getHeight();
+      int bitsPerPixel = getBitsPerPixel();
+      int length = width * height * bitsPerPixel / 8;
+
+      byte[] prunedData = new byte[length];
+
+      // We can only deal with non-interlaced images.
+      if (getInterlace() == 0) {
+        int index = 0;
+        for (int i = 0; i < length; i++) {
+          if ((i * 8 / bitsPerPixel) % width == 0) {
+            index++; // Skip the filter byte.
+          }
+          prunedData[i] = imageData[index++];
+        }
+      } else
+        System.out.println("Couldn't undo interlacing.");
+
+      return prunedData;
+    } catch (IOException ioe) {
+    }
+    return null;
+  }
+
+  public PNGChunk getChunk(String type) {
+    for (int i = 0; i < mNumberOfChunks; i++)
+      if (mChunks[i].getTypeString().equals(type))
+        return mChunks[i];
+    return null;
+  }
+}
+
+class PNGChunk {
+  private byte[] mType;
+
+  private byte[] mData;
+
+  public PNGChunk(byte[] type, byte[] data) {
+    mType = type;
+    mData = data;
+  }
+
+  public String getTypeString() {
+    try {
+      return new String(mType, "UTF8");
+    } catch (UnsupportedEncodingException uee) {
+      return "";
+    }
+  }
+
+  public byte[] getData() {
+    return mData;
+  }
+
+  public long getUnsignedInt(int offset) {
+    long value = 0;
+    for (int i = 0; i < 4; i++)
+      value += (mData[offset + i] & 0xff) << ((3 - i) * 8);
+    return value;
+  }
+
+  public short getUnsignedByte(int offset) {
+    return (short) (mData[offset] & 0x00ff);
+  }
+}
+
+
+
+/*
+ * Copyright 1996-2006 Sun Microsystems, Inc.  All Rights Reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+ *
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Sun designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Sun in the LICENSE file that accompanied this code.
+ *
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
+ * CA 95054 USA or visit www.sun.com if you need additional information or
+ * have any questions.
+ */
+
+package java.util.zip;
+
+import java.io.FilterInputStream;
+import java.io.InputStream;
+import java.io.IOException;
+import java.io.EOFException;
+
+/**
+ * This class implements a stream filter for uncompressing data in the
+ * "deflate" compression format. It is also used as the basis for other
+ * decompression filters, such as GZIPInputStream.
+ *
+ * @see         Inflater
+ * @author      David Connelly
+ */
+public
+class InflaterInputStream extends FilterInputStream {
+    /**
+     * Decompressor for this stream.
+     */
+    protected Inflater inf;
+
+    /**
+     * Input buffer for decompression.
+     */
+    protected byte[] buf;
+
+    /**
+     * Length of input buffer.
+     */
+    protected int len;
+
+    private boolean closed = false;
+    // this flag is set to true after EOF has reached
+    private boolean reachEOF = false;
+
+    /**
+     * Check to make sure that this stream has not been closed
+     */
+    private void ensureOpen() throws IOException {
+        if (closed) {
+            throw new IOException("Stream closed");
+        }
+    }
+
+
+    /**
+     * Creates a new input stream with the specified decompressor and
+     * buffer size.
+     * @param in the input stream
+     * @param inf the decompressor ("inflater")
+     * @param size the input buffer size
+     * @exception IllegalArgumentException if size is <= 0
+     */
+    public InflaterInputStream(InputStream in, Inflater inf, int size) {
+        super(in);
+        if (in == null || inf == null) {
+            throw new NullPointerException();
+        } else if (size <= 0) {
+            throw new IllegalArgumentException("buffer size <= 0");
+        }
+        this.inf = inf;
+        buf = new byte[size];
+    }
+
+    /**
+     * Creates a new input stream with the specified decompressor and a
+     * default buffer size.
+     * @param in the input stream
+     * @param inf the decompressor ("inflater")
+     */
+    public InflaterInputStream(InputStream in, Inflater inf) {
+        this(in, inf, 512);
+    }
+
+    boolean usesDefaultInflater = false;
+
+    /**
+     * Creates a new input stream with a default decompressor and buffer size.
+     * @param in the input stream
+     */
+    public InflaterInputStream(InputStream in) {
+        this(in, new Inflater());
+        usesDefaultInflater = true;
+    }
+
+    private byte[] singleByteBuf = new byte[1];
+
+    /**
+     * Reads a byte of uncompressed data. This method will block until
+     * enough input is available for decompression.
+     * @return the byte read, or -1 if end of compressed input is reached
+     * @exception IOException if an I/O error has occurred
+     */
+    public int read() throws IOException {
+        ensureOpen();
+        return read(singleByteBuf, 0, 1) == -1 ? -1 : singleByteBuf[0] & 0xff;
+    }
+
+    /**
+     * Reads uncompressed data into an array of bytes. If <code>len</code> is not
+     * zero, the method will block until some input can be decompressed; otherwise,
+     * no bytes are read and <code>0</code> is returned.
+     * @param b the buffer into which the data is read
+     * @param off the start offset in the destination array <code>b</code>
+     * @param len the maximum number of bytes read
+     * @return the actual number of bytes read, or -1 if the end of the
+     *         compressed input is reached or a preset dictionary is needed
+     * @exception  NullPointerException If <code>b</code> is <code>null</code>.
+     * @exception  IndexOutOfBoundsException If <code>off</code> is negative,
+     * <code>len</code> is negative, or <code>len</code> is greater than
+     * <code>b.length - off</code>
+     * @exception ZipException if a ZIP format error has occurred
+     * @exception IOException if an I/O error has occurred
+     */
+    public int read(byte[] b, int off, int len) throws IOException {
+        ensureOpen();
+        if (b == null) {
+            throw new NullPointerException();
+        } else if (off < 0 || len < 0 || len > b.length - off) {
+            throw new IndexOutOfBoundsException();
+        } else if (len == 0) {
+            return 0;
+        }
+        try {
+            int n;
+            while ((n = inf.inflate(b, off, len)) == 0) {
+                if (inf.finished() || inf.needsDictionary()) {
+                    reachEOF = true;
+                    return -1;
+                }
+                if (inf.needsInput()) {
+                    fill();
+                }
+            }
+            return n;
+        } catch (DataFormatException e) {
+            String s = e.getMessage();
+            throw new ZipException(s != null ? s : "Invalid ZLIB data format");
+        }
+    }
+
+    /**
+     * Returns 0 after EOF has been reached, otherwise always return 1.
+     * <p>
+     * Programs should not count on this method to return the actual number
+     * of bytes that could be read without blocking.
+     *
+     * @return     1 before EOF and 0 after EOF.
+     * @exception  IOException  if an I/O error occurs.
+     *
+     */
+    public int available() throws IOException {
+        ensureOpen();
+        if (reachEOF) {
+            return 0;
+        } else {
+            return 1;
+        }
+    }
+
+    private byte[] b = new byte[512];
+
+    /**
+     * Skips specified number of bytes of uncompressed data.
+     * @param n the number of bytes to skip
+     * @return the actual number of bytes skipped.
+     * @exception IOException if an I/O error has occurred
+     * @exception IllegalArgumentException if n < 0
+     */
+    public long skip(long n) throws IOException {
+        if (n < 0) {
+            throw new IllegalArgumentException("negative skip length");
+        }
+        ensureOpen();
+        int max = (int)Math.min(n, Integer.MAX_VALUE);
+        int total = 0;
+        while (total < max) {
+            int len = max - total;
+            if (len > b.length) {
+                len = b.length;
+            }
+            len = read(b, 0, len);
+            if (len == -1) {
+                reachEOF = true;
+                break;
+            }
+            total += len;
+        }
+        return total;
+    }
+
+    /**
+     * Closes this input stream and releases any system resources associated
+     * with the stream.
+     * @exception IOException if an I/O error has occurred
+     */
+    public void close() throws IOException {
+        if (!closed) {
+            if (usesDefaultInflater)
+                inf.end();
+            in.close();
+            closed = true;
+        }
+    }
+
+    /**
+     * Fills input buffer with more data to decompress.
+     * @exception IOException if an I/O error has occurred
+     */
+    protected void fill() throws IOException {
+        ensureOpen();
+        len = in.read(buf, 0, buf.length);
+        if (len == -1) {
+            throw new EOFException("Unexpected end of ZLIB input stream");
+        }
+        inf.setInput(buf, 0, len);
+    }
+
+    /**
+     * Tests if this input stream supports the <code>mark</code> and
+     * <code>reset</code> methods. The <code>markSupported</code>
+     * method of <code>InflaterInputStream</code> returns
+     * <code>false</code>.
+     *
+     * @return  a <code>boolean</code> indicating if this stream type supports
+     *          the <code>mark</code> and <code>reset</code> methods.
+     * @see     java.io.InputStream#mark(int)
+     * @see     java.io.InputStream#reset()
+     */
+    public boolean markSupported() {
+        return false;
+    }
+
+    /**
+     * Marks the current position in this input stream.
+     *
+     * <p> The <code>mark</code> method of <code>InflaterInputStream</code>
+     * does nothing.
+     *
+     * @param   readlimit   the maximum limit of bytes that can be read before
+     *                      the mark position becomes invalid.
+     * @see     java.io.InputStream#reset()
+     */
+    public synchronized void mark(int readlimit) {
+    }
+
+    /**
+     * Repositions this stream to the position at the time the
+     * <code>mark</code> method was last called on this input stream.
+     *
+     * <p> The method <code>reset</code> for class
+     * <code>InflaterInputStream</code> does nothing except throw an
+     * <code>IOException</code>.
+     *
+     * @exception  IOException  if this method is invoked.
+     * @see     java.io.InputStream#mark(int)
+     * @see     java.io.IOException
+     */
+    public synchronized void reset() throws IOException {
+        throw new IOException("mark/reset not supported");
+    }
+}
+
+/*
+ * Copyright 1996-2005 Sun Microsystems, Inc.  All Rights Reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+ *
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Sun designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Sun in the LICENSE file that accompanied this code.
+ *
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
+ * CA 95054 USA or visit www.sun.com if you need additional information or
+ * have any questions.
+ */
+
+package java.util.zip;
+
+/**
+ * A class that can be used to compute the CRC-32 of a data stream.
+ *
+ * @see         Checksum
+ * @author      David Connelly
+ */
+public
+class CRC32 implements Checksum {
+    private int crc;
+
+    /**
+     * Creates a new CRC32 object.
+     */
+    public CRC32() {
+    }
+
+
+    /**
+     * Updates CRC-32 with specified byte.
+     */
+    public void update(int b) {
+        crc = update(crc, b);
+    }
+
+    /**
+     * Updates CRC-32 with specified array of bytes.
+     */
+    public void update(byte[] b, int off, int len) {
+        if (b == null) {
+            throw new NullPointerException();
+        }
+        if (off < 0 || len < 0 || off > b.length - len) {
+            throw new ArrayIndexOutOfBoundsException();
+        }
+        crc = updateBytes(crc, b, off, len);
+    }
+
+    /**
+     * Updates checksum with specified array of bytes.
+     *
+     * @param b the array of bytes to update the checksum with
+     */
+    public void update(byte[] b) {
+        crc = updateBytes(crc, b, 0, b.length);
+    }
+
+    /**
+     * Resets CRC-32 to initial value.
+     */
+    public void reset() {
+        crc = 0;
+    }
+
+    /**
+     * Returns CRC-32 value.
+     */
+    public long getValue() {
+        return (long)crc & 0xffffffffL;
+    }
+
+    private native static int update(int crc, int b);
+    private native static int updateBytes(int crc, byte[] b, int off, int len);
+}
+
+
+
+sing System;
+using System.IO;
+
+namespace Vbaccelerator.Components.Algorithms
+{
+   /// <summary>
+   /// Calculates a 32bit Cyclic Redundancy Checksum (CRC) using the
+   /// same polynomial used by Zip.
+   /// </summary>
+   public class CRC32
+   {      
+      private UInt32[] crc32Table;
+      private const int BUFFER_SIZE = 1024;
+
+      /// <summary>
+      /// Returns the CRC32 for the specified stream.
+      /// </summary>
+      /// <param name="stream">The stream to calculate the CRC32 for</param>
+      /// <returns>An unsigned integer containing the CRC32
+       calculation</returns>
+      public UInt32 GetCrc32(System.IO.Stream stream)
+      {
+         unchecked
+         {
+            UInt32 crc32Result;
+            crc32Result = 0xFFFFFFFF;
+            byte[] buffer = new byte[BUFFER_SIZE];
+            int readSize = BUFFER_SIZE;
+
+            int count = stream.Read(buffer, 0, readSize);
+            while (count > 0)
+            {
+               for (int i = 0; i < count; i++)
+               {
+                  crc32Result = ((crc32Result) >> 8) ^ crc32Table[(buffer[i]) ^
+                   ((crc32Result) & 0x000000FF)];
+               }
+               count = stream.Read(buffer, 0, readSize);
+            }
+
+            return ~crc32Result;
+         }
+      }
+
+      /// <summary>
+      /// Construct an instance of the CRC32 class, pre-initialising the table
+      /// for speed of lookup.
+      /// </summary>
+      public CRC32()
+      {
+         unchecked
+         {
+            // This is the official polynomial used by CRC32 in PKZip.
+            // Often the polynomial is shown reversed as 0x04C11DB7.
+            UInt32 dwPolynomial = 0xEDB88320;
+            UInt32 i, j;
+
+            crc32Table = new UInt32[256];
+
+            UInt32 dwCrc;
+            for(i = 0; i < 256; i++)
+            {
+               dwCrc = i;
+               for(j = 8; j > 0; j--)
+               {
+                  if ((dwCrc & 1)==1)
+                  {
+                     dwCrc = (dwCrc >> 1) ^ dwPolynomial;
+                  }
+                  else
+                  {
+                     dwCrc >>= 1;
+                  }
+               }
+               crc32Table[i] = dwCrc;
+            }
+         }
+      }
+   }

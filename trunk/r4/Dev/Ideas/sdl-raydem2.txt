@@ -1,0 +1,600 @@
+ \ ===================================================================
+\    File Name: sdl-raydem2.fs 
+\       Author: Timothy Trussell 
+\         Date: 03/13/2011 
+\  Description: Ray Caster Demo 
+\ Forth System: gforth-0.7.0 
+\ Linux System: Ubuntu v10.04 i386, kernel 2.6.32-29 
+\ =================================================================== 
+\             Original version used 640x480 16 color mode 
+\ --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- 
+\ This SDL version is also hard-coded for the 640x480 resolution, but 
+\ can be used with any of the available BPP levels (8/16/24/32).
+\ Of course, they all look the same... ;) 
+\ --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- 
+\ Use with my SDL Library revision 1.0f 
+\ =================================================================== 
+[IFDEF] ---marker--- 
+  ---marker--- 
+[ENDIF] 
+marker ---marker--- 
+decimal 
+\ ---[ Library Modules ]--------------------------------------------- 
+\ -- The BasicFontLib package loads the SDL Library modules as well 
+require ~/forth/clf-sdl-tutorials/current-basicfont/sdl- 
+basicfontlib.fs 
+require ~/forth/clf-sdl-tutorials/current-sdllib/sdlkeysym.fs 
+\ ---[ String/Array Functions ]-------------------------------------- 
+[IFUNDEF] s-new 
+: s-new    ( size -- ) create , does> ; 
+: s-alloc  ( *str -- *tod ) @ here dup rot dup allot 0 fill ; 
+: s-alloc# ( *str n -- *tod ) swap @ * here dup rot dup allot 0 fill ; 
+: s-ndx    ( *str n -- *str[n] ) over @ * CELL + + ; 
+: s-itos   ( n -- str len ) 0 <# #S #> ; 
+: s-concat { *str _len *dst -- } 
+  *str *dst 1+ *dst C@ + _len cmove 
+  *dst C@ _len + *dst C! 
+; 
+[ENDIF] 
+\ ---[ Define an SDL Event ]----------------------------------------- 
+\ We will use this for polling the SDL Event subsystem 
+create event sdl-event% %allot drop 
+0 value %quit                                             \ Exit flag 
+\ Note: The =: word is a synonym for CONSTANT, that Marcel Hendrix 
+\       uses in his iforth package, and is one that I like, so I have 
+\       implemented it here. 
+\       Of course, if YOUR version of Forth already has =: defined as 
+\       something else, then use your editor to convert it back to 
+\       CONSTANT. 
+[IFUNDEF] =: 
+  : =: constant ; 
+[ENDIF] 
+\ ---[ RANDOM NUMBERS IN FORTH ]------------------------------------- 
+\  D. H. Lehmers Parametric multiplicative linear congruential 
+\  random number generator is implemented as outlined in the
+\  October 1988 Communications of the ACM ( V 31 N 10 page 1192) 
+     16807 =: %A% 
+2147483647 =: %M% 
+    127773 =: %Q%   \ m a / 
+      2836 =: %R%   \ m a mod 
+CREATE %SEED%  123475689 , 
+\ Returns a full cycle random number 
+: RAND ( -- rand )  \ 0 <= rand < 4,294,967,295 
+   %SEED% @ %Q% /MOD ( lo high) 
+   %R% * SWAP %A% * 2DUP > IF - ELSE - %M% + THEN DUP %SEED% ! ; 
+\ Returns single random number less than n 
+: RND ( n -- rnd )  \ 0 <= rnd < n 
+   RAND SWAP MOD ; 
+\ --------------------------------------------[End Random Numbers]--- 
+\ ---[ D E F I N E S ]----------------------------------------------- 
+  48 =: OVERBOARD            \ the closest a player can get to a wall 
+   1 =: INTERSECTION_FOUND 
+\ ---[ constants used to represent angles ]-------------------------- 
+   0 =: ANGLE_0 
+   5 =: ANGLE_1 
+  10 =: ANGLE_2 
+  20 =: ANGLE_4 
+  25 =: ANGLE_5 
+  30 =: ANGLE_6 
+  80 =: ANGLE_15 
+ 160 =: ANGLE_30 
+ 240 =: ANGLE_45 
+ 320 =: ANGLE_60 
+ 480 =: ANGLE_90 
+ 720 =: ANGLE_135 
+ 960 =: ANGLE_180 
+1200 =: ANGLE_225 
+1440 =: ANGLE_270 
+1680 =: ANGLE_315 
+1920 =: ANGLE_360 
+  16 =: WorldRows                  \ number of rows in the game world 
+  16 =: WorldColumns            \ number of columns in the game world 
+  64 =: CellXSize                  \ size of a cell in the game world 
+  64 =: CellYSize 
+\ ---[ size of overall game world ]---------------------------------- 
+WorldColumns CellXSize * =: WorldXSize 
+WorldRows    CellYSize * =: WorldYSize
+\ ---[ G L O B A L S ]----------------------------------------------- 
+18 s-new World[]                                \ 0123456789ABCDEF 
+                                                \ -----------------+ 
+s" 1111111111111111" World[] s-alloc place      \ 1111111111111111 |0 
+s" 1000000000000001" World[] s-alloc place      \ 1              1 |1 
+s" 1001111100000001" World[] s-alloc place      \ 1  11111       1 |2 
+s" 1001000101010101" World[] s-alloc place      \ 1  1   1 1 1 1 1 |3 
+s" 1001000100000001" World[] s-alloc place      \ 1  1   1       1 |4 
+s" 1001001100000001" World[] s-alloc place      \ 1  1  11       1 |5 
+s" 1000000000000001" World[] s-alloc place      \ 1              1 |6 
+s" 1000000000000001" World[] s-alloc place      \ 1              1 |7 
+s" 1000000000000001" World[] s-alloc place      \ 1              1 |8 
+s" 1001100111111001" World[] s-alloc place      \ 1  11  111111  1 |9 
+s" 1001000000001001" World[] s-alloc place      \ 1  1        1  1 |A 
+s" 1001110000001001" World[] s-alloc place      \ 1  111      1  1 |B 
+s" 1001000000001001" World[] s-alloc place      \ 1  1        1  1 |C 
+s" 1001111111101001" World[] s-alloc place      \ 1  11111111 1  1 |D 
+s" 1000000000000001" World[] s-alloc place      \ 1              1 |E 
+s" 1111111111111111" World[] s-alloc place      \ 1111111111111111 |F 
+: world-ndx ( x y -- *world[x][y] ) World[] swap s-ndx + 1+ ; 
+\ The 1+ is to step past the length byte 
+\ ---[ Allocate Arrays ]--------------------------------------------- 
+\ No error checking on array subscripts here... 
+\ tangent tables equivalent to slopes 
+float s-new Tan[]       Tan[]  ANGLE_360 1+ s-alloc# drop 
+float s-new iTan[]      iTan[] ANGLE_360 1+ s-alloc# drop 
+\ step tables used to find next intersections, equivalent to slopes 
+\ times width and height of cell 
+float s-new YStep[]     YStep[] ANGLE_360 1+ s-alloc# drop 
+float s-new XStep[]     XStep[] ANGLE_360 1+ s-alloc# drop 
+\ cos table used to fix view distortion caused by caused by radial 
+\ projection 
+float s-new Cos[]       Cos[] ANGLE_360 1+ s-alloc# drop 
+\ 1/cos and 1/sin tables used to compute distance of intersection 
+\ very quickly by calculating the hypotenuse 
+float s-new iCos[]      iCos[] ANGLE_360 1+ s-alloc# drop 
+float s-new iSin[]      iSin[] ANGLE_360 1+ s-alloc# drop 
+\ The above tables have allocated 107,576 bytes in the dictionary 
+\ -- each one is 15,368 bytes in size (1921 64-bit floats) 
+\ ===[ Build Tables ]================================================ 
+: BuildTables ( -- ) 
+  ANGLE_360 1+ ANGLE_0 do
+    \ calculate rad-angle 
+    3.272e-4                                              \ 0.0003272 
+    i S>F 2e0 F* pi F* ANGLE_360 S>F F/ 
+    F+                              \ leaving rad-angle on the fstack 
+  \ -- Tan[i] = tan(rad-angle) 
+    fdup                          \ make a copy to get the tangent of 
+    FTAN fdup Tan[] i s-ndx F!                           \ set tan[i] 
+  \ -- iTan[i] = 1/Tan[i] 
+    1e0 fswap F/ iTan[] i s-ndx F!                      \ set itan[i] 
+    \ tangent has the incorrect signs in all quadrants except 1, so 
+    \ manually fix the signs of each quadrant since the tangent is 
+    \ equivalent to the slope of a line and if the tangent is wrong 
+    \ then the ray that is case will be wrong 
+    Tan[] i s-ndx F@ CellYSize S>F F* 
+    i ANGLE_0 >= i ANGLE_180 < AND if FABS else FABS FNEGATE then 
+    YStep[] i s-ndx F! 
+    iTan[] i s-ndx F@ CellXSize S>F F* 
+    i ANGLE_90 >= i ANGLE_270 < AND if FABS FNEGATE else FABS then 
+    XStep[] i s-ndx F! 
+  \ -- create the sin and cosine tables to compute distances -- 
+    1e0 fover FCOS F/ iCos[] i s-ndx F! 
+    1e0 fswap FSIN F/ iSin[] i s-ndx F!           \ removes rad-angle 
+  loop 
+  \ Create view filter table.  There is a cosine wave modulated on 
+  \ top of the view distance as a side effect of casting from a fixed 
+  \ point. to cancell this effect out, we multiple by the inverse of 
+  \ the cosine and the result is the proper scale. 
+  \ Without this we would see a fishbowl effect, which might be 
+  \ desired in some cases... 
+  ANGLE_30 1+ ANGLE_30 negate do 
+    1e0                                        \ saves an fswap later 
+    3.272e-4                                              \ 0.0003272 
+    i S>F 2e0 F* pi F* ANGLE_360 S>F F/          \ ang*2*pi/ANGLE_360 
+    F+                                                    \ rad_angle 
+    FCOS                                             \ cos(rad_angle) 
+    F/                                             \ 1/cos(rad_angle) 
+    Cos[] i ANGLE_30 + s-ndx F! 
+  loop 
+; 
+\ ---[ SLine ]------------------------------------------------------- 
+\ Draw a Scaled Line 
+\ *dst is a pointer to the SDL surface to draw to
+: SLine { *dst _x1 _y1 _x2 _y2 _pixel -- } 
+  *dst                          \ *dst 
+  _x1 2 RSHIFT                  \ *dst x1/4 
+  256 _y1 2 RSHIFT -            \ *dst x1/4 256-y1/4 
+  _x2 2 RSHIFT                  \ *dst x1/4 256-y1/4 x2/4 
+  256 _y2 2 RSHIFT -            \ *dst x1/4 256-y1/4 x2/4 256-y2/4 
+  _pixel                        \ *dst x1/4 256-y1/4 x2/4 256-y2/4 c 
+  Line                          \ -- 
+; 
+\ ---[ SPLOT ]------------------------------------------------------- 
+\ used as a diagnostic function to draw a scaled point 
+\ *dst is a pointer to the SDL surface to draw to 
+: SPlot { *dst _x _y _pixel -- } 
+  _x     2 RSHIFT to _x 
+  256 _y 2 RSHIFT - to _y 
+  *dst _x    _y    _pixel PutPixel 
+  *dst _x 1+ _y    _pixel PutPixel 
+  *dst _x    _y 1+ _pixel PutPixel 
+  *dst _x 1+ _y 1+ _pixel PutPixel 
+; 
+\ ---[ Draw 2D Map ]------------------------------------------------- 
+\ The world 2D map is basically a 16x16 sprite 
+: Draw-Block { *dst _xb _yb _pixel _type -- } 
+  *dst 
+  _xb 16 * 
+  _yb 16 * 
+  over 15 + _type if 1 + then 
+  over 15 + _type if 1 + then 
+  _pixel 
+  _type 0= if Draw-Box else Draw-Filled-Box then 
+; 
+: Draw-2D-Map { *dst -- } 
+  WorldRows 0 do 
+    WorldColumns 0 do 
+      *dst j i 
+      2dup world-ndx C@ $30 - 0= if 
+        #White FALSE Draw-Block 
+      else 
+        #Green TRUE Draw-Block 
+      then 
+    loop 
+  loop
+; 
+\ ---[ Select-Color ]------------------------------------------------ 
+: Select-Color ( n -- pixel ) 
+  case 
+    0 of #Black endof 
+    1 of #Blue endof 
+    2 of #Green endof 
+    3 of #Cyan endof 
+    4 of #Red endof 
+    5 of #Magenta endof 
+    6 of #Brown endof 
+    7 of #LightGray endof 
+    8 of #DarkGray endof 
+    9 of #LightBlue endof 
+   10 of #LightGreen endof 
+   11 of #LightCyan endof 
+   12 of #LightRed endof 
+   13 of #LightMagenta endof 
+   14 of #Yellow endof 
+   15 of #White endof 
+  endcase 
+; 
+\ ---[ Ray Caster ]-------------------------------------------------- 
+\ This function casts out 320 rays from the viewer and builds up the 
+\ video display based on the intersections with the walls. 
+\ The 320 rays are cast in such a way that they all fit into a 60 
+\ degree field of view; a ray is cast and then the distance to the 
+\ first horizontal and vertical edge that has a cell in it is 
+\ recorded. 
+\ The intersection that has the closer distance to the user is the 
+\ one that is used to draw the bitmap. 
+\ The distance is used to compute the height of the "sliver" of 
+\ texture or line that will be drawn on the screen 
+\ ------------------------------------------------------------------- 
+\ All 'i.' variables indicate an integer value; 'r.' are floats 
+0 value i.color 
+0 value i.xray   \ tracks progress of ray looking for Y intersections 
+0 value i.yray   \ tracks progress of ray looking for X intersections 
+0 value i.nextycell          \ used to figure the quadrant of the ray 
+0 value i.nextxcell 
+0 value i.cellx                          \ current cell the ray is in 
+0 value i.celly
+0 value i.xbound             \ the next vert/horiz intersection point 
+0 value i.ybound 
+0 value i.xbsave         \ storage to record intersections cell bound 
+0 value i.ybsave 
+0 value i.xdelta                 \ amount needed to move to next cell 
+0 value i.ydelta 
+0 value i.ray                        \ current ray being cast (0-320) 
+2 value i.casting       \ tracks progress of the X/Y component of ray 
+0 value i.xhittype           \ records the block that was intersected 
+0 value i.yhittype          \ used to figure out which texture to use 
+0 value i.top            \ used to compute top/bot of the sliver that 
+0 value i.bottom        \ is drawn symmetrically around the bisecting 
+                              \ plane of the screens vertical extents 
+fvariable r.xi                  \ used to track the x/y intersections 
+fvariable r.yi 
+fvariable r.xi-save      \ used to save exact x/y intersection points 
+fvariable r.yi-save 
+fvariable r.dist-x      \ distance of the x/.y ray intersections from 
+fvariable r.dist-y                                    \ the viewpoint 
+fvariable r.scale           \ the final scale to draw the 'sliver' in 
+\ Save the parameters passed to RayCaster here 
+0 value parm.x                                              \ x coord 
+0 value parm.y                                              \ y coord 
+0 value parm.va                                       \ viewing angle 
+: RayCast-XIntersect ( -- )   \ Section 2: Compute 1st X Intersection 
+  parm.va Angle_0 >= parm.va Angle_180 < AND if 
+    CellYSize dup parm.y over / * + to i.ybound 
+    CellYSize to i.ydelta 
+    0 to i.nextycell 
+  else 
+    CellYSize parm.y over / * to i.ybound 
+    CellYSize negate to i.ydelta 
+    -1 to i.nextycell 
+  then 
+  iTan[] parm.va s-ndx F@ 
+  i.ybound parm.y - S>F F* 
+  parm.x S>F F+ 
+  r.xi F! 
+; 
+: RayCast-YIntersect ( -- )  \ Section 3: Computer 1st Y Intersection 
+  parm.va Angle_90 < parm.va Angle_270 >= OR if 
+    CellXSize dup parm.x over / * + to i.xbound
+    CellXSize to i.xdelta 
+    0 to i.nextxcell 
+  else 
+    CellXSize parm.x over / * to i.xbound 
+    CellXSize negate to i.xdelta 
+    -1 to i.nextxcell 
+  then 
+  Tan[] parm.va s-ndx F@ 
+  i.xbound parm.x - S>F F* 
+  parm.y S>F F+ 
+  r.yi F! 
+; 
+: RayCast-CastX ( -- )                        \ Section 4: Cast X Ray 
+    i.xray INTERSECTION_FOUND <> if 
+      YStep[] parm.va s-ndx F@ FABS F0= if 
+        INTERSECTION_FOUND to i.xray 
+        i.casting 1- to i.casting 
+        1e+8 r.dist-x F!      \ 100,000,000.0 
+      then 
+      i.xbound i.nextxcell + CellXSize / to i.cellx 
+      r.yi F@ F>S CellYSize / to i.celly 
+      i.cellx WorldRows 1- i.celly - world-ndx C@ $30 - 
+      dup to i.xhittype 0<> if 
+        r.yi F@ parm.y S>F F- iSin[] parm.va s-ndx F@ F* r.dist-x F! 
+        r.yi F@ r.yi-save F! 
+        i.xbound to i.xbsave 
+        INTERSECTION_FOUND to i.xray 
+        i.casting 1- to i.casting 
+      else 
+        r.yi F@ YStep[] parm.va s-ndx F@ F+ r.yi F! 
+      then 
+    then 
+; 
+: RayCast-CastY ( -- )                        \ Section 5: Cast Y Ray 
+    i.yray INTERSECTION_FOUND <> if 
+      XStep[] parm.va s-ndx F@ FABS F0= if 
+        INTERSECTION_FOUND to i.yray 
+        i.casting 1- to i.casting 
+        1e+8 r.dist-y F!      \ 100,000,000.0 
+      then 
+      r.xi F@ F>S CellXSize / to i.cellx 
+      i.ybound i.nextycell + CellYSize / to i.celly
+      i.cellx WorldRows 1- i.celly - world-ndx C@ $30 - 
+      dup to i.yhittype 0<> if 
+        r.xi F@ parm.x S>F F- iCos[] parm.va s-ndx F@ F* r.dist-y F! 
+        r.xi F@ r.xi-save F! 
+        i.ybound to i.ybsave 
+        INTERSECTION_FOUND to i.yray 
+        i.casting 1- to i.casting 
+      else 
+        r.xi F@ XStep[] parm.va s-ndx F@ F+ r.xi F! 
+      then 
+    then 
+; 
+: RayCast-Render { _ray -- }            \ Section 6: Render something 
+    r.dist-x F@ r.dist-y F@ F< if              \ vertical wall closer 
+      screen-surface 
+      parm.x 
+      parm.y 
+      i.xbsave 
+      r.yi-save F@ F>S 
+      i.color 
+      SLine 
+      Cos[] _ray s-ndx F@ 15000e0 F* 
+      1e-10 r.dist-x F@ F+ F/ r.scale F! 
+      100e0 r.scale F@ 2e0 F/ F- F>S dup 1 < if drop 1 then to i.top 
+      i.top S>F r.scale F@ F+ F>S dup 200 > if 
+        drop 200 
+      then 
+      to i.bottom 
+      screen-surface 638 _ray - i.top over i.bottom 
+      r.yi-save F@ F>S CellYSize mod 1 <= if 
+        #White 
+      else 
+        #LightGreen 
+      then 
+      Line 
+    else                                     \ horizontal wall closer 
+      screen-surface 
+      parm.x 
+      parm.y 
+      r.xi-save F@ F>S 
+      i.ybsave 
+      i.color
+      SLine 
+      Cos[] _ray s-ndx F@ 15000e0 F* 
+      1e-10 r.dist-y F@ F+ F/ r.scale F! 
+      100e0 r.scale F@ 2e0 F/ F- F>S dup 1 < if drop 1 then to i.top 
+      i.top S>F r.scale F@ F+ F>S dup 200 > if 
+        drop 200 
+      then 
+      to i.bottom 
+      screen-surface 638 _ray - i.top over i.bottom 
+      r.xi-save F@ F>S CellXSize mod 1 <= if 
+        #White 
+      else 
+        #Green 
+      then 
+      Line 
+    then 
+; 
+: RayCaster ( x y va -- ) 
+  to parm.va 
+  to parm.y 
+  to parm.x 
+  0 to i.xray                                             \ section 1 
+  0 to i.yray 
+  2 to i.casting 
+  parm.va Angle_30 - dup 0< if Angle_360 + then to parm.va 
+  14 rnd 1+ Select-Color to i.color 
+  320 0 do 
+    RayCast-XIntersect                                    \ section 2 
+    RayCast-YIntersect                                    \ section 3 
+    0 to i.xray 
+    0 to i.yray 
+    2 to i.casting 
+    begin 
+      i.casting 0<> 
+    while 
+      RayCast-CastX                                       \ section 4 
+      RayCast-CastY                                       \ section 5 
+      i.xbound i.xdelta + to i.xbound 
+      i.ybound i.ydelta + to i.ybound 
+    repeat 
+    i RayCast-Render 
+    parm.va 1+ dup Angle_360 >= if drop 0 then to parm.va
+  loop 
+; 
+\ --[ MAIN Module ]----------------------------------------------- 
+0 value m.row 
+0 value m.column 
+0 value m.block 
+0 value m.t 
+0 value m.done 
+0 value m.x 
+0 value m.y 
+0 value m.va 
+0 value m.xcell 
+0 value m.ycell 
+0 value m.xsubcell 
+0 value m.ysubcell 
+0 value m.ch 
+fvariable m.dx 
+fvariable m.dy 
+\ ---[ ShowText ]---------------------------------------------------- 
+: ShowText ( -- ) 
+  10 16 #White #Black s" 2-D Map View" GWriteAt 
+  53 13 #White #Black s" 3-D Projection" GWriteAt 
+  29 #White #Black s" Arrow keys move, ESC to quit" GWriteCenter 
+; 
+\ Shortcuts for displaying graphical text 
+\ GPutS displays at the current x/y cursor position (FontLib10) 
+: \, ( -- ) s" ," GPutS ;                            \ prints a comma 
+: \) ( -- ) s" )" GPutS ;                      \ prints r-parenthesis 
+: \# ( n -- )   s-itos GPutS ;                      \ prints a number 
+\ ---[ ShowStatus ]-------------------------------------------------- 
+: ShowStatus ( *dst -- ) 
+  screen-surface 1 299 600 335 #Black Draw-Filled-Box 
+  1 18 #White #Black s" Position of player is (" GWriteAt 
+  m.x \# \, m.y \# \) 
+  1 19 #White #Black s" View angle is " GWriteAt 
+  360e0 m.va S>F F* Angle_360 S>F F/ F>S \# 
+  1 20 #White #Black s" Current cell is (" GWriteAt 
+  m.xcell \# \, m.ycell \# \) 
+  1 21 #White #Black s" Relative position within cell is (" GWriteAt 
+  m.xsubcell \# \, m.ysubcell \# \) 
+; 
+\ ---[ ClearViewport ]-----------------------------------------------
+: ClearViewport { *dst -- } 
+  *dst 319   1 638 200 #Black Draw-Filled-Box        \ Clear viewport 
+  *dst 319 100 638 200 #DarkGray Draw-Filled-Box \ set bottom to gray 
+; 
+\ ---[ Keyboard Processing ]----------------------------------------- 
+: Move-Up                      \ move player along view vector foward 
+  6.28e0 m.va S>F F* Angle_360 S>F F/ FCOS 10e0 F* m.dx F! 
+  6.28e0 m.va S>F F* Angle_360 S>F F/ FSIN 10e0 F* m.dy F! 
+; 
+: Move-Down                  \ move player along view vector backward 
+  6.28e0 m.va S>F F* Angle_360 S>F F/ FCOS FNEGATE 10e0 F* m.dx F! 
+  6.28e0 m.va S>F F* Angle_360 S>F F/ FSIN FNEGATE 10e0 F* m.dy F! 
+; 
+: Move-Left 
+  m.va Angle_6 + dup Angle_360 >= if drop Angle_0 then to m.va 
+; 
+: Move-Right 
+  m.va Angle_6 - dup Angle_0 < if drop Angle_360 then to m.va 
+; 
+: MovePlayer ( -- ) 
+  m.x S>F m.dx F@ F+ F>S to m.x 
+  m.y S>F m.dy F@ F+ F>S to m.y 
+  \ Make sure we are not trying to walk into a wall - if so, back up! 
+  m.x CellXSize / to m.xcell 
+  m.y CellYSize / to m.ycell 
+  m.x CellXSize MOD to m.xsubcell 
+  m.y CellYSize MOD to m.ysubcell 
+  m.dx F@ F0> if                                       \ moving right 
+    m.xcell 1+ WorldRows 1- m.ycell - world-ndx C@ $30 - 0<> 
+    m.xsubcell CellXSize Overboard - > AND if 
+      m.x m.xsubcell CellXSize Overboard - - - to m.x 
+    then 
+  else                                                  \ moving left 
+    m.xcell 1- WorldRows 1- m.ycell - world-ndx C@ $30 - 0<> 
+    m.xsubcell Overboard < AND if 
+      m.x Overboard m.xsubcell - + to m.x 
+    then 
+  then 
+  m.dy F@ F0> if                                          \ moving up 
+    m.xcell WorldRows 1- m.ycell 1+ - world-ndx C@ $30 - 0<> 
+    m.ysubcell CellYSize Overboard - > AND if 
+      m.y m.ysubcell CellYSize Overboard - - - to m.y
+    then 
+  else                                                  \ moving down 
+    m.xcell WorldRows 1- m.ycell 1- - world-ndx C@ $30 - 0<> 
+    m.ysubcell Overboard < AND if 
+      m.y Overboard m.ysubcell - + to m.y 
+    then 
+  then 
+  m.x m.y m.va RayCaster                            \ Render the view 
+  ShowStatus                                \ display positional data 
+; 
+\ ---[ Poll-Keyboard ]----------------------------------------------- 
+\ Process events while they exist, looking for an exit condition. 
+\ Skips all other keys/events. 
+\ Empties the event buffer each time it is called. 
+: Poll-Keyboard ( -- ) 
+  begin 
+    event sdl-pollevent 
+  while 
+    event sdl-event-type C@ case 
+      SDL_QUIT of 1 to %quit endof           \ Alt-F4 or close window 
+      SDL_KeyDown of 
+        0e0 m.dx F!                                    \ reset deltas 
+        0e0 m.dy F! 
+        screen-surface ClearViewport 
+        event sdl-keyboard-event-keysym sdl-keysym-sym uw@ case 
+          SDLK_ESCAPE of 1 to %quit endof 
+          SDLK_UP     of Move-Up    endof                \ arrow keys 
+          SDLK_DOWN   of Move-Down  endof 
+          SDLK_LEFT   of Move-Left  endof 
+          SDLK_RIGHT  of Move-Right endof 
+          SDLK_KP8    of Move-Up    endof            \ numeric keypad 
+          SDLK_KP2    of Move-Down  endof 
+          SDLK_KP4    of Move-Left  endof 
+          SDLK_KP6    of Move-Right endof 
+        endcase 
+        MovePlayer 
+        screen-surface sdl-flip drop 
+      endof 
+    endcase 
+  repeat 
+; 
+: SetVars ( -- )
+  0 to m.row 
+  0 to m.column 
+  0 to m.block 
+  0 to m.t 
+  0 to m.done 
+; 
+: RayDemo ( -- ) 
+  0 to %quit 
+  640x480x16 s" Game Guru's Programming Book - Ray Demo0" InitGraph 
+  screen-surface font-init 
+  SetVars 
+  BuildTables 
+  screen-surface Draw-2D-Map          \ never drawn again in the code 
+  ShowText 
+  screen-surface 318 0 639 201 #White Draw-Box     \ Box the viewport 
+  screen-surface ClearViewport 
+  8 64 * 25 + to m.x 
+  3 64 * 25 + to m.y 
+  Angle_60 to m.va 
+  m.x m.y m.va RayCaster                        \ Render initial view 
+  ShowStatus 
+  screen-surface sdl-flip drop 
+  begin 
+    %quit 0= 
+  while 
+    Poll-Keyboard                                     \ do everything 
+  repeat 
+  font-quit                              \ shut down the font library 
+  CloseGraph                                     \ Exit graphics mode 
+; 
+: Help-Message ( -- ) 
+  cr 
+  ." +----------------------------------------------------------+" cr 
+  ." |                gforth SDL Ray Casting Demo    03/13/2011 |" cr 
+  ." +----------------------------------------------------------|" cr 
+  ." |      From: Game Guru's Programming Book, Chapter 6       |" cr 
+  ." +----------------------------------------------------------|" cr 
+  ." |     Tested on: Ubuntu v10.04 i386 Kernel: 2.6.32-29      |" cr 
+  ." +----------------------------------------------------------+" cr 
+  ."               Commands: RayDemo Help-Message" cr 
+  ." ------------------------------------------------------------" cr 
+;
