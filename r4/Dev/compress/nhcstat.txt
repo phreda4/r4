@@ -1,0 +1,156 @@
+| NoHash Compressor
+| estadistica
+| phreda 2012
+|-----------------------
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+:timelog | str --
+	msec time "%d:%d:%d %d %s %." mprint count "log.txt" append ;
+
+#cntbytes
+#inic	| datos a comprimir
+#inis	| arreglo direccion
+#inio	| datos a comprimir delta
+#iniu   | datos comprimidos
+#endu
+#arena
+
+|--------------
+:,w here w!+ 'here ! ;
+:,cw dup $ff and ,c 8 >> ,w ;
+:cw@+ c@+ $ff and >r w@+ 8 << r> or ;
+
+|---------------------------
+|    formato comprimido
+| byte-lit (byte de literal)
+| 0    .. ningun literal
+| 1-252.. cnt literal
+| 253	  next byte cnt
+| 254     next word cnt
+| 255     next qword cnt
+|... secuencia de literales
+| byte-copia (byte de copia)
+| 2 hibits posicion de inicio
+| 00 en byte sig (8bits)
+| 01 en word sig (16bits)
+| 10 en bword sig (24bits)
+| 11 en qword sig (32bits)
+| 6..0 bits cantidad de bytes copiados
+| 0..59 +4
+| 60 en byte +63
+| 61 en word +63
+| 62 en bword +63
+| 63 en qword +63
+|-------------------------
+
+#stcntlita )( 1024
+#stcntlit2
+#stcntlit3
+#stcntlit4
+#stcntcpa )( 1024
+#stcntcp2
+#stcntcp3
+#stcntcp4
+#stcntcp5
+
+#stdircp1
+#stdircp2
+#stdircp3
+#stdircp4
+
+
+:clearst
+	'stcntlita >r
+	256 ( 1? )( 1- 0 r!+ ) drop rdrop
+	0 'stcntlit2 !
+	0 'stcntlit3 !
+	0 'stcntlit4 !
+	'stcntcpa >r
+	256 ( 1? )( 1- 0 r!+ ) drop rdrop
+	0 'stcntcp2 !
+	0 'stcntcp3 !
+	0 'stcntcp4 !
+	0 'stcntcp5 !
+
+	;
+
+:descntlit | adr l -- adr. lr
+	253 <? ( 1 over 2 << 'stcntlita + +! ; )
+	253 =? ( swap c@+ $ff and rot + 1 'stcntlit2 +! ; )
+	254 =? ( drop w@+ $ffff and 253 + 1 'stcntlit3 +! ; )
+	drop @+ 253 + 1 'stcntlit4 +! ;
+
+:deslit | adr l -- adr.
+	0? ( drop 1 'stcntlita +! ; )
+	$ff and descntlit | adr cnt
+	( 1? )( 1- swap c@+ ,c swap ) drop ;
+
+:descntcp | adr v c -- adr v c.
+	$3f and
+	60 <? ( 1 over 2 << 'stcntcpa + +! 4+ ; )
+	60 =? ( drop swap c@+ $ff and 63 + rot swap 1 'stcntcp2 +! ; )
+	61 =? ( drop swap w@+ $ffff and 63 + rot swap 1 'stcntcp3 +! ; )
+	62 =? ( drop swap cw@+ $ffffff and 63 + rot swap 1 'stcntcp4 +! ; )
+	drop swap @+ 63 + rot swap 1 'stcntcp5 +! ;
+
+:desrelcp | adr c v -- adr r c
+	$c0 and
+	$00 =? ( drop swap c@+ $ff and rot 1 'stdircp1 +! ; )
+	$40 =? ( drop swap w@+ $ffff and rot 1 'stdircp2 +! ; )
+	$80 =? ( drop swap cw@+ $ffffff and rot 1 'stdircp3 +! ; )
+	drop swap @+ rot 1 'stdircp4 +! ;
+
+:descpy | adr v -- adr.
+	dup descntcp	| adr v cnt
+	swap desrelcp	| adr rel cnt
+	swap neg here +	| adr cnt from
+	swap ( 1? )( 1- swap c@+ ,c swap ) 2drop ;
+
+:decompressst | adrf adr --	; decompress in here
+	c@+ deslit
+	( over <? )(
+		c@+ descpy
+		c@+ deslit
+		) 2drop ;
+
+
+:printcorpus
+	amarillo
+	inic
+	5 ( 1? )( 1- >r
+		32 ( 1? )( 1- >r
+			c@+ "%h " print
+			r> ) drop
+			cr
+		r> ) 2drop ;
+
+
+#inic
+#endc
+
+:main
+	mark
+	here dup 'inic !
+	"db\corpus\calgcompresso" load
+	dup 'endc ! 'here !
+
+	endc inic decompressst
+
+	show clrscr
+		verde
+		endc inic - "%d " print
+		"Estadistica de compresion" print cr
+
+		'stcntlita >r 256 ( 1? )( 1- r@+ " %d " allowcr print ) drop rdrop
+		cr
+		stcntlit4 stcntlit3 stcntlit2 "lit2:%d lit3:%d lit4:%d " print cr
+		'stcntcpa >r 256 ( 1? )( 1- r@+ " %d " allowcr print ) drop rdrop
+		cr
+		stcntcp5 stcntcp4 stcntcp3 stcntcp2 "cpy2:%d cpy3:%d cpy4:%d cpy5:%d " print cr
+		stdircp4 stdircp3 stdircp2 stdircp1 "dir1:%d dir2:%d dir3:%d dir4:%d " print cr
+		'exit >esc<
+		;
+
+
+: main ;
