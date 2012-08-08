@@ -3,9 +3,11 @@
 |------------------
 
 ^r4/lib/math.txt
-^r4/lib/fontt.txt
-^r4/lib/fonth.txt
+|^r4/lib/fontt.txt
+|^r4/lib/fonth.txt
 ^r4/lib/fonta.txt
+
+^r4/lib/part8.txt
 
 ^r4/lib/btn.txt
 ^r4/lib/input.txt
@@ -14,43 +16,189 @@
 
 ^r4/system/mem-ed.txt
 ^r4/system/r4code.txt
-
 ^r4/lib/trace.txt
 
-|--------- estado
-#ok " ok"
-#mensaje 'ok
-#lastrun )( 1024
-#padin )( 1024
+|------ tipo de archivos.. 0 carpeta ...  -1 desconocido
+| algun dia pondre .r4
 
-|-------- memoria guardada
+#ftypes "txt" "spr" "inc" "bmr" "rmt" 0
+#ctypes 0 $007236 $0076A3 $440E62 $A0410D $9E0039 0
+
+:edittxt
+	"r4/system/edit-code.txt" run ;
+
+:editspr
+	;
+:editinc
+:editbmr
+:editrmt
+	;
+
+
+:calcext | str -- str ext
+	dup count + 4 -
+	dup c@ $2e <>? ( 2drop -1 ; ) | sin extension
+	drop 1+
+	1 'ftypes ( dup c@ 1? )( drop
+		dup pick3 = 1? ( 2drop nip ; )
+		drop >>0 swap 1+ swap )
+	4drop -1	| no reconocida
+	;
+
+:inktype | type --
+	-? ( 1+ ) 2 << 'ctypes + @ ink ;
+
+|--------- fill folders
+#files 0 0
+
+|-------- strings
+#memstr
+#memstr>
+
+|-------- path
 #actf
 #ruta )( 1024
 #ruta> 'ruta
 
-#cnta
+#carp )( 1024
+#carp> 'carp
+
+#stkpath )( 1024
+#stkpath. 'stkpath
+
+|--------- estado
+#ok " ok"
+#mensaje 'ok
+#padin )( 1024
+
+|---------- path con nodos
+#pathfile )( 256
+#pathfile> 'pathfile
+#runfile
 
 |-------- manejo de path
 :ruta.push | "" --
 	ruta> strcpyl
-	"/" swap 1- strcpyl
+	"\" swap 1- strcpyl
 	1- 'ruta> ! ;
 
 :ruta<< | adr -- adr'
  	ruta> 2 -
-	( 'ruta >? )( dup c@ $2f =? ( drop 1+ ; ) drop 1- ) drop
+	( 'ruta >? )( dup c@ $5c =? ( drop 1+ ; ) drop 1- ) drop |$2f para la otra barra
 	'ruta ;
 
 :ruta.pop | --
 	ruta<< 0 over c! 'ruta> ! ;
 
-|----------- estado
-:grabaestado
-	'actf 1028 "mem/mp.mem" save ;
+:ruta*.* | -- str
+	"\*.*" 'ruta
+	ruta> 1+ strcpyl 1- strcpy
+	ruta> 1+ ;
 
+:rutafile | -- str
+	runfile 1? ( 4+ @ )( "" nip )
+	'ruta here
+	strcpyl 1-
+	strcpy
+	here ;
+
+:>\ | adr -- adr.
+	( c@+ 1? )( $5c =? ( drop ; ) drop ) drop 1- ;
+
+:ruta.niv | n -- com
+	'ruta swap ( 1? )( 1- swap >\ swap ) drop ;
+
+|-----
+:savemenu
+	'ruta 1024 "mem/menu.mem" save ;
+
+:loadmenu
+	'ruta "mem/menu.mem" load drop
+	'ruta count + 'ruta> !
+	;
+
+:setlr
+	0 'ruta !
+	'pathfile ( pathfile> <? )( @+ 4+ @ 'ruta strcat "/" 'ruta strcat ) drop
+	0 'runfile !
+	;
+
+:,pf | nodo --
+	pathfile> !+ 'pathfile> ! ;
+
+|---- memoria de str
+:cpymemstr | "" -- adr
+	memstr> dup rot swap
+	strcpyl 'memstr> ! ;
+
+|---- registro de carpetas
+:,carpeta | adtr -- add
+	carp> !+ 'carp> ! ;
+
+:carpeta@+ | -- p
+	carp> |'carp
+	stkpath. 4 - @ =? ( drop 0 ; )
+	4 - dup 'carp> ! @ ;
+
+:carpeta.mark | p -- p
+	'files p.now over 12 + !
+	carp> stkpath. !+ 'stkpath. ! ;
+
+:carpeta.saveend | p -- p
+	'files p.now over 16 + ! ;
+
+:carpeta.pop | --
+	stkpath. | 'stkpath =? ( drop 0 ; )
+	4 - 'stkpath. ! ;
+
+|---- particulas de info
+:file
+	;
+
+:folder
+	;
+
+:+file | nombre --
+	'file 'files p!+ >r
+	calcext swap
+	r!+ r> ! ;
+
+:+folder | nombre -- dir
+	'folder 'files p!+ >r r!+ 0 r!+ r> 12 - ;
+
+:escarpeta | adr --
+	44 + cpymemstr +folder ,carpeta  ;
+
+:fileall | adr --
+	dup @ $10 =? ( drop escarpeta ; ) drop
+	44 + cpymemstr +file ;
+
+:findruta
+	ruta*.* ffirst drop	fnext drop fnext ; | quita . y ..
+
+:recorre | part --
+	dup 4+ @ ruta.push
+	carpeta.mark
+	findruta ( 1? )( fileall fnext ) drop
+	carpeta.saveend
+	drop
+	( carpeta@+ 1? )( recorre ) drop
+	carpeta.pop
+	ruta.pop ;
+
+#root
+
+:scanall | str --
+	memstr 'memstr> !
+    "r4" +folder
+	dup 'root !
+	dup ,carpeta | carpeta de inicio
+	recorre ;
+
+|----------- estado
 :finnew
 	'ed.nombre c@ 0? ( drop exit ; ) drop
-	grabaestado
+	savemenu
 	0 0 'ed.ncar ! 'ed.nlin !
 	'ed.nombre 'ruta "%s%s" mprint 'ed.nombre strcpy
 	ed.save
@@ -72,26 +220,20 @@
 		'finnew lostfoco
 		;
 
+|------------------------
 :runprg
-	grabaestado
-	'lastrun run
-	;
-
-:runprgshot
-	grabaestado
-	'lastrun run ;
+	savemenu
+	rutafile run ;
 
 :editprg
-	grabaestado
+	savemenu
 	ed.load
-	'lastrun 'ed.nombre = 0? (
-		'lastrun 'ed.nombre strcpy
+	rutafile 'ed.nombre = 0? (
+		rutafile 'ed.nombre strcpy
 		0 'ed.nlin ! 0 'ed.ncar !
 		) drop
 	ed.save
-
-	"r4/system/edit-code.txt" run
-	;
+	"r4/system/edit-code.txt" run ;
 
 |----------------------------------
 :helpmodo
@@ -150,83 +292,118 @@
 	refreshfoco
 	;
 
-:clickdir
-	dup 44 +
-	dup ".." = 1? ( 2drop ruta.pop -1 'actf ! 'ruta 'lastrun strcpy ; ) drop
-	ruta.push
-	-1 'actf !
-	'ruta 'lastrun strcpy ;
+|----------------------------------
+:clickf
+	pick2 pathfile> <? ( over swap !+ 0 over ! 'pathfile> ! setlr ; ) drop
+	dup ,pf setlr ;
+
+:drawifold | sel last node type -- node type
+	pick2 1? ( @ =? ( azul )( negro ) )( drop negro )
+	'clickf over 4+ @ sp btnt ;
+
+:draw1niv | sel node --
+	dup 16 + @ swap 12 + @
+	over =? ( 2drop ; )
+	( over <? )(
+		dup 8 + @ 0? ( drop drawifold )( drop )
+		p.next ) 2drop
+	cr cr2 ;
 
 :clickfile
-	cnta 'actf !
-	dup 44 + 'ruta "%s%s" mprint 'lastrun strcpy ;
-
-:nclickfile
-	actf -? ( drop ; )
-	'ruta "%s\\*.*" mprint ffirst drop
-	( 1? )( 1- fnext drop ) drop
-	fnext
-	0? ( -1 'actf ! drop ; )
-	44 + 'ruta "%s%s" mprint 'lastrun strcpy ;
-
-:cadafile | adr --
-	dup @
-	$10 =? ( drop azul 'clickdir )( drop cnta actf <>? ( negro )( verde ) drop 'clickfile )
-	over 44 +
-	dup "." = 1? ( 4drop ; ) drop
-
-	12 sp btntf
-	drop
-	cr cr2
-	bout? 1? ( chome ) drop
-	1 'cnta +!
+	over 'runfile !
+	editprg
 	;
 
-:printfiles
-	0 'cnta !
-	'ruta "%s\\*.*" mprint ffirst
-	( 1? )( cadafile fnext ) drop
+:drawfile | node type -- node type
+	dup inktype
+	'clickfile
+	pick2 4+ @ 12 sp btntf
+	cr cr2 allowchome
+	;
+
+:drawintree | node --
+	dup 16 + @ swap 12 + @
+	( over <? )(
+		dup 8 + @ 1? ( drawfile )
+		drop p.next ) 2drop ;
+
+:draw1tree
+	fonta-verdana10b
+	'pathfile ( pathfile> <? )( @+ draw1niv )
+	fonta-verdana10
+	chome!
+	4 - @ drawintree ;
+
+|----------------------------------
+:scanpref | str node -- str node/str 0
+	dup 16 + @ swap 12 + @
+	( over <? )(
+		dup 4+ @ pick3
+|		2dup "%s=%s?" print cr
+		swap =pre 1? ( drop nip ; ) drop
+		p.next ) 2drop
+	0 ;
+
+:../
+	( c@+ 1? )(
+		$2f =? ( drop ; ) drop
+		) drop 1- ;
+
+:ruta2tree
+	clrscr cr cr cr
+	'pathfile 'pathfile> !
+	'ruta ../ root dup ,pf
+	( scanpref 1? )( dup ,pf swap ../ swap )
+	2drop
+	setlr
 	;
 
 |----------------------------------
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
 :main
+	$0 paper
 	show clrscr
-		64 gc.top $00f gc.hfill
+|		64 gc.top $00f gc.hfill
 		'exit >esc<
 		fonta-verdana14b scr home
 		verde dup " :R%d " print
 		fonta-verdana14
 
-		rojo sp 'exit "esc-Exit" link
+		rojo sp 'exit "X" link sp sp
 		verde
-		sp 'runprg dup <f1> "f1-Run" link
-		sp 'editprg dup <f2> "f2-Edit" link
-		violeta 'clicknew dup <f3> "f3-New" sp link
-		cr
+|		sp 'runprg dup <f1> "f1-Run" link
+|		sp 'editprg dup <f2> "f2-Edit" link
+|		violeta 'clicknew dup <f3> "f3-New" sp link
+|		cr
 
-|		amarillo mensaje print
-		blanco 'lastrun " %s " print cr
+		blanco 'ruta sp print
+		runfile 1? ( 4+ @ print )( drop )
+		cr cr2
 
 |		blanco " #" print 'padin 64 input
 |		'correconsola lostfoco
 |		verde dumpvstack cr
 
-        fonta-verdana10b
-		cr cr2 chome!
-		printfiles
+		chome!
+		draw1tree
 		cminiflecha ;
 
 :memoria
 	mark
-	"r4" ruta.push
-	'actf "mem/mp.mem" load drop
-	'ruta count + 'ruta> !
-	nclickfile
-	|$ffff 'here +!
+	8192 'files p.ini	| 8k files
+	here 'memstr !
+	$ffff 'here +!	| 64kb strings
+	scanall
+	loadmenu
+	root ,pf
+	ruta2tree
+	0 'runfile !
 	;
 
-:	$0 paper
-	memoria
-	4 main
-	grabaestado
-	;
+: memoria 4 main savemenu ;
