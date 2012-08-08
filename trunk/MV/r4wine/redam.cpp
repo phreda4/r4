@@ -737,8 +737,8 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 #ifdef NET
     case OPENURL: // url header buff -- buff/0
          buffData=(char*)TOS;
-         hOpen = InternetOpen("InetURL/1.0",INTERNET_OPEN_TYPE_DIRECT,NULL,NULL,0);
-         hURL = InternetOpenUrl(hOpen,(char*)(*(NOS-1)),(char*)(*NOS),0,0,0);
+         hOpen = InternetOpen("InetURL/1.0",INTERNET_OPEN_TYPE_DIRECT,NULL,NULL,0); //INTERNET_FLAG_ASYNC
+         hURL = InternetOpenUrl(hOpen,(char*)(*(NOS-1)),(char*)(*NOS),0,INTERNET_FLAG_RELOAD,0);
          NOS-=2;
          do {
             InternetReadFile(hURL,buffData,2048,&readData);
