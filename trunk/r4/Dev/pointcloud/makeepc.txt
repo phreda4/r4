@@ -1,0 +1,471 @@
+| pointcloud
+| PHREDA 2012
+|-----------------------------
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+^r4/lib/sort.txt
+
+#LOADFILE
+	"../r4dataextern/ply/bun_zipper_res4.ply"
+|	"../r4dataextern/ply/dragon_vrip_res3.ply"
+|	"../r4dataextern/ply/dragon_vrip.ply"
+
+#iniply
+#iniver | inicio de vertices
+#inisor | inicio de lista ordenada
+#ininor | inicio de normales
+#inioct | inicio de octree
+#octre>
+
+#xcam 0 #ycam 0 #zcam 8192
+
+|------------ carga y parseo
+#vertices
+#faces
+#bin
+
+:>>10
+	( c@+ 1? )(
+		$a =? ( drop ; )
+		drop ) drop 1- ;
+
+:parseheader | adr -- adr
+	( dup c@ 1? )( drop
+		dup "element vertex" =pre 1? ( drop 15 + trim str>nro 'vertices ! dup ) drop
+		dup "element face" =pre 1? ( drop 12 + trim str>nro 'faces ! dup ) drop
+		dup "binary_big_endian" =pre 1? ( drop 17 + dup 1 'bin ! ) drop
+		dup "end_header" =pre 1? ( drop 10 + ; ) drop
+		1+ ) drop
+	1- ;
+
+:str>fix | adr -- adr' fix
+	dup ?fnumero 0? ( ; ) drop
+	rot drop ;
+
+:parseply | adr --
+	0 'bin !
+	parseheader
+	>>10
+	| ascii only
+	iniver >r
+	vertices ( 1? )( 1- swap
+		trim str>fix r!+
+		trim str>fix r!+
+		trim str>fix r!+
+		>>10
+		swap ) drop
+	r> dup 'inisor !
+	vertices 3 << + dup 'ininor !
+	vertices 12 * + 'inioct ! 
+	drop
+	;
+
+:loadply
+	mark
+	here dup 'iniply !
+	'LOADFILE
+	load
+
+	0 swap !+
+	'iniver !
+	iniply parseply
+	;
+
+|----------- graficacion
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:drawp | x y z ---
+	project3d |2dup op line ;
+	-? ( 2drop ; ) sh >=? ( 2drop ; )
+	swap -? ( 2drop ; ) sw >=? ( 2drop ; ) swap
+	setxy
+	ink@ px!+
+	;
+
+:drawpc
+	iniver >r
+	blanco
+	vertices ( 1? )( 1-
+		r@+ r@+ r@+ drawp
+		) drop
+	rdrop
+	;
+
+
+:3dop project3d op ;
+:3dline project3d line ;
+
+:drawpcn
+	iniver
+	ininor >r
+	vertices ( 1? )( 1- swap
+		>r r@+ r@+ r@+ r> r> swap >r >r
+		pick2 r@+ + pick2 r@+ + pick2 r@+ +
+		3dop 3dline
+		r> r> swap >r
+		swap ) 2drop
+	rdrop
+	;
+
+|----------- ajuste
+#xmin #ymin #zmin #xmax #ymax #zmax
+
+:statvert
+	iniver >r
+	r@+ dup 'xmin ! 'xmax !
+	r@+ dup 'ymin ! 'ymax !
+	r@+ dup 'zmin ! 'zmax !
+	vertices 1- ( 1? )( 1-
+		r@+ xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
+		r@+ ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
+		r@+ zmin <? ( dup 'zmin ! ) zmax >? ( dup 'zmax ! ) drop
+		) drop
+	rdrop ;
+
+:movevert | dx dy dz --
+	iniver >r
+	vertices ( 1? )( 1-
+		r @ pick4 + r!+
+		r @ pick3 + r!+
+		r @ pick2 + r!+
+		) drop
+	rdrop
+	3drop ;
+
+:3max | a b c -- a
+	over <? ( drop )( nip )
+	over <? ( drop )( nip )
+	;
+
+:normalizovertices
+	$1ff	| a 10bits por coordenada
+	xmax ymax zmax 3max
+	iniver >r
+	vertices ( 1? )( 1- 		| m dv nro --
+		r @ pick3 pick3 */ r!+
+		r @ pick3 pick3 */ r!+
+		r @ pick3 pick3 */ r!+
+		) 3drop
+	rdrop
+	;
+
+|----- calcula normales
+#p0 #p0d
+#p1 #p1d
+
+:dist | p p1 -- p p1 dist2
+	over @ over @ - dup *. >r
+	over 4+ @ over 4+ @ - dup *. r+
+	over 8 + @ over 8 + @ - dup *. r> + ; | x^2+y^2+z^2
+
+:dista | p p1 -- p p1 dist2 ; sin *.
+	over @ over @ - abs  >r
+	over 4+ @ over 4+ @ - abs r+
+	over 8 + @ over 8 + @ - abs r> + ; | x^2+y^2+z^2
+
+:compmax | p pn dist - p
+	0? ( 2drop ; )
+	p0d <? ( p0d 'p1d ! 'p0d ! p0 'p1 ! 'p0 ! ; )
+	p1d <? ( 'p1d ! 'p1 ! ; )
+	2drop ;
+
+:busco2mascerca | p -- p p0 p1
+	iniver >r
+	$7fffffff 'p0d !
+	$7fffffff 'p1d !
+	vertices ( 1? )( 1- swap
+		r dista compmax
+		12 r+ swap ) drop rdrop
+	p0 p1 ;
+
+|		Vector3f v0 = (p0-p).Unit();
+|		Vector3f v1 = (p1-p).Unit();
+|		point.normal = v1.Cross(v0);
+|		if(p.Dot(point.normal) < 0) point.normal = -point.normal;
+
+#v0 0 0 0
+#v1 0 0 0
+
+:calculonormal | p p0 p1 -- p zn yn xn
+	'v1 swap v3=
+	'v0 swap v3=
+	'v0 over v3- 'v0 v3nor
+	'v1 over v3- 'v0 v3nor
+	'v1 'v0 v3vec
+	dup 'v1 v3ddot -? ( 'v1 -1.0 v3* ) drop
+	|'v1 v3nor
+	'v1 @+ swap @+ swap @ swap rot
+	;
+
+:calcnormales
+	ininor >r
+	iniver
+	vertices ( 1? )( 1- swap
+		busco2mascerca	| p p0 p1
+		calculonormal	| p xn yn zn
+		r!+ r!+ r!+ 	| guardo normal
+		12 + swap ) 2drop
+	rdrop
+	;
+
+|----- hace octree
+|x y z . 10 bits
+| sobra 2 bits!!
+:morton3d | x y z -- Z
+	dup 10 << or $000f801f and
+	dup 4 << or  $00e181c3 and
+	dup 2 << or  $03248649 and
+	dup 2 << or  $09249249 and
+	2* swap
+	dup 10 << or $000f801f and
+	dup 4 << or  $00e181c3 and
+	dup 2 << or  $03248649 and
+	dup 2 << or  $09249249 and
+	or 2* swap
+	dup 10 << or $000f801f and
+	dup 4 << or  $00e181c3 and
+	dup 2 << or  $03248649 and
+	dup 2 << or  $09249249 and
+	or ;
+
+:ordenapormorton
+	mark
+	inisor 'here ! | lista para ordenar
+	iniver >r
+	vertices ( 1? )( 1-
+		r r@+ r@+ r@+ morton3d , , | no funciona si usa >10bits por eje
+		) drop
+	rdrop
+	empty
+	vertices 1+ inisor shellsort
+	;
+
+|----------- imprime con color
+#xa #ya #za
+:chosecolor | x y z ---
+	blanco
+	za <>? ( ; )
+	rot xa <>? ( rot rot ; )
+	rot ya <>? ( rot ; ) | z x y
+	azul
+	rot ;
+
+:drawl | x y z ---
+	chosecolor
+	pick2 'xa !
+	over 'ya !
+	dup 'za !
+	project3d |2dup op line ;
+	-? ( 2drop ; ) sh >=? ( 2drop ; )
+	swap -? ( 2drop ; ) sw >=? ( 2drop ; ) swap
+	setxy
+	ink@ px!+
+	;
+
+:drawpcdupli
+	inisor >r
+	vertices ( 1? )( 1-
+		4 r+ r@+ >r r@+ r@+ r@+ drawl rdrop
+		) drop
+	rdrop ;
+
+|-------------------------------
+#cntdup
+
+:ck
+	dup
+	@+ xa <>? ( 2drop ; ) drop
+	@+ ya <>? ( 2drop ; ) drop
+	@+ za <>? ( 2drop ; ) drop
+	drop
+	| donde lo quita?
+	1 'cntdup +! ;
+
+:checkm | m --
+	ck 'xa swap 3 move ;
+
+:removedups
+	inisor >r
+	r @ 1+ 'xa !
+	0 'cntdup !
+	vertices ( 1? )( 1- 4 r+ r@+ checkm ) drop
+	rdrop ;
+
+|-------------------------------
+:savemodel | "" --
+	mark
+
+	savemem
+	empty
+	;
+
+|--------------------------------
+#octomas 0 0 0 0 0 0 0 0
+
+:fillmass | fin ini shift --
+	0 0 0 0 0 0 0 0 'octomas
+	!+ !+ !+ !+ !+ !+ !+ !
+	pick2 3 << inisor +
+	pick2 3 << inisor +
+	( over <? )( | fin ini shift fina nowa
+		@+ pick3 | mask fina nowa morton
+		>> $7 and 2 << 'octomas +
+		1 swap +!
+		4+ )
+	2drop ;
+
+:buildbit
+	0 'octomas $80
+	( 1? )(
+		swap @+ 1? ( drop rot pick2 or rot rot )( drop )
+		swap 2/ ) 2drop
+	;
+
+:,oc
+
+	octre> !+ 'octre> ! ;
+
+:buildo | fin ini shift --
+	fillmass
+	buildbit | fin ini shift maskch
+	0? ( 4drop ; )
+	octre> inioct - 2 >> 8 <<
+	over or
+|    trace
+	,oc | graba nodo
+    trace
+	4drop
+	;
+
+:buildoctree
+	inioct 'octre> !
+	vertices 0 27 buildo
+	;
+
+:printcodes
+	vertices 0? ( drop ; ) 0 27 fillmass 3drop
+
+	'octomas >r
+	r@+ r@+ r@+ r@+ r@+ r@+ r@+ r@+ rdrop
+	"%d %d %d %d %d %d %d %d " print cr
+
+	chome!
+	inisor >r
+	'octomas @+
+	vertices ( 1? )( 1- swap
+		1? ( 1- )( drop ink@ $ff00 xor ink swap @+ rot swap )
+		swap
+		r@+ "%h " print cr allowchome
+		4 r+ ) 3drop
+	rdrop ;
+
+|---- procesa pc
+:procply
+	"load ply" print cr redraw
+	loadply
+    "centra" print cr redraw
+	statvert
+	xmin xmax + 2/ neg ymin ymax + 2/ neg zmin zmax + 2/ neg movevert | centra
+    "normaliza" print cr redraw
+	statvert
+	normalizovertices
+    "normales" print cr redraw
+	statvert
+|	calcnormales
+	"sortmorton" print cr redraw
+	ordenapormorton
+	"removedups" print cr redraw
+	removedups
+	"buildoctree" print cr redraw
+	;
+
+|---- caja en contenido
+:drawboxz | z --
+	xmin ymin pick2 3dop
+	xmax ymin pick2 3dline
+	xmax ymax pick2 3dline
+	xmin ymax pick2 3dline
+	xmin ymin rot 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup zmin 3dop zmax 3dline ;
+
+:draw3dbox
+	zmin drawboxz
+	zmax drawboxz
+	xmin ymin drawlinez
+	xmax ymin drawlinez
+	xmax ymax drawlinez
+	xmin ymax drawlinez
+	;
+
+|---- caja en normalizado
+:drawboxz | z --
+	-$1ff -$1ff pick2 3dop
+	$1ff -$1ff pick2 3dline
+	$1ff $1ff pick2 3dline
+	-$1ff $1ff pick2 3dline
+	-$1ff -$1ff rot 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup -$1ff 3dop $1ff 3dline ;
+
+:draw3dnorm
+	-$1ff drawboxz
+	$1ff drawboxz
+	-$1ff -$1ff drawlinez
+	$1ff -$1ff drawlinez
+	$1ff $1ff drawlinez
+	-$1ff $1ff drawlinez ;
+
+|--------------------------
+:main
+	here 'iniply !
+	here 'iniver !
+	4
+	show clrscr verde
+		dup ":r%d " print
+		faces vertices "v:%d f:%d" print cr
+|		$1ff xmin "x:%f X:%f" print $1ff -$1ff "y:%f Y:%f" print $1ff -$1ff "z:%f Z:%f" print cr
+		$1ff xmin "x:%d X:%d" print $1ff -$1ff "y:%d Y:%d" print $1ff -$1ff "z:%d Z:%d" print cr
+
+|		xmin $1ff + 2/ neg -$1ff $1ff + 2/ neg -$1ff $1ff + 2/ neg "zm:%f ym:%f xm:%f" print cr
+
+		cntdup "unicos:%d" print cr
+
+|		'vn 'p2  v3=
+|		vn "%f" print
+|		'p0 'p1 'p2	calculonormal "%f %f %f" print cr drop
+
+		azul
+		printcodes
+		rojo
+		inioct ( octre> <? )(
+			@+ "%h " print cr allowchome ) drop
+
+		cflecha
+
+		omode
+		freelook
+		xcam ycam zcam mtrans
+
+		blanco draw3dbox
+		cyan draw3dnorm
+|		azul drawpc
+|		verde drawpcn
+		drawpcdupli
+		'procply <f1>
+|		'showmor <f2>
+		'buildoctree <f2>
+		'savemodel <f3>
+		[ -0.01 'zcam +! ; ] <up>
+		[ 0.01 'zcam +! ; ] <dn>
+
+		'exit >esc< ;
+
+: mark main ;
