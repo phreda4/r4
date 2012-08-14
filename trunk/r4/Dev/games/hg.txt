@@ -1,0 +1,157 @@
+| historia grafica
+
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+^r4/lib/part16.txt
+
+^r4/dev/games/hg.spr
+
+#squieto p4 10 0
+
+#scamina p1 10 p2 10 p1 10 p3 10 0
+#scaminaf p4 10 p5 10 p4 10 p6 10 0
+#scaminad p7 10 p8 10 p7 10 p9 10 0
+
+#mensaje )( 64
+
+#pantallas
+#objetos 0 0
+#walls	0 0
+#fxs	0 0
+
+|----------- protagonista
+#animal 'squieto | lista
+#animaf 'squieto | frame
+#animat 0		| tiempo
+#xp #yp			| posicion
+#dd				| direccion
+#vx #vy
+#yd #xd
+#dz 80
+|------------ paredes
+#xmin -0.8 #xmax 0.8
+#ymin -0.8 #ymax 0.8
+
+:acc!
+	dup 'animal ! 'animaf ! 0 'animat ! ;
+
+:quieto!
+	'squieto acc! 0 0 'vy ! 'vx ! ;
+
+:personaje
+|-----------------rumbo
+	xd xp - yd yp - 2dup atan2 0.004 polar 'vy ! 'vx !
+	distfast 0.01 <? ( quieto! ) drop
+|-----------------dibujo y animacion
+	xp yp fpos
+	dz 90 dim
+	animat 1+
+	animaf @+ nsprite
+	@ >=? ( 8 'animaf +! animaf @ 0? ( animal 'animaf ! ) 2drop 0 )
+	'animat !
+	vx 'xp +!
+	vy 'yp +!
+|-----------------paredes
+	xp xmin <? ( xmin 'xp ! quieto! ) xmax >? ( xmax 'xp ! quieto! ) drop
+	yp ymin <? ( ymin 'yp ! quieto! ) ymax >? ( ymax 'yp ! quieto! ) drop
+	;
+
+|--------- Objetos
+:obj
+	>r
+	r@+ r@+ fpos
+	r@+ dup dim
+	r> @ nsprite
+	;
+
+:+obj | spr scale x y --
+	'obj 'objetos p!+ >r r!+ r!+ r!+ r> ! ;
+
+:inobj | x y -- o
+	'objetos 0.05 p.in2d? ;
+
+|--------- WALL
+:wall
+	>r
+	r@+	r@+	fpos
+	r@+ dup dim
+	r@+ nsprite rdrop ;
+
+:+wall | spr scale x y --
+	'wall 'walls p!+ >r r!+ r!+ r!+ r> ! ;
+
+|----------fxs
+:r01 rand 0.01 mod ;
+
+:fx
+	>r
+	80 dup dim
+	r@+ dup r@+ -0.9 <? ( 3drop rdrop 0 ; )
+	fpos
+
+	'estre swap rnsprite
+	r@+ r 12 - +! 	| sum the vel
+	-0.0001 r +!	| gravity
+	r@+ r 12 - +!
+	rdrop
+	;
+
+:+fxs | x y --
+	;
+
+:+estrellas | x y --
+	swap 'fx 'fxs p!+ >r
+	r!+ r!+
+	r01 r!+ r01 r!+
+	rdrop
+	;
+|---------- principal
+:fondo
+
+	;
+
+:menuobj | adr
+	drop
+	10 ( 1? )( 1-
+		pick2 pick2 +estrellas ) 3drop
+	"Menu" 'mensaje strcpy
+	;
+
+:moveto
+	fxymouse
+	2dup inobj 1? ( menuobj ; ) drop
+	'yd ! 'xd !
+	xd xp - -? ( -80 )( 80 ) 'dz ! abs
+	yd yp - -? ( 'scaminaf )( 'scaminad ) acc! abs
+	>? ( 'scamina acc! )
+	drop ;
+
+:main
+	'ob1 80 0.2 -0.5 +wall
+	'ob1 80 0.2 0.5 +obj
+	"hola" 'mensaje strcpy
+	fonti2
+	show clrscr
+		verde
+		|yp xp "%f %f " print xd yd "%f %f " print cr
+		'mensaje print
+
+		fondo
+		'walls p.draw
+		'objetos p.draw
+		personaje
+		'fxs p.draw
+
+
+		scr 'moveto guiBtn
+		cflecha
+		'exit >esc<
+		;
+:ram
+	mark
+	100 'objetos p.ini
+	100 'walls p.ini
+	2048 'fxs p.ini
+	;
+
+: ram main ;
