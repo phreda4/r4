@@ -8,11 +8,11 @@
 #LOADFILE
 |	"../r4dataextern/ply/xyzrgb_statuette.ply"
 |	"../r4dataextern/ply/Armadillo.ply"
-	"../r4dataextern/ply/happy_vrip_res3.ply"
+|	"../r4dataextern/ply/happy_vrip_res3.ply"
 |	"../r4dataextern/ply/horse.ply"
 |	"../r4dataextern/ply/xyzrgb_dragon.ply"
 |	"../r4dataextern/ply/bun_zipper_res3.ply"
-|	"../r4dataextern/ply/dragon_vrip_res3.ply"
+	"../r4dataextern/ply/dragon_vrip_res3.ply"
 |	"../r4dataextern/ply/dragon_vrip.ply"
 
 #iniply
@@ -340,6 +340,21 @@
 	;
 
 |--------------------------------
+#arroc )( 8192 | array de nodos
+#arroc> 'arroc
+
+:pushoc | mask ini fin --
+	arroc> !+ !+ !+ 0 swap !+ 'arroc> ! ;
+
+:cntoc | -- cnt
+	'arroc arroc> - 4 >> ;
+
+:getoc | -- fin ini mask
+	'arroc >r r@+ r@+ r@+ rdrop
+	'arroc dup 16 + arroc> pick2 - 2 >> move
+	-16 'arroc> +!
+	;
+
 #octomas 0 0 0 0 0 0 0 0
 
 :fillmass | fin ini shift --
@@ -354,34 +369,44 @@
 		4+ )
 	2drop ;
 
-:buildbit
-	0 'octomas $80
-	( 1? )(
+:buildbit | -- 8bitchild
+	0 'octomas $1
+	( $ff and 1? )(
 		swap @+ 1? ( drop rot pick2 or rot rot )( drop )
-		swap 2/ ) 2drop
-	;
+		swap 2* ) 2drop ;
 
-:,oc
-
+:,oc | val --
 	octre> !+ 'octre> ! ;
 
-:buildo | fin ini shift --
-	fillmass
-	buildbit | fin ini shift maskch
-	0? ( 4drop ; )
-	octre> inioct - 2 >> 8 <<
-	over or
-|    trace
-	,oc | graba nodo
-    trace
-	4drop
-	;
+:buildnext
+	getoc				| fin ini shift
+	fillmass rot drop	| ini shift
+	3 -
+	12 <? ( 2drop $ffff00 ,oc ; )	| fin resolucion
+	buildbit						| ini shift bitmask
+	0? ( 3drop $ff00 ,oc ; ) 		| graba hoja
+	octre> inioct - 2 >> 1+ 8 << |mmm **
+	over or ,oc				| graba nodo interno
+	'octomas >r				| ini shift bit
+	rot dup r@+ + rot 		| shift ini fin bitmask
+	( 1? )(
+		1 and? ( pick3 pick3 pick3 pushoc )
+		rot drop
+		swap dup r@+ +		| shift bitmask ini fin
+		rot 2/ ) rdrop
+	4drop ;
+
 
 :buildoctree
-	inioct 'octre> !
-	vertices 0 27 buildo
+	inioct 'octre> !	| mem de nodos
+	'arroc 'arroc> !	| array de nodos
+	27 0 vertices pushoc
+	( cntoc 1? )( drop
+		buildnext
+		) drop
 	;
 
+|--------------------------------
 :printcodes
 	vertices 0? ( drop ; ) 0 27 fillmass 3drop
 
@@ -479,9 +504,8 @@
 
 		azul
 |		printcodes
-		rojo
-		inioct ( octre> <? )(
-			@+ "%h " print cr allowchome ) drop
+		rojo chome!
+		inioct ( octre> <? )( @+ "%h " print cr allowchome ) drop
 
 		cflecha
 
@@ -497,7 +521,7 @@
 		'procply <f1>
 |		'showmor <f2>
 		'buildoctree <f2>
-		'savemodel <f3>
+|		'savemodel <f3>
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
 
