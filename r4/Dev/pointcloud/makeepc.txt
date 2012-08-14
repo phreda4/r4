@@ -6,7 +6,12 @@
 ^r4/lib/sort.txt
 
 #LOADFILE
-	"../r4dataextern/ply/bun_zipper_res4.ply"
+|	"../r4dataextern/ply/xyzrgb_statuette.ply"
+|	"../r4dataextern/ply/Armadillo.ply"
+	"../r4dataextern/ply/happy_vrip_res3.ply"
+|	"../r4dataextern/ply/horse.ply"
+|	"../r4dataextern/ply/xyzrgb_dragon.ply"
+|	"../r4dataextern/ply/bun_zipper_res3.ply"
 |	"../r4dataextern/ply/dragon_vrip_res3.ply"
 |	"../r4dataextern/ply/dragon_vrip.ply"
 
@@ -38,14 +43,44 @@
 		1+ ) drop
 	1- ;
 
-:str>fix | adr -- adr' fix
-	dup ?fnumero 0? ( ; ) drop
-	rot drop ;
+
+|----------- read sigle 32bit float (not work)
+:bswap | v - v
+	dup $ff and 24 << >r
+	dup $ff00 and 8 << r+
+	dup $ff0000 and 8 >> r+
+	24 >> $ff and r> or ;
+
+:float2fix | r -- f
+	bswap
+	dup $7fffff and $800000 or |fraction
+	over 23 >> $ff and  | s frac exp
+|	0? ( denormalized ; )
+	$ff =? ( 3drop 0 ; ) | special value
+	127 - -? ( neg << )( >> )
+	swap -? ( drop neg )( drop )
+|	8 >>
+	;
+
+| binary big endian
+:parsebinb
+	iniver >r
+	vertices ( 1? )( 1- swap
+		@+ float2fix r!+
+		@+ float2fix r!+
+		@+ float2fix r!+
+		swap ) drop
+	r> dup 'inisor !
+	vertices 3 << + dup 'ininor !
+	vertices 12 * + 'inioct !
+	drop
+	;
 
 :parseply | adr --
 	0 'bin !
 	parseheader
 	>>10
+	bin 1? ( drop parsebinb ; ) drop
 	| ascii only
 	iniver >r
 	vertices ( 1? )( 1- swap
@@ -56,7 +91,7 @@
 		swap ) drop
 	r> dup 'inisor !
 	vertices 3 << + dup 'ininor !
-	vertices 12 * + 'inioct ! 
+	vertices 12 * + 'inioct !
 	drop
 	;
 
@@ -443,7 +478,7 @@
 |		'p0 'p1 'p2	calculonormal "%f %f %f" print cr drop
 
 		azul
-		printcodes
+|		printcodes
 		rojo
 		inioct ( octre> <? )(
 			@+ "%h " print cr allowchome ) drop
