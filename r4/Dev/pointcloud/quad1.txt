@@ -1,0 +1,268 @@
+| quadtree1
+| PHREDA 2012
+|-----------------------------
+^r4/lib/gui.txt
+^r4/lib/fontj.txt
+
+^r4/lib/trace.txt
+^r4/lib/sort.txt
+
+#res 256
+#imagen
+#puntos
+#puntos>
+
+#quad
+#quad>
+
+#ang
+
+#xr #yr
+#xd #yd
+
+| x y en 16 bits-- z en 32 bits
+:morton2d | x y -- z
+	dup 8 << or $00ff00ff and
+	dup 4 << or $0f0f0f0f and
+	dup 2 << or $33333333 and
+	dup 2* or   $55555555 and
+	2* swap
+	dup 8 << or $00ff00ff and
+	dup 4 << or $0f0f0f0f and
+	dup 2 << or $33333333 and
+	dup 2* or   $55555555 and
+	or ;
+
+
+:drawimagen
+	imagen >r
+	res ( 1? )( 1-
+		res ( 1? )( 1-
+			r@+ px!+
+			) drop
+		sw res - px+!
+		) drop
+	rdrop
+	;
+
+:copyimg
+	imagen >r
+	res ( 1? )( 1-
+		res ( 1? )( 1-
+			px@ r!+ 1 px+!
+			) drop
+		sw res - px+!
+		) drop
+	rdrop
+	;
+
+:+pnt | x y --
+	morton2d puntos> swap puntos> !+ !+ 'puntos> ! ;
+
+:makecuadtree
+|--- agrego puntos
+	imagen >r
+	0 ( res <? )(
+		0 ( res <? )(
+			r@+ 1? ( drop 2dup swap +pnt )( drop )
+			1+ ) drop
+		1+ ) drop
+	rdrop
+|--- ordeno
+	puntos> puntos - 3 >> 1+ puntos shellsort
+|---- nivel0
+
+	;
+
+#xx #yy #size
+
+:box2d
+	xx size - yy size - 2dup op
+	over yy size + line
+	xx size + yy size + line
+	xx size + over line
+	line ;
+
+:+mov | id --
+	1 and? ( size )( size neg ) 'xx +!
+	2 and? ( size )( size neg ) 'yy +!
+	drop ;
+
+:drawtree | nro shift --
+	size 2/ 'size !
+	2dup >> $3 and | nro shift val
+	+mov
+	box2d
+	0? ( 2drop ; )
+	2 - drawtree ;
+
+:drawanumber | nro --
+	128 dup 'xx ! 'yy !
+	res 2/ 'size !
+	14 drawtree ; | 16 bits -2 =14 para correr la primera vez
+
+|------------- test 1 punto
+#xp 10  #yp 10
+
+:reset
+	puntos 'puntos> ! quad 'quad> ! ;
+
+:procesa
+	reset
+	0 0 setxy copyimg
+	makecuadtree
+	;
+
+:punto
+	clrscr verde xp yp 2dup op line procesa ;
+
+|------- interseccion
+#pxc 128 #pyc 128 #ps 128 | posicion y tamaño quadtree
+
+#info	| lugar de donde parte
+#xdd #ydd
+
+#xin
+#puntomascercano 0
+
+| 4 es dentro del quadtree
+| 0 | 1 | 2
+|---+---+--
+| 3 | 4 | 5
+|---+---+--
+| 6 | 7 | 8
+|
+:calvx 	xr pxc ps - <? ( 0 nip ; ) pxc ps + >? ( 2 nip ; ) 1 nip ;
+:calvy 	yr pyc ps - <? ( 0 nip ; ) pyc ps + >? ( 2 nip ; ) 1 nip ;
+
+:calcray
+	calvy 3 * calvx +
+	dup 'info !
+	drop
+	xr xd - 'xdd !
+	yr yd - 'ydd !
+	;
+
+#cer
+#vcer
+:searchm | valor -- punto
+	puntos
+	dup 'cer !
+	dup @ pick2 - abs 'vcer !
+	( puntos> <? )( @+
+		pick2 - abs vcer <? ( 'vcer ! dup 4 - 'cer ! )( drop )
+		4+ ) 2drop
+	cer
+	;
+
+:inq
+	 xr yr morton2d searchm 'puntomascercano !
+	;
+
+:abajor
+	xr
+	yr pyc ps + -
+	xr xd -
+	yr yd - */ -
+	'xin ! | punto en (xin ,pyc ps +)
+
+|	xin 'xr ! pyc ps + 'yr ! inq
+	;
+
+:buscaprimerpunto
+	info
+	5 >? ( drop abajor ; ) | abajo
+	3 <? ( drop ; ) | arriba
+	4 <? ( drop ; ) | izq
+	4 >? ( drop ; ) | derecha
+	drop
+	| esta adentro
+    inq
+	;
+
+|-- mouse
+:crux | x y
+	over 5 - over 5 - op
+	over 5 + over 5 + line
+	over 5 - over 5 + op
+	over 5 + over 5 - line
+	2drop
+	;
+
+:dn
+	xymouse 'yr ! 'xr ! ;
+:mv
+	xymouse 'yr ! 'xr ! ;
+
+|	xymouse 'yd ! 'xd ! ;
+:up
+	| proc
+	calcray
+	yr yd - 0? ( drop ; ) drop
+	buscaprimerpunto
+|	yr xr morton2d searchm 'puntomascercano !
+	;
+
+:teclado1punto
+	'procesa <f1>
+	[ 1 'xp +! punto ; ] <ri>
+	[ -1 'xp +! punto ; ] <le>
+	[ -1 'yp +! punto ; ] <up>
+	[ 1 'yp +! punto ; ] <dn> ;
+
+:calcang
+	ang 20 polar 'yd ! 'xd !
+	;
+
+|-----------------
+:main
+	mark
+	here 'imagen !
+	res res * 2 << 'here +!
+	here dup 'puntos ! 'puntos> !
+	res res * 3 << 'here +!
+	here dup 'quad ! 'quad> !
+
+	clrscr
+	verde
+	10 10 op 130 110 line 80 180 line 10 10 line
+	procesa
+	fontj
+	0 'ang ! calcang
+	show clrscr
+		puntos> puntos - 3 >> "%d puntos " print cr
+		"                                  " print
+		chome!
+		puntos ( puntos> <? )(
+			puntomascercano =? ( blanco )( azul )
+			@+ "%h " print cr allowchome 4+ ) drop
+
+		info "lugar %d " print
+		ydd xdd " direccion: %d,%d " print cr
+		xin "%d " print cr
+
+		xr yr morton2d "%h " print
+		puntomascercano
+		1? ( dup @ "%h " print cr ) drop
+|		xin pyc ps + crux
+		cr
+|--- dibuja imagen
+		0 0 setxy drawimagen
+
+|--- dibuja quadtree
+|		rojo puntos @ drawanumber
+		azul puntos ( puntos> <? )( @+ drawanumber 4+ ) drop
+		rojo puntomascercano 1? ( @ drawanumber )( drop )
+|--- dibuja rayo
+		cyan
+		xr yr op xr xd + yr yd + line
+
+		scr
+		'dn 'mv 'up guiMap
+
+		[ 0.01 'ang +! calcang ; ] <le>
+		[ -0.01 'ang +! calcang ; ] <ri>
+		'exit >esc<
+		cminiflecha ;
+
+: main ;

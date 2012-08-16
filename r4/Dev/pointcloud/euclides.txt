@@ -1,0 +1,203 @@
+| pointcloud "euclides"
+| PHREDA 2012
+|-----------------------------
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+^r4/lib/sort.txt
+
+
+#horse 0 0	| 3dm file 'adr cnt
+
+#xcam 0 #ycam 0 #zcam 2048
+#xmin #ymin #zmin #xmax #ymax #zmax
+
+
+:load3dm | "" 'var --
+	>r here dup r !
+	swap load dup 'here !
+	r@+ - 3 >> r> !
+	;
+
+|------ MORTON COMANDER  x y z . 10 bits
+:p1x2 | x -- v
+ 	$1ff + $3ff and
+	dup 16 << xor $ff0000ff and
+	dup 8 << xor  $0300f00f and
+	dup 4 << xor  $030c30c3 and
+	dup 2 << xor  $09249249 and ;
+
+:morton3d | x y z -- Z
+	p1x2 2* swap p1x2 or 2* swap p1x2 or ;
+
+:c1x2 | x - v
+	$09249249 and
+	dup 2 >> xor $030c30c3 and
+	dup 4 >> xor $0300f00f and
+	dup 8 >> xor $ff0000ff and
+	dup 16 >> xor $3ff and $1ff - ;
+
+:invmorton3d | Z -- x y z
+ 	dup c1x2 swap 2/ dup c1x2 swap 2/ c1x2 ;
+
+|---------- Busqueda
+:bsearch | valor 'list -- 'adr
+	@+ >r @ 			| valor max   r: list
+	r swap 1- 3 << r> +	| valor plo phi
+	( over <>? )(		| v plo phi
+		2dup + 2/		| v plo phi pmedio | saca mal medio cuando esta a 1!!
+		pick3 over @	| v plo phi pmedio v pm@
+		>? ( drop rot drop 8 + swap )( drop nip )
+		)				| v plo phi
+	@ rot
+	=? ( drop ; )	|<= o >=
+	2drop 0 ;
+
+|---- funciona
+:bsearch | valor 'list -- 'adr
+	@+ >r @ 			| v max   r: list
+	1- 0 swap			| v lo hi
+	( over <>? )(		| v lo hi
+		2dup + 2/		| v lo hi medio
+		dup 3 << r + @ pick4
+		<? ( drop 1+ rot drop swap )( drop nip )
+		)				| v lo hi
+	nip 3 << r> + dup @ rot
+	=? ( drop ; )
+	2drop 0 ;
+
+:bsearchqe | valor 'list -- 'adr
+	@+ >r @ 			| v max   r: list
+	1- 0 swap			| v lo hi
+	( over <>? )(		| v lo hi
+		2dup + 2/		| v lo hi medio
+		dup 3 << r + @ pick4
+		<? ( drop 1+ rot drop swap )( drop nip )
+		)				| v lo hi
+	nip 3 << r> + dup @ rot
+	>=? ( drop ; )
+	2drop 0 ;
+
+:bsearchle | valor 'list -- 'adr | no funciona!!
+	@+ >r @ 			| v max   r: list
+	1- 0 swap			| v lo hi
+	( over <>? )(		| v lo hi
+		2dup + 2/		| v lo hi medio
+		dup 3 << r + @ pick4
+		<? ( drop 1+ rot drop swap )( drop nip )
+		)				| v lo hi
+	nip 3 << r> + dup @ rot
+	<=? ( drop ; )
+	2drop 0 ;
+
+|----------- graficacion
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:drawp | x y z ---
+	project3d |2dup op line ;
+	-? ( 2drop ; ) sh >=? ( 2drop ; )
+	swap -? ( 2drop ; ) sw >=? ( 2drop ; ) swap
+	setxy
+	ink@ px!+
+	;
+
+#nodoa 0
+
+:drawpc | '3do --
+	@+ >r @
+	( 1? )( 1-
+		r nodoa =? ( blanco )( azul ) drop
+		r@+ invmorton3d drawp
+		4 r+ ) drop
+	rdrop ;
+
+
+:3dop project3d op ;
+:3dline project3d line ;
+
+|-------- dibujo octree
+#xc #yc #zc
+#size
+
+:drawz | z --
+	xc size - yc size - pick2 3dop
+	xc size + yc size - pick2 3dline
+	xc size + yc size + pick2 3dline
+	xc size - yc size + pick2 3dline
+	xc size - yc size - rot 3dline ;
+
+:drawl | x1 x2 --
+	2dup zc size - 3dop zc size + 3dline ;
+
+:box3d
+	zc size - drawz zc size + drawz
+	xc size - yc size - drawl xc size + yc size - drawl
+	xc size + yc size + drawl xc size - yc size + drawl ;
+
+|-------------- muestra oc de 1 punto
+:+movx
+	1 and? ( size )( size neg ) 'xc +!
+	2 and? ( size )( size neg ) 'yc +!
+	4 and? ( size )( size neg ) 'zc +!
+	drop ;
+
+:drawtree | nro shift --
+	size 2/ 'size !
+	2dup >> $7 and | nro shift val
+	+movx box3d
+	3 - 0? ( 2drop ; )
+	drawtree ;
+
+:showpoint | adr --
+	0? ( drop ; ) @
+	0 'xc ! 0 'yc ! 0 'zc !
+	$1ff 'size ! box3d
+	27 drawtree ;
+
+#lista 0 0 2 2 50 50 80 80 90 90
+#L1 'lista 5
+
+|--------------------------
+:main
+	"media/3dm/dragon3.3dm" 'horse load3dm
+	4
+	show clrscr verde
+		dup ":r%d " print
+		azul
+		cflecha
+
+		omode
+		freelook
+		xcam ycam zcam mtrans
+
+
+		blanco
+		1500 0 0 3dop
+		1000 0 0 3dline
+		1050 50 0 3dline
+		1000 0 0 3dline
+		1050 -50 0 3dline
+
+|		cyan draw3dnorm
+		azul nodoa showpoint
+		'horse drawpc
+
+		azul
+		$3000000 'horse bsearchqe 1? ( showpoint )( drop )
+
+|		8 'L1 bsearchqe 1? ( @ "%d-" print )( drop )
+|		8 'L1 bsearchle 1? ( @ "%d " print )( drop ) | NO ANDA!!
+
+		[ nodoa 0? ( horse nip )( 8 + ) 'nodoa ! ; ] <le>
+		[ nodoa 0? ( horse nip )( 8 + ) 'nodoa ! ; ] <ri>
+
+		[ -0.01 'zcam +! ; ] <up>
+		[ 0.01 'zcam +! ; ] <dn>
+
+		'exit >esc< ;
+
+: mark main ;
