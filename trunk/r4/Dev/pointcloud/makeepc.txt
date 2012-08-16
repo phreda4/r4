@@ -11,7 +11,7 @@
 |	"../r4dataextern/ply/happy_vrip_res3.ply"
 |	"../r4dataextern/ply/horse.ply"
 |	"../r4dataextern/ply/xyzrgb_dragon.ply"
-	"../r4dataextern/ply/bun_zipper_res4.ply"
+	"../r4dataextern/ply/bun_zipper_res3.ply"
 |	"../r4dataextern/ply/dragon_vrip_res3.ply"
 |	"../r4dataextern/ply/dragon_vrip.ply"
 |	"../r4dataextern/ply/test.ply"
@@ -19,6 +19,9 @@
 |	"../r4dataextern/obj/ducky.obj"
 |	"../r4dataextern/obj/m60.obj"
 |	"../r4dataextern/obj/armadillo.obj"
+|	"../r4dataextern/obj/horse.obj"
+|	"../r4dataextern/obj/xyzrgb_statuette - 125k.obj"
+#SAVEFILE "media/3dm/bunny3.3dm"
 
 #iniply
 #iniver | inicio de vertices
@@ -27,7 +30,9 @@
 #inioct | inicio de octree
 #octre>
 
-#xcam 0 #ycam 0 #zcam 8192
+#nodoa 0
+
+#xcam 0 #ycam 0 #zcam 2048
 
 |------------ carga y parseo
 #vertices
@@ -283,32 +288,35 @@
 	rdrop
 	;
 
-|----- hace octree
-|x y z . 10 bits
-| sobra 2 bits!!
-:morton3d | x y z -- Z
-	dup 10 << or $000f801f and
-	dup 4 << or  $00e181c3 and
-	dup 2 << or  $03248649 and
-	dup 2 << or  $09249249 and
-	2* swap
-	dup 10 << or $000f801f and
-	dup 4 << or  $00e181c3 and
-	dup 2 << or  $03248649 and
-	dup 2 << or  $09249249 and
-	or 2* swap
-	dup 10 << or $000f801f and
-	dup 4 << or  $00e181c3 and
-	dup 2 << or  $03248649 and
-	dup 2 << or  $09249249 and
-	or ;
+|------ MORTON COMANDER  x y z . 10 bits
+:p1x2 | x -- v
+ 	$1ff + $3ff and
+	dup 16 << xor $ff0000ff and
+	dup 8 << xor  $0300f00f and
+	dup 4 << xor  $030c30c3 and
+	dup 2 << xor  $09249249 and ;
 
+:morton3d | x y z -- Z
+	p1x2 2* swap p1x2 or 2* swap p1x2 or ;
+
+:c1x2 | x - v
+	$09249249 and
+	dup 2 >> xor $030c30c3 and
+	dup 4 >> xor $0300f00f and
+	dup 8 >> xor $ff0000ff and
+	dup 16 >> xor $3ff and $1ff - ;
+
+:invmorton3d | Z -- x y z
+ 	dup c1x2 swap 2/ dup c1x2 swap 2/ c1x2 ;
+
+|----------------
 :ordenapormorton
 	mark
 	inisor 'here ! | lista para ordenar
 	iniver >r
 	vertices ( 1? )( 1-
-		r r@+ r@+ r@+ morton3d , , | no funciona si usa >10bits por eje
+		r r@+ r@+ r@+
+		morton3d , , | no funciona si usa >10bits por eje
 		) drop
 	rdrop
 	empty
@@ -326,7 +334,7 @@
 	rot ;
 
 :drawl | x y z ---
-	chosecolor
+|	chosecolor
 	pick2 'xa !
 	over 'ya !
 	dup 'za !
@@ -340,6 +348,7 @@
 :drawpcdupli
 	inisor >r
 	vertices ( 1? )( 1-
+		nodoa r =? ( verde )( azul ) drop
 		4 r+ r@+ >r r@+ r@+ r@+ drawl rdrop
 		) drop
 	rdrop ;
@@ -367,10 +376,17 @@
 	rdrop ;
 
 |-------------------------------
+#anterior
 :savemodel | "" --
 	mark
-
-	savemem
+	inisor >r
+	r @ 1+ 'anterior !
+	vertices ( 1? )( 1-
+		r@+
+		anterior <>? ( dup 'anterior ! , r@+ , )( drop 4 r+ )
+		) drop
+	rdrop
+	'SAVEFILE savemem
 	empty
 	;
 
@@ -379,18 +395,18 @@
 #arroc> 'arroc
 #indexoc
 
-:pushoc | mask ini fin --
+:pushoc | shift ini fin --
 	1 'indexoc +!
-	arroc> !+ !+ !+ 0 swap !+ 'arroc> ! ;
+	arroc> !+ !+ !+ 'arroc> ! ;
 
 :cntoc | -- cnt
-	'arroc arroc> - 4 >> ;
-|	'arrox arroc> - ;
+|	'arroc arroc> - 4 >> ;
+	'arroc arroc> - ;
 
-:getoc | -- fin ini mask
+:getoc | -- fin ini ahift
 	'arroc >r r@+ r@+ r@+ rdrop
-	'arroc dup 16 + arroc> pick2 - 2 >> move
-	-16 'arroc> +!
+	'arroc dup 12 + arroc> pick2 - 2 >> move
+	-12 'arroc> +!
 	;
 
 #octomas 0 0 0 0 0 0 0 0
@@ -407,13 +423,13 @@
 		4+ )
 	2drop ;
 
-:buildbit | -- 8bitchild ; prende el incorrecto
+:buildbit | -- 8bitchild
 	0 'octomas $1
 	( $ff and 1? )(
 		swap @+ 1? ( drop rot pick2 or rot rot )( drop )
 		swap 2* ) 2drop ;
 
-:buildbit | -- 8bitchild
+:buildbit2 | -- 8bitchild
 	0 'octomas $80
 	( 1? )(
 		swap @+ 1? ( drop rot pick2 or rot rot )( drop )
@@ -424,23 +440,23 @@
 
 :buildnext
 	getoc				| fin ini shift
+|	trace
 	fillmass rot drop	| ini shift
 	3 -
-	12 <? ( 2drop $ff00 ,oc ; )	| fin resolucion
+	9 <? ( 2drop $ff00 ,oc ; )	| fin resolucion
 	buildbit						| ini shift bitmask
-	0? ( 3drop $ff00 ,oc ; ) 		| graba hoja
+	0? ( 3drop $ff000000 ,oc ; ) 		| graba hoja vacia
 
-|	octre> inioct - 2 >> 1+ 8 << |mmm **
 	indexoc 8 <<	| absoluto, en relativo es mas chico!! calcular!
-
 	over or ,oc				| graba nodo interno
+
 	'octomas >r				| ini shift bit
 	rot dup r@+ + rot 		| shift ini fin bitmask
-	( $ff and 1? )(
-		$80 and? ( pick3 pick3 pick3 pushoc )
+	( 1? )(
+		1 and? ( pick3 pick3 pick3 pushoc )
 		rot drop
 		swap dup r@+ +		| shift bitmask ini fin
-		rot 2* ) rdrop
+		rot 2/ ) rdrop
 	4drop ;
 
 
@@ -473,13 +489,13 @@
 	xc size - yc size - drawl xc size + yc size - drawl
 	xc size + yc size + drawl xc size - yc size + drawl ;
 
-:+mov | size id --
+:-mov | size id --
 	1 and? ( over )( over neg ) 'xc +!
 	2 and? ( over )( over neg ) 'yc +!
 	4 and? ( over )( over neg ) 'zc +!
 	2drop ;
 
-:-mov | size id --
+:+mov | size id --
 	1 and? ( over neg )( over ) 'xc +!
 	2 and? ( over neg )( over ) 'yc +!
 	4 and? ( over neg )( over ) 'zc +!
@@ -495,7 +511,7 @@
 :treet | nodo --
 	@ dup $ff and
 	0? ( drop 8 >> ink box3d ; )
-|	box3d
+	verde box3d
 
 	swap 8 >> 2 << inioct + | mask adrchild
 	swap					| adr mask
@@ -504,29 +520,7 @@
 		$1 and? ( size pick2 +mov rot dup treet 4+ rot rot size pick2 -mov )
 		2/ swap 1+ )
 	3drop
-	size 2* 'size ! ;
-
-:testoc
-	inioct >r
-	$ff r!+		| n0
-
-    $ff00 r!+	| n1
-	$ff0000 r!+
-	$ff000000 r!+
-	$ffff0000 r!+
-	$ff00ff00 r!+
-	$ffff00 r!+
-	$ccff00 r!+
-
-	$03 r!+     | n2
-	$ffcc00 r!+
-	$81 r!+
-
-	$ff00ff00 r!+  |n3
-	$ff0000 r!+
-
-	rdrop
-	;
+	size 2* 1+ 'size ! ;
 
 :drawoc
 |	testoc
@@ -534,7 +528,32 @@
 	$1ff 'size !
 	inioct treet
 	;
-|	inioct $1ff 0 drawoctree ;
+
+|-------------- muestra oc de 1 punto
+:+movx
+	1 and? ( size neg )( size ) 'zc +!
+	2 and? ( size neg )( size ) 'yc +!
+	4 and? ( size neg )( size ) 'xc +!
+	drop ;
+
+:+movx2
+	1 and? ( size )( size neg ) 'xc +!
+	2 and? ( size )( size neg ) 'yc +!
+	4 and? ( size )( size neg ) 'zc +!
+	drop ;
+
+:drawtree | nro shift --
+	size 2/ 'size !
+	2dup >> $7 and | nro shift val
+	+movx box3d
+	3 - 0? ( 2drop ; )
+	drawtree ;
+
+:showpoint | adr --
+	0? ( drop ; ) @
+	0 'xc ! 0 'yc ! 0 'zc !
+	$1ff 'size ! box3d
+	27 drawtree ;
 
 |--------------------------------
 :printcodes
@@ -561,6 +580,7 @@
 	loadply
 |	loadobj
 
+	vertices "%d vertices" print cr redraw
     "centra" print cr redraw
 	statvert
 	xmin xmax + 2/ neg ymin ymax + 2/ neg zmin zmax + 2/ neg movevert | centra
@@ -631,6 +651,7 @@
 |		xmin $1ff + 2/ neg -$1ff $1ff + 2/ neg -$1ff $1ff + 2/ neg "zm:%f ym:%f xm:%f" print cr
 
 		cntdup "unicos:%d" print cr
+		nodoa dup 1? ( @ ) "%h %h" print cr
 		azul
 |		printcodes
 		rojo chome!
@@ -643,18 +664,22 @@
 		xcam ycam zcam mtrans
 
 |		blanco draw3dbox
-|		cyan draw3dnorm
-|		azul drawpc
+		cyan draw3dnorm
 |		verde drawpcn
-		verde drawoc
+|		azul drawoc
 
+|		verde drawpc
 		drawpcdupli
 
+		rojo nodoa showpoint
 
 		'procply <f1>
 |		'showmor <f2>
 		'buildoctree <f2>
-|		'savemodel <f3>
+		'savemodel <f3>
+		[ nodoa 0? ( inisor nip )( 8 + ) 'nodoa ! ; ] <le>
+		[ nodoa 0? ( inisor nip )( 8 + ) 'nodoa ! ; ] <ri>
+
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
 
