@@ -11,9 +11,14 @@
 |	"../r4dataextern/ply/happy_vrip_res3.ply"
 |	"../r4dataextern/ply/horse.ply"
 |	"../r4dataextern/ply/xyzrgb_dragon.ply"
-|	"../r4dataextern/ply/bun_zipper_res3.ply"
-	"../r4dataextern/ply/dragon_vrip_res3.ply"
+	"../r4dataextern/ply/bun_zipper_res4.ply"
+|	"../r4dataextern/ply/dragon_vrip_res3.ply"
 |	"../r4dataextern/ply/dragon_vrip.ply"
+|	"../r4dataextern/ply/test.ply"
+
+|	"../r4dataextern/obj/ducky.obj"
+|	"../r4dataextern/obj/m60.obj"
+|	"../r4dataextern/obj/armadillo.obj"
 
 #iniply
 #iniver | inicio de vertices
@@ -100,10 +105,39 @@
 	here dup 'iniply !
 	'LOADFILE
 	load
+	0 swap !+ 'iniver !
+	iniply parseply ;
 
-	0 swap !+
-	'iniver !
-	iniply parseply
+|----- load obj
+
+:esvert | adr c v -- adr x v
+	>r drop
+	trim str>fix r!+
+	trim str>fix r!+
+	trim str>fix r!+
+	1 'vertices +!
+	dup r> ;
+
+:parseobj | adr --
+	0 'vertices !
+	iniver >r
+	( c@+ 1? )(
+		$76 =? ( drop c@+ 32 =? ( r> esvert >r ) )
+		drop
+		>>10 trim
+		) drop
+	r> dup 'inisor !
+	vertices 3 << + dup 'ininor !
+	vertices 12 * + 'inioct !
+	drop ;
+
+:loadobj
+	mark
+	here dup 'iniply !
+	'LOADFILE
+	load
+	0 swap !+ 'iniver !
+	iniply parseobj
 	;
 
 |----------- graficacion
@@ -155,7 +189,8 @@
 	r@+ dup 'xmin ! 'xmax !
 	r@+ dup 'ymin ! 'ymax !
 	r@+ dup 'zmin ! 'zmax !
-	vertices 1- ( 1? )( 1-
+	vertices 1-
+	( 1? )( 1-
 		r@+ xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
 		r@+ ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
 		r@+ zmin <? ( dup 'zmin ! ) zmax >? ( dup 'zmax ! ) drop
@@ -179,7 +214,7 @@
 
 :normalizovertices
 	$1ff	| a 10bits por coordenada
-	xmax ymax zmax 3max
+	xmax ymax zmax 3max 0? ( 1 nip )
 	iniver >r
 	vertices ( 1? )( 1- 		| m dv nro --
 		r @ pick3 pick3 */ r!+
@@ -342,12 +377,15 @@
 |--------------------------------
 #arroc )( 8192 | array de nodos
 #arroc> 'arroc
+#indexoc
 
 :pushoc | mask ini fin --
+	1 'indexoc +!
 	arroc> !+ !+ !+ 0 swap !+ 'arroc> ! ;
 
 :cntoc | -- cnt
 	'arroc arroc> - 4 >> ;
+|	'arrox arroc> - ;
 
 :getoc | -- fin ini mask
 	'arroc >r r@+ r@+ r@+ rdrop
@@ -369,11 +407,17 @@
 		4+ )
 	2drop ;
 
-:buildbit | -- 8bitchild
+:buildbit | -- 8bitchild ; prende el incorrecto
 	0 'octomas $1
 	( $ff and 1? )(
 		swap @+ 1? ( drop rot pick2 or rot rot )( drop )
 		swap 2* ) 2drop ;
+
+:buildbit | -- 8bitchild
+	0 'octomas $80
+	( 1? )(
+		swap @+ 1? ( drop rot pick2 or rot rot )( drop )
+		swap 2/ ) 2drop ;
 
 :,oc | val --
 	octre> !+ 'octre> ! ;
@@ -382,22 +426,26 @@
 	getoc				| fin ini shift
 	fillmass rot drop	| ini shift
 	3 -
-	12 <? ( 2drop $ffff00 ,oc ; )	| fin resolucion
+	12 <? ( 2drop $ff00 ,oc ; )	| fin resolucion
 	buildbit						| ini shift bitmask
 	0? ( 3drop $ff00 ,oc ; ) 		| graba hoja
-	octre> inioct - 2 >> 1+ 8 << |mmm **
+
+|	octre> inioct - 2 >> 1+ 8 << |mmm **
+	indexoc 8 <<	| absoluto, en relativo es mas chico!! calcular!
+
 	over or ,oc				| graba nodo interno
 	'octomas >r				| ini shift bit
 	rot dup r@+ + rot 		| shift ini fin bitmask
-	( 1? )(
-		1 and? ( pick3 pick3 pick3 pushoc )
+	( $ff and 1? )(
+		$80 and? ( pick3 pick3 pick3 pushoc )
 		rot drop
 		swap dup r@+ +		| shift bitmask ini fin
-		rot 2/ ) rdrop
+		rot 2* ) rdrop
 	4drop ;
 
 
 :buildoctree
+	0 'indexoc !
 	inioct 'octre> !	| mem de nodos
 	'arroc 'arroc> !	| array de nodos
 	27 0 vertices pushoc
@@ -405,6 +453,88 @@
 		buildnext
 		) drop
 	;
+
+|-------- dibujo octree
+#xc #yc #zc
+#size
+
+:drawz | z --
+	xc size - yc size - pick2 3dop
+	xc size + yc size - pick2 3dline
+	xc size + yc size + pick2 3dline
+	xc size - yc size + pick2 3dline
+	xc size - yc size - rot 3dline ;
+
+:drawl | x1 x2 --
+	2dup zc size - 3dop zc size + 3dline ;
+
+:box3d
+	zc size - drawz zc size + drawz
+	xc size - yc size - drawl xc size + yc size - drawl
+	xc size + yc size + drawl xc size - yc size + drawl ;
+
+:+mov | size id --
+	1 and? ( over )( over neg ) 'xc +!
+	2 and? ( over )( over neg ) 'yc +!
+	4 and? ( over )( over neg ) 'zc +!
+	2drop ;
+
+:-mov | size id --
+	1 and? ( over neg )( over ) 'xc +!
+	2 and? ( over neg )( over ) 'yc +!
+	4 and? ( over neg )( over ) 'zc +!
+	2drop ;
+
+:testbox
+	size 2/ 'size !
+	size %000 +mov box3d size %000 -mov
+	size %010 +mov box3d size %010 -mov
+	size %011 +mov box3d size %011 -mov
+	size 2* 'size ! ;
+
+:treet | nodo --
+	@ dup $ff and
+	0? ( drop 8 >> ink box3d ; )
+|	box3d
+
+	swap 8 >> 2 << inioct + | mask adrchild
+	swap					| adr mask
+	size 2/ 'size !			|
+	0 ( 8 <? )(	swap 		| adr n mask
+		$1 and? ( size pick2 +mov rot dup treet 4+ rot rot size pick2 -mov )
+		2/ swap 1+ )
+	3drop
+	size 2* 'size ! ;
+
+:testoc
+	inioct >r
+	$ff r!+		| n0
+
+    $ff00 r!+	| n1
+	$ff0000 r!+
+	$ff000000 r!+
+	$ffff0000 r!+
+	$ff00ff00 r!+
+	$ffff00 r!+
+	$ccff00 r!+
+
+	$03 r!+     | n2
+	$ffcc00 r!+
+	$81 r!+
+
+	$ff00ff00 r!+  |n3
+	$ff0000 r!+
+
+	rdrop
+	;
+
+:drawoc
+|	testoc
+	0 'xc ! 0 'yc ! 0 'zc !
+	$1ff 'size !
+	inioct treet
+	;
+|	inioct $1ff 0 drawoctree ;
 
 |--------------------------------
 :printcodes
@@ -426,8 +556,11 @@
 
 |---- procesa pc
 :procply
-	"load ply" print cr redraw
+	"load 3D point cloud" print cr redraw
+
 	loadply
+|	loadobj
+
     "centra" print cr redraw
 	statvert
 	xmin xmax + 2/ neg ymin ymax + 2/ neg zmin zmax + 2/ neg movevert | centra
@@ -485,6 +618,7 @@
 
 |--------------------------
 :main
+	here $ffff + 'inioct !
 	here 'iniply !
 	here 'iniver !
 	4
@@ -497,15 +631,10 @@
 |		xmin $1ff + 2/ neg -$1ff $1ff + 2/ neg -$1ff $1ff + 2/ neg "zm:%f ym:%f xm:%f" print cr
 
 		cntdup "unicos:%d" print cr
-
-|		'vn 'p2  v3=
-|		vn "%f" print
-|		'p0 'p1 'p2	calculonormal "%f %f %f" print cr drop
-
 		azul
 |		printcodes
 		rojo chome!
-		inioct ( octre> <? )( @+ "%h " print cr allowchome ) drop
+		inioct ( octre> <? )( dup inioct - 2 >> "%h." print @+ "%h " print cr allowchome ) drop
 
 		cflecha
 
@@ -513,11 +642,15 @@
 		freelook
 		xcam ycam zcam mtrans
 
-		blanco draw3dbox
-		cyan draw3dnorm
+|		blanco draw3dbox
+|		cyan draw3dnorm
 |		azul drawpc
 |		verde drawpcn
+		verde drawoc
+
 		drawpcdupli
+
+
 		'procply <f1>
 |		'showmor <f2>
 		'buildoctree <f2>
