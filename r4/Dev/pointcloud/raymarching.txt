@@ -1,0 +1,117 @@
+| Ray Marching
+| http://iquilezles.org/www/articles/terrainmarching/terrainmarching.htm
+|
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+#rox 0 #roy 0 #roz 0 | origen
+#rdx 0 #rdy 0 #rdz 0 | direccion
+
+#px #py #pz
+#nx #ny #nz
+
+#sun 0.0 1.0 0
+#eps 0.0001
+
+:f(xy) | x y -- r
+	sin swap sin *. ;
+
+:getNormal
+	px eps - pz f(xy)
+	px eps + pz f(xy) - 'nx !
+	eps 2* 'ny !
+	px pz eps - f(xy)
+	px pz eps + f(xy) - 'nz !
+	'nx v3nor
+	;
+
+:skycolor
+	$ff0000
+	;
+
+:terraincolor
+	getnormal
+	'nx 'sun v3ddot
+	4 <<
+	;
+
+:calcpf | t -- t ;ro +rd*t
+	rdx over *. rox + 'px !
+	rdy over *. roy + 'py !
+	rdz over *. roz + 'pz !
+	px pz f(xy)
+	;
+
+:castRay
+	0.05
+	0.01 ( 1.0 <? )(
+		calcpf
+		over >? (
+			3drop
+			1 ;	)
+		drop
+|		swap 0.001 + swap
+		over + )
+	2drop 0 ;
+
+:v3print | v
+	@+ "%f "  print
+	@+ "%f "  print
+	@ "%f "  print cr ;
+
+|--------------------------------
+#halfFovX 0.25
+#halfFovY
+#tanHalfFovX
+#tanHalfFovY
+
+:generateRayForPixel | i j -- i j
+	2dup
+	2* sw - tanHalfFovX sw */ 'rdx !
+	2* sh - tanHalfFovY sh */ 'rdy !
+	1.0 'rdz !
+	'rdx v3nor
+	;
+
+:setparam
+	sh halfFovX sw */ 'halfFovY !
+	halfFovX tan 'tanHalfFovX !
+	halfFovY tan 'tanHalfFovY !
+	0 'rox !
+	0 'roy !
+	0 'roz !
+	;
+
+:generaimagen
+	0 0 setxy
+	0 ( sh <? )(
+		0 ( sw <? )(
+			generateRayForPixel
+			castRay
+			0? ( 0 )( terraincolor )
+			px!+
+			drop
+			1+ ) drop
+		redraw
+|		key 1? ( drop ; ) drop
+		1+ ) drop
+	;
+
+:main
+	setparam
+	generaimagen
+	show clrscr
+		castRay 1? ( $ff00 )( $ff ) ink xymouse 1+ 2dup op line
+		drop
+		>xfb
+		dup "%d" print cr
+
+|		xymouse swap generateRay
+
+|		xymouse generateRayForPixel
+		rdz rdy rdx "%f %f %f" print cr
+
+		'exit >esc<
+;
+
+: 33 main ;

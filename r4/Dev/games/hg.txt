@@ -15,6 +15,8 @@
 #mensaje )( 64
 
 #pantallas 'pant1 'pant2
+
+
 #objetos 0 0
 #walls	0 0
 #fxs	0 0
@@ -53,8 +55,26 @@
 	vx 'xp +!
 	vy 'yp +!
 |-----------------paredes
-	xp xmin <? ( xmin 'xp ! quieto! ) xmax >? ( xmax 'xp ! quieto! ) drop
-	yp ymin <? ( ymin 'yp ! quieto! ) ymax >? ( ymax 'yp ! quieto! ) drop
+|	xp xmin <? ( xmin 'xp ! quieto! ) xmax >? ( xmax 'xp ! quieto! ) drop
+|	yp ymin <? ( ymin 'yp ! quieto! ) ymax >? ( ymax 'yp ! quieto! ) drop
+	;
+
+|--------- menu
+#menuactivo 0
+#menuobj 0
+
+:drawmenu
+	menuactivo 0? ( drop ; ) drop
+
+	180 80 dim
+	xp yp 0.2 + fpos 'pensar nsprite
+	100 dup dim
+	xp 0.08 - yp 0.2 + fpos 'ver nsprite
+	xp 0.08 + yp 0.2 + fpos 'usar nsprite
+	;
+
+:menuclick
+	0 'menuactivo !
 	;
 
 |--------- Objetos
@@ -65,8 +85,8 @@
 	r> @ nsprite
 	;
 
-:+obj | spr scale x y --
-	'obj 'objetos p!+ >r r!+ r!+ r!+ r> ! ;
+:+obj | nombre spr scale x y --
+	'obj 'objetos p!+ >r r!+ r!+ r!+ r!+ r> ! ;
 
 :inobj | x y -- o
 	'objetos 0.05 p.in2d? ;
@@ -113,16 +133,18 @@
 	pant nsprite
 	;
 
-:menuobj | adr
-	drop
-	10 ( 1? )( 1-
-		pick2 pick2 +estrellas ) 3drop
-	"Menu" 'mensaje strcpy
+:menuobjeto | adr --
+	dup 'menuobj !
+	dup 20 + @ 'mensaje strcpy
+	1 'menuactivo !
 	;
 
+|	10 ( 1? )( 1- pick2 pick2 +estrellas ) 3drop
+
 :moveto
+	menuactivo 1? ( drop menuclick ; ) drop
 	fxymouse
-	2dup inobj 1? ( menuobj ; ) drop
+	2dup inobj 1? ( menuobjeto )( "" 'mensaje strcpy ) drop
 	'yd ! 'xd !
 	xd xp - -? ( -80 )( 80 ) 'dz ! abs
 	yd yp - -? ( 'scaminaf )( 'scaminad ) acc! abs
@@ -131,9 +153,11 @@
 
 :main
 	'ob1 80 0.2 -0.5 +wall
-	'ob1 80 0.2 0.5 +obj
-	"hola" 'mensaje strcpy
+	"Boton" 'ob1 80 0.2 0.5 +obj
+	"Mesa" 'mesa 80 -0.2 0 +obj
+	"" 'mensaje strcpy
 	fonti2
+	4
 	show clrscr
 		verde
 		|yp xp "%f %f " print xd yd "%f %f " print cr
@@ -145,9 +169,13 @@
 		personaje
 		'fxs p.draw
 
+		drawmenu
 
 		scr 'moveto guiBtn
 		cflecha
+		dup "%d" print cr
+		'mensaje print
+
 		'exit >esc<
 		;
 :ram
