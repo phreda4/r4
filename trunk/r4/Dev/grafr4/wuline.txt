@@ -1,0 +1,187 @@
+^r4/lib/gui.txt
+
+#px #py
+
+|--- putpixel w/alpha (invertido)
+:pxa | alpha --
+	0? ( drop ink@ px!+ ; )
+	$ff =? ( drop ; )
+	ink@ $ff00ff and
+	px@ dup $ff00ff and | alpha inkb px pxb
+	pick2 - pick3 * 8 >> rot + $ff00ff and | alpha px RB
+	>r
+	ink@ $ff00 and
+	swap $ff00 and over - pick2 * 8 >> rot + $ff00 and
+	r> or
+	px!+ drop ;
+
+|------ wuline
+:nhline | x y dx --
+	-? ( neg swap pick2 swap | ax>x
+		)( px rot )
+						| x cnt x y
+	setxy 1+
+	( 1? )( 1- ink@ px!+ ) drop
+	'px ! ;
+
+:nvline | x y --
+	dup py - | x y dy
+	-? ( neg rot pick2	| py>y
+		)( rot py )
+						| y cnt x y
+	setxy 1+
+	( 1? )( 1- ink@ px!+ sw 1- px+! ) drop
+	'py ! ;
+
+:li00 | x y dx dy -- x y .. +dx +dy
+	px py
+:cont00 | x y dx dy x1 y1 ....
+	2dup setxy ink@ px!+
+	2swap
+	over <? ( | x y x1 y1 dx dy ...dy<dx
+		16 << over / 0 rot	| x y x1 y1 ea ec dx
+		( 1? )( 1- >r		| x y x1 y1 ea ec
+			2dup + $ffff and		| x y x1 y1 ea ec ea+ec
+			swap <=? ( rot 1+ rot rot )
+			>r rot 1+ rot rot r>
+			| falta alpha
+			2over setxy
+			dup 8 >> $ff and pxa
+			2over 1+ setxy
+			$ff over 8 >> $ff and - pxa
+			r> )
+		)(
+		swap 16 << over / 0 rot | x y x1 y1 ea ec dx
+		( 1? )( 1- >r
+			2dup + $ffff and
+			swap <=? ( >r rot 1+ rot rot r> )
+        	rot 1+ rot rot
+			| falta alpha
+			2over setxy
+			dup 8 >> $ff and pxa
+			$ff over 8 >> $ff and - pxa
+			r> )
+		)
+ 	nip 4drop ;
+
+:li11 | x y dx dy -- x y ; -dx -dy
+	neg swap neg swap 2over cont00 ;
+
+:li01 | x y dx dy -- x y ... -dx +dy
+	px py
+:cont01 | x y dx dy x1 y1 ....
+	2dup setxy ink@ px!+
+	2swap swap neg swap
+	over <? ( | x y x1 y1 dx dy ...dy<dx
+		16 << over / 0 rot	| x y x1 y1 ea ec dx
+		( 1? )( 1- >r		| x y x1 y1 ea ec
+			2dup + $ffff and	| x y x1 y1 ea ec ea+ec
+			swap <=? ( rot 1+ rot rot )
+			>r rot 1- rot rot r>
+			| falta alpha
+			2over setxy
+			dup 8 >> $ff and pxa
+			2over 1+ setxy
+			$ff over 8 >> $ff and - pxa
+			r> )
+		)(
+		swap 16 << over / 0 rot | x y x1 y1 ea ec dx
+		( 1? )( 1- >r
+			2dup + $ffff and
+			swap <=? ( >r rot 1- rot rot r> )
+        	rot 1+ rot rot
+			| falta alpha
+			2over setxy
+			$ff over 8 >> $ff and - pxa
+			dup 8 >> $ff and pxa
+			r> )
+		)
+ 	nip 4drop ;
+
+:li10 | x y dx dy -- x y ; +dx -dy
+	neg swap neg swap 2over cont01 ;
+
+#acclin li00 li01 li10 li11
+
+:nlinen | x y --
+	over px - 0? ( drop nvline ; )
+	over py - 0? ( drop nhline ; )
+	| x y dx dy
+	over 29 >> $4 and
+	over 28 >> $8 and or 'acclin + @ exec
+	'py ! 'px ! ;
+
+:nop | x y --
+	'py ! 'px ! ;
+
+|--- WU 2
+:hlinefill | x1 y x2 --    ; x1<x2
+	-? ( 3drop ; )
+	sw >=? ( drop sw 1- rot sw >=? ( 3drop ; ) )( rot )
+	clamp0 rot over swap 						| x2 x1 x1 y1
+	setxy -
+	1+ ( 1? )( 1- ink@ px!+ ) drop ;
+
+:hline | x y --
+	-? ( drop 'px ! ; )
+	sh >? ( drop 'px ! ; )
+	px pick2 <? ( swap pick2 hlinefill 'px ! )( pick2 'px ! hlinefill ) ;
+
+:vlinefill | y1 x y2 --		; y1<y2
+	-? ( 3drop ; )
+	sh >=? ( drop sh 1- rot sh >=? ( 3drop ; ) )( rot ) | x y2 y1
+	clamp0 rot over 	| y2 y1 x1 y1
+	setxy -
+	1+ ( 1? )( 1- ink@ px!+ sw 1- px+! ) drop ;
+
+:vline | y x --
+	-? ( drop 'py ! ; )
+	sw >? ( drop 'py ! ; )
+	py pick2 <? ( swap pick2 vlinefill 'py ! )( pick2 'py ! vlinefill ) ;
+
+:dline | y x dy dx --
+
+	;
+
+:whline | x y dx --
+	-? ( neg swap pick2 swap )( px rot ) | x cnt x y
+	setxy 1+
+	( 1? )( 1- ink@ px!+ ) drop
+	'px ! ;
+
+:wvline | x y --
+	py over 'py !
+    over <? ( swap )	| x y1<y2
+	-? ( 3drop ; )
+	swap
+	sh >=? ( 3drop ; )
+	clamp0 swap sh clampmax	| x 
+
+	dup py - | x y dy
+	-? ( neg rot pick2 )( rot py ) | y cnt x y
+	sh >=? ( 3drop 'py ! ; )
+	-? ( pick2 +  )
+	setxy 1+
+	( 1? )( 1- ink@ px!+ sw 1- px+! ) drop
+	;
+
+:nline2 | x y --
+	over px - 0? ( drop wvline ; )
+	over py - 0? ( drop whline ; )
+
+	over =? ( dline ; )
+	2drop ;
+
+:main
+	show clrscr
+		blanco
+    	10 10 nop
+		xymouse nlinen
+
+		cyan
+		400 10 nop
+		xymouse nline2
+		'exit >esc<
+		;
+
+: main ;
