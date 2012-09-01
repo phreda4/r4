@@ -1,0 +1,430 @@
+| bolumetric 3d esperimendo
+| PHREDA 2012
+|------------------------------
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+#LOADFILE
+"media/b3d/xyzrgb_statuette.b3d"
+|"media/b3d/xyzrgb_dragon.b3d"
+|"media/b3d/armadillo.b3d"
+|"media/b3d/bunny.b3d"
+|"media/b3d/cilindro.b3d"
+|"media/b3d/happy.b3d"
+
+#bolu3dMap
+| RES... bytes cubicos= RES*RES*RES   bytes b RES*RES*12 [*4(dword)*3(xyz)]
+#bolu3dRes $3ff | 1024 1.073.741.824 .. 12.582.912 color de $3f
+#bolu3dSca 10
+#bolu3dRes $1ff | 512  134.217.728 .. 3.145.728  color de $7f
+#bolu3dSca 9
+#bolu3dRes $ff | 256  (16.777.216 o 786.432 )   00ma00mi (2 colores de $ff)
+#bolu3dSca 8
+|#bolu3dRes $7f | 128 (2.097.152 o 196.608 )  color de $1ff
+|#bolu3dSca 7
+|#bolu3dRes $3f | 64 (262.144 bytes o 49.152 ) color de $3ff
+|#bolu3dSca 6
+
+#xcam 0 #ycam 0 #zcam 512
+
+
+|----------- graficacion
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:3dop project3d op ;
+:3dline project3d line ;
+:3dpline project3d pline ;
+
+:drawp | x y z ---
+	project3d |2dup op line ;
+	-? ( 2drop ; ) sh >=? ( 2drop ; )
+	swap -? ( 2drop ; ) sw >=? ( 2drop ; ) swap
+	setxy
+	ink@ px!+
+	;
+
+|---- caja en normalizado
+:drawboxz | z --
+	-$7f -$7f pick2 3dop
+	$7f -$7f pick2 3dline
+	$7f $7f pick2 3dline
+	-$7f $7f pick2 3dline
+	-$7f -$7f rot 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup -$7f 3dop $7f 3dline ;
+
+:draw3dnorm
+	-$7f drawboxz
+	$7f drawboxz
+	-$7f -$7f drawlinez
+	$7f -$7f drawlinez
+	$7f $7f drawlinez
+	-$7f $7f drawlinez ;
+
+|---- caja en normalizado
+:loadb3d | "" --
+	bolu3dMap swap load drop ;
+
+:plan | x 'map --
+	>r
+	0 ( bolu3dRes <? )(
+		over over setxy
+		-1 ( bolu3dRes <? )(
+				r@+ px!+
+				1+ ) drop
+		1+ ) 2drop rdrop ;
+
+:drawall
+	0 bolu3dMap plan
+	bolu3dRes 2 + bolu3dMap bolu3dRes dup * 2 << + plan
+	bolu3dRes 2* 4+ bolu3dMap bolu3dRes dup * 3 << + plan
+	;
+
+|---dibuja caras por poligono, solo para ver
+#xa #ya #za
+
+:3dpopz | h -
+	xa ya rot 3dop ;
+:3dpplinez | h -
+	xa ya rot 3dpline ;
+
+:drawpatchz | adr --
+	>r
+	r@+ $fff =? ( rdrop drop ; )
+	$fff and bolu3dRes 2/ -
+	r@+ $fff =? ( rdrop 2drop ; )
+	$fff and bolu3dRes 2/ -
+	bolu3dRes 2 << r+
+	r@+ $fff =? ( rdrop 3drop ; )
+	$fff and bolu3dRes 2/ -
+	r@+ $fff =? ( rdrop 4drop ; )
+	$fff and bolu3dRes 2/ -
+	swap rdrop 	| h1 h2 h4 h3
+    pick3 dup ink
+	3dpopz 1 'xa +!
+	3dpplinez 1 'ya +!
+	3dpplinez -1 'xa +!
+	3dpplinez -1 'ya +!
+	3dpplinez poli ;
+
+:drawpatchz2 | adr --
+	>r
+	r@+ $fff =? ( rdrop drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+	r@+ $fff =? ( rdrop 2drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+	bolu3dRes 2 << r+
+	r@+ $fff =? ( rdrop 3drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+	r@+ $fff =? ( rdrop 4drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+	swap rdrop | h1 h2 h4 h3
+    pick3 dup ink
+	3dpopz	1 'xa +!
+	3dpplinez 1 'ya +!
+	3dpplinez -1 'xa +!
+	3dpplinez -1 'ya +!
+	3dpplinez poli ;
+
+:drawcaraz | --
+	bolu3dMap >r
+	0 ( bolu3dRes <? )(
+		-1 ( bolu3dRes <? )( 1+
+			over bolu3dRes 2/ -
+			over bolu3dRes 2/ -
+			'ya ! 'xa !
+			r drawpatchz
+			4 r+ ) drop
+		1+ ) drop rdrop ;
+
+:drawcaraz2 | --
+	bolu3dMap >r
+	0 ( bolu3dRes <? )(
+		-1 ( bolu3dRes <? )( 1+
+			over bolu3dRes 2/ -
+			over bolu3dRes 2/ -
+			'ya ! 'xa !
+			r drawpatchz2
+			4 r+ ) drop
+		1+ ) drop rdrop ;
+
+:3dpopx | h -
+	za swap ya 3dop ;
+:3dpplinex | h -
+	za swap ya 3dpline ;
+
+:drawpatchx | adr --
+	>r
+	r@+ $fff =? ( rdrop drop ; )
+	$fff and bolu3dRes 2/ -
+	r@+ $fff =? ( rdrop 2drop ; )
+	$fff and bolu3dRes 2/ -
+	bolu3dRes 2 << r+
+	r@+ $fff =? ( rdrop 3drop ; )
+	$fff and bolu3dRes 2/ -
+	r@+ $fff =? ( rdrop 4drop ; )
+	$fff and bolu3dRes 2/ -
+	swap rdrop 	| h1 h2 h4 h3
+    pick3 dup ink
+	3dpopx 1 'ya +!
+	3dpplinex 1 'za +!
+	3dpplinex -1 'ya +!
+	3dpplinex -1 'za +!
+	3dpplinex poli ;
+
+:drawpatchx2 | adr --
+	>r
+	r@+ $fff =? ( rdrop drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+	r@+ $fff =? ( rdrop 2drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+	bolu3dRes 2 << r+
+	r@+ $fff =? ( rdrop 3drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+	r@+ $fff =? ( rdrop 4drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+	swap rdrop | h1 h2 h4 h3
+    pick3 dup ink
+	3dpopx 1 'ya +!
+	3dpplinex 1 'za +!
+	3dpplinex -1 'ya +!
+	3dpplinex -1 'za +!
+	3dpplinex poli ;
+
+:drawcarax | --
+	bolu3dMap bolu3dMap bolu3dRes dup * 2 << + >r
+	0 ( bolu3dRes <? )(
+		-1 ( bolu3dRes <? )( 1+
+			over bolu3dRes 2/ -
+			over bolu3dRes 2/ -
+			'za ! 'ya !
+			r drawpatchx
+			4 r+ ) drop
+		1+ ) drop rdrop ;
+
+:drawcarax2 | --
+	bolu3dMap bolu3dMap bolu3dRes dup * 2 << + >r
+	0 ( bolu3dRes <? )(
+		-1 ( bolu3dRes <? )( 1+
+			over bolu3dRes 2/ -
+			over bolu3dRes 2/ -
+			'za ! 'ya !
+			r drawpatchx2
+			4 r+ ) drop
+		1+ ) drop rdrop ;
+
+:3dpopy | h -
+	za xa 3dop ;
+:3dppliney | h -
+	za xa 3dpline ;
+
+:drawpatchy | adr --
+	>r
+	r@+ $fff =? ( rdrop drop ; )
+	$fff and bolu3dRes 2/ -
+	r@+ $fff =? ( rdrop 2drop ; )
+	$fff and bolu3dRes 2/ -
+	bolu3dRes 2 << r+
+	r@+ $fff =? ( rdrop 3drop ; )
+	$fff and bolu3dRes 2/ -
+	r@+ $fff =? ( rdrop 4drop ; )
+	$fff and bolu3dRes 2/ -
+	swap rdrop 	| h1 h2 h4 h3
+    pick3 dup ink
+	3dpopy 1 'xa +!
+	3dppliney 1 'za +!
+	3dppliney -1 'xa +!
+	3dppliney -1 'za +!
+	3dppliney poli ;
+
+:drawpatchy2 | adr --
+	>r
+	r@+ $fff =? ( rdrop drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+	r@+ $fff =? ( rdrop 2drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+	bolu3dRes 2 << r+
+	r@+ $fff =? ( rdrop 3drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+	r@+ $fff =? ( rdrop 4drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+	swap rdrop | h1 h2 h4 h3
+    pick3 dup ink
+	3dpopy 1 'xa +!
+	3dppliney 1 'za +!
+	3dppliney -1 'xa +!
+	3dppliney -1 'za +!
+	3dppliney poli ;
+
+:drawcaray | --
+	bolu3dMap bolu3dMap bolu3dRes dup * 3 << + >r
+	0 ( bolu3dRes <? )(
+		-1 ( bolu3dRes <? )( 1+
+			over bolu3dRes 2/ -
+			over bolu3dRes 2/ -
+			'za ! 'xa !
+			r drawpatchy
+			4 r+ ) drop
+		1+ ) drop rdrop ;
+
+:drawcaray2 | --
+	bolu3dMap bolu3dMap bolu3dRes dup * 3 << + >r
+	0 ( bolu3dRes <? )(
+		-1 ( bolu3dRes <? )( 1+
+			over bolu3dRes 2/ -
+			over bolu3dRes 2/ -
+			'za ! 'xa !
+			r drawpatchy2
+			4 r+ ) drop
+		1+ ) drop rdrop ;
+
+|---dibuja caras por punto, solo para ver
+
+:drawpuz | x y z --
+	$fff =? ( 3drop ; )
+	$fff and bolu3dRes 2/ -
+	azul
+	drawp ;
+
+:drawpuz2 | x y z --
+	$fff =? ( 3drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+	azul
+	drawp ;
+
+:drawpz | --
+	bolu3dMap >r
+	0 ( bolu3dRes <? )(
+		-1 ( bolu3dRes <? )( 1+
+			over bolu3dRes 2/ -
+			over bolu3dRes 2/ - | 'y 'x
+			r@+ drawpuz
+			) drop
+		1+ ) drop rdrop ;
+
+:drawpz2 | --
+	bolu3dMap >r
+	0 ( bolu3dRes <? )(
+		-1 ( bolu3dRes <? )( 1+
+			over bolu3dRes 2/ -
+			over bolu3dRes 2/ -
+			r@+ drawpuz2
+			) drop
+		1+ ) drop rdrop ;
+
+
+:drawpux | y z x --
+	$fff =? ( 3drop ; )
+	$fff and bolu3dRes 2/ -
+|	za swap ya
+	rot
+	verde
+	drawp ;
+
+:drawpux2 | y z x --
+	$fff =? ( 3drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+|	za swap ya
+	rot
+	verde
+	drawp ;
+
+:drawpx | --
+	bolu3dMap bolu3dRes dup * 2 << + >r
+	0 ( bolu3dRes <? )(
+		-1 ( bolu3dRes <? )( 1+
+			over bolu3dRes 2/ -
+			over bolu3dRes 2/ -
+			r@+ drawpux
+			) drop
+		1+ ) drop rdrop ;
+
+:drawpx2 | --
+	bolu3dMap bolu3dRes dup * 2 << + >r
+	0 ( bolu3dRes <? )(
+		-1 ( bolu3dRes <? )( 1+
+			over bolu3dRes 2/ -
+			over bolu3dRes 2/ -	| 'za ! 'ya !
+			r@+ drawpux2
+			) drop
+		1+ ) drop rdrop ;
+
+
+:drawpuy | x z y --
+	$fff =? ( 3drop ; )
+	$fff and bolu3dRes 2/ -
+	swap rot
+|	za xa
+	rojo
+	drawp ;
+
+:drawpuy2 | x z y --
+	$fff =? ( 3drop ; )
+	16 >> $fff and bolu3dRes 2/ -
+	swap rot
+|	za xa
+	rojo
+	drawp ;
+
+:drawpy | --
+	bolu3dMap bolu3dRes dup * 3 << + >r
+	0 ( bolu3dRes <? )(
+		-1 ( bolu3dRes <? )( 1+
+			over bolu3dRes 2/ -
+			over bolu3dRes 2/ - |			'za ! 'xa !
+			r@+ drawpuy
+			) drop
+		1+ ) drop rdrop ;
+
+:drawpy2 | --
+	bolu3dMap bolu3dRes dup * 3 << + >r
+	0 ( bolu3dRes <? )(
+		-1 ( bolu3dRes <? )( 1+
+			over bolu3dRes 2/ -
+			over bolu3dRes 2/ -
+			r@+ drawpuy2
+			) drop
+		1+ ) drop rdrop ;
+
+|---- inicio
+#lado
+:main
+	4
+	here 'bolu3dMap !
+	'LOADFILE loadb3d
+	show clrscr
+|        drawall
+
+		omode
+		freelook
+		xcam ycam zcam mtrans
+		cyan draw3dnorm
+
+		lado
+|		1 and? ( drawcaraz )( drawcaraz2 )
+		1 and? ( drawpz )( drawpz2 )
+|		2 and? ( drawcarax )( drawcarax2 )
+		2 and? ( drawpx )( drawpx2 )
+|		4 and? ( drawcaray )( drawcaray2 )
+		4 and? ( drawpy )( drawpy2 )
+		drop
+
+		verde dup ":r%d " print
+		blanco 'LOADFILE " %s " print
+
+		[ lado 1 xor 'lado ! ; ] <f1>
+		[ lado 2 xor 'lado ! ; ] <f2>
+		[ lado 4 xor 'lado ! ; ] <f3>
+		[ -0.001 'zcam +! ; ] <up>
+		[ 0.001 'zcam +! ; ] <dn>
+		'exit >esc< ;
+
+
+: mark main ;
+
