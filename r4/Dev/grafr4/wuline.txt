@@ -1,4 +1,8 @@
+| linea c/antialiasing
+| algoritmo de Wu
+
 ^r4/lib/gui.txt
+^r4/lib/trace.txt
 
 #px #py
 
@@ -115,65 +119,115 @@
 	'py ! 'px ! ;
 
 |--- WU 2
-:hlinefill | x1 y x2 --    ; x1<x2
-	-? ( 3drop ; )
-	sw >=? ( drop sw 1- rot sw >=? ( 3drop ; ) )( rot )
-	clamp0 rot over swap 						| x2 x1 x1 y1
-	setxy -
-	1+ ( 1? )( 1- ink@ px!+ ) drop ;
-
-:hline | x y --
-	-? ( drop 'px ! ; )
-	sh >? ( drop 'px ! ; )
-	px pick2 <? ( swap pick2 hlinefill 'px ! )( pick2 'px ! hlinefill ) ;
-
-:vlinefill | y1 x y2 --		; y1<y2
-	-? ( 3drop ; )
-	sh >=? ( drop sh 1- rot sh >=? ( 3drop ; ) )( rot ) | x y2 y1
-	clamp0 rot over 	| y2 y1 x1 y1
-	setxy -
+|----------------------------
+:wvline | y x --
+	-? ( drop 'py ! ; ) sw >=? ( drop 'py ! ; )
+	py pick2 dup 'py !	| y x py  y
+	<? ( swap rot )		| y1 x y2
+	-? ( 3drop ; ) sh clampmax
+	rot sh >=? ( 3drop ; ) clamp0 | x y2 y1
+	swap over - swap rot swap setxy
 	1+ ( 1? )( 1- ink@ px!+ sw 1- px+! ) drop ;
 
-:vline | y x --
-	-? ( drop 'py ! ; )
-	sw >? ( drop 'py ! ; )
-	py pick2 <? ( swap pick2 vlinefill 'py ! )( pick2 'py ! vlinefill ) ;
+:whline | x y --
+	-? ( drop 'px ! ; ) sh >=? ( drop 'px ! ; )
+	px pick2 dup 'px !	| x y px x
+	<? ( swap rot )		| x1 y x2
+	-? ( 3drop ; ) sw clampmax
+	rot sw >=? ( 3drop ; ) clamp0	| y x2 x1
+	swap over - swap rot setxy
+	1+ ( 1? )( 1- ink@ px!+ ) drop ;
 
-:dline | y x dy dx --
+|------- clipline
+:clip1 | y1 x1 y2 x2 c1 -- y1 x1 y2 x2 c1
+	>r 2swap | y2 x2 y1 x1
+	r> 8 <? ( 0 )( sh 1- ) nip >r
+	pick3 pick2 - r pick3 - pick4 pick3 - rot */ +
+	nip
+	r> swap
+	-? ( $1 )( 0 ) >r sw >=? ( $2 r+ )
+	2swap r> ;
 
-	;
+:clip2 | y1 x1 y2 x2 c2 -- y1 x1 y2 x2 c2
+	8 <? ( 0 )( sh 1- ) nip >r	| y1 x1 y2 x2
+	over pick4 - over pick3 - r pick3 - rot rot */ +
+	nip
+	r> swap
+	-? ( $1 )( 0 ) >r sw >=? ( $2 r+ )
+	r> ;
 
-:whline | x y dx --
-	-? ( neg swap pick2 swap )( px rot ) | x cnt x y
-	setxy 1+
-	( 1? )( 1- ink@ px!+ ) drop
-	'px ! ;
+:clip3 | y1 x1 y2 x2 c2 -- y1 x1 y2 x2 c2
+	1 =? ( 0 )( sw 1- ) nip >r
+	swap | y1 x1 x2 y2
+	dup pick4 - pick2 pick4 - r pick3 - rot rot */ +
+	nip r> 0 ;
 
-:wvline | x y --
-	py over 'py !
-    over <? ( swap )	| x y1<y2
-	-? ( 3drop ; )
-	swap
-	sh >=? ( 3drop ; )
-	clamp0 swap sh clampmax	| x 
+:clip4 | y1 x1 y2 x2 c1 -- y1 x1 y2 x2 c1
+	>r 2swap | y2 x2 y1 x1
+	r> 1 =? ( 0 )( sw 1- ) nip >r
+	swap 	| y2 x2 x1 y1
+	pick3 over - pick3 pick2 - r pick3 - rot rot */ +
+	nip r>
+	2swap 0 ;
 
-	dup py - | x y dy
-	-? ( neg rot pick2 )( rot py ) | y cnt x y
-	sh >=? ( 3drop 'py ! ; )
-	-? ( pick2 +  )
-	setxy 1+
-	( 1? )( 1- ink@ px!+ sw 1- px+! ) drop
-	;
+:clipline | x2 y2 x1 y1 -- y1 x1 y2 x2 in
+	sh >=? ( $8 )( 0 ) >r -? ( $4 r+ )	| y1
+	swap sw >=? ( $2 r+ ) -? ( $1 r+ )	| x1
+	2swap | y1 x1 x2 y2
+	sh >=? ( $8 )( 0 ) >r -? ( $4 r+ )	| y2
+	swap sw >=? ( $2 r+ ) -? ( $1 r+ )	| x2
+	r> r>	| y1 x1 y2 x2 c1 c2
+	2dup and 1? ( drop or ; ) drop
+	2dup or 0? ( drop or ; ) drop
+	>r 12 and? ( clip1 ) r> swap >r 12 and? ( clip2 )
+	r>
+	2dup and 1? ( drop or ; ) drop
+	2dup or 0? ( drop or ; ) drop
+	>r 1? ( clip3 ) r> swap >r 1? ( clip4 )
+	r> or ;
+
+
+:nline21 | | sx dy dx
+	16 << over / 		| sx dy ea
+	0 rot 				| sx ea ec dy
+	( 1? )( 1- >r
+		2dup + $ffff and swap	| sx ea ec+ea ec
+		<=? ( pick2 px+! )
+		sw px+!
+		dup 8 >>
+		dup pxa pick3 1- px+!
+		$ff xor pxa pick2 neg 1- px+!
+		r> ) 4drop ;
 
 :nline2 | x y --
-	over px - 0? ( drop wvline ; )
-	over py - 0? ( drop whline ; )
-
-	over =? ( dline ; )
-	2drop ;
+	py =? ( whline ; )
+	swap px =? ( wvline ; )	| y x
+	py pick2 <? ( px 2swap 2over )( px 2dup ) 'px ! 'py !
+	swap -? ( 4drop ; ) 			| y1 x1 x2 y2 ; termina en y neg..
+	2swap swap sh >=? ( 4drop ; )	| x2 y2 x1 y1 ; termina en y>sh
+	clipline 1? ( 4drop drop ; ) drop	| y1 x1 y2 x2
+	pick2 - swap pick3 -		| y1 x1 dx dy
+	2swap					| dx dy y1 x1
+	swap setxy ink@ px!+ -1 px+!	| dx dy
+	swap -? ( neg -1 )( 1 )		| dy dx sx
+	rot rot					| sx dy dx
+	over <? ( nline21 ; )
+	swap 16 << over / 		| sx dx ea
+	0 rot 					| sx ea ec dx
+	( 1? )( 1- >r	| sx ea ec
+		2dup + $ffff and swap	| sx ea ec+ea ec
+		<=? ( sw px+! )
+		pick2 px+!		| sx ea ec
+		dup 8 >>		| sx ea ec ci
+		dup pxa sw 1- px+!
+		$ff xor pxa sw 1+ neg px+!
+		r> ) 4drop ;
 
 :main
+	4
 	show clrscr
+		verde
+		cr cr cr dup ":r%d" print
 		blanco
     	10 10 nop
 		xymouse nlinen
