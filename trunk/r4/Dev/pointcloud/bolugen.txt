@@ -26,7 +26,6 @@
 |#bolu3dRes $3f | 64
 |#bolu3dSca 6
 
-
 |----------- graficacion
 :freelook
 	xymouse
@@ -66,8 +65,7 @@
 | nodo es $00000000
 |            maxmin
 :clearbox | --
-	bolu3dMap
-	bolu3dimg 2 << 3 *
+	bolu3dMap bolu3dimg 12 *
 	( 1? )( 1- $fff rot !+ swap ) 2drop ; | max=0 min=$fff
 
 :toa | x y -- l
@@ -94,53 +92,14 @@
 	pick2 over dim2 pick2 rellena
 	3drop ;
 
-|------------ rellenos
-:fillhexa | x y --
-	over bolu3dRes 2/ -
-	over bolu3dRes 2/ -
-	distfast
-	bolu3dres 2/ swap -
-	-? ( 3drop ; )
-	pick2 pick2 pick2 bolu3dRes 2/ + fillall
-	bolu3dRes 2/ swap - fillall
-	;
-
-:fillcircle | x y --
-	over bolu3dRes 2/ -
-	over bolu3dRes 2/ -
-	dup * swap dup * + sqrt
-	bolu3dres 2/ swap -
-	-? ( 3drop ; )
-	0.25 bolu3dres */ sin bolu3dres 0.5 */
-
-	pick2 pick2 pick2 bolu3dRes 2/ + fillall
-	bolu3dRes 2/ swap - fillall
-	;
-
-:calc3d | u v -- x y z
-	over sincos | u v sinu cosu
-	pick2 sincos | u v sinu cosu sinv cosv
-	pick3 *. >r | u v sinu cosu sinv   r:x
-	rot *. r> ;
-
-:fillcircle | x y --
-	over bolu3dRes 2/ -
-	over bolu3dRes 2/ -
-	dup * swap dup * + sqrt
-	bolu3dRes 2/ swap - 4 -
-	-? ( 3drop ; )
-	pick2 pick2 pick2 bolu3dRes 2/ + fillall
-	bolu3dRes 2/ swap - fillall
-	;
-
+|-----------------------------------
 :fillinez | x y desde hasta --
-	>r
-	( r <? )(
+	>r ( r <? )(
 		pick2 pick2 pick2 fillall
-		1+ ) 3drop
-	rdrop ;
+		1+ ) 3drop rdrop ;
 
-:fillcilindro | x y --
+:cilindro | x y --
+	2dup
 	over bolu3dRes 2/ -
 	over bolu3dRes 2/ -
 	dup * swap dup * + sqrt
@@ -151,18 +110,55 @@
 	swap bolu3dRes 2/ swap -
 	swap fillinez ;
 
-:gensphere
+|-----------------------------------
+:circle | x y --
+	2dup
+	over bolu3dRes 2/ -
+	over bolu3dRes 2/ -
+	dup * swap dup * + sqrt
+	bolu3dres 2/ swap - 4 -
+	-? ( 3drop ; )
+	$7f swap - dup *
+	bolu3dRes 2/ dup * swap - sqrt
+	dup bolu3dRes 2/ +
+	swap bolu3dRes 2/ swap -
+	swap fillinez ;
+
+|-----------------------------------
+:dist | x y --
+	2dup
+	over bolu3dRes 2/ -
+	over bolu3dRes 2/ -
+	distfast
+	bolu3dres 2/ swap -
+	-? ( 3drop ; )
+	pick2 pick2 pick2 bolu3dRes 2/ + fillall
+	bolu3dRes 2/ swap - fillall
+	;
+
+
+|-----------------------------------
+:ovni | x y --
+	2dup
+	over bolu3dRes 2/ -
+	over bolu3dRes 2/ -
+	dup * swap dup * + sqrt
+	bolu3dRes 2/ swap - 4 -
+	-? ( 3drop ; )
+	pick2 pick2 pick2 bolu3dRes 2/ + fillall
+	bolu3dRes 2/ swap - fillall
+	;
+
+
+|------ recorre XY y llama generador
+:generator | plotf --
 	clearbox
 	0 ( bolu3dRes <=? )(
 		0 ( bolu3dRes <=? )(
-			2dup
-			fillcircle
-|			fillhexa
-|			fillcilindro
+			pick2 exec
 			1+ ) drop
 		view1 redraw
-		1+ ) drop
-	;
+		1+ ) 2drop ;
 
 |---- caja en normalizado
 :drawboxz | z --
@@ -198,8 +194,12 @@
 		blanco 'SAVEFILE " %s " print
 		cyan bolu3dimg 12 * bolu3dRes " b4R:res:%d mem:%d" print cr
 
-		'gensphere <f1>
-		[ 'SAVEFILE saveb3d ; ] <f5>
+		[ 'cilindro generator ; ] <f1>
+		[ 'circle generator ; ] <f2>
+		[ 'ovni generator ; ] <f3>
+		[ 'dist generator ; ] <f4>
+
+		[ 'SAVEFILE saveb3d ; ] <f10>
 		'exit >esc< ;
 
 |--------------------------
