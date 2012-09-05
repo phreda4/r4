@@ -1,24 +1,26 @@
 | historia grafica
 
 ^r4/lib/gui.txt
+^r4/lib/btn.txt
 ^r4/lib/trace.txt
 ^r4/lib/part16.txt
 
 ^r4/dev/games/hg.spr
 
-#squieto p4 10 0
+|------ animaciones
+#secquieto 0 0 p4 10 0
+#seccamina 0 0 p1 10 p2 10 p1 10 p3 10 0
+#seccaminaf 0 0 p4 10 p5 10 p4 10 p6 10 0
+#seccaminad 0 0 p7 10 p8 10 p7 10 p9 10 0
 
-#scamina p1 10 p2 10 p1 10 p3 10 0
-#scaminaf p4 10 p5 10 p4 10 p6 10 0
-#scaminad p7 10 p8 10 p7 10 p9 10 0
 
-#mensaje )( 64
+#secver 0 0 ver 20 ver1 20 ver2 5 0
+#secusa 0 0 usar 14 usar2 10 0
 
 #pantallas 'pant1 'pant2
 
-
-#secver 0 0 ver 20 ver2 4 0
-#secusa 0 0 usar 14 usar2 10 0
+#mensaje )( 64
+:mensaje! 'mensaje strcpy ;
 
 :secani | 'secani -- 'spr
 	>r r @ 0? ( r 8 + r!+ r!+ r> @ ; )
@@ -32,9 +34,7 @@
 #fxs	0 0
 
 |----------- protagonista
-#animal 'squieto | lista
-#animaf 'squieto | frame
-#animat 0		| tiempo
+#animap 'secquieto
 #xp #yp			| posicion
 #dd				| direccion
 #vx #vy
@@ -45,11 +45,8 @@
 #xmin -0.8 #xmax 0.8
 #ymin -0.8 #ymax 0.8
 
-:acc!
-	dup 'animal ! 'animaf ! 0 'animat ! ;
-
 :quieto!
-	'squieto acc! 0 0 'vy ! 'vx ! ;
+	'secquieto 'animap ! 0 0 'vy ! 'vx ! ;
 
 :personaje
 |-----------------rumbo
@@ -58,10 +55,7 @@
 |-----------------dibujo y animacion
 	xp yp fpos
 	dz 90 dim
-	animat 1+
-	animaf @+ nsprite
-	@ >=? ( 8 'animaf +! animaf @ 0? ( animal 'animaf ! ) 2drop 0 )
-	'animat !
+	animap secani nsprite
 	vx 'xp +!
 	vy 'yp +!
 |-----------------paredes
@@ -75,15 +69,18 @@
 
 :drawmenu
 	menuactivo 0? ( drop ; ) drop
-	180 80 dim
+	190 100 dim
 	xp yp 0.2 + fpos 'pensar nsprite
-	100 dup dim
-	xp 0.05 - yp 0.2 + fpos
-	[ 'ver nsprite ; ] guiOut
-	[ 'secver secani nsprite ; ] guiIn
-	xp 0.05 + yp 0.2 + fpos
-	[ 'usar nsprite ; ] guiOut
-	[ 'secusa secani nsprite ; ] guiIn
+	80 dup dim
+	xp 0.08 - yp 0.2 + fpos
+	[ trace menuobj 24 + @ exec  ; ] guiBtn
+	[ 'secver secani nsprite ; ]
+	[ 'ver nsprite ; ] guiIO
+
+	xp 0.08 + yp 0.2 + fpos
+	[ 'secusa secani nsprite ; ]
+	[ 'usar nsprite ; ] guiIO
+	[ trace menuobj 28 + @ exec ; ] guiBtn
 
 	;
 
@@ -96,11 +93,10 @@
 	>r
 	r@+ r@+ fpos
 	r@+ dup dim
-	r> @ nsprite
-	;
+	r> @ nsprite ;
 
-:+obj | nombre spr scale x y --
-	'obj 'objetos p!+ >r r!+ r!+ r!+ r!+ r> ! ;
+:+obj | 'ver 'usar nombre spr scale x y --
+	'obj 'objetos p!+ >r r!+ r!+ r!+ r!+ r!+ r!+ r> ! ;
 
 :inobj | x y -- o
 	'objetos 0.05 p.in2d? ;
@@ -153,31 +149,48 @@
 	1 'menuactivo !
 	;
 
-|	10 ( 1? )( 1- pick2 pick2 +estrellas ) 3drop
-
 :moveto
 	menuactivo 1? ( drop menuclick ; ) drop
 	fxymouse
-	2dup inobj 1? ( menuobjeto )( "" 'mensaje strcpy ) drop
+	2dup inobj 1? ( menuobjeto )( "" mensaje! ) drop
 	'yd ! 'xd !
 	xd xp - -? ( -80 )( 80 ) 'dz ! abs
-	yd yp - -? ( 'scaminaf )( 'scaminad ) acc! abs
-	>? ( 'scamina acc! )
+	yd yp - -? ( 'seccaminaf )( 'seccaminad ) 'animap ! abs
+	>? ( 'seccamina 'animap ! )
 	drop ;
 
-:main
+
+:resetpant
+	'walls p.clear
+	'objetos p.clear
+	'fxs p.clear
+	"" mensaje!
+	;
+
+
+:vermesa
+	"La mesa parece bastante sucia!" mensaje! ;
+
+:usamesa
+	| agrega clip si no esta
+	| agrega bollo de papel
+	;
+
+:pantalla1
+	resetpant
 	'ob1 80 0.2 -0.5 +wall
-	"Boton" 'ob1 80 0.2 0.5 +obj
-	"Mesa" 'mesa 80 -0.2 0 +obj
-	"" 'mensaje strcpy
+	0 0 "Boton" 'ob1 80 0.2 0.5 +obj
+	'usamesa 'vermesa "Mesa" 'mesa 80 -0.2 0 +obj
+	;
+
+
+:main
+	pantalla1
 	fonti2
 	4
 	show clrscr
-		verde
-		|yp xp "%f %f " print xd yd "%f %f " print cr
-		'mensaje print
-
-		fondo
+|		fondo
+		'salon nsprite
 		'walls p.draw
 		'objetos p.draw
 		personaje
@@ -186,10 +199,12 @@
 		drawmenu
 
 		scr 'moveto guiBtn
-		cflecha
-		dup "%d" print cr
+		scr dup " %d " print
 		'mensaje print
 
+        gui.debug
+        'trace "btnt" btnt
+   		cflecha
 		'exit >esc<
 		;
 :ram
