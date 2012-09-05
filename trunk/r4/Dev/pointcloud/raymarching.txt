@@ -1,9 +1,16 @@
 | Ray Marching
 | http://iquilezles.org/www/articles/terrainmarching/terrainmarching.htm
-|
+| generando el rayo direccion mas rapido
+| con el truco http://iquilezles.org/www/articles/sincos/sincos.htm
+| levemente desviado pero parece que funciona!!
+|---
 ^r4/lib/gui.txt
 ^r4/lib/trace.txt
 
+#halfFovX 0.30
+#halfFovY
+#tanHalfFovX
+#tanHalfFovY
 #rox 0 #roy 0 #roz 0 | origen
 #rdx 0 #rdy 0 #rdz 0 | direccion
 
@@ -60,12 +67,8 @@
 	@ "%f "  print cr ;
 
 |--------------------------------
-#halfFovX 0.25
-#halfFovY
-#tanHalfFovX
-#tanHalfFovY
 
-:generateRayForPixel | i j -- i j
+:generateRayForPixels | i j -- i j
 	2dup
 	2* sw - tanHalfFovX sw */ 'rdx !
 	2* sh - tanHalfFovY sh */ 'rdy !
@@ -73,6 +76,200 @@
 	'rdx v3nor
 	;
 
+:generateRayForPixel | i j -- i j
+	over sh 2/ - 0.4 500 */
+	over sw 2/ - 0.4 500 */
+	| a b
+	sincos | v sinu cosu
+	rot sincos | sinu cosu sinv cosv
+	pick3 *. >r | sinu cosu sinv   r:x
+	rot *. r>
+	'rdx ! 'rdy ! 'rdz ! ;
+
+
+:generaimagen1
+	0 0 setxy
+	0 ( sh <? )(
+		0 ( sw <? )(
+			generateRayForPixel
+|			castRay 0? ( 0 )( terraincolor ) px!+ drop
+			rdx 8 >> $ff and rdy $ff00 and or rdz 8 << $ff0000 and or px!+
+			1+ ) drop
+|		redraw
+		1+ ) drop
+	>xfb
+	;
+
+#ix #iy #ixs #iys
+#sinu #cosu #sinv #cosv
+#sinu2 #cosu2 #sinv2 #cosv2
+
+:nextx
+	cosu2 cosu *. sinu2 sinu *. -
+	sinu2 cosu *. cosu2 sinu *. +
+	'sinu ! 'cosu ! ;
+
+:nexty
+	cosv2 cosv *. sinv2 sinv *. -
+	sinv2 cosv *. cosv2 sinv *. +
+	'sinv ! 'cosv !
+	ix sincos 'cosu ! 'sinu !
+	ixs sincos 'cosu2 ! 'sinu2 !
+	;
+
+:calcray
+	cosu 'rdy !
+	sinu sinv *. 'rdz !
+	cosv sinu *. 'rdx !
+	;
+
+:generaimagen2 | version con precalculo de sin/cos
+	sw 2/ neg 0.3 500 */ 'ix !
+	sw 2/ neg 1+ 0.3 500 */ ix - 'ixs !
+	sh 2/ neg 0.3 500 */ 'iy !
+	sh 2/ neg 1+ 0.3 500 */ iy - 'iys !
+
+	ix sincos 'cosu ! 'sinu !
+	ixs sincos 'cosu2 ! 'sinu2 !
+	iy sincos 'cosv ! 'sinv !
+	iys sincos 'cosv2 ! 'sinv2 !
+	0 0 setxy
+	0 ( sh <? )(
+		0 ( sw <? )(
+			calcray
+			rdx 8 >> $ff and rdy $ff00 and or rdz 8 << $ff0000 and or px!+
+			nextx
+			1+ ) drop
+		nexty
+|		redraw
+		1+ ) drop
+	>xfb
+	;
+
+:generaimagen3 | pruba de velocidad de pintado (textura xor)
+	0 0 setxy
+	0 ( sh <? )(
+		0 ( sw <? )(
+			over over xor px!+
+			1+ ) drop
+|		redraw
+		1+ ) drop
+	>xfb
+	;
+
+
+
+#minThreshold 0.0001
+#maxDepth 8.0 |8.0 is about right for most fractals
+#raylen
+
+:DEs | x y z -- d ; esfera
+	dup *. swap dup *. + swap dup *. + sqrt.
+	1.8 - ;
+
+:DE | x y z -- d ; caja
+	pick2 pick2 pick2 DEs >r
+
+	abs 1.0 - clamp0 dup *.		| caja
+	rot abs 0.8 - clamp0 dup *.
+	rot abs 2.0 - clamp0 dup *.
+	+ + sqrt.
+	r> min
+	;
+
+
+:dem						| bob esponja
+	5 ( 1? )( 1- >r
+		rot abs rot abs rot abs
+		rot rot over >? ( swap ) | z x y
+		rot over >? ( swap )	| x y z
+		rot rot over >? ( swap ) | z x y
+		3.0 *. 2.0 -
+		rot 3.0 *. 2.0 -		| x y z
+		rot 3.0 *. 2.0 -		| y z x
+		rot rot -1.0 <? ( 2.0 + )	| x y z
+		r> ) drop
+	dup *. rot dup *. + swap dup *. +
+	sqrt. 1.5 - 0.0041 *. ;
+
+:step
+	maxDepth
+	0
+	255 ( 1? )(	| dist len step
+		rot minThreshold <? ( drop nip ; )
+		drop rdx pick2 *. rdy pick3 *. 2.0 + rdz pick4 *. 4.0 - DE 2/ | len step dist
+		rot over +                                        | step dist len
+		maxDepth >? ( 3drop 0 ; )
+		rot
+		1- )
+	nip nip ;
+
+:calcolor
+	step
+	dup 8 << over 16 << or or ;
+
+:generaimagen4 | version con precalculo de sin/cos
+	sw 2/ neg 0.3 500 */ 'ix !
+	sw 2/ neg 1+ 0.3 500 */ ix - 'ixs !
+	sh 2/ neg 0.3 500 */ 'iy !
+	sh 2/ neg 1+ 0.3 500 */ iy - 'iys !
+
+	ix sincos 'cosu ! 'sinu !
+	ixs sincos 'cosu2 ! 'sinu2 !
+	iy sincos 'cosv ! 'sinv !
+	iys sincos 'cosv2 ! 'sinv2 !
+	0 0 setxy
+	0 ( sh <? )(
+		0 ( sw <? )(
+
+			calcray
+|		generateRayForPixel
+|		generateRayForPixels
+
+			calcolor
+			px!+
+
+			nextx
+			1+ ) drop
+		nexty
+		redraw
+		1+ ) drop
+	>xfb
+	;
+
+
+|---- test ray
+:tabla
+		xymouse swap
+		calcray
+		rdz rdy rdx "%f %f %f " print cr
+		generateRayForPixel
+		rdz rdy rdx "%f %f %f " print cr
+		generateRayForPixels
+		rdz rdy rdx "%f %f %f " print cr
+		2drop
+		;
+
+:3dop project3d op ;
+:3dline project3d line ;
+
+:testray
+	tabla
+	omode
+	0 0 2.0 mtrans
+
+	xymouse swap
+	generateRayForPixel
+	rojo
+	0 0 0 3dop rdz rdy rdx 3dline
+	generateRayForPixels
+	verde
+	0 0 0 3dop rdz rdy rdx 3dline
+	2drop
+
+	;
+
+|------------------------------------
 :setparam
 	sh halfFovX sw */ 'halfFovY !
 	halfFovX tan 'tanHalfFovX !
@@ -82,35 +279,19 @@
 	0 'roz !
 	;
 
-:generaimagen
-	0 0 setxy
-	0 ( sh <? )(
-		0 ( sw <? )(
-			generateRayForPixel
-			castRay
-			0? ( 0 )( terraincolor )
-			px!+
-			drop
-			1+ ) drop
-		redraw
-|		key 1? ( drop ; ) drop
-		1+ ) drop
-	;
-
 :main
 	setparam
-	generaimagen
 	show clrscr
-		castRay 1? ( $ff00 )( $ff ) ink xymouse 1+ 2dup op line
-		drop
-		>xfb
+		xfb>
 		dup "%d" print cr
 
-|		xymouse swap generateRay
+		testray
 
-|		xymouse generateRayForPixel
-		rdz rdy rdx "%f %f %f" print cr
-
+		cflecha
+		'generaimagen1 <f1>
+		'generaimagen2 <f2>
+		'generaimagen3 <f3>
+		'generaimagen4 <f4>
 		'exit >esc<
 ;
 
