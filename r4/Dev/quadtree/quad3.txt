@@ -1,0 +1,277 @@
+| quadtree1
+| PHREDA 2012
+|-----------------------------
+^r4/lib/gui.txt
+^r4/lib/polygr.txt
+
+^r4/lib/fontj.txt
+
+^r4/lib/trace.txt
+^r4/lib/sort.txt
+^r4/lib/bsearch.txt
+^r4/lib/morton.txt
+
+#res 512
+#imagen
+
+:drawimagen
+	imagen >r
+	res ( 1? )( 1-
+		res ( 1? )( 1-
+			r@+ px!+
+			) drop
+		sw res - px+!
+		) drop
+	rdrop
+	;
+
+:copyimg
+	imagen >r
+	res ( 1? )( 1-
+		res ( 1? )( 1-
+			px@ r!+ 1 px+!
+			) drop
+		sw res - px+!
+		) drop
+	rdrop
+	;
+
+#xx #yy #size
+
+:box2d
+	xx size - yy size - 2dup op
+	over yy size + line
+	xx size + yy size + line
+	xx size + over line
+	line ;
+
+:+mov | id --
+	1 and? ( size )( size neg ) 'xx +!
+	2 and? ( size )( size neg ) 'yy +!
+	drop ;
+
+:drawtree | nro shift --
+	size 2/ 'size !
+	2dup >> $3 and | nro shift val
+	+mov
+	box2d
+	0? ( 2drop ; )
+	2 - drawtree ;
+
+:drawanumber | nro --
+	128 dup 'xx ! 'yy !
+	res 2/ 'size !
+	14 drawtree ; | 16 bits -2 =14 para correr la primera vez
+
+
+|---------- quadtree
+#andc
+#orc
+
+:+pnt
+
+:wait
+|	orc andc puntos> puntos - 2 >> trace 3drop
+	redraw
+	0 0 setxy drawimagen
+	;
+
+:check | -- cod
+	$ffffff 'andc !
+	0 'orc !
+	xx yy setxy
+	size ( 1? )( 1-
+		size ( 1? )( 1-
+			px@ dup dup
+			orc or 'orc !
+			andc and 'andc !
+			not px!+
+			) drop
+		sw size - px+!
+		) drop
+	wait
+	orc andc -
+	;
+
+:check2 | res x y -- cod
+	$ffffff 'andc ! 0 'orc !
+	setxy
+	dup ( 1? )( 1-
+		over ( 1? )( 1-
+			px@ dup
+|		dup
+			orc or 'orc !
+			andc and 'andc !
+			1 px+!
+|			not px!+
+			) drop
+		sw pick2 - px+!
+		) drop
+	drop
+|	redraw
+|	0 0 setxy drawimagen
+
+	orc andc - ;
+
+
+:makecuadtree
+	size 0? ( ; )
+	2/ 'size !
+	check 1? ( drop makecuadtree )( drop +pnt )
+ 	size 1+ 'xx +!
+	check 1? ( drop makecuadtree )( drop +pnt )
+	size 1+ neg 'xx +!
+	size 1+ 'yy +!
+	check 1? ( drop makecuadtree )( drop +pnt )
+	size 1+ 'xx +!
+	check 1? ( drop makecuadtree )( drop +pnt )
+	size 1+ neg 'xx +!
+	size 1+ neg 'yy +!
+	size 2* 1+ 'size !
+	;
+
+
+|------------ construye 4tree
+#4tre
+#4tre>
+
+#arr4 )( $fffff | array de nodos
+#arr4> 'arr4
+#arr4< 'arr4
+
+#index4 | indice actual
+
+#octomas 0 0 0 0 0 0 0 0
+
+|---------- arreglo circular
+:cntoc | -- cnt
+	arr4< arr4> - ;
+
+:pushoc | shift ini fin --
+	arr4> 'arr4> 12 - >=? ( 'arr4 nip )
+	!+ !+ !+ 'arr4> !
+	1 'index4 +! ;
+
+:getoc | -- fin ini ahift
+	arr4< 'arr4> 12 - >=? ( 'arr4 nip )
+	>r r@+ r@+ r@+ r> 'arr4< ! ;
+
+|--------------------------
+:,quad | val --
+	4tre> !+ '4tre> ! ;
+
+
+:chekquad | res x y -- res x y bitmaps
+|	trace
+	pick2 2/ pick2 pick2
+	check2 1? ( 1 )( 0 ) >r drop
+	pick2 2/ pick2 over + pick2
+	check2 1? ( 2 )( 0 ) r+ drop
+	pick2 2/ pick2 pick2 pick2 +
+	check2 1? ( 4 )( 0 ) r+ drop
+	pick2 2/ pick2 over + pick2 pick2 +
+	check2 1? ( 8 )( 0 ) r+ drop
+	r>
+	;
+
+:pushquad | res x y bitmap --
+	1 and? ( pick3 2/ pick3 pick3 swap rot pushoc )
+	2 and? ( pick3 2/ pick3 over + pick3 swap rot pushoc )
+	4 and? ( pick3 2/ pick3 pick3 pick2 + swap rot pushoc )
+	8 and? ( pick3 2/ pick3 over + pick3 pick2 + swap rot pushoc )
+	4drop
+	;
+
+:buildnext
+	getoc				| res x y
+	pick2 0? ( 3drop $ff00 ,quad ; ) drop
+	chekquad
+	dup
+	index4
+	|4tre> 4tre - 2 >> -
+	8 << | relativo
+	or
+	,quad
+	pushquad
+	;
+
+:build4tree | --
+	0 0 setxy drawimagen
+
+	here '4tre !
+	4tre '4tre> !	| mem de nodos
+	0 'index4 !
+	'arr4  dup 'arr4> ! 'arr4< !	| array de nodos
+	0 0 res pushoc
+	( cntoc 1? )( drop
+		buildnext
+		) drop
+	4tre> 'here !
+	;
+
+:printoc
+	chome! blanco
+	4tre> 4tre - 2 >> " :%d: " print cr
+	4tre ( 4tre> <? )(
+		@+ "%h  " print cr allowchome ) drop
+	;
+
+|---------- imprime
+:4box2d
+	xx yy 2dup op
+	over over size + line
+	over size + over size + line
+	over size + over line
+	line ;
+
+:drawrec | pointer --
+	@
+ 4box2d
+	dup $f and 0? ( 2drop ; ) |4box2d ; ) |xx yy 2dup op size + swap size + swap line ; )
+	swap 8 >> 2 << 4tre + swap
+|	trace
+	size 2/ 'size !
+	1 and? ( over drawrec swap 4+ swap  )
+	2 and? ( size 'xx +! over drawrec swap 4+ swap size neg 'xx +! )
+	4 and? ( size 'yy +! over drawrec swap 4+ swap  size neg 'yy +! )
+	8 and? ( size dup 'xx +! 'yy +! over drawrec swap 4+ swap  size neg dup 'xx +! 'yy +! )
+	2drop
+	size 2* 'size !
+	;
+
+:draw4tree
+	rojo
+	512 'size !
+	0 0 'yy ! 'xx !
+	4tre drawrec ;
+
+:show4tree
+	show clrscr
+		draw4tree
+		'exit >esc<
+	;
+|-----------------
+:main
+	mark
+	here 'imagen !
+	res dup * 2 << 'here +!
+
+	clrscr
+	verde
+	10 10 op 130 110 line 80 180 line 10 10 line
+
+	255 255 100 fcircleg
+
+	copyimg
+	33
+	show clrscr
+|--- dibuja imagen
+		0 0 setxy drawimagen
+
+		printoc
+		'build4tree <f1>
+		'show4tree <f2>
+		'exit >esc<
+		cminiflecha ;
+
+: main ;
