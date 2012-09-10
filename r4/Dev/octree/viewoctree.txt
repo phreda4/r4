@@ -90,18 +90,51 @@
 |	size 2* 'size !
 |	;
 
-:viewo | adr --
-	size 2 <? ( 2drop box3d ; ) drop
-	@
-	dup $ff and 0? ( 2drop ; )
-	swap
+:endr | vnodo --
+	drop
+	box3d
+	;
 
+:viewo | adr --
+|	size 2 <? ( 2drop box3d ; ) drop
+	@ $80000000 and? ( endr ; )
+	size 2/ 'size !
+	dup 8 >> 2 << octre +
+	swap $ff and | adr bitmask
+	( 1? )(
+		1 and? ( swap dup viewo 4+ swap )
+		2/ )
+	2drop
+	size 2* 'size !
 	;
 
 :viewoctree | mem --
 	$1ff 'size !
 	0 'xc ! 0 'yc ! 0 'zc !
 	octre viewo ;
+
+|---------
+
+:endr | x y z size adr bit -- x y niv
+	3drop
+	255 swap 2/ -
+	dup 8 << over 16 << or or ;
+
+:raycast | x y z size adr -- x y niv
+	dup
+	@ $80000000 and? ( endr ; )
+	8 >> and
+	;
+
+:viewo
+	0 ( 512 <? )(
+		0 over setxy
+		0 ( 512 <? )(
+			511 8 octree rayCast
+			px!+
+			1+ ) drop
+		1+ ) drop
+	;
 
 |-----------------------------
 :flecha
@@ -111,10 +144,11 @@
 
 |--------------------------
 :main
+	here 'octre !
 	"media/3do/bunny.3do"
 |	"media/3do/xyzrgb_statuette.3do"
 |	"media/3do/dragon.3do"
-	'octre load 'octre> !
+	octre load 'octre> !
 
 	4
 	show clrscr verde
@@ -128,8 +162,8 @@
 		xcam ycam zcam mtrans
 
 
+		octre viewoctree
 |		rx mrotxi ry mrotyi flecha
-
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
