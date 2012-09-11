@@ -95,97 +95,46 @@
 	box3d
 	;
 
-
-:-mov | size id --
-	1 and? ( over )( over neg ) 'xc +!
-	2 and? ( over )( over neg ) 'yc +!
-	4 and? ( over )( over neg ) 'zc +!
-	2drop ;
-
-:+mov | size id --
-	1 and? ( over neg )( over ) 'xc +!
-	2 and? ( over neg )( over ) 'yc +!
-	4 and? ( over neg )( over ) 'zc +!
-	2drop ;
-
-:testbox
-	size 2/ 'size !
-	size %000 +mov box3d size %000 -mov
-	size %010 +mov box3d size %010 -mov
-	size %011 +mov box3d size %011 -mov
-	size 2* 'size ! ;
-
-
 :viewo | adr --
-	size 4 <? ( 2drop box3d ; ) drop
+|	size 2 <? ( 2drop box3d ; ) drop
 	@ $80000000 and? ( endr ; )
 	size 2/ 'size !
 	dup 8 >> 2 << octre +
 	swap $ff and | adr bitmask
-	0 swap
 	( 1? )(
-		1 and? ( size pick2 +mov rot dup viewo 4+ rot rot size pick2 -mov )
-		2/ swap 1+ swap )
-	3drop
-	size 2* 1+ 'size ! ;
+		1 and? ( swap dup viewo 4+ swap )
+		2/ )
+	2drop
+	size 2* 'size !
+	;
 
-:viewoctree | --
+:viewoctree | mem --
 	$1ff 'size !
 	0 'xc ! 0 'yc ! 0 'zc !
 	octre viewo ;
 
 |---------
-|    ix := x shr Size;
-|    iy := y shr Size;
-|    iz := 1;//z shr Size;
-|    i  := iz * 4 + iy * 2 + ix;
-|    Dec(x, ix shl Size);
-|    Dec(y, iy shl Size);
-|    Dec(z, iz shl Size);
-|    if Node.Child[i] <> nil then
-|      Result := RayCast(Node.Child[i], x, y, z, Size - 1)
-|    else
-|    begin
-|      Inc(z, 1 shl Size);
-|      Dec(i, 4);
-|      if Node.Child[i] <> nil then
-|        Result := RayCast(Node.Child[i], x, y, z, Size - 1);
-|    end;
 
 :endr | x y z size adr bit -- x y niv
 	3drop
 	255 swap 2/ -
 	dup 8 << over 16 << or or ;
 
-#mask
 :raycast | x y z size adr -- x y niv
 	dup
 	@ $80000000 and? ( endr ; )
-	dup 8 >> swap $ff and | x y z size adr 1rfhild bitmask
-	mask and
-	0? ( endr ; )
-	4drop $ff00
+	8 >> and
 	;
 
-:testxy
-	2dup xor ;
-
 :viewo
-	0 'mask !
 	0 ( 512 <? )(
 		0 over setxy
 		0 ( 512 <? )(
-
-|			511 8 octre rayCast
-			testxy
+			511 8 octre rayCast
 			px!+
 			1+ ) drop
 		1+ ) drop
 	;
-
-:viewo2
-	octre ( octre> <? )(
-		dup showpoint 4+ ) drop ;
 
 |-----------------------------
 :flecha
@@ -193,34 +142,81 @@
 	1000 0 0 3dop 500 0 0 3dline
 	550 50 0 3dline 500 0 0 3dline 550 -50 0 3dline ;
 
+#sch )( 1024
+#ceros
+#duplis
+#maxv
+#maxf
+#finales
+
+:addn
+	$ff and 2 << 'sch +
+	dup @ 1+ maxv >? ( dup 'maxv ! ) swap !
+	;
+
+:buildstat
+	0 'finales
+	0 'ceros !
+	0 'maxv !
+	0 'duplis !
+
+	'sch >r 256 ( 1? )( 1- 0 r!+ ) drop rdrop
+	octre ( octre> <? )(
+		@+ -? ( dup addn 1 'finales +! )
+		drop ) drop
+	maxv 'maxf !
+
+	'sch >r
+	256 ( 1? )( 1-
+		r@+ 1? ( 1- dup 'duplis +! ) drop
+		) drop rdrop
+
+	'sch >r 256 ( 1? )( 1- 0 r!+ ) drop rdrop
+	octre ( octre> <? )( @+ addn ) drop
+
+	'sch >r
+	256 ( 1? )( 1-
+		r@+ 0? ( 1 'ceros +! ) drop
+		) drop rdrop
+	;
+
+:viewstat
+	maxv ceros "ceros:%d maxv:%d " print
+	maxf finales "finales:%d maxf:%d" print cr
+
+	'sch >r
+	256 ( 1? )( 1-
+		0 over 200 + op r@+ 4 >> over 200 + line
+		) drop rdrop cr
+	;
 |--------------------------
 :main
 	here 'octre !
 |	"media/3do/bunny.3do"
 |	"media/3do/xyzrgb_statuette.3do"
-|	"media/3do/dragon.3do"
-	octre load 'octre> !
+	"media/3do/dragon.3do"
+	octre swap load 'octre> !
 
-|	octre memmap
+	buildstat
 	4
 	show clrscr verde
-		dup ":r%d " print
-|		octre> octre - "%d bytes" print cr
+		dup ":r%d " print cr
+
+		viewstat
+		octre> octre - "%d bytes." print cr
+		octre> octre - duplis 2 << - "%d no repetidos" print cr
+
 		omode
 		freelook
 		xcam ycam zcam mtrans
 
-|		testbox
-|		viewo
-		viewoctree
-
-		testbox
-
+|		octre viewoctree
 |		rx mrotxi ry mrotyi flecha
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
 
+		cminiflecha
 		'exit >esc< ;
 
 : mark main ;
