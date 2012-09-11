@@ -1,0 +1,188 @@
+| gen generator
+| PHREDA 2012
+|-----------------------------
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+^r4/lib/morton.txt
+
+#SAVEFILE
+|"media/m3d/cilindro.m3d"
+"media/m3d/esfera.m3d"
+
+#xcam 0 #ycam 0 #zcam 2048
+
+#bolu3dMap
+
+#bolu3dRes $3ff | 1024
+#bolu3dSca 10
+#bolu3dimg $fffff
+
+|#bolu3dRes $1ff | 512
+|#bolu3dSca 9
+
+|#bolu3dRes $ff | 256
+|#bolu3dSca 8
+|#bolu3dimg $ffff
+
+|#bolu3dRes $7f | 128
+|#bolu3dSca 7
+|#bolu3dRes $3f | 64
+|#bolu3dSca 6
+
+|----------- graficacion
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:drawp | x y z ---
+	project3d |2dup op line ;
+	-? ( 2drop ; ) sh >=? ( 2drop ; )
+	swap -? ( 2drop ; ) sw >=? ( 2drop ; ) swap
+	setxy
+	ink@ px!+ ;
+
+
+:3dop project3d op ;
+:3dline project3d line ;
+
+|----- ver por planta
+
+
+:filla | x y z --
+	morton3d , ;
+
+|-----------------------------------
+:fillinez | x y desde hasta --
+	pick3 pick3 rot filla
+	filla
+	;
+
+
+:cilindro | x y --
+	2dup
+	over bolu3dRes 2/ -
+	over bolu3dRes 2/ -
+	dup * swap dup * + sqrt
+	bolu3dRes 2/ swap - 4 -
+	-? ( 3drop ; ) drop
+	bolu3dRes 2/ 8 -
+	dup bolu3dRes 2/ +
+	swap bolu3dRes 2/ swap -
+	swap fillinez ;
+
+|-----------------------------------
+:circle | x y --
+	2dup
+	over bolu3dRes 2/ -
+	over bolu3dRes 2/ -
+	dup * swap dup * + sqrt
+	bolu3dres 2/ swap - 4 -
+	-? ( 3drop ; )
+	$7f swap - dup *
+	bolu3dRes 2/ dup * swap - sqrt
+	dup bolu3dRes 2/ +
+	swap bolu3dRes 2/ swap -
+	swap fillinez ;
+
+|-----------------------------------
+:dist | x y --
+	2dup
+	over bolu3dRes 2/ -
+	over bolu3dRes 2/ -
+	distfast
+	bolu3dres 2/ swap -
+	-? ( 3drop ; )
+	pick2 pick2 pick2 bolu3dRes 2/ + filla
+	bolu3dRes 2/ swap - filla
+	;
+
+
+|-----------------------------------
+:ovni | x y --
+	2dup
+	over bolu3dRes 2/ -
+	over bolu3dRes 2/ -
+	dup * swap dup * + sqrt
+	bolu3dRes 2/ swap - 4 -
+	-? ( 3drop ; )
+	pick2 pick2 pick2 bolu3dRes 2/ + filla
+	bolu3dRes 2/ swap - filla
+	;
+
+
+|------ recorre XY y llama generador
+:generator | plotf --
+	mark
+	0 ( bolu3dRes <=? )(
+		0 ( bolu3dRes <=? )(
+			pick2 exec
+			1+ ) drop
+		1+ ) 2drop
+	"media/3dm/esfera.3dm" savemem
+	empty
+	;
+
+|---- caja en normalizado
+:drawboxz | z --
+	-$1ff -$1ff pick2 3dop
+	$1ff -$1ff pick2 3dline
+	$1ff $1ff pick2 3dline
+	-$1ff $1ff pick2 3dline
+	-$1ff -$1ff rot 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup -$1ff 3dop $1ff 3dline ;
+
+:draw3dnorm
+	-$1ff drawboxz
+	$1ff drawboxz
+	-$1ff -$1ff drawlinez
+	$1ff -$1ff drawlinez
+	$1ff $1ff drawlinez
+	-$1ff $1ff drawlinez ;
+
+|--------------------------------------
+:saveb3d | "" --
+	bolu3dMap bolu3dImg 12 * rot save ;
+
+:main
+	here 'bolu3dMap !
+	4
+	show clrscr
+
+		verde dup ":r%d " print
+		blanco 'SAVEFILE " %s " print
+		cyan bolu3dimg 12 * bolu3dRes " b4R:res:%d mem:%d" print cr
+
+		[ 'cilindro generator ; ] <f1>
+		[ 'circle generator ; ] <f2>
+		[ 'ovni generator ; ] <f3>
+		[ 'dist generator ; ] <f4>
+
+|		[ 'SAVEFILE saveb3d ; ] <f10>
+		'exit >esc< ;
+
+|--------------------------
+:main2
+	4
+	show clrscr
+		verde dup ":r%d " print
+		blanco 'SAVEFILE " %s " print
+		cyan bolu3dimg 12 * bolu3dRes  " b4R:%d mem:%d" print cr
+
+		cflecha
+
+		omode
+		freelook
+		xcam ycam zcam mtrans
+		cyan draw3dnorm
+
+		[ -0.01 'zcam +! ; ] <up>
+		[ 0.01 'zcam +! ; ] <dn>
+
+		'exit >esc< ;
+
+: mark main ;
