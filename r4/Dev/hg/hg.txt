@@ -1,15 +1,17 @@
 | historia grafica
+| PHREDA 2012
+|----------------------------
 
 ^r4/lib/gui.txt
 ^r4/lib/btn.txt
 ^r4/lib/trace.txt
 ^r4/lib/part16.txt
 
-^r4/dev/games/hg.spr
+^r4/dev/hg/hg.spr
 
 |------ animaciones
 #secquieto 0 0 p4 10 0
-#seccamina 0 0 p1 10 p2 10 p1 10 p3 10 0
+#seccamina 0 0 p1 5 p2 5 p1 5 p3 5 0
 #seccaminaf 0 0 p4 10 p5 10 p4 10 p6 10 0
 #seccaminad 0 0 p7 10 p8 10 p7 10 p9 10 0
 
@@ -17,10 +19,14 @@
 #secver 0 0 ver 20 ver1 20 ver2 5 0
 #secusa 0 0 usar 14 usar2 10 0
 
-#pantallas 'pant1 'pant2
+#pantallas 'salon1 'pant2
 
 #mensaje )( 64
 :mensaje! 'mensaje strcpy ;
+#strobjeto )( 64
+:objeto! 'strobjeto strcpy ;
+
+|--- auxiliares
 
 :secani | 'secani -- 'spr
 	>r r @ 0? ( r 8 + r!+ r!+ r> @ ; )
@@ -28,6 +34,20 @@
 	<? ( r> 4+ ! @ ; ) drop
 	8 + dup @ 0? ( 2drop r 8 + dup @ ) | adr spr
 	swap r!+ 0 r> ! ;
+
+#renderlist 0 0
+
+:renderini |
+	2048 'renderlist p.ini ;
+
+:renderclear |
+	'renderlist p.clear ;
+
+:renderadd |
+	;
+
+|------------------------
+
 
 #objetos 0 0
 #walls	0 0
@@ -40,7 +60,9 @@
 #vx #vy
 #yd #xd
 #dz 200
-#pant 'pant1
+#pant 'salon1
+
+#xm #ym
 |------------ paredes
 #xmin -0.8 #xmax 0.8
 #ymin -0.8 #ymax 0.8
@@ -69,19 +91,22 @@
 
 :drawmenu
 	menuactivo 0? ( drop ; ) drop
-	190 100 dim
-	xp yp 0.2 + fpos 'pensar nsprite
+	190 140 dim
+	xm ym 0.2 + fpos 'pensar nsprite
 	80 dup dim
-	xp 0.08 - yp 0.2 + fpos
+	xm 0.05 - ym 0.15 + fpos
 	[ 'secver secani nsprite ; ]
 	[ 'ver nsprite ; ] guiIO
 	[ menuobj 24 + @ exec  ; ] guiBtn
 
-	xp 0.08 + yp 0.2 + fpos
+	xm 0.05 + ym 0.15 + fpos
 	[ 'secusa secani nsprite ; ]
 	[ 'usar nsprite ; ] guiIO
 	[ menuobj 28 + @ exec ; ] guiBtn
-
+	190 100 dim
+	negro
+	xm ym 0.15 + fpos home
+	'strobjeto printc
 	;
 
 :menuclick
@@ -99,7 +124,7 @@
 	'obj 'objetos p!+ >r r!+ r!+ r!+ r!+ r!+ r!+ r> ! ;
 
 :inobj | x y -- o
-	'objetos 0.05 p.in2d? ;
+	'objetos 0.2 p.in2d? ;
 
 |--------- WALL
 :wall
@@ -138,14 +163,15 @@
 	;
 |---------- principal
 :fondo
-	sw dup 2 >> + dup dim
-	0 0 fpos
+|	sw dup 2 >> + dup dim
+|	0 0 fpos
 	pant nsprite
 	;
 
 :menuobjeto | adr --
 	dup 'menuobj !
-	dup 20 + @ 'mensaje strcpy
+	dup 20 + @ objeto!
+	fxymouse 'ym ! 'xm !
 	1 'menuactivo !
 	;
 
@@ -165,27 +191,60 @@
 	'objetos p.clear
 	'fxs p.clear
 	"" mensaje!
+	"" objeto!
 	;
 
+|---- clip
+:verclip
+	"Es un clip sujetapapeles" mensaje! ;
 
+:usaclip
+	"voy doblar un poco este clip" mensaje!
+	;
+
+|---- mesa salon
 :vermesa
 	"La mesa parece bastante sucia!" mensaje! ;
 
 :usamesa
 	| agrega clip si no esta
 	| agrega bollo de papel
+	0 0
+	"Papel" 'papel 100
+	-0.8 rand 0.1 mod 0.05 - +
+	0.0 rand 0.2 mod 0.1 - +
+	+obj
+
+	'usaclip 'verclip
+	"Clip" 'clip 100
+	-0.8 rand 0.1 mod 0.05 - +
+	0.0 rand 0.2 mod 0.1 - +
+	+obj
+
 	;
+
+
+|---- puerta salon
+:verpuerta
+	"Por aqui deberia irme" mensaje! ;
+
+:usarpuerta
+	"La puerta esta cerrada con llave" mensaje! ;
 
 :pantalla1
 	resetpant
-|	'ob1 80 0.2 -0.5 +wall
-|	0 0 "Boton" 'ob1 80 0.2 0.5 +obj
-	0 'vermesa 
+	'salon1 'pant !
+	'usarpuerta 'verpuerta
+	"Puerta" 'puerta 600 -0.1 0.6 +obj
+	0 'vermesa
 	"Mesa" 'mesa 300 -0.5 0.4 +obj
-	'usamesa 'vermesa 
+	'usamesa 'vermesa
 	"Mesa" 'mesa 300 -0.6 -0.1 +obj
-	0 'vermesa 
+	0 'vermesa
 	"Mesa" 'mesa 300 -0.5 -0.7 +obj
+
+	0 'xd ! -0.5 'yd !
+	0 'xp ! -0.5 'yp !
 	;
 
 
@@ -194,10 +253,9 @@
 	fonti2
 	4
 	show clrscr
-|		fondo
-
-		scr 'moveto guiBtn
-		'salon1 nsprite
+		fondo
+		scr
+		'moveto guiBtn
 
 		'walls p.draw
 		'objetos p.draw
@@ -206,7 +264,8 @@
 
 		drawmenu
 
-		scr dup " %d " print
+		scr home dup " %d " print cr
+		'strobjeto print cr
 		'mensaje print
 
    		cflecha
