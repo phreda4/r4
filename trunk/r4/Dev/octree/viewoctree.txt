@@ -76,25 +76,6 @@
 	27 drawtree ;
 
 |---------------------
-|:drawpoint
-|	size 2 <? ( 2drop xx yy 2dup op line ; ) drop
-|	@
-|	dup $f and 0? ( 2drop ; ) |xx yy 2dup op line ; ) |4box2d ; ) |xx yy 2dup op size + swap size + swap line ; )
-|	swap 8 >> 2 << 4tre + swap
-|	size 2/ 'size !
-|	1 and? ( swap dup drawpoint 4+ swap )
-|	2 and? ( size 'xx +! swap dup drawpoint 4+ swap size neg 'xx +! )
-|	4 and? ( size 'yy +! swap dup drawpoint 4+ swap size neg 'yy +! )
-|	8 and? ( size dup 'xx +! 'yy +! swap dup drawpoint 4+ swap size neg dup 'xx +! 'yy +! )
-|	2drop
-|	size 2* 'size !
-|	;
-
-:endr | vnodo --
-	drop
-	box3d
-	;
-
 
 :-mov | size id --
 	1 and? ( over )( over neg ) 'xc +!
@@ -116,15 +97,23 @@
 	size 2* 'size ! ;
 
 
+|--- view full octree
+#lod 128
+
 :viewo | adr --
-	size 4 <? ( 2drop box3d ; ) drop
-	@ $80000000 and? ( endr ; )
+
+	size lod <? ( 2drop box3d ; ) drop
+
+	@ $80000000 and? ( drop ; ) | box3d
 	size 2/ 'size !
 	dup 8 >> 2 << octre +
-	swap $ff and | adr bitmask
-	0 swap
+	swap $ff and		 | adr bitmask
+	0 swap				| adr 0 bitmask
 	( 1? )(
-		1 and? ( size pick2 +mov rot dup viewo 4+ rot rot size pick2 -mov )
+		1 and? (
+			size pick2 +mov
+			rot dup viewo 4+ rot rot
+			size pick2 -mov )
 		2/ swap 1+ swap )
 	3drop
 	size 2* 1+ 'size ! ;
@@ -134,7 +123,60 @@
 	0 'xc ! 0 'yc ! 0 'zc !
 	octre viewo ;
 
-|---------
+|--- view with mask
+:-mov | id --
+	1 and? ( size )( size neg ) 'xc +!
+	2 and? ( size )( size neg ) 'yc +!
+	4 and? ( size )( size neg ) 'zc +!
+	drop ;
+
+:+mov | id --
+	1 and? ( size neg )( size ) 'xc +!
+	2 and? ( size neg )( size ) 'yc +!
+	4 and? ( size neg )( size ) 'zc +!
+	drop ;
+
+#masko $ff | los 8 hijos
+
+:viewom | adr --
+
+	size lod <? ( 2drop box3d ; ) drop
+
+	@ $80000000 and? ( drop ; ) | box3d
+	size 2/ 'size !
+	dup 8 >> 2 << octre +	| calcula primero
+	swap $ff and		 | adr bitmask
+	0 swap
+	( 1? )(
+		1 and? (
+			rot 4+ rot rot 	)
+		swap 1+ swap 2/ ) drop
+
+|	masko and			| mask of visibility
+
+	0 				| adr bitmask child
+	( $100 <? )( over
+		masko and and? (
+			over +mov
+
+|			rot dup viewom 4+ rot rot
+
+			pick2
+
+			over -mov )
+		2/ swap 1+ swap
+
+		swap 2* )
+	3drop
+	size 2* 1+ 'size ! ;
+
+:viewoctreem | mask --
+	'masko !
+	$1ff 'size !
+	0 'xc ! 0 'yc ! 0 'zc !
+	octre viewom ;
+
+|------ solo en direccion z
 |    ix := x shr Size;
 |    iy := y shr Size;
 |    iz := 1;//z shr Size;
@@ -187,6 +229,11 @@
 	octre ( octre> <? )(
 		dup showpoint 4+ ) drop ;
 
+:printoctre
+	octre ( octre> <? )(
+		@+ "%h  "  allowcr print ) drop
+	;
+
 |-----------------------------
 :flecha
 	blanco
@@ -197,27 +244,34 @@
 :main
 	here 'octre !
 |	"media/3do/bunny.3do"
-|	"media/3do/xyzrgb_statuette.3do"
+	"media/3do/xyzrgb_statuette.3do"
 |	"media/3do/dragon.3do"
-	octre load 'octre> !
+	octre swap load 'octre> !
 
 |	octre memmap
 	4
 	show clrscr verde
-		dup ":r%d " print
+		dup ":r%d " print cr
+		lod "LOD:%d " print cr
 |		octre> octre - "%d bytes" print cr
+|		printoctre
+
+
 		omode
 		freelook
 		xcam ycam zcam mtrans
 
 |		testbox
 |		viewo
+
 		viewoctree
 
-		testbox
+|		testbox
 
 |		rx mrotxi ry mrotyi flecha
 
+		[ lod 2* 'lod ! ; ] <le>
+		[ lod 2/ 1+ 'lod ! ; ] <ri>
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
 
