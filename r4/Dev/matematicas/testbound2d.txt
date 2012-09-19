@@ -1,0 +1,152 @@
+| quadtree1
+| PHREDA 2012
+|-----------------------------
+^r4/lib/gui.txt
+^r4/lib/fontj.txt
+
+^r4/lib/trace.txt
+^r4/lib/sort.txt
+
+#res 256
+#imagen
+#puntos
+#puntos>
+
+#listap 0 0
+
+#quad
+#quad>
+
+#ang
+
+#xr #yr
+#xd #yd
+
+:drawimagen
+	imagen >r
+	res ( 1? )( 1-
+		res ( 1? )( 1-
+			r@+ px!+
+			) drop
+		sw res - px+!
+		) drop
+	rdrop
+	;
+
+:copyimg
+	imagen >r
+	res ( 1? )( 1-
+		res ( 1? )( 1-
+			px@ r!+ 1 px+!
+			) drop
+		sw res - px+!
+		) drop
+	rdrop
+	;
+
+|-- mouse
+:crux | x y
+	over 5 - over 5 - op
+	over 5 + over 5 + line
+	over 5 - over 5 + op
+	over 5 + over 5 - line
+	2drop
+	;
+
+:dn
+	xymouse 'yr ! 'xr ! ;
+:mv
+	xymouse 'yr ! 'xr !
+
+;
+
+|	xymouse 'yd ! 'xd ! ;
+:up
+	| proc
+|	calcray
+	yr yd - 0? ( drop ; ) drop
+|	yr xr morton2d searchm 'puntomascercano !
+	;
+#xp #yp
+:teclado1punto
+|	'procesa <f1>
+	[ 1 'xp +! punto ; ] <ri>
+	[ -1 'xp +! punto ; ] <le>
+	[ -1 'yp +! punto ; ] <up>
+	[ 1 'yp +! punto ; ] <dn> ;
+
+:calcang
+	ang 20 polar 'yd ! 'xd !
+	;
+
+:printp | p
+	1? ( dup @ dup xr yr morton2d xor swap "%h %h " print cr ) drop ;
+
+|-----------------
+:main
+	mark
+	here 'imagen !
+	res res * 2 << 'here +!
+	here dup 'puntos ! 'puntos> !
+	res res * 3 << 'here +!
+	here dup 'quad ! 'quad> !
+
+	clrscr
+	verde
+	10 10 op 130 110 line 80 180 line 10 10 line
+	procesa
+	fontj
+	0 'ang ! calcang
+	show clrscr
+		puntos> puntos - 3 >> "%d puntos " print cr
+		"                                  " print
+		chome!
+		puntos ( puntos> <? )(
+			azul
+			punto1 =? ( rojo )
+			punto2 =? ( verde )
+			punto3 =? ( cyan )
+			punto3 =? ( blanco )
+
+			@+ "%h " print cr allowchome 4+ ) drop
+
+		info "lugar %d " print cr
+|		ydd xdd " direccion: %d,%d " print cr
+|		xin "%d " print cr
+
+		xr yr morton2d "%h " print cr
+		punto1 printp
+		punto2 printp
+		punto3 printp
+		punto4 printp
+
+|		xin pyc ps + crux
+		cr
+|--- dibuja imagen
+		0 0 setxy drawimagen
+
+|--- dibuja quadtree
+|		rojo puntos @ drawanumber
+|		azul puntos ( puntos> <? )( @+ drawanumber 4+ ) drop
+
+		blanco punto4 1? ( @ drawanumber )( drop ) | mas cercano
+
+		rojo punto1 1? ( @ drawanumber )( drop )
+		verde punto2 1? ( @ drawanumber )( drop )
+		cyan punto3 1? ( @ drawanumber )( drop )
+
+
+
+|--- dibuja rayo
+		cyan
+		xr yr op xr xd + yr yd + line
+
+		scr
+		'dn 'mv 'up guiMap
+
+		[ 0.01 'ang +! calcang ; ] <le>
+		[ -0.01 'ang +! calcang ; ] <ri>
+		'exit >esc<
+		cminiflecha ;
+
+: main ;
