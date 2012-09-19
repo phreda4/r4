@@ -1,0 +1,134 @@
+|  SCANLINE
+| PHREDA 2012
+|-----------------------
+^r4/lib/gui.txt
+^r4/lib/3dmat.txt
+
+
+#cubo | cubo
+3 0 0.5
+1 0 $ff
+4 0 $ffff 0.25 $ff00 0.5 $ffff00 0.75 $ff00ff
+1 0.5 $ff0000
+
+|    x y z x y z s 'o
+#obj1 0 0 0 0 0 0 0.5 'cubo
+
+#xcam 0 #ycam 0 #zcam -2.0
+#xto  0 #yto  0 #zto  1.0
+
+#vang
+#ang
+#vel
+
+#rx
+#ry
+|---- dibujo de planta
+:3dop project3d op ;
+:3dline project3d line ;
+
+:drawz | size z -- size
+	over neg dup pick2 3dop
+	over dup neg pick2 3dline
+	over dup pick2 3dline
+	over neg dup neg pick2 3dline
+	over neg dup pick2 3dline
+	drop ;
+
+:drawl | size x1 x2 --
+	2dup pick4 neg 3dop pick2 3dline ;
+
+:box3d | size --
+	dup neg drawz
+	dup drawz
+	dup neg dup drawl
+	dup dup neg drawl
+	dup dup drawl
+	dup neg dup neg drawl
+	drop
+	;
+
+|---------------------
+:angleline | angle -- x y z
+	sincos ycam + swap xcam + swap zcam ;
+
+:camarrow
+|	xcam ycam zcam pick2 xto + pick2 yto + pick2 zto + 3dop 3dline | linea derecha
+	ang 0.1 - angleline 3dop
+	xcam ycam zcam 3dline
+	ang 0.1 + angleline 3dline ;
+
+:drawbox | size --
+	dup neg over neg 0 3dop
+	dup over neg 0 3dline
+	dup over 0 3dline
+	dup neg over 0 3dline
+	dup neg swap neg 0 3dline ;
+
+:drawplan | obj --
+	>r mpush
+	r@+ r@+ r@+ mtransi
+	r@+ mrotxi
+	r@+ mrotyi
+	r@+ mrotzi
+	r@+ box3d |drawbox
+	rdrop mpop ;
+
+:viewplano
+	omode
+	0 0 -10.0 mtrans
+	verde camarrow
+	cyan 'obj1 drawplan
+	0.001 'obj1 20 + +!
+	;
+
+|------------- dibujo en scan
+:drawp | obj --
+	>r mpush
+	r@+ r@+ r@+ mtransi
+	r@+ drop
+	r@+ drop
+	r@+ mrotyi
+	r@+ box3d
+	rdrop mpop ;
+
+:render
+	omode
+ 	xcam ycam zcam mtrans
+	cyan
+	'obj1 drawp
+	;
+
+|-------------
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg 'rx ! 'ry ! ;
+
+:movcam
+	[ 0.001 'vang ! ; ] <le>
+	[ -0.001 'vang ! ; ] <ri>
+	[ 0 'vang ! ; ] dup >le< >ri<
+	[ 0.01 'vel ! ; ] <up>
+	[ -0.01 'vel ! ; ] <dn>
+	[ 0 'vel ! ; ] dup >up< >dn<
+
+	|--- viajar
+	vang 1? ( 'ang +! ang sincos 'yto ! 'xto ! )( drop )
+	vel 0? ( drop ; )
+	ang polar2 'ycam +! 'xcam +!
+	;
+|----- main
+:main
+	4
+	show clrscr
+		dup "%d" print cr
+
+		viewplano
+		render
+
+    	movcam
+		'exit >esc< ;
+
+: mark main ;

@@ -1,0 +1,237 @@
+| pointcloud "euclides"
+| PHREDA 2012
+|-----------------------------
+^r4/lib/gui.txt
+^r4/lib/fontj.txt
+^r4/lib/trace.txt
+^r4/lib/sort.txt
+^r4/lib/bsearch.txt
+^r4/lib/morton.txt
+
+#horse 0 0	| 3dm file 'adr cnt
+
+#xcam 0 #ycam 0 #zcam 2048
+#xmin #ymin #zmin #xmax #ymax #zmax
+
+
+:load3dm | "" 'var --
+	>r here dup r !
+	swap load dup 'here !
+	r@+ - 3 >> r> !
+	;
+
+|----------- graficacion
+#rx
+#ry
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg 'rx ! 'ry ! ;
+
+
+:drawp | x y z ---
+	project3d |2dup op line ;
+	-? ( 2drop ; ) sh >=? ( 2drop ; )
+	swap -? ( 2drop ; ) sw >=? ( 2drop ; ) swap
+	setxy
+	ink@ px!+
+	;
+
+#nodoa 0
+
+:drawpc | '3do --
+	@+ >r @
+	( 1? )( 1-
+		r nodoa =? ( blanco )( azul ) drop
+		r@+ invmorton3d drawp
+		4 r+ ) drop
+	rdrop ;
+
+
+:drawp2
+	project3d
+	2dup op
+	over 1+ over line
+	over 1+ over 1+ line
+	over over 1+ line
+	line ;
+
+:drawpcf | '3do --
+	@+ >r @
+	( 1? )( 1-
+		r@+ r@+ ink
+		invmorton3d drawp2
+		) drop
+	rdrop ;
+
+:3dop project3d op ;
+:3dline project3d line ;
+
+|-------- dibujo octree
+#xc #yc #zc
+#size
+
+:drawz | z --
+	xc size - yc size - pick2 3dop
+	xc size + yc size - pick2 3dline
+	xc size + yc size + pick2 3dline
+	xc size - yc size + pick2 3dline
+	xc size - yc size - rot 3dline ;
+
+:drawl | x1 x2 --
+	2dup zc size - 3dop zc size + 3dline ;
+
+:box3d
+	zc size - drawz zc size + drawz
+	xc size - yc size - drawl xc size + yc size - drawl
+	xc size + yc size + drawl xc size - yc size + drawl ;
+
+|-------------- muestra oc de 1 punto
+:+movx
+	1 and? ( size )( size neg ) 'xc +!
+	2 and? ( size )( size neg ) 'yc +!
+	4 and? ( size )( size neg ) 'zc +!
+	drop ;
+
+:drawtree | nro shift --
+	size 2/ 'size !
+	2dup >> $7 and | nro shift val
+	+movx box3d
+	3 - 0? ( 2drop ; )
+	drawtree ;
+
+:showpoint | adr --
+	0? ( drop ; ) @
+	0 'xc ! 0 'yc ! 0 'zc !
+	$1ff 'size ! box3d
+	27 drawtree ;
+
+#lista 0 0 2 2 50 50 80 80 90 90
+#L1 'lista 5
+
+
+|------- dibuja octree morton
+:hitoc | x y z -- color
+	morton3d 'horse bsearch 0? ( ; )
+	drop 1
+	;
+
+#xslice
+
+:dibujaoc
+	0 ( 255 <? )(
+		0 over setxy
+		0 ( 255 <? )(
+			over 128 - xslice pick2 128 - hitoc
+			1? ( $ff00 px!+ )( 1 px+! )
+			drop
+			1+ ) drop
+		1+ ) drop
+	;
+
+:statoc
+	0 'xslice !
+
+	show clrscr
+        dibujaoc
+		[ 1 'xslice +! ; ] <up>
+		[ -1 'xslice +! ; ] <dn>
+		'exit >esc<
+	;
+
+|-------------- separar por coordenada, ordenar y guardar caras
+#listax
+#listay
+#listaz
+#cnt
+
+#cntx
+#cnty
+#cntz
+
+:duchaso | adr --
+	@+ >r @ dup 'cnt !
+	here 'listax !
+	dup 3 << 'here +!
+	here 'listay !
+	dup 3 << 'here +!
+	here 'listaz !
+	dup 3 << 'here +!
+	( 1? )( 1-
+		r@+ r@+ drop
+		invmorton3d | x y z
+		pick3 3 << listaz + !
+		pick2 3 << listay + !
+		over 3 << listax + !
+		) drop
+	rdrop
+	cnt 1+ listax shellsort
+	cnt 1+ listay shellsort
+	cnt 1+ listaz shellsort
+	listax >r 0 'cntx !
+	cnt ( 1? )( 1-
+		r@+ r @ <>? ( 1 'cntx +! )
+		drop ) drop rdrop
+	listay >r 0 'cnty !
+	cnt ( 1? )( 1-
+		r@+ r @ <>? ( 1 'cnty +! )
+		drop ) drop rdrop
+	listaz >r 0 'cntz !
+	cnt ( 1? )( 1-
+		r@+ r @ <>? ( 1 'cntz +! )
+		drop ) drop rdrop
+	| y??
+
+	;
+
+|-----------------------------
+:flecha
+	blanco
+	1000 0 0 3dop 500 0 0 3dline
+	550 50 0 3dline 500 0 0 3dline 550 -50 0 3dline ;
+
+|--------------------------
+:main
+	"media/3dm/bunny.3dm" 'horse load3dm
+|	"media/3dm/xyzrgb_statuette.3dm" 'horse load3dm
+|	"media/3dm/dragon.3dm" 'horse load3dm
+
+	4
+	show clrscr verde
+		dup ":r%d " print cr
+		cnt "cnt:%d " print cr
+		cntz cnty cntx "x:%d y:%d z:%d" print cr
+		azul
+|		cflecha
+
+		omode
+		freelook
+		xcam ycam zcam mtrans
+
+|		cyan draw3dnorm
+		azul nodoa showpoint
+		'horse drawpc
+
+		rx mrotxi
+		ry mrotyi
+		flecha
+
+
+		azul
+|		$3000000 'horse bsearchqe 1? ( showpoint )( drop )
+
+|		8 'L1 bsearchqe 1? ( @ "%d-" print )( drop )
+|		8 'L1 bsearchle 1? ( @ "%d " print )( drop ) | NO ANDA!!
+
+		[ nodoa 0? ( horse nip )( 8 + ) 'nodoa ! ; ] <le>
+		[ nodoa 0? ( horse nip )( 8 + ) 'nodoa ! ; ] <ri>
+
+		[ -0.01 'zcam +! ; ] <up>
+		[ 0.01 'zcam +! ; ] <dn>
+
+		[ 'horse duchaso ; ] <f1>
+
+		'exit >esc< ;
+
+: mark main ;

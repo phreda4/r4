@@ -1,0 +1,388 @@
+| r4color.txt
+| Integrar...integrar..
+| PHREDA 2011
+|---------------------
+^r4/lib/btn.txt
+^r4/lib/input.txt
+^r4/lib/dlg.txt
+^r4/lib/graf.txt
+^r4/lib/polygr.txt
+
+#nombre )( 256
+#color $ff00
+#grosor 2
+
+#rampag
+
+#colora
+#grosora
+|--- dibujos
+#dibujos )( 1024
+#dibujo> 'dibujos
+|--- nombres
+#nombres )( 1024
+#nombres> 'nombres
+|--- colores
+#colores )( 2048
+#colores> 'colores
+
+|--- seleccion
+#seleccion #seleccion>
+
+|---- memoria para nombres
+#texto #texto>
+|---- memoria vectorial
+#todo  #todo>
+|--- trazo de capa actual
+#trazo  #trazo>
+
+|--- xfb refresh
+:copybox | w h x y --
+	sw * + 2 << >r | w h  R:a
+	( 1? )( 1-
+		xfb r + framev r + pick3 move
+		sw 2 << r+ )
+	2drop rdrop ;
+
+|--- trazo actual
+:trazo.op | xy
+	$00000000 or trazo> !+ 'trazo> ! ;
+:trazo.line | xy
+	$10000000 or trazo> !+ 'trazo> ! ;
+:trazo.color | color
+	$20000000 or trazo> !+ 'trazo> ! ;
+:trazo.grosor | grosor
+	$30000000 or trazo> !+ 'trazo> ! ;
+
+:trazo.clear
+	trazo 'trazo> ! ;
+
+|---
+:t0	$fffffff and d>xy gop ;
+:t1	$fffffff and d>xy gline ;
+:t2	$ffffff and ink ;
+:t3	$fff and linegg! ;
+
+#acctr 't0 't1 't2 't3
+
+:trazo.draw | last ini --
+	( over <? )(
+		@+ dup 26 >> $c and 'acctr + @ exec
+		) 2drop
+	grosor linegg! ;
+
+:rehacexfb
+	cls
+	trazo> trazo trazo.draw
+	>xfb
+	;
+
+|----- grosor de linea
+:ingrosor
+	[ xymouse pick2 - swap pick3 - min abs dup 'grosor ! linegg! ; ] guiMove ;
+
+:btngrosor
+	ccx ccy pick2 dup gc.xywh
+	dup 2/ dup ccx + ccy rot +
+	'ingrosor guiIn
+	negro gc.fbox
+    color ink grosor fcircle
+	blanco grosor "%d" print
+	'ccx +! ;
+
+|----- trazo por colores
+:indc+! | valor
+	colores> !+ 'colores> ! ;
+
+:indexcolor
+	'colores 'colores> !
+	trazo> trazo
+	( over <? )(
+		@+ 28 >>
+		2 =? ( over 4 - indc+! )
+		drop )
+	colores> !
+	drop ;
+
+|---- MODO SELECCION
+#xa #ya #xb #yb
+#ycen #xcen
+#xa1 #ya1 #xb1 #yb1
+
+:sortab
+	xa xb >? ( xb 'xa ! dup 'xb ! ) drop
+	ya yb >? ( yb 'ya ! dup 'yb ! ) drop
+	;
+
+:inab | x y -- 1/0
+	ya <? ( 2drop 0 ; ) yb >? ( 2drop 0 ; ) drop
+	xa <? ( drop 0 ; ) xb >? ( drop 0 ; ) drop
+	1 ;
+
+:boxmm | x y --
+	xa1 -1 =? ( drop dup 'ya1 ! 'yb1 ! dup 'xa1 ! 'xb1 ! ; ) drop
+	ya1 <? ( dup 'ya1 ! ) yb1 >? ( dup 'yb1 ! ) drop
+	xa1 <? ( dup 'xa1 ! ) xb1 >? ( dup 'xb1 ! ) drop
+	;
+
+:boxselect
+	-1 'xa1 !
+	seleccion ( seleccion> <? )(
+		@+ @ dup 28 >> $3 and
+		2 <? ( drop $fffffff and d>xy boxmm )( 2drop )
+		) drop
+	xa1 xb1 + 2/ 'xcen !
+	ya1 yb1 + 2/ 'ycen !
+	-4 dup 'xa1 +! 'ya1 +!
+	4 dup 'xb1 +! 'yb1 +!
+	;
+
+|-------- edicion
+
+:dd0 $fffffff and d>xy 2 box ;
+:dd1 $fffffff and d>xy 2 box ;
+:dd2 drop ;
+:dd3 drop ;
+
+#acdd dd0 dd1 dd2 dd3
+
+:selecc.draw
+	seleccion ( seleccion> <? )(
+		@+ @
+		dup 26 >> $c and 'acdd + @ exec
+		) drop
+	cyan
+	xa1 -? ( drop ; ) ya1 xb1 yb1 caja
+	amarillo
+	xcen ycen 4 box
+	;
+
+:selecc.reset
+	-1 'xa ! -1 'xa1 !
+	seleccion 'seleccion> ! ;
+
+:selecc.set
+	sortab
+	trazo ( trazo> <? )(
+		@+ $fffffff and d>xy inab 1? ( over 4 - seleccion> !+ 'seleccion> ! ) drop
+		) drop
+	boxselect
+	;
+
+:modoseleccion | --
+	[ xymouse 2dup 'ya ! 'xa ! 'yb ! 'xb ! ; ]
+	[ xymouse 'yb ! 'xb ! ; ]
+	[ selecc.set -1 'xa ! ; ]
+	guiMap
+	cyan
+	selecc.draw
+	xa -? ( drop ; ) ya xb yb caja
+	;
+
+
+:btnseleccion
+	'selecc.reset "Clear" sp btnt
+	'exit "<" sp btnt
+|	'exit cursorp " %d " sp btnt
+	'exit ">" sp btnt
+
+	cminimano
+	;
+
+|---- SAVEALL
+:saver4c | "" --
+	mark	| guarda texto
+	trazo> trazo - ,
+	trazo ( trazo> <? )( @+ , ) drop
+
+	savemem empty ;
+
+|---- LOADALL
+:loadr4c | "" --
+	mark
+	here dup rot load 'here ! | -- iniload..here
+	@+ trazo + 'trazo> !
+	trazo ( trazo> <? )( swap @+ rot !+ ) 2drop
+
+	empty
+	;
+
+|---- MODO DIBUJO
+#xm #ym
+:dnCursor
+	color colora <>? ( dup trazo.color 'colora ! )( drop )
+	grosor grosora <>? ( dup trazo.grosor 'grosora ! )( drop )
+	xymouse
+	2dup gop
+	2dup 'ym ! 'xm !
+	xy>d trazo.op
+	indexcolor ;
+
+:copy0
+	xm pick2 <? ( pick2 )( pick2 swap ) over - 2 +  | x w
+	ym pick3 <? ( pick3 )( pick3 swap ) over - 2 +  | y h
+	swap >r rot 1- r> 1- copybox
+	'ym ! 'xm !
+	;
+
+:movCursor
+	xymouse
+	ym =? ( swap xm =? ( 2drop ; ) swap )
+	2dup gline
+	2dup xy>d trazo.line
+	grosor 0? ( drop copy0 ; ) drop
+	xm pick2 <? ( pick2 )( pick2 swap ) over - grosor 2* +  | x w
+	ym pick3 <? ( pick3 )( pick3 swap ) over - grosor 2* +  | y h
+	swap >r rot grosor - r> grosor - copybox
+	'ym ! 'xm !
+	;
+
+:mododibujo
+	color ink 'dnCursor 'movCursor guiDnMove
+	[ trazo trazo> =? ( drop ; ) drop -4 'trazo> +! rehacexfb ; ] <del>
+	;
+
+:btndibujo
+	0 "DEL" sp btnt
+	cminilapiz
+	;
+
+|------------------------------------------------
+#modo 'mododibujo
+#modobtn 'btndibujo
+|------------------------------------------------
+
+|---- MODO POLIGONO
+:,dibline
+	xa -? ( drop xb yb 2dup 'ya ! 'xa ! xy>d trazo.op ; )
+	xb - abs ya yb - abs + 0? ( drop ; ) drop
+	xb yb xa ya gop
+	2dup gline
+	2dup xy>d trazo.line
+	xa pick2 <? ( pick2 )( pick2 swap ) over - grosor 2* +  | x w
+	ya pick3 <? ( pick3 )( pick3 swap ) over - grosor 2* +  | y h
+	swap >r rot grosor - r> grosor - copybox
+	'ya ! 'xa !
+	;
+
+:btnpoligono
+|	'reset "Clear" sp btnt
+	[ -1 'xa ! ; ] "Break" sp btnt
+|	'makepoli "Poli" sp btnt
+
+	blanco cmira
+	;
+
+:modopoligono
+	color ink
+	[ xymouse 'yb ! 'xb ! ; ] dup
+	[ ,dibline ; ]
+	guiMap
+	xa -? ( drop ; )
+	ya op xb yb line
+	;
+
+|---- BOTONES TRAZOS
+:clickcolor
+	indexcolor
+	selecc.reset
+	dup 1- 2 << 'colores +
+	@+ swap @ swap
+	( over <? )(
+		dup seleccion> !+ 'seleccion> !
+		4+ ) 2drop
+
+	'modoseleccion 'modo !
+	'btnseleccion 'modobtn !
+	boxselect
+	;
+
+:colormenu
+	0 'colores ( colores> <? )(
+		@+ @ $ffffff and ink
+		swap 1+
+		'clickcolor over "%d" link
+		swap ) 2drop ;
+
+:clsframe
+	cls >xfb trazo.clear
+	indexcolor
+	color 1+ 'colora !
+	grosor 1+ 'grosora !
+	color col.clapiz!
+	;
+
+|----- modos
+:modoimagen
+	;
+
+:btnimagen
+	'clsframe "CLS" sp btnt
+	0 "LOAD" sp btnt
+	0 "SAVE" sp btnt
+
+	cminimano
+	;
+
+|----- Main
+:main
+	indexcolor
+	rehacexfb
+	grosor linegg!
+
+	color 1+ 'colora !
+	grosor 1+ 'grosora !
+	color col.clapiz!
+
+	fonti
+	show
+		xfb>scr
+		modo exec
+
+		32 'color btncolora
+		32 btngrosor
+|		cr2
+|        blanco 'nombre printx
+
+		0 rows 3 - gotoxy
+		sp colormenu
+		dup " (%d) " print
+		trazo> trazo - 2 >> "T:(%d)" print
+		cr cr2
+		modo
+		'modoimagen =? ( verde )( negro )
+		[ 'modoimagen 'modo ! 'btnimagen 'modobtn ! ; ] "IMAGEN" sp btnt
+		'mododibujo =? ( verde )( negro )
+		[ 'mododibujo 'modo ! 'btndibujo 'modobtn ! ; ] "DRAW" sp btnt
+		'modopoligono =? ( verde )( negro )
+		[ 'modopoligono 'modo ! -1 'xa ! 'btnpoligono 'modobtn ! ; ] "POLI" sp btnt
+		'modoseleccion =? ( verde )( negro )
+		[ 'modoseleccion 'modo ! 'btnseleccion 'modobtn ! selecc.reset ; ] "SELE" sp btnt
+		drop
+		violeta modobtn exec
+
+		'exit >esc<
+		;
+
+|------ INI
+:memlienzo
+	mark
+	here dup 'seleccion ! 'seleccion> !
+	$ffff 'here +!
+	here dup 'todo ! 'todo> !
+	$3ffff 'here +!
+	here dup 'texto ! 'texto> !
+	$ffff 'here + !
+	here dup 'trazo ! 'trazo> !
+	$ffff 'here +!
+	;
+
+:
+	memlienzo
+    0 paper
+    cls >XFB
+	"test.r4c" loadr4c
+	33 main
+	"test.r4c" saver4c
+	;
+
