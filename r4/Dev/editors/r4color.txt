@@ -8,7 +8,10 @@
 ^r4/lib/graf.txt
 ^r4/lib/polygr.txt
 
-#nombre )( 256
+^r4/lib/dlgfile.txt
+
+#pathwork )( 1024
+#filename )( 1024
 #color $ff00
 #grosor 2
 
@@ -71,24 +74,11 @@
 		) 2drop
 	grosor linegg! ;
 
+|---- rehace bitmap
 :rehacexfb
 	cls
-	trazo> trazo trazo.draw
-	>xfb
-	;
-
-|----- grosor de linea
-:ingrosor
-	[ xymouse pick2 - swap pick3 - min abs dup 'grosor ! linegg! ; ] guiMove ;
-
-:btngrosor
-	ccx ccy pick2 dup gc.xywh
-	dup 2/ dup ccx + ccy rot +
-	'ingrosor guiIn
-	negro gc.fbox
-    color ink grosor fcircle
-	blanco grosor "%d" print
-	'ccx +! ;
+	trazo> trazo trazo.draw 
+	>xfb ;
 
 |----- trazo por colores
 :indc+! | valor
@@ -103,6 +93,59 @@
 		drop )
 	colores> !
 	drop ;
+
+|---- SAVE
+:saver4c | "" --
+	mark	| guarda texto
+	trazo> trazo - ,
+	trazo ( trazo> <? )( @+ , ) drop
+
+	savemem empty ;
+
+|---- LOAD
+:loadr4c | "" --
+	mark
+	here dup rot load 'here ! | -- iniload..here
+	@+
+	trazo + 'trazo> !
+	trazo ( trazo> <? )( swap @+ rot !+ ) 2drop
+
+	empty
+	;
+
+:clsframe
+	cls >xfb
+	trazo.clear
+	indexcolor
+	color 1+ 'colora !
+	grosor 1+ 'grosora !
+	color col.clapiz!
+	;
+
+
+:fileframe
+	'filename 'pathwork "%s%s" mprint saver4c
+	"media/draws" "*.r4c" dlgfileload 0? ( drop rehacexfb ; ) drop
+	dlgfilename 'filename strcpy
+	'filename 'pathwork "%s%s" mprint loadr4c
+	indexcolor
+	rehacexfb
+	;
+
+
+|----- grosor de linea
+:ingrosor
+	[ xymouse pick2 - swap pick3 - min abs dup 'grosor ! linegg! ; ] guiMove ;
+
+:btngrosor
+	ccx ccy pick2 dup gc.xywh
+	dup 2/ dup ccx + ccy rot +
+	'ingrosor guiIn
+	negro gc.fbox
+    color ink grosor fcircle
+	blanco grosor "%d" print
+	'ccx +! ;
+
 
 |---- MODO SELECCION
 #xa #ya #xb #yb
@@ -137,24 +180,66 @@
 	4 dup 'xb1 +! 'yb1 +!
 	;
 
+|---------- cambios en seleccion
+
+:select.sca+ | x y --
+	;
+
+:select.rot+ | x y --
+	;
+
+:mov+ | x y sel adr --
+	dup @
+	$20000000 and? ( 2drop ; ) | no lugar
+	dup >r
+	$fffffff and d>xy	| adr x y
+	>r pick4 + r> pick4 +
+	xy>d r> $f0000000 and or swap !
+	;
+
+:select.mov+ | x y --
+	seleccion ( seleccion> <? )( @+ mov+ ) drop
+	dup 'ya1 +! dup 'yb1 +! 'ycen +!
+	dup 'xa1 +! dup 'xb1 +! 'xcen +!
+	rehacexfb
+	;
+
 |-------- edicion
+#xm #ym
 
-:dd0 $fffffff and d>xy 2 box ;
-:dd1 $fffffff and d>xy 2 box ;
-:dd2 drop ;
-:dd3 drop ;
+:select.dn
+	xymouse 'ym ! 'xm ! ;
 
-#acdd dd0 dd1 dd2 dd3
+:select.move
+	xymouse over xm - over ym - select.mov+
+	'ym ! 'xm !
+	;
+
+:nodoseleccion | adr --
+	@ $20000000 and? ( drop ; )
+	$fffffff and d>xy 2 box ;
 
 :selecc.draw
-	seleccion ( seleccion> <? )(
-		@+ @
-		dup 26 >> $c and 'acdd + @ exec
-		) drop
 	cyan
+	seleccion ( seleccion> <? )( @+ nodoseleccion ) drop
 	xa1 -? ( drop ; ) ya1 xb1 yb1 caja
 	amarillo
-	xcen ycen 4 box
+	|-- mover seleccion
+	xcen ycen pos 8 dup dim
+	amarillo gc.box
+	'select.dn 'select.move guiDnMove | 'dn 'move --
+	|-- rotar
+	xcen ya1 pos 8 dup dim
+	verde gc.fbox
+	|-- escalaxy
+	xb1 yb1 pos 8 dup dim
+	verde gc.box
+	|-- escalax
+	xcen yb1 pos 8 dup dim
+	verde gc.box
+	|-- escalay
+	xb1 ycen pos 8 dup dim
+	verde gc.box
 	;
 
 :selecc.reset
@@ -179,7 +264,6 @@
 	xa -? ( drop ; ) ya xb yb caja
 	;
 
-
 :btnseleccion
 	'selecc.reset "Clear" sp btnt
 	'exit "<" sp btnt
@@ -187,24 +271,6 @@
 	'exit ">" sp btnt
 
 	cminimano
-	;
-
-|---- SAVEALL
-:saver4c | "" --
-	mark	| guarda texto
-	trazo> trazo - ,
-	trazo ( trazo> <? )( @+ , ) drop
-
-	savemem empty ;
-
-|---- LOADALL
-:loadr4c | "" --
-	mark
-	here dup rot load 'here ! | -- iniload..here
-	@+ trazo + 'trazo> !
-	trazo ( trazo> <? )( swap @+ rot !+ ) 2drop
-
-	empty
 	;
 
 |---- MODO DIBUJO
@@ -242,8 +308,13 @@
 	[ trazo trazo> =? ( drop ; ) drop -4 'trazo> +! rehacexfb ; ] <del>
 	;
 
+:deltrazo
+	trazo> trazo =? ( drop ; )
+	4 -  'trazo> !
+	rehacexfb ;
+
 :btndibujo
-	0 "DEL" sp btnt
+	'deltrazo dup <back> "<-" sp btnt
 	cminilapiz
 	;
 
@@ -304,24 +375,31 @@
 		'clickcolor over "%d" link
 		swap ) 2drop ;
 
-:clsframe
-	cls >xfb trazo.clear
-	indexcolor
-	color 1+ 'colora !
-	grosor 1+ 'grosora !
-	color col.clapiz!
-	;
 
 |----- modos
 :modoimagen
 	;
 
 :btnimagen
-	'clsframe "CLS" sp btnt
-	0 "LOAD" sp btnt
-	0 "SAVE" sp btnt
-
+	[ clsframe 	'mododibujo 'modo ! 'btndibujo 'modobtn ! ; ] "CLS" sp btnt
+	'fileframe "FILE" sp btnt
 	cminimano
+	;
+
+:MenuEstado
+	modo
+	dup exec
+	cr2 chome!
+	'modoimagen =? ( verde )( negro )
+	[ 'modoimagen 'modo ! 'btnimagen 'modobtn ! ; ] "IMAGE" sp btnt cr cr2
+	'mododibujo =? ( verde )( negro )
+	[ 'mododibujo 'modo ! 'btndibujo 'modobtn ! ; ] "DRAW" sp btnt cr cr2
+	'modopoligono =? ( verde )( negro )
+	[ 'modopoligono 'modo ! -1 'xa ! 'btnpoligono 'modobtn ! ; ] "PAINT" sp btnt cr cr2
+	'modoseleccion =? ( verde )( negro )
+	[ 'modoseleccion 'modo ! 'btnseleccion 'modobtn ! selecc.reset ; ] "SELE" sp btnt cr cr2
+	drop
+	chome
 	;
 
 |----- Main
@@ -337,29 +415,19 @@
 	fonti
 	show
 		xfb>scr
-		modo exec
 
+		MenuEstado
+
+		violeta modobtn exec
+		cr cr2
+		sp colormenu | trazos de colores
+		verde dup " (%d) " print
+		trazo> trazo - 2 >> "T:(%d)" print
+		blanco sp 'filename printx
+
+		cr cr2
 		32 'color btncolora
 		32 btngrosor
-|		cr2
-|        blanco 'nombre printx
-
-		0 rows 3 - gotoxy
-		sp colormenu
-		dup " (%d) " print
-		trazo> trazo - 2 >> "T:(%d)" print
-		cr cr2
-		modo
-		'modoimagen =? ( verde )( negro )
-		[ 'modoimagen 'modo ! 'btnimagen 'modobtn ! ; ] "IMAGEN" sp btnt
-		'mododibujo =? ( verde )( negro )
-		[ 'mododibujo 'modo ! 'btndibujo 'modobtn ! ; ] "DRAW" sp btnt
-		'modopoligono =? ( verde )( negro )
-		[ 'modopoligono 'modo ! -1 'xa ! 'btnpoligono 'modobtn ! ; ] "POLI" sp btnt
-		'modoseleccion =? ( verde )( negro )
-		[ 'modoseleccion 'modo ! 'btnseleccion 'modobtn ! selecc.reset ; ] "SELE" sp btnt
-		drop
-		violeta modobtn exec
 
 		'exit >esc<
 		;
@@ -370,19 +438,18 @@
 	here dup 'seleccion ! 'seleccion> !
 	$ffff 'here +!
 	here dup 'todo ! 'todo> !
-	$3ffff 'here +!
+	$3ffff 'here +!	|
 	here dup 'texto ! 'texto> !
 	$ffff 'here + !
 	here dup 'trazo ! 'trazo> !
 	$ffff 'here +!
-	;
 
-:
-	memlienzo
-    0 paper
-    cls >XFB
-	"test.r4c" loadr4c
-	33 main
-	"test.r4c" saver4c
-	;
+	"media/draws/" 'pathwork strcpy
+	'filename "media/draws/r4color.dic" load drop
+	'filename 'pathwork "%s%s" mprint loadr4c ;
 
+:endlienzo
+	'filename count "media/draws/r4color.dic" save
+	'filename 'pathwork "%s%s" mprint saver4c ;
+
+: memlienzo 33 main endlienzo ;
