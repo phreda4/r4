@@ -77,7 +77,9 @@
 |---- rehace bitmap
 :rehacexfb
 	cls
-	trazo> trazo trazo.draw 
+	color ink
+	grosor linegg!
+	trazo> trazo trazo.draw
 	>xfb ;
 
 |----- trazo por colores
@@ -223,7 +225,7 @@
 	cyan
 	seleccion ( seleccion> <? )( @+ nodoseleccion ) drop
 	xa1 -? ( drop ; ) ya1 xb1 yb1 caja
-	amarillo
+
 	|-- mover seleccion
 	xcen ycen pos 8 dup dim
 	amarillo gc.box
@@ -269,8 +271,6 @@
 	'exit "<" sp btnt
 |	'exit cursorp " %d " sp btnt
 	'exit ">" sp btnt
-
-	cminimano
 	;
 
 |---- MODO DIBUJO
@@ -305,17 +305,26 @@
 
 :mododibujo
 	color ink 'dnCursor 'movCursor guiDnMove
-	[ trazo trazo> =? ( drop ; ) drop -4 'trazo> +! rehacexfb ; ] <del>
 	;
 
-:deltrazo
+:dellast
 	trazo> trazo =? ( drop ; )
 	4 -  'trazo> !
 	rehacexfb ;
 
+:deltrazo
+	trazo> trazo =? ( drop ; )
+	( 4 - dup @ 28 >> $f and 1? )( drop ) drop
+	trazo <? ( trazo nip )
+	'trazo> !
+	rehacexfb ;
+
 :btndibujo
-	'deltrazo dup <back> "<-" sp btnt
-	cminilapiz
+	32 'color btncolora 32 btngrosor
+	violeta
+	'dellast dup <back> "-<" sp btnt
+	'deltrazo dup <del> "<-" sp btnt
+
 	;
 
 |------------------------------------------------
@@ -340,8 +349,6 @@
 |	'reset "Clear" sp btnt
 	[ -1 'xa ! ; ] "Break" sp btnt
 |	'makepoli "Poli" sp btnt
-
-	blanco cmira
 	;
 
 :modopoligono
@@ -383,12 +390,11 @@
 :btnimagen
 	[ clsframe 	'mododibujo 'modo ! 'btndibujo 'modobtn ! ; ] "CLS" sp btnt
 	'fileframe "FILE" sp btnt
-	cminimano
 	;
 
 :MenuEstado
 	modo
-	dup exec
+|	dup exec	| accion sobre dibujo
 	cr2 chome!
 	'modoimagen =? ( verde )( negro )
 	[ 'modoimagen 'modo ! 'btnimagen 'modobtn ! ; ] "IMAGE" sp btnt cr cr2
@@ -400,36 +406,44 @@
 	[ 'modoseleccion 'modo ! 'btnseleccion 'modobtn ! selecc.reset ; ] "SELE" sp btnt cr cr2
 	drop
 	chome
+	violeta
+	modobtn exec | botones de estado
+	;
+
+:capasmenu
 	;
 
 |----- Main
 :main
-	indexcolor
-	rehacexfb
 	grosor linegg!
-
 	color 1+ 'colora !
 	grosor 1+ 'grosora !
 	color col.clapiz!
+
+	indexcolor
+	rehacexfb
 
 	fonti
 	show
 		xfb>scr
 
-		MenuEstado
+		modo exec	| accion sobre dibujo
 
-		violeta modobtn exec
-		cr cr2
-		sp colormenu | trazos de colores
+		sp capasmenu cr
+		sp colormenu cr | trazos de colores
+
 		verde dup " (%d) " print
 		trazo> trazo - 2 >> "T:(%d)" print
-		blanco sp 'filename printx
-
+		blanco sp 'filename printx cr
+		MenuEstado
 		cr cr2
-		32 'color btncolora
-		32 btngrosor
+
+|		trazo ( trazo> <? )( @+ "%h " allowcr print ) drop
+
+|		32 'color btncolora 32 btngrosor
 
 		'exit >esc<
+		blanco cmira
 		;
 
 |------ INI
