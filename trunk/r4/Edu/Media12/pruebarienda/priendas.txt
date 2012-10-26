@@ -1,22 +1,9 @@
 ^r4/lib/gui.txt
 ^r4/lib/btn.txt
+^r4/lib/anima.txt
 ^r4/lib/trace.txt
 ^r4/lib/3d-escena.txt
 ^r4/edu/media12/pruebarienda/graficos.spr
-
-|-----------------------------
-:3dop project3d op ;
-:3dline project3d line ;
-
-:grillaxy
-	-5.0 ( 5.0 <=? )( dup -5.0 0 3dop dup 5.0 0 3dline
-		-5.0 over 0 3dop 5.0 over 0 3dline 1.0 + ) drop ;
-:grillayz
-	-5.0 ( 5.0 <=? )( 0 over -5.0 3dop 0 over 5.0 3dline
-		0 -5.0 pick2 3dop 0 5.0 pick2 3dline 1.0 + ) drop ;
-:grillaxz
-	-5.0 ( 5.0 <=? )( dup 0 -5.0 3dop dup 0 5.0 3dline
-		-5.0 0 pick2 3dop 5.0 0 pick2 3dline 1.0 + ) drop ;
 
 |---------------------------------------------
 :r0001 rand 0.001 mod ;
@@ -35,8 +22,7 @@
 #velcaballo
 
 #cosas 0 0
-
-#tiempo 
+#tiempo 0
 
 |----------- arboles
 :arbolupd
@@ -46,27 +32,46 @@
 	mpush
 	esc.pos
 	dircaballo mrotyi | correccion por vista
-	5.0 5.0 5.0 mscalei
-	'arboleda1 3dnsprite
+	dup 44 + @
+	over 40 + @
+	1.0 mscalei
+	dup 48 + @  3dnsprite
 	mpop ;
 
 :arbolxy | x y --
 	'cosas esc. >r
-	'arbolupd r!+ |'cosas esc!+ >r
-	r!+ 0 r!+ r!+ | x y z
-	0 r!+ 0 r!+ 0 r!+ | rx ry rz
-	2.0 r!+ 1.0 r!+ 'arboldraw r!+
+	'arbolupd r!+
+	r!+					| x
+	rand 2.0 mod 10.0 +	| alto
+	-2.0 over 2/ - r!+	| y
+	swap r!+ 			| z
+	0 r!+ 0 r!+ 0 r!+ 	| rx ry rz
+	2.0 r!+ 1.0 r!+
+	'arboldraw r!+
+	r!+						| alto
+	rand 2.0 mod 6.0 + r!+	| ancho
+	'arboleda1 r!+          | dibujo
 	rdrop ;
 
 |------------ TACHO
+#distx #disty
+#dist
 :tachoupd
+	mpush
+	esc.pos
+	oxyztransform | x y z
+	nip distfast
+	1.0 <? ( 'tachocaido pick2 40 + ! ) | disminuir velocidad
+	drop
+	mpop
 	esc.z+ ;
 
 :tachodraw
 	mpush
 	esc.pos
 	dircaballo mrotyi | correccion por vista
-	'tacho 3dnsprite
+	2.0 2.0 2.0 mscalei
+	dup 40 + @ 3dnsprite
 	mpop ;
 
 :tachoxy | x y --
@@ -75,6 +80,7 @@
 	r!+ 0 r!+ r!+ | x y z
 	0 r!+ 0 r!+ 0 r!+ | rx ry rz
 	2.0 r!+ 1.0 r!+ 'tachodraw r!+
+	'tacho r!+
 	rdrop ;
 
 |---------------------------------------------
@@ -99,9 +105,12 @@
 
 	;
 
+#seqcaballo 0 0 'caballo1 13 'caballo2 21 0
+
 :caballo
 	scr
-	'caballo1 nsprite
+	velcaballo 5 >> msec * sin 5 >> 0.1 - 0 swap fpos
+	'seqcaballo seqAnima nsprite
 	[ 0.01 'vvel ! ; ] <up>
 	[ -0.03 'vvel ! ; ] <dn>
 	[ 0 'vvel ! ; ] dup >up< >dn<
@@ -118,7 +127,7 @@
 	velcaballo
 	vvel
 	+
-	0.08 >? ( 0.08 nip )
+	0.1 >? ( 0.1 nip )
 	-0.01 <? ( -0.01 nip )
 	'velcaballo !
 
@@ -133,13 +142,13 @@
 	neg mrotx mroty ;
 
 |------
-
-:ponetachos
+:armaescena
+	| pone tachos
 	8 ( 1? )( 1-
 		dup 10.0 * 0 tachoxy
 		dup 10.0 * 30.0 tachoxy
 		) drop
-| borde
+	| borde con arboles
 	-12 ( 12 <? )(
 		dup 10.0 * -100.0 arbolxy
 		dup 10.0 * 150.0 arbolxy
@@ -151,9 +160,8 @@
 	;
 
 :main
-|	5000 ( 1? )( cosa+ 1- ) drop
-|	grilla
-	ponetachos fonti2
+	armaescena
+	fonti2
 	show clrscr
 		omode
 		|--------- vista de caballo
@@ -163,6 +171,8 @@
 		dibujafondo
 		blanco velcaballo " %f " print
 		tiempo 60 /mod swap "%d:%d" printr cr
+		zcam xcam "%f %f " print cr
+		disty distx dist "%f x%f y%f" print
 
 		esc.zclear
 		'cosas esc.draw
