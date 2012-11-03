@@ -1,5 +1,11 @@
+|  prueba de riendas
+| PHREDA 2012 sobre Idea y dibujos
+| de Macarena Sangiorgi
+|
+
 ^r4/lib/gui.txt
 ^r4/lib/btn.txt
+^r4/lib/input.txt
 ^r4/lib/anima.txt
 ^r4/lib/trace.txt
 ^r4/lib/3d-escena.txt
@@ -18,11 +24,18 @@
 #xcam  #ycam 2.0 #zcam 20.0
 #vdir 0
 #dircaballo 0
-#vvel 0
 #velcaballo
 
 #cosas 0 0
 #tiempo 0
+#marcas
+#nombre )( 16
+
+#hiscore )( 1024
+
+#srel
+#sgal
+#stro
 
 |----------- arboles
 :arbolupd
@@ -54,14 +67,20 @@
 	rdrop ;
 
 |------------ TACHO
-#distx #disty
-#dist
+
+:caballogolpeatacho
+	'tachocaido
+	pick2 40 + @ =? ( drop ; )
+	pick2 40 + !
+	velcaballo 0.01 - -? ( 0 nip ) 'velcaballo !
+	;
+
 :tachoupd
 	mpush
 	esc.pos
 	oxyztransform | x y z
-	nip distfast
-	1.0 <? ( 'tachocaido pick2 40 + ! ) | disminuir velocidad
+	nip 3.0 - distfast
+	1.0 <? ( caballogolpeatacho ) | disminuir velocidad
 	drop
 	mpop
 	esc.z+ ;
@@ -92,45 +111,120 @@
 
 :fijo+ | 'spr x y z --
 	'cosas esc. >r
-	'fijoupd r!+ |'cosas esc!+ >r
+	'fijoupd r!+
 	rot r!+ swap r!+ r!+ | x y z
 	0 r!+ 0 r!+ 0 r!+ | rx ry rz
 	0 r!+ 0 r!+ 'fijodraw r!+
 	r!+ rdrop ;
 
-
-:dibujafondo
-	sw 2* sh 16 + dim
-	'fondo1 nsprite
-
+|-------------- punto control
+:tocopunto
+	'marca2
+	pick2 40 + @ =? ( drop ; )
+	pick2 40 + !
+	1 'marcas +!
 	;
 
+:puntoupd
+	mpush
+	esc.pos
+	oxyztransform | x y z
+	nip distfast
+	4.0 <? ( tocopunto )
+	drop
+	mpop
+	esc.z+ ;
+
+:puntodraw
+	|mpush esc.pos dup 40 + @ 3dnsprite mpop
+	;
+
+:punto+ | 'spr x y --
+	'cosas esc. >r
+	'puntoupd r!+
+	swap r!+ 0 r!+ r!+ | x y z
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+	0 r!+ 0 r!+ 'puntodraw r!+
+	r!+ rdrop ;
+
+:puntolast+
+	;
+
+:meta?
+	marcas 8 <? ( drop ; ) drop
+	velcaballo 1? ( drop ; ) drop
+	exit
+	;
+
+:metaupd
+	mpush
+	esc.pos
+	oxyztransform | x y z
+	nip distfast
+	4.0 <? ( meta? )
+	drop
+	mpop
+	esc.z+ ;
+
+#seqMeta 0 0 meta1 80 meta2 20 meta3 10 meta4 20 meta3 10 meta2 30 0
+:metadraw
+	mpush esc.pos
+	dircaballo mrotyi | correccion por vista
+	4.0 4.0 2.0 mscalei
+	'seqMeta SeqAnima 3dnsprite mpop ;
+	;
+
+:meta+
+	'cosas esc. >r
+	'metaupd r!+
+	swap r!+ -1.0 r!+ r!+ | x y z
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+	0 r!+ 0 r!+ 'metadraw r!+
+	r!+ rdrop ;
+
+|---------------------------------
+:dibujafondo
+	sw 2* sh 16 + dim
+	'fondo1 nsprite	;
+
 #seqcaballo 0 0 'caballo1 13 'caballo2 21 0
+
+:golpegalopa
+	velcaballo 0.01 +
+	0.2 >? ( 0.2 nip )
+	'velcaballo !
+	;
+
+:tirorienda
+	velcaballo 0.03 -
+	-? ( 0 nip )
+	'velcaballo !
+	vdir 0? ( drop ; )
+	-? ( 0.001 - )
+	+? ( 0.001 + )
+	0.02 >? ( 0.02 nip )
+	-0.02 <? ( -0.02 nip )
+	'vdir !
+	;
+
+:doblad
+	velcaballo 0.001 -
+	-? ( 0 nip ) 'velcaballo ! ;
 
 :caballo
 	scr
 	velcaballo 5 >> msec * sin 5 >> 0.1 - 0 swap fpos
 	'seqcaballo seqAnima nsprite
-	[ 0.01 'vvel ! ; ] <up>
-	[ -0.03 'vvel ! ; ] <dn>
-	[ 0 'vvel ! ; ] dup >up< >dn<
 
-	[ 0.0015 'vdir ! ; ] <le>
-	[ -0.0015 'vdir ! ; ] <ri>
+	'golpegalopa <up>
+	'tirorienda <dn>
+
+	[ 0.0025 'vdir ! doblad ; ] <le>
+	[ -0.0025 'vdir ! doblad ; ] <ri>
 	[ 0 'vdir ! ; ] dup >le< >ri<
-
-|	ay 'ycam +!	| arriba/abajo
-
 	vdir 'dircaballo +!
+
 	velcaballo 5 >> msec * sin 3 >> 2.0 + 'ycam ! | galope
-
-	velcaballo
-	vvel
-	+
-	0.1 >? ( 0.1 nip )
-	-0.01 <? ( -0.01 nip )
-	'velcaballo !
-
 	dircaballo 0.5 + velcaballo polar 'zcam +! neg 'xcam +!
 	;
 
@@ -142,13 +236,17 @@
 	neg mrotx mroty ;
 
 |------
-:armaescena
-	| pone tachos
+:armaescena | pone tachos
 	8 ( 1? )( 1-
 		dup 10.0 * 0 tachoxy
+		'marca over 10.0 * 5.0 + 0 swap punto+
 		dup 10.0 * 30.0 tachoxy
 		) drop
-	| borde con arboles
+	0 100.0  meta+
+|	30.0 100.0 meta+
+	;
+
+:arboles	| borde con arboles
 	-12 ( 12 <? )(
 		dup 10.0 * -100.0 arbolxy
 		dup 10.0 * 150.0 arbolxy
@@ -156,12 +254,19 @@
 	-10 ( 15 <? )(
 		-140.0 over 10.0 * arbolxy
 		140.0 over 10.0 * arbolxy
-		1+ ) drop
-	;
+		1+ ) drop ;
 
-:main
+:mainj
+	srel splay
+    'cosas esc.clear
 	armaescena
-	fonti2
+	arboles
+	0 'marcas !
+	0 'tiempo !
+	0 'xcam !
+	2.0 'ycam !
+	20.0 'zcam !
+	8 font
 	show clrscr
 		omode
 		|--------- vista de caballo
@@ -169,23 +274,162 @@
 		dircaballo mroty
 		| --------- dibujo de escena
 		dibujafondo
-		blanco velcaballo " %f " print
-		tiempo 60 /mod swap "%d:%d" printr cr
-		zcam xcam "%f %f " print cr
-		disty distx dist "%f x%f y%f" print
-
+		scr 8 font
+		blanco
+		tiempo
+	 	600 /mod 10 /mod swap rot "%d:%d.%d" print cr
+|		velcaballo " %f " print
+|		zcam xcam "%f %f " print cr
+|		marcas "%d " print cr
+|		vdir " %f " print
 		esc.zclear
 		'cosas esc.draw
 		esc.zdraw
 		caballo
 
 		'exit >esc<
-		1 .segs .restart
+		100 .mseg .restart
 		1 'tiempo +!
-|		cminiflecha
 		;
 
-:inimem
-	mark $fffff 'cosas esc.create ;
+|----------------------------------- fin de prueba
+:printhi
+	'hiscore
+	0 ( 10 <? )( 1+
+		over c@ 0? ( 3drop ; ) drop
+		dup "%d " print
+		over "%s " print
+		16 col
+		over 11 + @
+	 	600 /mod 10 /mod swap rot "%d:%d.%d" print cr
+		swap 16 + swap ) 2drop
+	;
 
-: inimem main ;
+:savehi | adr nro --
+	drop
+	'hiscore 640 + over - | cnt
+	over dup 16 + swap rot
+	cmove>
+	'nombre over strcpy
+	tiempo swap 11 + !
+	;
+
+:grabahi
+	'hiscore
+	0 ( 10 <? )( 1+
+		over c@ 0? ( drop savehi ; ) drop
+		over 11 + @
+		tiempo >? ( drop savehi ; ) drop
+		swap 16 + swap ) 2drop
+	;
+
+:mainf
+	0 'marcas !
+	grabahi
+	show clrscr
+		omode
+		|--------- vista de caballo
+		xcam ycam zcam mtrans
+		dircaballo mroty
+		| --------- dibujo de escena
+		dibujafondo
+		esc.zclear
+		'cosas esc.draw
+		esc.zdraw
+		caballo
+
+		8 font cr
+		rojo
+		"Fin de Prueba" printc cr
+		blanco
+		'nombre sp print cr
+		tiempo
+	 	600 /mod 10 /mod swap rot " Tiempo: %d:%d.%d" print cr
+		scr home fonti2
+		32 9 gotoxy
+		chome!
+		blanco
+		printhi
+		cr cr
+		"Oprima ESC para continuar..." printc
+		'exit >esc<
+		;
+|----------------------------------- presentacion
+#seqcab1 0 0 new1 4 new2 4 new3 4 new4 4 new5 4 new6 4 new7 4 new8 4 0
+
+:cab1upd
+|	0.08 0 0 actor+!
+	esc.z+ ;
+
+:cab1draw
+	mpush
+	esc.pos
+	'seqcab1 seqAnima 3dnsprite
+	mpop ;
+
+:cab1+ | x y z --
+	'cosas esc. >r
+	'cab1upd r!+ |'cosas esc!+ >r
+	rot r!+ swap r!+ r!+ | x y z
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+	0 r!+ 0 r!+ 'cab1draw r!+
+	rdrop ;
+
+:presenta
+	'cosas esc.clear
+	arboles
+	-2.0 -1.5 -12.0 cab1+
+	"" 'nombre strcpy
+	;
+
+
+:main
+	presenta
+	33
+	show clrscr
+		omode
+		0 2.0 20.0 mtrans
+		dibujafondo
+		scr
+		6 font verde cr2
+		"Prueba de Riendas" printc cr
+
+   		esc.zclear
+		'cosas esc.draw
+		esc.zdraw
+
+		fonti2
+		0 14 gotoxy blanco
+		" Nombre:" print
+		'nombre 10 input cr cr
+		rojo
+        [ 'nombre c@ 0? ( drop ; ) drop mainj mainf presenta ; ] dup <f1>
+		" Jugar " sp sp btnt cr cr
+		'exit dup >esc<
+		" Salir " sp sp btnt
+
+		0 22 gotoxy negro
+		"Escuela Media N.1 - 4to año" printc cr
+		"San Cayetano - 2012" printc
+
+		32 9 gotoxy
+		chome!
+		blanco
+		printhi
+		cminiflecha ;
+
+|------------------- inicio
+:loadsonido
+	"r4/juegos/pruebarienda/relincho.mp3" sload 'srel !
+|	"r4/juegos/pruebarienda/galope.mp3" sload 'sgal !
+|	"r4/juegos/pruebarienda/trote.mp3" sload 'stro !
+ 	;
+
+:inimem
+	mark
+	'hiscore "hiscore.mem" load drop
+	loadsonido
+	$fffff 'cosas esc.create ;
+
+: inimem main
+	'hiscore 640 "hiscore.mem" save ;
