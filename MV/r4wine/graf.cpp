@@ -361,45 +361,44 @@ if (dy>dx) 	{
         dx--;d=ec;ec+=ea;if (ec<=d) y1++;
         x1+=sx;ci=ec>>8;
 		GR_SET(x1,y1);gr_pixela(gr_pos,255-ci);
-        GR_Y(1);gr_pixela(gr_pos,ci); 
+        GR_Y(1);gr_pixela(gr_pos,ci);
 		}
 	}
 }
 
 inline int abs(int a ) { return (a+(a>>31))^(a>>31); }
-inline int recta(int a1,int a2,int a3,int a4) { return abs(a1*a2-a3*a4); }
 
 void gr_splineiter(int x1,int y1,int x2,int y2,int x3,int y3)
 {
-if (recta(x2-x1,y3-y1,x3-x1,y2-y1)<1000)
-    { gr_line(x1>>4,y1>>4,x3>>4,y3>>4); return; }
 int x11=(x1+x2)>>1,y11=(y1+y2)>>1;
 int x21=(x2+x3)>>1,y21=(y2+y3)>>1;
 int x22=(x11+x21)>>1,y22=(y11+y21)>>1;
+if (abs(x22-x2)+abs(y22-y2)<4)
+    { gr_line(x1,y1,x22,y22);gr_line(x22,y22,x3,y3); return; }
 gr_splineiter(x1,y1,x11,y11,x22,y22);
 gr_splineiter(x22,y22,x21,y21,x3,y3);
 }
 
 void gr_spline(int x1,int y1,int x2,int y2,int x3,int y3)
 {
-gr_splineiter(x1<<4,y1<<4,x2<<4,y2<<4,x3<<4,y3<<4);
+gr_splineiter(x1,y1,x2,y2,x3,y3);
 }
 
 // poligono
 void gr_iteracionSP(long x1,long y1,long x2,long y2,long x3,long y3)
 {
-if (recta(x2-x1,y3-y1,x3-x1,y2-y1)<1000)
-    { gr_psegmento(x1>>4,y1>>4,x3>>4,y3>>4);return; }
 long x11=(x1+x2)>>1,y11=(y1+y2)>>1;
 long x21=(x2+x3)>>1,y21=(y2+y3)>>1;
 long x22=(x11+x21)>>1,y22=(y11+y21)>>1;
+if (abs(x22-x2)+abs(y22-y2)<4)
+    { gr_psegmento(x1,y1,x22,y22);gr_psegmento(x22,y22,x3,y3); return; }
 gr_iteracionSP(x1,y1,x11,y11,x22,y22);
 gr_iteracionSP(x22,y22,x21,y21,x3,y3);
 }
 
 void gr_pspline(int x1,int y1,int x2,int y2,int x3,int y3)
 {
-gr_iteracionSP(x1<<4,y1<<4,x2<<4,y2<<4,x3<<4,y3<<4);
+gr_iteracionSP(x1,y1,x2,y2,x3,y3);
 }
 
 //**************************************************
@@ -567,7 +566,7 @@ if (ex4==ex3) { // punto solo
   da=(ex4-ex3);
   if (da>0xff) da=-tablainc[(da>>8)&0xff]>>8; else da=-tablainc[da];
 */
-  if (ex3<0) { alpha+=da*(-ex3);ex3=0; }    
+  if (ex3<0) { alpha+=da*(-ex3);ex3=0; }
   if (ex4>gr_ancho) ex4=gr_ancho;
   cnt=ex4-ex3;
   while (cnt--) { gr_pixela(gr_pos,alpha>>8);gr_pos++;alpha+=da; }
