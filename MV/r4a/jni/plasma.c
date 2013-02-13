@@ -30,6 +30,7 @@
 #include <sys/syscall.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 #include <linux/fb.h>
 
@@ -51,7 +52,7 @@ int ident,events;
 
 // ----------------------------------------------------------------------
 
-#define  LOG_TAG    "gr"
+#define  LOG_TAG    "r4a"
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 #define  LOGW(...)  __android_log_print(ANDROID_LOG_WARN,LOG_TAG,__VA_ARGS__)
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
@@ -65,21 +66,6 @@ static void gr_swap(void)
 ANativeWindow_unlockAndPost(engine.app->window);
 ANativeWindow_lock(engine.app->window, &buffergr, NULL);
 }
-
-static void engine_draw_frame(struct engine* engine)
-{
-if (engine->app->window == NULL) return;
-
-gr_swap();
-gr_clrscr();
-gr_psegmento(10,110,200,300);
-gr_psegmento(230,140,200,300);
-gr_psegmento(10,110,230,140);
-gr_drawPoli();
-
-}
-
-
 
 static void engine_term_display(struct engine* engine) {
     engine->animating = 0;
@@ -173,7 +159,6 @@ char error[1024];
 struct timeval tv;
 time_t sit;
 struct tm *sitime;
-
 
 //---- dato y programa
 int cntdato;
@@ -1011,149 +996,75 @@ return CODIGOERROR;
 
 unsigned char testp[]= { LIT,1,0,0,0,LIT,3,0,0,0,AND,FIN };
 
-char *rootpath="/data/app/com.rforth.test/res/raw";
 /*
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-
-import android.os.Bundle;
-import android.app.Activity;
-import android.content.res.AssetManager;
-import android.util.Log;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.support.v4.app.NavUtils;
-
-public class MainActivity extends Activity {
-
-@Override
-public void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    setContentView(R.layout.activity_main);
-
-    CopyAssets();
-}
-
-@Override
-public boolean onCreateOptionsMenu(Menu menu) {
-    getMenuInflater().inflate(R.menu.activity_main, menu);
-    return true;
-}
-
-
-private void CopyAssets() {
-    AssetManager assetManager = getAssets();
-    String[] files = null;
-    try {
-        files = assetManager.list("");
-    } catch (IOException e) {
-        Log.e("tag", e.getMessage());
-    }
-    for(String filename : files) {
-        InputStream in = null;
-        OutputStream out = null;
-        try {
-          in = assetManager.open(filename);
           out = new FileOutputStream("/sdcard/" + filename);
-          copyFile(in, out);
-          in.close();
-          in = null;
-          out.flush();
-          out.close();
-          out = null;
-        } catch(Exception e) {
-            Log.e("tag", e.getMessage());
-        }
-    }
-}
-private void copyFile(InputStream in, OutputStream out) throws IOException {
-    byte[] buffer = new byte[1024];
-    int read;
-    while((read = in.read(buffer)) != -1){
-      out.write(buffer, 0, read);
-    }
-}
-}
 
+final File dir = new File(cEnvironment.getExternalStorageDirectory()+"/beatscache/"+folder +"/");
+if(dir.exists()==false)
+{
+dir.mkdirs(); //create folders where write files
+final File file = new File(dir, filename);
+}
 <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
 */
-
-/*
-
-void installzip()
+static int systeminstalled(void)
 {
-	String apkFilePath = null;
-	ApplicationInfo appInfo = null;
-	PackageManager packMgmr = mActivity.getPackageManager();
-	appInfo = packMgmr.getApplicationInfo( "com.abc.YourPackageName", 0 );
-	apkFilePath = appInfo.sourceDir;
-
-zip* m_pArchive;
-m_pArchive = zip_open(gApkLoc.c_str(), 0, NULL);
-if (m_pArchive == NULL)
-	{
-	LOGE("Error loading APK %s", gApkLoc.c_str());
-	return;
-	}
-int numFiles = zip_get_num_files(pArchive);
-//Loop through all files
-for (int i = 0; i < numFiles; ++i)
-	{
-	const char* name = zip_get_name(pArchive, i, 0);
-
-	zip_file* file = zip_fopen(pArchive, name, 0);
-	// Copy into buffer
-	zip_fread(file, data, maxsize);
-		//write to desy
-	}
-
-if (m_pArchive)
-    {
-    zip_close(m_pArchive);
-    m_pArchive = NULL;
-    }
+char value[128];
+strcpy(value,"ninguno");
+__system_property_get("getExternalStorageDirectory", value);
+LOGI(value);
 }
-void install()
-{
-AAssetManager* mgr = AAssetManager_fromJava(env, assetManager);
-AAsset* asset = AAssetManager_open(mgr, (const char *) js, AASSET_MODE_UNKNOWN);
-if (NULL == asset) {
-//	__android_log_print(ANDROID_LOG_ERROR, NF_LOG_TAG, "_ASSET_NOT_FOUND_");
-	return JNI_FALSE;
-	}
-long size = AAsset_getLength(asset);
-char* buffer = (char*) malloc (sizeof(char)*size);
-AAsset_read (asset,buffer,size);
-//__android_log_print(ANDROID_LOG_ERROR, NF_LOG_TAG, buffer);
-AAsset_close(asset);
-}
-*/
 
-void assetM(void)
+char *rootpath="/sdcard/r4/";
+
+static void buildFileSystem(void)
 {
 const char *namea;
+char namef[256];
 char buff[1025];
 struct AAssetManager *aaM=engine.app->activity->assetManager;
 struct AAssetDir *aaD;
 struct AAsset *aaS;
+FILE *f;
+
+struct stat st = {0};
+if (stat("/sdcard/r4", &st) == -1) {
+	LOGI("Creando carpeta");
+    mkdir("/sdcard/r4", 0700);
+}
+LOGI("Carpeta ya existe");
+
+f=fopen("/sdcard/r4/main.txt","rb");
+if (f!=NULL) { fclose(f);LOGI("ya copiado");return; }
+LOGI("NO copiado");
+
 aaD=AAssetManager_openDir(aaM,"");
 namea=AAssetDir_getNextFileName(aaD);
 while  (namea!=0) {
 	LOGI(namea);
 	aaS=AAssetManager_open(aaM, namea,AASSET_MODE_BUFFER);
+	strcpy(namef,rootpath);
+	strcat(namef,namea);
+	f=fopen(namef,"wb");
 	long size = AAsset_getLength(aaS);
 	while (size>0) {
 		size=AAsset_read(aaS,buff,1024);buff[size]=0;
 		LOGI(buff);
+		fwrite(buff,1,size,f);
 		size=AAsset_getRemainingLength(aaS);
 		}
+	fclose(f);
 
 	AAsset_close(aaS);
 	namea=AAssetDir_getNextFileName(aaD);
 	}
 AAssetDir_close(aaD);
+
+
+//f=fopen("/sdcard/r4/main.txt","rb");
+//if (f!=NULL) { fclose(f);LOGI("...ya copiado");return; }
+
 }
 
 //----------------------------------------------------------------------------
@@ -1166,6 +1077,12 @@ state->userData = &engine;
 state->onAppCmd = engine_handle_cmd;
 state->onInputEvent = engine_handle_input;
 engine.app = state;
+//JNIEnv *g_jniEnv = 0;
+//void android_main(struct android_app* state) {
+//    g_jniEnv = state->activity->env;
+//state->activity->internalDataPath
+
+buildFileSystem();
 
 //gr_init(buffergr.width,buffergr.height );
 gr_init(800,640);
@@ -1182,10 +1099,8 @@ while ((ident=ALooper_pollAll(engine.animating?0:-1,NULL,&events,(void**)&source
         }
     }
 
-assetM();
-
 strcpy(linea,rootpath);
-strcat(linea,"/main.txt");
+strcat(linea,"main.txt");
 
 recompila:
 LOGI("compilando %s..",linea);
@@ -1209,4 +1124,5 @@ while (1) {
             }
         }
     }
+//exit(); //hack
 }
