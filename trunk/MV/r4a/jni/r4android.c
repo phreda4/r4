@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 The Android Open Source Project
+ * Copyright (C) 2013 r4 for Android
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,54 +40,52 @@
 #include "graf.h"
 
 // ----------------------------------------------------------------------
-struct engine {
-    struct android_app* app;
-    int animating;
-};
-
-struct engine engine;
-struct android_poll_source* source;
-//ANativeWindow_Buffer buffergr; // en graf.c
-int ident,events;
-
-// ----------------------------------------------------------------------
+/* Set to 1 to enable debug log traces. */
+#define DEBUG 0
 
 #define  LOG_TAG    "r4a"
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 #define  LOGW(...)  __android_log_print(ANDROID_LOG_WARN,LOG_TAG,__VA_ARGS__)
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
-/* Set to 1 to enable debug log traces. */
-#define DEBUG 1
+static void logsd(char *s)
+		{
+	FILE *fo=fopen("/sdcard/r4/log.txt","a");
+	fwrite(s,1,strlen(s),fo);
+	fclose(fo);
+		}
+// ----------------------------------------------------------------------
+struct engine {
+    struct android_app* app;
+    int animating;
+};
+
+struct engine engine;
+
+struct android_poll_source* source;
+//ANativeWindow_Buffer buffergr; // en graf.c
+int ident,events;
 
 
-static void gr_swap(void)
+static void gr_swap(void) // usado directamente
 {
 ANativeWindow_unlockAndPost(engine.app->window);
 ANativeWindow_lock(engine.app->window, &buffergr, NULL);
 }
 
-static void engine_term_display(struct engine* engine) {
-    engine->animating = 0;
-}
-
-
 //----------------------------------------------------------------------------
-
-
-
 char *macros[]={// directivas del compilador
 ";","(",")",")(","[","]","EXEC",
 "0?","+?","-?","1?","=?","<?",">?","<=?",">=?","<>?","AND?","NAND?",
 "DUP","DROP","OVER","PICK2","PICK3","PICK4","SWAP","NIP","ROT", //--- pila
 "2DUP","2DROP","3DROP","4DROP","2OVER","2SWAP",
-">R","R>","R","R+","R@+","R!+","RDROP",//--- pila direcciones
+">R","R>","R","R+","R@+","R!+","RDROP",//--- pila direcciones 40
 "AND","OR","XOR","NOT",                //--- logicas
 "+","-","*","/","*/","*>>","/MOD","MOD","ABS", //--- aritmeticas
 "SQRT","CLZ","<</",
 "NEG","1+","4+","1-","2/","2*","<<",">>",
 "@","C@","W@","!","C!","W!","+!","C+!","W+!", //--- memoria
-"@+","!+","C@+","C!+","W@+","W!+",
+"@+","!+","C@+","C!+","W@+","W!+", // 79
 "MOVE","MOVE>","CMOVE","CMOVE>",//-- movimiento de memoria
 "MEM", "FFIRST","FNEXT",
 "LOAD","SAVE","APPEND",//--- memoria,bloques
@@ -173,50 +171,60 @@ unsigned char prog[1024*1024];// 1MB de programa
 unsigned char data[1024*1024*2];// 2 MB de datos
 
 //---- eventos teclado y raton
-int SYSXYM=0;
+int SYSXM=0;
+int SYSYM=0;
 int SYSBM=0;
 int SYSKEY=0;
 
-
-static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) {
-    struct engine* engine = (struct engine*)app->userData;
+static int32_t engine_handle_input(struct android_app* app, AInputEvent* event)
+{
     if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
-        engine->animating = 1;
-        SYSXYM=(int)AMotionEvent_getX(event, 0)<<16|(int)AMotionEvent_getY(event, 0);
+        SYSXM=(int)AMotionEvent_getX(event, 0);
+        SYSYM=(int)AMotionEvent_getY(event, 0);
     	int32_t action = AMotionEvent_getAction(event);
         if (action == AMOTION_EVENT_ACTION_UP)
         	SYSBM=0;
         else
         	SYSBM=1;
-        LOGI("SYSXMY: %d %d %d",SYSXYM>>16,SYSXYM&0xffff,SYSBM);
+        LOGI("SYSXMY: %d %d %d",SYSXM,SYSYM,SYSBM);
         return 1;
     } else if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_KEY) {
         LOGI("Key event: action=%d keyCode=%d metaState=0x%x",
-                AKeyEvent_getAction(event),
-                AKeyEvent_getKeyCode(event),
-                AKeyEvent_getMetaState(event));
+                AKeyEvent_getAction(event), AKeyEvent_getKeyCode(event), AKeyEvent_getMetaState(event));
     }
 return 0;
 }
 
-static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
-    struct engine* engine = (struct engine*)app->userData;
-    switch (cmd) {
-    	case APP_CMD_INIT_WINDOW:
-            if (engine->app->window != NULL) {
-            	gr_swap();
-//                engine_draw_frame(engine);
-            }
-            break;
-        case APP_CMD_TERM_WINDOW:
-//            engine_term_display(engine);
-            break;
-        case APP_CMD_LOST_FOCUS:
-            engine->animating = 0;
-            gr_swap();
-            //          engine_draw_frame(engine);
-            break;
-    }
+
+static void engine_handle_cmd(struct android_app* app, int32_t cmd)
+{
+switch (cmd)
+   {
+   case APP_CMD_SAVE_STATE:
+	   LOGI("SAVE STATE");
+	  // the OS asked us to save the state of the app
+      break;
+   case APP_CMD_INIT_WINDOW:
+      // get the window ready for showing
+	   LOGI("INI WIN");
+      break;
+   case APP_CMD_TERM_WINDOW:
+      // clean up the window because it is being hidden/closed
+	   LOGI("TERM WIN");
+      break;
+   case APP_CMD_LOST_FOCUS:
+      // if the app lost focus, avoid unnecessary processing (like monitoring the accelerometer)
+	   LOGI("LOST FOC");
+	   ANativeWindow_unlockAndPost(engine.app->window);
+      break;
+   case APP_CMD_GAINED_FOCUS:
+      // bring back a certain functionality, like monitoring the accelerometer
+	   LOGI("GAIN FOC %d",engine.app->window);
+	   engine.animating=1;
+   	   ANativeWindow_lock(engine.app->window, &buffergr, NULL);
+   	   gr_init();
+      break;
+   }
 }
 
 #ifdef __GNUC__
@@ -273,35 +281,35 @@ R=RSP;*R=(unsigned char*)&ultimapalabra;
 NOS=PSP;*NOS=TOS=0;
 while (1)  {// Charles Melice  suggest next:... goto next; bye !
     W=(unsigned char)*IP++;
-    LOGI("w:%d",W);
+//    LOGI("w:%d IP:%d r:%d",W,IP,(int)R);
 	switch (W) {// obtener codigo de ejecucion
 	case FIN: IP=*R;R--;continue;
     case LIT: NOS++;*NOS=TOS;TOS=*(int*)IP;IP+=sizeof(int);continue;
     case ADR: NOS++;*NOS=TOS;W=*(int*)IP;IP+=sizeof(int);TOS=*(int*)W;continue;
     case CALL: W=*(int*)IP;IP+=sizeof(int);R++;*R=IP;IP=(unsigned char*)W;continue;
 	case JMP: W=*(int*)IP;IP=(unsigned char*)W;continue;
-    case JMPR: W=*(char*)IP;W++;IP+=W;continue;
+    case JMPR: W=*(int8_t*)IP;W++;IP+=W;continue;
 //-hasta aca solo lo escribe el compilador
 //--- condicionales
-	case IF: W=*(char*)IP;IP++;if (TOS!=0) IP+=W; continue;
-    case PIF: W=*(char*)IP;IP++;if (TOS<=0) IP+=W; continue;
-	case NIF: W=*(char*)IP;IP++;if (TOS>=0) IP+=W; continue;
-    case UIF: W=*(char*)IP;IP++;if (TOS==0) IP+=W; continue;
-    case IFN: W=*(char*)IP;IP++;if (TOS!=*NOS) IP+=W;
+	case IF: W=*(int8_t*)IP;IP++;if (TOS!=0) IP+=W; continue;
+    case PIF: W=*(int8_t*)IP;IP++;if (TOS<=0) IP+=W; continue;
+	case NIF: W=*(int8_t*)IP;IP++;if (TOS>=0) IP+=W; continue;
+    case UIF: W=*(int8_t*)IP;IP++;if (TOS==0) IP+=W; continue;
+    case IFN: W=*(int8_t*)IP;IP++;if (TOS!=*NOS) IP+=W;
 		TOS=*NOS;NOS--;continue;
-    case IFNO: W=*(char*)IP;IP++;if (TOS==*NOS) IP+=W;
+    case IFNO: W=*(int8_t*)IP;IP++;if (TOS==*NOS) IP+=W;
 		TOS=*NOS;NOS--;continue;
-    case IFL: W=*(char*)IP;IP++;if (TOS<=*NOS) IP+=W;
+    case IFL: W=*(int8_t*)IP;IP++;if (TOS<=*NOS) IP+=W;
 		TOS=*NOS;NOS--;continue;
-    case IFG: W=*(char*)IP;IP++;if (TOS>=*NOS) IP+=W;
+    case IFG: W=*(int8_t*)IP;IP++;if (TOS>=*NOS) IP+=W;
 		TOS=*NOS;NOS--;continue;
-    case IFLE: W=*(char*)IP;IP++;if (TOS<*NOS) IP+=W;
+    case IFLE: W=*(int8_t*)IP;IP++;if (TOS<*NOS) IP+=W;
 		TOS=*NOS;NOS--;continue;
-    case IFGE: W=*(char*)IP;IP++;if (TOS>*NOS) IP+=W;
+    case IFGE: W=*(int8_t*)IP;IP++;if (TOS>*NOS) IP+=W;
 		TOS=*NOS;NOS--;continue;
-    case IFAND: W=*(char*)IP;IP++;if (!(TOS&*NOS)) IP+=W;
+    case IFAND: W=*(int8_t*)IP;IP++;if (!(TOS&*NOS)) IP+=W;
 		TOS=*NOS;NOS--;continue;
-    case IFNAND: W=*(char*)IP;IP++;if (TOS&*NOS) IP+=W;
+    case IFNAND: W=*(int8_t*)IP;IP++;if (TOS&*NOS) IP+=W;
 		TOS=*NOS;NOS--;continue;
 //--- fin condicionales dependiente de bloques
 	case EXEC:W=TOS;TOS=*NOS;NOS--;if (W!=0) { R++;*R=IP;IP=(unsigned char*)W; } continue;
@@ -359,13 +367,13 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
     case SHR: TOS=(*NOS)>>TOS;NOS--;continue;
 //--- memoria
 	case FECH: TOS=*(int *)TOS;continue;
-    case CFECH: TOS=*(char*)TOS;continue;
+    case CFECH: TOS=*(int8_t*)TOS;continue;
     case WFECH: TOS=*(short *)TOS;continue;
 	case STOR: *(int *)TOS=(int)*NOS;NOS--;TOS=*NOS;NOS--;continue;
-    case CSTOR: *(char*)TOS=(char)*NOS;NOS--;TOS=*NOS;NOS--;continue;
+    case CSTOR: *(int8_t*)TOS=(char)*NOS;NOS--;TOS=*NOS;NOS--;continue;
     case WSTOR: *(short *)TOS=(short)*NOS;NOS--;TOS=*NOS;NOS--;continue;
 	case INCSTOR: *((int *)TOS)+=(int)*NOS;NOS--;TOS=*NOS;NOS--;continue;
-    case CINCSTOR: *((char*)TOS)+=(char)*NOS;NOS--;TOS=*NOS;NOS--;continue;
+    case CINCSTOR: *((int8_t*)TOS)+=(char)*NOS;NOS--;TOS=*NOS;NOS--;continue;
     case WINCSTOR: *((short *)TOS)+=(short)*NOS;NOS--;TOS=*NOS;NOS--;continue;
     case FECHPLUS: NOS++;*NOS=TOS+4;TOS=*(int *)TOS;continue; //@+ | adr -- adr' v
     case STOREPLUS: *(int *)TOS=(int)*NOS;TOS+=4;NOS--;continue;//!+ | v adr -- adr'
@@ -375,17 +383,16 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
     case WSTOREPLUS: *(short *)TOS=(short)*NOS;TOS+=2;NOS--;continue;
 //--- sistema
 	case UPDATE:
-		while ((ident=ALooper_pollAll(engine.animating?0:-1,NULL,&events,(void**)&source)) >= 0) {
+		while ((ident=ALooper_pollAll(0,NULL,&events,(void**)&source)) >= 0) {
 			if (source != NULL) { source->process(engine.app, source); }
 			if (engine.app->destroyRequested != 0) {
-//	                LOGI("Engine thread destroy requested!");
-	                engine_term_display(&engine);
+	                LOGI("Engine thread destroy requested!");
 	                return 0;
 	            }
 	        }
 		break;
 //---- raton
-    case XYMOUSE: NOS++;*NOS=TOS;NOS++;*NOS=SYSXYM&0xffff;TOS=(SYSXYM>>16);continue;
+    case XYMOUSE: NOS++;*NOS=TOS;NOS++;*NOS=SYSXM;TOS=SYSYM;continue;
     case BMOUSE: NOS++;*NOS=TOS;TOS=SYSBM;continue;
 //----- teclado
     case SKEY: SYSKEY=TOS;TOS=*NOS;NOS--;continue;
@@ -394,7 +401,9 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
 //----- joy
     case CNTJOY: NOS++;*NOS=TOS;TOS=0;continue;
     case GETJOY: TOS=0;continue;
-    case REDRAW: gr_swap(); continue;
+    case REDRAW:
+    	ANativeWindow_unlockAndPost(engine.app->window);
+    	ANativeWindow_lock(engine.app->window, &buffergr, NULL);continue;
 	case MSEC:
 		NOS++;*NOS=TOS;
 	    gettimeofday(&tv, NULL);
@@ -412,7 +421,7 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
     case SISRUN:
 //        exestr="";
     	//        if (TOS==0) { rebotea=1;return 0; }
-    	//        strcpy(pilaexecl,(char*)TOS);
+    	//        strcpy(pilaexecl,(int8_t*)TOS);
     	//        while (*pilaexecl!=0) pilaexecl++;
     	//        pilaexecl++;
         return 1;
@@ -467,7 +476,7 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
         TOS=*NOS;NOS--;
         continue;
     case MLOAD: // "" -- mm
-//        TOS=(int)FMUSIC_LoadSong((char*)TOS);
+//        TOS=(int)FMUSIC_LoadSong((int8_t*)TOS);
         continue;
     case MPLAY: // mm --
 //        if (TOS!=0) FMUSIC_PlaySong((FMUSIC_MODULE*)TOS);
@@ -480,7 +489,7 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
 
     case FFIRST: // "" -- fdd/0
 //         if (hFind!=NULL) FindClose(hFind);
-    	//         hFind=FindFirstFile((char*)TOS, &ffd);
+    	//         hFind=FindFirstFile((int8_t*)TOS, &ffd);
     	//         if (hFind == INVALID_HANDLE_VALUE) TOS=0; else TOS=(int)&ffd;
          continue;
     case FNEXT: // -- fdd/0
@@ -490,15 +499,15 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
          continue ;
 	case LOAD: // 'from "filename" -- 'to
          if (TOS==0||*NOS==0) { TOS=*NOS;NOS--;continue; }
-         file=fopen((char*)TOS,"rb");
+         file=fopen((int8_t*)TOS,"rb");
          TOS=*NOS;NOS--;
          if (file==NULL) continue;
          do { W=fread((void*)TOS,sizeof(char),1024,file); TOS+=W; } while (W==1024);
          fclose(file);continue;
     case SAVE: // 'from cnt "filename" --
-         if (TOS==0||*NOS==0) { //DeleteFile((char*)TOS);
+         if (TOS==0||*NOS==0) { //DeleteFile((int8_t*)TOS);
                               NOS-=2;TOS=*NOS;NOS--;continue; }
-         file=fopen((char*)TOS,"wb");
+         file=fopen((int8_t*)TOS,"wb");
          TOS=*NOS;NOS--;
          if (file==NULL) { NOS--;TOS=*NOS;NOS--;continue; }
          fwrite((void*)*NOS,sizeof(char),TOS,file);
@@ -506,7 +515,7 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
          NOS--;TOS=*NOS;NOS--;continue;
     case APPEND: // 'from cnt "filename" --
          if (TOS==0||*NOS==0) { NOS-=2;TOS=*NOS;NOS--;continue; }
-         file=fopen((char*)TOS,"ab");
+         file=fopen((int8_t*)TOS,"ab");
          TOS=*NOS;NOS--;
          if (file==NULL) { NOS--;TOS=*NOS;NOS--;continue; }
          fwrite((void*)*NOS,sizeof(char),TOS,file);
@@ -526,12 +535,12 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
          continue;
     case CMOVED: // | de sr cnt --
          W=*(NOS-1);W1=*NOS;
-         while (TOS--) { *(char*)W++=*(char*)W1++; }
+         while (TOS--) { *(int8_t*)W++=*(int8_t*)W1++; }
          NOS-=2;TOS=*NOS;NOS--;
          continue;
     case CMOVEA: // | de sr cnt --
          W=(*(NOS-1))+TOS;W1=(*NOS)+TOS;
-         while (TOS--) { *(char*)--W=*(char*)--W1; }
+         while (TOS--) { *(int8_t*)--W=*(int8_t*)--W1; }
          NOS-=2;TOS=*NOS;NOS--;
          continue;
     case OPENURL: // url header buff -- buff/0
@@ -566,7 +575,7 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
         continue;
     case SYSTEM: // "" --
         //if (TOS!=0)
-        //system((char*)TOS);
+        //system((int8_t*)TOS);
         TOS=(*NOS);NOS--;
         continue;
 	default: // completa los 8 bits con apila numeros 0...
@@ -651,7 +660,7 @@ int popA(void) { return PSP[--cntpilaA]; }
 
 //---- espacio de dato
 void adato(const char *p)
-{ strcpy((char*)&data[cntdato],p);cntdato+=strlen(p)+1; }
+{ strcpy((int8_t*)&data[cntdato],p);cntdato+=strlen(p)+1; }
 
 void adatonro(int n,int u)
 { unsigned char *p=&data[cntdato];
@@ -811,7 +820,8 @@ int aux,nrolinea=0;// convertir a nro de linea local
 cntpila=0;
 while(!feof(stream)) {
   *lineat=0;fgets(lineat,512,stream);ahora=lineat; // ldebug(ahora);
-
+//  LOGI(lineat);
+//  logsd(lineat);
 otrapalabra:
   while (*ahora!=0 && *ahora<33) ahora++;
   if (*ahora==0) goto otralinea;
@@ -994,28 +1004,6 @@ error:
 return CODIGOERROR;
 }
 
-unsigned char testp[]= { LIT,1,0,0,0,LIT,3,0,0,0,AND,FIN };
-
-/*
-          out = new FileOutputStream("/sdcard/" + filename);
-
-final File dir = new File(cEnvironment.getExternalStorageDirectory()+"/beatscache/"+folder +"/");
-if(dir.exists()==false)
-{
-dir.mkdirs(); //create folders where write files
-final File file = new File(dir, filename);
-}
-<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-
-*/
-static int systeminstalled(void)
-{
-char value[128];
-strcpy(value,"ninguno");
-__system_property_get("getExternalStorageDirectory", value);
-LOGI(value);
-}
-
 char *rootpath="/sdcard/r4/";
 
 static void buildFileSystem(void)
@@ -1029,16 +1017,11 @@ struct AAsset *aaS;
 FILE *f;
 
 struct stat st = {0};
-if (stat("/sdcard/r4", &st) == -1) {
-	LOGI("Creando carpeta");
-    mkdir("/sdcard/r4", 0700);
-}
-LOGI("Carpeta ya existe");
 
-f=fopen("/sdcard/r4/main.txt","rb");
-if (f!=NULL) { fclose(f);LOGI("ya copiado");return; }
-LOGI("NO copiado");
+//if (stat("/sdcard/r4", &st) != -1) return; // ya existe la carpeta
 
+mkdir("/sdcard/r4", 07777);
+// copiar archivos
 aaD=AAssetManager_openDir(aaM,"");
 namea=AAssetDir_getNextFileName(aaD);
 while  (namea!=0) {
@@ -1060,11 +1043,6 @@ while  (namea!=0) {
 	namea=AAssetDir_getNextFileName(aaD);
 	}
 AAssetDir_close(aaD);
-
-
-//f=fopen("/sdcard/r4/main.txt","rb");
-//if (f!=NULL) { fclose(f);LOGI("...ya copiado");return; }
-
 }
 
 //----------------------------------------------------------------------------
@@ -1077,6 +1055,7 @@ state->userData = &engine;
 state->onAppCmd = engine_handle_cmd;
 state->onInputEvent = engine_handle_input;
 engine.app = state;
+
 //JNIEnv *g_jniEnv = 0;
 //void android_main(struct android_app* state) {
 //    g_jniEnv = state->activity->env;
@@ -1084,45 +1063,26 @@ engine.app = state;
 
 buildFileSystem();
 
-//gr_init(buffergr.width,buffergr.height );
-gr_init(800,640);
-
-
-int ident;
-int events;
+// eventos para inicializar
 while ((ident=ALooper_pollAll(engine.animating?0:-1,NULL,&events,(void**)&source)) >= 0) {
 	if (source != NULL) { source->process(state, source); }
-	if (state->destroyRequested != 0) {
-            LOGI("Engine thread destroy requested!");
-//            engine_term_display(&engine);
-            return;
-        }
+	if (state->destroyRequested != 0) return;
     }
 
 strcpy(linea,rootpath);
 strcat(linea,"main.txt");
 
 recompila:
+
 LOGI("compilando %s..",linea);
+//logsd("compilando..");
 if (compilafile(linea)!=COMPILAOK) { return ; }
 LOGI("ok",linea);
+//logsd("ok..");
 memlibre=data+cntdato; // comienzo memoria libre
 if (interprete(bootaddr)==1) goto recompila;
-interprete(bootaddr);
-
-//interprete(testp);
-
+//logsd("fin..");
 gr_fin();
 
-//engine.animating = 0;
-while (1) {
-	while ((ident=ALooper_pollAll(engine.animating?0:-1,NULL,&events,(void**)&source)) >= 0) {
-		if (source != NULL) { source->process(state, source); }
-		if (state->destroyRequested != 0) {
-//                engine_term_display(&engine);
-                return;
-            }
-        }
-    }
-//exit(); //hack
+exit(0);
 }

@@ -23,7 +23,6 @@
 ANativeWindow_Buffer buffergr;
 void *XFB;
 
-
 //extern void *buffergr.bits; 		// buffer de pantalla
 //extern int buffergr.width,buffergr.height;
 
@@ -43,12 +42,12 @@ int cntSegm=0;
 int yMin,yMax;
 unsigned char gr_alphav;
 
-static int gr_sizescreen;	// tamanio de pantalla
+int gr_sizescreen=0;	// tamanio de pantalla
 
 #define FBASE 8
-#define RED_MASK 0xFF0000
-#define GRE_MASK 0xFF00
-#define BLU_MASK 0xFF
+#define RED_MASK 0xF800
+#define GRE_MASK 0x07E0
+#define BLU_MASK 0x001F
 
 void gr_fin(void)
 {
@@ -56,11 +55,13 @@ free(XFB);
 }
 
 //---- inicio
-int gr_init(int XRES,int YRES)
+void gr_init(void)
 {
-gr_sizescreen=XRES*YRES;// tamanio en WORD
+if (gr_sizescreen==0)
+{
+gr_sizescreen=buffergr.height*buffergr.width;// tamanio en WORD
 XFB=(void*)malloc(gr_sizescreen*2);
-
+}
 //buffergr.width=buffergr.width=XRES;
 //buffergr.height=YRES;
 //---- poligonos2
@@ -72,7 +73,6 @@ fillSol();
 gr_color2=0;gr_color1=0xffffff;
 col1=0;col2=0xffffff;
 gr_solid();
-return 0;
 }
 
 inline void fillcent(int mx,int my)
@@ -115,7 +115,18 @@ register unsigned int RB=(((((gr_color1&MASK1)-B)*alpha)>>8)+B)&MASK1;
 B=col&MASK2;
 return ((((((gr_color1&MASK2)-B)*alpha)>>8)+B)&MASK2)|RB;
 }
-
+/*
+inline WORD gr_mix(WORD col,BYTE alpha)
+{
+WORD r=(col&RED_MASK);
+r=(((colorr-r)*alpha+(r<<8))>>8)&RED_MASK;
+WORD g=(col&GREEN_MASK);
+g=(((colorg-g)*alpha+(g<<8))>>8)&GREEN_MASK;
+WORD b=(col&BLUE_MASK);
+b=(((colorb-b)*alpha+(b<<8))>>8)&BLUE_MASK;
+return (WORD)(r|g|b);
+}
+*/
 //--------------- RUTINAS DE DIBUJO
 //---- solido
 void _gr_pixels(uint16_t *gr_pos)		{*gr_pos=gr_color1;}
