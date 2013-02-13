@@ -17,9 +17,10 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE    := fbtest
-LOCAL_SRC_FILES := graf.c plasma.c
+LOCAL_SRC_FILES := graf.c r4android.c
 LOCAL_LDLIBS    := -lm -llog -landroid
 LOCAL_STATIC_LIBRARIES := android_native_app_glue
+LOCAL_CFLAGS += -O3
 
 include $(BUILD_SHARED_LIBRARY)
 

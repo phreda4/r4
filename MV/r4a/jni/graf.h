@@ -34,7 +34,6 @@
 extern ANativeWindow_Buffer buffergr;
 extern void *XFB;
 
-
 //extern void *gr_buffer; 		// buffer de pantalla
 //extern int gr_ancho,gr_alto;
 
@@ -43,9 +42,8 @@ extern unsigned char gr_alphav;
 extern int MA,MB,MTX,MTY; // matrix de transformacion
 extern int *mTex; // textura
 
-int gr_init(int w,int h);
+void gr_init();
 void gr_fin(void);
-void gr_gr();
 void gr_clrscr(void);
 
 //---- lineas rectas
