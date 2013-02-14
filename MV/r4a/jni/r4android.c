@@ -24,6 +24,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "graf.h"
 
@@ -38,6 +39,7 @@
 
 static void logsd(char *s)
 		{
+	LOGE(s);
 	FILE *fo=fopen("/sdcard/r4/log.txt","a");
 	fwrite(s,1,strlen(s),fo);
 	fclose(fo);
@@ -163,12 +165,12 @@ struct timeval tv;
 time_t sit;
 struct tm *sitime;
 //---- Directory
-DIR *dp;
-struct dirent *dirp;
+DIR *dp=0;
+struct dirent *dirp=0;
 //---- stackrun
 char pilaexec[1024];
 char *pilaexecl;
-char *rootpath="/sdcard/r4/";
+char *rootpath="/sdcard/r4";
 char *bootstr;
 int rebotea;
 
@@ -270,7 +272,7 @@ R=RSP;*R=(unsigned char*)&ultimapalabra;
 NOS=PSP;*NOS=TOS=0;
 while (1)  {// Charles Melice  suggest next:... goto next; bye !
     W=(unsigned char)*IP++;
-//    LOGI("w:%d IP:%d r:%d",W,IP,(int)R);
+    //LOGI("w:%d IP:%d r:%d",W,IP,(int)R);
 	switch (W) {// obtener codigo de ejecucion
 	case FIN: IP=*R;R--;continue;
     case LIT: NOS++;*NOS=TOS;TOS=*(int*)IP;IP+=sizeof(int);continue;
@@ -376,6 +378,7 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
 			if (source != NULL) { source->process(engine.app, source); }
 			if (engine.app->destroyRequested != 0) {
 	                LOGI("Engine thread destroy requested!");
+	                rebotea=1;
 	                return 0;
 	            }
 	        }
@@ -477,13 +480,14 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
 
     case FFIRST: // "" -- fdd/0
     	if (dirp!=NULL) closedir(dp);
-    	dp=opendir((char*)TOS);
-        dirp=readdir(dp);
+    	strcpy(error,rootpath);strcat(error,(char*)TOS);
+    	dp=opendir(error);
+    	if (dp!=NULL) dirp=readdir(dp); else dirp=0;
         TOS=(dirp==NULL)?0:(int)&dirp;
          continue;
     case FNEXT: // -- fdd/0
          NOS++;*NOS=TOS;
-         dirp=readdir(dp);
+         if (dp!=NULL) dirp=readdir(dp); else dirp=0;
          TOS=(dirp==NULL)?0:(int)&dirp;
          continue ;
 	case LOAD: // 'from "filename" -- 'to
@@ -800,6 +804,7 @@ ahora=name;
 while (*ahora>32) { *ahora=tolower(*ahora);ahora++; }
 
 strcpy(lineat,rootpath);
+strcat(lineat,"/");
 strcat(lineat,name);
 if((stream=fopen(lineat,"rb"))==NULL) {
   sprintf(error,"%s|0|0|no existe %s",linea,lineat);
@@ -1008,7 +1013,7 @@ FILE *f;
 
 struct stat st = {0};
 
-//if (stat("/sdcard/r4", &st) != -1) return; // ya existe la carpeta
+if (stat("/sdcard/r4", &st) != -1) return; // ya existe la carpeta
 
 mkdir("/sdcard/r4", 07777);
 // copiar archivos
@@ -1018,6 +1023,7 @@ while  (namea!=0) {
 	LOGI(namea);
 	aaS=AAssetManager_open(aaM, namea,AASSET_MODE_BUFFER);
 	strcpy(namef,rootpath);
+	strcat(namef,"/");
 	strcat(namef,namea);
 	f=fopen(namef,"wb");
 	long size = AAsset_getLength(aaS);
@@ -1077,12 +1083,9 @@ cntindiceex=cntnombreex=cntincludes=0;// espacio de nombres reset
 cntdato=cntprog=0;cntindice=cntnombre=0;
 
 LOGI("compilando %s..",linea);
-//logsd("compilando..");
 if (compilafile(bootstr)!=COMPILAOK) { logsd(error);return ; }
 LOGI("ok",linea);
-//logsd("ok..");
 memlibre=data+cntdato; // comienzo memoria libre
-
 if (interprete(bootaddr)==1) goto recompila;
 if (rebotea==0)
     {
@@ -1091,6 +1094,7 @@ if (rebotea==0)
     if (*pilaexecl==0) { pilaexecl++; goto recompila; }
     }
 //........................................................
-//logsd("fin..");
+LOGI("FIN OK.");
 gr_fin();
+exit(0);
 }
