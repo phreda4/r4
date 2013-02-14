@@ -13,29 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
+ * ---------------------------------------------------------------------------
+ * Copyright (c) 2013, Pablo Hugo Reda <pabloreda@gmail.com>, Mar del Plata, Argentina
+ * All rights reserved.
  */
 
 #include <android_native_app_glue.h>
-
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <jni.h>
-#include <sys/time.h>
-#include <time.h>
-#include <android/log.h>
 #include <android/asset_manager.h>
-
-#include <sys/resource.h>
-#include <sys/syscall.h>
-#include <sys/mman.h>
-#include <sys/types.h>
+#include <android/log.h>
+#include <dirent.h>
 #include <sys/stat.h>
-
-#include <linux/fb.h>
-
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "graf.h"
 
@@ -153,45 +141,51 @@ FILE *file;
 char linea[1024];// 1k linea
 char error[1024];
 
-//---- Date & Time
-struct timeval tv;
-time_t sit;
-struct tm *sitime;
-
 //---- dato y programa
 int cntdato;
 int cntprog;
 unsigned char *memlibre;
+//--- Memoria
+unsigned char prog[1024*1024];// 1MB de programa
+unsigned char data[1024*1024*3];// 3MB de datos
 //----- PILAS
 int PSP[1024];// 1k pila de datos
 unsigned char *RSP[1024];// 1k pila de direcciones
 unsigned char ultimapalabra[]={ SISEND };
-//--- Memoria
-unsigned char prog[1024*1024];// 1MB de programa
-unsigned char data[1024*1024*2];// 2 MB de datos
 
 //---- eventos teclado y raton
 int SYSXM=0;
 int SYSYM=0;
 int SYSBM=0;
 int SYSKEY=0;
+//---- Date & Time
+struct timeval tv;
+time_t sit;
+struct tm *sitime;
+//---- Directory
+DIR *dp;
+struct dirent *dirp;
+//---- stackrun
+char pilaexec[1024];
+char *pilaexecl;
+char *rootpath="/sdcard/r4/";
+char *bootstr;
+int rebotea;
 
 static int32_t engine_handle_input(struct android_app* app, AInputEvent* event)
 {
-    if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
+if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
         SYSXM=(int)AMotionEvent_getX(event, 0);
         SYSYM=(int)AMotionEvent_getY(event, 0);
-    	int32_t action = AMotionEvent_getAction(event);
-        if (action == AMOTION_EVENT_ACTION_UP)
-        	SYSBM=0;
-        else
-        	SYSBM=1;
+    	int32_t action=AMotionEvent_getAction(event);
+        SYSBM=(action==AMOTION_EVENT_ACTION_UP)?0:1;
         LOGI("SYSXMY: %d %d %d",SYSXM,SYSYM,SYSBM);
-        return 1;
-    } else if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_KEY) {
+        return 1; }
+if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_KEY) {
+    	SYSKEY=AKeyEvent_getAction(event)<<7|AKeyEvent_getKeyCode(event);
         LOGI("Key event: action=%d keyCode=%d metaState=0x%x",
                 AKeyEvent_getAction(event), AKeyEvent_getKeyCode(event), AKeyEvent_getMetaState(event));
-    }
+        }
 return 0;
 }
 
@@ -232,21 +226,16 @@ switch (cmd)
 #else
 static inline int popcnt(int x)
 {
-    x -= ((x >> 1) & 0x55555555);
-    x = (((x >> 2) & 0x33333333) + (x & 0x33333333));
-    x = (((x >> 4) + x) & 0x0f0f0f0f);
-    x += (x >> 8);
-    x += (x >> 16);
-    return x & 0x0000003f;
+x -= ((x >> 1) & 0x55555555);
+x = (((x >> 2) & 0x33333333) + (x & 0x33333333));
+x = (((x >> 4) + x) & 0x0f0f0f0f);
+x += (x >> 8);x += (x >> 16);
+return x & 0x0000003f;
 }
 static inline int iclz32(int x)
 {
-    x |= (x >> 1);
-    x |= (x >> 2);
-    x |= (x >> 4);
-    x |= (x >> 8);
-    x |= (x >> 16);
-    return 32 - popcnt(x);
+x |= (x >> 1);x |= (x >> 2);x |= (x >> 4);x |= (x >> 8);x |= (x >> 16);
+return 32 - popcnt(x);
 }
 #endif
 
@@ -419,11 +408,10 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
     case SISEND:
          return 0;
     case SISRUN:
-//        exestr="";
-    	//        if (TOS==0) { rebotea=1;return 0; }
-    	//        strcpy(pilaexecl,(int8_t*)TOS);
-    	//        while (*pilaexecl!=0) pilaexecl++;
-    	//        pilaexecl++;
+    	if (TOS==0) { rebotea=1;return 0; }
+    	strcpy(pilaexecl,(int8_t*)TOS);
+    	while (*pilaexecl!=0) pilaexecl++;
+    	pilaexecl++;
         return 1;
 //--- pantalla
     case WIDTH: NOS++;*NOS=TOS;TOS=buffergr.width;continue;
@@ -488,14 +476,15 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
 //--- bloques
 
     case FFIRST: // "" -- fdd/0
-//         if (hFind!=NULL) FindClose(hFind);
-    	//         hFind=FindFirstFile((int8_t*)TOS, &ffd);
-    	//         if (hFind == INVALID_HANDLE_VALUE) TOS=0; else TOS=(int)&ffd;
+    	if (dirp!=NULL) closedir(dp);
+    	dp=opendir((char*)TOS);
+        dirp=readdir(dp);
+        TOS=(dirp==NULL)?0:(int)&dirp;
          continue;
     case FNEXT: // -- fdd/0
          NOS++;*NOS=TOS;
-         //         if (FindNextFile(hFind, &ffd)==0) TOS=0; else TOS=(int)&ffd;
-         TOS=0;
+         dirp=readdir(dp);
+         TOS=(dirp==NULL)?0:(int)&dirp;
          continue ;
 	case LOAD: // 'from "filename" -- 'to
          if (TOS==0||*NOS==0) { TOS=*NOS;NOS--;continue; }
@@ -810,7 +799,8 @@ char lineat[512];
 ahora=name;
 while (*ahora>32) { *ahora=tolower(*ahora);ahora++; }
 
-strcpy(lineat,name);
+strcpy(lineat,rootpath);
+strcat(lineat,name);
 if((stream=fopen(lineat,"rb"))==NULL) {
   sprintf(error,"%s|0|0|no existe %s",linea,lineat);
   return OPENERROR;
@@ -1004,7 +994,7 @@ error:
 return CODIGOERROR;
 }
 
-char *rootpath="/sdcard/r4/";
+
 
 static void buildFileSystem(void)
 {
@@ -1069,20 +1059,38 @@ while ((ident=ALooper_pollAll(engine.animating?0:-1,NULL,&events,(void**)&source
 	if (state->destroyRequested != 0) return;
     }
 
-strcpy(linea,rootpath);
-strcat(linea,"main.txt");
 
+// pila de ejecucion
+pilaexecl=pilaexec;
+strcpy(pilaexecl,"main.txt");
+while (*pilaexecl!=0) pilaexecl++;
+pilaexecl++;
+
+//........................................................
 recompila:
+
+bootstr=pilaexecl-2;
+while (*bootstr!=0 && bootstr>pilaexec) bootstr--;
+if (bootstr>pilaexec) bootstr++;
+
+cntindiceex=cntnombreex=cntincludes=0;// espacio de nombres reset
+cntdato=cntprog=0;cntindice=cntnombre=0;
 
 LOGI("compilando %s..",linea);
 //logsd("compilando..");
-if (compilafile(linea)!=COMPILAOK) { return ; }
+if (compilafile(bootstr)!=COMPILAOK) { logsd(error);return ; }
 LOGI("ok",linea);
 //logsd("ok..");
 memlibre=data+cntdato; // comienzo memoria libre
+
 if (interprete(bootaddr)==1) goto recompila;
+if (rebotea==0)
+    {
+    pilaexecl--;pilaexecl--;
+    while (*pilaexecl!=0 && pilaexecl>pilaexec) pilaexecl--;
+    if (*pilaexecl==0) { pilaexecl++; goto recompila; }
+    }
+//........................................................
 //logsd("fin..");
 gr_fin();
-
-exit(0);
 }

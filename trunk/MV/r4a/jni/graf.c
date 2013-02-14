@@ -1,22 +1,24 @@
+/*
+ * Copyright (C) 2013 r4 for Android
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * ---------------------------------------------------------------------------
+ * Copyright (c) 2013, Pablo Hugo Reda <pabloreda@gmail.com>, Mar del Plata, Argentina
+ * All rights reserved.
+ */
+
 #include <android_native_app_glue.h>
-
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <jni.h>
-#include <sys/time.h>
-#include <time.h>
-#include <android/log.h>
-
-#include <sys/resource.h>
-#include <sys/syscall.h>
-#include <sys/mman.h>
-
-#include <linux/fb.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "graf.h"
 
 //---- buffer de video
@@ -49,6 +51,21 @@ int gr_sizescreen=0;	// tamanio de pantalla
 #define GRE_MASK 0x07E0
 #define BLU_MASK 0x001F
 
+inline uint16_t gr_RGB(uint32_t c)
+{
+return (((c>>8)&RED_MASK)|((c>>5)&GRE_MASK)|((c>>3)&BLU_MASK));
+}
+
+inline uint32_t RGB_gr(uint16_t c)
+{
+register uint32_t c1=(c&RED_MASK);c1=(c1|(c1>>5))<<8;
+register uint32_t a=c1&0xff0000;
+c1=(c&GRE_MASK);c1=((c1<<6)|c1)>>1;
+a|=c1&0xff00;
+c1=(c&BLU_MASK);c1=((c1<<5)|c1)>>2;
+return (a|(c1&0xff));
+}
+
 void gr_fin(void)
 {
 free(XFB);
@@ -59,7 +76,7 @@ void gr_init(void)
 {
 if (gr_sizescreen==0)
 {
-gr_sizescreen=buffergr.height*buffergr.width;// tamanio en WORD
+gr_sizescreen=buffergr.height*buffergr.width;// tamanio en uint16_t
 XFB=(void*)malloc(gr_sizescreen*2);
 }
 //buffergr.width=buffergr.width=XRES;
@@ -115,16 +132,17 @@ register unsigned int RB=(((((gr_color1&MASK1)-B)*alpha)>>8)+B)&MASK1;
 B=col&MASK2;
 return ((((((gr_color1&MASK2)-B)*alpha)>>8)+B)&MASK2)|RB;
 }
+
 /*
-inline WORD gr_mix(WORD col,BYTE alpha)
+inline uint16_t gr_mix(uint16_t col,uint8_t alpha)
 {
-WORD r=(col&RED_MASK);
+uint16_t r=(col&RED_MASK);
 r=(((colorr-r)*alpha+(r<<8))>>8)&RED_MASK;
-WORD g=(col&GREEN_MASK);
+uint16_t g=(col&GREEN_MASK);
 g=(((colorg-g)*alpha+(g<<8))>>8)&GREEN_MASK;
-WORD b=(col&BLUE_MASK);
+uint16_t b=(col&BLUE_MASK);
 b=(((colorb-b)*alpha+(b<<8))>>8)&BLUE_MASK;
-return (WORD)(r|g|b);
+return (uint16_t)(r|g|b);
 }
 */
 //--------------- RUTINAS DE DIBUJO
@@ -157,9 +175,9 @@ void fillRad(void) { fillpoly=_FlineaDR; }
 void fillTex(void) { fillpoly=_FlineaTX; }
 
 //------------------------------------
-#define GR_SET(X,Y) gr_pos=(uint16_t*)buffergr.bits+Y*buffergr.width+X;
+#define GR_SET(X,Y) gr_pos=(uint16_t*)buffergr.bits+Y*buffergr.stride+X;
 #define GR_X(X) gr_pos+=X;
-#define GR_Y(Y) gr_pos+=buffergr.width*Y;
+#define GR_Y(Y) gr_pos+=buffergr.stride*Y;
 
 //------------------------------------
 void gr_hline(int x1,int y1,int x2)
