@@ -1,35 +1,27 @@
 /*
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2013 r4 for Android
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * ---------------------------------------------------------------------------
- * Copyright (c) 2006, Pablo Hugo Reda <pabloreda@gmail.com>, Mar del Plata, Argentina
+ * Copyright (c) 2013, Pablo Hugo Reda <pabloreda@gmail.com>, Mar del Plata, Argentina
  * All rights reserved.
-*/
+ */
 
 #ifndef GRAF_H
 #define GRAF_H
 
 #include <android_native_app_glue.h>
-
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <jni.h>
-#include <sys/time.h>
-#include <time.h>
-#include <android/log.h>
-
-#include <sys/resource.h>
-#include <sys/syscall.h>
-#include <sys/mman.h>
-
-#include <linux/fb.h>
-
-#include <stdio.h>
-#include <stdlib.h>
 
 extern ANativeWindow_Buffer buffergr;
 extern void *XFB;
@@ -45,6 +37,9 @@ extern int *mTex; // textura
 void gr_init();
 void gr_fin(void);
 void gr_clrscr(void);
+
+uint16_t gr_RGB(uint32_t c);
+uint32_t RGB_gr(uint16_t c);
 
 //---- lineas rectas
 void gr_hline(int x1,int y1,int x2);
