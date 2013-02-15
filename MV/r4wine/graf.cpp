@@ -368,38 +368,57 @@ if (dy>dx) 	{
 
 inline int abs(int a ) { return (a+(a>>31))^(a>>31); }
 
-void gr_splineiter(int x1,int y1,int x2,int y2,int x3,int y3)
+void gr_spline(int x1,int y1,int x2,int y2,int x3,int y3)
 {
 int x11=(x1+x2)>>1,y11=(y1+y2)>>1;
 int x21=(x2+x3)>>1,y21=(y2+y3)>>1;
 int x22=(x11+x21)>>1,y22=(y11+y21)>>1;
 if (abs(x22-x2)+abs(y22-y2)<4)
     { gr_line(x1,y1,x22,y22);gr_line(x22,y22,x3,y3); return; }
-gr_splineiter(x1,y1,x11,y11,x22,y22);
-gr_splineiter(x22,y22,x21,y21,x3,y3);
+gr_spline(x1,y1,x11,y11,x22,y22);
+gr_spline(x22,y22,x21,y21,x3,y3);
 }
 
-void gr_spline(int x1,int y1,int x2,int y2,int x3,int y3)
+void gr_spline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4)
 {
-gr_splineiter(x1,y1,x2,y2,x3,y3);
+int gx=(x2+x3)/2,gy=(y2+y3)/2;
+int b2x=(x3+x4)/2,b2y=(y3+y4)/2;
+int a1x=(x1+x2)/2,a1y=(y1+y2)/2;
+int b1x=(gx+b2x)/2,b1y=(gy+b2y)/2;
+int a2x=(gx+a1x)/2,a2y=(gy+a1y)/2;
+int mx=(b1x+a2x)/2,my=(b1y+a2y)/2;
+if (abs(x2-a2x)+abs(y2-a2y)<4) gr_line(x1,y1,mx,my);
+   else gr_spline3(x1,y1,a1x,a1y,a2x,a2y,mx,my); 
+if (abs(x3-b1x)+abs(y3-b1y)<4) { gr_line(x4,y4,mx,my);return; }
+gr_spline3(mx,my,b1x,b1y,b2x,b2y,x4,y4);   
 }
 
 // poligono
-void gr_iteracionSP(long x1,long y1,long x2,long y2,long x3,long y3)
-{
-long x11=(x1+x2)>>1,y11=(y1+y2)>>1;
-long x21=(x2+x3)>>1,y21=(y2+y3)>>1;
-long x22=(x11+x21)>>1,y22=(y11+y21)>>1;
-if (abs(x22-x2)+abs(y22-y2)<4)
-    { gr_psegmento(x1,y1,x22,y22);gr_psegmento(x22,y22,x3,y3); return; }
-gr_iteracionSP(x1,y1,x11,y11,x22,y22);
-gr_iteracionSP(x22,y22,x21,y21,x3,y3);
-}
-
 void gr_pspline(int x1,int y1,int x2,int y2,int x3,int y3)
 {
-gr_iteracionSP(x1,y1,x2,y2,x3,y3);
+int x11=(x1+x2)>>1,y11=(y1+y2)>>1;
+int x21=(x2+x3)>>1,y21=(y2+y3)>>1;
+int x22=(x11+x21)>>1,y22=(y11+y21)>>1;
+if (abs(x22-x2)+abs(y22-y2)<4)
+    { gr_psegmento(x1,y1,x22,y22);gr_psegmento(x22,y22,x3,y3); return; }
+gr_pspline(x1,y1,x11,y11,x22,y22);
+gr_pspline(x22,y22,x21,y21,x3,y3);
 }
+
+void gr_pspline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4)
+{
+int gx=(x2+x3)/2,gy=(y2+y3)/2;
+int b2x=(x3+x4)/2,b2y=(y3+y4)/2;
+int a1x=(x1+x2)/2,a1y=(y1+y2)/2;
+int b1x=(gx+b2x)/2,b1y=(gy+b2y)/2;
+int a2x=(gx+a1x)/2,a2y=(gy+a1y)/2;
+int mx=(b1x+a2x)/2,my=(b1y+a2y)/2;
+if (abs(x2-a2x)+abs(y2-a2y)<4) gr_psegmento(x1,y1,mx,my);
+   else gr_spline3(x1,y1,a1x,a1y,a2x,a2y,mx,my); 
+if (abs(x3-b1x)+abs(y3-b1y)<4) { gr_psegmento(x4,y4,mx,my);return; }
+gr_spline3(mx,my,b1x,b1y,b2x,b2y,x4,y4);   
+}
+
 
 //**************************************************
 //***** DIBUJO DE POLIGONO

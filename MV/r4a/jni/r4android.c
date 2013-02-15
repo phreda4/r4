@@ -479,16 +479,16 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
 //--- bloques
 
     case FFIRST: // "" -- fdd/0
-    	if (dirp!=NULL) closedir(dp);
+    	if (dp!=NULL) closedir(dp);
     	strcpy(error,rootpath);strcat(error,(char*)TOS);
     	dp=opendir(error);
     	if (dp!=NULL) dirp=readdir(dp); else dirp=0;
-        TOS=(dirp==NULL)?0:(int)&dirp;
+        TOS=dirp;
          continue;
     case FNEXT: // -- fdd/0
          NOS++;*NOS=TOS;
          if (dp!=NULL) dirp=readdir(dp); else dirp=0;
-         TOS=(dirp==NULL)?0:(int)&dirp;
+         TOS=dirp;
          continue ;
 	case LOAD: // 'from "filename" -- 'to
          if (TOS==0||*NOS==0) { TOS=*NOS;NOS--;continue; }

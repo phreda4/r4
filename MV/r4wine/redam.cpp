@@ -109,11 +109,10 @@ char *macros[]={// directivas del compilador
 "@","C@","W@","!","C!","W!","+!","C+!","W+!", //--- memoria
 "@+","!+","C@+","C!+","W@+","W!+",
 "MOVE","MOVE>","CMOVE","CMOVE>",//-- movimiento de memoria
-"MEM", //"DIR","FILE","FSIZE","VOL",
+"MEM",
 "FFIRST","FNEXT",
 "LOAD","SAVE","APPEND",//--- memoria,bloques
 "UPDATE",
-//"TPEN",
 "XYMOUSE","BMOUSE", //"MOUSE",     //-------- mouse
 "KEY!", "KEY",          //-------- teclado
 "CNTJOY","GETJOY",     //-------- joystick
@@ -123,7 +122,7 @@ char *macros[]={// directivas del compilador
 "SETXY","PX+!","PX!+","PX@",
 "XFB",">XFB","XFB>",
 "PAPER","INK","INK@","ALPHA", //--- color
-"OP","CP","LINE","CURVE","PLINE","PCURVE","POLI",//--- dibujo
+"OP","LINE","CURVE","CURVE3","PLINE","PCURVE","PCURVE3","POLI",//--- dibujo
 "FCOL","FCEN","FMAT","SFILL","LFILL","RFILL","TFILL",
 //---------------------
 #ifdef FMOD
@@ -157,11 +156,10 @@ NEG,INC,INC4,DEC,DIV2,MUL2,SHL,SHR,//--- aritmetica
 FECH,CFECH,WFECH,STOR,CSTOR,WSTOR,INCSTOR,CINCSTOR,WINCSTOR,//--- memoria
 FECHPLUS,STOREPLUS,CFECHPLUS,CSTOREPLUS,WFECHPLUS,WSTOREPLUS,
 MOVED,MOVEA,CMOVED,CMOVEA,
-MEM, //PATH,BFILE,BFSIZE,VOL,
+MEM, 
 FFIRST,FNEXT,
 LOAD,SAVE,APPEND,//--- bloques de memoria, bloques
 UPDATE,
-//TPEN,
 XYMOUSE,BMOUSE, //MOUSE,
 SKEY, KEY,
 CNTJOY,GETJOY,
@@ -170,7 +168,7 @@ WIDTH,HEIGHT,CLS,REDRAW,FRAMEV,//--- pantalla
 SETXY,MPX,SPX,GPX,
 VXFB,TOXFB,XFBTO,
 COLORF,COLOR,COLORA,ALPHA,//--- color
-OP,CP,LINE,CURVE,PLINE,PCURVE,POLI,//--- dibujo
+OP,LINE,CURVE,CURVE3,PLINE,PCURVE,PCURVE3,POLI,//--- dibujo
 FCOL,FCEN,FMAT,SFILL,LFILL,RFILL,TFILL, //--- pintado
 
 #ifdef FMOD
@@ -200,7 +198,7 @@ char *bootstr="main.txt";
 char *exestr="main.r4x";
 
 //---------------------- Memoria de reda4
-int gx1=0,gy1=0,gx2=0,gy2=0,gxc=0,gyc=0;// coordenadas de linea
+int gx1=0,gy1=0;// coordenadas de linea
 BYTE *bootaddr;
 FILE *file;
 //---- eventos
@@ -213,17 +211,28 @@ int SYSBM=0;
 int SYSKEY=0;
 
 //----- Directorio
-/*
-char mindice[8192];// 8k de index 1024 archivos con nombres de 8 caracteres
-char *indexdir[512];
-int sizedir[512];
-int cntindex;
-char *subdirs[255]; 
-int cntsubdirs;
-*/
+
+//---- Directory
+//DIR *dp=0;
+//struct dirent *dirp;
 
 WIN32_FIND_DATA ffd;
 HANDLE hFind=NULL;
+
+/*
+typedef struct _WIN32_FIND_DATA {
+  DWORD    dwFileAttributes;    // +0
+  FILETIME ftCreationTime;      // +4
+  FILETIME ftLastAccessTime;    // +12
+  FILETIME ftLastWriteTime;     // +20
+  DWORD    nFileSizeHigh;       // +28
+  DWORD    nFileSizeLow;        // +32
+  DWORD    dwReserved0;         // +36
+  DWORD    dwReserved1;         // +40
+  TCHAR    cFileName[MAX_PATH]; // +44
+  TCHAR    cAlternateFileName[14];
+*/
+
 
 //---- Date & Time
 time_t sit;
@@ -325,51 +334,6 @@ fputs(n,stream); if(fclose(stream)) return; }
 void dumpest(void) {ldebug(linea);}
 #endif
 
-/*
-
-typedef struct _WIN32_FIND_DATA {
-  DWORD    dwFileAttributes;    // +0
-  FILETIME ftCreationTime;      // +4
-  FILETIME ftLastAccessTime;    // +12
-  FILETIME ftLastWriteTime;     // +20
-  DWORD    nFileSizeHigh;       // +28
-  DWORD    nFileSizeLow;        // +32
-  DWORD    dwReserved0;         // +36
-  DWORD    dwReserved1;         // +40
-  TCHAR    cFileName[MAX_PATH]; // +44
-  TCHAR    cAlternateFileName[14];
-
-void loaddir(char *path)
-{
-cntindex=cntsubdirs=0;
-char *virtualName;
-WIN32_FIND_DATA ffd;
-char searchName[MAX_PATH + 3];
-char *act=mindice;
-strncpy(searchName,path, MAX_PATH);
-strcat(searchName, "\\*");
-HANDLE hFind = FindFirstFile(searchName, &ffd);
-if (hFind == INVALID_HANDLE_VALUE) { FindClose(hFind); return; }
-do {
-	virtualName = ffd.cFileName;
-	if (((virtualName[0] == '.') && (virtualName[1] == '\0')) ||
-		((virtualName[0] == '.') && (virtualName[1] == '.') && (virtualName[2] == '\0')))
-		continue;
-	if (ffd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY) {
-        subdirs[cntsubdirs] = act;
-        cntsubdirs++;
-	} else { // is a file
-        indexdir[cntindex] = act;
-		sizedir[cntindex] = (ffd.nFileSizeHigh << 32 ) + ffd.nFileSizeLow;
-        cntindex++;
-		}
-    strcpy(act,virtualName); 
-	while (*act!=0) act++;
-	act++;
-	} while (FindNextFile(hFind, &ffd) != 0);
-FindClose(hFind);
-}
-*/
 #ifdef __GNUC__
 #define iclz32(x) __builtin_clz(x)
 #else
@@ -541,8 +505,6 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
            if (PeekMessage(&msg,0,0,0,PM_REMOVE)) // process messages
             {  //TranslateMessage(&msg);
             DispatchMessage(&msg);
-// lleno pila con interrupciones
-//            if (SYSEVENT!=0) { R++;*(int*)R=(int)IP;IP=(BYTE*)SYSEVENT;SYSEVENT=0; }
 /*
             if (active==WA_INACTIVE) {
                while (active==WA_INACTIVE) {    // cambiar esto para poder prender 2 r4
@@ -560,23 +522,15 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 		break;
 
 //---- raton
-//    case IRMOU: SYSirqmouse=TOS;TOS=*NOS;NOS--;continue;
     case XYMOUSE: NOS++;*NOS=TOS;NOS++;*NOS=SYSXYM&0xffff;TOS=(SYSXYM>>16);continue;
     case BMOUSE: NOS++;*NOS=TOS;TOS=SYSBM;continue;
-//    case MOUSE: NOS++;*NOS=TOS;TOS=(int)SYSBL;    continue;
-    
-//    case TPEN: NOS++;*NOS=TOS;TOS=(int)&mbuff[0];mbuff[0]=mcnt-1;mcnt=1;continue;
 //----- teclado
     case SKEY: SYSKEY=TOS;TOS=*NOS;NOS--;continue;
 	case KEY: NOS++;*NOS=TOS;TOS=SYSKEY&0xff;continue;
-	
 //----- joy
     case CNTJOY: NOS++;*NOS=TOS;TOS=cntJoy;continue;
     case GETJOY: TOS=getjoy(TOS);continue;
-
-    case REDRAW:
-        gr_redraw(); continue;
-
+    case REDRAW: gr_redraw(); continue;
 	case MSEC: NOS++;*NOS=TOS;TOS=timeGetTime();continue;
     case IDATE: time(&sit);sitime=localtime(&sit);NOS++;*NOS=TOS;TOS=sitime->tm_year+1900;
         NOS++;*NOS=TOS;TOS=sitime->tm_mon+1;NOS++;*NOS=TOS;TOS=sitime->tm_mday;continue;
@@ -618,15 +572,25 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 		TOS=*NOS;NOS--;continue;
 //--- dibujo
     case OP: gy1=TOS;gx1=*NOS;NOS--;TOS=*NOS;NOS--;continue;
-    case CP: gyc=TOS;gxc=*NOS;NOS--;TOS=*NOS;NOS--;continue;
-	case LINE: gy2=TOS;gx2=*NOS;NOS--;TOS=*NOS;NOS--;
-		gr_line(gx1,gy1,gx2,gy2);gx1=gx2;gy1=gy2;continue;
-    case CURVE: gy2=TOS;gx2=*NOS;NOS--;TOS=*NOS;NOS--;
-		gr_spline(gx1,gy1,gxc,gyc,gx2,gy2);gx1=gx2;gy1=gy2;continue;
-	case PLINE: gy2=TOS;gx2=*NOS;NOS--;TOS=*NOS;NOS--;
-		gr_psegmento(gx1,gy1,gx2,gy2);gx1=gx2;gy1=gy2;continue;
-    case PCURVE: gy2=TOS;gx2=*NOS;NOS--;TOS=*NOS;NOS--;
-		gr_pspline(gx1,gy1,gxc,gyc,gx2,gy2);gx1=gx2;gy1=gy2;continue;
+	case LINE: 
+		gr_line(gx1,gy1,*NOS,TOS);gx1=*NOS;gy1=TOS;
+        NOS--;TOS=*NOS;NOS--;continue;
+    case CURVE: 
+		gr_spline(gx1,gy1,*(NOS-2),*(NOS-1),*NOS,TOS);gx1=*NOS;gy1=TOS;
+		NOS-=3;TOS=*NOS;NOS--;continue;
+    case CURVE3: 
+		gr_spline3(gx1,gy1,*(NOS-4),*(NOS-3),*(NOS-2),*(NOS-1),*NOS,TOS);gx1=*NOS;gy1=TOS;
+		NOS-=5;TOS=*NOS;NOS--;continue;
+	case PLINE: 
+		gr_psegmento(gx1,gy1,*NOS,TOS);gx1=*NOS;gy1=TOS;
+        NOS--;TOS=*NOS;NOS--;continue;
+    case PCURVE: 
+		gr_pspline(gx1,gy1,*(NOS-2),*(NOS-1),*NOS,TOS);gx1=*NOS;gy1=TOS;
+		NOS-=3;TOS=*NOS;NOS--;continue;
+    case PCURVE3: 
+		gr_pspline3(gx1,gy1,*(NOS-4),*(NOS-3),*(NOS-2),*(NOS-1),*NOS,TOS);gx1=*NOS;gy1=TOS;
+		NOS-=5;TOS=*NOS;NOS--;continue;
+
 	case POLI: gr_drawPoli();continue;
     case FCOL: fillcol(*NOS,TOS);NOS--;TOS=*NOS;NOS--;continue;
     case FCEN: fillcent(*NOS,TOS);NOS--;TOS=*NOS;NOS--;continue;
@@ -665,27 +629,14 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 
     case FFIRST: // "" -- fdd/0
          if (hFind!=NULL) FindClose(hFind);
-         hFind=FindFirstFile((char*)TOS, &ffd);
+         strcpy(error,(char*)TOS);strcat(error,"\\*");
+         hFind=FindFirstFile(error, &ffd);
          if (hFind == INVALID_HANDLE_VALUE) TOS=0; else TOS=(int)&ffd;
          continue;
     case FNEXT: // -- fdd/0
          NOS++;*NOS=TOS;
          if (FindNextFile(hFind, &ffd)==0) TOS=0; else TOS=(int)&ffd;
          continue ;
-           
-/*
-	case PATH: if (TOS!=0) { loaddir((char*)TOS); }
-         TOS=*NOS;NOS--;continue;
-    case BFILE: // nro -- "nombre" o 0
-         if (TOS>=cntindex || TOS<0) TOS=0; else  TOS=(int)indexdir[TOS];
-         continue;
-    case BFSIZE: // nro --  size o 0
-         if (TOS>=cntindex || TOS<0) TOS=0; else  TOS=sizedir[TOS];
-         continue;
-	case VOL:// nro -- "nombre" o 0
-         if (TOS>=cntsubdirs || TOS<0) TOS=0; else TOS=(int)subdirs[TOS];
-         continue;
-*/       
 
 	case LOAD: // 'from "filename" -- 'to
          if (TOS==0||*NOS==0) { TOS=*NOS;NOS--;continue; }

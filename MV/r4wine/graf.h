@@ -47,6 +47,7 @@ void gr_setpixel(int x,int y);
 void gr_setpixela(int x,int y);
 void gr_line(int x1,int y1,int x2,int y2);
 void gr_spline(int x1,int y1,int x2,int y2,int x3,int y3);
+void gr_spline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4);
 //---- ALPHA
 void gr_solid(void);
 void gr_alpha(void);
@@ -62,6 +63,7 @@ inline void fillcol(DWORD c1,DWORD c2)  { col1=c1;col2=c2; }
 //---- poligono
 void gr_psegmento(int x1,int y1,int x2,int y2);
 void gr_pspline(int x1,int y1,int x2,int y2,int x3,int y3);
+void gr_pspline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4);
 void gr_drawPoli(void);	
 
 void gr_toxfb(void);
