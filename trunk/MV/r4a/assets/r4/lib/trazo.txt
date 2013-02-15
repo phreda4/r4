@@ -1,0 +1,158 @@
+| PHReda 2010
+| estructura para trazos en 32 bits
+|-------------
+^r4/lib/polygr.txt
+
+^r4/lib/trace.txt
+
+#trazo )( 8192
+#trazo> 'trazo
+
+#bx1 #by1
+#bx2 #by2
+
+:++trazo |
+	trazo> 4 - @ =? ( drop ; )
+:+trazo | u --
+	trazo> !+ 'trazo> ! ;
+::-trazo
+	'trazo 0 over ! 'trazo> ! ;
+
+|---
+:colineal | q1 q2 q3 -- 0/1
+	pick2 pick2 * 2 << >r | 4q1q2
+	- + dup * r> - ;
+
+:Qab | a b -- q
+	over 4 >> $3fff and
+	over 4 >> $3fff and - dup * >r
+	swap 18 >> $3fff and
+	swap 18 >> $3fff and - dup * r> + ;
+
+| a-b q1 | b-c q2 | a-c q3
+:checkline | --
+	trazo> 12 - 'trazo <? ( drop ; )
+	>r r@+ r@+ r> @ 	| a b c
+	pick2 over Qab >r	| a b c r:q3
+	over swap Qab >r	| a b 	r:q2 q3
+	Qab r> r>
+	colineal 1? ( drop ; ) drop
+	trazo> 8 - dup 4+ @ swap !+ 'trazo> !
+	;
+
+:+++trazo | xy --
+	trazo> 4 - @ =? ( drop ; )
+	trazo> !+ 'trazo> !
+	checkline ;
+|---
+
+::trazo.cnt | -- cntpx
+	trazo> 'trazo - 2 >> ;
+
+::trazo.map | 'vec --
+	trazo.cnt 1 <? ( 2drop ; ) drop
+	>r
+	'trazo ( trazo> <? )( @+ r exec ) drop
+	rdrop ;
+
+::trazo.mapex0 | 'vector -- adr0
+	'trazo @+ rot exec ;
+
+::trazo.mapex | adr0 ' vector  --
+	>r
+	( trazo> <? )( @+ r exec ) drop
+	rdrop ;
+
+:trazodrawl
+	'trazo trazo> =? ( drop ; )
+	@+ gc>xy op
+	( trazo> <? )( @+ gc>xy line ) drop ;
+	;
+
+:trazodrawg
+	linegr 0? ( drop trazodrawl ; ) drop
+	'trazo trazo> =? ( drop ; )
+	@+ gc>xy gop
+	( trazo> <? )( @+ gc>xy gline ) drop ;
+
+::trazo.in
+	[ xymouse xy>gc +trazo ; ]
+	[ xymouse xy>gc ++trazo ; ]
+	[ -trazo ; ]
+	guiMap
+	trazodrawl ;
+
+::trazo.draw | vector --
+	[ xymouse xy>gc +trazo ; ]
+	[ xymouse xy>gc +++trazo ; ]
+	[ dup exec -trazo ; ]
+	guiMap
+	drop
+	trazodrawl ;
+
+:trazo.info |
+	sh sw 'bx1 ! 'by1 !
+	0 0 'bx2 ! 'by2 !
+	'trazo ( @+ 1? )(
+		d>xy
+		by1 <? ( dup 'by1 ! )
+		by2 >? ( dup 'by2 ! ) drop
+		bx1 <? ( dup 'bx1 ! )
+		bx2 >? ( dup 'bx2 ! ) drop
+		) 2drop
+	|bx1 bx2 over - dup 'wt ! 2/ + 'xt !
+	|by1 by2 over - dup 'ht ! 2/ + 'yt !
+	;
+
+|#xmax #xmin #ymax #ymin
+
+|:setparam
+|	'trazo
+|	@+ d>xy
+|	dup 'ymin ! 'ymax !
+|	dup 'xmin ! 'xmax !
+|	( @+ 1? )( d>xy
+|		ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
+|		xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
+|		) 2drop
+|	xmax dup 2 >> - ymax dup 2 >> - xy>d 'colcen !
+|    xmin dup 2 >> - ymin dup 2 >> - xy>d 'colmat !
+|	;
+
+|----- algoritmo de linea
+#vec
+#xa #ya
+
+:hline | xd yd xa --
+	pick2 - 0? ( drop vec exec ; )
+	-? ( rot over + rot rot neg )
+	( 1? )( 1- >r
+		2dup vec exec
+		swap 1+ swap
+		r> ) 3drop
+	;
+
+:rline | xd yd --
+	ya =? ( xa hline ; )
+	xa ya pick2 <? ( 2swap )	| xm ym xM yM
+	pick2 - >r			| xm ym xM  r:canty
+	pick2 - r 16 <</
+	rot 16 << rot rot
+	r> 				|xm<<16 ym delta canty
+	( 1? )( 1- >r >r
+		over 16 >> over pick3 r + 16 >> hline
+		1+ swap
+		r + swap
+		r> r> )
+	4drop
+	;
+
+|---- recorre por punto
+::vline! | x y --
+	2dup rline
+	'ya ! 'xa ! ;
+
+::vop! | 'set --
+	'vec !
+	xymouse 'ya ! 'xa ! ;
+

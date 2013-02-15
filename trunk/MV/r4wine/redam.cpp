@@ -286,8 +286,6 @@ switch (message) {     // handle message
         rebotea=2;// no reinicia
    case WM_DESTROY:
         SYSKEY=-1;
-//        R++;*(int*)R=(int)&ultimapalabra; // ejecuta end
-//		DestroyWindow(hWnd);
         return 1;
   default:
        return DefWindowProc(hWnd,message,wParam,lParam);
@@ -576,19 +574,19 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 		gr_line(gx1,gy1,*NOS,TOS);gx1=*NOS;gy1=TOS;
         NOS--;TOS=*NOS;NOS--;continue;
     case CURVE: 
-		gr_spline(gx1,gy1,*(NOS-2),*(NOS-1),*NOS,TOS);gx1=*NOS;gy1=TOS;
+		gr_spline(gx1,gy1,*NOS,TOS,*(NOS-2),*(NOS-1));gx1=*(NOS-2);gy1=*(NOS-1);
 		NOS-=3;TOS=*NOS;NOS--;continue;
     case CURVE3: 
-		gr_spline3(gx1,gy1,*(NOS-4),*(NOS-3),*(NOS-2),*(NOS-1),*NOS,TOS);gx1=*NOS;gy1=TOS;
+		gr_spline3(gx1,gy1,*NOS,TOS,*(NOS-2),*(NOS-1),*(NOS-4),*(NOS-3));gx1=*(NOS-4);gy1=*(NOS-3);
 		NOS-=5;TOS=*NOS;NOS--;continue;
 	case PLINE: 
 		gr_psegmento(gx1,gy1,*NOS,TOS);gx1=*NOS;gy1=TOS;
         NOS--;TOS=*NOS;NOS--;continue;
     case PCURVE: 
-		gr_pspline(gx1,gy1,*(NOS-2),*(NOS-1),*NOS,TOS);gx1=*NOS;gy1=TOS;
+		gr_pspline(gx1,gy1,*NOS,TOS,*(NOS-2),*(NOS-1));gx1=*(NOS-2);gy1=*(NOS-1);
 		NOS-=3;TOS=*NOS;NOS--;continue;
     case PCURVE3: 
-		gr_pspline3(gx1,gy1,*(NOS-4),*(NOS-3),*(NOS-2),*(NOS-1),*NOS,TOS);gx1=*NOS;gy1=TOS;
+		gr_pspline3(gx1,gy1,*NOS,TOS,*(NOS-2),*(NOS-1),*(NOS-4),*(NOS-3));gx1=*(NOS-4);gy1=*(NOS-3);
 		NOS-=5;TOS=*NOS;NOS--;continue;
 
 	case POLI: gr_drawPoli();continue;

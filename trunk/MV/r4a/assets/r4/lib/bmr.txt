@@ -1,0 +1,389 @@
+| bmr.txt (bitmap r)
+| PHREDA 2010
+|------------------------------
+| 000 tam pal
+|    0 paleta
+|      0000 tipo bitmap
+|           w h
+|------------------------
+^r4/lib/dlg.txt
+^r4/lib/trace.txt
+
+|-- paleta unica
+#mempal 0
+#paleta 0
+#paleta2 )( 1024
+
+|-- dibujo
+#wb #hb		| ancho alto
+#res 		|olucion
+#frame  	| bitmap
+
+|-- internas para clip
+#xi #yi
+#wi #hi
+
+|-- internas para scale
+#wr #hr
+#sx #sy
+#xa #ya
+
+:palb!+ | pal
+	2 << 'mempal + @ px!+ ;
+
+:8bit@b!+ | hb wb val -- hb wb-cb
+	over 4 >? ( 4 nip )
+	( 1? )( 1- swap
+		$ff000000 and? ( dup 22 >> $3fc and palb!+ )( 1 px+! )
+		8 << swap ) 2drop
+	4 >? ( 4 - )( 0 nip )
+	;
+:4bit@b!+ | hb wb val -- hb wb-cb
+	over 8 >? ( 8 nip )
+	( 1? )( 1- swap
+		$f0000000 and? ( dup 26 >> $3c and palb!+ )( 1 px+! )
+		4 << swap ) 2drop
+	8 >? ( 8 - )( 0 nip )
+	;
+:3bit@b!+ | hb wb val -- hb wb-cb
+	over 10 >? ( 10 nip )
+	( 1? )( 1- swap
+		$e0000000 and? ( dup 27 >> $1c and palb!+ )( 1 px+! )
+		3 << swap ) 2drop
+	10 >? ( 10 - )( 0 nip )
+	;
+:2bit@b!+ | hb wb val -- hb wb-cb
+	over 16 >? ( 16 nip )
+	( 1? )( 1- swap
+		$c0000000 and? ( dup 28 >> $c and palb!+ )( 1 px+! )
+		2 << swap ) 2drop
+	16 >? ( 16 - )( 0 nip )
+	;
+:1bit@b!+ | hb wb val -- hb wb-cb
+	over 32 >? ( 32 nip )
+	( 1? )( 1- swap
+		$80000000 and? ( paleta )( paleta2 ) px!+
+		2* swap ) 2drop
+	32 >? ( 32 - )( 0 nip )
+	;
+
+:nbitpixel | vector dir --
+	hi + >r sw wb -
+	hb ( 1? )(
+		wb ( 1? )(
+			r@+ pick3 exec
+			) drop
+		over px+!
+		sy r+
+		1- )
+	3drop rdrop ;
+
+|----- MIXcolor
+:acpx!+ | col --
+	dup 24 >> $ff and 
+	0? ( drop px!+ ; )
+	$ff =? ( 2drop 1 px+! ; )
+	swap
+	dup $ff00ff and				| alpha color colorand
+	px@ dup $ff00ff and 		| alpha color colorand inkc inkcand
+	pick2 - pick4 8 *>> rot +	| alpha color inkc inkcandl
+	$ff00ff and >r				| alpha color inkc
+	swap $ff00 and 				| alpha px colorand
+	swap $ff00 and 				| alpha colorand pxa
+	over - rot 8 *>> + $ff00 and
+	r> or px!+  ;
+
+
+|----- CLIP
+:clip | x y adr -- adr x y
+	rot | y adr x
+	wb over + sw >=? ( sw pick2 - 1- )( wb ) 'wi ! drop
+	-? ( dup 'wi +! neg 2 << 'xi ! 0 )( 0 'xi ! )
+	rot | adr x y
+	hb over + sh >=? ( sh pick2 - 1- )( hb ) 'hi ! drop
+	-? ( dup 'hi +! neg wb * 2 << 'xi +! 0 )
+	;
+
+|----- DRAW 1:1
+:t0 | x y adr -- ;32 bit/pixel
+	clip | adr x y
+	wi hi or -? ( 4drop ; ) drop
+	setxy
+	xi + >r
+	wb wi - 2 <<
+   	sw wi -
+	hi ( 1? )(
+		wi ( 1? )( r@+ px!+ 1- ) drop
+		over px+!
+		pick2 r+
+		1- ) 3drop
+	rdrop ;
+
+:t1 | x y adr -- ;32 bit/pixel TRANS
+	clip | adr x y
+	wi hi or -? ( 4drop ; ) drop
+	setxy
+	xi + >r
+	wb wi - 2 <<
+   	sw wi -
+	hi ( 1? )(
+		wi ( 1? )( r@+ acpx!+ 1- ) drop
+		over px+!
+		pick2 r+
+		1- ) 3drop
+	rdrop ;
+
+:t2  | x y adr -- ;565
+:t3  | x y adr -- ;4444
+	;
+
+:t4 | x y adr -- ;8 bit/pixel
+	'8bit@b!+ swap nbitpixel ;
+:t5 | x y adr -- ; 8 bit/pixel trans
+	'8bit@b!+ swap nbitpixel ;
+
+:t6 | x y adr -- ; 4 bit/pixel
+	'4bit@b!+ swap nbitpixel ;
+:t7 | x y adr -- ; 4 bit/pixel trans
+	'4bit@b!+ swap nbitpixel ;
+
+:t8 | x y adr -- ; 3 bit/pixel
+	'3bit@b!+ swap nbitpixel ;
+:t9 | x y adr -- ; 3 bit/pixel trans
+	'3bit@b!+ swap nbitpixel ;
+
+:ta | x y adr -- ; 2 bit/pixel
+	'2bit@b!+ swap nbitpixel ;
+:tb | x y adr -- ; 2 bit/pixel trans
+	'2bit@b!+ swap nbitpixel ;
+
+:tc | x y adr -- ; 1 bit/pixel
+	'1bit@b!+ swap nbitpixel ;
+:td | x y adr -- ; 1 bit/pixel trans
+	'1bit@b!+ swap nbitpixel ;
+
+:tE | x y adr -- ;
+:tF 3drop ;
+
+#ldraw t0 t1 t2 t3 t4 t5 t6 t7 t8 t9 tA tB tC tD tE tF
+
+|----- DRAW N:N
+:clipsc | x y adr -- adr x y
+	rot | y adr x
+	wr over + sw >=? ( sw pick2 - 1- )( wr ) 'wi ! drop
+	-? ( dup 'wi +! neg 'xi ! 0 )( 0 'xi ! )
+	rot | adr x y
+	hr over + sh >=? ( sh pick2 - 1- )( hr ) 'hi ! drop
+	-? ( dup 'hi +! neg 'yi ! 0 )( 0 'yi ! )
+	wb wr 16 <</ dup 'sx ! xi * 'xi !
+	hb hr 16 <</ dup 'sy ! yi * 'yi !
+	;
+
+:s0 | x y adr --
+	clipsc
+	wi hi or -? ( 4drop ; ) drop
+	setxy
+	yi 'ya !
+	sw wi - | columna
+	hi ( 1? )(
+		xi 'xa !
+	 	pick2 ya 16 >> wb * 2 << +
+		wi ( 1? )(
+			over xa 16 >> 2 << + @ px!+
+			sx 'xa +!
+			1- ) 2drop
+		over px+!
+		sy 'ya +!
+		1- )
+	3drop ;
+
+:s1
+	clipsc
+	wi hi or -? ( 4drop ; ) drop
+	setxy
+	yi 'ya !
+	sw wi - | columna
+	hi ( 1? )(
+		xi 'xa !
+	 	pick2 ya 16 >> wb * 2 << +
+		wi ( 1? )(
+			over xa 16 >> 2 << + @ acpx!+
+			sx 'xa +!
+			1- ) 2drop
+		over px+!
+		sy 'ya +!
+		1- )
+	3drop ;
+
+#sdraw s0 s1 t2 t3 t4 t5 t6 t7 t8 t9 tA tB tC tD tE tF
+|----------------------------------------
+::bmr.clear
+	frame wb hb *
+	( 1? )( 1- 	$ff000000 rot !+ swap ) 2drop
+	;
+
+|----------draw
+::bmr.size@ | val -- size(dwords)
+	dup 12 >> $fff and swap
+	dup $fff and swap
+	24 >>
+	$10 nand? ( drop * ; ) | falta
+	1 swap 5 >> $3 and << 1- 2 <<
+	rot rot * +
+	;
+
+|---- info
+::bmr.wh! | w h --
+	'hb ! 'wb ! ;
+::bmr.wh@ | -- w h
+	wb hb ;
+
+::bmr.res! | res --
+	$f and 'res ! ;
+::bmr.res@ | -- res
+	res ;
+
+|----- interface con el generador
+::bmrW | -- ancho ; en dwors para generar codigo
+	wb ;
+
+::bmr! | c x y --
+	wb * + 2 << frame + ! ;
+
+::bmr@ | x y -- c
+	wb * + 2 << frame + @ ;
+
+::bmrm | x y -- m
+	wb * + 2 << frame + ;
+
+:tienepal | adr v --
+	1 over 5 >> $3 and << 1- 2 <<
+	rot	dup 'mempal ! + swap
+	;
+
+::bmr.draw | x y 'bmr --
+	@+
+	dup 12 >> $fff and 'wb !
+	dup $fff and 'hb !
+	24 >>
+	$10 and? ( tienepal )( 'paleta 'mempal ! )
+	$f and 2 << 'ldraw + @ exec ;
+
+::bmr.drawi | x y --
+	frame res $f and 2 << 'ldraw + @ exec ;
+
+::bmr.drawscale | x y 'bmr wr hr --
+	0? ( 4drop drop ; ) 'hr !
+	0? ( 4drop ; ) 'wr !
+	@+
+	dup 12 >> $fff and 'wb !
+	dup $fff and 'hb !
+	24 >>
+	$10 and? ( tienepal )( 'paleta 'mempal ! )
+	$f and 2 << 'sdraw + @ exec ;
+
+::bmr.drawscalei | x y w h --
+	0? ( 4drop ; ) 'hr !
+	0? ( 3drop ; ) 'wr !
+	frame res $f and 2 << 'sdraw + @ exec ;
+
+
+|-----
+:savepal
+	;
+
+::bmr.save | "" --
+	mark
+	wb $fff and 12 << hb or res 24 << or ,
+	res $10000000 and? ( savepal ) drop
+	frame here 4 - @ bmr.size@
+	( 1? )( 1- swap @+ , swap ) 2drop
+	savemem
+	empty
+	;
+
+::bmr.load | "" --
+	here dup rot load drop
+::bmr.use | adr --
+	@+
+	dup 12 >> $fff and 'wb !
+	dup $fff and 'hb !
+	24 >>
+	$10 and? ( tienepal )( 'paleta 'mempal ! )
+	'res !
+	'frame ! ;
+
+|--- bmrclone
+:bmr.here | --
+	here
+	frame >r wb hb *
+	( 1? )( 1- r@+ rot !+ swap ) 2drop
+	rdrop ;
+
+:bmr.here@ | x y -- c
+	wb * + 2 << here + @ ;
+
+::bmr.scrl
+	bmr.here
+	frame dup 4+ wb hb * move
+	0 ( hb <? )(
+		0 over bmr.here@
+		wb 1- pick2 bmr!
+		1+ ) drop
+	;
+
+::bmr.scrr
+	bmr.here
+	frame dup 4+ swap wb hb * move>
+	0 ( hb <? )(
+		wb 1- over bmr.here@
+		0 pick2 bmr!
+		1+ ) drop
+	;
+
+::bmr.scru
+	bmr.here
+	frame dup wb 2 << + wb hb * move
+	0 ( wb <? )(
+		dup 0 bmr.here@
+		over hb 1- bmr!
+		1+ ) drop
+	;
+
+::bmr.scrd
+	bmr.here
+	frame dup wb 2 << + swap wb hb * move>
+	0 ( wb <? )(
+		dup hb 1- bmr.here@
+		over 0 bmr!
+		1+ ) drop
+	;
+
+::bmr.flipv
+	bmr.here
+	0 ( wb <? )(
+		0 ( hb <? )(
+			over hb pick2 - 1- bmr.here@
+			pick2 pick2 bmr!
+		1+ ) drop
+	1+ ) drop ;
+
+::bmr.fliph
+	bmr.here
+	0 ( wb <? )(
+		0 ( hb <? )(
+			wb pick2 - 1- over bmr.here@
+			pick2 pick2 bmr!
+		1+ ) drop
+	1+ ) drop ;
+
+::bmr.changew | w --
+	bmr.here
+	wb dup rot + 'wb ! | wb
+	0 ( wb <? )(
+		0 ( hb <? )(
+			2dup bmr.here@
+			pick2 pick2 bmr!
+		1+ ) drop
+	1+ ) drop ;
+

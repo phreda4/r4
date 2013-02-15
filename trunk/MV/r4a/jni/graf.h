@@ -38,8 +38,10 @@ void gr_init();
 void gr_fin(void);
 void gr_clrscr(void);
 
+uint16_t gr_RGBSET(uint32_t c);
 uint16_t gr_RGB(uint32_t c);
 uint32_t RGB_gr(uint16_t c);
+void gr_565(uint16_t c);
 
 //---- lineas rectas
 void gr_hline(int x1,int y1,int x2);
@@ -49,6 +51,8 @@ void gr_setpixel(int x,int y);
 void gr_setpixela(int x,int y,unsigned char a);
 void gr_line(int x1,int y1,int x2,int y2);
 void gr_spline(int x1,int y1,int x2,int y2,int x3,int y3);
+void gr_spline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4);
+
 //---- ALPHA
 void gr_solid(void);
 void gr_alpha(void);
@@ -64,6 +68,8 @@ void fillcol(unsigned int c1,unsigned int c2);
 //---- poligono
 void gr_psegmento(int x1,int y1,int x2,int y2);
 void gr_pspline(int x1,int y1,int x2,int y2,int x3,int y3);
+void gr_pspline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4);
+
 void gr_drawPoli(void);
 
 void gr_toxfb(void);

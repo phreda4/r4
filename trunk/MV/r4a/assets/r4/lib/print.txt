@@ -1,0 +1,371 @@
+| Fuentes unificadas
+| :r4 libreria de sistema - Fuente de letras
+|---------------------------------------------
+^r4/lib/mem.txt
+^r4/lib/mprint.txt
+^r4/lib/graf.txt
+^r4/lib/fonti.txt
+
+#charsize 'charsize8i	| c - size
+#charemit 'char8i		| c -	| draw
+
+#:charrom
+#:charsiz
+#:charini
+#:charlin
+
+#x1 #y1 #x2 #y2
+
+#:anchoConsola 640
+#:rows 40
+#:cols 80		| filas/columnas texto
+
+#:ccxmax
+#sumh
+
+:dtab
+	ccx 5 >> 1+ 5 << 'ccx ! ;
+:ccxmax! | --
+	ccx ccxmax >? ( 'ccxmax ! ; ) drop ;
+::cr
+	ccxmax! cch 'ccy +!
+::lf
+	tx1 'ccx ! ;
+::cr2
+	ccxmax! cch 2/ 'ccy +! tx1 'ccx ! ;
+::acr2
+	cch 2/ 'ccy +! ;
+
+|::icr
+|	ccxmax! sumh 'ccy +! ;
+
+|::nbt
+|	cch ccy + 'sumh ! ;
+
+::emit | c --
+	9 =? ( drop dtab ; )
+	10 =? ( drop lf ; )
+	13 =? ( drop cr ; )
+	ccy cch + ty2 >? ( 2drop ; ) drop | ---
+	$ff and
+	dup charsize exec  | c sizex
+	ccx + tx2 >? ( 'ccx ! drop ; )  | c sizex (*3)
+	swap charemit exec
+	'ccx ! ;
+
+::gemit | c --
+	10 =? ( drop lf ; )
+	13 =? ( drop cr ; )
+:gemiti
+	9 =? ( drop dtab ; )
+	ccy cch + ty2 >? ( 2drop ; ) drop | ---
+	$ff and
+	charsize exec 'ccx +! ;
+
+::noemit? | -- f
+	ccx tx1 <? ( 0 nip ) tx2 >? ( 0 nip ) drop
+	ccy ty1 <? ( 0 nip ) tx2 >? ( 0 nip ) drop
+	1 ;
+
+::bout? | -- f
+	ccy cch + ty2 >? ( 1 )( 0 ) nip ;
+
+::lout? | -- f ;
+	ccx tx2 >? ( 1 )( 0 ) nip ;
+
+::sp
+	32 charsize exec 'ccx +! ccxmax! ;
+
+
+|----- cursor
+::printcur | adr -- adr
+	ccx dup >r 1-
+	ccy  2dup op cch + pline
+	c@+ gemiti
+	ccx ccy 2dup cch + op pline
+	poli
+	r> 'ccx !
+	;
+
+::printcurw | adr -- adr
+	ccx ccy 2dup op cch + pline
+	( c@+ 32 >? )( gemit ) gemit
+	ccx ccy 2dup cch + pline pline
+	poli
+	;
+
+|-------------------------------------
+::sizeprint | "" -- "" cnt
+	0 >r
+	dup ( c@+ 1? )( $ff and charsize exec r+ )
+	2drop r> ;
+
+:sizeword | "" -- "" cnt
+	0 >r
+	dup  ( c@+ 1? )( 32 =? ( 2drop r> ; ) $ff and charsize exec r+ )
+	2drop r> ;
+
+::sizeprintcut | "" max -- "" cnt
+	ccx - 0 | "" max cnt
+	pick2 ( c@+ 1? )(
+		$ff and charsize exec rot + | "" max "" size
+		pick2 >=? ( $2e rot 3 - c!+ $2e swap c!+ $2e swap c!+ 0 swap c! nip ; )
+		swap ) 2drop
+	nip ;
+
+::printcut | "" max -- ""
+	ccx - 0 | "" max cnt
+	pick2 ( c@+ 1? )(
+		$ff and charsize exec rot + | "" max "" size
+		pick2 >=? ( $2e rot 3 - c!+ $2e swap c!+ $2e swap c!+ 0 swap c! 2drop ; )
+		swap ) 2drop
+	2drop ;
+
+|------------------- ventana de texto
+::fixsize | w h --
+	'cch ! 'ccw ! ;
+:filcol
+	ty2 ty1 - cch / 'rows !
+	tx2 tx1 - ccw / 'cols !
+    ;
+::colum
+	ccx dup
+	'ccx ! 'tx1 !
+	filcol ;
+
+::wtext | lin --		; texto en ventana de cursor
+	gc2win
+	ty2 ty1 - swap / dup 'cch !
+	2/ dup 2/ + 'ccw !
+	filcol ;
+
+::pxtext | pix --
+	gc2win
+	dup 'cch ! 'ccw !
+	filcol ;
+
+::gotoxy | x y --
+	cch * ty1 + 'ccy !
+::col | x --
+	ccw * tx1 + 'ccx ! ;
+
+::atxy | x y --
+	'ccy ! 'ccx ! ;
+
+::home
+	gc2win
+	filcol
+	tx1 dup 'ccxmax ! 'ccx !
+	ty1 'ccy ! ;
+
+::chome!
+	ccy 'ty1 !
+	ccx dup 'tx1 ! 'ccxmax !
+	;
+
+::chome
+	ccxmax dup
+	'ccx ! 'tx1 !
+	ty1 'ccy !
+	filcol ;
+
+::chome<
+	0 dup 'ccx ! 'tx1 ! ;
+
+|--bajar si no entra en la linea
+::allowcr | "" -- ""
+	sizeprint ccx + tx2 >? ( cr ) drop ;
+
+::allow2cr | "" -- ""
+	mprint sizeprint ccx + ccw + tx2 >? ( cr cr ) drop ;
+
+::allowchome | --
+	bout? 1? ( chome ) drop ;
+
+::allowcrx | char -- char
+	dup $ff and charsize exec
+	ccx + tx2 >? ( cr ) drop ;
+
+|///////////////////////////////////////////////////////////////////////////
+::print | .. "" -- ""
+	mprint
+::printx | "" --
+	( c@+ 1? )( emit ) 2drop ;
+
+::printc | .. "" --	; en centro de la ventana
+	mprint
+	sizeprint xc swap 2/ - 'ccx !
+	printx ;
+
+::printr | .. "" --	; en derecha de la ventana
+	mprint
+	sizeprint tx2 swap - 'ccx !
+	printx ;
+
+::cntprint | .. "" cnt --
+	>r mprint r>
+	( 1? )( 1- swap c@+ 0? ( drop 1- 32 )
+		emit swap ) 2drop ;
+
+::text | "" --
+|	mprint
+	( c@+ 1? )(
+		allowcrx
+		emit ) 2drop ;
+
+|-----------------------------------------
+::fontset | tipof --
+	@+ 'charsize !
+	@+ 'charemit !
+	@+ 'ccw !
+	@+ 'cch !
+	@+ 'charrom !
+	@+ 'charsiz !
+	@+ 'charini !
+	@ 'charlin ! ;
+
+::setfont | 'char 'size --
+	'charsize !+ ! ;
+
+|----- fuente preseteada
+::fonti
+	8 12 fixsize
+	'char8i 'charsize8i setfont ;
+
+::fonti2
+	16 24 fixsize
+	'char8id 'charsize8id setfont ;
+
+|--- dibujo de seleccion
+#conex
+
+::sel>>
+	tx1 ccy cch + dup 'conex ! op
+	ccx ccy cch + pline
+	ccx ccy pline
+	tx2 ccy pline
+	;
+
+::sel<<
+	bout? 1? (
+		tx2 ty2 pline
+		tx1 ty2 pline
+	)(
+		tx2 ccy pline
+		ccx ccy pline
+		ccx ccy cch + pline
+		tx1 ccy cch + pline
+   		) drop
+	tx1 conex pline
+	poli ;
+
+|-----------------------------------------
+:stringbox | "" -- "" ancho alto
+	dup mprint sizeprint ccw
+	;
+::print2gc | .. "" -- ""  ; pone gc en el texto (resuelve print)
+	mprint sizeprint 2 + 'w !
+	ccx w 2/ + 1- 'xc !
+	ccy cch dup 'h ! 2/ + 'yc ! ;
+
+::cntprintbox | cnt -- cnt  ; pone gc en el texto
+	ccw over * dup 2/ + 'w !
+	ccx w 2/ + 'xc !
+	ccy cch dup 'h ! 2/ + 'yc ! ;
+
+::memprintbox | cnt -- cnt  ; pone gc en el texto
+	ccw over * 2 >> dup 2/ + 'w !
+	ccx w 2/ + 'xc !
+	ccy cch 2 << dup 'h ! 2/ + 'yc ! ;
+
+||||| boxprint
+::boxprint | .. "" cnt --
+	ccw * dup 2/ + ccx + >r
+	print
+	r> 'ccx ! ;
+
+::boxprintc | .. "" cnt --
+	ccw * ccx + >r
+	mprint sizeprint
+	r ccx - swap - 2/ 'ccx +!
+	printx
+	r> 'ccx ! ;
+
+::boxprintr | .. "" cnt --
+	ccw * ccx + >r
+	mprint
+	sizeprint r swap - 'ccx !
+	printx
+	r> 'ccx ! ;
+
+
+|||| fills
+::linefill
+	tx1 ccy 2dup op
+	2dup cch + 1+ pline
+	tx2 ccy 2dup cch + 1+ pline pline pline poli
+	;
+
+::linesfill | cnt --
+	>r
+	tx1 ccy 2dup op
+	2dup cch r * + pline
+	tx2 ccy 2dup cch r> * + pline pline pline poli
+	;
+
+::linebox
+	tx1 ccy 2dup op
+	2dup cch + line
+	tx2 ccy 2dup cch + line line line
+	;
+
+::linehfill | col1 col2 --
+	fcol
+	tx1 tx2 + 2/ ty1 ty2 + 2/ fcen
+	1.0 ccw / 0 fmat
+	tx1 ccy 2dup op
+	2dup cch + pline
+	tx2 ccy
+	2dup cch + pline pline pline
+	lfill poli sfill
+	;
+
+::linevfill | col1 col2 --
+	fcol
+	tx1 tx2 + 2/ ty1 ty2 + 2/ fcen
+	0 1.0 cch / fmat
+	tx1 ccy 2dup op
+	2dup cch + pline
+	tx2 ccy
+	2dup cch + pline pline pline
+	lfill poli sfill
+	;
+
+|---- numeros
+:split, | adr -- adr
+	dup ( c@+ 1? )(
+		$2c =? ( drop 0 swap 1- c! ; )
+		$2e =? ( drop 0 swap 1- c! ; )
+		drop ) drop
+	$30 swap c!+
+	0 swap c!
+	;
+
+::memnro2 | adr -- adr
+	split,
+	mark
+	"$ " ,s
+	c@+ $2d =? ( ,c c@+ ) ,c
+	count ( 1? )( 1-
+		5 =? ( "." ,s )
+		2 =? ( "." ,s )
+		swap c@+ ,c swap ) drop
+	1+ $2c ,c
+	count 2 <? ( "0" ,s )
+	( 1? )( 1- swap c@+ ,c swap ) 2drop
+	0 ,c
+	empty
+	here ;
+
+::nro2str | nro -- str
+	100 /mod abs 10 <? ( "%d,0%d" )( "%d,%d" ) >r swap r> mprint ;

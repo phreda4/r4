@@ -1,0 +1,725 @@
+| Editor de sprite
+| solor 1 sprite
+| PHREDA 2008
+|--------------------------------------------------
+^r4/lib/gui.txt
+^r4/lib/dlg.txt
+^r4/lib/dlgfile.txt
+^r4/lib/dlgcolor.txt
+
+^r4/lib/sprite.txt
+^r4/lib/trace.txt
+
+^r4/lib/leebmp.txt
+
+#modo 0
+#etrazo 1
+#policursor -1
+#poini
+#pofin
+#lastnodo 0
+#cursor 0
+#colora $ff0000
+#colorb $ff00
+#coltipo 0
+#colcen
+#colmat
+#zoom
+#xd #yd
+#xi #yi
+#xl #yl
+
+#egrilla 2
+
+#grillamodo
+#bmpfondo
+#bmpfondor
+
+|-----------------
+#dibujoed )( $1000
+#dibujoed> 'dibujoed
+
+#indpol )( $100
+#indpol> 'indpol
+
+#trazo )( $1000
+#trazo> 'trazo
+
+:cltrazo
+	'trazo 0 over ! 'trazo> ! ;
+:+trazo | p --
+	trazo> !+ 0 over ! 'trazo> ! ;
+:trazo!
+	trazo> 4 - dup @ $f and rot or swap ! ;
+
+:dibnodos | a--
+	( @+ 1? )( gc>xy 2 box ) 2drop ;
+
+:cldibujo
+	'dibujoed 0 over ! 'dibujoed> !
+	'indpol 0 over ! 'indpol> ! ;
+
+:-dibujo | --
+	-4 'dibujoed> +! ;
+
+:+dibujo | p --
+	dibujoed> !+ 'dibujoed> ! ;
+:0dibujo
+	0 dibujoed> ! ;
+
+:,indpol
+	indpol> !+ 'indpol> ! ;
+
+:haceindice
+	'indpol 'indpol> !
+	'dibujoed dup ,indpol
+	( @+ 1? )( $f and
+		$c >? ( over ,indpol )
+		drop ) 2drop
+	-4 'indpol> +!
+	dibujoed> indpol> !
+	;
+
+|--------------------------------------------------
+#xmax #xmin #ymax #ymin
+
+:setparam
+	'trazo
+	@+ d>xy
+	dup 'ymin ! 'ymax !
+	dup 'xmin ! 'xmax !
+	( @+ 1? )( d>xy
+		ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
+		xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
+		) 2drop
+	xmax dup 2 >> - ymax dup 2 >> - xy>d 'colcen !
+    xmin dup 2 >> - ymin dup 2 >> - xy>d 'colmat !
+	;
+
+:polsolido
+	colcen 7 or +dibujo       | no los usa
+	colmat 8 or +dibujo       | cuando genera
+	colorb 4 << $c or +dibujo | deberia sacarlos
+	colora 4 << $d or +dibujo
+	;
+:polldeg
+	colcen 7 or +dibujo
+	colmat 8 or +dibujo
+	colorb 4 << $c or +dibujo
+	colora 4 << $e or +dibujo
+	;
+:polrdeg
+	colcen 7 or +dibujo
+	colmat 8 or +dibujo
+	colorb 4 << $c or +dibujo
+	colora 4 << $f or +dibujo
+	;
+
+#tiposcol polsolido polldeg polrdeg
+
+:cierropoligono
+	setparam
+	'trazo @ $fffffff0 and $a or +dibujo | agrego linea fantasma
+	coltipo 2 << 'tiposcol + @ exec
+	0dibujo ;
+
+:cierrocurva
+	setparam -dibujo
+	'trazo @ $fffffff0 and $9 or +dibujo | agrego linea fantasma
+	coltipo 2 << 'tiposcol + @ exec
+	0dibujo ;
+
+:cpdibujo
+	1 'etrazo !
+	0 'lastnodo !
+	setparam
+	trazo> 'trazo - 2 >> 3 <? ( drop cltrazo ; ) drop
+	dibujoed> indpol> !+ 0 over ! 'indpol> !
+	'trazo ( @+ 1? )(
+		dup $f and 5 =? ( 3 nip ) swap $fffffff0 and or
+		+dibujo ) drop
+	8 - @ $f and 4 =? ( cierrocurva )( cierropoligono ) drop
+	dibujoed> indpol> !
+	cltrazo
+	haceindice
+	;
+
+|--------------------------------------------------
+#xcycwh 0 0 0 0
+
+:savebox
+	w h 0 0 bmppt
+	xc yc w h 'xcycwh !+ !+ !+ ! ;
+
+:loadbox
+	'xcycwh @+ 'h ! @+ 'w ! @+ 'yc ! @ 'xc ! ;
+
+:drawdibujo
+	loadbox
+
+	grillamodo 0? ( blanco gc.fbox ) drop
+	bmpfondo 1? ( xc w 2/ - yc h 2/ - bmpdrawfast ) drop
+	egrilla gris 2* rgrilla
+
+	bmpfondo 1? ( 200 alpha ) drop
+	'dibujoed nsprite
+	bmpfondo 1? ( 255 alpha ) drop
+
+	lastnodo 0? ( drop ; )
+	blink 1? ( negro )( blanco ) drop
+	@ gc>xy 4 box
+	loadbox
+	;
+
+:cambiofondo
+	grillamodo 1 xor 'grillamodo !
+	bmpfondo 1? ( 0 'bmpfondo ! )( bmpfondor 1? ( 'bmpfondo ! )( drop ) ) drop
+	;
+
+|--------------------------------------------------
+#filebmpback )( 256
+#bmphh #bmpww
+#bmpxx #bmpyy
+
+:bmpback
+	fonti
+	"media/bmp/" "*.bmp" dlgfileload 0? ( drop ; )
+	'filebmpback strcpy
+	'filebmpback bmp.load 0? ( trace )
+	dup 'bmpfondor ! 'bmpfondo !
+
+	loadbox
+	w h 0 0 bmppt
+	0 'bmpxx !
+	0 'bmpyy !
+	bmp.alto 'bmphh !
+	bmp.ancho 'bmpww !
+	;
+|--------------------------------------------------
+:indot | x y x y --
+	rot - dup * swap rot - dup * + | dx2+dy2
+	64 <=? ( 1 )( 0 ) nip ; |
+
+:tocanodopoli | x y -- x y nro/ 0
+	poini ( pofin <? )( dup @
+		dup $f and 8 >? ( 2drop )(
+			drop swap >r
+			gc>xy 2over indot 1? ( drop r> ; )
+			drop r> )
+		4+ )
+	drop 0 ;
+
+|--------------------------------------------------
+#oxy
+
+:nodomove
+	drop dup
+	d>xy yd + swap xd + swap xy>d swap $f and or over ! ;
+
+:polimove | x y
+	xy>gc oxy over 'oxy !
+	dxy 'yd ! 'xd !
+	poini ( pofin <? )(
+		dup @ dup $f and
+		$a >? ( 2drop )( nodomove )
+		4+ ) drop
+	;
+
+:muevenodo
+	>r xy>gc r @ $f and
+	1 =? ( | si es op busco linea fantasma
+		r ( @+ $f and $9 <? )( drop ) drop
+		4 - pick2 over @ $f and or swap !
+		)
+	or r> ! ;
+
+
+|-------- dibujo de cada nodo segun tipo
+#ycen #xcen
+
+:dd1 gc>xy 2 box ;
+:dd2 gc>xy 3 cruz ;
+:dd3 gc>xy 2 fbox ;
+:dd4 gc>xy 3 cruz ;
+:dd5 gc>xy 2 fbox ;
+:dd6 gc>xy 3 cruz ;
+:dd7 gc>xy 2dup 'ycen !+ ! 2 box ; | centro
+:dd8 gc>xy 2dup 2 cruz op xcen ycen line ; | relativo
+
+#acdd 0 dd1 dd2 dd3 dd4 dd5 dd6 dd7 dd8
+
+:drawnodos
+	poini ( pofin <? )( @+
+		dup $f and 8 >? ( 2drop )( 2 << 'acdd + @ exec )
+		) drop ;
+
+
+|--------------------------------------------------
+:medionodos | adr -- adr nv
+	dup @ over 4 - @ d>xy rot
+	d>xy rot + 2/ >r + 2/ r> xy>d ;
+
+:+nodo | adr --
+	dup 4+ swap dibujoed> pick2 - 2 >> 1+ move>
+	4 dup 'dibujoed> +! 'pofin +! 0 dibujoed> !
+	;
+
+:insprimero | adr --
+	dup +nodo
+	8 + medionodos 3 or swap 4 - ! ;
+
+:inscurva | adr --
+	dup +nodo
+	dup 8 + medionodos 4 or swap 4 - !
+	dup +nodo
+	8 + medionodos 2 or swap 4 - !
+	;
+
+#accinsnodo 0 insprimero inscurva insprimero 0 0 0 0
+|	7 =? ( 2drop inspoli ; )
+
+:ins-nodo
+	lastnodo 0? ( drop ; )
+	dup @ $7 and
+	2 << 'accinsnodo + @ 0? ( 2drop )( exec )
+	haceindice
+	;
+
+|-------------------------
+:-nodo | adr --
+	dup 4+ dibujoed> pick2 - 2 >> move
+	-4 dup 'dibujoed> +! 'pofin +! 0 dibujoed> !
+	;
+
+:quitapoli | adr --
+	drop
+:del-poli
+	poini pofin 4+ dibujoed> over - 2 >> move
+	pofin poini - 4+ neg 'dibujoed> +! 0 dibujoed> !
+	0 dup dup 'poini ! 'pofin ! 'lastnodo !
+	haceindice
+	;
+
+|-----------------------------------------------
+:quitaylinea
+	dup -nodo dup @ $fffffff0 and 3 or swap !
+	;
+
+:delnodo2 | adr --
+	4+ dup @ $f and
+	4 =? ( drop 4 - quitaylinea ; ) | curva real
+	drop 4 - dup -nodo
+	dup @ $fffffff0 and $a or swap ! | ultima
+	;
+
+:delnodo1 | adr --
+	dup -nodo
+	dup @ $f and
+	2 =? ( over 4+ dup @ $fffffff0 and 3 or swap ! )
+	8 >? ( drop quitapoli ; )
+	drop
+	dup @ $fffffff0 and dup 1 or pick2 ! | adr v
+	swap ( @+ $f and $9 <? )( drop ) drop | v adr'
+	4 - dup @ $f and rot or swap !
+	;
+
+:delnodo4
+	4 - quitaylinea ;
+
+#accdelnodo 0 delnodo1 delnodo2 -nodo delnodo4 0 0 0
+
+:del-nodo
+	lastnodo 0? ( drop ; )
+	dup @ $7 and
+	2 << 'accdelnodo + @
+	0? ( 2drop ; )( exec )
+	haceindice
+	;
+
+:deltrazo
+	lastnodo 0? ( drop ; )
+	0 over ! dup 'trazo> ! 4 -
+	'trazo <? ( 0 nip 1 'etrazo ! )
+	'lastnodo ! ;
+
+|-------------------------
+:acurva1 | adr --
+	4+ dup @ $f and | el siguiente es
+	2 =? ( drop quitaylinea ; ) | curva
+	$a =? ( drop dup +nodo
+			medionodos 2 or swap !+
+			dup @ $fffffff0 and 9 or swap ! ; )
+	drop dup +nodo
+	medionodos 2 or swap !+
+	dup @ $fffffff0 and 4 or swap !
+	;
+
+#acccurvn 0 'acurva1 'delnodo2 'acurva1 'acurva1 0 0 0
+
+:curv-nodo | --
+	lastnodo 0? ( drop ; )
+	dup @ $7 and
+	2 << 'acccurvn + @ 0? ( 2drop )( exec )
+	haceindice
+	;
+
+|-----------------------------------------------
+#curcola
+#curcolb
+
+:colordepoli
+	poini 0? ( drop ; )
+	0 dup 'curcola !+ !
+	( pofin <=? )( dup @ $f and
+			$c =? ( over dup @ 4 >> 'colorb ! 'curcolb ! )
+			$d =? ( over dup @ 4 >> 'colora ! 'curcola ! 0 'coltipo ! )
+			$e =? ( over dup @ 4 >> 'colora ! 'curcola ! 1 'coltipo ! )
+			$f =? ( over dup @ 4 >> 'colora ! 'curcola ! 2 'coltipo ! )
+			drop 4+ ) drop ;
+
+:elijecolor
+	colordepoli
+	coltipo colora colorb 
+	dlgcolor
+	'coltipo ! 'colora ! 'colorb !
+	colora 4 << coltipo $d + or curcola 0? ( 2drop )( ! )
+	colorb 4 << $c or curcolb 0? ( 2drop )( ! )
+	;
+
+:btncolor
+	coltipo
+	0? ( colora ink sfill )
+	1- 0? ( colorb colora gc.hdeg lfill )
+	1- 0? ( colorb colora gc.hdeg rfill )
+	drop
+	gc.fbox
+	sfill
+	'elijecolor guiBtn
+	;
+
+|--------------------------------------------------
+::resetspr
+	cldibujo
+	cltrazo
+	0 dup 'poini ! 'pofin !
+	-1 'policursor !
+	0 'colora !
+	$ffffff 'colorb !
+	1 'coltipo !
+	1 'etrazo !
+	0 'lastnodo !
+	haceindice
+	;
+
+|--cursor ab
+#xa #ya #xb #yb
+
+:cur.clr	0 0
+:cur.set	dup 'ya ! 'yb ! dup 'xa ! 'xb ! ;
+
+|-- caja
+:caja.ins
+	xa xb =? ( drop ; ) ya yb =? ( 2drop ; )
+	xy>gc 1 or +trazo
+	xa yb xy>gc 3 or +trazo
+	xb yb xy>gc 3 or +trazo
+	xb ya xy>gc 3 or +trazo
+	;
+
+|-- elip
+:elip.ins
+	xa xb =? ( drop ; ) ya yb =? ( 2drop ; )
+	yb ya - abs xb xa - abs
+	>r >r r - 2dup
+	2dup xy>gc 1 or +trazo |op
+    swap r> r> dup >r swap >r  - swap 2dup xy>gc 2 or +trazo	|cp
+	r + 2dup xy>gc 4 or +trazo |curve
+	r + 2dup xy>gc 2 or +trazo |cp
+	swap r> r> dup >r swap >r + swap 2dup xy>gc 4 or +trazo |curve
+	swap r> r> dup >r swap >r + swap 2dup xy>gc 2 or +trazo |cp
+	r - 2dup xy>gc 4 or +trazo |curve
+	r> - xy>gc 2 or +trazo |cp
+	xy>gc 4 or +trazo |curve
+	rdrop
+	;
+
+|------------------------------------------------
+:circlemode
+	drawdibujo
+	[ xymouse cur.set ; ]
+	[ xymouse 'yb ! 'xb ! ; ]
+	[ elip.ins cpdibujo cur.clr ; ]
+	guiMap
+	blink 1? ( colora )( colorb ) ink drop
+	xa xb =? ( drop ; ) ya yb =? ( 2drop ; )
+	yb ya - abs xb xa - abs ellipse ;
+
+
+|------------------------------------------------
+:cajamode
+	drawdibujo
+	[ xymouse cur.set ; ]
+	[ xymouse 'yb ! 'xb ! ; ]
+	[ caja.ins cpdibujo cur.clr ; ]
+	guiMap
+
+	blink 1? ( colora )( colorb ) ink drop
+	xa xb =? ( drop ; ) ya yb =? ( 2drop ; )
+	2dup 2dup op drop yb 2dup line nip xb swap 2dup line drop ya line line
+	;
+
+|------------------------------------------------
+:trazomode
+	drawdibujo
+	[ cltrazo xymouse xy>gc 1 or +trazo ; ]
+	[ xymouse xy>gc 5 or +trazo ; ]
+	[ cpdibujo ; ]
+	guiMap
+	blink 1? ( colora )( colorb ) ink drop
+	'trazo nsprite
+	;
+
+|--------------------------------------------------
+:nodomode
+	drawdibujo
+	[ xymouse xy>gc etrazo or +trazo
+		etrazo 1 =? ( 5 nip ) 'etrazo !
+		; ]
+	[ xymouse xy>gc trazo! ; ]
+	[ trazo> 4 - 'lastnodo ! ; ]
+	guiMap
+
+	blink 1? ( colora )( colorb ) ink drop
+	'trazo dup nsprite dibnodos
+	;
+
+|--------------------------------------------------
+:editmode
+	drawdibujo
+	[ xymouse tocanodopoli 1? ( dup 'lastnodo ! ) 'cursor ! xy>gc 'oxy ! ; ]
+	[ xymouse cursor 1? ( muevenodo ; ) drop polimove ; ]
+	[ 0 'cursor ! ; ]
+	guiMap
+
+	blink 1? ( negro )( blanco ) drop
+    drawnodos
+	;
+
+
+|--------------------------------------------------
+:vistamode
+	loadbox
+	[ xymouse 'yd ! 'xd ! ; ]
+	[ xymouse loadbox dup yd - 'yc +! 'yd ! dup xd - 'xc +! 'xd ! savebox ;	] guiDnMove
+	zoom 1.3 + sh 16 *>> dup 'w ! 'h !
+	savebox
+	drawdibujo
+	;
+
+:changexy
+	dup yd - neg 'bmpyy +! 'yd !
+	dup xd - neg 'bmpxx +! 'xd !
+	bmpxx bmpyy bmpXY
+	;
+
+:bmpmode
+	[ xymouse 'yd ! 'xd ! ; ]
+	[ xymouse changexy ; ] guiDnMove
+	drawdibujo
+	;
+
+|--------------------------------------------------
+#tocado
+#maxpoli
+
+:policlick | n --
+	dup @+ 'poini ! @ 4 - 'pofin !
+	over 'policursor !
+	0 'lastnodo !
+	1 'modo !
+	colordepoli ;
+
+|--- auxpolis
+:tocopy | adr --
+	'dibujoed
+:tocopyto | hast des --
+	( over <? )( @+ , ) 2drop ;
+:copyto | adr --
+	( @+ 1? )( , ) , drop ;
+
+:prevpoli | ad -- ad'
+	( 'dibujoed >? )( dup @ $f and
+		$c >? ( drop 4+ ; )
+		drop 4 - )  ;
+
+:nextpoli | ad -- 'ad
+	( dibujoed> <? )( dup @ $f and $c >? ( drop ; ) drop 4+ ) ;
+
+:abapoli
+	poini 0? ( drop ; )
+	'dibujoed =? ( drop ; )
+	dup 8 - prevpoli over =? ( 2drop ; ) | no hay otro atras
+	mark
+	dup tocopy	| poini pnex
+	pofin 4+ poini tocopyto | poini pnex
+	tocopyto
+	pofin 4+ copyto
+	empty
+	'dibujoed here ( @+ 1? )( rot !+ swap ) rot !+
+	4 - 'dibujoed> ! drop
+	haceindice
+	policursor 1- dup 2 << 'indpol + policlick drop
+	;
+
+:polinuevo
+	cpdibujo 1 'etrazo !
+	-1 'policursor !
+	0 'modo !
+	haceindice ;
+
+:viewpolis
+	1 rows 3 - gotoxy
+	0 'indpol ( indpol> <? )(
+		dup 4+ @ 8 - @ 4 >> $ffffff and ink | dup ..swap 4 - @ 4 >> |otro color
+		'policlick pick2
+		policursor =? ( "<%d>" )( " %d " )
+		allowcr link
+      	4+ swap 1+ swap ) 2drop
+    'polinuevo
+	policursor -1 =? ( "<*>" )( " * " ) nip
+	allowcr link
+	;
+
+|-----------------------------------------------------------
+:todosmodos
+	rojo
+	'exit 'ifin btnd gc>>
+	verde
+	[ 0 'modo ! ; ] 'idibuja btnd gc>>
+	[ 2 'modo ! ; ] 'istop btnd gc>>
+	[ 3 'modo ! ; ] 'irec btnd gc>>
+	[ 5 'modo ! ; ] 'ilupa btnd gc>>
+	;
+
+|-----------------------------
+:zoom1 	-0.5 'zoom ! ;
+:zoom3 	0.0 'zoom ! ;
+:zoom5	0.4 'zoom !	;
+
+:changewh
+	bmpww bmphh bmpWH ;
+
+:btnbmp
+	azul
+	[ bmpww 2* 0? ( 2 nip ) 'bmpww ! changewh ; ] 'imenos btnd gc>>
+	[ bmpww 2/ 0? ( 2 nip ) 'bmpww ! changewh ; ] 'imas btnd gc>>
+	verde
+	[ bmphh 2* 0? ( 2 nip ) 'bmphh ! changewh ; ] 'imenos btnd gc>>
+	[ bmphh 2/ 0? ( 2 nip ) 'bmphh ! changewh ; ] 'imas btnd gc>>
+	;
+
+:btnvista
+	violeta
+	'zoom1 'imenos btnd gc>>
+	'zoom3 'istop btnd gc>>
+	'zoom5 'imas btnd gc>>
+
+	w 2 << dup 2/ 'xc +! 'w !
+	'zoom Hslide
+	;
+
+:btnnuevo
+	rojo
+	'deltrazo 'imenos btnd
+	;
+
+:btnnodos
+	azul
+	'del-nodo 'imenos btnd gc>>
+	'ins-nodo 'imas btnd gc>>
+	'curv-nodo 'icurva btnd gc>>
+	violeta
+	'abapoli 'iizq btnd gc>>
+	'del-poli 'imenos btnd
+	;
+
+:btntrazo
+	rojo
+	'deltrazo 'iborrar btnd
+	;
+
+#btns 'btnnuevo 'btnnodos 'btnnuevo 'btnnuevo 'btntrazo 'btnvista 'btnbmp
+
+:botonherra
+	modo 2 << 'btns + @ exec ;
+
+
+|||||||||||||||||||||||||||||
+#accmodos 'nodomode 'editmode 'cajamode 'circlemode 'trazomode 'vistamode 'bmpmode
+
+:viewdibujo
+	modo 2 << 'accmodos + @ exec ;
+
+|||| debug
+:dumpdibujo
+	0.8 0.9 fdim fonti
+	verde
+|	azul pofin poini "%d %d" print cr
+	0 'dibujoed ( dibujoed> <? )(
+		poini =? ( rojo )
+		pofin =? ( verde )
+		@+ "%h " print
+		swap 1+ $7 nand? ( cr ) swap
+		) 2drop
+|	;
+|:aaa
+	policursor "policursor:%d " print
+	pofin poini "ini:%d fin%d " print cr
+	coltipo colorb colora "colA:%h colB:%h tipo:%h " print cr
+	modo "modo:%d" print cr
+	etrazo "etrazo:%d" print cr
+	lastnodo "lastnodo:%d" print cr
+	indpol> 'indpol - "indpol:%d" print cr
+	maxpoli "%d" print cr
+	dup "%d" print
+ 	;
+
+:borrodib
+	"Borro Dibujo ?" dlgsino
+	1? ( resetspr ) drop
+	;
+
+|-----------------------------------
+::editandospr  | --
+	cltrazo
+	haceindice
+	0 0 fpos
+	-0.5 'zoom !
+	zoom 1.3 + sh 16 *>> dup 'w ! 'h !
+	savebox
+	0 'modo !
+	show clrscr
+		viewdibujo
+		viewpolis
+
+		-0.9 0.9 fpos 0.08 hdim
+		todosmodos botonherra
+
+		-0.9 0.72 fpos 0.08 hdim
+		btncolor gcdn
+		violeta 'borrodib 'iborrar btnd gcdn
+		gris 'cambiofondo 'idiamante btnd gcdn
+		azul 'bmpback 'icopia btnd gcdn
+		azul [ 6 'modo ! ; ] 'icopia btnd gcdn
+		cflecha
+|		scr home dumpdibujo
+		'exit >esc<
+		;
+
+|--------------------------------------------------
+:	mark
+	resetspr
+	'dibujoed "mem/notepad.spr" load 'dibujoed> !
+	editandospr
+	'dibujoed dibujoed> over - "mem/notepad.spr" save
+	;

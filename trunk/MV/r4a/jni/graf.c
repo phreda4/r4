@@ -50,6 +50,15 @@ int gr_sizescreen=0;	// tamanio de pantalla
 #define RED_MASK 0xF800
 #define GRE_MASK 0x07E0
 #define BLU_MASK 0x001F
+uint16_t colorr,colorg,colorb;// optimiza color 1
+
+inline uint16_t gr_RGBSET(uint32_t c)
+{
+colorr=(uint16_t)((c>>8)&RED_MASK);
+colorg=(uint16_t)((c>>5)&GRE_MASK);
+colorb=(uint16_t)((c>>3)&BLU_MASK);
+return (colorr|colorg|colorb);
+};
 
 inline uint16_t gr_RGB(uint32_t c)
 {
@@ -59,11 +68,16 @@ return (((c>>8)&RED_MASK)|((c>>5)&GRE_MASK)|((c>>3)&BLU_MASK));
 inline uint32_t RGB_gr(uint16_t c)
 {
 register uint32_t c1=(c&RED_MASK);c1=(c1|(c1>>5))<<8;
-register uint32_t a=c1&0xff0000;
-c1=(c&GRE_MASK);c1=((c1<<6)|c1)>>1;
-a|=c1&0xff00;
-c1=(c&BLU_MASK);c1=((c1<<5)|c1)>>2;
+register uint32_t a=c1&0xff0000;c1=(c&GRE_MASK);c1=((c1<<6)|c1)>>1;
+a|=c1&0xff00;c1=(c&BLU_MASK);c1=((c1<<5)|c1)>>2;
 return (a|(c1&0xff));
+}
+
+inline void gr_565(uint16_t c)
+{
+colorr=(uint16_t)(c&RED_MASK);
+colorg=(uint16_t)(c&GRE_MASK);
+colorb=(uint16_t)(c&BLU_MASK);
 }
 
 void gr_fin(void)
@@ -75,10 +89,10 @@ free(XFB);
 void gr_init(void)
 {
 if (gr_sizescreen==0)
-{
-gr_sizescreen=buffergr.height*buffergr.width;// tamanio en uint16_t
-XFB=(void*)malloc(gr_sizescreen*2);
-}
+	{
+	gr_sizescreen=buffergr.height*buffergr.width;// tamanio en uint16_t
+	XFB=(void*)malloc(gr_sizescreen*2);
+	}
 //buffergr.width=buffergr.width=XRES;
 //buffergr.height=YRES;
 //---- poligonos2
@@ -121,6 +135,7 @@ register int c=gr_sizescreen/2;
 while (c>0) { c--;*bgr++=*xgr++; }
 }
 
+/*
 
 #define MASK1 (RED_MASK|BLU_MASK)
 #define MASK2 (GRE_MASK)
@@ -132,19 +147,18 @@ register unsigned int RB=(((((gr_color1&MASK1)-B)*alpha)>>8)+B)&MASK1;
 B=col&MASK2;
 return ((((((gr_color1&MASK2)-B)*alpha)>>8)+B)&MASK2)|RB;
 }
+*/
 
-/*
 inline uint16_t gr_mix(uint16_t col,uint8_t alpha)
 {
 uint16_t r=(col&RED_MASK);
 r=(((colorr-r)*alpha+(r<<8))>>8)&RED_MASK;
-uint16_t g=(col&GREEN_MASK);
-g=(((colorg-g)*alpha+(g<<8))>>8)&GREEN_MASK;
-uint16_t b=(col&BLUE_MASK);
-b=(((colorb-b)*alpha+(b<<8))>>8)&BLUE_MASK;
+uint16_t g=(col&GRE_MASK);
+g=(((colorg-g)*alpha+(g<<8))>>8)&GRE_MASK;
+uint16_t b=(col&BLU_MASK);
+b=(((colorb-b)*alpha+(b<<8))>>8)&BLU_MASK;
 return (uint16_t)(r|g|b);
 }
-*/
 //--------------- RUTINAS DE DIBUJO
 //---- solido
 void _gr_pixels(uint16_t *gr_pos)		{*gr_pos=gr_color1;}
@@ -287,37 +301,56 @@ if (dy>dx) 	{
 
 //inline int abs(int a ) { return (a+(a>>31))^(a>>31); }
 
-void gr_splineiter(int x1,int y1,int x2,int y2,int x3,int y3)
+void gr_spline(int x1,int y1,int x2,int y2,int x3,int y3)
 {
 int x11=(x1+x2)>>1,y11=(y1+y2)>>1;
 int x21=(x2+x3)>>1,y21=(y2+y3)>>1;
 int x22=(x11+x21)>>1,y22=(y11+y21)>>1;
 if (abs(x22-x2)+abs(y22-y2)<4)
     { gr_line(x1,y1,x22,y22);gr_line(x22,y22,x3,y3); return; }
-gr_splineiter(x1,y1,x11,y11,x22,y22);
-gr_splineiter(x22,y22,x21,y21,x3,y3);
+gr_spline(x1,y1,x11,y11,x22,y22);
+gr_spline(x22,y22,x21,y21,x3,y3);
 }
 
-void gr_spline(int x1,int y1,int x2,int y2,int x3,int y3)
+void gr_spline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4)
 {
-gr_splineiter(x1,y1,x2,y2,x3,y3);
+int gx=(x2+x3)/2,gy=(y2+y3)/2;
+int b2x=(x3+x4)/2,b2y=(y3+y4)/2;
+int a1x=(x1+x2)/2,a1y=(y1+y2)/2;
+int b1x=(gx+b2x)/2,b1y=(gy+b2y)/2;
+int a2x=(gx+a1x)/2,a2y=(gy+a1y)/2;
+int mx=(b1x+a2x)/2,my=(b1y+a2y)/2;
+if (abs(x2-a2x)+abs(y2-a2y)<4) gr_line(x1,y1,mx,my);
+   else gr_spline3(x1,y1,a1x,a1y,a2x,a2y,mx,my);
+if (abs(x3-b1x)+abs(y3-b1y)<4) { gr_line(x4,y4,mx,my);return; }
+gr_spline3(mx,my,b1x,b1y,b2x,b2y,x4,y4);
 }
 
 // poligono
-void gr_iteracionSP(long x1,long y1,long x2,long y2,long x3,long y3)
-{
-long x11=(x1+x2)>>1,y11=(y1+y2)>>1;
-long x21=(x2+x3)>>1,y21=(y2+y3)>>1;
-long x22=(x11+x21)>>1,y22=(y11+y21)>>1;
-if (abs(x22-x2)+abs(y22-y2)<4)
-    { gr_psegmento(x1,y1,x22,y22);gr_psegmento(x22,y22,x3,y3); return; }
-gr_iteracionSP(x1,y1,x11,y11,x22,y22);
-gr_iteracionSP(x22,y22,x21,y21,x3,y3);
-}
-
 void gr_pspline(int x1,int y1,int x2,int y2,int x3,int y3)
 {
-gr_iteracionSP(x1,y1,x2,y2,x3,y3);
+int x11=(x1+x2)>>1,y11=(y1+y2)>>1;
+int x21=(x2+x3)>>1,y21=(y2+y3)>>1;
+int x22=(x11+x21)>>1,y22=(y11+y21)>>1;
+if (abs(x22-x2)+abs(y22-y2)<4)
+    { gr_psegmento(x1,y1,x22,y22);gr_psegmento(x22,y22,x3,y3); return; }
+gr_pspline(x1,y1,x11,y11,x22,y22);
+gr_pspline(x22,y22,x21,y21,x3,y3);
+}
+
+
+void gr_pspline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4)
+{
+int gx=(x2+x3)/2,gy=(y2+y3)/2;
+int b2x=(x3+x4)/2,b2y=(y3+y4)/2;
+int a1x=(x1+x2)/2,a1y=(y1+y2)/2;
+int b1x=(gx+b2x)/2,b1y=(gy+b2y)/2;
+int a2x=(gx+a1x)/2,a2y=(gy+a1y)/2;
+int mx=(b1x+a2x)/2,my=(b1y+a2y)/2;
+if (abs(x2-a2x)+abs(y2-a2y)<4) gr_psegmento(x1,y1,mx,my);
+   else gr_spline3(x1,y1,a1x,a1y,a2x,a2y,mx,my);
+if (abs(x3-b1x)+abs(y3-b1y)<4) { gr_psegmento(x4,y4,mx,my);return; }
+gr_spline3(mx,my,b1x,b1y,b2x,b2y,x4,y4);
 }
 
 //**************************************************
