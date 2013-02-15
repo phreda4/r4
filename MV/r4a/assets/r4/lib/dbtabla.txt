@@ -1,0 +1,421 @@
+| dbtabla.txt - PHREDA
+| archivo de texto con los siguientes separadores
+| ~ registro
+| | campos
+| _ multivalores
+|-------------------
+^r4/lib/parse.txt
+^r4/lib/mem.txt
+^r4/lib/input.txt
+^r4/lib/gui.txt
+^r4/lib/sort.txt
+^r4/lib/trace.txt
+
+|--- info
+#:dbnombre )( 64
+#:cntflds
+
+#cntregr
+#cntregf
+
+::cntregs
+	cntregf -1 =? ( cntregr nip ) ;
+
+|--- control
+#actreg
+#indice0
+#indicef
+#sumapos
+
+|--- memoria
+#inimem
+#:inimemdb 0
+
+|--- indice 128 campos
+#flds )( 512	| nombre
+#fldl )( 512	| largo
+#fldc )( 512	| campos en cursor
+#fldm )( 512	| memoria auxiliar
+
+|||||||| accesos
+::dbname | n -- adr	; titulo
+	2 << 'flds + @ ;
+
+::dblen | n -- largo	; largo
+	2 << 'fldl + @ ;
+
+::dbfld | n -- adr		; lugar en db
+	2 << 'fldc + @ ;
+
+::dbmfld | n -- adr		; lugar en memaux
+	2 << 'fldm + @ ;
+
+::dbreg | n -- adr
+	2 << indice0 + @ ;
+
+||||||||| cargar tabla
+:recorre
+	( c@+ $7e <>? )(
+		0? ( drop nip 1- ; )
+		$7c =? ( 1 'cntflds +! rot pick2 swap !+ rot rot )
+		drop ) drop nip | ind mem
+	1 'cntflds +!
+	;
+
+::dbload | "app.db" --
+	dup 'dbnombre strcpy
+	0 dup 'cntregr ! 'cntflds !
+	-1 'cntregf !
+	inimemdb 0? ( here dup 'inimemdb ! nip )
+	swap load inimemdb =? ( drop ; )
+	0 swap !+ dup 'indice0 !
+	inimemdb | <-- inicio
+	>>..
+	dup 'flds !+ | ind mem fld
+	swap					|----- campos
+	recorre
+	>>..
+	dup rot !+ swap 		|---- registros
+	( c@+ 1? )(
+		$7e =? ( swap >>.. swap 1 'cntregr +! rot pick2 swap !+ rot rot )
+		drop ) 2drop
+|	$ff +
+	dup 'indicef !
+	cntregr 2 << +
+|	$ff +
+	'inimem !
+	0 'sumapos !
+	'fldl 'flds 			|---- ancho de campos, mem aux
+	0 ( cntflds <? )( >r
+		@+ >>s ?0int
+		sumapos inimem + r 2 << 'fldm + !
+		dup 1+ 'sumapos +!
+		rot !+ swap
+		r> 1+ ) 3drop
+	sumapos inimem + 2 + 'here !
+	;
+
+|||||||| memoria auxiliar de registros
+::clearreg
+	'fldm cntflds ( 1? )( >r
+		@+ 0 swap c!
+		r> 1- )
+	2drop ;
+
+::getreg | nro --
+	cntregf -1 >? ( >=? ( drop ; ) 2 << indicef + @ dup ) drop | filtro
+:getregp | nro --
+	dup 'actreg !
+	cntregr >=? ( drop ; )
+	2 << indice0 + @
+	'fldc swap
+	cntflds ( 1? )( >r
+		dup rot !+ swap
+		>>f r> 1- )
+	3drop ;
+
+::dbcpy | dst scr --
+	( c@+ 1? )(
+|		$5f =? ( 2drop 0 swap c! ; )
+		$7c =? ( 2drop 0 swap c! ; )
+		$7e =? ( 2drop 0 swap c! ; )
+		rot c!+ swap ) rot c!+
+	2drop ;
+
+::dbset | str nro --
+	dbmfld swap
+	( c@+ 1? )( rot c!+ swap ) rot c! drop ;
+
+::cpyreg | --
+	actreg
+	cntregr >=? ( drop clearreg ; )
+	drop
+	'fldm 'fldc
+	0 ( cntflds <? )( >r
+		@+ rot @+ rot dbcpy swap
+		r> 1+ )
+	3drop ;
+
+
+|||||| copia en memoria
+#p1 #psig
+:,c1 p1 c!+ 'p1 ! ;
+:,s1 ( dup c@ 1? )(
+		| conversion teclado-->print
+	$25 =? ( dup ,c1 ) | % -> %%
+|	$5f =? ( 32 nip ) | no
+	$7c =? ( 32 nip ) | permite
+	$7e =? ( 32 nip ) | separadores
+	,c1 1+ ) 2drop ;
+
+|||||| inserta registro
+:armareg | --
+	0 ( cntflds <? )(
+		1? ( $7c ,c1 ) |"|" ,s1 )
+		dup dbmfld ,s1
+		1+ ) drop
+	$7e ,c1 | ~ registro "~" ,s1
+	13 ,c1 10 ,c1 ;
+
+:sumreg | -- cnt
+	0 | cantidad de caracteres
+	0 ( cntflds <? )(
+		swap 1+
+		over dbmfld count nip +
+		swap 1+ ) drop
+	2 + ;
+
+::dbinsert | --   ; inserta memoria al final del archivo
+	indice0 4 - 'p1 !
+	armareg
+	inimemdb p1 over - 'dbnombre save 	| copia a archivo
+ 	'dbnombre dbload ; | recarga
+
+|||||| actualiza registro
+:updultimo | act --
+	2 << indice0 + @ 'p1 !
+	armareg
+	inimemdb p1 over - 'dbnombre save 	| copia a archivo
+ 	'dbnombre dbload ; | recarga
+
+::dbupdate | --
+	actreg
+	cntregr >=? ( drop ; )
+	cntregr 1- =? ( updultimo ; ) | borro ultimo
+    2 << indice0 + @+ 'p1 ! @ 'psig ! | actual y siguiente
+	sumreg psig p1 - - dup
+	+? ( psig + psig indice0 over - cmove> )( psig + psig indice0 over - cmove ) | des src cant
+	armareg
+	'indice0 +!
+
+	indice0 1- ( dup c@ 32 <? )( drop 1- ) drop 1+ 'indice0 !
+
+	inimemdb indice0 over - 'dbnombre save 	| copia a archivo graba de mas
+ 	'dbnombre dbload ; | recarga
+
+::dblastdel
+	cntregr 1- 2 << indice0 + @ 'p1 !
+	inimemdb p1 over - 'dbnombre save
+	'dbnombre dbload ;
+
+
+::dbdelete | nro --
+	cntregr >=? ( drop ; )
+	1- =? ( drop dblastdel ; ) | borro ultimo
+    2 << indice0 + @+ 'p1 @ 'psig !
+
+	drop
+	;
+
+||||||||| funciones comunes
+::dbmax | campo -- valor
+	0 dup >r
+	( cntregs <? )(
+		dup dbreg | campo nroreg reg
+		pick2 >>fld | campo nroreg creg
+		?0int r >? ( r> drop >r )( drop )
+		1+ ) 2drop
+	r> ;
+
+
+||||||||| interaccion
+::dbtitle | nro --
+	dbname "%a" print ;
+
+::dbtitlel | nro --
+	dup dbname "%a" rot dblen boxprint ;
+
+:makesizew | w --
+	ccw * |dup 2/ +
+	2 + 'w ! ccx w 2/ + 'xc !
+	ccy cch dup 'h ! 2/ + 'yc ! ;
+
+::dbedit | nro --
+	dup dbmfld swap dblen
+	dup makesizew ink@ $aaaaaa ink gc.fbox ink
+	input ;
+
+::dbeditmemo | nro --
+	dup dbmfld swap dblen 10 2 inputm ;
+
+::dbprint | nro --
+	dbmfld print ;
+
+|||||||||
+::printreg
+	'fldc
+	0 ( cntflds <? )( >r
+		verde
+		r dbtitle ": " print
+		@+ "%a" blanco print cr
+		r> 1+ )
+	2drop ;
+
+::editreg
+	'fldm negro
+	0 ( cntflds <? )( >r
+		r dbtitle ": " print
+		@+ r dblen input cr
+		r> 1+ )
+	2drop ;
+
+::editreg2
+	'fldm negro
+	0 ( cntflds <? )( >r
+		r dbtitle ":" print cr
+		@+ r dblen input cr
+		r> 1+ )
+	2drop ;
+
+
+||||||||| debug
+::dbdump
+	|'dbnombre print
+	cntflds " fld:%d " print
+	cntregs "reg:%d " print
+	cntregr "regr:%d " print
+	cntregf "regf:%d " print
+
+	;
+:dumpall
+	0 ( cntflds <? )(
+		dup drop |dbtitle
+		1+ ) drop
+	indice0
+	0 ( cntregs <? )(
+		swap @+ drop |"%a" print cr
+		swap
+		1+ ) 2drop
+	;
+
+|-------------SEARCH
+:=f | fs1 s2 -- 1/0
+	( c@+ 1? )(
+		rot c@+ rot -
+		1? ( 3drop 0 ; ) drop
+		swap ) 2drop
+	c@ $ff and
+	$5f =? ( 1 nip ; )
+	$7c =? ( 1 nip ; )
+	$7e =? ( 1 nip ; )
+	33 <? ( 1 )( 0 ) nip ;
+
+::dbsearch | 'que fld -- reg
+	0
+	( cntregr <? )( | 'que fld nro
+		dup dbreg
+		pick2 >>fld  | 'que fld nro reg
+		pick3 =f 1? ( drop nip nip ; )
+		drop 1+ ) 3drop
+	-1 ;
+
+|--- case insensitive+all
+:=fi | fs1 s2 -- 1/0
+	( c@+ 1? )( toupp
+		rot c@+ toupp rot -
+		1? ( 3drop 0 ; ) drop
+		swap ) 3drop
+	1 ;
+
+#ultimoencontrado
+
+:encontrado | str c0 db fi -- reg
+	drop nip nip |db
+	dup 'ultimoencontrado !
+	indice0
+	( @+ pick2 <? )( drop ) drop nip
+	8 - indice0 - 2 >>
+	;
+
+::dbsearchall | 'str -- reg/-1
+	dup c@ toupp | str c0
+	inimemdb
+	( c@+ 1? )( toupp
+		pick2 =? | str c0 db cdb
+			( drop dup 1- pick3 =fi 1? ( encontrado ; ) )
+		drop ) 4drop
+	inimemdb 'ultimoencontrado !
+	-1 ;
+
+::dbsearchnext | 'str -- reg/-1
+	dup c@ toupp | str c0
+	ultimoencontrado 0? ( inimemdb nip ) 1+
+	( c@+ 1? )( toupp
+		pick2 =? | str c0 db cdb
+			( drop dup 1- pick3 =fi 1? ( encontrado ; ) )
+		drop ) 4drop
+	inimemdb 'ultimoencontrado !
+	-1 ;
+
+|-------------FILTRO
+:addf
+	over cntregf 2 << indicef + !
+	1 'cntregf +!
+	;
+
+::dbfilter | 'que fld --
+	-1 =? ( nip 'cntregf ! ; ) | -1 apaga filtro
+	0 'cntregf !
+	0 ( cntregr <? )(
+		dup dbreg
+		pick2 >>fld
+		pick3 =f 1? ( addf )
+		drop 1+ )
+	3drop ;
+
+::dbfilterv | 'que --
+	0? ( drop -1 'cntregf ! ; ) | 0 apaga filtro
+	0 'cntregf !
+	0 ( cntregr <? )(
+		dup getregp		| 'que nro
+		over exec 		| 'que nro 1/0
+		1? ( addf ) drop
+		1+ )
+	2drop ;
+
+|--------------SORT
+:toval | adr -- int
+	?0int ;
+
+:tovalstr | adr -- int
+	c@+ 24 << swap
+	c@+ $ff and 16 << swap
+	c@+ $ff and 8 << swap
+	c@ $ff and or or or ;
+
+::dbsort | dir nro -- ;
+	-1 =? ( nip 'cntregf ! ; ) | -1 apaga orden
+	mark
+	0 ( cntregs <? )(
+		dup dbreg
+		pick2 >>fld
+		toval
+		pick3 -? ( drop neg )( drop ) ,
+		dup ,
+		1+ ) 3drop
+	empty
+
+	cntregs 1+ here shellsort | len lista --
+	cntregs 'cntregf !
+	indicef here
+	0 ( cntregs <? )( 1+ >r
+		4+ @+ rot !+ swap
+		r> ) 3drop ;
+
+|-------------FILTRO & SORT
+::dbfiltersortv | sort 'que --
+	dbfilterv
+	mark
+	0 ( cntregf <? )(
+		dup 2 << indicef + @ 
+		dup dbreg
+		pick3 >>fld
+		toval , ,
+		1+ ) 2drop
+	empty
+	cntregf 1+ here shellsort | len lista --
+
+	here indicef
+	cntregf ( 1? )( 1- >r
+		swap 4+ @+ rot !+
+		r> ) 3drop ;

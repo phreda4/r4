@@ -1,0 +1,317 @@
+| Editor de bmr (BITMAPR)
+| PHREDA 2010
+|--------------------------------------------------
+^r4/lib/gui.txt
+^r4/lib/input.txt
+^r4/lib/dlg.txt
+^r4/lib/dlgfile.txt
+^r4/lib/fonta.txt
+
+^r4/lib/trazo.txt
+^r4/lib/leebmp.txt
+^r4/lib/bmr.txt
+
+^r4/lib/trace.txt
+
+#bmrm #bmrw #bmrh
+
+#orden 0
+#nrormt 0
+#nomrmt )( 32
+#modo
+
+#color $ff
+
+#zoom 2
+#xi #yi | donde esta el pixel 0,0
+
+#xv #yv	| aux para mover
+
+:refreshbmr
+	bmr.wh@
+	zoom << 'bmrh !
+	zoom << 'bmrw !
+	bmr.res@ 'bmrm !
+	;
+
+|---- dibujo en frame
+::bmr@m | x y -- c
+	2dup whin 0? ( 3drop ; ) drop | no obtiene
+	yi - zoom >> swap xi - zoom >> swap
+	bmr@ ;
+
+:bmr!m32
+	color rot rot
+:bmr!m | c x y --
+	2dup whin 0? ( 3drop ; ) drop | no dibuja afuera
+	yi - zoom >> -? ( 3drop ; )
+	swap xi - zoom >> -? ( 3drop ; )
+	swap bmr! ;
+
+#cf
+:fillcolor | c x y
+	swap -? ( ; ) bmrw >=? ( ; )
+	swap -? ( ; ) bmrh >=? ( ; )
+	2dup bmr@ cf <>? ( drop ; ) drop
+	pick2 pick2 pick2 bmr!
+	1+ fillcolor
+	2 - fillcolor
+	1+ swap 1+ swap fillcolor
+	swap 2 - swap fillcolor
+	swap 1+ swap
+	;
+
+:bmrfill! | c x y -
+	2dup whin 0? ( 4drop ; ) drop | no dibuja afuera
+	yi - zoom >> -? ( 3drop ; )
+	swap xi - zoom >> -? ( 3drop ; )
+	swap | c x y
+	2dup bmr@ pick3 =? ( 4drop ; )
+	'cf ! | c x y
+	fillcolor
+	3drop ;
+
+|*******************************
+:ajusta
+	bmr.wh@
+	sh 2/ swap zoom << 2/ - 'yi !
+	sw 2/ swap zoom << 2/ - 'xi !
+    refreshbmr
+	;
+
+:drawbmr | --
+	bmrm 1 and? ( bmrw bmrh xi yi drawalphagrid ) drop
+	xi yi bmrw bmrh bmr.drawscalei
+	bmrh dup 2/ yi + 'yc ! 2 + 'h !
+	bmrw dup 2/ xi + 'xc ! 2 + 'w !
+	blanco gc.box
+	;
+
+|-----------------------------------
+:borrodib
+	"Borro Dibujo ?" dlgsino
+	1? ( bmr.clear ) drop
+	;
+
+|---- bmp
+#bmp
+#xa #ya #xb #yb
+#wb #hb
+
+:clearsel
+	-1 'xa ! ;
+
+:modoseleccion2
+	[ xymouse 2dup 'yb ! 'xb ! 'ya ! 'xa ! ; ]
+	[ xymouse 'yb ! 'xb ! ; ]
+	guiDnMove
+	blink 1? ( blanco )( negro ) drop
+	xa -? ( drop ; ) ya xb yb caja
+	;
+
+:modoseleccion
+	[ xymouse 2dup hb + 'yb ! wb + 'xb ! 'ya ! 'xa ! ; ]
+	dup
+	guiDnMove
+	blink 1? ( blanco )( negro ) drop
+	xa -? ( drop ; ) ya xb yb caja
+	;
+
+:getimagen
+	xa -? ( drop ; )
+	xb >? ( xb 'xa ! 'xb ! )( drop )
+	ya yb >? ( yb 'ya ! 'yb ! )( drop )
+	xb xa -	yb ya - bmr.wh!
+	ajusta
+	xa ( xb <? )(
+		ya ( yb <? )(
+		2dup bmp.get $ffffff and pick2 xa - pick2 ya - bmr!
+		1+ ) drop
+	1+ ) drop
+	exit
+	;
+
+:freeget
+
+	;
+
+:cargabmps
+	bmr.wh@ 'hb ! 'wb !
+	clearsel
+	33
+	show clrscr
+		0 0  bmp.xyreal
+		modoseleccion
+		blanco
+		0 rows 3 - gotoxy
+		dup "%d " print
+		xa "x1:%d " print
+		ya "y1:%d " print
+		xb "x2:%d " print
+		yb "y2:%d " print cr cr2
+		cyan
+		'getimagen dup <f1> "F1-GET" btnt
+		'freeget dup <f2> "F2-FREE" sp btnt
+		'exit >esc<
+		cminiflecha ;
+
+:cargabmp
+	mark
+	"r4/escmedia/" "*.bmp" dlgfileload 0? ( drop empty ; )
+|	"r4/escmedia/personajes.bmp"
+	bmp.load 'bmp !
+	cargabmps
+	empty
+	;
+
+|------------------------------
+:modofill
+	drawbmr
+	[ color xymouse bmrfill! ; ] guiBtn
+	cr2
+	verde oscuro
+	[ 0 'modo ! ; ] "DRAW" sp btnt
+	[ 1 'modo ! ; ] "EDIT" sp btnt
+	[ 2 'modo ! ; ] "VISTA" sp btnt
+	verde
+	0 "FILL" sp btnt
+	sp
+
+	;
+
+|------------------------------
+:addtrazo
+	trazo.cnt 2 <? ( drop ; ) drop
+	;
+
+:mododraw
+	drawbmr
+	[ 'bmr!m32 vop! ; ] [ xymouse vline! ; ]  guiDnMove
+
+	cr2 verde
+	0 "DRAW" sp btnt
+	verde oscuro
+	[ 1 'modo ! ; ] "EDIT" sp btnt
+	[ 2 'modo ! ; ] "VISTA" sp btnt
+	[ 3 'modo ! ; ] "FILL" sp btnt
+	sp
+	violeta
+	cyan
+	'bmr.scrl "<" sp link
+	'bmr.scrr ">" sp link
+	'bmr.scru "^" sp link
+	'bmr.scrd "v" sp link
+
+	'bmr.flipv "-V-" sp link
+	'bmr.fliph "-H-" sp link
+|	'savebmr "SAVE" sp btnt
+|	'exit "CANCEL" sp btnt
+	;
+
+|------EDIT
+:pick.dn
+	xymouse getpixel 'color ! ;
+
+:modoedit
+	drawbmr
+	'pick.dn 'pick.dn guiDnMove
+
+	cr2 verde oscuro
+	[ 0 'modo ! ; ] "DRAW" sp btnt
+	verde
+	0 "EDIT" sp btnt
+	verde oscuro
+	[ 2 'modo ! ; ] "VISTA" sp btnt
+	[ 3 'modo ! ; ] "FILL" sp btnt
+	sp
+	cyan oscuro
+	'cargabmp "BMP" sp btnt
+	rojo oscuro
+	'bmr.clear "CLS" sp btnt
+	;
+
+|--- modo vista
+:vista.dn
+	xymouse 'yv ! 'xv ! ;
+
+:vista.move
+	xymouse
+	dup yv - 'yi +! 'yv !
+	dup xv - 'xi +! 'xv !
+	;
+
+:bz+ zoom 1+ 6 >? ( 0 nip ) 'zoom ! refreshbmr ;
+:bz- zoom 1- -? ( 6 nip ) 'zoom ! refreshbmr ;
+
+:modovista
+	drawbmr
+	'vista.dn 'vista.move guiDnMove
+	cr2
+	verde oscuro
+	[ 0 'modo ! ; ] "DRAW" sp btnt
+	[ 1 'modo ! ; ] "EDIT" sp btnt
+	verde
+	0 "VISTA" sp btnt
+	verde oscuro
+	[ 3 'modo ! ; ] "FILL" sp btnt
+
+	sp
+	cyan oscuro
+	'ajusta "CENTER" sp btnt
+	'bz- "Z-" sp btnt
+	'bz+ "Z+" sp btnt
+	;
+
+|------- modos
+#modos 'mododraw 'modoedit 'modovista 'modofill
+
+:modoactual
+	modo 2 << 'modos + @ exec ;
+
+|---- cambia resolucion
+:changew | dw
+	bmr.wh@ swap rot + swap
+	bmr.wh!
+	ajusta ;
+
+:changeh | dh
+	bmr.wh@ rot +
+	bmr.wh!
+	ajusta ;
+
+:changea
+	bmr.res@ 1 xor bmr.res!
+	refreshbmr ;
+
+:main
+	ajusta fonta-verdana14
+	show clrscr
+		modoactual
+
+		cr cr2 sp 'color dlgcolora sp
+		verde
+		[ 1 changew ; ] "+" link
+		[ -1 changew ; ] "-" link
+		blanco
+		bmr.wh@ swap " %dx%d " print
+		verde
+		[ 1 changeh ; ] "+" link
+		[ -1 changeh ; ] "-" link
+		amarillo
+		'changea "ALPHA" sp link
+		verde dup " - %d -" print
+
+		rojo
+		'exit dup >esc< "EXIT" sp btnt
+		scr 32 gc.botton home cr2
+		cminiflecha
+ 		;
+
+
+:   33 mark
+	"mem/notepad.bmr" bmr.load
+	$fffff 'here +!
+	refreshbmr
+	main
+	"mem/notepad.bmr" bmr.save
+	;

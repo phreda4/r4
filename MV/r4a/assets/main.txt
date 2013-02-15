@@ -1,28 +1,433 @@
-|--- pantalla&interaccion
-#:lastime
-#startime
-#:.exit
-#:foconow
-#lastgui 0
+| menu principal
+| PHREDA 2010
+|------------------
 
-:show 
-	msec dup 'lastime !+ ! 0 '.exit !
-	-1 'foconow !
-	( .exit 0? )( drop
-		update 
-		r exec
-		redraw )
-	drop rdrop
-	0 'lastgui ! 0 '.exit ! 0 key! ;
-	
-:main
-	show cls
-		$ff00 ink
-		xymouse op
-		200 100 line
-		$ff ink
-		xymouse op
-		100 200 line
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/input.txt
+^r4/lib/math.txt
+^r4/lib/part8.txt
+
+^r4/system/mem-ed.txt
+^r4/system/r4code.txt
+^r4/lib/trace.txt
+
+|------ tipo de archivos.. 0 carpeta ...  -1 desconocido
+| algun dia pondre .r4
+
+#ftypes "txt" "spr" "inc" "bmr" "rmt" 0
+#ctypes 0 $007236 $0076A3 $440E62 $A0410D $9E0039 0
+
+:edittxt
+	"r4/system/edit-code.txt" run ;
+
+:editspr
+	;
+:editinc
+:editbmr
+:editrmt
+	;
+
+
+:calcext | str -- str ext
+	dup count + 4 -
+	dup c@ $2e <>? ( 2drop -1 ; ) | sin extension
+	drop 1+
+	1 'ftypes ( dup c@ 1? )( drop
+		dup pick3 = 1? ( 2drop nip ; )
+		drop >>0 swap 1+ swap )
+	4drop -1	| no reconocida
+	;
+
+:inktype | type --
+	-? ( 1+ ) 2 << 'ctypes + @ ink ;
+
+|--------- fill folders
+#files 0 0
+
+|-------- strings
+#memstr
+#memstr>
+
+|-------- path
+#rutafn
+#ruta )( 1024
+#ruta> 'ruta
+
+#carp )( 1024
+#carp> 'carp
+
+#stkpath )( 1024
+#stkpath. 'stkpath
+
+|--------- estado
+#ok " ok"
+#mensaje 'ok
+#padin )( 1024
+
+|---------- path con nodos
+#pathfile )( 256
+#pathfile> 'pathfile
+#runfile
+
+|-------- manejo de path
+:ruta.push | "" --
+	"/" ruta> strcpyl 1- strcpyl 1- 'ruta> ! ;
+
+:ruta<< | adr -- adr'
+ 	ruta> 2 -
+	( 'ruta >? )( dup c@ $2f =? ( drop ; ) drop 1- ) drop |$5c..$2f para la otra barra
+	'ruta ;
+
+:ruta.pop | --
+	ruta<< 0 over c! 'ruta> ! ;
+
+:ruta*.* | -- str
+	'ruta
+	ruta> 1+ strcpy
+	ruta> 1+ ;
+
+:rutafile | -- str
+	runfile 1? ( 4+ @ )( "" nip )
+	'ruta here
+	strcpyl 1-
+	strcpy
+	here ;
+
+:>\ | adr -- adr.
+	( c@+ 1? )( $5c =? ( drop ; ) drop ) drop 1- ;
+
+:ruta.niv | n -- com
+	'ruta swap ( 1? )( 1- swap >\ swap ) drop ;
+
+|-----
+:savemenu
+	runfile 1? ( 'files 4+ @ - 5 >> ) 'rutafn !
+	'rutafn 1028 "mem/menu.mem" save ;
+
+:loadmenu
+	'rutafn "mem/menu.mem" load drop
+	'ruta count + 'ruta> !
+	rutafn 1? ( 5 << 'files 4+ @ + ) 'runfile !
+	;
+
+:setlr
+	0 'ruta !
+	'pathfile ( pathfile> <? )( @+ 4+ @ 'ruta strcat "/" 'ruta strcat ) drop
+	;
+
+:,pf | nodo --
+	pathfile> !+ 'pathfile> ! ;
+
+|---- memoria de str
+:cpymemstr | "" -- adr
+	memstr> dup rot swap
+	strcpyl 'memstr> ! ;
+
+|---- registro de carpetas
+:,carpeta | adtr -- add
+	carp> !+ 'carp> ! ;
+
+:carpeta@+ | -- p
+	carp> |'carp
+	stkpath. 4 - @ =? ( drop 0 ; )
+	4 - dup 'carp> ! @ ;
+
+:carpeta.mark | p -- p
+	'files p.now over 12 + !
+	carp> stkpath. !+ 'stkpath. ! ;
+
+:carpeta.saveend | p -- p
+	'files p.now over 16 + ! ;
+
+:carpeta.pop | --
+	stkpath. | 'stkpath =? ( drop 0 ; )
+	4 - 'stkpath. ! ;
+
+|---- particulas de info
+:file
+	;
+
+:folder
+	;
+
+:+file | nombre --
+	'file 'files p!+ >r
+	calcext swap
+	r!+ r> ! ;
+
+:+folder | nombre -- dir
+	'folder 'files p!+ >r r!+ 0 r!+ r> 12 - ;
+
+
+|#define  DT_UNKNOWN     0
+|#define  DT_FIFO        1
+|#define  DT_CHR         2
+|#define  DT_DIR         4
+|#define  DT_BLK         6
+|#define  DT_REG         8
+|#define  DT_LNK         10
+|#define  DT_SOCK        12
+|#define  DT_WHT         14
+|struct dirent {
+|  uint64_t         d_ino;
+|  int64_t          d_off;
+|  unsigned short   d_reclen;
+|  unsigned char    d_type;
+|  char             d_name[256];
+|};
+
+:escarpeta | adr --
+	19 + cpymemstr +folder ,carpeta  ;
+
+:fileall | adr --
+	dup 18 + c@
+	4 =? ( drop escarpeta ; ) drop
+	19 + cpymemstr +file ;
+
+:findruta
+	ruta*.*	ffirst drop fnext drop fnext ; | quita . y ..
+
+:recorre | part --
+	dup 4+ @ ruta.push
+	carpeta.mark
+	findruta ( 1? )( fileall fnext ) drop
+	carpeta.saveend
+	drop
+	( carpeta@+ 1? )( recorre ) drop
+	carpeta.pop
+	ruta.pop ;
+
+#root
+
+:scanall | str --
+	memstr 'memstr> !
+    "r4" +folder
+	dup 'root !
+	dup ,carpeta | carpeta de inicio
+	recorre ;
+
+|----------- estado
+:finnew
+	'ed.nombre c@ 0? ( drop exit ; ) drop
+	savemenu
+	0 0 'ed.ncar ! 'ed.nlin !
+	'ed.nombre 'ruta "%s%s" mprint 'ed.nombre strcpy
+	ed.save
+	"r4/system/edit-code.txt" run
+	;
+
+:clicknew
+	0 'ed.nombre !
+	refreshfoco
+	show clrscr
+		64 gc.top $00f gc.hfill
+		'exit >esc<
+		scr home
+		verde " :R4 " print
+		blanco
+		" NEW FILE" print cr cr
+		'ruta " %s" print
+		'ed.nombre 32 input
+		'finnew lostfoco
 		;
 
-: main ;
+|------------------------
+:runprg
+	savemenu
+	rutafile run ;
+
+:editprg
+	savemenu
+	ed.load
+	rutafile 'ed.nombre = 0? (
+		rutafile 'ed.nombre strcpy
+		0 'ed.nlin ! 0 'ed.ncar !
+		) drop
+	ed.save
+	"r4/system/edit-code.txt" run ;
+
+|----------------------------------
+:helpmodo
+	;
+
+:memmapv
+	d.TOS memmap
+	;
+
+#voc-system
+"BYE" "HELP" "RESETVM" "MEMMAP"
+( 0 )
+
+#exe-system
+'exit 'helpmodo 'resetvm 'memmapv
+0
+
+:nextw
+    ( c@+ 32 >? )( drop )
+	0? ( drop 1- )( drop )
+	;
+
+:pushnro | val --
+	basen
+	10 =? ( drop d.pushDec ; )
+	2 =? ( drop d.pushBin ; )
+	drop
+	d.pushHex ;
+	;
+
+:palabraconsola | str -- str'
+	( dup c@ 33 <? )( 0? ( nip ; ) drop 1+ )		| quitar espacios
+|	$5e =? ( drop esinclude ; )			| $5e ^  Include
+|	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
+|	$3A =? ( drop esdefinicion ; )		| $3a :  Definicion
+|	$23 =? ( drop esvariable ; )		| $23 #  Variable
+
+|	$22 =? ( drop escadena ; )			| $22 "	 Cadena
+
+	$27 =? ( drop 1+ dup 				| $27 ' Direccion
+		dup ?macro 1? ( 3drop "mACROnOTdIR" 'mensaje ! 0 ; ) drop
+		?palabra 1? ( nip stepadr nextw ; ) 2drop
+		"NOTdIR" seterror 3 - 0 ; )
+	drop
+	dup ?numero 1? ( drop pushnro nip ; ) drop
+	dup ?fnumero 1? ( drop d.pushFix nip ; ) drop
+	dup 'voc-system inupp? 1? ( 1- 2 << 'exe-system + @ exec nextw ; ) drop
+	dup ?macro 1? ( stepmacro nextw ; ) drop
+	dup ?palabra 1? ( stepword nextw ; ) drop
+	2drop 0
+	"??" 'mensaje !  ;
+
+:correconsola
+	'padin ( palabraconsola 0? ) drop
+	0 'padin !
+	refreshfoco
+	;
+
+|----------------------------------
+:clickf
+	0 'runfile !
+	pick2 pathfile> <? ( over swap !+ 0 over ! 'pathfile> ! setlr ; ) drop
+	dup ,pf setlr ;
+
+:drawifold | sel last node type -- node type
+	pick2 1? ( @ =? ( azul )( negro ) )( drop negro )
+	'clickf over 4+ @ sp btnt ;
+
+:draw1niv | sel node --
+	dup 16 + @ swap 12 + @
+	over =? ( 2drop ; )
+	( over <? )(
+		dup 8 + @ 0? ( drop drawifold )( drop )
+		p.next ) 2drop
+	cr cr2 ;
+
+:clickfile
+	over 'runfile !
+	editprg ;
+
+:drawfile | node type -- node type
+	dup inktype
+	'clickfile pick2 4+ @ 12 sp btntf
+	cr cr2 allowchome
+	;
+
+:drawselect
+	dup 8 + @ 0? ( drop ; )
+	inktype
+	'editprg over 4+ @ 10 sp btntf
+	rojo 'runprg ">" btnt
+	cr cr2 allowchome ;
+
+:drawintree | node --
+	dup 16 + @ swap 12 + @
+	( over <? )(
+		runfile =? ( drawselect )(
+		dup 8 + @ 1? ( drawfile ) drop )
+		p.next ) 2drop ;
+
+:draw1tree
+	'pathfile ( pathfile> <? )( @+ draw1niv )
+	chome!
+	4 - @ drawintree ;
+
+|----------------------------------
+:scanpref | str node -- str node/str 0
+	dup 16 + @ swap 12 + @
+	( over <? )(
+		dup 4+ @ pick3
+|		2dup "%s=%s?" print cr
+		swap =pre 1? ( drop nip ; ) drop
+		p.next ) 2drop
+	0 ;
+
+:../
+	( c@+ 1? )(
+		$2f =? ( drop ; ) drop
+		) drop 1- ;
+
+:ruta2tree
+	clrscr cr cr cr
+	'pathfile 'pathfile> !
+	'ruta ../ root dup ,pf
+	( scanpref 1? )( dup ,pf swap ../ swap )
+	2drop
+	setlr
+	;
+
+|----------------------------------
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:main
+	$0 paper fonti2
+	show clrscr
+|		64 gc.top $00f gc.hfill
+		'exit >esc<
+		scr home cr cr cr
+		blanco
+		"WELCOME ANDROID" print cr
+		verde dup " :R%d " print  cr
+
+|		"" ffirst ( 1? )( 19 + print cr fnext ) drop
+
+
+		rojo sp 'exit "X" link sp sp
+		verde
+		sp 'runprg dup <f1> "f1-Run" link
+		sp 'editprg dup <f2> "f2-Edit" link
+		violeta 'clicknew dup <f3> "f3-New" sp link
+		cr
+
+		blanco 'ruta sp print
+		runfile 1? ( 4+ @ print )( drop )
+|		runfile "%h" print cr
+		cr cr2
+
+
+
+
+|		blanco " #" print 'padin 64 input
+|		'correconsola lostfoco
+|		verde dumpvstack cr
+
+		chome!
+		draw1tree
+		cminiflecha ;
+
+:memoria
+	mark
+	8192 'files p.ini	| 8k files
+	here 'memstr !
+	$ffff 'here +!	| 64kb strings
+	scanall
+	loadmenu
+	root ,pf
+	ruta2tree
+	;
+
+: memoria 4 main savemenu ;

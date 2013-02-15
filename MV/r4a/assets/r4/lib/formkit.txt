@@ -1,0 +1,636 @@
+| FormKit.txt
+| PHREDA 2011
+|-----------------------------
+^r4/lib/parse.txt
+^r4/lib/fonta.txt
+^r4/lib/input.txt
+^r4/lib/btn.txt
+^r4/lib/db2.txt
+
+^r4/lib/trace.txt
+
+|--- formulario para editar
+|mem
+| cnt total
+| indice
+| 0 | 0
+|--- memoria de indice
+| name tam|tipo arg1 mem x1|y1 x2|y2 xm|ym ???
+|----------------------------------------------
+
+#font1 fonta-dejavu10
+#font2 fonta-dejavu14
+#font3 fonta-dejavu10b
+#font1 fonta-arial10
+#font2 fonta-arial14
+#font3 fonta-arial10b
+#font1 font-vard-8
+#font2 font-vard-12
+#font3 font-vard-8-bold
+
+|----- layout
+#xf #yf			| posicion actual
+#yscroll
+#ymin
+#ymax
+|----- pestañas
+#pnow
+#pact
+#pest )( 128
+
+|--- MAP
+::fkmap | vec 'fk -- ; vec | vec nro adri -- vec nro adri
+	@ @+ swap @  | cnt memind
+	( swap 1? )( 1- swap
+		dup pick3 exec
+		32 + ) 3drop ;
+
+::fkmapmem | vec 'fk -- ; vec | v n adr -- v n adr
+	@ @+ swap @
+	( swap 1? )( 1- swap
+		dup 12 + @ 0? ( drop )( drop pick2 exec )
+		32 + ) 3drop ;
+
+::fkmapsave | vec 'fk -- ; vec | v n adr -- v n adr
+	@ @+ swap @
+	( swap 1? )( 1- swap
+		dup 4+ @
+		$f0 nand? ( drop pick2 exec )( drop )
+		32 + ) 3drop ;
+
+::fkinit
+	0 'yscroll ! 0 setfoco refreshfoco 0 'pact ! ;
+
+::fkclear | 'fk -- ; limpia memoria de registros
+	[ dup 12 + @ 0 swap c! ; ] swap fkmapmem
+	fkinit 	;
+
+::fkgetm | n 'fk -- str
+	@ 4+ @ swap 5 << + 12 + @ ;
+
+::fksetm | str n 'fk --
+	@ 4+ @ swap
+	( 1? )( 1- >r
+		32 +
+		( dup 4+ @ 8 >> 0? )( drop 32 + ) drop
+		r> ) drop
+	12 + @ strcpy ;
+
+|--- 'campo->param
+:getP 8 + @ ;		| parametro
+:getM 12 + @ ;		| memoria
+:getL 28 + @ ;
+
+:getN | adr -- adr N
+	dup 4+ @ 8 >> ;
+
+:getP2 | adr -- adr p1 p2
+	dup 8 + @
+	dup $ff and
+	swap 8 >> $ff and ;
+
+:getMN | adr -- adr M N
+	dup 12 + @
+	over 4+ @ 8 >> ;
+
+:getMNP2 | adr -- adr M N p1 p2
+	dup 12 + @
+	over 4+ @ 8 >> pick2 8 + @
+	dup $ff and swap 8 >> $ff and ;
+
+|--- tamaño en pantalla
+#x1 #y1 #x2 #y2 #xm #ym
+#xn #yn #yh
+#h1 #h2
+
+:savexy
+	dup 16 + >r
+	x1 16 << y1 or r!+
+	x2 16 << y2 or r!+
+	xm 16 << ym or r!+
+	rdrop ;
+
+:makebox | w h --
+	yn dup 'y1 ! h1 + dup 'ym ! + 2 + 'y2 !
+	xn dup 'x1 ! + 2 + xm max 'x2 !
+	y2 4+ yh max 'yh !
+	x2 4+ 'xn ! ;
+
+:makeboxl | w h --
+	yn dup 'y1 ! dup 'ym ! + 'y2 !
+	xn dup 'x1 ! + 2 + xm max 'x2 !
+	y2 yh max 'yh !
+	x2 2 + 'xn ! ;
+
+|--- LOAD
+#cntcmp
+#inimem
+#indmem
+#lastind
+
+|--- Tipo de campos
+| 0 Alfanumerico
+| 1
+| 2
+| 3 Date
+| 4 Memo
+| 5 Radio
+| 6 Check
+| 7 Boton con memoria
+| 10 Label
+| 17 Boton sin memoria
+|---
+
+:sizelabel
+	xm xn - h1 makeboxl ;
+:sizebtn
+	xm xn - 8 + h1 makeboxl ;
+:sizeedit
+	dup 8 >> scrsizew makebox ;
+:sizeedit2
+	dup 8 >> 2 + scrsizew makebox ;
+
+:sizememo
+	swap
+	?sint swap ?sint nip
+	2dup scrsizehw makebox
+	8 << or swap ;
+:sizelistb
+	over >reg> pick2 -
+	scrsizew makebox ;
+
+|--- grilla
+#ingrid 0
+#inig
+#sizg
+
+:finigrid |
+	0 'xn ! yh 'yn !
+	drop ?sint 0? ( 2 nip )
+	dup 1- 'sizg ! cols scrsizehw
+	yn dup 'y1 ! h1 2* + 1+ dup 'ym ! + 2 + 'y2 !
+	xn dup 'x1 ! + 2 + xm max 'x2 !
+	y2 4+ yh max 'yh !
+	x2 4+ 'xn !
+	drop
+	r> r> | obtener campo actual
+	dup 4 - 'inig !
+	>r >r
+	0 'xn !
+	$20 'ingrid !
+	0 $ffff0f ;
+
+:fendgrid
+	2drop
+	0 'xn ! yh 4+ 'yn !
+	h2 2 + sizg * 'y2 +!
+	r> r> | obtener campo actual
+	dup 4 -
+	inig 32 + ( over <? )(
+|		dup 4+ dup @ $10 or swap ! | es para grilla**ingrid
+		dup 12 + dup @ >uv nip
+		16 << y2 or swap !
+		32 + ) drop
+	inig 28 + ! | guarda el final
+	>r >r
+	0 'ingrid !
+	0 $1f ;
+
+:fm
+	nip swap ?sint swap	1- >fld> swap 8 << rot ingrid + or ;
+
+:fe
+	nip swap ?sint 1? ( swap 1- >fld> swap 8 << rot ingrid + or ; )
+	swap 1- >fld> swap 8 << rot $10 or ingrid + or ;
+
+:tipoefield | a d -- a param tamaño|tipo
+	0? ( drop 0 $10 sizelabel ; ) | etiqueta
+	c@+
+	$41 =? ( 0 fm sizeedit ; )	| Alfan 0
+
+	$45 =? ( 1 fm sizeedit ; ) | Entero 1
+	$4E =? ( 2 fm sizeedit2 ; ) | Numerico 2 nn,nn
+
+	$46 =? ( drop $b03 ingrid + sizeedit ; )	| Fecha 3
+	$4D =? ( 4 fm sizememo ; )	| Memo 4
+	$52 =? ( 5 fm sizelistb ; ) | Radio 5
+	$43 =? ( 6 fm sizelistb ; ) | Check 6
+	$42 =? ( 7 fe sizebtn ; )	| Boton 7
+
+	$47 =? ( finigrid ; ) | G Grilla 15
+	$2E =? ( fendgrid ; ) | . fin grilla 31
+	$50 =? ( 2drop 0 $11 sizelabel ; ) | Pestaña
+	2drop 0 $10 | etiqueta por error
+	sizelabel ;
+
+:efield | ind a -- ind' a'
+	dup c@ 0? ( drop ; ) drop
+	swap >r
+	dup dup "%a" mprint sizeprint nip xn + 'xm ! | ancho del texto
+	r!+ | nombre
+	dup >fld>
+	tipoefield r!+ r!+ | tamañomem|tipo parametros
+	0 r!+ | memoria
+	x1 16 << y1 or r!+	| x1y1
+	x2 16 << y2 or r!+	| x2y2
+	xm 16 << ym or r!+	| xmym
+	0 r!+ | vector
+	>reg> r> swap ;
+
+:spaces | a -- a'
+	( c@+ 33 <? )( 0? ( drop 1- ; )
+		9 =? ( ccx 2 << 'xn +! )
+		13 =? ( yh 'yn ! 0 'xn ! )
+		32 =? ( ccx 'xn +! )
+	| chome! y chome? o crx?
+		drop ) drop 1- ;
+
+:camposylayout | ind mem --
+
+	font1 exec cch 'h1 !
+	font3 exec cch 'h2 !
+	font2 exec
+	0 'x1 ! 0 'y1 !
+	0 'x2 ! 0 'y2 !
+	0 'xm ! 0 'ym !
+	0 'xn ! 0 'yn ! | Cursor
+	0 'yh ! 		| alto de avance en y
+
+	0 'ingrid !
+	0 ( drop spaces efield dup c@ 0? ) 2drop | recorre fk
+	dup indmem - 5 >> 'cntcmp ! | 5=32/ tam indice
+	dup 32 - 'lastind !
+	|---------| asigna lugar en memoria
+	dup 'here !
+	indmem ( over <? )(
+		dup 4+ @ 8 >>
+		1? ( here pick2 12 + ! 1+ 'here +! )( drop )
+		32 + ) 2drop
+	;
+
+
+::fkload | 'dir --
+	dup
+	here dup 'inimem !
+	swap !+
+	here 16 + swap load
+	0 swap !+ dup 'indmem !
+	here 16 + | iniind initab
+	over $ffff + 'here ! | mprint lo necesita !!
+	camposylayout
+
+	inimem >r
+	cntcmp r!+
+	indmem r!+
+	lastind r!+
+	0 r> !
+	fkclear ;
+
+|---------- asigna eventos
+|'bblist 'fkventa
+#bb>
+
+:asignabtn | vbb vec nro adri -- vbb vec nro adri
+	dup 4+ @ $ff and
+	7 =? ( $17 nip )
+	$17 <>? ( 2drop ; ) drop | solo botones
+	bb> @+ swap 'bb> !
+	swap 8 + !
+	;
+
+::fkbtns | 'veclist 'fk --
+	swap 'bb> !
+	'asignabtn swap fkmap
+	;
+
+|---- dump
+::fkdump | adr --
+	@ @+ swap @  | cnt memind
+	( swap 1? )( 1- swap
+		@+ "%h " print
+		@+ "%h " print
+		@+ "%h " print
+		@+ "%h " print
+		@+ "%h " print
+		@+ "%h " print
+		@+ "%h " print
+		@+ "%h " print cr
+		) 2drop
+	;
+
+|---- edit
+#xi #yi
+:getsize | adr --
+	dup 16 +
+	@+ >uv xi + 'x1 ! yi + yscroll + 'y1 !
+	@+ >uv xi + 'x2 ! yi + yscroll + 'y2 !
+	@ >uv xi + 'xm ! yi + yscroll + 'ym !
+	;
+
+:getsizer
+	dup 16 +
+	@+ >uv xi + 'x1 ! yi + 'y1 !
+	@+ >uv xi + 'x2 ! yi + 'y2 !
+	@ >uv xi + 'xm ! yi + 'ym !
+	;
+
+:boxtitle
+	ink@ >r
+	esfoco? 1? ( azul oscuro )( gris ) drop
+	x1 y1 x2 ym cajaf
+	blanco x1 ym x2 y2 cajaf
+	gris oscuro x1 y1 x2 y2 caja x1 ym op x2 ym line
+	esfoco? 0? ( negro )( blanco ) drop
+	font1 exec x1 2 + y1 atxy dup @ "%a" print
+	r> ink ;
+
+:boxtitle2
+	ink@ >r
+	esfoco? 1? ( azul oscuro )( gris ) drop
+	x1 y1 x2 ym cajaf
+	gris oscuro x1 y1 x2 y2 caja x1 ym op x2 ym line
+	esfoco? 0? ( negro )( blanco ) drop
+	font1 exec x1 2 + y1 atxy dup @ "%a" print
+	r> ink ;
+
+:boxcmp
+	font2 exec x1 2 + ym 2 + atxy ;
+:boxcmp2
+	font1 exec x1 2 + ym 2 + atxy ;
+:boxgrid
+	font2 exec x1 2 + y1 h2 7 + - atxy ;
+:boxbtn
+	font3 exec x1 2 + y1 2 + atxy ;
+
+:addgrid
+	mark
+	dup 28 + @ over 32 +
+	( over <? )(
+		dup getM ,s $5f ,c
+		0 over getM c!
+		32 + ) 2drop
+	0 ,c
+	empty
+	here over getM strcat
+	clickfoco1
+	;
+
+#xs )( 256
+#xs> 'xs
+#ys
+
+:egrid
+	ink@ >r
+	esfoco? 1? ( azul oscuro )( gris ) drop
+	x1 y1 x2 ym cajaf
+	blanco x1 ym x2 y2 cajaf
+	gris oscuro x1 y1 x2 y2 caja x1 ym op x2 ym line
+	esfoco? 0? ( negro )( blanco ) drop
+	font3 exec x1 2 + y1 atxy dup @ "%a" print
+	y2 'yh !
+	sp sp 'addgrid " + " link
+	dup 28 + @ over 32 +
+	'xs 'xs> ! ym h1 - 'ys !
+	( over <? )(
+		getsize
+		x1 dup ys op dup yh ink@ >r negro line r> ink
+		2 + dup xs> !+ 'xs> !
+		ys atxy
+		dup @ "%a" print
+		32 + ) 2drop
+	r> ink
+	h2 2 + 'ys +!
+	font2 exec
+	'xs over getM
+	( swap xs> =? ( 'xs nip h2 2 + 'ys +! )
+		@+ ys atxy
+		swap
+		dup "%a" print
+		>mfld> 0? )
+	2drop ;
+
+|--- LABEL
+:blabe
+	font3 exec x1 y1 atxy dup @ "%a" print ;
+
+|--- ALFA
+:balfa
+	boxtitle boxcmp getMN dup inputa ;
+:galfa
+	boxgrid getMN dup inputa ;
+
+|--- INTEGER
+:binte
+	boxtitle boxcmp getMN inputint ;
+:ginte
+	boxgrid getMN inputint ;
+
+|--- REAL
+:breal
+	boxtitle boxcmp getMN 2 inputreal ;
+:greal
+	boxgrid getMN 2 inputreal ;
+
+|--- DATE
+:bdate
+	boxtitle ink@ >r verde [ date "%d/%d/%d" mprint over getM strcpy ; ] "Hoy" link r> ink
+	boxcmp dup getM 10 11 inputa ;
+:gdate
+	boxgrid dup getM 10 11 inputa ;
+
+|--- MEMO
+:bmemo
+	boxtitle boxcmp getMNP2 inputm ;
+:gmemo
+	boxgrid getMNP2 inputm ;
+
+|--- RADIO
+#now
+#cnt
+:vecrad
+	cnt now =? ( verde )( gris ) 1+ 'cnt !
+	[ cnt $2f + pick3 getM c!+ 0 swap c! ; ] over "%a" .link ;
+
+:bradi
+	ink@ >r
+	boxtitle2 boxcmp2
+	0 'cnt !
+	dup getM c@ $30 <? ( -1 nip )( $30 - ) 'now !
+    'vecrad over getP lstvec
+	r> ink ;
+:gradi
+	;
+
+|--- CHECK
+:vechec
+	now c@ 65 =? ( verde )( gris ) drop
+	[ now c@ 65 =? ( 32 )( 65 ) now c! drop ; ] over "%a" .link
+	1 'now +! ;
+
+:bchec
+	ink@ >r
+	boxtitle2 boxcmp2
+	dup getM 'now !
+    'vechec over getP lstvec
+	r> ink ;
+:gchec
+	;
+
+|--- BOTON
+:bbtn
+	boxbtn dup getP over @ "%a" .btnt ;
+:ebtn
+	boxbtn dup getP over @ "%a" .btnt ;
+:gbtn
+	;
+
+|--- PESTAÑA
+:bpest
+	font3 exec x1 y1 atxy dup @ "%a" print ;
+
+|:bradi 	boxtitlecmp dup getM over getL inputradi ;
+|:blist	boxtitlecmp getMN pick2 getL inputlist ;
+|:bbotn	boxbtn dup getP over @ "%a" btnt ;
+|:bgnume boxgrid getMN dup inputa ;
+|:bgradi boxgrid dup getM over getL inputradi ;
+|:bglist	boxgrid getMN pick2 getL inputlist ;
+
+#blinedit
+balfa binte breal bdate bmemo bradi bchec bbtn 0 0 0 0 0 0 0 egrid	| solo guarda 16
+blabe bpest 0 0 0 0 0 ebtn 0 0 0 0 0 0 0 0	| ni tienen memoria
+galfa ginte greal gdate gmemo gradi gchec gbtn 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+
+|---------------------
+:focof
+|	gris x1 y1 x2 y2 caja
+	esfoco? 0? ( drop focovoid ; ) drop
+	y2 ymax >? ( -4 'yscroll +! ) drop
+	y1 ymin <? ( 4 'yscroll +! ) drop
+	focovoid ;
+
+#blinedito
+'focof 'focof 'focof 'focof 'focof 'focof 'focof 'focof 'focof 'focof 'focof 'focof 'focof 'focof 'focof
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+
+:cadaedit | vec nro adri -- vec nro adri
+	getsize
+	4+ @ $ff and 2 <<
+	y1 y2
+	ymax >? ( 2drop -1 -1 ) drop
+	ymin <? ( 'blinedito )( 'blinedit ) nip
+	+ @ exec ;
+
+::fkedit | 'fk --
+	ccx 'xi ! ccy
+	dup 'ymin !  'yi !
+	ty2 'ymax !
+	'cadaedit swap fkmap ;
+
+|------------------
+
+:setpest
+	pnow 'pact !
+	yi y1 - 'yscroll !
+    0 setfoco
+	refreshfoco ;
+
+:pestanias
+	4+ @ $ff and $11 <>? ( drop ; ) drop
+	dup 'pest pnow 2 << + !
+	getsizer
+   	pnow pact =? ( gris )( negro ) drop
+	'setpest over @ "%a" btnt sp
+	1 'pnow +! ;
+
+:cadaedit2 | vec nro adri -- vec nro adri
+	getsize
+	y2 ymax >? ( 2drop ; ) drop
+	y1 ymin <? ( 2drop ; ) drop
+	dup 4+ @ $ff and 2 << 'blinedit + @ exec ;
+
+:fkmappe | vec -- ; vec | vec nro adri -- vec nro adri
+	'pest pact 2 << + @+ swap @ swap
+	( over <? )(
+		pick2 exec
+		32 + ) 3drop ;
+
+::fkeditp | 'fk --
+	ccx 'xi ! ccy
+	h1 2* + dup 'ymin !  'yi !
+	ty2 'ymax !
+	0 'pnow !
+	font3 exec
+	'pestanias over fkmap
+	@ 8 + @ 'pest pnow 2 << + !
+	negro
+	'cadaedit2 fkmappe ;
+
+|--- SERIALISE
+:,sfl | "" --
+	( c@+ 32 =? )( drop )
+	0? ( 2drop ; ) drop
+	1-
+	( c@+ 1? )( 	| conversion teclado-->print
+|		$25 =? ( dup ,c ) | % -> %%
+		$25 =? ( 32 nip ) | % ->
+	|	$5f =? ( 32 nip ) | no
+		$7c =? ( 32 nip ) | permite
+		$7e =? ( 32 nip ) | separadores
+		,c ) drop 2 -
+	( dup c@ 32 =? )( drop 1- -1 'here +! ) 2drop
+	;
+
+:,| $7c ,c ;
+
+:cmpser2 | 'campo --
+	dup getM ,sfl ,| ;
+
+::fkserialice | 'fk --
+	mark
+	'cmpser2 swap fkmapsave
+	-1 'here +!
+	$7e ,c 13 ,c 10 ,c 0 ,c
+	empty ;
+
+::fkserialice+ | 'fk --
+	'cmpser2 swap fkmapsave ;
+
+
+::fktom+ | 'adr --
+	( c@+ 32 =? )( drop )
+	0? ( 2drop "|" ,s ; ) drop
+	1-
+	( c@+ 1? )(
+		$25 =? ( 32 nip ) | % -> %%
+	|	$5f =? ( 32 nip ) |
+		$7c =? ( $5f nip ) | cambia separadores
+		$7e =? ( 32 nip ) | separadores
+		,c ) drop 2 -
+	( dup c@ 32 =? )( drop 1- -1 'here +! ) 2drop
+	"|" ,s ;
+
+|--- DESERIALISE
+:cmpdes2
+	>r rot
+	1? ( r getM 1? ( fldcpy )( drop ) )
+	rot rot r> ;
+
+::fkdeserialice | reg 'fk --
+	'cmpdes2 swap fkmapsave drop ;
+
+|--- NAME
+#n
+:nameser | 'campo --
+	dup @ >sp> n "%d)%a" mprint ,s 13 ,c 10 ,c 1 'n +! ;
+
+::fkname | "" 'fk --
+	mark
+	0 'n !
+	'nameser swap fkmapsave
+	-1 'here +!
+	13 ,c 10 ,c 0 ,c
+	savemem
+	empty ;

@@ -89,7 +89,7 @@ char *macros[]={// directivas del compilador
 "SETXY","PX+!","PX!+","PX@",
 "XFB",">XFB","XFB>",
 "PAPER","INK","INK@","ALPHA", //--- color
-"OP","CP","LINE","CURVE","PLINE","PCURVE","POLI",//--- dibujo
+"OP","LINE","CURVE","CURVE3","PLINE","PCURVE","PCURVE3","POLI",//--- dibujo
 "FCOL","FCEN","FMAT","SFILL","LFILL","RFILL","TFILL",
 //---------------------
 "SLOAD","SPLAY","MLOAD","MPLAY",    //-------- sonido
@@ -125,7 +125,7 @@ WIDTH,HEIGHT,CLS,REDRAW,FRAMEV,//--- pantalla
 SETXY,MPX,SPX,GPX,
 VXFB,TOXFB,XFBTO,
 COLORF,COLOR,COLORA,ALPHA,//--- color
-OP,CP,LINE,CURVE,PLINE,PCURVE,POLI,//--- dibujo
+OP,LINE,CURVE,CURVE3,PLINE,PCURVE,PCURVE3,POLI,//--- dibujo
 FCOL,FCEN,FMAT,SFILL,LFILL,RFILL,TFILL, //--- pintado
 SLOAD,SPLAY,MLOAD,MPLAY,
 OPENURL,
@@ -136,7 +136,7 @@ ULTIMAPRIMITIVA// de aqui en mas.. apila los numeros 0..255-ULTIMAPRIMITIVA
 
 //---------------------- Memoria de r4
 
-int gx1=0,gy1=0,gx2=0,gy2=0,gxc=0,gyc=0;// coordenadas de linea
+int gx1=0,gy1=0;// coordenadas de linea
 unsigned char *bootaddr;
 FILE *file;
 
@@ -389,7 +389,6 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
 //----- teclado
     case SKEY: SYSKEY=TOS;TOS=*NOS;NOS--;continue;
 	case KEY: NOS++;*NOS=TOS;TOS=SYSKEY&0xff;continue;
-
 //----- joy
     case CNTJOY: NOS++;*NOS=TOS;TOS=0;continue;
     case GETJOY: TOS=0;continue;
@@ -425,29 +424,38 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
        vcursor=(uint16_t*)buffergr.bits+TOS*buffergr.width+(*NOS);
         NOS--;TOS=*NOS;NOS--;continue;
 	case MPX:vcursor+=TOS;TOS=*NOS;NOS--;continue;
-	case SPX:*(uint16_t*)(vcursor++)=TOS;TOS=*NOS;NOS--;continue;
-	case GPX:NOS++;*NOS=TOS;TOS=*(int*)(vcursor);continue;
+	case SPX:*(uint16_t*)(vcursor++)=gr_RGB(TOS);TOS=*NOS;NOS--;continue;
+	case GPX:NOS++;*NOS=TOS;TOS=RGB_gr(*(uint16_t*)(vcursor));continue;
 
     case VXFB: NOS++;*NOS=TOS;TOS=(int)XFB;continue;
     case TOXFB:gr_toxfb();continue;
     case XFBTO:gr_xfbto();continue;
 //--- color
-	case COLORF: gr_color2=TOS;TOS=*NOS;NOS--;continue;
-    case COLOR: gr_color1=TOS;TOS=*NOS;NOS--;continue;
-    case COLORA: NOS++;*NOS=TOS;TOS=gr_color1;continue;
+	case COLORF: gr_color2=gr_RGB(TOS);gr_color2=gr_color2|gr_color2<<16;TOS=*NOS;NOS--;continue;
+    case COLOR: gr_color1=gr_RGBSET(TOS);TOS=*NOS;NOS--;continue;
+    case COLORA: NOS++;*NOS=TOS;TOS=RGB_gr(gr_color1);continue;
 	case ALPHA: if (TOS>254) gr_solid(); else { gr_alphav=(unsigned char)(TOS);gr_alpha(); }
 		TOS=*NOS;NOS--;continue;
 //--- dibujo
     case OP: gy1=TOS;gx1=*NOS;NOS--;TOS=*NOS;NOS--;continue;
-    case CP: gyc=TOS;gxc=*NOS;NOS--;TOS=*NOS;NOS--;continue;
-	case LINE: gy2=TOS;gx2=*NOS;NOS--;TOS=*NOS;NOS--;
-		gr_line(gx1,gy1,gx2,gy2);gx1=gx2;gy1=gy2;continue;
-    case CURVE: gy2=TOS;gx2=*NOS;NOS--;TOS=*NOS;NOS--;
-		gr_spline(gx1,gy1,gxc,gyc,gx2,gy2);gx1=gx2;gy1=gy2;continue;
-	case PLINE: gy2=TOS;gx2=*NOS;NOS--;TOS=*NOS;NOS--;
-		gr_psegmento(gx1,gy1,gx2,gy2);gx1=gx2;gy1=gy2;continue;
-    case PCURVE: gy2=TOS;gx2=*NOS;NOS--;TOS=*NOS;NOS--;
-		gr_pspline(gx1,gy1,gxc,gyc,gx2,gy2);gx1=gx2;gy1=gy2;continue;
+	case LINE:
+		gr_line(gx1,gy1,*NOS,TOS);gx1=*NOS;gy1=TOS;
+        NOS--;TOS=*NOS;NOS--;continue;
+    case CURVE:
+		gr_spline(gx1,gy1,*NOS,TOS,*(NOS-2),*(NOS-1));gx1=*(NOS-2);gy1=*(NOS-1);
+		NOS-=3;TOS=*NOS;NOS--;continue;
+    case CURVE3:
+		gr_spline3(gx1,gy1,*NOS,TOS,*(NOS-2),*(NOS-1),*(NOS-4),*(NOS-3));gx1=*(NOS-4);gy1=*(NOS-3);
+		NOS-=5;TOS=*NOS;NOS--;continue;
+	case PLINE:
+		gr_psegmento(gx1,gy1,*NOS,TOS);gx1=*NOS;gy1=TOS;
+        NOS--;TOS=*NOS;NOS--;continue;
+    case PCURVE:
+		gr_pspline(gx1,gy1,*NOS,TOS,*(NOS-2),*(NOS-1));gx1=*(NOS-2);gy1=*(NOS-1);
+		NOS-=3;TOS=*NOS;NOS--;continue;
+    case PCURVE3:
+		gr_pspline3(gx1,gy1,*NOS,TOS,*(NOS-2),*(NOS-1),*(NOS-4),*(NOS-3));gx1=*(NOS-4);gy1=*(NOS-3);
+		NOS-=5;TOS=*NOS;NOS--;continue;
 	case POLI: gr_drawPoli();continue;
     case FCOL: fillcol(*NOS,TOS);NOS--;TOS=*NOS;NOS--;continue;
     case FCEN: fillcent(*NOS,TOS);NOS--;TOS=*NOS;NOS--;continue;
@@ -483,12 +491,12 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
     	strcpy(error,rootpath);strcat(error,(char*)TOS);
     	dp=opendir(error);
     	if (dp!=NULL) dirp=readdir(dp); else dirp=0;
-        TOS=dirp;
+        TOS=(int)dirp;
          continue;
     case FNEXT: // -- fdd/0
          NOS++;*NOS=TOS;
          if (dp!=NULL) dirp=readdir(dp); else dirp=0;
-         TOS=dirp;
+         TOS=(int)dirp;
          continue ;
 	case LOAD: // 'from "filename" -- 'to
          if (TOS==0||*NOS==0) { TOS=*NOS;NOS--;continue; }
@@ -498,7 +506,7 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
          do { W=fread((void*)TOS,sizeof(char),1024,file); TOS+=W; } while (W==1024);
          fclose(file);continue;
     case SAVE: // 'from cnt "filename" --
-         if (TOS==0||*NOS==0) { //DeleteFile((int8_t*)TOS);
+         if (TOS==0||*NOS==0) { remove((int8_t*)TOS);
                               NOS-=2;TOS=*NOS;NOS--;continue; }
          file=fopen((int8_t*)TOS,"wb");
          TOS=*NOS;NOS--;
@@ -1001,44 +1009,68 @@ return CODIGOERROR;
 
 
 
-static void buildFileSystem(void)
+static void makeFolder(char *path)
 {
 const char *namea;
-char namef[256];
-char buff[1025];
 struct AAssetManager *aaM=engine.app->activity->assetManager;
 struct AAssetDir *aaD;
 struct AAsset *aaS;
 FILE *f;
+long size;
+static char namep[256];
+static char namef[256];
+static char buff[1025];
 
-struct stat st = {0};
-
-if (stat("/sdcard/r4", &st) != -1) return; // ya existe la carpeta
-
-mkdir("/sdcard/r4", 07777);
+strcpy(namep,rootpath);
+strcat(namep,path);
+//LOGI("FOLDER: %s",namep);
+mkdir(namep, 0777);
 // copiar archivos
-aaD=AAssetManager_openDir(aaM,"");
+aaD=AAssetManager_openDir(aaM,((*path)==0)?path:path+1);
 namea=AAssetDir_getNextFileName(aaD);
 while  (namea!=0) {
-	LOGI(namea);
-	aaS=AAssetManager_open(aaM, namea,AASSET_MODE_BUFFER);
-	strcpy(namef,rootpath);
-	strcat(namef,"/");
+//	LOGE(namea);
+	if (*path!=0) { strcpy(namef,path+1);strcat(namef,"/"); } else *namef=0;
 	strcat(namef,namea);
+	LOGI(namef);
+	aaS=AAssetManager_open(aaM,namef,AASSET_MODE_BUFFER);
+
+	strcpy(namef,namep);strcat(namef,"/");strcat(namef,namea);
+//	LOGW("%s %d",namef,aaS);
 	f=fopen(namef,"wb");
-	long size = AAsset_getLength(aaS);
+	size = AAsset_getLength(aaS);
+//	LOGI("size:%d",size);
 	while (size>0) {
-		size=AAsset_read(aaS,buff,1024);buff[size]=0;
-		LOGI(buff);
+		size=AAsset_read(aaS,buff,1024);
+//		LOGW("read:%d",size);
+		buff[size]=0;
+//		LOGI(buff);
 		fwrite(buff,1,size,f);
 		size=AAsset_getRemainingLength(aaS);
+//		LOGI("size:%d",size);
 		}
 	fclose(f);
-
 	AAsset_close(aaS);
 	namea=AAssetDir_getNextFileName(aaD);
 	}
 AAssetDir_close(aaD);
+}
+
+static void buildFileSystem(void)
+{
+struct stat st = {0};
+
+if (stat(rootpath, &st) != -1) return; // ya existe la carpeta
+
+makeFolder("");
+makeFolder("/r4");
+makeFolder("/r4/apps");
+makeFolder("/r4/demos");
+makeFolder("/r4/games");
+makeFolder("/r4/lib");
+makeFolder("/r4/lib/fonts");
+makeFolder("/r4/lib/hershey");
+makeFolder("/r4/system");
 }
 
 //----------------------------------------------------------------------------

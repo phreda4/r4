@@ -1,0 +1,144 @@
+| busca error de runtime en  :r4
+| usando el compilar de bytes completo
+| PHREDA
+|---------------------------------------
+^r4/lib/gui.txt
+^r4/lib/fontj.txt
+^r4/lib/parse.txt
+^r4/system/r4bytecode.txt
+|^r4/lib/trace.txt
+
+#nombre )( 64
+#iperr -1	| lugar del error
+#codins		| codigo instruccion
+
+#pilad )( 1024
+#pilad> 'pilad
+
+#pilar )( 1024
+#pilart )( 1024
+#pilar> 'pilar
+
+#dircode
+#cntcode
+#dirdata
+#cntdata
+
+#msge
+#erroren
+
+:+data | n --
+	pilad> !+ 'pilad> ! ;
+
+:+code | n --
+	basen pilar> 1024 + !
+	pilar> !+ 'pilar> ! ;
+
+:printdata
+	"D:" print
+	'pilad
+	( pilad> <? )(
+		@+ "%d " print )
+	drop ;
+
+:printpilar
+	"R:" print
+	'pilar
+	( pilar> <? )(
+		@+ "$%h " print )
+	drop ;
+
+:loadruntime.err
+	mark
+	here "runtime.err" load
+	here =? ( drop  ; ) 0 swap c!
+	here
+	trim 'nombre scanstr
+	"IP: " scann
+	'iperr scannro >>cr
+	"D: " scann
+	( trim
+		dup ?numero 1? ( drop +data nip )
+		0? 	) drop
+	"R: " scann
+	( trim
+		dup ?numero 1? ( drop +code nip )
+		0? 	) drop
+	"code:" scann 'dircode scannro
+	"cnt:" scann 'cntcode scannro
+	"data:" scann 'dirdata scannro
+	"cnt:" scann 'cntdata scannro
+	drop
+	empty ;
+
+|------------------------------------
+
+:cadavalor | dpilar -- dpilar'
+	dup 1024 + @
+	16 <>? ( drop @+ " %d " print ; )
+	drop
+	@+
+	dup "$%h " print
+	busqpal print
+	
+	;
+
+:resolverpilar
+	'pilar
+	( pilar> <? )( cadavalor cr )
+	drop ;
+
+|------------------------------------
+:pantalla
+	here 'nombre load 0 swap c!
+	here bytecodecomp 'msge !
+
+|	saveimage	| guarda imagen
+|	savecode	| guarda compilado
+
+|	iperr buscapal 'erroren !
+
+	show
+		'exit >esc<
+
+		clrscr home fontj  |	48 font
+		blanco
+		'nombre  "%s" print cr
+		codins iperr
+		2dup "IP:%d %d" print cr
+		iprog + c@+ $ff and
+		rot =? ( verde )( rojo )
+		printcode drop cr
+		violeta
+		"---- RUNTIME.ERR ----" print cr
+		printdata cr
+		printpilar cr
+|		cntcode dircode "CODE:%d $%h" print cr
+|		cntdata dirdata "DATA:%d $%h" print cr
+|		erroren "%s" print cr
+		cntcode "CODE: $%h" print cr
+		cntdata "DATA: $%h" print cr
+		amarillo
+		"----  COMPILADO  ----" print cr
+		dumptoken
+		verde
+		"---- TRACE PILAR ----" print cr
+		resolverpilar
+|		"-------------------------------------" print cr
+|		iperr iprog + busqpal 0? ( "??" nip ) print
+		dup "%d" print
+		|diccionario
+		;
+
+|----------- principal
+:main
+	mark
+	loadruntime.err
+	empty
+	mark
+	pantalla
+	empty
+	;
+
+: 0 paper 4 main ;
+

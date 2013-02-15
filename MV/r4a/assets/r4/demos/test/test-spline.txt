@@ -1,0 +1,112 @@
+^r4/lib/gui.txt
+
+#px #py
+#cx #cy
+
+| if(fabs(x1 + x3 - x2 - x2) +
+|       fabs(y1 + y3 - y2 - y2) +
+|       fabs(x2 + x4 - x3 - x3) +
+|       fabs(y2 + y4 - y3 - y3) <= minimo) | from AGG
+|:sp-dist | x1 y1 x2 y2 x3 y3
+|
+
+:sp-dist2 | x y xe ye -- x y xe ye dd
+	pick3 pick2 - dup * pick3 pick2 - dup * + ;
+
+:sp-dist | x y xe ye -- x y xe ye dd
+	pick3 pick2 - abs pick3 pick2 - abs + ;
+
+:sp-cal1 | x y _cx _cy px py -- x y xn yn
+	rot 2* + pick3 + 2 >> >r			| x y cx px   r: ye
+	swap 2* + pick2 + 2 >> r> ;			| x y xe ye
+
+:sp-cal2 | cx cy px py -- x y
+	rot + 2/ >r + 2/ r> ;
+
+|#:splineco 6	 o 2 son las mejores
+|-------------------------------------------
+:spl2 | x y cx cy px py --
+	2dup >r >r 2over >r >r sp-cal1 r> r> 			| x y nx ny cx cy --  r: px py
+	sp-dist 4 <? ( nip 4drop rdrop rdrop line ; ) drop
+	>r >r 2over r> r> 2dup >r >r sp-cal2 2swap		| x y xa ya nx ny -- r: cx cy px py
+	2dup r> r> r> r> 2dup >r >r sp-cal2 r> r> 		| x y xa ya nx ny nx ny xb yb px py
+	spl2 spl2 ;
+
+:spl | x y cx cy px py --
+	2dup >r >r 2over >r >r sp-cal1 r> r> 			| x y nx ny cx cy --  r: px py
+	sp-dist 12 <? ( 3drop rdrop rdrop line line ; ) drop
+	>r >r 2over r> r> 2dup >r >r sp-cal2 2swap		| x y xa ya nx ny -- r: cx cy px py
+	2dup r> r> r> r> 2dup >r >r sp-cal2 r> r> 		| x y xa ya nx ny nx ny xb yb px py
+	spl spl ;
+
+|*******************************
+::CURVEt | xy --
+	cx cy px py spl ;
+
+|-------------------------------------
+:sp-c | fx fy cx cy -- fx fy cx cy xn yn  ; xn=(cx*2+fx+px)/4
+	pick3 pick2 2* + px + 2 >>
+	pick3 pick2 2* + py + 2 >> ;
+
+:spline2 | fx fy cx cy --
+	sp-c
+	sp-dist
+	12 <? ( drop line 2drop 2dup 'py ! 'px ! line ; ) drop
+	>r >r
+	pick3 pick2 + 2/ pick3 pick2 + 2/		| fx fy cx cy c2 c2
+	2swap 									| fx fy c2 c2 cx cy
+	py + 2/ swap px + 2/ swap				| fx fy c2 c2 c1 c1
+	r> r> 2swap
+	spline2 spline2 ;
+
+::CURVEt2 | x y --
+	px py op
+	cx cy spline2 ;
+
+|------------------------------
+#x1 #y1 #x2 #y2 #bx #by
+
+:curve3 | xf yf x2 y2 x1 y1
+	pick3 pick2 + 2/ pick3 pick2 + 2/ 'by ! 'bx !
+	'y1 ! 'x1 !
+	pick3 pick2 + 2/ pick3 pick2 + 2/ 2swap
+	'y2 ! 'x2 !
+	over bx + 2/ over by + 2/
+	over x2 - abs over y2 - abs + >r
+	px x1 + 2/ py y1 + 2/
+	over bx + 2/ over by + 2/
+	over x1 - abs over y1 - abs + >r
+	2swap >r >r
+	pick3 pick2 + 2/ pick3 pick2 + 2/
+	2swap r> r>
+	r> 3 <? ( drop 4drop 2dup 'py ! 'px ! line )( drop curve3 )
+	r> 3 <? ( drop 4drop 2dup 'py ! 'px ! line ; )
+	drop curve3 ;
+
+
+:main
+	10 10 'py ! 'px !
+	show clrscr
+		fonti home dup "%d" print
+
+	 	azul
+		sw 32 - sh 32 - 'cy ! 'cx !
+		xymouse 32 - swap 32 - swap 2dup 'py ! 'px ! op
+		sw 2/ 32 - sh 2/ 32 - CURVEt
+
+
+	 	verde
+		sw sh  'cy ! 'cx !
+		xymouse 2dup 'py ! 'px ! op
+		sw 2/ sh 2/ CURVEt2
+
+
+		rojo
+		10 100 2dup 'py ! 'px ! op
+		400 100 xymouse 300 300 curve3
+
+		'exit >esc<
+		|cminiflecha
+		;
+
+: 33 main ;
