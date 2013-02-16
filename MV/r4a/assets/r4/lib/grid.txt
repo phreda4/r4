@@ -1,0 +1,235 @@
+| grid.txt - grillas
+| PHREDA 2010
+|---------------------
+^r4/lib/print.txt
+^r4/lib/btn.txt
+
+^r4/lib/trace.txt
+
+|---------------- Grilla
+#colums
+#ancho
+#factor
+#xi
+#tabcols )( 256
+#tabcols>
+#xf
+#yi
+#tabrows )( 256
+#tabrows>
+#yf
+#col>
+#xxi
+
+|-------
+::grid | grids cols ancho% --
+	tx2 tx1 - 16 *>> 'ancho !
+	tx2 tx1 - 2/ ancho 2/ - tx1 + 'xi !
+
+	over >r
+	0 over ( 1? )( 1- r@+ rot + swap )
+	drop rdrop
+	ancho 4 << swap / 'factor !
+	dup 'colums !
+
+	swap >r
+	'tabcols xi rot		| grid xi cols
+	( 1? )( 1- 			| adr xi cnt
+		r@+ swap >r		| adr xi act
+		factor * 4 >> +
+		dup rot !+ 		| tab xi -- xi tab
+		swap r> )
+	drop nip 'xf !
+	rdrop
+	ccy 'yi !
+	'tabrows 'tabrows> !
+::rowg | --
+	0 'col> !
+	xi 'xxi !
+	2 'ccy +!
+	ccy cch + dup 'yf ! tabrows> !+ 'tabrows> !
+	;
+
+|-------------------
+| #lista Act Pag c1 c2c3 .. 0
+| cx $TLLFF
+::grid2 | cols ancho --
+	tx2 tx1 - 16 *>> 'ancho !
+	tx2 tx1 - 2/ ancho 2/ - tx1 + 'xi !
+	0 'colums !
+	0 over 8 + ( @+ 1? )( | 0 dd aa
+		8 >> $ff and rot + swap | 1 dd
+		1 'colums +!
+		) 2drop
+	ancho 4 << swap / 'factor !
+	'tabcols >r
+	xi swap 8 + | xi cols
+	( @+ 1? )( | i dd aa
+		8 >> $ff and factor * 4 >> rot +
+		dup r!+
+		swap ) 2drop rdrop
+	'xf !
+	ccy 'yi !
+	'tabrows 'tabrows> !
+	rowg
+	;
+
+::gridall | cols --
+	tx2 tx1 dup 1+ 'xi ! - 'ancho !
+	0 'colums !
+	0 over 8 + ( @+ 1? )( | 0 dd aa
+		8 >> $ff and rot + swap | 1 dd
+		1 'colums +!
+		) 2drop
+	ancho 4 << swap / 'factor !
+	'tabcols >r
+	xi swap 8 + | xi cols
+	( @+ 1? )( | i dd aa
+		8 >> $ff and factor * 4 >> rot +
+		dup r!+
+		swap ) 2drop rdrop
+	'xf !
+	ccy 'yi !
+	'tabrows 'tabrows> !
+	rowg
+	;
+
+|-------------------
+::gfill | color --
+	ink@ swap ink
+	xi ccy 2dup 1- op cch + pline
+	xf ccy 2dup cch + pline 1- pline
+	poli ink ;
+
+:xxf | -- xf
+	col> dup 1+ 'col> !
+	2 << 'tabcols + @ ;
+
+
+::gcell | "texto" --
+	xxf xxi 4+ 'ccx ! 'xxi !
+	mprint xxi printcut
+	printx ;
+
+::gcellc | "texto" --
+	xxf xxi 'ccx ! 'xxi !
+	mprint xxi sizeprintcut
+	xxi ccx - swap - 2/ 'ccx +!
+	printx ;
+
+::gcellr | "texto" --
+	xxf 'xxi !
+	mprint xxi sizeprintcut
+	xxi swap - 1- 'ccx !
+	printx ;
+
+::$grid | --
+	'xi colums 1+ ( 1? )( 1- swap
+		@+ dup yi op yf line
+		swap ) 2drop
+	'yi ( tabrows> <? )(
+		@+ xi over op xf swap line
+		) drop ;
+
+
+| 'filas -> 4 9 8 0
+|			[ dup pick3 ! ; ] onLineMove | 'vec --
+|			pick2 @ =? ( $ff gfill blanco )( $ffffff gfill negro )
+
+::strgrilla | "" 'filas ancho--
+	tx2 tx1 - 16 *>> 'ancho !
+	tx2 tx1 - 2/ ancho 2/ - tx1 + 'xi !
+
+	0 over 1 >r  | "" 'filas 0 'filas
+	( @+ 1? )( rot + swap r> 1+ >r ) 2drop | cnt filas
+	ancho 4 << swap / 'factor !
+	r> 1- 'colums !
+
+	xi over 'tabcols >r | "" 'filas xi 'filas
+	( @+ 1? )(
+		factor * 4 >> rot +
+		dup r!+
+		swap ) drop rdrop
+	swap 'xf !
+	ccy 'yi !
+	'tabrows 'tabrows> !
+	rowg
+	$cccccc gfill negro
+	( dup c@ 1? )( drop
+			dup gcellc
+			( c@+ 1? )( drop ) drop
+			) 3drop cr
+	dup c@ 0? ( 2drop $grid ; ) drop
+	rowg
+	dup ( c@+ 1? )(
+		$7c =? ( pick2 "%a" mprint gcellc rot drop over swap cr rowg )
+		$5f =? ( pick2 "%a" mprint gcellc rot drop over swap )
+		drop ) 2drop
+	"%a" mprint gcellc
+	$grid 	;
+
+|------ tipos de celdas
+#grl
+#act
+
+:t0 "%a" gcell ;
+:t1 "%a" gcellc ;
+:t2 "%a" gcell ;
+:t3 "%a" gcellr ;
+:t4 "%a" mprint memnro2 gcellr ; | precio
+
+:t5
+:t6
+:t7
+:t8 ;
+
+#tiposg t0 t1 t2 t3 t4 t5 t6 t7
+
+|---- grilla de memoria
+| #grlista Act Pag c1 c2 c3 .. 0 "titulos|lista"
+::memgrid | rows 'mem 'memgrid --
+	dup gridAll
+	$cccccc gfill negro
+	dup 8 + dup 'grl !
+	( @+ 1? )( drop ) drop
+	dup @ 1? ( drop ( dup "%a" gcellc >fld> 0? ) 2drop cr )( 3drop -2 'ccy +! )
+	( swap 1? )( 1- swap
+		rowg
+|	[ dup 'act ! over indmei - 2 >> 1- grl 8 - ! ; ] onLineMove | click en linea
+|	act =? ( $7f gfill blanco )( $ffffff gfill negro )
+		$ffffff gfill negro
+		grl ( @+ 1? )( | cnt mem acol col
+			16 >> 7 and 2 << 'tiposg + @
+			rot | acol col mem
+			1? ( dup rot exec )( nip )
+			>fld> swap
+			) 2drop
+		cr
+		) 2drop
+	gris $grid
+	;
+
+::memgrids | rows 'mem 'memgrid --
+	dup gridAll
+	$cccccc gfill negro
+	dup @ 'act !
+	dup 8 + dup 'grl !
+	( @+ 1? )( drop ) drop
+	dup @ 1? ( drop ( dup "%a" gcellc >fld> 0? ) 2drop cr )( 3drop -2 'ccy +! )
+
+	0 ( pick2 <? )(
+		rowg
+		[ dup 'act ! dup grl 8 - ! ; ] onLineMove | click en linea
+		act =? ( $7f gfill blanco )( $ffffff gfill negro )
+		swap
+		grl ( @+ 1? )( | cnt mem acol col
+			16 >> 7 and 2 << 'tiposg + @
+			rot | acol col mem
+			1? ( dup rot exec )( nip )
+			>fld> swap
+			) 2drop
+		cr swap 1+ ) 3drop
+	gris $grid
+	;
+
+

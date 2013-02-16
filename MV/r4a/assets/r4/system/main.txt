@@ -1,0 +1,341 @@
+| menu principal
+| PHREDA 2010
+|------------------
+
+^r4/lib/math.txt
+^r4/lib/fontt.txt
+^r4/lib/fonth.txt
+^r4/lib/fonta.txt
+
+^r4/lib/btn.txt
+^r4/lib/input.txt
+
+^r4/lib/icon.txt
+
+^r4/system/mem-ed.txt
+^r4/system/r4code.txt
+
+^r4/lib/trace.txt
+
+|--------- estado
+#ok " ok"
+#mensaje 'ok
+#lastrun )( 1024
+#padin )( 1024
+
+|-------- memoria guardada
+#actf
+#actv
+#ruta )( 1024
+#ruta> 'ruta
+
+#screenshot
+
+#cntf
+#cntv
+
+#indexf )( 8192
+#indexf> 'indexf
+#indexv )( 8192
+#indexv> 'indexv
+
+#nombres
+#paginas | iconos
+
+:ruta.push | "" --
+	ruta> strcpyl
+	"/" swap 1- strcpyl
+	1- 'ruta> !
+	'ruta dir ;
+
+:ruta<< | adr -- adr'
+ 	ruta> 2 -
+	( 'ruta >? )( dup c@ $2f =? ( drop 1+ ; ) drop 1- ) drop
+	'ruta ;
+
+:ruta.pop | --
+	ruta<< 0 over c! 'ruta> !
+	'ruta dir ;
+
+|----------- estado
+:grabaestado
+	'actf 1040 "mem/mp.mem" save ;
+
+:,string | "" -- ""'
+	here swap ,s ,eol ;
+
+|------------------
+:filex | nro -- "name"
+	2 << 'indexf + @ ;
+
+:filev | nro -- "name"
+	2 << 'indexv + @ ;
+
+|------------------
+:,cpyv | vol
+	,string indexv> !+ 'indexv> ! ;
+
+:,cpyf | file
+	,string indexf> !+ 'indexf> ! ;
+
+|---- genera indice y nombre
+:refresh
+	mark
+	nombres 'here !
+	'ruta dir
+	'indexv 'indexv> !
+	0 ( dup vol 1? )( ,cpyv 1+ ) drop 'cntv !
+
+	actv filev ruta.push
+	'indexf 'indexf> !
+	0 ( dup file 1? )( ,cpyf 1+ ) drop 'cntf !
+	ruta.pop
+
+	actf filex actv filev 'ruta
+	"%s%s/%s" mprint 'lastrun strcpy
+	empty
+	;
+
+|---- nuevo archivo
+:clickf
+	dup 'actf ! refresh ;
+
+:finnew
+	'ed.nombre c@ 0? ( drop exit ; ) drop
+	grabaestado
+	0 0 'ed.ncar ! 'ed.nlin !
+	'ed.nombre actv filev 'ruta "%s%s/%s" mprint 'ed.nombre strcpy
+	ed.save
+	"r4/system/edit-code.txt" run
+	;
+
+:clicknew
+	0 'ed.nombre !
+	show clrscr cr2
+		rojo
+		sp 'exit dup >esc< "esc-Exit" btnt
+		blanco
+		" NEW FILE" print cr cr
+		actv filev 'ruta "%s%s/" sp print
+		'ed.nombre 32 sp input
+		'finnew lostfoco
+		;
+
+:clickv
+	dup 'actv ! refresh ;
+
+:runprg
+	grabaestado
+	'lastrun run
+	;
+
+:runprgshot
+	-1 'screenshot !
+	grabaestado
+	'lastrun run ;
+
+:editprg
+	grabaestado
+	ed.load
+	'lastrun 'ed.nombre = 0? (
+		'lastrun 'ed.nombre strcpy
+		0 'ed.nlin ! 0 'ed.ncar !
+		) drop
+	ed.save
+
+	"r4/system/edit-code.txt" run
+	;
+|----------------------------------
+:actv+! | nro --
+	actv +
+	cntv >=? ( cntv 1- nip )
+	-? ( 0 nip )
+	'actv !
+	refresh
+	cntf 1- actf min 'actf ! ;
+
+:actf+! | nro --
+	actf +
+	cntf >=? ( cntf 1- nip )
+	-? ( 0 nip )
+	'actf !
+	refresh ;
+
+|----------------------------------
+:helpmodo
+	;
+
+:memmapv
+	d.TOS memmap
+	;
+
+#voc-system
+"BYE" "HELP" "RESETVM" "MEMMAP"
+( 0 )
+
+#exe-system
+'exit 'helpmodo 'resetvm 'memmapv
+0
+
+:nextw
+    ( c@+ 32 >? )( drop )
+	0? ( drop 1- )( drop )
+	;
+
+:pushnro | val --
+	basen
+	10 =? ( drop d.pushDec ; )
+	2 =? ( drop d.pushBin ; )
+	drop
+	d.pushHex ;
+	;
+
+:palabraconsola | str -- str'
+	( dup c@ 33 <? )( 0? ( nip ; ) drop 1+ )		| quitar espacios
+|	$5e =? ( drop esinclude ; )			| $5e ^  Include
+|	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
+|	$3A =? ( drop esdefinicion ; )		| $3a :  Definicion
+|	$23 =? ( drop esvariable ; )		| $23 #  Variable
+
+|	$22 =? ( drop escadena ; )			| $22 "	 Cadena
+
+	$27 =? ( drop 1+ dup 				| $27 ' Direccion
+		dup ?macro 1? ( 3drop "mACROnOTdIR" 'mensaje ! 0 ; ) drop
+		?palabra 1? ( nip stepadr nextw ; ) 2drop
+		"NOTdIR" seterror 3 - 0 ; )
+	drop
+	dup ?numero 1? ( drop pushnro nip ; ) drop
+	dup ?fnumero 1? ( drop d.pushFix nip ; ) drop
+	dup 'voc-system inupp? 1? ( 1- 2 << 'exe-system + @ exec nextw ; ) drop
+	dup ?macro 1? ( stepmacro nextw ; ) drop
+	dup ?palabra 1? ( stepword nextw ; ) drop
+	2drop 0
+	"??" 'mensaje !  ;
+
+:correconsola
+	'padin ( palabraconsola 0? ) drop
+	0 'padin !
+	;
+
+#txtruntime 0
+|r4/system/f5-spr.txt
+|IP: -715345168 541487096
+|D: 541495296 )
+|R: 4227140 541252130 4660219 541251766 )
+|code:541224944 cnt:27197
+|data:4354032 cnt:331640
+|20 175 479 3783 32
+
+:leererrores
+	here
+	dup "runtime.err" load
+	over <=? ( 	drop
+			dup "debug.err" load
+			over <=? ( 2drop ; )
+			)
+	0 swap c!+ | termina con cero
+	'here ! 'txtruntime !
+	;
+
+:runtimeerror
+	txtruntime 0? ( drop ; ) drop
+	rojo
+	[ "r4/system/runtime2.txt" run ; ] "RUNTIME ERROR" sp sp link
+	[ 0 dup "runtime.err" save
+	  0 dup "debug.err" save
+		0 'txtruntime ! ; ] "DEL" sp violeta link
+	;
+
+|----------------------------------
+:main
+	show clrscr
+		64 gc.top $00f gc.hfill
+
+		'exit >esc<
+
+|		0 0 tex.xy 800 600 tex.wh
+|		actv 4194304 * paginas + 0 0 799 599 tex.draw
+|		actv 4194304 * paginas + 0 100 799 499 tex.drawraw
+
+		fonta-verdana14b scr home
+		verde dup " :R%d " print
+		amarillo mensaje print
+		blanco 'lastrun "%s " printr cr
+
+		blanco " #" print 'padin 64 input
+		'correconsola lostfoco
+		verde dumpvstack cr
+
+        fonta-verdana10b
+
+		rojo sp 'exit "esc-Exit" link
+		verde
+		sp 'runprg dup <f1> "f1-Run" link
+		sp 'editprg dup <f2> "f2-Edit" link
+		violeta 'clicknew dup <f3> "f3-New" sp link
+		sp 'runprgshot dup <f5> "f5-Icon" sp link
+
+|		violeta sp 'adddome "+Fold" link
+|		rojo sp 'borractual "Del" link
+|		sp sp 'runtimeerr "f9-RUNERR" link
+|		sp 'confsis "f10-CONFIG" link
+|		'fillmem <f6>
+
+		runtimeerror
+
+		keypad
+		[ -1 actf+! ; ] <up>
+		[ 1 actf+! ; ] <dn>
+		[ -1 actv+! ; ] <pgup>
+		[ 1 actv+! ; ] <pgdn>
+
+		cr cr2
+	|---- carpetas
+		0 ( cntv <? )(
+			actv =? ( azul )( negro )
+			'clickv over filev sp btnt
+			1+ ) drop
+		cr cr
+		sp chome!
+	|---- archivos
+		0 ( cntf <? )(
+			actf =? ( verde )( negro )
+			'clickf over filex
+			12 sp btntf cr cr
+			bout? 1? ( chome ) drop
+			1+ ) drop
+		cminiflecha ;
+
+:memoria
+	"r4" ruta.push
+	'actf "mem/mp.mem" load drop
+	'ruta count + 'ruta> !
+	'ruta dir
+	here 'nombres !
+	$ffff 'here +!
+	refresh | para saber cntv
+
+	here dup 'paginas !
+|	"mem/mpa.mem" load drop
+|	cntv 4194304 * 'here +! | 1024*1024*4 bytes
+	refresh | para tener los nombres
+	screenshot -1 <>? ( drop ; ) drop
+	0 'screenshot !
+
+|	icon.shoot ***************
+|	actv 4194304 * paginas +
+|	actf dup $f and 6 << swap 4 >> $f and 6 << | x y
+|	icon.attex
+
+|	paginas cntv 4194304 * "mem/mpa.mem" save
+	;
+
+
+:	$0 paper
+	mark
+	leererrores
+	memoria
+
+	4 main
+	grabaestado
+;

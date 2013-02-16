@@ -1,0 +1,429 @@
+| HERSHEY
+| MCORNES/PHREDA 2009
+|------------------------------
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+^r4/lib/dlgfile.txt
+
+#dat #index
+#numero #nverts
+#nombre )( 64
+
+| ( char - int )
+| 48 = '0', como se escribe un caracter ?
+:ascii 32 =? ( drop 0 )( 48 - ) ;
+
+| ( @ cnt -- val )
+:num 0 >r ( +? )( swap c@+ ascii r> 10 * + >r swap 1- ) 2drop r> ;
+
+:start dup 5 num 'numero ! 5 + 3 num 'nverts ! ;
+
+| problem here !!
+#inc
+:next dat 8 + nverts 2* + 1+ inc + 'dat ! ;
+
+:lfremove c@+ 10 =? ( 1 'inc +! drop ; ) drop 1- ;
+
+| ( @ -- dx dy @+2 )
+:offset
+	lfremove c@+ 82 - |20 *
+	swap
+	lfremove c@+ 82 - |20 *
+	swap ;
+
+#mini
+#mind
+
+:limitereset
+	0 dup 'mini !+ ! ;
+
+:limiteupd | x -- x
+	mini <? ( dup 'mini ! )
+	mind >? ( dup 'mind ! )
+	;
+
+:center_ | -- x y
+	yc + swap
+	limiteupd
+	xc + swap ;
+
+#state | 0:up, 1:down ( x y -- )
+:step center_ state 0 =? ( drop op 1 'state ! )( drop line ) ;
+
+| ( x y -- )
+| -50 0 -> lift pen
+:pencmd 0? ( swap -50 =? ( 2drop 0 'state ! )( swap step ) )( step ) ;
+
+| ignore left right limits
+:draw
+0 'state !
+0 'inc !
+dat 10 + nverts 1-
+limitereset
+( +? )( swap offset >r pencmd r> swap 1- ) 2drop ;
+
+|----- indice de letras
+:num2 | @ cant -- @++ v
+	0 >r
+	( +? )(	swap
+		c@+ ascii r> 10 * + >r
+		swap 1- )
+	drop r> ;
+
+:otro.. | adr -- adr++ ..(x y)..
+	( c@+ 32 <? )( drop ) drop
+	( c@+ 32 <? )( drop ) drop
+	;
+
+| pasar los n-vertices
+:next.. | cnt adr -- adr
+	swap ( +? )( swap
+		otro..
+		swap 1- ) drop
+	;
+
+|----- compilado a memoria
+#index>
+:,index | v --
+	index> !+ 'index> ! ;
+
+:makeindex
+	index 'index> !
+	dat
+	( index <? )(
+		( dup c@ 32 <? )( drop 1+ ) drop
+		5 num2 drop | 0..4  nro char no lo uso
+		3 num2 1- dup ,index | cntvertices
+		swap 2 + | saltea bordes
+		dup ,index | cnt adr
+		next..
+		) drop
+	;
+
+:drawnro | nro --
+	0 'state !
+	0 'inc !
+	3 << index +
+	@+ swap @ swap
+	limitereset
+	( +? )( swap offset >r pencmd r> swap 1- )
+	2drop ;
+
+
+|------------------------------------------
+:toxy
+	cch 5 *>> ccy + swap
+	ccw 5 *>> ccx + swap ;
+
+:otroxy | adr -- adr++ x y
+	c@+ ( 32 <? )( drop c@+ )
+	82 - swap
+	c@+ 82 -
+	rot swap
+	;
+
+:sigxy | addr -- addr++
+	otroxy 0 =? ( drop
+		-50 =? ( drop otroxy
+				toxy op swap 2 - ; )( 0 )
+		)
+	toxy line swap 1- ;
+
+:draw2nro | nro --
+	3 << index + @+ swap @
+	otroxy
+	toxy op swap 1-
+	( +? )( swap sigxy )
+	2drop ;
+
+|------------------------------------------
+#htoascii )( 1024 | 256 chars
+#hojaini 0
+#cursorn
+
+#temp )( 1024
+#temp> 'temp
+
+#xcorrection 0
+#cntpuntos 0
+#xp #yp
+
+:,temp | byte --
+	temp> c!+ 'temp> ! ;
+
+:getotroxy | adr -- adr++ y x
+	c@+ ( 32 <? )( drop c@+ )
+	82 - -50 <>? ( limiteupd )
+	swap c@+ 82 -
+	rot
+	;
+
+:,op | y x --
+	xp =? ( swap yp =? ( 2drop ; ) swap )
+	2dup 'xp ! 'yp !
+	2 << ,temp 2 << ,temp
+	1 'cntpuntos +!
+	;
+
+:,line | y x --
+	xp =? ( drop yp =? ( drop ; )
+			dup 'yp !
+			2 << %10 or ,temp
+			1 'cntpuntos +!
+			; )
+	swap
+	yp =? ( drop
+			dup 'xp !
+			2 << %01 or ,temp
+			1 'cntpuntos +!
+			; )
+	swap
+	2dup 'xp ! 'yp !
+	2 << %11 or ,temp 2 << ,temp
+	1 'cntpuntos +!
+	;
+
+:getsigxy | addr -- addr++
+	getotroxy
+		-50 =? ( 2drop getotroxy
+				,op
+				swap 2 - ; )
+	,line
+	swap 1- ;
+
+
+:savecar | n --
+|	mind mini - 2/ 'xcorrection ! | no lo uso mas
+	0 'cntpuntos !
+	'temp 'temp> !
+	limitereset
+	over 'htoascii - 2 >> 33 =? ( 4 dup 'mini ! 'mind ! ) drop
+    3 << index +
+	@+ swap @
+	getotroxy
+	,op
+	swap 1-
+	( +? )( swap getsigxy )
+	2drop
+	mind abs
+	mini abs max 2 +
+	8 <<	| ancho de letra
+
+	| imprimo buffer a codigo
+	cntpuntos
+	or
+	"%d ( " ,print
+	'temp
+	( temp> <? )( c@+ "%d " ,print )
+	drop
+	;
+
+
+:saveinc
+	index> 'here !
+	'htoascii
+	256 ( 1? )( 1-
+		255 over - "#hchar%d " ,print
+		>r
+		@+     |		" %d " ,print
+		savecar
+		") " ,print
+		,cr
+		r> )
+	2drop
+
+	"#:hfntd1 " ,print ,cr
+	256 ( 1? )( 1-
+		%1111 nand? ( ,cr )
+		255 over - "hchar%d " ,print
+		) drop
+
+	index> here over - "inc/fnthershey.inc" save
+
+	;
+
+:showdicc
+	'htoascii
+	256 ( 1? )( 1- >r
+		@+ "%d " print
+		r> )
+	2drop
+	;
+
+|------------------------------------------
+:loadfnt
+	"hershey/" dir
+	'htoascii 'nombre load drop
+	0 'cursorn !
+	"" dir
+	;
+
+:savefnt
+	"hershey/" dir
+	'htoascii 1024 'nombre save
+	"" dir
+	;
+
+|------------------------------------------
+#acther
+#herini
+
+:setdicc
+	dup cursorn 2 << 'htoascii + !
+	cursorn 1+ dup 'cursorn !
+	2 << 'htoascii + @
+	'acther !
+    ;
+
+:cadahers
+	azul
+	[ 1.1 fzoom ; ] guiInPre
+
+	2dup 3 << + herini 80 * +
+	acther =? ( 0.1 pinpon 0.9 + fzoom gc.box )( 0.9 fzoom )
+	'setdicc guiBtn
+	drawnro
+	;
+
+
+|------------ de viejo gui3
+:table | row col 'acc --
+	>r
+	1.0 pick2 / | row col sw
+	1.0 pick2 / | row col sw sh
+	0 ( pick4 <? )(
+		 0 ( pick4 <? )( | row col sw sh x y
+			gc.push
+			2over		| row col sw sh x y sw sh
+			pick3 pick2 * pick2 2/ + 0.5 -
+			pick3 pick2 * pick2 2/ + 0.5 -
+			gc.conv | w h xc yc --
+			r exec
+			gc.pop
+			1+ ) drop
+		1+ ) drop
+	4drop rdrop ;
+
+:hlist | cnt 'acc --
+	>r
+	1.0 over / | cnt sw
+	0 ( pick2 <? )( | cnt sw a
+		gc.push
+		over 1.0 2over * pick2 2/ + 0.5 - 0
+		gc.conv | w h xc yc --
+		r exec
+		gc.pop 1+ )
+	3drop rdrop ;
+	;
+|------------ de viejo gui3
+
+
+:hojaher
+	8 10 'cadahers table ;
+
+|------------------------------------------------
+:btnpaghe
+	[ dup 'herini ! ; ] guiBtn
+	herini =? ( amarillo )( gris 0.8 fzoom )
+	5 sfont home  cr cr
+	dup 80 * "%d" printc
+	;
+
+:pagcarhe
+	20 'btnpaghe hlist ;
+
+#cmi #cmd
+|------------------------------------------
+:setascii
+	dup 'cursorn !
+	dup 2 << 'htoascii + @ 	'acther !
+	mini 'cmi !
+	mind 'cmd !
+	;
+
+:cadacar
+	verde
+	[ 1.1 fzoom ; ] guiInPre
+	2dup 3 << + hojaini 64 * +
+	cursorn =? ( 0.1 pinpon 0.9 + fzoom gc.box )( 0.9 fzoom )
+	dup
+	2 << 'htoascii + @
+	drawnro
+	amarillo
+	mini xc + yc h 2/ + op
+	mind xc + yc h 2/ + line
+|	naranja
+|	xc yc h 2/ - 2dup op h + line
+	'setascii guiBtn
+
+	azul
+	fonti home |dup "%d " print
+	emit ;
+
+:hojacar
+	8 8 'cadacar table ;
+
+|------------------------------------------------
+:btnpag
+	[ dup 'hojaini ! ; ] guiBtn
+	hojaini =? ( amarillo )( gris 0.8 fzoom )
+	3 sfont home cr
+	dup 64 * "%d" printc
+	;
+
+:pagcar
+	4 'btnpag hlist ;
+
+|------------------------------------------------
+:elijearchivo
+	savefnt
+	"hershey/" dir
+	'nombre dlgfile
+	"" dir
+	loadfnt
+	;
+
+:accnombre
+	'elijearchivo guiBtn
+	$ff00 0 vbtn
+	blanco 1 font home
+	'nombre printc
+	;
+
+:editascii
+	mem dup 'dat !
+	"hershey/hershey_roman.txt"
+|	"hershey/hershey_japan.txt"
+	load 'index !
+	makeindex
+	show clrscr fonti verde home
+		showdicc cr
+		cmi cmd "%d %d" print
+		scr
+		0.5 0.6 fdim -0.5 -0.2 fpos hojacar
+		0.5 0.1 fdim -0.5 0.6 fpos pagcar
+
+		0.5 0.6 fdim 0.5 -0.2 fpos hojaher
+		0.5 0.1 fdim 0.5 0.6 fpos pagcarhe
+
+		0.8 0.1 fdim 0.0 -0.9 fpos accnombre
+		0.1 0.1 fdim -0.9 0.9 fpos
+		rojo
+		'exit 'ifin btnd gc>>
+		verde
+		'saveinc 'irecicla btnd
+		cmano  
+	'exit <esc>
+		;
+
+:main
+	'nombre "mem/hershey.nom" load drop
+|	'nombre c@ 0? ( elijearchivo ) drop
+|	'nombre c@ 0? ( drop ; ) drop
+	loadfnt
+	editascii
+	savefnt
+	'nombre count "mem/hershey.nom" save
+	;
+
+: main ;

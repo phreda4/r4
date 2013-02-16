@@ -1,0 +1,180 @@
+| Lee BMP 4,8 y 32 bit sin comprimir
+| PHREDA
+|------------------------------------------
+^r4/lib/trace.txt
+
+|-- bmpdrawfast
+#xa #xa1 #xs
+#ya #ya1 #ys
+#xi #yi
+#wi #hi
+
+|--- bmp load
+#:bmp.ancho
+#:bmp.alto
+#:bmp.bm
+
+#paleta
+#pad
+
+:color24>32 | 'b -- 'b+ rgb
+	c@+  $ff and >r c@+ $ff and 8 << >r c@+ $ff and 16 <<  r> or r> or ;
+
+:color8>32 | b -- b+ rgb
+	c@+ $ff and 2 << paleta + @ ;
+
+|----------------------------------- 4 > 32
+#slot 0
+#netok 0
+
+:esta2 | adr -- adr++ color
+	slot $f and 2 << paleta + @
+	0 'netok ! ;
+
+:color4>32 | b -- b+ p1 p2
+	netok 1? ( >r ; ) drop
+	c@+ dup 'slot !
+	4 >> $f and 2 << paleta + @
+	'esta2 'netok ! ;
+
+|----------------------------
+#*linea
+
+:linea24 | 'v 'b --
+	bmp.ancho ( 1? )( 1- >r
+		color24>32 rot !+ swap
+		r> )  drop ;
+
+:linea8 | 'v 'b --
+	bmp.ancho ( 1? )( 1- >r
+		color8>32 rot !+ swap
+		r> )  drop ;
+
+:linea4 | 'v 'b --
+	0 'netok !
+	bmp.ancho ( 1? )( 1- >r
+		color4>32 rot !+ swap
+		r> )  drop ;
+
+|-----------------------------
+| carga bmp en here (y lo desplaza)
+|  "test.bmp" bmp.load 'bmp1 !
+|
+#finimg
+
+::bmp.load | "nombre" -- 0/mem
+	here swap load here =? ( drop 0 ; ) |"No Existe el archivo para load" print redraw trace ; ) 
+	'finimg !
+	here
+	dup $12 + @ 'bmp.ancho !
+	dup $16 + @ 'bmp.alto !
+	dup $36 + 'paleta !
+
+	4 bmp.ancho $3 and - $3 and 'pad ! 
+
+	dup 10 + @ 54 =? ( 'linea24  )( 118 =? ( 'linea4 )( 'linea8 ) ) '*linea !
+	+
+	bmp.ancho bmp.alto 1- * 2 << finimg +
+	swap
+	bmp.alto ( 1? )( 1- >r
+		*linea exec
+		swap bmp.ancho 3 <<  -
+		swap pad +
+		r> )
+	3drop
+	here
+	bmp.ancho , bmp.alto ,
+	here dup 'bmp.bm !
+	finimg bmp.ancho bmp.alto * move
+	bmp.ancho bmp.alto * 2 + 2 << over +  'here !
+	;
+
+
+::bmp!  | addr 'bmpm ! ;
+	@+ 'bmp.ancho !
+	@+ 'bmp.alto !
+	'bmp.bm ! ;
+
+::bmp.get | x y -- c
+	bmp.ancho * + 2 << bmp.bm + @ ;
+
+::bmp.getm
+	bmp.ancho * + 2 << bmp.bm + ;
+
+::bmp.set | c x y --
+	bmp.ancho * + 2 << bmp.bm + ! ;
+
+|--------------------------
+::bmp.real | --
+	framev >r
+	0 ( bmp.alto <? )(
+		0 ( bmp.ancho <? )(
+			dup pick2 bmp.get r!+ | al sal anch
+			1+ ) drop
+		sw bmp.ancho - 2 << r+
+		1+ )  drop
+	rdrop ;
+
+#aw #ah
+::bmp.xyreal | x y --
+	over bmp.ancho + sw >? ( sw - bmp.ancho swap - )( drop bmp.ancho ) 'aw !
+	dup bmp.alto + sh >? ( sh - bmp.alto swap - )( drop bmp.alto ) 'ah !
+	0 ( ah <? )(
+		pick2 pick2 pick2 + setxy
+		0 ( aw <? )(
+			dup pick2 bmp.get px!+ | al sal anch
+			1+ ) drop
+		1+ ) 3drop
+	;
+
+|------- hay un algorimo mejor!!
+#ancho	#alto
+#scalax	#scalay
+
+::bmp.full
+	sw sh
+::bmp.show | w a --
+	dup 'alto !  8 << bmp.alto / 'scalay !
+	dup 'ancho ! 8 << bmp.ancho / 'scalax !
+	framev >r
+	0 ( alto <? )(
+		dup 8 << scalay / | alto salto
+		0 ( ancho <? )(
+			dup 8 << scalax / | alto salto ancho sancho
+			pick2  | al sal anch sanch sal
+			bmp.get r!+ | al sal anch
+			1+ ) 2drop
+		sw ancho - 2 << r+
+		1+ )  drop
+	rdrop ;
+
+|--------- un poco mejor
+::bmpdrawfast | x y --
+	setxy
+	ya1 'ya !
+	sw wi -
+	hi ( 1? )(
+		xa1 'xa !
+	 	0 ya 16 >> bmp.getm
+		wi ( 1? )(
+			over xa 16 >> 2 << + @ px!+
+		xs 'xa +!
+		1- ) 2drop
+	  over px+!
+	  ys 'ya +!
+  1- ) 2drop ;
+
+::bmpXY | xb yb --
+	16 << 'ya1 ! 16 << 'xa1 ! ;
+
+::bmpWH | wb hb --
+	hi 16 <</ 'ys ! wi 16 <</ 'xs ! ;
+
+::bmpPT | w h x y --
+	'yi ! 'xi ! 'hi ! 'wi !
+	0 0 bmpXY
+	|---- ajustes de bmp
+	bmp.alto hi 16 <</ 'ys !
+	bmp.ancho wi 16 <</ 'xs !
+	;
+

@@ -1,0 +1,82 @@
+|------ MORTON COMANDER
+
+| x y en 16 bits-- z en 32 bits
+::morton2d | x y -- z
+	dup 8 << or $00ff00ff and
+	dup 4 << or $0f0f0f0f and
+	dup 2 << or $33333333 and
+	dup 2* or   $55555555 and
+	2* swap
+	dup 8 << or $00ff00ff and
+	dup 4 << or $0f0f0f0f and
+	dup 2 << or $33333333 and
+	dup 2* or   $55555555 and
+	or ;
+
+::invmorton2d | z -- x y
+	dup $55555555 and
+	dup 2/ xor $33333333 and
+	dup 2 >> xor $0f0f0f0f and
+	dup 4 >> xor $ff00ff and
+	dup 8 >> xor $ffff and
+	swap
+	2/ $55555555 and
+	dup 2/ xor $33333333 and
+	dup 2 >> xor $0f0f0f0f and
+	dup 4 >> xor $ff00ff and
+	dup 8 >> xor $ffff and ;
+
+::m2dnext | x y --
+	1	| x y b
+	( 1? )(
+	rot over xor | y b xb
+	swap over not and | y xb b
+	rot over xor | xb b yb
+	swap over not and | xb yb bb
+	2* ) drop ;
+
+::m2dprev | x y --
+	1	| x y b
+	( 1? )(
+	rot over xor | y b xb
+	swap over and | y xb b
+	rot over xor | xb b yb
+	swap over and | xb yb bb
+	2* ) drop ;
+
+|--- 3D x y z . 10 bits
+:p1x2 | x -- v
+ 	$1ff + $3ff and
+	dup 16 << xor $ff0000ff and
+	dup 8 << xor  $0300f00f and
+	dup 4 << xor  $030c30c3 and
+	dup 2 << xor  $09249249 and ;
+
+::morton3d | x y z -- Z
+	p1x2 2* swap p1x2 or 2* swap p1x2 or ;
+
+:c1x2 | x - v
+	$09249249 and
+	dup 2 >> xor $030c30c3 and
+	dup 4 >> xor $0300f00f and
+	dup 8 >> xor $ff0000ff and
+	dup 16 >> xor $3ff and $1ff - ;
+
+::invmorton3d | Z -- x y z
+ 	dup c1x2 swap 2/ dup c1x2 swap 2/ c1x2 ;
+
+
+::m3dnext | x y z -- x y z
+	1 ( 1? )( >r
+		rot r xor r> over not and >r | y z x
+		rot r xor r> over not and >r | z x y
+		rot r xor r> over not and  | x y z
+		2* ) drop ;
+
+::m3dprev | x y z -- x y z
+	1 ( 1? )( >r
+		rot r xor r> over and >r | y z x
+		rot r xor r> over and >r | z x y
+		rot r xor r> over and  | x y z
+		2* ) drop ;
+

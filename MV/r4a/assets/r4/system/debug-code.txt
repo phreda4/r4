@@ -1,0 +1,197 @@
+| debug-code.txt
+| PHREDA 2010
+|---------------------------------------
+^r4/lib/gui.txt
+^r4/lib/parse.txt
+^r4/lib/codecolor.txt
+^r4/lib/fontt.txt
+^r4/lib/fontj.txt
+^r4/lib/dlgfile.txt
+^r4/lib/trace.txt
+
+^r4/lib/sort.txt
+^r4/lib/form.txt
+
+^r4/system/mem-ed.txt
+^r4/system/r4code.txt
+^r4/system/anaword.txt
+
+#mensaje )( 64
+#consola )( 1024
+#pagina
+#actual
+
+:mensaje! 'mensaje strcpy ;
+
+|----------------------------------
+:helpmodo
+	;
+
+:memmapv
+	d.TOS memmap
+	;
+
+#voc-system
+"BYE" "HELP" "RESETVM" "MEMMAP"
+( 0 )
+
+#exe-system
+'exit 'helpmodo 'resetvm 'memmapv
+0
+
+:nextw
+    ( c@+ 32 >? )( drop )
+	0? ( drop 1- )( drop )
+	;
+
+:pushnro | val --
+	basen
+	10 =? ( drop d.pushDec ; )
+	2 =? ( drop d.pushBin ; )
+	drop
+	d.pushHex ;
+	;
+
+:palabraconsola | str -- str'
+	( dup c@ 33 <? )( 0? ( nip ; ) drop 1+ )		| quitar espacios
+|	$5e =? ( drop esinclude ; )			| $5e ^  Include
+|	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
+|	$3A =? ( drop esdefinicion ; )		| $3a :  Definicion
+|	$23 =? ( drop esvariable ; )		| $23 #  Variable
+
+|	$22 =? ( drop escadena ; )			| $22 "	 Cadena
+
+	$27 =? ( drop 1+ dup 				| $27 ' Direccion
+		dup ?macro 1? ( 3drop "mACROnOTdIR" mensaje! 0 ; ) drop
+		?palabra 1? ( nip stepadr nextw ; ) 2drop
+		"NOTdIR" seterror 3 - 0 ; )
+	drop
+	dup ?numero 1? ( drop pushnro nip ; ) drop
+	dup ?fnumero 1? ( drop d.pushFix nip ; ) drop
+	dup 'voc-system inupp? 1? ( 1- 2 << 'exe-system + @ exec nextw ; ) drop
+	dup ?macro 1? ( stepmacro nextw ; ) drop
+	dup ?palabra 1? ( stepword nextw ; ) drop
+	2drop 0
+	"NOTfOUND" mensaje! ;
+
+:correconsola
+	'consola ( palabraconsola 0? ) drop
+	0 'consola !
+	;
+
+
+|:mkplain	"r4/system/r4plain.txt" run ;
+:mkplain	"r4/system/r4plaino.txt" run ;
+
+:mkasm		"r4/system/r4fasm.txt" run ;
+:mkasmo		"r4/system/r4fasmo.txt" run ;
+:mkbyte		"r4/system/r4js.txt" run ;
+
+
+|-----------------------------------
+:clickvar
+	dup 'actual !
+	dup makeanaword ;
+
+:cadavariable
+	drop allowchome
+	violeta actual <>? ( oscuro )
+	'clickvar over 5 << 'indicepal + @ "#%w " link cr
+	;
+
+:clickpalabra
+	dup 'actual !
+	dup makeanaword ;
+
+:cadapalabra
+	drop allowchome
+	actual <>? ( rojo oscuro oscuro )( rojo )
+	'clickpalabra over 5 << 'indicepal + @ ":%w " link cr
+	;
+
+:listofwords
+	'cadavariable varmap | 'vector --
+	'cadapalabra wordmap | 'vector --
+	chome
+	actual printname cr verde
+	printanaword
+|	printcursoranaword
+	;
+|---------
+:fullrun
+	scr fontj cls home "RUN" print home
+	show
+|		scr
+		stepvm
+
+	|	home
+	|	cr amarillo
+	|	dumpvstack
+	|	vm.dumpcode
+		'exit >esc<
+		;
+
+
+|----------------------------------
+:maindebug
+	cntw 'actual !
+|	refrescaind
+	show xfb>scr
+		'exit >esc<
+		'correconsola <enter>
+
+		60 gc.top $77700f gc.hfill
+		fonta-verdana14 home
+		verde dup " :R%d" print
+		blanco "dEBUG" print
+		verde
+		'ed.nombre "%s " printr
+
+
+		cr cr2 fonta-verdana10b
+		rojo sp 'exit "esc-Exit" btnt
+		cyan
+		sp 'fullrun dup <f1> "f1-Run" btnt
+		sp 'stepvm dup <f2> "f2-Step" btnt
+		sp 'stepvmn dup <f3> "f3-StepN" btnt
+
+		violeta sp
+		sp 'mkplain dup <f9> "f9-GenPlain" btnt
+		sp 'mkasm dup <f10> "f10-ASM" btnt
+		sp 'mkasmo dup <f11> "f11-ASM" btnt
+		sp 'mkbyte dup <f12> "f12-Bytec" btnt
+
+
+		60 0 gc.vbetween fontj home
+
+		cte> cte - "%d bytes ctes / " print
+		prog> prog - 2 >> "%d tokens / " print
+		cntwords "%d words / " print
+		cntw "%d used / " print
+		cntwords newwords - "%d words main " print
+		cr
+		rojo 'mensaje printx cr
+
+		blanco "> " print
+		'consola 32 input cr
+		cr amarillo
+		dumpvstack
+		vm.dumpcode
+
+		cmano ;
+
+
+:main
+	ed.load
+	'ed.nombre tokencomp
+	msg 1? ( drop saverror ; ) drop
+	tokenpost
+	msg 1? ( drop saverror ; ) drop
+	startvm
+	maindebug
+	;
+
+: 0 paper
+	mark
+	4 main
+	empty ;
