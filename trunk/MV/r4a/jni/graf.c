@@ -23,13 +23,11 @@
 
 //---- buffer de video
 ANativeWindow_Buffer buffergr;
-void *XFB;
-
-//extern void *buffergr.bits; 		// buffer de pantalla
-//extern int buffergr.width,buffergr.height;
+int *XFB;
+int *gr_buffer; 		// buffer de pantalla
 
 //---- variables internas
-unsigned int gr_color1,gr_color2,col1,col2;
+int gr_color1,gr_color2,col1,col2;
 int MA,MB,MTX,MTY; // matrix de transformacion
 int *mTex; // textura
 
@@ -44,57 +42,27 @@ int cntSegm=0;
 int yMin,yMax;
 unsigned char gr_alphav;
 
-int gr_sizescreen=0;	// tamanio de pantalla
-
 #define FBASE 8
-#define RED_MASK 0xF800
-#define GRE_MASK 0x07E0
-#define BLU_MASK 0x001F
-uint16_t colorr,colorg,colorb;// optimiza color 1
-
-inline uint16_t gr_RGBSET(uint32_t c)
-{
-colorr=(uint16_t)((c>>8)&RED_MASK);
-colorg=(uint16_t)((c>>5)&GRE_MASK);
-colorb=(uint16_t)((c>>3)&BLU_MASK);
-return (colorr|colorg|colorb);
-};
-
-inline uint16_t gr_RGB(uint32_t c)
-{
-return (((c>>8)&RED_MASK)|((c>>5)&GRE_MASK)|((c>>3)&BLU_MASK));
-}
-
-inline uint32_t RGB_gr(uint16_t c)
-{
-register uint32_t c1=(c&RED_MASK);c1=(c1|(c1>>5))<<8;
-register uint32_t a=c1&0xff0000;c1=(c&GRE_MASK);c1=((c1<<6)|c1)>>1;
-a|=c1&0xff00;c1=(c&BLU_MASK);c1=((c1<<5)|c1)>>2;
-return (a|(c1&0xff));
-}
-
-inline void gr_565(uint16_t c)
-{
-colorr=(uint16_t)(c&RED_MASK);
-colorg=(uint16_t)(c&GRE_MASK);
-colorb=(uint16_t)(c&BLU_MASK);
-}
+#define RED_MASK 0xFF0000
+#define GRE_MASK 0xFF00
+#define BLU_MASK 0xFF
 
 void gr_fin(void)
 {
 free(XFB);
+free(gr_buffer);
 }
 
+//------------------------------------
+#define GR_SET(X,Y) gr_pos=gr_buffer+(Y<<shiftwh)+X;
+#define GR_X(X) gr_pos+=X;
+#define GR_Y(Y) gr_pos+=Y<<shiftwh;
+
 //---- inicio
-void gr_init(void)
+void gr_init()
 {
-if (gr_sizescreen==0)
-	{
-	gr_sizescreen=buffergr.height*buffergr.width;// tamanio en uint16_t
-	XFB=(void*)malloc(gr_sizescreen*2);
-	}
-//buffergr.width=buffergr.width=XRES;
-//buffergr.height=YRES;
+gr_buffer=(int*)malloc(sizewh*sizewh*4);
+XFB=(int*)malloc(sizewh*sizewh*4);
 //---- poligonos2
 cntSegm=0;
 yMin=buffergr.height+1;
@@ -113,29 +81,61 @@ inline void fillmat(int a,int b)
 inline void fillcol(unsigned int c1,unsigned int c2)
 { col1=c1;col2=c2; }
 
+#define RED5  0xF800
+#define GRE6  0x07E0
+#define BLU5  0x001F
+
+inline int to565(int c)
+{
+return ((c>>8)&RED5)|((c>>5)&GRE6)|((c>>3)&BLU5);
+}
+
+void gr_swap(struct android_app* app)
+{
+ANativeWindow_lock(app->window, &buffergr, NULL);
+register int *s=gr_buffer;
+register int *d=(int*)buffergr.bits;
+int y,x,st=sizewh-buffergr.width;
+
+if (buffergr.format==4) // 565
+{
+	for(y=0;y<buffergr.height;y++,s+=st)
+		for(x=0;x<buffergr.width/2;x++) *d++=to565(*s++)|(to565(*s++)<<16);
+} else {
+	for(y=0;y<buffergr.height;y++,s+=st)
+		for(x=0;x<buffergr.width;x++) *d++=*s++;
+}
+ANativeWindow_unlockAndPost(app->window);
+}
 
 void gr_clrscr(void)
 {
-register unsigned int *PGR=buffergr.bits;
-register int c=gr_sizescreen/2;
-for (;c>0;c--,PGR++) *PGR=gr_color2;
+register int *d=gr_buffer;
+int y,x,st=1024-buffergr.width;
+for(y=0;y<buffergr.height;y++,d+=st)
+	for(x=0;x<buffergr.width;x++)
+		*d++=gr_color2;
 }
 
 void gr_toxfb(void)
 {
-register unsigned int *bgr=buffergr.bits,*xgr=XFB;
-register int c=gr_sizescreen/2;
-while (c>0) { c--;*xgr++=*bgr++; }
+register int *s=XFB;
+register int *d=gr_buffer;
+int y,x,st=1024-buffergr.width;
+for(y=0;y<buffergr.height;y++,s+=st)
+	for(x=0;x<buffergr.width;x++)
+		*d++=*s++;
 }
 
 void gr_xfbto(void)
 {
-register unsigned int *bgr=buffergr.bits,*xgr=XFB;
-register int c=gr_sizescreen/2;
-while (c>0) { c--;*bgr++=*xgr++; }
+register int *d=XFB;
+register int *s=gr_buffer;
+int y,x,st=1024-buffergr.width;
+for(y=0;y<buffergr.height;y++,s+=st)
+	for(x=0;x<buffergr.width;x++)
+		*d++=*s++;
 }
-
-/*
 
 #define MASK1 (RED_MASK|BLU_MASK)
 #define MASK2 (GRE_MASK)
@@ -147,30 +147,18 @@ register unsigned int RB=(((((gr_color1&MASK1)-B)*alpha)>>8)+B)&MASK1;
 B=col&MASK2;
 return ((((((gr_color1&MASK2)-B)*alpha)>>8)+B)&MASK2)|RB;
 }
-*/
-
-inline uint16_t gr_mix(uint16_t col,uint8_t alpha)
-{
-uint16_t r=(col&RED_MASK);
-r=(((colorr-r)*alpha+(r<<8))>>8)&RED_MASK;
-uint16_t g=(col&GRE_MASK);
-g=(((colorg-g)*alpha+(g<<8))>>8)&GRE_MASK;
-uint16_t b=(col&BLU_MASK);
-b=(((colorb-b)*alpha+(b<<8))>>8)&BLU_MASK;
-return (uint16_t)(r|g|b);
-}
 //--------------- RUTINAS DE DIBUJO
 //---- solido
-void _gr_pixels(uint16_t *gr_pos)		{*gr_pos=gr_color1;}
-void _gr_pixela(uint16_t *gr_pos,unsigned char a){*gr_pos=gr_mix(*gr_pos,a);}
+void _gr_pixels(int *gr_pos)		{*gr_pos=gr_color1;}
+void _gr_pixela(int *gr_pos,unsigned char a){*gr_pos=gr_mix(*gr_pos,a);}
 
 //---- solido con alpha
-void _gr_pixelsa(uint16_t *gr_pos)		{*gr_pos=gr_mix(*gr_pos,gr_alphav);}
-void _gr_pixelaa(uint16_t *gr_pos,unsigned char a) {*gr_pos=gr_mix(*gr_pos,(unsigned char)((unsigned int)(a*gr_alphav)>>8));}
+void _gr_pixelsa(int *gr_pos)		{*gr_pos=gr_mix(*gr_pos,gr_alphav);}
+void _gr_pixelaa(int *gr_pos,unsigned char a) {*gr_pos=gr_mix(*gr_pos,(unsigned char)((unsigned int)(a*gr_alphav)>>8));}
 
 //--------------- RUTINAS DE DIBUJO
-void (*gr_pixel)(uint16_t *gr_pos);
-void (*gr_pixela)(uint16_t *gr_pos,unsigned char a);
+void (*gr_pixel)(int *gr_pos);
+void (*gr_pixela)(int *gr_pos,unsigned char a);
 
 void gr_solid(void) {gr_pixel=_gr_pixels;gr_pixela=_gr_pixela;gr_alphav=255;}
 void gr_alpha(void) {gr_pixel=_gr_pixelsa;gr_pixela=_gr_pixelaa;}
@@ -189,18 +177,13 @@ void fillRad(void) { fillpoly=_FlineaDR; }
 void fillTex(void) { fillpoly=_FlineaTX; }
 
 //------------------------------------
-#define GR_SET(X,Y) gr_pos=(uint16_t*)buffergr.bits+Y*buffergr.stride+X;
-#define GR_X(X) gr_pos+=X;
-#define GR_Y(Y) gr_pos+=buffergr.stride*Y;
-
-//------------------------------------
 void gr_hline(int x1,int y1,int x2)
 {
 if (x1<0) x1=0;
 if (x2>=buffergr.width) { x2=buffergr.width-1;if (x1>=buffergr.width) return; }
-register uint16_t *gr_pos;
+register int *gr_pos;
 GR_SET(x1,y1);
-uint16_t *pf=gr_pos+x2-x1+1;
+int *pf=gr_pos+x2-x1+1;
 do { gr_pixel(gr_pos);gr_pos++; } while (gr_pos<pf);
 }
 
@@ -208,9 +191,9 @@ void gr_vline(int x1,int y1,int y2)
 {
 if (y1<0) y1=0;
 if (y2>=buffergr.height) { y2=buffergr.height-1;if (y1>=buffergr.height) return; }
-register uint16_t *gr_pos;
+register int *gr_pos;
 GR_SET(x1,y1);
-uint16_t *pf=gr_pos+((y2-y1+1)*buffergr.width);
+int *pf=gr_pos+((y2-y1+1)*buffergr.width);
 do { gr_pixel(gr_pos);gr_pos+=buffergr.width; } while (gr_pos<pf);
 }
 
@@ -256,14 +239,14 @@ return (C1|C2)==0;
 inline void gr_setpixel(int x,int y)
 {
 if ((unsigned)x>=(unsigned)buffergr.width || (unsigned)y>=(unsigned)buffergr.height) return;
-register uint16_t *gr_pos;
+register int *gr_pos;
 GR_SET(x,y);gr_pixel(gr_pos);
 }
 
 inline void gr_setpixela(int x,int y,unsigned char a)
 {
 if ((unsigned)x>=(unsigned)buffergr.width || (unsigned)y>=(unsigned)buffergr.height) return;
-register uint16_t *gr_pos;
+register int *gr_pos;
 GR_SET(x,y);gr_pixela(gr_pos,a);
 }
 
@@ -279,7 +262,7 @@ if (y1>y2) { swap(x1,x2);swap(y1,y2); }
 dx=x2-x1;dy=y2-y1;
 if (dx>0) sx=1; else { sx=-1;dx=-dx; }
 uint16_t ea,ec=0;unsigned char ci;
-register uint16_t *gr_pos;
+register int *gr_pos;
 GR_SET(x1,y1);gr_pixel(gr_pos);
 if (dy>dx) 	{
 	ea=(dx<<16)/dy;
@@ -383,7 +366,7 @@ cntSegm++;
 //-------------------------------------------------
 void _FlineaSolido(int y,Segm *m1,Segm *m2)
 {
-register uint16_t *gr_pos;
+register int *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
 if (m1->x==m2->x&&m1->deltax>m2->deltax) { Segm *t=m1;m1=m2;m2=t; }
@@ -446,7 +429,7 @@ gr_color1=gr_mix(col2,niv);
 
 void _FlineaDL(int y,Segm *m1,Segm *m2)
 {
-register uint16_t *gr_pos;
+register int *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
 if (m1->x==m2->x&&m1->deltax>m2->deltax)
@@ -516,7 +499,7 @@ return ((max<<8)+(max<<3)-(max<<4)-(max<<1)+
 
 void _FlineaDR(int y,Segm *m1,Segm *m2)
 {
-register uint16_t *gr_pos;
+register int *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
 if (m1->x==m2->x&&m1->deltax>m2->deltax)
@@ -582,7 +565,7 @@ gr_color1=((int*)mTex)[(dx>>8)&0xff|(dy&0xff00)];
 
 void _FlineaTX(int y,Segm *m1,Segm *m2)
 {
-register uint16_t *gr_pos;
+register int *gr_pos;
 register int cnt,alpha,da;
 int x1,x2,x3,x4;
 if (m1->x==m2->x&&m1->deltax>m2->deltax)
