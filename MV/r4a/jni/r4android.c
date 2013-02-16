@@ -51,17 +51,8 @@ struct engine {
 };
 
 struct engine engine;
-
 struct android_poll_source* source;
-//ANativeWindow_Buffer buffergr; // en graf.c
 int ident,events;
-
-
-static void gr_swap(void) // usado directamente
-{
-ANativeWindow_unlockAndPost(engine.app->window);
-ANativeWindow_lock(engine.app->window, &buffergr, NULL);
-}
 
 //----------------------------------------------------------------------------
 char *macros[]={// directivas del compilador
@@ -149,7 +140,7 @@ int cntprog;
 unsigned char *memlibre;
 //--- Memoria
 unsigned char prog[1024*1024];// 1MB de programa
-unsigned char data[1024*1024*3];// 3MB de datos
+unsigned char data[1024*1024*4];// 4MB de datos
 //----- PILAS
 int PSP[1024];// 1k pila de datos
 unsigned char *RSP[1024];// 1k pila de direcciones
@@ -194,31 +185,28 @@ return 0;
 
 static void engine_handle_cmd(struct android_app* app, int32_t cmd)
 {
-switch (cmd)
-   {
+switch (cmd) {
    case APP_CMD_SAVE_STATE:
-	   LOGI("SAVE STATE");
+	  LOGI("SAVE STATE");
 	  // the OS asked us to save the state of the app
       break;
    case APP_CMD_INIT_WINDOW:
       // get the window ready for showing
-	   LOGI("INI WIN");
+	  LOGI("INI WIN");
       break;
    case APP_CMD_TERM_WINDOW:
       // clean up the window because it is being hidden/closed
-	   LOGI("TERM WIN");
+	  LOGI("TERM WIN");
       break;
    case APP_CMD_LOST_FOCUS:
       // if the app lost focus, avoid unnecessary processing (like monitoring the accelerometer)
-	   LOGI("LOST FOC");
-	   ANativeWindow_unlockAndPost(engine.app->window);
+	  LOGI("LOST FOC");
+	  engine.animating=0;
       break;
    case APP_CMD_GAINED_FOCUS:
       // bring back a certain functionality, like monitoring the accelerometer
-	   LOGI("GAIN FOC %d",engine.app->window);
-	   engine.animating=1;
-   	   ANativeWindow_lock(engine.app->window, &buffergr, NULL);
-   	   gr_init();
+	  LOGI("GAIN FOC %d",engine.app->window);
+	  engine.animating=1;
       break;
    }
 }
@@ -265,8 +253,8 @@ register int TOS;			// Tope de la pila PSP
 register int *NOS;			// Next of stack
 register unsigned char **R;			// return stack
 unsigned char *IP=codigo;	// lugar del programa // ebx
-int W,W1;			// palabra actual y auxiliar
-uint16_t *vcursor=(uint16_t*)buffergr.bits;
+unsigned int W,W1;			// palabra actual y auxiliar
+unsigned int *vcursor=gr_buffer;
 
 R=RSP;*R=(unsigned char*)&ultimapalabra;
 NOS=PSP;*NOS=TOS=0;
@@ -392,10 +380,8 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
 //----- joy
     case CNTJOY: NOS++;*NOS=TOS;TOS=0;continue;
     case GETJOY: TOS=0;continue;
-    case REDRAW:
-    	ANativeWindow_unlockAndPost(engine.app->window);
-    	ANativeWindow_lock(engine.app->window, &buffergr, NULL);continue;
-	case MSEC:
+    case REDRAW: gr_swap(engine.app);continue;
+    case MSEC:
 		NOS++;*NOS=TOS;
 	    gettimeofday(&tv, NULL);
 	    TOS=tv.tv_usec;
@@ -416,24 +402,22 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
     	pilaexecl++;
         return 1;
 //--- pantalla
-    case WIDTH: NOS++;*NOS=TOS;TOS=buffergr.width;continue;
+    case WIDTH: NOS++;*NOS=TOS;TOS=sizewh;continue; //buffergr.width;continue;
     case HEIGHT: NOS++;*NOS=TOS;TOS=buffergr.height;continue;
 	case CLS: gr_clrscr();continue;
-    case FRAMEV: NOS++;*NOS=TOS;TOS=(int)buffergr.bits;continue;
-	case SETXY:
-       vcursor=(uint16_t*)buffergr.bits+TOS*buffergr.width+(*NOS);
-        NOS--;TOS=*NOS;NOS--;continue;
+    case FRAMEV: NOS++;*NOS=TOS;TOS=(int)gr_buffer;continue;
+	case SETXY: vcursor=gr_buffer+((TOS<<shiftwh)+(int)*NOS);NOS--;TOS=*NOS;NOS--;continue;
 	case MPX:vcursor+=TOS;TOS=*NOS;NOS--;continue;
-	case SPX:*(uint16_t*)(vcursor++)=gr_RGB(TOS);TOS=*NOS;NOS--;continue;
-	case GPX:NOS++;*NOS=TOS;TOS=RGB_gr(*(uint16_t*)(vcursor));continue;
+	case SPX:*vcursor++=TOS;TOS=*NOS;NOS--;continue;
+	case GPX:NOS++;*NOS=TOS;TOS=*vcursor;continue;
 
     case VXFB: NOS++;*NOS=TOS;TOS=(int)XFB;continue;
     case TOXFB:gr_toxfb();continue;
     case XFBTO:gr_xfbto();continue;
 //--- color
-	case COLORF: gr_color2=gr_RGB(TOS);gr_color2=gr_color2|gr_color2<<16;TOS=*NOS;NOS--;continue;
-    case COLOR: gr_color1=gr_RGBSET(TOS);TOS=*NOS;NOS--;continue;
-    case COLORA: NOS++;*NOS=TOS;TOS=RGB_gr(gr_color1);continue;
+	case COLORF: gr_color2=TOS;TOS=*NOS;NOS--;continue;
+    case COLOR: gr_color1=TOS;TOS=*NOS;NOS--;continue;
+    case COLORA: NOS++;*NOS=TOS;TOS=gr_color1;continue;
 	case ALPHA: if (TOS>254) gr_solid(); else { gr_alphav=(unsigned char)(TOS);gr_alpha(); }
 		TOS=*NOS;NOS--;continue;
 //--- dibujo
@@ -1084,11 +1068,6 @@ state->onAppCmd = engine_handle_cmd;
 state->onInputEvent = engine_handle_input;
 engine.app = state;
 
-//JNIEnv *g_jniEnv = 0;
-//void android_main(struct android_app* state) {
-//    g_jniEnv = state->activity->env;
-//state->activity->internalDataPath
-
 buildFileSystem();
 
 // eventos para inicializar
@@ -1097,6 +1076,7 @@ while ((ident=ALooper_pollAll(engine.animating?0:-1,NULL,&events,(void**)&source
 	if (state->destroyRequested != 0) return;
     }
 
+gr_init();
 
 // pila de ejecucion
 pilaexecl=pilaexec;

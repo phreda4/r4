@@ -24,12 +24,14 @@
 #include <android_native_app_glue.h>
 
 extern ANativeWindow_Buffer buffergr;
-extern void *XFB;
 
-//extern void *gr_buffer; 		// buffer de pantalla
-//extern int gr_ancho,gr_alto;
+#define sizewh 1024
+#define shiftwh 10
 
-extern unsigned int gr_color1,gr_color2,col1,col2;
+extern int *XFB;
+extern int *gr_buffer; 		// buffer de pantalla
+
+extern int gr_color1,gr_color2,col1,col2;
 extern unsigned char gr_alphav;
 extern int MA,MB,MTX,MTY; // matrix de transformacion
 extern int *mTex; // textura
@@ -37,11 +39,7 @@ extern int *mTex; // textura
 void gr_init();
 void gr_fin(void);
 void gr_clrscr(void);
-
-uint16_t gr_RGBSET(uint32_t c);
-uint16_t gr_RGB(uint32_t c);
-uint32_t RGB_gr(uint16_t c);
-void gr_565(uint16_t c);
+void gr_swap(struct android_app* app);
 
 //---- lineas rectas
 void gr_hline(int x1,int y1,int x2);
