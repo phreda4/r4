@@ -23,20 +23,21 @@
 
 #include <android_native_app_glue.h>
 
-extern ANativeWindow_Buffer buffergr;
+#define  LOG_TAG    "r4a"
+#define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
+#define  LOGW(...)  __android_log_print(ANDROID_LOG_WARN,LOG_TAG,__VA_ARGS__)
+#define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
-#define sizewh 1024
-#define shiftwh 10
+extern ANativeWindow_Buffer buffergr;
 
 extern int *XFB;
 extern int *gr_buffer; 		// buffer de pantalla
-
 extern int gr_color1,gr_color2,col1,col2;
 extern unsigned char gr_alphav;
 extern int MA,MB,MTX,MTY; // matrix de transformacion
 extern int *mTex; // textura
 
-void gr_init();
+void gr_init(struct android_app* app);
 void gr_fin(void);
 void gr_clrscr(void);
 void gr_swap(struct android_app* app);

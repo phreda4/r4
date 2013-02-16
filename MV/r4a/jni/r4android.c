@@ -30,12 +30,7 @@
 
 // ----------------------------------------------------------------------
 /* Set to 1 to enable debug log traces. */
-#define DEBUG 0
-
-#define  LOG_TAG    "r4a"
-#define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
-#define  LOGW(...)  __android_log_print(ANDROID_LOG_WARN,LOG_TAG,__VA_ARGS__)
-#define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
+//#define DEBUG 0
 
 static void logsd(char *s)
 		{
@@ -165,6 +160,8 @@ char *rootpath="/sdcard/r4";
 char *bootstr;
 int rebotea;
 
+/////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
 static int32_t engine_handle_input(struct android_app* app, AInputEvent* event)
 {
 if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
@@ -182,7 +179,8 @@ if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_KEY) {
 return 0;
 }
 
-
+/////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
 static void engine_handle_cmd(struct android_app* app, int32_t cmd)
 {
 switch (cmd) {
@@ -208,8 +206,17 @@ switch (cmd) {
 	  LOGI("GAIN FOC %d",engine.app->window);
 	  engine.animating=1;
       break;
+   case APP_CMD_CONFIG_CHANGED:
+     /* Handle rotation / orientation change */
+     LOGI("handle_cmd: APP_CMD_CONFIG_CHANGED");
+     break;
+   case APP_CMD_WINDOW_RESIZED:
+     LOGI("handle_cmd: APP_CMD_WINDOW_RESIZED");
+     break;
    }
 }
+/////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef __GNUC__
 #define iclz32(x) __builtin_clz(x)
@@ -397,16 +404,17 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
          return 0;
     case SISRUN:
     	if (TOS==0) { rebotea=1;return 0; }
-    	strcpy(pilaexecl,(int8_t*)TOS);
+    	strcpy(pilaexecl,(char*)TOS);
+    	LOGE((char*)TOS);
     	while (*pilaexecl!=0) pilaexecl++;
     	pilaexecl++;
         return 1;
 //--- pantalla
-    case WIDTH: NOS++;*NOS=TOS;TOS=sizewh;continue; //buffergr.width;continue;
+    case WIDTH: NOS++;*NOS=TOS;TOS=buffergr.width;continue;
     case HEIGHT: NOS++;*NOS=TOS;TOS=buffergr.height;continue;
 	case CLS: gr_clrscr();continue;
     case FRAMEV: NOS++;*NOS=TOS;TOS=(int)gr_buffer;continue;
-	case SETXY: vcursor=gr_buffer+((TOS<<shiftwh)+(int)*NOS);NOS--;TOS=*NOS;NOS--;continue;
+	case SETXY: vcursor=gr_buffer+((TOS*buffergr.width)+*NOS);NOS--;TOS=*NOS;NOS--;continue;
 	case MPX:vcursor+=TOS;TOS=*NOS;NOS--;continue;
 	case SPX:*vcursor++=TOS;TOS=*NOS;NOS--;continue;
 	case GPX:NOS++;*NOS=TOS;TOS=*vcursor;continue;
@@ -474,6 +482,8 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
     	if (dp!=NULL) closedir(dp);
     	strcpy(error,rootpath);strcat(error,(char*)TOS);
     	dp=opendir(error);
+//    	dp=opendir((char*)TOS);
+
     	if (dp!=NULL) dirp=readdir(dp); else dirp=0;
         TOS=(int)dirp;
          continue;
@@ -795,10 +805,14 @@ char lineat[512];
 ahora=name;
 while (*ahora>32) { *ahora=tolower(*ahora);ahora++; }
 
+/*
 strcpy(lineat,rootpath);
 strcat(lineat,"/");
 strcat(lineat,name);
 if((stream=fopen(lineat,"rb"))==NULL) {
+*/
+if((stream=fopen(name,"rb"))==NULL) {
+
   sprintf(error,"%s|0|0|no existe %s",linea,lineat);
   return OPENERROR;
   }
@@ -1004,11 +1018,11 @@ long size;
 static char namep[256];
 static char namef[256];
 static char buff[1025];
-
 strcpy(namep,rootpath);
 strcat(namep,path);
 //LOGI("FOLDER: %s",namep);
 mkdir(namep, 0777);
+
 // copiar archivos
 aaD=AAssetManager_openDir(aaM,((*path)==0)?path:path+1);
 namea=AAssetDir_getNextFileName(aaD);
@@ -1021,19 +1035,12 @@ while  (namea!=0) {
 
 	strcpy(namef,namep);strcat(namef,"/");strcat(namef,namea);
 //	LOGW("%s %d",namef,aaS);
-	f=fopen(namef,"wb");
-	size = AAsset_getLength(aaS);
-//	LOGI("size:%d",size);
-	while (size>0) {
-		size=AAsset_read(aaS,buff,1024);
-//		LOGW("read:%d",size);
-		buff[size]=0;
-//		LOGI(buff);
-		fwrite(buff,1,size,f);
-		size=AAsset_getRemainingLength(aaS);
-//		LOGI("size:%d",size);
-		}
+
+	f=fopen(namef, "wb");
+	while ((size = AAsset_read(aaS, buff,1024)) > 0)
+	  fwrite(buff,size,1,f);
 	fclose(f);
+
 	AAsset_close(aaS);
 	namea=AAssetDir_getNextFileName(aaD);
 	}
@@ -1068,15 +1075,15 @@ state->onAppCmd = engine_handle_cmd;
 state->onInputEvent = engine_handle_input;
 engine.app = state;
 
-buildFileSystem();
-
 // eventos para inicializar
 while ((ident=ALooper_pollAll(engine.animating?0:-1,NULL,&events,(void**)&source)) >= 0) {
 	if (source != NULL) { source->process(state, source); }
 	if (state->destroyRequested != 0) return;
     }
 
-gr_init();
+buildFileSystem();
+chdir(rootpath);
+gr_init(engine.app);
 
 // pila de ejecucion
 pilaexecl=pilaexec;
@@ -1094,9 +1101,9 @@ if (bootstr>pilaexec) bootstr++;
 cntindiceex=cntnombreex=cntincludes=0;// espacio de nombres reset
 cntdato=cntprog=0;cntindice=cntnombre=0;
 
-LOGI("compilando %s..",linea);
-if (compilafile(bootstr)!=COMPILAOK) { logsd(error);return ; }
-LOGI("ok",linea);
+LOGI("compilando %s..",bootstr);
+if (compilafile(bootstr)!=COMPILAOK) { logsd(error);gr_fin();exit(0);return ; }
+LOGI("ok");
 memlibre=data+cntdato; // comienzo memoria libre
 if (interprete(bootaddr)==1) goto recompila;
 if (rebotea==0)

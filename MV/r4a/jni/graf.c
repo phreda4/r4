@@ -19,12 +19,15 @@
  */
 
 #include <android_native_app_glue.h>
+#include <android/log.h>
+
 #include "graf.h"
 
 //---- buffer de video
 ANativeWindow_Buffer buffergr;
 int *XFB;
 int *gr_buffer; 		// buffer de pantalla
+int scrsize;
 
 //---- variables internas
 int gr_color1,gr_color2,col1,col2;
@@ -43,9 +46,6 @@ int yMin,yMax;
 unsigned char gr_alphav;
 
 #define FBASE 8
-#define RED_MASK 0xFF0000
-#define GRE_MASK 0xFF00
-#define BLU_MASK 0xFF
 
 void gr_fin(void)
 {
@@ -54,15 +54,23 @@ free(gr_buffer);
 }
 
 //------------------------------------
-#define GR_SET(X,Y) gr_pos=gr_buffer+(Y<<shiftwh)+X;
+#define GR_SET(X,Y) gr_pos=gr_buffer+(Y*buffergr.width)+X;
 #define GR_X(X) gr_pos+=X;
-#define GR_Y(Y) gr_pos+=Y<<shiftwh;
+#define GR_Y(Y) gr_pos+=Y*buffergr.width;
 
 //---- inicio
-void gr_init()
+void gr_init(struct android_app* app)
 {
-gr_buffer=(int*)malloc(sizewh*sizewh*4);
-XFB=(int*)malloc(sizewh*sizewh*4);
+//---- obtener info pantalla
+ANativeWindow_lock(app->window, &buffergr, NULL);
+scrsize=(buffergr.width>buffergr.height)?buffergr.width:buffergr.height;
+scrsize*=scrsize;
+//if (buffergr.format==4) //565
+//
+ANativeWindow_unlockAndPost(app->window);
+
+gr_buffer=(int*)malloc(scrsize<<2);
+XFB=(int*)malloc(scrsize<<2);
 //---- poligonos2
 cntSegm=0;
 yMin=buffergr.height+1;
@@ -95,14 +103,13 @@ void gr_swap(struct android_app* app)
 ANativeWindow_lock(app->window, &buffergr, NULL);
 register int *s=gr_buffer;
 register int *d=(int*)buffergr.bits;
-int y,x,st=sizewh-buffergr.width;
-
+register int y,x;
 if (buffergr.format==4) // 565
 {
-	for(y=0;y<buffergr.height;y++,s+=st)
+	for(y=buffergr.height;y>0;y--)
 		for(x=0;x<buffergr.width/2;x++) *d++=to565(*s++)|(to565(*s++)<<16);
 } else {
-	for(y=0;y<buffergr.height;y++,s+=st)
+	for(y=buffergr.height;y>0;y--)
 		for(x=0;x<buffergr.width;x++) *d++=*s++;
 }
 ANativeWindow_unlockAndPost(app->window);
@@ -111,39 +118,40 @@ ANativeWindow_unlockAndPost(app->window);
 void gr_clrscr(void)
 {
 register int *d=gr_buffer;
-int y,x,st=1024-buffergr.width;
-for(y=0;y<buffergr.height;y++,d+=st)
-	for(x=0;x<buffergr.width;x++)
-		*d++=gr_color2;
+register int i;
+for(i=buffergr.height*buffergr.width;i>0;i--)
+	*d++=gr_color2;
 }
 
 void gr_toxfb(void)
 {
 register int *s=XFB;
 register int *d=gr_buffer;
-int y,x,st=1024-buffergr.width;
-for(y=0;y<buffergr.height;y++,s+=st)
-	for(x=0;x<buffergr.width;x++)
-		*d++=*s++;
+register int i;
+for(i=buffergr.height*buffergr.width;i>0;i--)
+	*d++=*s++;
 }
 
 void gr_xfbto(void)
 {
 register int *d=XFB;
 register int *s=gr_buffer;
-int y,x,st=1024-buffergr.width;
-for(y=0;y<buffergr.height;y++,s+=st)
-	for(x=0;x<buffergr.width;x++)
-		*d++=*s++;
+register int i;
+for(i=buffergr.height*buffergr.width;i>0;i--)
+	*d++=*s++;
 }
 
-#define MASK1 (RED_MASK|BLU_MASK)
-#define MASK2 (GRE_MASK)
+#define RED_MASK 0xFF0000
+#define GRE_MASK 0xFF00
+#define BLU_MASK 0xFF
 
-inline unsigned int gr_mix(unsigned int col,unsigned char alpha)
+#define MASK1 0xFF00FF
+#define MASK2 0x00FF00
+
+inline int gr_mix(int col,unsigned char alpha)
 {
-register unsigned int B=(col & MASK1);
-register unsigned int RB=(((((gr_color1&MASK1)-B)*alpha)>>8)+B)&MASK1;
+register int B=(col&MASK1);
+register int RB=(((((gr_color1&MASK1)-B)*alpha)>>8)+B)&MASK1;
 B=col&MASK2;
 return ((((((gr_color1&MASK2)-B)*alpha)>>8)+B)&MASK2)|RB;
 }
