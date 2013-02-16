@@ -1,0 +1,321 @@
+| Cartoman
+| Juego para la casita
+|------------------------
+^r4/lib/btn.txt
+^r4/lib/sprites.txt
+^inc/cartonman.inc
+
+#puntos 0
+#vidas 3
+
+#pedal 0
+#veloc 0
+#vang 0
+#ang 0
+#xp 0 #yp 0
+#xci #yci
+
+|--------------- ubico bolsas
+#cntbol
+#xbol )( 1024
+#ybol )( 1024
+#sbol )( 1024
+#rbol )( 1024
+#vbol )( 1024
+
+#cosas 'dibu8 'dibu9 'dibua  'dibub 
+
+|---------------------------------------------------------------------
+#dcarton 
+#xcarton
+#ycarton 
+#vcarton 
+
+#btime 
+#bftime 20
+
+|#saplauso #sbuu #sbolsa #sfueraabajo
+
+|---------------------------------------------------------------------
+:ponebolsa
+	cntbol 2 <<
+	rand sw 2* mod over 'ybol + !
+	rand sw 2* mod over 'xbol + !
+	rand $c and 	'cosas + @ over 'sbol + !
+	rand  swap 'rbol + !
+	1 'cntbol +!
+	;
+
+:sacabolsa | n --
+	2 << >r
+	cntbol 1- 2 << 
+	dup 'xbol + @ r 'xbol + !
+	dup 'ybol + @ r 'ybol + !
+	dup 'rbol + @ r 'rbol + !
+	'sbol + @ r> 'sbol + !
+	-1 'cntbol +!
+	;
+
+:ubicobolsas
+	50 ( 1? )( 1- ponebolsa ) drop ;
+
+:dibunbol | n -- n
+	dup 2 <<
+	dup 'xbol + @ xci +
+	over 'ybol + @ yci +
+	2dup pos
+	yp - abs swap xp - abs +  50 <? ( pick2 sacabolsa 1 'puntos +! 2drop ; ) drop
+	dup 'sbol + @ swap 'rbol + @ rsprite
+	;
+
+:dibujobolsas
+	100 dup dim
+	cntbol ( 1? )( 1- dibunbol ) drop ;
+
+|----------- autos y motos
+#xmot 0 0 0 0 0
+#ymot 0 0 0 0 0
+#vmot 0 0 0 0 0
+
+:inimot | n -- n
+	rand sw 2* mod
+	over 2 << 'xmot + !
+	sw 2* over 2 << 'ymot + !
+	rand 10 mod 20 - over 2 << 'vmot + !
+	;
+
+:inimoto
+	5 ( 1? )( 1- inimot ) drop ;
+
+:reinit
+	0 dup 'xci ! 'yci ! 
+	;
+
+:esplosion |
+|	sbuu splay
+	-1 'vidas +!	
+	show 
+		dcarton rand dcarton 2/ mod + dup dim
+		sw 2/ rand 35 mod +
+		sh 2/ rand 35 mod + pos
+		'dibu12 rand rsprite
+|		8 6 screen  rojo
+|		0 4 at "Aplastado" printc
+		2 .segs exit ;
+
+:dibmot | n -- n
+	dup 2 <<
+	dup 'xmot + @ xci +
+	over 'ymot + @ yci +
+	2dup pos
+	yp - abs swap xp - abs +  80 <? ( 2drop esplosion reinit inimoto ; ) drop
+	'dibu6 sprite
+	dup 'vmot + @ over 'ymot + +!
+	'ymot + @ sw 2* neg <? ( over inimot drop ) drop ;
+
+:dibmoto
+	200 dup dim
+	5 ( 1? )( 1- dibmot ) drop	;
+
+|--------------------------------ciudad
+:pedaleo
+	veloc -10 >? ( 1- ) 'veloc ! ;
+
+:nopedaleo
+	veloc 0 <? ( 1+ ) 'veloc ! ;
+
+:a>xy | a -- xy
+	sincos -26 * 14 >> yp + >r  -26 * 14 >> neg xp + r> ;
+
+:dibujobici
+	200 200 dim xp yp pos
+	'dibu5 ang 0.25 - rsprite
+	100 100 dim ang a>xy pos
+	'dibu7 ang rand 50 mod + rsprite ;
+|		puntos ( 1? )( 1- 80 dup dim
+|				) drop
+
+#accionbici 'nopedaleo
+
+:juegociudad
+	$333333 paper
+	0 'puntos !
+	3 'vidas !
+	inimoto
+	ubicobolsas
+	sw 2/ 'xp ! sh 2/ 'yp !
+	show clrscr
+		sw 2 << dup dim xci yci pos 'dibu1 sprite
+		dibujobolsas
+		dibujobici
+
+		dibmoto
+
+		accionbici exec
+		veloc 1? ( vang 'ang +! ) drop
+		ang sincos veloc * 16 >> 'yci +! veloc * 16 >> neg 'xci +!
+
+		16 font blanco
+		0 0 gotoxy puntos " puntos:%d" print
+		12 0 gotoxy vidas "vidas:%d" print
+	'exit >esc<
+	[ 'pedaleo 'accionbici ! ; ] <up>
+	[ 'nopedaleo 'accionbici ! ; ] >up<
+|	[ 1 'veloc +! ; ] =>aba
+	[ 0.01 'vang ! ; ] <ri> [ -0.01 'vang ! ; ] <le>
+	[ 0 'vang ! ; ] dup >ri< >le<
+		;
+
+|---------------------------------------------------------------------
+
+:ndelbol | n --
+	2 << >r
+	cntbol 1- 2 << 
+	dup 'xbol + @ r 'xbol + !
+	dup 'ybol + @ r 'ybol + !
+	dup 'vbol + @ r 'vbol + !
+	dup 'rbol + @ r 'rbol + !
+	'sbol + @ r> 'sbol + !
+	-1 'cntbol +!
+	;
+
+
+:aplastado | n y x s -- n
+|	sbuu splay
+	3drop dup ndelbol
+	-1 'vidas +!
+	show
+		dcarton rand dcarton 2/ mod + dup dim
+		xcarton rand 35 mod +
+		ycarton rand 35 mod + pos
+		'dibu12 rand rsprite
+|		8 6 screen  rojo
+|		0 4 at "Aplastado" printc
+		2 .segs exit ;
+
+:dibubolsa  | n -- n
+	dup 2 <<
+	dup 'xbol + @
+	over 'ybol + @ pos
+	dcarton dup dim
+	dup 'sbol + @ over 'rbol + @ rsprite
+	dup 'vbol + @  dup >r over 'ybol + +! r> 2 << over 'rbol + +!
+	'ybol + @ sh >? ( 
+		over ndelbol 
+		| sonido perdido
+		drop ;
+		) 
+	ycarton dcarton 2 >>  - >? (
+		over 2 << 'xbol + @ xcarton - abs
+		dcarton 	<? (
+			pick2 2 << 'sbol + @
+			'dibub =? ( aplastado ; ) drop
+			1 'puntos +! 			
+			pick2 ndelbol
+|			sbolsa splay	| sonido adentro
+			) drop
+		)
+	drop ;
+
+
+:tirabolsa
+	cntbol 2 <<
+	0 over 'ybol + !
+	rand sw mod abs over 'xbol + !
+	rand $c and 
+|	0? ( sfueraabajo splay )
+	'cosas + @ over 'sbol + !
+	0 over 'rbol + !
+	rand 5 mod dcarton 4 >> + swap 'vbol + !
+	1 'cntbol +!
+	rand 20 mod 50 + puntos - 'bftime !
+	;
+
+
+:dibujafondo
+	sw dup  dim
+	sw 2/ sh 2/ pos
+|	'dibu12 sprite
+|	sw dup dim
+	'dibuf sprite
+|		300 0 +pos	'dibuf sprite
+|		-600 0 +pos	'dibuf sprite
+|		'dibu11 sprite
+
+	;
+
+#agrueda 0
+
+:dibujacarro
+	dcarton dup dim
+	xcarton ycarton pos
+	'dibud sprite
+
+	dcarton 2/ dup dim
+	xcarton 20 - ycarton 20 + pos
+	'dibuc agrueda rsprite
+
+|	-10 dup +pos
+|	'dibud agrueda rsprite
+	;
+
+:juegolluvia
+	0 'btime !
+	$000044 paper
+	show clrscr
+		vidas -? ( exit ) drop
+		dibujafondo
+		cntbol ( 1? )( 1- dibubolsa ) drop
+		dibujacarro
+		vcarton 'xcarton +!
+		vcarton 3 <<  'agrueda +!
+		btime bftime >? ( tirabolsa drop 0 )( 1+ )  'btime !
+
+		16 font 0 0 gotoxy blanco
+		puntos " puntos:%d" print
+		12 0 gotoxy
+		vidas "vidas:%d" print
+|		0 1 at	xcarton "%d" print
+|		32 font 0 4 at
+|		cntbol ( 1? )( 1-	dup 2 << 'xbol + @ xcarton - abs 	"%d " print	) drop
+|		dup cntbol puntos "puntos:%d    cnt:%d (%d)" print
+	'exit >esc<
+	[ dcarton 4 >> 'vcarton !  ; ] <ri>
+	[ dcarton 4 >> neg 'vcarton ! ; ] <le>
+	[ 0 'vcarton ! ; ] dup >ri< >le<
+		;
+
+:juego
+	0 'puntos !
+	3 'vidas !
+	juegolluvia
+	juegociudad
+	;
+
+:inicio
+	0 paper
+	show clrscr
+		8 font blanco 
+		0 2 gotoxy "Carton Man !" printc cr cr
+		2 col
+		rojo 'exit " Salir " btnt
+		sp sp sp
+		verde 'juego " Jugar " btnt
+		cmano
+	|"media/tex/cartoman.tex" fotosave
+	'exit >esc<
+	'juego >spc<
+		;
+
+:
+	sw 2/ 'xcarton !
+	sw 3 >> 'dcarton !
+	sh dcarton 2/ - 'ycarton !
+	rerand
+|	".\\sound\\aplauso.wav" sload 'saplauso !
+|	".\\sound\\buu.wav" sload 'sbuu !
+|	".\\sound\\fueraabajo.wav" sload 'sfueraabajo !
+|	".\\sound\\bolsa.wav" sload 'sbolsa !
+	33 inicio
+
+	;

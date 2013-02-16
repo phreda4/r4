@@ -1,0 +1,425 @@
+| Parse para numeros y busqueda en lista
+| PHReda
+|---------------------------
+^r4/lib/mem.txt
+^r4/lib/optdiv.txt
+^r4/lib/mprint.txt
+^r4/lib/jul.txt
+
+#:basen
+
+:signo | str -- str signo
+	dup c@
+	$2b =? ( drop 1+ 0 ; )	| + $2b
+	$2d =? ( drop 1+ 1 ; )	| - $2d
+	drop 0 ;
+
+:dighex | c --  dig / -1
+	$3A <? ( $30 - ; )			| 0..9
+	$60 >? ( $57 - $f >? ( drop -1 ) ; )			| a
+	$40 >? ( $37 - $f >? ( drop -1 ) ; )			| A
+	drop -1 ;
+
+::str$>nro | adr -- adr' nro
+	0 swap ( c@+ $2f >? )(
+		dighex -? ( drop 1- swap ; )
+		rot 4 << + swap )
+	drop 1- swap ;
+
+::str%>nro | adr -- adr' nro
+	0 swap ( c@+ $2f >? )(
+		$31 >? ( drop 1- swap ; )
+		$30 - rot 2* + swap )
+	drop 1- swap ;
+
+::str>nro | adr -- adr' nro ;1234 $12f %101 -12
+	signo
+	over c@ 33 <? ( 2drop 1- 0 ; ) | caso + y - solos
+	swap  1? ( [ neg ; ] >r ) drop
+	$24 =? ( drop 1+ 16 'basen ! str$>nro ; )	| $ hexa $24
+	$25 =? ( drop 1+ 2 'basen ! str%>nro ; ) 	| % bin  $25
+	drop 10 'basen !
+	0 swap ( c@+ $2f >? )(	| 0 adr car
+		$39 >? ( drop 1- swap ; )			| 0..9
+		$30 - rot 10* + swap )
+	drop 1- swap ;
+
+::?numero | str -- 0 / str' nro 1
+	|dup c@ 33 <? ( 2drop 0 ; ) drop
+	str>nro
+	over c@ 33 <? ( drop 1 ; )
+	3drop 0 ;
+
+|----- lee punto fijo ( -43.04 ==> 104 -43 t>fix16  --> $00eedddd
+#parte0
+
+::?fnumero | str -- 0/ str' fix 1		; b
+	10 'basen !
+	signo swap
+	dup c@ 33 <? ( 3drop 0 ; ) drop
+|	dup 1+ c@ que pasa con .0?
+	0 ( over c@ 32 >? )(				| -1 str 0 dig
+		$2e =? ( drop 'parte0 ! 1 )( 	| 1.33 .. parte0=1 retorna 133
+		         $30 <? ( 4drop 0 ; )
+		         $39 >? ( 4drop 0 ; )
+		         $30 - swap 10* + )
+		swap 1+ swap )
+	drop 1 =? ( parte0 0? ( 4drop 0 ; ) drop ) | casos -. y
+	rot >r
+	parte0
+	16 << $10000 rot
+	1 over ( 1 >? )( 10 / swap 10* swap ) drop
+	*/ $ffff and or
+	r> 1? ( drop neg )( drop )
+	1 ;
+
+::str>fix | adr -- adr' fix
+	dup ?fnumero 0? ( ; ) drop
+	rot drop ;
+
+
+::?int | adr -- adr' nro /-1
+	dup c@
+	$30 <? ( 2drop -1 ; )
+	$39 >? (  2drop -1 ; ) drop
+	0 swap ( c@+ $2f >? )(	| 0 adr car
+		$39 >? ( 3drop -1 ; )
+		$30 - rot 10* + swap )
+	drop 1- swap ;
+
+
+::?0int | adr -- nro
+::str>int | str -- int
+	0 swap ( c@+ $2f >? )(	| 0 adr car
+		$39 >? ( 2drop ; )
+		$30 - rot 10* + swap )
+	2drop ;
+
+::?sint | adr -- adr' nro
+	signo 1? ( [ neg ; ] >r ) drop
+	0 swap ( c@+ $2f >? )(	| 0 adr car
+		$39 >? ( drop swap ; )
+		$30 - rot 10* + swap )
+	drop swap ;
+
+::?real2 | adr -- adr' nro ; 123.22 123,22
+	| signo
+	signo 1? ( [ neg ; ] >r ) drop
+	0 swap ( c@+ $2f >? )(	| 0 adr car
+		$39 >? ( drop swap 100* ; )
+		$30 - rot 10* + swap )
+	$2e =? ( $2c nip )
+	$2c <>? ( drop swap 100* ; )
+	drop | , o .
+	c@+ $30 -
+	-? ( 0 nip ) 9 >? ( 0 nip )
+	rot 10* + swap
+	c@+ $30 -
+	-? ( 0 nip ) 9 >? ( 0 nip )
+	rot 10* + ;
+
+|--- jul
+::str>jul | str -- jul
+	?sint swap | dia
+	?sint swap | mes
+	?sint nip
+	100 <? ( 2000 + )
+	date2jul ;
+
+::jul>str | jul -- str
+	jul2date swap rot "%d/%d/%d" mprint ;
+
+|--- datetime  yyyyyyymmmmddddd-hhhhhmmmmmmsssss
+::nowdt | -- n
+	time 11 << swap 5 << or swap 2/ or
+	date swap 5 << or swap 9 << or 16 << or ; | d m a
+
+::str>date | str -- dt
+	?sint swap ?sint swap ?sint nip 100 mod
+	9 << swap 5 << or or 16 << ;
+
+::date>str | dt -- str
+	dup 25 >> $7f and 2000 +
+	swap dup 21 >> $f and
+	swap 16 >> $1f and
+	"%d/%d/%d" mprint ;
+
+::dt>str | dt -- str
+	dup 25 >> $7f and 2000 +
+	swap dup 21 >> $f and
+	swap dup 16 >> $1f and
+	swap dup 11 >> $1f and
+	swap dup 5 >> $3f and
+	swap $1f and 2*
+	"%d/%d/%d %d:%d:%d" mprint ;
+
+|-----
+::?lista  | str list -- str 0 / str' n
+	>r ( r@+ 1? )(
+		over =word= 1? ( drop nip r> ; )( drop )
+		) drop rdrop 0 ;
+
+::=s | s1 s2 -- 0/1
+	( c@+ 32 >? )( toupp >r | s1 s2  r:c2
+		swap c@+ toupp r> | s2 s1 c1 c2
+		<>? ( 3drop 0 ; ) drop
+		swap ) drop
+	swap c@ $ff and 32 >? ( 0 )( 1 )
+	nip nip ;
+
+|------------- parseo
+::trim | adr -- adr'	; proximo no espacio
+	( dup c@ 33 <? )(
+		0? ( drop ; )
+		drop 1+ ) drop ;
+
+::scanp | adr "str" -- adr'/0
+	( c@+ 1? )( | d1 d2 c
+		rot c@+ | d2 c d1 c
+		rot <>? ( 3drop 0 ; )
+		drop | d2 d1
+		swap )
+	2drop ;
+
+::scanstr | adr 'str -- adr'
+	swap 0? ( nip ; )
+	( c@+ $ff and 31 >? )(
+		rot c!+ swap ) drop
+	1- nip ;
+
+::scannro | adr 'nro -- adr'
+	over trim ?numero 0? ( 2drop ; ) drop
+	rot ! nip ;
+
+::scanc | c adr -- adr'/0
+	0? ( nip ; )
+	( c@+ 1? )(
+		pick2 =? ( drop nip 1- ; )
+		drop )
+	nip nip ;
+
+::scann | adr "str" -- adr'
+ 	c@+ rot scanc
+	0? ( nip ; )
+	1+ swap | adr' "tr"
+	( c@+ 1? )(      | adr r t
+		rot c@+      | r t adr a
+		rot <>? ( 3drop 0 ; ) | r adr a
+		drop swap )
+	2drop ;
+|----------- find str
+:=p | s1 s2 -- 1/0
+	( c@+ 1? )( rot c@+ rot - 1? ( 3drop 0 ; ) drop swap ) 3drop 1 ;
+
+::findstr | adr "texto" -- adr'
+	( 2dup =p 0? )( drop swap c@+ 0? ( nip nip ; ) drop swap ) 2drop ;
+
+:=pi | s1 s2 -- 1/0
+	( c@+ 1? )( toupp rot c@+ toupp rot - 1? ( 3drop 0 ; ) drop swap ) 3drop 1 ;
+
+::findstri | adr "texto" -- adr'/0
+	( 2dup =pi 0? )( drop swap c@+ 0? ( nip nip ; ) drop swap ) 2drop ;
+
+|-------- busca en lista
+::inupp? | "dup " 'lista -- nro+1/0
+	1 swap | "dup " 1 'lista
+	( dup c@ 1? )( drop
+		pick2 over =s 1? ( 2drop nip ; ) drop
+		swap 1+ swap
+		( c@+ 1? )( drop ) drop
+		) nip nip nip ;
+
+|---- corredores
+::>>s | adr -- adr'  _
+	( c@+ 1? )(
+		$5f =? ( drop ; ) 		| _
+		$7c =? ( drop 1- ; )	||
+		$7e =? ( drop 1- ; )	| ~ registro
+		drop ) drop 1- ;
+
+::>>f | adr -- adr' |
+	( c@+ 1? )(
+		$7c =? ( drop ; )
+		$7e =? ( drop 1- ; ) | ~ registro
+		drop ) drop 1- ;
+
+::fld# | adr -- adr cnt
+	0 over
+	( c@+ 1? )(
+		$7c =? ( rot 1+ rot rot )
+		$7e =? ( 2drop ; ) | ~ registro
+		drop ) 2drop ;
+
+
+::>>fi | adr -- adr'  _
+	( c@+ 1? )(
+		$7e =? ( drop ; ) | ~ registro
+		drop ) drop 1- ;
+
+::reg# | adr -- adr cnt
+	0 over
+	( c@+ 1? )(
+		$7e =? ( rot 1+ rot rot ) | ~ registro
+		drop ) 2drop ;
+
+
+::>>0 | adr -- adr' ; pasa 0
+	( c@+ 1? )( drop ) drop ;
+
+|------
+::lfcr | adr -- ; convierte lf en cr
+	( c@+ 1? )(
+		10 =? ( 13 pick2 1- c! )
+		drop ) 2drop ;
+
+|------
+::>>sp | adr -- adr'	; proximo espacio
+	( c@+ 1? )(
+		33 <? ( drop 1- ; )
+		drop ) drop 1- ;
+
+::>>cr | adr -- adr'	; proxima linea
+	( c@+ 13 >? )( drop )
+	0? ( drop 1- ; )
+	drop ;
+
+|---- listas string "1_2_3"
+::lstget | lista nro -- adr
+	( 1? )( 1- swap >>s swap ) drop ;
+
+::lstcpy | 'var lista nro --
+	lstget | 'var 'lst
+	( c@+
+		$5f =? ( 0 nip )
+		$7c =? ( 0 nip )
+		$7e =? ( 0 nip )
+		1? )( rot c!+ swap ) nip swap c! ;
+
+::lstcnt | list -- cnt
+	dup c@ 0? ( nip ; ) drop
+	1 swap ( c@+
+		$7c =? ( 0 nip )
+		$7e =? ( 0 nip )
+		1? )(
+		$5f =? ( drop swap 1+ swap )( drop )
+		) 2drop ;
+
+::lstvec | vec list --
+	( dup c@ 1? )(
+		$5f =? ( 3drop ; )
+		$7c =? ( 3drop ; )
+		$7e =? ( 3drop ; )
+		drop
+		over exec >>s ) 3drop ;
+
+:=l | s1 s2 -- 0/1
+	( c@+ 32 >? )( >r | s1 s2  r:c2
+		swap c@+ r> | s2 s1 c1 c2
+		<>? ( 3drop 0 ; ) drop
+		swap ) 3drop 1 ;
+
+::lstmatch | "val" list -- nro/-1
+	over c@ 0? ( 3drop -1 ; ) drop
+	0 >r
+	( dup c@ 1? )( drop
+		dup pick2 =l 1? ( 3drop r> ; ) drop
+		>>s 1 r+ )
+	3drop rdrop -1 ;
+
+|---- recorrido
+::>>.. | adr -- adr'
+	( c@+ 32 <? )( 0? ( drop 1- ; ) drop ) drop 1- ;
+::>>fld | reg fld -- reg'
+	( 1? )( 1- swap >>f swap ) drop ;
+::>mfld> | adr -- adr'/0
+	0? ( ; )
+	( c@+ 1? )(
+		$7e =? ( 2drop 0 ; )
+        $7c =? ( 2drop 0 ; )
+		$5f =? ( drop ; )
+		drop ) nip ;
+::>fld> | adr -- adr'/0
+	0? ( ; )
+	( c@+ 1? )(
+		$7e =? ( 2drop 0 ; )
+        $7c =? ( drop ; )
+		drop ) nip ;
+::<fld< | adr -- adr'/0
+	0? ( ; )
+	2 -
+	( dup c@ 1? )(
+		$7e =? ( drop 1+ ; )
+        $7c =? ( drop 1+ ; )
+		drop 1- ) drop 1+ ;
+::>reg> | adr -- adr'/0
+	( c@+ 1? )(
+		$7e =? ( drop ; )
+		drop ) nip ;
+
+::>sp> | adr -- adr'
+	( c@+ 1? )(
+		$ff and 32 >? ( drop 1- ; )
+		drop ) drop 1- ;
+
+::regcpy | desde en -- desde'
+	( swap c@+ 1? )(
+		$7e =? ( drop 0 rot c! ; )
+		rot c!+ )
+	rot c! 1- ;
+
+::fldcpy | desde en -- desde'
+	( swap c@+ 1? )(
+		$7c =? ( drop 0 rot c! ; )
+		$7e =? ( drop 0 rot c! 1- ; )
+		rot c!+ )
+	rot c! 1- ;
+
+
+|---- strwild
+
+:chr*try | wild ch str chs -- str wild ;***
+	drop
+	dup pick3 | wild ch str str wild
+	( c@+ 1? )(
+		$2a =? ( ; )
+		$3f =? ( ; )
+		toupp rot c@+ 0? ( nip nip ; )
+		toupp rot <>? ( 2drop 0 ; )
+		drop swap ) drop
+	3drop nip swap
+	;
+
+:chr* | str wild -- str+ wild
+	c@+ 0? ( drop nip 1- dup ; )
+	toupp | str wild chs
+	rot ( c@+ 1? )( | wild ch str chs
+		toupp pick2 =? ( drop nip swap ; ) | falta seguir busqueda ***
+		drop )
+	nip nip ;
+
+:chrwild | str wild char -- str wild
+	$2a =? ( drop chr* ; ) | *
+	$3f =? ( drop swap c@+ 0? ( nip ; ) drop swap ; ) | ?
+	toupp rot c@+ 0? ( nip nip ; )
+	toupp rot <>? ( 2drop 0 ; )
+	drop swap ;
+
+|  "hola que tal" "la??ue*" strwild | 1
+::strwild | str "wild" -- str 1/0
+	over swap
+	( c@+ 1? )(
+		chrwild 0? ( nip ; )
+		) 2drop
+	c@ 0? ( 1 )( 0 ) nip ;
+
+|---
+|function filete($str,$busca,$next,$fin)
+|{
+|$p=stripos($str,$busca);
+|if ($p==false) return "";
+|$p1=stripos($str,$next,$p+strlen($busca));
+|if ($p1==false) return "";
+|$p2=stripos($str,$fin,$p1+strlen($next));
+|$res=substr($str,$p1+strlen($next),$p2-$p1-strlen($next));
+|return $res;
+|}

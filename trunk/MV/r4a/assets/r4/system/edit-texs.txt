@@ -1,0 +1,218 @@
+| Editor de bitmap 256x256
+| PHREDA 2008
+|--------------------------------------------------
+^r4/lib/gui.txt
+^r4/lib/sprite.txt
+^r4/lib/trace.txt
+
+^r4/lib/dlgfile.txt
+|^lib/dlgcolor.txt
+
+#tex
+#tex>
+#texcnt
+
+:texload | "" --
+	tex load 'tex> !
+	tex> tex - $ffff / 'texcnt ! ;
+
+:texsave | "" --
+	tex tex> over - rot save  ;
+
+:texdraw | nro --
+	;
+
+:texcpy | 'dir nro --
+	;
+
+:texbck | nro 'dim --
+	;
+
+|---
+:drawfix | nro --
+	18 << tex + >r
+	256 ( 1? )( 1-
+		0 255 pick2 - 32 + setxy
+		256 ( 1? )( 1- r@+ px!+ ) drop
+		) drop
+	rdrop ;
+
+#nombre )( 64
+#actual
+
+#colornow $ff0000
+#zoom
+
+|--------------------------------------------------
+#xcycwh 0 0 0 0
+
+:savebox
+	xc yc w h 'xcycwh !+ !+ !+ ! ;
+
+:loadbox
+	'xcycwh @+ 'h ! @+ 'w ! @+ 'yc ! @ 'xc ! ;
+
+:drawdibujo
+	loadbox
+	actual 18 << tex +
+:drawbitm | adr --
+	tfill
+	gc.all
+	gc.fbox
+	sfill ;
+
+|--------------------------------------------------
+:opczoom
+	;
+:eslinea
+:escaja
+:eselipse
+:deltrazo
+	;
+
+#btn1 6
+$ff0000 'ifin 'exit
+$ffff00 'ilupa 'opczoom
+$ffff00 'idibuja 'eslinea
+$ffff00 'istop 'escaja
+$ffff00 'irec 'eselipse
+$ff0000 'imenos 'deltrazo
+
+|--------------------------------------------------
+:pinta
+	colornow
+	loadbox fxymouse
+	1.0 + 128 16 *>> 8 << $ff00 xor swap 1.0 + 128 16 *>> or 2 <<
+	actual 18 << tex + +
+	!
+	;
+
+:pinta4
+	loadbox fxymouse
+	1.0 + 128 16 *>> 8 << $ff00 xor swap 1.0 + 128 16 *>> or 2 <<
+	actual 18 << tex + + | adr
+	colornow
+	over $408 - >r
+	dup r!+ dup r!+ dup r> !
+	over 8 - >r
+	dup r!+ dup r!+ dup r> !
+	swap $fe 2 << + >r
+	dup r!+ dup r!+ r> !
+	;
+
+:vistamode
+	drawdibujo
+|	[ pinta ; ] on
+	[ bmouse 1? ( pinta4 ) drop  ; ] guiMove
+|	[ cpdibujo ; ] onUp
+|	[ negro ; ] [ blanco ; ] blink 1? ( 2drop )( drop nip ) exec
+	gc.box
+	fonti
+	"256x256" print ;
+	;
+
+|--------------------------------------------------
+:editando
+	0 0 fpos
+	zoom 1.3 + sh 16 *>> dup 'w ! 'h !
+	savebox
+	show clrscr
+		32 gc.top $ccc gc.hfill
+		font-vard-12-bold home cr2
+		verde dup " :R%d" print
+		blanco actual " EDIT TEX %d" print
+
+		26 gc.botton $ccc gc.hfill
+		font-vard-8-bold home cr2
+
+		0.8 0.8 fdim 0 0 fpos vistamode
+
+|		actual drawfix
+    	'exit >esc<
+    	clapiz ;
+
+|--------------------------------------------------
+:cadadib | n n -- n n
+	[ 0.11 ; ] [ 0.09 ; ] guiInOutPre dup fdim
+	pick2
+	[ dup 'actual ! ; ] guiBtn
+	dup 18 << tex + tfill
+	gc.all gc.fbox sfill
+	actual =? ( blanco gc.box )
+	home
+	1+ "%h" print
+	rot 1+ rot rot
+	;
+
+:tabladib
+	|font-vard-8-bold
+	font-vard-8-out
+
+	0 0.7 ( -0.7 >=? )(
+		-0.7 ( 0.7 <=? )(
+			2dup swap fpos
+			0.1 dup fdim
+			cadadib
+			0.2 + ) drop
+		0.2 - )
+	2drop ;
+
+|----------------------------
+:menu-dibujos
+	show clrscr
+		32 gc.top $ccc gc.hfill
+		font-vard-12-bold home cr2
+		verde dup " :R%d" print
+		blanco " EDIT TEXS " print
+
+		26 gc.botton $ccc gc.hfill
+		font-vard-8-bold home cr2
+
+	| acciones
+		rojo
+		sp 'exit "esc-Exit" btnt
+		sp verde
+		sp 'editando "f1-Edit" btnt
+|		sp 'newprg "f3-NewPrg" btnt
+|		violeta sp 'adddome "+Fold" btnt
+|		rojo sp 'borractual "Del" btnt
+
+		32 26 gc.vbetween
+		tabladib
+ 
+	'exit >esc<
+	'editando <f1>
+|	'copy-dibu <f2>
+|	'ante-dibu <f3>
+|	'post-dibu <f4>
+|	'borra-dibu <f5>
+	[ 1 'actual +! ; ] <ri>
+	[ actual 0 >? ( 1- ) 'actual ! ; ] <le>
+|	'save-code <f6>
+|	'eligearchivo <esp>
+|	'editahoja <enter>
+ 
+		cmano ;
+
+|--------------------------------------------------
+:	33 0 paper
+
+	mark
+	here dup 'tex ! 'tex> !
+	0 'texcnt !
+	-0.5 'zoom !
+
+	$ffff ( 1? )( dup , 1- ) drop
+	$ffff ( 1? )( dup 8 << , 1- ) drop
+
+	'nombre "./nom/edit-texs.nom" load drop
+	"./tex/" dir
+|	load-dibu
+	0 'actual !
+	menu-dibujos
+	"./tex/" dir
+|	save-dibu
+	"./" dir
+	'nombre count "./nom/edit-tex.nom" save
+	;
+

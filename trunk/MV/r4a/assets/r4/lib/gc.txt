@@ -1,0 +1,341 @@
+|-------------------------------------
+| cursor grafico  PHREDA 2009
+
+|
+| cursor centro (xc,yc) ancho (w) alto (h)
+|
+^r4/lib/math.txt
+^r4/lib/grpix.txt
+
+#:xc	| centro x
+#:yc	| centro y
+#:w		| width
+#:h		| heigth
+
+#:tx1 0
+#:ty1 0
+#:tx2 640
+#:ty2 480 		| ventana de texto
+
+#:ccx 0
+#:ccy 0			| cursor
+
+#:ccw 8
+#:cch 12		| tamaño
+
+|--------- palabras de dibujo de fuentes (reemplazables)
+
+::window | x1 y1 x2 y2 --
+	cch * 'ty2 ! ccw * 'tx2 !
+	cch * 'ty1 ! ccw * 'tx1 ! ;
+
+::win2gc
+	tx2 tx1 2dup - 'w ! + 2/ 'xc !
+	ty2 ty1 2dup - 'h ! + 2/ 'yc ! ;
+
+::gc2win
+	w xc over 2/ - dup 'tx1 ! + 'tx2 !
+	h yc over 2/ - dup 'ty1 ! + 'ty2 ! ;
+
+::tox w 5 *>> xc + ;
+::toy h 5 *>> yc + ;
+
+::toxt ccw 5 *>> ccx + ;
+::toyt cch 5 *>> ccy + ;
+
+::pxbox | alto ancho --
+	ccx dup 'tx1 ! + 'tx2 !
+	ccy dup 'ty1 ! + 'ty2 ! ;
+
+
+|--- posicion por pixels
+::gc.top | alto --
+	dup 'h ! 2/ 'yc ! ;
+
+::gc.botton | alto --
+	dup 'h ! sh swap 2/ - 'yc ! ;
+
+::gc.vbetween | up dn --
+	sh swap - over - dup 'h !
+	2/ + 'yc ! ;
+
+::gc.left | px --
+	dup 'w ! 2/ 'xc ! ;
+
+::gc.right | px --
+	dup 'w ! sw swap 2/ - 1- 'xc ! ;
+
+::gc.xywh | x y w h --
+	rot  | x w h y
+	over 2/ + 'yc ! 'h ! | x w ..h xc
+	dup 'w ! 2/ + 'xc ! ;
+
+|---- punto fijo en gc
+::fxymouse | -- .x .y
+	xymouse
+	yc - 17 << h / swap
+	xc - 17 << w / swap neg ;
+
+::fgetpixel | .x .y -- c
+	sh 2/ swap over neg 16 *>>  + >r
+	sw 2/ swap over 16 *>> + r>
+	setxy px@
+|	sw * +  -? ( -1 nip ; ) sw sh * >? ( -1 nip ; )
+|	2 << framev + @
+	;
+
+|---- pila de cursores
+#pilacursor )( 1024
+#pilacursor> 'pilacursor
+
+::gc.push
+	pilacursor> 'xc 4 move
+	16 'pilacursor> +!
+	;
+::gc.pop
+	-16 'pilacursor> +!
+	'xc pilacursor> 4 move
+	;
+::gc.popush
+	'xc pilacursor> 16 - 4 move
+	;
+
+
+::wgc.push
+	pilacursor> 'xc 10 move
+	32 'pilacursor> +!
+	;
+::wgc.pop
+	-32 'pilacursor> +!
+	'xc pilacursor> 10 move
+	;
+
+::gc.window | w h --
+	ccx pick2 over + 'tx2 ! 'tx1 !
+	ccy over over + 'ty2 ! 'ty1 !
+
+	ccy over 'h ! swap 2/ + cch -
+	sh >? ( h - ) 'yc !
+	ccx over 'w ! swap 2/ +
+	sw >? ( w - ) 'xc !
+	;
+
+::tgc.push
+	pilacursor> 'xc 10 move
+	40 'pilacursor> +!
+	;
+::tgc.pop
+	-40 'pilacursor> +!
+	'xc pilacursor> 10 move
+	;
+
+|---- ubicacion y desplazamiento
+::pos	| xy --
+	'yc ! 'xc ! ;
+::+pos	| xy --
+	'yc +! 'xc +! ;
+::dim | wh --
+	'h ! 'w ! ;
+::+dim | wh --
+	'h +! 'w +! ;
+
+::cubo | v --
+	dup 'w !+ ! ;
+
+::scr |  --   ; toda la pantalla es el cursor
+	sw dup dup 'tx2 ! 'w ! 2/ 'xc !
+	sh dup dup 'ty2 ! 'h ! 2/ 'yc !
+	0 dup 'tx1 ! 'ty1 !
+	;
+
+::gcxyxy | x1 y1 x2 y2 --
+	pick2 over - 'w !
+	pick3 pick2 - 'h !
+	rot + 2/ 'xc !
+	+ 2/ 'yc ! ;
+
+
+|---- mover gc
+
+::gc>>	w 'xc +! ;
+::gc<<  w neg 'xc +! ;
+::gcup  h neg 'yc +! ;
+::gcdn	h 'yc +! ;
+
+|----------------------------------
+::fdim | wh --
+	sh 16 *>> 'h !
+	sw 16 *>> 'w ! ;
+
+::hdim | h --
+	sh 16 *>> dup 'h ! 'w ! ;
+
+::fpos | xy --
+	sh 2/ swap over neg 16 *>>  + 'yc !
+	sw 2/ swap over 16 *>> + 'xc ! ;
+
+::+fpos | xy --
+	sh 2/ swap over neg 16 *>>  + 'yc +!
+	sw 2/ swap over 16 *>> + 'xc +! ;
+
+::fzoom | rzoom -- ; relativo a su tamaño
+	dup w 16 *>> 'w !
+	h 16 *>> 'h !
+	;
+
+::fscala | ws hs --
+	h 16 *>> 'h !
+	w 16 *>> 'w ! ;
+
+
+::gc.conv | w h xc yc --
+	h 16 *>> 'yc +!
+	w 16 *>> 'xc +!
+	h 16 *>> 'h !
+    w 16 *>> 'w ! ;
+
+|----------------------------------
+::@cursor | 'adr -- 'adr+
+	@+ sw 2/ swap over 16 *>> + 'xc !
+	@+ sh 2/ swap over neg 16 *>>  + 'yc !
+	@+ sw 16 *>> 'w !
+	@+ sh 16 *>> 'h ! ;
+
+::mem>dimpos | adr --
+	@+ 'xc ! @+ 'yc ! @+ 'w ! @ 'h !
+	w xc 2dup + 2/ 'xc ! - 'w ! h yc 2dup + 2/ 'yc ! - 'h ! ;
+
+
+|--- x y en cursor ?
+::whin | x y -- 1/0
+	yc - abs h 2/ >? ( 2drop 0 ; ) drop
+	xc - abs w 2/ >? ( 0 )( 1 ) nip ;
+|	yc - h 2/ + -? ( 2drop 0 ; ) h - +? ( 2drop 0 ; ) drop
+|	xc - w 2/ + -? ( 0 nip ; ) w - +? ( 0 )( 1 ) nip ;
+
+::whint | x y -- 1/0
+	ty1 <? ( 2drop 0 ; )
+	ty2 >? ( 2drop 0 ; ) drop
+	tx1 <? ( drop 0 ; )
+	tx2 >? ( drop 0 ; ) drop
+	1 ;
+
+|------------------ dibujo sobre cursor
+::gc.box		| borde recto
+	w xc over 2/ - h yc over 2/ - rot swap | w h 0 0
+	2dup op pick3 pick2 + dup pick2 line
+	pick3 pick2 + line over pick3 pick2 + line line 2drop ;
+
+::gc.fbox		| lleno recto
+	w xc over 2/ - h yc over 2/ - rot swap | w h 0 0
+	2dup op	pick3 pick2 + dup pick2 pline
+	pick3 pick2 + pline over pick3 pick2 + pline pline poli 2drop ;
+
+
+|::gc.rod2 | --	; redondo
+|	w h min 3 >> >r xc w 2/ - yc h 2/ - r + 2dup 2dup op
+|	r - 2dup cp swap r + swap 2dup curve swap r 2* - w + swap 2dup line
+|	swap r + swap 2dup cp r + 2dup curve r 2* - h + 2dup line
+|	r + 2dup cp swap r - swap 2dup curve swap r 2* + w - swap 2dup line
+|	swap r - swap 2dup cp r> - curve line ;
+
+|::gc.frod2 | --	; lleno redondo
+|	w h min 3 >> >r xc w 2/ - yc h 2/ - r + 2dup 2dup op
+|	r - 2dup cp swap r + swap 2dup pcurve swap r 2* - w + swap 2dup pline
+|	swap r + swap 2dup cp r + 2dup pcurve r 2* - h + 2dup pline
+|	r + 2dup cp swap r - swap 2dup pcurve swap r 2* + w - swap 2dup pline
+|	swap r - swap 2dup cp r> - pcurve pline poli ;
+
+::gc.rod | --	; redondo
+	w h min 3 >> >r xc w 2/ - yc h 2/ - r + 2dup 2dup op
+	r - swap r + swap 2dup line swap r 2* - w + swap 2dup line
+	swap r + swap  r + 2dup line r 2* - h + 2dup line
+	r +  swap r - swap 2dup line swap r 2* + w - swap 2dup line
+	swap r - swap  r> - line line ;
+
+::gc.frod | --	; lleno redondo
+	w h min 3 >> >r xc w 2/ - yc h 2/ - r + 2dup 2dup op
+	r - swap r + swap 2dup pline swap r 2* - w + swap 2dup pline
+	swap r + swap r + 2dup pline r 2* - h + 2dup pline
+	r + swap r - swap 2dup pline swap r 2* + w - swap 2dup pline
+	swap r - swap r> - pline pline poli ;
+
+
+::gc.fcircle
+	xc w 2/ - yc 2dup op	| i2
+	2dup h 2/ - 2dup      | i2 j2
+	over w 2/ + over pcurve
+	swap w + swap 2dup
+	2dup h 2/ + pcurve
+	h + 2dup
+	over w 2/ - over pcurve
+	swap w - swap
+	pcurve poli ;
+
+::gc.glass
+|	tx2 tx1 - ty2 ty1 - tx1 ty1 mix50 | ancho alto x y --
+	$7f alpha 0 ink gc.fbox $ff alpha
+	;
+
+|--- Ajusta mat de colores p/degrade
+::gc.all
+	xc w 2/ - yc h 2/ - fcen
+	1.0 w / 0 fmat ;
+
+::gc.vdeg | col1 col2 --
+	fcol
+	xc yc h 2/ + fcen
+	0 1.0 h / fmat ;
+
+::gc.hdeg | col1 col2 --
+	fcol
+	xc w 2/ - yc fcen
+	1.0 w / 0 fmat ;
+
+::vbtn | col1 col2 --
+	gc.vdeg lfill gc.frod sfill ;
+
+::hbtn | col1 col2 --
+	gc.hdeg lfill gc.frod sfill ;
+
+::vfil | col1 col2 --
+	gc.vdeg lfill gc.fbox sfill ;
+
+::hfil | col1 col2 --
+	gc.hdeg lfill gc.fbox sfill ;
+
+|--- con pixels
+::gc.vfill | colores --
+	w swap degrade!
+	xc w 2/ - yc h 2/ - .at
+	w h .fboxdv ;
+
+::gc.hfill | colores --
+	h swap degrade!
+	xc w 2/ - yc h 2/ - .at
+	w h .fboxdh ;
+
+
+::win.vfill
+	tx2 tx1 - swap degrade!
+	tx1 ty1 .at
+	tx2 tx1 - ty2 ty1 - .fboxdh ;
+
+::2+gc
+	2 dup 'w +! 'h +! ;
+
+::2-gc
+	-2 dup 'w +! 'h +! ;
+
+::4+gc
+	4 dup 'w +! 'h +! ;
+
+::4-gc
+	-4 dup 'w +! 'h +! ;
+
+::8+gc
+	8 dup 'w +! 'h +! ;
+
+::8-gc
+	-8 dup 'w +! 'h +! ;
+

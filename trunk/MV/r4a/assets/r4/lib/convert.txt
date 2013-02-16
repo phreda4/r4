@@ -1,0 +1,65 @@
+| pack and unpack in 32bits
+| PHREDA
+|
+^r4/lib/gc.txt
+
+|--------- Vector 3d
+| vector3d a 10 bits
+| x=10 bits y=10 bits z=10 bits control=2bit
+
+::>z 20 << 22 >> ;
+::>y 10 <<
+::>x 22 >> ;
+
+::>xyz | v -- x y z
+	dup >z 5 << >r dup >y 5 << >r  >x 5 << r> r> ;
+
+::3d> | x y z -- v
+	$ffc000 and 12 >> >r $ffc000 and 2 >> r> or swap $ffc000 and 8 << or 3 or ;
+
+|--- Vector 2d
+| vector2d de 14 bits c/control
+| x=14 bits	y=14 bits  control=4bits
+| 0000 0000 0000 00 | 00 0000 0000 0000 | 0000
+| x					y			      control
+
+::xy>d | x y -- v
+	4 << $3fff0 and swap 18 << $fffc0000 and or ;
+::d>xy | v -- x y
+	dup 18 >> swap
+::d>y | v -- y
+	14 << 18 >> ;
+::d>x | v -- x
+	18 >> ;
+
+::dxy |v1 v2 -- dx dy
+	over 14 << 18 >> over  14 << 18 >> - >r	18 >> swap 18 >> swap - r> ;
+
+|--- uv
+| U=16 bits V= 16bits
+
+::uv> $ffff and 16 << swap $ffff and or ; | u v -- uv
+::>u 16 <<
+::>v 16 >> ;
+::>uv | v -- u v
+	dup >u swap >v ;
+
+|--- sprite en 32 bits, ajustado por gc
+| fuente vectorial en 32bits | 14 - 14 - 4
+| 0000 0000 0000 00 | 00 0000 0000 0000 | 0000
+| x					y			      control
+
+::gc>xy | v -- x y
+	dup  18 >> w 14 *>> xc + swap 14 << 18 >> h 14 *>> yc + ;
+::xy>gc | x y -- v
+	yc - h 14 <</ $3fff and 4 << swap xc - w  14 <</ $3fff and 18 << or ;
+
+
+|--- dibujo en 32 bits en gc
+| dibujo en 32bits | 8 - 12 - 12
+| 0000 0000 | 0000 0000 0000 | 0000 0000 0000 |
+| control	  y					x
+::dr>xy | v -- x y
+	dup 20 << 20 >> w 12 *>> xc + swap 8 << 20 >> h 12 *>> yc + ;
+::xy>dr | x y -- v
+	yc - 12 << h / $fff and 12 << swap xc - 12 << w / $fff and or ;

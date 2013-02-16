@@ -1,0 +1,235 @@
+| bitmaps
+| PHREDA
+|------------------------
+^r4/lib/gui.txt
+^r4/lib/dlgfile.txt
+^r4/lib/leebmp.txt
+
+|------------ Grabar de BMP a simple RLE
+#memc
+#memc>
+
+:,comp | v --
+	memc> !+ 'memc> ! ;
+
+#cnt
+#colact
+
+:scanlast | --
+	colact cnt ( 255 >? )( over $ff000000 or ,comp 255 - )
+	24 << or ,comp ;
+
+:scanconv | adr -- adr+
+	@+ $ffffff and | adr+ color
+	colact =? ( 1 'cnt +! drop ; )
+	scanlast
+:scanini | color --
+	$ffffff and 'colact ! 1 'cnt ! ;
+
+::bitmap.grabar | "bmps/test.bmr" --
+	bmp.bm @+ scanini
+	bmp.alto bmp.ancho *  2dup 2 << + dup 'memc ! 'memc> !
+	( 1- 1? )( >r scanconv r> ) 2drop
+	scanlast
+	memc memc> over - rot save
+	;
+
+|-------------- Cargar simple RLE
+::bitmap.cargar | "bmps/test.bmr" --
+	here swap load dup 'memc> ! >r
+	here ( memc> <? )( @+
+		dup $ffffff and swap 24 >> $ff and | color cant
+		( 1? )( over r!+ 1- ) 2drop
+		) drop
+	rdrop
+	;
+
+|----------------------------------------------------
+| otra compresion
+| 00000000 CC CC CC | 1 pixel color (sin compresion
+| 1................ C1    xxxxxx C2
+|----------------------------------------------------
+
+#a
+
+:osolido | adr v -- adr
+	dup $ffffff and swap
+	24 >>
+	a >r
+	( 1? )( 1- over r!+ ) 2drop
+	>r 'a !
+	;
+
+:odegrade | adr v -- adr
+	dup 24 >> $7f and 'cnt !
+	$ffffff and drop | setcol1
+	@+
+	dup 17 >> $7f80 and cnt or
+	swap $ffffff and drop |setcol2
+	|a colmorph 'a !
+	;
+
+:cargacmpx | adr --
+	framev 'a !
+	( @+ 1? )( -? ( odegrade )( osolido ) ) drop ;
+
+|----------------------------------------------------------
+|----- Graba comprimido
+
+:compigual | adr -- 'adr 0..cnt
+	dup @+ $ffffff and 'colact ! | adr 'adr
+	( @+ $ffffff and colact =? )( drop ) drop
+	- 2 >> ;
+
+
+|--------------------------------
+#sumaa
+
+:prueba | addr -- adr 0/1
+	dup @ drop |setcol1
+	cnt over over 2 << + @ drop |setcol2
+	( 1? )( 1-
+		swap @+
+|		$f7f7f7 and pasocol
+|		 $f7f7f7 and =? ( 0 ; )
+		drop swap ) drop
+	1 ;
+
+:comprampa | adr -- adr 0..cnt
+	0 'cnt !
+	( prueba 1? )( drop 1 'cnt +! )  drop
+	cnt 4 <? ( drop 0 ; )
+	1-  ;
+
+|--------------------------------
+#col1
+:comprime | adr -- adr+
+	dup comprampa 1? (		|**************
+		dup $7f and $80 or
+		dup @
+		; ) drop
+	dup compigual 1? (
+		( dup $7f / 1? )( drop
+			$7f000000 col1 or ,comp
+			$7f - )
+		$7f mod 24 << col1 or ,comp ; ) drop
+	@+ $ffffff and ,comp ;
+
+|--------------------------------
+::bmr.save | "" --
+	bmp.bm bmp.alto bmp.ancho * 2 << over +
+	dup 'memc ! 'memc> !
+	( memc <? )( comprime ) drop
+|	memc memc> over - rot save
+	;
+
+|-----------------------------
+
+#nombre )( 64
+#img
+:elegir
+|	"bmps\" dir 'nombre dlgfile
+	"bmps\" "*.bmp" dlgfilename 'nombre strcpy
+	cls
+|	sizebm 2 << here + 'here !
+	'nombre bmp.load 'img !
+	bmp.real
+
+|	copymm
+	;
+
+:convertir
+|	"bmps\" dir 'nombre dlgfile
+	"bmps\" "*.bmp" dlgfilename 'nombre strcpy
+
+	cls
+|	sizebm 2 << here + 'here !
+	'nombre bmp.load 'img !
+	bmp.real
+
+	"test.bmr" bitmap.grabar
+	;
+
+:loadbmr | "" --
+	bitmap.cargar
+|	copymm
+	;
+
+
+|------------------------------------------
+#cnta 0
+#polis )( 1024
+#polis> 'polis
+
+#tpolis )( 1024
+
+:cleartpolis
+	'tpolis 1024 ( 1? )( 1- >r
+		0 swap !+ >r ) 2drop ;
+
+:inivector
+	'polis 'polis> !
+	0 'cnt !
+	;
+
+:tovector
+	inivector
+	0 ( bmp.alto <? )(
+		0 ( bmp.ancho <? )(	| x y
+			2dup bmp.get
+
+			1+ ) drop
+		1+ ) drop
+	;
+
+
+#img1 #img2
+
+
+:botonera
+	;
+
+:drawbmp
+	img1 tfill
+	gc.all
+	gc.fbox
+	sfill
+	;
+
+:main
+|	sw sh * dup 'sizebm ! 2 << here + 'here !
+
+	"media/bmp/julia.bmp" bmp.load 'img1 !
+	"media/bmp/cerezop.bmp" bmp.load 'img2 !
+	cls
+	img1 bmp!
+|	bmp.full
+
+	img2 bmp!
+	bmp.real
+|	copymm
+
+|	12 12 .table 0 11 .at 1 1 .to
+|	rojo  'ifin 'exit dup >esc< .sbtn .>
+|	"F1" "BMP" 'elegir dup <f1> .fbtn .>
+|	"F2" "Conv" 'convertir dup <f2> .fbtn .> |[ "test.bmr" grabar ; ] dup <f2> .fbtn .>
+|	"F3" "Cargar" [ "bmps\test.bmr" loadbmr ; ] dup <f3> .fbtn .>
+|	azul
+|	"F4" ">vector" 'tovector dup <f4> .fbtn .>
+|	"F4" ">vector" [ "test.r4i" bmr.save ; ] dup <f4> .fbtn .>
+
+	show clrscr |copybm
+		20 sfont home
+		blanco
+		bmp.ancho bmp.alto 2dup * 2 <<  "%d bytes %dx%d" print  cr
+		 memc> memc - "%d bytes" print
+
+		0.9 pinpon 0.1 + dup 1.6 *. fdim
+		xymouse pos drawbmp
+		cflecha
+	'exit >esc<
+	;
+
+
+: mark 0 paper main ;
+
