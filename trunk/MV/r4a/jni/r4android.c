@@ -805,13 +805,11 @@ char lineat[512];
 ahora=name;
 while (*ahora>32) { *ahora=tolower(*ahora);ahora++; }
 
-/*
 strcpy(lineat,rootpath);
 strcat(lineat,"/");
 strcat(lineat,name);
 if((stream=fopen(lineat,"rb"))==NULL) {
-*/
-if((stream=fopen(name,"rb"))==NULL) {
+//if((stream=fopen(name,"rb"))==NULL) {
 
   sprintf(error,"%s|0|0|no existe %s",linea,lineat);
   return OPENERROR;
@@ -1058,10 +1056,10 @@ makeFolder("/r4");
 makeFolder("/inc");
 makeFolder("/mem");
 makeFolder("/r4/apps");
-makeFolder("/r4/demos");
-makeFolder("/r4/demos/historia");
-makeFolder("/r4/demos/test");
-makeFolder("/r4/demos/video");
+//makeFolder("/r4/demos");
+//makeFolder("/r4/demos/historia");
+//makeFolder("/r4/demos/test");
+//makeFolder("/r4/demos/video");
 makeFolder("/r4/dev");
 makeFolder("/r4/dev/games");
 makeFolder("/r4/dev/graficos");
@@ -1085,7 +1083,6 @@ state->onInputEvent = engine_handle_input;
 engine.app = state;
 
 buildFileSystem();
-chdir(rootpath);
 
 // eventos para inicializar
 while ((ident=ALooper_pollAll(engine.animating?0:-1,NULL,&events,(void**)&source)) >= 0) {
