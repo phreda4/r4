@@ -125,8 +125,8 @@ for(i=buffergr.height*buffergr.width;i>0;i--)
 
 void gr_toxfb(void)
 {
-register int *s=XFB;
-register int *d=gr_buffer;
+register int *d=XFB;
+register int *s=gr_buffer;
 register int i;
 for(i=buffergr.height*buffergr.width;i>0;i--)
 	*d++=*s++;
@@ -134,8 +134,8 @@ for(i=buffergr.height*buffergr.width;i>0;i--)
 
 void gr_xfbto(void)
 {
-register int *d=XFB;
-register int *s=gr_buffer;
+register int *d=gr_buffer;
+register int *s=XFB;
 register int i;
 for(i=buffergr.height*buffergr.width;i>0;i--)
 	*d++=*s++;

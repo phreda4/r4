@@ -1,0 +1,125 @@
+^r4/lib/gui.txt
+^r4/lib/leebmp.txt
+
+#LOADFILE "media/b3d/xyzrgb_statuette.b3d"
+#bolu3dMap
+#bolu3dRes $ff | 256  (16.777.216 o 786.432 )   00ma00mi (2 colores de $ff)
+#bolu3dSca 8
+
+:loadb3d | "" --
+	bolu3dMap swap load drop ;
+
+:toa | x y -- l
+    bolu3dRes and swap bolu3dRes and swap
+	bolu3dSca << + 2 << ;
+:dim0 | x y -- adr
+	toa bolu3dMap + ;
+:dim1 | y z -- adr
+	toa bolu3dMap + bolu3dRes dup * 2 << + ;
+:dim2 | x z -- adr
+	toa bolu3dMap + bolu3dRes dup * 3 << + ;
+
+|--------------------------
+#px 0.0
+#py 0.0
+#pa 0
+#vpa 0
+#va 0
+
+#rx #ry #rz
+#hc
+#hr
+#rsin #rcos
+
+:getcol
+	rx 16 >> ry 16 >> dim0 @ 16 >> $ff and ;
+
+:vline | x y1 y2 --
+	pick2 swap op line ;
+
+:drawfloor
+	hr hc <? ( drop ; )
+	getcol ink
+
+	pick3 sh hc - sh hr - vline
+	'hc ! ;
+
+:getmap
+	rcos 'rx +! rsin 'ry +!
+	rx 16 >> ry 16 >> dim0 @ $ff and ;
+
+:renderframe
+	pa 0.15 -
+	0 ( sw <? )( swap
+		0.001 +
+		dup sincos 'rcos ! 'rsin !
+		px 'rx ! py 'ry !
+		0 'hc !
+		0 ( 120 <? )( 1+
+			getmap
+			2 << over / 'hr !
+			drawfloor
+			) drop
+		swap 1+ ) 2drop ;
+
+:rendervista
+	pa 0.25 -
+	0 ( 400 <? )( swap
+		0.001 +
+		dup sincos 'rcos ! 'rsin !
+		px 'rx ! py 'ry !
+		0 ( 200 <? )( 1+
+			getmap ink
+			pick2 over 2dup op line
+			) drop
+		swap 1+ ) 2drop ;
+
+	;
+
+:rendervista2
+	-0.25
+	300 ( 1? )( 1-
+		10 over setxy
+		>r
+		pa 0.25 -
+		400 ( 1? )( 1- >r
+
+			|2dup or
+			px!+
+
+			0.01 +
+			r> ) 2drop
+		0.01 +
+		r> ) 2drop
+	;
+
+
+:movimiento
+	[ 0.8 'va ! ; ] <up>
+	[ -0.8 'va ! ; ] <dn>
+	[ 0 'va ! ; ] dup >up< >dn<
+	[ 0.01 'vpa ! ; ] <le>
+	[ -0.01 'vpa ! ; ] <ri>
+	[ 0 'vpa ! ; ] dup >le< >ri<
+
+   	vpa 'pa +!
+	va 0? ( drop ; )
+	pa polar2 'px +! 'py +!
+	;
+
+:main
+	here dup 'bolu3dMap !
+	$c0000 + 'here !
+	"media/b3d/xyzrgb_statuette.b3d" loadb3d
+	4
+	show clrscr
+		rendervista
+|		renderframe
+
+		movimiento
+		blanco
+		dup ":r%d" print cr
+		'exit >esc<
+		;
+
+: mark main ;

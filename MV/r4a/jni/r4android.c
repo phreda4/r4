@@ -1055,8 +1055,17 @@ if (stat(rootpath, &st) != -1) return; // ya existe la carpeta
 
 makeFolder("");
 makeFolder("/r4");
+makeFolder("/inc");
+makeFolder("/mem");
 makeFolder("/r4/apps");
 makeFolder("/r4/demos");
+makeFolder("/r4/demos/historia");
+makeFolder("/r4/demos/test");
+makeFolder("/r4/demos/video");
+makeFolder("/r4/dev");
+makeFolder("/r4/dev/games");
+makeFolder("/r4/dev/graficos");
+makeFolder("/r4/dev/editors");
 makeFolder("/r4/games");
 makeFolder("/r4/lib");
 makeFolder("/r4/lib/fonts");
@@ -1075,14 +1084,15 @@ state->onAppCmd = engine_handle_cmd;
 state->onInputEvent = engine_handle_input;
 engine.app = state;
 
+buildFileSystem();
+chdir(rootpath);
+
 // eventos para inicializar
 while ((ident=ALooper_pollAll(engine.animating?0:-1,NULL,&events,(void**)&source)) >= 0) {
 	if (source != NULL) { source->process(state, source); }
 	if (state->destroyRequested != 0) return;
     }
 
-buildFileSystem();
-chdir(rootpath);
 gr_init(engine.app);
 
 // pila de ejecucion
