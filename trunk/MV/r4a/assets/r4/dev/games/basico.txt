@@ -1,0 +1,170 @@
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/trace.txt
+^r4/lib/3d-escena.txt
+^r4/dev/games/actores.spr
+
+|-----------------------------
+:3dop project3d op ;
+:3dline project3d line ;
+
+:grillaxy
+	-5.0 ( 5.0 <=? )( dup -5.0 0 3dop dup 5.0 0 3dline
+		-5.0 over 0 3dop 5.0 over 0 3dline 1.0 + ) drop ;
+:grillayz
+	-5.0 ( 5.0 <=? )( 0 over -5.0 3dop 0 over 5.0 3dline
+		0 -5.0 pick2 3dop 0 5.0 pick2 3dline 1.0 + ) drop ;
+:grillaxz
+	-5.0 ( 5.0 <=? )( dup 0 -5.0 3dop dup 0 5.0 3dline
+		-5.0 0 pick2 3dop 5.0 0 pick2 3dline 1.0 + ) drop ;
+
+|---------------------------------------------
+:r0001 rand 0.001 mod ;
+:r001 rand 0.01 mod ;
+:r01 rand 0.1 mod ;
+:r1 rand 1.0 mod ;
+:r10 rand 10.0 mod ;
+:r100 rand 100.0 mod ;
+
+|---------------------------------------------
+#xcam #ycam #zcam 20.0
+#cosas 0 0
+
+|---------------------------------------------
+:mesaupd
+|	r01 r01 r01 actor+!
+|	dup 12 + @ abs 8.0 >? ( drop 0 ; ) drop
+|	dup 4 + @ abs 8.0 >? ( drop 0 ; ) drop
+	esc.z+ ;
+
+:mesadraw
+	mpush
+	esc.pos
+|	0.25 mrotxi
+	'arbol 3dnsprite mpop ;
+
+:cosa+
+	'cosas esc. >r
+	'mesaupd r!+ |'cosas esc!+ >r
+	r100 r!+ r01 r!+ r100 r!+ | x y z
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+	2.0 r!+ 1.0 r!+ 'mesadraw r!+
+	rdrop ;
+
+:cosa+xy | x y --
+	'cosas esc. >r
+	'mesaupd r!+ |'cosas esc!+ >r
+	r!+ 0 r!+ r!+ | x y z
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+	2.0 r!+ 1.0 r!+ 'mesadraw r!+
+	rdrop ;
+
+
+|---------------------------------------------
+:fijoupd
+	esc.z+ ;
+
+:fijodraw
+	mpush esc.pos dup 40 + @ 3dnsprite mpop ;
+
+:fijo+ | 'spr x y z --
+	'cosas esc. >r
+	'fijoupd r!+ |'cosas esc!+ >r
+	rot r!+ swap r!+ r!+ | x y z
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+	0 r!+ 0 r!+ 'fijodraw r!+
+	r!+ rdrop ;
+
+|---------------------------------------------
+#silla
+#sx #sy #sz
+#snext
+#stime 0
+#spath
+0 	0 	0
+5.0 2.0 -2.3
+-2.4 2.3 1.1
+2.3 4.4 2.3
+0.3 -4.4 -2.3
+#lastspath
+
+:lerp | t a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - rot 16 *>> + ;
+
+:stepsilla
+	stime 1.0 >? ( drop ; )
+	silla 4+ >r
+	dup sx snext @ lerp r!+
+	dup sy snext 4+ @ lerp r!+
+	dup sz snext 8 + @ lerp r> !
+	0.01 + dup 'stime !
+	1.0 <? ( drop ; )
+	silla 4+ >r
+	r@+ 'sx ! r@+ 'sy ! r> @ 'sz !
+	snext 12 + 'lastspath =? ( 'spath nip ) 'snext !
+	0 'stime ! ;
+
+|-----------------------------------
+:loadescena
+	'spr.mesa 0 1.0 -4.0 fijo+
+	'spr.silla -1.0 1.0 -3.6 fijo+
+	-1.0 'sx ! 1.0 'sy ! -3.6 'sz !
+	cosas 64 - 'silla !
+	'spath 'snext ! ;
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - 7 << swap
+	neg mrotx mroty ;
+
+:grilla
+	mpush
+	0 0 5.0 mtransi
+	grillaxy
+	mpop
+	mpush
+	5.0 0 0 mtransi
+	grillayz
+	mpop
+	mpush
+	0 5.0 0 mtransi
+	grillaxz
+	mpop
+	;
+
+:grilla
+	-200.0 ( 100.0 <? )( 
+		-200.0 ( 100.0 <? )(
+
+|			2dup 
+			over rand 2.5 mod + over rand 2.5 mod +		
+			cosa+xy
+			5.0 + ) drop
+		5.0 + ) drop
+	;
+#av
+:main
+|	loadescena
+|	5000 ( 1? )( cosa+ 1- ) drop
+	grilla
+	show clrscr
+		omode
+		freelook
+		xcam ycam zcam mtrans
+|       grilla
+		esc.zclear
+		'cosas esc.draw
+		esc.zdraw
+|		stepsilla
+		'cosa+ <f1>
+		[ -0.1 'av ! ; ] <up>
+		[ 0 'av ! ; ] >up<
+		av 'zcam +!
+		'exit >esc<
+		cminiflecha  ;
+
+:inimem
+	mark $fffff 'cosas esc.create ;
+
+: inimem main ;

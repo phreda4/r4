@@ -1,0 +1,275 @@
+| historia grafica
+| PHREDA 2012
+|----------------------------
+
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/anima.txt
+
+^r4/lib/trace.txt
+^r4/lib/part16.txt
+
+^r4/dev/games/hg/hg.spr
+
+|------ animaciones
+#secquieto 0 0 p4 10 0
+#seccamina 0 0 p1 10 p2 10 p1 10 p3 10 0
+#seccaminaf 0 0 p4 10 p5 10 p4 10 p6 10 0
+#seccaminad 0 0 p7 10 p8 10 p7 10 p9 10 0
+
+#secver 0 0 ver 20 ver1 20 ver2 5 0
+#secusa 0 0 usar 14 usar2 10 0
+
+#pantallas 'salon1 'pasillo
+
+#mensaje )( 64
+:mensaje! 'mensaje strcpy ;
+#strobjeto )( 64
+:objeto! 'strobjeto strcpy ;
+
+#renderlist 0 0
+
+:renderini |
+	2048 'renderlist p.ini ;
+
+:renderclear |
+	'renderlist p.clear ;
+
+:renderadd |
+	;
+
+|------------------------
+#objetos 0 0
+#walls	0 0
+#fxs	0 0
+
+|----------- protagonista
+#animap 'secquieto
+#xp #yp			| posicion
+#dd				| direccion
+#vx #vy
+#yd #xd
+#dz 200
+#pant 'salon1
+
+#xm #ym
+|------------ paredes
+#xmin -0.8 #xmax 0.8
+#ymin -0.8 #ymax 0.8
+
+:quieto!
+	'secquieto 'animap ! 0 0 'vy ! 'vx ! ;
+
+:personaje
+|-----------------rumbo
+	xd xp - yd yp - 2dup atan2 0.004 polar 'vy ! 'vx !
+	distfast 0.01 <? ( quieto! ) drop
+|-----------------dibujo y animacion
+	xp yp fpos
+	dz 200 dim
+	animap seqAnima nsprite
+	vx 'xp +!
+	vy 'yp +!
+|-----------------paredes
+|	xp xmin <? ( xmin 'xp ! quieto! ) xmax >? ( xmax 'xp ! quieto! ) drop
+|	yp ymin <? ( ymin 'yp ! quieto! ) ymax >? ( ymax 'yp ! quieto! ) drop
+	;
+
+|--------- menu
+#menuactivo 0
+#menuobj 0
+
+:drawmenu
+	menuactivo 0? ( drop ; ) drop
+	190 140 dim
+	xm ym 0.2 + fpos 'pensar nsprite
+	80 dup dim
+	xm 0.05 - ym 0.15 + fpos
+	[ 'secver seqAnima nsprite ; ]
+	[ 'ver nsprite ; ] guiIO
+	[ menuobj 24 + @ exec  ; ] guiBtn
+
+	xm 0.05 + ym 0.15 + fpos
+	[ 'secusa seqAnima nsprite ; ]
+	[ 'usar nsprite ; ] guiIO
+	[ menuobj 28 + @ exec ; ] guiBtn
+	190 100 dim
+	negro
+	xm ym 0.15 + fpos home
+	'strobjeto printc
+	;
+
+:menuclick
+	0 'menuactivo !
+	;
+
+|--------- Objetos
+:obj
+	>r
+	r@+ r@+ fpos
+	r@+ dup dim
+	r> @ nsprite ;
+
+:+obj | 'ver 'usar nombre spr scale x y --
+	'obj 'objetos p!+ >r r!+ r!+ r!+ r!+ r!+ r!+ r> ! ;
+
+:inobj | x y -- o
+	'objetos 0.2 p.in2d? ;
+
+|--------- WALL
+:wall
+	>r
+	r@+	r@+	fpos
+	r@+ dup dim
+	r@+ nsprite rdrop ;
+
+:+wall | spr scale x y --
+	'wall 'walls p!+ >r r!+ r!+ r!+ r> ! ;
+
+|----------fxs
+:r01 rand 0.01 mod ;
+
+:fx
+	>r
+	80 dup dim
+	r@+ dup r@+ -0.9 <? ( 3drop rdrop 0 ; )
+	fpos
+
+|	'estre swap rnsprite
+	r@+ r 12 - +! 	| sum the vel
+	-0.0001 r +!	| gravity
+	r@+ r 12 - +!
+	rdrop
+	;
+
+:+fxs | x y --
+	;
+
+:+estrellas | x y --
+	swap 'fx 'fxs p!+ >r
+	r!+ r!+
+	r01 r!+ r01 r!+
+	rdrop
+	;
+|---------- principal
+:fondo
+|	sw dup 2 >> + dup dim
+|	0 0 fpos
+	pant nsprite
+	;
+
+:menuobjeto | adr --
+	dup 'menuobj !
+	dup 20 + @ objeto!
+	fxymouse 'ym ! 'xm !
+	1 'menuactivo !
+	;
+
+:moveto
+	menuactivo 1? ( drop menuclick ; ) drop
+	fxymouse
+	2dup inobj 1? ( menuobjeto )( "" mensaje! ) drop
+	'yd ! 'xd !
+	xd xp - -? ( 200 )( -200 ) 'dz ! abs
+	yd yp - -? ( 'seccaminaf )( 'seccaminad ) 'animap ! abs
+	>? ( 'seccamina 'animap ! )
+	drop ;
+
+
+:resetpant
+	'walls p.clear
+	'objetos p.clear
+	'fxs p.clear
+	"" mensaje!
+	"" objeto!
+	;
+
+|---- clip
+:verclip
+	"Es un clip sujetapapeles" mensaje! ;
+
+:usaclip
+	"voy doblar un poco este clip" mensaje!
+	;
+
+|---- mesa salon
+:vermesa
+	"La mesa parece bastante sucia!" mensaje! ;
+
+:usamesa
+	| agrega clip si no esta
+	| agrega bollo de papel
+	0 0
+	"Papel" 'papel 100
+	-0.8 rand 0.1 mod 0.05 - +
+	0.0 rand 0.2 mod 0.1 - +
+	+obj
+
+	'usaclip 'verclip
+	"Clip" 'clip 100
+	-0.8 rand 0.1 mod 0.05 - +
+	0.0 rand 0.2 mod 0.1 - +
+	+obj
+
+	;
+
+
+|---- puerta salon
+:verpuerta
+	"Por aqui deberia irme" mensaje! ;
+
+:usarpuerta
+	"La puerta esta cerrada con llave" mensaje! ;
+
+:pantalla1
+	resetpant
+	'salon1 'pant !
+	'usarpuerta 'verpuerta
+	"Puerta" 'puerta 600 -0.1 0.6 +obj
+	0 'vermesa
+	"Mesa" 'mesa 300 -0.5 0.4 +obj
+	'usamesa 'vermesa
+	"Mesa" 'mesa 300 -0.6 -0.1 +obj
+	0 'vermesa
+	"Mesa" 'mesa 300 -0.5 -0.7 +obj
+
+	0 'xd ! -0.5 'yd !
+	0 'xp ! -0.5 'yp !
+	;
+
+
+:main
+	pantalla1
+	fonti2
+	4
+	show clrscr
+		fondo
+		scr
+		'moveto guiBtn
+
+		'walls p.draw
+		'objetos p.draw
+		personaje
+		'fxs p.draw
+
+		drawmenu
+
+        blanco
+		scr home 
+		dup " %d " print 
+		cr
+		sp 'strobjeto print cr
+		sp 'mensaje print
+
+   		cflecha
+		'exit >esc<
+		;
+
+:ram
+	mark
+	100 'objetos p.ini
+	100 'walls p.ini
+	2048 'fxs p.ini
+	;
+
+: ram main ;
