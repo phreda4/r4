@@ -35,7 +35,9 @@ int MA,MB,MTX,MTY; // matrix de transformacion
 int *mTex; // textura
 
 //---- variables para dibujo de poligonos
-typedef struct { int y,x,yfin,deltax; } Segm;
+//typedef struct { int y,x,yfin,deltax; } Segm;
+typedef struct { int y,x,yfin,deltax,da; } Segm;
+
 Segm segmentos[1024];
 Segm **pact;
 Segm *actual[256]; // segmentos actuales
@@ -311,9 +313,9 @@ int a1x=(x1+x2)/2,a1y=(y1+y2)/2;
 int b1x=(gx+b2x)/2,b1y=(gy+b2y)/2;
 int a2x=(gx+a1x)/2,a2y=(gy+a1y)/2;
 int mx=(b1x+a2x)/2,my=(b1y+a2y)/2;
-if (abs(x2-a2x)+abs(y2-a2y)<4) gr_line(x1,y1,mx,my);
+if (abs(x2-a2x)+abs(y2-a2y)<3) gr_line(x1,y1,mx,my);
    else gr_spline3(x1,y1,a1x,a1y,a2x,a2y,mx,my);
-if (abs(x3-b1x)+abs(y3-b1y)<4) { gr_line(x4,y4,mx,my);return; }
+if (abs(x3-b1x)+abs(y3-b1y)<3) { gr_line(x4,y4,mx,my);return; }
 gr_spline3(mx,my,b1x,b1y,b2x,b2y,x4,y4);
 }
 
@@ -338,10 +340,10 @@ int a1x=(x1+x2)/2,a1y=(y1+y2)/2;
 int b1x=(gx+b2x)/2,b1y=(gy+b2y)/2;
 int a2x=(gx+a1x)/2,a2y=(gy+a1y)/2;
 int mx=(b1x+a2x)/2,my=(b1y+a2y)/2;
-if (abs(x2-a2x)+abs(y2-a2y)<4) gr_psegmento(x1,y1,mx,my);
-   else gr_spline3(x1,y1,a1x,a1y,a2x,a2y,mx,my);
-if (abs(x3-b1x)+abs(y3-b1y)<4) { gr_psegmento(x4,y4,mx,my);return; }
-gr_spline3(mx,my,b1x,b1y,b2x,b2y,x4,y4);
+if (abs(x2-a2x)+abs(y2-a2y)<3) gr_psegmento(x1,y1,mx,my);
+   else gr_pspline3(x1,y1,a1x,a1y,a2x,a2y,mx,my);
+if (abs(x3-b1x)+abs(y3-b1y)<3) { gr_psegmento(x4,y4,mx,my);return; }
+gr_pspline3(mx,my,b1x,b1y,b2x,b2y,x4,y4);
 }
 
 //**************************************************
@@ -368,6 +370,7 @@ ii->x=x1+((1<<FBASE)>>1);
 ii->y=y1;
 ii->yfin=y2;
 ii->deltax=t;
+t=abs(t>>FBASE)+1;ii->da=0xff00/t;
 cntSegm++;
 }
 
@@ -398,7 +401,8 @@ if (ex2>0) { // entrada anti
   } else { // degrade
     alpha=0;
 
-    da=(255<<8)/(ex2-ex1);
+    //da=(255<<8)/(ex2-ex1);
+    da=m1->da;
     if (ex1<0) { alpha+=da*(-ex1);ex1=0; }
     if (ex2>=buffergr.width) ex2=buffergr.width-1;
     cnt=ex2-ex1+1;
@@ -418,7 +422,9 @@ if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(unsigned char)((x3+x4)>>1));
 } else { // degrade
   alpha=255<<8;
-  da=(-255<<8)/(ex4-ex3);
+  //da=(-255<<8)/(ex4-ex3);
+  da=-m2->da;
+
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }
   if (ex4>buffergr.width) ex4=buffergr.width;
   cnt=ex4-ex3;
@@ -463,7 +469,9 @@ if (ex2>0) { // entrada anti
     gr_pixela(gr_pos,255-(unsigned char)((x1+x2)>>1));gr_pos++;
   } else { // degrade
     alpha=0;
-    da=(255<<8)/(ex2-ex1);
+//    da=(255<<8)/(ex2-ex1);
+    da=m1->da;
+
     if (ex1<0) { alpha+=da*(-ex1);ex1=0; }
     if (ex2>=buffergr.width) ex2=buffergr.width-1;
     cnt=ex2-ex1+1;
@@ -487,7 +495,9 @@ if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(unsigned char)((x3+x4)>>1));
 } else { // degrade
   alpha=255<<8;
-  da=(-255<<8)/(ex4-ex3);
+  da=-m2->da;
+
+  //da=(-255<<8)/(ex4-ex3);
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }
   if (ex4>buffergr.width) ex4=buffergr.width;
   cnt=ex4-ex3;
@@ -533,7 +543,9 @@ if (ex2>0) { // entrada anti
     gr_pixela(gr_pos,255-(unsigned char)((x1+x2)>>1));gr_pos++;
   } else { // degrade
     alpha=0;
-    da=(255<<8)/(ex2-ex1);
+    da=m1->da;
+
+//    da=(255<<8)/(ex2-ex1);
     if (ex1<0) { alpha+=da*(-ex1);ex1=0; }
     if (ex2>=buffergr.width) ex2=buffergr.width-1;
     cnt=ex2-ex1+1;
@@ -557,7 +569,9 @@ if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(unsigned char)((x3+x4)>>1));
 } else { // degrade
   alpha=255<<8;
-  da=(-255<<8)/(ex4-ex3);
+  da=-m2->da;
+
+//  da=(-255<<8)/(ex4-ex3);
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }
   if (ex4>buffergr.width) ex4=buffergr.width;
   cnt=ex4-ex3;
@@ -599,7 +613,9 @@ if (ex2>0) { // entrada anti
     gr_pixela(gr_pos,255-(unsigned char)((x1+x2)>>1));gr_pos++;
   } else { // degrade
     alpha=0;
-    da=(255<<8)/(ex2-ex1);
+//    da=(255<<8)/(ex2-ex1);
+    da=m1->da;
+
     if (ex1<0) { alpha+=da*(-ex1);ex1=0; }
     if (ex2>=buffergr.width) ex2=buffergr.width-1;
     cnt=ex2-ex1+1;
@@ -623,7 +639,9 @@ if (ex4==ex3) { // punto solo
   gr_pixela(gr_pos,(unsigned char)((x3+x4)>>1));
 } else { // degrade
   alpha=255<<8;
-  da=(-255<<8)/(ex4-ex3);
+  da=-m2->da;
+
+//  da=(-255<<8)/(ex4-ex3);
   if (ex3<0) { alpha+=da*(-ex3);ex3=0; }
   if (ex4>buffergr.width) ex4=buffergr.width;
   cnt=ex4-ex3;
