@@ -47,7 +47,7 @@ struct engine {
 
 struct engine engine;
 struct android_poll_source* source;
-int ident,events;
+int events;
 
 //----------------------------------------------------------------------------
 char *macros[]={// directivas del compilador
@@ -147,7 +147,8 @@ int SYSYM=0;
 int SYSBM=0;
 int SYSKEY=0;
 //---- Date & Time
-struct timeval tv;
+struct timespec times;
+struct timeval Time;
 time_t sit;
 struct tm *sitime;
 //---- Directory
@@ -356,20 +357,20 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
     case CFECH: TOS=*(int8_t*)TOS;continue;
     case WFECH: TOS=*(short *)TOS;continue;
 	case STOR: *(int *)TOS=(int)*NOS;NOS--;TOS=*NOS;NOS--;continue;
-    case CSTOR: *(int8_t*)TOS=(char)*NOS;NOS--;TOS=*NOS;NOS--;continue;
+    case CSTOR: *(int8_t*)TOS=(int8_t)*NOS;NOS--;TOS=*NOS;NOS--;continue;
     case WSTOR: *(short *)TOS=(short)*NOS;NOS--;TOS=*NOS;NOS--;continue;
 	case INCSTOR: *((int *)TOS)+=(int)*NOS;NOS--;TOS=*NOS;NOS--;continue;
-    case CINCSTOR: *((int8_t*)TOS)+=(char)*NOS;NOS--;TOS=*NOS;NOS--;continue;
+    case CINCSTOR: *((int8_t*)TOS)+=(int8_t)*NOS;NOS--;TOS=*NOS;NOS--;continue;
     case WINCSTOR: *((short *)TOS)+=(short)*NOS;NOS--;TOS=*NOS;NOS--;continue;
     case FECHPLUS: NOS++;*NOS=TOS+4;TOS=*(int *)TOS;continue; //@+ | adr -- adr' v
     case STOREPLUS: *(int *)TOS=(int)*NOS;TOS+=4;NOS--;continue;//!+ | v adr -- adr'
-    case CFECHPLUS: NOS++;*NOS=TOS+1;TOS=*(char *)TOS;continue;
-    case CSTOREPLUS: *(char *)TOS=(char)*NOS;TOS++;NOS--;continue;
+    case CFECHPLUS: NOS++;*NOS=TOS+1;TOS=*(int8_t*)TOS;continue;
+    case CSTOREPLUS: *(int8_t*)TOS=(int8_t)*NOS;TOS++;NOS--;continue;
     case WFECHPLUS: NOS++;*NOS=TOS+2;TOS=*(short *)TOS;continue;
     case WSTOREPLUS: *(short *)TOS=(short)*NOS;TOS+=2;NOS--;continue;
 //--- sistema
 	case UPDATE:
-		while ((ident=ALooper_pollAll(0,NULL,&events,(void**)&source)) >= 0) {
+		if (ALooper_pollAll(0,NULL,&events,(void**)&source)>=0) { // while come eventos?
 			if (source != NULL) { source->process(engine.app, source); }
 			if (engine.app->destroyRequested != 0) {
 	                LOGI("Engine thread destroy requested!");
@@ -390,8 +391,10 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
     case REDRAW: gr_swap(engine.app);continue;
     case MSEC:
 		NOS++;*NOS=TOS;
-	    gettimeofday(&tv, NULL);
-	    TOS=tv.tv_usec;
+	    gettimeofday( &Time, NULL );
+	    TOS=Time.tv_sec*1000+Time.tv_usec/1000;
+		//clock_gettime(CLOCK_MONOTONIC,&times);
+	    //TOS=times.tv_sec*1000+times.tv_nsec/1000000;
 		continue;
     case IDATE:
     	sit=time(NULL);sitime=localtime(&sit);
@@ -1003,8 +1006,6 @@ error:
 return CODIGOERROR;
 }
 
-
-
 static void makeFolder(char *path)
 {
 const char *namea;
@@ -1013,9 +1014,9 @@ struct AAssetDir *aaD;
 struct AAsset *aaS;
 FILE *f;
 long size;
-static char namep[256];
-static char namef[256];
-static char buff[1025];
+char namep[256];
+char namef[256];
+char buff[1025];
 strcpy(namep,rootpath);
 strcat(namep,path);
 //LOGI("FOLDER: %s",namep);
@@ -1052,14 +1053,14 @@ struct stat st = {0};
 if (stat(rootpath, &st) != -1) return; // ya existe la carpeta
 
 makeFolder("");
-makeFolder("/r4");
 makeFolder("/inc");
 makeFolder("/mem");
+makeFolder("/r4");
 makeFolder("/r4/apps");
-//makeFolder("/r4/demos");
-//makeFolder("/r4/demos/historia");
-//makeFolder("/r4/demos/test");
-//makeFolder("/r4/demos/video");
+makeFolder("/r4/demos");
+makeFolder("/r4/demos/historia");
+makeFolder("/r4/demos/test");
+makeFolder("/r4/demos/video");
 makeFolder("/r4/dev");
 makeFolder("/r4/dev/games");
 makeFolder("/r4/dev/graficos");
@@ -1085,7 +1086,7 @@ engine.app = state;
 buildFileSystem();
 
 // eventos para inicializar
-while ((ident=ALooper_pollAll(engine.animating?0:-1,NULL,&events,(void**)&source)) >= 0) {
+while (ALooper_pollAll(engine.animating?0:-1,NULL,&events,(void**)&source)>=0) {
 	if (source != NULL) { source->process(state, source); }
 	if (state->destroyRequested != 0) return;
     }

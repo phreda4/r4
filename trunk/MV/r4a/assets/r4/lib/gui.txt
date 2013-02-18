@@ -10,11 +10,9 @@
 ^r4/lib/show.txt
 
 |--- state
-#active
-#hot	#hotnow
+#hot
+#hotnow
 #foco	| foconow en show para resetear
-#pbmouse
-#evUp #evDn
 
 |--- id
 #id		| id gui actual
@@ -26,17 +24,6 @@
 	idf id "ID:%d IDF:%d " print cr
 	foconow foco "foco:%d now:%d" print cr
 	hotnow hot "hot:%d now:%d" print cr
-	active "active:%d " print cr
-    idl foconow foco "foco:%d foconow:%d idl:%d" print cr
-	;
-
-:apreto
-	hotnow dup 'active ! 'evDn ! ;
-
-:solto
-	active 0? ( drop ; )
-	hotnow =? ( 'evUp ! )( drop )
-	0 'active !
 	;
 
 ::guistart
@@ -46,11 +33,6 @@
 	0 'idf !	| primero foco
 	0 'id !     | primero hot
 	0 'hot !
-	0 'evUp !
-	0 'evDn !
-
-	bmouse pbmouse =? ( drop ; )
-	0? ( solto )( apreto ) 'pbmouse !
 	;
 
 |----- esto
@@ -74,8 +56,10 @@
 ::guiBtn | 'click --
 	1 'id +!
 	xymouse whin 0? ( 2drop ; ) drop
-	id evUp =? ( drop exec ; )
-	nip 'hot ! ;
+
+	bmouse 0? ( id hotnow =? ( 2drop exec ; ) 3drop ; )
+	2drop
+	id 'hot ! ;
 
 ::guiOut | 'out --
 	1 'id +!
@@ -86,31 +70,28 @@
 ::guiMove | 'move --
 	1 'id +!
 	xymouse whin 0? ( 2drop ; ) drop
-	id dup 'hot !
-	active =? ( drop exec ; )
-	2drop
+	bmouse 0? ( 2drop ; ) drop
+	id 'hot !
+	exec
 	;
 
 |-- dnmove
 ::guiDnMove | 'dn 'move --
 	1 'id +!
 	xymouse whin 0? ( 3drop ; ) drop
+	bmouse 0? ( 3drop ; ) drop
 	id dup 'hot !
-	active =? (
-		evDn =? ( 2drop exec ; )
-		drop nip exec ; )
-	3drop ;
+	hotnow <>? ( 2drop exec ; )
+	drop nip exec ;
 
 |-- mapa
 ::guiMap | 'dn 'move 'up --
 	1 'id +!
 	xymouse whin 0? ( 4drop ; ) drop
+	bmouse 0? ( id hotnow =? ( 2drop nip nip exec ; ) 4drop drop ; ) drop
 	id dup 'hot !
-	evUp =? ( drop nip nip exec ; )
-	active =? (
-		evDn =? ( 3drop exec ; )
-		2drop nip exec ; )
-	4drop ;
+	hotnow <>? ( 3drop exec ; )
+	2drop nip exec ;
 
 ::guiEmpty | --		; si toca esta zona no hay interaccion
 	1 'id +!
