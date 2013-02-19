@@ -364,15 +364,15 @@ gr_spline(x22,y22,x21,y21,x3,y3);
 
 void gr_spline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4)
 {
+if (abs(x1+x3-x2-x2)+abs(y1+y3-y2-y2)+abs(x2+x4-x3-x3)+abs(y2+y4-y3-y3)<=4)
+    { gr_line(x1,y1,x4,y4);return; }
 int gx=(x2+x3)/2,gy=(y2+y3)/2;
 int b2x=(x3+x4)/2,b2y=(y3+y4)/2;
 int a1x=(x1+x2)/2,a1y=(y1+y2)/2;
 int b1x=(gx+b2x)/2,b1y=(gy+b2y)/2;
 int a2x=(gx+a1x)/2,a2y=(gy+a1y)/2;
 int mx=(b1x+a2x)/2,my=(b1y+a2y)/2;
-if (abs(x2-a2x)+abs(y2-a2y)<3) gr_line(x1,y1,mx,my);
-   else gr_spline3(x1,y1,a1x,a1y,a2x,a2y,mx,my); 
-if (abs(x3-b1x)+abs(y3-b1y)<3) { gr_line(x4,y4,mx,my);return; }
+gr_spline3(x1,y1,a1x,a1y,a2x,a2y,mx,my); 
 gr_spline3(mx,my,b1x,b1y,b2x,b2y,x4,y4);   
 }
 
@@ -390,16 +390,16 @@ gr_pspline(x22,y22,x21,y21,x3,y3);
 
 void gr_pspline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4)
 {
+if (abs(x1+x3-x2-x2)+abs(y1+y3-y2-y2)+abs(x2+x4-x3-x3)+abs(y2+y4-y3-y3)<=4)
+    { gr_psegmento(x1,y1,x4,y4);return; }
 int gx=(x2+x3)/2,gy=(y2+y3)/2;
 int b2x=(x3+x4)/2,b2y=(y3+y4)/2;
 int a1x=(x1+x2)/2,a1y=(y1+y2)/2;
 int b1x=(gx+b2x)/2,b1y=(gy+b2y)/2;
 int a2x=(gx+a1x)/2,a2y=(gy+a1y)/2;
 int mx=(b1x+a2x)/2,my=(b1y+a2y)/2;
-if (abs(x2-a2x)+abs(y2-a2y)<3) gr_psegmento(x1,y1,mx,my);
-   else gr_pspline3(x1,y1,a1x,a1y,a2x,a2y,mx,my); 
-if (abs(x3-b1x)+abs(y3-b1y)<3) { gr_psegmento(x4,y4,mx,my);return; }
-gr_pspline3(mx,my,b1x,b1y,b2x,b2y,x4,y4);   
+gr_pspline3(x1,y1,a1x,a1y,a2x,a2y,mx,my); 
+gr_pspline3(mx,my,b1x,b1y,b2x,b2y,x4,y4);
 }
 
 
