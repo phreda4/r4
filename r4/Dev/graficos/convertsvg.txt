@@ -1,0 +1,296 @@
+^r4/lib/gui.txt
+^r4/lib/parse.txt
+^r4/lib/trace.txt
+
+|--------- format fuente
+
+#yp #xp
+:a0 drop ; | el valor no puede ser 0
+:a1 xp $80000000 <>? ( yp pline )( drop )
+	gc>xy 2dup 'yp !+ ! op ;  | punto
+:a2 gc>xy pline ; | linea
+:a3 swap >r gc>xy r@+ gc>xy pcurve r> ;  | curva
+:a4 swap >r gc>xy r@+ gc>xy r@+ gc>xy pcurve3 r> ; | curva3
+:a5 drop xp yp pline $80000000 'xp ! ;
+
+#gfont a0 a1 a2 a3 a4 a5 0 0 0 0 0 0 0 0 0 0
+
+:drawrf | 'rf --
+	0? ( drop ; )
+	$80000000 'xp !
+	( @+ 1? )( dup $f and 2 << 'gfont + @ exec ) drop
+	a5 poli ;
+
+|:drawrf | 'rf
+
+:dumprf | 'rf
+	$80000000 'xp !
+	( @+ 1? )( "%h " allowcr print ) 2drop
+	cr
+	;
+
+
+#testff $1 $401102 $84410202 $0
+|---------------------------------------------------
+#xml
+#$xml
+#decode
+#findex )( 2024
+#findex> 'findex
+
+:,dec | nro --
+	decode !+ 'decode ! ;
+:+ind
+	decode findex> !+ 'findex> ! ;
+:]ind
+	2 << 'findex + @ ;
+
+|------------------ PARSE
+:=p | s1 s2 -- 1/0
+	( c@+ 1? )( rot c@+ rot - 1? ( 3drop 0 ; ) drop swap ) 3drop 1 ;
+
+:find | adr "texto" -- adr'
+	( 2dup =p 0? )( drop swap 1+ $xml >? ( 2drop 0 ; ) swap ) 2drop ;
+
+|------------------ NRO
+:signo | str -- str signo
+	dup c@
+	$2c =? ( drop 1+ dup c@ )
+	$2b =? ( drop 1+ 0 ; )	| + $2b
+	$2d =? ( drop 1+ 1 ; )	| - $2d
+	drop 0 ;
+
+#f | fraccion
+
+:getfrac | nro adr' char -- nro adr' char
+	drop
+	0 swap | nro 0 adr'
+	( c@+ $2f >? )(
+			$39 >? ( rot 'f ! ; )
+			$30 - rot 10* + swap )
+	rot 'f ! ;
+
+::getnro | adr -- adr' nro
+	trim
+	signo
+	over c@ 33 <? ( 2drop 1- 0 ; ) | caso + y - solos
+	swap  1? ( [ neg ; ] >r ) drop
+	drop
+	0 swap ( c@+ $2f >? )(	| 0 adr car
+		$39 >? ( drop 1- swap ; )			| 0..9
+		$30 - rot 10* + swap )
+	$2e =? ( getfrac )
+	drop 1- swap ;
+
+|----------------------SVG path-----------------------
+#sx $100 #sy $100
+#x1 #y1
+#x2 #y2
+#x3 #y3
+
+:moveto | adr -- adr' ; XY
+	getnro 'x1 !
+	getnro 'y1 !
+	x1 y1 xy>gc 1 or ,dec ;
+:movetor | adr -- adr' ; xy
+	getnro 'x1 +!
+	getnro 'y1 +!
+	x1 y1 xy>gc 1 or ,dec ;
+:lineto | adr -- adr' ; XY
+	getnro 'x1 !
+	getnro 'y1 !
+	x1 y1 xy>gc 2 or ,dec ;
+:linetor | adr -- adr' ; xy
+	getnro 'x1 +!
+	getnro 'y1 +!
+	x1 y1 xy>gc 2 or ,dec ;
+:hori | adr -- adr' ; X
+	getnro 'x1 !
+	x1 y1 xy>gc 2 or ,dec ;
+:horir | adr -- adr' ; X
+	getnro 'x1 +!
+	x1 y1 xy>gc 2 or ,dec ;
+:vert | adr -- adr' ; Y
+	getnro 'y1 !
+	x1 y1 xy>gc 2 or ,dec ;
+:vertr | adr -- adr' ; Y
+	getnro 'y1 +!
+	x1 y1 xy>gc 2 or ,dec ;
+:ccurve | adr -- adr' ; XYXYXY
+	getnro 'x3 !
+	getnro 'y3 !
+	getnro 'x2 !
+	getnro 'y2 !
+	getnro 'x1 !
+	getnro 'y1 !
+	x1 y1 xy>gc 4 or ,dec
+	x2 y2 xy>gc 4 or ,dec
+	x3 y3 xy>gc 4 or ,dec
+	;
+:ccurver | adr -- adr' ; XYXYXY
+	getnro x1 + 'x3 !
+	getnro y1 + 'y3 !
+	getnro x1 + 'x2 !
+	getnro y1 + 'y2 !
+	getnro x1 + 'x1 !
+	getnro y1 + 'y1 !
+	x1 y1 xy>gc 4 or ,dec
+	x2 y2 xy>gc 4 or ,dec
+	x3 y3 xy>gc 4 or ,dec
+	;
+
+:surve | adr -- adr' ; XYXY
+	x1 2* x2 - 'x3 !
+	y1 2* y2 - 'y3 !
+	getnro 'x2 !
+	getnro 'y2 !
+	getnro 'x1 !
+	getnro 'y1 !
+	x1 y1 xy>gc 4 or ,dec
+	x2 y2 xy>gc 4 or ,dec
+	x3 y3 xy>gc 4 or ,dec
+	;
+:surver | adr -- adr' ; XYXY
+	x1 2* x2 - 'x3 !
+	y1 2* y2 - 'y3 !
+	getnro x1 + 'x2 !
+	getnro y1 + 'y2 !
+	getnro x1 + 'x1 !
+	getnro y1 + 'y1 !
+	x1 y1 xy>gc 4 or ,dec
+	x2 y2 xy>gc 4 or ,dec
+	x3 y3 xy>gc 4 or ,dec
+	;
+
+:qurve | adr -- adr' ; XYXY
+	getnro 'x2 !
+	getnro 'y2 !
+	getnro 'x1 !
+	getnro 'y1 !
+	x1 y1 xy>gc 3 or ,dec
+	x2 y2 xy>gc 3 or ,dec
+	;
+:qurver | adr -- adr' ; XYXY
+	getnro x1 + 'x2 !
+	getnro y1 + 'y2 !
+	getnro x1 + 'x1 !
+	getnro y1 + 'y1 !
+	x1 y1 xy>gc 3 or ,dec
+	x2 y2 xy>gc 3 or ,dec
+	;
+
+:turve | adr -- adr' ; XY
+	x1 2* x2 - 'x2 !
+	y1 2* y2 - 'y2 !
+	getnro 'x1 !
+	getnro 'y1 !
+	x1 y1 xy>gc 3 or ,dec
+	x2 y2 xy>gc 3 or ,dec
+	;
+:turver | adr -- adr' ; XY
+	x1 2* x2 - 'x2 !
+	y1 2* y2 - 'y2 !
+	getnro x1 + 'x1 !
+	getnro y1 + 'y1 !
+	x1 y1 xy>gc 3 or ,dec
+	x2 y2 xy>gc 3 or ,dec
+	;
+
+:ellip | adr -- adr' ; XY
+:ellipr
+	getnro 'x1 !
+	getnro 'y1 !
+	getnro 'x1 !
+	getnro 'y1 !
+	getnro 'x1 !
+	getnro 'y1 !
+
+	;
+:close | adr -- adr'
+|	dup c@ "**%k" print redraw
+|	trace
+	5 ,dec
+	;
+
+:resolve | adr char -- adr'
+	$4d =? ( drop moveto ; )	| M move
+	$6d =? ( drop movetor ; )	| m move rel
+	$4c =? ( drop lineto ; )	| L lineto
+	$6c =? ( drop linetor ; )	| l lineto rel
+	$48 =? ( drop hori ; )		| H
+	$68 =? ( drop horir ; )		|h
+	$56 =? ( drop vert ; )		|V
+	$76 =? ( drop vertr ; )		|v
+	$43 =? ( drop ccurve ; )		|C
+	$63 =? ( drop ccurver ; )	|c
+	$53 =? ( drop surve ; )		| S
+	$73 =? ( drop surver ; )	| s
+	$51 =? ( drop qurve ; ) 	| Q curve
+	$71 =? ( drop qurver ; )	| q curve rel
+	$54 =? ( drop turve ; )		| T
+	$74 =? ( drop turver ; )	| t
+	$41 =? ( drop ellip ; )		| A
+	$61 =? ( drop ellipr ; )	| a
+	$5a =? ( drop close ; )		| Z
+	$7a =? ( drop close ; )		| z
+	"**%k" print redraw
+	;
+
+:encode | adr -- adr'
+	( trim c@+ 0? ( drop 1- ; )
+		$22 <>? )( resolve ) drop ;
+
+:findglyp | adr -- adr'
+	0? ( ; )
+	"<glyph " find 0? ( ; )
+	dup "d=" find 0? ( nip ; )
+	swap "/>" find 0? ( nip ; )    | d= />
+	over <? ( nip ; ) | no tiene d=
+	drop |
+	3 +
+
+	+ind
+	encode
+	0 ,dec
+
+|	cr ( c@+ $22 <>? )( "%k" print ) drop
+|	trace
+	;
+
+#pagina
+:main
+	clrscr fonti
+	0 0 pos
+	3900 -3900 dim
+	xml ( 1? )( findglyp ) drop
+	33
+	show clrscr
+		2dup "%d %d" print
+		blanco
+		-0.9 0.8 fpos
+		100 cubo
+		pagina >r
+		8 ( 1? )( 1-
+			8 ( 1? )( 1-
+				r 1 r+ ]ind drawrf gc>>
+				) drop
+			gcdn
+			8 ( 1? )( 1- gc<< ) drop
+		) drop
+		rdrop
+		[ 8 'pagina +! ; ] <dn>
+		[ -8 'pagina +! ; ] <up>
+
+		'exit >esc<
+	;
+:me
+	mark
+	here dup 'xml !
+|	"r4/dev/graficos/fontawesome-webfont.svg"
+	"r4/dev/graficos/gooddog.svg"
+	load dup '$xml !
+	0 swap !+
+	'decode !
+	;
+
+: me main ;
