@@ -2,25 +2,25 @@
 ^r4/lib/parse.txt
 ^r4/lib/trace.txt
 
-|--------- format fuente
-| en 32 bits
+|--------- formato fuente
 #yp #xp
 :a0 drop ; | el valor no puede ser 0
 :a1 xp $80000000 <>? ( yp pline )( drop )
 	gc>xy 2dup 'yp !+ ! op ;  | punto
 :a2 gc>xy pline ; | linea
 :a3 swap >r gc>xy r@+ gc>xy pcurve r> ;  | curva
-:a4 swap >r gc>xy r@+ gc>xy r@+ gc>xy pcurve3 r> ; | curva3
-:a5 drop xp yp pline $80000000 'xp ! ;
+:a4 swap >r gc>xy r@+ gc>xy r@+ gc>xy  pcurve3 r> ; | curva3
+| 5 era z pero siempre se junta con un Move o es Fin
 
-#gfont a0 a1 a2 a3 a4 a5 0 0 0 0 0 0 0 0 0 0
+#gfont a0 a1 a2 a3 a4 0 0 0
 
 :drawrf | 'rf --
 	0? ( drop ; )
 	$80000000 'xp !
-	( @+ 1? )( dup $f and 2 << 'gfont + @ exec ) drop
-	a5 poli ;
-
+	( @+ 1? )( dup $7 and 2 << 'gfont + @ exec ) 2drop
+	xp yp pline
+	poli ;
+|---------------------------
 
 :dumprf | 'rf
 	$80000000 'xp !
@@ -88,6 +88,7 @@
 	rot 'f ! ;
 
 ::getnro | adr -- adr' nro
+	0 'f !
 	trim
 	signo
 	over c@ 33 <? ( 2drop 1- 0 ; ) | caso + y - solos
@@ -105,13 +106,19 @@
 #x2 #y2
 #x3 #y3
 
+:endmove
+	decode 4 - @
+	$f and 5 =? ( -4 'decode +! ) drop ;
+
 :moveto | adr -- adr' ; XY
 	getnro 'x1 !
 	getnro 'y1 !
+	endmove
 	x1 y1 xy>gc 1 or ,dec ;
 :movetor | adr -- adr' ; xy
 	getnro 'x1 +!
 	getnro 'y1 +!
+	endmove
 	x1 y1 xy>gc 1 or ,dec ;
 :lineto | adr -- adr' ; XY
 	getnro 'x1 !
@@ -321,23 +328,43 @@
 	bbox
 	( 1? )( findglyp ) drop ;
 
+| unicode="#"
+| unicode="&#x22;"
+
+:getuninro | str-- val
+
+	;
+
+#tableascii )( 1024
+
+:generatefont
+	mark
+	"| font generada" ,ln
+
+
+	"test.txt" savemem
+	empty
+	;
+
+
 #pagina
 :main
 	clrscr
 	xml convertfont
+	decode 'here !
 	33
 	show clrscr
 		dup "%d" print cr
 
 		descent ascent unitspe "U:%d A:%d D:%d" print cr
-		maxy miny maxx miny "mX:%d MX:%d mY:%d MY:%d " print 
+		maxy miny maxx miny "mX:%d MX:%d mY:%d MY:%d " print
 		ye xe "Ox:%d Oy:%d" print cr
 		decode inidec - "TAMAÑO: %d bytes " print
 		findex> 'findex - 2 >> "CANTIDAD: %d" print cr
 
-		pagina "Actual: %d " print cr
-		pagina ]unic c@
-		pagina ]info "info:%d unic:%k " print cr
+		pagina "Actual: %d " print
+		pagina ]info "info:%d " print
+		pagina ]unic getuninro "%h" print cr
 		blanco
 		0 0 fpos
 		400 cubo
@@ -358,8 +385,10 @@
 		[ 8 'pagina +! ; ] <dn>
 		[ -8 'pagina +! pagina -? ( 0 'pagina ! ) drop ; ] <up>
 
+		'generatefont <f1>
 		'exit >esc<
 	;
+
 :me
 	mark
 	here dup 'xml !
