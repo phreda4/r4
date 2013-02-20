@@ -5,6 +5,8 @@
 ^r4/lib/parse.txt
 ^r4/lib/trace.txt
 
+#namefont "robotoregular"
+
 |--------- formato fuente
 #yp #xp
 :a0 drop ; | el valor no puede ser 0
@@ -14,6 +16,17 @@
 :a3 swap >r gc>xy r@+ gc>xy pcurve r> ;  | curva
 :a4 swap >r gc>xy r@+ gc>xy r@+ gc>xy  pcurve3 r> ; | curva3
 | 5 era z pero siempre se junta con un Move o es Fin
+
+|-- posible extensiones (necesito guardar ultimo punto
+|-- Dxy (8bits) sumado al punto anterior
+| a5 Dxy pline Dxy plie | XYXY
+| a6 DX pline DY pline
+| a7 DY pline DX pline
+| a8 Dxy Dxy pcurve
+| a9 GXY Dxy Dxy pcurve3
+| aa REFLEX GXY pcurve ; REFLEX necesita 2 puntos anteriores!!
+| ab REFLEX GXY GXY pcurve3
+| ac REFLEX DXY DXY pcurve3
 
 #gfont a0 a1 a2 a3 a4 0 0 0
 
@@ -111,6 +124,38 @@
 	decode 4 - @
 	$f and 5 =? ( -4 'decode +! ) drop ;
 
+|---  remove colinel lines ---
+:colineal | q1 q2 q3 -- 0/1
+	pick2 pick2 * 2 << >r | 4q1q2
+	- + dup * r> - ;
+
+:Qab | a b -- q
+	over 4 >> $3fff and
+	over 4 >> $3fff and - dup * >r
+	swap 18 >> $3fff and
+	swap 18 >> $3fff and - dup * r> + ;
+
+#optlin 0 | cnt
+
+| a-b q1 | b-c q2 | a-c q3
+:checkline | --
+	>r r@+ r@+ r> @ 	| a b c
+	pick2 over Qab >r	| a b c r:q3
+	over swap Qab >r	| a b 	r:q2 q3
+	Qab r> r>
+	colineal 1? ( drop ; ) drop
+	-8 'decode +!
+	x1 y1 xy>gc 2 or ,dec
+	1 'optlin +! | for counting
+	;
+|---  remove colinel lines ---
+
+:,linea |
+	x1 y1 xy>gc 2 or ,dec
+	decode 8 - @ $f and 2 <>? ( drop ; ) drop
+	decode 12 - checkline
+	;
+
 :moveto | adr -- adr' ; XY
 	getnro 'x1 !
 	getnro 'y1 !
@@ -122,25 +167,31 @@
 	endmove
 	x1 y1 xy>gc 1 or ,dec ;
 :lineto | adr -- adr' ; XY
+	x1 y1 'y2 ! 'x2 !
 	getnro 'x1 !
 	getnro 'y1 !
-	x1 y1 xy>gc 2 or ,dec ;
+	,linea ;
 :linetor | adr -- adr' ; xy
+	x1 y1 'y2 ! 'x2 !
 	getnro 'x1 +!
 	getnro 'y1 +!
-	x1 y1 xy>gc 2 or ,dec ;
+	,linea ;
 :hori | adr -- adr' ; X
+	x1 y1 'y2 ! 'x2 !
 	getnro 'x1 !
-	x1 y1 xy>gc 2 or ,dec ;
+	,linea ;
 :horir | adr -- adr' ; X
+	x1 y1 'y2 ! 'x2 !
 	getnro 'x1 +!
-	x1 y1 xy>gc 2 or ,dec ;
+	,linea ;
 :vert | adr -- adr' ; Y
+	x1 y1 'y2 ! 'x2 !
 	getnro 'y1 !
-	x1 y1 xy>gc 2 or ,dec ;
+	,linea ;
 :vertr | adr -- adr' ; Y
+	x1 y1 'y2 ! 'x2 !
 	getnro 'y1 +!
-	x1 y1 xy>gc 2 or ,dec ;
+	,linea ;
 :ccurve | adr -- adr' ; XYXYXY
 	getnro 'x3 !
 	getnro 'y3 !
@@ -271,9 +322,12 @@
 
 :widthgc | width -- v
 	w 14 <</ ;
+:heightgc | height -- v
+	neg h 14 <</ ;
 
+#hasta
 :propchar | adr -- adr'
-	dup "horiz-adv-x=" find 1? ( 13 + getnro widthgc 'advx ! )
+	dup "horiz-adv-x=" find 1? ( hasta <? ( 13 + getnro widthgc 'advx ! ) )
 	drop
 	dup "unicode=" find 1? ( 9 + dup 'unic ! )
 	drop
@@ -286,15 +340,11 @@
 	0? ( ; )
 	anchostd 'advx !
 	"<glyph " find 0? ( ; )
+	dup "/>" find 'hasta !    | d= />
 	propchar
-	dup "d=" find 0? ( nip +ind 0 ,dec ; )
-	swap "/>" find 0? ( nip ; )    | d= />
-	over <? ( nip +ind 0 ,dec ; ) | no tiene d=
-	drop |
-	3 +
-	+ind
-	encode
-	endchar ;
+	"d=" find 0? ( +ind 0 ,dec ; )
+	hasta >? ( +ind 0 ,dec hasta nip ; )
+	+ind 3 + encode endchar ;
 
 #minx
 #miny
@@ -319,9 +369,10 @@
 
 
 :convertfont | adr --
-    "<font-face" find
+    "<font" find
 	dup "horiz-adv-x=" find 1? ( 13 + getnro 'anchostd ! )
 	drop
+    "<font-face" find
 	"units-per-em=" find
 	14 + getnro 'unitspe !
 	"ascent=" find
@@ -333,7 +384,10 @@
 	unitspe dup neg dim
 	bbox
 	anchostd widthgc 'anchostd !
+	ascent heightgc 'ascent !
+	descent heightgc 'descent !
 	( 1? )( findglyp ) drop ;
+
 
 |-----------------generate
 :dighex | c --  dig / -1
@@ -423,9 +477,13 @@
 	dup ]ind @ 0? ( 2drop ; ) drop
 	over "#c%h " ,print
 	]ind
-	( @+ 1? )( "$%h " ,print )
+	0 swap
+	( @+ 1? )(
+		"$%h " ,print
+		swap 1+ 8 >? ( ,cr 0 nip ) swap
+		)
 	,d ,cr
-	drop ;
+	2drop ;
 
 :printsize | nro -- nro
 	dup 2 << 'tableascii + @
@@ -435,26 +493,32 @@
 :printref | nro -- nro r
 	dup 2 << 'tableascii + @
 	0? ( ; )
-	dup ]ind @ 0? ( nip ; ) drop
+	dup ]ind @ 0? ( nip ; ) 
+	2drop dup
 	;
 :generatefont
 	gentable
 	mark
 	"| font generada" ,ln
-	"#c0 0" ,ln
+|	"#c0 0" ,ln ; | utiliza la tabla de tamaños char0 siempre tiene 0 de ancho
 	1 ( $100 <? )(
 		printchar
 		1+ ) drop
-	"#sizes" ,s
-	0 ( $100 <? )(
+	"#c0" ,s
+	0 0 ( $100 <? )(
 		,sp printsize
-		1+ ) drop ,cr
+		swap 1+ 16 >? ( ,cr 0 nip ) swap
+		1+ ) 2drop ,cr
 	"#table" ,s
-	0 ( $100 <? )(
+	0 0 ( $100 <? )(
 		,sp "c" ,s
 		printref ,h
-		1+ ) drop ,cr
-	"test.txt" savemem
+		swap 1+ 16 >? ( ,cr 0 nip ) swap
+		1+ ) 2drop ,cr
+	"::font " ,s
+	xe ,d ,sp ye ,d
+	" 'c0 'table ; " ,ln
+	'namefont "inc/rft/%s.rft" mprint savemem
 	empty
 	;
 
@@ -470,12 +534,13 @@
 		,sp
 		dup ]ind ( @+ 1? )( "$%h " ,print ) ,d ,cr drop
 		1+ ) 2drop
-	"test.txt" savemem
+	'namefont "inc/ric/%s.ric" mprint savemem
 	empty
-
 	;
+
 |--------------------- MAIN
 #pagina
+#sizec 400
 :main
 	clrscr
 	xml convertfont
@@ -489,13 +554,13 @@
 		ye xe "Ox:%d Oy:%d" print cr
 		decode inidec - "TAMAÑO: %d bytes " print
 		findex> 'findex - 2 >> "CANTIDAD: %d" print cr
-
+		optlin "remove lines:%d " print cr
 		pagina "Actual: %d " print
 		pagina ]info "info:%d " print
 		pagina ]unic getuninro "unicode:%h" print cr
 		blanco
 		0 0 fpos
-		400 cubo
+		sizec cubo
 		gc.box
 		pagina ]ind drawrf
 
@@ -507,11 +572,18 @@
 		verde
 		4 cruz
 
+		azul
+		xc w 2/ - ascent h 14 *>> yc +
+		2dup op swap w + swap line
+
+		xc w 2/ - descent h 14 *>> yc +
+		2dup op swap w + swap line
+
 		[ 1 'pagina +! ; ] <ri>
 		[ -1 'pagina +! ; ] <le>
 
-		[ 8 'pagina +! ; ] <dn>
-		[ -8 'pagina +! pagina -? ( 0 'pagina ! ) drop ; ] <up>
+		[ 8 'sizec +! ; ] <dn>
+		[ -8 'sizec +! ; ] <up>
 
 		'generatefont <f1>
 		'generateicons <f2>
@@ -521,9 +593,7 @@
 :me
 	mark
 	here dup 'xml !
-	"media/svg/fontawesomewebfont.svg"
-|	"media/svg/gooddog.svg"
-|	"media/svg/robotobold.svg"
+	'namefont "media/svg/%s.svg" mprint
 	load dup '$xml !
 	0 swap !+
 	dup 'inidec !
