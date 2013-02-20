@@ -1,3 +1,6 @@
+| Convierte SVG font a formato RFONT(propio)
+| PHREDA 2013
+|---------------------------------------------
 ^r4/lib/gui.txt
 ^r4/lib/parse.txt
 ^r4/lib/trace.txt
@@ -20,15 +23,14 @@
 	( @+ 1? )( dup $7 and 2 << 'gfont + @ exec ) 2drop
 	xp yp pline
 	poli ;
-|---------------------------
 
+|---------------------------
 :dumprf | 'rf
 	$80000000 'xp !
 	( @+ 1? )( "%h " allowcr print ) 2drop
-	cr
-	;
+	cr ;
 
-|---------------------------------------------------
+|---------------------------
 #xml
 #$xml
 #inidec
@@ -36,9 +38,11 @@
 
 #advx
 #unic
+#unin
 
 #finfo )( $ffff
 #funic )( $ffff
+#funin )( $ffff
 #findex )( $ffff
 #findex> 'findex
 
@@ -51,16 +55,13 @@
 :+ind
 	advx findex> 'findex - 'finfo + !
 	unic findex> 'findex - 'funic + !
+	unin findex> 'findex - 'funin + !
 	decode findex> !+ 'findex> ! ;
 
-:]ind
-	2 << 'findex + @ ;
-
-:]unic
-	2 << 'funic + @ ;
-
-:]info
-	2 << 'finfo + @ ;
+:]ind	2 << 'findex + @ ;
+:]unic  2 << 'funic + @ ;
+:]unin  2 << 'funin + @ ;
+:]info  2 << 'finfo + @ ;
 
 |------------------ PARSE
 :=p | s1 s2 -- 1/0
@@ -256,11 +257,10 @@
 	$61 =? ( drop ellipr ; )	| a
 	$5a =? ( drop close ; )		| Z
 	$7a =? ( drop close ; )		| z
-	"**%k" print redraw
+	drop | trace
 	;
 
 :encode | adr -- adr'
-	redraw
 	( trim c@+ 0? ( drop 1- ; )
 		$22 <>? )( resolve ) drop  ;
 
@@ -276,17 +276,20 @@
 	dup "horiz-adv-x=" find 1? ( 13 + getnro widthgc 'advx ! )
 	drop
 	dup "unicode=" find 1? ( 9 + dup 'unic ! )
+	drop
+	dup "glyph-name=" find 1? ( 12 + dup 'unin ! )
 	drop ;
 
+#anchostd
 
 :findglyp | adr -- adr'
 	0? ( ; )
-
+	anchostd 'advx !
 	"<glyph " find 0? ( ; )
 	propchar
-	dup "d=" find 0? ( nip ; )
+	dup "d=" find 0? ( nip +ind 0 ,dec ; )
 	swap "/>" find 0? ( nip ; )    | d= />
-	over <? ( nip ; ) | no tiene d=
+	over <? ( nip +ind 0 ,dec ; ) | no tiene d=
 	drop |
 	3 +
 	+ind
@@ -314,8 +317,11 @@
 	pos
 	;
 
+
 :convertfont | adr --
     "<font-face" find
+	dup "horiz-adv-x=" find 1? ( 13 + getnro 'anchostd ! )
+	drop
 	"units-per-em=" find
 	14 + getnro 'unitspe !
 	"ascent=" find
@@ -326,27 +332,149 @@
 |	unitspe 2/ ascent descent + 2/ pos
 	unitspe dup neg dim
 	bbox
+	anchostd widthgc 'anchostd !
 	( 1? )( findglyp ) drop ;
 
-| unicode="#"
-| unicode="&#x22;"
+|-----------------generate
+:dighex | c --  dig / -1
+	$3A <? ( $30 - ; )			| 0..9
+	$60 >? ( $57 - $f >? ( drop -1 ) ; )			| a
+	$40 >? ( $37 - $f >? ( drop -1 ) ; )			| A
+	drop -1 ;
 
-:getuninro | str-- val
+:gethex | adr -- nro
+	0 swap ( c@+ $2f >? )(
+		dighex -? ( 2drop ; )
+		rot 4 << + swap )
+	2drop ;
 
+:getuninro | str -- val
+	dup 1+ c@
+	$22 =? ( drop c@ ; ) | unicode="#"
+	drop
+	dup c@
+	$26 =? ( drop 3 + gethex ; ) | unicode="&#x22;"
+	2drop
+	-2
 	;
 
 #tableascii )( 1024
 
+|----- convierte unicode a ASCII
+#tableconv
+128	$20ac |= € = euro
+129	-1
+130	$201a |= ‚ = sbquo
+131	$192 |= ƒ = fnof
+132	$201e |= „ = bdquo
+133	$2026 |= … = hellip
+134	$2020 |= † = dagger
+135	$2021 |= ‡ = Dagger
+136	$2c6 |= ˆ = circ
+137	$2030 |= ‰ = permil
+138	$160 |= Š = Scaron
+139	$2039 |= ‹ = lsaquo
+140	$152 |= Œ = OElig
+141 -1
+142	$17d  |= Ž
+143 -1
+144 -1
+145	$2018 |= ‘ = lsquo
+146	$2019 |= ’ = rsquo
+147	$201c |= “ = ldquo
+148	$201d |= ” = rdquo
+149	$2022 |= • = bull
+150	$2013 |= – = ndash
+151	$2014 |= — = mdash
+152	$2dc |= ˜ = tilde
+153	$2122 |= ™ = trade
+154	$161 |= š = scaron
+155	$203a |= › = rsaquo
+156	$153 |= œ = oelig
+157 -1
+158	$17e |= ž
+159	$178 |= Ÿ = &Yuml
+0 0
+
+:savechar | nrochar unicode -- nrochar unicode
+	-? ( ; )
+	20 >? ( $ff <=? ( over over 2 << 'tableascii + ! ; ) )
+	'tableconv >r
+	( r@+ r@+ 1? )(
+		pick2 =? ( drop pick2 swap 2 << 'tableascii + ! rdrop ; )
+		2drop
+		) 2drop rdrop
+	;
+
+:gentable
+	'tableascii >r
+	256 ( 1? )( 1-
+		0 r!+
+		) drop rdrop
+	| recorre los dinujos
+	findex> 'findex - 2 >>
+	0 ( over <? )(
+		dup ]unic getuninro savechar drop
+		1+ ) 2drop ;
+
+:printchar | nro -- nro
+	dup 2 << 'tableascii + @
+	0? ( drop ; )
+	dup ]ind @ 0? ( 2drop ; ) drop
+	over "#c%h " ,print
+	]ind
+	( @+ 1? )( "$%h " ,print )
+	,d ,cr
+	drop ;
+
+:printsize | nro -- nro
+	dup 2 << 'tableascii + @
+	0? ( ,d ; )
+	]info ,d ;
+
+:printref | nro -- nro r
+	dup 2 << 'tableascii + @
+	0? ( ; )
+	dup ]ind @ 0? ( nip ; ) drop
+	;
 :generatefont
+	gentable
 	mark
 	"| font generada" ,ln
-
-
+	"#c0 0" ,ln
+	1 ( $100 <? )(
+		printchar
+		1+ ) drop
+	"#sizes" ,s
+	0 ( $100 <? )(
+		,sp printsize
+		1+ ) drop ,cr
+	"#table" ,s
+	0 ( $100 <? )(
+		,sp "c" ,s
+		printref ,h
+		1+ ) drop ,cr
 	"test.txt" savemem
 	empty
 	;
 
 
+:generateicons
+	mark
+	"| iconos generados" ,ln
+	findex> 'findex - 2 >>
+	0 ( over <? )(
+		"#:i." ,s
+		dup ]unin
+		( c@+ $22 <>? )( $20 =? ( $21 nip ) ,c ) 2drop
+		,sp
+		dup ]ind ( @+ 1? )( "$%h " ,print ) ,d ,cr drop
+		1+ ) 2drop
+	"test.txt" savemem
+	empty
+
+	;
+|--------------------- MAIN
 #pagina
 :main
 	clrscr
@@ -364,7 +492,7 @@
 
 		pagina "Actual: %d " print
 		pagina ]info "info:%d " print
-		pagina ]unic getuninro "%h" print cr
+		pagina ]unic getuninro "unicode:%h" print cr
 		blanco
 		0 0 fpos
 		400 cubo
@@ -386,19 +514,21 @@
 		[ -8 'pagina +! pagina -? ( 0 'pagina ! ) drop ; ] <up>
 
 		'generatefont <f1>
+		'generateicons <f2>
 		'exit >esc<
 	;
 
 :me
 	mark
 	here dup 'xml !
-|	"media/svg/fontawesomewebfont.svg"
+	"media/svg/fontawesomewebfont.svg"
 |	"media/svg/gooddog.svg"
-	"media/svg/robotobold.svg"
+|	"media/svg/robotobold.svg"
 	load dup '$xml !
 	0 swap !+
 	dup 'inidec !
-	'decode !
+	dup 'decode !
+	'here !
 	;
 
 : me main ;
