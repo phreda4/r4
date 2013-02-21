@@ -61,9 +61,24 @@ inline void fillcent(int mx,int my)     { MTX=mx;MTY=my; }
 inline void fillmat(int a,int b)        { MA=a;MB=b; }
 inline void fillcol(DWORD c1,DWORD c2)  { col1=c1;col2=c2; }
 //---- poligono
+
 void gr_psegmento(int x1,int y1,int x2,int y2);
 void gr_pspline(int x1,int y1,int x2,int y2,int x3,int y3);
 void gr_pspline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4);
+
+//////////////////////////////////////////////////////////////
+#define BPP        4 // cambiar a 3 o a 2 para mas velocidad
+#define VALUES     (1 << BPP)
+#define MASK       (VALUES-1)
+#define FTOI(v)    (((int)(v) << BPP) | (int) ((v) * (1 << BPP)))
+
+inline void gr_pline(int x1,int y1,int x2,int y2)
+{ gr_psegmento(FTOI(x1),FTOI(y1),FTOI(x2),FTOI(y2)); }
+inline void gr_pcurve(int x1,int y1,int x2,int y2,int x3,int y3)
+{ gr_pspline(FTOI(x1),FTOI(y1),FTOI(x2),FTOI(y2),FTOI(x3),FTOI(y3)); }
+inline void gr_pcurve3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4)
+{ gr_pspline3(FTOI(x1),FTOI(y1),FTOI(x2),FTOI(y2),FTOI(x3),FTOI(y3),FTOI(x4),FTOI(y4)); }
+
 void gr_drawPoli(void);	
 
 void gr_toxfb(void);
