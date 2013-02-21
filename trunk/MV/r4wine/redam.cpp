@@ -1429,6 +1429,7 @@ InitJoystick(hWnd);
     if (sound_open(hWnd)!=0) return -4;
 #endif
 
+//testrunlen();exit(0);
 //--------------------------------------------------------------------------
 recompila:
 

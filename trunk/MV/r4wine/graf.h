@@ -30,6 +30,7 @@ extern DWORD gr_color1,gr_color2,col1,col2;
 extern BYTE gr_alphav;
 extern int MA,MB,MTX,MTY; // matrix de transformacion
 extern int *mTex; // textura
+
 #ifdef NOMUL
 extern int (*setxyf)(int a,int b);
 #endif
@@ -60,14 +61,35 @@ void fillTex(void);
 inline void fillcent(int mx,int my)     { MTX=mx;MTY=my; }
 inline void fillmat(int a,int b)        { MA=a;MB=b; }
 inline void fillcol(DWORD c1,DWORD c2)  { col1=c1;col2=c2; }
-//---- poligono
 
+//---- poligono
 void gr_psegmento(int x1,int y1,int x2,int y2);
 void gr_pspline(int x1,int y1,int x2,int y2,int x3,int y3);
 void gr_pspline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4);
 
+#define LOWQ
+//#define MEDQ
+//#define HIQ
+
 //////////////////////////////////////////////////////////////
-#define BPP        4 // cambiar a 3 o a 2 para mas velocidad
+#ifdef HIQ
+      #define BPP        4 
+      #define TOLERANCE  16
+      #define QFULL      256
+      #define QALPHA(a)  (a)
+#elif defined(MEDQ)
+      #define BPP        3 
+      #define TOLERANCE  8
+      #define QFULL      64
+      #define QALPHA(a)  ((a)&0x3|(a)<<2)
+#else 
+      #define LOWQ
+      #define BPP        2 
+      #define TOLERANCE  4
+      #define QFULL      16      
+      #define QALPHA(a)  ((a)<<4|(a))      
+#endif
+
 #define VALUES     (1 << BPP)
 #define MASK       (VALUES-1)
 #define FTOI(v)    (((int)(v) << BPP) | (int) ((v) * (1 << BPP)))
@@ -83,5 +105,7 @@ void gr_drawPoli(void);
 
 void gr_toxfb(void);
 void gr_xfbto(void);
+
+//void testrunlen(void);
 
 #endif
