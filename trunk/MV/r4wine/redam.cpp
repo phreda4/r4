@@ -579,15 +579,16 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case CURVE3: 
 		gr_spline3(gx1,gy1,*NOS,TOS,*(NOS-2),*(NOS-1),*(NOS-4),*(NOS-3));gx1=*(NOS-4);gy1=*(NOS-3);
 		NOS-=5;TOS=*NOS;NOS--;continue;
-	case PLINE: 
-		gr_psegmento(gx1,gy1,*NOS,TOS);gx1=*NOS;gy1=TOS;
+	case PLINE:
+		gr_pline(gx1,gy1,*NOS,TOS);gx1=*NOS;gy1=TOS;
         NOS--;TOS=*NOS;NOS--;continue;
-    case PCURVE: 
-		gr_pspline(gx1,gy1,*NOS,TOS,*(NOS-2),*(NOS-1));gx1=*(NOS-2);gy1=*(NOS-1);
+    case PCURVE:
+		gr_pcurve(gx1,gy1,*NOS,TOS,*(NOS-2),*(NOS-1));gx1=*(NOS-2);gy1=*(NOS-1);
 		NOS-=3;TOS=*NOS;NOS--;continue;
-    case PCURVE3: 
-		gr_pspline3(gx1,gy1,*NOS,TOS,*(NOS-2),*(NOS-1),*(NOS-4),*(NOS-3));gx1=*(NOS-4);gy1=*(NOS-3);
+    case PCURVE3:
+		gr_pcurve3(gx1,gy1,*NOS,TOS,*(NOS-2),*(NOS-1),*(NOS-4),*(NOS-3));gx1=*(NOS-4);gy1=*(NOS-3);
 		NOS-=5;TOS=*NOS;NOS--;continue;
+
 
 	case POLI: gr_drawPoli();continue;
     case FCOL: fillcol(*NOS,TOS);NOS--;TOS=*NOS;NOS--;continue;
