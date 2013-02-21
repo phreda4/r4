@@ -9,7 +9,6 @@
  * All rights reserved.
 */
 // rutinas graficas
-#include <stdlib.h>
 #include "graf.h"
 
 #ifdef OPENGL
@@ -33,7 +32,7 @@ int *mTex; // textura
 //---- variables para dibujo de poligonos
 typedef struct { int y,x,yfin,deltax; } Segm;
 
-Segm segmentos[1024];
+Segm segmentos[2048];
 Segm **pact;
 Segm *actual[256]; // segmentos actuales
 Segm **xquisc;
@@ -44,8 +43,16 @@ BYTE gr_alphav;
 
 static int gr_sizescreen;	// tamanio de pantalla
 
-int scanline[2048];
-int minX,maxX;
+int runlenscan[2048];
+
+#define GETPOS(a) (((a)>>20)&0xfff)
+#define GETLEN(a) (((a)>>9)&0x7ff)
+#define GETVAL(a) ((a)&0x1ff)
+#define GETPOSF(a) ((((a)>>20)&0xfff)+(((a)>>9)&0x7ff))
+
+#define SETPOS(a) ((a)<<20)
+#define SETLEN(a) ((a)<<9)
+#define SETVAL(a) (a)
 
 //////////////////////////////////////////////////////////////
 #define FBASE 8
@@ -108,8 +115,10 @@ switch(XRES) {
 //---- poligonos2
 cntSegm=0;
 yMax=-1;
-minX=gr_ancho;maxX=0;
+//minX=gr_ancho;maxX=0;
 fillSol();
+
+*runlenscan=SETLEN(gr_ancho-1);*(runlenscan+1)=0;
 
 //---- colores
 gr_color2=0;gr_color1=0xffffff;
@@ -227,17 +236,17 @@ void gr_solid(void) {gr_pixel=_gr_pixels;gr_pixela=_gr_pixela;gr_alphav=255;}
 void gr_alpha(void) {gr_pixel=_gr_pixelsa;gr_pixela=_gr_pixelaa;}
 
 //--------------- DIBUJO DE POLIGONO
-void drawscanlineSolido(DWORD *linea,int y);
-void drawscanlineLineal(DWORD *linea,int y);
-void drawscanlineRadial(DWORD *linea,int y);
-void drawscanlineTextura(DWORD *linea,int y);
+void runlenSolido(DWORD *linea,int y);
+void runlenLineal(DWORD *linea,int y);
+void runlenRadial(DWORD *linea,int y);
+void runlenTextura(DWORD *linea,int y);
 
-void (*drawscanline)(DWORD *linea,int y);
+void (*runlen)(DWORD *linea,int y);
 
-void fillSol(void) { drawscanline=drawscanlineSolido; }
-void fillLin(void) { drawscanline=drawscanlineLineal; }
-void fillRad(void) { drawscanline=drawscanlineRadial; }
-void fillTex(void) { drawscanline=drawscanlineTextura; }
+void fillSol(void) { runlen=runlenSolido; }
+void fillLin(void) { runlen=runlenLineal; }
+void fillRad(void) { runlen=runlenRadial; }
+void fillTex(void) { runlen=runlenTextura; }
 
 //------------------------------------
 #ifdef NOMUL
@@ -382,12 +391,12 @@ gr_spline3(mx,my,b1x,b1y,b2x,b2y,x4,y4);
 // poligono
 void gr_pspline(int x1,int y1,int x2,int y2,int x3,int y3)
 {
-//if(abs(x1+x3-x2-x2)+abs(y1+y3-y2-y2)<=4)
+//if(abs(x1+x3-x2-x2)+abs(y1+y3-y2-y2)<TOLERANCE)
 //    { gr_psegmento(x1,y1,x3,y3); return; }           
 int x11=(x1+x2)>>1,y11=(y1+y2)>>1;
 int x21=(x2+x3)>>1,y21=(y2+y3)>>1;
 int x22=(x11+x21)>>1,y22=(y11+y21)>>1;
-if (abs(x22-x2)+abs(y22-y2)<4)
+if (abs(x22-x2)+abs(y22-y2)<TOLERANCE)
     { gr_psegmento(x1,y1,x22,y22);gr_psegmento(x22,y22,x3,y3); return; }
 gr_pspline(x1,y1,x11,y11,x22,y22);
 gr_pspline(x22,y22,x21,y21,x3,y3);
@@ -395,7 +404,7 @@ gr_pspline(x22,y22,x21,y21,x3,y3);
 
 void gr_pspline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4)
 {
-if (abs(x1+x3-x2-x2)+abs(y1+y3-y2-y2)+abs(x2+x4-x3-x3)+abs(y2+y4-y3-y3)<=4)
+if (abs(x1+x3-x2-x2)+abs(y1+y3-y2-y2)+abs(x2+x4-x3-x3)+abs(y2+y4-y3-y3)<TOLERANCE)
     { gr_psegmento(x1,y1,x4,y4);return; }
 int gx=(x2+x3)/2,gy=(y2+y3)/2;
 int b2x=(x3+x4)/2,b2y=(y3+y4)/2;
@@ -420,7 +429,6 @@ x1=x1<<FBASE;
 x2=x2<<FBASE;
 t=(x2-x1)/(y2-y1);
 if (y1<0) { x1+=t*(-y1);y1=0; }
-//if (yMin>y1) yMin=y1; // el minimo es el primero
 if (yMax<y2) yMax=y2;
 Segm *ii=&segmentos[cntSegm-1];
 while (ii>=segmentos && ii->y>y1 ) { *(ii+1)=*(ii);ii--; }
@@ -448,8 +456,7 @@ inline int dist(int dx,int dy)
 register int min,max;
 dx=abs(dx);dy=abs(dy);
 if (dx<dy) { min=dx;max=dy; } else { min=dy;max=dx; }
-return ((max<<8)+(max<<3)-(max<<4)-(max<<1)+
-        (min<<7)-(min<<5)+(min<<3)-(min<<1));
+return ((max<<8)+(max<<3)-(max<<4)-(max<<1)+(min<<7)-(min<<5)+(min<<3)-(min<<1));
 }
 
 //---------------------------------------------------
@@ -466,90 +473,167 @@ Segm **cursor=(xquisc-1);
 while (cursor>=xquis && (*cursor)->x>xr) {
       *(cursor+1)=*cursor;cursor--;
       }
-//if (cursor>=xquis && (*cursor)->x+(*cursor)->deltax > ii->x+ii->deltax) {
-//    *(cursor+1)=*cursor;cursor--; }    
 *(cursor+1)=ii;
 xquisc++;
 }
 
-//------- recorre scanline
-// proxima optimizacio..runlen buffer
-void drawscanlineSolido(DWORD *linea,int y)
+//----------------------------------------------
+// hacer un buffer de covertura para optimizar el pintado
+
+void runlenSolido(DWORD *linea,int y)
 {
-register DWORD *gr_pos=linea+minX;
-if (maxX == gr_ancho) maxX --;
-register int *s=scanline+minX,c=maxX-minX+1;
-while (c-->0) {
-      if (*s>255) gr_pixel(gr_pos); else gr_pixela(gr_pos,*s);
-      gr_pos++;
-      *s++=0;
+register DWORD *gr_pos=linea;
+int i,v,*s=runlenscan;
+while ((v=*s++)!=0) {
+      i=GETLEN(v);v=GETVAL(v);
+      if (v==0) // saltea
+         { gr_pos+=i; }
+      else if (v==QFULL) // solido
+         { while(i-->0) { gr_pixel(gr_pos);gr_pos++; } }
+      else // transparente
+         { v=QALPHA(v);while(i-->0) { gr_pixela(gr_pos,v);gr_pos++; } }
       }
 }
 
-void drawscanlineLineal(DWORD *linea,int y)
+void runlenLineal(DWORD *linea,int y)
 {
-register DWORD *gr_pos=linea+minX;
-if (maxX == gr_ancho) maxX --;
-register int *s=scanline+minX,c=maxX-minX+1;
-int r=MA*(minX-MTX)-MB*(y-MTY);
-while (c-->0) {
-      mixcolor(col1,col2,r>>8);
-      if (*s>255) gr_pixel(gr_pos); else gr_pixela(gr_pos,*s);
-      gr_pos++;
-      *s++=0;
-       r+=MA;
+register DWORD *gr_pos=linea;
+int i,v,*s=runlenscan;
+int r=MA*(-MTX)-MB*(y-MTY);
+while ((v=*s++)!=0) {
+      i=GETLEN(v);v=GETVAL(v);
+      if (v==0) // saltea
+         { gr_pos+=i;r+=i*MA; }
+      else if (v==QFULL) // solido
+         { while(i-->0) { mixcolor(col1,col2,r>>8);gr_pixel(gr_pos);r+=MA;gr_pos++; } }
+      else // transparente
+         { v=QALPHA(v);while(i-->0) { mixcolor(col1,col2,r>>8);gr_pixela(gr_pos,v);r+=MA;gr_pos++; } }
       }
 }
 
-void drawscanlineRadial(DWORD *linea,int y)
+void runlenRadial(DWORD *linea,int y)
 {
-register DWORD *gr_pos=linea+minX;
-if (maxX == gr_ancho) maxX --;
-register int *s=scanline+minX,c=maxX-minX+1;
-int rx = MA*(minX-MTX)-MB*(y-MTY);
-int ry = MB*(minX-MTX)+MA*(y-MTY);
-while (c-->0) {
-      mixcolor(col1,col2,dist(rx,ry)>>16);
-      if (*s>255) gr_pixel(gr_pos); else gr_pixela(gr_pos,*s);
-      gr_pos++;
-      *s++=0;
-      rx+=MA;
-      ry+=MB;
+register DWORD *gr_pos=linea;
+int i,v,*s=runlenscan;
+int rx = MA*(-MTX)-MB*(y-MTY);
+int ry = MB*(-MTX)+MA*(y-MTY);
+while ((v=*s++)!=0) {
+      i=GETLEN(v);v=GETVAL(v);
+      if (v==0) // saltea
+         { gr_pos+=i;rx+=i*MA;ry+=i*MB; }
+      else if (v==QFULL) // solido
+         { while(i-->0) { mixcolor(col1,col2,dist(rx,ry)>>16);gr_pixel(gr_pos);rx+=MA;ry+=MB;gr_pos++; } }
+      else // transparente
+         { v=QALPHA(v);while(i-->0) { mixcolor(col1,col2,dist(rx,ry)>>16);gr_pixela(gr_pos,v);rx+=MA;ry+=MB;gr_pos++; } }
       }
 }
 
-void drawscanlineTextura(DWORD *linea,int y)
+void runlenTextura(DWORD *linea,int y)
 {
-register DWORD *gr_pos=linea+minX;
-if (maxX == gr_ancho) maxX --;
-register int *s=scanline+minX,c=maxX-minX+1;
-int rx = MA*(minX-MTX)-MB*(y-MTY);
-int ry = MB*(minX-MTX)+MA*(y-MTY);
-while (c-->0) {
-      texture(rx,ry);
-      if (*s>255) gr_pixel(gr_pos); else gr_pixela(gr_pos,*s);
-      gr_pos++;
-      *s++=0;
-      rx+=MA;
-      ry+=MB;
+register DWORD *gr_pos=linea;
+int i,v,*s=runlenscan;
+int rx = MA*(-MTX)-MB*(y-MTY);
+int ry = MB*(-MTX)+MA*(y-MTY);
+while ((v=*s++)!=0) {
+      i=GETLEN(v);v=GETVAL(v);
+      if (v==0) // saltea
+         { gr_pos+=i;rx+=i*MA;ry+=i*MB; }
+      else if (v==QFULL) // solido
+         { while(i-->0) { texture(rx,ry);gr_pixel(gr_pos);rx+=MA;ry+=MB;gr_pos++; } }
+      else // transparente
+         { v=QALPHA(v);while(i-->0) { texture(rx,ry);gr_pixela(gr_pos,v);rx+=MA;ry+=MB;gr_pos++; } }
       }
 }
 
-// Acumula covertura de pixeles
+void inserta(int *a) // inserta una copia de a
+{
+int i,j=*a++;
+while ((i=*a)!=0) { *a++=j;j=i; }
+*a++=j;*a=0;
+}
+
+void addrla(int *a,int pos,int len,int val)
+{
+if (*a==0) { *a=(pos<<20)|(len<<9)|val;*(a+1)=0;return; } // al final
+int v=*a;
+if (GETPOS(v)==pos) {               // empieza igual          *****
+   if (GETLEN(v)>len ) {            // ocupa menos            ***   OK
+     inserta(a);
+     *a=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
+     *(a+1)=SETPOS(pos+len)|SETLEN(GETLEN(v)-len)|GETVAL(v);
+   } else if (GETLEN(v)<len ) {     // ocupa mas              ******* OK
+     *a=(v&0xfffffe00)|val+(v&0x1ff);
+     addrla(a+1,((v>>9)&0x7ff)+pos,len-((v>>9)&0x7ff),val);
+   } else                           // ocupa igual            ***** OK
+     *a=(v&0xfffffe00)|GETVAL(v)+val;
+} else {                             // empieza adentro       *****
+   if (GETPOSF(v)>len+pos ) {        // ocupa menos             ** OK
+      inserta(a);inserta(a);
+      *a=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
+      *(a+1)=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
+      *(a+2)=SETPOS(pos+len)|SETLEN(GETPOSF(v)-(pos+len));
+   } else if (GETPOSF(v)<len+pos ) { // ocupa mas               *****ok
+      inserta(a);
+      *a=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
+      *(a+1)=SETPOS(pos)|SETLEN(GETPOSF(v)-pos)|GETVAL(v)+val;
+      addrla(a+2,GETPOSF(v),pos+len-GETPOSF(v),val);
+   } else {                         // ocupa igual             **** OK
+      inserta(a);
+      *a=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
+      *(a+1)=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
+   }
+  } 
+}
+
+void addrl(int pos,int len,int val)
+{
+int *a=runlenscan;
+while (*a!=0 && GETPOSF(*a)<=pos) a++; // puede ser binaria??
+addrla(a,pos,len,val);
+}
+
+void add1px(int pos,int val)
+{
+if (val==0) return;
+int v,*a=runlenscan;
+while (*a!=0 && GETPOS(*a)<=pos) a++; // puede ser binaria??
+a--;v=*a;
+if (GETLEN(v)==1) { 
+   *a=(v&0xfffffe00)|GETVAL(v)+val;
+   }
+else if (GETPOS(v)==pos) { 
+   inserta(a);
+   *a=SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;
+   *(a+1)=v+0x100000-0x200;
+   }
+else if (GETPOSF(v)-1==pos) {
+   inserta(a);
+   *a=v-0x200;
+   *(a+1)=SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;
+   }
+else {
+   inserta(a);inserta(a);     
+   *a=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
+   *(a+1)=SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;
+   *(a+2)=SETPOS(pos+1)|SETLEN(GETPOSF(v)-(pos+1))|GETVAL(v);
+   }
+}
+
 void coverpixels(int xa,int xb)
 {
 int x0 = xa>>BPP;
 int x1 = xb>>BPP;
 if (x0>gr_ancho||x1<0) return;
-if (x0>0) scanline[x0] += VALUES-(xa&MASK);  else x0=0;
-if (minX > x0) minX = x0;
-if (x1<gr_ancho) scanline[x1] += (x0==x1? (xb&MASK)-VALUES : xb&MASK); else x1=gr_ancho;
-if (maxX < x1) maxX = x1;
-for (x0++;x0<x1;scanline[x0++]+=VALUES);
+if (x0>=0) add1px(x0,VALUES-(xa&MASK));  
+else x0=-1;
+if (x1<gr_ancho) add1px(x1,(x0==x1? (xb&MASK)-VALUES : xb&MASK)); 
+else x1=gr_ancho;
+x1=x1-x0-1;
+if (x1<1) return; 
+if (x1==1) add1px(x0+1,VALUES); else addrl(x0+1,x1,VALUES);
 }
-//----------------------------------------------
-// hacer un buffer de covertura para optimizar el pintado
 
+//-----------------------------------------------------------------------
 void gr_drawPoli(void)
 {
 Segm **jj;
@@ -558,8 +642,10 @@ pact=actual;
 segmentos[cntSegm].y=-1;
 if (yMax>gr_alto<<BPP) { yMax=gr_alto<<BPP; }
 int i,yMin=scopia->y;
+
 DWORD *gr_pant=(DWORD*)gr_buffer+(yMin>>BPP)*gr_ypitch;
 for (;yMin<yMax;) {
+    
   for (i=MASK;i>=0;--i) {
     while (scopia->y==yMin) { *pact=scopia;pact++;scopia++; }
     xquisc=xquis;
@@ -567,8 +653,8 @@ for (;yMin<yMax;) {
     while (jj<pact) { addlin(*jj);jj++; }
     for (jj=xquis;jj+1<xquisc;jj+=2) {
         coverpixels(((*jj)->x)>>FBASE,((*(jj+1))->x)>>FBASE);
-//        coverpixels(((*jj)->x+(*jj)->deltax)>>FBASE,((*(jj+1))->x+(*(jj+1))->deltax)>>FBASE);
-          }
+//      coverpixels(((*jj)->x+(*jj)->deltax)>>FBASE,((*(jj+1))->x+(*(jj+1))->deltax)>>FBASE);
+        }
     jj=actual;
     yMin++;
     while (jj<pact) {
@@ -576,10 +662,12 @@ for (;yMin<yMax;) {
           else { *jj=*(pact-1);pact--; }
           }
     }              
-    
-  drawscanline(gr_pant,yMin>>BPP);
+
+  int *a=runlenscan;while (*a!=0) a++;a--;if (GETVAL(*a)==0) *a=0;
+  runlen(gr_pant,yMin>>BPP);  
+  *runlenscan=SETLEN(gr_ancho+1);
+  *(runlenscan+1)=0;
   
-  minX=gr_ancho;maxX=0;
   gr_pant+=gr_ypitch;  
   }
 yMax=-1;
