@@ -67,8 +67,8 @@ void gr_psegmento(int x1,int y1,int x2,int y2);
 void gr_pspline(int x1,int y1,int x2,int y2,int x3,int y3);
 void gr_pspline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4);
 
-#define LOWQ
-//#define MEDQ
+//#define LOWQ
+#define MEDQ
 //#define HIQ
 
 //////////////////////////////////////////////////////////////
@@ -106,6 +106,6 @@ void gr_drawPoli(void);
 void gr_toxfb(void);
 void gr_xfbto(void);
 
-//void testrunlen(void);
+void testrunlen(void);
 
 #endif

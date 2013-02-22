@@ -19,7 +19,7 @@ HDC     hDC;
 HGLRC   hRC;
 
 //---- buffer de video
-DWORD *gr_buffer; //[1280*1024] = { 0 };
+DWORD *gr_buffer;
 DWORD *XFB;
 
 //---- variables internas
@@ -44,6 +44,7 @@ BYTE gr_alphav;
 static int gr_sizescreen;	// tamanio de pantalla
 
 int runlenscan[2048];
+int *rl;
 
 #define GETPOS(a) (((a)>>20)&0xfff)
 #define GETLEN(a) (((a)>>9)&0x7ff)
@@ -433,7 +434,7 @@ if (yMax<y2) yMax=y2;
 Segm *ii=&segmentos[cntSegm-1];
 while (ii>=segmentos && ii->y>y1 ) { *(ii+1)=*(ii);ii--; }
 ii++;
-ii->x=x1+((1<<FBASE)>>1);
+ii->x=x1;//+t/2;//+((1<<FBASE)>>1);
 ii->y=y1;
 ii->yfin=y2;
 ii->deltax=t;
@@ -486,12 +487,11 @@ register DWORD *gr_pos=linea;
 int i,v,*s=runlenscan;
 while ((v=*s++)!=0) {
       i=GETLEN(v);v=GETVAL(v);
-      if (v==0) // saltea
-         { gr_pos+=i; }
-      else if (v==QFULL) // solido
+      if (v==QFULL) // solido
          { while(i-->0) { gr_pixel(gr_pos);gr_pos++; } }
-      else // transparente
+      else if (v!=0) // transparente
          { v=QALPHA(v);while(i-->0) { gr_pixela(gr_pos,v);gr_pos++; } }
+      else { gr_pos+=i; } // saltea
       }
 }
 
@@ -502,12 +502,11 @@ int i,v,*s=runlenscan;
 int r=MA*(-MTX)-MB*(y-MTY);
 while ((v=*s++)!=0) {
       i=GETLEN(v);v=GETVAL(v);
-      if (v==0) // saltea
-         { gr_pos+=i;r+=i*MA; }
-      else if (v==QFULL) // solido
+      if (v==QFULL) // solido
          { while(i-->0) { mixcolor(col1,col2,r>>8);gr_pixel(gr_pos);r+=MA;gr_pos++; } }
-      else // transparente
+      else if (v!=0)// transparente
          { v=QALPHA(v);while(i-->0) { mixcolor(col1,col2,r>>8);gr_pixela(gr_pos,v);r+=MA;gr_pos++; } }
+      else  { gr_pos+=i;r+=i*MA; } // saltea
       }
 }
 
@@ -519,12 +518,11 @@ int rx = MA*(-MTX)-MB*(y-MTY);
 int ry = MB*(-MTX)+MA*(y-MTY);
 while ((v=*s++)!=0) {
       i=GETLEN(v);v=GETVAL(v);
-      if (v==0) // saltea
-         { gr_pos+=i;rx+=i*MA;ry+=i*MB; }
-      else if (v==QFULL) // solido
+      if (v==QFULL) // solido
          { while(i-->0) { mixcolor(col1,col2,dist(rx,ry)>>16);gr_pixel(gr_pos);rx+=MA;ry+=MB;gr_pos++; } }
-      else // transparente
+      else if (v!=0)// transparente
          { v=QALPHA(v);while(i-->0) { mixcolor(col1,col2,dist(rx,ry)>>16);gr_pixela(gr_pos,v);rx+=MA;ry+=MB;gr_pos++; } }
+      else  { gr_pos+=i;rx+=i*MA;ry+=i*MB; } // saltea
       }
 }
 
@@ -536,12 +534,11 @@ int rx = MA*(-MTX)-MB*(y-MTY);
 int ry = MB*(-MTX)+MA*(y-MTY);
 while ((v=*s++)!=0) {
       i=GETLEN(v);v=GETVAL(v);
-      if (v==0) // saltea
-         { gr_pos+=i;rx+=i*MA;ry+=i*MB; }
-      else if (v==QFULL) // solido
+      if (v==QFULL) // solido
          { while(i-->0) { texture(rx,ry);gr_pixel(gr_pos);rx+=MA;ry+=MB;gr_pos++; } }
-      else // transparente
+      else if (v!=0) // transparente
          { v=QALPHA(v);while(i-->0) { texture(rx,ry);gr_pixela(gr_pos,v);rx+=MA;ry+=MB;gr_pos++; } }
+      else { gr_pos+=i;rx+=i*MA;ry+=i*MB; } // saltea
       }
 }
 
@@ -552,85 +549,96 @@ while ((i=*a)!=0) { *a++=j;j=i; }
 *a++=j;*a=0;
 }
 
-void addrla(int *a,int pos,int len,int val)
+void inserta2(int *a) // inserta dos copias de a
 {
-if (*a==0) { *a=(pos<<20)|(len<<9)|val;*(a+1)=0;return; } // al final
-int v=*a;
+int i,j=*a++,k=j;
+while ((i=*a)!=0) { *a++=j;j=k;k=i; }
+*a++=j;*a++=k;*a=0;
+}
+
+//--------- puntero global
+void add1pxr(int pos,int val)
+{
+if (val==0) return;
+int v=*rl;
+//if (v==0) return;
+if (GETLEN(v)==1) { 
+   *rl=(v&0xfffffe00)|GETVAL(v)+val;
+   rl++;
+} else if (GETPOS(v)==pos) { 
+   inserta(rl);
+   *rl=SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;
+   rl++;*rl=v+0x100000-0x200;
+} else if (GETPOSF(v)-1==pos) {
+   inserta(rl);
+   *rl=v-0x200;
+   rl++;*rl=SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;
+   rl++;
+} else {
+   inserta2(rl);     
+   *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
+   rl++;*rl=SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;
+   rl++;*rl=SETPOS(pos+1)|SETLEN(GETPOSF(v)-(pos+1))|GETVAL(v);
+   }
+}
+
+void addrlr(int pos,int len,int val)
+{
+if (len==1) { add1pxr(pos,val);return; }
+int v=*rl;
+//if (v==0) { *rl=(pos<<20)|(len<<9)|val;rl++;*rl=0;return; } // al final
 if (GETPOS(v)==pos) {               // empieza igual          *****
    if (GETLEN(v)>len ) {            // ocupa menos            ***   OK
-     inserta(a);
-     *a=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
-     *(a+1)=SETPOS(pos+len)|SETLEN(GETLEN(v)-len)|GETVAL(v);
+     inserta(rl);
+     *rl=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
+     rl++;*rl=SETPOS(pos+len)|SETLEN(GETLEN(v)-len)|GETVAL(v);
    } else if (GETLEN(v)<len ) {     // ocupa mas              ******* OK
-     *a=(v&0xfffffe00)|val+(v&0x1ff);
-     addrla(a+1,((v>>9)&0x7ff)+pos,len-((v>>9)&0x7ff),val);
-   } else                           // ocupa igual            ***** OK
-     *a=(v&0xfffffe00)|GETVAL(v)+val;
+     *rl=(v&0xfffffe00)|val+(v&0x1ff);
+     rl++;
+     addrlr(((v>>9)&0x7ff)+pos,len-((v>>9)&0x7ff),val);
+   } else {                         // ocupa igual            ***** OK
+     *rl=(v&0xfffffe00)|GETVAL(v)+val;
+     rl++; 
+   }
 } else {                             // empieza adentro       *****
    if (GETPOSF(v)>len+pos ) {        // ocupa menos             ** OK
-      inserta(a);inserta(a);
-      *a=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
-      *(a+1)=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
-      *(a+2)=SETPOS(pos+len)|SETLEN(GETPOSF(v)-(pos+len));
+      inserta2(rl);
+      *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
+      rl++;*rl=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
+      rl++;*rl=SETPOS(pos+len)|SETLEN(GETPOSF(v)-(pos+len));
    } else if (GETPOSF(v)<len+pos ) { // ocupa mas               *****ok
-      inserta(a);
-      *a=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
-      *(a+1)=SETPOS(pos)|SETLEN(GETPOSF(v)-pos)|GETVAL(v)+val;
-      addrla(a+2,GETPOSF(v),pos+len-GETPOSF(v),val);
+      inserta(rl);
+      *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
+      rl++;*rl=SETPOS(pos)|SETLEN(GETPOSF(v)-pos)|GETVAL(v)+val;
+      rl++;
+      addrlr(GETPOSF(v),pos+len-GETPOSF(v),val);
    } else {                         // ocupa igual             **** OK
-      inserta(a);
-      *a=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
-      *(a+1)=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
+      inserta(rl);
+      *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
+      rl++;*rl=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
+      rl++;
    }
   } 
 }
 
-void addrl(int pos,int len,int val)
-{
-int *a=runlenscan;
-while (*a!=0 && GETPOSF(*a)<=pos) a++; // puede ser binaria??
-addrla(a,pos,len,val);
-}
-
-void add1px(int pos,int val)
-{
-if (val==0) return;
-int v,*a=runlenscan;
-while (*a!=0 && GETPOS(*a)<=pos) a++; // puede ser binaria??
-a--;v=*a;
-if (GETLEN(v)==1) { 
-   *a=(v&0xfffffe00)|GETVAL(v)+val;
-   }
-else if (GETPOS(v)==pos) { 
-   inserta(a);
-   *a=SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;
-   *(a+1)=v+0x100000-0x200;
-   }
-else if (GETPOSF(v)-1==pos) {
-   inserta(a);
-   *a=v-0x200;
-   *(a+1)=SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;
-   }
-else {
-   inserta(a);inserta(a);     
-   *a=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
-   *(a+1)=SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;
-   *(a+2)=SETPOS(pos+1)|SETLEN(GETPOSF(v)-(pos+1))|GETVAL(v);
-   }
-}
-
 void coverpixels(int xa,int xb)
 {
-int x0 = xa>>BPP;
-int x1 = xb>>BPP;
-if (x0>gr_ancho||x1<0) return;
-if (x0>=0) add1px(x0,VALUES-(xa&MASK));  
-else x0=-1;
-if (x1<gr_ancho) add1px(x1,(x0==x1? (xb&MASK)-VALUES : xb&MASK)); 
-else x1=gr_ancho;
-x1=x1-x0-1;
-if (x1<1) return; 
-if (x1==1) add1px(x0+1,VALUES); else addrl(x0+1,x1,VALUES);
+int x0=xa>>BPP,x1=xb>>BPP;
+if (x0>=gr_ancho||x1<0) return;
+while (*rl!=0 && GETPOS(*rl)<=x0) rl++; // puede ser binaria??
+rl--;
+if (x0==x1)
+   {
+   add1pxr(x0,(xb&MASK)-(xa&MASK));
+   return;
+   }
+int m1;
+if (x0>=0) { add1pxr(x0,VALUES-(xa&MASK));x0++;if(x0>=gr_ancho) return; } 
+else { x0=0;rl=runlenscan; }
+int largo;
+if (x1>gr_ancho) largo=gr_ancho-x0-1; else largo=x1-x0-1; 
+if (largo>0) addrlr(x0,largo,VALUES);
+if (x1<gr_ancho) add1pxr(x1,xb&MASK); 
 }
 
 //-----------------------------------------------------------------------
@@ -651,9 +659,9 @@ for (;yMin<yMax;) {
     xquisc=xquis;
     jj=actual;
     while (jj<pact) { addlin(*jj);jj++; }
+    rl=runlenscan;
     for (jj=xquis;jj+1<xquisc;jj+=2) {
         coverpixels(((*jj)->x)>>FBASE,((*(jj+1))->x)>>FBASE);
-//      coverpixels(((*jj)->x+(*jj)->deltax)>>FBASE,((*(jj+1))->x+(*(jj+1))->deltax)>>FBASE);
         }
     jj=actual;
     yMin++;
@@ -663,10 +671,9 @@ for (;yMin<yMax;) {
           }
     }              
 
-  int *a=runlenscan;while (*a!=0) a++;a--;if (GETVAL(*a)==0) *a=0;
+  while (*rl!=0) rl++;rl--;if (GETVAL(*rl)==0) *rl=0;  // quito el ultimo espacio
   runlen(gr_pant,yMin>>BPP);  
-  *runlenscan=SETLEN(gr_ancho+1);
-  *(runlenscan+1)=0;
+  *runlenscan=SETLEN(gr_ancho+1);*(runlenscan+1)=0;
   
   gr_pant+=gr_ypitch;  
   }
@@ -674,3 +681,20 @@ yMax=-1;
 cntSegm=0;
 }
 
+#ifdef DEBUG
+void testrunlen(void)
+{
+*runlenscan=SETLEN(gr_ancho);*(runlenscan+1)=0;
+debuggg=1;
+log("----------------------------\n");
+dumprunlen();
+log("...\n");
+rl=runlenscan;
+coverpixels2(FTOI(40),FTOI(60));
+//coverpixels2(FTOI(70),FTOI(90));
+//coverpixels(FTOI(40),FTOI(60));
+//coverpixels(FTOI(40),FTOI(70));
+log("----------------------------\n");
+debuggg=0;
+}
+#endif
