@@ -5,9 +5,34 @@
 ^r4/lib/parse.txt
 ^r4/lib/trace.txt
 
-#namefont "robotoregular"
+#namefont
 
-|--------- formato fuente
+|"fontawesomewebfont"
+|"websymbolsregular"
+|"sirucapictograms11"
+|"modernpics"
+|"heydings_icons"
+|"heydings_controls"
+|"evilz"
+"efon"
+|"ggsloveme"
+
+|"dejavuserif"
+|"dejavuserifbold"
+|"dejavusans"
+|"robotoregular"
+|"robotothin"
+|"robotolight"
+|"robotobold"
+|"opensansregular"
+|"opensanslight"
+|"droidsansbold"
+|"comfortaa_thin"
+|"comfortaa_bold"
+|"architectsdaughter"
+|"gooddog"
+
+|--------- formato fuente 1
 #yp #xp
 :a0 drop ; | el valor no puede ser 0
 :a1 xp $80000000 <>? ( yp pline )( drop )
@@ -34,6 +59,44 @@
 	0? ( drop ; )
 	$80000000 'xp !
 	( @+ 1? )( dup $7 and 2 << 'gfont + @ exec ) 2drop
+	xp yp pline
+	poli ;
+
+|----------- formato fuente 2
+| 16 bits
+| 12bits coord
+#xa #ya
+
+:rgc>x | v -- x
+
+:rgc>y | v -- y
+
+:a0 drop ; | el valor no puede ser 0
+:a1 xp $80000000 <>? ( yp pline )( drop )
+	rgc>x dup 'xp ! 'xa !
+	w@+ rgc>y dup 'yp ! 'ya !
+	xa ya op ;  | punto
+
+:a2 xp $80000000 <>? ( yp pline )( drop )
+	rgc>x dup 'xp ! 'xa !
+	xa ya op ;  | punto
+
+:a3 xp $80000000 <>? ( yp pline )( drop )
+	rgc>y dup 'yp ! 'ya !
+	xa ya op ;  | punto
+
+:a4 rgc>x 'xa ! w@+ rgc>y 'ya ! xa ya pline ;
+:a5 rgc>x 'xa ! xa ya pline ;
+:a6 rgc>y 'ya ! xa ya pline ;
+
+:a7 swap >r gc>xy r@+ gc>xy pcurve r> ;  | curva
+:a8 swap >r gc>xy r@+ gc>xy r@+ gc>xy  pcurve3 r> ; | curva3
+
+#gfont2 a0 a1 a2 a3 a4 a5 a6 a7 a8 
+:drawrf2
+	$80000000 'xp !
+	0 dup 'xa ! 'ya !
+	( w@+ 1? )( dup $f and 2 << 'gfont2 + @ exec ) 2drop
 	xp yp pline
 	poli ;
 
@@ -480,9 +543,9 @@
 	0 swap
 	( @+ 1? )(
 		"$%h " ,print
-		swap 1+ 8 >? ( ,cr 0 nip ) swap
+		swap 1+ 8 >? ( ,nl 0 nip ) swap
 		)
-	,d ,cr
+	,d ,nl
 	2drop ;
 
 :printsize | nro -- nro
@@ -493,7 +556,7 @@
 :printref | nro -- nro r
 	dup 2 << 'tableascii + @
 	0? ( ; )
-	dup ]ind @ 0? ( nip ; ) 
+	dup ]ind @ 0? ( nip ; )
 	2drop dup
 	;
 :generatefont
@@ -507,15 +570,15 @@
 	"#c0" ,s
 	0 0 ( $100 <? )(
 		,sp printsize
-		swap 1+ 16 >? ( ,cr 0 nip ) swap
-		1+ ) 2drop ,cr
+		swap 1+ 16 >? ( ,nl 0 nip ) swap
+		1+ ) 2drop ,nl
 	"#table" ,s
 	0 0 ( $100 <? )(
 		,sp "c" ,s
 		printref ,h
-		swap 1+ 16 >? ( ,cr 0 nip ) swap
-		1+ ) 2drop ,cr
-	"::font " ,s
+		swap 1+ 16 >? ( ,nl 0 nip ) swap
+		1+ ) 2drop ,nl
+	"::" ,s 'namefont ,s ,sp
 	xe ,d ,sp ye ,d
 	" 'c0 'table ; " ,ln
 	'namefont "inc/rft/%s.rft" mprint savemem
@@ -523,7 +586,42 @@
 	;
 
 
+#xmin #ymin #xmax #ymax
+
+:movevert | adr val -- adr
+	dup d>xy
+	ymin + swap xmin + swap
+	xy>d
+	swap $f and or over 4 - !
+	;
+
+:addstat
+	d>xy
+	ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
+	xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
+	;
+
+:centericons
+	findex> 'findex - 2 >>
+	0 ( over <? )(
+		0 dup 'xmin ! 'xmax !
+		0 dup 'ymin ! 'ymax !
+
+		0 over ]ind ( @+ 1? )(
+			addstat
+			) 3drop
+		xmin xmax + 2/ neg 'xmin !
+		ymin ymax + 2/ neg 'ymin !
+
+		0 over ]ind ( @+ 1? )(
+			movevert
+			) 3drop
+		1+ ) 2drop
+
+	;
+
 :generateicons
+	centericons
 	mark
 	"| iconos generados" ,ln
 	findex> 'findex - 2 >>
@@ -532,7 +630,10 @@
 		dup ]unin
 		( c@+ $22 <>? )( $20 =? ( $21 nip ) ,c ) 2drop
 		,sp
-		dup ]ind ( @+ 1? )( "$%h " ,print ) ,d ,cr drop
+		0 over ]ind ( @+ 1? )(
+			"$%h " ,print
+			swap 1+ 16 >? ( ,nl 0 nip ) swap
+			) ,d ,nl 2drop
 		1+ ) 2drop
 	'namefont "inc/ric/%s.ric" mprint savemem
 	empty
@@ -564,20 +665,11 @@
 		gc.box
 		pagina ]ind drawrf
 
-		rojo
-		xe w 14 *>> xc +
-		ye h 14 *>> yc +
-		2dup op
-		over pagina ]info w 14 *>> + over line
-		verde
-		4 cruz
+|		rojo
+|		xe w 14 *>> xc + ye h 14 *>> yc +
+|		2dup op over pagina ]info w 14 *>> + over line
+|		verde 4 cruz
 
-		azul
-		xc w 2/ - ascent h 14 *>> yc +
-		2dup op swap w + swap line
-
-		xc w 2/ - descent h 14 *>> yc +
-		2dup op swap w + swap line
 
 		[ 1 'pagina +! ; ] <ri>
 		[ -1 'pagina +! ; ] <le>
