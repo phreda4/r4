@@ -65,9 +65,37 @@ void fillcent(int mx,int my);
 void fillmat(int a,int b);
 void fillcol(unsigned int c1,unsigned int c2);
 //---- poligono
-void gr_psegmento(int x1,int y1,int x2,int y2);
-void gr_pspline(int x1,int y1,int x2,int y2,int x3,int y3);
-void gr_pspline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4);
+
+#define LOWQ
+//#define MEDQ
+//#define HIQ
+
+//////////////////////////////////////////////////////////////
+#ifdef HIQ
+      #define BPP        4
+      #define TOLERANCE  16
+      #define QFULL      256
+      #define QALPHA(a)  (a)
+#elif defined(MEDQ)
+      #define BPP        3
+      #define TOLERANCE  8
+      #define QFULL      64
+      #define QALPHA(a)  ((a)&0x3|(a)<<2)
+#else
+      #define LOWQ
+      #define BPP        2
+      #define TOLERANCE  4
+      #define QFULL      16
+      #define QALPHA(a)  ((a)<<4|(a))
+#endif
+
+#define VALUES     (1 << BPP)
+#define MASK       (VALUES-1)
+#define FTOI(v)    (((int)(v) << BPP) | (int) ((v) * (1 << BPP)))
+
+void gr_pline(int x1,int y1,int x2,int y2);
+void gr_pcurve(int x1,int y1,int x2,int y2,int x3,int y3);
+void gr_pcurve3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4);
 
 void gr_drawPoli(void);
 
