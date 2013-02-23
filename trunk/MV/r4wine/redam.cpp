@@ -1333,7 +1333,6 @@ int noborde,i=0;
 char printername[32];
 char *aa=(char*)lpCmdLine;
 
-
 // pila de ejecucion
 pilaexecl=pilaexec;
 strcpy(pilaexecl,"main.txt");
@@ -1342,7 +1341,6 @@ pilaexecl++;
 
 devmodo.dmSize = sizeof(devmodo);
 EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmodo);
-
 
 mimemset((char*)&wc,0,sizeof(WNDCLASSA));
 wc.style         = 0; //CS_OWNDC;
@@ -1354,6 +1352,9 @@ if(!RegisterClass((WNDCLASSA*)&wc)) return -1;
 reboot: rebotea=0;
 #ifdef LOGMEM
 ldebug("ini..");
+
+//testssort();exit(0);
+
 #endif
 
 if (*aa==0) {
@@ -1429,7 +1430,6 @@ InitJoystick(hWnd);
     if (sound_open(hWnd)!=0) return -4;
 #endif
 
-//testrunlen();exit(0);
 //--------------------------------------------------------------------------
 recompila:
 

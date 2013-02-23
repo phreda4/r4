@@ -71,6 +71,32 @@ free(gr_buffer);
 #define GR_X(X) gr_pos+=X;
 #define GR_Y(Y) gr_pos+=Y*buffergr.width;
 
+void copia565(void)
+{
+register int *s=gr_buffer;
+register int *d=(int*)buffergr.bits;
+register int y,x;
+for(y=buffergr.height;y>0;--y)
+	for(x=buffergr.width;x>0;x-=8) {
+        *d++=to565(*s++)|(to565(*s++)<<16);
+        *d++=to565(*s++)|(to565(*s++)<<16);
+        *d++=to565(*s++)|(to565(*s++)<<16);
+        *d++=to565(*s++)|(to565(*s++)<<16);
+        }
+}
+void copia888(void)
+{
+register int *s=gr_buffer;
+register int *d=(int*)buffergr.bits;
+register int y,x;
+for(y=buffergr.height;y>0;--y)
+	for(x=buffergr.width;x>0;x-=8) { 
+       *d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;
+       *d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++; }
+}
+
+void (*copiabuffer)(void);
+
 //---- inicio
 void gr_init(struct android_app* app)
 {
@@ -78,8 +104,10 @@ void gr_init(struct android_app* app)
 ANativeWindow_lock(app->window, &buffergr, NULL);
 scrsize=(buffergr.width>buffergr.height)?buffergr.width:buffergr.height;
 scrsize*=scrsize;
-//if (buffergr.format==4) //565
-//
+if (buffergr.format==4) //565
+{ copiabuffer=copia565; }
+else
+{ copiabuffer=copia888; }
 ANativeWindow_unlockAndPost(app->window);
 
 gr_buffer=(int*)malloc(scrsize<<2);
@@ -114,26 +142,16 @@ return ((c>>8)&RED5)|((c>>5)&GRE6)|((c>>3)&BLU5);
 void gr_swap(struct android_app* app)
 {
 ANativeWindow_lock(app->window, &buffergr, NULL);
-register int *s=gr_buffer;
-register int *d=(int*)buffergr.bits;
-register int y,x;
-if (buffergr.format==4) // 565
-{
-	for(y=buffergr.height;y>0;--y)
-		for(x=buffergr.width;x>0;x-=2) *d++=to565(*s++)|(to565(*s++)<<16);
-} else {
-	for(y=buffergr.height;y>0;--y)
-		for(x=buffergr.width;x>0;--x) *d++=*s++;
-}
+copiabuffer();
 ANativeWindow_unlockAndPost(app->window);
 }
 
 void gr_clrscr(void)
 {
 register int *d=gr_buffer;
-register int i;
-for(i=buffergr.height*buffergr.width;i>0;--i)
-	*d++=gr_color2;
+register int i,c=gr_color2;
+for(i=buffergr.height*buffergr.width;i>0;i-=8)
+	{ *d++=c;*d++=c;*d++=c;*d++=c;*d++=c;*d++=c;*d++=c;*d++=c; }
 }
 
 void gr_toxfb(void)
@@ -141,8 +159,8 @@ void gr_toxfb(void)
 register int *d=XFB;
 register int *s=gr_buffer;
 register int i;
-for(i=buffergr.height*buffergr.width;i>0;--i)
-	*d++=*s++;
+for(i=buffergr.height*buffergr.width;i>0;i-=8)
+	{ *d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++; }
 }
 
 void gr_xfbto(void)
@@ -150,8 +168,8 @@ void gr_xfbto(void)
 register int *d=gr_buffer;
 register int *s=XFB;
 register int i;
-for(i=buffergr.height*buffergr.width;i>0;--i)
-	*d++=*s++;
+for(i=buffergr.height*buffergr.width;i>0;i-=8)
+	{ *d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++; }
 }
 
 #define RED_MASK 0xFF0000
