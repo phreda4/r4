@@ -1,3 +1,4 @@
+
 /*
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -9,6 +10,9 @@
  * All rights reserved.
 */
 // rutinas graficas
+#include <stdlib.h>
+#include <stdio.h>
+
 #include "graf.h"
 
 #ifdef OPENGL
@@ -32,13 +36,10 @@ int *mTex; // textura
 //---- variables para dibujo de poligonos
 typedef struct { int y,x,yfin,deltax; } Segm;
 
-Segm segmentos[2048];
-Segm **pact;
-Segm *actual[256]; // segmentos actuales
-Segm **xquisc;
-Segm *xquis[256]; // cada linea
 int cntSegm=0;
-int yMax; // yMinel minimo es el primero(**quitar)
+Segm segmentos[2048];
+Segm *psegmentos[2048]; // segmentos actuales
+int yMax;
 BYTE gr_alphav;
 
 static int gr_sizescreen;	// tamanio de pantalla
@@ -114,12 +115,10 @@ switch(XRES) {
     }
 #endif
 //---- poligonos2
-cntSegm=0;
-yMax=-1;
-//minX=gr_ancho;maxX=0;
+cntSegm=0;yMax=0;
 fillSol();
 
-*runlenscan=SETLEN(gr_ancho-1);*(runlenscan+1)=0;
+*runlenscan=SETLEN(gr_ancho+1);*(runlenscan+1)=0;
 
 //---- colores
 gr_color2=0;gr_color1=0xffffff;
@@ -180,7 +179,6 @@ SwapBuffers(hDC);
 //HBITMAP hBitmap = (HBITMAP )GetCurrentObject(hDC, OBJ_BITMAP);
 // GDI_ReleaseObj( hBitmap );
 //SetBitmapBits(hBitmap,gr_sizescreen,gr_buffer);
-
 //SetDIBits(hDC,hBitmap,0,gr_alto,gr_buffer,&bmi,DIB_RGB_COLORS);
 //StretchDIBits(hDC,0,0,gr_ancho,gr_alto,0,0,gr_ancho,gr_alto,gr_buffer,&bmi,DIB_RGB_COLORS,SRCCOPY);
 SetDIBitsToDevice(hDC,0,0,gr_ancho,gr_alto,0,0,0,gr_alto,gr_buffer,&bmi,DIB_RGB_COLORS);
@@ -191,21 +189,27 @@ void gr_clrscr(void)
 {
 register DWORD *PGR=gr_buffer;
 register int c=gr_sizescreen;
-for (;c>0;c--,PGR++) *PGR=gr_color2;
+while (c>0) { c-=8;
+      *PGR++=gr_color2;*PGR++=gr_color2;*PGR++=gr_color2;*PGR++=gr_color2;
+      *PGR++=gr_color2;*PGR++=gr_color2;*PGR++=gr_color2;*PGR++=gr_color2; }
 }
 
 void gr_toxfb(void)
 {
 register DWORD *bgr=gr_buffer,*xgr=XFB;
 register int c=gr_sizescreen;
-while (c>0) { c--;*xgr++=*bgr++; }
+while (c>0) { c-=8;
+      *xgr++=*bgr++;*xgr++=*bgr++;*xgr++=*bgr++;*xgr++=*bgr++;
+      *xgr++=*bgr++;*xgr++=*bgr++;*xgr++=*bgr++;*xgr++=*bgr++; }
 }
 
 void gr_xfbto(void)
 {
 register DWORD *bgr=gr_buffer,*xgr=XFB;
 register int c=gr_sizescreen;
-while (c>0) { c--;*bgr++=*xgr++; }
+while (c>0) { c-=8;
+      *bgr++=*xgr++;*bgr++=*xgr++;*bgr++=*xgr++;*bgr++=*xgr++;
+      *bgr++=*xgr++;*bgr++=*xgr++;*bgr++=*xgr++;*bgr++=*xgr++; }
 }
 
 
@@ -430,10 +434,9 @@ x1=x1<<FBASE;
 x2=x2<<FBASE;
 t=(x2-x1)/(y2-y1);
 if (y1<0) { x1+=t*(-y1);y1=0; }
-if (yMax<y2) yMax=y2;
-Segm *ii=&segmentos[cntSegm-1];
-while (ii>=segmentos && ii->y>y1 ) { *(ii+1)=*(ii);ii--; }
-ii++;
+if (y2>yMax) yMax=y2;
+Segm *ii=&segmentos[cntSegm];
+psegmentos[cntSegm]=ii;
 ii->x=x1;//+t/2;//+((1<<FBASE)>>1);
 ii->y=y1;
 ii->yfin=y2;
@@ -466,21 +469,8 @@ inline void texture(int dx,int dy)
 gr_color1=((int*)mTex)[(dx>>8)&0xff|(dy&0xff00)];
 }
 
-//----------------------------------------------------------
-void addlin(Segm *ii) 
-{
-register int xr=ii->x;
-Segm **cursor=(xquisc-1);
-while (cursor>=xquis && (*cursor)->x>xr) {
-      *(cursor+1)=*cursor;cursor--;
-      }
-*(cursor+1)=ii;
-xquisc++;
-}
-
 //----------------------------------------------
 // hacer un buffer de covertura para optimizar el pintado
-
 void runlenSolido(DWORD *linea,int y)
 {
 register DWORD *gr_pos=linea;
@@ -563,9 +553,9 @@ if (val==0) return;
 int v=*rl;
 //if (v==0) return;
 if (GETLEN(v)==1) { 
-   *rl=(v&0xfffffe00)|GETVAL(v)+val;
+   *rl=v+val; 
    rl++;
-} else if (GETPOS(v)==pos) { 
+} else if (GETPOS(v)==pos) {
    inserta(rl);
    *rl=SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;
    rl++;*rl=v+0x100000-0x200;
@@ -575,7 +565,7 @@ if (GETLEN(v)==1) {
    rl++;*rl=SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;
    rl++;
 } else {
-   inserta2(rl);     
+   inserta2(rl);
    *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
    rl++;*rl=SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;
    rl++;*rl=SETPOS(pos+1)|SETLEN(GETPOSF(v)-(pos+1))|GETVAL(v);
@@ -593,11 +583,11 @@ if (GETPOS(v)==pos) {               // empieza igual          *****
      *rl=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
      rl++;*rl=SETPOS(pos+len)|SETLEN(GETLEN(v)-len)|GETVAL(v);
    } else if (GETLEN(v)<len ) {     // ocupa mas              ******* OK
-     *rl=(v&0xfffffe00)|val+(v&0x1ff);
+     *rl=v+val;
      rl++;
-     addrlr(((v>>9)&0x7ff)+pos,len-((v>>9)&0x7ff),val);
+     addrlr(GETLEN(v)+pos,len-GETLEN(v),val);
    } else {                         // ocupa igual            ***** OK
-     *rl=(v&0xfffffe00)|GETVAL(v)+val;
+     *rl=v+val;
      rl++; 
    }
 } else {                             // empieza adentro       *****
@@ -633,68 +623,77 @@ if (x0==x1)
    return;
    }
 int m1;
-if (x0>=0) { add1pxr(x0,VALUES-(xa&MASK));x0++;if(x0>=gr_ancho) return; } 
+if (x0>=0) { add1pxr(x0,VALUES-(xa&MASK));x0++;if(x0>=gr_ancho) return; }
 else { x0=0;rl=runlenscan; }
 int largo;
-if (x1>gr_ancho) largo=gr_ancho-x0-1; else largo=x1-x0-1; 
+if (x1>gr_ancho) largo=gr_ancho-x0-1; else largo=x1-x0-1;
 if (largo>0) addrlr(x0,largo,VALUES);
-if (x1<gr_ancho) add1pxr(x1,xb&MASK); 
+if (x1<gr_ancho) add1pxr(x1,xb&MASK);
 }
+
+/* para qsort */ 
+int y_cmp(const void *a, const void *b) 
+{ 
+return ((*(Segm **)a)->y)-((*(Segm **)b)->y);
+} 
+int x_cmp(const void *a, const void *b) 
+{ 
+return ((*(Segm **)a)->x)-((*(Segm **)b)->x);
+} 
 
 //-----------------------------------------------------------------------
+void swapp(Segm **a,Segm **b)
+{
+Segm *t=*a;*a=*b;*b=t;
+}
+
+void sortlast(Segm **p,Segm **j) // ordena ultimo elemento
+{
+register Segm **a=j;
+int vx=(*a)->x;
+while (a>p && (*(a-1))->x>vx) { swapp(a-1,a);a--; }
+}
+
+void removej(Segm **p,Segm **j) // copia de pseg a j,pisandolo
+{
+register Segm **a=j;
+while (a>p) { *a=*(a-1);a--; }
+}
+
 void gr_drawPoli(void)
 {
-Segm **jj;
-Segm *scopia=segmentos;
-pact=actual;
-segmentos[cntSegm].y=-1;
-if (yMax>gr_alto<<BPP) { yMax=gr_alto<<BPP; }
-int i,yMin=scopia->y;
+if (cntSegm<2) return;
+segmentos[cntSegm].y=-1; // marca el ultimo
+psegmentos[cntSegm]=&segmentos[cntSegm];
 
+// reeplazar por counting sort!! lineal
+qsort(psegmentos,cntSegm,sizeof(Segm**),y_cmp);// ordena por y
+
+Segm **jj,**phasta=psegmentos,**pseg=psegmentos;
+int yMin=psegmentos[0]->y;
+int i,cntX=0;
+if (yMax>gr_alto<<BPP) { yMax=gr_alto<<BPP; }
 DWORD *gr_pant=(DWORD*)gr_buffer+(yMin>>BPP)*gr_ypitch;
 for (;yMin<yMax;) {
-    
-  for (i=MASK;i>=0;--i) {
-    while (scopia->y==yMin) { *pact=scopia;pact++;scopia++; }
-    xquisc=xquis;
-    jj=actual;
-    while (jj<pact) { addlin(*jj);jj++; }
+  for (i=VALUES;i!=0;--i) {
+    while ((*phasta)->y==yMin) 
+      { sortlast(pseg,phasta);phasta++;cntX++; }
     rl=runlenscan;
-    for (jj=xquis;jj+1<xquisc;jj+=2) {
+    for (jj=pseg;jj+1<phasta;jj+=2) {
         coverpixels(((*jj)->x)>>FBASE,((*(jj+1))->x)>>FBASE);
         }
-    jj=actual;
     yMin++;
-    while (jj<pact) {
-          if (yMin<(*jj)->yfin) { (*jj)->x+=(*jj)->deltax;jj++; } 
-          else { *jj=*(pact-1);pact--; }
-          }
+    jj=pseg;
+    while (jj<phasta) {
+      if (yMin<(*jj)->yfin) { (*jj)->x+=(*jj)->deltax;sortlast(pseg,jj); } 
+      else { removej(pseg,jj);pseg++;cntX--; }
+      jj++;
+      }
     }              
-
-  while (*rl!=0) rl++;rl--;if (GETVAL(*rl)==0) *rl=0;  // quito el ultimo espacio
+  while (*rl!=0) rl++;rl--;*rl=0;  // quito el ultimo espacio
   runlen(gr_pant,yMin>>BPP);  
   *runlenscan=SETLEN(gr_ancho+1);*(runlenscan+1)=0;
-  
   gr_pant+=gr_ypitch;  
   }
-yMax=-1;
-cntSegm=0;
+cntSegm=0;yMax=0;
 }
-
-#ifdef DEBUG
-void testrunlen(void)
-{
-*runlenscan=SETLEN(gr_ancho);*(runlenscan+1)=0;
-debuggg=1;
-log("----------------------------\n");
-dumprunlen();
-log("...\n");
-rl=runlenscan;
-coverpixels2(FTOI(40),FTOI(60));
-//coverpixels2(FTOI(70),FTOI(90));
-//coverpixels(FTOI(40),FTOI(60));
-//coverpixels(FTOI(40),FTOI(70));
-log("----------------------------\n");
-debuggg=0;
-}
-#endif
