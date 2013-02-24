@@ -33,7 +33,6 @@ extern ANativeWindow_Buffer buffergr;
 extern int *XFB;
 extern int *gr_buffer; 		// buffer de pantalla
 extern int gr_color1,gr_color2,col1,col2;
-extern unsigned char gr_alphav;
 extern int MA,MB,MTX,MTY; // matrix de transformacion
 extern int *mTex; // textura
 
@@ -54,7 +53,7 @@ void gr_spline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4);
 
 //---- ALPHA
 void gr_solid(void);
-void gr_alpha(void);
+void gr_alpha(int a);
 //---- FILL POLY
 void fillSol(void);
 void fillLin(void);
@@ -66,32 +65,34 @@ void fillmat(int a,int b);
 void fillcol(unsigned int c1,unsigned int c2);
 //---- poligono
 
-#define LOWQ
+#define LLQ
+//#define LOWQ
 //#define MEDQ
 //#define HIQ
 
 //////////////////////////////////////////////////////////////
 #ifdef HIQ
       #define BPP        4
-      #define TOLERANCE  16
-      #define QFULL      256
+      #define TOLERANCE  24
       #define QALPHA(a)  (a)
 #elif defined(MEDQ)
       #define BPP        3
-      #define TOLERANCE  8
-      #define QFULL      64
+      #define TOLERANCE  16
       #define QALPHA(a)  ((a)&0x3|(a)<<2)
-#else
-      #define LOWQ
+#elif defined(LOWQ)
       #define BPP        2
-      #define TOLERANCE  4
-      #define QFULL      16
+      #define TOLERANCE  8
       #define QALPHA(a)  ((a)<<4|(a))
+#else
+      #define BPP        1
+      #define TOLERANCE  4
+      #define QALPHA(a)  ((a)<<6|(a)<<4|(a)<<2|(a))
 #endif
 
-#define VALUES     (1 << BPP)
+#define VALUES     (1<<BPP)
+#define QFULL       VALUES*VALUES
 #define MASK       (VALUES-1)
-#define FTOI(v)    (((int)(v) << BPP) | (int) ((v) * (1 << BPP)))
+#define FTOI(v)    (v<<BPP)
 
 void gr_pline(int x1,int y1,int x2,int y2);
 void gr_pcurve(int x1,int y1,int x2,int y2,int x3,int y3);

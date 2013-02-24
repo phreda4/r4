@@ -430,8 +430,7 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
 	case COLORF: gr_color2=TOS;TOS=*NOS;NOS--;continue;
     case COLOR: gr_color1=TOS;TOS=*NOS;NOS--;continue;
     case COLORA: NOS++;*NOS=TOS;TOS=gr_color1;continue;
-	case ALPHA: if (TOS>254) gr_solid(); else { gr_alphav=(unsigned char)(TOS);gr_alpha(); }
-		TOS=*NOS;NOS--;continue;
+	case ALPHA: gr_alpha(TOS);TOS=*NOS;NOS--;continue;
 //--- dibujo
     case OP: gy1=TOS;gx1=*NOS;NOS--;TOS=*NOS;NOS--;continue;
 	case LINE:
