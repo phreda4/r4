@@ -24,7 +24,7 @@ HGLRC   hRC;
 
 //---- buffer de video
 DWORD *gr_buffer;
-DWORD *XFB;
+DWORD *XFB;                                
 
 //---- variables internas
 int gr_ancho,gr_alto;
@@ -32,15 +32,16 @@ DWORD gr_color1,gr_color2,col1,col2;
 int gr_ypitch;
 int MA,MB,MTX,MTY; // matrix de transformacion
 int *mTex; // textura
-
+int gr_alphav;
 //---- variables para dibujo de poligonos
 typedef struct { int y,x,yfin,deltax; } Segm;
 
 int cntSegm=0;
 Segm segmentos[2048];
 Segm *psegmentos[2048]; // segmentos actuales
-int yMax;
-BYTE gr_alphav;
+Segm **pseg,**phasta; // limites del scanline
+int yMax,yMin;          // maximo y actual
+int nextY; // proximo Y que borra linea
 
 static int gr_sizescreen;	// tamanio de pantalla
 
@@ -189,27 +190,30 @@ void gr_clrscr(void)
 {
 register DWORD *PGR=gr_buffer;
 register int c=gr_sizescreen;
-while (c>0) { c-=8;
+while (c>0) { 
       *PGR++=gr_color2;*PGR++=gr_color2;*PGR++=gr_color2;*PGR++=gr_color2;
-      *PGR++=gr_color2;*PGR++=gr_color2;*PGR++=gr_color2;*PGR++=gr_color2; }
+      *PGR++=gr_color2;*PGR++=gr_color2;*PGR++=gr_color2;*PGR++=gr_color2; 
+      c-=8; }
 }
 
 void gr_toxfb(void)
 {
 register DWORD *bgr=gr_buffer,*xgr=XFB;
 register int c=gr_sizescreen;
-while (c>0) { c-=8;
+while (c>0) { 
       *xgr++=*bgr++;*xgr++=*bgr++;*xgr++=*bgr++;*xgr++=*bgr++;
-      *xgr++=*bgr++;*xgr++=*bgr++;*xgr++=*bgr++;*xgr++=*bgr++; }
+      *xgr++=*bgr++;*xgr++=*bgr++;*xgr++=*bgr++;*xgr++=*bgr++; 
+      c-=8; }
 }
 
 void gr_xfbto(void)
 {
 register DWORD *bgr=gr_buffer,*xgr=XFB;
 register int c=gr_sizescreen;
-while (c>0) { c-=8;
+while (c>0) { 
       *bgr++=*xgr++;*bgr++=*xgr++;*bgr++=*xgr++;*bgr++=*xgr++;
-      *bgr++=*xgr++;*bgr++=*xgr++;*bgr++=*xgr++;*bgr++=*xgr++; }
+      *bgr++=*xgr++;*bgr++=*xgr++;*bgr++=*xgr++;*bgr++=*xgr++; 
+      c-=8; }
 }
 
 
@@ -238,15 +242,19 @@ void (*gr_pixel)(DWORD *gr_pos);
 void (*gr_pixela)(DWORD *gr_pos,BYTE a);
 
 void gr_solid(void) {gr_pixel=_gr_pixels;gr_pixela=_gr_pixela;gr_alphav=255;}
-void gr_alpha(void) {gr_pixel=_gr_pixelsa;gr_pixela=_gr_pixelaa;}
+void gr_alpha(int a) 
+{
+if (a>254) { gr_solid();return; }     
+gr_pixel=_gr_pixelsa;gr_pixela=_gr_pixelaa;gr_alphav=a;
+}
 
 //--------------- DIBUJO DE POLIGONO
-void runlenSolido(DWORD *linea,int y);
-void runlenLineal(DWORD *linea,int y);
-void runlenRadial(DWORD *linea,int y);
-void runlenTextura(DWORD *linea,int y);
+void runlenSolido(DWORD *linea);
+void runlenLineal(DWORD *linea);
+void runlenRadial(DWORD *linea);
+void runlenTextura(DWORD *linea);
 
-void (*runlen)(DWORD *linea,int y);
+void (*runlen)(DWORD *linea);
 
 void fillSol(void) { runlen=runlenSolido; }
 void fillLin(void) { runlen=runlenLineal; }
@@ -437,7 +445,7 @@ if (y1<0) { x1+=t*(-y1);y1=0; }
 if (y2>yMax) yMax=y2;
 Segm *ii=&segmentos[cntSegm];
 psegmentos[cntSegm]=ii;
-ii->x=x1;//+t/2;//+((1<<FBASE)>>1);
+ii->x=x1+t/2;
 ii->y=y1;
 ii->yfin=y2;
 ii->deltax=t;
@@ -470,8 +478,8 @@ gr_color1=((int*)mTex)[(dx>>8)&0xff|(dy&0xff00)];
 }
 
 //----------------------------------------------
-// hacer un buffer de covertura para optimizar el pintado
-void runlenSolido(DWORD *linea,int y)
+// buffer de covertura para optimizar el pintado
+void runlenSolido(DWORD *linea)
 {
 register DWORD *gr_pos=linea;
 int i,v,*s=runlenscan;
@@ -485,11 +493,11 @@ while ((v=*s++)!=0) {
       }
 }
 
-void runlenLineal(DWORD *linea,int y)
+void runlenLineal(DWORD *linea)
 {
 register DWORD *gr_pos=linea;
 int i,v,*s=runlenscan;
-int r=MA*(-MTX)-MB*(y-MTY);
+int r=MA*(-MTX)-MB*((yMin>>BPP)-MTY);
 while ((v=*s++)!=0) {
       i=GETLEN(v);v=GETVAL(v);
       if (v==QFULL) // solido
@@ -500,12 +508,12 @@ while ((v=*s++)!=0) {
       }
 }
 
-void runlenRadial(DWORD *linea,int y)
+void runlenRadial(DWORD *linea)
 {
 register DWORD *gr_pos=linea;
 int i,v,*s=runlenscan;
-int rx = MA*(-MTX)-MB*(y-MTY);
-int ry = MB*(-MTX)+MA*(y-MTY);
+int rx = MA*(-MTX)-MB*((yMin>>BPP)-MTY);
+int ry = MB*(-MTX)+MA*((yMin>>BPP)-MTY);
 while ((v=*s++)!=0) {
       i=GETLEN(v);v=GETVAL(v);
       if (v==QFULL) // solido
@@ -516,12 +524,12 @@ while ((v=*s++)!=0) {
       }
 }
 
-void runlenTextura(DWORD *linea,int y)
+void runlenTextura(DWORD *linea)
 {
 register DWORD *gr_pos=linea;
 int i,v,*s=runlenscan;
-int rx = MA*(-MTX)-MB*(y-MTY);
-int ry = MB*(-MTX)+MA*(y-MTY);
+int rx = MA*(-MTX)-MB*((yMin>>BPP)-MTY);
+int ry = MB*(-MTX)+MA*((yMin>>BPP)-MTY);
 while ((v=*s++)!=0) {
       i=GETLEN(v);v=GETVAL(v);
       if (v==QFULL) // solido
@@ -546,12 +554,11 @@ while ((i=*a)!=0) { *a++=j;j=k;k=i; }
 *a++=j;*a++=k;*a=0;
 }
 
-//--------- puntero global
+//--------- RUNLEN COVER
 void add1pxr(int pos,int val)
 {
 if (val==0) return;
 int v=*rl;
-//if (v==0) return;
 if (GETLEN(v)==1) { 
    *rl=v+val; 
    rl++;
@@ -574,6 +581,7 @@ if (GETLEN(v)==1) {
 
 void addrlr(int pos,int len,int val)
 {
+again:     
 if (len==1) { add1pxr(pos,val);return; }
 int v=*rl;
 //if (v==0) { *rl=(pos<<20)|(len<<9)|val;rl++;*rl=0;return; } // al final
@@ -585,7 +593,9 @@ if (GETPOS(v)==pos) {               // empieza igual          *****
    } else if (GETLEN(v)<len ) {     // ocupa mas              ******* OK
      *rl=v+val;
      rl++;
-     addrlr(GETLEN(v)+pos,len-GETLEN(v),val);
+     pos+=GETLEN(v);len-=GETLEN(v);
+     goto again;
+//     addrlr(GETLEN(v)+pos,len-GETLEN(v),val);
    } else {                         // ocupa igual            ***** OK
      *rl=v+val;
      rl++; 
@@ -601,7 +611,9 @@ if (GETPOS(v)==pos) {               // empieza igual          *****
       *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
       rl++;*rl=SETPOS(pos)|SETLEN(GETPOSF(v)-pos)|GETVAL(v)+val;
       rl++;
-      addrlr(GETPOSF(v),pos+len-GETPOSF(v),val);
+      pos=GETPOSF(v);len=pos+len-GETPOSF(v);
+      goto again;
+//      addrlr(GETPOSF(v),pos+len-GETPOSF(v),val);
    } else {                         // ocupa igual             **** OK
       inserta(rl);
       *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
@@ -626,7 +638,7 @@ int m1;
 if (x0>=0) { add1pxr(x0,VALUES-(xa&MASK));x0++;if(x0>=gr_ancho) return; }
 else { x0=0;rl=runlenscan; }
 int largo;
-if (x1>gr_ancho) largo=gr_ancho-x0-1; else largo=x1-x0-1;
+if (x1>gr_ancho) largo=gr_ancho-x0; else largo=x1-x0;
 if (largo>0) addrlr(x0,largo,VALUES);
 if (x1<gr_ancho) add1pxr(x1,xb&MASK);
 }
@@ -634,31 +646,45 @@ if (x1<gr_ancho) add1pxr(x1,xb&MASK);
 /* para qsort */ 
 int y_cmp(const void *a, const void *b) 
 { 
-return ((*(Segm **)a)->y)-((*(Segm **)b)->y);
-} 
-int x_cmp(const void *a, const void *b) 
-{ 
-return ((*(Segm **)a)->x)-((*(Segm **)b)->x);
+int c=((*(Segm **)a)->y)-((*(Segm **)b)->y);
+if (c==0) {
+   c=((*(Segm **)a)->x)-((*(Segm **)b)->x);
+   }
+return c;
 } 
 
 //-----------------------------------------------------------------------
-void swapp(Segm **a,Segm **b)
+inline static void swapp(Segm **a,Segm **b)
 {
 Segm *t=*a;*a=*b;*b=t;
 }
 
-void sortlast(Segm **p,Segm **j) // ordena ultimo elemento
+static void sortlast(Segm **j) // ordena ultimo elemento
 {
 register Segm **a=j;
 int vx=(*a)->x;
-while (a>p && (*(a-1))->x>vx) { swapp(a-1,a);a--; }
+while (a>pseg && (*(a-1))->x>vx) { swapp(a-1,a);a--; }
 }
 
-void removej(Segm **p,Segm **j) // copia de pseg a j,pisandolo
+static int removelista()
 {
-register Segm **a=j;
-while (a>p) { *a=*(a-1);a--; }
-}
+int dif=0;
+Segm **j=phasta-1,**h=phasta-1;
+nextY=~-1;
+while (j>=pseg) {
+  if (yMin<(*j)->yfin) 
+     { nextY=min(nextY,(*j)->yfin);--h; } 
+  else 
+     { ++dif;--j;break; } 
+  --j; }    
+while (j>=pseg) {
+  if (yMin<(*j)->yfin) 
+     { nextY=min(nextY,(*j)->yfin);*h=*j;--h; } 
+  else 
+     { ++dif; } 
+  --j; }    
+return dif;
+} 
 
 void gr_drawPoli(void)
 {
@@ -667,31 +693,36 @@ segmentos[cntSegm].y=-1; // marca el ultimo
 psegmentos[cntSegm]=&segmentos[cntSegm];
 
 // reeplazar por counting sort!! lineal
-qsort(psegmentos,cntSegm,sizeof(Segm**),y_cmp);// ordena por y
+qsort(psegmentos,cntSegm,sizeof(Segm**),y_cmp);// ordena por y,x,deltax
 
-Segm **jj,**phasta=psegmentos,**pseg=psegmentos;
-int yMin=psegmentos[0]->y;
-int i,cntX=0;
+Segm **jj;
+phasta=pseg=psegmentos;
+yMin=psegmentos[0]->y;
+
+int i,dif,cntX=0;
 if (yMax>gr_alto<<BPP) { yMax=gr_alto<<BPP; }
 DWORD *gr_pant=(DWORD*)gr_buffer+(yMin>>BPP)*gr_ypitch;
+nextY=~-1;
 for (;yMin<yMax;) {
   for (i=VALUES;i!=0;--i) {
     while ((*phasta)->y==yMin) 
-      { sortlast(pseg,phasta);phasta++;cntX++; }
+      { nextY=min(nextY,(*phasta)->yfin);sortlast(phasta);phasta++;cntX++; }
     rl=runlenscan;
     for (jj=pseg;jj+1<phasta;jj+=2) {
         coverpixels(((*jj)->x)>>FBASE,((*(jj+1))->x)>>FBASE);
         }
     yMin++;
-    jj=pseg;
-    while (jj<phasta) {
-      if (yMin<(*jj)->yfin) { (*jj)->x+=(*jj)->deltax;sortlast(pseg,jj); } 
-      else { removej(pseg,jj);pseg++;cntX--; }
-      jj++;
-      }
+    // quita los que se terminaron
+    if (yMin>=nextY) {
+        dif=removelista();cntX-=dif;pseg+=dif;
+        }
+    // avanza los x
+    for(jj=pseg;jj<phasta;jj++) {
+        (*jj)->x+=(*jj)->deltax;sortlast(jj); 
+        }
     }              
   while (*rl!=0) rl++;rl--;*rl=0;  // quito el ultimo espacio
-  runlen(gr_pant,yMin>>BPP);  
+  runlen(gr_pant);  
   *runlenscan=SETLEN(gr_ancho+1);*(runlenscan+1)=0;
   gr_pant+=gr_ypitch;  
   }
