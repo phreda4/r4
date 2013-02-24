@@ -33,6 +33,7 @@ int scrsize;
 int gr_color1,gr_color2,col1,col2;
 int MA,MB,MTX,MTY; // matrix de transformacion
 int *mTex; // textura
+int gr_alphav;
 
 //---- variables para dibujo de poligonos
 typedef struct { int y,x,yfin,deltax; } Segm;
@@ -40,8 +41,8 @@ typedef struct { int y,x,yfin,deltax; } Segm;
 int cntSegm=0;
 Segm segmentos[1024];
 Segm *psegmentos[1024];
-int yMax;
-unsigned char gr_alphav;
+Segm **pseg,**phasta; // limites del scanline
+int yMax,yMin,nextY;
 
 int runlenscan[1024];
 int *rl;
@@ -198,15 +199,19 @@ void (*gr_pixel)(int *gr_pos);
 void (*gr_pixela)(int *gr_pos,unsigned char a);
 
 void gr_solid(void) {gr_pixel=_gr_pixels;gr_pixela=_gr_pixela;gr_alphav=255;}
-void gr_alpha(void) {gr_pixel=_gr_pixelsa;gr_pixela=_gr_pixelaa;}
+void gr_alpha(int a)
+{
+if (a>256) { gr_solid();return; }
+gr_alphav=a;gr_pixel=_gr_pixelsa;gr_pixela=_gr_pixelaa;
+}
 
 //--------------- DIBUJO DE POLIGONO
-void runlenSolido(int *linea,int y);
-void runlenLineal(int *linea,int y);
-void runlenRadial(int *linea,int y);
-void runlenTextura(int *linea,int y);
+void runlenSolido(int *linea);
+void runlenLineal(int *linea);
+void runlenRadial(int *linea);
+void runlenTextura(int *linea);
 
-void (*runlen)(int *linea,int y);
+void (*runlen)(int *linea);
 
 void fillSol(void) { runlen=runlenSolido; }
 void fillLin(void) { runlen=runlenLineal; }
@@ -350,18 +355,17 @@ gr_spline3(mx,my,b1x,b1y,b2x,b2y,x4,y4);
 // poligono
 void gr_psegmento(int x1,int y1,int x2,int y2)
 {
-int t;
 if (y1==y2) return;
 if (y1>y2) { swap(x1,x2);swap(y1,y2); }
 if (y1>=(buffergr.height<<BPP) || y2<=0) return;
 x1=x1<<FBASE;
 x2=x2<<FBASE;
-t=(x2-x1)/(y2-y1);
+int t=(x2-x1)/(y2-y1);
 if (y1<0) { x1+=t*(-y1);y1=0; }
 if (yMax<y2) yMax=y2;
 Segm *ii=&segmentos[cntSegm-1];
 psegmentos[cntSegm]=ii;
-ii->x=x1;
+ii->x=x1+t/2;
 ii->y=y1;
 ii->yfin=y2;
 ii->deltax=t;
@@ -425,7 +429,7 @@ gr_color1=((int*)mTex)[(dx>>8)&0xff|(dy&0xff00)];
 //----------------------------------------------
 // hacer un buffer de covertura para optimizar el pintado
 
-void runlenSolido(int *linea,int y)
+void runlenSolido(int *linea)
 {
 register int *gr_pos=linea;
 int i,v,*s=runlenscan;
@@ -439,11 +443,11 @@ while ((v=*s++)!=0) {
       }
 }
 
-void runlenLineal(int *linea,int y)
+void runlenLineal(int *linea)
 {
 register int *gr_pos=linea;
 int i,v,*s=runlenscan;
-int r=MA*(-MTX)-MB*(y-MTY);
+int r=MA*(-MTX)-MB*((yMin>>BPP)-MTY);
 while ((v=*s++)!=0) {
       i=GETLEN(v);v=GETVAL(v);
       if (v==QFULL) // solido
@@ -454,12 +458,12 @@ while ((v=*s++)!=0) {
       }
 }
 
-void runlenRadial(int *linea,int y)
+void runlenRadial(int *linea)
 {
 register int *gr_pos=linea;
 int i,v,*s=runlenscan;
-int rx = MA*(-MTX)-MB*(y-MTY);
-int ry = MB*(-MTX)+MA*(y-MTY);
+int rx = MA*(-MTX)-MB*((yMin>>BPP)-MTY);
+int ry = MB*(-MTX)+MA*((yMin>>BPP)-MTY);
 while ((v=*s++)!=0) {
       i=GETLEN(v);v=GETVAL(v);
       if (v==QFULL) // solido
@@ -470,12 +474,12 @@ while ((v=*s++)!=0) {
       }
 }
 
-void runlenTextura(int *linea,int y)
+void runlenTextura(int *linea)
 {
 register int *gr_pos=linea;
 int i,v,*s=runlenscan;
-int rx = MA*(-MTX)-MB*(y-MTY);
-int ry = MB*(-MTX)+MA*(y-MTY);
+int rx = MA*(-MTX)-MB*((yMin>>BPP)-MTY);
+int ry = MB*(-MTX)+MA*((yMin>>BPP)-MTY);
 while ((v=*s++)!=0) {
       i=GETLEN(v);v=GETVAL(v);
       if (v==QFULL) // solido
@@ -584,35 +588,56 @@ int m1;
 if (x0>=0) { add1pxr(x0,VALUES-(xa&MASK));x0++;if(x0>=buffergr.width) return; }
 else { x0=0;rl=runlenscan; }
 int largo;
-if (x1>buffergr.width) largo=buffergr.width-x0-1; else largo=x1-x0-1;
+if (x1>buffergr.width) largo=buffergr.width-x0; else largo=x1-x0;
 if (largo>0) addrlr(x0,largo,VALUES);
 if (x1<buffergr.width) add1pxr(x1,xb&MASK);
 }
 
 /* para qsort */
-int y_cmp(const void *a, const void *b)
-{
-return ((*(Segm **)a)->y)-((*(Segm **)b)->y);
+int y_cmp(const void *a, const void *b) 
+{ 
+int c=((*(Segm **)a)->y)-((*(Segm **)b)->y);
+if (c==0) {
+   c=((*(Segm **)a)->x)-((*(Segm **)b)->x);
+   }
+return c;
 }
 
 //-----------------------------------------------------------------------
-void swapp(Segm **a,Segm **b)
+inline static void swapp(Segm **a,Segm **b)
 {
 Segm *t=*a;*a=*b;*b=t;
 }
 
-void sortlast(Segm **p,Segm **j) // ordena ultimo elemento
+static void sortlast(Segm **j) // ordena ultimo elemento
 {
 register Segm **a=j;
 int vx=(*a)->x;
-while (a>p && (*(a-1))->x>vx) { swapp(a-1,a);a--; }
+while (a>pseg && (*(a-1))->x>vx) { swapp(a-1,a);a--; }
 }
 
-void removej(Segm **p,Segm **j) // copia de pseg a j,pisandolo
+#define MIN(a,b) (a<b?a:b)
+
+static int removelista()
 {
-register Segm **a=j;
-while (a>p) { *a=*(a-1);a--; }
-}
+int dif=0;
+Segm **j=phasta-1,**h=phasta-1;
+nextY=~-1;
+while (j>=pseg) {
+	if (yMin<(*j)->yfin)
+		{ nextY=MIN(nextY,(*j)->yfin);--h; }
+	  else
+	    { ++dif;--j;break; }
+	--j;
+	}
+while (j>=pseg) {
+  if (yMin<(*j)->yfin) 
+     { nextY=MIN(nextY,(*j)->yfin);*h=*j;--h; }
+  else 
+     { ++dif; } 
+  --j; }    
+return dif;
+} 
 
 //-----------------------------------------------------------------------
 void gr_drawPoli(void)
@@ -624,29 +649,33 @@ psegmentos[cntSegm]=&segmentos[cntSegm];
 // reeplazar por counting sort!! lineal
 qsort(psegmentos,cntSegm,sizeof(Segm**),y_cmp);// ordena por y
 
-Segm **jj,**phasta=psegmentos,**pseg=psegmentos;
-int yMin=psegmentos[0]->y;
-int i,cntX=0;
+Segm **jj;
+phasta=pseg=psegmentos;
+yMin=psegmentos[0]->y;
+int i,dif,cntX=0;
 if (yMax>buffergr.height<<BPP) { yMax=buffergr.height<<BPP; }
 int *gr_pant=(int*)gr_buffer+(yMin>>BPP)*buffergr.stride;
+nextY=~-1;
 for (;yMin<yMax;) {
   for (i=VALUES;i!=0;--i) {
     while ((*phasta)->y==yMin)
-      { sortlast(pseg,phasta);phasta++;cntX++; }
+      { nextY=MIN(nextY,(*phasta)->yfin);sortlast(phasta);phasta++;cntX++; }
     rl=runlenscan;
     for (jj=pseg;jj+1<phasta;jj+=2) {
         coverpixels(((*jj)->x)>>FBASE,((*(jj+1))->x)>>FBASE);
         }
     yMin++;
-    jj=pseg;
-    while (jj<phasta) {
-      if (yMin<(*jj)->yfin) { (*jj)->x+=(*jj)->deltax;sortlast(pseg,jj); }
-      else { removej(pseg,jj);pseg++;cntX--; }
-      jj++;
-      }
+    // quita los que se terminaron
+    if (yMin>=nextY) {
+        dif=removelista();cntX-=dif;pseg+=dif;
+        }
+    // avanza los x
+    for(jj=pseg;jj<phasta;jj++) {
+        (*jj)->x+=(*jj)->deltax;sortlast(jj); 
+        }
     }
   while (*rl!=0) rl++;rl--;*rl=0;  // quito el ultimo espacio
-  runlen(gr_pant,yMin>>BPP);
+  runlen(gr_pant);
   *runlenscan=SETLEN(buffergr.width+1);*(runlenscan+1)=0;
   gr_pant+=buffergr.stride;
   }
