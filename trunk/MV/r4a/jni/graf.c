@@ -20,7 +20,7 @@
 
 #include <android_native_app_glue.h>
 #include <android/log.h>
-
+#include <stdlib.h>
 #include "graf.h"
 
 //---- buffer de video
@@ -37,12 +37,9 @@ int *mTex; // textura
 //---- variables para dibujo de poligonos
 typedef struct { int y,x,yfin,deltax; } Segm;
 
-Segm segmentos[1024];
-Segm **pact;
-Segm *actual[256]; // segmentos actuales
-Segm **xquisc;
-Segm *xquis[256]; // cada linea
 int cntSegm=0;
+Segm segmentos[1024];
+Segm *psegmentos[1024];
 int yMax;
 unsigned char gr_alphav;
 
@@ -71,7 +68,16 @@ free(gr_buffer);
 #define GR_X(X) gr_pos+=X;
 #define GR_Y(Y) gr_pos+=Y*buffergr.width;
 
-void copia565(void)
+#define RED5  0xF800
+#define GRE6  0x07E0
+#define BLU5  0x001F
+
+inline static int to565(int c)
+{
+return ((c>>8)&RED5)|((c>>5)&GRE6)|((c>>3)&BLU5);
+}
+
+static void copia565(void)
 {
 register int *s=gr_buffer;
 register int *d=(int*)buffergr.bits;
@@ -84,7 +90,8 @@ for(y=buffergr.height;y>0;--y)
         *d++=to565(*s++)|(to565(*s++)<<16);
         }
 }
-void copia888(void)
+
+static void copia888(void)
 {
 register int *s=gr_buffer;
 register int *d=(int*)buffergr.bits;
@@ -113,9 +120,8 @@ ANativeWindow_unlockAndPost(app->window);
 gr_buffer=(int*)malloc(scrsize<<2);
 XFB=(int*)malloc(scrsize<<2);
 //---- poligonos2
-cntSegm=0;
-yMax=-1;
-*runlenscan=SETLEN(buffergr.width-1);*(runlenscan+1)=0;
+cntSegm=0;yMax=0;
+*runlenscan=SETLEN(buffergr.width+1);*(runlenscan+1)=0;
 fillSol();
 //---- colores
 gr_color2=0;gr_color1=0xffffff;
@@ -130,14 +136,6 @@ inline void fillmat(int a,int b)
 inline void fillcol(unsigned int c1,unsigned int c2)
 { col1=c1;col2=c2; }
 
-#define RED5  0xF800
-#define GRE6  0x07E0
-#define BLU5  0x001F
-
-inline int to565(int c)
-{
-return ((c>>8)&RED5)|((c>>5)&GRE6)|((c>>3)&BLU5);
-}
 
 void gr_swap(struct android_app* app)
 {
@@ -362,8 +360,7 @@ t=(x2-x1)/(y2-y1);
 if (y1<0) { x1+=t*(-y1);y1=0; }
 if (yMax<y2) yMax=y2;
 Segm *ii=&segmentos[cntSegm-1];
-while (ii>=segmentos && ii->y>y1 ) { *(ii+1)=*(ii);ii--; }
-ii++;
+psegmentos[cntSegm]=ii;
 ii->x=x1;
 ii->y=y1;
 ii->yfin=y2;
@@ -423,18 +420,6 @@ return ((max<<8)+(max<<3)-(max<<4)-(max<<1)+(min<<7)-(min<<5)+(min<<3)-(min<<1))
 inline void texture(int dx,int dy)
 {
 gr_color1=((int*)mTex)[(dx>>8)&0xff|(dy&0xff00)];
-}
-
-//----------------------------------------------------------
-void addlin(Segm *ii)
-{
-register int xr=ii->x;
-Segm **cursor=(xquisc-1);
-while (cursor>=xquis && (*cursor)->x>xr) {
-      *(cursor+1)=*cursor;cursor--;
-      }
-*(cursor+1)=ii;
-xquisc++;
 }
 
 //----------------------------------------------
@@ -520,9 +505,8 @@ void add1pxr(int pos,int val)
 {
 if (val==0) return;
 int v=*rl;
-//if (v==0) return;
 if (GETLEN(v)==1) {
-   *rl=(v&0xfffffe00)|GETVAL(v)+val;
+   *rl=v+val;
    rl++;
 } else if (GETPOS(v)==pos) {
    inserta(rl);
@@ -543,6 +527,7 @@ if (GETLEN(v)==1) {
 
 void addrlr(int pos,int len,int val)
 {
+again:
 if (len==1) { add1pxr(pos,val);return; }
 int v=*rl;
 //if (v==0) { *rl=(pos<<20)|(len<<9)|val;rl++;*rl=0;return; } // al final
@@ -552,11 +537,13 @@ if (GETPOS(v)==pos) {               // empieza igual          *****
      *rl=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
      rl++;*rl=SETPOS(pos+len)|SETLEN(GETLEN(v)-len)|GETVAL(v);
    } else if (GETLEN(v)<len ) {     // ocupa mas              ******* OK
-     *rl=(v&0xfffffe00)|val+(v&0x1ff);
+     *rl=v+val;
      rl++;
-     addrlr(((v>>9)&0x7ff)+pos,len-((v>>9)&0x7ff),val);
+     pos+=GETLEN(v);len-=GETLEN(v);
+     goto again;
+     //addrlr(GETLEN(v)+pos,len-GETLEN(v),val);
    } else {                         // ocupa igual            ***** OK
-     *rl=(v&0xfffffe00)|GETVAL(v)+val;
+     *rl=v+val;
      rl++;
    }
 } else {                             // empieza adentro       *****
@@ -570,7 +557,9 @@ if (GETPOS(v)==pos) {               // empieza igual          *****
       *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
       rl++;*rl=SETPOS(pos)|SETLEN(GETPOSF(v)-pos)|GETVAL(v)+val;
       rl++;
-      addrlr(GETPOSF(v),pos+len-GETPOSF(v),val);
+      pos=GETPOSF(v);len=pos+len-GETPOSF(v);
+      goto again;
+//      addrlr(GETPOSF(v),pos+len-GETPOSF(v),val);
    } else {                         // ocupa igual             **** OK
       inserta(rl);
       *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
@@ -600,44 +589,68 @@ if (largo>0) addrlr(x0,largo,VALUES);
 if (x1<buffergr.width) add1pxr(x1,xb&MASK);
 }
 
+/* para qsort */
+int y_cmp(const void *a, const void *b)
+{
+return ((*(Segm **)a)->y)-((*(Segm **)b)->y);
+}
+
+//-----------------------------------------------------------------------
+void swapp(Segm **a,Segm **b)
+{
+Segm *t=*a;*a=*b;*b=t;
+}
+
+void sortlast(Segm **p,Segm **j) // ordena ultimo elemento
+{
+register Segm **a=j;
+int vx=(*a)->x;
+while (a>p && (*(a-1))->x>vx) { swapp(a-1,a);a--; }
+}
+
+void removej(Segm **p,Segm **j) // copia de pseg a j,pisandolo
+{
+register Segm **a=j;
+while (a>p) { *a=*(a-1);a--; }
+}
+
 //-----------------------------------------------------------------------
 void gr_drawPoli(void)
 {
-Segm **jj;
-Segm *scopia=segmentos;
-pact=actual;
-segmentos[cntSegm].y=-1;
-if (yMax>buffergr.height<<BPP) { yMax=buffergr.height<<BPP; }
-int i,yMin=scopia->y;
+if (cntSegm<2) return;
+segmentos[cntSegm].y=-1; // marca el ultimo
+psegmentos[cntSegm]=&segmentos[cntSegm];
 
+// reeplazar por counting sort!! lineal
+qsort(psegmentos,cntSegm,sizeof(Segm**),y_cmp);// ordena por y
+
+Segm **jj,**phasta=psegmentos,**pseg=psegmentos;
+int yMin=psegmentos[0]->y;
+int i,cntX=0;
+if (yMax>buffergr.height<<BPP) { yMax=buffergr.height<<BPP; }
 int *gr_pant=(int*)gr_buffer+(yMin>>BPP)*buffergr.stride;
 for (;yMin<yMax;) {
-
-  for (i=MASK;i>=0;--i) {
-    while (scopia->y==yMin) { *pact=scopia;pact++;scopia++; }
-    xquisc=xquis;
-    jj=actual;
-    while (jj<pact) { addlin(*jj);jj++; }
+  for (i=VALUES;i!=0;--i) {
+    while ((*phasta)->y==yMin)
+      { sortlast(pseg,phasta);phasta++;cntX++; }
     rl=runlenscan;
-    for (jj=xquis;jj+1<xquisc;jj+=2) {
+    for (jj=pseg;jj+1<phasta;jj+=2) {
         coverpixels(((*jj)->x)>>FBASE,((*(jj+1))->x)>>FBASE);
         }
-    jj=actual;
     yMin++;
-    while (jj<pact) {
-          if (yMin<(*jj)->yfin) { (*jj)->x+=(*jj)->deltax;jj++; }
-          else { *jj=*(pact-1);pact--; }
-          }
+    jj=pseg;
+    while (jj<phasta) {
+      if (yMin<(*jj)->yfin) { (*jj)->x+=(*jj)->deltax;sortlast(pseg,jj); }
+      else { removej(pseg,jj);pseg++;cntX--; }
+      jj++;
+      }
     }
-
-  while (*rl!=0) rl++;rl--;if (GETVAL(*rl)==0) *rl=0;  // quito el ultimo espacio
+  while (*rl!=0) rl++;rl--;*rl=0;  // quito el ultimo espacio
   runlen(gr_pant,yMin>>BPP);
   *runlenscan=SETLEN(buffergr.width+1);*(runlenscan+1)=0;
-
   gr_pant+=buffergr.stride;
   }
-yMax=-1;
-cntSegm=0;
+cntSegm=0;yMax=0;
 }
 
 void gr_pline(int x1,int y1,int x2,int y2)

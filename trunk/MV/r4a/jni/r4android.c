@@ -30,7 +30,7 @@
 
 // ----------------------------------------------------------------------
 /* Set to 1 to enable debug log traces. */
-//#define DEBUG 0
+///#define DEBUG 0
 
 static void logsd(char *s)
 		{
@@ -39,6 +39,7 @@ static void logsd(char *s)
 	fwrite(s,1,strlen(s),fo);
 	fclose(fo);
 		}
+
 // ----------------------------------------------------------------------
 struct engine {
     struct android_app* app;
@@ -1110,7 +1111,7 @@ cntindiceex=cntnombreex=cntincludes=0;// espacio de nombres reset
 cntdato=cntprog=0;cntindice=cntnombre=0;
 
 LOGI("compilando %s..",bootstr);
-if (compilafile(bootstr)!=COMPILAOK) { logsd(error);gr_fin();exit(0);return ; }
+if (compilafile(bootstr)!=COMPILAOK) { /*logsd(error);*/gr_fin();exit(0);return ; }
 LOGI("ok");
 memlibre=data+cntdato; // comienzo memoria libre
 if (interprete(bootaddr)==1) goto recompila;
