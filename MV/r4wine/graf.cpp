@@ -564,7 +564,7 @@ if (GETLEN(v)==1) {
    rl++;
 } else if (GETPOS(v)==pos) {
    inserta(rl);
-   *rl=SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;
+   *rl=((v&0xfff001ff)+val)|0x200;//SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;//pos=v
    rl++;*rl=v+0x100000-0x200;
 } else if (GETPOSF(v)-1==pos) {
    inserta(rl);
