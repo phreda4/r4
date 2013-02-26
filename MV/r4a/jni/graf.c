@@ -69,11 +69,15 @@ free(gr_buffer);
 #define GR_X(X) gr_pos+=X;
 #define GR_Y(Y) gr_pos+=Y*buffergr.width;
 
+#define ASM
+
+#ifdef ASM
 // ASM
 static void blit32to565(const int *dst,const int *src, int cnt);
-static void setmem32(const int *dst,int valor, int cnt);
 static void copymem32(const int *dst,const int *src, int cnt);
-
+static void setmem32(const int *dst,int valor, int cnt);
+static void setmem32f(const int *dst,int valor, int cnt);
+#endif
 
 #define RED5  0xF800
 #define GRE6  0x07E0
@@ -86,7 +90,9 @@ return ((c>>8)&RED5)|((c>>5)&GRE6)|((c>>3)&BLU5);
 
 static void copia565(void)
 {
-/*
+#ifdef ASM
+blit32to565((int*)buffergr.bits,(int*)gr_buffer,gr_realsize);
+#else
 register int *s=gr_buffer;
 register int *d=(int*)buffergr.bits;
 register int y,x;
@@ -97,24 +103,33 @@ for(y=buffergr.height;y>0;--y)
         *d++=to565(*s++)|(to565(*s++)<<16);
         *d++=to565(*s++)|(to565(*s++)<<16);
         }
-*/
-blit32to565((int*)buffergr.bits,(int*)gr_buffer,gr_realsize);
+#endif
 }
 
 static void copia888(void)
 {
-/*
+#ifdef ASM
+	copymem32((int*)buffergr.bits,gr_buffer,gr_realsize);
+#else
 register int *s=gr_buffer;
 register int *d=(int*)buffergr.bits;
-register int i;
-for(i=gr_realsize;i>0;i-=8) {
+register int x,y;
+for(y=buffergr.height;y>0;--y)
+	for(x=buffergr.width;x>0;x-=8) {
     *d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;
     *d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++; }
-*/
-copymem32((int*)buffergr.bits,gr_buffer,gr_realsize);
+#endif
 }
 
 void (*copiabuffer)(void);
+
+void gr_size(struct android_app* app)
+{
+ANativeWindow_lock(app->window, &buffergr, NULL);
+gr_realsize=buffergr.width*buffergr.height;
+ANativeWindow_unlockAndPost(app->window);
+//LOGI("new size %d %d",buffergr.width,buffergr.height);
+}
 
 //---- inicio
 void gr_init(struct android_app* app)
@@ -125,14 +140,13 @@ if (buffergr.format==4) //565
 	{ copiabuffer=copia565; }
 else
 	{ copiabuffer=copia888; }
+gr_realsize=buffergr.width*buffergr.height;
+int maxsize=(buffergr.width>buffergr.height?buffergr.width:buffergr.height);
+maxsize*=maxsize;
 ANativeWindow_unlockAndPost(app->window);
 
-int gr_ancho=ANativeWindow_getWidth(app->window);
-int gr_alto=ANativeWindow_getHeight(app->window);
-gr_realsize=gr_ancho*gr_alto;
-
-gr_buffer=(int*)malloc(gr_realsize<<2);
-XFB=(int*)malloc(gr_realsize<<2);
+gr_buffer=(int*)malloc(maxsize<<2);
+XFB=(int*)malloc(maxsize<<2);
 
 //---- poligonos2
 cntSegm=0;yMax=0;
@@ -160,40 +174,43 @@ ANativeWindow_unlockAndPost(app->window);
 
 void gr_clrscr(void)
 {
-setmem32(gr_buffer,gr_color2,gr_realsize);
-/*
+#ifdef ASM
+setmem32f(gr_buffer,gr_color2,gr_realsize);
+#else
 register int *d=gr_buffer;
 register int i,c=gr_color2;
-//for(i=buffergr.height*buffergr.width;i>0;i-=8)
-for(i=gr_realsize;i>0;i-=8)
+for(i=buffergr.height*buffergr.width;i>0;i-=8)
+//for(i=gr_realsize;i>0;i-=8)
 	{ *d++=c;*d++=c;*d++=c;*d++=c;*d++=c;*d++=c;*d++=c;*d++=c; }
-*/
+#endif
 }
 
 void gr_toxfb(void)
 {
+#ifdef ASM
 copymem32(XFB,gr_buffer,gr_realsize);
-/*
+#else
 register int *d=XFB;
 register int *s=gr_buffer;
 register int i;
 //for(i=buffergr.height*buffergr.width;i>0;i-=8)
 for(i=gr_realsize;i>0;i-=8)
 	{ *d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++; }
-*/
+#endif
 }
 
 void gr_xfbto(void)
 {
+#ifdef ASM
 copymem32(gr_buffer,XFB,gr_realsize);
-/*
+#else
 register int *d=gr_buffer;
 register int *s=XFB;
 register int i;
 //for(i=buffergr.height*buffergr.width;i>0;i-=8)
 for(i=gr_realsize;i>0;i-=8)
 	{ *d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++; }
-*/
+#endif
 }
 
 #define RED_MASK 0xFF0000
@@ -715,8 +732,8 @@ void gr_pcurve3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4)
 
 //---------------------------------------------------------------
 // Optimizacion de rutinas
-
-static void blit32to565(const int *dst,const int *src, int cnt)
+#ifdef ASM
+static void blit32to565v1(const int *dst,const int *src, int cnt)
 {
 asm volatile (
 "1:							\n\t"
@@ -748,6 +765,48 @@ asm volatile (
 : : "memory", "cc", "r3", "r4", "r5" );
 }
 
+static void blit32to565(const int *dst,const int *src, int cnt)
+{
+asm volatile (
+"1:							\n\t"
+	"ldmia %[src]!,{r3,r4}	\n\t"
+
+	"mov r5,r3, lsr #3		\n\t"
+	"mov r6,r4, lsr #3		\n\t"
+	"and r7,r5,#0x1f		\n\t"
+	"and r6,r6,#0x1f 		\n\t"
+	"orr r7,r7,r6, lsl #16	\n\t"
+	"mov r5,r3, lsr #5		\n\t"
+	"mov r6,r4, lsr #5		\n\t"
+	"and r5,r5,#0x7e0		\n\t"
+	"and r6,r6,#0x7e0		\n\t"
+	"orr r7,r7,r5			\n\t"
+	"orr r7,r7,r6, lsl #16	\n\t"
+	"and r3,r3,#0xf80000	\n\t"
+	"and r4,r4,#0xf80000	\n\t"
+	"orr r7,r7,r3, lsr #8	\n\t"
+	"orr r7,r7,r4, lsl #8	\n\t"
+
+	"str r7,[%[dst]],#4		\n\t"
+	"subs %[cnt],%[cnt],#2	\n\t"
+	"bne    1b				\n\t"
+: [dst] "+r" (dst), [src] "+r" (src), [cnt] "+r" (cnt)
+: : "memory", "cc", "r3", "r4", "r5","r6","r7" );
+}
+
+static void copymem32(const int *dst,const int *src, int cnt)
+{
+	asm volatile (
+"1:								\n\t"
+	"LDMIA %[src]!, {r3 - r10}	\n\t"
+    "STMIA %[dst]!, {r3 - r10}	\n\t"
+    "SUBS %[cnt],%[cnt], #8		\n\t"
+    "BGE 1b					\n\t"
+: [dst] "+r" (dst), [src] "+r" (src), [cnt] "+r" (cnt)
+: : "memory", "cc","r3","r4","r5","r6","r7","r8","r9","r10" );
+}
+
+
 static void setmem32(const int *dst,int valor, int cnt)
 {
 asm volatile (
@@ -759,15 +818,25 @@ asm volatile (
 : : "memory", "cc" );
 }
 
-static void copymem32(const int *dst,const int *src, int cnt)
+static void setmem32f(const int *dst,int valor, int cnt)
 {
-	asm volatile (
-"1:								\n\t"
-      "LDMIA %[src]!, {r3 - r10}	\n\t"
-      "STMIA %[dst]!, {r3 - r10}	\n\t"
-      "SUBS %[cnt],%[cnt], #8		\n\t"
-      "BGE 1b					\n\t"
-: [dst] "+r" (dst), [src] "+r" (src), [cnt] "+r" (cnt)
-: : "memory", "cc","r3","r4","r5","r6","r7","r8","r9","r10" );
+asm volatile (
+"   mov r3, %[valor]\n"
+"   mov r4, %[valor]\n"
+"   mov r5, %[valor]\n"
+"1:\n"
+"   subs %[cnt], %[cnt], #8\n"
+"   stmhsia %[dst]!, {%[valor], r3, r4, r5}\n"
+"   stmhsia %[dst]!, {%[valor], r3, r4, r5}\n"
+"   bhs 1b\n"
+"   add %[cnt], %[cnt], #8\n"
+"   movs %[cnt], %[cnt], lsl #30\n"
+"   stmcsia %[dst]!, {%[valor], r3, r4, r5}\n"
+"   stmmiia %[dst]!, {r4, r5}\n"
+"   movs %[cnt], %[cnt], lsl #2\n"
+"   strcs %[valor], [%[dst]]\n"
+: [dst] "+r" (dst), [valor] "+r" (valor), [cnt] "+r" (cnt)
+: : "memory", "cc","r3","r4","r5" );
 }
 
+#endif
