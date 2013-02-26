@@ -211,6 +211,7 @@ switch (cmd) {
    case APP_CMD_CONFIG_CHANGED:
      /* Handle rotation / orientation change */
      LOGI("handle_cmd: APP_CMD_CONFIG_CHANGED");
+	 gr_size(app);
      break;
    case APP_CMD_WINDOW_RESIZED:
      LOGI("handle_cmd: APP_CMD_WINDOW_RESIZED");

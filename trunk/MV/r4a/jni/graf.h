@@ -37,6 +37,7 @@ extern int MA,MB,MTX,MTY; // matrix de transformacion
 extern int *mTex; // textura
 
 void gr_init(struct android_app* app);
+void gr_size(struct android_app* app);
 void gr_fin(void);
 void gr_clrscr(void);
 void gr_swap(struct android_app* app);
@@ -65,8 +66,8 @@ void fillmat(int a,int b);
 void fillcol(unsigned int c1,unsigned int c2);
 //---- poligono
 
-#define LLQ
-//#define LOWQ
+//#define LLQ
+#define LOWQ
 //#define MEDQ
 //#define HIQ
 
