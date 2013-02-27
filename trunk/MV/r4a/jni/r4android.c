@@ -1055,13 +1055,13 @@ if (stat(rootpath, &st) != -1) return; // ya existe la carpeta
 
 makeFolder("");
 makeFolder("/inc");
+makeFolder("/inc/rtf");
+makeFolder("/inc/ric");
 makeFolder("/mem");
 makeFolder("/r4");
 makeFolder("/r4/apps");
 makeFolder("/r4/demos");
-makeFolder("/r4/demos/historia");
 makeFolder("/r4/demos/test");
-makeFolder("/r4/demos/video");
 makeFolder("/r4/dev");
 makeFolder("/r4/dev/games");
 makeFolder("/r4/dev/graficos");

@@ -76,7 +76,6 @@ free(gr_buffer);
 static void blit32to565(const int *dst,const int *src, int cnt);
 static void copymem32(const int *dst,const int *src, int cnt);
 static void setmem32(const int *dst,int valor, int cnt);
-static void setmem32f(const int *dst,int valor, int cnt);
 #endif
 
 #define RED5  0xF800
@@ -175,7 +174,7 @@ ANativeWindow_unlockAndPost(app->window);
 void gr_clrscr(void)
 {
 #ifdef ASM
-setmem32f(gr_buffer,gr_color2,gr_realsize);
+setmem32(gr_buffer,gr_color2,gr_realsize);
 #else
 register int *d=gr_buffer;
 register int i,c=gr_color2;
@@ -789,12 +788,13 @@ asm volatile (
 
 	"str r7,[%[dst]],#4		\n\t"
 	"subs %[cnt],%[cnt],#2	\n\t"
-	"bne    1b				\n\t"
+	"bge    1b				\n\t"
 : [dst] "+r" (dst), [src] "+r" (src), [cnt] "+r" (cnt)
 : : "memory", "cc", "r3", "r4", "r5","r6","r7" );
 }
 
-static void copymem32(const int *dst,const int *src, int cnt)
+//--------------------------------------------------------------
+static void copymem32v1(const int *dst,const int *src, int cnt)
 {
 	asm volatile (
 "1:								\n\t"
@@ -806,8 +806,22 @@ static void copymem32(const int *dst,const int *src, int cnt)
 : : "memory", "cc","r3","r4","r5","r6","r7","r8","r9","r10" );
 }
 
+// NEON
+static void copymem32(const int *dst,const int *src, int cnt)
+{
+	asm volatile (
+"1:               	    \n\t"
+"      PLD [%[src], #0xC0]	\n\t"
+"      VLDM %[src]!,{d0-d7}	\n\t"
+"      VSTM %[dst]!,{d0-d7}	\n\t"
+"      SUBS %[cnt],%[cnt],#16	\n\t"
+"      BGE 1b	        \n\t"
+: [dst] "+r" (dst), [src] "+r" (src), [cnt] "+r" (cnt)
+: : "memory", "cc","d0","d1","d2","d3","d4","d5","d6","d7" );
+}
 
-static void setmem32(const int *dst,int valor, int cnt)
+//--------------------------------------------------------------
+static void setmem32v1(const int *dst,int valor, int cnt)
 {
 asm volatile (
 "1:							\n\t"
@@ -818,7 +832,7 @@ asm volatile (
 : : "memory", "cc" );
 }
 
-static void setmem32f(const int *dst,int valor, int cnt)
+static void setmem32v2(const int *dst,int valor, int cnt)
 {
 asm volatile (
 "   mov r3, %[valor]\n"
@@ -837,6 +851,109 @@ asm volatile (
 "   strcs %[valor], [%[dst]]\n"
 : [dst] "+r" (dst), [valor] "+r" (valor), [cnt] "+r" (cnt)
 : : "memory", "cc","r3","r4","r5" );
+}
+
+/* r0 = buffer, r1 = value, r2 = times to write */
+static void setmem32(const int *dst,int valor, int cnt)
+{
+asm volatile (
+"memset32_neon:						\n"
+"cmp		%[cnt], #1				\n"
+"streq		%[valor], [%[dst]], #4	\n"
+"bxeq		lr						\n"
+"cmp		%[cnt], #4				\n"
+"bgt		memset32_neon_start		\n"
+"cmp		%[cnt], #0				\n"
+"bxeq		lr						\n"
+"memset32_neon_small:				\n"
+"str		%[valor], [%[dst]], #4	\n"
+"subs		%[cnt], %[cnt], #1		\n"
+"bne		memset32_neon_small		\n"
+"bx		lr							\n"
+"memset32_neon_start:				\n"
+"cmp		%[cnt], #16				\n"
+"blt		memset32_dropthru		\n"
+"vdup.32		q0, %[valor]		\n"
+"vmov		q1, q0					\n"
+"cmp		%[cnt], #32				\n"
+"blt		memset32_16				\n"
+"cmp		%[cnt], #64				\n"
+"blt		memset32_32				\n"
+"cmp		%[cnt], #128			\n"
+"blt		memset32_64				\n"
+"memset32_128:						\n"
+"movs		r12, %[cnt], lsr #7		\n"
+"memset32_loop128:					\n"
+"subs		r12, r12, #1			\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"bne		memset32_loop128		\n"
+"ands		%[cnt], %[cnt], #0x7f	\n"
+"bxeq		lr						\n"
+"memset32_64:						\n"
+"movs		r12, %[cnt], lsr #6		\n"
+"beq		memset32_32				\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"ands		%[cnt], %[cnt], #0x3f	\n"
+"bxeq		lr						\n"
+"memset32_32:						\n"
+"movs		r12, %[cnt], lsr #5		\n"
+"beq		memset32_16				\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"ands		%[cnt], %[cnt], #0x1f	\n"
+"bxeq		lr						\n"
+"memset32_16:						\n"
+"movs		r12, %[cnt], lsr #4		\n"
+"beq		memset32_dropthru		\n"
+"and		%[cnt], %[cnt], #0xf	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"vst1.64		{q0, q1}, [%[dst]]!	\n"
+"memset32_dropthru:					\n"
+"rsb		%[cnt], %[cnt], #15		\n"
+"add		pc, pc, %[cnt], lsl #2	\n"
+"nop								\n"
+"str		%[valor], [%[dst], #56]	\n"
+"str		%[valor], [%[dst], #52]	\n"
+"str		%[valor], [%[dst], #48]	\n"
+"str		%[valor], [%[dst], #44]	\n"
+"str		%[valor], [%[dst], #40]	\n"
+"str		%[valor], [%[dst], #36]	\n"
+"str		%[valor], [%[dst], #32]	\n"
+"str		%[valor], [%[dst], #28]	\n"
+"str		%[valor], [%[dst], #24]	\n"
+"str		%[valor], [%[dst], #20]	\n"
+"str		%[valor], [%[dst], #16]	\n"
+"str		%[valor], [%[dst], #12]	\n"
+"str		%[valor], [%[dst], #8]	\n"
+"str		%[valor], [%[dst], #4]	\n"
+"str		%[valor], [%[dst], #0]	\n"
+"bx		lr							\n"
+: [dst] "+r" (dst), [valor] "+r" (valor), [cnt] "+r" (cnt)
+: : "memory", "cc","r12","q0","q1" );
 }
 
 #endif
