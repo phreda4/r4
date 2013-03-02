@@ -1,0 +1,248 @@
+| Rutinas Graficas
+| PHREDA 2013
+|--------------------------
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/trace.txt
+
+
+#FBASE		8
+#BPP        4
+#TOLERANCE  24
+#VALUES     $10
+#QFULL      $100
+#MASK       $ff
+
+#px #py
+
+#ymax -1
+-1 -1 -1 -1
+|--------- segmentos
+| ymin x delta1x ymax
+#segs )( $3fff
+#segs> 'segs
+
+|-----------------------
+| Heap Implicit Tree
+|-----------------------
+#heapseg )( $3fff
+#heapcnt 0
+
+:]heap | nro -- adrr
+	2 << 'heapseg + ;
+
+:heap! | nodo --
+	heapcnt dup 1+ 'heapcnt !
+	( 0 >? )(
+		dup 1- 2/	| v j i
+		dup ]heap @ | v j i vi
+		pick3 <? ( 2drop ]heap ! ; )
+		rot ]heap !	| v i
+		) drop
+	'heapseg ! ;
+
+:moveDown | nodo pos --
+	( heapcnt 2/ <? )(
+		dup 2* 1+ 		| val pos ch1
+		dup ]heap @	| val pos ch1 v1
+		over 1+         | val pos ch1 v1 ch2
+		heapcnt <? (
+			]heap @	| val pos ch1 V1 V2
+    		>? ( drop 1+ dup ]heap @ ) | val pos chm Vm
+			)( drop )
+		pick3 				| value pos chM vM va
+		>=? ( 2drop ]heap ! ; )		| value pos chM vM
+		rot over swap ]heap !	| value chM vM
+		drop )
+	]heap ! ;
+
+:heap@ | -- nodo
+	heapseg
+	heapcnt 0? ( nip ; )
+	1- ]heap @ 0 MoveDown
+	-1 'heapcnt +! ;
+
+|-------------------------
+
+|************************************
+::OP2
+	'py ! 'px ! ;
+
+|************************************
+::PLINE2 | x y --
+	py =? ( drop 'px ! ; )
+	px py pick2 >? ( 2swap 2dup )( 2over ) | x2 y2 x1 y1
+	'py ! 'px !
+	sh >=? ( 4drop ; ) rot 0 <=? ( 4drop ; ) | x2 x1 y1 y2
+	>r >r FBASE << swap FBASE << 	| x1 x2
+	over - r> r over -				| x1 (x2-x1) y1 (y2-y1)
+	rot swap / swap					| x1 t y1
+	-? ( neg over * rot + swap 0 )	| x1 t y1
+
+	dup 16 << segs> 'segs - 4 >> or heap!
+
+	segs> !+ rot pick2 2/ + swap !+ !+
+	r> swap !+ 'segs> !
+	;
+
+
+|--------------- COVERBUFFER
+| dato - puntero
+#coverbuff )( 4096
+#coverbuff> 'coverbuff
+
+| pos(12) | len(11) | cover(9) |
+:getpos 20 >> $fff and ;
+:getlen 9 >> $7ff and ;
+:getval $1ff and ;
+:setpos 20 << ;
+:setlen 9 << ;
+
+:inicover | largo --
+	'coverbuff >r
+	0 setpos sw 1+ setlen or r!+ 0 r!+
+	r> 'coverbuff> ! ;
+
+|------------------------------------------------------
+:cover.busca | pos adr -- pos  adr'
+	( dup 4+ @ 1? )(	| pos adr1 adr2
+		dup @ getpos pick3
+		>? ( 2drop ; ) drop
+		nip ) drop ;
+
+:insert1 | adr -- adr
+	dup 4+ @ coverbuff> 4+ !
+	coverbuff> over 4+ !
+	8 'coverbuff> +! ;
+
+:insert2 | adr -- adr
+	dup 4+ @ coverbuff> 12 + !
+	coverbuff> over 4+ !
+	coverbuff> 4+ dup 4+ swap !
+	16 'coverbuff> +! ;
+
+:cover.insp | valor pos adr -- adr'
+	>r
+	r @ getlen
+	1 =? ( 2drop r +! r> 4+ @ ; )
+	r @ getpos | v p largo pos
+	pick2 =? ( 2drop |--- inicio de segmento
+		r insert1
+		@ dup $fff001ff and $200 or rot drop rot + r!+
+		r> @ >r
+		$100000 + $200 - r !
+		r> ; )
+	+ 1- over =? ( 2drop |--- fin de segmento
+		r insert1
+		@ dup $200 - r!+ r> @ >r
+		getval rot + swap setpos or 1 setlen or r!+
+		r> @ ; )
+	1+
+	r insert2 @ | val pos posf v
+	dup $fff001ff and pick3 pick2 getpos - setlen or r!+ r> @ >r
+   	getval	| valor pos posf valf
+	pick3 over + pick3 setpos or 1 setlen or r!+ r> @ >r
+	rot 1+	| valor posf valf pos
+	rot over - setlen swap setpos or | valor
+	or nip r ! r> ;
+
+:cover.insl | valor largo pos adr -- adr'
+	rot 1 =? ( drop cover.insp ; )
+	swap >r swap | valor largo pos
+	r @ getpos over
+	=? (  |--- empieza igual
+		r @ getlen | valor largo pos posv largov
+		pick3 >? ( |-- ocupa menos
+			r> insert1 >r nip | valor largo pos largov
+			pick2 - setlen
+			pick2 pick2 + setpos or
+			r @ getval or
+			coverbuff> 8 - !	| valor largo pos
+			rot r @ getval + 	| largo pos v+v
+			rot setlen or swap setpos or r> !
+			coverbuff> 8 - ; )
+		pick3 <? ( |--- ocupa mas
+			nip r @ pick4 + r!+	| valor largo pos largov
+			rot over -			| valor pos lv len-lv
+			rot rot +			| valor largo pos
+			r> @ cover.insl ; )
+    	4drop r @ + r!+ r> @ ; ) |-- ocupa igual
+	|--- empieza adentro
+	r @ getlen + | valor largo pos posf
+	pick2 pick2 +
+	>? ( |-- ocupa menos
+		r insert2 @ getval
+		r @ $fff001ff and pick3 r @ getpos - setlen or r!+ r> @ >r
+		| valor largo pos posf vv
+		pick4 over + pick4 setlen or pick3 setpos or r!+ r> @ >r
+		| valor largo pos posf vv
+		>r >r + r>  | valor len+pos posf
+		over - setlen swap setpos or r> or r !
+		drop r> ; )
+	pick2 pick2 +
+	<? ( |-- ocupa mas
+		r insert1 @ getval | valor largo pos posf vv
+		r @ $fff001ff and pick3 r @ getpos - setlen or r!+ r> @ >r
+			| valor largo pos posf vv
+		pick4 + over pick3 - setlen or pick2 setpos or r!+
+		| valor largo pos posf
+		rot rot + over -
+		swap r> @
+		cover.insl ; )
+	|--- ocupa hasta
+	r insert1 @ getval | valor largo pos posf vv
+	r @ $fff001ff and pick3 r @ getpos - setlen or r!+ r> @ >r
+	nip rot setlen rot setpos or >r + r> or r!+ r> @
+	;
+
+
+:dumpoli
+	0 'segs ( segs> <? )(
+		swap dup "%d) " print 1+ swap
+		@+ "ymin %d " print
+		@+ "x %d " print
+		@+ "deltax %d " print
+		@+ "ymax %d " print cr
+		) 2drop
+	heapcnt ( 1? )( 1-
+		heap@ $ffff and "%d " print
+		) drop
+	cr
+	;
+
+:endpoli
+	'segs 'segs> !
+	-1 'ymax !
+	;
+
+:newpoli
+	dumpoli
+
+	-1 segs> !
+	ymax -? ( drop endpoli ; )
+	sh >? ( sh 'ymax ! ) drop
+
+	endpoli	;
+
+:main
+	500 inicover
+	show clrscr
+		verde
+
+		50 50 op2
+		xymouse pline2
+		300 200 pline2
+		50 50 pline2
+
+		newpoli
+		50 50 op
+		xymouse line
+		300 200 line
+		50 50 line
+
+		cflecha
+		'exit >esc<
+		;
+
+: main ;
+
