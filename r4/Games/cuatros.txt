@@ -1,4 +1,5 @@
-| Cuatros - 2013
+| Cuatros
+| 2009-2013
 
 ^r4/lib/gui.txt
 ^r4/lib/graf.txt
@@ -13,13 +14,14 @@
 
 #col $ff0000 $ff00fe $fffffe $00fffe $00ff00 $a52a2a $0000fe
 
-#blockw #blockh #operation #xp #yp #curp #crot #xp_ #yp_ #curp_ #crot_ #frames 0 #speed 15 #flag 0 #score 0
+#blockw #blockh #operation #xp #yp #curp #crot #xp_ #yp_ #curp_ #crot_ #frames 0
+#speed 32 #flag 0 #score 0
 
 :cur2trans xp 'xp_ ! yp 'yp_ ! curp 'curp_ ! crot 'crot_ ! ;
 
 :trans2cur xp_ 'xp ! yp_ 'yp ! curp_ 'curp ! crot_ 'crot ! ;
 
-:inigrid sw 40 / 'blockw ! sh 32 / 'blockh ! ;
+:inigrid sw sh min 30 / dup 'blockw ! 'blockh ! ;
 
 :g2s | grid to screen ( xg yg -- xs ys )
 	swap blockw * swap blockh * sh swap - ;
@@ -57,7 +59,7 @@
 	0 'flag ! 'orcolor 'operation ! xp_ yp_ curp_ crot_ curpiece 4squares flag ;
 
 :change | ( coliyes transf -- )
-	>r cur2trans r> exec collision 1 nand? ( clearp trans2cur draw )( >r exec rdrop ) drop ;
+	cur2trans exec collision 1 nand? ( clearp trans2cur draw drop drop )( drop exec ) ;
 
 | check collision here
 :newp | new tetris piece
@@ -90,15 +92,27 @@
 	score 1+ 'score ! speed score 16 / - 1 max 'speed ! ;
 
 :lines | ( -- )
-	2 ( 20 <=? )( dup minline mincol 1? ( drop dup 20 rectdown completeline )( drop 1+ ) ) ;
+	2 ( 20 <=? )( dup minline mincol 1? ( drop dup 20 rectdown completeline )( drop 1+ ) ) drop ;
 
-:fall [ color1 drawp lines newp ;  ] [ yp_ 1- 'yp_ ! ; ] change drop ;
+:fall [ color1 drawp lines newp ;  ] [ yp_ 1- 'yp_ ! ; ] change ;
 
-:printscore
-	;
-|	ink@ 6 5 at negro 5 1 ptofill blanco score "Score : %n" print ink ;
+:debug dup 10 1 gotoxy "%d" print cr ;
 
-:debug dup 1 1 gotoxy "%d" print cr ;
+:grid sw 2/ dup 0 op sh line
+      sh 2/ dup 0 swap op sw swap line ;
+
+#curtimer 101
+:timerinit msec 'curtimer ! ;
+
+:rotate.or.fall | ( x y -- )
+		sw 2/ >=? ( fall )( rotate ) ;
+
+:left.or.right | ( x y -- )
+	       sw 2/ >=? ( right )( left ) ;
+
+:mouse xymouse sh 2/ >=? ( drop rotate.or.fall )( drop left.or.right ) drop timerinit ;
+
+:mouseinteract msec curtimer - 100 >? ( bmouse 1? ( mouse ) drop ) drop ;
 
 :play
 	inigrid rerand
@@ -110,9 +124,10 @@
 	negro 10 blockw * 19 blockh * 6 2 g2s vfill2
 	show
 		debug
-		printscore
 		frames 1+ speed mod 'frames !
 		frames speed 1- =? ( fall ) drop
-		'rotate <up> 'right <ri> 'left <le> 'fall <dn> 'exit >esc< ;
+		'rotate <up> 'right <ri> 'left <le> 'fall <dn>
+		mouseinteract
+		'exit >esc< ;
 
 : 33 play ;
