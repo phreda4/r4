@@ -19,9 +19,9 @@
 -1 -1 -1 -1
 |--------- segmentos
 | ymin x delta1x ymax
+|-----------------------
 #segs )( $3fff
 #segs> 'segs
-
 |-----------------------
 | Heap Implicit Tree
 |-----------------------
@@ -33,7 +33,7 @@
 
 :heap! | nodo --
 	heapcnt dup 1+ 'heapcnt !
-	( 0 >? )(
+	( 1? )(
 		dup 1- 2/	| v j i
 		dup ]heap @ | v j i vi
 		pick3 <? ( 2drop ]heap ! ; )
@@ -57,10 +57,12 @@
 	]heap ! ;
 
 :heap@ | -- nodo
-	heapseg
-	heapcnt 0? ( nip ; )
+	heapseg heapcnt
 	1- ]heap @ 0 MoveDown
-	-1 'heapcnt +! ;
+	heapcnt 1-
+	0? ( dup 'heapseg ! )
+	'heapcnt !
+	;
 
 |-------------------------
 
@@ -74,13 +76,12 @@
 	px py pick2 >? ( 2swap 2dup )( 2over ) | x2 y2 x1 y1
 	'py ! 'px !
 	sh >=? ( 4drop ; ) rot 0 <=? ( 4drop ; ) | x2 x1 y1 y2
+	ymax >? ( dup 'ymax ! )		| comprueba el mayor
 	>r >r FBASE << swap FBASE << 	| x1 x2
 	over - r> r over -				| x1 (x2-x1) y1 (y2-y1)
 	rot swap / swap					| x1 t y1
 	-? ( neg over * rot + swap 0 )	| x1 t y1
-
-	dup 16 << segs> 'segs - 4 >> or heap!
-
+	dup 16 << segs> 'segs - 4 >> or heap! | ubica en heap
 	segs> !+ rot pick2 2/ + swap !+ !+
 	r> swap !+ 'segs> !
 	;
@@ -204,40 +205,113 @@
 		@+ "deltax %d " print
 		@+ "ymax %d " print cr
 		) 2drop
-	heapcnt ( 1? )( 1-
-		heap@ $ffff and "%d " print
-		) drop
+|	heapcnt ( 1? )( 1-
+|		heap@ dup 16 >> swap $ffff and "%d %d-" print
+|		) drop
 	cr
 	;
 
-:endpoli
-	'segs 'segs> !
-	-1 'ymax !
+|-----------------------
+#activos )( 1024
+#activos> 'activos
+
+:dumpact
+	rojo cr "*" print
+	'activos ( activos> <? )(
+		@+ 4+ @ "%d " print
+		) drop cr ;
+
+:-activos	| --
+	'activos 'activos> ! ;
+
+:activosort
+	( 'activos >? )( 4 -		| v x t1
+		dup @ 				| v x t1 n1
+		dup 4+ @			|  v x t1 n1 nx
+		pick3 <? ( 2drop nip 4+ ! ; ) drop
+		| v x t1 v1
+		over 4+ ! )
+	nip ! ;
+
+:activos!+ | v --	; agrega ordenado
+	dup 4+ @ 	| v x
+	activos> 	| v x t1
+	dup 4+ 'activos> !
+	activosort ;
+
+:activosresort | nodo seg -- nodo	; incrementa y ordena
+	dup 4+ @+ swap @ +	| nodo seg newx
+	dup pick2 4+ !		| nodo seg newx
+	pick2				| nodo seg newx nodo
+	activosort ;
+
+:advanceline
+	'activos ( activos> <? )(
+		dup @ activosresort 4+ ) drop ;
+
+:deletecopy | nodoa --
+	dup 4+ 	| en desde
+	( activos> <? )(
+		@+ dup 12 + @	| en desde seg yfin
+		pick4 <? ( drop rot !+ swap )( 2drop )
+		) drop
+	'activos> ! ;
+
+:deleteline
+	'activos ( activos> <? )(
+		dup @ 12 + @ pick2 =? ( drop deletecopy ; ) drop
+		4+ ) drop ;
+
+|-----------------------
+:fillcover | x2 x1
+	"%d..%d " print
 	;
 
+:endpoli
+	'segs 'segs> ! -1 'ymax ! 0 'heapcnt ! ;
+
 :newpoli
-	dumpoli
+|	dumpoli
 
 	-1 segs> !
-	ymax -? ( drop endpoli ; )
-	sh >? ( sh 'ymax ! ) drop
+	ymax -? ( drop endpoli ; ) sh >? ( sh 'ymax ! ) drop
+	-activos
+	heapseg 16 >> dup | newy ymin
+	dup "%d " print cr
+	( ymax <? )(
 
+    	( over =? )( nip	| agrega nuevos ordenados
+			heap@ $ffff and 4 << 'segs + activos!+
+           	heapseg 16 >> swap )
+		'activos ( activos> <? )(
+			@+ 4+ @ swap @+ 4+ @ rot fillcover
+			) drop cr
+        1+
+		deleteline
+		advanceline
+		) 2drop
+
+	dumpact
 	endpoli	;
 
 :main
 	500 inicover
+	33
 	show clrscr
 		verde
-
+		dup "%d " print cr
 		50 50 op2
 		xymouse pline2
-		300 200 pline2
+|		xymouse swap pline2
+		300 90 pline2
 		50 50 pline2
 
 		newpoli
+		cyan
 		50 50 op
 		xymouse line
-		300 200 line
+|		xymouse swap line
+		300 90 line
 		50 50 line
 
 		cflecha
