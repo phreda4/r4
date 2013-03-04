@@ -7,16 +7,17 @@
 
 
 #FBASE		8
+
 #BPP        4
 #TOLERANCE  24
 #VALUES     $10
 #QFULL      $100
-#MASK       $ff
+#MASK       $f
 
 #px #py
 
 #ymax -1
--1 -1 -1 -1
+
 |--------- segmentos
 | ymin x delta1x ymax
 |-----------------------
@@ -25,7 +26,7 @@
 |-----------------------
 | Heap Implicit Tree
 |-----------------------
-#heapseg )( $3fff
+#heapseg )( $fff
 #heapcnt 0
 
 :]heap | nro -- adrr
@@ -60,7 +61,7 @@
 	heapseg heapcnt
 	1- ]heap @ 0 MoveDown
 	heapcnt 1-
-	0? ( dup 'heapseg ! )
+	0? ( -1 'heapseg ! )
 	'heapcnt !
 	;
 
@@ -75,7 +76,7 @@
 	py =? ( drop 'px ! ; )
 	px py pick2 >? ( 2swap 2dup )( 2over ) | x2 y2 x1 y1
 	'py ! 'px !
-	sh >=? ( 4drop ; ) rot 0 <=? ( 4drop ; ) | x2 x1 y1 y2
+	sh BPP << >=? ( 4drop ; ) rot 0 <=? ( 4drop ; ) | x2 x1 y1 y2
 	ymax >? ( dup 'ymax ! )		| comprueba el mayor
 	>r >r FBASE << swap FBASE << 	| x1 x2
 	over - r> r over -				| x1 (x2-x1) y1 (y2-y1)
@@ -99,9 +100,9 @@
 :setpos 20 << ;
 :setlen 9 << ;
 
-:inicover | largo --
+:inicover | --
 	'coverbuff >r
-	0 setpos sw 1+ setlen or r!+ 0 r!+
+	sw 1+ setlen r!+ 0 r!+
 	r> 'coverbuff> ! ;
 
 |------------------------------------------------------
@@ -196,7 +197,6 @@
 	nip rot setlen rot setpos or >r + r> or r!+ r> @
 	;
 
-
 :dumpoli
 	0 'segs ( segs> <? )(
 		swap dup "%d) " print 1+ swap
@@ -211,20 +211,73 @@
 	cr
 	;
 
+:coverpixels | xb xa adr -- adr
+	>r
+    over BPP >> 0 <? ( 3drop r> ; )
+	over BPP >> sw >=? ( 4drop r> ; )
+	r> cover.busca >r
+	| xb xa x1 x0
+	over =? ( nip rot MASK and rot MASK and - swap r> cover.insp ; )
+	| xb xa x1 x0
+	0 >=? ( rot MASK and VALUES swap - over r> cover.insp >r 1+ sw >=? ( 3drop r> ; )
+		)( drop nip 0 rdrop 'coverbuff >r )
+	| xb x1 x0
+	swap sw >? ( sw pick2 - )( dup pick2 - ) | xb x0 x1 largo
+	0 >? ( rot VALUES rot rot r> cover.insl >r )( drop nip ) | xb x1
+	sw <? ( swap MASK and swap r> cover.insp ; )
+	2drop >r ;
+
+
+|------------------- llenadores
+:solidofill
+	( 1? )( 1- $ff00 px!+ ) drop ;
+|	( 1? )( 1- col px!+ ) drop ;
+:solidoalpha
+	swap ( 1? )( 1- $ff px!+ ) 2drop ;
+|	swap ( 1? )( 1- over mixcolor px!+ ) 2drop ;
+
+:runlencover
+|	'coverbuff
+|	dup 4+ @ | a0 a1
+|	( dup 4+ @ 1? )( rot drop ) 2drop
+|	0 swap 4+ !
+
+|	'coverbuff (
+|		@+ dup getlen swap getval
+|		"%d %d " print
+|		@ 0? ) drop cr ;
+
+	0 over BPP >> setxy
+	'coverbuff (
+		@+ dup getlen swap getval
+		QFULL =? ( drop solidofill )( 1? ( solidoalpha )( drop px+! ) )
+		@ 0? ) drop ;
+
 |-----------------------
 #activos )( 1024
 #activos> 'activos
 
 :dumpact
-	rojo cr "*" print
+	rojo "*" print
 	'activos ( activos> <? )(
 		@+ 4+ @ "%d " print
 		) drop cr ;
 
+:fillcover
+	'coverbuff >r
+	'activos ( activos> 4 - <? )(
+		@+ 4+ @ FBASE >>
+		swap @+ 4+ @ FBASE >>
+		rot
+		r> coverpixels >r
+
+		) drop
+	rdrop ;
+
 :-activos	| --
 	'activos 'activos> ! ;
 
-:activosort
+:activosort | v x t1 --
 	( 'activos >? )( 4 -		| v x t1
 		dup @ 				| v x t1 n1
 		dup 4+ @			|  v x t1 n1 nx
@@ -253,7 +306,7 @@
 	dup 4+ 	| en desde
 	( activos> <? )(
 		@+ dup 12 + @	| en desde seg yfin
-		pick4 <? ( drop rot !+ swap )( 2drop )
+		pick4 >? ( drop rot !+ swap )( 2drop )
 		) drop
 	'activos> ! ;
 
@@ -263,56 +316,71 @@
 		4+ ) drop ;
 
 |-----------------------
-:fillcover | x2 x1
-	"%d..%d " print
-	;
-
 :endpoli
 	'segs 'segs> ! -1 'ymax ! 0 'heapcnt ! ;
 
 :newpoli
-|	dumpoli
-
-	-1 segs> !
-	ymax -? ( drop endpoli ; ) sh >? ( sh 'ymax ! ) drop
+	dumpoli
+	ymax -? ( drop endpoli ; ) sh BPP << >? ( sh BPP << 'ymax ! ) drop
 	-activos
 	heapseg 16 >> dup | newy ymin
-	dup "%d " print cr
+|	0 over BPP >> setxy
 	( ymax <? )(
+|		trace
+		inicover
+|		VALUES ( 1? )( 1- >r
 
     	( over =? )( nip	| agrega nuevos ordenados
 			heap@ $ffff and 4 << 'segs + activos!+
            	heapseg 16 >> swap )
-		'activos ( activos> <? )(
-			@+ 4+ @ swap @+ 4+ @ rot fillcover
-			) drop cr
+		fillcover
         1+
+		|  heapdel =? ( ( heapdel@ drop heapdel <>? ) deleteline )
 		deleteline
 		advanceline
+
+|		r> ) drop
+
+		runlencover
+	dumpact
+
 		) 2drop
 
-	dumpact
 	endpoli	;
 
+:op3
+	BPP << swap BPP << swap op2 ;
+:pline3
+	BPP << swap BPP << swap pline2 ;
+
+:poligon
+	xc w - yc h - op3
+	xc w + yc h - pline3
+	xc w + yc h +  pline3
+	xc w - yc h + pline3
+	xc w - yc h - pline3
+	newpoli
+	;
+
 :main
-	500 inicover
 	33
 	show clrscr
 		verde
 		dup "%d " print cr
-		50 50 op2
-		xymouse pline2
-|		xymouse swap pline2
-		300 90 pline2
-		50 50 pline2
-
-		newpoli
+|		50 50 op3 xymouse pline3
+|		xymouse swap pline3
+|		300 90 pline3
+|		rand $fff and rand $fff and pline2
+|		rand $fff and rand $fff and pline2
+|		50 50 pline3 newpoli
 		cyan
-		50 50 op
-		xymouse line
+|		50 50 op xymouse line
 |		xymouse swap line
-		300 90 line
-		50 50 line
+|		300 90 line 50 50 line
+
+		verde
+		xymouse pos
+		40 40 dim poligon
 
 		cflecha
 		'exit >esc<
