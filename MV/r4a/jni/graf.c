@@ -40,13 +40,69 @@ typedef struct { int y,x,yfin,deltax; } Segm;
 
 int cntSegm=0;
 Segm segmentos[1024];
-Segm *psegmentos[1024];
-Segm **pseg,**phasta; // limites del scanline
-int yMax,yMin,nextY;
+int yMax,yMin;
 
 int runlenscan[1024];
 int *rl;
 
+Segm seg0={-1,0x80000001,-1,0};
+Segm *activelist[512];
+Segm **activelast;
+
+int ImplicitHeapY[1024];
+int cntIHY;
+
+void initIHY(void)
+{
+cntIHY=0;
+activelist[0]=&seg0;
+activelast=&activelist[1];
+cntSegm=0;
+yMax=-1;
+}
+
+void addIHY(int v)
+{
+int i,j;
+cntIHY++;
+for (i=cntIHY-1;i>0;) {
+	j=(i-1)/2;
+	if (ImplicitHeapY[j]<v) { ImplicitHeapY[i]=v;return; }
+	ImplicitHeapY[i]=ImplicitHeapY[j];
+	i=j; }
+ImplicitHeapY[0]=v;
+}
+
+void moveDnY(int v,int n)
+{
+int i;
+while (n<cntIHY/2) {
+    i=(n*2)+1;
+    if (i+1<cntIHY && ImplicitHeapY[i]>ImplicitHeapY[i+1])
+       { i++; }
+    if (ImplicitHeapY[i]>=v)
+       { ImplicitHeapY[n]=v;return; }
+    ImplicitHeapY[n]=ImplicitHeapY[i];
+    n=i;
+    }
+ImplicitHeapY[n]=v;
+}
+
+int remIHY(void)
+{
+if (cntIHY==0) return -1;
+int val=ImplicitHeapY[0];
+moveDnY(ImplicitHeapY[cntIHY-1],0);
+cntIHY--;
+return val;
+}
+
+int heapIHY(void)
+{
+if (cntIHY==0) return -1;
+return ImplicitHeapY[0];
+}
+//-----------------------------------------
 #define GETPOS(a) (((a)>>20)&0xfff)
 #define GETLEN(a) (((a)>>9)&0x7ff)
 #define GETVAL(a) ((a)&0x1ff)
@@ -69,7 +125,7 @@ free(gr_buffer);
 #define GR_X(X) gr_pos+=X;
 #define GR_Y(Y) gr_pos+=Y*buffergr.width;
 
-#define ASM
+//#define ASM
 
 #ifdef ASM
 // ASM
@@ -148,9 +204,11 @@ gr_buffer=(int*)malloc(maxsize<<2);
 XFB=(int*)malloc(maxsize<<2);
 
 //---- poligonos2
-cntSegm=0;yMax=0;
+yMax=0;
+initIHY();
 *runlenscan=SETLEN(buffergr.width+1);*(runlenscan+1)=0;
 fillSol();
+
 //---- colores
 gr_color2=0;gr_color1=0xffffff;
 col1=0;col2=0xffffff;
@@ -178,8 +236,8 @@ setmem32(gr_buffer,gr_color2,gr_realsize);
 #else
 register int *d=gr_buffer;
 register int i,c=gr_color2;
-for(i=buffergr.height*buffergr.width;i>0;i-=8)
-//for(i=gr_realsize;i>0;i-=8)
+//for(i=buffergr.height*buffergr.width;i>0;i-=8)
+for(i=gr_realsize;i>0;i-=8)
 	{ *d++=c;*d++=c;*d++=c;*d++=c;*d++=c;*d++=c;*d++=c;*d++=c; }
 #endif
 }
@@ -403,8 +461,8 @@ x2=x2<<FBASE;
 int t=(x2-x1)/(y2-y1);
 if (y1<0) { x1+=t*(-y1);y1=0; }
 if (yMax<y2) yMax=y2;
-Segm *ii=&segmentos[cntSegm-1];
-psegmentos[cntSegm]=ii;
+Segm *ii=&segmentos[cntSegm];
+addIHY((y1<<16)|cntSegm);
 ii->x=x1+t/2;
 ii->y=y1;
 ii->yfin=y2;
@@ -595,7 +653,7 @@ if (GETPOS(v)==pos) {               // empieza igual          *****
       inserta2(rl);
       *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
       rl++;*rl=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
-      rl++;*rl=SETPOS(pos+len)|SETLEN(GETPOSF(v)-(pos+len));
+      rl++;*rl=SETPOS(pos+len)|SETLEN(GETPOSF(v)-(pos+len))|GETVAL(v);
    } else if (GETPOSF(v)<len+pos ) { // ocupa mas               *****ok
       inserta(rl);
       *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
@@ -633,93 +691,72 @@ if (largo>0) addrlr(x0,largo,VALUES);
 if (x1<buffergr.width) add1pxr(x1,xb&MASK);
 }
 
-/* para qsort */
-int y_cmp(const void *a, const void *b) 
-{ 
-int c=((*(Segm **)a)->y)-((*(Segm **)b)->y);
-if (c==0) {
-   c=((*(Segm **)a)->x)-((*(Segm **)b)->x);
-   }
-return c;
-}
 
 //-----------------------------------------------------------------------
-inline static void swapp(Segm **a,Segm **b)
-{
-Segm *t=*a;*a=*b;*b=t;
-}
-
-static void sortlast(Segm **j) // ordena ultimo elemento
-{
-register Segm **a=j;
-int vx=(*a)->x;
-while (a>pseg && (*(a-1))->x>vx) { swapp(a-1,a);a--; }
-}
-
-#define MIN(a,b) (a<b?a:b)
-
-static int removelista()
-{
-int dif=0;
-Segm **j=phasta-1,**h=phasta-1;
-nextY=~-1;
-while (j>=pseg) {
-	if (yMin<(*j)->yfin)
-		{ nextY=MIN(nextY,(*j)->yfin);--h; }
-	  else
-	    { ++dif;--j;break; }
-	--j;
-	}
-while (j>=pseg) {
-  if (yMin<(*j)->yfin) 
-     { nextY=MIN(nextY,(*j)->yfin);*h=*j;--h; }
-  else 
-     { ++dif; } 
-  --j; }    
-return dif;
-} 
-
 //-----------------------------------------------------------------------
+void sortactive(Segm **j) // ordena ultimo elemento
+{
+Segm *v=*j;
+int vx=v->x;
+if ((*(j-1))->x<=vx) return;
+*j=*(j-1);j--;
+while ((*(j-1))->x>vx) { *j=*(j-1);j--; }
+*j=v;
+}
+
+void addactive(Segm *s)
+{
+*activelast=s;
+sortactive(activelast);
+activelast++;
+}
+
+void remactive(void)
+{
+Segm **j=&activelist[1];
+while (j<activelast)  {
+    if (yMin==(*j)->yfin) {
+    	Segm **h=j+1;
+    	while (h<activelast)  {
+    	    if (yMin<(*h)->yfin)
+    	       { *j=*h;j++; }
+    	    h++; }
+    	activelast=j;
+    	break;
+    	}
+    j++; }
+}
+
 void gr_drawPoli(void)
 {
-if (cntSegm<2) return;
-segmentos[cntSegm].y=-1; // marca el ultimo
-psegmentos[cntSegm]=&segmentos[cntSegm];
-
-// reeplazar por counting sort!! lineal
-qsort(psegmentos,cntSegm,sizeof(Segm**),y_cmp);// ordena por y
-
+if (cntSegm<2)  { initIHY();return; }
 Segm **jj;
-phasta=pseg=psegmentos;
-yMin=psegmentos[0]->y;
-int i,dif,cntX=0;
+yMin=segmentos[(heapIHY()&0xffff)].y;
+int i;
 if (yMax>buffergr.height<<BPP) { yMax=buffergr.height<<BPP; }
-int *gr_pant=(int*)gr_buffer+(yMin>>BPP)*buffergr.stride;
-nextY=~-1;
+int *gr_pant=(int*)gr_buffer+(yMin>>BPP)*buffergr.width;
 for (;yMin<yMax;) {
   for (i=VALUES;i!=0;--i) {
-    while ((*phasta)->y==yMin)
-      { nextY=MIN(nextY,(*phasta)->yfin);sortlast(phasta);phasta++;cntX++; }
+    while (heapIHY()>>16==yMin)
+      { addactive(&segmentos[remIHY()&0xffff]); }
     rl=runlenscan;
-    for (jj=pseg;jj+1<phasta;jj+=2) {
+    for (jj=&activelist[1];jj+1<activelast;jj+=2) {
         coverpixels(((*jj)->x)>>FBASE,((*(jj+1))->x)>>FBASE);
         }
     yMin++;
     // quita los que se terminaron
-    if (yMin>=nextY) {
-        dif=removelista();cntX-=dif;pseg+=dif;
-        }
-    // avanza los x
-    for(jj=pseg;jj<phasta;jj++) {
-        (*jj)->x+=(*jj)->deltax;sortlast(jj); 
+    remactive();
+    // avanza y ordena
+    for(jj=&activelist[1];jj<activelast;jj++) {
+        (*jj)->x+=(*jj)->deltax;sortactive(jj);
         }
     }
   while (*rl!=0) rl++;rl--;*rl=0;  // quito el ultimo espacio
   runlen(gr_pant);
   *runlenscan=SETLEN(buffergr.width+1);*(runlenscan+1)=0;
-  gr_pant+=buffergr.stride;
+  gr_pant+=buffergr.width;
   }
-cntSegm=0;yMax=0;
+initIHY();
 }
 
 void gr_pline(int x1,int y1,int x2,int y2)
