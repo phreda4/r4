@@ -1,6 +1,5 @@
 |--------------------------------------------------------------------
-| click-o-tron
-| Manuel Cornes 2008
+| click-o-tron - 2008-2013
 | Rounds of 10sec
 | Click as many blue disks as you can
 | Get 1 point per correct click, -2 points per incorrect click
@@ -10,15 +9,14 @@
 #score 0 #hiscore 0 #x #y #r_ #mousedown #clock
 
 :bounds over -
-
 :randbtw | ( min max -- v )
        over - rand abs swap mod + ;
 
 :rand_circ 50 sw bounds 'x ! 50 sh bounds 'y ! 10 50 randbtw 'r_ ! ;
 
-:bonus mousedown 1 =? ( 1 'score +! ) ;
+:bonus mousedown 1 =? ( 1 'score +! ) drop ;
 
-:malus mousedown 1 =? ( score 2 - 'score ! ) ;
+:malus mousedown 1 =? ( score 2 - 'score ! ) drop ;
 
 :elapsed msec clock - ;
 
@@ -28,27 +26,44 @@
 
 :roundstart msec 'clock ! ;
 
-:updatehiscore score hiscore >? ( score 'hiscore ! ) ;
+:updatehiscore score hiscore >? ( 'hiscore ! )( drop ) ;
 
 :timeleft elapsed tosec countdown ;
 
 :stats timeleft score hiscore
-       "Clickotron%.Hiscore:%d%.Score:%d%.Time Left:%d" ;
+       "Clickotron%.Hiscore : %d%.Score : %d%.Time Left : %d" ;
 
 :mousepixel xymouse getpixel ;
 
-:go
-   rand_circ
-   roundstart
-   show clrscr 20 font
-       bmouse 0? ( 0 'mousedown ! ) drop
-                               amarillo 0 0 gotoxy stats print
-       azul x y r_ fcircle
-       mousepixel $0000FF =? ( blanco x y r_ 1 + circle ) drop
-       bmouse 1? ( 1 'mousedown +! mousepixel $0000FF =?
-           ( bonus rand_circ )( malus ) drop ) drop
-       timeleft 0 <=? ( updatehiscore 0 'score ! roundstart )  
-		'exit >esc< 
-		cmano ;
+:debug dup "%d" print cr ;
 
-: go ;
+:init rand_circ roundstart ;
+
+:smallfont 40 font ;
+
+:bigfont 20 font ;
+
+:messages smallfont rojo debug bigfont amarillo stats print ;
+
+:display messages azul x y r_ fcircle ;
+
+:button.up? bmouse 0? ( 0 'mousedown ! ) drop ;
+
+:over.circle? mousepixel $0000FF =? ( blanco x y r_ 1 + circle ) drop ;
+
+:clicked mousepixel $0000FF =? ( bonus rand_circ )( malus ) drop ;
+
+:click? bmouse 1? ( 1 'mousedown +! clicked ) drop ;
+
+:interact button.up? over.circle? click? ;
+
+:scores timeleft 0 <=? ( updatehiscore 0 'score ! roundstart ) drop ;
+
+:go
+   init
+   show clrscr
+	display interact scores
+	'exit >esc< 
+	cmano ;
+
+: 33 go ;
