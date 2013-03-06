@@ -1055,7 +1055,7 @@ if (stat(rootpath, &st) != -1) return; // ya existe la carpeta
 
 makeFolder("");
 makeFolder("/inc");
-makeFolder("/inc/rtf");
+makeFolder("/inc/rft");
 makeFolder("/inc/ric");
 makeFolder("/mem");
 makeFolder("/r4");
