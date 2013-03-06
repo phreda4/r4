@@ -10,7 +10,7 @@
  * All rights reserved.
 */
 // rutinas graficas
-#include <stdlib.h>
+//#include <stdlib.h>
 #include <stdio.h>
 
 #include "graf.h"
@@ -24,7 +24,7 @@ HGLRC   hRC;
 
 //---- buffer de video
 DWORD *gr_buffer;
-DWORD *XFB;                                
+DWORD *XFB;
 
 //---- variables internas
 int gr_ancho,gr_alto;
@@ -33,20 +33,75 @@ int gr_ypitch;
 int MA,MB,MTX,MTY; // matrix de transformacion
 int *mTex; // textura
 int gr_alphav;
+static int gr_sizescreen;	// tamanio de pantalla
+
 //---- variables para dibujo de poligonos
 typedef struct { int y,x,yfin,deltax; } Segm;
 
 int cntSegm=0;
 Segm segmentos[2048];
-Segm *psegmentos[2048]; // segmentos actuales
-Segm **pseg,**phasta; // limites del scanline
 int yMax,yMin;          // maximo y actual
-int nextY; // proximo Y que borra linea
-
-static int gr_sizescreen;	// tamanio de pantalla
 
 int runlenscan[2048];
 int *rl;
+
+Segm seg0={-1,0x80000001,-1,0};
+Segm *activelist[2048];
+Segm **activelast;
+
+int ImplicitHeapY[2048];
+int cntIHY;
+
+void initIHY(void)
+{
+cntIHY=0;
+activelist[0]=&seg0;
+activelast=&activelist[1]; 
+cntSegm=0;
+}
+
+void addIHY(int v)
+{
+int i,j;
+cntIHY++;
+for (i=cntIHY-1;i>0;) {
+	j=(i-1)/2;
+	if (ImplicitHeapY[j]<v) { ImplicitHeapY[i]=v;return; }
+	ImplicitHeapY[i]=ImplicitHeapY[j];
+	i=j; }
+ImplicitHeapY[0]=v;
+}
+
+void moveDnY(int v,int n) 
+{
+int i;
+while (n<cntIHY/2) { 
+    i=(n*2)+1;
+    if (i+1<cntIHY && ImplicitHeapY[i]>ImplicitHeapY[i+1]) 
+       { i++; }
+    if (ImplicitHeapY[i]>=v) 
+       { ImplicitHeapY[n]=v;return; }
+    ImplicitHeapY[n]=ImplicitHeapY[i];
+    n=i;
+    }
+ImplicitHeapY[n]=v;    
+}
+
+int remIHY(void)
+{
+if (cntIHY==0) return -1;
+int val=ImplicitHeapY[0];
+moveDnY(ImplicitHeapY[cntIHY-1],0);
+cntIHY--;
+return val;
+}
+
+int heapIHY(void)
+{
+if (cntIHY==0) return -1;
+return ImplicitHeapY[0];
+}
+//-----------------------------------------
 
 #define GETPOS(a) (((a)>>20)&0xfff)
 #define GETLEN(a) (((a)>>9)&0x7ff)
@@ -119,6 +174,7 @@ switch(XRES) {
 cntSegm=0;yMax=0;
 fillSol();
 
+initIHY();
 *runlenscan=SETLEN(gr_ancho+1);*(runlenscan+1)=0;
 
 //---- colores
@@ -444,7 +500,7 @@ t=(x2-x1)/(y2-y1);
 if (y1<0) { x1+=t*(-y1);y1=0; }
 if (y2>yMax) yMax=y2;
 Segm *ii=&segmentos[cntSegm];
-psegmentos[cntSegm]=ii;
+addIHY((y1<<16|cntSegm));
 ii->x=x1+t/2;
 ii->y=y1;
 ii->yfin=y2;
@@ -559,8 +615,8 @@ void add1pxr(int pos,int val)
 {
 if (val==0) return;
 int v=*rl;
-if (GETLEN(v)==1) { 
-   *rl=v+val; 
+if (GETLEN(v)==1) {
+   *rl=v+val;
    rl++;
 } else if (GETPOS(v)==pos) {
    inserta(rl);
@@ -581,7 +637,7 @@ if (GETLEN(v)==1) {
 
 void addrlr(int pos,int len,int val)
 {
-again:     
+again:
 if (len==1) { add1pxr(pos,val);return; }
 int v=*rl;
 //if (v==0) { *rl=(pos<<20)|(len<<9)|val;rl++;*rl=0;return; } // al final
@@ -598,14 +654,14 @@ if (GETPOS(v)==pos) {               // empieza igual          *****
 //     addrlr(GETLEN(v)+pos,len-GETLEN(v),val);
    } else {                         // ocupa igual            ***** OK
      *rl=v+val;
-     rl++; 
+     rl++;
    }
 } else {                             // empieza adentro       *****
    if (GETPOSF(v)>len+pos ) {        // ocupa menos             ** OK
       inserta2(rl);
       *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
       rl++;*rl=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
-      rl++;*rl=SETPOS(pos+len)|SETLEN(GETPOSF(v)-(pos+len));
+      rl++;*rl=SETPOS(pos+len)|SETLEN(GETPOSF(v)-(pos+len))|GETVAL(v); //---
    } else if (GETPOSF(v)<len+pos ) { // ocupa mas               *****ok
       inserta(rl);
       *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
@@ -642,83 +698,82 @@ if (x1>gr_ancho) largo=gr_ancho-x0; else largo=x1-x0;
 if (largo>0) addrlr(x0,largo,VALUES);
 if (x1<gr_ancho) add1pxr(x1,xb&MASK);
 }
-
-/* para qsort */ 
-int y_cmp(const void *a, const void *b) 
+/*
+char buff[256];
+void log(char *n)
 { 
-int c=((*(Segm **)a)->y)-((*(Segm **)b)->y);
-if (c==0) {
-   c=((*(Segm **)a)->x)-((*(Segm **)b)->x);
-   }
-return c;
-} 
+FILE *stream;
+if((stream=fopen("log.txt","a"))==NULL) return;
+fputs(n,stream); if(fclose(stream)) return; 
+}
 
+void dumpactive(void)
+{
+//sprintf(buff,"-----------ACTIVES--------------\n");log(buff);  
+Segm **jj;     
+for (jj=&activelist[0];jj<activelast;jj++) {
+    sprintf(buff,"x:%d y:%d yfin:%d\n",(*jj)->x,(*jj)->y,(*jj)->yfin);log(buff);
+    }     
+sprintf(buff,"--------------------------------\n");log(buff);
+
+}
+*/
 //-----------------------------------------------------------------------
-inline static void swapp(Segm **a,Segm **b)
+void sortactive(Segm **j) // ordena ultimo elemento
 {
-Segm *t=*a;*a=*b;*b=t;
+Segm *v=*j;
+int vx=v->x;
+if ((*(j-1))->x<=vx) return;
+*j=*(j-1);j--;
+while ((*(j-1))->x>vx) { *j=*(j-1);j--; }
+*j=v;
 }
 
-static void sortlast(Segm **j) // ordena ultimo elemento
+void addactive(Segm *s)
 {
-register Segm **a=j;
-int vx=(*a)->x;
-while (a>pseg && (*(a-1))->x>vx) { swapp(a-1,a);a--; }
+*activelast=s;
+sortactive(activelast);
+activelast++;
 }
 
-static int removelista()
+void remactive(void)
 {
-int dif=0;
-Segm **j=phasta-1,**h=phasta-1;
-nextY=~-1;
-while (j>=pseg) {
-  if (yMin<(*j)->yfin) 
-     { nextY=min(nextY,(*j)->yfin);--h; } 
-  else 
-     { ++dif;--j;break; } 
-  --j; }    
-while (j>=pseg) {
-  if (yMin<(*j)->yfin) 
-     { nextY=min(nextY,(*j)->yfin);*h=*j;--h; } 
-  else 
-     { ++dif; } 
-  --j; }    
-return dif;
-} 
+Segm **j=&activelist[1];     
+while (j<activelast)  {
+    if (yMin==(*j)->yfin) goto slice;
+    j++; }     
+return;
+slice:
+Segm **h=j+1;
+while (h<activelast)  {
+    if (yMin<(*h)->yfin) 
+       { *j=*h;j++; }
+    h++; }     
+activelast=j;
+}     
 
 void gr_drawPoli(void)
 {
-if (cntSegm<2) return;
-segmentos[cntSegm].y=-1; // marca el ultimo
-psegmentos[cntSegm]=&segmentos[cntSegm];
-
-// reeplazar por counting sort!! lineal
-qsort(psegmentos,cntSegm,sizeof(Segm**),y_cmp);// ordena por y,x,deltax
-
+if (cntSegm<2)  { initIHY();return; }
 Segm **jj;
-phasta=pseg=psegmentos;
-yMin=psegmentos[0]->y;
-
-int i,dif,cntX=0;
+yMin=segmentos[(heapIHY()&0xffff)].y;
+int i; 
 if (yMax>gr_alto<<BPP) { yMax=gr_alto<<BPP; }
 DWORD *gr_pant=(DWORD*)gr_buffer+(yMin>>BPP)*gr_ypitch;
-nextY=~-1;
 for (;yMin<yMax;) {
   for (i=VALUES;i!=0;--i) {
-    while ((*phasta)->y==yMin) 
-      { nextY=min(nextY,(*phasta)->yfin);sortlast(phasta);phasta++;cntX++; }
+    while (heapIHY()>>16==yMin)
+      { addactive(&segmentos[remIHY()&0xffff]); }
     rl=runlenscan;
-    for (jj=pseg;jj+1<phasta;jj+=2) {
+    for (jj=&activelist[1];jj+1<activelast;jj+=2) {
         coverpixels(((*jj)->x)>>FBASE,((*(jj+1))->x)>>FBASE);
         }
     yMin++;
     // quita los que se terminaron
-    if (yMin>=nextY) {
-        dif=removelista();cntX-=dif;pseg+=dif;
-        }
-    // avanza los x
-    for(jj=pseg;jj<phasta;jj++) {
-        (*jj)->x+=(*jj)->deltax;sortlast(jj); 
+    remactive();
+    // avanza y ordena
+    for(jj=&activelist[1];jj<activelast;jj++) {
+        (*jj)->x+=(*jj)->deltax;sortactive(jj); 
         }
     }              
   while (*rl!=0) rl++;rl--;*rl=0;  // quito el ultimo espacio
@@ -726,5 +781,6 @@ for (;yMin<yMax;) {
   *runlenscan=SETLEN(gr_ancho+1);*(runlenscan+1)=0;
   gr_pant+=gr_ypitch;  
   }
-cntSegm=0;yMax=0;
+cntSegm=0;yMax=-1;
+initIHY();
 }
