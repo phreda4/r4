@@ -14,6 +14,12 @@
 #QFULL      $100
 #MASK       $f
 
+#BPP        1
+#TOLERANCE  4
+#VALUES     $2
+#QFULL      $4
+#MASK       $1
+
 #px #py
 
 #ymax -1
@@ -25,6 +31,7 @@
 #segs> 'segs
 |-----------------------
 | Heap Implicit Tree
+| Para Y segmento
 |-----------------------
 #heapseg )( $fff
 #heapcnt 0
@@ -65,7 +72,6 @@
 	'heapcnt !
 	;
 
-|-------------------------
 
 |************************************
 ::OP2
@@ -125,8 +131,9 @@
 
 :cover.insp | valor pos adr -- adr'
 	>r
+	swap 0? ( 2drop r> ; ) swap
 	r @ getlen
-	1 =? ( 2drop r +! r> 4+ @ ; )
+	1 =? ( 2drop r +! r> ; ) |4+ @ ; )
 	r @ getpos | v p largo pos
 	pick2 =? ( 2drop |--- inicio de segmento
 		r insert1
@@ -137,6 +144,9 @@
 	+ 1- over =? ( 2drop |--- fin de segmento
 		r insert1
 		@ dup $200 - r!+ r> @ >r
+|		getval rot + swap setpos or 1 setlen or r !
+|		r> ; )
+
 		getval rot + swap setpos or 1 setlen or r!+
 		r> @ ; )
 	1+
@@ -168,7 +178,9 @@
 			rot over -			| valor pos lv len-lv
 			rot rot +			| valor largo pos
 			r> @ cover.insl ; )
-    	4drop r @ + r!+ r> @ ; ) |-- ocupa igual
+    	4drop r @ +
+		r ! r> ; )
+|		r!+ r> @ ; ) |-- ocupa igual
 	|--- empieza adentro
 	r @ getlen + | valor largo pos posf
 	pick2 pick2 +
@@ -194,7 +206,9 @@
 	|--- ocupa hasta
 	r insert1 @ getval | valor largo pos posf vv
 	r @ $fff001ff and pick3 r @ getpos - setlen or r!+ r> @ >r
-	nip rot setlen rot setpos or >r + r> or r!+ r> @
+	nip rot setlen rot setpos or >r + r> or
+|	r!+ r> @
+	r ! r>
 	;
 
 :dumpoli
@@ -225,15 +239,15 @@
 	swap sw >? ( sw pick2 - )( dup pick2 - ) | xb x0 x1 largo
 	0 >? ( rot VALUES rot rot r> cover.insl >r )( drop nip ) | xb x1
 	sw <? ( swap MASK and swap r> cover.insp ; )
-	2drop >r ;
+	2drop r> ;
 
 
 |------------------- llenadores
 :solidofill
-	( 1? )( 1- $ff00 px!+ ) drop ;
+	( 1? )( 1- px@ $ff0000 or px!+ ) drop ;
 |	( 1? )( 1- col px!+ ) drop ;
 :solidoalpha
-	swap ( 1? )( 1- $ff px!+ ) 2drop ;
+	swap ( 1? )( 1- px@ $ff00 or px!+ ) 2drop ;
 |	swap ( 1? )( 1- over mixcolor px!+ ) 2drop ;
 
 :runlencover
@@ -247,11 +261,13 @@
 |		"%d %d " print
 |		@ 0? ) drop cr ;
 
-	0 over BPP >> setxy
+	0 over 1- BPP >> setxy
 	'coverbuff (
 		@+ dup getlen swap getval
 		QFULL =? ( drop solidofill )( 1? ( solidoalpha )( drop px+! ) )
-		@ 0? ) drop ;
+		@ 0? ) drop
+	|-1 px+!
+	;
 
 |-----------------------
 #activos )( 1024
@@ -260,20 +276,27 @@
 :dumpact
 	rojo "*" print
 	'activos ( activos> <? )(
-		@+ 4+ @ "%d " print
+		@+ 4+ @ FBASE >> BPP >> "%d " allowchome print
 		) drop cr ;
+
 
 :fillcover
 	'coverbuff >r
+	verde
 	'activos ( activos> 4 - <? )(
 		@+ 4+ @ FBASE >>
 		swap @+ 4+ @ FBASE >>
 		rot
-		r> coverpixels >r
 
+|		over BPP >> pick4 BPP >> op
+|		dup BPP >> pick4 BPP >> line
+
+		r> coverpixels >r
 		) drop
 	rdrop ;
 
+
+|-----------------------------
 :-activos	| --
 	'activos 'activos> ! ;
 
@@ -320,19 +343,23 @@
 	'segs 'segs> ! -1 'ymax ! 0 'heapcnt ! ;
 
 :newpoli
-	dumpoli
+|	dumpoli
+
 	ymax -? ( drop endpoli ; ) sh BPP << >? ( sh BPP << 'ymax ! ) drop
 	-activos
 	heapseg 16 >> dup | newy ymin
-|	0 over BPP >> setxy
+	0 over BPP >> setxy
 	( ymax <? )(
-|		trace
 		inicover
+
 |		VALUES ( 1? )( 1- >r
 
     	( over =? )( nip	| agrega nuevos ordenados
 			heap@ $ffff and 4 << 'segs + activos!+
            	heapseg 16 >> swap )
+
+|	testact
+|	dumpact
 		fillcover
         1+
 		|  heapdel =? ( ( heapdel@ drop heapdel <>? ) deleteline )
@@ -340,12 +367,8 @@
 		advanceline
 
 |		r> ) drop
-
 		runlencover
-	dumpact
-
 		) 2drop
-
 	endpoli	;
 
 :op3
@@ -367,22 +390,27 @@
 	show clrscr
 		verde
 		dup "%d " print cr
-|		50 50 op3 xymouse pline3
-|		xymouse swap pline3
-|		300 90 pline3
-|		rand $fff and rand $fff and pline2
-|		rand $fff and rand $fff and pline2
-|		50 50 pline3 newpoli
+		xymouse "%d %d " print cr
+
+		50 50 op3
+		xymouse pline3
+		xymouse swap pline3
+		300 70 pline3
+		$fff $fff pline3
+|		rand $fff and rand $fff and pline3
+		50 50 pline3
+		newpoli
+
 		cyan
 |		50 50 op xymouse line
 |		xymouse swap line
 |		300 90 line 50 50 line
 
 		verde
-		xymouse pos
-		40 40 dim poligon
+|		xymouse pos
+|		20 20 dim poligon
 
-		cflecha
+|		cflecha
 		'exit >esc<
 		;
 
