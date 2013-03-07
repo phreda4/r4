@@ -5,23 +5,36 @@
 ^r4/lib/btn.txt
 ^r4/lib/rfont.txt
 ^r4/lib/ricons.txt
+^r4/lib/vkeyboard.txt
+
+^r4/lib/dlgfilea.txt
+
+^r4/lib/trace.txt
+
 
 ^inc/ric/fontawesomewebfont.ric
 ^inc/rft/robotoregular.rft
+^inc/rft/robotobold.rft
+
+#cntop 1
+#menu 
+"r4/games/memoria.txt" "Memoria"
 
 #menuexp
 #menuex
 
 :config
 	show clrscr
-		robotoregular 52 rfont!
+		robotoregular 64 rfont!
 		verde dup " :R%d " print
-		blanco "Configuración" print cr cr
+		blanco "Info" printc cr cr
 		robotoregular 40 rfont!
 
 		azul
 		sh sw " Res: %dx%d" print cr
-
+		xymouse swap " MOUSE: %d %d" print cr
+		bmouse " BMOUSE: %d" print cr
+		key " KEY: %d" print
 		48 qdim sw 26 - 26 pos
 		verde 'exit btn blanco 'i.ok drawric
 
@@ -29,23 +42,173 @@
 		cflecha
 		;
 
-:menubtn
+#filename )( 64
+#itemname )( 32
+
+:selectfile
+	robotoregular 48 rfont!
+	"r4" dlgfileload c@ 0? ( drop ; ) drop
+	dlgname dlgpath "%s/%s" mprint  'filename strcpy
+	dlgname 'itemname strcpy
+	;
+
+:additem
+	robotoregular 48 rfont!
+	"r4" dlgfileload c@ 0? ( drop ; ) drop
+	dlgname dlgpath "%s/%s" mprint  'filename strcpy
+	dlgname 'itemname strcpy
+	show clrscr
+		robotoregular 64 rfont!
+		verde dup " :R%d " print
+		blanco "New Item" printc cr cr
+
+		" File: " print
+		'selectfile 'filename link
+		cr
+		'itemname " Name: %s" print cr
+		vkeyboard
+
+		48 qdim
+		sw 26 - 26 pos
+
+        rojo 'exit dup >esc< btn blanco 'i.remove drawric
+		gc<<
+		verde 'exit btn blanco 'i.ok drawric
+
+		cmano ;
+
+:delitem
+	;
+
+:edititem
+	show clrscr
+		robotoregular 64 rfont!
+		verde dup " :R%d " print
+		blanco "Edit Item" printc cr cr
+
+		vkeyboard
+
+		48 qdim
+		sw 26 - 26 pos
+		verde 'exit btn blanco 'i.ok drawric
+		'exit >esc<
+		;
+
+:upitem
+	;
+:dnitem
+	;
+
+#actual
+
+:listedit
+	robotoregular 48 rfont!
+	0 ( rows <? )(
+		dup " Elemento %d" print cr
+		1+ ) drop
+	;
+
+:editmenu
+	show clrscr
+		robotoregular 64 rfont!
+		verde dup " :R%d " print
+		blanco "Edit" printc cr cr
+
+		cyan
+|		cntop "%d elementos" print cr
+        listedit
+
+		48 qdim
+
+		32 sh 32 - pos
+		verde
+
+		'additem btnb 'i.plus_sign drawric
+		rojo
+		gc>> 'delitem btnb 'i.minus_sign drawric
+		amarillo
+		gc>> 'edititem btnb 'i.edit drawric
+
+		gc>> 'upitem btnb 'i.arrow_up drawric
+		gc>> 'dnitem btnb 'i.arrow_down drawric
+		sw 26 - 26 pos
+		verde 'exit btn blanco 'i.ok drawric
+
+		'exit >esc<
+		cflecha
+		;
+
+
+:getname | nro -- ""
+:getfile | nro -- ""
+	"%d"
+	;
+
+:botonapp
+	cntop >=? ( ; )
+|	dup
+	[ dup getfile run ; ] btnb
+	azul
+	'i.folder_close_alt drawric
+	home blanco
+	dup getname printc
+	;
+
+#fcnt #fsize
+#ccnt #csize
+
+#pagina 0
+:prevp
 
 	;
+:nextp
+	;
+
+:menubtn
+	robotoregular 24 rfont!
+	80 qdim
+|	fonti
+
+	sw 80 / 2.0 over / 'fsize ! 2 - 'fcnt !
+	sh 80 / 2.0 over / 'csize ! 2 - 'ccnt !
+
+	fcnt 1- fsize * 2/
+	ccnt 1- csize * 2/
+
+	pagina >r
+	0 ( ccnt <? )(
+		0 ( fcnt <? )(
+			dup	fsize * pick4 -
+			pick2 csize * pick4 -
+			neg fpos
+			r> botonapp 1+ >r
+			1+ ) drop
+		1+ ) drop
+	2drop rdrop
+
+	azul 48 qdim
+	32 sh 32 - pos
+	'prevp btnb 'i.chevron_left drawric
+	sw 32 - sh 32 - pos
+	'nextp btnb 'i.chevron_right drawric
+	;
+
+
 
 :main
 	4
 	show clrscr
-		robotoregular 52 rfont!
+		robotoregular 64 rfont!
 		verde dup " :R%d " print
-		blanco "Main Menu" print
+		blanco "Main" printc
 
 		menubtn
 
 		48 qdim sw 26 - 26 pos
-		rojo 'exit btn blanco 'i.off drawric
-		gc<<
-		negro 'config btn azul 'i.cog drawric
+		rojo 'exit btnb 'i.off drawric
+		cyan
+		gc<< 'config btnb 'i.info_sign drawric
+		gc<< 'editmenu btnb 'i.th drawric
 
 		'exit >esc<
 		cflecha
@@ -55,7 +218,6 @@
 	mark
 	here dup 'menuex !
 	"mem/menuex.mem" load
-
 	;
 
 : m main ;

@@ -10,7 +10,7 @@
  * All rights reserved.
 */
 // rutinas graficas
-//#include <stdlib.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 #include "graf.h"
@@ -42,11 +42,8 @@ int cntSegm=0;
 Segm segmentos[2048];
 int yMax,yMin;          // maximo y actual
 
-int runlenscan[2048];
-int *rl;
-
 Segm seg0={-1,0x80000001,-1,0};
-Segm *activelist[2048];
+Segm *activelist[1024];
 Segm **activelast;
 
 int ImplicitHeapY[2048];
@@ -56,8 +53,8 @@ void initIHY(void)
 {
 cntIHY=0;
 activelist[0]=&seg0;
-activelast=&activelist[1]; 
-cntSegm=0;
+activelast=&activelist[1];
+cntSegm=0;yMax=-1;
 }
 
 void addIHY(int v)
@@ -102,6 +99,10 @@ if (cntIHY==0) return -1;
 return ImplicitHeapY[0];
 }
 //-----------------------------------------
+//#define COVER
+
+int runlenscan[2048];
+int *rl;
 
 #define GETPOS(a) (((a)>>20)&0xfff)
 #define GETLEN(a) (((a)>>9)&0x7ff)
@@ -175,7 +176,9 @@ cntSegm=0;yMax=0;
 fillSol();
 
 initIHY();
+#ifndef COVER
 *runlenscan=SETLEN(gr_ancho+1);*(runlenscan+1)=0;
+#endif
 
 //---- colores
 gr_color2=0;gr_color1=0xffffff;
@@ -410,7 +413,6 @@ if (y1==y2) { if (x1>x2) swap(x1,x2); gr_hline(x1,y1,x2);return; }
 if (y1>y2) { swap(x1,x2);swap(y1,y2); }            
 dx=x2-x1;dy=y2-y1;
 if (dx>0) sx=1; else { sx=-1;dx=-dx; }
-//if (dy>0) sy=1; else { sy=-1;dy=-dy; }
 WORD ea,ec=0;BYTE ci;
 register DWORD *gr_pos;
 GR_SET(x1,y1);gr_pixel(gr_pos);
@@ -596,6 +598,7 @@ while ((v=*s++)!=0) {
       }
 }
 
+
 void inserta(int *a) // inserta una copia de a
 {
 int i,j=*a++;
@@ -698,26 +701,8 @@ if (x1>gr_ancho) largo=gr_ancho-x0; else largo=x1-x0;
 if (largo>0) addrlr(x0,largo,VALUES);
 if (x1<gr_ancho) add1pxr(x1,xb&MASK);
 }
-/*
-char buff[256];
-void log(char *n)
-{ 
-FILE *stream;
-if((stream=fopen("log.txt","a"))==NULL) return;
-fputs(n,stream); if(fclose(stream)) return; 
-}
 
-void dumpactive(void)
-{
-//sprintf(buff,"-----------ACTIVES--------------\n");log(buff);  
-Segm **jj;     
-for (jj=&activelist[0];jj<activelast;jj++) {
-    sprintf(buff,"x:%d y:%d yfin:%d\n",(*jj)->x,(*jj)->y,(*jj)->yfin);log(buff);
-    }     
-sprintf(buff,"--------------------------------\n");log(buff);
 
-}
-*/
 //-----------------------------------------------------------------------
 void sortactive(Segm **j) // ordena ultimo elemento
 {
@@ -761,6 +746,7 @@ int i;
 if (yMax>gr_alto<<BPP) { yMax=gr_alto<<BPP; }
 DWORD *gr_pant=(DWORD*)gr_buffer+(yMin>>BPP)*gr_ypitch;
 for (;yMin<yMax;) {
+  *runlenscan=SETLEN(gr_ancho+1);*(runlenscan+1)=0;
   for (i=VALUES;i!=0;--i) {
     while (heapIHY()>>16==yMin)
       { addactive(&segmentos[remIHY()&0xffff]); }
@@ -778,9 +764,7 @@ for (;yMin<yMax;) {
     }              
   while (*rl!=0) rl++;rl--;*rl=0;  // quito el ultimo espacio
   runlen(gr_pant);  
-  *runlenscan=SETLEN(gr_ancho+1);*(runlenscan+1)=0;
   gr_pant+=gr_ypitch;  
   }
-cntSegm=0;yMax=-1;
 initIHY();
 }

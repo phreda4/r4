@@ -1,0 +1,130 @@
+| Navegador de Archivos
+| PHREDA 2006
+|---------------------------------------
+^r4/lib/btn.txt
+^r4/lib/input.txt
+^r4/lib/ricons.txt
+
+^inc/ric/fontawesomewebfont.ric
+
+^r4/lib/cursor.txt
+^r4/lib/trace.txt
+
+|---- dlgload
+#buffname )( 1024
+#path )( 1024
+#inif #act #maxf #maxl
+
+#nfiles
+#files )( 1024
+#files> 'files
+#infos )( 1024
+#infos> 'infos
+
+#filen )( 8192
+#filen> 'filen
+
+:FNAME | adr -- adrname
+	44 + ; | |WIN|
+|    19 + ; | ANDROID
+
+:FDIR? | adr -- adr 1/0
+	dup @ $10 =? ( 1 )( 0 ) nip ;  | WIN
+|	dup 18 + c@ 4 =? ( 1 )( 0 ) nip ;  | ANDROID
+
+:inifile
+	0 'nfiles !
+	'filen 'filen> !
+	'files 'files> !
+	'infos 'infos> !
+	'path ffirst drop fnext drop | quita . y ..
+	( fnext 1? )(
+		filen> files> !+ 'files> !
+		FDIR? infos> !+ 'infos> !
+		FNAME filen> strcpyl 'filen> !
+		) drop
+	files> 'files - 2 >> 'nfiles !
+	;
+
+:resetfiles
+	;
+
+:clickf
+	dup 'act !
+	dup 2 << 'files + @ 'buffname strcpy
+	exit ;
+
+:clickc
+	 "/" 'path strcat
+    dup 2 << 'files + @ 'path  strcat
+	inifile resetfiles ;
+
+:escarpeta
+	amarillo oscuro
+	'clickc over 2 << 'files + @ btnt ;
+
+:cadafile | n -- n
+	nfiles >=? ( ; )
+	dup 2 << 'infos + @
+	1? ( drop escarpeta ; ) drop
+	negro
+	'clickf over 2 << 'files + @ btnt ;
+
+:clicka
+	'path ( c@+ 1? )( drop ) drop 1-
+	( 'path >? )(
+		dup c@ $2f =? ( drop 0 swap ! inifile resetfiles ; )
+		drop 1- ) drop
+	inifile resetfiles ;
+
+:showload
+	oscurecetodo
+	0 0 fpos 0.9 0.9 fdim
+	azul
+	$7f alpha gc.fbox $ff alpha
+	gc.box
+	>xfb
+	inifile
+	0 'act !
+	0 'inif !
+	show xfb>scr
+		0 0 fpos 0.88 0.86 fdim
+		home
+        amarillo 'clicka ".." btnt
+		blanco 'buffname 'path " [ %s/%s ] " print
+
+		0.1 hdim 0.82 0.78 fpos
+        rojo [ 0 'buffname ! exit ; ] dup >esc< btn
+		blanco 'i.remove drawric
+		gc<< verde
+		[ act clickf drop ; ] dup >enter< btn
+		blanco 'i.ok drawric
+		gc<< violeta
+		[ inif maxl + nfiles >? ( maxl - ) 'inif ! ; ] dup <pgdn> btn
+		blanco 'i.circle_arrow_right drawric
+		gc<< violeta
+		[ inif maxl - -? ( 0 nip ) 'inif ! ; ] dup <pgup> btn
+		blanco 'i.circle_arrow_left drawric
+		gc<<
+
+		inif
+		-0.45 -0.24 fpos 0.4 0.88 fdim home
+		rows 2/ 1+ 'maxl !
+		0 ( maxl <? )( swap cadafile cr cr2 1+ swap 1+ ) drop
+		0.45 -0.24 fpos 0.4 0.88 fdim home
+		0 ( maxl <? )( swap cadafile cr cr2 1+ swap 1+ ) drop
+		drop
+
+		cmano ;
+
+::dlgfileload | "path" -- "fullname"
+	'path strcpy
+	showload
+	'buffname ;
+
+::dlgname | -- "name"
+	'buffname ;
+
+::dlgpath | -- "name"
+	'path ;
+
