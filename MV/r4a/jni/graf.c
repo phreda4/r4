@@ -204,9 +204,7 @@ gr_buffer=(int*)malloc(maxsize<<2);
 XFB=(int*)malloc(maxsize<<2);
 
 //---- poligonos2
-yMax=0;
 initIHY();
-*runlenscan=SETLEN(buffergr.width+1);*(runlenscan+1)=0;
 fillSol();
 
 //---- colores
@@ -736,6 +734,7 @@ int i;
 if (yMax>buffergr.height<<BPP) { yMax=buffergr.height<<BPP; }
 int *gr_pant=(int*)gr_buffer+(yMin>>BPP)*buffergr.width;
 for (;yMin<yMax;) {
+  *runlenscan=SETLEN(buffergr.width+1);*(runlenscan+1)=0;
   for (i=VALUES;i!=0;--i) {
     while (heapIHY()>>16==yMin)
       { addactive(&segmentos[remIHY()&0xffff]); }
@@ -753,7 +752,6 @@ for (;yMin<yMax;) {
     }
   while (*rl!=0) rl++;rl--;*rl=0;  // quito el ultimo espacio
   runlen(gr_pant);
-  *runlenscan=SETLEN(buffergr.width+1);*(runlenscan+1)=0;
   gr_pant+=buffergr.width;
   }
 initIHY();

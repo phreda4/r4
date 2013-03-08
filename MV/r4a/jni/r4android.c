@@ -837,7 +837,12 @@ otrapalabra:
   else { while (*ahora>32) { *ahora=toupper(*ahora);ahora++; } }
   if (*ahora==0) *(ahora+1)=0;
   *ahora=0;
-  if (*palabra=='|') *(ahora+1)=0;// comentario
+  if (*palabra=='|') { // comentario
+     if (strnicmp(palabra,"|AND|",5)==0)
+       ahora=palabra+5;
+     else
+       *(ahora+1)=0;
+     }
   else if (*palabra=='"') // string
     {
     palabra++;// graba str

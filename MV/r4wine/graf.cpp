@@ -99,7 +99,6 @@ if (cntIHY==0) return -1;
 return ImplicitHeapY[0];
 }
 //-----------------------------------------
-//#define COVER
 
 int runlenscan[2048];
 int *rl;
@@ -172,13 +171,8 @@ switch(XRES) {
     }
 #endif
 //---- poligonos2
-cntSegm=0;yMax=0;
 fillSol();
-
 initIHY();
-#ifndef COVER
-*runlenscan=SETLEN(gr_ancho+1);*(runlenscan+1)=0;
-#endif
 
 //---- colores
 gr_color2=0;gr_color1=0xffffff;
