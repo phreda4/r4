@@ -68,8 +68,8 @@ void gr_pspline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4);
 
 //#define LLQ
 //#define LOWQ
-//#define MEDQ
-#define HIQ
+#define MEDQ
+//#define HIQ
 
 //////////////////////////////////////////////////////////////
 #ifdef HIQ
