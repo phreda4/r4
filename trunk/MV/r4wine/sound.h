@@ -16,7 +16,7 @@
 
 #ifdef FMOD
 
-#include <fmod/fmod.h>
+#include <FMOD\fmod.h>
 
 #else
 

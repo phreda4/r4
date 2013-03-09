@@ -484,10 +484,10 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
 
     case FFIRST: // "" -- fdd/0
     	if (dp!=NULL) closedir(dp);
-    	strcpy(error,rootpath);strcat(error,(char*)TOS);
+    	strcpy(error,rootpath);
+    	strcat(error,"/");
+    	strcat(error,(char*)TOS);
     	dp=opendir(error);
-//    	dp=opendir((char*)TOS);
-
     	if (dp!=NULL) dirp=readdir(dp); else dirp=0;
         TOS=(int)dirp;
          continue;
@@ -498,15 +498,20 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
          continue ;
 	case LOAD: // 'from "filename" -- 'to
          if (TOS==0||*NOS==0) { TOS=*NOS;NOS--;continue; }
-         file=fopen((int8_t*)TOS,"rb");
+         strcpy(error,rootpath);
+         strcat(error,"/");
+         strcat(error,(char*)TOS);
+         file=fopen(error,"rb");
          TOS=*NOS;NOS--;
          if (file==NULL) continue;
          do { W=fread((void*)TOS,sizeof(char),1024,file); TOS+=W; } while (W==1024);
          fclose(file);continue;
     case SAVE: // 'from cnt "filename" --
-         if (TOS==0||*NOS==0) { remove((int8_t*)TOS);
-                              NOS-=2;TOS=*NOS;NOS--;continue; }
-         file=fopen((int8_t*)TOS,"wb");
+    	 strcpy(error,rootpath);
+    	 strcat(error,"/");
+    	 strcat(error,(char*)TOS);
+         if (TOS==0||*NOS==0) { remove(error);NOS-=2;TOS=*NOS;NOS--;continue; }
+         file=fopen(error,"wb");
          TOS=*NOS;NOS--;
          if (file==NULL) { NOS--;TOS=*NOS;NOS--;continue; }
          fwrite((void*)*NOS,sizeof(char),TOS,file);
@@ -514,7 +519,10 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
          NOS--;TOS=*NOS;NOS--;continue;
     case APPEND: // 'from cnt "filename" --
          if (TOS==0||*NOS==0) { NOS-=2;TOS=*NOS;NOS--;continue; }
-         file=fopen((int8_t*)TOS,"ab");
+    	 strcpy(error,rootpath);
+    	 strcat(error,"/");
+    	 strcat(error,(char*)TOS);
+         file=fopen(error,"ab");
          TOS=*NOS;NOS--;
          if (file==NULL) { NOS--;TOS=*NOS;NOS--;continue; }
          fwrite((void*)*NOS,sizeof(char),TOS,file);
@@ -797,7 +805,14 @@ act->nombre=n; }
 #define CLOSEERROR 2
 #define CODIGOERROR 3
 
-
+int strnicmp(const char* s1, const char* s2, int n)
+{
+do {
+   if (tolower(*s1) != tolower(*s2++)) return (int)tolower(*s1)-(int)tolower(*--s2);
+   if (*s1++ == 0) break;
+} while (--n != 0);
+return 0;
+}
 //---------------------------------------------------------------
 // compila el archivo
 int compilafile(char *name)
