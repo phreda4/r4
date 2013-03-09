@@ -1,14 +1,10 @@
 | rutinas para compilar
 | reemplazo para ASM
-| PHREDA
+| PHREDA 2013
 |------------------------
 
-
-#BPP        4
-#TOLERANCE  24
-#VALUES     $10
-#QFULL      $100
-#MASK       $f
+#BPP 4 #TOLERANCE 24 #VALUES $10 #QFULL $100 #MASK $f
+|#BPP 2 #TOLERANCE 8 #VALUES $4 #QFULL $8 #MASK $3
 
 #FBASE		8
 
@@ -213,7 +209,7 @@
 ::CURVE | fx fy cx cy --
 	pick3 pxBPP + pick2 2* - abs
 	pick3 pyBPP + pick2 2* - abs  +
-	4 <? ( 2drop LINE ; ) drop
+	4 <? ( 3drop LINE ; ) drop
 	pick3 pick2 + 2/  pick3 pick2 + 2/		| fx fy cx cy c2 c2
 	2swap 									| fx fy c2 c2 cx cy
 	py + 2/ swap px + 2/ swap				| fx fy c2 c2 c1 c1
@@ -256,8 +252,9 @@
 :solidofill
 	( 1? )( 1- col px!+ ) drop ;
 :solidoalpha
-	not
+	$ff xor
 	swap ( 1? )( 1- over pxa ) 2drop ;
+
 :runlenSolid
 	'runlenscan
 	( @+ 1? )(
@@ -266,18 +263,19 @@
 		) 2drop
 	-1 px+! ;
 
-
 |----------------- degrade lineal
 :Ldegfill
 	( 1? )( 1-
 		mex 8 >> mixcolor px!+
 		ma 'mex +! ) drop ;
 :Ldegalpha
-	not
-	swap ( 1? )( 1-
-		over mex 8 >> mixcolor acpx!+ ) 2drop ;
+	$ff xor swap
+	( 1? )( 1-
+		over mex 8 >> mixcolor acpx!+
+		ma 'mex +! ) 2drop ;
+
 :runlenLdeg
-	mtx neg ma * over BPP >> mty - mb * - 'mex ! ;
+	mtx neg ma * over BPP >> mty - mb * - 'mex !
 	'runlenscan
 	( @+ 1? )(
 		dup getlen swap getval
@@ -288,7 +286,6 @@
 
 |----------------- degrade radial
 :distf | dx dy -- dis
-|	-? ( neg ) swap -? ( neg ) swap over <? ( swap ) | min max
 	abs swap abs swap over <? ( swap )
 	dup 8 << over 3 << + over 4 << - swap 2* -
 	over 7 << + over 5 << - over 3 << + swap 2* - ;
@@ -299,15 +296,16 @@
 	    ma 'mex +! mb 'mey +!
 		) drop ;
 :Rdegalpha
-	not swap
+	$ff xor swap
 	( 1? )( 1-
 		over
 	    mex mey distf 16 >> mixcolor acpx!+
 	    ma 'mex +! mb 'mey +!
 		) 2drop ;
+
 :runlenRdeg
     mtx neg ma * over BPP >> mty - mb * - 'mex !
-    mtx neg mb * over BPP >> mty - ma * + 'mey ! ;
+    mtx neg mb * over BPP >> mty - ma * + 'mey !
 	'runlenscan
 	( @+ 1? )(
 		dup getlen swap getval
@@ -318,21 +316,19 @@
 |------------------ textura
 :Texfill
 	( 1? )( 1-
-	    mex 8 >> $ff and mey $ff00 and or 2 << tex + @
-		px!+
+	    mex 8 >> $ff and mey $ff00 and or 2 << tex + @ px!+
 	    ma 'mex +! mb 'mey +!
 		) drop ;
 :Texalpha
 	not swap
-	( 1? )( 1-
-		over
-	    mex 8 >> $ff and mey $ff00 and or 2 << tex + @
-		acpx!+
+	( 1? )( 1- over
+	    mex 8 >> $ff and mey $ff00 and or 2 << tex + @ acpx!+
 	    ma 'mex +! mb 'mey +!
 		) 2drop ;
+
 :runlenTex
     mtx neg ma * over BPP >> mty - mb * - 'mex !
-    mtx neg mb * over BPP >> mty - ma * + 'mey ! ;
+    mtx neg mb * over BPP >> mty - ma * + 'mey !
 	'runlenscan
 	( @+ 1? )(
 		dup getlen swap getval
@@ -569,13 +565,12 @@
 :PCURVEI | fx fy cx cy --
 	pick3 pxBPP + pick2 2* - abs
 	pick3 pyBPP + pick2 2* - abs  +
-	TOLERANCE <? ( 2drop PLINEI ; ) drop
+	TOLERANCE <? ( 3drop PLINEI ; ) drop
 	pick3 pick2 + 2/  pick3 pick2 + 2/		| fx fy cx cy c2 c2
 	2swap 									| fx fy c2 c2 cx cy
 	pyBPP + 2/ swap pxBPP + 2/ swap			| fx fy c2 c2 c1 c1
 	pick3 pick2 + 2/  pick3 pick2 + 2/		| fx fy c2 c2 c1 c1 ex ey
-	2swap
-	PCURVEI PCURVEI ;
+	2swap PCURVEI PCURVEI ;
 
 |*******************************
 :PCURVE3I | xf yf x2 y2 x1 y1
