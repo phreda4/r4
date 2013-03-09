@@ -610,7 +610,7 @@ while ((i=*a)!=0) { *a++=j;j=k;k=i; }
 //--------- RUNLEN COVER
 void add1pxr(int pos,int val)
 {
-if (val==0) return;
+//if (val==0) return;
 int v=*rl;
 if (GETLEN(v)==1) {
    *rl=v+val;
@@ -620,6 +620,7 @@ if (GETLEN(v)==1) {
    *rl=((v&0xfff001ff)+val)|0x200;//SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;//pos=v
    rl++;*rl=v+0x100000-0x200;
 } else if (GETPOSF(v)-1==pos) {
+//} else if (GETPOS(*(rl+1))-1==pos) {
    inserta(rl);
    *rl=v-0x200;
    rl++;*rl=SETPOS(pos)|SETLEN(1)|GETVAL(v)+val;
@@ -632,48 +633,24 @@ if (GETLEN(v)==1) {
    }
 }
 
-void addrlr(int pos,int len,int val)
+void addrlr(int pos,int len)
 {
 again:
-if (len==1) { add1pxr(pos,val);return; }
+if (len==1) { add1pxr(pos,VALUES);return; }
 int v=*rl;
-//if (v==0) { *rl=(pos<<20)|(len<<9)|val;rl++;*rl=0;return; } // al final
-if (GETPOS(v)==pos) {               // empieza igual          *****
-   if (GETLEN(v)>len ) {            // ocupa menos            ***   OK
-     inserta(rl);
-     *rl=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
-     rl++;*rl=SETPOS(pos+len)|SETLEN(GETLEN(v)-len)|GETVAL(v);
-   } else if (GETLEN(v)<len ) {     // ocupa mas              ******* OK
-     *rl=v+val;
-     rl++;
-     pos+=GETLEN(v);len-=GETLEN(v);
-     goto again;
-//     addrlr(GETLEN(v)+pos,len-GETLEN(v),val);
-   } else {                         // ocupa igual            ***** OK
-     *rl=v+val;
-     rl++;
+if (GETLEN(v)>len ) {            // ocupa menos            ***   OK
+   inserta(rl);
+   *rl=SETPOS(pos)|SETLEN(len)|GETVAL(v)+VALUES;
+   rl++;*rl=SETPOS(pos+len)|SETLEN(GETLEN(v)-len)|GETVAL(v);
+} else if (GETLEN(v)<len ) {     // ocupa mas              ******* OK
+   *rl=v+VALUES;
+   rl++;pos+=GETLEN(v);len-=GETLEN(v);
+   goto again;
+//     addrlr(GETLEN(v)+pos,len-GETLEN(v));
+} else {                         // ocupa igual            ***** OK
+   *rl=v+VALUES;
+   rl++;
    }
-} else {                             // empieza adentro       *****
-   if (GETPOSF(v)>len+pos ) {        // ocupa menos             ** OK
-      inserta2(rl);
-      *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
-      rl++;*rl=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
-      rl++;*rl=SETPOS(pos+len)|SETLEN(GETPOSF(v)-(pos+len))|GETVAL(v); //---
-   } else if (GETPOSF(v)<len+pos ) { // ocupa mas               *****ok
-      inserta(rl);
-      *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
-      rl++;*rl=SETPOS(pos)|SETLEN(GETPOSF(v)-pos)|GETVAL(v)+val;
-      rl++;
-      pos=GETPOSF(v);len=pos+len-GETPOSF(v);
-      goto again;
-//      addrlr(GETPOSF(v),pos+len-GETPOSF(v),val);
-   } else {                         // ocupa igual             **** OK
-      inserta(rl);
-      *rl=(v&0xfff001ff)|SETLEN(pos-GETPOS(v));
-      rl++;*rl=SETPOS(pos)|SETLEN(len)|GETVAL(v)+val;
-      rl++;
-   }
-  } 
 }
 
 void coverpixels(int xa,int xb)
@@ -681,19 +658,26 @@ void coverpixels(int xa,int xb)
 int x0=xa>>BPP,x1=xb>>BPP;
 if (x0>=gr_ancho||x1<0) return;
 while (*rl!=0 && GETPOS(*rl)<=x0) rl++; // puede ser binaria??
+//while (GETPOS(*rl)<=x0) rl++; // puede ser binaria??
 rl--;
-if (x0==x1)
-   {
-   add1pxr(x0,(xb&MASK)-(xa&MASK));
-   return;
-   }
-int m1;
-if (x0>=0) { add1pxr(x0,VALUES-(xa&MASK));x0++;if(x0>=gr_ancho) return; }
+if (x0==x1) {
+   x1=(xb&MASK)-(xa&MASK);
+   if (x1!=0) add1pxr(x0,x1);
+   return; }
+if (x0>=0) { 
+   add1pxr(x0,VALUES-(xa&MASK)); // nunca 0 => siempre linea al principio
+   x0++;if(x0>=gr_ancho) return; }
 else { x0=0;rl=runlenscan; }
 int largo;
-if (x1>gr_ancho) largo=gr_ancho-x0; else largo=x1-x0;
-if (largo>0) addrlr(x0,largo,VALUES);
-if (x1<gr_ancho) add1pxr(x1,xb&MASK);
+if (x1>=gr_ancho) {
+   largo=gr_ancho-x0; 
+   if (largo>0) addrlr(x0,largo);
+} else { 
+   largo=x1-x0;
+   if (largo>0) addrlr(x0,largo);
+   xb&=MASK;
+   if (xb!=0) add1pxr(x1,xb);
+   }
 }
 
 
@@ -740,7 +724,9 @@ int i;
 if (yMax>gr_alto<<BPP) { yMax=gr_alto<<BPP; }
 DWORD *gr_pant=(DWORD*)gr_buffer+(yMin>>BPP)*gr_ypitch;
 for (;yMin<yMax;) {
-  *runlenscan=SETLEN(gr_ancho+1);*(runlenscan+1)=0;
+  *runlenscan=SETLEN(gr_ancho+1);
+  *(runlenscan+1)=0;
+  
   for (i=VALUES;i!=0;--i) {
     while (heapIHY()>>16==yMin)
       { addactive(&segmentos[remIHY()&0xffff]); }
@@ -756,7 +742,7 @@ for (;yMin<yMax;) {
         (*jj)->x+=(*jj)->deltax;sortactive(jj); 
         }
     }              
-  while (*rl!=0) rl++;rl--;*rl=0;  // quito el ultimo espacio
+  while (*rl!=0) rl++;*(rl-1)=0;  // quito el ultimo espacio
   runlen(gr_pant);  
   gr_pant+=gr_ypitch;  
   }

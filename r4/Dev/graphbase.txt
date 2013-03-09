@@ -5,22 +5,49 @@
 ^r4/lib/btn.txt
 ^r4/lib/trace.txt
 
+#col1 $ffffff
+#col2 0
+#col
 
 #FBASE		8
 
-#BPP        4
-#TOLERANCE  24
-#VALUES     $10
-#QFULL      $100
+#BPP        4 
+#TOLERANCE  24 
+#VALUES     $10 
+#QFULL      $100 
 #MASK       $f
 
-#BPP        1
-#TOLERANCE  4
-#VALUES     $2
-#QFULL      $4
-#MASK       $1
-
 #px #py
+
+|----- mexcla de colores
+:pxa | alpha --
+	col
+:acpx!+ | alpha col --
+	dup $ff00ff and				| alpha color colorand
+	px@ dup $ff00ff and 		| alpha color colorand inkc inkcand
+	pick2 - pick4 * 8 >> rot +	| alpha color inkc inkcandl
+	$ff00ff and >r				| alpha color inkc
+	swap $ff00 and 				| alpha px colorand
+	swap $ff00 and 				| alpha colorand pxa
+	over - rot * 8 >> + $ff00 and
+	r> or px!+  ;
+
+:gr_mix | a b al -- c (DWORD col,BYTE alpha)
+	>r
+	dup $ff00ff and
+	pick2 $ff00ff and
+	over - r * 8 >> + $ff00ff and
+    rot rot $ff00 and
+	swap $ff00 and
+	over - r> * 8 >> + $ff00 and
+	or ;
+
+:mixcolor | niv -- color
+    1 <? ( col2 nip ; )
+    254 >? ( col1 nip ; )
+    col1 col2 rot gr_mix ;
+
+
 
 #ymax -1
 
@@ -93,12 +120,6 @@
 	r> swap !+ 'segs> !
 	;
 
-
-|--------------- COVERBUFFER
-| dato - puntero
-#coverbuff )( 4096
-#coverbuff> 'coverbuff
-
 | pos(12) | len(11) | cover(9) |
 :getpos 20 >> $fff and ;
 :getlen 9 >> $7ff and ;
@@ -106,110 +127,112 @@
 :setpos 20 << ;
 :setlen 9 << ;
 
-:inicover | --
-	'coverbuff >r
-	sw 1+ setlen r!+ 0 r!+
-	r> 'coverbuff> ! ;
+|----- version array
+#runlenscan )( 4096
 
-|------------------------------------------------------
-:cover.busca | pos adr -- pos  adr'
-	( dup 4+ @ 1? )(	| pos adr1 adr2
-		dup @ getpos pick3
-		>? ( 2drop ; ) drop
-		nip ) drop ;
+#suma
+:dumprl
+	0 'suma !
+	'runlenscan
+	( @+ 1? )(
+		dup getpos "%d " print
+		dup getlen dup 'suma +! "%d " print
+		getval "%d " print cr
+		) 2drop
+	suma "----%d----" print cr ;
 
-:insert1 | adr -- adr
-	dup 4+ @ coverbuff> 4+ !
-	coverbuff> over 4+ !
-	8 'coverbuff> +! ;
+:clearscan
+	0 sw 1+ setlen 'runlenscan !+ ! ;
 
-:insert2 | adr -- adr
-	dup 4+ @ coverbuff> 12 + !
-	coverbuff> over 4+ !
-	coverbuff> 4+ dup 4+ swap !
-	16 'coverbuff> +! ;
+:searchscan | valor adr -- valor adr'
+	( @+ 1? )(
+		getpos pick2 >? ( drop 8 - ; )
+		drop ) drop
+	8 - ;
 
-:cover.insp | valor pos adr -- adr'
+:inserta1 | adr --
+	>r r@+
+	( r @ 1? )( swap r!+ )
+	swap r!+ r> ! ;
+
+:inserta2 | adr --
+	>r r@+ dup | j k
+	( r @ 1? )(	rot r!+ )
+	rot r!+ swap r!+ r> ! ;
+
+:add.1 | val pos rl -- rl
+	dup >r
+	@ dup getlen	| val pos v len
+	1 =? ( drop nip + r!+ r> ; )
+	drop swap over getpos | val v pos posv
+	=? ( r inserta1
+		drop swap 	| v val
+		over $fff001ff and + $200 or r!+
+		$100000 + $200 - r ! r> ; )
+	r 4+ @ getpos 1- | val v pos posf
+	=? ( r inserta1 | val v pos
+		over $200 - r!+
+		setpos $200 or swap getval rot + or r!+ r> ; )
+	r inserta2 | val v pos
+	over $fff001ff and over pick3 getpos - setlen or r!+
+	rot | v pos val
+	pick2 getval + $200 or over setpos or r!+
+	1+ | v pos+1
+	r @ dup getpos swap getlen +
+	over - setlen swap setpos or
+	swap getval or r ! r> ;
+
+
+:add.len | pos len rl -- rl
 	>r
-	swap 0? ( 2drop r> ; ) swap
+	1 =? ( drop VALUES swap r> add.1 ; )
 	r @ getlen
-	1 =? ( 2drop r +! r> ; ) |4+ @ ; )
-	r @ getpos | v p largo pos
-	pick2 =? ( 2drop |--- inicio de segmento
-		r insert1
-		@ dup $fff001ff and $200 or rot drop rot + r!+
-		r> @ >r
-		$100000 + $200 - r !
-		r> ; )
-	+ 1- over =? ( 2drop |--- fin de segmento
-		r insert1
-		@ dup $200 - r!+ r> @ >r
-|		getval rot + swap setpos or 1 setlen or r !
-|		r> ; )
-
-		getval rot + swap setpos or 1 setlen or r!+
-		r> @ ; )
-	1+
-	r insert2 @ | val pos posf v
-	dup $fff001ff and pick3 pick2 getpos - setlen or r!+ r> @ >r
-   	getval	| valor pos posf valf
-	pick3 over + pick3 setpos or 1 setlen or r!+ r> @ >r
-	rot 1+	| valor posf valf pos
-	rot over - setlen swap setpos or | valor
-	or nip r ! r> ;
-
-:cover.insl | valor largo pos adr -- adr'
-	rot 1 =? ( drop cover.insp ; )
-	swap >r swap | valor largo pos
-	r @ getpos over
-	=? (  |--- empieza igual
-		r @ getlen | valor largo pos posv largov
-		pick3 >? ( |-- ocupa menos
-			r> insert1 >r nip | valor largo pos largov
-			pick2 - setlen
-			pick2 pick2 + setpos or
-			r @ getval or
-			coverbuff> 8 - !	| valor largo pos
-			rot r @ getval + 	| largo pos v+v
-			rot setlen or swap setpos or r> !
-			coverbuff> 8 - ; )
-		pick3 <? ( |--- ocupa mas
-			nip r @ pick4 + r!+	| valor largo pos largov
-			rot over -			| valor pos lv len-lv
-			rot rot +			| valor largo pos
-			r> @ cover.insl ; )
-    	4drop r @ +
+	over >? (	| pos len lenv
+		r inserta1
+		pick2 setpos pick2 setlen or r @ getval VALUES + or r!+
+		over - setlen rot rot + setpos or r @ getval or
 		r ! r> ; )
-|		r!+ r> @ ; ) |-- ocupa igual
-	|--- empieza adentro
-	r @ getlen + | valor largo pos posf
-	pick2 pick2 +
-	>? ( |-- ocupa menos
-		r insert2 @ getval
-		r @ $fff001ff and pick3 r @ getpos - setlen or r!+ r> @ >r
-		| valor largo pos posf vv
-		pick4 over + pick4 setlen or pick3 setpos or r!+ r> @ >r
-		| valor largo pos posf vv
-		>r >r + r>  | valor len+pos posf
-		over - setlen swap setpos or r> or r !
-		drop r> ; )
-	pick2 pick2 +
-	<? ( |-- ocupa mas
-		r insert1 @ getval | valor largo pos posf vv
-		r @ $fff001ff and pick3 r @ getpos - setlen or r!+ r> @ >r
-			| valor largo pos posf vv
-		pick4 + over pick3 - setlen or pick2 setpos or r!+
-		| valor largo pos posf
-		rot rot + over -
-		swap r> @
-		cover.insl ; )
-	|--- ocupa hasta
-	r insert1 @ getval | valor largo pos posf vv
-	r @ $fff001ff and pick3 r @ getpos - setlen or r!+ r> @ >r
-	nip rot setlen rot setpos or >r + r> or
-|	r!+ r> @
-	r ! r>
-	;
+	over <? ( 	| pos len lenv
+		r @ VALUES + r!+
+		rot over + rot rot -
+		r> add.len ; )
+	3drop r @ VALUES + r!+
+	r> ;
+
+:coverpixels | xb xa adr -- adr
+	>r
+    over BPP >> 0 <? ( 3drop r> ; )
+	over BPP >> sw >=? ( 4drop r> ; )
+	r> searchscan >r
+	| xb xa x1 x0
+	over =? ( nip rot MASK and rot MASK and -
+			1? ( swap r> add.1 ; )
+			2drop r> ; )
+	| xb xa x1 x0
+	0 >=? ( rot MASK and VALUES swap -
+			over r> add.1 >r
+			1+ sw >=? ( 3drop r> ; )
+		)( drop nip 0 rdrop 'runlenscan >r )
+	| xb x1 x0
+	swap sw >? ( sw pick2 - )( dup pick2 - ) | xb x0 x1 largo
+	0 >? ( rot swap r> add.len >r )( drop nip ) | xb x1
+	sw <? ( swap MASK and
+			1? ( swap r> add.1 ; )
+			)
+	2drop r> ;
+
+|-----------------------
+#activos )( 1024
+#activos> 'activos
+
+:dumpact
+	rojo "*" print
+	'activos ( activos> <? )(
+		@+ 4+ @ FBASE >> BPP >> "%d " allowchome print
+		) drop cr ;
+
+
+|------------------------------------------------
 
 :dumpoli
 	0 'segs ( segs> <? )(
@@ -225,72 +248,28 @@
 	cr
 	;
 
-:coverpixels | xb xa adr -- adr
-	>r
-    over BPP >> 0 <? ( 3drop r> ; )
-	over BPP >> sw >=? ( 4drop r> ; )
-	r> cover.busca >r
-	| xb xa x1 x0
-	over =? ( nip rot MASK and rot MASK and - swap r> cover.insp ; )
-	| xb xa x1 x0
-	0 >=? ( rot MASK and VALUES swap - over r> cover.insp >r 1+ sw >=? ( 3drop r> ; )
-		)( drop nip 0 rdrop 'coverbuff >r )
-	| xb x1 x0
-	swap sw >? ( sw pick2 - )( dup pick2 - ) | xb x0 x1 largo
-	0 >? ( rot VALUES rot rot r> cover.insl >r )( drop nip ) | xb x1
-	sw <? ( swap MASK and swap r> cover.insp ; )
-	2drop r> ;
-
 
 |------------------- llenadores
 :solidofill
-	( 1? )( 1- px@ $ff0000 or px!+ ) drop ;
-|	( 1? )( 1- col px!+ ) drop ;
+	( 1? )( 1- col px!+ ) drop ;
 :solidoalpha
-	swap ( 1? )( 1- px@ $ff00 or px!+ ) 2drop ;
-|	swap ( 1? )( 1- over mixcolor px!+ ) 2drop ;
+	swap ( 1? )( 1- over not pxa ) 2drop ;
 
 :runlencover
-|	'coverbuff
-|	dup 4+ @ | a0 a1
-|	( dup 4+ @ 1? )( rot drop ) 2drop
-|	0 swap 4+ !
-
-|	'coverbuff (
-|		@+ dup getlen swap getval
-|		"%d %d " print
-|		@ 0? ) drop cr ;
-
-	0 over 1- BPP >> setxy
-	'coverbuff (
-		@+ dup getlen swap getval
+	'runlenscan
+	( @+ 1? )(
+		dup getlen swap getval
 		QFULL =? ( drop solidofill )( 1? ( solidoalpha )( drop px+! ) )
-		@ 0? ) drop
-	|-1 px+!
+		) 2drop
+	-1 px+!
 	;
-
-|-----------------------
-#activos )( 1024
-#activos> 'activos
-
-:dumpact
-	rojo "*" print
-	'activos ( activos> <? )(
-		@+ 4+ @ FBASE >> BPP >> "%d " allowchome print
-		) drop cr ;
 
 
 :fillcover
-	'coverbuff >r
-	verde
+	'runlenscan >r
+	rojo
 	'activos ( activos> 4 - <? )(
-		@+ 4+ @ FBASE >>
-		swap @+ 4+ @ FBASE >>
-		rot
-
-|		over BPP >> pick4 BPP >> op
-|		dup BPP >> pick4 BPP >> line
-
+		@+ 4+ @ FBASE >> swap @+ 4+ @ FBASE >> rot
 		r> coverpixels >r
 		) drop
 	rdrop ;
@@ -350,24 +329,26 @@
 	heapseg 16 >> dup | newy ymin
 	0 over BPP >> setxy
 	( ymax <? )(
-		inicover
 
-|		VALUES ( 1? )( 1- >r
+        clearscan
+
+		VALUES ( 1? )( 1- >r
 
     	( over =? )( nip	| agrega nuevos ordenados
 			heap@ $ffff and 4 << 'segs + activos!+
            	heapseg 16 >> swap )
 
-|	testact
-|	dumpact
+|	testact |		dumpact
 		fillcover
+
         1+
 		|  heapdel =? ( ( heapdel@ drop heapdel <>? ) deleteline )
 		deleteline
 		advanceline
 
-|		r> ) drop
+		r> ) drop
 		runlencover
+
 		) 2drop
 	endpoli	;
 
@@ -385,18 +366,12 @@
 	newpoli
 	;
 
-:main
-	33
-	show clrscr
-		verde
-		dup "%d " print cr
-		xymouse "%d %d " print cr
-
+:testpoli
 		50 50 op3
 		xymouse pline3
 		xymouse swap pline3
 		300 70 pline3
-		$fff $fff pline3
+		$ff $ff pline3
 |		rand $fff and rand $fff and pline3
 		50 50 pline3
 		newpoli
@@ -409,8 +384,20 @@
 		verde
 |		xymouse pos
 |		20 20 dim poligon
+	;
 
-|		cflecha
+:main
+	33
+	clearscan
+	show clrscr
+		verde
+		dup "%d " print cr
+		xymouse "%d %d " print cr
+		"--------------------" print cr
+
+		$ff00 'col !
+		testpoli
+
 		'exit >esc<
 		;
 
