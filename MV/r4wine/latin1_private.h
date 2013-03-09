@@ -11,7 +11,7 @@
 #define VER_RELEASE	1
 #define VER_BUILD	1
 #define COMPANY_NAME	""
-#define FILE_VERSION	""
+#define FILE_VERSION	"0.1.1.1"
 #define FILE_DESCRIPTION	"Developed using the Dev-C++ IDE"
 #define INTERNAL_NAME	""
 #define LEGAL_COPYRIGHT	""

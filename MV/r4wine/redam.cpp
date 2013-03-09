@@ -512,8 +512,8 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
                 } // gr_restore();
 */            
 #ifndef FMOD
-        if (evtsound==1 && SYSirqsonido!=0)
-            { R++;*(int*)R=(int)IP;IP=(BYTE*)SYSirqsonido;evtsound=0; }
+//        if (evtsound==1 && SYSirqsonido!=0)
+//            { R++;*(int*)R=(int)IP;IP=(BYTE*)SYSirqsonido;evtsound=0; }
 #endif
             if (SYSKEY==-1) return 0;
             }
@@ -616,7 +616,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         else FMUSIC_StopAllSongs();
         TOS=*NOS;NOS--;continue;
 #else
-    case IRSON: SYSirqsonido=TOS;TOS=*NOS;NOS--;continue;
+    //case IRSON: SYSirqsonido=TOS;TOS=*NOS;NOS--;continue;
     case SBO: NOS++;*NOS=TOS;TOS=(int)bosound();continue;
     case SBI: NOS++;*NOS=TOS;TOS=(int)bisound();continue;
 #endif
