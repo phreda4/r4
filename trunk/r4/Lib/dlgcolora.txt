@@ -1,0 +1,104 @@
+| Navegador de Colores
+| PHREDA 2006
+|---------------------------------------
+^r4/lib/gui.txt
+^r4/lib/color.txt
+^r4/lib/ricons.txt
+
+^inc/ric/fontawesomewebfont.ric
+
+^r4/lib/trace.txt
+
+|--- precalculo
+#:coloractual
+
+#vhue #yluma #xluma
+#alp
+#colorrampa $ff0000
+
+|---- Dialogo Color
+:setcol | color --
+	alp 24 << or
+	'coloractual ! ;
+
+:vhue! | nro --
+	dup 'vhue !
+	9 << 1.0 1.0 hsv2rgb 'colorrampa !
+	tx1 xluma + ty1 yluma + getpixel setcol ;
+
+:xyluma! | x y --
+	ty1 28 + <? ( ty1 28 + nip )
+	ty1 255 + 28 + >? ( ty1 255 + 28 + nip )
+	swap
+	tx1 8 + <? ( tx1 8 + nip )
+	tx1 255 + 8 + >? ( tx1 255 + 8 + nip )
+	swap
+	2dup
+	getpixel setcol
+	ty1 - 'yluma ! tx1 - 'xluma ! ;
+
+:lumagrid
+	tx1 8 + ty1 28 +
+	256 ( 1? )( 1-
+		dup 0 colorrampa lerpcol
+		over dup 8 << dup 8 << or or
+		degrade32!
+		>r 2dup setxy
+		255 ( 1? )( 1- deg@+ px!+ ) drop
+		1+ r> ) drop
+	setxy 255 ( 1? )( 1- 0 px!+ ) drop
+
+	gc.push
+	tx1 8 + ty1 28 + 255 dup gc.xywh
+    [ xymouse xyluma! ; ] guiMove
+	gc.pop
+	blanco
+	tx1 xluma + ty1 yluma + pos
+	6 dup dim
+	gc.box
+	;
+
+:cromaline
+	tx1 270 + ty1 28 + vhue +
+	over 32 + over op line
+
+	tx1 278 + ty1 28 + | ini croma
+	256 ( 1? )( 1-
+		255 over - 8 <<  1.0 1.0 hsv2rgb ink
+		pick2 pick2 over 16 + over op line
+		swap 1+ swap ) drop
+	2drop
+
+	gc.push
+	tx1 270 + ty1 32 256 gc.xywh | x y w h
+    [ xymouse nip ty1 28 + - vhue! ; ] guiMove
+	gc.pop
+	;
+
+:setvxy | color -- ; no anda
+	rgb2hsv
+	neg 2/ $7f and 28 + 'yluma !
+	$ff >? ( $ff nip )
+	2/ $7f and 8 + 'xluma !
+	$ff $600 */
+	dup 8 << 1.0 1.0 hsv2rgb 'colorrampa !
+	2/ 'vhue ! ;
+
+|---------------------------------------------------------
+::dlgcolora | --
+	show clrscr
+		0 0 fpos 0.9 0.9 fdim
+		$f0f7f ink gc.fbox
+		$ff ink gc.box
+		home
+		0.1 %s qdim 0.82 0.78 fpos
+        rojo 'exit dup >esc< btn
+		blanco 'i.remove drawric
+		gc<< verde
+
+		coloractual ink gc.fbox
+
+        lumagrid
+		cromaline
+
+		cminimano ;
