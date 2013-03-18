@@ -17,8 +17,13 @@
 |-----------------
 #color $00
 
-#dibujoed )( $ffff
-#dibujoed> 'dibujoed
+#dibujo )( $ffff
+#dibujo> 'dibujo
+
+#seleccion )( $ffff
+#seleccion> 'seleccion
+
+#xa -1 #ya #xb #yb
 
 #indpol )( $fff
 #indpol> 'indpol
@@ -28,6 +33,9 @@
 
 :-trazo
 	'trazo 0 over ! 'trazo> ! ;
+
+:++trazo | px --
+	trazo> 4 - @ =? ( drop ; )
 :+trazo | p --
 	trazo> !+ 0 over ! 'trazo> ! ;
 :trazo!
@@ -45,22 +53,23 @@
 	( @+ 1? )( gc>xy 2 box ) 2drop ;
 
 :cldibujo
-	'dibujoed 0 over ! 'dibujoed> !
+	'dibujo 0 over ! 'dibujo> !
 	'indpol 0 over ! 'indpol> ! ;
 
 :-dibujo | --
-	-4 'dibujoed> +! ;
+	-4 'dibujo> +! ;
 
 :+dibujo | p --
-	dibujoed> !+ 'dibujoed> ! ;
+	dibujo> !+ 'dibujo> ! ;
 :0dibujo
-	0 dibujoed> ! ;
+	0 dibujo> ! ;
 
 |----------------------------------------
 :addline | agrega trazo a vesprite
 	'trazo @+ 0? ( 2drop ; )
 	8 or +dibujo
-	( @+ 1? )( 9 or +dibujo ) 2drop ;
+	( @+ 1? )( 9 or +dibujo ) 2drop
+	0dibujo ;
 
 |----------------------------------------
 #xcycwh 0 0 0 0
@@ -71,34 +80,109 @@
 :loadbox
 	'xcycwh @+ 'h ! @+ 'w ! @+ 'yc ! @ 'xc ! ;
 
-|----------------------------------------
-:dibujando
-	[ xymouse xy>gc +trazo ; ]
-	[ addline -trazo ; ]
-	guiDraw 
-	dibujotrazo ;
-
-
-:viewvesprite
-	loadbox
-	verde gc.box
-	'dibujoed vesprite
-	color ink
-
-	dibujando
-
-	;
-
 :resetves
 	cldibujo
 	-trazo
 	;
 
+|----------------------------------------
+:sortab
+	xa xb >? ( xb 'xa ! dup 'xb ! ) drop
+	ya yb >? ( yb 'ya ! dup 'yb ! ) drop ;
 
+:inab | x y -- 1/0
+	ya <? ( 2drop 0 ; ) yb >? ( 2drop 0 ; ) drop
+	xa <? ( drop 0 ; ) xb >? ( drop 0 ; ) drop
+	1 ;
+
+:drawdot
+	over gc>xy 2 fbox ;
+
+:selecc.draw
+	'seleccion ( seleccion> <? )(
+		@+ @ dup $f and 3 >? ( 12 <? ( drawdot ) ) 2drop
+		) drop ;
+
+:selecc.reset
+	'seleccion 'seleccion> ! ;
+
+:selecc.set
+	sortab
+	'dibujo ( dibujo> <? )(
+		@+ gc>xy inab 1? ( over 4 - seleccion> !+ 'seleccion> ! ) drop
+		) drop
+	;
+
+|--- modo hoja
+#xv #yv
+
+:vista.move
+	xymouse
+	dup yv - 'yc +! 'yv !
+	dup xv - 'xc +! 'xv !
+	savebox
+	;
+
+:vista.dn
+	xymouse 'yv ! 'xv ! ;
+
+:hojayzoom
+	'vista.dn 'vista.move guiDnMove ;
+
+|----- modos de cursor
+:dibujando
+	color ink
+	[ xymouse xy>gc ++trazo ; ]
+	[ addline -trazo ; ]
+	guiDraw
+	dibujotrazo ;
+
+:seleccion | --
+	[ xymouse 2dup 'ya ! 'xa ! 'yb ! 'xb ! ; ]
+	[ xymouse 'yb ! 'xb ! ; ]
+	[ selecc.set -1 'xa ! ; ]
+	guiMap cyan
+	selecc.draw
+	xa -? ( drop ; ) ya xb yb caja
+	;
+
+:zoomcursor
+	'vista.dn 'vista.move guiDnMove ;
+
+:menudibujo
+	;
+
+:menuzoom
+	;
+
+:menusistema
+	'resetves btnb 'i.trash drawric
+	;
+
+#menubtn 'menudibujo
+#modocursor 'dibujando
+
+|--------------------------------
 :elijecolor
 	dlgcolora
 	coloractual 'color !
 	;
+
+:elijesistema
+	'menusistema 'menubtn !
+	'seleccion 'modocursor !
+	;
+
+:elijedibujo
+	'menudibujo 'menubtn !
+	'dibujando 'modocursor !
+	;
+
+:elijezoom
+	'menuzoom 'menubtn !
+	'zoomcursor 'modocursor !
+	;
+
 
 :editandoves  | --
 	-trazo
@@ -111,35 +195,28 @@
 	33
 	show clrscr
 		|--- vista
-		verde dup "%d " print
+		negro dup "%d " print
 
-		viewvesprite
-
-
-|		-0.9 0.9 fpos 0.08 hdim
-|		todosmodos botonherra
-
-|		-0.9 0.72 fpos 0.08 hdim
-|		btncolor gcdn
-|		violeta 'borrodib 'iborrar btnd gcdn
-|		gris 'cambiofondo 'idiamante btnd gcdn
-||		azul 'bmpback 'icopia btnd gcdn
-|		azul [ 6 'modo ! ; ] 'icopia btnd gcdn
+		loadbox
+		'dibujo vesprite
+		modocursor exec
 
 		|--- botonera
 		48 qdim
 		sw 32 - sh 32 - pos
 		rojo 'exit dup >esc< btnb 'i.off drawric
 		32 sh 32 - pos
-		verde 'elijecolor btnb 'i.wrench drawric
-		gc>>
-
 		verde 'elijecolor btnb 'i.tint drawric
 		gc>>
-		verde 'elijecolor btnb 'i.pencil drawric
+		verde 'elijedibujo btnb 'i.pencil drawric
 		gc>>
-		verde 'elijecolor btnb 'i.search drawric
+		verde 'elijesistema btnb 'i.hand_up drawric
+		gc>>
+		verde 'elijezoom btnb 'i.search drawric
+		gc>>
 
+		cyan
+		menubtn exec
 
 		cminiflecha ;
 
@@ -147,7 +224,7 @@
 |--------------------------------------------------
 :	mark $ffffff paper
 	resetves
-	'dibujoed "mem/notepad.ves" load 'dibujoed> !
+	'dibujo "mem/notepad.ves" load 'dibujo> !
 	editandoves
-	'dibujoed dibujoed> over - "mem/notepad.ves" save
+	'dibujo dibujo> over - "mem/notepad.ves" save
 	;
