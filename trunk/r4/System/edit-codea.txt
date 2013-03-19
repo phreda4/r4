@@ -1,12 +1,18 @@
 | edit-code.txt
-| PHREDA 2007
+| PHREDA 2007 .2013(android)
 |---------------------------------------
 ^r4/lib/gui.txt
 ^r4/lib/parse.txt
 ^r4/lib/codecolor.txt
-|^r4/lib/fontt.txt
-|^r4/lib/fonta.txt
-|^r4/lib/fontj.txt
+
+^r4/lib/rfont.txt
+^r4/lib/ricons.txt
+^r4/lib/vkeyboard.txt
+
+^r4/lib/trace.txt
+
+^inc/ric/fontawesomewebfont.ric
+^inc/rft/robotoregular.rft
 
 ^r4/lib/dlgfile.txt
 ^r4/lib/trace.txt
@@ -40,6 +46,7 @@
 |---- palabra actual
 #wordact
 #wordhelp
+#cntlineas
 
 |---- debug.err
 #nrolin )( 32
@@ -348,19 +355,6 @@
 	| agregar palabra :new  ;
 	;
 
-#mm
-:mode1
-   	0 'mm !
-	fonti ;
-
-:mode2
-   	1 'mm !
-	fonti2 ;
-
-:controlm | mode
-	mm 0? ( mode2 )( mode1 ) drop
-	;
-
 |----------------------------
 :debugcode  savetxt "r4/system/debug-code.txt" run ;
 :profcode   savetxt "r4/system/prof-code.txt" run ;
@@ -410,16 +404,18 @@
 	( finsel <? )( c@+ 13 =? ( 2drop $77 ink sel<< ; ) gemit )
 	drop $77 ink sel<< ;
 
-:drawcode
-	pantaini>
-	0 ( rows 4 - <? )(
+#modok 0
 
-		mm 0? (
-			over prilinea +
-			ed.nlin =? ( blanco )( gris )
-			"%d" print
-        	32 )( 4 ) nip
-		dup 'tx1 ! 'ccx !
+:drawcode
+	rows
+	modok 0? ( 2 )( 10 ) nip -
+	'cntlineas !
+
+	pantaini>
+	0 ( cntlineas <? )(
+|		dup prilinea +
+|		ed.nlin =? ( blanco )( gris )
+|		"%d " print ccx 'tx1 !
 		swap
 		$fuente	<=? (
 			drawsel lf
@@ -453,7 +449,6 @@
 	0? ( drop ; ) gc.right
 	$1f alpha violeta gc.fbox $ff alpha | gc.glass
 
-|	fonti |fonta-dejavu10
 	home blanco
 |-- lineasde help
 |	'ltoken cadalinea
@@ -537,7 +532,6 @@
 	0? ( drop ; )
 	scr gc.bottom |$f gc.hfill
 	gc.glass
-|	fonti
 	home cr2
 	cyan " CTRL+* " printr lf
 
@@ -552,7 +546,6 @@
 	'controlf dup 33 ?key "F-Find" sp btnt
 	'controlg dup 34 ?key "G-Go" sp btnt
 	'controln dup 49 ?key "N-New" sp btnt
-	'controlm dup 50 ?key "M-Mode" sp btnt
 	cr cr2
 |	wordact 1? ( " %w " blanco print )( drop )
 	wordhelp 1? ( " %l" blanco print )( drop )
@@ -565,52 +558,83 @@
 	;
 
 
+|--- sobre pantalla
+#xo #yo
+:dns
+	xymouse 'yo ! 'xo !
+	;
+
+:mos
+	xymouse nip
+	dup yo - 4 >>
+	0? ( 2drop ; ) swap 'yo !
+	( -? )( scrolldw 1+ kabajo )
+	ed.nlin 0? ( 2drop ; ) drop
+	( +? )( scrollup 1- karriba )
+	drop
+	;
+:ups
+	xymouse
+	32 - cch /
+	pantaini> swap ( 1? )( 1- swap >>13 2 + swap ) drop 'fuente> !
+	ccw / | n espacios
+
+	fuente> swap ( 1? )( 1- swap c@+
+			13 =? ( drop nip 1- 'fuente> ! ; )
+			$9 =? ( rot 1- rot rot ) drop swap ) drop 'fuente> !
+	;
+
+:insertext
+	modok 1 xor 'modok !
+	;
+
+:vteclado
+	modok 0? ( drop ; ) drop
+	vkeyboard
+	vkey 0? ( drop ; )
+	8 >? ( dup modo exec )
+	1 =? ( kback )
+	2 =? ( kdel )
+	3 =? ( modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop )
+	drop
+	0 'vkey !
+	;
+
 |-------------------- pantalla editor
 
 :editor
 	0 paper
-|	dic.name 'ed.nombre
-|	=w 1? ( sw 3 / 'panel2o ! ) drop
-|	helpcodeon
-	fonti
-	mode1
+	fonti2
+|	robotoregular 32 rfont!
+
 	show clrscr
-		home
-		gris 4 linesfill
-		cr2
-		verde dup ":R%d" print
-		blanco "eDIT " print
-|        'ed.nombre print
-		'archivos dup <f6> 'ed.nombre "%s" mprint $ff ink btnt
-		sp
+		$555555 ink
+		sw 32 0 0 vfill
+		32 qdim
+		18 18 pos
+		verde 'directrun dup <f1> btnb 'i.bolt drawric
+		gc>> 'insertext btnb 'i.pencil drawric
+		sw 18 - 18 pos
+		rojo 'exit dup >esc< btnb 'i.off drawric
+		10 0 gotoxy
+		blanco dup ":r%d " print
 		modo 'lins =? ( "INS" verde )( "OVR" rojo ) nip printx sp
-		finsel 0? ( drop "0" )( fuente - inisel fuente - "%d..%d" ) print sp
-	 	clipboard> clipboard <>? ( "clip" print sp ) drop
 		verde ed.nlin "%d " print
-		cr cr
 
-		verde 'directrun dup <f1> "Run" btnt
-|		'generacode
-		'debugcode dup <f2> "Debug" btnt
 
-		'profcode dup <f3> "Profile" btnt
-		'profcode2 dup <f4> "Profile2" btnt
-		'panelswitch dup <f5> "Panel" btnt
-		negro
-		'mkplain dup <f9> "Plain" btnt
-		'mkasm dup <f10> "ASM"  btnt
-		'mkasmo dup <f11> "ASMO" btnt
-|		'mkbyte dup <f12> "Byte" btnt
-		rojo 'exit "esc" sp btnt
-
-		blanco 'mensaje "%s " printr
+		scr
+		sh 32 - gc.bottom
+		'dns 'mos 'ups guiMap | en texto
 
 |------------------------------
 		cr cr2 chome!
 		drawcode
         drawpanelhelpcode
-		drawpanelincludes
-		drawpanelcontrol
+|		drawpanelincludes
+|		drawpanelcontrol
+
+		vteclado
+		cminimano ;
 
 |------------------------------
 		keypad
@@ -623,11 +647,9 @@
 		[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
 		[ 13 modo exec ; ] <enter>
 		[ 9 modo exec ; ] <tab>
-		'exit  >esc<
 		| control
 		'modocontrol <ctrl> 'controloff >ctrl<
 
-		cminimano ;
 
 |---- Mantiene estado del editor
 
