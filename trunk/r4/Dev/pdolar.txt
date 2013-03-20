@@ -1,0 +1,170 @@
+| $p point cloud recognizer
+| basado en http://depts.washington.edu/aimgroup/proj/dollar/pdollar.js
+| PREDA 2013
+|--------------------
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+
+
+#nsimbol 0
+#simbols )( 1024 | 256 simbolos
+#memsim
+#memsim>
+
+#pc2d )( $3fff
+#pc2d> 'pc2d
+#id 1
+#timend | mmmm no ***************
+
+| formato de trazo
+|  X    Y   ID
+| $fff fff ff
+
+:xy>n | x y -- n
+	$fff and 8 << swap $fff and 20 <<  or id or ;
+:n>xy	 | n -- x y
+	dup 20 >> swap 12 << 20 >> ; | con signo
+
+:ngc>xy	 | n -- x y ;gc
+	dup 20 >> w 12 *>> xc + swap 12 << 20 >> h 12 *>> yc + ; | con signo
+
+:++pc2d | px --
+	pc2d> 4 - @ =? ( drop ; )
+:+pc2d | px
+	pc2d> !+ 'pc2d> ! ;
+
+:pc2dreset
+	'pc2d 'pc2d> ! 1 'id ! ;
+
+:pc2ddraw
+	0 >r
+	'pc2d ( pc2d> <? )( @+
+		dup $ff and r <>? ( drop n>xy op 1 r+ )( drop n>xy line )
+		) drop rdrop ;
+
+:pc2dpoint
+	'pc2d ( pc2d> <? )( @+
+		n>xy 2 box
+		) drop ;
+
+:pc2dcopy | adr -- adr'
+	'pc2d ( pc2d> <? )(
+		@+ rot !+ swap ) drop
+	0 swap !+ ;
+
+|------------------------------------
+#cx #cy #minx #maxx #miny #maxy
+#size
+
+:normalize
+	'pc2d
+	@+ n>xy
+	dup 'miny ! 'maxy !
+	dup 'minx ! 'maxx !
+	( pc2d> <? )( @+ n>xy
+		miny <? ( dup 'miny ! )
+		maxy >? ( dup 'maxy ! )
+		drop
+		minx <? ( dup 'minx ! )
+		maxx >? ( dup 'maxx ! )
+		drop
+		) drop
+	maxx minx - maxy miny - max 'size !
+	minx maxx + 2/ neg 'cx !
+	miny maxy + 2/ neg 'cy !
+
+	'pc2d ( pc2d> <? )( dup @
+		dup $ff and >r
+		n>xy
+		cy + $7ff size */
+		swap
+		cx + $7ff size */
+		swap
+		xy>n $ffffff00 and r> or
+		swap !+ ) drop
+
+	;
+
+
+|------------------------------------
+:dnc
+	-1 'timend !
+	xymouse xy>n +pc2d ;
+:moc
+	xymouse xy>n ++pc2d ;
+:upc
+	1 'id +! 30 'timend ! ;
+
+:dorec
+	;
+
+:drawgesto
+	'dnc 'moc 'upc guiMap
+	blanco
+|	pc2ddraw
+	pc2dpoint
+	timend +? ( 1- 0? ( dorec ) dup 'timend ! ) drop
+	;
+
+|------------------------------------
+:addchar
+	normalize
+	memsim> dup pc2dcopy 'memsim> !
+	nsimbol 2 << 'simbols + !
+	1 'nsimbol +!
+	pc2dreset
+	;
+
+:searchar
+	normalize
+	;
+
+
+:gcdraw | adr --
+	0 >r
+	( @+ 1? )(
+		dup $ff and r <>? ( drop ngc>xy op 1 r+ )( drop ngc>xy line )
+		) 2drop rdrop ;
+
+:drawnsimbol | n -- n
+	nsimbol >=? ( ; )
+	gc.box
+	dup 2 << 'simbols + @
+	gcdraw
+	;
+
+:drawsim
+	verde
+	0.1 %s qdim
+	0
+	-0.9 ( 0.9 <? )(
+		dup -0.8 fpos
+		swap
+		drawnsimbol
+		1+
+		swap
+		0.12 + ) 2drop
+	;
+
+|------------------------------------
+:main
+	mark
+	here dup 'memsim ! 'memsim> !
+
+	pc2dreset
+	33
+	show clrscr
+		blanco
+		drawgesto
+		drawsim
+		dup "%d " print
+		timend "%d " print cr cr
+		rojo
+		'pc2dreset dup <f10> "clear" sp btnt
+		verde
+		'addchar dup <f1> "+simbolo" sp btnt
+		'searchar dup <f2> "?search" sp btnt
+		cminiflecha
+		'exit >esc< ;
+
+: main ;
