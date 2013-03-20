@@ -6,6 +6,8 @@
 ^r4/lib/btn.txt
 
 
+#numPoints 32
+
 #nsimbol 0
 #simbols )( 1024 | 256 simbolos
 #memsim
@@ -14,6 +16,18 @@
 #pc2d )( $3fff
 #pc2d> 'pc2d
 #id 1
+#aux )( $3fff
+#aux> 'aux
+
+#pc2dr )( $3fff
+#pc2dr> 'pc2dr
+
+:+pc2dr | px
+	pc2dr> !+ 'pc2dr> ! ;
+
+:pc2drreset
+	'pc2dr 'pc2dr> ! ;
+
 #timend | mmmm no ***************
 
 | formato de trazo
@@ -47,10 +61,39 @@
 		n>xy 2 box
 		) drop ;
 
+:pc2dpointr
+	'pc2dr
+	@+ n>xy op
+	( pc2dr> <? )( @+
+		n>xy line
+		) drop ;
+
 :pc2dcopy | adr -- adr'
 	'pc2d ( pc2d> <? )(
 		@+ rot !+ swap ) drop
 	0 swap !+ ;
+
+:pntdist | p1 p2 -- len
+	n>xy rot n>xy	| x1 y1 x2 y2
+	rot - dup * >r
+	- dup * r> + ;
+
+:pc2dlen | -- length
+	0 'pc2d
+	( pc2d> <? )( @+
+		over 4+ @	| adr' p1 p2
+		over $ff and over $ff and - | adr' p1 p2 id
+		0? ( drop pntdist rot + swap )( 3drop )
+		) drop
+	sqrt ;
+
+:pc2dlen2 | -- length
+	0 'pc2d
+	( pc2d> <? )( @+
+		over 4+ @	| adr' p1 p2
+		over $ff and over $ff and - | adr' p1 p2 id
+		0? ( drop pntdist rot + swap )( 3drop )
+		) drop ;
 
 |------------------------------------
 #cx #cy #minx #maxx #miny #maxy
@@ -72,7 +115,6 @@
 	maxx minx - maxy miny - max 'size !
 	minx maxx + 2/ neg 'cx !
 	miny maxy + 2/ neg 'cy !
-
 	'pc2d ( pc2d> <? )( dup @
 		dup $ff and >r
 		n>xy
@@ -81,8 +123,62 @@
 		cx + $7ff size */
 		swap
 		xy>n $ffffff00 and r> or
-		swap !+ ) drop
+		swap !+ ) drop ;
 
+:+aux		aux> !+ 'aux> ! ;
+:clearaux	'aux 'aux> ! ;
+
+:resample
+	pc2dlen2 numPoints 1- / 'size ! | Intervalo de puntos
+	clearaux
+	'pc2d >r
+	r @ +aux
+	4 r+
+	0 r @
+	numPoints ( 1? )( 1-
+		dup 4 - @ over @
+		) drop
+	drop
+	;
+
+
+:interpola | value adr --
+	@ +pc2dr ;
+
+:calcxy	| p1 p2 n -- nxy
+	>r n>xy rot n>xy	| x2 y2 x1 y1
+	rot 				| x2 x1 y1 y2
+	over - r 16 *>> +	| x2 x1 yn
+    $fff and 8 <<
+	swap rot
+	over - r> 16 *>> +	| yn xn
+	$fff and 20 << or ;
+
+:interpola | value adr -- value
+
+	@+ swap @+ swap @		| value p1 p2 sumalast
+	pick2
+
+	 +pc2dr ;
+
+:resample2
+	'aux >r
+	0 'pc2d
+	( pc2d> <? )( @+
+		over @	| adr' p1 p2
+		over $ff and over $ff and - | adr' p1 p2 id
+		0? ( drop 2dup swap r!+ r!+ pntdist dup r!+ rot + swap )( 3drop )
+		) drop
+	numPoints 1- / 'size !
+	r> 'aux> !
+	pc2drreset
+	'aux @+ +pc2dr
+	0 swap ( aux> <? )(
+		4+ @+ 	| acc adr dist
+		rot +	| adr acc+
+		size >=? ( over 12 - interpola size - )
+		swap 4+ ) 2drop
+|	r> 4 - @ +pc2dr
 	;
 
 
@@ -103,7 +199,21 @@
 	blanco
 |	pc2ddraw
 	pc2dpoint
+
+	verde
+	pc2dpointr
+
 	timend +? ( 1- 0? ( dorec ) dup 'timend ! ) drop
+	;
+
+:drawresample
+	chome!
+	'aux ( aux> <? )(
+		@+ n>xy swap "%d %d |" print
+		@+ n>xy swap "%d %d |" print
+		@+ "%d |" print cr
+		allowchome
+		) drop
 	;
 
 |------------------------------------
@@ -156,14 +266,25 @@
 	show clrscr
 		blanco
 		drawgesto
+
 		drawsim
-		dup "%d " print
-		timend "%d " print cr cr
+
+		cr
 		rojo
 		'pc2dreset dup <f10> "clear" sp btnt
 		verde
 		'addchar dup <f1> "+simbolo" sp btnt
 		'searchar dup <f2> "?search" sp btnt
+		'resample2 dup <f3> "resample" sp btnt
+
+		cr cr
+		dup "%d " print
+		timend "%d " print cr
+|		pc2dlen dup "len %d " print numPoints 1- / "len med %d " print cr
+		pc2dlen2 dup "len2 %d " print numPoints 1- / "len med %d " print
+		cr
+		drawresample
+
 		cminiflecha
 		'exit >esc< ;
 
