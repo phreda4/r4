@@ -5,8 +5,9 @@
 ^r4/lib/gui.txt
 ^r4/lib/btn.txt
 
+^r4/lib/trace.txt
 
-#numPoints 32
+#numPoints 8 |32
 
 #nsimbol 0
 #simbols )( 1024 | 256 simbolos
@@ -27,8 +28,6 @@
 
 :pc2drreset
 	'pc2dr 'pc2dr> ! ;
-
-#timend | mmmm no ***************
 
 | formato de trazo
 |  X    Y   ID
@@ -62,10 +61,8 @@
 		) drop ;
 
 :pc2dpointr
-	'pc2dr
-	@+ n>xy op
-	( pc2dr> <? )( @+
-		n>xy line
+	'pc2dr ( pc2dr> <? )( @+
+		n>xy 2 box
 		) drop ;
 
 :pc2dcopy | adr -- adr'
@@ -142,9 +139,43 @@
 	;
 
 
+|--------- version 0
 :interpola | value adr --
-	@ +pc2dr ;
+	@ +pc2dr
+	size - ;
 
+
+:drawresample
+	chome! verde
+	'aux ( aux> <? )(
+		@+ n>xy swap "%d %d |" print
+		@+ n>xy swap "%d %d |" print
+		@+ "%d |" print cr
+		allowchome
+		) drop
+	;
+
+:drawnew
+	blanco
+	'pc2dr ( pc2dr> <? )(
+		@+ n>xy swap "%d %d " print cr
+		allowchome
+		) drop
+	;
+
+:dumptest
+	show clrscr
+		size "size:%d " print cr
+		over "sumaa %d " print cr
+		drawresample
+		cr
+		drawnew
+		cyan
+		pc2dpointr
+		'exit >esc<
+		;
+
+|------------ version 1
 :calcxy	| p1 p2 n -- nxy
 	>r n>xy rot n>xy	| x2 y2 x1 y1
 	rot 				| x2 x1 y1 y2
@@ -154,12 +185,22 @@
 	over - r> 16 *>> +	| yn xn
 	$fff and 20 << or ;
 
-:interpola | value adr -- value
-
+:interpola | adr value adr -- adr value
 	@+ swap @+ swap @		| value p1 p2 sumalast
-	pick2
+	pick3 swap -			| value p1 p2 x1
+	size over - 			| value p1 p2 x1 size-x1
+	dup >r
+	pick4 rot - 16 <</		| value p1 p2 t
+	calcxy	| adr value npx
 
-	 +pc2dr ;
+	nip     		| adr npx
+	swap 12 -
+	r> neg over 8 + +! | disminuye distancia
+	2dup ! | npx adr. ; guarda nuevo punto
+	swap
+
+	+pc2dr
+	0 ;
 
 :resample2
 	'aux >r
@@ -174,9 +215,12 @@
 	pc2drreset
 	'aux @+ +pc2dr
 	0 swap ( aux> <? )(
+
+		dumptest
+
 		4+ @+ 	| acc adr dist
 		rot +	| adr acc+
-		size >=? ( over 12 - interpola size - )
+		size >=? ( over 12 - interpola  )
 		swap 4+ ) 2drop
 |	r> 4 - @ +pc2dr
 	;
@@ -184,12 +228,11 @@
 
 |------------------------------------
 :dnc
-	-1 'timend !
 	xymouse xy>n +pc2d ;
 :moc
 	xymouse xy>n ++pc2d ;
 :upc
-	1 'id +! 30 'timend ! ;
+	1 'id +! ;
 
 :dorec
 	;
@@ -203,17 +246,6 @@
 	verde
 	pc2dpointr
 
-	timend +? ( 1- 0? ( dorec ) dup 'timend ! ) drop
-	;
-
-:drawresample
-	chome!
-	'aux ( aux> <? )(
-		@+ n>xy swap "%d %d |" print
-		@+ n>xy swap "%d %d |" print
-		@+ "%d |" print cr
-		allowchome
-		) drop
 	;
 
 |------------------------------------
@@ -256,6 +288,24 @@
 		0.12 + ) 2drop
 	;
 
+:test1
+	pc2drreset
+	50 50 xy>n +pc2d
+	200 200 xy>n +pc2d
+	1 'id +!
+	200 50 xy>n +pc2d
+	50 200 xy>n +pc2d
+	;
+
+
+:test2
+	pc2drreset
+	100 100 xy>n +pc2d
+
+	200 100 xy>n +pc2d
+	200 300 xy>n +pc2d
+	;
+
 |------------------------------------
 :main
 	mark
@@ -276,13 +326,15 @@
 		'addchar dup <f1> "+simbolo" sp btnt
 		'searchar dup <f2> "?search" sp btnt
 		'resample2 dup <f3> "resample" sp btnt
+		'test1 dup <f4> "test" sp btnt
+		'test2 dup <f5> "test2" sp btnt
 
 		cr cr
 		dup "%d " print
-		timend "%d " print cr
 |		pc2dlen dup "len %d " print numPoints 1- / "len med %d " print cr
 		pc2dlen2 dup "len2 %d " print numPoints 1- / "len med %d " print
 		cr
+		500 1000 16 <</ "%f " print cr
 		drawresample
 
 		cminiflecha
