@@ -7,7 +7,7 @@
 
 ^r4/lib/trace.txt
 
-#numPoints 8 |32
+#numPoints 32
 
 #nsimbol 0
 #simbols )( 1024 | 256 simbolos
@@ -19,15 +19,6 @@
 #id 1
 #aux )( $3fff
 #aux> 'aux
-
-#pc2dr )( $3fff
-#pc2dr> 'pc2dr
-
-:+pc2dr | px
-	pc2dr> !+ 'pc2dr> ! ;
-
-:pc2drreset
-	'pc2dr 'pc2dr> ! ;
 
 | formato de trazo
 |  X    Y   ID
@@ -60,10 +51,6 @@
 		n>xy 2 box
 		) drop ;
 
-:pc2dpointr
-	'pc2dr ( pc2dr> <? )( @+
-		n>xy 2 box
-		) drop ;
 
 :pc2dcopy | adr -- adr'
 	'pc2d ( pc2d> <? )(
@@ -73,7 +60,7 @@
 :pntdist | p1 p2 -- len
 	n>xy rot n>xy	| x1 y1 x2 y2
 	rot - dup * >r
-	- dup * r> + ;
+	- dup * r> + sqrt ;
 
 :pc2dlen | -- length
 	0 'pc2d
@@ -122,29 +109,7 @@
 		xy>n $ffffff00 and r> or
 		swap !+ ) drop ;
 
-:+aux		aux> !+ 'aux> ! ;
-:clearaux	'aux 'aux> ! ;
-
-:resample
-	pc2dlen2 numPoints 1- / 'size ! | Intervalo de puntos
-	clearaux
-	'pc2d >r
-	r @ +aux
-	4 r+
-	0 r @
-	numPoints ( 1? )( 1-
-		dup 4 - @ over @
-		) drop
-	drop
-	;
-
-
-|--------- version 0
-:interpola | value adr --
-	@ +pc2dr
-	size - ;
-
-
+|------ debug
 :drawresample
 	chome! verde
 	'aux ( aux> <? )(
@@ -155,13 +120,6 @@
 		) drop
 	;
 
-:drawnew
-	blanco
-	'pc2dr ( pc2dr> <? )(
-		@+ n>xy swap "%d %d " print cr
-		allowchome
-		) drop
-	;
 
 :dumptest
 	show clrscr
@@ -169,9 +127,7 @@
 		over "sumaa %d " print cr
 		drawresample
 		cr
-		drawnew
 		cyan
-		pc2dpointr
 		'exit >esc<
 		;
 
@@ -199,30 +155,30 @@
 	2dup ! | npx adr. ; guarda nuevo punto
 	swap
 
-	+pc2dr
+	+pc2d
 	0 ;
 
-:resample2
+:resample
 	'aux >r
 	0 'pc2d
-	( pc2d> <? )( @+
+	( pc2d> 4 - <? )( @+
 		over @	| adr' p1 p2
 		over $ff and over $ff and - | adr' p1 p2 id
 		0? ( drop 2dup swap r!+ r!+ pntdist dup r!+ rot + swap )( 3drop )
 		) drop
-	numPoints 1- / 'size !
+	numPoints 2 - / 'size !
 	r> 'aux> !
-	pc2drreset
-	'aux @+ +pc2dr
+	pc2dreset
+	'aux @+ +pc2d
 	0 swap ( aux> <? )(
-
-		dumptest
-
+|		dumptest
 		4+ @+ 	| acc adr dist
 		rot +	| adr acc+
 		size >=? ( over 12 - interpola  )
 		swap 4+ ) 2drop
-|	r> 4 - @ +pc2dr
+|	pc2d> 'pc2d - 2 >> 1-
+|	trace
+|	r> 4 - @ +pc2d
 	;
 
 
@@ -242,14 +198,11 @@
 	blanco
 |	pc2ddraw
 	pc2dpoint
-
-	verde
-	pc2dpointr
-
 	;
 
 |------------------------------------
 :addchar
+	resample
 	normalize
 	memsim> dup pc2dcopy 'memsim> !
 	nsimbol 2 << 'simbols + !
@@ -265,7 +218,8 @@
 :gcdraw | adr --
 	0 >r
 	( @+ 1? )(
-		dup $ff and r <>? ( drop ngc>xy op 1 r+ )( drop ngc>xy line )
+		ngc>xy 1 box
+|		dup $ff and r <>? ( drop ngc>xy op 1 r+ )( drop ngc>xy line )
 		) 2drop rdrop ;
 
 :drawnsimbol | n -- n
@@ -274,6 +228,7 @@
 	dup 2 << 'simbols + @
 	gcdraw
 	;
+
 
 :drawsim
 	verde
@@ -288,23 +243,6 @@
 		0.12 + ) 2drop
 	;
 
-:test1
-	pc2drreset
-	50 50 xy>n +pc2d
-	200 200 xy>n +pc2d
-	1 'id +!
-	200 50 xy>n +pc2d
-	50 200 xy>n +pc2d
-	;
-
-
-:test2
-	pc2drreset
-	100 100 xy>n +pc2d
-
-	200 100 xy>n +pc2d
-	200 300 xy>n +pc2d
-	;
 
 |------------------------------------
 :main
@@ -325,17 +263,14 @@
 		verde
 		'addchar dup <f1> "+simbolo" sp btnt
 		'searchar dup <f2> "?search" sp btnt
-		'resample2 dup <f3> "resample" sp btnt
-		'test1 dup <f4> "test" sp btnt
-		'test2 dup <f5> "test2" sp btnt
+		'resample dup <f3> "resample" sp btnt
 
 		cr cr
 		dup "%d " print
 |		pc2dlen dup "len %d " print numPoints 1- / "len med %d " print cr
-		pc2dlen2 dup "len2 %d " print numPoints 1- / "len med %d " print
+|		pc2dlen2 dup "len2 %d " print numPoints 1- / "len med %d " print
 		cr
-		500 1000 16 <</ "%f " print cr
-		drawresample
+|		drawresample
 
 		cminiflecha
 		'exit >esc< ;
