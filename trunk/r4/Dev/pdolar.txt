@@ -11,6 +11,9 @@
 
 #nsimbol 0
 #simbols )( 1024 | 256 simbolos
+#infosim )( 1024 | 256 info sim
+#lensim )( 1024 | 256 info sim
+
 #memsim
 #memsim>
 
@@ -19,7 +22,6 @@
 #id 1
 #aux )( $3fff
 #aux> 'aux
-
 | formato de trazo
 |  X    Y   ID
 | $fff fff ff
@@ -176,9 +178,10 @@
 		rot +	| adr acc+
 		size >=? ( over 12 - interpola  )
 		swap 4+ ) 2drop
-|	pc2d> 'pc2d - 2 >> 1-
-|	trace
-|	r> 4 - @ +pc2d
+
+	pc2d> 'pc2d - 2 >>
+	nsimbol 2 << 'lensim + !
+	0 pc2d> !
 	;
 
 
@@ -200,20 +203,8 @@
 	pc2dpoint
 	;
 
+
 |------------------------------------
-:addchar
-	resample
-	normalize
-	memsim> dup pc2dcopy 'memsim> !
-	nsimbol 2 << 'simbols + !
-	1 'nsimbol +!
-	pc2dreset
-	;
-
-:searchar
-	normalize
-	;
-
 
 :gcdraw | adr --
 	0 >r
@@ -227,6 +218,9 @@
 	gc.box
 	dup 2 << 'simbols + @
 	gcdraw
+	home
+	dup 2 << 'infosim + @ "%d" print cr
+	dup 2 << 'lensim + @ "%d" print
 	;
 
 
@@ -236,13 +230,76 @@
 	0
 	-0.9 ( 0.9 <? )(
 		dup -0.8 fpos
-		swap
-		drawnsimbol
-		1+
-		swap
-		0.12 + ) 2drop
+		swap drawnsimbol
+		1+ swap 0.12 + ) 2drop
 	;
 
+
+|------------------------------------
+#actual
+
+:getxy1 | nro -- xy
+	2 << actual 2 << 'simbols + @ + @ ngc>xy ;
+
+:getxy2 | nro -- xy
+	2 << 'pc2d + @ ngc>xy ;
+
+:drawmatch
+	0 ( 32 <? )(
+		dup getxy1 op
+		dup getxy2 line
+		1+ ) drop
+	;
+
+|--------------------------------
+:calcfit | nro -- nro suma
+	dup 2 << 'simbols + @ >r	| nro   r:simbolo
+	'pc2d dup 128 +		| nro act last
+	0 rot
+	( pick2 <? )( | nro last suma act
+		@+ n>xy r@+ n>xy
+		rot - rot rot - distfast	| nro last suma act delta
+		rot + swap )				| nro last suma act
+	drop nip rdrop ;
+
+#best
+#nbest
+
+:fitness
+	$7fffffff 'best !
+	0 ( nsimbol <? )(
+		calcfit dup pick2 2 << 'infosim + !
+		best <? ( 'best ! dup 'nbest ! )( drop )
+		1+ ) drop ;
+
+
+:searchar
+	resample
+	normalize
+	fitness
+	nbest 'actual !
+	show clrscr
+		dup "%d " print cr
+		0.5 %s qdim
+		0 dup fpos
+		azul gc.box
+		drawmatch
+
+		verde actual 2 << 'simbols + @ gcdraw
+		cyan 'pc2d gcdraw
+
+		drawsim
+
+		[ pc2dreset exit ; ] >esc< ;
+
+:addchar
+	resample
+	normalize
+	memsim> dup pc2dcopy 'memsim> !
+	nsimbol 2 << 'simbols + !
+	1 'nsimbol +!
+	pc2dreset
+	;
 
 |------------------------------------
 :main
@@ -256,7 +313,7 @@
 		drawgesto
 
 		drawsim
-
+		scr home
 		cr
 		rojo
 		'pc2dreset dup <f10> "clear" sp btnt
