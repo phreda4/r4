@@ -67,7 +67,7 @@ char *macros[]={// directivas del compilador
 "MEM", "FFIRST","FNEXT",
 "LOAD","SAVE","APPEND",//--- memoria,bloques
 "UPDATE",
-"XYMOUSE","BMOUSE",      //-------- mouse
+"XYMOUSE","BMOUSE","INFOIN",      //-------- mouse
 "KEY!", "KEY",          //-------- teclado
 "CNTJOY","GETJOY",     //-------- joystick
 
@@ -104,7 +104,7 @@ MOVED,MOVEA,CMOVED,CMOVEA,
 MEM, FFIRST,FNEXT,
 LOAD,SAVE,APPEND,//--- bloques de memoria, bloques
 UPDATE,
-XYMOUSE,BMOUSE,
+XYMOUSE,BMOUSE,INFOIN,
 SKEY, KEY,
 CNTJOY,GETJOY,
 MSEC,TIME,IDATE,SISEND,SISRUN,//--- sistema
@@ -143,10 +143,19 @@ unsigned char *RSP[1024];// 1k pila de direcciones
 unsigned char ultimapalabra[]={ SISEND };
 
 //---- eventos teclado y raton
-int SYSXM=0;
-int SYSYM=0;
-int SYSBM=0;
+struct infoi {
+	int SYSINFO;
+	int SYSXM,SYSYM,SYSBM;
+	int SYSXM1,SYSYM1,SYSBM1;
+	int SYSXM2,SYSYM2,SYSBM2;
+	int SYSXM3,SYSYM3,SYSBM3;
+	int SYSXM4,SYSYM4,SYSBM4;
+};
+
+struct infoi infoi;
+
 int SYSKEY=0;
+
 //---- Date & Time
 struct timespec times;
 struct timeval Time;
@@ -167,11 +176,22 @@ int rebotea;
 static int32_t engine_handle_input(struct android_app* app, AInputEvent* event)
 {
 if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
-        SYSXM=(int)AMotionEvent_getX(event, 0);
-        SYSYM=(int)AMotionEvent_getY(event, 0);
+		infoi.SYSINFO=AMotionEvent_getPointerCount(event);
     	int32_t action=AMotionEvent_getAction(event);
-        SYSBM=(action==AMOTION_EVENT_ACTION_UP)?0:1;
-        LOGI("SYSXMY: %d %d %d",SYSXM,SYSYM,SYSBM);
+
+    	infoi.SYSXM=(int)AMotionEvent_getX(event, 0);infoi.SYSYM=(int)AMotionEvent_getY(event, 0);
+    	infoi.SYSBM=(action==AMOTION_EVENT_ACTION_UP)?0:1;
+		if (infoi.SYSINFO>1) {
+		infoi.SYSXM1=(int)AMotionEvent_getX(event, 1);infoi.SYSYM1=(int)AMotionEvent_getY(event, 1);
+		infoi.SYSBM1=(action==(0x100|AMOTION_EVENT_ACTION_POINTER_UP))?0:1;
+		infoi.SYSXM2=(int)AMotionEvent_getX(event, 2);infoi.SYSYM2=(int)AMotionEvent_getY(event, 2);
+		infoi.SYSBM2=(action==(0x200|AMOTION_EVENT_ACTION_POINTER_UP))?0:1;
+		infoi.SYSXM3=(int)AMotionEvent_getX(event, 3);infoi.SYSYM3=(int)AMotionEvent_getY(event, 3);
+		infoi.SYSBM3=(action==(0x300|AMOTION_EVENT_ACTION_POINTER_UP))?0:1;
+		infoi.SYSXM4=(int)AMotionEvent_getX(event, 4);infoi.SYSYM4=(int)AMotionEvent_getY(event, 4);
+		infoi.SYSBM4=(action==(0x400|AMOTION_EVENT_ACTION_POINTER_UP))?0:1;
+		}
+		//LOGI("SYSXMY: %d %d %d",SYSXM,SYSYM,SYSBM);
         return 1; }
 if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_KEY) {
     	SYSKEY=AKeyEvent_getAction(event)<<7|AKeyEvent_getKeyCode(event);
@@ -382,8 +402,11 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
 	        }
 		break;
 //---- raton
-    case XYMOUSE: NOS++;*NOS=TOS;NOS++;*NOS=SYSXM;TOS=SYSYM;continue;
-    case BMOUSE: NOS++;*NOS=TOS;TOS=SYSBM;continue;
+
+    case XYMOUSE: NOS++;*NOS=TOS;NOS++;*NOS=infoi.SYSXM;TOS=infoi.SYSYM;continue;
+    case BMOUSE: NOS++;*NOS=TOS;TOS=infoi.SYSBM;continue;
+    case INFOIN: NOS++;*NOS=TOS;TOS=(int)&infoi;continue;
+
 //----- teclado
     case SKEY: SYSKEY=TOS;TOS=*NOS;NOS--;continue;
 	case KEY: NOS++;*NOS=TOS;TOS=SYSKEY&0xff;continue;
@@ -410,7 +433,7 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
     case SISRUN:
     	if (TOS==0) { rebotea=1;return 0; }
     	strcpy(pilaexecl,(char*)TOS);
-    	LOGE((char*)TOS);
+//    	LOGE((char*)TOS);
     	while (*pilaexecl!=0) pilaexecl++;
     	pilaexecl++;
         return 1;

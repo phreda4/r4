@@ -14,7 +14,7 @@
 |^r4/lib/dlgfilea.txt
 |^r4/lib/vkeyboard.txt
 
-|^r4/lib/trace.txt
+^r4/lib/trace.txt
 
 ^inc/ric/fontawesomewebfont.ric
 ^inc/rft/robotoregular.rft
@@ -37,9 +37,6 @@
 
 #fileactual )( 32
 
-#iconcolor $7f7f00 $3f00 $7f7f $ff
-#iconinfo 'i.folder_close_alt 'i.cogs 'i.picture 'i.file
-
 |----------------------------------------
 :FNAME | adr -- adrname
 |WIN|	44 +
@@ -55,8 +52,12 @@
 	dup FDIR? 1? ( 0 nip ; ) drop
 	dup FNAME
 	".txt" =pos 1? ( 2drop 1 ; ) drop
-	".spr" =pos 1? ( 2drop 2 ; ) drop
-	3 nip ;
+	".bmr" =pos 1? ( 2drop 2 ; ) drop
+	".inc" =pos 1? ( 2drop 3 ; ) drop
+	".rmt" =pos 1? ( 2drop 4 ; ) drop
+	".spr" =pos 1? ( 2drop 5 ; ) drop
+	".vsp" =pos 1? ( 2drop 6 ; ) drop
+	7 nip ;
 
 :rebuild
 	0 'nfiles !
@@ -129,6 +130,16 @@
 	'pagina 8 1024 +
 	"mem/main.mem" save ;
 
+:multip
+|WIN| ;
+|AND|	infoin
+	>r
+	r@+ dup "%d " print cr
+	( 1? )( 1-
+		r@+ r@+ swap r@+ "%d %d %d " print cr
+		) drop
+	rdrop ;
+
 :config
 	show clrscr
 		robotoregular 64 rfont!
@@ -141,28 +152,48 @@
 |AND|	"Android"
 		" Version " print print cr
 		sh sw " Res: %dx%d" print cr
+
 		xymouse swap " MOUSE: %d %d" print cr
 		bmouse " BMOUSE: %d" print cr
 		key " KEY: %d" print
+		multip
 		48 qdim sw 32 - sh 32 - pos
 		verde 'exit btn blanco 'i.ok drawric
 
 		'exit >esc<
 		cflecha
 		;
+
 |--------------------------------------
+#iconcolor $7f7f00 $3f00  $7f7f  $7f007f $7f7f00 $7f0000 $7f00  $ff
+#iconinfo 'i.folder_close_alt 'i.cogs 'i.picture 'i.picture 'i.picture 'i.picture 'i.picture 'i.file
+#tipoext "bmr" "inc" "rmt" "spr" "vsp"
+
+:nrun | act tipo --
+	'tipoext swap 2 - ( 1? )( swap >>0 swap 1- ) drop >r
+	mark
+	getname 'path "%s/%s" ,print
+	r "mem/inc-%w.mem" mprint savemem
+	empty
+	r> "r4/system/inc-%w.txt" mprint run ;
+
 :runfile
     savem
-	getname 'path "%s/%s" mprint run
-	;
+	dup getinfo 1 >? ( nrun ; ) drop
+	getname 'path "%s/%s" mprint run ;
 
 :editfile
 	savem
 	actual -? ( drop ; )
+	dup getinfo 1 >? ( nrun ; ) drop
 	getname 'path "%s/%s" mprint 'ed.nombre strcpy
 	0 0 'ed.ncar ! 'ed.nlin !
 	ed.save
-	"r4/system/edit-code.txt" run
+|win|	"r4/system/edit-code.txt" run
+|and|	"r4/system/edit-codea.txt" run
+	;
+
+:newfile
 	;
 
 :clickbtn | nro -- nro
@@ -239,6 +270,8 @@
 		gc<<
 		verde
 		gc<< 'editfile dup <f2> btnb 'i.edit drawric
+		gc<< 'newfile dup <f2> btnb 'i.light_bulb |i.file
+drawric
 
 		[ actual -? ( drop ; ) runfile ; ] <f1>
 		'exit >esc<

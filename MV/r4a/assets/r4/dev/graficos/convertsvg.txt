@@ -1,12 +1,708 @@
+| Convierte SVG font a formato RFONT(propio)
+| PHREDA 2013
+|---------------------------------------------
 ^r4/lib/gui.txt
+^r4/lib/parse.txt
+^r4/lib/trace.txt
+
+#namefont
+
+|"fontawesomewebfont"
+|"websymbolsregular"
+"sirucapictograms11"
+|"modernpics"
+|"heydings_icons"
+|"heydings_controls"
+|"evilz"
+|"efon"
+|"ggsloveme"
+
+|"dejavuserif"
+|"dejavuserifbold"
+|"dejavusans"
+|"robotoregular"
+|"robotothin"
+|"robotolight"
+|"robotobold"
+|"opensansregular"
+|"opensanslight"
+|"droidsansbold"
+|"comfortaa_thin"
+|"comfortaa_bold"
+|"architectsdaughter"
+|"gooddog"
+
+|--------- formato fuente 1
+#yp #xp
+:a0 drop ; | el valor no puede ser 0
+:a1 xp $80000000 <>? ( yp pline )( drop )
+	gc>xy 2dup 'yp !+ ! op ;  | punto
+:a2 gc>xy pline ; | linea
+:a3 swap >r gc>xy r@+ gc>xy pcurve r> ;  | curva
+:a4 swap >r gc>xy r@+ gc>xy r@+ gc>xy  pcurve3 r> ; | curva3
+| 5 era z pero siempre se junta con un Move o es Fin
+
+|-- posible extensiones (necesito guardar ultimo punto
+|-- Dxy (8bits) sumado al punto anterior
+| a5 Dxy pline Dxy plie | XYXY
+| a6 DX pline DY pline
+| a7 DY pline DX pline
+| a8 Dxy Dxy pcurve
+| a9 GXY Dxy Dxy pcurve3
+| aa REFLEX GXY pcurve ; REFLEX necesita 2 puntos anteriores!!
+| ab REFLEX GXY GXY pcurve3
+| ac REFLEX DXY DXY pcurve3
+
+#gfont a0 a1 a2 a3 a4 0 0 0
+
+:drawrf | 'rf --
+	0? ( drop ; )
+	$80000000 'xp !
+	( @+ 1? )( dup $7 and 2 << 'gfont + @ exec ) 2drop
+	xp yp pline
+	poli ;
+
+|----------- formato fuente 2
+| 16 bits
+| 12bits coord
+#xa #ya
+
+:rgc>x | v -- x
+
+:rgc>y | v -- y
+
+:a0 drop ; | el valor no puede ser 0
+:a1 xp $80000000 <>? ( yp pline )( drop )
+	rgc>x dup 'xp ! 'xa !
+	w@+ rgc>y dup 'yp ! 'ya !
+	xa ya op ;  | punto
+
+:a2 xp $80000000 <>? ( yp pline )( drop )
+	rgc>x dup 'xp ! 'xa !
+	xa ya op ;  | punto
+
+:a3 xp $80000000 <>? ( yp pline )( drop )
+	rgc>y dup 'yp ! 'ya !
+	xa ya op ;  | punto
+
+:a4 rgc>x 'xa ! w@+ rgc>y 'ya ! xa ya pline ;
+:a5 rgc>x 'xa ! xa ya pline ;
+:a6 rgc>y 'ya ! xa ya pline ;
+
+:a7 swap >r gc>xy r@+ gc>xy pcurve r> ;  | curva
+:a8 swap >r gc>xy r@+ gc>xy r@+ gc>xy  pcurve3 r> ; | curva3
+
+#gfont2 a0 a1 a2 a3 a4 a5 a6 a7 a8 
+:drawrf2
+	$80000000 'xp !
+	0 dup 'xa ! 'ya !
+	( w@+ 1? )( dup $f and 2 << 'gfont2 + @ exec ) 2drop
+	xp yp pline
+	poli ;
+
+|---------------------------
+:dumprf | 'rf
+	$80000000 'xp !
+	( @+ 1? )( "%h " allowcr print ) 2drop
+	cr ;
+
+|---------------------------
+#xml
+#$xml
+#inidec
+#decode
+
+#advx
+#unic
+#unin
+
+#finfo )( $ffff
+#funic )( $ffff
+#funin )( $ffff
+#findex )( $ffff
+#findex> 'findex
+
+#unitspe
+#ascent
+#descent
+
+:,dec | nro --
+	decode !+ 'decode ! ;
+:+ind
+	advx findex> 'findex - 'finfo + !
+	unic findex> 'findex - 'funic + !
+	unin findex> 'findex - 'funin + !
+	decode findex> !+ 'findex> ! ;
+
+:]ind	2 << 'findex + @ ;
+:]unic  2 << 'funic + @ ;
+:]unin  2 << 'funin + @ ;
+:]info  2 << 'finfo + @ ;
+
+|------------------ PARSE
+:=p | s1 s2 -- 1/0
+	( c@+ 1? )( rot c@+ rot - 1? ( 3drop 0 ; ) drop swap ) 3drop 1 ;
+
+:find | adr "texto" -- adr'
+	( 2dup =p 0? )( drop swap 1+ $xml >? ( 2drop 0 ; ) swap ) 2drop ;
+
+|------------------ NRO
+:signo | str -- str signo
+	dup c@
+	$2c =? ( drop 1+ dup c@ )
+	$2b =? ( drop 1+ 0 ; )	| + $2b
+	$2d =? ( drop 1+ 1 ; )	| - $2d
+	drop 0 ;
+
+#f | fraccion
+
+:getfrac | nro adr' char -- nro adr' char
+	drop
+	0 swap | nro 0 adr'
+	( c@+ $2f >? )(
+			$39 >? ( rot 'f ! ; )
+			$30 - rot 10* + swap )
+	rot 'f ! ;
+
+::getnro | adr -- adr' nro
+	0 'f !
+	trim
+	signo
+	over c@ 33 <? ( 2drop 1- 0 ; ) | caso + y - solos
+	swap  1? ( [ neg ; ] >r ) drop
+	drop
+	0 swap ( c@+ $2f >? )(	| 0 adr car
+		$39 >? ( drop 1- swap ; )			| 0..9
+		$30 - rot 10* + swap )
+	$2e =? ( getfrac )
+	drop 1- swap ;
+
+|----------------------SVG path-----------------------
+#sx $100 #sy $100
+#x1 #y1
+#x2 #y2
+#x3 #y3
+
+:endmove
+	decode 4 - @
+	$f and 5 =? ( -4 'decode +! ) drop ;
+
+|---  remove colinel lines ---
+:colineal | q1 q2 q3 -- 0/1
+	pick2 pick2 * 2 << >r | 4q1q2
+	- + dup * r> - ;
+
+:Qab | a b -- q
+	over 4 >> $3fff and
+	over 4 >> $3fff and - dup * >r
+	swap 18 >> $3fff and
+	swap 18 >> $3fff and - dup * r> + ;
+
+#optlin 0 | cnt
+
+| a-b q1 | b-c q2 | a-c q3
+:checkline | --
+	>r r@+ r@+ r> @ 	| a b c
+	pick2 over Qab >r	| a b c r:q3
+	over swap Qab >r	| a b 	r:q2 q3
+	Qab r> r>
+	colineal 1? ( drop ; ) drop
+	-8 'decode +!
+	x1 y1 xy>gc 2 or ,dec
+	1 'optlin +! | for counting
+	;
+|---  remove colinel lines ---
+
+:,linea |
+	x1 y1 xy>gc 2 or ,dec
+	decode 8 - @ $f and 2 <>? ( drop ; ) drop
+	decode 12 - checkline
+	;
+
+:moveto | adr -- adr' ; XY
+	getnro 'x1 !
+	getnro 'y1 !
+	endmove
+	x1 y1 xy>gc 1 or ,dec ;
+:movetor | adr -- adr' ; xy
+	getnro 'x1 +!
+	getnro 'y1 +!
+	endmove
+	x1 y1 xy>gc 1 or ,dec ;
+:lineto | adr -- adr' ; XY
+	x1 y1 'y2 ! 'x2 !
+	getnro 'x1 !
+	getnro 'y1 !
+	,linea ;
+:linetor | adr -- adr' ; xy
+	x1 y1 'y2 ! 'x2 !
+	getnro 'x1 +!
+	getnro 'y1 +!
+	,linea ;
+:hori | adr -- adr' ; X
+	x1 y1 'y2 ! 'x2 !
+	getnro 'x1 !
+	,linea ;
+:horir | adr -- adr' ; X
+	x1 y1 'y2 ! 'x2 !
+	getnro 'x1 +!
+	,linea ;
+:vert | adr -- adr' ; Y
+	x1 y1 'y2 ! 'x2 !
+	getnro 'y1 !
+	,linea ;
+:vertr | adr -- adr' ; Y
+	x1 y1 'y2 ! 'x2 !
+	getnro 'y1 +!
+	,linea ;
+:ccurve | adr -- adr' ; XYXYXY
+	getnro 'x3 !
+	getnro 'y3 !
+	getnro 'x2 !
+	getnro 'y2 !
+	getnro 'x1 !
+	getnro 'y1 !
+	x1 y1 xy>gc 4 or ,dec
+	x2 y2 xy>gc 4 or ,dec
+	x3 y3 xy>gc 4 or ,dec
+	;
+:ccurver | adr -- adr' ; XYXYXY
+	getnro x1 + 'x3 !
+	getnro y1 + 'y3 !
+	getnro x1 + 'x2 !
+	getnro y1 + 'y2 !
+	getnro x1 + 'x1 !
+	getnro y1 + 'y1 !
+	x1 y1 xy>gc 4 or ,dec
+	x2 y2 xy>gc 4 or ,dec
+	x3 y3 xy>gc 4 or ,dec
+	;
+
+:surve | adr -- adr' ; XYXY
+	x1 2* x2 - 'x3 !
+	y1 2* y2 - 'y3 !
+	getnro 'x2 !
+	getnro 'y2 !
+	getnro 'x1 !
+	getnro 'y1 !
+	x1 y1 xy>gc 4 or ,dec
+	x2 y2 xy>gc 4 or ,dec
+	x3 y3 xy>gc 4 or ,dec
+	;
+:surver | adr -- adr' ; XYXY
+	x1 2* x2 - 'x3 !
+	y1 2* y2 - 'y3 !
+	getnro x1 + 'x2 !
+	getnro y1 + 'y2 !
+	getnro x1 + 'x1 !
+	getnro y1 + 'y1 !
+	x1 y1 xy>gc 4 or ,dec
+	x2 y2 xy>gc 4 or ,dec
+	x3 y3 xy>gc 4 or ,dec
+	;
+
+:qurve | adr -- adr' ; XYXY
+	getnro 'x2 !
+	getnro 'y2 !
+	getnro 'x1 !
+	getnro 'y1 !
+	x1 y1 xy>gc 3 or ,dec
+	x2 y2 xy>gc 3 or ,dec
+	;
+:qurver | adr -- adr' ; XYXY
+	getnro x1 + 'x2 !
+	getnro y1 + 'y2 !
+	getnro x1 + 'x1 !
+	getnro y1 + 'y1 !
+	x1 y1 xy>gc 3 or ,dec
+	x2 y2 xy>gc 3 or ,dec
+	;
+
+:turve | adr -- adr' ; XY
+	x1 2* x2 - 'x2 !
+	y1 2* y2 - 'y2 !
+	getnro 'x1 !
+	getnro 'y1 !
+	x1 y1 xy>gc 3 or ,dec
+	x2 y2 xy>gc 3 or ,dec
+	;
+:turver | adr -- adr' ; XY
+	x1 2* x2 - 'x2 !
+	y1 2* y2 - 'y2 !
+	getnro x1 + 'x1 !
+	getnro y1 + 'y1 !
+	x1 y1 xy>gc 3 or ,dec
+	x2 y2 xy>gc 3 or ,dec
+	;
+
+:ellip | adr -- adr' ; XY
+:ellipr
+	getnro 'x1 !
+	getnro 'y1 !
+	getnro 'x1 !
+	getnro 'y1 !
+	getnro 'x1 !
+	getnro 'y1 !
+	;
+:close | adr -- adr'
+|	dup c@ "**%k" print redraw
+|	trace
+	5 ,dec
+	;
+
+:resolve | adr char -- adr'
+	$4d =? ( drop moveto ; )	| M move
+	$6d =? ( drop movetor ; )	| m move rel
+	$4c =? ( drop lineto ; )	| L lineto
+	$6c =? ( drop linetor ; )	| l lineto rel
+	$48 =? ( drop hori ; )		| H
+	$68 =? ( drop horir ; )		|h
+	$56 =? ( drop vert ; )		|V
+	$76 =? ( drop vertr ; )		|v
+	$43 =? ( drop ccurve ; )		|C
+	$63 =? ( drop ccurver ; )	|c
+	$53 =? ( drop surve ; )		| S
+	$73 =? ( drop surver ; )	| s
+	$51 =? ( drop qurve ; ) 	| Q curve
+	$71 =? ( drop qurver ; )	| q curve rel
+	$54 =? ( drop turve ; )		| T
+	$74 =? ( drop turver ; )	| t
+	$41 =? ( drop ellip ; )		| A
+	$61 =? ( drop ellipr ; )	| a
+	$5a =? ( drop close ; )		| Z
+	$7a =? ( drop close ; )		| z
+	drop | trace
+	;
+
+:encode | adr -- adr'
+	( trim c@+ 0? ( drop 1- ; )
+		$22 <>? )( resolve ) drop  ;
+
+:endchar
+	decode 4 - @
+	$f and 5 =? ( -4 'decode +! ) drop
+    0 ,dec ;
+
+:widthgc | width -- v
+	w 14 <</ ;
+:heightgc | height -- v
+	neg h 14 <</ ;
+
+#hasta
+:propchar | adr -- adr'
+	dup "horiz-adv-x=" find 1? ( hasta <? ( 13 + getnro widthgc 'advx ! ) )
+	drop
+	dup "unicode=" find 1? ( 9 + dup 'unic ! )
+	drop
+	dup "glyph-name=" find 1? ( 12 + dup 'unin ! )
+	drop ;
+
+#anchostd
+
+:findglyp | adr -- adr'
+	0? ( ; )
+	anchostd 'advx !
+	"<glyph " find 0? ( ; )
+	dup "/>" find 'hasta !    | d= />
+	propchar
+	"d=" find 0? ( +ind 0 ,dec ; )
+	hasta >? ( +ind 0 ,dec hasta nip ; )
+	+ind 3 + encode endchar ;
+
+#minx
+#miny
+#maxx
+#maxy
+#xe #ye
+
+:bbox
+	dup "bbox=" find 0? ( drop ; )
+	6 +
+	getnro 1- 'minx !
+	getnro 1- 'miny !
+	getnro 1+ 'maxx !
+	getnro 1+ 'maxy !
+	drop
+	maxx minx - 40 + maxy miny - 40 + neg dim
+	minx maxx + 2/ miny maxy + 2/
+	over w 14 <</ neg 'xe !
+	dup h 14 <</ neg 'ye ! | 0 0 es el origen de la letra
+	pos
+	;
 
 
+:convertfont | adr --
+    "<font" find
+	dup "horiz-adv-x=" find 1? ( 13 + getnro 'anchostd ! )
+	drop
+    "<font-face" find
+	"units-per-em=" find
+	14 + getnro 'unitspe !
+	"ascent=" find
+	8 + getnro 'ascent !
+	"descent=" find
+	9 + getnro 'descent !
+	unitspe 2/ dup ascent descent + 2 >> - pos
+|	unitspe 2/ ascent descent + 2/ pos
+	unitspe dup neg dim
+	bbox
+	anchostd widthgc 'anchostd !
+	ascent heightgc 'ascent !
+	descent heightgc 'descent !
+	( 1? )( findglyp ) drop ;
+
+
+|-----------------generate
+:dighex | c --  dig / -1
+	$3A <? ( $30 - ; )			| 0..9
+	$60 >? ( $57 - $f >? ( drop -1 ) ; )			| a
+	$40 >? ( $37 - $f >? ( drop -1 ) ; )			| A
+	drop -1 ;
+
+:gethex | adr -- nro
+	0 swap ( c@+ $2f >? )(
+		dighex -? ( 2drop ; )
+		rot 4 << + swap )
+	2drop ;
+
+:getuninro | str -- val
+	dup 1+ c@
+	$22 =? ( drop c@ ; ) | unicode="#"
+	drop
+	dup c@
+	$26 =? ( drop 3 + gethex ; ) | unicode="&#x22;"
+	2drop
+	-2
+	;
+
+#tableascii )( 1024
+
+|----- convierte unicode a ASCII
+#tableconv
+128	$20ac |= € = euro
+129	-1
+130	$201a |= ‚ = sbquo
+131	$192 |= ƒ = fnof
+132	$201e |= „ = bdquo
+133	$2026 |= … = hellip
+134	$2020 |= † = dagger
+135	$2021 |= ‡ = Dagger
+136	$2c6 |= ˆ = circ
+137	$2030 |= ‰ = permil
+138	$160 |= Š = Scaron
+139	$2039 |= ‹ = lsaquo
+140	$152 |= Œ = OElig
+141 -1
+142	$17d  |= Ž
+143 -1
+144 -1
+145	$2018 |= ‘ = lsquo
+146	$2019 |= ’ = rsquo
+147	$201c |= “ = ldquo
+148	$201d |= ” = rdquo
+149	$2022 |= • = bull
+150	$2013 |= – = ndash
+151	$2014 |= — = mdash
+152	$2dc |= ˜ = tilde
+153	$2122 |= ™ = trade
+154	$161 |= š = scaron
+155	$203a |= › = rsaquo
+156	$153 |= œ = oelig
+157 -1
+158	$17e |= ž
+159	$178 |= Ÿ = &Yuml
+0 0
+
+:savechar | nrochar unicode -- nrochar unicode
+	-? ( ; )
+	20 >? ( $ff <=? ( over over 2 << 'tableascii + ! ; ) )
+	'tableconv >r
+	( r@+ r@+ 1? )(
+		pick2 =? ( drop pick2 swap 2 << 'tableascii + ! rdrop ; )
+		2drop
+		) 2drop rdrop
+	;
+
+:gentable
+	'tableascii >r
+	256 ( 1? )( 1-
+		0 r!+
+		) drop rdrop
+	| recorre los dinujos
+	findex> 'findex - 2 >>
+	0 ( over <? )(
+		dup ]unic getuninro savechar drop
+		1+ ) 2drop ;
+
+:printchar | nro -- nro
+	dup 2 << 'tableascii + @
+	0? ( drop ; )
+	dup ]ind @ 0? ( 2drop ; ) drop
+	over "#c%h " ,print
+	]ind
+	0 swap
+	( @+ 1? )(
+		"$%h " ,print
+		swap 1+ 8 >? ( ,nl 0 nip ) swap
+		)
+	,d ,nl
+	2drop ;
+
+:printsize | nro -- nro
+	dup 2 << 'tableascii + @
+	0? ( ,d ; )
+	]info ,d ;
+
+:printref | nro -- nro r
+	dup 2 << 'tableascii + @
+	0? ( ; )
+	dup ]ind @ 0? ( nip ; )
+	2drop dup
+	;
+:generatefont
+	gentable
+	mark
+	"| font generada" ,ln
+|	"#c0 0" ,ln ; | utiliza la tabla de tamaños char0 siempre tiene 0 de ancho
+	1 ( $100 <? )(
+		printchar
+		1+ ) drop
+	"#c0" ,s
+	0 0 ( $100 <? )(
+		,sp printsize
+		swap 1+ 16 >? ( ,nl 0 nip ) swap
+		1+ ) 2drop ,nl
+	"#table" ,s
+	0 0 ( $100 <? )(
+		,sp "c" ,s
+		printref ,h
+		swap 1+ 16 >? ( ,nl 0 nip ) swap
+		1+ ) 2drop ,nl
+	"::" ,s 'namefont ,s ,sp
+	xe ,d ,sp ye ,d
+	" 'c0 'table ; " ,ln
+	'namefont "inc/rft/%s.rft" mprint savemem
+	empty
+	;
+
+
+#xmin #ymin #xmax #ymax
+
+:movevert | adr val -- adr
+	dup d>xy
+	ymin + swap xmin + swap
+	xy>d
+	swap $f and or over 4 - !
+	;
+
+:addstat
+	d>xy
+	ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
+	xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
+	;
+
+:centericons
+	findex> 'findex - 2 >>
+	0 ( over <? )(
+		0 dup 'xmin ! 'xmax !
+		0 dup 'ymin ! 'ymax !
+
+		0 over ]ind ( @+ 1? )(
+			addstat
+			) 3drop
+		xmin xmax + 2/ neg 'xmin !
+		ymin ymax + 2/ neg 'ymin !
+
+		0 over ]ind ( @+ 1? )(
+			movevert
+			) 3drop
+		1+ ) 2drop
+
+	;
+
+:generateicons
+	centericons
+	mark
+	"| iconos generados" ,ln
+	findex> 'findex - 2 >>
+	0 ( over <? )(
+		"#:i." ,s
+		dup ]unin
+		( c@+ $22 <>? )( $20 =? ( $21 nip ) ,c ) 2drop
+		,sp
+		0 over ]ind ( @+ 1? )(
+			"$%h " ,print
+			swap 1+ 16 >? ( ,nl 0 nip ) swap
+			) ,d ,nl 2drop
+		1+ ) 2drop
+	'namefont "inc/ric/%s.ric" mprint savemem
+	empty
+	;
+
+#cntchar
+|--------------------- MAIN
+#pagina
+#sizec 400
 :main
+	clrscr
+	xml convertfont
+	decode 'here !
+	findex> 'findex - 2 >> 1- 'cntchar !
+	33
 	show clrscr
+		dup "%d" print cr
+
+		descent ascent unitspe "U:%d A:%d D:%d" print cr
+		maxy miny maxx miny "mX:%d MX:%d mY:%d MY:%d " print
+		ye xe "Ox:%d Oy:%d" print cr
+		decode inidec - "TAMAÑO: %d bytes " print
+		cntchar "CANTIDAD: %d" print cr
+		optlin "remove lines:%d " print cr
+		pagina "Actual: %d " print
+		pagina ]info "info:%d " print
+|		pagina ]unic getuninro "unicode:%h" print
+		pagina ]unin ( c@+ $22 <>? )( $20 =? ( $21 nip ) emit ) 2drop
+
+		cr
+		blanco
+		0 0 fpos
+		sizec qdim
+		gc.box
+		pagina ]ind drawrf
+
+|		rojo
+|		xe w 14 *>> xc + ye h 14 *>> yc +
+|		2dup op over pagina ]info w 14 *>> + over line
+|		verde 4 cruz
+
+
+		azul
+		xc w 2/ - ascent h 14 *>> yc +
+		2dup op swap w + swap line
+
+		xc w 2/ - descent h 14 *>> yc +
+		2dup op swap w + swap line
+
+		[ pagina cntchar <? ( 1+ ) 'pagina ! ; ] <ri>
+		[ pagina 1? ( 1- ) 'pagina ! ; ] <le>
+
+		[ 8 'sizec +! ; ] <dn>
+		[ -8 'sizec +! ; ] <up>
+
+		'generatefont <f1>
+		'generateicons <f2>
 		'exit >esc<
 	;
+
 :me
 	mark
+	here dup 'xml !
+	'namefont "media/svg/%s.svg" mprint
+	load dup '$xml !
+	0 swap !+
+	dup 'inidec !
+	dup 'decode !
+	'here !
 	;
 
 : me main ;
