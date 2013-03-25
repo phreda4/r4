@@ -23,8 +23,8 @@ LOCAL_LDLIBS    := -lm -landroid
 LOCAL_STATIC_LIBRARIES := android_native_app_glue 
 LOCAL_ARM_MODE := arm 
 #LOCAL_CFLAGS += -O2 -march=armv7-a -mtune=cortex-a8 -mfpu=neon -mfloat-abi=softfp
-#LOCAL_CFLAGS += -O2 -mfpu=neon -mfloat-abi=softfp
-LOCAL_CFLAGS += -O8
+LOCAL_CFLAGS += -O2 -mfpu=neon -mfloat-abi=softfp
+#LOCAL_CFLAGS += -O8
 include $(BUILD_SHARED_LIBRARY)
 
 $(call import-module,android/native_app_glue)
