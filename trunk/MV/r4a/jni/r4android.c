@@ -27,6 +27,7 @@
 #include <stdlib.h>
 
 #include "graf.h"
+#include "sound.h"
 
 // ----------------------------------------------------------------------
 /* Set to 1 to enable debug log traces. */
@@ -487,10 +488,12 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
 //------- sonido
     case SLOAD: // "" -- pp
     	//        TOS=(int)FSOUND_Sample_Load(FSOUND_FREE,(char *)TOS,FSOUND_NORMAL,0,0);
+    	TOS=createAudioPlayer((char *)TOS);
         continue;
     case SPLAY: // pp --
     	//        if (TOS!=0) FSOUND_PlaySound(FSOUND_FREE,(FSOUND_SAMPLE *)TOS);
     	//        else FSOUND_StopSound(FSOUND_ALL);
+    	SNDplay(TOS);
         TOS=*NOS;NOS--;
         continue;
     case MLOAD: // "" -- mm
@@ -1136,7 +1139,7 @@ while (ALooper_pollAll(engine.animating?0:-1,NULL,&events,(void**)&source)>=0) {
     }
 
 gr_init(engine.app);
-
+SOUNDinit();
 // pila de ejecucion
 pilaexecl=pilaexec;
 strcpy(pilaexecl,"main.txt");
@@ -1166,6 +1169,7 @@ if (rebotea==0)
     }
 //........................................................
 LOGI("FIN OK.");
+SOUNDend();
 gr_fin();
 exit(0);
 }
