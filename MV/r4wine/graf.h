@@ -78,7 +78,7 @@ void gr_pspline3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4);
       #define QALPHA(a)  (a)
 #elif defined(MEDQ)
       #define BPP        3 
-      #define TOLERANCE  16
+      #define TOLERANCE  12
       #define QALPHA(a)  ((a)&0x3|(a)<<2)
 #elif defined(LOWQ)
       #define BPP        2 
