@@ -126,7 +126,7 @@ char *macros[]={// directivas del compilador
 "FCOL","FCEN","FMAT","SFILL","LFILL","RFILL","TFILL",
 //---------------------
 #ifdef FMOD
-"SLOAD","SPLAY","MLOAD","MPLAY",    //-------- sonido
+"SLOAD","SPLAY","SINFO","SSET",    //-------- sonido
 #else
 "ISON!","SBO","SBI",    // Sound Buffer Ouput/input
 #endif
@@ -172,7 +172,7 @@ OP,LINE,CURVE,CURVE3,PLINE,PCURVE,PCURVE3,POLI,//--- dibujo
 FCOL,FCEN,FMAT,SFILL,LFILL,RFILL,TFILL, //--- pintado
 
 #ifdef FMOD
-SLOAD,SPLAY,MLOAD,MPLAY,
+SLOAD,SPLAY,SINFO,SSET,
 #else
 IRSON,SBO,SBI,
 #endif
@@ -608,13 +608,20 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         else FSOUND_StopSound(FSOUND_ALL);
         TOS=*NOS;NOS--;
         continue;
-    case MLOAD: // "" -- mm
+/*    case MLOAD: // "" -- mm
         TOS=(int)FMUSIC_LoadSong((char*)TOS);
+        continue;*/
+    case SINFO: // "" -- mm
+        if (TOS==-1) {        
+           int chCount=FSOUND_GetMaxChannels();
+           TOS=0;
+           for(int i=0;i<chCount;i++) TOS|=FSOUND_IsPlaying(i); 
+        } else { 
+           TOS=(int)FSOUND_IsPlaying(TOS); }
         continue;
-    case MPLAY: // mm --
-        if (TOS!=0) FMUSIC_PlaySong((FMUSIC_MODULE*)TOS); 
-        else FMUSIC_StopAllSongs();
-        TOS=*NOS;NOS--;continue;
+    case SSET: // pan vol frec mm --
+         if (TOS!=0) FSOUND_Sample_SetDefaults((FSOUND_SAMPLE *)TOS,int(*NOS),int(*(NOS-1)),int(*(NOS-2)),-1);
+        TOS=*(NOS-3);NOS-=4;continue;
 #else
     //case IRSON: SYSirqsonido=TOS;TOS=*NOS;NOS--;continue;
     case SBO: NOS++;*NOS=TOS;TOS=(int)bosound();continue;
