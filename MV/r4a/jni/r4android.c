@@ -80,7 +80,7 @@ char *macros[]={// directivas del compilador
 "OP","LINE","CURVE","CURVE3","PLINE","PCURVE","PCURVE3","POLI",//--- dibujo
 "FCOL","FCEN","FMAT","SFILL","LFILL","RFILL","TFILL",
 //---------------------
-"SLOAD","SPLAY","MLOAD","MPLAY",    //-------- sonido
+"SLOAD","SPLAY","SINFO","SSET",    //-------- sonido
 //--------------------- red
 "OPENURL",
 //---------------------
@@ -115,7 +115,7 @@ VXFB,TOXFB,XFBTO,
 COLORF,COLOR,COLORA,ALPHA,//--- color
 OP,LINE,CURVE,CURVE3,PLINE,PCURVE,PCURVE3,POLI,//--- dibujo
 FCOL,FCEN,FMAT,SFILL,LFILL,RFILL,TFILL, //--- pintado
-SLOAD,SPLAY,MLOAD,MPLAY,
+SLOAD,SPLAY,SINFO,SSET,
 OPENURL,
 DOCINI,DOCEND,DOCMOVE,DOCLINE,DOCTEXT,DOCFONT,DOCBIT,DOCRES,DOCSIZE,
 SYSTEM,
@@ -487,22 +487,19 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
 
 //------- sonido
     case SLOAD: // "" -- pp
-    	//        TOS=(int)FSOUND_Sample_Load(FSOUND_FREE,(char *)TOS,FSOUND_NORMAL,0,0);
     	TOS=createAudioPlayer((char *)TOS);
         continue;
     case SPLAY: // pp --
-    	//        if (TOS!=0) FSOUND_PlaySound(FSOUND_FREE,(FSOUND_SAMPLE *)TOS);
-    	//        else FSOUND_StopSound(FSOUND_ALL);
     	SNDplay(TOS);
         TOS=*NOS;NOS--;
         continue;
-    case MLOAD: // "" -- mm
-//        TOS=(int)FMUSIC_LoadSong((int8_t*)TOS);
+    case SINFO: // "" -- mm
+        TOS=(int)isPlaying(TOS);
         continue;
-    case MPLAY: // mm --
-//        if (TOS!=0) FMUSIC_PlaySong((FMUSIC_MODULE*)TOS);
-//        else FMUSIC_StopAllSongs();
-        TOS=*NOS;NOS--;continue;
+    case SSET: // pan vol frec ss --
+       	setRate(TOS,*(NOS));
+//		SNDset(TOS,*(NOS),*(NOS-1),*(NOS-2));
+        TOS=*(NOS-3);NOS-=4;continue;
 
 //--- bloque de memoria
     case MEM: NOS++;*NOS=TOS;TOS=(int)memlibre;continue; // inicio de n-MB de datos
@@ -1148,6 +1145,8 @@ pilaexecl++;
 
 //........................................................
 recompila:
+
+SOUNDreset();
 
 bootstr=pilaexecl-2;
 while (*bootstr!=0 && bootstr>pilaexec) bootstr--;

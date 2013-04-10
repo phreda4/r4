@@ -22,6 +22,7 @@
 #define SOUND_H
 
 void SOUNDinit(void);
+void SOUNDreset(void);
 void SOUNDend(void);
 
 int createAudioPlayer(char *utf8);
@@ -29,14 +30,18 @@ void releaseAudioPlayer(int nro);
 
 void setPlayState(int nro,int state);
 int getPlayState(int nro);
+
 void SNDplay(int nro);
 void SNDstop(int nro);
 void SNDpause(int nro);
+
+void SNDset(int nro,int frec,int vol,int pan);
+int SNDisPlay(int nro);
+
 int isPlaying(int nro);
 void seekTo(int nro,int position);
 int getDuration(int nro);
 int getPosition(int nro);
-void setPitch(int nro,int rate);
 void setRate(int nro,int rate);
 int getRate(int nro);
 int setLoop(int nro,int startPos, int endPos);

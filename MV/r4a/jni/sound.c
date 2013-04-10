@@ -45,10 +45,6 @@ static SLpermille playbackMinRate = 500;
 static SLpermille playbackMaxRate = 2000;
 static SLpermille playbackRateStepSize;
 
-//Pitch
-static SLPitchItf uriPlaybackPitch[MAXSOUND];
-static SLpermille playbackMinPitch = 500;
-static SLpermille playbackMaxPitch = 2000;
 
 // create the engine and output mix objects
 void SOUNDinit(void)
@@ -64,10 +60,8 @@ result = (*outputMixObject)->Realize(outputMixObject, SL_BOOLEAN_FALSE);
 cntSOUND=0;
 }
 
-
-void SOUNDend(void)
+void SOUNDreset(void)
 {
-    // destroy URI audio player object, and invalidate all associated interfaces
 int i;
 for (i=0;i<cntSOUND;i++)
     if (uriPlayerObject[i] != 0) {
@@ -75,18 +69,19 @@ for (i=0;i<cntSOUND;i++)
         uriPlayerObject[i] = 0;
         uriPlayerPlay[i] = 0;
         uriPlayerSeek[i] = 0;
-    }
-    // destroy output mix object, and invalidate all associated interfaces
+	    }
+cntSOUND=0;
+}
+
+void SOUNDend(void)
+{
+SOUNDreset();
 if (outputMixObject != 0) {
     (*outputMixObject)->Destroy(outputMixObject);
-    outputMixObject = 0;
-    }
-    // destroy engine object, and invalidate all associated interfaces
+    outputMixObject = 0; }
 if (engineObject != 0) {
     (*engineObject)->Destroy(engineObject);
-    engineObject = 0;
-    engineEngine = 0;
-    }
+    engineObject = 0;engineEngine = 0; }
 }
 
 
@@ -127,6 +122,7 @@ result = (*uriPlayerObject[cntSOUND])->GetInterface(uriPlayerObject[cntSOUND],SL
     // register callback function
 result = (*uriPlayerPlay[cntSOUND])->RegisterCallback(uriPlayerPlay[cntSOUND],playStatusCallback, 0);
 result = (*uriPlayerPlay[cntSOUND])->SetCallbackEventsMask(uriPlayerPlay[cntSOUND],SL_PLAYEVENT_HEADATEND); // head at end
+/*
 SLmillisecond msec;
 result = (*uriPlayerPlay[cntSOUND])->GetDuration(uriPlayerPlay[cntSOUND], &msec);
     // no loop
@@ -134,7 +130,7 @@ result = (*uriPlayerSeek[cntSOUND])->SetLoop(uriPlayerSeek[cntSOUND], SL_BOOLEAN
 SLuint32 capa;
 result = (*uriPlaybackRate[cntSOUND])->GetRateRange(uriPlaybackRate[cntSOUND], 0,&playbackMinRate, &playbackMaxRate, &playbackRateStepSize, &capa);
 result = (*uriPlaybackRate[cntSOUND])->SetPropertyConstraints(uriPlaybackRate[cntSOUND],SL_RATEPROP_PITCHCORAUDIO);
-
+*/
 SNDstop(cntSOUND);
 setNoLoop(cntSOUND);
 
@@ -157,7 +153,6 @@ if (uriPlayerObject[nro] != 0) {
 void setPlayState(int nro, int state)
 {
 SLresult result;
-    // make sure the URI audio player was created
 if (uriPlayerPlay[nro]!=0) {
         // set the player's state
     result = (*uriPlayerPlay[nro])->SetPlayState(uriPlayerPlay[nro], (SLuint32)state);
@@ -167,8 +162,7 @@ if (uriPlayerPlay[nro]!=0) {
 int getPlayState(int nro)
 {
 SLresult result;
-    // make sure the URI audio player was created
-if (0 != uriPlayerPlay[nro]) {
+if (uriPlayerPlay[nro]!=0) {
     SLuint32 state;
     result = (*uriPlayerPlay[nro])->GetPlayState(uriPlayerPlay[nro], &state);
     return (int)state;
@@ -176,23 +170,16 @@ if (0 != uriPlayerPlay[nro]) {
 return 0;
 }
 
-// play
-void SNDplay(int nro)
+void SNDplay(int nro) { setPlayState(nro,SL_PLAYSTATE_PLAYING); }
+void SNDstop(int nro) { setPlayState(nro,SL_PLAYSTATE_STOPPED); }
+void SNDpause(int nro) { setPlayState(nro,SL_PLAYSTATE_PAUSED); }
+
+void SNDset(int nro,int frec,int vol,int pan)
 {
-setPlayState(nro,SL_PLAYSTATE_PLAYING);
+if (uriPlaybackRate[nro]!=0) { SLresult result = (*uriPlaybackRate[nro])->SetRate(uriPlaybackRate[nro], frec); }
 }
 
-// stop
-void SNDstop(int nro)
-{
-setPlayState(nro,SL_PLAYSTATE_STOPPED);
-}
-
-// pause
-void SNDpause(int nro)
-{
-setPlayState(nro,SL_PLAYSTATE_PAUSED);
-}
+int SNDisPlay(int nro) { return (getPlayState(nro) == SL_PLAYSTATE_PLAYING); }
 
 // pause
 int isPlaying(int nro)
@@ -234,14 +221,6 @@ int getPosition(int nro)
         return msec;
     }
 return 0.0f;
-}
-
-void setPitch(int nro,int rate)
-{
-if (uriPlaybackPitch[nro]!=0) {
-    SLresult result;
-    result = (*uriPlaybackPitch[nro])->SetPitch(uriPlaybackPitch[nro], rate);
-    }
 }
 
 void setRate(int nro,int rate)

@@ -612,12 +612,11 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
         TOS=(int)FMUSIC_LoadSong((char*)TOS);
         continue;*/
     case SINFO: // "" -- mm
-        if (TOS==-1) {        
-           int chCount=FSOUND_GetMaxChannels();
-           TOS=0;
-           for(int i=0;i<chCount;i++) TOS|=FSOUND_IsPlaying(i); 
-        } else { 
-           TOS=(int)FSOUND_IsPlaying(TOS); }
+//        if (TOS==-1) {        
+         TOS=0;
+         for(int i=0;i<FSOUND_GetMaxChannels();i++) TOS|=FSOUND_IsPlaying(i); 
+//        } else { 
+//           TOS=(int)FSOUND_IsPlaying(TOS); }
         continue;
     case SSET: // pan vol frec mm --
          if (TOS!=0) FSOUND_Sample_SetDefaults((FSOUND_SAMPLE *)TOS,int(*NOS),int(*(NOS-1)),int(*(NOS-2)),-1);
