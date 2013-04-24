@@ -1,0 +1,591 @@
+| Set de gestos
+| PREDA 2013
+|--------------------
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/input.txt
+
+^r4/lib/trace.txt
+
+^r4/lib/rfont.txt
+^r4/lib/ricons.txt
+
+^inc/ric/fontawesomewebfont.ric
+^inc/rft/robotoregular.rft
+
+#numPoints 32
+
+|-------------------------------------
+| simbolos de entrada
+|-------------------------------------
+#nsimbol 0
+#infosim )( 1024	| 256 info sim
+#lensim )( 1024		| 256 info sim
+#memsim )( $fffff
+#simactual
+
+|-------------------------------------
+| auxiliar de entrada
+|-------------------------------------
+#pc2d )( $3fff
+#pc2d> 'pc2d
+#id 1
+#aux )( $3fff
+#aux> 'aux
+
+
+|-------------------------------------
+| formato de reconocedor
+| 32 puntos por signo
+| + 1 de info ( 1 o multiples solo)..
+|-------------------------------------
+#signon 0		| cantidad
+#signoi )( 1024 | 256 signos
+#signod )( $7fff | 256 signos
+
+
+| formato de trazo
+|  X    Y   ID
+| $fff fff ff
+
+:xy>n | x y -- n
+	$fff and 8 << swap $fff and 20 <<  or id or ;
+:n>xy	 | n -- x y
+	dup 20 >> swap 12 << 20 >> ; | con signo
+
+:ngc>xy	 | n -- x y ;gc
+	dup 20 >> w 12 *>> xc + swap 12 << 20 >> h 12 *>> yc + ; | con signo
+
+:xygc>n	 | x y -- n ;gc
+	yc - h 12 <</ $fff and 8 << swap xc - w  12 <</ $fff and 20 << or ; |id or ;
+
+
+:++pc2d | px --
+	pc2d> 4 - @ =? ( drop ; )
+:+pc2d | px
+	pc2d> !+ 'pc2d> ! ;
+
+:pc2dreset
+	'pc2d 'pc2d> ! 1 'id ! ;
+
+:pc2ddraw
+	0 >r
+	'pc2d ( pc2d> <? )( @+
+		dup $ff and r <>? ( drop n>xy op 1 r+ )( drop n>xy line )
+		) drop rdrop ;
+
+:gcpc2ddraw
+	0 >r
+	'pc2d ( pc2d> <? )( @+
+		dup $ff and r <>? ( drop ngc>xy op 1 r+ )( drop ngc>xy line )
+		) drop rdrop ;
+
+:pc2dpoint
+	'pc2d ( pc2d> <? )( @+
+		n>xy 2 box
+		) drop ;
+
+
+:pc2dcopy | adr -- adr'
+	'pc2d ( pc2d> <? )(
+		@+ rot !+ swap ) drop
+	0 swap !+ ;
+
+:pntdist | p1 p2 -- len
+	n>xy rot n>xy	| x1 y1 x2 y2
+	rot - dup * >r
+	- dup * r> + sqrt ;
+
+:pc2dlen | -- length
+	0 'pc2d
+	( pc2d> <? )( @+
+		over 4+ @	| adr' p1 p2
+		over $ff and over $ff and - | adr' p1 p2 id
+		0? ( drop pntdist rot + swap )( 3drop )
+		) drop
+	sqrt ;
+
+:pc2dlen2 | -- length
+	0 'pc2d
+	( pc2d> <? )( @+
+		over 4+ @	| adr' p1 p2
+		over $ff and over $ff and - | adr' p1 p2 id
+		0? ( drop pntdist rot + swap )( 3drop )
+		) drop ;
+
+|--------------------------------
+:loadset
+	;
+
+:saveset
+	;
+
+|------------------------------------
+#cx #cy #minx #maxx #miny #maxy
+#size
+
+:normalize
+	'pc2d
+	@+ n>xy
+	dup 'miny ! 'maxy !
+	dup 'minx ! 'maxx !
+	( pc2d> <? )( @+ n>xy
+		miny <? ( dup 'miny ! )
+		maxy >? ( dup 'maxy ! )
+		drop
+		minx <? ( dup 'minx ! )
+		maxx >? ( dup 'maxx ! )
+		drop
+		) drop
+	maxx minx - maxy miny - max 'size !
+	minx maxx + 2/ neg 'cx !
+	miny maxy + 2/ neg 'cy !
+	'pc2d ( pc2d> <? )( dup @
+		dup $ff and >r
+		n>xy
+		cy + $7ff size */
+		swap
+		cx + $7ff size */
+		swap
+		xy>n $ffffff00 and r> or
+		swap !+ ) drop ;
+
+|------ debug
+:drawresample
+	chome! verde
+	'aux ( aux> <? )(
+		@+ n>xy swap "%d %d |" print
+		@+ n>xy swap "%d %d |" print
+		@+ "%d |" print cr
+		allowchome
+		) drop
+	;
+
+
+:dumptest
+	show clrscr
+		size "size:%d " print cr
+		over "sumaa %d " print cr
+		drawresample
+		cr
+		cyan
+		'exit >esc<
+		;
+
+|------------ version 1
+:calcxy	| p1 p2 n -- nxy
+	>r n>xy rot n>xy	| x2 y2 x1 y1
+	rot 				| x2 x1 y1 y2
+	over - r 16 *>> +	| x2 x1 yn
+    $fff and 8 <<
+	swap rot
+	over - r> 16 *>> +	| yn xn
+	$fff and 20 << or ;
+
+:interpola | adr value adr -- adr value
+	@+ swap @+ swap @		| value p1 p2 sumalast
+	pick3 swap -			| value p1 p2 x1
+	size over - 			| value p1 p2 x1 size-x1
+	dup >r
+	pick4 rot - 16 <</		| value p1 p2 t
+	calcxy	| adr value npx
+
+	nip     		| adr npx
+	swap 12 -
+	r> neg over 8 + +! | disminuye distancia
+	2dup ! | npx adr. ; guarda nuevo punto
+	swap
+
+	+pc2d
+	0 ;
+
+:resample
+	'aux >r
+	0 'pc2d
+	( pc2d> 4 - <? )( @+
+		over @	| adr' p1 p2
+		over $ff and over $ff and - | adr' p1 p2 id
+		0? ( drop 2dup swap r!+ r!+ pntdist dup r!+ rot + swap )( 3drop )
+		) drop
+	numPoints 1- / 'size !
+	r> 'aux> !
+	pc2dreset
+	'aux @+ +pc2d
+	0 swap ( aux> <? )(
+		4+ @+ 	| acc adr dist
+		rot +	| adr acc+
+		size >=? ( over 12 - interpola  )
+		swap 4+ ) 2drop
+
+|	pc2d> 'pc2d - 2 >> | cantica de puntos
+|	32 >? ( dup 32 - 2 << neg 'pc2d> +! )
+|	( 32 <? )( aux> 8 - @ +pc2d 1+ ) 2drop
+
+|	pc2d> 'pc2d - 2 >> nsimbol 2 << 'lensim + ! |
+
+	0 pc2d> !
+	;
+
+
+|------------------------------------
+:dnc
+	xymouse xy>n +pc2d ;
+:moc
+	xymouse xy>n ++pc2d ;
+:upc
+	1 'id +! ;
+
+:dorec
+	;
+
+:drawgesto
+	0.8 %s qdim
+	0 0 fpos
+	blanco gc.box
+	'dnc 'moc 'upc guiMap
+|	pc2ddraw
+	pc2dpoint
+	;
+
+|------------------------------------
+:gcdraw | adr --
+	( @+ 1? )(
+		ngc>xy 1 box
+		) 2drop ;
+
+:gcdrawl | adr --
+	0 >r
+	( @+ 1? )(
+		dup $ff and r <>? ( drop ngc>xy op 1 r+ )( drop ngc>xy line )
+		) 2drop rdrop ;
+
+|------------------------------------
+#locdraw )( 4096
+#locdraw>
+#locnow
+#idnow
+
+#pad
+
+:getid | adr -- lastid
+	0 swap ( @+ 1? )( $ff and rot max swap ) 2drop ;
+
+:select.move
+	gc.popush
+	xymouse 3 - swap 3 - swap
+	xygc>n
+	over 4 -
+	dup @ $ff and rot or swap !
+	dup 4 - 'locnow ! ;
+
+
+:editbox | x y box --
+	gc.push
+	qdim pos gc.box
+	0 'select.move guiDnMoveA | 'dn 'move --
+	gc.pop
+	;
+
+:newbox
+	xymouse xygc>n idnow or
+	locdraw>
+	dup 'locnow !
+	!+ 0 over ! 'locdraw> !
+	;
+
+:delbox |
+	locnow 0? ( drop ; )
+	dup 4+ locdraw> over - 2 >>
+	1? ( move | de sr cnt --	Copia CNT dword de SR a DE
+		)( nip swap ! locnow 4 - 'locdraw <? ( 0 nip ) 'locnow ! )
+	-4 'locdraw> +!
+	'locdraw getid 'idnow !
+	;
+
+:addbox
+	locnow 0? ( drop ; )
+	dup 4+ swap locdraw> over - 2 >>
+	move>
+	4 'locdraw> +!
+	;
+
+:breakbox
+	locnow 0? ( drop ; ) drop
+	1 'idnow +!
+	;
+
+:locursor | adr --
+	locnow 0? ( drop ; )
+	blanco
+	@ ngc>xy 10
+	gc.push
+	qdim pos gc.box
+	gc.pop
+	;
+
+:gceditdraw
+	cyan
+	dup gcdrawl
+	verde
+	( @+ 1? )(
+		ngc>xy 6 editbox
+		) 2drop
+	locursor
+	hot 1? ( drop ; ) drop | corta si toque algo
+	'newbox guiMove
+	;
+
+:savegesto
+	exit
+	simactual nsimbol =? ( 1 'nsimbol +! )
+	12 << 'memsim + 'locdraw 1024 move
+	;
+
+:deletegesto
+	exit
+	simactual nsimbol =? (
+		12 << dup 1024 2 << + nsimbol 12 << over - move
+		)( drop )
+	-1 nsimbol +!
+	;
+
+:editgesto
+	show clrscr
+		dup "%d) " print cr
+		simactual "%d simbolo " print
+		idnow "%d trazos " print
+		locdraw> 'locdraw - 2 >> "%d puntos" print cr
+|		"Nro: " 'pad 4 input cr
+		"Reverse" print cr
+		blanco
+		0.8 %s qdim 0 0 fpos
+		gc.box
+		'locdraw gceditdraw
+
+		|--- botonera
+		48 qdim 32 sh 32 - pos
+		verde 'savegesto btne blanco 'i.ok drawric gc>>
+		rojo 'exit btne blanco 'i.remove drawric gc>>
+		gc>>
+		violeta 'delbox btne blanco 'i.minus_sign drawric gc>>
+		violeta 'addbox btne blanco 'i.plus_sign drawric gc>>
+		violeta 'breakbox btne blanco 'i.cut drawric gc>>
+		gc>>
+		rojo 'deletegesto btne blanco 'i.trash drawric gc>>
+		cminiflecha ;
+
+:editsimbol | nro -- nro
+	dup 'simactual !
+	'locdraw over 12 << 'memsim + 1024 move
+	'locdraw ( @+ 1? )( drop ) drop 'locdraw> !
+	'locdraw getid 'idnow !
+	editgesto
+	;
+
+:newsimbol
+	0 'locdraw !
+	'locdraw 'locdraw> !
+	0 'locnow !
+	1 'idnow !
+	nsimbol 'simactual !
+	editgesto ;
+
+|---------------------------------------------
+
+:drawnsimbol | n -- n
+	nsimbol >=? ( ; )
+	gc.box
+	dup 12 << 'memsim + gcdrawl
+	'editsimbol guiBtn
+
+|	home
+|	dup "%d" print
+|	dup 2 << 'infosim + @ "%d" print cr
+|	dup 2 << 'lensim + @ "%d" print
+	;
+
+
+#primero 0
+
+:drawsim
+	verde
+	0.1 %s qdim
+	primero >r
+	0.7 ( -0.7 >? )(
+		-0.8 ( 0.8 <=? )(
+			2dup swap fpos
+			r drawnsimbol drop
+|			gc.box
+			1 r+
+			0.2 + ) drop
+		0.2 - ) drop
+	rdrop ;
+
+:sigsim
+	primero 10 +
+	nsimbol >? ( drop ; )
+	'primero ! ;
+
+:presim
+	primero 10 -
+	0 <? ( drop ; )
+	'primero ! ;
+
+|------------------------------------
+#actual
+
+:getxy1 | nro -- xy
+	2 << actual 12 << 'memsim + + @ ngc>xy ;
+
+:getxy2 | nro -- xy
+	2 << 'pc2d + @ ngc>xy ;
+
+:drawmatch
+	0 ( 32 <? )(
+		dup getxy1 op
+		dup getxy2 line
+		1+ ) drop
+	;
+
+|--------------------------------
+:calcfit | nro -- nro suma
+	dup 12 << 'memsim + >r	| nro   r:simbolo
+	'pc2d dup 128 +		| nro act last
+	0 rot
+	( pick2 <? )( | nro last suma act
+		@+ n>xy r@+ n>xy
+		rot - rot rot - distfast	| nro last suma act delta
+		rot + swap )				| nro last suma act
+	drop nip rdrop ;
+
+#best
+#nbest
+
+:fitness
+	$7fffffff 'best !
+	0 ( nsimbol <? )(
+		calcfit dup pick2 2 << 'infosim + !
+		best <? ( 'best ! dup 'nbest ! )( drop )
+		1+ ) drop ;
+
+
+:searchar
+	resample
+	normalize
+	fitness
+	nbest 'actual !
+	show clrscr
+		dup "%d " print cr
+		0.5 %s qdim
+		0 dup fpos
+		azul gc.box
+		drawmatch
+
+		verde actual 12 << 'memsim + @ gcdraw
+		cyan 'pc2d gcdraw
+
+		drawsim
+
+		[ pc2dreset exit ; ] >esc< ;
+
+:addchar
+	pc2d> 'pc2d - 2 >> 2 <? ( drop pc2dreset ; ) drop
+	normalize
+	resample
+|	memsim> dup pc2dcopy 'memsim> !
+|	nsimbol 2 << 'simbols + !
+	1 'nsimbol +!
+	pc2dreset
+	;
+
+|-------------------------
+
+:drawnorm
+	;
+
+:generaysave
+	nsimbol 'signon !
+	'signod
+	0 ( nsimbol <? )(
+		dup 12 << 'memsim + >r	| nro   r:simbolo
+        swap
+		32 ( 1? )( 1- r@+ rot !+ swap ) drop
+		swap 1+ ) 2drop
+	;
+
+:reconoce
+|	resample
+|	normalize
+|	fitness
+
+	;
+
+:gestobox
+	0.8 %s qdim
+	0 0 fpos
+	blanco gc.box
+	[ xymouse xygc>n +pc2d ; ]
+	[ xymouse xygc>n ++pc2d ; ]
+	[ reconoce ; ]
+	guiMap
+	gcpc2ddraw
+	;
+
+:testf
+	pc2dreset
+	show clrscr
+		gestobox
+		cminiflecha
+		'exit >esc<
+		;
+
+:savef
+	;
+|------------------------------------
+:ram
+	mark
+	'nsimbol "inc\gesto\gesto.mem" load
+	drop ;
+
+:endram
+	'nsimbol $3ffff 1024 + 1024 + 4+
+	"inc\gesto\gesto.mem" save ;
+
+
+:main
+	pc2dreset
+	33
+	show clrscr
+		robotoregular 48 rfont!
+
+|		drawgesto
+		drawsim
+
+		|--- botonera
+		48 qdim
+		32 sh 32 - pos
+		rojo 'exit dup >esc< btne blanco 'i.off drawric gc>>
+		gc>>
+		verde 'newsimbol btne blanco 'i.plus drawric gc>>
+		verde 'testf btne blanco 'i.pencil drawric gc>>
+		verde 'savef btne blanco 'i.save drawric gc>>
+
+		scr home verde
+		dup "%d) " print
+		nsimbol "%d simbolos " print
+		cr cr
+		rojo
+|		'pc2dreset dup <f10> "clear" sp btnt
+		verde
+|		'addchar dup <f1> "+simbolo" sp btnt
+|		'searchar dup <f2> "?search" sp btnt
+|		'resample dup <f3> "resample" sp btnt cr cr
+
+		cyan
+|		'generaysave dup <f4> "SAVE" sp btnt
+|		'writetest dup <f5> "WRITE" sp btnt
+
+		cminiflecha
+		'exit >esc< ;
+
+: ram main endram ;
