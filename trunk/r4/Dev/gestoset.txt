@@ -32,7 +32,11 @@
 #id 1
 #aux )( $3fff
 #aux> 'aux
+#pc2dn )( 128
+#pc2dn>
 
+:pcnreset	'pc2dn 'pc2dn> ! ;
+:pcn+       pc2dn> !+ 'pc2dn> ! ;
 
 |-------------------------------------
 | formato de reconocedor
@@ -42,7 +46,6 @@
 #signon 0		| cantidad
 #signoi )( 1024 | 256 signos
 #signod )( $7fff | 256 signos
-
 
 | formato de trazo
 |  X    Y   ID
@@ -57,8 +60,7 @@
 	dup 20 >> w 12 *>> xc + swap 12 << 20 >> h 12 *>> yc + ; | con signo
 
 :xygc>n	 | x y -- n ;gc
-	yc - h 12 <</ $fff and 8 << swap xc - w  12 <</ $fff and 20 << or ; |id or ;
-
+	yc - h 12 <</ $fff and 8 << swap xc - w  12 <</ $fff and 20 << or id or ;
 
 :++pc2d | px --
 	pc2d> 4 - @ =? ( drop ; )
@@ -68,22 +70,11 @@
 :pc2dreset
 	'pc2d 'pc2d> ! 1 'id ! ;
 
-:pc2ddraw
-	0 >r
-	'pc2d ( pc2d> <? )( @+
-		dup $ff and r <>? ( drop n>xy op 1 r+ )( drop n>xy line )
-		) drop rdrop ;
-
 :gcpc2ddraw
 	0 >r
 	'pc2d ( pc2d> <? )( @+
 		dup $ff and r <>? ( drop ngc>xy op 1 r+ )( drop ngc>xy line )
 		) drop rdrop ;
-
-:pc2dpoint
-	'pc2d ( pc2d> <? )( @+
-		n>xy 2 box
-		) drop ;
 
 :topc2d | adr --
 	'pc2d swap
@@ -91,39 +82,10 @@
 		rot !+ swap ) rot
 	!+ 4 - 'pc2d> ! drop ;
 
-:pc2dcopy | adr -- adr'
-	'pc2d ( pc2d> <? )(
-		@+ rot !+ swap ) drop
-	0 swap !+ ;
-
 :pntdist | p1 p2 -- len
 	n>xy rot n>xy	| x1 y1 x2 y2
 	rot - dup * >r
 	- dup * r> + sqrt ;
-
-:pc2dlen | -- length
-	0 'pc2d
-	( pc2d> <? )( @+
-		over 4+ @	| adr' p1 p2
-		over $ff and over $ff and - | adr' p1 p2 id
-		0? ( drop pntdist rot + swap )( 3drop )
-		) drop
-	sqrt ;
-
-:pc2dlen2 | -- length
-	0 'pc2d
-	( pc2d> <? )( @+
-		over 4+ @	| adr' p1 p2
-		over $ff and over $ff and - | adr' p1 p2 id
-		0? ( drop pntdist rot + swap )( 3drop )
-		) drop ;
-
-|--------------------------------
-:loadset
-	;
-
-:saveset
-	;
 
 |------------------------------------
 #cx #cy #minx #maxx #miny #maxy
@@ -155,29 +117,7 @@
 		xy>n $ffffff00 and r> or
 		swap !+ ) drop ;
 
-|------ debug
-:drawresample
-	chome! verde
-	'aux ( aux> <? )(
-		@+ n>xy swap "%d %d |" print
-		@+ n>xy swap "%d %d |" print
-		@+ "%d |" print cr
-		allowchome
-		) drop
-	;
-
-
-:dumptest
-	show clrscr
-		size "size:%d " print cr
-		over "sumaa %d " print cr
-		drawresample
-		cr
-		cyan
-		'exit >esc<
-		;
-
-|------------ version 1
+|------------ resample
 :calcxy	| p1 p2 n -- nxy
 	>r n>xy rot n>xy	| x2 y2 x1 y1
 	rot 				| x2 x1 y1 y2
@@ -188,21 +128,20 @@
 	$fff and 20 << or ;
 
 :interpola | adr value adr -- adr value
-	@+ swap @+ swap @		| value p1 p2 sumalast
-	pick3 swap -			| value p1 p2 x1
-	size over - 			| value p1 p2 x1 size-x1
+	@+ swap @+ swap @	| value p1 p2 sumalast
+	pick3 swap -		| value p1 p2 x1
+	size over - 		| value p1 p2 x1 size-x1
 	dup >r
-	pick4 rot - 16 <</		| value p1 p2 t
-	calcxy	| adr value npx
+	pick4 rot - 16 <</	| value p1 p2 t
+	calcxy				| adr value npx
 
-	nip     		| adr npx
+	nip     			| adr npx
 	swap 12 -
-	r> neg over 8 + +! | disminuye distancia
-	2dup ! | npx adr. ; guarda nuevo punto
+	r> neg over 8 + +!	| disminuye distancia
+	2dup ! 				| npx adr. ; guarda nuevo punto
 	swap
 
-	+pc2d
-	0 ;
+	pcn+ 0 ;
 
 :resample
 	'aux >r
@@ -214,42 +153,14 @@
 		) drop
 	numPoints 1- / 'size !
 	r> 'aux> !
-	pc2dreset
-	'aux @+ +pc2d
+
+	pcnreset
+	'aux @+ pcn+
 	0 swap ( aux> <? )(
 		4+ @+ 	| acc adr dist
 		rot +	| adr acc+
 		size >=? ( over 12 - interpola  )
 		swap 4+ ) 2drop
-
-|	pc2d> 'pc2d - 2 >> | cantica de puntos
-|	32 >? ( dup 32 - 2 << neg 'pc2d> +! )
-|	( 32 <? )( aux> 8 - @ +pc2d 1+ ) 2drop
-
-|	pc2d> 'pc2d - 2 >> nsimbol 2 << 'lensim + ! |
-
-	0 pc2d> !
-	;
-
-
-|------------------------------------
-:dnc
-	xymouse xy>n +pc2d ;
-:moc
-	xymouse xy>n ++pc2d ;
-:upc
-	1 'id +! ;
-
-:dorec
-	;
-
-:drawgesto
-	0.8 %s qdim
-	0 0 fpos
-	blanco gc.box
-	'dnc 'moc 'upc guiMap
-|	pc2ddraw
-	pc2dpoint
 	;
 
 |------------------------------------
@@ -265,6 +176,7 @@
 		) 2drop rdrop ;
 
 |------------------------------------
+| editor!!
 #locdraw )( 4096
 #locdraw>
 #locnow
@@ -292,7 +204,7 @@
 	;
 
 :newbox
-	xymouse xygc>n idnow or
+	xymouse xygc>n $ffffff00 and idnow or
 	locdraw>
 	dup 'locnow !
 	!+ 0 over ! 'locdraw> !
@@ -401,7 +313,6 @@
 	editgesto ;
 
 |---------------------------------------------
-
 :drawnsimbol | n -- n
 	nsimbol >=? ( ; )
 	gc.box
@@ -458,8 +369,8 @@
 
 |--------------------------------
 :calcfit | nro -- nro suma
-	dup 12 << 'memsim + >r	| nro   r:simbolo
-	'pc2d dup 128 +		| nro act last
+	dup 7 << 'signod + >r	| nro   r:simbolo
+	'pc2dn dup 128 +		| nro act last
 	0 rot
 	( pick2 <? )( | nro last suma act
 		@+ n>xy r@+ n>xy
@@ -472,66 +383,23 @@
 
 :fitness
 	$7fffffff 'best !
-	0 ( nsimbol <? )(
-		calcfit dup pick2 2 << 'infosim + !
+	0 ( signon <? )(
+		calcfit
 		best <? ( 'best ! dup 'nbest ! )( drop )
 		1+ ) drop ;
 
+|------------------------------------
+:reconoce
 
-:searchar
-	resample
 	normalize
+	resample
 	fitness
-	nbest 'actual !
-	show clrscr
-		dup "%d " print cr
-		0.5 %s qdim
-		0 dup fpos
-		azul gc.box
-		drawmatch
 
-		verde actual 12 << 'memsim + @ gcdraw
-		cyan 'pc2d gcdraw
-
-		drawsim
-
-		[ pc2dreset exit ; ] >esc< ;
-
-:addchar
-	pc2d> 'pc2d - 2 >> 2 <? ( drop pc2dreset ; ) drop
-	normalize
-	resample
-|	memsim> dup pc2dcopy 'memsim> !
-|	nsimbol 2 << 'simbols + !
-	1 'nsimbol +!
 	pc2dreset
 	;
 
-|-------------------------
-
-:drawnorm
-	;
-
-:generaysave
-	nsimbol 'signon !
-	'signod
-	0 ( nsimbol <? )(
-		dup 12 << 'memsim + >r	| nro   r:simbolo
-        swap
-		32 ( 1? )( 1- r@+ rot !+ swap ) drop
-		swap 1+ ) 2drop
-	;
-
-:reconoce
-|	resample
-|	normalize
-|	fitness
-
-	;
-
 :gestobox
-	0.8 %s qdim
-	0 0 fpos
+	0.8 %s qdim 0 0 fpos
 	blanco gc.box
 	[ xymouse xygc>n +pc2d ; ]
 	[ xymouse xygc>n ++pc2d ; ]
@@ -541,24 +409,65 @@
 	;
 
 |-------------------------------------------------
-:makeset
+| debug
+:drawsig | adr --
+	32 ( 1? )( 1-
+		swap @+ ngc>xy 1 box
+		swap ) 2drop ;
 
+:viewsig
+	48 qdim 28 64 pos
+	0 ( signon <? )(
+		dup 7 << 'signod +
+		drawsig
+		50 'xc +!
+		xc 28 + sw >? ( 50 'yc +! 28 'xc ! ) drop
+		1+ ) drop
+	;
+
+|-------------------------------------------------
+:addsig
+	signon 7 << 'signod +
+	'pc2dn
+	32 move
+	1 'signon +! ;
+
+:makeset
+	0 'signon !
 	0 ( nsimbol <? )(
 		dup 12 << 'memsim + topc2d
 		normalize
 		resample
+		addsig
+		1+ ) drop ;
 
-		) drop
+:showbest
+	nbest -? ( drop ; )
+	50 qdim sw 40 - sh 40 - pos
+	gc.box
+	7 << 'signod + drawsig
 	;
 
 :testf
 	makeset
 	pc2dreset
+	-1 'nbest !
 	show clrscr
+		robotoregular 48 rfont!
+		blanco
+		best nbest "%d %d" print
+
+		viewsig
 		gestobox
-		cminiflecha
+		showbest
+
+		|--- botonera
+		48 qdim 32 sh 32 - pos
+		rojo 'exit dup >esc< btne blanco 'i.off drawric gc>>
+		gc>>
+
 		'exit >esc<
-		;
+		cminiflecha ;
 
 :savef
 	makeset
@@ -580,13 +489,10 @@
 	33
 	show clrscr
 		robotoregular 48 rfont!
-
-|		drawgesto
 		drawsim
 
 		|--- botonera
-		48 qdim
-		32 sh 32 - pos
+		48 qdim 32 sh 32 - pos
 		rojo 'exit dup >esc< btne blanco 'i.off drawric gc>>
 		gc>>
 		verde 'newsimbol btne blanco 'i.plus drawric gc>>
@@ -596,17 +502,6 @@
 		scr home verde
 		dup "%d) " print
 		nsimbol "%d simbolos " print
-		cr cr
-		rojo
-|		'pc2dreset dup <f10> "clear" sp btnt
-		verde
-|		'addchar dup <f1> "+simbolo" sp btnt
-|		'searchar dup <f2> "?search" sp btnt
-|		'resample dup <f3> "resample" sp btnt cr cr
-
-		cyan
-|		'generaysave dup <f4> "SAVE" sp btnt
-|		'writetest dup <f5> "WRITE" sp btnt
 
 		cminiflecha
 		'exit >esc< ;
