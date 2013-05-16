@@ -29,6 +29,8 @@
 |-------------------------------------
 #pc2d )( $3fff
 #pc2d> 'pc2d
+#pc2d2 )( $3fff
+#pc2d2> 'pc2d
 #id 1
 #aux )( $3fff
 #aux> 'aux
@@ -107,7 +109,8 @@
 	maxx minx - maxy miny - max 'size !
 	minx maxx + 2/ neg 'cx !
 	miny maxy + 2/ neg 'cy !
-	'pc2d ( pc2d> <? )( dup @
+	'pc2d2 >r
+	'pc2d ( pc2d> <? )( @+
 		dup $ff and >r
 		n>xy
 		cy + $7ff size */
@@ -115,7 +118,8 @@
 		cx + $7ff size */
 		swap
 		xy>n $ffffff00 and r> or
-		swap !+ ) drop ;
+		r!+ )
+	drop r> 4 - 'pc2d2> ! ;
 
 |------------ resample
 :calcxy	| p1 p2 n -- nxy
@@ -145,8 +149,8 @@
 
 :resample
 	'aux >r
-	0 'pc2d
-	( pc2d> 4 - <? )( @+
+	0 'pc2d2
+	( pc2d2> <? )( @+
 		over @	| adr' p1 p2
 		over $ff and over $ff and - | adr' p1 p2 id
 		0? ( drop 2dup swap r!+ r!+ pntdist dup r!+ rot + swap )( 3drop )
@@ -183,6 +187,7 @@
 #idnow
 
 #pad
+#brev
 
 :getid | adr -- lastid
 	0 swap ( @+ 1? )( $ff and rot max swap ) 2drop ;
@@ -190,7 +195,7 @@
 :select.move
 	gc.popush
 	xymouse 3 - swap 3 - swap
-	xygc>n
+	xygc>n $ffffff00 and
 	over 4 -
 	dup @ $ff and rot or swap !
 	dup 4 - 'locnow ! ;
@@ -245,7 +250,7 @@
 	dup gcdrawl
 	verde
 	( @+ 1? )(
-		ngc>xy 6 editbox
+		ngc>xy 8 editbox
 		) 2drop
 	locursor
 	hot 1? ( drop ; ) drop | corta si toque algo
@@ -256,6 +261,10 @@
 	exit
 	simactual nsimbol =? ( 1 'nsimbol +! )
 	12 << 'memsim + 'locdraw 1024 move
+
+	brev 12 <<
+	'pad str>int $fff and
+	or simactual 2 << 'infosim + !
 	;
 
 :deletegesto
@@ -276,8 +285,9 @@
 		simactual "%d simbolo " print
 		idnow "%d trazos " print
 		locdraw> 'locdraw - 2 >> "%d puntos" print cr
+
 		"Emite: " print  'pad 4 input cr
-		"Reverse" print cr
+		'brev "Reverse" btncheck cr
 		blanco
 		0.8 %s qdim 0 0 fpos
 		gc.box
@@ -300,7 +310,14 @@
 	dup 'simactual !
 	'locdraw over 12 << 'memsim + 1024 move
 	'locdraw ( @+ 1? )( drop ) drop 4 - 'locdraw> !
+	0 'locnow !
 	'locdraw getid 'idnow !
+	dup 2 << 'infosim + @
+	dup 12 >> 'brev !
+	$fff and 
+	mark
+	'pad 'here ! ,d 0 ,c
+	empty
 	editgesto
 	;
 
@@ -318,9 +335,10 @@
 	gc.box
 	dup 12 << 'memsim + gcdrawl
 	'editsimbol guiBtn
-|	home
+
+	home
 |	dup "%d" print
-|	dup 2 << 'infosim + @ "%d" print cr
+	dup 2 << 'infosim + @ "%d" print cr
 |	dup 2 << 'lensim + @ "%d" print
 	;
 
@@ -389,7 +407,28 @@
 		1+ ) drop ;
 
 |------------------------------------
+#pnt1
+#pnt2
+
+:resetpnt
+	-1 dup 'pnt1 ! 'pnt2 ! ;
+
+:drawpnt
+	pnt1 -1 =? ( drop ; )
+	ngc>xy 4 circle
+	pnt2 -1 =? ( drop ; )
+	ngc>xy 4 circle
+	;
+
+:setpnt
+	pc2d> 'pc2d - 2 >> 2 >? ( drop ; ) drop   | falta permitir puntos despues de trazo
+	pc2d
+	pnt1 -1 =? ( drop 'pnt1 ! pc2dreset ; )
+	drop
+	'pnt2 ! pc2dreset ;
+
 :reconoce
+	setpnt
 
 	normalize
 	resample
@@ -406,6 +445,7 @@
 	[ reconoce ; ]
 	guiMap
 	gcpc2ddraw
+	drawpnt
 	;
 
 |-------------------------------------------------
@@ -451,6 +491,7 @@
 :testf
 	makeset
 	pc2dreset
+	resetpnt
 	-1 'nbest !
 	show clrscr
 		robotoregular 48 rfont!
