@@ -1,9 +1,17 @@
 ^r4/lib/gui.txt
 ^r4/lib/graf.txt
 ^r4/lib/fonti.txt
+^r4/lib/formkit.txt
 
 #objs )( 10000
 #pad 8
+
+#buffer )( 128
+
+#mouse.down 0
+#xdrag -1 #ydrag -1 | keep mouse position when first clicked
+#dragging? 0
+#dx 0 #dy 0 
 
 :s!+ swap !+ ;
 
@@ -42,31 +50,53 @@
 
 :4dup pick3 pick3 pick3 pick3 ;
 
+:atxy_ | ( x y -- x' y ' )
+      1 max swap 1 max swap atxy ;
+
 :draw.obj | ( x y txt -- )
 	negro sizeprint >r
 	rot- 2dup r> cch 2swap add.padding
 	4dup
-	$dddddd ink vfill
+	amarillo vfill
 	negro rect
-	atxy negro print ;
+	atxy_ negro print ;
 
 :debug dup rojo "%d" print ;
 
-:mouse.pos 
-	   negro xymouse swap "[ %d , %d ]" print ;
+:getxy.dragging
+	xymouse dy + 'ydrag ! dx + 'xdrag ! ;
+
+:updatedxdy
+	dragging? 1? ( xymouse ydrag - 'dy ! xdrag - 'dx ! ) drop ;
+
+:handle.mouse
+	   negro xymouse swap "[ %d , %d ]" print
+	   bmouse 1? ( 1 getxy.dragging )( 0 ) 'dragging? ! drop
+	   bmouse "[ %d ]" print
+	   mouse.down "[ %d ]" print
+	   xdrag ydrag "[ %d , %d ]" print
+	   updatedxdy
+	   dragging? "[ %d ]" print
+	   dy dx  "[ %d , %d ]" print ;
 
 :n.objs 'objs @ ;
 
 :draw.objs
-	200 100 "Example Note 1" draw.obj
-	150 220 "Example Note 2" draw.obj ;
+	200 dx + 100 dy + "Example Note 1" draw.obj
+	150 dx + 220 dy + "Example Note 2" draw.obj ;
+
+:txtin
+	azul 'buffer 128 input ;
 
 :edit
     $cccccc paper
     fonti
+    0 'buffer !
     show clrscr
-    	debug cr
-	mouse.pos
+    	debug sp sp rojo 'exit "Exit" sp sp 4 menur cr cr
+	handle.mouse cr cr
+	txtin
+	300 300 'buffer draw.obj
 	draw.objs
 	cflecha
 	'exit >esc< ;
