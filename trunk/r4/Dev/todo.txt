@@ -1,26 +1,32 @@
+
 ^r4/lib/gui.txt
 ^r4/lib/graf.txt
 ^r4/lib/fonti.txt
 ^r4/lib/formkit.txt
 
+|one object: 
+| n, [ x, y, w, h, 64 chars ] *
+
 #objs )( 10000
-#pad 8
-
-#buffer )( 128
-
-#xdrag -1 #ydrag -1 | keep mouse position when first clicked
+#pad 4 
+#buffer )( 64
+#xdrag #ydrag  | keep mouse position when first clicked
 #dragging? 0
 #dx 0 #dy 0 
+#dummy "1234567890123456789012345678901234567890123456789012345678901234"
 
 :s!+ swap !+ ;
 
-:dummy.data
-	3 'objs !+
-	200 s!+ 100 s!+ 3 s!+ "Note 1" swap strcpyl
-	150 s!+ 220 s!+ 7 s!+ "Note 2" swap strcpyl
-	250 s!+ 420 s!+ 18 s!+ "Note 3" swap strcpy ;
+:translate | ( x y dx dy | x+dx y+dy )
+	   pick2 + >r nip + r> ;
 
-:draw.line 0 0 op xymouse line ;
+:dummy.data
+	4 'objs !+
+|       str                 w       h      x       y
+	'dummy swap strcpyl 512 s!+ 10 s!+ 200 s!+ 110 s!+ 
+	'dummy swap strcpyl 512 s!+ 10 s!+ 150 s!+ 238 s!+
+	'dummy swap strcpyl 512 s!+ 10 s!+ 250 s!+ 330 s!+ 
+	'dummy swap strcpyl 512 s!+ 10 s!+ 350 s!+ 485 swap ! ;
 
 :load.objs | ( -- )
 	   'objs "mem/todo.mem" load drop ;
@@ -32,11 +38,7 @@
 :rot- | ( a b c -- c a b )
       rot rot ;
 
-:adjust.pad | ( -- pad.val )
-	cch 4 / 'pad ! ;
-
 :add.padding | ( h w x y -- hh ww xx yy )
-	     adjust.pad
 	     pad - swap pad - swap
 	     2swap
 	     pad 2* + swap pad 2* + swap
@@ -47,18 +49,11 @@
         2dup op over r> + over 2dup line r + line
         2dup r> + line line ;
 
-:4dup pick3 pick3 pick3 pick3 ;
+:4dup | ( a b c d -- a b c d a b c d )
+      pick3 pick3 pick3 pick3 ;
 
-:atxy_ | ( x y -- x' y ' )
-      1 max swap 1 max swap atxy ;
-
-:draw.obj | ( x y txt -- )
-	negro sizeprint >r
-	rot- 2dup r> cch 2swap add.padding
-	4dup
-	amarillo vfill
-	negro rect
-	atxy_ negro print ;
+:clip.xy | ( x y -- x' y')
+      1 max swap 1 max swap ;
 
 :debug dup rojo "[%d]" print ;
 
@@ -78,25 +73,57 @@
 
 :n.objs 'objs @ ;
 
-:draw.objs
-	200 dx + 100 dy + "Example Note 1" draw.obj
-	150 dx + 220 dy + "Example Note 2" draw.obj ;
+:get.ptr | ( n -- mem )
+	 1- 81 * 4 + 'objs + ;
+
+| -----------------------------------------------
+
+:draw | ( str w h x y ** )
+	dx dy translate clip.xy
+	2dup >r >r amarillo add.padding vfill r> r> atxy negro print ;
+
+:i@+ | ( mem -- @mem mem+4 )
+	@+ swap ;
+
+:get.xy | ( mem -- x y )
+	i@+ @  ;
+
+:get.wh | ( mem -- w h mem' )
+	i@+ i@+ ;
+
+:get.str | ( mem -- mem mem+64 )
+	 dup 65 + ;
+
+:get.obj.attr | ( mem -- x y w h str )
+	get.str get.wh get.xy ;
+
+:draw.obj | ( n -- )
+	    get.ptr get.obj.attr draw ;
+
+:draw.list.objs | ( -- )
+		n.objs ( +? )( dup draw.obj 1- ) drop ;
+
+| -----------------------------------------------
 
 :txtin
-	azul 'buffer 128 input ;
+	azul 'buffer 64 input ;
 
-:edit
-    $cccccc paper
-    fonti
-    0 'buffer !
-    show clrscr
-    	rojo 'exit "Exit" 4 menur sp sp
-    	negro debug cr cr
-    	handle.mouse cr cr
-	txtin
-	300 300 'buffer draw.obj
-	draw.objs
-	cminiflecha
-	'exit >esc< ;
+:screen.setup
+    $cccccc paper fonti
+    rojo 'exit "Exit" 4 menur sp sp
+    negro debug cr cr
+    handle.mouse cr cr ;
 
-: load.objs 33 edit save.objs ;
+:edit.objs
+	screen.setup
+	0 'buffer !
+	show clrscr
+	     screen.setup txtin
+
+	     'buffer 512 10 300 300 draw
+
+	     draw.list.objs 
+	     cminiflecha
+	     'exit >esc< ;
+
+: load.objs 33 edit.objs save.objs ;
