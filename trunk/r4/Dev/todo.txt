@@ -1,16 +1,17 @@
+| MC 2013
 
 ^r4/lib/gui.txt
 ^r4/lib/graf.txt
 ^r4/lib/fonti.txt
 ^r4/lib/formkit.txt
 
-|one object: 
-| n, [ x, y, w, h, 64 chars ] *
+| objects :         n, [ x, y, w, h, 64 chars ] *
 
+#selected -1
 #objs )( 10000
 #pad 4 
 #buffer )( 64
-#xdrag #ydrag  | keep mouse position when first clicked
+#xdrag #ydrag
 #dragging? 0
 #dx 0 #dy 0 
 #dummy "1234567890123456789012345678901234567890123456789012345678901234"
@@ -32,7 +33,7 @@
 	   'objs "mem/todo.mem" load drop ;
 
 :save.objs | ( -- )
-	   dummy.data
+	   dummy.data    | <--------------------------- comment this out to test saving the data
 	   'objs 10000 "mem/todo.mem" save ;
 
 :rot- | ( a b c -- c a b )
@@ -65,28 +66,33 @@
 
 :pcr print cr ;
 
-:dragging getxy.dragging updatedxdy ;
-
-:handle.mouse
-	   negro xymouse swap "[ %d , %d ]" pcr
-	   bmouse 1? ( dragging 1 )( 0 ) 'dragging? ! drop ;
-
-:n.objs 'objs @ ;
+:i@+ | ( mem -- @mem mem+4 )
+	@+ swap ;
 
 :get.ptr | ( n -- mem )
 	 1- 81 * 4 + 'objs + ;
 
+:get.xy | ( mem -- x y )
+	i@+ @  ;
+
+:ini.dx.dy 0 dup 'dx ! 'dy ! ;
+
+:update.x.y | ( n -- )
+	    get.ptr 65 + 8 + dup >r get.xy dx dy translate swap r> !+ ! xymouse 'ydrag ! 'xdrag ! ;
+	    
+:dragging selected +? ( dragging? 0? ( getxy.dragging ) drop updatedxdy selected update.x.y ) drop ;
+
+:handle.mouse
+	   negro xymouse swap "[ %d , %d ]" pcr
+	   bmouse 1? ( dragging 1 )( ini.dx.dy 0 ) 'dragging? ! drop
+	   dy dx "[ %d, %d ]" pcr ;
+
+:n.objs 'objs @ ;
+
 | -----------------------------------------------
 
 :draw | ( str w h x y ** )
-	dx dy translate clip.xy
 	2dup >r >r amarillo add.padding vfill r> r> atxy negro print ;
-
-:i@+ | ( mem -- @mem mem+4 )
-	@+ swap ;
-
-:get.xy | ( mem -- x y )
-	i@+ @  ;
 
 :get.wh | ( mem -- w h mem' )
 	i@+ i@+ ;
@@ -103,8 +109,6 @@
 :draw.list.objs | ( -- )
 		n.objs ( +? )( dup draw.obj 1- ) drop ;
 
-| -----------------------------------------------
-
 :txtin
 	azul 'buffer 64 input ;
 
@@ -113,6 +117,20 @@
     rojo 'exit "Exit" 4 menur sp sp
     negro debug cr cr
     handle.mouse cr cr ;
+
+:2<=? | ( x1 y1 x2 y2 - 1 if (x1, x2) <= (x2, y2), 0 otherwise )
+     rot >=? ( drop <=? ( drop 1 )( drop 0 ) )( 3drop 0 ) ;
+
+:2>=? | ( x1 y1 x2 y2 - 1 if (x1, x2) >= (x2, y2), 0 otherwise )
+     rot <=? ( drop >=? ( drop 1 )( drop 0 ) )( 3drop 0 ) ;
+
+|shortcut asap
+:mouse.over.obj? | ( n -- 0/1 )
+		 get.ptr 65 + get.wh get.xy | dx dy translate
+		 2dup xymouse 2<=? 0 =? ( drop 4drop 0 )( drop translate xymouse 2>=? 1 =? ( drop 1 )( drop 0 ) ) ;
+
+:selected.object | returns first object under the mouse
+	n.objs ( +? )( dup mouse.over.obj? 1 =? ( drop 'selected ! ; )( drop ) 1- ) drop -1 'selected ! ;
 
 :edit.objs
 	screen.setup
@@ -123,6 +141,8 @@
 	     'buffer 512 10 300 300 draw
 
 	     draw.list.objs 
+	     dragging? 0? ( selected.object ) drop
+	     50 50 atxy selected "> %d" print
 	     cminiflecha
 	     'exit >esc< ;
 
