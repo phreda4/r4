@@ -13,7 +13,8 @@
 ^inc/ric/fontawesomewebfont.ric
 ^inc/rft/robotoregular.rft
 
-#numPoints 32
+#numPoints 30 | 32
+| reservo dos puntos para marcarlos como puntos solos (.:;)
 
 |-------------------------------------
 | simbolos de entrada
@@ -39,6 +40,12 @@
 
 :pcnreset	'pc2dn 'pc2dn> ! ;
 :pcn+       pc2dn> !+ 'pc2dn> ! ;
+
+#pnt1	| hasta 2 puntos individuales
+#pnt2
+
+:resetpnt
+	-1 dup 'pnt1 ! 'pnt2 ! ;
 
 |-------------------------------------
 | formato de reconocedor
@@ -88,6 +95,30 @@
 	n>xy rot n>xy	| x1 y1 x2 y2
 	rot - dup * >r
 	- dup * r> + sqrt ;
+
+|----------- busca puntos
+:pnt!
+	pnt1 -1 =? ( drop 'pnt1 ! ; ) drop
+	'pnt2 ! ;
+
+:pntextrae
+	resetpnt
+	0 pc2d> !
+	|---- busca puntos solos
+	0 >r
+	'pc2d ( @+ 1? )(
+		dup $ff and r <>? ( 1 r+
+			drop over @ $ff and r <>? ( 2drop dup 4 - pnt!  )( 2drop )
+			)( 2drop )
+		) 2drop rdrop
+	|---- quita puntos solos (hasta 2)
+	pnt1 -1 <>? ( drop ; )
+	pnt1 dup 4+ pc2d> over - 2 >> move | de sr cnt
+	-4 'pc2d> +!
+	pnt2 -1 <>? ( drop ; )
+	pnt2 dup 4+ pc2d> over - 2 >> move
+	-4 'pc2d> +!
+	;
 
 |------------------------------------
 #cx #cy #minx #maxx #miny #maxy
@@ -165,6 +196,7 @@
 		rot +	| adr acc+
 		size >=? ( over 12 - interpola  )
 		swap 4+ ) 2drop
+
 	;
 
 |------------------------------------
@@ -173,10 +205,14 @@
 		ngc>xy 1 box
 		) 2drop ;
 
+
 :gcdrawl | adr --
 	0 >r
 	( @+ 1? )(
-		dup $ff and r <>? ( drop ngc>xy op 1 r+ )( drop ngc>xy line )
+		dup $ff and r <>? (
+			1 r+
+			drop over @ $ff and r <>? ( drop ngc>xy 2 box )( drop ngc>xy op )
+			)( drop ngc>xy line )
 		) 2drop rdrop ;
 
 |------------------------------------
@@ -314,7 +350,7 @@
 	'locdraw getid 'idnow !
 	dup 2 << 'infosim + @
 	dup 12 >> 'brev !
-	$fff and 
+	$fff and
 	mark
 	'pad 'here ! ,d 0 ,c
 	empty
@@ -332,13 +368,14 @@
 |---------------------------------------------
 :drawnsimbol | n -- n
 	nsimbol >=? ( ; )
+	verde
 	gc.box
 	dup 12 << 'memsim + gcdrawl
 	'editsimbol guiBtn
 
-	home
+	home cyan
 |	dup "%d" print
-	dup 2 << 'infosim + @ "%d" print cr
+	dup 2 << 'infosim + @ $ff and "%d" print cr
 |	dup 2 << 'lensim + @ "%d" print
 	;
 
@@ -407,11 +444,6 @@
 		1+ ) drop ;
 
 |------------------------------------
-#pnt1
-#pnt2
-
-:resetpnt
-	-1 dup 'pnt1 ! 'pnt2 ! ;
 
 :drawpnt
 	pnt1 -1 =? ( drop ; )
@@ -529,8 +561,9 @@
 	pc2dreset
 	33
 	show clrscr
-		robotoregular 48 rfont!
+		fonti
 		drawsim
+		robotoregular 48 rfont!
 
 		|--- botonera
 		48 qdim 32 sh 32 - pos
