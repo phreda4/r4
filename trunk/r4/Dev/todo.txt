@@ -1,60 +1,56 @@
 | MC 2013
+| calculate w & h on the fly and remove w/h from data structure
+| store only what is needed for the string
+| move whole canvas, or object under the mouse when there is one
 
 ^r4/lib/gui.txt
+^r4/lib/math.txt
 ^r4/lib/graf.txt
-^r4/lib/fonti.txt
+^r4/lib/rfont.txt
 ^r4/lib/formkit.txt
+^inc/rft/robotoregular.rft
 
-| objects :         n, [ x, y, w, h, 64 chars ] *
+| objects :         nobjs, [ x, y, len, chars ] * nobjs
 
 #selected -1
 #objs )( 10000
-#pad 4 
+#pad 4
 #buffer )( 64
-#xdrag #ydrag
-#dragging? 0
-#dx 0 #dy 0 
-#dummy "1234567890123456789012345678901234567890123456789012345678901234"
+#xdrag #ydrag #dragging? 0 #dx 0 #dy 0
+
+#dummy "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 :s!+ swap !+ ;
 
-:translate | ( x y dx dy | x+dx y+dy )
-	   pick2 + >r nip + r> ;
-
+| remove w & h : they are computed on the fly.
 :dummy.data
 	4 'objs !+
 |       str                 w       h      x       y
-	'dummy swap strcpyl 512 s!+ 10 s!+ 200 s!+ 110 s!+ 
-	'dummy swap strcpyl 512 s!+ 10 s!+ 150 s!+ 238 s!+
-	'dummy swap strcpyl 512 s!+ 10 s!+ 250 s!+ 330 s!+ 
-	'dummy swap strcpyl 512 s!+ 10 s!+ 350 s!+ 485 swap ! ;
+	'dummy swap strcpyl 1004 s!+ 26 s!+ 200 s!+ 110 s!+ 
+	'dummy swap strcpyl 1004 s!+ 26 s!+ 150 s!+ 238 s!+
+	'dummy swap strcpyl 1004 s!+ 26 s!+ 250 s!+ 330 s!+ 
+	'dummy swap strcpyl 1004 s!+ 26 s!+ 350 s!+ 485 swap ! ;
 
 :load.objs | ( -- )
 	   'objs "mem/todo.mem" load drop ;
 
 :save.objs | ( -- )
-	   dummy.data    | <--------------------------- comment this out to test saving the data
+	   dummy.data    | <------------------- comment this out to test saving the data
 	   'objs 10000 "mem/todo.mem" save ;
+
+| ----------------------------------------
+| in Lib ? Where to store ?
 
 :rot- | ( a b c -- c a b )
       rot rot ;
 
-:add.padding | ( h w x y -- hh ww xx yy )
-	     pad - swap pad - swap
-	     2swap
-	     pad 2* + swap pad 2* + swap
-	     2swap ;
-
-:rect | ancho alto x y --
-        2swap >r >r
-        2dup op over r> + over 2dup line r + line
-        2dup r> + line line ;
-
 :4dup | ( a b c d -- a b c d a b c d )
       pick3 pick3 pick3 pick3 ;
 
-:clip.xy | ( x y -- x' y')
-      1 max swap 1 max swap ;
+| ----------------------------------------
+
+:add.padding | ( h w x y -- hh ww xx yy )
+	     pad neg dup 2dtrans 2swap pad 2* dup 2dtrans 2swap ;
 
 :debug dup rojo "[%d]" print ;
 
@@ -78,59 +74,61 @@
 :ini.dx.dy 0 dup 'dx ! 'dy ! ;
 
 :update.x.y | ( n -- )
-	    get.ptr 65 + 8 + dup >r get.xy dx dy translate swap r> !+ ! xymouse 'ydrag ! 'xdrag ! ;
+	    get.ptr 65 + 8 + dup >r get.xy dx dy 2dtrans swap r> !+ !
+	    xymouse 'ydrag ! 'xdrag ! ;
 	    
-:dragging selected +? ( dragging? 0? ( getxy.dragging ) drop updatedxdy selected update.x.y ) drop ;
+:dragging selected +? ( dragging? 0? ( getxy.dragging ) drop updatedxdy selected update.x.y ) 
+	  drop ;
 
 :handle.mouse
 	   negro xymouse swap "[ %d , %d ]" pcr
-	   bmouse 1? ( dragging 1 )( ini.dx.dy 0 ) 'dragging? ! drop
-	   dy dx "[ %d, %d ]" pcr ;
+	   bmouse 1? ( dragging 1 )( ini.dx.dy 0 ) 'dragging? ! drop ;
 
 :n.objs 'objs @ ;
 
 | -----------------------------------------------
 
 :draw | ( str w h x y ** )
-	2dup >r >r amarillo add.padding vfill r> r> atxy negro print ;
-
-:get.wh | ( mem -- w h mem' )
-	i@+ i@+ ;
+	2dup >r >r add.padding 4dup vfill negro rect r> r> atxy print ;
 
 :get.str | ( mem -- mem mem+64 )
 	 dup 65 + ;
 
+| data to be reorganized to simplify the code !!
+:calc.wh | ( mem1 mem2 | mem1 w h mem2+8 )
+	 >r sizeprint cch r> 8 + ;
+
+| calculate on the fly w+h
 :get.obj.attr | ( mem -- x y w h str )
-	get.str get.wh get.xy ;
+	get.str calc.wh get.xy ;
 
 :draw.obj | ( n -- )
 	    get.ptr get.obj.attr draw ;
 
 :draw.list.objs | ( -- )
-		n.objs ( +? )( dup draw.obj 1- ) drop ;
+		n.objs ( +? )( dup amarillo selected =? ( oscuro ) draw.obj 1- ) drop ;
 
 :txtin
 	azul 'buffer 64 input ;
 
 :screen.setup
-    $cccccc paper fonti
-    rojo 'exit "Exit" 4 menur sp sp
-    negro debug cr cr
-    handle.mouse cr cr ;
-
-:2<=? | ( x1 y1 x2 y2 - 1 if (x1, x2) <= (x2, y2), 0 otherwise )
-     rot >=? ( drop <=? ( drop 1 )( drop 0 ) )( 3drop 0 ) ;
-
-:2>=? | ( x1 y1 x2 y2 - 1 if (x1, x2) >= (x2, y2), 0 otherwise )
-     rot <=? ( drop >=? ( drop 1 )( drop 0 ) )( 3drop 0 ) ;
+	$cccccc paper | fonti
+	robotoregular 0.05 %s rfont!
+	rojo 'exit "Exit" 1 menur sp sp
+	negro debug cr cr
+	handle.mouse cr cr ;
 
 |shortcut asap
+| reorganize data !
+| should be ( w h x y -- 0/1 )
 :mouse.over.obj? | ( n -- 0/1 )
-		 get.ptr 65 + get.wh get.xy | dx dy translate
-		 2dup xymouse 2<=? 0 =? ( drop 4drop 0 )( drop translate xymouse 2>=? 1 =? ( drop 1 )( drop 0 ) ) ;
+		 get.ptr get.str calc.wh get.xy
+		 2dup xymouse 2<=? 0 =?
+		 ( drop 4drop 0 )( drop 2dtrans xymouse 2>=? 1 =? ( drop 1 )( drop 0 ) ) nip ;
 
 :selected.object | returns first object under the mouse
-	n.objs ( +? )( dup mouse.over.obj? 1 =? ( drop 'selected ! ; )( drop ) 1- ) drop -1 'selected ! ;
+	n.objs ( +? )( dup mouse.over.obj? 1 =? ( drop 'selected ! ; )( drop ) 1- ) drop
+	-1 'selected ! ;
 
 :edit.objs
 	screen.setup
@@ -138,12 +136,15 @@
 	show clrscr
 	     screen.setup txtin
 
-	     'buffer 512 10 300 300 draw
+	     amarillo 'buffer sizeprint cch 300 300 draw
 
 	     draw.list.objs 
-	     dragging? 0? ( selected.object ) drop
-	     50 50 atxy selected "> %d" print
+	     selected.object
+
+	     50 150 atxy selected ">   %d" pcr
+
 	     cminiflecha
 	     'exit >esc< ;
 
 : load.objs 33 edit.objs save.objs ;
+
