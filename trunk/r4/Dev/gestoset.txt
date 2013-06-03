@@ -112,11 +112,13 @@
 			)( 2drop )
 		) 2drop rdrop
 	|---- quita puntos solos (hasta 2)
-	pnt1 -1 <>? ( drop ; )
-	pnt1 dup 4+ pc2d> over - 2 >> move | de sr cnt
+	pnt1 -1 =? ( drop ; )
+	dup @ 'pnt1 !
+	dup 4+ pc2d> over - 2 >> move | de sr cnt
 	-4 'pc2d> +!
-	pnt2 -1 <>? ( drop ; )
-	pnt2 dup 4+ pc2d> over - 2 >> move
+	pnt2 -1 =? ( drop ; ) 4 - | se borro uno
+	dup @ 'pnt2 !
+	dup 4+ pc2d> over - 2 >> move
 	-4 'pc2d> +!
 	;
 
@@ -124,19 +126,22 @@
 #cx #cy #minx #maxx #miny #maxy
 #size
 
+:minmax | x y --
+	miny <? ( dup 'miny ! )
+	maxy >? ( dup 'maxy ! )
+	drop
+	minx <? ( dup 'minx ! )
+	maxx >? ( dup 'maxx ! )
+	drop ;
+
 :normalize
 	'pc2d
 	@+ n>xy
 	dup 'miny ! 'maxy !
 	dup 'minx ! 'maxx !
-	( pc2d> <? )( @+ n>xy
-		miny <? ( dup 'miny ! )
-		maxy >? ( dup 'maxy ! )
-		drop
-		minx <? ( dup 'minx ! )
-		maxx >? ( dup 'maxx ! )
-		drop
-		) drop
+	( pc2d> <? )( @+ n>xy minmax ) drop
+	pnt1 -1 <>? ( n>xy minmax )( drop )
+	pnt2 -1 <>? ( n>xy minmax )( drop )
 	maxx minx - maxy miny - max 'size !
 	minx maxx + 2/ neg 'cx !
 	miny maxy + 2/ neg 'cy !
@@ -187,7 +192,7 @@
 		0? ( drop 2dup swap r!+ r!+ pntdist dup r!+ rot + swap )( 3drop )
 		) drop
 	numPoints 1- / 'size !
-	r> 'aux> !
+	r> 'aux =? ( 'aux> ! ; ) 'aux> !
 
 	pcnreset
 	'aux @+ pcn+
@@ -461,11 +466,9 @@
 
 :reconoce
 	setpnt
-
 	normalize
 	resample
 	fitness
-
 	pc2dreset
 	;
 
@@ -483,9 +486,14 @@
 |-------------------------------------------------
 | debug
 :drawsig | adr --
-	32 ( 1? )( 1-
+	30 ( 1? )( 1-
 		swap @+ ngc>xy 1 box
-		swap ) 2drop ;
+		swap ) drop
+	@+ -1 =? ( 2drop ; )
+	ngc>xy 2 box
+	@ -1 =? ( drop ; )
+	ngc>xy 2 box
+	;
 
 :viewsig
 	48 qdim 28 64 pos
@@ -501,13 +509,23 @@
 :addsig
 	signon 7 << 'signod +
 	'pc2dn
-	32 move
+	30 move
+
+	pnt2 pnt1
+	signon 7 << 'signod + 30 2 << +
+	!+ !
+
 	1 'signon +! ;
+
+:clearsig
+	pcnreset 32 ( 1? )( 1- -1 pcn+ ) drop ;
 
 :makeset
 	0 'signon !
 	0 ( nsimbol <? )(
 		dup 12 << 'memsim + topc2d
+		clearsig
+        pntextrae
 		normalize
 		resample
 		addsig
@@ -528,7 +546,8 @@
 	show clrscr
 		robotoregular 48 rfont!
 		blanco
-		best nbest "%d %d" print
+		best nbest "%d %d" print cr
+		signon "%d " print
 
 		viewsig
 		gestobox
