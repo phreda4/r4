@@ -77,6 +77,7 @@
 	pc2d> !+ 'pc2d> ! ;
 
 :pc2dreset
+	resetpnt
 	'pc2d 'pc2d> ! 1 'id ! ;
 
 :gcpc2ddraw
@@ -121,6 +122,9 @@
 	dup 4+ pc2d> over - 2 >> move
 	-4 'pc2d> +!
 	;
+
+:clearsig
+	pcnreset 32 ( 1? )( 1- -1 pcn+ ) drop ;
 
 |------------------------------------
 #cx #cy #minx #maxx #miny #maxy
@@ -270,6 +274,7 @@
 	dup 4+ swap locdraw> over - 2 >>
 	move>
 	4 'locdraw> +!
+	0 locdraw> !
 	;
 
 :breakbox
@@ -428,9 +433,15 @@
 	;
 
 |--------------------------------
+:addpnts
+	pnt2 pnt1
+	over >? ( swap ) | ordenados
+	'pc2dn 124 + !+ !
+	;
+
 :calcfit | nro -- nro suma
 	dup 7 << 'signod + >r	| nro   r:simbolo
-	'pc2dn dup 128 +		| nro act last
+	'pc2dn dup 128 +		| nro act last	120=30*4
 	0 rot
 	( pick2 <? )( | nro last suma act
 		@+ n>xy r@+ n>xy
@@ -448,8 +459,14 @@
 		best <? ( 'best ! dup 'nbest ! )( drop )
 		1+ ) drop ;
 
-|------------------------------------
+:invert
+	'pc2dn dup 120 + | first last
+	( over >? )(
+		over @ over @	| f l f@ l@
+		pick3 ! over !
+		4 - swap 4+ swap ) 2drop ;
 
+|------------------------------------
 :drawpnt
 	pnt1 -1 =? ( drop ; )
 	ngc>xy 4 circle
@@ -460,15 +477,22 @@
 :setpnt
 	pc2d> 'pc2d - 2 >> 2 >? ( drop ; ) drop   | falta permitir puntos despues de trazo
 	pc2d
-	pnt1 -1 =? ( drop 'pnt1 ! pc2dreset ; )
-	drop
-	'pnt2 ! pc2dreset ;
+	pnt1 -1 =? ( drop 'pnt1 ! pc2dreset ; ) drop
+	pnt2 -1 =? ( drop 'pnt2 ! pc2dreset ; ) drop
+	'pnt1 ! -1 'pnt2 !
+	pc2dreset ;
 
 :reconoce
-	setpnt
+|	setpnt
+	clearsig
+    pntextrae
+
 	normalize
 	resample
+	addpnts
 	fitness
+|	invert fitness
+
 	pc2dreset
 	;
 
@@ -477,8 +501,9 @@
 	blanco gc.box
 	[ xymouse xygc>n +pc2d ; ]
 	[ xymouse xygc>n ++pc2d ; ]
-	[ reconoce ; ]
+	[ 1 'id +! ; ]
 	guiMap
+	'reconoce <f1>
 	gcpc2ddraw
 	drawpnt
 	;
@@ -512,13 +537,12 @@
 	30 move
 
 	pnt2 pnt1
+	over >? ( swap ) | ordenados
 	signon 7 << 'signod + 30 2 << +
 	!+ !
 
 	1 'signon +! ;
 
-:clearsig
-	pcnreset 32 ( 1? )( 1- -1 pcn+ ) drop ;
 
 :makeset
 	0 'signon !
@@ -542,13 +566,13 @@
 	makeset
 	pc2dreset
 	resetpnt
+
 	-1 'nbest !
 	show clrscr
-		robotoregular 48 rfont!
+		robotoregular 32 rfont!
 		blanco
-		best nbest "%d %d" print cr
-		signon "%d " print
-
+		signon "%d | " print best nbest "%d %d" print cr
+|        'pc2d ( pc2d> <? )( @+ "%h " print ) drop
 		viewsig
 		gestobox
 		showbest
