@@ -77,7 +77,6 @@
 	pc2d> !+ 'pc2d> ! ;
 
 :pc2dreset
-	resetpnt
 	'pc2d 'pc2d> ! 1 'id ! ;
 
 :gcpc2ddraw
@@ -116,11 +115,11 @@
 	pnt1 -1 =? ( drop ; )
 	dup @ 'pnt1 !
 	dup 4+ pc2d> over - 2 >> move | de sr cnt
-	-4 'pc2d> +!
+	-4 'pc2d> +! 0 pc2d> !
 	pnt2 -1 =? ( drop ; ) 4 - | se borro uno
 	dup @ 'pnt2 !
 	dup 4+ pc2d> over - 2 >> move
-	-4 'pc2d> +!
+	-4 'pc2d> +! 0 pc2d> !
 	;
 
 :clearsig
@@ -417,17 +416,19 @@
 	'primero ! ;
 
 |------------------------------------
-#actual
+#best
+#nbest
 
 :getxy1 | nro -- xy
-	2 << actual 12 << 'memsim + + @ ngc>xy ;
+	7 << 'signod + swap 2 << + @ ngc>xy ;
 
 :getxy2 | nro -- xy
-	2 << 'pc2d + @ ngc>xy ;
+	2 << 'pc2dn + @ ngc>xy ;
 
 :drawmatch
+	cyan
 	0 ( 32 <? )(
-		dup getxy1 op
+		dup nbest getxy1 op
 		dup getxy2 line
 		1+ ) drop
 	;
@@ -436,7 +437,7 @@
 :addpnts
 	pnt2 pnt1
 	over >? ( swap ) | ordenados
-	'pc2dn 124 + !+ !
+	'pc2dn 120 + !+ !
 	;
 
 :calcfit | nro -- nro suma
@@ -448,9 +449,6 @@
 		rot - rot rot - distfast	| nro last suma act delta
 		rot + swap )				| nro last suma act
 	drop nip rdrop ;
-
-#best
-#nbest
 
 :fitness
 	$7fffffff 'best !
@@ -467,33 +465,24 @@
 		4 - swap 4+ swap ) 2drop ;
 
 |------------------------------------
-:drawpnt
-	pnt1 -1 =? ( drop ; )
-	ngc>xy 4 circle
-	pnt2 -1 =? ( drop ; )
-	ngc>xy 4 circle
-	;
+:showrec
+	show clrscr
 
-:setpnt
-	pc2d> 'pc2d - 2 >> 2 >? ( drop ; ) drop   | falta permitir puntos despues de trazo
-	pc2d
-	pnt1 -1 =? ( drop 'pnt1 ! pc2dreset ; ) drop
-	pnt2 -1 =? ( drop 'pnt2 ! pc2dreset ; ) drop
-	'pnt1 ! -1 'pnt2 !
-	pc2dreset ;
+		'exit >esc< ;
 
 :reconoce
-|	setpnt
 	clearsig
     pntextrae
-
 	normalize
 	resample
 	addpnts
 	fitness
 |	invert fitness
 
+|	showrec
+
 	pc2dreset
+	resetpnt
 	;
 
 :gestobox
@@ -505,7 +494,6 @@
 	guiMap
 	'reconoce <f1>
 	gcpc2ddraw
-	drawpnt
 	;
 
 |-------------------------------------------------
@@ -538,8 +526,7 @@
 
 	pnt2 pnt1
 	over >? ( swap ) | ordenados
-	signon 7 << 'signod + 30 2 << +
-	!+ !
+	signon 7 << 'signod + 120 + !+ !
 
 	1 'signon +! ;
 
@@ -557,9 +544,13 @@
 
 :showbest
 	nbest -? ( drop ; )
-	50 qdim sw 40 - sh 40 - pos
+	100 qdim sw 60 - sh 60 - pos
 	gc.box
-	7 << 'signod + drawsig
+
+	drop
+	|7 << 'signod + drawsig
+
+	drawmatch
 	;
 
 :testf
@@ -602,6 +593,7 @@
 
 :main
 	pc2dreset
+	resetpnt
 	33
 	show clrscr
 		fonti
