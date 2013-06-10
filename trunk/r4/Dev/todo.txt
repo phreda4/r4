@@ -1,12 +1,9 @@
 | MC 2013
 | -------
-| move whole canvas, or object under the mouse when there is one
-| rename words
-| x y n set.xy
-| str n set.str = len recalc + shift memory
 
 ^r4/lib/gui.txt
 ^r4/lib/math.txt
+^r4/lib/mouse.txt
 ^r4/lib/graf.txt
 ^r4/lib/rfont.txt
 ^r4/lib/formkit.txt
@@ -14,7 +11,7 @@
 
 | objects :         nobjs, [ x, y, len, chars ] * nobjs
 
-#selected -1
+#under.mouse -1
 #objs )( 10000
 #pad 4
 #buffer )( 64
@@ -51,16 +48,10 @@ rot rot ;
 pick3 pick3 pick3 pick3 ;
 
 :add.padding | ( h w x y -- hh ww xx yy )
-pad neg dup 2dtrans 2swap pad 2* dup 2dtrans 2swap ;
+pad neg dup 2d+ 2swap pad 2* dup 2d+ 2swap ;
 
 :debug 
 dup rojo "[%d]" print ;
-
-:getxy.dragging 
-dragging? 0? ( xymouse dy - 'ydrag ! dx - 'xdrag ! ) drop ;
-
-:updatedxdy 
-dragging? 1? ( xymouse ydrag - 'dy ! xdrag - 'dx ! ) drop ;
 
 :pcr print cr ;
 
@@ -72,15 +63,6 @@ get.ptr i@+ @  ;
 
 :ini.dx.dy 
 0 dup 'dx ! 'dy ! ;
-
-:update.x.y | ( n -- )
-dup >r get.xy dx dy 2dtrans swap r> get.ptr !+ ! xymouse 'ydrag ! 'xdrag ! ;
-
-:dragging 
-selected +? ( dragging? 0? ( getxy.dragging ) drop updatedxdy selected update.x.y ) drop ;
-
-:handle.mouse 
-negro xymouse swap "[ %d , %d ]" pcr bmouse 1? ( dragging 1 )( ini.dx.dy 0 -1 'selected ! ) 'dragging? ! drop ;
 
 :calc.wh | ( str -- w h )
 sizeprint nip cch ;
@@ -101,7 +83,7 @@ get.ptr i@+ i@+ 4 + ;
 get.obj.attr draw ;
 
 :draw.list.objs | ( -- )
-n.objs ( +? )( dup amarillo selected =? ( oscuro ) draw.obj 1- ) drop ;
+n.objs ( +? )( dup amarillo under.mouse =? ( oscuro ) draw.obj 1- ) drop ;
 
 :txtin 
 azul 'buffer 64 input ;
@@ -110,15 +92,11 @@ azul 'buffer 64 input ;
 $cccccc paper robotoregular 0.05 %s rfont! rojo 'exit "Exit" 1 menur
 sp sp negro debug cr cr handle.mouse cr cr ;
 
-| change wh xy to xy wh ?
 :get.wh.xy | ( n -- w h x y )
 dup get.str calc.wh rot get.xy ;
 
-:mouse.over.obj?  | ( w h x y -- 0/1 )
-2dup xymouse 2<=? >r 2dtrans xymouse 2>=? r> and ;
-
-:selected.object  | returns first object under the mouse
-n.objs ( +? )( dup get.wh.xy mouse.over.obj? 1 =? ( drop 'selected ! ; )( drop ) 1- ) drop -1 'selected ! ;
+:under.mouse.object  | returns first object under the mouse
+n.objs ( +? )( dup get.wh.xy mouse.on.rect? 1 =? ( drop 'under.mouse ! ; )( drop ) 1- ) drop -1 'under.mouse ! ;
 
 :edit.objs
 	screen.setup
@@ -126,9 +104,9 @@ n.objs ( +? )( dup get.wh.xy mouse.over.obj? 1 =? ( drop 'selected ! ; )( drop )
 	show clrscr
 	     screen.setup txtin
 	     amarillo 360 560 'buffer draw
+	     under.mouse.object
 	     draw.list.objs
-	     dragging? 0 =? ( selected -1 =? ( selected.object ) drop ) drop
-	     50 150 atxy selected ">   %d" pcr
+	     50 150 atxy under.mouse ">   %d" pcr
 	     cminiflecha
 	     'exit >esc< ;
 
