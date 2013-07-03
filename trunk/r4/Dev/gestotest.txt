@@ -18,15 +18,6 @@
 | reservo dos puntos para marcarlos como puntos solos (.:;)
 
 |-------------------------------------
-| simbolos de entrada
-|-------------------------------------
-#nsimbol 0
-#infosim )( 1024	| 256 info sim
-#lensim )( 1024		| 256 info sim
-#memsim )( $fffff
-#simactual
-
-|-------------------------------------
 | auxiliar de entrada
 |-------------------------------------
 #pc2d )( $3fff
@@ -55,6 +46,7 @@
 |-------------------------------------
 #signon 0		| cantidad
 #signod )( $ffff | 256 signos
+#infosim
 
 | formato de trazo
 |  X    Y   ID
@@ -207,215 +199,7 @@
 
 	;
 
-|------------------------------------
-:gcdraw | adr --
-	( @+ 1? )(
-		ngc>xy 1 box
-		) 2drop ;
-
-
-:gcdrawl | adr --
-	0 >r
-	( @+ 1? )(
-		dup $ff and r <>? (
-			1 r+
-			drop over @ $ff and r <>? ( drop ngc>xy 2 box )( drop ngc>xy op )
-			)( drop ngc>xy line )
-		) 2drop rdrop ;
-
-|------------------------------------
-| editor!!
-#locdraw )( 4096
-#locdraw>
-#locnow
-#idnow
-
-#pad
-#brev
-
-:getid | adr -- lastid
-	0 swap ( @+ 1? )( $ff and rot max swap ) 2drop ;
-
-:select.move
-	gc.popush
-	xymouse 3 - swap 3 - swap
-	xygc>n $ffffff00 and
-	over 4 -
-	dup @ $ff and rot or swap !
-	dup 4 - 'locnow ! ;
-
-
-:editbox | x y box --
-	gc.push
-	qdim pos gc.box
-	0 'select.move guiDnMoveA | 'dn 'move --
-	gc.pop
-	;
-
-:newbox
-	xymouse xygc>n $ffffff00 and idnow or
-	locdraw>
-	dup 'locnow !
-	!+ 0 over ! 'locdraw> !
-	;
-
-:delbox |
-	locnow 0? ( drop ; )
-	dup 4+ locdraw> over - 2 >>
-	1? ( move | de sr cnt --	Copia CNT dword de SR a DE
-		)( nip swap ! locnow 4 - 'locdraw <? ( 0 nip ) 'locnow ! )
-	-4 'locdraw> +!
-	'locdraw getid 'idnow !
-	;
-
-:addbox
-	locnow 0? ( drop ; )
-	dup 4+ swap locdraw> over - 2 >>
-	move>
-	4 'locdraw> +!
-	0 locdraw> !
-	;
-
-:breakbox
-	locnow 0? ( drop ; ) drop
-	1 'idnow +!
-	;
-
-:locursor | adr --
-	locnow 0? ( drop ; )
-	blanco
-	@ ngc>xy 10
-	gc.push
-	qdim pos gc.box
-	gc.pop
-	;
-
-:gceditdraw
-	cyan
-	dup gcdrawl
-	verde
-	( @+ 1? )(
-		ngc>xy 8 editbox
-		) 2drop
-	locursor
-	hot 1? ( drop ; ) drop | corta si toque algo
-	'newbox guiMove
-	;
-
-:savegesto
-	exit
-	simactual nsimbol =? ( 1 'nsimbol +! )
-	12 << 'memsim + 'locdraw 1024 move
-
-	brev 12 <<
-	'pad str>int $fff and
-	or simactual 2 << 'infosim + !
-	;
-
-:deletegesto
-	exit
-	simactual nsimbol <=? (
-		12 << 'memsim + dup 1024 2 << + nsimbol 12 << 'memsim + over -
-		move
-		)( drop )
-	-1 'nsimbol +!
-	;
-
-:handbox
-	;
-
-:editgesto
-	show clrscr
-|		dup "%d) " print cr
-		simactual "%d simbolo " print
-		idnow "%d trazos " print
-		locdraw> 'locdraw - 2 >> "%d puntos" print cr
-
-		"Emite: " print  'pad 4 input cr
-		'brev "Reverse" btncheck cr
-		blanco
-		0.8 %s qdim 0 0 fpos
-		gc.box
-		'locdraw gceditdraw
-
-		|--- botonera
-		48 qdim 32 sh 32 - pos
-		verde 'savegesto btne blanco 'i.ok drawric gc>>
-		rojo 'exit btne blanco 'i.remove drawric gc>>
-		gc>>
-		violeta 'delbox btne blanco 'i.minus_sign drawric gc>>
-		violeta 'addbox btne blanco 'i.plus_sign drawric gc>>
-		violeta 'breakbox btne blanco 'i.cut drawric gc>>
-		violeta 'handbox btne blanco 'i.pencil drawric gc>>
-		gc>>
-		rojo 'deletegesto btne blanco 'i.trash drawric gc>>
-		cminiflecha ;
-
-:editsimbol | nro -- nro
-	dup 'simactual !
-	'locdraw over 12 << 'memsim + 1024 move
-	'locdraw ( @+ 1? )( drop ) drop 4 - 'locdraw> !
-	0 'locnow !
-	'locdraw getid 'idnow !
-	dup 2 << 'infosim + @
-	dup 12 >> 'brev !
-	$fff and
-	mark
-	'pad 'here ! ,d 0 ,c
-	empty
-	editgesto
-	;
-
-:newsimbol
-	0 'locdraw !
-	'locdraw 'locdraw> !
-	0 'locnow !
-	1 'idnow !
-	nsimbol 'simactual !
-	editgesto ;
-
 |---------------------------------------------
-:drawnsimbol | n -- n
-	nsimbol >=? ( ; )
-	verde
-	gc.box
-	dup 12 << 'memsim + gcdrawl
-	'editsimbol guiBtn
-
-	home cyan
-|	dup "%d" print
-	dup 2 << 'infosim + @ $ff and "%d" print cr
-|	dup 2 << 'lensim + @ "%d" print
-	;
-
-
-#primero 0
-
-:drawsim
-	verde
-	0.1 %s qdim
-	primero >r
-	0.7 ( -0.7 >? )(
-		-0.8 ( 0.8 <=? )(
-			2dup swap fpos
-			r drawnsimbol drop
-|			gc.box
-			1 r+
-			0.2 + ) drop
-		0.2 - ) drop
-	rdrop ;
-
-:sigsim
-	primero 10 +
-	nsimbol >? ( drop ; )
-	'primero ! ;
-
-:presim
-	primero 10 -
-	0 <? ( drop ; )
-	'primero ! ;
-
-|------------------------------------
 #best
 #nbest
 
@@ -492,11 +276,13 @@
 :rec1
 	| por cantidad de trazos
 	id
+
 	| sin trazos
 	| un trazos
 	| dos trazos
 	| tres trazos
 	| cuatro trazos
+
 	drop
 	;
 
@@ -534,65 +320,9 @@
 	;
 
 |-------------------------------------------------
-:addsig
-	signon 7 << 'signod +
-	'pc2dn
-	30 move
-
-	pnt2 pnt1
-	over >? ( swap ) | ordenados
-	signon 7 << 'signod + 120 + !+ !
-
-	1 'signon +! ;
-
-| auxiliar para ordenar por cantidad de trazos
-#sortrazo )( 4096
-
-:sortpnt | por cantidad de trazos
-	'sortrazo >r
-	0 ( nsimbol <? )(
-		dup |12 << 'memsim +
-		dup 12 << 'memsim + getid r!+ r!+
-		1+ ) drop
-	rdrop
-	nsimbol 1+ 'sortrazo shellsort
-
-	0 'signon !
-	0 ( nsimbol <? )(
-		dup 3 << 4+ 'sortrazo + @
-			12 << 'memsim +
-			topc2d
-		clearsig
-        pntextrae
-		normalize
-		resample
-		addsig
-		1+ ) drop
-	;
-
-:makeset
-	0 'signon !
-	0 ( nsimbol <? )(
-		dup 12 << 'memsim + topc2d
-		clearsig
-        pntextrae
-		normalize
-		resample
-		addsig
-		1+ ) drop ;
-
-:saveset
-	'signod signon 7 << + >r
-	0 ( nsimbol <? )(
-		dup 3 << 4+ 'sortrazo + @
-		2 << 'infosim + @
-		r!+ 1+ ) drop
-	rdrop
-
-	'signon signon 7 << 4+
-	signon 2 << +
-	"inc/gesto/set1.gst"
-	save
+:loadset
+	'signon "inc/gesto/set1.gst" load drop
+	'signod signon 7 << + 'infosim !
 	;
 
 :showbest
@@ -600,24 +330,26 @@
 	100 qdim sw 60 - sh 60 - pos
 	gc.box
 
-	drop
-	|7 << 'signod + drawsig
+	2 << infosim + @ home "%d " print
+|	drop
+|	7 << 'signod + drawsig
 
 	drawmatch
 	;
 
-:testf
-	makeset
+:main
+	loadset
 	pc2dreset
 	resetpnt
 	resetfit
+	33
 	show clrscr
 		robotoregular 32 rfont!
 		blanco
 		signon "%d | " print best nbest "%d %d" print cr
 		id "id:%d" print
 |        'pc2d ( pc2d> <? )( @+ "%h " print ) drop
-		viewsig
+|		viewsig
 		gestobox
 		showbest
 
@@ -629,73 +361,10 @@
 		'exit >esc<
 		cminiflecha ;
 
-:testf2
-	sortpnt
-	saveset
-	pc2dreset
-	resetpnt
-	resetfit
-	show clrscr
-		robotoregular 32 rfont!
-		blanco
-		signon "%d | " print best nbest "%d %d" print cr
-		id "id:%d" print
-|        'pc2d ( pc2d> <? )( @+ "%h " print ) drop
-		viewsig
-		gestobox
-		showbest
-
-		|--- botonera
-		48 qdim 32 sh 32 - pos
-		rojo 'exit dup >esc< btne blanco 'i.off drawric gc>>
-		gc>>
-
-		'exit >esc<
-		cminiflecha ;
-
-:savef
-	sortpnt
-	show clrscr
-        viewsig
-		'exit >esc<
-		;
 
 |------------------------------------
 :ram
-	mark
-	'nsimbol "inc\gesto\gesto.mem" load
-	drop ;
-
-:endram
-	'nsimbol $fffff 1024 + 1024 + 4+
-	"inc\gesto\gesto.mem" save ;
+	mark ;
 
 
-:main
-	pc2dreset
-	resetpnt
-	33
-	show clrscr
-		fonti
-		drawsim
-		robotoregular 48 rfont!
-
-		|--- botonera
-		48 qdim 32 sh 32 - pos
-		rojo 'exit dup >esc< btne blanco 'i.off drawric gc>>
-		gc>>
-		verde 'newsimbol btne blanco 'i.plus drawric gc>>
-		verde 'testf2 btne blanco 'i.pencil drawric gc>>
-		verde 'savef btne blanco 'i.save drawric gc>>
-		gc>>
-		cyan [ 9 'primero +! ; ] btne blanco 'i.double_angle_down drawric gc>>
-		cyan [ primero 9 - -? ( drop ; ) 'primero ! ; ] btne blanco 'i.double_angle_up drawric gc>>
-
-		scr home verde
-		dup "%d) " print
-		nsimbol "%d simbolos " print
-
-		cminiflecha
-		'exit >esc< ;
-
-: ram main endram ;
+: ram main ;
