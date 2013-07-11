@@ -24,9 +24,14 @@
 
 :hablaMilagros
 	-1 sinfo 1? ( drop ; ) drop
-	fraseA 0? ( drop ; )
+	fraseA 0? ( drop clearfrase ; )
 	@+ 1? ( splay )( nip )
 	'fraseA ! ;
+
+:frase!
+|	0 frase> !+ 'frase> !
+	0 frase> !
+	fraseA 0? ( 'frase 'fraseA ! ) drop ;
 
 |--------------------------------------------------------------------------
 #s0 #s1 #s2 #s3 #s4 #s5 #s6 #s7 #s8 #s9
@@ -64,7 +69,7 @@
 	playU ;
 
 ::nro2say | nro --
-	clearfrase
+|	clearfrase
 	0? ( dup playU frase, frase, ; )
 	dup 1000000 / 1000 mod
 	1 >? ( 0 cien2texto sMillones frase, )( 1 =? ( sUnMillon frase, ) drop )
@@ -72,28 +77,76 @@
 	1 >? ( 0 cien2texto sMil frase, )( 1 =? ( sMil frase, ) drop )
 	1000 mod
 	1 cien2texto
-	0 frase, ;
+	|0 frase,
+	;
 
 :saynro | nro --
-	nro2say 'frase 'fraseA ! ;
+	nro2say frase! ;
 
 |--------------------------------------------------------------------------
 |--------------------------------------------------------------------------
+#nro1 0
+#nro2
+#nop -1
 
-#pad )( 128
 #log )( 1024
 
-:entrar
-|	'pad
-|	trim dup c@
-	|+
-	|-
-	|*
-	|/
-	|=
-	'pad str>int saynro
-	0 'pad !
-	refreshfoco
+:transf
+	nop +? ( drop ; ) drop
+	nro1 dup nro2say frase!
+	'nro2 !
+	0 'nro1 ! ;
+
+:tmas
+	transf
+	1 'nop !
+	smas frase, frase! ;
+:tmenos
+	transf
+	2 'nop !
+	smenos frase, frase! ;
+:tpor
+	transf
+	3 'nop !
+	spor frase, frase! ;
+:tdiv
+	transf
+	4 'nop !
+	sdividido frase, frase! ;
+
+:opmas + ;
+:opmenos - ;
+:oppor * ;
+:opdiv / ;
+
+#lop 'opmas 'opmenos 'oppor 'opdiv
+
+:tigual
+	nop -? ( drop ; ) drop
+	sigual frase, frase!
+	nro2 nro1
+	nop 1- 2 << 'lop + @ exec
+	dup 'nro1 !
+	0 'nro2 !
+	nro2say frase!
+	-1 'nop !
+	;
+
+:esnro | v -- v
+	11 =? ( 11 - )( 1- )
+	dup saynro
+	nro1 10 * over + 'nro1 !
+	;
+
+:teclas
+	'tmas <f1>
+	'tmenos <f2>
+	'tpor <f3>
+	'tdiv <f4>
+	key 1 >? ( 12 <? ( esnro ) ) drop
+	'tigual <enter>
+	[ nro1 10 / 'nro1 ! ; ] <back>
+	[ 0 'nro1 ! ; ] <del>
 	;
 
 :teclado
@@ -101,13 +154,19 @@
 		hablaMilagros
 		robotobold 48 rfont!
 		verde " Calculadora de Milagros" print cr cr2
-		blanco sp 'pad 64 input cr
+        robotobold 32 rfont!
+		cyan
+		"f1:+ f2:- f3:* f4:/" print cr
+
+		teclas
+		blanco
+		nro1 " %d" print cr
+		nro2 " %d" print cr
 		'log print
 
-		'entrar >enter<
 		'exit >esc<
 		cminiflecha
-	;
+		;
 
 :swait
 	-1 ( sinfo 0? ) drop ;
