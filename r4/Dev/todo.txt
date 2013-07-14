@@ -15,7 +15,7 @@
 #objs )( 10000
 #pad 4
 #buffer )( 64
-#xdrag #ydrag #dragging? 0 #dx 0 #dy 0
+#dragging? 0 #dx 0 #dy 0
 
 :s!+ | ( mem val -- mem+4 )
 swap !+ ;
@@ -35,11 +35,14 @@ swap !+ ;
 :get.ptr | ( obj.num -- ptr.mem )
 'objs 4 + >r 1- ( +? )( r> next.obj >r 1- ) drop r> ;
 
+:get.size | ( obj.num -- size )
+get.ptr 8 + @ 13 + ;
+
 :load.objs | ( -- )
 'objs "mem/todo.mem" load drop ;
 
 :save.objs | ( -- )
-dummy.data 'objs 10000 "mem/todo.mem" save ;
+'objs 10000 "mem/todo.mem" save ;
 
 :rot- | ( a b c -- c a b )
 rot rot ;
@@ -58,8 +61,16 @@ dup rojo "[%d]" print ;
 :i@+ | ( mem -- @mem mem+4 )
 @+ swap ;
 
-:get.xy | ( n -- x y )
-get.ptr i@+ @  ;
+:get.xy.ndrag
+get.ptr i@+ @ ;
+
+:get.xy.drag
+under.mouse -1 =? ( drop get.xy.ndrag dx dy 2d+ )( | canvas move
+=? ( get.ptr i@+ @ dx dy 2d+ )( get.ptr i@+ @ ) ) ; | single object move
+
+#get.xy.vector 'get.xy.ndrag 'get.xy.drag
+
+:get.xy 'get.xy.vector dragging? 4 * + @ exec ;
 
 :ini.dx.dy 
 0 dup 'dx ! 'dy ! ;
@@ -77,7 +88,7 @@ sizeprint nip cch ;
 get.ptr 12 + ;
 
 :get.obj.attr | ( n -- x y str ) returns attributes of object #n 
-get.ptr i@+ i@+ 4 + ;
+dup >r get.xy r> get.ptr 12 + ;
 
 :draw.obj | ( n -- )
 get.obj.attr draw ;
@@ -93,22 +104,58 @@ $cccccc paper robotoregular 0.05 %s rfont! rojo 'exit "Exit" 1 menur
 sp sp negro debug cr cr handle.mouse cr cr ;
 
 :get.wh.xy | ( n -- w h x y )
-dup get.str calc.wh rot get.xy ;
+dup get.str calc.wh rot get.xy add.padding ;
 
+| ne pas recalculer si un seul obj est en cours de drag
 :under.mouse.object  | returns first object under the mouse
+dragging? +? ( drop under.mouse +? ( drop ; )( drop ) )( drop )
 n.objs ( +? )( dup get.wh.xy mouse.on.rect? 1 =? ( drop 'under.mouse ! ; )( drop ) 1- ) drop -1 'under.mouse ! ;
+
+:shift.obj | ( n ** )
+dup >r get.xy swap r> get.ptr !+ ! ;
+
+:shift.objects | shift all objects by (dx, dy)
+n.objs ( +? )( dup shift.obj 1- ) drop ini.dx.dy ;
+
+|----
+|  mdrag(0/1), under.mouse(-1/#), 
+
+:drag.on | ( ** )
+dragdx dragdy 'dy ! 'dx ! 1 'dragging? ! ;
+
+:drag.off | ( ** )
+dragging? 1? ( shift.objects 0 'dragging? ! ) drop ;
+
+#drag.vector 'drag.off 'drag.on
+
+:handle.dragging
+'drag.vector mdrag 4 * + @ exec ;
+
+|----
 
 :edit.objs
 	screen.setup
 	0 'buffer !
 	show clrscr
 	     screen.setup txtin
+
 	     amarillo 360 560 'buffer draw
+
 	     under.mouse.object
 	     draw.list.objs
 	     50 150 atxy under.mouse ">   %d" pcr
+	     1 get.size "size: %d" pcr
+	     4 get.size "size: %d" pcr
+
+	     under.mouse +? ( "Selected!" pcr ) drop
+
+	     handle.dragging
+
+	     | if bmouse eq 1 && under.mouse != -1 --> copy contents of object in buffer
+	   
 	     cminiflecha
 	     'exit >esc< ;
 
-: save.objs | <---------- make sure new format is used, to be removed.....
+: | save.objs | <---------- make sure new format is used, to be removed.....
   load.objs 33 edit.objs save.objs ;
+
