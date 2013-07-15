@@ -9,16 +9,19 @@
 ^r4/lib/formkit.txt
 ^inc/rft/robotoregular.rft
 
-| objects :         nobjs, [ x, y, len, chars ] * nobjs
-
 #under.mouse -1
-#objs )( 10000
+#objs )( 20000
 #pad 4
 #buffer )( 64
-#dragging? 0 #dx 0 #dy 0
+#dragging? 0
+#dx 0
+#dy 0
+#obj.edited -1
 
 :s!+ | ( mem val -- mem+4 )
 swap !+ ;
+
+| objects :         nobjs, [ x, y, len, chars ] * nobjs
 
 :dummy.data
 	5 'objs !+
@@ -32,11 +35,28 @@ swap !+ ;
 :next.obj | ( mem -- mem.next ) returns pointer to next object
 8 + dup @ 1+ 4 + + ;
 
-:get.ptr | ( obj.num -- ptr.mem )
+:n.objs | ( -- nobjs )
+'objs @ ;
+
+:get.ptr | ( obj.num -- ptr.mem ) pointer to object obj.num
 'objs 4 + >r 1- ( +? )( r> next.obj >r 1- ) drop r> ;
 
-:get.size | ( obj.num -- size )
+:get.size | ( obj.num -- size ) size in bytes of object obj.num
 get.ptr 8 + @ 13 + ;
+
+:get.total.size | ( -- total.size ) total size occupied by all objects
+0 >r n.objs ( +? )( dup get.size r> + >r 1- ) drop r> ;
+
+:get.next.obj.ptr | ( -- ptr ) ptr where to store the next object
+'objs get.total.size 4 + + ;
+
+:add.obj
+get.next.obj.ptr 270 s!+ 580 s!+ 3 s!+ "aha" swap strcpyl drop
+1 'objs +! ;
+
+| calculate real size
+:del.obj | ( n ** ) 
+1 get.ptr 2 get.ptr 10000 cmove -1 'objs +! ;
 
 :load.objs | ( -- )
 'objs "mem/todo.mem" load drop ;
@@ -46,6 +66,9 @@ get.ptr 8 + @ 13 + ;
 
 :rot- | ( a b c -- c a b )
 rot rot ;
+
+:3dup | ( a b c -- a b c a b c )
+pick2 pick2 pick2 ;
 
 :4dup | ( a b c d -- a b c d a b c d )
 pick3 pick3 pick3 pick3 ;
@@ -78,9 +101,6 @@ under.mouse -1 =? ( drop get.xy.ndrag dx dy 2d+ )( | canvas move
 :calc.wh | ( str -- w h )
 sizeprint nip cch ;
 
-:n.objs | ( -- nobjs )
-'objs @ ;
-
 :draw | ( x y str ** )
 >r 2dup r calc.wh 2swap add.padding 4dup vfill negro rect atxy r> print ;
 
@@ -90,8 +110,24 @@ get.ptr 12 + ;
 :get.obj.attr | ( n -- x y str ) returns attributes of object #n 
 dup >r get.xy r> get.ptr 12 + ;
 
+| ---------------------------------------------------------------
+| put in math.txt
+
+::inf | ( x y -- 0/1 ) 1 if x < y
+      <? ( 1 )( 0 ) nip ;
+
+::sup | ( x y -- 0/1 ) 1 if x > y
+      >? ( 1 )( 0 ) nip ;
+
+| ---------------------------------------------------------------
+
+:inside.screen | ( x y str -- 0/1 ) is the object inside the screen ? SW/SH
+3dup calc.wh 2d+ 0 inf >r 0 inf >r drop sh sup >r sw sup r> r> r> or or or 1 xor ;
+
+:draw.arrow drop op sw 2/ sh 2/ line ;
+
 :draw.obj | ( n -- )
-get.obj.attr draw ;
+get.obj.attr 3dup inside.screen 1 =? ( drop draw )( drop draw.arrow ) ;
 
 :draw.list.objs | ( -- )
 n.objs ( +? )( dup amarillo under.mouse =? ( oscuro ) draw.obj 1- ) drop ;
@@ -99,8 +135,12 @@ n.objs ( +? )( dup amarillo under.mouse =? ( oscuro ) draw.obj 1- ) drop ;
 :txtin 
 azul 'buffer 64 input ;
 
+:new.obj ;
+
 :screen.setup 
 $cccccc paper robotoregular 0.05 %s rfont! rojo 'exit "Exit" 1 menur
+ 'add.obj "New" 1 menur
+ 'del.obj "Del" 1 menur
 sp sp negro debug cr cr handle.mouse cr cr ;
 
 :get.wh.xy | ( n -- w h x y )
@@ -117,9 +157,6 @@ dup >r get.xy swap r> get.ptr !+ ! ;
 :shift.objects | shift all objects by (dx, dy)
 n.objs ( +? )( dup shift.obj 1- ) drop ini.dx.dy ;
 
-|----
-|  mdrag(0/1), under.mouse(-1/#), 
-
 :drag.on | ( ** )
 dragdx dragdy 'dy ! 'dx ! 1 'dragging? ! ;
 
@@ -131,31 +168,19 @@ dragging? 1? ( shift.objects 0 'dragging? ! ) drop ;
 :handle.dragging
 'drag.vector mdrag 4 * + @ exec ;
 
-|----
-
 :edit.objs
 	screen.setup
 	0 'buffer !
 	show clrscr
-	     screen.setup txtin
-
-	     amarillo 360 560 'buffer draw
-
+	     screen.setup
+	     amarillo
+	     360 560 'buffer draw
+	     360 560 atxy txtin
 	     under.mouse.object
 	     draw.list.objs
-	     50 150 atxy under.mouse ">   %d" pcr
-	     1 get.size "size: %d" pcr
-	     4 get.size "size: %d" pcr
-
-	     under.mouse +? ( "Selected!" pcr ) drop
-
 	     handle.dragging
-
-	     | if bmouse eq 1 && under.mouse != -1 --> copy contents of object in buffer
-	   
 	     cminiflecha
 	     'exit >esc< ;
 
-: | save.objs | <---------- make sure new format is used, to be removed.....
+: dummy.data save.objs | <---------- make sure new format is used, to be removed.....
   load.objs 33 edit.objs save.objs ;
-
