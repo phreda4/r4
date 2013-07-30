@@ -5,19 +5,19 @@
 
 #lab1 30 15 1 1
 "##############################"
-"#                ##         ##"
-"# ############## ## ####### ##"
-"#     ##    ####    ##   ## ##"
+"#      1         ##        3##"
+"################ ## ####### ##"
+"#     ##    ####  2 ##   ## ##"
 "##### ## ##   ######## #    ##"
 "##### ## ####     #### #######"
-"#     ###  ###### ####      ##"
+"#     ###  ###### ####4     ##"
 "# ########     ## ######### ##"
 "# ############ ## ######### ##"
 "#    ###    ## ## ####   ## ##"
 "#### ### ## ## ##   ## # ## ##"
 "#### ### ## ## #### ## # ## ##"
 "### #### ## ## #### ## # ## ##"
-"###      ##    ####    #    ##"
+"###      ##    ####F   #5   ##"
 "##############################"
 
 #lab2 30 15 1 1
@@ -155,19 +155,19 @@
 
 #lab10 30 15 1 1
 "##############################"
-"# #     ##       ####    #   #"
+"#I#     ##3      ####    #   #"
 "# # ### ## #####      ## # # #"
 "#   ### ##     #########   # #"
 "####### ######   ########### #"
-"####### #    ### #         # #"
+"####### #    ### #        4# #"
 "###     # ## ### # #######   #"
 "### #####  #     # #     #####"
-"#   #   ## ######  # ### #   #"
+"#1  #   ## ######  # ### #   #"
 "# ### #  #      # ## #   # # #"
 "#   # ## ###### # ## # ### # #"
 "### #  # #   ## # ## # ##  # #"
 "### ## # # # ## # ## # ## ## #"
-"###    #   #    #    #    ## #"
+"###    #   #2   #    #5   ##F#"
 "##############################"
 
 |*********** variables
@@ -278,7 +278,7 @@
 #sndder
 
 #sndlista 0 'snddos 'snddos 'snddos 'sndstop
-#sndpan 0 -128 127 0 0
+#sndpan 0 0 255 0 0
 
 
 :loads
@@ -298,14 +298,22 @@
 
 	;
 
-:volumen | snd vol pan --
-| // pan vol frec mm --
-	swap -1 pick3 sset splay ;
 
+| PAN 0..7f(center)..ff
+| VOL 0..ff
+| FREC  muestreo
+|---------------------------------------
+#frec 44100
+
+:explay | SND pan vol frec --
+	pick3 sset splay ;
+
+| ahora dist|pan
 :sndplay | n --
-	dup 8 >> 0? ( 2drop ; )
-	2 << dup 'sndpan + @ >r
-	'sndlista + @ @ swap $ff and r> volumen ;
+	dup $ff and
+	swap 8 >> 1- 14 <<
+	frec +		| pan frec
+	sndsin rot rot $ff swap explay ;
 
 #frase  )( 256
 #frase> 'frase
@@ -324,59 +332,52 @@
 	'fraseA ! ;
 
 |********* acciones ************
-
 :mover
 	yj + swap xj + swap
 	2dup getb
 	$23 =? ( 3drop ; )		| # pared
-	$46 =? ( 1 'estado ! )	| F fin
+	$46 =? ( 1 'estado ! sndfin splay )	| F fin
 	$2E =? ( 1 'puntos +! ) | . punto
+	$31 =? ( sndl1 splay )
+	$32 =? ( sndl2 splay )
+	$33 =? ( sndl3 splay )
+	$34 =? ( sndl4 splay )
+	$35 =? ( sndl5 splay )
 	drop
 	'yj ! 'xj !
 	;
 
-:playnivel | n -- val
-	>r
-	dj 1- 3 and dgetxy
-	r espareda 2*
-	dj 1+ 3 and dgetxy
-	r espareda or
-	0 0 r> espareda 1? ( 2drop 4 ; ) drop
-	;
 
-:playsonar
-	clearfrase
-	0 playnivel 8 << $ff or frase,
-	1 playnivel 8 << $7f or frase,
-	2 playnivel 8 << $3f or frase,
-	3 playnivel 8 << $1f or frase,
-	0 frase,
-	'frase 4 ( 1? )( 1- swap
-		@+ 8 >> 4 =? ( 0 pick2 ! ) drop
-		swap ) 2drop
-	'frase 'fraseA !
+:prof | direccion -- profundidad
+	dgetxy	| dx dy
+	1 pick2 pick2	| dx dy 1 accx accy
+	( 2dup espared 0? )(
+		drop rot 1+ rot pick4 + rot pick3 + )
+		3drop
+	nip nip
 	;
 
 :playsonar2
 	clearfrase
-
+	dj 1- $3 and prof 8 << 0 or frase,
+	dj  $3 and prof 8 << $7f or frase,
+	dj 1+ $3 and prof 8 << $ff or frase,
+|	dj 2 + $3 and prof 8 << $7f or frase,
+	'frase 'fraseA !
 	;
 
 :adelante
-	dj dgetxy mover
-	playsonar
-	;
+	dj dgetxy mover playsonar2 ;
 
 :atras
-	dj 2 + 3 and dgetxy mover
-	playsonar
-	;
+	dj 2 + 3 and dgetxy mover playsonar2 ;
 
 |********** principal ************
 :main
-    'lab10 setlab
+    'lab1 setlab
 	fonti
 	33
+	sndini splay
 	show clrscr
 		sonido
 		dibuja3d
@@ -385,19 +386,17 @@
 		2dup "%d %d " print
 		"Laberinto " print
 		tiempo "t:%d seg." print
-		drawlab
 
+		drawlab
 
 		'adelante <up>
 		'atras <dn>
-		[ dj 1+ 3 and 'dj ! playsonar ; ] <ri>
-		[ dj 1- 3 and 'dj ! playsonar ; ] <le>
-
-		[ playsonar ; ] <f1>
-		[ snddos 150 volumen ; ] <f2>
-		[ snddos 50 volumen ; ] <f3>
+		[ dj 1+ 3 and 'dj ! playsonar2 ; ] <ri>
+		[ dj 1- 3 and 'dj ! playsonar2 ; ] <le>
+		'playsonar2 <f1>
 
 		'exit >esc<
-		1000 .mseg .restart 1 'tiempo +! ;
+		1000 .mseg .restart
+		1 'tiempo +! ;
 
 : loads main ;
