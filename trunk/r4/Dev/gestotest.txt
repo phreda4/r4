@@ -14,6 +14,10 @@
 ^inc/ric/fontawesomewebfont.ric
 ^inc/rft/robotoregular.rft
 
+#emiteg
+#RTIME 600 		| msec reconocedor entre trazos
+#RPREC 70000	| precision
+
 #numPoints 30 | 32
 | reservo dos puntos para marcarlos como puntos solos (.:;)
 
@@ -24,7 +28,7 @@
 #pc2d> 'pc2d
 #pc2d2 )( $3fff
 #pc2d2> 'pc2d
-#id 1
+#id 0
 #aux )( $3fff
 #aux> 'aux
 #pc2dn )( 128
@@ -72,10 +76,10 @@
 	pc2d> !+ 'pc2d> ! ;
 
 :pc2dreset
-	'pc2d 'pc2d> ! 1 'id ! ;
+	'pc2d 'pc2d> ! ;
 
 :gcpc2ddraw
-	0 >r
+	-1 >r
 	'pc2d ( pc2d> <? )( @+
 		dup $ff and r <>? ( drop ngc>xy op 1 r+ )( drop ngc>xy line )
 		) drop rdrop ;
@@ -205,6 +209,10 @@
 |---------------------------------------------
 #best
 #nbest
+#rectime | tiempo de reconocedor
+#recstat | cantidad de trazos
+#timelast
+#signnow
 
 :getxy1 | nro -- xy
 	7 << 'signod + swap 2 << + @ ngc>xy ;
@@ -224,6 +232,10 @@
 :resetfit
 	-1 'nbest !
 	$7fffffff 'best !
+	0 'rectime !
+	0 'recstat !
+	0 'id !
+	0 'signnow !
 	;
 
 :addpnts
@@ -242,63 +254,68 @@
 		rot + swap )				| nro last suma act
 	drop nip rdrop ;
 
+|.......... fitness con reverso
+:calcfiti | nro -- nro suma
+	dup 7 << 'signod + >r	| nro   r:simbolo
+	'pc2dn dup 120 +		| nro act last	120=30*4
+	swap
+	0 rot
+	( pick2 >? )( | nro last suma act
+		dup @ n>xy r@+ n>xy
+		rot - rot rot - distfast	| nro last suma act delta
+		rot + swap 4 - )				| nro last suma act
+	drop nip rdrop ;
+
 :fitness
 	0 ( signon <? )(
 		calcfit
 		best <? ( 'best ! dup 'nbest ! )( drop )
 		1+ ) drop ;
 
-:invert
-	'pc2dn dup 120 + | first last
-	( over >? )(
-		over @ over @	| f l f@ l@
-		pick3 ! over !
-		4 - swap 4+ swap ) 2drop ;
-
 |------------------------------------
-#rectime | tiempo de reconocedor
-#recstat | estado: multiple
+:doble
+	calcfiti best <? ( 'best ! dup 'nbest ! )( drop )
+:simple
+	calcfit best >=? ( drop ; )
+	'best ! dup 'nbest ! ;
 
-:reconoce
+:add1trazo
 	clearsig
     pntextrae
 	normalize                                      -
 	resample
 	addpnts
 
-	fitness
-|	invert fitness
+	1 'id +! RTIME 'rectime ! msec 'timelast !
+	signnow ( signon <? )(
+		dup 2 << infosim + @
+		dup 16 >> id >? ( 2drop 'signnow ! ; ) drop
+|		$1000 and? ( drop doble )( drop simple )	| tambien en revesa
+		drop simple
+		1+ ) drop
+	-1 'rectime ! | obliga finalreconoce
+	;
 
+:finalreconoce
+	best RPREC <? ( nbest 2 << infosim + @ $ff and )( 0 ) 'emiteg !
 	pc2dreset
 	resetpnt
+	resetfit
 	;
 
-:untrazo
-
-	;
-
-:rec1
-	| por cantidad de trazos
-	id
-
-	| sin trazos
-	| un trazos
-	| dos trazos
-	| tres trazos
-	| cuatro trazos
-
-	drop
-	;
+:timereconoce
+	rectime 0? ( drop ; )
+	-? ( finalreconoce ; )
+	msec timelast over 'timelast !
+	- neg rectime + 0? ( 1- ) 'rectime ! ;
 
 :gestobox
 	0.8 %s qdim 0 0 fpos
 	blanco gc.box
-	[ xymouse xygc>n +pc2d ; ]
-	[ xymouse xygc>n ++pc2d ; ]
-	[ rec1 1 'id +! ; ]
-	guiMap
-	'reconoce <f1>
+	[ xymouse xygc>n +pc2d ; ] [ xymouse xygc>n ++pc2d ; ] 'add1trazo guiMap
+	'reconoce <f1> | quitar!!
 	gcpc2ddraw
+	timereconoce
 	;
 
 |-------------------------------------------------
@@ -341,6 +358,9 @@
 	drawmatch
 	;
 
+#pad )( 30
+#pad> 'pad
+
 :main
 	loadset
 	pc2dreset
@@ -351,10 +371,15 @@
 		robotoregular 32 rfont!
 		blanco
 		signon "%d | " print best nbest "%d %d" print cr
-		id "id:%d" print
+		id "id:%d" print cr
+		rectime "%d REC" print cr
+		'pad print
+
 |        'pc2d ( pc2d> <? )( @+ "%h " print ) drop
 |		viewsig
+
 		gestobox
+		emiteg 1? ( dup pad> c!+ 'pad> ! 0 'emiteg ! ) drop
 		showbest
 
 		|--- botonera
