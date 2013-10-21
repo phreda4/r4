@@ -36,7 +36,8 @@
 |--------- formato fuente 1
 #yp #xp
 :a0 drop ; | el valor no puede ser 0
-:a1 xp $80000000 <>? ( yp pline )( drop )
+:a1 |xp $80000000 <>? ( yp pline )( drop )	|****
+	xp yp pline
 	gc>xy 2dup 'yp !+ ! op ;  | punto
 :a2 gc>xy pline ; | linea
 :a3 swap >r gc>xy r@+ gc>xy pcurve r> ;  | curva
@@ -58,10 +59,27 @@
 
 :drawrf | 'rf --
 	0? ( drop ; )
-	$80000000 'xp !
+
+|	$80000000 'xp !				|****
+	@+ gc>xy 2dup 'yp !+ ! op
+
 	( @+ 1? )( dup $7 and 2 << 'gfont + @ exec ) 2drop
 	xp yp pline
 	poli ;
+
+
+:ap0 drop ; | el valor no puede ser 0
+:ap1 verde gc>xy 2 box ;  | punto
+:ap2 azul gc>xy 2 box ; | linea
+:ap3 rojo gc>xy 2 box @+ gc>xy 2 box ;  | curva
+:ap4 violeta gc>xy 2 box @+ gc>xy 2 box @+ gc>xy 2 box ; | curva3
+
+#gfontp ap0 ap1 ap2 ap3 ap4 0 0 0
+
+:drawrfp | 'rf --
+	0? ( drop ; )
+	( @+ 1? )( dup $7 and 2 << 'gfontp + @ exec ) 2drop
+	;
 
 |----------- formato fuente 2
 | 16 bits
@@ -213,6 +231,7 @@
 	1 'optlin +! | for counting
 	;
 |---  remove colinel lines ---
+#laststart
 
 :,linea |
 	x1 y1 xy>gc 2 or ,dec
@@ -220,16 +239,43 @@
 	decode 12 - checkline
 	;
 
+:removecurve
+	gc>xy laststart @ gc>xy
+	rot - abs >r - abs r> +
+	5 <? ( -8 'decode +! )
+	drop ;
+	;
+
+:removelast
+	decode 4 - @
+	dup $7 and
+	3 =? ( drop removecurve ; )
+	2 <>? ( 2drop ; ) drop
+	gc>xy laststart @ gc>xy
+	rot - abs >r - abs r> +
+	5 <? ( -4 'decode +! )
+	drop ;
+
+:,punto
+	laststart 1? ( removelast ) drop
+	decode 'laststart !
+	x1 y1 xy>gc 1 or ,dec
+	;
+
 :moveto | adr -- adr' ; XY
 	getnro 'x1 !
 	getnro 'y1 !
 	endmove
-	x1 y1 xy>gc 1 or ,dec ;
+	,punto ;
+|	x1 y1 xy>gc 1 or ,dec ;
+
 :movetor | adr -- adr' ; xy
 	getnro 'x1 +!
 	getnro 'y1 +!
 	endmove
-	x1 y1 xy>gc 1 or ,dec ;
+	,punto ;
+|	x1 y1 xy>gc 1 or ,dec ;
+
 :lineto | adr -- adr' ; XY
 	x1 y1 'y2 ! 'x2 !
 	getnro 'x1 !
@@ -376,12 +422,14 @@
 	;
 
 :encode | adr -- adr'
+	0 'laststart !
 	( trim c@+ 0? ( drop 1- ; )
 		$22 <>? )( resolve ) drop  ;
 
 :endchar
 	decode 4 - @
 	$f and 5 =? ( -4 'decode +! ) drop
+	removelast
     0 ,dec ;
 
 :widthgc | width -- v
@@ -529,11 +577,13 @@
 	256 ( 1? )( 1-
 		0 r!+
 		) drop rdrop
-	| recorre los dinujos
+	| recorre los dibujos
 	findex> 'findex - 2 >>
 	0 ( over <? )(
 		dup ]unic getuninro savechar drop
 		1+ ) 2drop ;
+
+|-------------------------------------
 
 :printchar | nro -- nro
 	dup 2 << 'tableascii + @
@@ -580,7 +630,7 @@
 		swap 1+ 16 >? ( ,nl 0 nip ) swap
 		1+ ) 2drop ,nl
 	"::" ,s 'namefont ,s ,sp
-	xe ,d ,sp ye ,d
+	xe ,d ,sp ye descent 2/ + ,d
 	" 'c0 'table ; " ,ln
 	'namefont "inc/rft/%s.rft" mprint savemem
 	empty
@@ -671,6 +721,8 @@
 		gc.box
 		pagina ]ind drawrf
 
+		pagina ]ind drawrfp
+
 |		rojo
 |		xe w 14 *>> xc + ye h 14 *>> yc +
 |		2dup op over pagina ]info w 14 *>> + over line
@@ -681,6 +733,7 @@
 		xc w 2/ - ascent h 14 *>> yc +
 		2dup op swap w + swap line
 
+		verde
 		xc w 2/ - descent h 14 *>> yc +
 		2dup op swap w + swap line
 
@@ -692,6 +745,7 @@
 
 		'generatefont <f1>
 		'generateicons <f2>
+
 		'exit >esc<
 	;
 
