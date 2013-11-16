@@ -1,6 +1,24 @@
 | token r4
 | PHREDA 2013
 |----------------------------------
+| 0 
+| 1 :
+| 2 ::
+| 3 #
+| 4 #:
+| 5 |
+| 6 ^
+| dec
+| hex
+| bin
+| fix
+| str
+| wor
+| var
+| dwor
+| dvar
+| macro ; ...
+|
 ^r4/lib/macrosr4.txt
 ^r4/dev/ide/diccr4.txt
 
@@ -55,7 +73,7 @@
 
 :,ctesimilar | n -- d  ; buscar iguales. muy lento si son muchos!!
 	'tokencte ( tokencte> <? )( @+
-		pick2 =? ( drop nip 'tokencte 4+ - ; ) 
+		pick2 =? ( drop nip 'tokencte 4+ - ; )
 		drop ) drop
 :,cte | n -- d
 	tokencte> swap over !+ 'tokencte> ! 'tokencte - ;
@@ -69,14 +87,14 @@
 		rstr ) rstr ;
 
 :,str | a -- a' d
-	tokenmem> swap realstr swap tokenmem - ;
+	tokenmem> swap realstr swap 'tokenmem - ;
 
 :realcom
 	( 1+ dup c@ 1? )(
 		32 <? ( drop 0 rstr ; )
 		rstr ) rstr ;
 :,com | a -- a' d
-	tokenmem> swap realcom swap tokenmem - ;
+	tokenmem> swap realcom swap 'tokenmem - ;
 
 :realtok
 	( 1+ dup c@ 1? )(
@@ -84,40 +102,63 @@
 		rstr ) rstr ;
 
 :,word | a -- a' d
-	tokenmem> swap realtok swap tokenmem - ;
+	tokenmem> swap realtok swap 'tokenmem - ;
 
-:escom
-	,com 8 << 2 or ,, ;
-:esinclude
-	,word 8 << 0 or ,, ;
-:esdefinicion
-	,word 8 << 1 or ,, ;
-:esvariable
+:pasapal
+	( c@+ 1? )( 33 <? ( drop 1- ; ) drop ) drop 1- ;
+
+|----------- genera token
+:essistema	| str n -- str
+	8 << ,, ;
+:esdefe | str -- str
 	,word 8 << 2 or ,, ;
-:escadena
-	,str 8 << 3 or ,, ;
-:esdir
-	8 << 10 or ,, ;
-:esnro | str val --
-	,ctesimilar
-	8 << 4 or ,, ;
-:esmacro
-	13 ,, ;
+:esdef | str -- str
+	dup c@ $3A =? ( drop 1+ esdefe ; ) drop
+	,word 8 << 1 or ,, ;
+:esvare | str -- str
+	,word 8 << 4 or ,, ;
+:esvar | str -- str
+	dup c@ $3A =? ( drop 1+ esvare ; ) drop
+	dup c@
+	,word 8 << 3 or ,, ;
+
+:escom | str -- str
+	,com 8 << 5 or ,, ;
+:esinclude | str -- str
+	,word 8 << 6 or ,, ;
+
+:tiponro | -- tipon
+	basen
+	2 =? ( drop 9 ; )
+	10 =? ( drop 7 ; )
+	16 =? ( drop 8 ; )
+	-1 =? ( drop 10 ; )
+	drop ;
+:esnro | val --
+	,ctesimilar 8 << tiponro or ,, ;
+:escadena | str -- str
+	,str 8 << 11 or ,, ;
+
 :espalabra
-	8 << 8 or ,, ;
-:essistema
-	8 << 9 or ,, ;
+	8 << 12 or ,, ;
+
+:esdir
+	8 << 14 or ,, ;
+
+:esmacro
+	16 + ,, pasapal ;
 
 |--- busca palabra
 :palabra | str -- str'/0
+	dup memmap
 	( dup c@ 33 <? )(
-		0? ( nip ; ) drop 1+ )		| quitar espacios
-	$5e =? ( drop esinclude ; )		| $5e ^  Include
-	$7c =? ( drop escom ; )			| $7c |	 Comentario
-	$3A =? ( drop esdefinicion ; )	| $3a :  Definicion
-	$23 =? ( drop esvariable ; )	| $23 #  Variable
-	$22 =? ( drop escadena ; )		| $22 "	 Cadena
-	$27 =? ( drop 1+ dup dup		| $27 ' Direccion
+		0? ( nip ; ) drop 1+ )	| quitar espacios
+	$5e =? ( drop esinclude ; )	| $5e ^  Include
+	$7c =? ( drop escom ; )		| $7c |	 Comentario
+	$3A =? ( drop esdef ; )		| $3a :  Definicion
+	$23 =? ( drop esvar ; )		| $23 #  Variable
+	$22 =? ( drop escadena ; )	| $22 "	 Cadena
+	$27 =? ( drop 1+ dup dup	| $27 ' Direccion
 		?macro 1? ( 3drop
 			'error> ! 2 'error !
 			0 ; ) drop
@@ -134,12 +175,12 @@
 
 :palabradef | str -- str'/0
 	( dup c@ 33 <? )(
-		0? ( nip ; ) drop 1+ )		| quitar espacios
-	$7c =? ( drop escom ; )			| $7c |	 Comentario
-	$3A =? ( drop esdefinicion ; )	| $3a :  Definicion
-	$23 =? ( drop esvariable ; )	| $23 #  Variable
-	$22 =? ( drop escadena ; )		| $22 "	 Cadena
-	$27 =? ( drop 1+ dup dup		| $27 ' Direccion
+		0? ( nip ; ) drop 1+ )	| quitar espacios
+	$7c =? ( drop escom ; )		| $7c |	 Comentario
+	$3A =? ( drop esdef ; )		| $3a :  Definicion
+	$23 =? ( drop esvar ; )		| $23 #  Variable
+	$22 =? ( drop escadena ; )	| $22 "	 Cadena
+	$27 =? ( drop 1+ dup dup	| $27 ' Direccion
 		?macro 1? ( 3drop
 			'error> ! 2 'error !
 			0 ; ) drop
@@ -163,12 +204,12 @@
 
 :palabravar | str -- str'/0
 	( dup c@ 33 <? )(
-		0? ( nip ; ) drop 1+ )		| quitar espacios
-	$7c =? ( drop escom ; )			| $7c |	 Comentario
-	$3A =? ( drop esdefinicion ; )	| $3a :  Definicion
-	$23 =? ( drop esvariable ; )	| $23 #  Variable
-	$22 =? ( drop escadena ; )		| $22 "	 Cadena
-	$27 =? ( drop 1+ dup dup		| $27 ' Direccion
+		0? ( nip ; ) drop 1+ )	| quitar espacios
+	$7c =? ( drop escom ; )		| $7c |	 Comentario
+	$3A =? ( drop esdef ; )		| $3a :  Definicion
+	$23 =? ( drop esvar ; )		| $23 #  Variable
+	$22 =? ( drop escadena ; )	| $22 "	 Cadena
+	$27 =? ( drop 1+ dup dup	| $27 ' Direccion
 		?macro 1? ( 3drop
 			'error> ! 2 'error !
 			0 ; ) drop
@@ -212,6 +253,7 @@
 		) 2drop
 	empty ;
 
+|----------- DEBUG ---------------
 ::dumptok
 	'tokenpad ( tokenpad> <? )(
 		@+ "%h " print
