@@ -2,6 +2,12 @@
 | PHREDA 2013
 |----------------------------------
 
+|---- includes
+| 'string|'mem|first|last
+|  0      4    8     12
+#:indiceinc )( $7fff
+#:indiceinc> 'indiceinc
+
 |---- diccionario
 | string|token|mem|info+len+call+gr   16 bytes por palabra
 | 0      4     8   12
@@ -17,25 +23,35 @@
 #:tokenmem )( $ffff
 #:tokenmem> 'tokenmem
 
-
 ::dic>str	4 << 'indicepal + ;			| n -- %a
 ::dic>tok	4 << 'indicepal + 4+ ;		| n -- %a
 ::dic>mem	4 << 'indicepal + 8 + ; 	| n -- m
 ::dic>inf	4 << 'indicepal + 12 + ;	| n -- %a
 
-
 ::diccreset
-	'indicepal dup 
+	'indicepal dup
 	'indicepal> ! 'indicepal< !
+	'indiceinc 'indiceinc> !
 	'tokencod 'tokencod> !
 	'tokencte 'tokencte> !
 	'tokenmem 'tokenmem> !
 	;
 
 ::?palabra | str -- str dir / str 0
-	0
-	;
+	indicepal> 16 -	|---largo
+	( 'indicepal >=? )(
+		dup @						| str ind pal
+		pick2 =s 0? ( drop )( drop
+			dup 8 + @
+			%10 and? ( drop ; )( drop indicepal< >=? ( ; ) )
+			)
+		16 - ) drop
+	0 ;
 
+::?include | str -- adr/0
+	'indiceinc ( indiceinc> <? )(
+		@+ pick2 =s 1? ( drop nip 4 - ; ) drop
+		12 + ) 2drop 0 ;
 
 ::?sistema | str -- str dir / str 0
 	0
@@ -43,7 +59,12 @@
 
 
 ::dumpdic
-	'indicepal ( indicepal <? )(
+	"includes" print cr
+	'indiceinc ( indiceinc> <? )(
 		@+ allowcr print sp
-		12 + ) drop
+		12 + ) drop cr
+	"words" print cr
+	'indicepal ( indicepal> <? )(
+		@+ allowcr print sp
+		12 + ) drop cr
 	;

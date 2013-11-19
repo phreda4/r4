@@ -63,8 +63,51 @@
 :,word | a -- a' d
 	tokenmem> swap realtok swap 'tokenmem - ;
 
+:escom
+	( c@+ 1? )( 14 <? ( drop 1- ; ) drop ) drop 1- ;
+:escad
+	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( drop 1- ; ) ) drop ) drop 1- ;
 :pasapal
 	( c@+ 1? )( 33 <? ( drop 1- ; ) drop ) drop 1- ;
+
+|------------------------------------------------------------
+|---  includes
+|------------------------------------------------------------
+#auxstr )( 64
+
+:esinc 	| a -- a' incluye codigo
+	1+ dup ?include 1? ( drop ; ) drop
+	'auxstr over copynom
+	here over indiceinc> !+ !+ 0 0 rot !+ !+ 'indiceinc> !
+	here 'auxstr load	| carga include
+	here =? ( " no existe" 'auxstr strcat 'auxstr 'nroerror ! drop 0 ; )
+	0 swap c!+ 'here !
+	pasapal ;
+
+:includepal | str -- str'
+	( dup c@ 33 <? )( 0? ( ; ) drop 1+ ) | quitar espacios
+	$7c =? ( drop escom ; )		| $7c |	 Comentario
+	$22 =? ( drop escad ; )		| $22 "	 Cadena
+	$5e =? ( drop esinc ; )		| $5e ^  Include
+	drop pasapal ;
+
+:loadincludes | fuente --
+	( includepal 0? ) drop 'poserror !
+	nroerror 1? ( drop ; )
+	( drop indiceinc>
+		'indiceinc ( indiceinc> <? )(
+			4+ @+
+			( includepal 0? ) drop 'poserror !
+			nroerror 1? ( 4drop ; ) drop
+			8 + ) drop
+		indiceinc>
+		=? )
+	drop ;
+
+:realinc | str --
+	here swap
+	1- esinc drop
+	loadincludes ;
 
 |----------- genera token
 :essistema	| str n -- str
@@ -83,8 +126,10 @@
 
 :escom | str -- str
 	,com 8 << 5 or ,, ;
+
 :esinclude | str -- str
-	,word 8 << 6 or ,, ;
+	,word dup 'tokenmem + realinc
+	8 << 6 or ,, ;
 
 :tiponro | -- tipon
 	basen
@@ -207,7 +252,6 @@
 	;
 :esmacrov
 	;
-
 :finnrosv
 	;
 
@@ -265,3 +309,4 @@
 		@+ "%h " print
 		) drop
 	;
+
