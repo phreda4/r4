@@ -104,8 +104,59 @@
 :esdir
 	8 << 14 or ,, ;
 
+|--- Compila saltos
+#salto
+#pilac )( 128	#pilac> 'pilac	|----- pila de compilador
+
+:c.ini 'pilac 'pilac> ! ;
+:c.push pilac> !+ 'pilac> ! ;
+:c.pop -4 'pilac> +! pilac> @ ;
+:c.cnt pilac> 'pilac - ;
+
+:hole	     tokencod> 4 - c.push ;
+:label	     tokencod> c.push ;
+:holefix     tokencod> c.pop dup >r 4+ - 8 << r @ or r> ! ;
+:labelfix    c.pop tokencod> 4 - dup @ rot tokencod> - 8 << or swap ! ;
+
+|--- calculo de longitud
+:finpalabra
+	indicepal> 16 -
+	( dup @ 1? ( 2drop ; ) drop | si tiene largo termina
+		dup 8 - @ %1 nand?  )(  | si el anterior es dato termina ( :a #b dup no anda !!)
+		drop
+		tokencod> over 12 - @ - 2 >> over !
+		32 - ) |---largo
+	2drop ;
+
+|---  Macros
+:c;     c.cnt 0? ( finpalabra ) drop ; | dup 'estado !
+:c(     salto 1? ( hole 1 )( label 2 ) c.push drop ;
+:c)(    c.pop salto 0? ( drop
+				1 =? ( drop hole c.pop holefix c.push 1 c.push ; )
+			)( drop
+				2 =? ( drop c.pop hole c.push 3 c.push ; ) ) drop
+			")( error" 'nroerror ! 	0 ;
+:c)     c.pop salto 0? ( drop
+				1 =? ( drop holefix ; )
+				2 =? ( drop labelfix ; )
+				3 =? ( drop labelfix holefix ; ) drop
+				"salto desconocido" 'nroerror ! 0 ;
+			)( drop
+				2 =? ( drop labelfix ; ) ) drop
+			") error" 'nroerror ! 0 ;
+:c[     hole label 4 c.push ;
+:c]     | ** es ; el anterior token? NO-> error
+		c.pop 4 <>? ( "] error" 'nroerror ! 0 nip ; ) drop
+		c.pop holefix drop ; | agrega lit direccion
+
+#amacro 'c; 'c( 'c)( 'c) 'c[ 'c]
+
 :esmacro
-	15 + ,, pasapal ;
+	dup 15 + ,,
+	7 <? ( dup 1- 2 << 'amacro + @ exec 0? ( nip ; ) )
+	7 >? ( 20 <? ( 1 )( 0 ) )( 0 ) 'salto ! | despues del exec !!!
+	drop
+	pasapal ;
 
 |--- busca palabra
 :palabra | str -- str'/0
