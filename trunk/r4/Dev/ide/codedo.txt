@@ -11,138 +11,119 @@
 ^inc/rft/dejavusans.rft
 
 ^r4/dev/ide/tokenr4.txt
+^r4/dev/ide/tokenprint.txt
 
 #sizepad
 
 #error
 #ypad
 
-#tokin )( 2048
-#tokin> 'tokin
-#pad )( 2048
+#tokenrun>
+#pad )( 2048	| texto
 #pad> 'pad
 
-
-#hist )( $ffff
+#hist )( $ffff	| historia
 #hist> 'hist
-
-#strerror
-"Ok"
-"Palabra no definida"
-"Palabra sin direccion"
-"Desborde de Pila"
-"Escases de Pila"
-"Pila Incompatible"
-"Falta ;"
-"Bloque mal cerrado"
-"No existe Libreria"
-0
-
-#strerrorEN
-"Ok"
-"Undefined Word"
-"No Word Adress"
-"Stack Overflow"
-"Stack Underflow"
-"Stack not match"
-"Need ;"
-"Bad Structure"
-"Library not exist"
-0
 
 :resetpad
 	sh 2/ |sizepad -
 	'ypad ! ;
 
-#newline ( 13 0 )
+:addhist
+	'pad count swap hist> strcat 'hist> +! ;
 
-:morepad
-|	sizepad neg 'ypad +!
-	'pad 'newline strcat
-	refreshfoco
+|-----------------------------------------------
+
+:showtokens
+	'tokencod ( tokencod> <? )( @+
+		|allowcr
+		tokenstr printx sp
+		) drop
 	;
 
-:errorpad
-	-? ( drop morepad ; ) | negativo
-	'strerror swap ( 1? )( swap >>0 swap 1- ) drop
-	'error !
+|-----------------------------------------------
+:seterror
 	;
 
-#tokenpad
-
-:ejecuta
-	tokencod> 'tokenpad !
-
-	'pad count swap
-	hist> strcat
-	'hist> +!
-
-	'pad str2token
-	1? ( errorpad ; ) drop
-
-
-	tokenpad exectoken
-
-	tokenpad 'tokencod> !
-
-	resetpad
-	'pad stackdstr
+#ee
+:compila
+	'pad tokenlast 0? ( drop ; )
+	'ee !
+	0 'pad !
 	refreshfoco ;
 
-:showglass
-	ypad sw * 2 <<
-	framev +
-	sw sh ypad - *
-	( 1? )( 1- swap dup @ 2/
-		$7f7f7f and
-		swap !+ swap )
-	2drop
+:compila&run
+	compila
+
+	stackreset
+	tokenrun> exectoken
+
 	;
 
-|----- MEMO COLOR
+:showglass
+	ypad sw * 2 << framev +
+	sw sh ypad - *
+	( 1? )( 1- swap dup @ 2/
+		$3f3f3f and
+		$f or
+		swap !+ swap )
+	2drop ;
 
 :showpad
 	dejavusans sizepad rfont!
 	showglass
-	4 ypad atxy
-	| imprime tira de tokens
-	azul
-	'tokin ( tokin> <? )(
-		@+ " %h" print
+	4 ypad atxy | imprime tira de tokens
+	cyan
+	'tokencod ( tokencod> <? )( @+
+		tokenstr allowcr printx sp
 		) drop
-
 	blanco
-|	'ejecuta 'pad 2048 inword
-	'pad 2048 inword
+	 'pad 2048 inword
+	'compila <spc>
+	'compila&run <enter>
+	| del
+	| left
+	| rigth
+	[ 4 'sizepad +! resetpad ; ] <f1>
+	[ -4 'sizepad +! resetpad ; ] <f2>
 	;
 
 :msgerror
-	error 0? ( drop ; )
-	amarillo
-	print ;
+	error 0? ( drop ; ) print ;
 
 :showhistoria
 	blanco
 	'hist print
 	;
 
+#sizei 16
+
+:btnico
+	sizei 2* 2 - qdim drawric sizei 2* qdim ;
+
+:showbotones
+	sw sizei 2 + - ypad sizei + pos
+	sizei 2* qdim
+	negro 'exit btne rojo 'i.off btnico gc<<
+	negro 'exit btne cyan 'i.file btnico gc<<
+	negro 'exit btne verde 'i.bolt btnico gc<<
+	negro 'exit btne amarillo 'i.time btnico gc<<
+	negro 'exit btne violeta 'i.trash btnico
+	;
+
 :main
 	4
 	show clrscr
 		fonti
-		verde dup "r%d: " print msgerror cr
+		verde dup "r%d: " print cr
+		rojo msgerror
 		amarillo dumptok cr
+		verde dumpvstack
 		verde dumpdic cr
 
-		showhistoria
+|		showhistoria
 		showpad
-
-|		24 sh 24 - pos 48 qdim
-|		'exit rojo btne negro 'i.off drawric
-|		gc>> exit verde btne blanco 'i.play drawric
-
-		[ 4 'sizepad +! resetpad ; ] <f1>
-		[ -4 'sizepad +! resetpad ; ] <f2>
+		showbotones
 
 		cminiflecha
 		'exit >esc< ;
@@ -152,6 +133,7 @@
 	80 'sizepad !
 	resetpad
 	0 paper
+	'tokencod 'tokenrun> !
 	;
 
 : m main ;
