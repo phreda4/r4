@@ -118,15 +118,15 @@
 :essistema	| str n -- str
 	8 << ,, ;
 :esdefe | str -- str
-	,word 8 << 2 or ,, ;
-:esdef | str -- str
-	dup c@ $3A =? ( drop 1+ esdefe ; ) drop
 	,word 8 << 1 or ,, ;
+:esdef | str -- str
+	dup c@ $3A =? ( drop esdefe ; ) drop
+	,word 8 << 2 or ,, ;
+
 :esvare | str -- str
 	,word 8 << 4 or ,, ;
 :esvar | str -- str
-	dup c@ $3A =? ( drop 1+ esvare ; ) drop
-	dup c@
+	dup c@ $3A =? ( drop esvare ; ) drop
 	,word 8 << 3 or ,, ;
 
 :escom | str -- str
@@ -209,7 +209,7 @@
 	pasapal ;
 
 |--- busca palabra
-:palabra | str -- str'/0
+::compilatoken | str -- str'/0
 	( dup c@ 33 <? )(
 		0? ( nip ; ) drop 1+ )	| quitar espacios
 	$5e =? ( drop esinclude ; )	| $5e ^  Include
@@ -232,13 +232,42 @@
 
  	'poserror ! 1 'nroerror ! 0 ;
 
-:palabradef | str -- str'/0
+
+:esnrov
+	;
+:esmacrov
+	;
+:finnrosv
+	;
+
+|------------------------------------------------------------
+| a token
+|------------------------------------------------------------
+:tokenreset
+	0 'poserror !
+	0 'nroerror !
+	;
+
+::str2token | adr -- error/0
+	tokenreset
+	( compilatoken 0? ) drop
+	nroerror ;
+
+|----------- DEBUG ---------------
+::dumptok
+	'tokencod ( tokencod> <? )(
+		@+ tokenstr print sp
+		) drop ;
+
+|--- busca palabra
+::testtoken | str -- 0/error
 	( dup c@ 33 <? )(
 		0? ( nip ; ) drop 1+ )	| quitar espacios
-	$7c =? ( drop escom ; )		| $7c |	 Comentario
+	$5e =? ( drop esinclude ; )	| $5e ^  Include
+	$7c =? ( 2drop 0 ; )		| $7c |	 Comentario
 	$3A =? ( drop esdef ; )		| $3a :  Definicion
 	$23 =? ( drop esvar ; )		| $23 #  Variable
-	$22 =? ( drop escadena ; )	| $22 "	 Cadena
+	$22 =? ( 2drop 0 ; )	| $22 "	 Cadena
 	$27 =? ( drop 1+ dup dup	| $27 ' Direccion
 		?macro 1? ( 3drop
 			'poserror ! 2 'nroerror !
@@ -250,57 +279,18 @@
 	dup ?fnumero 1? ( drop rot drop -1 'basen ! esnro ; ) drop | numero
 	dup ?macro 1? ( esmacro ; ) drop				| macro
 	dup ?palabra 1? ( nip espalabra ; ) drop		| palabra
+	dup ?sistema 1? ( nip essistema ; ) drop        | sistema solo directo
+
  	'poserror ! 1 'nroerror ! 0 ;
 
+|-----------------------
+#lista 10 16 2 -1
 
-:esnrov
+:setbasen | base --
+	7 - 2 << 'lista + @ 'basen ! ;
+
+::stacktotoken
+	'dpila ( dpila> <? )(
+		@+ setbasen @+ esnro
+		) drop
 	;
-:esmacrov
-	;
-:finnrosv
-	;
-
-:palabravar | str -- str'/0
-	( dup c@ 33 <? )(
-		0? ( nip ; ) drop 1+ )	| quitar espacios
-	$7c =? ( drop escom ; )		| $7c |	 Comentario
-	$3A =? ( drop esdef ; )		| $3a :  Definicion
-	$23 =? ( drop esvar ; )		| $23 #  Variable
-	$22 =? ( drop escadena ; )	| $22 "	 Cadena
-	$27 =? ( drop 1+ dup dup	| $27 ' Direccion
-		?macro 1? ( 3drop
-			'poserror ! 2 'nroerror !
-			0 ; ) drop
-		?palabra 1? ( nip esdir ; ) 2drop
-		'poserror ! 1 'nroerror ! 0 ; )
-	drop
-	dup ?numero 1? ( drop rot drop esnrov ; ) drop | numero
-	dup ?fnumero 1? ( drop rot drop -1 'basen ! esnrov ; ) drop | numero
-	dup ?macro 1? ( esmacrov ; ) drop				| macro
-	dup ?palabra 1? ( nip espalabra ; ) drop		| palabra
- 	'poserror ! 1 'nroerror ! 0 ;
-
-#modo 'palabra
-
-|------------------------------------------------------------
-| a token
-|------------------------------------------------------------
-:tokenreset
-	0 'poserror !
-	0 'nroerror !
-	'palabra 'modo !
-	;
-
-::str2token | adr -- error/0
-	tokenreset
-	( modo exec 0? ) drop
-	nroerror ;
-
-::tokenlast | adr ..
-	modo exec ;
-
-|----------- DEBUG ---------------
-::dumptok
-	'tokencod ( tokencod> <? )(
-		@+ tokenstr print sp
-		) drop ;
