@@ -8,8 +8,9 @@ include 'macro/import32.inc'
 include 'macro/export.inc'
 include 'macro/resource.inc'
 
-struc CHAR val { match any, val \{ . du val \}
-		 match , val \{ . du ? \} }
+struc TCHAR [val] { common match any, val \{ . du val \}
+			   match , val \{ . du ? \} }
+sizeof.TCHAR = 2
 
 include 'equates/kernel32.inc'
 include 'equates/user32.inc'
@@ -18,3 +19,7 @@ include 'equates/comctl32.inc'
 include 'equates/comdlg32.inc'
 include 'equates/shell32.inc'
 include 'equates/wsock32.inc'
+
+macro api [name] { if used name
+		    label name dword at name#W
+		   end if }

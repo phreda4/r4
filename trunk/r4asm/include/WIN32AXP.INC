@@ -43,11 +43,9 @@ macro allow_nesting
      \forward count@stdcall = count@stdcall+1
 	      match =double value, arg \\{ count@stdcall = count@stdcall+1 \\}
      \common end if
-	     if defined proc \# %
-	      if count@stdcall <> proc \# %
-	       display "Error: invalid count of parameters for ",\`proc,".",0Dh,0Ah
-	       err
-	      end if
+	     if defined proc \# % & count@stdcall <> proc \# %
+	      display "Error: invalid count of parameters for ",\`proc,".",0Dh,0Ah
+	      assert 0
 	     end if
      \reverse pushd <arg>
      \common call [proc] \}
@@ -57,33 +55,35 @@ macro allow_nesting
      \forward count@stdcall = count@stdcall+1
 	      match =double value, arg \\{ count@stdcall = count@stdcall+1 \\}
      \common end if
-	     if defined proc \# %
-	      if count@stdcall <> proc \# %
-	       display "Error: invalid count of parameters for ",\`proc,".",0Dh,0Ah
-	       err
-	      end if
+	     if defined proc \# % & count@stdcall <> proc \# %
+	      display "Error: invalid count of parameters for ",\`proc,".",0Dh,0Ah
+	      assert 0
 	     end if
      \reverse pushd <arg>
      \common call proc \}
   macro cinvoke proc,[arg]
-  \{ \common size@ccall = 0
+  \{ \common \local size
+	     size = 0
 	     if ~ arg eq
      \reverse pushd <arg>
-	      size@ccall = size@ccall+4
+	      size = size+4
+	      match =double any,arg \\{ size = size+4 \\}
      \common end if
 	     call [proc]
-	     if size@ccall
-	     add esp,size@ccall
+	     if size
+	     add esp,size
 	     end if \}
   macro ccall proc,[arg]
-  \{ \common size@ccall = 0
+  \{ \common \local size
+	     size = 0
 	     if ~ arg eq
      \reverse pushd <arg>
-	      size@ccall = size@ccall+4
+	      size = size+4
+	      match =double any,arg \\{ size = size+4 \\}
      \common end if
 	     call proc
-	     if size@ccall
-	     add esp,size@ccall
+	     if size
+	     add esp,size
 	     end if \} }
 
 macro pushd value
@@ -93,15 +93,10 @@ macro pushd value
    ..continue:
    pushd equ \}
   match pushd =addr var,pushd value \{ \local ..opcode,..address
-   virtual at 0
-    label ..address at var
-    mov eax,dword [..address]
-    load ..opcode from 0
-   end virtual
-   if ..opcode = 0A1h
+   if +var relativeto 0 | +var relativeto $
     push var
    else
-    lea edx,[..address]
+    lea edx,[var]
     push edx
    end if
    pushd equ \}
@@ -147,16 +142,21 @@ include 'pcount/wsock32.inc'
 macro import lib,[functions]
 { common macro import_#lib \{ import lib,functions \} }
 
-include 'apia/kernel32.inc'
-include 'apia/user32.inc'
-include 'apia/gdi32.inc'
-include 'apia/advapi32.inc'
-include 'apia/comctl32.inc'
-include 'apia/comdlg32.inc'
-include 'apia/shell32.inc'
-include 'apia/wsock32.inc'
+macro api [functions]
+{ common macro all_api \{ all_api
+			  api functions \} }
+macro all_api {}
 
-purge import
+include 'api/kernel32.inc'
+include 'api/user32.inc'
+include 'api/gdi32.inc'
+include 'api/advapi32.inc'
+include 'api/comctl32.inc'
+include 'api/comdlg32.inc'
+include 'api/shell32.inc'
+include 'api/wsock32.inc'
+
+purge import,api
 
 macro .data { section '.data' data readable writeable }
 
@@ -185,6 +185,8 @@ macro .end label
      import_comdlg32
      import_shell32
      import_wsock32
+
+     all_api
 }
 
 virtual at 0
