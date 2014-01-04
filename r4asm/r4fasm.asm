@@ -4,12 +4,12 @@
 format PE GUI 4.0
 entry start
 
-;MAXMEM		equ	1373741824
-;MAXMEM		equ 1073741824 	; 1GB
+;MAXMEM         equ     1373741824
+;MAXMEM         equ 1073741824  ; 1GB
 MAXMEM		equ 536870912	; 512MB
 
 DWEXSTYLE	equ WS_EX_APPWINDOW
-DWSTYLE		equ WS_VISIBLE+WS_CAPTION+WS_SYSMENU
+DWSTYLE 	equ WS_VISIBLE+WS_CAPTION+WS_SYSMENU
 
 ;XRES equ 640
 ;YRES equ 480
@@ -21,38 +21,38 @@ YRES equ 600
 ;XRES equ 1280
 ;YRES equ 800
 
-;		"if XRES=640" ,ln
-;	"mov ebx,eax" ,ln
-;	"shl eax,7" ,ln
-;	"shl ebx,9" ,ln
-;	"add eax,[esi]" ,ln
-;	"lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
-;		"else if XRES=800" ,ln
-;	"mov ebx,eax" ,ln
-;	"shl eax,5" ,ln
-;	"shl ebx,8" ,ln
-;	"add eax,ebx" ,ln
-;	"shl ebx,1" ,ln
-;	"add eax,[esi]" ,ln
-;	"lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
-;		"else if XRES=1024" ,ln
-;	"shl eax,10" ,ln
-;	"add eax,[esi]" ,ln
-;	"lea ebp,[SYSFRAME+eax*4]" ,ln
-;		"else if XRES=1280" ,ln
-;;	"mov ebx,eax" ,ln
-;	"shl eax,8" ,ln
-;	"shl ebx,10" ,ln
-;	"add eax,[esi]" ,ln
-;;	"lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
-;		"else" ,ln
-;	"cdq" ,ln
-;	"imul dword [SYSW]" ,ln
-;	"add eax,[esi]" ,ln
-;	"lea ebp,[SYSFRAME+eax*4]" ,ln
-;		"end if" ,ln
+;               "if XRES=640" ,ln
+;       "mov ebx,eax" ,ln
+;       "shl eax,7" ,ln
+;       "shl ebx,9" ,ln
+;       "add eax,[esi]" ,ln
+;       "lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
+;               "else if XRES=800" ,ln
+;       "mov ebx,eax" ,ln
+;       "shl eax,5" ,ln
+;       "shl ebx,8" ,ln
+;       "add eax,ebx" ,ln
+;       "shl ebx,1" ,ln
+;       "add eax,[esi]" ,ln
+;       "lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
+;               "else if XRES=1024" ,ln
+;       "shl eax,10" ,ln
+;       "add eax,[esi]" ,ln
+;       "lea ebp,[SYSFRAME+eax*4]" ,ln
+;               "else if XRES=1280" ,ln
+;;      "mov ebx,eax" ,ln
+;       "shl eax,8" ,ln
+;       "shl ebx,10" ,ln
+;       "add eax,[esi]" ,ln
+;;      "lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
+;               "else" ,ln
+;       "cdq" ,ln
+;       "imul dword [SYSW]" ,ln
+;       "add eax,[esi]" ,ln
+;       "lea ebp,[SYSFRAME+eax*4]" ,ln
+;               "end if" ,ln
 
-include 'r4asm\include\win32a.inc'
+include 'include\win32a.inc'
 
 section '.code' code readable executable
 
@@ -90,16 +90,16 @@ start:
     ; (GetSystemMetrics(SM_CXSCREEN)-rec.right+rec.left)>>1,(GetSystemMetrics(SM_CYSCREEN)-rec.bottom+rec.top)>>1,
     ; rec.right-rec.left, rec.bottom-rec.top,0,0,wc.hInstance,0);
 
-;	invoke GetSystemMetrics,SM_CXSCREEN
-;	mov [WSCR],eax
-;	invoke GetSystemMetrics,SM_CYSCREEN
-;	mov [HSCR],eax
+;       invoke GetSystemMetrics,SM_CXSCREEN
+;       mov [WSCR],eax
+;       invoke GetSystemMetrics,SM_CYSCREEN
+;       mov [HSCR],eax
 
 	invoke	CreateWindowEx,DWEXSTYLE,_title,_title,DWSTYLE,0,0,[rec.right],[rec.bottom],0,0,[hinstance],0
 	mov	[hwnd],eax
 	invoke GetDC,[hwnd]
 	mov [hDC],eax
- 	mov [bmi.biSize],sizeof.BITMAPINFOHEADER
+	mov [bmi.biSize],sizeof.BITMAPINFOHEADER
 	mov [bmi.biWidth],XRES
 	mov [bmi.biHeight],-YRES
 	mov [bmi.biPlanes],1
@@ -147,12 +147,12 @@ proc WindowProc hwnd,wmsg,wparam,lparam
     je	wmkeyup
 	cmp	eax,WM_KEYDOWN
 	je	wmkeydown
-    cmp	eax,WM_SYSKEYDOWN
+    cmp eax,WM_SYSKEYDOWN
     je	wmkeydown
-    cmp	eax,WM_CLOSE
-    je  SYSEND
-    cmp	eax,WM_DESTROY
-    je  SYSEND
+    cmp eax,WM_CLOSE
+    je	SYSEND
+    cmp eax,WM_DESTROY
+    je	SYSEND
   defwindowproc:
 	invoke	DefWindowProc,[hwnd],[wmsg],[wparam],[lparam]
 	ret
@@ -209,7 +209,7 @@ SYSUPDATE: ; ( -- )
 	invoke	GetMessage,msg,0,0,0
 	or	eax,eax
 	jz	.endstop
-;	invoke	TranslateMessage,msg
+;       invoke  TranslateMessage,msg
 	invoke	DispatchMessage,msg
 .end:
 	pop edx ebx eax
@@ -242,7 +242,7 @@ SYSREDRAW: ; ( -- )
 
 ;===============================================
 align 16
-SYSCLS:		; ( -- )
+SYSCLS: 	; ( -- )
 	push eax edi ecx
 	mov eax,[SYSPAPER]
 	lea edi,[SYSFRAME]
@@ -451,7 +451,7 @@ include 'rsrc.rc'
 
 section '.data' data readable writeable
 
-	mapex 	db    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15
+	mapex	db    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15
 			db	 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31
 			db	 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47
 			db	 48, 49, 50, 51, 52, 69, 70, 71, 56, 73, 74, 75, 76, 77, 78, 79
@@ -460,32 +460,31 @@ section '.data' data readable writeable
 			db	 96, 97, 98, 99,100,101,102,103,104,105,106,107,108,109,110,111
 			db	112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127
 	_title	db ':r4',0
-;	_class	db ':r4',0
-	_dir 	db '*',0
+	_dir	db '*',0
 
 align 4
 	SYSXYM	dd 0
-	SYSBM 	dd 0
+	SYSBM	dd 0
 	SYSKEY	dd 0
 	SYSPAPER dd 0
 	FREE_MEM dd 0
 	hinstance	dd 0
 	hwnd		dd 0
-	hDC			dd 0
+	hDC		dd 0
 	hfind		dd 0
 	hdir		dd 0
-	afile 		dd 0
+	afile		dd 0
 	cntr		dd 0
-	wc			WNDCLASS ;EX?
-	msg			MSG
-	rec			RECT
-	bmi			BITMAPINFOHEADER
-	SysTime		SYSTEMTIME
-	fdd			FINDDATA
+	wc		WNDCLASS ;EX?
+	msg		MSG
+	rec		RECT
+	bmi		BITMAPINFOHEADER
+	SysTime 	SYSTEMTIME
+	fdd		WIN32_FIND_DATAA
 
 ;*** optimizable
-;	SYSW	dd XRES
-;	SYSH	dd YRES
+;       SYSW    dd XRES
+;       SYSH    dd YRES
 ;*** optimizable
 
 include 'dat.asm'
@@ -493,8 +492,8 @@ include 'dat.asm'
 align 16
 	SYSFRAME	rd XRES*YRES
 	DATASTK 	rd 1023
-	Dpila 		rd 0
+	Dpila		rd 0
 	XFB			rd XRES*YRES
-;	FREE_MEM	rd 1024*1024*16 ; 16M(32bits) 64MB(8bits)
+;       FREE_MEM        rd 1024*1024*16 ; 16M(32bits) 64MB(8bits)
 
 
