@@ -15,7 +15,7 @@
 |	"../r4dataextern/ply/dragon_vrip.ply"
 |	"../r4dataextern/ply/test.ply"
 
-	"../r4dataextern/obj/armrobe.obj"
+|	"../r4dataextern/obj/armrobe.obj"
 |	"../r4dataextern/obj/ducky.obj"
 |	"../r4dataextern/obj/m60.obj"
 |	"../r4dataextern/obj/armadillo.obj"
@@ -23,7 +23,9 @@
 |	"../r4dataextern/obj/teapot.obj"
 |	"../r4dataextern/obj/blob.obj"
 
-#SAVEFILE "media/3dm/xyzrgb_statuette.3dm"
+	"../voxel/castle.txt"
+
+#SAVEFILE "media/3dm/castle.3dm"
 
 #iniply
 #iniver | inicio de vertices
@@ -147,6 +149,42 @@
 	iniply parseobj
 	;
 
+|--------------- txt
+| x y z i r g b
+
+:parselinetxt | ver adr -- ver adr
+	swap >r
+	trim str>fix r!+
+	trim str>fix r!+
+	trim str>fix r!+
+	trim str>nro drop
+	trim str>nro swap
+	trim str>nro swap
+	trim str>nro
+	rot 8 << or rot 16 << or
+	r!+
+	r> swap
+	1 'vertices +!
+	;
+
+:parsetxt | adr --
+	0 'vertices !
+	iniver swap
+	( trim dup c@ 1? )( drop parselinetxt >>10 ) 2drop
+	dup 'inisor !
+	vertices 3 << + dup 'ininor !
+	vertices 12 * + 'inioct !
+	drop
+	;
+
+:loadtxt
+	mark
+	here dup 'iniply !
+	'LOADFILE load
+	0 swap c!+ 'iniver !
+	iniply parsetxt
+	;
+
 |----------- graficacion
 :freelook
 	xymouse
@@ -166,7 +204,8 @@
 :drawpc
 	iniver >r
 	blanco
-	vertices ( 1? )( 1-
+	vertices 100000 <? ( 100000 nip )
+	( 1? )( 1-
 		r@+ r@+ r@+ drawp
 		) drop
 	rdrop
@@ -214,6 +253,32 @@
 	rdrop
 	3drop ;
 
+:statvert2
+	iniver >r
+	r@+ dup 'xmin ! 'xmax !
+	r@+ dup 'ymin ! 'ymax !
+	r@+ dup 'zmin ! 'zmax !
+	4 r+
+	vertices 1-
+	( 1? )( 1-
+		r@+ xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
+		r@+ ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
+		r@+ zmin <? ( dup 'zmin ! ) zmax >? ( dup 'zmax ! ) drop
+		4 r+
+		) drop
+	rdrop ;
+
+:movevert2 | dx dy dz --
+	iniver >r
+	vertices ( 1? )( 1-
+		r @ pick4 + r!+
+		r @ pick3 + r!+
+		r @ pick2 + r!+
+		4 r+
+		) drop
+	rdrop
+	3drop ;
+
 :3max | a b c -- a
 	over <? ( drop )( nip )
 	over <? ( drop )( nip )
@@ -227,6 +292,19 @@
 		r @ pick3 pick3 */ r!+
 		r @ pick3 pick3 */ r!+
 		r @ pick3 pick3 */ r!+
+		) 3drop
+	rdrop
+	;
+
+:normalizovertices2
+	$1ff	| a 10bits por coordenada
+	xmax ymax zmax 3max 0? ( 1 nip )
+	iniver >r
+	vertices ( 1? )( 1- 		| m dv nro --
+		r @ pick3 pick3 */ r!+
+		r @ pick3 pick3 */ r!+
+		r @ pick3 pick3 */ r!+
+		4 r+
 		) 3drop
 	rdrop
 	;
@@ -304,6 +382,19 @@
 	vertices 1+ inisor shellsort
 	;
 
+:ordenapormorton2
+	mark
+	inisor 'here ! | lista para ordenar
+	iniver >r
+	vertices ( 1? )( 1-
+		r r@+ r@+ r@+ 4 r+
+		morton3d , , | no funciona si usa >10bits por eje
+		) drop
+	rdrop
+	empty
+	vertices 1+ inisor shellsort
+	;
+
 |----------- imprime con color
 #xa #ya #za
 :chosecolor | x y z ---
@@ -331,6 +422,16 @@
 	vertices ( 1? )( 1-
 		nodoa r =? ( verde )( azul ) drop
 		4 r+ r@+ >r r@+ r@+ r@+ drawl rdrop
+		) drop
+	rdrop ;
+
+
+:drawpccolor
+	iniver >r
+	vertices
+	100000 >? ( 100000 nip )
+	( 1? )( 1-
+		r@+ r@+ r@+ r@+ ink drawl
 		) drop
 	rdrop ;
 
@@ -365,6 +466,19 @@
 	vertices ( 1? )( 1-
 		r@+
 		anterior <>? ( dup 'anterior ! , r@+ , )( drop 4 r+ )
+		) drop
+	rdrop
+	'SAVEFILE savemem
+	empty
+	;
+
+:savemodel2 | "" --
+	mark
+	inisor >r
+	r @ 1+ 'anterior !
+	vertices ( 1? )( 1-
+		r@+
+		anterior <>? ( dup 'anterior ! , r@+ 12 + @ , )( drop 4 r+ )
 		) drop
 	rdrop
 	'SAVEFILE savemem
@@ -578,6 +692,21 @@
 	"buildoctree" print cr redraw
 	;
 
+:proctxt
+	"load 3D point cloud" print cr redraw
+	loadtxt
+	vertices "%d vertices" print cr redraw
+    "centra" print cr redraw
+	statvert2
+	xmin xmax + 2/ neg ymin ymax + 2/ neg zmin zmax + 2/ neg movevert2 | centra
+    "normaliza" print cr redraw
+	statvert2
+	normalizovertices2
+	"sortmorton" print cr redraw
+	ordenapormorton2
+
+	;
+
 |---- caja en contenido
 :drawboxz | z --
 	xmin ymin pick2 3dop
@@ -619,22 +748,16 @@
 
 |--------------------------
 :main
-	here $ffff + 'inioct !
-	here 'iniply !
-	here 'iniver !
 	4
 	show clrscr verde
 		dup ":r%d " print
 		faces vertices "v:%d f:%d" print cr
-|		$1ff xmin "x:%f X:%f" print $1ff -$1ff "y:%f Y:%f" print $1ff -$1ff "z:%f Z:%f" print cr
 		$1ff xmin "x:%d X:%d" print $1ff -$1ff "y:%d Y:%d" print $1ff -$1ff "z:%d Z:%d" print cr
-
 |		xmin $1ff + 2/ neg -$1ff $1ff + 2/ neg -$1ff $1ff + 2/ neg "zm:%f ym:%f xm:%f" print cr
 
 		cntdup "unicos:%d" print cr
 		nodoa dup 1? ( @ ) "%h %h" print cr
 		azul
-|		printcodes
 		rojo chome!
 		inioct ( octre> <? )( dup inioct - 2 >> "%h." print @+ "%h " print cr allowchome ) drop
 
@@ -650,14 +773,16 @@
 |		azul drawoc
 
 |		verde drawpc
-		drawpcdupli
+|		drawpcdupli
+		drawpccolor
 
-		rojo nodoa showpoint
+|		rojo nodoa showpoint
 
-		'procply <f1>
+|		'procply <f1>
+		'proctxt <f1>
 |		'showmor <f2>
 		'buildoctree <f2>
-		'savemodel <f3>
+		'savemodel2 <f3>
 		[ nodoa 0? ( inisor nip )( 8 + ) 'nodoa ! ; ] <le>
 		[ nodoa 0? ( inisor nip )( 8 + ) 'nodoa ! ; ] <ri>
 
