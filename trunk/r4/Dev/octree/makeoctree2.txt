@@ -56,7 +56,7 @@
 
 :drawpcf | '3do --
 	@+ >r @
-	100000 >? ( 100000 nip )
+	200000 >? ( 200000 nip )
 	( 1? )( 1-
 		r@+ r@+ ink
 		invmorton3d drawp
@@ -193,6 +193,27 @@
 	;
 
 |---- utils
+#tpopcnt (
+    0 1 1 2 1 2 2 3 1 2 2 3 2 3 3 4
+    1 2 2 3 2 3 3 4 2 3 3 4 3 4 4 5
+    1 2 2 3 2 3 3 4 2 3 3 4 3 4 4 5
+    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
+    1 2 2 3 2 3 3 4 2 3 3 4 3 4 4 5
+    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
+    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
+    3 4 4 5 4 5 5 6 4 5 5 6 5 6 6 7
+    1 2 2 3 2 3 3 4 2 3 3 4 3 4 4 5
+    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
+    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
+    3 4 4 5 4 5 5 6 4 5 5 6 5 6 6 7
+    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
+    3 4 4 5 4 5 5 6 4 5 5 6 5 6 6 7
+    3 4 4 5 4 5 5 6 4 5 5 6 5 6 6 7
+    4 5 5 6 5 6 6 7 5 6 6 7 6 7 7 8 )
+
+:popcnt | nro -- cnt
+	'tpopcnt + c@ ;
+
 #tplace  $01 $02 $04 $08 $10 $20 $40 $80
 
 :place | nro -- pl
@@ -202,47 +223,38 @@
 | desde morton3d de 10bits por dim
 
 #bith	| bitmask hijos
-#cnth	| cantidad hijos
-#acch	| acumula
 #padre	| de que padre
 #levels )( 1024
 #level>
 
-:level! octre> level> !+ 'level> ! ;
+:level!+	octre> level> !+ 'level> ! ;
+:oct!+		padre ,oc bith dup popcnt 8 << or ,oc ;
 
-:iniacc | nodo --
+:iniacc | nodo --			| inicio de nivel
 	dup 3 >> 'padre !
-	$7 and place 'bith !
-	1 'cnth !
-	level! ; | inicio de nivel
+	$7 and place 'bith ! ;
 
 :nextacc | nodo --
-	dup 3 >> padre =? ( drop $7 and place bith or 'bith ! 1 'cnth +! ; )
-	padre ,oc
-	bith cnth 8 << or ,oc
-	'padre !
-	$7 and place 'bith ! 1 'cnth ! ;
-
-:endacc | --
-	padre ,oc
-	bith cnth 8 << or ,oc
-	level! ;  | fin de nivel
+	dup 3 >> padre =? ( drop $7 and place bith or 'bith ! ; )
+	oct!+
+	'padre ! $7 and place 'bith ! ;
 
 :collect | end start --
+	level!+
 	@+ iniacc 4+
 	( over <? )( @+ nextacc 4+ ) 2drop
-	endacc ;
+	oct!+ level!+ ;	| fin de nivel
 
-:buildoctree2 | 'lista --
+:buildoctree2 | '3dm --
 	@+ 'inisor ! @ 'vertices !
-
 	here dup 'octre ! 'octre> !
 	'levels 'level> !
 	inisor dup vertices 3 << + swap collect
 	'levels 9
 	( 1? )( 1- swap
 		@+ swap @+ rot collect
-		swap ) 2drop ;
+		swap ) 2drop
+	octre> 'here ! ;
 
 
 |--------------------------------
@@ -251,61 +263,51 @@
 	@+ 'inisor ! @ 'vertices !
 	inisor vertices ( 1? )( 1- swap
 		dup @ 3 >> swap !+ 4+
-		swap ) 2drop
-
-	;
-|------------------------------------------
-:savetxt
-	mark
-	octre ( octre> <? )(
-		@+ "%h" ,print ,cr
-		) drop
-	"octree.txt" savemem
-	empty
-	;
-
-:saveoct
-	savetxt
-	octre octre> over - "media/3do/test.3do" save
-	;
+		swap ) 2drop ;
 
 |-----------------------------
 :optoctree
 	;
 
-:savelevel |  hasta desde
-	( over <? )(
-		@+ swap @+ $ff and rot 8 << or
-|		,
-		"%h " print
-		) 2drop cr
 
-	;
-
-:sumalevel | acc l hasta desde
+:sumalevel | acc lev hasta desde --
 	( over <? )( >r
 		pick2 r!+
 		rot r@+ 8 >> +
 		rot rot r>
-		) 2drop ;
+		) 2drop ;      7
+
+:,level |  hasta desde --
+|	2dup - 3 >> "%d ." print
+	( over <? )(
+		@+ swap @+ $ff and rot 8 << or
+		,
+|		"%h " print
+		) 2drop
+|	cr
+	;
 
 :saveoctree
-	| acumula
+	|.... acumula
 	1 level> ( 'levels >? )( 8 -
 		dup 4+ @ over @ sumalevel
 		 ) 2drop
-	mark
-	| graba
+
+	mark |.... graba
 	level> ( 'levels >? )( 8 -
-		dup 4+ @ over @ savelevel
+		dup 4+ @ over @ ,level
 		 ) drop
 
-|	"test.o3d" savemem
+	inisor vertices ( 1? )( 1- swap
+		4+ @+ , swap ) 2drop
+
+	"media/3do/castle.3do" savemem
 	empty
 	;
 
 :showoc
 	show clrscr
+		verde
 		saveoctree
 		'exit >esc< ;
 
@@ -314,24 +316,28 @@
 :main
 |	"media/3dm/test.3dm"
 
-|	"media/3dm/castle.3dm"
+	"media/3dm/castle.3dm"
 |	"media/3dm/armadillo.3dm"
-	"media/3dm/bunny.3dm"
+|	"media/3dm/bunny.3dm"
 |	"media/3dm/xyzrgb_statuette.3dm"
 |	"media/3dm/dragon.3dm"
+|	"media/3dm/sib-edb7.3dm"
 	'3dmfile load3dm
 
 	4
 	show clrscr verde
 		dup ":r%d F1-BUILD" print cr
-		vertices "Puntos: %d " print cr
-		octre> octre - 3 >> " Nodos: %d " print cr
-
-|		octre ( octre> <? )( @+ "%h " print @+ "%h " print cr allowchome ) drop
+		vertices "Puntos: %d " print
+		vertices 3 << "mem:%d " print
+		cr
+		octre> octre - 3 >> "Octree: %d " print
+		octre> octre - 1 >> vertices 2 << + "mem:%d " print
+		cr
 
 		'levels ( level> <? )(
 			@+ swap @+ rot - 3 >>
 			"%h " print cr allowchome ) drop
+
 		omode
 		freelook
 		xcam ycam zcam mtrans
@@ -346,8 +352,9 @@
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
 
-		[ '3dmfile buildoctree2 showoc ; ] <f1>
-		[ '3dmfile reducevox ; ] <f2>
+		[ '3dmfile buildoctree2 ; ] <f1>
+		[ saveoctree ; ] <f2>
+		[ '3dmfile reducevox ; ] <f3>
 		'exit >esc< ;
 
 : mark main ;
