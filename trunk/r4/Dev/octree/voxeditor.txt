@@ -5,20 +5,22 @@
 ^r4/lib/fontj.txt
 ^r4/lib/trace.txt
 
-#sidevox 256
-#memvox
+#maxvox 512
 
+#sidevox 16
 #deepvox 4
+#maskvox $f
+
+#addside
 
 #paleta )( 1024
+#xmin #ymin #zmin #xmax #ymax #zmax
 
 #xcam 0 #ycam 0 #zcam 2048
 
-#xmin #ymin #zmin #xmax #ymax #zmax
-
+#memvox
 #octre
 #octre>
-
 
 |----------- graficacion
 #rx
@@ -29,19 +31,16 @@
 	sw 2/ - neg 7 << swap
 	neg mrotx mroty ;
 
-
 :drawp | x y z ---
 	project3d |2dup op line ;
 	-? ( 2drop ; ) sh >=? ( 2drop ; )
 	swap -? ( 2drop ; ) sw >=? ( 2drop ; ) swap
-	setxy
-	ink@ px!+
-	;
+	setxy ink@ px!+ ;
 
 :3dop project3d op ;
 :3dline project3d line ;
 
-|---- caja en normalizado
+|---- dibujos de grillas
 :drawboxz | z --
 	-$1ff -$1ff pick2 3dop
 	$1ff -$1ff pick2 3dline
@@ -49,10 +48,25 @@
 	-$1ff $1ff pick2 3dline
 	-$1ff -$1ff rot 3dline ;
 
+:drawboxy | y --
+	-$1ff over -$1ff 3dop
+	$1ff over -$1ff 3dline
+	$1ff over $1ff 3dline
+	-$1ff over $1ff 3dline
+	-$1ff swap -$1ff 3dline ;
+
+:drawboxx | x --
+	dup -$1ff -$1ff 3dop
+	dup $1ff -$1ff 3dline
+	dup $1ff $1ff 3dline
+	dup -$1ff $1ff 3dline
+	-$1ff -$1ff 3dline ;
+
 :drawlinez | x1 x2 --
 	2dup -$1ff 3dop $1ff 3dline ;
 
-:draw3dnorm
+:draw3dbox
+	$707070 ink
 	-$1ff drawboxz
 	$1ff drawboxz
 	-$1ff -$1ff drawlinez
@@ -60,296 +74,104 @@
 	$1ff $1ff drawlinez
 	-$1ff $1ff drawlinez ;
 
-|-------- dibujo octree
-#xc #yc #zc
-#size
-
-:drawz | z --
-	xc size - yc size - pick2 3dop
-	xc size + yc size - pick2 3dline
-	xc size + yc size + pick2 3dline
-	xc size - yc size + pick2 3dline
-	xc size - yc size - rot 3dline ;
-
-:drawl | x1 x2 --
-	2dup zc size - 3dop zc size + 3dline ;
-
-:box3d
-	zc size - drawz zc size + drawz
-	xc size - yc size - drawl xc size + yc size - drawl
-	xc size + yc size + drawl xc size - yc size + drawl
-	;
-
-:box3dcc
-	zc size - drawz
-	zc size + drawz
-	xc size - yc size - drawl
-	xc size + yc size - drawl
-	xc size + yc size + drawl
-	xc size - yc size + drawl
-	zc drawz
-
-	;
-
-|**** TODO  dibujar cubo sin lineas de atras
-
-#cubon3
-|$0462 [-1, 0, 0
-|$1375 [+1, 0, 0
-|$0154 [0, -1, 0
-|$2673 [0, +1, 0
-|$0231 [0, 0, -1
-|$4576 [0, 0, +1
-
-#cubo3d
-
-0.0 0.0 0.0 $ff0000
-0.0 0.0 1.0 $7f0000
-0.0 1.0 0.0 $ff
-0.0 1.0 1.0 $ff
-1.0 0.0 0.0 $ff
-1.0 0.0 1.0 $ff
-1.0 1.0 0.0 $ff
-1.0 1.0 1.0 $ff
-
-:box3dhidenn
-	zc size - drawz zc size + drawz
-|	xc size - yc size - drawl xc size + yc size - drawl
-|	xc size + yc size + drawl xc size - yc size + drawl
-	;
-
-|-------------- muestra oc de 1 punto
-:+movx
-	1 and? ( size )( size neg ) 'xc +!
-	2 and? ( size )( size neg ) 'yc +!
-	4 and? ( size )( size neg ) 'zc +!
-	drop ;
-
-:drawtree | nro shift --
-	size 2/ 'size !
-	2dup >> $7 and | nro shift val
-	+movx box3d
-	3 - 0? ( 2drop ; )
-	drawtree ;
-
-:showpoint | adr --
-	0? ( drop ; ) @
-	0 'xc ! 0 'yc ! 0 'zc !
-	$1ff 'size ! box3d
-	27 drawtree ;
-
-|---------------------
-
-:-mov | size id --
-	1 and? ( over )( over neg ) 'xc +!
-	2 and? ( over )( over neg ) 'yc +!
-	4 and? ( over )( over neg ) 'zc +!
-	2drop ;
-
-:+mov | size id --
-	1 and? ( over neg )( over ) 'xc +!
-	2 and? ( over neg )( over ) 'yc +!
-	4 and? ( over neg )( over ) 'zc +!
-	2drop ;
-
-:testbox
-	size 2/ 'size !
-	size %000 +mov box3d size %000 -mov
-	size %010 +mov box3d size %010 -mov
-	size %011 +mov box3d size %011 -mov
-	size 2* 'size ! ;
-
-
-|--- view full octree
-#lod 128
-
-:viewo | adr --
-
-	size lod <? ( 2drop box3d ; ) drop
-
-	@ $80000000 and? ( drop ; ) | box3d
-	size 2/ 'size !
-	dup 8 >> 2 << octre +
-	swap $ff and		 | adr bitmask
-	0 swap				| adr 0 bitmask
-	( 1? )(
-		1 and? (
-			size pick2 +mov
-			rot dup viewo 4+ rot rot
-			size pick2 -mov )
-		2/ swap 1+ swap )
-	3drop
-	size 2* 1+ 'size ! ;
-
-:viewoctree | --
-	$1ff 'size !
-	0 'xc ! 0 'yc ! 0 'zc !
-	octre viewo ;
-
-|--- view with mask
-:-mov | id --
-	1 and? ( size )( size neg ) 'xc +!
-	2 and? ( size )( size neg ) 'yc +!
-	4 and? ( size )( size neg ) 'zc +!
-	drop ;
-
-:+mov | id --
-	1 and? ( size neg )( size ) 'xc +!
-	2 and? ( size neg )( size ) 'yc +!
-	4 and? ( size neg )( size ) 'zc +!
-	drop ;
-
-#masko $ff | los 8 hijos
-
-:viewom | adr --
-
-	size lod <? ( 2drop box3d ; ) drop
-
-	@ $80000000 and? ( drop ; ) | box3d
-	size 2/ 'size !
-	dup 8 >> 2 << octre +	| calcula primero
-	swap $ff and		 | adr bitmask
-	0 swap
-	( 1? )(
-		1 and? (
-			rot 4+ rot rot 	)
-		swap 1+ swap 2/ ) drop
-
-|	masko and			| mask of visibility
-
-	0 				| adr bitmask child
-	( $100 <? )( over
-		masko and and? (
-			over +mov
-
-|			rot dup viewom 4+ rot rot
-
-			pick2
-
-			over -mov )
-		2/ swap 1+ swap
-
-		swap 2* )
-	3drop
-	size 2* 1+ 'size ! ;
-
-:viewoctreem | mask --
-	'masko !
-	$1ff 'size !
-	0 'xc ! 0 'yc ! 0 'zc !
-	octre viewom ;
-
-|------ solo en direccion z
-|    ix := x shr Size;
-|    iy := y shr Size;
-|    iz := 1;//z shr Size;
-|    i  := iz * 4 + iy * 2 + ix;
-|    Dec(x, ix shl Size);
-|    Dec(y, iy shl Size);
-|    Dec(z, iz shl Size);
-|    if Node.Child[i] <> nil then
-|      Result := RayCast(Node.Child[i], x, y, z, Size - 1)
-|    else
-|    begin
-|      Inc(z, 1 shl Size);
-|      Dec(i, 4);
-|      if Node.Child[i] <> nil then
-|        Result := RayCast(Node.Child[i], x, y, z, Size - 1);
-|    end;
-
-:endr | x y z size adr bit -- x y niv
-	3drop
-	255 swap 2/ -
-	dup 8 << over 16 << or or ;
-
-#mask
-:raycast | x y z size adr -- x y niv
-	dup
-	@ $80000000 and? ( endr ; )
-	dup 8 >> swap $ff and | x y z size adr 1rfhild bitmask
-	mask and
-	0? ( endr ; )
-	4drop $ff00
-	;
-
-:testxy
-	2dup xor ;
-
-:viewo
-	0 'mask !
-	0 ( 512 <? )(
-		0 over setxy
-		0 ( 512 <? )(
-
-|			511 8 octre rayCast
-			testxy
-			px!+
-			1+ ) drop
-		1+ ) drop
-	;
-
-:viewo2
-	octre ( octre> <? )(
-		dup showpoint 4+ ) drop ;
-
-:printoctre
-	octre ( octre> <? )(
-		@+ "%h  "  allowcr print ) drop
+| grilla total.
+:draw3dgrid
+	$707070 ink
+	-$1ff00
+	sidevox 1+
+	( 1? )( 1-
+		swap
+		dup 8 >> drawboxy
+		dup 8 >> drawboxx
+		addside +
+		swap ) 2drop
+	-$1ff00 addside +
+	sidevox 1-
+	( 1? )( 1-
+		swap dup 8 >> drawboxz
+		addside +
+		swap ) 2drop
 	;
 
 |-----------------------------
-:flecha
-	blanco
-	1000 0 0 3dop 500 0 0 3dline
-	550 50 0 3dline 500 0 0 3dline 550 -50 0 3dline ;
-
+:setparamvox
+	$3ff00 sidevox / 'addside !
+	1 deepvox << 1- 'maskvox !
+	;
 
 |--------------------------
 :clearvox
-	sidevox dup dup * * 2 >>
+	sidevox dup dup * * 2 <<
 	memvox >r
-	( 1? )( 0 r!+ 1- ) drop
+	( 1? )( -1 r!+ 1- ) drop
 	rdrop ;
 
-|--------------------------
+:vox! | color x y z
+	maskvox and deepvox <<
+	swap maskvox and or deepvox <<
+	swap maskvox and or
+	2 << memvox + ! ;
 
+:vox@ | x y z -- color
+	maskvox and deepvox <<
+	swap maskvox and or deepvox <<
+	swap maskvox and or
+	2 << memvox + @ ;
+
+:randvox
+	sidevox dup dup * *
+	( 1? )( 1-
+		rand rand rand rand vox!
+		) drop
+	;
+
+#curx 0 #cury 0 #curz 0
+
+:drawplanexbox | x y --
+	0 ( sidevox <? )(
+		pick2 pick2 setxy
+		0 ( sidevox <? )(
+			curx pick2 pick2 vox@ -1 =? ( 1 px+! drop )( px!+ )
+			1+ ) drop
+		swap 1+ swap
+		1+ ) 3drop
+	;
+
+|--------------------------
 :memory
 	mark
 	here 'memvox !
-	sidevox dup dup * * 'here +!
+	maxvox dup dup * * 'here +!
 	clearvox
 	;
 
 :main
-	here 'octre !
-	"media/3do/bunny.3do"
-|	"media/3do/xyzrgb_statuette.3do"
-|	"media/3do/dragon.3do"
-	octre swap load 'octre> !
+	setparamvox
+
+	randvox
 
 	4
 	show clrscr verde
-		dup ":r%d " print cr
-		lod "LOD:%d " print cr
-|		octre> octre - "%d bytes" print cr
-|		printoctre
-
-
+		dup ":r%d " print
+		sidevox Deepvox "DEEP:%d SIDE:%d" print cr
+		curz cury curx "%d %d %d" print
 		omode
 		freelook
 		xcam ycam zcam mtrans
+		draw3dbox
 
-		draw3dnorm
-
-|		viewoctree
+		5 5 drawplanexbox
 
 
-|		rx mrotxi ry mrotyi flecha
+|		[ -0.01 'zcam +! ; ] <up>
+|		[ 0.01 'zcam +! ; ] <dn>
 
-		[ lod 2* 'lod ! ; ] <le>
-		[ lod 2/ 1+ 'lod ! ; ] <ri>
-		[ -0.01 'zcam +! ; ] <up>
-		[ 0.01 'zcam +! ; ] <dn>
+		[ 1 'curx +! ; ] <up>
+		[ -1 'curx +! ; ] <dn>
+		[ 1 'cury +! ; ] <le>
+		[ -1 'cury +! ; ] <ri>
+		[ 1 'curz +! ; ] <pgup>
+		[ -1 'curz +! ; ] <pgdn>
 
 		'exit >esc< ;
 

@@ -8,7 +8,7 @@
 ^r4/lib/bsearch.txt
 ^r4/lib/morton.txt
 
-#horse 0 0	| 3dm file 'adr cnt
+#3dmfile 0 0	| 3dm file 'adr cnt
 
 #xcam 0 #ycam 0 #zcam 2048
 #xmin #ymin #zmin #xmax #ymax #zmax
@@ -56,9 +56,10 @@
 
 :drawpcf | '3do --
 	@+ >r @
+	100000 >? ( 100000 nip )
 	( 1? )( 1-
 		r@+ r@+ ink
-		invmorton3d drawp2
+		invmorton3d drawp
 		) drop
 	rdrop ;
 
@@ -103,8 +104,6 @@
 	0 'xc ! 0 'yc ! 0 'zc !
 	$1ff 'size ! box3d
 	27 drawtree ;
-
-
 
 |------------ construye octree
 #inisor | inicio de puntos ordenados
@@ -159,7 +158,7 @@
 :buildnext
 	getoc				| fin ini shift
 	fillmass rot drop	| ini shift
-	3 - -? ( 2drop $ff00 ,oc ; )
+	3 - -? ( 2drop $ff00 ,oc ; ) | grabo el color!!
 	buildbit						| ini shift bitmask
 	| si es 0 no lo agrego en el anterior nivel
 
@@ -193,45 +192,69 @@
 	octre> 'here !
 	;
 
-|--------------- build2
+|---- utils
+#tplace  $01 $02 $04 $08 $10 $20 $40 $80
 
-:buildnext2
-	getoc				| fin ini shift
-	fillmass rot drop	| ini shift
-	4 - -? ( 2drop 0 ,oc ; )
-	buildbit						| ini shift bitmask
-	| si es 0 no lo agrego en el anterior nivel
+:place | nro -- pl
+	2 << 'tplace + @ ;
 
-|----	calculo de primer hijo
-	indexoc 		| absoluto
-	|octre> octre - 2 >> - | relativo
-	8 <<
-	over or
-	pick2 0? ( drop $80000000 or )( drop )
-	,oc		| graba nodo interno
-	over 0? ( 4drop ; ) drop
-	'octomas >r				| ini shift bit
-	rot dup r@+ + rot 		| shift ini fin bitmask
-	( 1? )(
-		1 and? ( pick3 pick3 pick3 pushoc )
-		rot drop
-		swap dup r@+ +		| shift bitmask ini fin
-		rot 2/ ) rdrop
-	4drop ;
+|---- construye octree metodo 2
+| desde morton3d de 10bits por dim
+
+#bith	| bitmask hijos
+#cnth	| cantidad hijos
+#acch	| acumula
+#padre	| de que padre
+#levels )( 1024
+#level>
+
+:level! octre> level> !+ 'level> ! ;
+
+:iniacc | nodo --
+	dup 3 >> 'padre !
+	$7 and place 'bith !
+	1 'cnth !
+	level! ; | inicio de nivel
+
+:nextacc | nodo --
+	dup 3 >> padre =? ( drop $7 and place bith or 'bith ! 1 'cnth +! ; )
+	padre ,oc
+	bith cnth 8 << or ,oc
+	'padre !
+	$7 and place 'bith ! 1 'cnth ! ;
+
+:endacc | --
+	padre ,oc
+	bith cnth 8 << or ,oc
+	level! ;  | fin de nivel
+
+:collect | end start --
+	@+ iniacc 4+
+	( over <? )( @+ nextacc 4+ ) 2drop
+	endacc ;
 
 :buildoctree2 | 'lista --
 	@+ 'inisor ! @ 'vertices !
-	here 'octre !
-	octre 'octre> !	| mem de nodos
-	0 'indexoc !
-	'arroc  dup 'arroc> ! 'arroc< !	| array de nodos
-	27 0 vertices pushoc
-	( cntoc 1? )( drop
-		buildnext2
-		) drop
-	octre> 'here !
-	;
 
+	here dup 'octre ! 'octre> !
+	'levels 'level> !
+	inisor dup vertices 3 << + swap collect
+	'levels 9
+	( 1? )( 1- swap
+		@+ swap @+ rot collect
+		swap ) 2drop ;
+
+
+|--------------------------------
+| baja un dimension
+:reducevox | 'lista --
+	@+ 'inisor ! @ 'vertices !
+	inisor vertices ( 1? )( 1- swap
+		dup @ 3 >> swap !+ 4+
+		swap ) 2drop
+
+	;
+|------------------------------------------
 :savetxt
 	mark
 	octre ( octre> <? )(
@@ -243,56 +266,88 @@
 
 :saveoct
 	savetxt
-	octre octre> over - "media/3do/bunny.3do" save
-	;
-
-:saveoct2
-	savetxt
-	octre octre> over - "media/3do/dragon.foc" save
+	octre octre> over - "media/3do/test.3do" save
 	;
 
 |-----------------------------
-:flecha
-	blanco
-	1500 0 0 3dop 1000 0 0 3dline
-	1050 50 0 3dline 1000 0 0 3dline 1050 -50 0 3dline ;
+:optoctree
+	;
+
+:savelevel |  hasta desde
+	( over <? )(
+		@+ swap @+ $ff and rot 8 << or
+|		,
+		"%h " print
+		) 2drop cr
+
+	;
+
+:sumalevel | acc l hasta desde
+	( over <? )( >r
+		pick2 r!+
+		rot r@+ 8 >> +
+		rot rot r>
+		) 2drop ;
+
+:saveoctree
+	| acumula
+	1 level> ( 'levels >? )( 8 -
+		dup 4+ @ over @ sumalevel
+		 ) 2drop
+	mark
+	| graba
+	level> ( 'levels >? )( 8 -
+		dup 4+ @ over @ savelevel
+		 ) drop
+
+|	"test.o3d" savemem
+	empty
+	;
+
+:showoc
+	show clrscr
+		saveoctree
+		'exit >esc< ;
+
 
 |--------------------------
 :main
-|	"media/3dm/bunny.3dm" 'horse load3dm
-|	"media/3dm/xyzrgb_statuette.3dm" 'horse load3dm
-	"media/3dm/dragon.3dm" 'horse load3dm
+|	"media/3dm/test.3dm"
+
+|	"media/3dm/castle.3dm"
+|	"media/3dm/armadillo.3dm"
+	"media/3dm/bunny.3dm"
+|	"media/3dm/xyzrgb_statuette.3dm"
+|	"media/3dm/dragon.3dm"
+	'3dmfile load3dm
 
 	4
 	show clrscr verde
-		dup ":r%d " print cr
-		vertices 3 << "%d " print cr
-		octre> octre -  "%d " print
-|		octre ( octre> <? )( dup octre - 2 >> "%h." print @+ "%h " print cr allowchome ) drop
+		dup ":r%d F1-BUILD" print cr
+		vertices "Puntos: %d " print cr
+		octre> octre - 3 >> " Nodos: %d " print cr
 
-		azul
-|		cflecha
+|		octre ( octre> <? )( @+ "%h " print @+ "%h " print cr allowchome ) drop
 
+		'levels ( level> <? )(
+			@+ swap @+ rot - 3 >>
+			"%h " print cr allowchome ) drop
 		omode
 		freelook
 		xcam ycam zcam mtrans
 
-|		cyan draw3dnorm
 		azul nodoa showpoint
-		'horse drawpc
 
+		'3dmfile drawpcf
 
-		azul
-
-		[ nodoa 0? ( horse nip )( 8 + ) 'nodoa ! ; ] <le>
-		[ nodoa 0? ( horse nip )( 8 + ) 'nodoa ! ; ] <ri>
+		[ nodoa 0? ( 3dmfile nip )( 8 + ) 'nodoa ! ; ] <le>
+		[ nodoa 0? ( 3dmfile nip )( 8 + ) 'nodoa ! ; ] <ri>
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
 
-		[ 'horse buildoctree saveoct ; ] <f1>
-		[ 'horse buildoctree2 saveoct2 ; ] <f2>
-
+		[ '3dmfile buildoctree2 showoc ; ] <f1>
+		[ '3dmfile reducevox ; ] <f2>
 		'exit >esc< ;
 
 : mark main ;
