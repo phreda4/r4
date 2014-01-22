@@ -19,8 +19,6 @@
 
 #curx 0 #cury 0 #curz 0
 
-#cntpuntos
-
 #memvox
 #memvox>
 
@@ -143,12 +141,10 @@
 	;
 
 :buildoctree | --
-	memvox> dup
-	memvox - 3 >> 1+ 'cntpuntos !
-	4+ dup 'octre ! 'octre> !
+	memvox> dup 'octre ! 'octre> !
 	'levels 'level> !
 	|--- calcula hijos
-	memvox dup cntpuntos 3 << + swap collect
+	memvox> memvox collect
 	'levels 7
 	( 1? )( 1- swap
 		@+ swap @+ rot collect
@@ -163,33 +159,88 @@
 		 ) drop
 	octre '$pixels !
 	|--- colores
-	memvox cntpuntos ( 1? )( 1- swap
-		4+ @+ ,oc swap ) 2drop
+|-- generar colores intermedios
+
+|--- usar los colores de la lista!!
+|	memvox cntpuntos ( 1? )( 1- swap
+|		4+ @+ ,oc swap ) 2drop
+
 	;
 
 
 |----------- busca masa
+   | x y z -- x y z m
+:get1s	dup 1 and pick2 2* 2 and or pick3 2 << 4 and or ;
 
-:masa | x y z -- nodo nivel
-	morton3d		| busca
-	$octree >r
+#x #y #z
+	| -- m
+:get1	z 1 and y 2* 2 and or x 2 << 4 and or ;
+:get2	z 2/ 1 and y 2 and or x 2* 4 and or ;
+:get3	z 2 >> 1 and y 2/ 2 and or x 4 and or ;
+:get4	z 3 >> 1 and y 2 >> 2 and or x 2/ 4 and or ;
+:get5	z 4 >> 1 and y 3 >> 2 and or x 2 >> 4 and or ;
+:get6	z 5 >> 1 and y 4 >> 2 and or x 3 >> 4 and or ;
+:get7	z 6 >> 1 and y 5 >> 2 and or x 4 >> 4 and or ;
+:get8	z 7 >> 1 and y 6 >> 2 and or x 5 >> 4 and or ;
+:get9	z 8 >> 1 and y 7 >> 2 and or x 6 >> 4 and or ;
+:get10	z 9 >> 1 and y 8 >> 2 and or x 7 >> 4 and or ;
 
-	21 ( 1? )(
-		r@+ pick2 pick2 >> $7 and place	| busca nivel valor ahora
-		2dup and 0? ( 3drop nip r> swap ; ) drop	| no hay masa
-		1- over and popcnt4 swap 6 >> $fffffffc and +
+:calcnext | busca nodo value now -- busca nodo+
+	1- over and popcnt4 swap 6 >> $fffffffc and
+	+
+	| + | cuando es incrementa
+	$octree + nip | cuando es cte
+	;
 
-		| r+ | cuando es incremental!!!
-		rdrop $octree + >r
+:esta | x y z -- m
+	morton3d $octree		| busca nodo
 
-		3 - ) drop
-	| busca
-	r@+ over $7 and place   | busca valor ahora
-	2dup and 0? ( 4drop r> 0 ; ) drop
+	@+ pick2 21 >> $7 and place | busca nodo value now
 
+	2dup and 0? ( nip nip nip nip ; ) drop
+    calcnext
+
+	@+ pick2 18 >> $7 and place | busca value now
+	2dup and 0? ( nip nip nip nip $ff nip ; ) drop	| no hay nadie
+	calcnext
+
+
+	@+ pick2 15 >> $7 and place | busca value now
+
+	2dup and 0? ( nip nip nip nip $ff00 nip ; ) drop	| no hay nadie
+	calcnext
+
+
+	@+ pick2 12 >> $7 and place | busca value now
+
+	2dup and 0? ( nip nip nip nip $ff0000 nip ; ) drop	| no hay nadie
+	calcnext
+
+	@+ pick2 9 >> $7 and place | busca value now
+
+	2dup and 0? ( nip nip nip nip $ffff00 nip ; ) drop	| no hay nadie
+	calcnext
+
+	@+ pick2 6 >> $7 and place | busca value now
+
+	2dup and 0? ( nip nip nip nip $ff00ff nip ; ) drop	| no hay nadie
+	calcnext
+
+	@+ pick2 3 >> $7 and place | busca value now
+
+	2dup and 0? ( nip nip nip nip $ffffff nip ; ) drop	| no hay nadie
+	calcnext
+
+	@+ pick2 $7 and place | busca value now
+
+	2dup and 0? ( nip nip nip nip $c0c0c0 nip ; ) drop	| no hay nadie
 	1- over and popcnt4 swap 6 >> $fffffffc and +
-	$pixels + -1
-	rdrop ;
+
+	3drop -1 ;
+	$octree + nip
+	nip
+	;
+
 
 |----------- graficacion
 #rx
@@ -245,6 +296,47 @@
 
 
 |--------------------------
+:drawplanexbox | x y --
+	0 ( sidevox 2/ <? )(
+		pick2 pick2 setxy
+		0 ( sidevox 2/ <? )(
+			curx pick2 pick2
+			vox@ -1 =? ( 1 px+! drop )( px!+ )
+			1+ ) drop
+		swap 1+ swap 1+ ) 3drop
+	;
+
+:tracexplane | x y --
+	0 ( sidevox <? )(
+		pick2 pick2 setxy
+		0 ( sidevox <? )(
+			curx pick2 pick2
+			esta px!+
+			1+ ) drop
+		swap 1+ swap 1+ ) 3drop
+	;
+
+|------------- load import
+#model
+#model>
+
+:loadmodel
+	memvox
+	"media/3dm/horse.3dm"
+	load 'memvox> !
+	;
+
+:testmodel
+	256 ( 1? )( 1-
+		$ff 0 0 pick3 vox!
+		$ff00 0 pick2 0 vox!
+		$ff0000 over 0 0 vox!
+		$ff00ff 0 pick2 $ff vox!
+		) drop
+	sortvox
+	;
+
+
 :randvox
 |	1000 ( 1? )( 1-
 |		$ff rand $ff and rand $ff and rand $ff and vox!
@@ -258,37 +350,6 @@
 	sortvox
 	;
 
-
-
-:drawplanexbox | x y --
-	0 ( sidevox <? )(
-		pick2 pick2 setxy
-		0 ( sidevox <? )(
-			curx pick2 $7f - pick2 $7f - vox@ -1 =? ( 1 px+! drop )( px!+ )
-			1+ ) drop
-		swap 1+ swap 1+ ) 3drop
-	;
-
-:tracexplane | x y --
-	0 ( sidevox <? )(
-		pick2 pick2 setxy
-		0 ( sidevox <? )(
-			curx pick2 $7f - pick2 $7f -
-			vox@ px!+
-			1+ ) drop
-		swap 1+ swap 1+ ) 3drop
-
-
-|------------- load import
-#model
-#model>
-
-:loadmodel
-	memvox
-	"media/3dm/horse.3dm"
-	load 'memvox> !
-	;
-
 |--------------------------
 :memory
 	mark
@@ -296,7 +357,8 @@
 	;
 
 :main
-	loadmodel
+|	loadmodel
+	testmodel
 	buildoctree
 
 	4
@@ -305,6 +367,8 @@
 		sidevox Deepvox "DEEP:%d SIDE:%d" print cr
 		$pixels $octree "%h %h" print cr
 
+		$octree 25 ( 1? )( 1- swap
+			@+ "%h" print cr swap ) 2drop
 		curz cury curx "%d %d %d" print cr
 |		dumpvox
 
@@ -316,7 +380,7 @@
 |		xcam ycam zcam mtrans
 |		draw3dbox
 
-|		40 40 drawplanexbox
+		40 40 drawplanexbox
 		300 40 tracexplane
 
 |		[ -0.01 'zcam +! ; ] <up>
