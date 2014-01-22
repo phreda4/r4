@@ -1,5 +1,6 @@
-| genera octree de lista ordenada de morton vertices
-| PHREDA 2012
+| desde morton3d de 10bits por dim
+| metodo de abajo hacia arriba
+| PHREDA 2014
 |-----------------------------
 ^r4/lib/gui.txt
 ^r4/lib/fontj.txt
@@ -106,93 +107,17 @@
 	27 drawtree ;
 
 |------------ construye octree
-#inisor | inicio de puntos ordenados
-#vertices | cantida
+#inisor		| inicio de puntos ordenados
+#vertices	| cantidad de puntos
 
 #octre
 #octre>
 
-#arroc )( $ffffff | array de nodos
-#arroc> 'arroc
-#arroc< 'arroc
-
-#indexoc | indice actual
-
-#octomas 0 0 0 0 0 0 0 0
-
-|---------- arreglo circular
-:cntoc | -- cnt
-	arroc< arroc> - ;
-
-:pushoc | shift ini fin --
-	arroc> 'arroc> 12 - >=? ( 'arroc nip )
-	!+ !+ !+ 'arroc> !
-	1 'indexoc +! ;
-
-:getoc | -- fin ini ahift
-	arroc< 'arroc> 12 - >=? ( 'arroc nip )
-	>r r@+ r@+ r@+ r> 'arroc< ! ;
-
-|--------------------------
+|---- utils
 :,oc | val --
 	octre> !+ 'octre> ! ;
 
-:fillmass | fin ini shift --
-	0 0 0 0 0 0 0 0 'octomas
-	!+ !+ !+ !+ !+ !+ !+ !
-	pick2 3 << inisor +
-	pick2 3 << inisor +
-	( over <? )( | fin ini shift fina nowa
-		@+ pick3 | mask fina nowa morton
-		>> $7 and 2 << 'octomas +
-		1 swap +!
-		4+ )
-	2drop ;
 
-:buildbit | -- 8bitchild
-	0 'octomas $1
-	( $ff and 1? )(
-		swap @+ 1? ( drop rot pick2 or rot rot )( drop )
-		swap 2* ) 2drop ;
-
-:buildnext
-	getoc				| fin ini shift
-	fillmass rot drop	| ini shift
-	3 - -? ( 2drop $ff00 ,oc ; ) | grabo el color!!
-	buildbit						| ini shift bitmask
-	| si es 0 no lo agrego en el anterior nivel
-
-|----	calculo de primer hijo
-	indexoc 		| absoluto
-	|octre> octre - 2 >> - | relativo
-	8 <<
-	over or
-	pick2 0? ( drop $80000000 or )( drop )
-	,oc		| graba nodo interno
-	over 0? ( 4drop ; ) drop
-	'octomas >r				| ini shift bit
-	rot dup r@+ + rot 		| shift ini fin bitmask
-	( 1? )(
-		1 and? ( pick3 pick3 pick3 pushoc )
-		rot drop
-		swap dup r@+ +		| shift bitmask ini fin
-		rot 2/ ) rdrop
-	4drop ;
-
-:buildoctree | 'lista --
-	@+ 'inisor ! @ 'vertices !
-	here 'octre !
-	octre 'octre> !	| mem de nodos
-	0 'indexoc !
-	'arroc  dup 'arroc> ! 'arroc< !	| array de nodos
-	27 0 vertices pushoc
-	( cntoc 1? )( drop
-		buildnext
-		) drop
-	octre> 'here !
-	;
-
-|---- utils
 #tpopcnt (
     0 1 1 2 1 2 2 3 1 2 2 3 2 3 3 4
     1 2 2 3 2 3 3 4 2 3 3 4 3 4 4 5
@@ -218,9 +143,6 @@
 
 :place | nro -- pl
 	2 << 'tplace + @ ;
-
-|---- construye octree metodo 2
-| desde morton3d de 10bits por dim
 
 #bith	| bitmask hijos
 #padre	| de que padre

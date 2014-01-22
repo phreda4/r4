@@ -1,26 +1,195 @@
-| genera vista de octree
-| PHREDA 2012
+| Editor de Voxels
+| PHREDA 2014
 |-----------------------------
 ^r4/lib/gui.txt
-^r4/lib/fontj.txt
+^r4/lib/sort.txt
+^r4/lib/bsearch.txt
+^r4/lib/morton.txt
+
 ^r4/lib/trace.txt
 
-#maxvox 512
-
-#sidevox 16
-#deepvox 4
-#maskvox $f
-
-#addside
+#sidevox 256
+#deepvox 8
 
 #paleta )( 1024
+
 #xmin #ymin #zmin #xmax #ymax #zmax
 
 #xcam 0 #ycam 0 #zcam 2048
 
+#curx 0 #cury 0 #curz 0
+
+#cntpuntos
+
 #memvox
+#memvox>
+
 #octre
 #octre>
+
+#$octree
+#$pixels
+
+#bith	| bitmask hijos
+#padre	| de que padre
+#levels )( 1024
+#level>
+
+|----------------
+:clearvox
+	memvox 'memvox> ! ;
+
+:vox-cnt-mem | -- cnt mem
+	memvox memvox> over - 3 >> 1+ swap ;
+
+:vox! | c x y z --
+	morton3d memvox> !+ !+ 'memvox> ! ;
+
+:vox@ | x y z -- c
+	morton3d vox-cnt-mem binsearch
+	0? ( -1 nip ; ) 4+ @ ;
+
+:sortvox
+	vox-cnt-mem shellsort ;
+
+:dumpvox
+	memvox ( memvox> <? )(
+		@+ "%h " print @+ "%h" print cr
+		) drop ;
+
+|------------ construye octree
+
+:,oc | val --
+	octre> !+ 'octre> ! ;
+
+#tpopcnt (
+    0 1 1 2 1 2 2 3 1 2 2 3 2 3 3 4
+    1 2 2 3 2 3 3 4 2 3 3 4 3 4 4 5
+    1 2 2 3 2 3 3 4 2 3 3 4 3 4 4 5
+    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
+    1 2 2 3 2 3 3 4 2 3 3 4 3 4 4 5
+    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
+    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
+    3 4 4 5 4 5 5 6 4 5 5 6 5 6 6 7
+    1 2 2 3 2 3 3 4 2 3 3 4 3 4 4 5
+    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
+    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
+    3 4 4 5 4 5 5 6 4 5 5 6 5 6 6 7
+    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
+    3 4 4 5 4 5 5 6 4 5 5 6 5 6 6 7
+    3 4 4 5 4 5 5 6 4 5 5 6 5 6 6 7
+    4 5 5 6 5 6 6 7 5 6 6 7 6 7 7 8 )
+
+:popcnt | nro -- cnt
+	'tpopcnt + c@ ;
+
+#tpopcnt4 (
+    0 4 4 8 4 8 8 12 4 8 8 12 8 12 12 16
+    4 8 8 12 8 12 12 16 8 12 12 16 12 16 16 20
+    4 8 8 12 8 12 12 16 8 12 12 16 12 16 16 20
+    8 12 12 16 12 16 16 20 12 16 16 20 16 20 20 24
+    4 8 8 12 8 12 12 16 8 12 12 16 12 16 16 20
+    8 12 12 16 12 16 16 20 12 16 16 20 16 20 20 24
+    8 12 12 16 12 16 16 20 12 16 16 20 16 20 20 24
+    12 16 16 20 16 20 20 24 16 20 20 24 20 24 24 28
+    4 8 8 12 8 12 12 16 8 12 12 16 12 16 16 20
+    8 12 12 16 12 16 16 20 12 16 16 20 16 20 20 24
+    8 12 12 16 12 16 16 20 12 16 16 20 16 20 20 24
+    12 16 16 20 16 20 20 24 16 20 20 24 20 24 24 28
+    8 12 12 16 12 16 16 20 12 16 16 20 16 20 20 24
+    12 16 16 20 16 20 20 24 16 20 20 24 20 24 24 28
+    12 16 16 20 16 20 20 24 16 20 20 24 20 24 24 28
+    16 20 20 24 20 24 24 28 20 24 24 28 24 28 28 32 )
+
+:popcnt4 | nro -- cnt
+	'tpopcnt4 + c@ ;
+
+#tplace  $01 $02 $04 $08 $10 $20 $40 $80
+
+:place | nro -- pl
+	2 << 'tplace + @ ;
+
+:level!+	octre> level> !+ 'level> ! ;
+:oct!+		padre ,oc bith dup popcnt 8 << or ,oc ;
+
+:iniacc | nodo --			| inicio de nivel
+	dup 3 >> 'padre !
+	$7 and place 'bith ! ;
+
+:nextacc | nodo --
+	dup 3 >> padre =? ( drop $7 and place bith or 'bith ! ; )
+	oct!+
+	'padre ! $7 and place 'bith ! ;
+
+:collect | end start --
+	level!+
+	@+ iniacc 4+
+	( over <? )( @+ nextacc 4+ ) 2drop
+	oct!+ level!+ ;	| fin de nivel
+
+:sumalevel | acc lev hasta desde --
+	( over <? )( >r
+		pick2 r!+
+		rot r@+ 8 >> +
+		rot rot r>
+		) 2drop ;
+
+:,level |  hasta desde --
+	( over <? )(
+		@+ swap @+ $ff and rot 8 << or ,oc
+		) 2drop ;
+
+:saveoctree
+	;
+
+:buildoctree | --
+	memvox> dup
+	memvox - 3 >> 1+ 'cntpuntos !
+	4+ dup 'octre ! 'octre> !
+	'levels 'level> !
+	|--- calcula hijos
+	memvox dup cntpuntos 3 << + swap collect
+	'levels 7
+	( 1? )( 1- swap
+		@+ swap @+ rot collect
+		swap ) 2drop
+	octre> '$octree !
+	|--- real octree
+	1 level> ( 'levels >? )( 8 -
+		dup 4+ @ over @ sumalevel
+		 ) 2drop
+	level> ( 'levels >? )( 8 -
+		dup 4+ @ over @ ,level
+		 ) drop
+	octre '$pixels !
+	|--- colores
+	memvox cntpuntos ( 1? )( 1- swap
+		4+ @+ ,oc swap ) 2drop
+	;
+
+
+|----------- busca masa
+
+:masa | x y z -- nodo nivel
+	morton3d		| busca
+	$octree >r
+
+	21 ( 1? )(
+		r@+ pick2 pick2 >> $7 and place	| busca nivel valor ahora
+		2dup and 0? ( 3drop nip r> swap ; ) drop	| no hay masa
+		1- over and popcnt4 swap 6 >> $fffffffc and +
+
+		| r+ | cuando es incremental!!!
+		rdrop $octree + >r
+
+		3 - ) drop
+	| busca
+	r@+ over $7 and place   | busca valor ahora
+	2dup and 0? ( 4drop r> 0 ; ) drop
+
+	1- over and popcnt4 swap 6 >> $fffffffc and +
+	$pixels + -1
+	rdrop ;
 
 |----------- graficacion
 #rx
@@ -74,105 +243,94 @@
 	$1ff $1ff drawlinez
 	-$1ff $1ff drawlinez ;
 
-| grilla total.
-:draw3dgrid
-	$707070 ink
-	-$1ff00
-	sidevox 1+
-	( 1? )( 1-
-		swap
-		dup 8 >> drawboxy
-		dup 8 >> drawboxx
-		addside +
-		swap ) 2drop
-	-$1ff00 addside +
-	sidevox 1-
-	( 1? )( 1-
-		swap dup 8 >> drawboxz
-		addside +
-		swap ) 2drop
-	;
-
-|-----------------------------
-:setparamvox
-	$3ff00 sidevox / 'addside !
-	1 deepvox << 1- 'maskvox !
-	;
 
 |--------------------------
-:clearvox
-	sidevox dup dup * * 2 <<
-	memvox >r
-	( 1? )( -1 r!+ 1- ) drop
-	rdrop ;
-
-:vox! | color x y z
-	maskvox and deepvox <<
-	swap maskvox and or deepvox <<
-	swap maskvox and or
-	2 << memvox + ! ;
-
-:vox@ | x y z -- color
-	maskvox and deepvox <<
-	swap maskvox and or deepvox <<
-	swap maskvox and or
-	2 << memvox + @ ;
-
 :randvox
-	sidevox dup dup * *
-	( 1? )( 1-
-		rand rand rand rand vox!
-		) drop
+|	1000 ( 1? )( 1-
+|		$ff rand $ff and rand $ff and rand $ff and vox!
+|		) drop
+	$ff00 0 0 0 vox!
+	$ff00 0 0 1 vox!
+	$ff 1 0 0 vox!
+	$ff 1 0 1 vox!
+	$ff0000 0 1 0 vox!
+	$ff0000 0 1 1 vox!
+	sortvox
 	;
 
-#curx 0 #cury 0 #curz 0
+
 
 :drawplanexbox | x y --
 	0 ( sidevox <? )(
 		pick2 pick2 setxy
 		0 ( sidevox <? )(
-			curx pick2 pick2 vox@ -1 =? ( 1 px+! drop )( px!+ )
+			curx pick2 $7f - pick2 $7f - vox@ -1 =? ( 1 px+! drop )( px!+ )
 			1+ ) drop
-		swap 1+ swap
-		1+ ) 3drop
+		swap 1+ swap 1+ ) 3drop
+	;
+
+:tracexplane | x y --
+	0 ( sidevox <? )(
+		pick2 pick2 setxy
+		0 ( sidevox <? )(
+			curx pick2 $7f - pick2 $7f -
+			vox@ px!+
+			1+ ) drop
+		swap 1+ swap 1+ ) 3drop
+
+
+|------------- load import
+#model
+#model>
+
+:loadmodel
+	memvox
+	"media/3dm/horse.3dm"
+	load 'memvox> !
 	;
 
 |--------------------------
 :memory
 	mark
-	here 'memvox !
-	maxvox dup dup * * 'here +!
-	clearvox
+	here dup 'memvox ! 'memvox> !
 	;
 
 :main
-	setparamvox
-
-	randvox
+	loadmodel
+	buildoctree
 
 	4
 	show clrscr verde
 		dup ":r%d " print
 		sidevox Deepvox "DEEP:%d SIDE:%d" print cr
-		curz cury curx "%d %d %d" print
-		omode
-		freelook
-		xcam ycam zcam mtrans
-		draw3dbox
+		$pixels $octree "%h %h" print cr
 
-		5 5 drawplanexbox
+		curz cury curx "%d %d %d" print cr
+|		dumpvox
 
+|		1 0 1 morton3d dup "%h-->" print memvox memvox> over - 3 >> swap binsearch
+|		1? ( @+ swap @ "%h %h" print cr )( drop )
+
+|		omode
+|		freelook
+|		xcam ycam zcam mtrans
+|		draw3dbox
+
+|		40 40 drawplanexbox
+		300 40 tracexplane
 
 |		[ -0.01 'zcam +! ; ] <up>
 |		[ 0.01 'zcam +! ; ] <dn>
 
 		[ 1 'curx +! ; ] <up>
 		[ -1 'curx +! ; ] <dn>
+
 		[ 1 'cury +! ; ] <le>
 		[ -1 'cury +! ; ] <ri>
 		[ 1 'curz +! ; ] <pgup>
 		[ -1 'curz +! ; ] <pgdn>
 
+		[ loadmodel ; ] <f1>
 		'exit >esc< ;
 
 : memory main ;
