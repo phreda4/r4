@@ -9,16 +9,30 @@
 ^r4/lib/bsearch.txt
 ^r4/lib/morton.txt
 
-#3dmfile 0 0	| 3dm file 'adr cnt
+
+#sidevox 1024
+#DEEPVOX 10 | profundidad-1
+
+#memvox		| inicio de puntos ordenados
+#memvox>
+#vertices	| cantidad de puntos
+
+#octre
+#octre>
+
+|---- archivo a grabar
+#$octree
+#$pixels
+#$end
+
+#bith	| bitmask hijos
+#padre	| de que padre
+
+#levels )( 1024	| niveles del octree
+#level>
 
 #xcam 0 #ycam 0 #zcam 2048
 #xmin #ymin #zmin #xmax #ymax #zmax
-
-:load3dm | "" 'var --
-	>r here dup r !
-	swap load dup 'here !
-	r@+ - 3 >> r> !
-	;
 
 |----------- graficacion
 :freelook
@@ -36,215 +50,256 @@
 	ink@ px!+
 	;
 
-#nodoa 0
-
-:drawpc | '3do --
-	@+ >r @
-	( 1? )( 1-
-		r nodoa =? ( blanco )( azul ) drop
-		r@+ invmorton3d drawp
-		4 r+ ) drop
-	rdrop ;
-
-
-:drawp2
-	project3d
-	2dup op
-	over 1+ over line
-	over 1+ over 1+ line
-	over over 1+ line
-	line ;
-
 :drawpcf | '3do --
-	@+ >r @
-	200000 >? ( 200000 nip )
-	( 1? )( 1-
-		r@+ r@+ ink
+	memvox
+	( memvox> <? )(
+		@+ swap @+ ink swap
 		invmorton3d drawp
-		) drop
-	rdrop ;
+		) drop ;
 
 :3dop project3d op ;
 :3dline project3d line ;
 
-|-------- dibujo octree
-#xc #yc #zc
-#size
-
-:drawz | z --
-	xc size - yc size - pick2 3dop
-	xc size + yc size - pick2 3dline
-	xc size + yc size + pick2 3dline
-	xc size - yc size + pick2 3dline
-	xc size - yc size - rot 3dline ;
-
-:drawl | x1 x2 --
-	2dup zc size - 3dop zc size + 3dline ;
-
-:box3d
-	zc size - drawz zc size + drawz
-	xc size - yc size - drawl xc size + yc size - drawl
-	xc size + yc size + drawl xc size - yc size + drawl ;
-
-|-------------- muestra oc de 1 punto
-:+movx
-	1 and? ( size )( size neg ) 'xc +!
-	2 and? ( size )( size neg ) 'yc +!
-	4 and? ( size )( size neg ) 'zc +!
-	drop ;
-
-:drawtree | nro shift --
-	size 2/ 'size !
-	2dup >> $7 and | nro shift val
-	+movx box3d
-	3 - 0? ( 2drop ; )
-	drawtree ;
-
-:showpoint | adr --
-	0? ( drop ; ) @
-	0 'xc ! 0 'yc ! 0 'zc !
-	$1ff 'size ! box3d
-	27 drawtree ;
-
 |------------ construye octree
-#inisor		| inicio de puntos ordenados
-#vertices	| cantidad de puntos
 
-#octre
-#octre>
+:p1x2 | x -- v
+	$3ff and
+	dup 16 << xor $ff0000ff and
+	dup 8 << xor  $0300f00f and
+	dup 4 << xor  $030c30c3 and
+	dup 2 << xor  $09249249 and ;
 
-|---- utils
+:morton3d | x y z -- Z
+	p1x2 2* swap p1x2 or 2* swap p1x2 or ;
+
+:clearvox
+	memvox 'memvox> ! ;
+
+:vox-cnt-mem | -- cnt mem
+	memvox memvox> over - 3 >> 1+ swap ;
+
+:vox! | c x y z --
+	morton3d memvox> !+ !+ 'memvox> ! ;
+
+:vox@ | x y z -- c
+	morton3d vox-cnt-mem binsearch
+	0? ( -1 nip ; ) 4+ @ ;
+
+:sortvox
+	vox-cnt-mem shellsort ;
+
+:dumpvox
+	memvox ( memvox> <? )(
+		@+ "%h " print @+ "%h" print cr
+		) drop ;
+
+
 :,oc | val --
 	octre> !+ 'octre> ! ;
 
+#colores 0 0 0 0 0 0 0 0
+#colores>
 
-#tpopcnt (
-    0 1 1 2 1 2 2 3 1 2 2 3 2 3 3 4
-    1 2 2 3 2 3 3 4 2 3 3 4 3 4 4 5
-    1 2 2 3 2 3 3 4 2 3 3 4 3 4 4 5
-    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
-    1 2 2 3 2 3 3 4 2 3 3 4 3 4 4 5
-    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
-    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
-    3 4 4 5 4 5 5 6 4 5 5 6 5 6 6 7
-    1 2 2 3 2 3 3 4 2 3 3 4 3 4 4 5
-    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
-    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
-    3 4 4 5 4 5 5 6 4 5 5 6 5 6 6 7
-    2 3 3 4 3 4 4 5 3 4 4 5 4 5 5 6
-    3 4 4 5 4 5 5 6 4 5 5 6 5 6 6 7
-    3 4 4 5 4 5 5 6 4 5 5 6 5 6 6 7
-    4 5 5 6 5 6 6 7 5 6 6 7 6 7 7 8 )
+#sumr #sumg #sumb
+:promediocol | -- rgb
+	0 'sumr ! 0 'sumg ! 0 'sumb !
+	'colores ( colores> <? )(
+		@+
+		dup $ff and 16 << 'sumb +!
+		dup $ff00 and 8 << 'sumg +!
+		$ff0000 and 'sumr +!
+		) drop
+	colores> 'colores - 2 >>
+	sumr over / $ff0000 and
+	sumg pick2 / 8 >> $ff00 and or
+	sumb rot / 16 >> $ff and or
+	;
 
-:popcnt | nro -- cnt
-	'tpopcnt + c@ ;
+:nodecolor+ | node -- node+ color
+	memvox> <? ( @+ ; ) @+ 8 >> ;
 
-#tplace  $01 $02 $04 $08 $10 $20 $40 $80
+:oct2!+
+	padre ,oc
+	promediocol 8 << bith or ,oc ;
 
-:place | nro -- pl
-	2 << 'tplace + @ ;
+:level!+
+	octre> level> !+ 'level> ! ;
 
-#bith	| bitmask hijos
-#padre	| de que padre
-#levels )( 1024
-#level>
+:ininode | nodo -- nodo+			| inicio de nivel
+	@+ dup 3 >> 'padre !
+	$7 and place 'bith !
+	nodecolor+ 'colores !+ 'colores> ! ;
 
-:level!+	octre> level> !+ 'level> ! ;
-:oct!+		padre ,oc bith dup popcnt 8 << or ,oc ;
+:nextnode | nodo -- nodo+
+	@+
+	dup 3 >> padre =? ( drop $7 and place bith or 'bith ! nodecolor+ colores> !+ 'colores> ! ; )
+	oct2!+
+	'padre ! $7 and place 'bith !
+	nodecolor+ 'colores !+ 'colores> !
+	;
 
-:iniacc | nodo --			| inicio de nivel
-	dup 3 >> 'padre !
-	$7 and place 'bith ! ;
-
-:nextacc | nodo --
-	dup 3 >> padre =? ( drop $7 and place bith or 'bith ! ; )
-	oct!+
-	'padre ! $7 and place 'bith ! ;
-
-:collect | end start --
+:collectnode | end start --
 	level!+
-	@+ iniacc 4+
-	( over <? )( @+ nextacc 4+ ) 2drop
-	oct!+ level!+ ;	| fin de nivel
+	ininode
+	( over <? )( nextnode ) 2drop
+	oct2!+
+	level!+ ;
 
-:buildoctree2 | '3dm --
-	@+ 'inisor ! @ 'vertices !
-	here dup 'octre ! 'octre> !
+:,levelnode |  hasta desde --
+	( over <? )(
+		4+ @+ $ff and ,oc
+		) 2drop ;
+
+:calcdir | suma adr --- suma adr+
+	dup @	 		| suma adr valor
+	dup popcnt >r
+	pick2 8 << or swap !+
+	swap r> + swap
+	;
+
+:,levelcolor |  hasta desde --
+	( over <? )(
+		4+ @+ 8 >> ,oc
+		) 2drop ;
+
+:buildoctree | --
+	memvox> dup 'octre ! 'octre> !
 	'levels 'level> !
-	inisor dup vertices 3 << + swap collect
-	'levels 9
+	|--- calcula hijos
+	memvox> memvox collectnode
+	'levels DEEPVOX 1-
 	( 1? )( 1- swap
-		@+ swap @+ rot collect
+		@+ swap @+ rot collectnode
 		swap ) 2drop
-	octre> 'here ! ;
+
+	|--- graba octree real
+    octre> '$octree !
+	level> ( 'levels >? )( 8 -
+		dup 4+ @ over @
+		,levelnode
+		 ) drop
+	1 $octree ( octre> <? )( calcdir ) 2drop
+    octre> '$pixels !
+	level> ( 'levels >? )( 8 -
+		dup 4+ @ over @
+		,levelcolor
+		 ) drop
+	memvox ( memvox> <? )(
+		4+ @+ ,oc ) drop
+	$pixels $octree - ,oc
+	octre> '$end !
+	;
 
 
 |--------------------------------
-| baja un dimension
-:reducevox | 'lista --
-	@+ 'inisor ! @ 'vertices !
-	inisor vertices ( 1? )( 1- swap
-		dup @ 3 >> swap !+ 4+
-		swap ) 2drop ;
+
+:showoc
+	show clrscr
+		verde
+		buildoctree
+		'exit >esc< ;
 
 |-----------------------------
 :optoctree
 	;
 
 
-:sumalevel | acc lev hasta desde --
-	( over <? )( >r
-		pick2 r!+
-		rot r@+ 8 >> +
-		rot rot r>
-		) 2drop ;      7
+:repetidos | elimina repetidos
+	sortvox
+	memvox >r
+	r@+ 4 r+ memvox 8 +
+	( memvox> <? )(	| prevval nextdir
+		@+			| prevval nextdir+ nextval
+		pick2 =? ( drop 4+ )(
+			rot drop	| nextdir+ nextval
+			dup r!+ swap
+			@+ r!+ )
+		) drop
+	r> 'memvox> !
 
-:,level |  hasta desde --
-|	2dup - 3 >> "%d ." print
-	( over <? )(
-		@+ swap @+ $ff and rot 8 << or
-		,
-|		"%h " print
-		) 2drop
-|	cr
+	memvox> memvox - 3 >> 'vertices !
+	;
+
+|------------- load import
+:load3dm | "filename" --
+	memvox swap
+	load 'memvox> !
+| escala
+	memvox> memvox - 3 >> 'vertices !
+
+| escala----de 1024 a 256
+|	memvox ( memvox> <? )( dup @ 6 >> swap !+ 4+ ) drop
+
+	repetidos
+	;
+
+:testmodel
+	sidevox ( 1? )( 1-
+		$ff 0 0 pick3 vox!
+		$ff00 0 pick2 0 vox!
+		$ff0000 over 0 0 vox!
+		) drop
+	$ffffff 0 0 0 vox!
+	repetidos
+	;
+
+
+:randvox
+|	1000 ( 1? )( 1-
+|		$ff rand $ff and rand $ff and rand $ff and vox!
+|		) drop
+	$ff00 0 0 0 vox!
+	$ff00 0 0 1 vox!
+	$ff 1 0 0 vox!
+	$ff 1 0 1 vox!
+	$ff0000 0 1 0 vox!
+	$ff0000 0 1 1 vox!
+	repetidos
+	;
+
+:memory
+	mark
+	here dup 'memvox ! 'memvox> !
+	;
+
+:savetxt
+	$end 'here !
+	mark
+	$octree ( $end <? )(
+		dup $octree - 2 >>  "%h." ,print
+		@+ "%h " ,print ,cr ) drop
+
+	"octree.txt" savemem
+	empty ;
+
+:dumpoc
+	'levels ( level> <? )(
+	@+ swap @+ rot - 3 >>
+	"%h " print
+	8 - @+ swap @+ rot
+	( over <? )( 4+ @+ "%h " allowcr print ) 2drop
+		cr allowchome ) drop
+	cr
+	$octree ( $end <? )(
+		@+ "%h " allowcr print ) drop
 	;
 
 :saveoctree
-	|.... acumula
-	1 level> ( 'levels >? )( 8 -
-		dup 4+ @ over @ sumalevel
-		 ) 2drop
-
-	mark |.... graba
-	level> ( 'levels >? )( 8 -
-		dup 4+ @ over @ ,level
-		 ) drop
-
-	inisor vertices ( 1? )( 1- swap
-		4+ @+ , swap ) 2drop
-
-	"media/3do/castle.3do" savemem
-	empty
+	$octree $end over - "media/3do/castle.3do" save
 	;
-
-:showoc
-	show clrscr
-		verde
-		saveoctree
-		'exit >esc< ;
-
 
 |--------------------------
 :main
 |	"media/3dm/test.3dm"
-
 	"media/3dm/castle.3dm"
 |	"media/3dm/armadillo.3dm"
 |	"media/3dm/bunny.3dm"
 |	"media/3dm/xyzrgb_statuette.3dm"
 |	"media/3dm/dragon.3dm"
 |	"media/3dm/sib-edb7.3dm"
-	'3dmfile load3dm
+	load3dm
+
+|testmodel
 
 	4
 	show clrscr verde
@@ -255,28 +310,25 @@
 		octre> octre - 3 >> "Octree: %d " print
 		octre> octre - 1 >> vertices 2 << + "mem:%d " print
 		cr
+		$end $octree - 2 >> "ROctree: %d " print
+		$end $octree - "mem:%d " print
+		cr
 
-		'levels ( level> <? )(
-			@+ swap @+ rot - 3 >>
-			"%h " print cr allowchome ) drop
+|		dumpoc
 
 		omode
 		freelook
 		xcam ycam zcam mtrans
 
-		azul nodoa showpoint
-
-		'3dmfile drawpcf
-
-		[ nodoa 0? ( 3dmfile nip )( 8 + ) 'nodoa ! ; ] <le>
-		[ nodoa 0? ( 3dmfile nip )( 8 + ) 'nodoa ! ; ] <ri>
+		drawpcf
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
 
-		[ '3dmfile buildoctree2 ; ] <f1>
+		[ buildoctree ; ] <f1>
 		[ saveoctree ; ] <f2>
-		[ '3dmfile reducevox ; ] <f3>
+|		[ buildoctree savetxt ; ] <f3>
+
 		'exit >esc< ;
 
-: mark main ;
+: memory main ;

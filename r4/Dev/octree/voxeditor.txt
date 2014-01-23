@@ -35,6 +35,16 @@
 #levels )( 1024
 #level>
 
+:p1x2 | x -- v
+	$3ff and
+	dup 16 << xor $ff0000ff and
+	dup 8 << xor  $0300f00f and
+	dup 4 << xor  $030c30c3 and
+	dup 2 << xor  $09249249 and ;
+
+:morton3d | x y z -- Z
+	p1x2 2* swap p1x2 or 2* swap p1x2 or ;
+
 |----------------
 :clearvox
 	memvox 'memvox> ! ;
@@ -378,16 +388,7 @@
 		swap 1+ swap 1+ ) 3drop
 	;
 
-|------------- load import
-:loadmodel
-	memvox
-	"media/3dm/castle.3dm"
-	load 'memvox> !
-
-| escala----de 1024 a 256
-	memvox ( memvox> <? )( dup @ 6 >> swap !+ 4+ ) drop
-
-| elimina repetidos
+:repetidos | elimina repetidos
 	sortvox
 	memvox >r
 	r@+ 4 r+ memvox 8 +
@@ -401,14 +402,26 @@
 	r> 'memvox> !
 	;
 
+|------------- load import
+:loadmodel
+	memvox
+	"media/3dm/castle.3dm"
+	load 'memvox> !
+
+| escala----de 1024 a 256
+	memvox ( memvox> <? )( dup @ 6 >> swap !+ 4+ ) drop
+
+	repetidos
+	;
+
 :testmodel
-	256 ( 1? )( 1-
+	sidevox ( 1? )( 1-
 		$ff 0 0 pick3 vox!
 		$ff00 0 pick2 0 vox!
 		$ff0000 over 0 0 vox!
-		$ff00ff 0 pick2 $ff vox!
 		) drop
-	sortvox
+	$ffffff 0 0 0 vox!
+	repetidos
 	;
 
 
@@ -422,7 +435,7 @@
 	$ff 1 0 1 vox!
 	$ff0000 0 1 0 vox!
 	$ff0000 0 1 1 vox!
-	sortvox
+	repetidos
 	;
 
 |--------------------------
@@ -432,20 +445,25 @@
 	;
 
 :main
-	loadmodel
-|	testmodel
+|	loadmodel
+	testmodel
+|	randvox
 	buildoctree
 
 	4
+	$octree 'curx !
 	show clrscr verde
 		dup ":r%d " print cr
 		sidevox Deepvox "DEEP:%d lado:%d " print
 		memvox> memvox - 3 >> "puntos: %d " print
 		octre> octre - 2 >> "nodos: %d " print
 		cr
-|		$octree 25 ( 1? )( 1- swap @+ "%h" print cr swap ) 2drop
-		curz cury curx "%d %d %d" print cr
-|		dumpvox
+
+		|$octree
+		curx 25 ( 1? )( 1- swap @+ "%h " print cr swap ) 2drop
+
+|		curz cury curx "%d %d %d" print cr
+		dumpvox
 
 |		1 0 1 morton3d dup "%h-->" print memvox memvox> over - 3 >> swap binsearch
 |		1? ( @+ swap @ "%h %h" print cr )( drop )
@@ -457,18 +475,19 @@
 
 |		40 40 drawplanexbox
 
-		10 40 traceyplane
-		260 40 tracexplane
-		500 40 tracezplane
+		40 40 traceyplane
+|		290 40 tracexplane
+|		530 40 tracezplane
 
 |		[ -0.01 'zcam +! ; ] <up>
 |		[ 0.01 'zcam +! ; ] <dn>
 
-		[ 1 'curx +! ; ] <up>
-		[ -1 'curx +! ; ] <dn>
+		[ 4 'curx +! ; ] <up>
+		[ -4 'curx +! ; ] <dn>
 
 		[ 1 'cury +! ; ] <le>
 		[ -1 'cury +! ; ] <ri>
+
 		[ 1 'curz +! ; ] <pgup>
 		[ -1 'curz +! ; ] <pgdn>
 
