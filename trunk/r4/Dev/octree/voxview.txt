@@ -14,128 +14,21 @@
 
 #paleta )( 1024
 
-#xmin #ymin #zmin #xmax #ymax #zmax
-
 #xcam 0 #ycam 0 #zcam 2048
-
-#curx 0 #cury 0 #curz 0
-
-#memvox
-#memvox>
 
 #octre
 #octre>
 
-#$octree
-#$pixels
-#$end
-
-#bith	| bitmask hijos
-#padre	| de que padre
-#levels )( 1024
-#level>
-
-|----------------
-:clearvox
-	memvox 'memvox> ! ;
-
-:vox-cnt-mem | -- cnt mem
-	memvox memvox> over - 3 >> 1+ swap ;
-
-:vox! | c x y z --
-	morton3d memvox> !+ !+ 'memvox> ! ;
-
-:vox@ | x y z -- c
-	morton3d vox-cnt-mem binsearch
-	0? ( -1 nip ; ) 4+ @ ;
-
-:sortvox
-	vox-cnt-mem shellsort ;
-
-:dumpvox
-	memvox ( memvox> <? )(
-		@+ "%h " print @+ "%h" print cr
-		) drop ;
-
-|------------ construye octree
-:,oc | val --
-	octre> !+ 'octre> ! ;
-
-:level!+	octre> level> !+ 'level> ! ;
-:oct!+		padre ,oc bith dup popcnt 8 << or ,oc ;
-
-:iniacc | nodo --			| inicio de nivel
-	dup 3 >> 'padre !
-	$7 and place 'bith ! ;
-
-:nextacc | nodo --
-	dup 3 >> padre =? ( drop $7 and place bith or 'bith ! ; )
-	oct!+
-	'padre ! $7 and place 'bith ! ;
-
-:collect | end start --
-	level!+
-	@+ iniacc 4+
-	( over <? )( @+ nextacc 4+ ) 2drop
-	oct!+ level!+ ;	| fin de nivel
-
-:sumalevel | acc lev hasta desde --
-	( over <? )( >r
-		pick2 r!+
-		rot r@+ 8 >> +
-		rot rot r>
-		) 2drop ;
-
-:,level |  hasta desde --
-	( over <? )(
-		@+ swap @+ $ff and rot 8 << or ,oc
-		) 2drop ;
-
-:saveoctree
-	;
-
-:buildoctree | --
-	memvox> dup 'octre ! 'octre> !
-	'levels 'level> !
-	|--- calcula hijos
-	memvox> memvox collect
-	'levels BITVOX
-	( 1? )( 1- swap
-		@+ swap @+ rot collect
-		swap ) 2drop
-
-	octre> '$octree !
-	|--- real octree
-	1 level> ( 'levels >? )( 8 -
-		dup 4+ @ over @ sumalevel
-		 ) 2drop
-	level> ( 'levels >? )( 8 -
-		dup 4+ @ over @ ,level
-		 ) drop
-
-	octre '$pixels !
-	|--- colores
-|-- generar colores intermedios
-
-|--- usar los colores de la lista!!
-|	memvox cntpuntos ( 1? )( 1- swap
-|		4+ @+ ,oc swap ) 2drop
-
-	octre> '$end !
-	;
-
-
 |----------- busca masa
-
 :calcnext | busca nodo value now -- busca nodo+
 	1- over and popcnt4 swap 6 >> $fffffffc and
 	+
 	| + | cuando es incrementa
-	$octree + nip | cuando es cte
+	octre + nip | cuando es cte
 	;
 
 :esta | x y z -- m
-	morton3d $octree		| busca nodo
+	morton3d octre		| busca nodo
 
 	@+ pick2 21 >> $7 and place | busca nodo value now
 	2dup and 0? ( nip nip nip nip ; ) drop
@@ -161,11 +54,11 @@
 	@+ pick2 $7 and place | busca value now
 	2dup and 0? ( nip nip nip nip $c0c0c0 nip ; ) drop	| no hay nadie
 	1- over and popcnt4 swap 6 >> $fffffffc and +
-	$octree + nip
+	octre + nip
 	nip ;
 
 :masa | x y z -- color m
-	morton3d $octree		| busca nodo
+	morton3d octre		| busca nodo
 
 	@+ pick2 21 >> $7 and place | busca nodo value now
 	2dup and 0? ( nip nip nip nip 128 ; ) drop
@@ -191,7 +84,7 @@
 	@+ pick2 $7 and place | busca value now
 	2dup and 0? ( nip nip nip nip $c0c0c0 nip 1 ; ) drop	| no hay nadie
 	1- over and popcnt4 swap 6 >> $fffffffc and +
-	$octree + nip
+	octre + nip
 	nip ;
 
 |---- otra forma
@@ -213,54 +106,54 @@
     swap 1- over and popcnt4 swap 6 >> $fffffffc and + ;
 
 :binhit | x y z -- x y z m
-	$octree >r
+	octre >r
 	get8 r@+ | now value
 	over nand? ( 2drop r> 'nodo ! 128 ; )
  	nexto
 	| r+
-	$octree + rdrop >r
+	octre + rdrop >r
 
 	get7 r@+ | now value
 	over nand? ( 2drop r> 'nodo ! 64 ; )
 	nexto
 	| r+
-	$octree + rdrop >r
+	octre + rdrop >r
 
 	get6 r@+ | now value
 	over nand? ( 2drop r> 'nodo ! 32 ; )
 	nexto
 	| r+
-	$octree + rdrop >r
+	octre + rdrop >r
 
 	get5 r@+ | now value
 	over nand? ( 2drop r> 'nodo ! 16 ; )
 	nexto
 	| r+
-	$octree + rdrop >r
+	octre + rdrop >r
 
 	get4 r@+ | now value
 	over nand? ( 2drop r> 'nodo ! 8 ; )
 	nexto
 	| r+
-	$octree + rdrop >r
+	octre + rdrop >r
 
 	get3 r@+ | now value
 	over nand? ( 2drop r> 'nodo ! 4 ; )
 	nexto
 	| r+
-	$octree + rdrop >r
+	octre + rdrop >r
 
 	get2 r@+ | now value
 	over nand? ( 2drop r> 'nodo ! 2 ; )
 	nexto
 	| r+
-	$octree + rdrop >r
+	octre + rdrop >r
 
 	get1 r@+ | now value
 	over nand? ( 2drop r> 'nodo ! 1 ; )
 	nexto
 	| r> +
-	$octree + rdrop
+	octre + rdrop
 	'nodo !
 	0 ;
 
@@ -317,24 +210,14 @@
 	-$1ff $1ff drawlinez ;
 
 
-|--------------------------
-:drawplanexbox | x y --
-	0 ( sidevox 2/ <? )(
-		pick2 pick2 setxy
-		0 ( sidevox 2/ <? )(
-			curx pick2 pick2
-			vox@ -1 =? ( 1 px+! drop )( px!+ )
-			1+ ) drop
-		swap 1+ swap 1+ ) 3drop
-	;
 |--------- ortho vistas
 :getcolor
-	nodo 4 - $pixels - memvox + 4+ @ ;
+	nodo 4+ @ ;
 
 :rayx | xi y z -- color
 	rot	| y z x
 	( 256 <? )( rot rot | x y z
-		binhit 0? ( 3drop  ; ) |4drop getcolor ; )
+		binhit 0? ( 4drop getcolor ; )
 		>r rot r> + )
 	3drop 0 ;
 
@@ -350,7 +233,7 @@
 :rayy | x yi z -- color
 	swap | x z y
 	( 256 <? )( swap | x y z
-		binhit 0? ( 2drop nip ; ) |4drop getcolor ; )
+		binhit 0? ( 4drop getcolor ; )
 		rot + )
 	3drop 0 ;
 
@@ -365,7 +248,7 @@
 
 :rayz | x y zi -- color
 	( 256 <? )(
-		binhit 0? ( drop nip nip ; ) |4drop getcolor ; )
+		binhit 0? ( 4drop getcolor ; )
 		+ )
 	3drop 0 ;
 
@@ -379,100 +262,31 @@
 	;
 
 |------------- load import
-:loadmodel
-	memvox
-	"media/3dm/castle.3dm"
-	load 'memvox> !
+:load3do | "filename" --
+	octre swap load 'octre> ! ;
 
-| escala----de 1024 a 256
-	memvox ( memvox> <? )( dup @ 6 >> swap !+ 4+ ) drop
-
-| elimina repetidos
-	sortvox
-	memvox >r
-	r@+ 4 r+ memvox 8 +
-	( memvox> <? )(	| prevval nextdir
-		@+			| prevval nextdir+ nextval
-		pick2 =? ( drop 4+ )(
-			rot drop	| nextdir+ nextval
-			dup r!+ swap
-			@+ r!+ )
-		) drop
-	r> 'memvox> !
-	;
-
-:testmodel
-	256 ( 1? )( 1-
-		$ff 0 0 pick3 vox!
-		$ff00 0 pick2 0 vox!
-		$ff0000 over 0 0 vox!
-		$ff00ff 0 pick2 $ff vox!
-		) drop
-	sortvox
-	;
-
-
-:randvox
-|	1000 ( 1? )( 1-
-|		$ff rand $ff and rand $ff and rand $ff and vox!
-|		) drop
-	$ff00 0 0 0 vox!
-	$ff00 0 0 1 vox!
-	$ff 1 0 0 vox!
-	$ff 1 0 1 vox!
-	$ff0000 0 1 0 vox!
-	$ff0000 0 1 1 vox!
-	sortvox
-	;
 
 |--------------------------
 :memory
 	mark
-	here dup 'memvox ! 'memvox> !
+	here dup 'octre ! 'octre> !
 	;
 
 :main
-	loadmodel
-|	testmodel
-	buildoctree
-
+	"media/3do/castle.3do" load3do
 	4
 	show clrscr verde
 		dup ":r%d " print cr
-		sidevox Deepvox "DEEP:%d lado:%d " print
-		memvox> memvox - 3 >> "puntos: %d " print
-		octre> octre - 2 >> "nodos: %d " print
-		cr
-|		$octree 25 ( 1? )( 1- swap @+ "%h" print cr swap ) 2drop
-		curz cury curx "%d %d %d" print cr
-|		dumpvox
-
-|		1 0 1 morton3d dup "%h-->" print memvox memvox> over - 3 >> swap binsearch
-|		1? ( @+ swap @ "%h %h" print cr )( drop )
-
-|		omode
-|		freelook
-|		xcam ycam zcam mtrans
-|		draw3dbox
-
-|		40 40 drawplanexbox
 
 		10 40 traceyplane
+
 		260 40 tracexplane
+
 		500 40 tracezplane
 
 |		[ -0.01 'zcam +! ; ] <up>
 |		[ 0.01 'zcam +! ; ] <dn>
 
-		[ 1 'curx +! ; ] <up>
-		[ -1 'curx +! ; ] <dn>
-
-		[ 1 'cury +! ; ] <le>
-		[ -1 'cury +! ; ] <ri>
-		[ 1 'curz +! ; ] <pgup>
-		[ -1 'curz +! ; ] <pgdn>
-
-		[ loadmodel ; ] <f1>
 		'exit >esc< ;
 
 : memory main ;
