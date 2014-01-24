@@ -1,25 +1,107 @@
-| cam point
+| cam
 | PHREDA 2014
-|----------------------
-
+|-----------------------------
 ^r4/lib/gui.txt
+^r4/lib/trace.txt
+^r4/lib/sort.txt
+^r4/lib/morton.txt
 
-#xo 0.1 #yo 0.1 #zo -0.2
-#xd 0 #yd -0.01 #zd 0.9
+#xcam 0 #ycam 0 #zcam 1.0
 
-:drawcam
-	320 ( 1? )( 1-
-		0 over setxy
-		240 ( 1? )( 1-
 
-			) drop
+|----------- graficacion
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:drawp | x y z ---
+	project3d |2dup op line ;
+	-? ( 2drop ; ) sh >=? ( 2drop ; )
+	swap -? ( 2drop ; ) sw >=? ( 2drop ; ) swap
+	setxy
+	ink@ px!+
+	;
+
+:3dop project3d op ;
+:3dline project3d line ;
+
+|---- caja en normalizado
+:drawboxz | z --
+	-$1ff -$1ff pick2 3dop
+	$1ff -$1ff pick2 3dline
+	$1ff $1ff pick2 3dline
+	-$1ff $1ff pick2 3dline
+	-$1ff -$1ff rot 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup -$1ff 3dop $1ff 3dline ;
+
+:draw3dnorm
+	-$1ff drawboxz
+	$1ff drawboxz
+	-$1ff -$1ff drawlinez
+	$1ff -$1ff drawlinez
+	$1ff $1ff drawlinez
+	-$1ff $1ff drawlinez ;
+
+|--------------------------------
+#camox 0 #camoy 0 #camoz 0
+#camdx 0 #camdy 0 #camdz 0.1
+
+#camux 0 #camuy 0.2 #camuz 0
+#camvx 0.2 #camvy 0 #camvz 0
+
+#sumu 0.01
+#sumv 0.01
+
+:pointray | x y --
+	20 ( 1? )( 1-
+		pick2 pick2 pick2 0.005 * camdz + drawp
 		) drop
 	;
 
+:pointcam
+	verde
+
+	camvx neg ( camvx <? )(
+		camvx neg ( camvx <? )(
+				pointray
+			sumu + ) drop
+		sumv + ) drop
+	;
+
+:drawcam
+
+	rojo
+|	camox camoy camoz pick2 camdx + pick2 camdy + pick2 camdz + 3dop 3dline
+
+	azul
+|	camox camoy camoz pick2 camux + pick2 camuy + pick2 camuz + 3dop 3dline
+
+	pointcam
+	;
+
+|--------------------------
 :main
-	show clrscr
+	4
+	show clrscr verde
+		dup ":r%d " print
+
+		omode
+		freelook
+		xcam ycam zcam mtrans
+
+		cyan draw3dnorm
+
+        drawcam
+
+		[ -0.01 'zcam +! ; ] <up>
+		[ 0.01 'zcam +! ; ] <dn>
+
 		'exit >esc<
-		cflecha
-		;
+		cflecha ;
 
 : mark main ;
