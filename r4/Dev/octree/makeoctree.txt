@@ -11,7 +11,7 @@
 
 
 #sidevox 1024
-#DEEPVOX 10 | profundidad-1
+#DEEPVOX 10 | profundidad
 
 #memvox		| inicio de puntos ordenados
 #memvox>
@@ -22,7 +22,9 @@
 
 |---- archivo a grabar
 #$octree
+#$lastlev
 #$pixels
+#$realpixels
 #$end
 
 #bith	| bitmask hijos
@@ -59,18 +61,7 @@
 :3dop project3d op ;
 :3dline project3d line ;
 
-|------------ construye octree
-
-:p1x2 | x -- v
-	$3ff and
-	dup 16 << xor $ff0000ff and
-	dup 8 << xor  $0300f00f and
-	dup 4 << xor  $030c30c3 and
-	dup 2 << xor  $09249249 and ;
-
-:morton3d | x y z -- Z
-	p1x2 2* swap p1x2 or 2* swap p1x2 or ;
-
+|------------ basicas
 :clearvox
 	memvox 'memvox> ! ;
 
@@ -78,10 +69,10 @@
 	memvox memvox> over - 3 >> 1+ swap ;
 
 :vox! | c x y z --
-	morton3d memvox> !+ !+ 'memvox> ! ;
+	mortonlut memvox> !+ !+ 'memvox> ! ;
 
 :vox@ | x y z -- c
-	morton3d vox-cnt-mem binsearch
+	mortonlut vox-cnt-mem binsearch
 	0? ( -1 nip ; ) 4+ @ ;
 
 :sortvox
@@ -92,8 +83,7 @@
 		@+ "%h " print @+ "%h" print cr
 		) drop ;
 
-|----- hacer octree
-
+|------------ construye octree
 :,oc | val --
 	octre> !+ 'octre> ! ;
 
@@ -109,10 +99,10 @@
 		dup $ff00 and 8 << 'sumg +!
 		$ff0000 and 'sumr +!
 		) drop
-	colores> 'colores - 2 >>
-	sumr over / $ff0000 and
-	sumg pick2 / 8 >> $ff00 and or
-	sumb rot / 16 >> $ff and or
+	colores> 'colores - 2 >> 1.0 swap / | optimizacion
+	sumr over *. $ff0000 and
+	sumg pick2 *. 8 >> $ff00 and or
+	sumb rot *. 16 >> $ff and or
 	;
 
 :nodecolor+ | node -- node+ color
@@ -163,6 +153,7 @@
 		) 2drop ;
 
 :buildoctree | --
+	"octree..." print cr redraw
 	memvox> dup 'octre ! 'octre> !
 	'levels 'level> !
 	|--- calcula hijos
@@ -175,6 +166,7 @@
 	|--- graba octree real
     octre> '$octree !
 	level> ( 'levels >? )( 8 -
+		'levels =? ( octre> '$lastlev ! )
 		dup 4+ @ over @
 		,levelnode
 		 ) drop
@@ -184,28 +176,56 @@
 		dup 4+ @ over @
 		,levelcolor
 		 ) drop
+	octre> '$realpixels !
 	memvox ( memvox> <? )(
 		4+ @+ ,oc ) drop
 	$pixels $octree - ,oc
 	octre> '$end !
 	;
 
+|------------ optimiza ultimo nivel
+:todos? | cant dir1 dir2 -- 0/1
+	>r ( swap 1? )( 1- swap
+		@+ r@+ <>? ( rdrop 3drop 0 ; )
+		drop )
+	rdrop 2drop 1 ;
 
-|--------------------------------
+:buscacol | nodo cant direccion -- nodo cant nuevadireccion/0
+	2 << $pixels + >r | nodo cant dirpix
+	$pixels  		| nodo cant dirpix r:dirini
+	( $realpixels pick2 2 << - <? )(
+		@+ r@+ =? ( drop over over 4 - r 4 -
+				todos? 1? ( rdrop drop 4 - ; ) )
+		drop )
+	rdrop drop 0 ;
 
-:showoc
-	show clrscr
-		verde
-		buildoctree
-		'exit >esc< ;
-
-|-----------------------------
-:optoctree
+:searchcolors | nodo valor -- nodo++
+	dup $ff and popcnt swap 8 >>	| nodo cant direccion
+	buscacol 1? ( nip $pixels - 2 >> 8 << over @ $ff and or swap !+ ; )
+	drop	| nodo cant
+	swap dup @
+	dup 8 >> 2 << $pixels + >r
+	$ff and $realpixels $pixels - 2 >> 8 << or swap !+
+	swap
+	$realpixels ( swap 1? )( 1-
+		r@+ rot !+ ) drop
+	'$realpixels !
+	rdrop
 	;
 
+:optoctree
+	"optimizando..." print cr redraw
+	$lastlev ( $pixels <? )(
+		dup @ searchcolors
+		) drop
+	$pixels $octree - $realpixels !+ '$end !
+	;
 
-:repetidos | elimina repetidos
+|------------ elimina repetidos
+:repetidos
+	"ordenando..." print cr redraw
 	sortvox
+	"repetidos..."  print cr redraw
 	memvox >r
 	r@+ 4 r+ memvox 8 +
 	( memvox> <? )(	| prevval nextdir
@@ -216,21 +236,26 @@
 			@+ r!+ )
 		) drop
 	r> 'memvox> !
-
-	memvox> memvox - 3 >> 'vertices !
 	;
+
+|--------------------------------
+:showoc
+	show clrscr
+		verde
+		buildoctree
+		'exit >esc< ;
+
 
 |------------- load import
 :load3dm | "filename" --
 	memvox swap
 	load 'memvox> !
-| escala
-	memvox> memvox - 3 >> 'vertices !
 
 | escala----de 1024 a 256
 |	memvox ( memvox> <? )( dup @ 6 >> swap !+ 4+ ) drop
 
 	repetidos
+	memvox> memvox - 3 >> 'vertices !
 	;
 
 :testmodel
@@ -285,7 +310,7 @@
 	;
 
 :saveoctree
-	$octree $end over - "media/3do/cesna.3do" save
+	$octree $end over - "media/3do/sib-edb7.3do" save
 	;
 
 |--------------------------
@@ -299,7 +324,7 @@
 |	"media/3dm/sib-edb7.3dm"
 |	"media/3dm/mario.3dm"
 |	"media/3dm/luigi.3dm"
-	"media/3dm/cesna.3dm"
+|	"media/3dm/cesna.3dm"
 	load3dm
 
 |testmodel
@@ -316,6 +341,13 @@
 		$end $octree - 2 >> "ROctree: %d " print
 		$end $octree - "mem:%d " print
 		cr
+		$octree "%h " print
+		$lastlev "%h " print
+		$pixels "%h " print
+		$realpixels "%h " print
+		$end "%h " print
+
+		cr
 
 |		dumpoc
 
@@ -327,10 +359,10 @@
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
-
+    	verde
 		[ buildoctree ; ] <f1>
 		[ saveoctree ; ] <f2>
-|		[ buildoctree savetxt ; ] <f3>
+		[ buildoctree optoctree ; ] <f3>
 
 		'exit >esc< ;
 
