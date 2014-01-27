@@ -6,7 +6,6 @@
 ^r4/lib/sort.txt
 ^r4/lib/morton.txt
 
-#xcam 0 #ycam 0 #zcam 1.0
 
 
 |----------- graficacion
@@ -30,32 +29,44 @@
 
 |---- caja en normalizado
 :drawboxz | z --
-	-$1ff -$1ff pick2 3dop
-	$1ff -$1ff pick2 3dline
-	$1ff $1ff pick2 3dline
-	-$1ff $1ff pick2 3dline
-	-$1ff -$1ff rot 3dline ;
+	-0.5 -0.5 pick2 3dop
+	0.5 -0.5 pick2 3dline
+	0.5 0.5 pick2 3dline
+	-0.5 0.5 pick2 3dline
+	-0.5 -0.5 rot 3dline ;
 
 :drawlinez | x1 x2 --
-	2dup -$1ff 3dop $1ff 3dline ;
+	2dup -0.5 3dop 0.5 3dline ;
 
 :draw3dnorm
-	-$1ff drawboxz
-	$1ff drawboxz
-	-$1ff -$1ff drawlinez
-	$1ff -$1ff drawlinez
-	$1ff $1ff drawlinez
-	-$1ff $1ff drawlinez ;
+	-0.5 drawboxz
+	0.5 drawboxz
+	-0.5 -0.5 drawlinez
+	0.5 -0.5 drawlinez
+	0.5 0.5 drawlinez
+	-0.5 0.5 drawlinez ;
 
 |--------------------------------
-#camox 0 #camoy 0 #camoz 0
-#camdx 0 #camdy 0 #camdz 0.1
 
-#camux 0 #camuy 0.2 #camuz 0
-#camvx 0.2 #camvy 0 #camvz 0
+#xcam 0 #ycam 0 #zcam 4.0
+
+#camox 0 #camoy 0 #camoz 0	| origen
+#camdx 0 #camdy 0 #camdz 0	| direccion
+#camux 0 #camuy 0 #camuz 0	| up
+#camvx 0 #camvy 0 #camvz 0	| left
 
 #sumu 0.02
 #sumv 0.02
+
+:pointray | x y --
+	2dup 0
+	0 ( 32 <? )( 1+ >r
+		pick2 pick2 pick2 drawp
+		rot pick4 4 >> +
+		rot pick3 4 >> +
+		rot 0.01 +
+		r> )
+	4drop ;
 
 :pointray | x y --
 	2dup 0
@@ -79,15 +90,39 @@
 		sumv + ) drop
 	;
 
+
 :drawcam
-
 	rojo
-|	camox camoy camoz pick2 camdx + pick2 camdy + pick2 camdz + 3dop 3dline
-
+	camox camoy camoz pick2 camdx + pick2 camdy + pick2 camdz + 3dop 3dline
 	azul
-|	camox camoy camoz pick2 camux + pick2 camuy + pick2 camuz + 3dop 3dline
-
+	camox camoy camoz pick2 camux + pick2 camuy + pick2 camuz + 3dop 3dline
+	cyan
+	camox camoy camoz pick2 camvx + pick2 camvy + pick2 camvz + 3dop 3dline
 	pointcam
+	;
+
+:ubicam
+	msec 2 <<
+	dup sin 2* 'camoy ! cos 2* 'camox ! 1.0 'camoz !
+
+	camox neg 'camdx !
+	camoy neg 'camdy !
+	camoz neg 'camdz !
+	camdx dup *. camdy dup *. + camdz dup *. + sqrt.
+	camdx over /. 'camdx !
+	camdy over /. 'camdy !
+	camdz over /. 'camdz !
+	drop
+
+	camdx neg 'camuy !
+	camdy 'camux !
+	|camdz
+	0 'camuz !
+
+	camdy camuz *. camuy camdz *. - 'camvx !
+	camdz camux *. camuz camdx *. - 'camvy !
+	camdx camuy *. camux camdy *. - 'camvz !
+
 	;
 
 |--------------------------
@@ -96,6 +131,7 @@
 	show clrscr verde
 		dup ":r%d " print
 
+		ubicam
 		omode
 		freelook
 		xcam ycam zcam mtrans
