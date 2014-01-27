@@ -9,9 +9,11 @@
 ^r4/lib/bsearch.txt
 ^r4/lib/morton.txt
 
-
 #sidevox 1024
 #DEEPVOX 10 | profundidad
+
+|#sidevox 256
+|#DEEPVOX 8 | profundidad
 
 #memvox		| inicio de puntos ordenados
 #memvox>
@@ -149,7 +151,10 @@
 
 :,levelcolor |  hasta desde --
 	( over <? )(
-		4+ @+ 8 >> ,oc
+		4+ @+ 8 >>
+		$ffffff and
+|***		$f8fcf8 and | 16 bits
+		,oc
 		) 2drop ;
 
 :buildoctree | --
@@ -178,7 +183,9 @@
 		 ) drop
 	octre> '$realpixels !
 	memvox ( memvox> <? )(
-		4+ @+ ,oc ) drop
+		4+ @+
+|***		$f8fcf8 and | 16 bits
+		,oc ) drop
 	$pixels $octree - ,oc
 	octre> '$end !
 	;
@@ -190,14 +197,23 @@
 		drop )
 	rdrop 2drop 1 ;
 
-:buscacol | nodo cant direccion -- nodo cant nuevadireccion/0
+:buscacolq | nodo cant direccion -- nodo cant nuevadireccion/0
 	>r 			| nodo cant dirpix
 	$pixels 	| nodo cant dirpix r:dirini
 	( $realpixels pick2 2 << - <? )(
-		@+ r@+ =? ( drop over 1- over r	| ya comprobo el primero!!
-				todos? 1? ( rdrop drop 4 - ; ) )
+		@+ r @ =? ( drop over 1- over r	4+ | ya comprobo el primero!!
+				todos? 1? ( drop rdrop 4 - ; ) )
 		drop )
 	rdrop drop 0 ;
+
+:buscacol | nodo cant direccion -- nodo cant nuevadireccion/0
+	@+ swap >r 			| nodo cant dirpix
+	$pixels 	| nodo cant primerc dirpix r:dirini
+	( $realpixels pick3 2 << - <? )(
+		@+ pick2 =? ( drop pick2 1- over r 		| ya comprobo el primero!!
+				todos? 1? ( drop nip rdrop 4 - ; ) )
+		drop )
+	rdrop 2drop 0 ;
 
 :searchcolors | nodo valor -- nodo++
 	dup $ff and popcnt
@@ -214,9 +230,33 @@
 	rdrop
 	;
 
+
+:shot
+	show clrscr
+
+	'levels ( level> <? )(
+		@+ swap @+ rot - 3 >>
+		"%h " print
+|		8 - @+ swap @+ rot ( over <? )( 4+ @+ "%h " allowcr print ) 2drop
+		cr allowchome ) drop
+	cr
+	$octree ( $lastlev <? )(
+		@+ "%h " allowcr print ) cr
+	( $pixels <? )(
+		over <? ( azul )( verde )
+		@+ "%h " allowcr print ) cr
+	( $end <? )(
+		$realpixels <? ( cyan )( amarillo )
+		@+ "%h " allowcr print ) drop
+
+	'exit >esc<
+	cflecha ;
+
+
 :optoctree
 	"optimizando..." print cr redraw
 	$lastlev ( $pixels <? )(
+|		shot
 		dup @ searchcolors
 		) drop
 	$pixels $octree - $realpixels !+ '$end !
@@ -243,6 +283,12 @@
 :showoc
 	show clrscr
 		verde
+		$octree "%h " print
+		$lastlev "%h " print
+		$pixels "%h " print
+		$realpixels "%h " print
+		$end "%h " print
+		cr
 		buildoctree
 		'exit >esc< ;
 
@@ -271,15 +317,17 @@
 
 
 :randvox
-|	1000 ( 1? )( 1-
-|		$ff rand $ff and rand $ff and rand $ff and vox!
-|		) drop
-	$ff00 0 0 0 vox!
-	$ff00 0 0 1 vox!
-	$ff 1 0 0 vox!
-	$ff 1 0 1 vox!
-	$ff0000 0 1 0 vox!
-	$ff0000 0 1 1 vox!
+	8 ( 1? )( 1-
+		8 ( 1? )( 1-
+		$ff00 pick2 pick2 0 vox!
+		) drop
+	) drop
+	1 ( 8 <? )(
+		$ff0000 1 1 pick3 vox!
+		$ff0000 7 1 pick3 vox!
+		$ff0000 7 7 pick3 vox!
+		$ff0000 7 1 pick3 vox!
+		1+ ) drop
 	repetidos
 	;
 
@@ -298,38 +346,45 @@
 	"octree.txt" savemem
 	empty ;
 
+
+
+
 :dumpoc
 	'levels ( level> <? )(
-	@+ swap @+ rot - 3 >>
-	"%h " print
-	8 - @+ swap @+ rot
-	( over <? )( 4+ @+ "%h " allowcr print ) 2drop
+		@+ swap @+ rot - 3 >>
+		"%h " print
+		8 - @+ swap @+ rot ( over <? )( 4+ @+ "%h " allowcr print ) 2drop
 		cr allowchome ) drop
 	cr
-	$octree ( $end <? )(
-		@+ "%h " allowcr print ) drop
+	$octree ( $pixels <? )(
+		@+ "%h " allowcr print ) cr
+	( $end <? )( @+ "%h " allowcr print ) drop
 	;
 
 :saveoctree
-	$octree $end over - "media/3do/sib-7ffc.3do" save
+	$octree $end over - "media/3do/castle.3do" save
 	;
 
 |--------------------------
 :main
 |	"media/3dm/test.3dm"
-|	"media/3dm/castle.3dm"
+
 |	"media/3dm/armadillo.3dm"
 |	"media/3dm/bunny.3dm"
 |	"media/3dm/xyzrgb_statuette.3dm"
 |	"media/3dm/dragon.3dm"
 |	"media/3dm/sib-edb7.3dm"
-|	"media/3dm/mario.3dm"
+
+	"media/3dm/castle.3dm"
+|	"media/3dm/porche1.3dm"
 |	"media/3dm/luigi.3dm"
-|	"media/3dm/cesna.3dm"
-"media/3dm/sib-7ffc.3dm"
+
+|	"media/3dm/mario.3dm"
+|	"media/3dm/bamboo.3dm"
 	load3dm
 
 |testmodel
+|	randvox
 
 	4
 	show clrscr verde
