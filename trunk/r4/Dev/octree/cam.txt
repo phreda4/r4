@@ -48,7 +48,7 @@
 
 |--------------------------------
 
-#xcam 0 #ycam 0 #zcam 4.0
+#xcam 0 #ycam 0 #zcam 5.0
 
 #camox 0 #camoy 0 #camoz 0	| origen
 #camdx 0 #camdy 0 #camdz 0	| direccion
@@ -68,28 +68,42 @@
 		r> )
 	4drop ;
 
-:pointray | x y --
-	2dup 0
-	0 ( 32 <? )( 1+ >r
-		pick2 pick2 pick2 drawp
-		rot pick4 4 >> +
-		rot pick3 4 >> +
-		rot 0.01 +
-		r> )
-	4drop ;
+#ax #ay #az	| actual
+#sx #sy #sz	| suma ux
+#vx #vy #vz	| suma vx
+#nx #ny #nz | normal actual
+#nsx #nsy #nsz | suma normal ux
+#nvx #nvy #nvz | suma normal vx
 
-:pointcam
-	verde
+:pointray | dx dy x y z --
+|	pick2 nx + pick2 ny + pick2 nz +
+	pick2 camdx + pick2 camdy + pick2 camdz +
+	3dop 3dline ;
 
-	camvx neg ( camvx <? )(
-		rojo
-		camvx neg ( camvx <? )(
-				pointray
-				verde
-			sumu + ) drop
-		sumv + ) drop
-	;
+:pointcamo
+	camox camux - camvx - 'ax !
+	camoy camuy - camvy - 'ay !
+	camoz camuz - camvz - 'az !
+	camux 4 >> 'sx !	| 16 es la resolucion/2
+	camuy 4 >> 'sy !
+	camuz 4 >> 'sz !
+	camux 2* neg camvx 4 >> + 'vx ! | 16 es la resolucion/2
+	camuy 2* neg camvy 4 >> + 'vy ! | resta para retroceder el raster
+	camuz 2* neg camvz 4 >> + 'vz !
 
+	camdx 'nx !
+	camdy 'ny !
+	camdz 'nz !
+
+
+	-16 ( 16 <? )( 1+
+		-16 ( 16 <? )( 1+
+			|ax ay az drawp
+			ax ay az pointray
+			sx 'ax +! sy 'ay +! sz 'az +!
+			) drop
+		vx 'ax +! vy 'ay +! vz 'az +!
+		) drop ;
 
 :drawcam
 	rojo
@@ -98,21 +112,23 @@
 	camox camoy camoz pick2 camux + pick2 camuy + pick2 camuz + 3dop 3dline
 	cyan
 	camox camoy camoz pick2 camvx + pick2 camvy + pick2 camvz + 3dop 3dline
-	pointcam
+	pointcamo
 	;
 
 :ubicam
 	msec 2 <<
-	dup sin 2* 'camoy ! cos 2* 'camox ! 1.0 'camoz !
+	dup sin 2* 'camoy ! cos 2* 'camox !
+	msec 2 << sin 'camoz !
 
 	camox neg 'camdx !
 	camoy neg 'camdy !
 	camoz neg 'camdz !
-	camdx dup *. camdy dup *. + camdz dup *. + sqrt.
-	camdx over /. 'camdx !
-	camdy over /. 'camdy !
-	camdz over /. 'camdz !
-	drop
+
+	| normaliza
+	camdx dup *. camdy dup *. + camdz dup *. + sqrt. 1.0 swap /.
+	camdx over *. 'camdx !
+	camdy over *. 'camdy !
+	camdz swap *. 'camdz !
 
 	camdx neg 'camuy !
 	camdy 'camux !
