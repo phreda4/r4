@@ -50,8 +50,7 @@
 #octre>
 
 |----------- busca masa
-#nodo
-
+#nodo          
 :nexto | now value -- newa
 	dup rot 1- and popcnt swap 8 >> + ;
 
@@ -130,10 +129,19 @@
 
 :drawph | x y z -- nodo/0
 	pick2 abs pick2 abs pick2 abs or or $ffff8000 and? ( 4drop 0 ; ) drop
-
-	rot 7 >> rot 7 >> rot 7 >>
+	rot 8 >> $7f + rot 8 >> $7f + rot 8  >> $7f +
 	binhit3 0? ( drop nodo 2 << pixels + ; )
 	drop 0 ;
+
+
+
+#rut
+:getvox | x y z -- nodo/0
+	pick2 abs pick2 abs pick2 abs or or $ffff8000 and? ( 4drop 0 ; ) drop
+	rot 8 >> $7f + rot 8 >> $7f + rot 8  >> $7f +
+	rut exec 0? ( drop nodo 2 << pixels + ; )
+	drop 0 ;
+
 
 |------------- load import
 :load3do | "filename" --
@@ -179,12 +187,19 @@
 	rot verde ;
 
 :drawpp | x y z --
-	colores
-	|pick2 abs pick2 abs pick2 abs or or $ffff8000 nand? ( verde )( gris ) drop
+	|colores
+	pick2 abs pick2 abs pick2 abs or or $ffff8000 nand? ( verde )( gris ) drop
 	drawp ;
 
 
 #spx #spy #spz
+
+:step
+	pick2 pick2 pick2 drawpp
+	rot spx 8 >> + rot spy 8 >> + rot spz 8 >> + ;
+
+:inc
+	spx 'spx +! spy 'spy +! spz 'spz +! ;
 
 :pointray | --
 	ax ay az
@@ -192,30 +207,25 @@
 	pick2 camdy 2 << + 2/
 	pick2 camdz 2 << + 2/
 	'spz ! 'spy ! 'spx !
-	32 ( 1? )( 1- >r
-		pick2 pick2 pick2 drawpp
-
-		rot spx dup 2 >> 'spx +! 8 >> +
-		rot spy dup 2 >> 'spy +! 8 >> +
-		rot spz dup 2 >> 'spz +! 8 >> +
+	10 ( 1? )( 1- >r
+		step step step step inc
 		r> ) drop
 	3drop
 	;
-
 
 :pointcamo
 	camox camux - camvx - 'ax !
 	camoy camuy - camvy - 'ay !
 	camoz camuz - camvz - 'az !
-	camux 5 >> 'sx !	| 16 es la resolucion/2
-	camuy 5 >> 'sy !
-	camuz 5 >> 'sz !
-	camux 2* neg camvx 5 >> + 'vx ! | 16 es la resolucion/2
-	camuy 2* neg camvy 5 >> + 'vy ! | resta para retroceder el raster
-	camuz 2* neg camvz 5 >> + 'vz !
+	camux 4 >> 'sx !	| 16 es la resolucion/2
+	camuy 4 >> 'sy !
+	camuz 4 >> 'sz !
+	camux 2* neg camvx 4 >> + 'vx ! | 16 es la resolucion/2
+	camuy 2* neg camvy 4 >> + 'vy ! | resta para retroceder el raster
+	camuz 2* neg camvz 4 >> + 'vz !
 
-	64 ( 1? )( 1-
-		64 ( 1? )( 1-
+	32 ( 1? )( 1-
+		32 ( 1? )( 1-
 			|...ax ay az drawp
 			pointray
 			sx 'ax +! sy 'ay +! sz 'az +!
@@ -224,6 +234,7 @@
 		) drop ;
 
 |---------------------------------------------------------
+
 :pointcolor
 	ax ay az
 	pick2 camdx 2 << + 2/
@@ -237,36 +248,70 @@
 		rot spy dup 2 >> 'spy +! 8 >> +
 		rot spz dup 2 >> 'spz +! 8 >> +
 		r> ) 4drop
-	0
+	$f
 	;
+
+#loda
+
+:step 		rot spx 8 >> + rot spy 8 >> + rot spz 8 >> + ;
+:getvoxx	pick2 pick2 pick2 getvox ;
+:incx		spx 'spx +! spy 'spy +! spz 'spz +! loda @+ 'rut ! 'loda ! ;
+
+
+:pointcolor
+	'lod 'loda !
+	ax ay az
+	pick2 camdx 2 << + 2/
+	pick2 camdy 2 << + 2/
+	pick2 camdz 2 << + 2/
+	'spz ! 'spy ! 'spx !
+	8 ( 1? )( 1- >r
+		incx
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		step
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		step
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		step
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		step
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		step
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		step
+
+		r> ) 4drop
+	$f ;
 
 :renderwin | x y --
 	setxy
 	camox camux - camvx - 'ax !
 	camoy camuy - camvy - 'ay !
 	camoz camuz - camvz - 'az !
-	camux 5 >> 'sx !	| 16 es la resolucion/2
-	camuy 5 >> 'sy !
-	camuz 5 >> 'sz !
-	camux 2* neg camvx 5 >> + 'vx ! | 16 es la resolucion/2
-	camuy 2* neg camvy 5 >> + 'vy ! | resta para retroceder el raster
-	camuz 2* neg camvz 5 >> + 'vz !
+	camux 6 >> 'sx !
+	camuy 6 >> 'sy !
+	camuz 6 >> 'sz !
+	camux 2* neg camvx 6 >> + 'vx !
+	camuy 2* neg camvy 6 >> + 'vy ! | resta para retroceder el raster
+	camuz 2* neg camvz 6 >> + 'vz !
 
-	64 ( 1? )( 1-
-		64 ( 1? )( 1-
-			|...ax ay az drawp
+	128 ( 1? )( 1-
+		128 ( 1? )( 1-
 			pointcolor px!+
 			sx 'ax +! sy 'ay +! sz 'az +!
 			) drop
-		sw 64 - px+!
+		sw 128 - px+!
 		vx 'ax +! vy 'ay +! vz 'az +!
 		) drop ;
 
 :drawcam
+	| draw cam axis
 	rojo camox camoy camoz pick2 camdx + pick2 camdy + pick2 camdz + 3dop 3dline
 	violeta camox camoy camoz pick2 camux + pick2 camuy + pick2 camuz + 3dop 3dline
 	cyan camox camoy camoz pick2 camvx + pick2 camvy + pick2 camvz + 3dop 3dline
-|	gris pointcamo
+	| draw ray point
+	gris pointcamo
+	| real render
 	100 200 renderwin
 	;
 
@@ -309,9 +354,6 @@
 		camdx camdy camdz "Zd:%f Yd:%f Xd:%f" print cr
 		camux camuy camuz "Zu:%f Yu:%f Xu:%f" print cr
 		camvx camvy camvz "Zv:%f Yv:%f Xv:%f" print cr
-
-		ax ay az "Za:%f Ya:%f Xa:%f" print cr
-		spx spy spz "Zs:%f Ys:%f Xs:%f" print cr
 
 		omode
 		freelook
