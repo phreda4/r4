@@ -1,4 +1,4 @@
-| cam
+| cam test
 | PHREDA 2014
 |-----------------------------
 ^r4/lib/gui.txt
@@ -134,11 +134,12 @@
 	drop 0 ;
 
 
-
 #rut
 :getvox | x y z -- nodo/0
-	pick2 abs pick2 abs pick2 abs or or $ffff8000 and? ( 4drop 0 ; ) drop
-	rot 8 >> $7f + rot 8 >> $7f + rot 8  >> $7f +
+	rot 8 >> $7f +
+	rot 8 >> $7f +
+	rot 8 >> $7f +
+	pick2 abs pick2 abs pick2 abs or or $ffffff00 and? ( 4drop 0 ; ) drop
 	rut exec 0? ( drop nodo 2 << pixels + ; )
 	drop 0 ;
 
@@ -165,19 +166,10 @@
 #sx #sy #sz	| suma ux
 #vx #vy #vz	| suma vx
 
-:pointray | x y --
-	2dup 0
-	0 ( 32 <? )( 1+ >r
-		pick2 pick2 pick2 drawp
-		rot pick4 4 >> +
-		rot pick3 4 >> +
-		rot 0.01 +
-		r> )
-	4drop ;
-
+|---- dibuja FOV
 :pointray | --
-	ax ay az
-	pick2 2* camdx 2 << + pick2 2* camdy 2 << + pick2 2* camdz 2 << +
+	camox ax + camoy ay + camoz az +
+	pick2 camdx + ax + pick2 camdy + ay + pick2 camdz + az +
 	3dop 3dline ;
 
 :colores
@@ -191,39 +183,33 @@
 	pick2 abs pick2 abs pick2 abs or or $ffff8000 nand? ( verde )( gris ) drop
 	drawp ;
 
-
-#spx #spy #spz
-
+#value
 :step
 	pick2 pick2 pick2 drawpp
-	rot spx 8 >> + rot spy 8 >> + rot spz 8 >> + ;
-
-:inc
-	spx 'spx +! spy 'spy +! spz 'spz +! ;
+	rot camdx ax + value >> +
+	rot camdy ay + value >> +
+	rot camdz az + value >> + ;
 
 :pointray | --
-	ax ay az
-	pick2 camdx 2 << + 2/
-	pick2 camdy 2 << + 2/
-	pick2 camdz 2 << + 2/
-	'spz ! 'spy ! 'spx !
-	10 ( 1? )( 1- >r
-		step step step step inc
+	8 'value !
+	camox ax + camoy ay + camoz az +
+	8 ( 1? )( 1- >r
+		step step step step
+		-1 'value +!
 		r> ) drop
 	3drop
 	;
 
 :pointcamo
-	camox camux - camvx - 'ax !
-	camoy camuy - camvy - 'ay !
-	camoz camuz - camvz - 'az !
+	camux camvx + neg 'ax !
+	camuy camvy + neg 'ay !
+	camuz camvz + neg 'az !
 	camux 4 >> 'sx !	| 16 es la resolucion/2
 	camuy 4 >> 'sy !
 	camuz 4 >> 'sz !
-	camux 2* neg camvx 4 >> + 'vx ! | 16 es la resolucion/2
-	camuy 2* neg camvy 4 >> + 'vy ! | resta para retroceder el raster
-	camuz 2* neg camvz 4 >> + 'vz !
-
+	camvx 4 >> camux 2* - 'vx ! | 16 es la resolucion/2
+	camvy 4 >> camuy 2* - 'vy ! | resta para retroceder el raster
+	camvz 4 >> camuz 2* - 'vz !
 	32 ( 1? )( 1-
 		32 ( 1? )( 1-
 			|...ax ay az drawp
@@ -234,67 +220,44 @@
 		) drop ;
 
 |---------------------------------------------------------
-
-:pointcolor
-	ax ay az
-	pick2 camdx 2 << + 2/
-	pick2 camdy 2 << + 2/
-	pick2 camdz 2 << + 2/
-	'spz ! 'spy ! 'spx !
-	32 ( 1? )( 1- >r
-		pick2 pick2 pick2 drawph 1? ( nip nip nip rdrop @ ; )
-		drop
-		rot spx dup 2 >> 'spx +! 8 >> +
-		rot spy dup 2 >> 'spy +! 8 >> +
-		rot spz dup 2 >> 'spz +! 8 >> +
-		r> ) 4drop
-	$f
-	;
-
 #loda
 
-:step 		rot spx 8 >> + rot spy 8 >> + rot spz 8 >> + ;
-:getvoxx	pick2 pick2 pick2 getvox ;
-:incx		spx 'spx +! spy 'spy +! spz 'spz +! loda @+ 'rut ! 'loda ! ;
-
+:getvoxx
+		rot camdx ax + value >> +
+		rot camdy ay + value >> +
+		rot camdz az + value >> +
+		pick2 pick2 pick2 getvox ;
+:incx
+		-1 'value +!
+		loda @+ 'rut ! 'loda ! ;
 
 :pointcolor
-	'lod 'loda !
-	ax ay az
-	pick2 camdx 2 << + 2/
-	pick2 camdy 2 << + 2/
-	pick2 camdz 2 << + 2/
-	'spz ! 'spy ! 'spx !
+	9 'value !
+	'lod 'loda ! incx
+	camox ax + camoy ay + camoz az +
 	8 ( 1? )( 1- >r
-		incx
 		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
-		step
 		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
-		step
 		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
-		step
 		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
-		step
 		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
-		step
 		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
-		step
-
-		r> ) 4drop
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		incx r> ) 4drop
 	$f ;
 
 :renderwin | x y --
 	setxy
-	camox camux - camvx - 'ax !
-	camoy camuy - camvy - 'ay !
-	camoz camuz - camvz - 'az !
+	camux camvx + neg 'ax !
+	camuy camvy + neg 'ay !
+	camuz camvz + neg 'az !
 	camux 6 >> 'sx !
 	camuy 6 >> 'sy !
 	camuz 6 >> 'sz !
-	camux 2* neg camvx 6 >> + 'vx !
-	camuy 2* neg camvy 6 >> + 'vy ! | resta para retroceder el raster
-	camuz 2* neg camvz 6 >> + 'vz !
-
+	camvx 6 >> camux 2* - 'vx !
+	camvy 6 >> camuy 2* - 'vy ! | resta para retroceder el raster
+	camvz 6 >> camuz 2* - 'vz !
 	128 ( 1? )( 1-
 		128 ( 1? )( 1-
 			pointcolor px!+
@@ -310,21 +273,25 @@
 	violeta camox camoy camoz pick2 camux + pick2 camuy + pick2 camuz + 3dop 3dline
 	cyan camox camoy camoz pick2 camvx + pick2 camvy + pick2 camvz + 3dop 3dline
 	| draw ray point
-	gris pointcamo
+|	gris pointcamo
 	| real render
 	100 200 renderwin
 	;
 
-#zzcam 2.0
+#zzcam 1.0
+#ani
+#xxpos
 
 :ubicam
-	msec 2 <<
-	dup sin zzcam *. 'camoy ! cos zzcam *. 'camox !
-	msec 2 << sin 'camoz !
+	ani 0? ( msec 2 << )( xxpos ) nip	| animado o no
 
-	camox neg 'camdx !
-	camoy neg 'camdy !
-	camoz neg 'camdz !
+	dup sin zzcam *. 'camoz !
+	dup sin zzcam *. 'camoy !
+	dup cos zzcam *. 'camox !
+
+	dup sin neg 'camdz !
+	dup sin neg 'camdy !
+	cos neg 'camdx !
 
 	| normaliza
 	camdx dup *. camdy dup *. + camdz dup *. + sqrt. 1.0 swap /.
@@ -365,6 +332,9 @@
 
 		[ -0.1 'zzcam +! ; ] <up>
 		[ 0.1 'zzcam +! ; ] <dn>
+		[ ani not 'ani ! ; ] <spc>
+		[ -0.01 'xxpos +! ; ] <le>
+		[ 0.01 'xxpos +! ; ] <ri>
 
 		'exit >esc<
 		cflecha ;
