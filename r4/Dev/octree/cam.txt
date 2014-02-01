@@ -136,10 +136,8 @@
 
 #rut
 :getvox | x y z -- nodo/0
-	pick2 abs pick2 abs pick2 abs or or $ffff8000 and? ( 4drop 0 ; ) drop
-	rot 8 >> $7f +
-	rot 8 >> $7f +
-	rot 8 >> $7f +
+|	pick2 abs pick2 abs pick2 abs or or $ffff8000 and? ( 4drop 0 ; ) drop
+	rot 8 >> $7f + rot 8 >> $7f + rot 8 >> $7f +
 	rut exec 0? ( drop nodo 2 << pixels + ; )
 	drop 0 ;
 
@@ -186,9 +184,13 @@
 #value
 :step
 	pick2 pick2 pick2 drawpp
-	rot camdx ax + value >> +
-	rot camdy ay + value >> +
-	rot camdz az + value >> + ;
+	rot camdx ax + |value >> 
++
+	rot camdy ay + |value >> 
++
+	rot camdz az + |value >> 
++
+	;
 
 :pointray | --
 	8 'value !
@@ -223,13 +225,13 @@
 #loda
 
 :getvoxx
-		rot camdx ax + value >> +
-		rot camdy ay + value >> +
-		rot camdz az + value >> +
-		pick2 pick2 pick2 getvox ;
+	rot camdx ax + value >> +
+	rot camdy ay + value >> +
+	rot camdz az + value >> +
+	pick2 pick2 pick2 getvox ;
 :incx
-		-1 'value +!
-		loda @+ 'rut ! 'loda ! ;
+	-1 'value +!
+	loda @+ 'rut ! 'loda ! ;
 
 :pointcolor
 	9 'value !
@@ -267,6 +269,76 @@
 		vx 'ax +! vy 'ay +! vz 'az +!
 		) drop ;
 
+|---------------------------------------------
+
+:getvoxx
+	rot camdx ax 6 >> + value >> +
+	rot camdy ay 6 >> + value >> +
+	rot camdz az 6 >> + value >> +
+	pick2 pick2 pick2 getvox ;
+
+:incx
+	-1 'value +!
+	loda @+ 'rut ! 'loda ! ;
+
+:pointcolor2
+	9 'value !
+	'lod 'loda ! incx
+	camox ax 6 >> + camoy ay 6 >> + camoz az 6 >> + | origen
+	8 ( 1? )( 1- >r
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		incx r> ) 4drop
+	$f ;
+
+:renderwin2 | x y --
+	setxy
+	camux camvx + neg 6 << 'ax !	| 2 bits more resolution
+	camuy camvy + neg 6 << 'ay !
+	camuz camvz + neg 6 << 'az !
+	camux  'sx !
+	camuy  'sy !
+	camuz  'sz !
+	camvx  camux 7 << - 'vx !
+	camvy  camuy 7 << - 'vy ! | resta para retroceder el raster
+	camvz  camuz 7 << - 'vz !
+	128 ( 1? )( 1-
+		128 ( 1? )( 1-
+			pointcolor2 px!+
+			sx 'ax +! sy 'ay +! sz 'az +!
+			) drop
+		sw 128 - px+!
+		vx 'ax +! vy 'ay +! vz 'az +!
+		) drop ;
+
+:renderwin3 | x y --
+	setxy
+	camux camvx + neg 6 << 'ax !	| 2 bits more resolution
+	camuy camvy + neg 6 << 'ay !
+	camuz camvz + neg 6 << 'az !
+	camux 2/ 'sx !
+	camuy 2/ 'sy !
+	camuz 2/ 'sz !
+	camvx 2/ camux 7 << - 'vx !
+	camvy 2/ camuy 7 << - 'vy ! | resta para retroceder el raster
+	camvz 2/ camuz 7 << - 'vz !
+	256 ( 1? )( 1-
+		256 ( 1? )( 1-
+			pointcolor2 px!+
+			sx 'ax +! sy 'ay +! sz 'az +!
+			) drop
+		sw 256 - px+!
+		vx 'ax +! vy 'ay +! vz 'az +!
+		) drop ;
+
+|---------------------------------------------
+#tipo 0
 :drawcam
 	| draw cam axis
 	rojo camox camoy camoz pick2 camdx + pick2 camdy + pick2 camdz + 3dop 3dline
@@ -275,7 +347,9 @@
 	| draw ray point
 |	gris pointcamo
 	| real render
-	100 200 renderwin
+
+	100 200
+	tipo 1? ( drop renderwin )( drop renderwin2 )
 	;
 
 #zzcam 1.0
@@ -317,7 +391,7 @@
 |--------------------------
 :main
 "media/3do/mario.3do"
-|"horse.3do"
+|"media/3do/horse.3do"
 |"media/3do/earth.3do"
 	load3do
 	4
@@ -342,7 +416,7 @@
 		[ ani not 'ani ! ; ] <spc>
 		[ -0.01 'xxpos +! ; ] <le>
 		[ 0.01 'xxpos +! ; ] <ri>
-
+		[ tipo not 'tipo ! ; ] <f1>
 		'exit >esc<
 		cflecha ;
 
