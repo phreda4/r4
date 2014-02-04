@@ -1,4 +1,5 @@
 | cam test
+| con dda3
 | PHREDA 2014
 |-----------------------------
 ^r4/lib/gui.txt
@@ -182,25 +183,39 @@
 	drawp ;
 
 #value
-:step
-	pick2 pick2 pick2 drawpp
-	rot camdx ax + |value >> 
-+
-	rot camdy ay + |value >> 
-+
-	rot camdz az + |value >> 
-+
-	;
 
-:pointray | --
-	8 'value !
-	camox ax + camoy ay + camoz az +
-	8 ( 1? )( 1- >r
-		step step step step
-		-1 'value +!
-		r> ) drop
-	3drop
-	;
+#ex #ey #ez
+#cx #cy #cz
+#dx #dy #dz
+#tx #ty #tz
+
+:dd
+	camox ax + cx +
+	camoy ay + cy +
+	camoz az + cz +
+	drawpp
+	dx 'ex +! dy 'ey +! dz 'ez +! ;
+
+:dupli
+	dx 2* 'dx ! tx 2* 'tx ! dy 2* 'dy ! ty 2* 'ty ! dz 2* 'dz ! tz 2* 'tz ! ;
+
+::dda3a | --
+	camdx ax + +? ( 1 )( -1 ) 'tx ! abs 'dx !
+	camdy ay + +? ( 1 )( -1 ) 'ty ! abs 'dy !
+	camdz az + +? ( 1 )( -1 ) 'tz ! abs 'dz !
+	0 dup dup 'ex ! 'ey ! 'ez !
+	0 dup dup 'cz ! 'cy ! 'cx !
+	dupli dupli
+	dx dy dz max max
+	14 ( 1? )( 1-
+		dd
+		ex 2* pick2 >=? ( tx 'cx +! pick2 neg 'ex +! ) drop
+		ey 2* pick2 >=? ( ty 'cy +! pick2 neg 'ey +! ) drop
+		ez 2* pick2 >=? ( tz 'cz +! pick2 neg 'ez +! ) drop
+		dupli swap 2* swap
+		)
+	2drop ;
+
 
 :pointcamo
 	camux camvx + neg 'ax !
@@ -215,7 +230,7 @@
 	32 ( 1? )( 1-
 		32 ( 1? )( 1-
 			|...ax ay az drawp
-			pointray
+			dda3a
 			sx 'ax +! sy 'ay +! sz 'az +!
 			) drop
 		vx 'ax +! vy 'ay +! vz 'az +!
@@ -317,26 +332,6 @@
 		vx 'ax +! vy 'ay +! vz 'az +!
 		) drop ;
 
-:renderwin3 | x y --
-	setxy
-	camux camvx + neg 6 << 'ax !	| 6 bits more resolution
-	camuy camvy + neg 6 << 'ay !
-	camuz camvz + neg 6 << 'az !
-	camux 2/ 'sx !
-	camuy 2/ 'sy !
-	camuz 2/ 'sz !
-	camvx 2/ camux 7 << - 'vx !
-	camvy 2/ camuy 7 << - 'vy ! | resta para retroceder el raster
-	camvz 2/ camuz 7 << - 'vz !
-	256 ( 1? )( 1-
-		256 ( 1? )( 1-
-			pointcolor2 px!+
-			sx 'ax +! sy 'ay +! sz 'az +!
-			) drop
-		sw 256 - px+!
-		vx 'ax +! vy 'ay +! vz 'az +!
-		) drop ;
-
 |---------------------------------------------
 #tipo 0
 :drawcam
@@ -345,11 +340,10 @@
 	violeta camox camoy camoz pick2 camux + pick2 camuy + pick2 camuz + 3dop 3dline
 	cyan camox camoy camoz pick2 camvx + pick2 camvy + pick2 camvz + 3dop 3dline
 	| draw ray point
-|	gris pointcamo
+	gris pointcamo
 	| real render
 
-	100 200
-	tipo 1? ( drop renderwin )( drop renderwin2 )
+|	100 200 tipo 1? ( drop renderwin )( drop renderwin2 )
 	;
 
 #zzcam 1.0
