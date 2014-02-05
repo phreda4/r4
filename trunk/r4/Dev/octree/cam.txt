@@ -129,15 +129,15 @@
 
 :drawph | x y z -- nodo/0
 	pick2 abs pick2 abs pick2 abs or or $ffff8000 and? ( 4drop 0 ; ) drop
-	rot 8 >> $7f + rot 8 >> $7f + rot 8  >> $7f +
+	rot 8 >> $80 + rot 8 >> $80 + rot 8  >> $80 +
 	binhit3 0? ( drop nodo 2 << pixels + ; )
 	drop 0 ;
 
 
 #rut
 :getvox | x y z -- nodo/0
-|	pick2 abs pick2 abs pick2 abs or or $ffff8000 and? ( 4drop 0 ; ) drop
-	rot 8 >> $7f + rot 8 >> $7f + rot 8 >> $7f +
+	pick2 abs pick2 abs pick2 abs or or $ffff8000 and? ( 4drop 0 ; ) drop
+	rot 8 >> $80 + rot 8 >> $80 + rot 8 >> $80 +
 	rut exec 0? ( drop nodo 2 << pixels + ; )
 	drop 0 ;
 
@@ -184,12 +184,9 @@
 #value
 :step
 	pick2 pick2 pick2 drawpp
-	rot camdx ax + |value >> 
-+
-	rot camdy ay + |value >> 
-+
-	rot camdz az + |value >> 
-+
+	rot camdx ax + value >> +
+	rot camdy ay + value >> +
+	rot camdz az + value >> +
 	;
 
 :pointray | --
@@ -270,44 +267,49 @@
 		) drop ;
 
 |---------------------------------------------
+#ssx #ssy #ssz
 
 :getvoxx
-	rot camdx ax 6 >> + value >> +
-	rot camdy ay 6 >> + value >> +
-	rot camdz az 6 >> + value >> +
-	pick2 pick2 pick2 getvox ;
+	rot ssx + rot ssy + rot ssz +
+	pick2 pick2 pick2 getvox
+	;
 
 :incx
 	-1 'value +!
+	value
+	camdx ax 6 >> + over >> 'ssx !
+	camdy ay 6 >> + over >> 'ssy !
+	camdz az 6 >> + swap >> 'ssz !
 	loda @+ 'rut ! 'loda ! ;
 
 :pointcolor2
 	9 'value !
-	'lod 'loda ! incx
+	'lod 'loda !
+	incx
 	camox ax 6 >> + camoy ay 6 >> + camoz az 6 >> + | origen
 	8 ( 1? )( 1- >r
-		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
-		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
-		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
-		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
-		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
-		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
-		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
-		getvoxx 1? ( nip nip nip rdrop @ ; ) drop
+		getvoxx 1? ( rdrop nip nip nip @ ; ) drop
+		getvoxx 1? ( rdrop nip nip nip @ ; ) drop
+		getvoxx 1? ( rdrop nip nip nip @ ; ) drop
+		getvoxx 1? ( rdrop nip nip nip @ ; ) drop
+		getvoxx 1? ( rdrop nip nip nip @ ; ) drop
+		getvoxx 1? ( rdrop nip nip nip @ ; ) drop
+		getvoxx 1? ( rdrop nip nip nip @ ; ) drop
+		getvoxx 1? ( rdrop nip nip nip @ ; ) drop
 		incx r> ) 4drop
 	$f ;
 
 :renderwin2 | x y --
 	setxy
-	camux camvx + neg 6 << 'ax !	| 6 bits more resolution
-	camuy camvy + neg 6 << 'ay !
-	camuz camvz + neg 6 << 'az !
-	camux  'sx !
-	camuy  'sy !
-	camuz  'sz !
-	camvx  camux 7 << - 'vx !
-	camvy  camuy 7 << - 'vy ! | resta para retroceder el raster
-	camvz  camuz 7 << - 'vz !
+	camux camvx + neg 5 << 'ax !	| 6 bits more resolution
+	camuy camvy + neg 5 << 'ay !
+	camuz camvz + neg 5 << 'az !
+	camux  2/ 'sx !
+	camuy  2/ 'sy !
+	camuz  2/ 'sz !
+	camvx  camux 7 << - 2/ 'vx !
+	camvy  camuy 7 << - 2/ 'vy ! | resta para retroceder el raster
+	camvz  camuz 7 << - 2/ 'vz !
 	128 ( 1? )( 1-
 		128 ( 1? )( 1-
 			pointcolor2 px!+
