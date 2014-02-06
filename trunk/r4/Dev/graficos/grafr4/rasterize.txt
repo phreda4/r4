@@ -1,0 +1,111 @@
+| raterize convex
+| PHREDA 2014
+|----------------------------------------
+^r4/lib/gui.txt
+
+#FBASE	8
+
+#py #px
+#ymax -1
+
+|--------- segmentos
+| ymin x delta1x ymax
+|-----------------------
+#segs )( 256
+#segs> 'segs
+
+#heapseg )( 64
+#heapseg> 'heapseg
+
+::cop | x y --
+	'py ! 'px ! ;
+
+::cline | x y --
+	py =? ( drop 'px ! ; )
+	px py pick2 >? ( 2swap 2dup )( 2over ) | x2 y2 x1 y1
+	'py ! 'px !
+	sh >=? ( 4drop ; ) rot 0 <=? ( 4drop ; ) | x2 x1 y1 y2
+	ymax >? ( dup 'ymax ! )		| comprueba el mayor
+	>r >r FBASE << swap FBASE << 	| x1 x2
+	over - r> r over -				| x1 (x2-x1) y1 (y2-y1)
+	rot swap / swap					| x1 t y1
+	-? ( neg over * rot + swap 0 )	| x1 t y1
+	segs> !+ rot pick2 2/ + swap !+ !+
+	r> swap !+ 'segs> !
+	;
+
+|-----------------------
+:endpoli
+	'segs 'segs> ! -1 'ymax ! ;
+
+:fillline | x1 x2 --
+	over px+!
+	dup rot -
+	( 1? )( 1- $ff00 px!+ ) drop
+	sw swap - px+!
+	;
+
+|*******************************
+:swapseg | heap -- heap
+	dup 4 - @ over @ pick2 4 - ! over ! ;
+
+:testsort | heap -- heap
+	dup 4 - @ @
+	over @ @ over >? ( 2drop ; )
+	=? ( drop dup 4 - @ 4+ @ over @ 4+ @ >? ( drop swapseg ; ) drop ; )
+	drop
+	swapseg ;
+
+:sortseg
+	'heapseg
+	'segs ( segs> <? )(
+		dup pick2 ! | 'heap 'seg
+		over ( 'heapseg >? )( testsort 4 - ) drop
+		16 + swap 4+ swap )
+	ymax over ! swap ! | ultimo es ultima linea
+	;
+
+|-------- var version
+|:stepline
+|	px 4+ dup @+ swap @ + dup rot ! FBASE >>
+|	py 4+ dup @+ swap @ + dup rot ! FBASE >>
+|	fillline ;
+|:rasterize
+|	ymax -? ( drop endpoli ; )
+|	sh >? ( sh 'ymax ! ) drop
+|	sortseg
+|	heapseg @
+|	0 over setxy
+|	'heapseg @+ 'px ! @+ 'py ! 'heapseg> !
+|	(   heapseg> @ @ swap
+|		( over <? )( stepline 1+ )
+|		nip ymax <? )(
+|		px 12 + @ =? ( heapseg> @+ 'px ! 'heapseg> ! )
+|		py 12 + @ =? ( heapseg> @+ 'py ! 'heapseg> ! )
+|		)
+|	drop
+| 	endpoli ;
+|---------------------
+
+:stepline | left rigth yl y -- left rigth yl y
+	pick3 4+ dup @+ swap @ + dup rot ! FBASE >>
+	pick3 4+ dup @+ swap @ + dup rot ! FBASE >>
+	fillline
+	;
+
+::crasterize
+	ymax -? ( drop endpoli ; )
+	sh >? ( sh 'ymax ! ) drop
+	sortseg
+	heapseg @
+	0 over setxy
+	'heapseg @+ swap @+ swap 'heapseg> !
+	rot | left rigth y
+	(   heapseg> @ @ swap
+		( over <? )( stepline 1+ )
+		nip ymax <? )(
+		pick2 12 + @ =? ( rot drop heapseg> @+ swap 'heapseg> ! rot rot )
+		over 12 + @ =? ( nip heapseg> @+ swap 'heapseg> ! swap )
+		)
+	3drop
+ 	endpoli ;
