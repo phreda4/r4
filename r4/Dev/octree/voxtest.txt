@@ -157,7 +157,7 @@
 	nexto ;
 
 
-:dda3ini | --
+:dda3ini | x y z --
 	'cz ! 'cy ! 'cx !
 	0 dup dup 'ex ! 'ey ! 'ez !
 	xd +? ( 1 )( -1 ) 'sx ! abs 'dx !
@@ -252,6 +252,60 @@
 		) drop
 	0 ;
 
+|---------- bresenham
+#paso
+
+:pasox
+	ey +? ( sy 'cy +! dx 2* - ) dy 2* + 'ey !
+	ez +? ( sz 'cz +! dx 2* - ) dz 2* + 'ez !
+	sx 'cx +!
+	;
+:pasoy
+	ex +? ( sx 'cx +! dy 2* - ) dx 2* + 'ex !
+	ez +? ( sz 'cz +! dy 2* - ) dz 2* + 'ez !
+	sy 'cy +!
+	;
+:pasoz
+	ey +? ( sy 'cy +! dx 2* - ) dy 2* + 'ey !
+	ex +? ( sx 'cx +! dz 2* - ) dx 2* + 'ex !
+	sz 'cz +!
+	;
+
+:bre3ini | x y z --
+	'cz ! 'cy ! 'cx !
+	xd +? ( 1 )( -1 ) 'sx ! abs 'dx !
+	yd +? ( 1 )( -1 ) 'sy ! abs 'dy !
+	zd +? ( 1 )( -1 ) 'sz ! abs 'dz !
+	dx dy >=? (
+		dz >=? ( drop
+			dy 2* dx - 'ey !
+			dz 2* dx - 'ez !
+			'pasox 'paso ! ; )
+		drop
+		dx 2* dz - 'ex !
+		dy 2* dz - 'ey !
+		'pasoz 'paso ! ; )
+	drop
+	dy dz >=? (
+		drop
+		dx 2* dy - 'ex !
+		dz 2* dy - 'ez !
+		'pasoy 'paso ! ; )
+	drop
+	dx 2* dz - 'ex !
+	dy 2* dz - 'ey !
+	'pasoz 'paso ! ;
+
+:traverse | x y z --
+	bre3ini
+	( cx cy cz or or $ffffff00 nand? )( drop
+		binhit 8 >? ( 2 << pixels + @ ; )
+		drop paso exec
+|		$7 and 2 << 'tadv + @ exec
+		) drop
+	0 ;
+
+|--------------------
 :testhit
 	setxy
 	0 ( sidevox <? )(
