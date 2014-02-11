@@ -12,7 +12,15 @@
 #pixels
 #octre>
 
-|----------- busca masa
+|------------- load o3d
+:load3do | "filename" --
+	here dup 'octre !
+	swap load 'octre> !
+	octre> 4 - @ octre + 'pixels !
+	octre> 'here !
+	;
+
+|----------- busca voxel
 #nodo
 :nexto | now value -- newa
 	dup rot 1- and popcnt swap 8 >> + ;
@@ -90,30 +98,18 @@
 #rut
 :getvox | x y z -- nodo/0
 	rot 8 >> $80 + rot 8 >> $80 + rot 8 >> $80 +
-	pick2 pick2 pick2 or or $ffffff00 nand? ( 4drop 0 ; ) drop
+	pick2 pick2 pick2 or or $ffffff00 and? ( 4drop 0 ; ) drop
 	rut exec 0? ( drop nodo 2 << pixels + @ ; )
 	drop 0 ;
 
 :getvox | x y z -- nodo/0
-|	rot 8 >> $80 + $ff and rot 8 >> $80 + $ff and  rot 8 >> $80 + $ff and
-|	rot 8 >> $80 + rot 8 >> $80 + rot 8 >> $80 +
-|	rot $80 + rot $80 + rot $80 +
-|	pick2 pick2 pick2 or or $ffffff00 nand? ( 4drop 0 ; ) drop
-
-|	rot $ff and rot $ff and rot $ff and
-
-	binhit1 0? ( drop nodo 2 << pixels + ; )
+	rot 8 >> $80 + rot 8 >> $80 + rot 8 >> $80 +
+|	pick2 pick2 pick2 or or $ffffff00 and? ( 4drop 0 ; ) drop
+	rut exec 0? ( drop nodo 2 << pixels + ; )
+|	binhit1 0? ( drop nodo 2 << pixels + ; )
 	drop 0 ;
 
 
-|------------- load import
-:load3do | "filename" --
-	here dup 'octre !
-	swap load 'octre> !
-	octre> 4 - @ octre + 'pixels !
-
-	octre> 'here !
-	;
 
 |--------------------------------
 
@@ -193,16 +189,23 @@
 #value
 :incx
 	-1 'value +!
-	loda @+ 'rut ! 'loda ! ;
+	loda @+ 'rut ! 'loda !
+	dupli ;
+
+:gvox
+	paso exec
+	cx cy cz getvox ;
 
 :traverse | --
 	9 'value ! 'lod 'loda ! incx
 
 	bre3ini
-	dupli |dupli |dupli dupli dupli
-	64 ( 1? )( 1-
-		cx cy cz getvox 1? ( nip @ ; ) drop
-		paso exec
+	dupli dupli dupli dupli dupli dupli dupli dupli
+	8 ( 1? )( 1-
+		16 ( 1? )( 1-
+			gvox 1? ( nip nip @ ; ) drop
+			) drop
+		incx
 		)
 	 ;
 
@@ -266,8 +269,9 @@
 |--------------------------
 :main
 
-"media/3do/mario.3do"
+|"media/3do/mario.3do"
 |"media/3do/horse.3do"
+"media/3do/luigi.3do"
 |"media/3do/earth.3do"
 	load3do
 	4

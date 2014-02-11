@@ -279,6 +279,54 @@
 	r> 'memvox> !
 	;
 
+|----------- ajuste
+|:c1x2 | x - v
+|	$09249249 and
+|	dup 2 >> xor $030c30c3 and
+|	dup 4 >> xor $0300f00f and
+|	dup 8 >> xor $ff0000ff and
+|	dup 16 >> xor $3ff and ;
+
+|:invmorton3d | Z -- x y z
+| 	dup c1x2 swap 2/ dup c1x2 swap 2/ c1x2 ;
+
+#xmin #ymin #zmin #xmax #ymax #zmax
+
+:getminmax
+	memvox
+	@+ invmorton3d
+	dup 'zmin ! 'zmax !
+	dup 'ymin ! 'ymax !
+	dup 'xmin ! 'xmax !
+	4+
+	( memvox> <? )(
+		@+ invmorton3d
+		zmin <? ( dup 'zmin ! ) zmax >? ( dup 'zmax ! ) drop
+		ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
+		xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
+		4+ )
+	drop ;
+
+#ddx #ddy #ddz
+
+:movevox | --
+	memvox
+	( memvox> <? )( >r
+		r @ invmorton3d
+		ddz + rot
+		ddx + rot
+		ddy + rot
+		morton3d r>
+		!+ 4+ ) drop
+	;
+
+:centra
+	xmax xmin + 2/ neg 'ddx !
+	ymax ymin + 2/ neg 'ddy !
+	zmax zmin + 2/ neg 'ddz !
+	movevox
+	;
+
 |--------------------------------
 :showoc
 	show clrscr
@@ -302,6 +350,7 @@
 |	memvox ( memvox> <? )( dup @ 6 >> swap !+ 4+ ) drop
 
 	repetidos
+|	getminmax centra
 	memvox> memvox - 3 >> 'vertices !
 	;
 
@@ -347,8 +396,6 @@
 	empty ;
 
 
-
-
 :dumpoc
 	'levels ( level> <? )(
 		@+ swap @+ rot - 3 >>
@@ -362,7 +409,7 @@
 	;
 
 :saveoctree
-	$octree $end over - "media/3do/horse.3do" save
+	$octree $end over - "media/3do/grass2.3do" save
 	;
 
 |--------------------------
@@ -383,19 +430,25 @@
 |	"media/3dm/ldhorse.3dm"
 |	"media/3dm/moon.3dm"
 |	"media/3dm/earth.3dm"
-	"media/3dm/horse.3dm"
+|	"media/3dm/horse.3dm"
 |	"media/3dm/mario.3dm"
 |	"media/3dm/bamboo.3dm"
+|	"media/3dm/tractor.3dm"
+	"media/3dm/grass2.3dm"
 	load3dm
 
 |testmodel
 |	randvox
-
 	4
 	show clrscr verde
-		dup ":r%d F1-BUILD" print cr
+		dup ":r%d F1-BUILD F2-SAVE F3-OPT+SAVE" print cr
+
 		vertices "Puntos: %d " print
 		vertices 3 << "mem:%d " print
+		cr
+		xmin xmax "X max:%d min:%d " print
+		ymin ymax "Y max:%d min:%d " print
+		zmin zmax "Z max:%d min:%d " print
 		cr
 		octre> octre - 3 >> "Octree: %d " print
 		octre> octre - 1 >> vertices 2 << + "mem:%d " print
@@ -430,6 +483,7 @@
 		[ saveoctree ; ] <f2>
 		[ buildoctree optoctree saveoctree ; ] <f3>
 
+		[ getminmax centra  ; ] <f5>
 		'exit >esc< ;
 
 : memory main ;
