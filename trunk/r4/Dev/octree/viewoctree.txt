@@ -57,6 +57,10 @@
 	xc size + yc size + drawl xc size - yc size + drawl
 	;
 
+:box3d2
+	xc yc zc project3d
+	1 fbox ;
+
 |-------------- muestra oc de 1 punto
 :+movx
 	1 and? ( size )( size neg ) 'xc +!
@@ -78,7 +82,6 @@
 	27 drawtree ;
 
 |---------------------
-
 :-mov | size id --
 	1 and? ( over )( over neg ) 'xc +!
 	2 and? ( over )( over neg ) 'yc +!
@@ -91,22 +94,13 @@
 	4 and? ( over neg )( over ) 'zc +!
 	2drop ;
 
-:testbox
-	size 2/ 'size !
-	size %000 +mov box3d size %000 -mov
-	size %010 +mov box3d size %010 -mov
-	size %011 +mov box3d size %011 -mov
-	size 2* 'size ! ;
-
-
 |--- view full octree
 #lod 128
 
 :viewo | adr --
-
-	size lod <? ( drop octre - pixels + @ ink box3d ; ) drop
-
-	@ $80000000 and? ( drop ; ) | box3d
+|	pixels >=? ( octre - pixels + @ ink box3d2 ; )
+	size lod <? ( drop octre - pixels + @ ink box3d2 ; ) drop
+	@
 	size 2/ 'size !
 	dup 8 >> 2 << octre +
 	swap $ff and		 | adr bitmask
@@ -122,139 +116,79 @@
 
 :viewoctree | --
 	$200 'size !
-	0 'xc ! 0 'yc ! 0 'zc !
+	-256 'xc ! -256 'yc ! -256 'zc !
 	octre viewo ;
 
-|--- view with mask
-:-mov | id --
-	1 and? ( size )( size neg ) 'xc +!
-	2 and? ( size )( size neg ) 'yc +!
-	4 and? ( size )( size neg ) 'zc +!
-	drop ;
-
-:+mov | id --
-	1 and? ( size neg )( size ) 'xc +!
-	2 and? ( size neg )( size ) 'yc +!
-	4 and? ( size neg )( size ) 'zc +!
-	drop ;
-
-#masko $ff | los 8 hijos
-
-:viewom | adr --
-
-	size lod <? ( 2drop box3d ; ) drop
-
-	@ $80000000 and? ( drop ; ) | box3d
-	size 2/ 'size !
-	dup 8 >> 2 << octre +	| calcula primero
-	swap $ff and		 | adr bitmask
-	0 swap
-	( 1? )(
-		1 and? (
-			rot 4+ rot rot 	)
-		swap 1+ swap 2/ ) drop
-
-|	masko and			| mask of visibility
-
-	0 				| adr bitmask child
-	( $100 <? )( over
-		masko and and? (
-			over +mov
-
-|			rot dup viewom 4+ rot rot
-
-			pick2
-
-			over -mov )
-		2/ swap 1+ swap
-
-		swap 2* )
-	3drop
-	size 2* 1+ 'size ! ;
-
-:viewoctreem | mask --
-	'masko !
-	$1ff 'size !
-	0 'xc ! 0 'yc ! 0 'zc !
-	octre viewom ;
-
-:endr | x y z size adr bit -- x y niv
-	3drop
-	255 swap 2/ -
-	dup 8 << over 16 << or or ;
+|--------------------------
+| ver octree en orden
 
 #mask
-:raycast | x y z size adr -- x y niv
-	dup
-	@ $80000000 and? ( endr ; )
-	dup 8 >> swap $ff and | x y z size adr 1rfhild bitmask
-	mask and
-	0? ( endr ; )
-	4drop $ff00
+
+:getmask
+	0 0 1.0 transform
+	-? ( 4 )( 0 ) nip
+	swap -? ( drop 2 or )( drop )
+	swap -? ( drop 1 or )( drop )
+	'mask !
 	;
 
-:testxy
-	2dup xor ;
 
-:viewo
-	0 'mask !
-	0 ( 512 <? )(
-		0 over setxy
-		0 ( 512 <? )(
+:getchild | node bit nro -- node bit nro node'/0
+	dup place 					| node bit nro child?
+	pick2 nand? ( drop 0 ; )
+	1- pick2 and popcnt 2 << pick3 + ;
 
-|			511 8 octre rayCast
-			testxy
-			px!+
-			1+ ) drop
-		1+ ) drop
-	;
+:viewoo | node --
+|	pixels >=? ( octre - pixels + @ ink box3d2 ; )
+	size lod <? ( drop octre - pixels + @ ink box3d2 ; ) drop
+	@
 
-:viewo2
-	octre ( octre> <? )(
-		dup showpoint 4+ ) drop ;
+	size 2/ 'size !
 
-:printoctre
-	octre ( octre> <? )(
-		@+ "%h  "  allowcr print ) drop
-	;
+	dup 8 >> 2 << octre +
+	swap $ff and		 | adr bitmask
+	mask getchild 1? ( size pick2 +mov viewoo size swap -mov )( 2drop )
+	mask 1 xor getchild 1? ( size pick2 +mov viewoo size swap -mov )( 2drop )
+	mask 2 xor getchild 1? ( size pick2 +mov viewoo size swap -mov )( 2drop )
+	mask 4 xor getchild 1? ( size pick2 +mov viewoo size swap -mov )( 2drop )
+	mask 3 xor getchild 1? ( size pick2 +mov viewoo size swap -mov )( 2drop )
+	mask 5 xor getchild 1? ( size pick2 +mov viewoo size swap -mov )( 2drop )
+	mask 6 xor getchild 1? ( size pick2 +mov viewoo size swap -mov )( 2drop )
+	mask 7 xor getchild 1? ( size pick2 +mov viewoo size swap -mov )( 2drop )
+	2drop
+	size 2* 'size ! ;
 
-|-----------------------------
-:flecha
-	blanco
-	1000 0 0 3dop 500 0 0 3dline
-	550 50 0 3dline 500 0 0 3dline 550 -50 0 3dline ;
+:viewoctreeo
+	$200 'size !
+	-256 'xc ! -256 'yc ! -256 'zc !
+	getmask
+	octre viewoo ;
+
+
 
 |--------------------------
 :main
 	here 'octre !
-	"media/3do/luigi1.3do"
+	"media/3do/mario.3do"
 	octre swap load 'octre> !
 	octre> 4 - @ octre + 'pixels !
 
-|	octre memmap
 	4
 	show clrscr verde
 		dup ":r%d " print cr
 		lod "LOD:%d " print cr
-|		octre> octre - "%d bytes" print cr
-|		printoctre
-
+		mask "mask:%h" print cr
 
 		omode
-		freelook
+|		freelook
 		xcam ycam zcam mtrans
 
-|		testbox
-|		viewo
-
-		viewoctree
-
-|		testbox
-
-|		rx mrotxi ry mrotyi flecha
+		msec 2 << mrotyi
+|		viewoctree
+viewoctreeo
 
 		[ lod 2* 'lod ! ; ] <le>
-		[ lod 2/ 1+ 'lod ! ; ] <ri>
+		[ lod 2/ 'lod ! ; ] <ri>
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
 
