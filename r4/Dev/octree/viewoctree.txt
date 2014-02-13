@@ -8,7 +8,7 @@
 ^r4/lib/bsearch.txt
 ^r4/lib/morton.txt
 
-#xcam 0 #ycam 0 #zcam 2048
+#xcam 0 #ycam 0 #zcam 0.05
 
 #xmin #ymin #zmin #xmax #ymax #zmax
 
@@ -95,7 +95,7 @@
 	2drop ;
 
 |--- view full octree
-#lod 128
+#lod 8
 
 :viewo | adr --
 |	pixels >=? ( octre - pixels + @ ink box3d2 ; )
@@ -116,19 +116,31 @@
 
 :viewoctree | --
 	$200 'size !
-	-256 'xc ! -256 'yc ! -256 'zc !
+	0 'xc ! 0 'yc ! 0 'zc !
 	octre viewo ;
 
 |--------------------------
 | ver octree en orden
-
+|   *** mal
 #mask
+#zzd
+#yyd
+#xxd
 
 :getmask
-	0 0 1.0 transform
-	-? ( 4 )( 0 ) nip
-	swap -? ( drop 2 or )( drop )
-	swap -? ( drop 1 or )( drop )
+	0 0 0 transform >r >r >r
+	0.0 0.0 0.01 transform
+	rot r> - rot r> - rot r> -
+	pick2 pick2 pick2 'zzd ! 'yyd ! 'xxd !
+
+	cyan
+	0.0 0.0 0.01 3dop
+	0 0 0 3dline
+	verde
+
+	+? ( 4 )( 0 ) nip
+	swap +? ( drop 2 or )( drop )
+	swap +? ( drop 1 or )( drop )
 	'mask !
 	;
 
@@ -141,11 +153,10 @@
 :viewoo | node --
 |	pixels >=? ( octre - pixels + @ ink box3d2 ; )
 	size lod <? ( drop octre - pixels + @ ink box3d2 ; ) drop
-	@
 
 	size 2/ 'size !
 
-	dup 8 >> 2 << octre +
+	@ dup 8 >> 2 << octre +
 	swap $ff and		 | adr bitmask
 	mask getchild 1? ( size pick2 +mov viewoo size swap -mov )( 2drop )
 	mask 1 xor getchild 1? ( size pick2 +mov viewoo size swap -mov )( 2drop )
@@ -160,10 +171,9 @@
 
 :viewoctreeo
 	$200 'size !
-	-256 'xc ! -256 'yc ! -256 'zc !
+	0 'xc ! 0 'yc ! 0 'zc !
 	getmask
 	octre viewoo ;
-
 
 
 |--------------------------
@@ -178,14 +188,18 @@
 		dup ":r%d " print cr
 		lod "LOD:%d " print cr
 		mask "mask:%h" print cr
+zzd
+yyd
+xxd "x:%f y:%f z:%f" print cr
 
 		omode
-|		freelook
+		freelook
 		xcam ycam zcam mtrans
 
-		msec 2 << mrotyi
-|		viewoctree
-viewoctreeo
+|		msec 2 << mrotxi
+
+		viewoctree
+|		viewoctreeo
 
 		[ lod 2* 'lod ! ; ] <le>
 		[ lod 2/ 'lod ! ; ] <ri>
