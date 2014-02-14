@@ -8,17 +8,43 @@
 ^r4/lib/bsearch.txt
 ^r4/lib/morton.txt
 
-#xcam 0 #ycam 0 #zcam 0.05
+#xcam 0 #ycam 0 #zcam 3.0
 
 #xmin #ymin #zmin #xmax #ymax #zmax
+
+#lod 8
+
 
 #octre
 #pixels
 #octre>
 
+#mask
+
+#zsz #zsy #zsx
+#ysz #ysy #ysx
+#xsz #xsy #xsx
+
+|---------------------------
+| tabla de vectores de sumas
+#addvec )( 576 | 16 niveles
+#addv 'addvec
+
+:addv+ 36 'addv +! ;
+:addv- -36 'addv +! ;
+
+:nextl | adr -- adr'
+	xsx dup 2/ 'xsx ! swap !+ xsy dup 2/ 'xsy ! swap !+ xsz dup 2/ 'xsz ! swap !+
+	ysx dup 2/ 'ysx ! swap !+ ysy dup 2/ 'ysy ! swap !+ ysz dup 2/ 'ysz ! swap !+
+	zsx dup 2/ 'zsx ! swap !+ zsy dup 2/ 'zsy ! swap !+ zsz dup 2/ 'zsz ! swap !+
+	;
+
+:filladdvect
+	'addvec dup 'addv !
+	10 ( 1? )( 1- swap nextl swap ) 2drop ;
+
+
 |----------- graficacion
-#rx
-#ry
 :freelook
 	xymouse
 	sh 2/ - 7 << swap
@@ -37,38 +63,6 @@
 :3dop project3d op ;
 :3dline project3d line ;
 
-#lod 8
-#mask
-
-#zzd
-#yyd
-#xxd
-
-|---------------------------------------------------------
-#cox #coy #coz
-#six #siy #siz
-
-:calcrot | rx ry rz --
-	sincos 'coz ! 'siz !
-	sincos 'coy ! 'siy !
-	sincos 'cox ! 'six !
-	;
-
-:makerot | x y z -- x' y' z'
-	rot rot | z x y
-	over cox *. over six *. +	| z x y x'
-	rot six *. rot cox *. - 	| z x' y'
-	swap rot 					| y' x' z
-	over coy *. over siy *. +	| y' x' z x''
-	rot siy *. rot coy *. -		| y' x'' z'
-	rot							| x'' y' z'
-	over coz *. over siz *. +	|  x'' y' z' y''
-	rot siz *. rot coz *. -		| x'' y'' z''
-	;
-
-#zsz #zsy #zsx
-#ysz #ysy #ysx
-#xsz #xsy #xsx
 
 :idmov | x y z id -- x y z
 	1 and? ( >r xsz + rot xsx + rot xsy + rot r> )( >r xsz - rot xsx - rot xsy - rot r> )
@@ -98,23 +92,6 @@
 	3drop
 	;
 
-|---------------------------
-| tabla de vectores de sumas
-#addvec )( 576 | 16 niveles
-#addv 'addvec
-
-:addv+ 36 'addv +! ;
-:addv- -36 'addv +! ;
-
-:nextl | adr -- adr'
-	xsx dup 2/ 'xsx ! swap !+ xsy dup 2/ 'xsy ! swap !+ xsz dup 2/ 'xsz ! swap !+
-	ysx dup 2/ 'ysx ! swap !+ ysy dup 2/ 'ysy ! swap !+ ysz dup 2/ 'ysz ! swap !+
-	zsx dup 2/ 'zsx ! swap !+ zsy dup 2/ 'zsy ! swap !+ zsz dup 2/ 'zsz ! swap !+
-	;
-
-:filladdvect
-	'addvec dup 'addv !
-	9 ( 1? )( 1- swap nextl swap ) 2drop ;
 
 :idmovn | x y z id -- x' y' z'
 	1 and? ( >r addv >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv >r rot r@+ - rot r@+ - rot r> @ - r> )
@@ -126,9 +103,6 @@
 
 :box2t | x y z nro -- x y z
 	>r pick2 pick2 pick2 r> idmovn
-|	box3d
-|	pick2 pick2 pick2
-
 	project atxy
 	nro "%d" print
 	1 'nro +!
@@ -138,21 +112,15 @@
 	>r pick2 pick2 pick2 r> idmovn
 	addv+
 
-	pick2 -? ( 2 )( 0 ) nip
-	pick2 -? ( drop 4 or )( drop )
-	3.0 over - -? ( drop 1 or )( drop )
+	mask
 	>r
 
 	amarillo
 	r box2t
 	verde
-	r 1 xor box2t
-	r 2 xor box2t
-	r 4 xor box2t
+	r 1 xor box2t r 2 xor box2t r 4 xor box2t
 	cyan
-	r 3 xor box2t
-	r 5 xor box2t
-	r 6 xor box2t
+	r 3 xor box2t r 5 xor box2t r 6 xor box2t
 	azul
 	r> 7 xor box2t
 
@@ -164,21 +132,15 @@
 	0 'nro !
 	addv+
 
-	pick2 +? ( 1 )( 0 ) nip
-	pick2 +? ( drop 2 or )( drop )
-	over +? ( drop 4 or )( drop )
+	mask
 	>r
 
 	amarillo
 	r box2e
 	verde
-	r 1 xor box2t
-	r 2 xor box2t
-	r 4 xor box2t
+	r 1 xor box2t r 2 xor box2t r 4 xor box2t
 	cyan
-	r 3 xor box2t
-	r 5 xor box2t
-	r 6 xor box2t
+	r 3 xor box2t r 5 xor box2t r 6 xor box2t
 	azul
 	r> 7 xor box2t
 	addv-
@@ -188,47 +150,67 @@
 	viewoot 3drop ;
 
 |---------------------------------
+:pset | x y color
+	rot -? ( 3drop ; ) sw >? ( 3drop ; )
+	rot -? ( 3drop ; ) sh >? ( 3drop ; )
+	setxy px!+ ;
+
+|---------------------------------- version 1
 :getchild | node bit nro -- node bit nro node'/0
 	dup place 					| node bit nro child?
 	pick2 nand? ( drop 0 ; )
 	1- pick2 and popcnt 2 << pick3 + ;
 
-|	pixels >=? ( drop ; ) | octre - pixels + @ ink box3d2 ; )
-|	size lod <? ( drop octre - pixels + @ ink box3d2 ; ) drop
-
 :viewoo | x y z node --
 
-|	pixels 64000 - >? ( octre - pixels + @ >r project setxy r> px!+ ; )
+	pixels 128000 - >? ( octre - pixels + @ >r project r> pset ; )
+|	pixels >=? ( octre - pixels + @ >r project r> pset ; )
+|	size lod <? ( drop octre - pixels + @ >r project r> pset ; ) drop
 
-	addv 'addvec 287 +
-	>? ( drop octre - pixels + @ >r project setxy r> px!+ ; )
-	drop
-
-	pick3 +? ( 1 )( 0 ) nip
-	pick3 +? ( drop 2 or )( drop )
-	pick2 +? ( drop 4 or )( drop )
-	>r
+|	addv 'addvec 287 + >? ( drop octre - pixels + @ >r project r> pset ; ) 	drop
 
 	addv+
 	@ dup 8 >> 2 << octre + swap $ff and | x y z adr bitmask
-	r getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
-	r 1 xor getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
-	r 2 xor getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
-	r 4 xor getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
-	r 3 xor getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
-	r 5 xor getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
-	r 6 xor getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
-	r> 7 xor getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
+	mask getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
+	mask 1 xor getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
+	mask 2 xor getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
+	mask 4 xor getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
+	mask 3 xor getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
+	mask 5 xor getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
+	mask 6 xor getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
+	mask 7 xor getchild 1? ( >r >r pick4 pick4 pick4 r> idmovn r> viewoo )( 2drop )
+	nip 4drop
+	addv- ;
+|---------------------------------- version 1
+
+:viewchild | x y z node bit nro -- x y z node bit
+	dup place pick2 nand? ( 2drop ; ) | x y z node bit bitc
+	1- pick2 and popcnt 2 << pick3 +
+	>r >r pick4 pick4 pick4 r> idmovn r>
+	|****** recursion (no poner ; !!)
+:viewon | x y z node --
+
+|	pixels 128000 - >? ( octre - pixels + @ >r project r> pset ; )
+|	pixels >=? ( octre - pixels + @ >r project r> pset ; )
+|	size lod <? ( drop octre - pixels + @ >r project r> pset ; ) drop
+
+	addv 'addvec 287 + >? ( drop octre - pixels + @ >r project r> pset ; ) 	drop
+
+	addv+
+	@ dup 8 >> 2 << octre + swap $ff and | x y z adr bitmask
+	mask viewchild
+	mask 1 xor viewchild
+	mask 2 xor viewchild
+	mask 4 xor viewchild
+	mask 3 xor viewchild
+	mask 5 xor viewchild
+	mask 6 xor viewchild
+	mask 7 xor viewchild
 	nip 4drop
 	addv- ;
 
-|x y z adr bit nro adr'
-|>r 					|x y z adr bit nro 	r:adr'
-|>r pick4 pick4 pick4	|x y z adr bit 		r:nro adr'
-| x y z r> idmovn r> viewoo
-
-:viewoctreeo
-	octre viewoo ;
+:viewoctreeo | x y z --
+	octre viewon ;
 
 
 |--------------------------
@@ -243,33 +225,36 @@
 		dup ":r%d " print cr
 		lod "LOD:%d " print cr
 		mask "mask:%h" print cr
-zzd
-yyd
-xxd "x:%f y:%f z:%f" print cr
 
 		omode
-|		freelook
+		freelook
 |		xcam ycam zcam mtrans
-|		msec 2 << mrotxi
 
 
-		0 0 msec 3 <<  calcrot
-		0 0 0.5 makerot 'zsz ! 'zsy ! 'zsx !
-		0 0.5 0 makerot 'ysz ! 'ysy ! 'ysx !
-		0.5 0 0 makerot 'xsz ! 'xsy ! 'xsx !
+		msec 3 << mrotxi
+		msec 4 << mrotyi
+		0 0 0.5 transform 'zsz ! 'zsy ! 'zsx !
+		0 0.5 0 transform 'ysz ! 'ysy ! 'ysx !
+		0.5 0 0 transform 'xsz ! 'xsy ! 'xsx !
 
 
-		0 0 3.0 viewbox
+		matinv
+		0 0 3.0 transform
+		+? ( 4 )( 0 ) nip
+		swap +? ( drop 2 or )( drop )
+		swap +? ( drop 1 or )( drop )
+		'mask !
 
+		0 0 2.0 viewbox
 	    filladdvect
 
-		0 0 3.0 viewoctreeot
-|		0 0 3.0 viewoctreeo
+|		0 0 3.0 viewoctreeot
+		0 0 2.0 viewoctreeo
 
 		[ lod 2* 'lod ! ; ] <le>
 		[ lod 2/ 'lod ! ; ] <ri>
-		[ -0.01 'zcam +! ; ] <up>
-		[ 0.01 'zcam +! ; ] <dn>
+		[ -0.1 'zcam +! ; ] <up>
+		[ 0.1 'zcam +! ; ] <dn>
 
 		'exit >esc< ;
 
