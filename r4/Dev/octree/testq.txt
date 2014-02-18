@@ -1,0 +1,315 @@
+| prueba de quadtree
+| PHREDA 2014
+|---------------------
+^r4/lib/gui.txt
+^r4/lib/morton.txt
+
+
+#xcam 0 #ycam 0 #zcam 4.0
+
+#octre
+#pixels
+#octre>
+
+#dmask
+
+#sizeq 512
+#xc #yc
+#color
+
+|-------------- orden segun vista
+#maskc
+$4152637	$15043726	$26370415	$37261504	$40516273	$51407362	$62734051	$73625140
+$4216537	$15307426	$26034715	$37152604	$40625173	$51743062	$62470351	$73516240
+$1234567	$10352476	$23016745	$32107654	$45670123	$54761032	$67452301	$76543210
+$1452367	$10534276	$23670145	$32716054	$45016723	$54107632	$67234501	$76325410
+$2461357	$13570246	$20634175	$31725064	$46052713	$57134602	$64207531	$75316420
+$2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
+
+|-------
+:maskabs | ax ay az -- mask
+	| ax ay az
+	pick2 <? ( over <? ( | x<z && y<z
+			drop <? ( 0 )( 8 )
+			nip ; ) )
+	rot | ay az ax
+	pick2 <? ( over <? ( | y<x && z<x
+			drop <? ( 16 )( 24 )
+			nip ; ) )
+	<? ( 32 )( 40 )
+	nip nip ;
+
+:calcmask
+	matinv
+	0 0 1.0 transform
+	rot +? ( 1 )( 0 ) >r abs
+	rot +? ( 2 r+ ) abs
+	rot +? ( 4 r+ ) abs
+	maskabs r> or
+	2 << 'maskc + @ 'dmask !
+	;
+
+
+#zsz #zsy #zsx
+#ysz #ysy #ysx
+#xsz #xsy #xsx
+
+|---------------------------
+| tabla de vectores de sumas
+#addvec )( 576 | 16 niveles
+#addv 'addvec
+
+:addv+ 36 'addv +! ;
+:addv- -36 'addv +! ;
+
+:nextl | adr -- adr'
+	xsx dup 2/ 'xsx ! swap !+ xsy dup 2/ 'xsy ! swap !+ xsz dup 2/ 'xsz ! swap !+
+	ysx dup 2/ 'ysx ! swap !+ ysy dup 2/ 'ysy ! swap !+ ysz dup 2/ 'ysz ! swap !+
+	zsx dup 2/ 'zsx ! swap !+ zsy dup 2/ 'zsy ! swap !+ zsz dup 2/ 'zsz ! swap !+
+	;
+
+:filladdvect
+	'addvec dup 'addv !
+	10 ( 1? )( 1- swap nextl swap ) 2drop ;
+
+|----------- graficacion
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx mroty ;
+
+
+:drawp | x y z ---
+	project3d |2dup op line ;
+	-? ( 2drop ; ) sh >=? ( 2drop ; )
+	swap -? ( 2drop ; ) sw >=? ( 2drop ; ) swap
+	setxy
+	ink@ px!+
+	;
+
+:3dop project3d op ;
+:3dline project3d line ;
+
+
+:idmov | x y z id -- x y z
+	1 and? ( >r xsz + rot xsx + rot xsy + rot r> )( >r xsz - rot xsx - rot xsy - rot r> )
+	2 and? ( >r ysz + rot ysx + rot ysy + rot r> )( >r ysz - rot ysx - rot ysy - rot r> )
+	4 and? ( >r zsz + rot zsx + rot zsy + rot r> )( >r zsz - rot zsx - rot zsy - rot r> )
+	drop ;
+
+:viewbox | x y z
+	pick2 pick2 pick2 0 idmov project op
+	pick2 pick2 pick2 1 idmov project line
+	pick2 pick2 pick2 3 idmov project line
+	pick2 pick2 pick2 2 idmov project line
+	pick2 pick2 pick2 0 idmov project line
+	pick2 pick2 pick2 4 idmov project op
+	pick2 pick2 pick2 5 idmov project line
+	pick2 pick2 pick2 7 idmov project line
+	pick2 pick2 pick2 6 idmov project line
+	pick2 pick2 pick2 4 idmov project line
+	pick2 pick2 pick2 1 idmov project op
+	pick2 pick2 pick2 5 idmov project line
+	pick2 pick2 pick2 4 idmov project op
+	pick2 pick2 pick2 0 idmov project line
+	pick2 pick2 pick2 3 idmov project op
+	pick2 pick2 pick2 7 idmov project line
+	pick2 pick2 pick2 6 idmov project op
+	pick2 pick2 pick2 2 idmov project line
+	3drop
+	;
+
+|------------------------------
+:load3do | "" --
+	here 'octre !
+	octre swap load 'octre> !
+	octre> 4 - @ octre + 'pixels !
+	octre> 'here ! ;
+
+
+|----------- version newmask
+
+:pset | x y color
+	rot -? ( 3drop ; ) sw >? ( 3drop ; )
+	rot -? ( 3drop ; ) sh >? ( 3drop ; )
+	setxy px!+ ;
+
+:idmovn | x y z id -- x' y' z'
+	1 and? ( >r addv >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv >r rot r@+ - rot r@+ - rot r> @ - r> )
+	2 and? ( >r addv 12 + >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv 12 + >r rot r@+ - rot r@+ - rot r> @ - r> )
+	4 and? ( >r addv 24 + >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv 24 + >r rot r@+ - rot r@+ - rot r> @ - r> )
+	drop ;
+
+
+:viewchildm | x y z node bit nro -- x y z node bit
+	$7 xor
+	dup place pick2 nand? ( 2drop ; ) | x y z node bit bitc
+	1- pick2 and popcnt 2 << pick3 +
+	>r >r pick4 pick4 pick4 r> idmovn r>
+	|****** recursion (no poner ; !!)
+
+:viewom | x y z node --
+
+|	pixels 128000 - >? ( octre - pixels + @ >r project r> pset ; )
+|	pixels >=? ( octre - pixels + @ >r project r> pset ; ) | porque no anda??
+|	size lod <? ( drop octre - pixels + @ >r project r> pset ; ) drop
+
+	addv 'addvec 287 + >? ( drop octre - pixels + @ >r project r> pset ; ) 	drop
+
+	addv+
+	@ dup 8 >> 2 << octre + swap $ff and | x y z adr bitmask
+	dmask >r
+	r $7 and viewchildm
+	r 4 >> $7 and viewchildm
+	r 8 >> $7 and viewchildm
+	r 12 >> $7 and viewchildm
+	r 16 >> $7 and viewchildm
+	r 20 >> $7 and viewchildm
+	r 24 >> $7 and viewchildm
+	r> 28 >> $7 and viewchildm
+
+	nip 4drop
+	addv- ;
+
+|-------------
+
+:viewoctreeo | x y z --
+	octre viewom ;
+
+
+|-------------
+|    const int left   = -SCREEN_WIDTH/2;
+|    const int right  =  SCREEN_WIDTH/2;
+|    const int top    =  SCREEN_HEIGHT/2;
+|    const int bottom = -SCREEN_HEIGHT/2;
+|    const int near   =  SCREEN_HEIGHT;
+|    const int cubepos=  SCREEN_WIDTH; // > sqrt(3)*SCREEN_WIDTH > hypot(SCREEN_WIDTH,SCREEN_HEIGHT,SCREEN_HEIGHT) > max dist of view plane.
+|    const int far    =  SCREEN_WIDTH * 2; // > sqrt(3)*cubepos
+
+|    frustum::left  /(double)frustum::near,
+|   (frustum::left + (frustum::right -frustum::left)*(double)quadtree::SIZE/SCREEN_WIDTH )/frustum::near,
+|   (frustum::top  + (frustum::bottom-frustum::top )*(double)quadtree::SIZE/SCREEN_HEIGHT)/frustum::near,
+|    frustum::top   /(double)frustum::near,
+
+#x1f
+#x2f
+#y1f
+#y2f
+
+:calcconst
+	sw 2/ neg 16 << sh /
+	'x1f !
+	sw 2/ 512.0 sw */ sh /
+	'x2f !
+	sh 2/ neg 512.0 sh */ sh /
+	'y1f !
+	sh 2/ 16 << sh /
+	'y2f !
+	;
+
+:calcconst
+	-0.5 'x1f !
+	0.9 'x2f !
+	-0.9  'y1f !
+	0.5  'y2f !
+	;
+
+#b1 #b2 #b3 #b4
+
+:cada
+	x1f over *. pick3 - 'b1 !
+	x2f over *. pick3 - 'b2 !
+	y1f over *. pick2 - 'b3 !
+	y2f over *. pick2 - 'b4 !
+	b4 b3 b2 b1 "%f %f %f %f " print cr
+	b1 16 >> sw 2/ + b3 16 >> sh 2/ + 2dup op
+	b1 16 >> sw 2/ + b4 16 >> sh 2/ + line
+	b2 16 >> sw 2/ + b4 16 >> sh 2/ + line
+	b2 16 >> sw 2/ + b3 16 >> sh 2/ + line line
+	3drop
+	;
+
+:calcbound
+	calcconst
+
+	0 0 64.0 transform 2* 'zsz ! 2* 'zsy ! 2* 'zsx !
+	0 64.0 0 transform 2* 'ysz ! 2* 'ysy ! 2* 'ysx !
+	64.0 0 0 transform 2* 'xsz ! 2* 'xsy ! 2* 'xsx !
+
+	rojo
+	0 ( 8 <? )(
+		0 0 0 pick3 idmov	| x y z
+		cada
+		1+ ) drop
+
+	;
+
+|-------------
+:fillqtree | size xc yc --
+	setxy
+	dup ( 1? )( 1-
+		over ( 1? )( 1-
+			color px!+
+			) drop
+		sw pick2 - px+!
+		)
+	2drop
+	$f 'color +! ;
+
+:qtree | x y nivel --
+	1 =? ( drop setxy color px!+ 1  'color +! ; )
+	2/
+	pick2 pick2 pick2 qtree
+	pick2 pick2 pick2 + pick2 qtree
+	pick2 over + pick2 pick2 qtree
+	pick2 over + pick2 pick2 + pick2 qtree
+	3drop ;
+
+:main
+	"media/3do/luigi.3do" load3do
+
+	sh 2/ 256 - 'yc !
+	sw 2/ 256 - 'xc !
+	33
+	$0 'color !
+
+	calcconst
+
+	show clrscr
+		verde
+		dup "%d " print cr
+		yc xc "%d %d " print cr
+
+		y2f y1f x2f x1f
+		"x1:%f x2:%f y1:%f y2:%f" print cr
+
+
+
+|		xc yc 512 qtree
+
+		omode
+		freelook
+
+|		msec 3 << mrotxi
+|		msec 4 << mrotyi
+		0 0 1.0 transform 'zsz ! 'zsy ! 'zsx !
+		0 1.0 0 transform 'ysz ! 'ysy ! 'ysx !
+		1.0 0 0 transform 'xsz ! 'xsy ! 'xsx !
+
+		calcmask
+		xcam ycam zcam viewbox
+	    filladdvect
+
+		xcam ycam zcam viewoctreeo
+
+		calcbound
+
+		[ -0.1 'zcam +! ; ] <up>
+		[ 0.1 'zcam +! ; ] <dn>
+		'exit >esc<
+		cminiflecha
+		;
+
+: mark main ;
+
