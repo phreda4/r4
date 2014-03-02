@@ -3,6 +3,7 @@
 |---------------------
 ^r4/lib/print.txt
 ^r4/lib/btn.txt
+^r4/lib/input.txt
 
 ^r4/lib/trace.txt
 
@@ -106,6 +107,9 @@
 	2 << 'tabcols + @ ;
 
 
+:gpos
+	xxf xxi 4+ 'ccx ! 'xxi ! ;
+
 ::gcell | "texto" --
 	xxf xxi 4+ 'ccx ! 'xxi !
 	mprint xxi printcut
@@ -180,8 +184,7 @@
 
 :t5
 :t6
-:t7
-:t8 ;
+:t7 ;
 
 #tiposg t0 t1 t2 t3 t4 t5 t6 t7
 
@@ -195,8 +198,6 @@
 	dup @ 1? ( drop ( dup "%a" gcellc >fld> 0? ) 2drop cr )( 3drop -2 'ccy +! )
 	( swap 1? )( 1- swap
 		rowg
-|	[ dup 'act ! over indmei - 2 >> 1- grl 8 - ! ; ] onLineMove | click en linea
-|	act =? ( $7f gfill blanco )( $ffffff gfill negro )
 		$ffffff gfill negro
 		grl ( @+ 1? )( | cnt mem acol col
 			16 >> 7 and 2 << 'tiposg + @
@@ -210,13 +211,13 @@
 	;
 
 ::memgrids | rows 'mem 'memgrid --
+
 	dup gridAll
 	$cccccc gfill negro
 	dup @ 'act !
 	dup 8 + dup 'grl !
 	( @+ 1? )( drop ) drop
 	dup @ 1? ( drop ( dup "%a" gcellc >fld> 0? ) 2drop cr )( 3drop -2 'ccy +! )
-
 	0 ( pick2 <? )(
 		rowg
 		[ dup 'act ! dup grl 8 - ! ; ] onLineMove | click en linea
@@ -233,3 +234,107 @@
 	;
 
 
+|----------------------- EDIT GRID
+#acted -1
+#gridnow
+#linem
+#padm )( 1024
+#padm>
+#pade )( $ffff
+#pade>
+
+:,padm | cnt
+	pade> over
+	padm> !+ !+ 'padm> !
+	1+ 'pade> +! ;
+
+:cpyprev
+	( linem  <? )( c@+ 0? ( drop 1- ; ) ,c ) ;
+
+:lastlinev
+	gridnow
+	grl 8 - @
+	( 1? )( 1- swap
+		colums ( 1? )( swap >fld> swap 1- ) drop
+		swap ) drop
+|	0? ( -1 grl 8 - +! )
+	drop
+	;
+
+:removelasthere
+	here 1-
+	( 1- dup c@ $7c =? )( drop )
+	drop 0 swap 1+ c! ;
+
+:endline
+	mark 0 ,c
+	gridnow cpyprev
+	'padm ( padm> <? )(
+		4+ @+ trim ,s "|" ,s
+		) drop
+	colums >>fld
+	( c@+ 1? )( ,c ) ,c
+	drop
+|	removelasthere
+	empty
+	here 1+ gridnow strcpy
+	1 grl 8 - +!
+|	lastlinev
+	;
+
+:copyvacio
+	grl ( @+ 1? )(
+		0 pade> ! 8 >> $ff and ,padm ) 3drop ;
+
+:copyed
+	dup 'acted !
+	'padm 'padm> !
+	'pade 'pade> !
+	over dup 'linem !
+	dup c@ 32 <? ( drop copyvacio ; ) drop
+	grl ( @+ 1? )(
+		rot pade> fldcpy rot rot
+		8 >> $ff and ,padm
+		) 3drop ;
+
+:editline
+	acted <>? ( copyed )
+	swap
+	'padm ( padm> <? )(
+		gpos
+		@+ swap @+ rot inputcell
+		swap >fld> swap
+		) drop
+	'endline lostfoco ;
+
+:drawline
+	swap
+	grl ( @+ 1? )( | cnt mem acol col
+		16 >> 7 and 2 << 'tiposg + @
+		rot | acol col mem
+		1? ( dup rot exec )( nip )
+		>fld> swap
+		) 2drop ;
+
+::editgrid | rows 'mem 'memgrid --
+	over 'gridnow !
+	dup gridAll
+	$cccccc gfill negro
+	dup @ 'act !
+	dup 8 + dup 'grl !
+	( @+ 1? )( drop ) drop
+	dup @ 1? ( drop ( dup "%a" gcellc >fld> 0? ) 2drop cr )( 3drop -2 'ccy +! )
+	0 ( pick2 <? )(
+		rowg
+|		[ dup 'act ! dup grl 8 - ! ; ] onLineMove | click en linea
+		act =? ( $f0f0f0 gfill editline )( $ffffff gfill drawline )
+		cr swap 1+ )
+	3drop
+	gris $grid
+|--- control
+	grl 8 - @
+	[ 0 >? ( dup 1- grl 8 - ! ) ; ] <up>
+	[ dup 1+ grl 8 - ! ; ] <dn>
+	drop
+|	'endline <enter>
+	;

@@ -151,10 +151,7 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 
 :viewom | x y z node --
 
-|	pixels 128000 - >? ( octre - pixels + @ >r project r> pset ; )
-|	pixels >=? ( octre - pixels + @ >r project r> pset ; ) | porque no anda??
 |	size lod <? ( drop octre - pixels + @ >r project r> pset ; ) drop
-
 	addv 'addvec 287 + >? ( drop octre - pixels + @ >r project r> pset ; ) 	drop
 
 	addv+
@@ -172,78 +169,43 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	nip 4drop
 	addv- ;
 
-|-------------
-
 :viewoctreeo | x y z --
 	octre viewom ;
 
 
 |-------------
-|    const int left   = -SCREEN_WIDTH/2;
-|    const int right  =  SCREEN_WIDTH/2;
-|    const int top    =  SCREEN_HEIGHT/2;
-|    const int bottom = -SCREEN_HEIGHT/2;
-|    const int near   =  SCREEN_HEIGHT;
-|    const int cubepos=  SCREEN_WIDTH; // > sqrt(3)*SCREEN_WIDTH > hypot(SCREEN_WIDTH,SCREEN_HEIGHT,SCREEN_HEIGHT) > max dist of view plane.
-|    const int far    =  SCREEN_WIDTH * 2; // > sqrt(3)*cubepos
-
-|    frustum::left  /(double)frustum::near,
-|   (frustum::left + (frustum::right -frustum::left)*(double)quadtree::SIZE/SCREEN_WIDTH )/frustum::near,
-|   (frustum::top  + (frustum::bottom-frustum::top )*(double)quadtree::SIZE/SCREEN_HEIGHT)/frustum::near,
-|    frustum::top   /(double)frustum::near,
-
-#x1f
-#x2f
-#y1f
-#y2f
-
-:calcconst
-	sw 2/ neg 16 << sh /
-	'x1f !
-	sw 2/ 512.0 sw */ sh /
-	'x2f !
-	sh 2/ neg 512.0 sh */ sh /
-	'y1f !
-	sh 2/ 16 << sh /
-	'y2f !
-	;
-
-:calcconst
-	-0.5 'x1f !
-	0.9 'x2f !
-	-0.9  'y1f !
-	0.5  'y2f !
-	;
-
-#b1 #b2 #b3 #b4
-
-:cada
-	x1f over *. pick3 - 'b1 !
-	x2f over *. pick3 - 'b2 !
-	y1f over *. pick2 - 'b3 !
-	y2f over *. pick2 - 'b4 !
-	b4 b3 b2 b1 "%f %f %f %f " print cr
-	b1 16 >> sw 2/ + b3 16 >> sh 2/ + 2dup op
-	b1 16 >> sw 2/ + b4 16 >> sh 2/ + line
-	b2 16 >> sw 2/ + b4 16 >> sh 2/ + line
-	b2 16 >> sw 2/ + b3 16 >> sh 2/ + line line
+:boxcover | x y z --
+	dup >r
+	project | x y
+	r> dup 2/ dup 2/ + + 16 >>
+	pick2 over - pick2 pick2 - op
+	pick2 over - pick2 pick2 + pline
+	pick2 over + pick2 pick2 + pline
+	pick2 over + pick2 pick2 - pline
+	pick2 over - pick2 pick2 - pline
+	poli
 	3drop
-	;
 
-:calcbound
-	calcconst
-
-	0 0 64.0 transform 2* 'zsz ! 2* 'zsy ! 2* 'zsx !
-	0 64.0 0 transform 2* 'ysz ! 2* 'ysy ! 2* 'ysx !
-	64.0 0 0 transform 2* 'xsz ! 2* 'xsy ! 2* 'xsx !
-
-	rojo
-	0 ( 8 <? )(
-		0 0 0 pick3 idmov	| x y z
-		cada
-		1+ ) drop
 
 	;
+
+:testz
+	addv+
+
+	cyan
+	pick2 pick2 pick2 0 idmovn project op
+	pick2 pick2 pick2 1 idmovn project line
+	pick2 pick2 pick2 3 idmovn project line
+	pick2 pick2 pick2 2 idmovn project line
+	pick2 pick2 pick2 0 idmovn project line
+
+	azul
+	pick2 pick2 pick2 0 idmovn boxcover
+
+	3drop
+	addv-
+	;
+
 
 |-------------
 :fillqtree | size xc yc --
@@ -274,17 +236,11 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	33
 	$0 'color !
 
-	calcconst
 
 	show clrscr
 		verde
 		dup "%d " print cr
 		yc xc "%d %d " print cr
-
-		y2f y1f x2f x1f
-		"x1:%f x2:%f y1:%f y2:%f" print cr
-
-
 
 |		xc yc 512 qtree
 
@@ -301,9 +257,10 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 		xcam ycam zcam viewbox
 	    filladdvect
 
-		xcam ycam zcam viewoctreeo
+|		xcam ycam zcam viewoctreeo
 
-		calcbound
+		cyan
+		xcam ycam zcam testz
 
 		[ -0.1 'zcam +! ; ] <up>
 		[ 0.1 'zcam +! ; ] <dn>
