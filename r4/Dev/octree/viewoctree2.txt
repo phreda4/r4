@@ -1,3 +1,4 @@
+
 | genera vista de octree
 | PHREDA 2014
 |-----------------------------
@@ -214,11 +215,78 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	|****** recursion (no poner ; !!)
 :viewom | x y z node --
 
-|	pixels 128000 - >? ( octre - pixels + @ >r project r> pset ; )
-|	pixels >=? ( octre - pixels + @ >r project r> pset ; ) | porque no anda??
+|	pixels >=? ( octre - pixels + @ >r project r> pset ; ) | porque no anda??..porque esta opmizado!!
 |	size lod <? ( drop octre - pixels + @ >r project r> pset ; ) drop
 
 	addv 'addvec 287 + >? ( drop octre - pixels + @ >r project r> pset ; ) 	drop
+
+	addv+
+	@ dup 8 >> 2 << octre + swap $ff and | x y z adr bitmask
+	dmask >r
+	r $7 and viewchildm
+	r 4 >> $7 and viewchildm
+	r 8 >> $7 and viewchildm
+	r 12 >> $7 and viewchildm
+	r 16 >> $7 and viewchildm
+	r 20 >> $7 and viewchildm
+	r 24 >> $7 and viewchildm
+	r> 28 >> $7 and viewchildm
+
+	nip 4drop
+	addv- ;
+
+|----------- version sindiv
+
+:c512 | x z -- x'
+	dup neg | x R L
+	0 rot rot | x xs R L bit
+	$100 ( 1? )( >r
+		2dup + 2/ 	| x xs R L m1
+		pick4 >? ( rot drop swap rot r - )( nip rot r + )
+		rot rot r> 2/ )
+	3drop nip
+	2/ ;
+
+:c1024 | x z -- x'
+	dup neg | x R L
+	0 rot rot | x xs R L bit
+	$200 ( 1? )( >r
+		2dup + 2/ 	| x xs R L m1
+		pick4 >? ( rot drop swap rot r - )( nip rot r + )
+		rot rot r> 2/ )
+	3drop nip
+	2/ ;
+
+:drawpoint	| x y z color
+	>r >r r	| x y z
+	c512 		| x y'
+	-512 <? ( neg ) 512 >? ( 2drop rdrop rdrop ; )
+	swap r> | y' x z
+	c512		| y x
+	-512 <? ( neg ) 512 >? ( 2drop rdrop ; )
+	sw 2/ + swap sh 2/ + setxy
+	r> px!+ ;
+
+:drawpoint	| x y z color
+	>r >r r	| x y z
+	c512 sh 2/ + 	| x y'
+	swap r> | y' x z
+	c512 sw 2/ + | y x
+	swap setxy
+	r> px!+ ;
+
+:viewchildm | x y z node bit nro -- x y z node bit
+	$7 xor
+	dup place pick2 nand? ( 2drop ; ) | x y z node bit bitc
+	1- pick2 and popcnt 2 << pick3 +
+	>r >r pick4 pick4 pick4 r> idmovn r>
+	|****** recursion (no poner ; !!)
+:view3do | x y z node --
+
+|	pixels >=? ( octre - pixels + @ drawpoint ; ) | porque no anda??..porque esta opmizado!!
+|	size lod <? ( drop octre - pixels + @ drawpoint ; ) drop
+
+	addv 'addvec 287 + >? ( drop octre - pixels + @ drawpoint ; ) 	drop
 
 	addv+
 	@ dup 8 >> 2 << octre + swap $ff and | x y z adr bitmask
@@ -240,7 +308,8 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 :viewoctreeo | x y z --
 	octre
 |	viewon
-	viewom
+|	viewom
+	view3do
 	;
 
 :calcmaskn
