@@ -3,7 +3,7 @@
 |---------------------
 ^r4/lib/gui.txt
 ^r4/lib/morton.txt
-
+^r4/lib/trace.txt
 
 #xcam 0 #ycam 0 #zcam 4.0
 
@@ -16,6 +16,7 @@
 #sizeq 512
 #xc #yc
 #color
+
 
 |-------------- orden segun vista
 #maskc
@@ -210,7 +211,91 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	4drop
 	;
 
+|-----------------------------------
+| calculo linea para cada punto
+|
+| d rx mx ry my x y z
+| 32x8 =256 (cada cubo de 8 puntos gasta 256 bytes)
+|
+|
+#puntos )( 256
+#puntos>
 
+:c91 | d r m x -- d m' r'
+	>? ( pick2 - swap )( pick2 + swap 1+ ) ;
+
+| d rx mx ry my x y z
+
+:calcline | adr --
+	>r r@+
+	r@+ r@+ r 8 + @ c91
+	r 8 - !+ !
+	r@+ r@+ r 4+ @ c91
+	r> 8 - !+ !
+	drop
+	;
+
+:adv8point
+	'puntos ( puntos> <? )( dup calcline 32 + ) drop ;
+
+:mulline | adr --
+	dup @ 2/ swap !+
+	dup @ 2* swap !+ 4+
+	dup @ 2* swap !
+	;
+
+:mul8pount
+	'puntos ( puntos> <? )( dup mulline 32 + ) drop ;
+
+:8pnt+! | x y z
+	puntos> >r
+	dup 2/ r!+ 0 dup dup dup r!+ r!+ r!+ r!+
+	rot r!+ swap r!+ r!+ r> 'puntos> ! ;
+
+:set8point | x y z --
+	'puntos 'puntos> !
+	pick2 pick2 pick2 0 idmov 8pnt+!
+	pick2 pick2 pick2 1 idmov 8pnt+!
+	pick2 pick2 pick2 2 idmov 8pnt+!
+	pick2 pick2 pick2 3 idmov 8pnt+!
+	pick2 pick2 pick2 4 idmov 8pnt+!
+	pick2 pick2 pick2 5 idmov 8pnt+!
+	pick2 pick2 pick2 6 idmov 8pnt+!
+	7 idmov 8pnt+!
+	;
+
+
+:boxd | adr --
+	>r
+|	r 20 +
+|	@+ swap @+ swap @
+|	project atxy
+	r 4+ @+ swap 4+ @ atxy
+	r@+ r@+ r@+ r@+ r@+ "%d %d %d %d %d" print
+	rdrop
+	;
+
+:dump8point
+	'puntos ( puntos> <? )( dup boxd 32 + ) drop ;
+
+:testoct
+	xcam ycam zcam set8point
+	adv8point
+
+	mul8pount adv8point
+	mul8pount adv8point
+	mul8pount adv8point
+	mul8pount adv8point
+	mul8pount adv8point
+	mul8pount adv8point
+	mul8pount adv8point
+	mul8pount adv8point
+
+	dump8point
+	;
+
+
+|----------------------
 :testz
 	addv+
 
@@ -278,14 +363,13 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 		0 1.0 0 transform 'ysz ! 'ysy ! 'ysx !
 		1.0 0 0 transform 'xsz ! 'xsy ! 'xsx !
 
+		cyan
+		testoct
+
 		calcmask
 		xcam ycam zcam viewbox
 	    filladdvect
 
-|		xcam ycam zcam viewoctreeo
-
-		cyan
-		xcam ycam zcam testz
 
 		[ -0.1 'zcam +! ; ] <up>
 		[ 0.1 'zcam +! ; ] <dn>
