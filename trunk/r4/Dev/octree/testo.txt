@@ -13,10 +13,9 @@
 
 #dmask
 
-#sizeq 512
 #xc #yc
-#color
 
+#color
 
 |-------------- orden segun vista
 #maskc
@@ -55,8 +54,29 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 #ysz #ysy #ysx
 #xsz #xsy #xsx
 
-|---------------------------
+|----------- graficacion
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx mroty ;
+
+:idmov | x y z id -- x y z
+	1 and? ( >r xsz + rot xsx + rot xsy + rot r> )( >r xsz - rot xsx - rot xsy - rot r> )
+	2 and? ( >r ysz + rot ysx + rot ysy + rot r> )( >r ysz - rot ysx - rot ysy - rot r> )
+	4 and? ( >r zsz + rot zsx + rot zsy + rot r> )( >r zsz - rot zsx - rot zsy - rot r> )
+	drop ;
+
+|------------------------------
+:load3do | "" --
+	here 'octre !
+	octre swap load 'octre> !
+	octre> 4 - @ octre + 'pixels !
+	octre> 'here ! ;
+
+|----------- version newmask
 | tabla de vectores de sumas
+
 #addvec )( 576 | 16 niveles
 #addv 'addvec
 
@@ -73,68 +93,23 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	'addvec dup 'addv !
 	10 ( 1? )( 1- swap nextl swap ) 2drop ;
 
-|----------- graficacion
-:freelook
-	xymouse
-	sh 2/ - 7 << swap
-	sw 2/ - neg 7 << swap
-	neg mrotx mroty ;
+|---- v4  loopless
+:c9 | x z -- x'
+	2/ 0 swap over | x 0 z 0
+	pick3 >? ( over - rot )( over + rot 256 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 128 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 64 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 32 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 4 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 1+ )
+	nip nip nip ;
 
-
-:drawp | x y z ---
-	project3d |2dup op line ;
-	-? ( 2drop ; ) sh >=? ( 2drop ; )
-	swap -? ( 2drop ; ) sw >=? ( 2drop ; ) swap
-	setxy
-	ink@ px!+
-	;
-
-:3dop project3d op ;
-:3dline project3d line ;
-
-
-:idmov | x y z id -- x y z
-	1 and? ( >r xsz + rot xsx + rot xsy + rot r> )( >r xsz - rot xsx - rot xsy - rot r> )
-	2 and? ( >r ysz + rot ysx + rot ysy + rot r> )( >r ysz - rot ysx - rot ysy - rot r> )
-	4 and? ( >r zsz + rot zsx + rot zsy + rot r> )( >r zsz - rot zsx - rot zsy - rot r> )
-	drop ;
-
-:viewbox | x y z
-	pick2 pick2 pick2 0 idmov project op
-	pick2 pick2 pick2 1 idmov project line
-	pick2 pick2 pick2 3 idmov project line
-	pick2 pick2 pick2 2 idmov project line
-	pick2 pick2 pick2 0 idmov project line
-	pick2 pick2 pick2 4 idmov project op
-	pick2 pick2 pick2 5 idmov project line
-	pick2 pick2 pick2 7 idmov project line
-	pick2 pick2 pick2 6 idmov project line
-	pick2 pick2 pick2 4 idmov project line
-	pick2 pick2 pick2 1 idmov project op
-	pick2 pick2 pick2 5 idmov project line
-	pick2 pick2 pick2 4 idmov project op
-	pick2 pick2 pick2 0 idmov project line
-	pick2 pick2 pick2 3 idmov project op
-	pick2 pick2 pick2 7 idmov project line
-	pick2 pick2 pick2 6 idmov project op
-	pick2 pick2 pick2 2 idmov project line
-	3drop
-	;
-
-|------------------------------
-:load3do | "" --
-	here 'octre !
-	octre swap load 'octre> !
-	octre> 4 - @ octre + 'pixels !
-	octre> 'here ! ;
-
-
-|----------- version newmask
-
-:pset | x y color
-	rot -? ( 3drop ; ) sw >? ( 3drop ; )
-	rot -? ( 3drop ; ) sh >? ( 3drop ; )
-	setxy px!+ ;
+:drawpoint	| x y z nodo
+	>r swap over c9 >r c9 xc + r> yc + setxy
+	r> octre - pixels + @ px!+ ;
 
 :idmovn | x y z id -- x' y' z'
 	1 and? ( >r addv >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv >r rot r@+ - rot r@+ - rot r> @ - r> )
@@ -142,9 +117,8 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	4 and? ( >r addv 24 + >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv 24 + >r rot r@+ - rot r@+ - rot r> @ - r> )
 	drop ;
 
-
 :viewchildm | x y z node bit nro -- x y z node bit
-	$7 xor
+	$7 xor	| de atras para adelante
 	dup place pick2 nand? ( 2drop ; ) | x y z node bit bitc
 	1- pick2 and popcnt 2 << pick3 +
 	>r >r pick4 pick4 pick4 r> idmovn r>
@@ -152,41 +126,23 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 
 :viewom | x y z node --
 
-|	size lod <? ( drop octre - pixels + @ >r project r> pset ; ) drop
-	addv 'addvec 287 + >? ( drop octre - pixels + @ >r project r> pset ; ) 	drop
+	addv 'addvec 287 + >? ( drop drawpoint ; ) 	drop
 
 	addv+
 	@ dup 8 >> 2 << octre + swap $ff and | x y z adr bitmask
-	dmask >r
-	r $7 and viewchildm
-	r 4 >> $7 and viewchildm
-	r 8 >> $7 and viewchildm
-	r 12 >> $7 and viewchildm
-	r 16 >> $7 and viewchildm
-	r 20 >> $7 and viewchildm
-	r 24 >> $7 and viewchildm
-	r> 28 >> $7 and viewchildm
-
+	dmask $7 and viewchildm
+	dmask 4 >> $7 and viewchildm
+	dmask 8 >> $7 and viewchildm
+	dmask 12 >> $7 and viewchildm
+	dmask 16 >> $7 and viewchildm
+	dmask 20 >> $7 and viewchildm
+	dmask 24 >> $7 and viewchildm
+	dmask 28 >> $7 and viewchildm
 	nip 4drop
 	addv- ;
 
 :viewoctreeo | x y z --
 	octre viewom ;
-
-
-|-------------
-:boxcover | x y z --
-	dup >r
-	project | x y
-	r> dup 2/ dup 2/ + + 16 >>
-	pick2 over - pick2 pick2 - op
-	pick2 over - pick2 pick2 + pline
-	pick2 over + pick2 pick2 + pline
-	pick2 over + pick2 pick2 - pline
-	pick2 over - pick2 pick2 - pline
-	poli
-	3drop
-	;
 
 |---------------------
 
@@ -218,38 +174,39 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 | 32x8 =256 (cada cubo de 8 puntos gasta 256 bytes)
 |
 |
-#puntos )( 256
-#puntos>
+#nodos )( 1024
+#nodos> 'nodos
 
-:c91 | d r m x -- d m' r'
-	>? ( pick2 - swap )( pick2 + swap 1+ ) ;
+:oct!+
+	nodos> !+ 'nodos> ! ;
 
-| d rx mx ry my x y z
+#puntos )( 4096
+#puntos> 'puntos
+
+#ac #c
 
 :calcline | adr --
-	>r r@+
-	r@+ r@+ r 8 + @ c91
+	dup @ 2/ dup rot !+ >r	| half the dim
+	r@+ r@+ r 8 + @	| d r m X
+	>? ( pick2 - swap 2* )( pick2 + swap 2* 1+ ) | c91
+	dup 1 and 'c !		| quad?
 	r 8 - !+ !
-	r@+ r@+ r 4+ @ c91
+	r@+ r@+ r 4+ @  | d r m Y
+	>? ( pick2 - swap 2* )( pick2 + swap 2* 1+ ) | c91
+	dup 1 and 2* c or 	| quad?
+	place ac or 'ac !	| quad!
 	r> 8 - !+ !
-	drop
+	drop ;
+
+:adv8point | -- ac
+	0 'ac !
+	'puntos ( puntos> <? )( dup calcline 32 + ) drop
+|	ac
 	;
 
-:adv8point
-	'puntos ( puntos> <? )( dup calcline 32 + ) drop ;
-
-:mulline | adr --
-	dup @ 2/ swap !+
-	dup @ 2* swap !+ 4+
-	dup @ 2* swap !
-	;
-
-:mul8pount
-	'puntos ( puntos> <? )( dup mulline 32 + ) drop ;
-
-:8pnt+! | x y z
+:8pnt+! | x y z --
 	puntos> >r
-	dup 2/ r!+ 0 dup dup dup r!+ r!+ r!+ r!+
+	dup r!+ 0 dup dup dup r!+ r!+ r!+ r!+
 	rot r!+ swap r!+ r!+ r> 'puntos> ! ;
 
 :set8point | x y z --
@@ -264,58 +221,59 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	7 idmov 8pnt+!
 	;
 
-
+|---------- dump
 :boxd | adr --
 	>r
-|	r 20 +
-|	@+ swap @+ swap @
-|	project atxy
-	r 4+ @+ swap 4+ @ atxy
-	r@+ r@+ r@+ r@+ r@+ "%d %d %d %d %d" print
+	r 4+ @+ xc + swap 4+ @ yc + atxy
+	4 r+ r@+ r@+ r@+ r@+ "%d %d %d %d " print
 	rdrop
 	;
 
 :dump8point
 	'puntos ( puntos> <? )( dup boxd 32 + ) drop ;
 
+|---------- dump
+
 :testoct
+	dup oct!+
 	xcam ycam zcam set8point
 	adv8point
+	adv8point
+	adv8point
+	adv8point
+	adv8point
+	adv8point
+	adv8point
+	adv8point
+	adv8point
 
-	mul8pount adv8point
-	mul8pount adv8point
-	mul8pount adv8point
-	mul8pount adv8point
-	mul8pount adv8point
-	mul8pount adv8point
-	mul8pount adv8point
-	mul8pount adv8point
 
 	dump8point
 	;
 
+| actual octree
+#xq #yq #sq
 
-|----------------------
-:testz
-	addv+
+:fillq | color --
+	xq yq setxy
+	sq dup ( 1? )( 1-
+		over ( 1? )( 1-
+			pick3 px!+
+			) drop
+		sw pick2 - px+!
+		) 3drop ;
 
-	violeta
-	pick2 pick2 pick2 bcover
+:fillq1 | color --
+	xq yq setxy px!+ ;
 
-	cyan
-	pick2 pick2 pick2 0 idmovn project op
-	pick2 pick2 pick2 1 idmovn project line
-	pick2 pick2 pick2 3 idmovn project line
-	pick2 pick2 pick2 2 idmovn project line
-	pick2 pick2 pick2 0 idmovn project line
 
-	azul
-	pick2 pick2 pick2 0 idmovn boxcover
+:octquad | x y z oct --
+	xc 'xq ! yc 'yq ! 512 'sq !
+	oct!+
+	set8point
 
-	3drop
-	addv-
+
 	;
-
 
 |-------------
 :fillqtree | size xc yc --
@@ -344,35 +302,36 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	sh 2/ 256 - 'yc !
 	sw 2/ 256 - 'xc !
 	33
-	$0 'color !
-
-
 	show clrscr
 		verde
-		dup "%d " print cr
-		yc xc "%d %d " print cr
-
-|		xc yc 512 qtree
+|		dup "%d " print cr
+		pick2 pick2 pick2 "%d %d %d" print cr
 
 		omode
 		freelook
 
-|		msec 3 << mrotxi
+		msec 3 << mrotxi
 |		msec 4 << mrotyi
 		0 0 1.0 transform 'zsz ! 'zsy ! 'zsx !
 		0 1.0 0 transform 'ysz ! 'ysy ! 'ysx !
 		1.0 0 0 transform 'xsz ! 'xsy ! 'xsx !
+		calcmask
 
 		cyan
 		testoct
+|		xcam ycam zcam octre quadoct
 
-		calcmask
-		xcam ycam zcam viewbox
-	    filladdvect
+|	    filladdvect
+|		xcam ycam zcam octre viewom
 
 
 		[ -0.1 'zcam +! ; ] <up>
 		[ 0.1 'zcam +! ; ] <dn>
+		[ -0.1 'xcam +! ; ] <le>
+		[ 0.1 'xcam +! ; ] <ri>
+		[ -0.1 'ycam +! ; ] <pgup>
+		[ 0.1 'ycam +! ; ] <pgdn>
+
 		'exit >esc<
 		cminiflecha
 		;
