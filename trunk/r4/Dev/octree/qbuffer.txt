@@ -3,43 +3,100 @@
 |-----------------------------
 ^r4/lib/morton.txt
 
-#buffer )( $2ffff	| hasta  1024x1024
-#buffer> 'buffer
-#quaniv 1 1	2 8	32 128 512 2048 8192 32768
-#quaniv> 'quaniv
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+#b1	)( 4
+#b2 )( 4
+#b3 )( 8
+#b4 )( 32
+#b5 )( 128
+#b6 )( 512
+#b7 )( 2048
+#b8 )( 8192
+#b9 )( 32768
+#bz 0
+#quan b1 b2 b3 b4 b5 b6 b7 b8 b9
+#quan> 'quan
+#buff
 
 ::quaini
-	'quaniv 'quaniv> !
-	'buffer 'buffer> !
-	'buffer >r
-	$2aac | para 512*512
-|	$aaac | para 1024*1024
-	( 1? )( 1- 0 r!+ ) drop rdrop ;
+	'quan 'quan> !
+	'b1 dup 'buff !
+	( 'bz <? )( 0 swap !+ ) drop ;
 
 ::qua! | morton --
-	dup 5 >> 2 << buffer> + swap
+	dup 5 >> 2 << buff + swap
 	$1f and place over @ or swap ! ;
 
-|************
-:placeq
-	2 >> $f swap << ;
-
-:quacheck! | morton --
-	dup 5 >> 2 << buffer> + swap
-	$1f and place over @ or
-
-	swap ! ;
-|************
+::quak! | morton --
+	dup 5 >> 2 << buff +		| morton adr
+	1 pick2 $1f and << over @ or | morton adr newb
+	dup rot !	| morton neb
+	quan> 4 -	| morton newb adr
+	( 'quan >? )( 4 -
+		swap pick2 $1c and >> $f and
+		$f <>? ( 3drop ; ) drop	| morton adr
+		swap 2 >> swap
+		over 5 >> 2 << over @ + | morton adr dirp
+		1 pick3 $1f and << over @ or | morton adr dirp newb
+		dup rot !	| morton adr newb
+		swap ) 3drop ;
 
 ::qua@ | morton -- 0/any
-	dup 5 >> 2 << buffer> + @
+	dup 5 >> 2 << buff + @
 	swap $1f and place and ;
 
-
 ::quapush
-	quaniv> @+ 2 << 'buffer> +! 'quaniv> ! ;
+	quan> @+ 'buff ! 'quan> ! ;
 
 ::quapop
-	quaniv> 4 - dup 'quaniv> !
-	2 << neg 'buffer> +! ;
+	quan> 4 -  dup @ 'buff ! 'quan> ! ;
+
+|------------ test lib ------------
+|  test de quadtree para oclusion
+|----------------------------------
+:drawlev | n x y
+	setxy
+    1 over << | n size
+	dup ( 1? )( 1-
+		over ( 1? )( 1-
+			2dup morton2d qua@ 1? ( $ffffff )( $ff ) nip px!+
+			) drop
+		sw pick2 - px+!
+		) 3drop ;
+
+#x #y
+
+:set5
+	quapush quapush quapush quapush quapush
+	31 y - 31 x - morton2d quak!
+	quapop quapop quapop quapop quapop ;
+
+:testq
+	33
+	quaini
+	show clrscr
+		dup "%d" print
+
+		0 15 10 drawlev quapush
+		1 20 10 drawlev quapush
+		2 30 10 drawlev quapush
+		3 50 10 drawlev quapush
+		4 80 10 drawlev quapush
+		5 120 10 drawlev
+		quapop quapop quapop quapop quapop
+
+		blink 1? ( 120 x + 10 y + setxy $ff00 px!+ ) drop
+
+		[ -1 'x +! ; ] <le>
+		[ 1 'x +! ; ] <ri>
+		[ -1 'y +! ; ] <up>
+		[ 1 'y +! ; ] <dn>
+		'set5 <spc>
+
+		'exit >esc<
+		cminiflecha ;
+
+: testq ;
 
