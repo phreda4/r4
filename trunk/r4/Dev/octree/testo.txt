@@ -7,16 +7,288 @@
 
 ^r4/dev/octree/qbuffer.txt
 
-#xcam 0 #ycam 0 #zcam 4.0
+#xcam 0 #ycam 0 #zcam 4096
 
 #octre
 #pixels
 #octre>
 
 #dmask
-
 #xc #yc
-#color
+
+|---------------------------------
+| vectores para rotar puntos
+
+#level
+
+#zsz #zsy #zsx
+#ysz #ysy #ysx
+#xsz #xsy #xsx
+
+#rotconv )( 96 | 8 dir*3 dim*4 bytes
+
+:fillrotvec | --
+	0 0 2048 transform 'zsz ! 'zsy ! 'zsx !
+	0 2048 0 transform 'ysz ! 'ysy ! 'ysx !
+	2048 0 0 transform 'xsz ! 'xsy ! 'xsx !
+	'rotconv >r
+	xsx ysx zsx + + neg r!+	xsy ysy zsy + + neg r!+ xsz ysz zsz + + neg r!+	| 111
+	xsx ysx zsx + - r!+	xsy ysy zsy + - r!+ xsz ysz zsz + - r!+	| 110
+	ysx zsx xsx + - r!+	ysy zsy xsy + - r!+ ysz zsz xsz + - r!+	| 101
+	xsx ysx zsx - + r!+	xsy ysy zsy - + r!+ xsz ysz zsz - + r!+	| 100
+	zsx ysx xsx + - r!+ zsy ysy xsy + - r!+ zsz ysz xsz + - r!+ | 011
+	xsx zsx ysx - + r!+ xsy zsy ysy - + r!+ xsz zsz ysz - + r!+ | 010
+	ysx zsx xsx - + r!+ ysy zsy xsy - + r!+ ysz zsz xsz - + r!+	| 001
+	xsx ysx zsx + + r!+	xsy ysy zsy + + r!+ xsz ysz zsz + + r!+	| 000
+	rdrop ;
+
+:idmovn | x y z id -- x' y' z'
+	$7 and dup 2* + 2 << 'rotconv + >r
+	rot r@+ level >> + rot r@+ level >> + rot r> @ level >> + ;
+
+:idmov | x y z id -- x' y' z'
+	$7 and dup 2* + 2 << 'rotconv + >r
+	rot r@+ + rot r@+ + rot r> @ + ;
+
+|------------------------------
+:load3do | "" --
+	here 'octre !
+	octre swap load 'octre> !
+	octre> 4 - @ octre + 'pixels !
+	octre> 'here ! ;
+
+|---- v4  loopless
+:c9 | x z -- x'
+	2/ 0 swap over | x 0 z 0
+	pick3 >? ( over - rot )( over + rot 256 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 128 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 64 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 32 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 4+ ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
+	pick3 >? ( 2drop )( 2drop 1+ )
+	nip ;
+
+:drawpoint	| x y z nodo
+	>r swap over c9 >r c9 xc + r> yc + setxy
+	r> octre - pixels + @ px!+ ;
+
+:viewchildm | x y z node bit nro -- x y z node bit
+	$7 xor	| de atras para adelante
+	dup place pick2 nand? ( 2drop ; ) | x y z node bit bitc
+	1- pick2 and popcnt 2 << pick3 +
+	>r >r pick4 pick4 pick4 r> idmovn r>
+	| ;; recursion !!
+
+|	level 7 >? ( drop drawpoint ; ) drop
+	pixels >? ( drawpoint ; )
+
+:viewom | x y z node --
+
+	1 'level +!
+	@ dup 8 >> 2 << octre + swap $ff and | x y z adr bitmask
+
+	dmask $7 and viewchildm
+	dmask 4 >> $7 and viewchildm
+	dmask 8 >> $7 and viewchildm
+	dmask 12 >> $7 and viewchildm
+	dmask 16 >> $7 and viewchildm
+	dmask 20 >> $7 and viewchildm
+	dmask 24 >> $7 and viewchildm
+	dmask 28 >> $7 and viewchildm
+
+	nip 4drop
+	-1 'level +! ;
+
+|**** calculo orden v0 ****
+:prevx
+	pick4 xcam - +? ( 1 )( 0 ) nip
+	pick4 ycam - +? ( drop 2 or )( drop )
+	pick3 zcam - +? ( drop 4 or )( drop )
+
+	>r
+	r viewchildm
+	r 1 xor viewchildm
+	r 2 xor viewchildm
+	r 4 xor viewchildm
+	r 3 xor viewchildm
+	r 5 xor viewchildm
+	r 6 xor viewchildm
+	r> 7 xor viewchildm
+;
+|***************************
+
+|
+| morton d mx x my y
+| 8 puntos por nodo. 8 niveles = 6*8*8*4
+|
+#puntos )( 4096
+#pntnow> 'puntos
+#pntlas> 'puntos
+
+|-----------
+:pnt+! | x y z --
+	pntlas> >r 0 r!+ r!+ 0 r!+ swap r!+ 0 r!+ r> !+ 'pntlas> ! ;
+
+:pntini | x y z --
+	'puntos dup 'pntlas> ! 'pntnow> !
+	'rotconv >r
+	pick2 r@+ + pick2 r@+ + pick2 r@+ + pnt+!
+	pick2 r@+ + pick2 r@+ + pick2 r@+ + pnt+!
+	pick2 r@+ + pick2 r@+ + pick2 r@+ + pnt+!
+	pick2 r@+ + pick2 r@+ + pick2 r@+ + pnt+!
+	pick2 r@+ + pick2 r@+ + pick2 r@+ + pnt+!
+	pick2 r@+ + pick2 r@+ + pick2 r@+ + pnt+!
+	pick2 r@+ + pick2 r@+ + pick2 r@+ + pnt+!
+	3drop rdrop
+	;
+
+|--------------- v2
+| morton d mx x my y
+
+:calcline | acc adr -- acc adr'
+	>r
+	r@+ 2 << r@+ 2/ | acc m d/2
+	r@+ r@+ >? ( over - )( over + rot 1 or rot rot ) r 8 - !
+	r@+ r@+ >? ( over - )( over + rot 2 or rot rot ) r 8 - !
+	swap 			| acc d/2 m
+	rot 1 pick2 $3 and << or rot rot
+	r 24 - !+ !
+	r> ;
+
+:adv8pnt | -- acc
+|	0 pntnow> ( pntlas> <? )( calcline 1 over 24 - @ << rot or swap ) drop ;
+	0 pntnow> ( pntlas> <? )( calcline  ) drop ;
+
+:mortonnow | -- mortonow
+	pntnow> @ ;
+
+|---------- DUMP
+:dumpline
+	>r r@+ r@+ r@+ r@+ r@+ r@+ "%d %d %d %d %d %h " print cr r> ;
+
+:dumpoct
+	pntnow> ( pntlas> <? )( dumpline ) drop ;
+
+:boxd | adr --
+	>r
+	r@+ invmorton2d yc + swap xc + swap atxy
+	r@+ r@+ r@+ r@+ r@+ "%d %d %d %d %d" print
+	rdrop ;
+
+:dump8pnt
+	pntnow> ( pntlas> <? )( dup boxd 24 + ) drop ;
+
+
+|-----------
+:pushchild | i --
+	3 << dup 2* + pntnow> +
+	pntlas> dup >r pntnow>
+	over 'pntnow> !
+	( over <? )(
+		pick2 | Gi last Gj Gi
+		@+ r!+
+		@+ rot 4+ @+ rot + 2/ r!+ swap
+		@+ rot @+ rot + 2/ r!+ swap
+		@+ rot @+ rot + 2/ r!+ swap
+		@+ rot @+ rot + 2/ r!+ swap
+		@+ rot @+ rot + 2/ r!+
+		nip
+		) 3drop
+	r> 'pntlas> ! ;
+
+:popchild
+	-192 dup 'pntlas> +! 'pntnow> +! ;
+
+:lastchild | -- 0/n
+	pntlas> 'puntos 6 4 <<
+	2 << | 4 niveles
+	+ - ;
+
+
+|--------------
+| algo 1
+| si es hoja de quadtree, pintar el punto del color del octree
+| si es hoja del octree, pintar el quadtree del color del octree
+|
+| si los 8 vertices estan en un cuadrante..dividir quadtree y otra vez
+| sino dividir el octree y otravez
+| --
+
+:setxymorton | morton --
+	256 >r
+	2 9 pick2 24 >> - 1- 2* << | mask	| 9 es quadsize
+	xc yc rot 		| morton x y mask
+	( 1? )( | morton x y mask
+		pick3 and? ( rot r + rot rot )
+		2/
+		pick3 and? ( swap r + swap )
+		2/
+		r> 2/ >r )
+	rdrop
+	drop rot drop
+	setxy ;
+
+:fillquad | oct qua noct bit child 'oct -- oct qua noct bit
+
+	nip
+	octre - pixels + @  | getcolor
+	pick3 | setqbuffer
+	1 over 24 >> <<
+	trace
+	swap setxymorton | color size --
+	dup ( 1? )( 1-
+		over ( 1? )( 1-
+			pick3 px!+
+			) drop
+		sw pick2 - px+!
+		) 3drop ;
+
+:fillpoint | oct qua --
+	swap octre - pixels + @  | getcolor
+	swap | setqbuffer
+	setxymorton px!+ ;
+
+:reducequad | oct qua -- oct qua'
+	$1000000 - $ff000000 and mortonnow or ;
+
+:m3dto2d-child | oct qua noct bit child mask -- oct qua noct bit
+	1- pick2 and popcnt 2 << pick3 +	| oct qua noct bit child 'oct
+	pixels >=? ( fillquad ; )			| ....si es ultimo llena quad
+	pick4 								| qua oct noct bit |oct' qua'
+:m3dto2d | oct qua --
+	( adv8pnt dup 1- and 0? )( drop 		| oct qua
+		reducequad
+		$ff000000 nand? ( fillpoint ; )	| si es punto..pinta
+		) drop
+	over @ dup | oct qua nodo nodo
+	8 >> 2 << octre + swap $ff and 			|  oct qua noct bit
+
+	dmask $7 and 1 over <<
+	pick2 and? ( over pushchild m3dto2d-child popchild )( 2drop )
+	dmask 4 >> $7 and 1 over <<
+	pick2 and? ( over pushchild m3dto2d-child popchild )( 2drop )
+	dmask 8 >> $7 and 1 over <<
+	pick2 and? ( over pushchild m3dto2d-child popchild )( 2drop )
+	dmask 12 >> $7 and 1 over <<
+	pick2 and? ( over pushchild m3dto2d-child popchild )( 2drop )
+	dmask 16 >> $7 and 1 over <<
+	pick2 and? ( over pushchild m3dto2d-child popchild )( 2drop )
+	dmask 20 >> $7 and 1 over <<
+	pick2 and? ( over pushchild m3dto2d-child popchild )( 2drop )
+	dmask 24 >> $7 and 1 over <<
+	pick2 and? ( over pushchild m3dto2d-child popchild )( 2drop )
+	dmask 28 >> $7 and 1 over <<
+	pick2 and? ( over pushchild m3dto2d-child popchild )( 2drop )
+	4drop ;
+
+:octquad | oct x y z --
+	pntini
+				|	$9 24 << xc 12 << yc  or or | view
+	$9000000	| level(8)-morton(24)
+	m3dto2d ;
 
 |-------------- orden segun vista
 #maskc
@@ -51,322 +323,16 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	;
 
 
-#zsz #zsy #zsx
-#ysz #ysy #ysx
-#xsz #xsy #xsx
-
-|----------- graficacion
+|-------------
 :freelook
 	xymouse
 	sh 2/ - 7 << swap
 	sw 2/ - neg 7 << swap
 	neg mrotx mroty ;
 
-:idmov | x y z id -- x y z
-	1 and? ( >r xsz + rot xsx + rot xsy + rot r> )( >r xsz - rot xsx - rot xsy - rot r> )
-	2 and? ( >r ysz + rot ysx + rot ysy + rot r> )( >r ysz - rot ysx - rot ysy - rot r> )
-	4 and? ( >r zsz + rot zsx + rot zsy + rot r> )( >r zsz - rot zsx - rot zsy - rot r> )
-	drop ;
-
-|------------------------------
-:load3do | "" --
-	here 'octre !
-	octre swap load 'octre> !
-	octre> 4 - @ octre + 'pixels !
-	octre> 'here ! ;
-
-|----------- version newmask
-
-| tabla de vectores de sumas
-
-#addvec )( 576 | 16 niveles
-#addv 'addvec
-
-:addv+ 36 'addv +! ;
-:addv- -36 'addv +! ;
-
-:nextl | adr -- adr'
-	xsx dup 2/ 'xsx ! swap !+ xsy dup 2/ 'xsy ! swap !+ xsz dup 2/ 'xsz ! swap !+
-	ysx dup 2/ 'ysx ! swap !+ ysy dup 2/ 'ysy ! swap !+ ysz dup 2/ 'ysz ! swap !+
-	zsx dup 2/ 'zsx ! swap !+ zsy dup 2/ 'zsy ! swap !+ zsz dup 2/ 'zsz ! swap !+
-	;
-
-:filladdvect
-	'addvec dup 'addv !
-	10 ( 1? )( 1- swap nextl swap ) 2drop ;
-
-|---- v4  loopless
-:c9 | x z -- x'
-	2/ 0 swap over | x 0 z 0
-	pick3 >? ( over - rot )( over + rot 256 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 128 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 64 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 32 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 4 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
-	pick3 >? ( rot )( rot 1+ )
-	nip nip nip ;
-
-:drawpoint	| x y z nodo
-	>r swap over c9 >r c9 xc + r> yc + setxy
-	r> octre - pixels + @ px!+ ;
-
-:idmovn | x y z id -- x' y' z'
-	1 and? ( >r addv >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv >r rot r@+ - rot r@+ - rot r> @ - r> )
-	2 and? ( >r addv 12 + >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv 12 + >r rot r@+ - rot r@+ - rot r> @ - r> )
-	4 and? ( >r addv 24 + >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv 24 + >r rot r@+ - rot r@+ - rot r> @ - r> )
-	drop ;
-
-:viewchildm | x y z node bit nro -- x y z node bit
-	$7 xor	| de atras para adelante
-	dup place pick2 nand? ( 2drop ; ) | x y z node bit bitc
-	1- pick2 and popcnt 2 << pick3 +
-	>r >r pick4 pick4 pick4 r> idmovn r>
-	|****** recursion (no poner ; !!)
-
-:viewom | x y z node --
-
-	addv 'addvec 287 + >? ( drop drawpoint ; ) 	drop
-
-	addv+
-	@ dup 8 >> 2 << octre + swap $ff and | x y z adr bitmask
-	dmask $7 and viewchildm
-	dmask 4 >> $7 and viewchildm
-	dmask 8 >> $7 and viewchildm
-	dmask 12 >> $7 and viewchildm
-	dmask 16 >> $7 and viewchildm
-	dmask 20 >> $7 and viewchildm
-	dmask 24 >> $7 and viewchildm
-	dmask 28 >> $7 and viewchildm
-	nip 4drop
-	addv- ;
-
-:viewoctreeo | x y z --
-	octre viewom ;
-
-|---------------------
-
-:c9 | x z -- x'
-	2/ 0 swap over | x 0 z 0
-	pick3 >? ( over - rot )( over + rot 256 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 128 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 64 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 32 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 4 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 1+ )
-	nip nip nip ;
-
-|-----------------------------------
-| calculo linea para cada punto
-|
-| morton d mx x my y
-|
-|
-
-#nodos )( 1024
-#nodos> 'nodos
-
-:oct!
-	'nodos !+ 'nodos> ! ;
-
-:oct!+
-	nodos> !+ 'nodos> ! ;
-
-#puntos )( 4096
-#pntnow> 'puntos
-#pntlas> 'puntos
-
-
-|--------------- v2
-| morton d mx x my y
-
-:calcline | adr -- adr'
-	>r
-	r@+ 2 << r@+ 2/ | r d/2
-	r@+ r@+ >? ( over - )( over + rot 1 or rot rot ) r 8 - !
-	r@+ r@+ >? ( over - )( over + rot 2 or rot rot ) r 8 - !
-	swap r 24 - !+ !
-	r> ;
-
-:adv8pnt | -- acc
-	0 pntnow> ( pntlas> <? )( calcline 1 over 24 - @ << rot or swap ) drop ;
-
-|---------- DUMP
-:dumpline
-	>r r@+ r@+ r@+ r@+ r@+ r@+ "%d %d %d %d %d %h " print cr r> ;
-
-:dumpoct
-	pntnow> ( pntlas> <? )( dumpline ) drop ;
-
-|---------------
-:boxd | adr --
-	>r
-	r@+ invmorton2d yc + swap xc + swap atxy
-	r@+ r@+ r@+ r@+ r@+ "%d %d %d %d %d" print
-	rdrop ;
-
-:dump8pnt
-	pntnow> ( pntlas> <? )( dup boxd 24 + ) drop ;
-
-|--------------- 3
-| d mx x my y
-
-:cc	| acc adr -- acc adr'
-	>r
-	r@+ 2/ 0
-	r@+ r@+ >? ( pick2 - )( pick2 + swap 1 or swap ) r 8 - !
-	r@+ r@+ >? ( pick2 - )( pick2 + swap 2 or swap ) r 8 - !
-	swap r 20 - !
-	place or r> ;
-
-:aa | -- acc
-	0 pntnow> ( pntlas> <? )( cc ) drop ;
-
-|-----------
-:pnt+! | x y z --
-	pntlas> >r 0 r!+ r!+ 0 r!+ swap r!+ 0 r!+ r> !+ 'pntlas> ! ;
-
-:octini | x y z --
-	'puntos dup 'pntlas> ! 'pntnow> !
-	pick2 pick2 pick2 0 idmov pnt+!
-	pick2 pick2 pick2 1 idmov pnt+!
-	pick2 pick2 pick2 2 idmov pnt+!
-	pick2 pick2 pick2 3 idmov pnt+!
-	pick2 pick2 pick2 4 idmov pnt+!
-	pick2 pick2 pick2 5 idmov pnt+!
-	pick2 pick2 pick2 6 idmov pnt+!
-	7 idmov pnt+!
-	;
-
-|-----------
-:pushchild | i --
-	3 << dup 2* + pntnow> +
-	pntlas> dup >r pntnow>
-	over 'pntnow> !
-	( over <? )(
-		pick2 | Gi last Gj Gi
-		@+ r!+
-		@+ rot 4+ @+ rot + 2/ r!+ swap
-		@+ rot @+ rot + 2/ r!+ swap
-		@+ rot @+ rot + 2/ r!+ swap
-		@+ rot @+ rot + 2/ r!+ swap
-		@+ rot @+ rot + 2/ r!+
-		nip
-		) 3drop
-	r> 'pntlas> ! ;
-
-:popchild
-	-192 dup 'pntlas> +! 'pntnow> +! ;
-
-:lastchild | -- 0/n
-	pntlas> 'puntos 6 4 <<
-	2 << | 4 niveles
-	+ - ;
-
-|.......... actual octree
-#xq #yq #sq
-
-:fillq | color --
-	xq yq setxy
-	sq dup ( 1? )( 1-
-		over ( 1? )( 1-
-			pick3 px!+
-			) drop
-		sw pick2 - px+!
-		) 3drop ;
-
-:fillq1 | color --
-	xq yq setxy px!+ ;
-
-:setq | child -- child
-	1 and? ( sq 'xq +! )
-	2 and? ( sq 'yq +! )
-	;
-
-:retq | child -- child
-	1 and? ( sq neg 'xq +! )
-	2 and? ( sq neg 'yq +! )
-	;
-
-:pushq
-	sq 2/ 'sq ! ;
-:popq
-	sq 2* 'sq ! ;
-
-|--------------
-| algo 1
-| si es hoja de quadtree, pintar el punto del color del octree
-| si es hoja del octree, pintar el quadtree del color del octree
-|
-| si los 8 vertices estan en un cuadrante..dividir quadtree y otra vez
-| sino dividir el octree y otravez
-| --
-
-|	addv 'addvec 287 + >? ( drop drawpoint ; ) 	drop
-
-
-:subqua | oct -- oct
-|	pushq
-	pntnow> @ setq | child
-
-	over octre - pixels + @ fillq
-
-
-	retq drop
-|	popq
-	;
-
-
-:prococt | oct noct bit child -- oct noct bit
-	dup place pick2 nand? ( 2drop ; ) | oct noct bit child place
-	1- pick2 and popcnt 2 << pick3 +  | oct noct bit child noct+
-	swap pushchild | oct noct bit noct+
-	pushq
-	adv8pnt dup 1- and	| esta en un cuadrante solo?
-	0? ( drop subqua drop ; ) drop
-
-	dumpoct
-
-	popchild
-	popq
-	drop
-	;
-
-:suboct | oct -- oct
-	dup @ dup | oct nodo nodo
-	8 >> 2 << octre + swap $ff and | oct noct bit
-	dmask $7 and prococt
-	dmask 4 >> $7 and prococt
-	dmask 8 >> $7 and prococt
-	dmask 12 >> $7 and prococt
-	dmask 16 >> $7 and prococt
-	dmask 20 >> $7 and prococt
-	dmask 24 >> $7 and prococt
-	dmask 28 >> $7 and prococt
-	2drop
-	;
-
-:octquad | oct x y z --
-	octini
-	xc 'xq ! yc 'yq ! 512 'sq !
-	quaini
-
-	adv8pnt
-	dup 1- and	| esta en un cuadrante solo?
-	0? ( drop subqua drop ; )
-	drop
-	suboct
-	drop
-	;
-
 |-------------
 :main
-	"media/3do/luigi.3do" load3do
+	"media/3do/luigio.3do" load3do
 
 	sh 2/ 256 - 'yc !
 	sw 2/ 256 - 'xc !
@@ -379,28 +345,23 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 		omode
 		freelook
 
-		msec 3 << mrotxi
+|		msec 3 << mrotxi
 |		msec 4 << mrotyi
-		0 0 1.0 transform 'zsz ! 'zsy ! 'zsx !
-		0 1.0 0 transform 'ysz ! 'ysy ! 'ysx !
-		1.0 0 0 transform 'xsz ! 'xsy ! 'xsx !
+
+		fillrotvec
 		calcmask
 
-		cyan
 		octre xcam ycam zcam octquad
 
-|	    filladdvect
-|		xcam ycam zcam octre viewom
+		0 'level !
+		xcam ycam zcam octre viewom
 
-		[ -0.1 'zcam +! ; ] <up>
-		[ 0.1 'zcam +! ; ] <dn>
-		[ -0.1 'xcam +! ; ] <le>
-		[ 0.1 'xcam +! ; ] <ri>
-		[ -0.1 'ycam +! ; ] <pgup>
-		[ 0.1 'ycam +! ; ] <pgdn>
-
-		[ rand 7 and pushchild ; ] <f1>
-		[ popchild ; ] <f2>
+		[ -0.025 'zcam +! ; ] <up>
+		[ 0.025 'zcam +! ; ] <dn>
+		[ -0.025 'xcam +! ; ] <le>
+		[ 0.025 'xcam +! ; ] <ri>
+		[ -0.025 'ycam +! ; ] <pgup>
+		[ 0.025 'ycam +! ; ] <pgdn>
 
 		'exit >esc<
 		cminiflecha

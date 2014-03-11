@@ -6,7 +6,7 @@
 
 ^r4/lib/trace.txt
 
-#xcam 0 #ycam 0 #zcam 512
+#xcam 0 #ycam 0 #zcam 4096
 
 #lod 8
 
@@ -66,8 +66,6 @@
 	pick3 >? ( over - rot )( over + rot 1+ )
 	nip nip nip ;
 
-#lq
-
 :fillqtree | color size xc yc --
 	setxy
 	dup ( 1? )( 1-
@@ -75,46 +73,20 @@
 			pick3 px!+
 			) drop
 		sw pick2 - px+!
-		)
-	3drop ;
+		) 3drop ;
 
+| 18..21-3 bits de precision..
 :drawbox | x y z size nodo --
-	>r
-	1 swap 21 - << 'lq !
-|	swap over c9 >r c9 lq 1- not and xc + r> lq 1- not and yc + | x y
-
-	swap over c9 >r c9 xc + r> yc + | x y
-	r> octre - pixels + @ lq
+	>r 1 swap 18 - << >r
+	swap over c9 >r c9 xc + r> yc + | xc yc
+	r> r> octre - pixels + @ swap 	| color size
 	2swap fillqtree ;
 
 :drawpoint	| x y z nodo --
 	>r
-	dup clz 21 >? ( r> drawbox ; ) drop
+	dup clz 18 >? ( r> drawbox ; ) drop | comentar para puntos solos
 	swap over c9 >r c9 xc + r> yc + setxy
 	r> octre - pixels + @ px!+ ;
-
-|---- v5 morton
-:cmorton | x y z -- m
-	2/ 0 dup dup >r | x y z 0 0
-	pick4 >? ( pick2 - )( pick2 + $20000 r+ ) swap
-	pick3 >? ( pick2 - )( pick2 + $10000 r+ ) swap rot 2/ rot rot
-	pick4 >? ( pick2 - )( pick2 + $8000 r+ ) swap
-	pick3 >? ( pick2 - )( pick2 + $4000 r+ ) swap rot 2/ rot rot
-	pick4 >? ( pick2 - )( pick2 + $2000 r+ ) swap
-	pick3 >? ( pick2 - )( pick2 + $1000 r+ ) swap rot 2/ rot rot
-	pick4 >? ( pick2 - )( pick2 + $800 r+ ) swap
-	pick3 >? ( pick2 - )( pick2 + $400 r+ ) swap rot 2/ rot rot
-	pick4 >? ( pick2 - )( pick2 + $200 r+ ) swap
-	pick3 >? ( pick2 - )( pick2 + $100 r+ ) swap rot 2/ rot rot
-	pick4 >? ( pick2 - )( pick2 + $80 r+ ) swap
-	pick3 >? ( pick2 - )( pick2 + $40 r+ ) swap rot 2/ rot rot
-	pick4 >? ( pick2 - )( pick2 + $20 r+ ) swap
-	pick3 >? ( pick2 - )( pick2 + $10 r+ ) swap rot 2/ rot rot
-	pick4 >? ( pick2 - )( pick2 + $8 r+ ) swap
-	pick3 >? ( pick2 - )( pick2 + $4 r+ ) swap rot 2/ rot rot
-	pick4 >? ( pick2 - )( pick2 + $2 r+ ) swap
-	pick3 <=? ( $1 r+ )
-	nip 4drop r> ;
 
 |-----------------------
 :viewchildm | x y z node bit nro -- x y z node bit
@@ -122,11 +94,8 @@
 	dup place pick2 nand? ( 2drop ; ) | x y z node bit bitc
 	1- pick2 and popcnt 2 << pick3 +
 	>r >r pick4 pick4 pick4 r> idmovn r>
-	|****** recursion (no poner ; !!)
 :view3do | x y z node --
-
 	level 7 >? ( drop drawpoint ; ) drop
-
 	1 'level +!
 	@ dup 8 >> 2 << octre + swap $ff and | x y z adr bitmask
 	dmask >r
@@ -187,28 +156,6 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	'dmask !
 	;
 
-|-------------
-:fillqtree | size xc yc --
-	setxy
-	dup ( 1? )( 1-
-		over ( 1? )( 1-
-			color px!+
-			) drop
-		sw pick2 - px+!
-		)
-	2drop
-	$f 'color +! ;
-
-:qtree | x y nivel --
-	1 =? ( drop setxy color px!+ 1  'color +! ; )
-	2/
-	pick2 pick2 pick2 qtree
-	pick2 pick2 pick2 + pick2 qtree
-	pick2 over + pick2 pick2 qtree
-	pick2 over + pick2 pick2 + pick2 qtree
-	3drop ;
-
-
 |----------- graficacion
 :freelook
 	xymouse
@@ -219,7 +166,7 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 |--------------------------
 :main
 	here 'octre !
-	"media/3do/mario.3do"
+	"media/3do/horse.3do"
 
 	octre swap load 'octre> !
 	octre> 4 - @ octre + 'pixels !
@@ -233,8 +180,7 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 		mask "mask:%h" print cr
 		dmask "dmask:%h" print cr
 
-		zcam 1 over clz 21 - << swap "zcam %d  %d" print cr
-|		xc yc 512 qtree
+		zcam 1 over clz 18 - << swap "zcam %d  %d" print cr
 
 		omode
 		freelook
@@ -243,19 +189,19 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 
 |		msec 3 << mrotxi
 |		msec 4 << mrotyi
-		0 0 256 transform 'zsz ! 'zsy ! 'zsx !
-		0 256 0 transform 'ysz ! 'ysy ! 'ysx !
-		256 0 0 transform 'xsz ! 'xsy ! 'xsx !
+		0 0 2048 transform 'zsz ! 'zsy ! 'zsx !
+		0 2048 0 transform 'ysz ! 'ysy ! 'ysx !
+		2048 0 0 transform 'xsz ! 'xsy ! 'xsx !
 
 		calcmask
 		fillrotvec
 		0 'level !
 		xcam ycam zcam octre view3do
 
-		[ -4 'xcam +! ; ] <le>
-		[ 4 'xcam +! ; ] <ri>
-		[ -4 'zcam +! ; ] <up>
-		[ 4 'zcam +! ; ] <dn>
+		[ -10 'xcam +! ; ] <le>
+		[ 10 'xcam +! ; ] <ri>
+		[ -10 'zcam +! ; ] <up>
+		[ 10 'zcam +! ; ] <dn>
 
 		'exit >esc< ;
 
