@@ -146,24 +146,54 @@
 	pick2 r@+ + pick2 r@+ + pick2 r@+ + pnt+!
 	3drop rdrop ;
 
-|--------------- v2
+|-------- avanzo quadrante (estn en el mismo!!)
 | morton d mx x my y
 
-:calcline | acc adr -- acc' adr'
+|!!! se sabe que hacen..>? puede evitarse
+|!!! y el calculo de morton tambien
+
+:calcline | adr -- adr'
 	>r
 	r@+ 2 << r@+ 2/ | acc m d/2
 	r@+ r@+ >? ( over - )( over + rot 1 or rot rot ) r 8 - !
 	r@+ r@+ >? ( over - )( over + rot 2 or rot rot ) r 8 - !
 	swap 			| acc d/2 m
-	rot 1 pick2 $3 and << or rot rot
 	r 24 - !+ !
 	r> ;
 
-:adv8pnt | -- acc
-	0 pntnow> ( pntlas> <? )( calcline  ) drop ;
+|** no modificado ..logica no anda
+| morton --
+:adv8pnt | --
+	pntnow> ( pntlas> <? )( calcline  ) drop ;
 
-:mortonnow | -- mortonow
-	pntnow> @ ;
+|-------- estan en el mismo cuadrante??
+:mortline | acc adr -- acc' adr'
+	8 + >r
+	0
+	r@+ r@+ <=? ( swap 1 or swap ) drop
+	r@+ r@+ <=? ( swap 2 or swap ) drop
+	1 swap << or
+	r> ;
+
+:mort8pnt | -- 0-ok / otro-no
+	0 pntnow> ( pntlas> <? )( mortline ) drop
+	dup 1- and ;
+
+|-- v2
+:calcmm | adr -- adr' mor
+	8 + >r
+	r@+ r@+ >? ( 0 )( 1 ) drop
+	r@+ r@+ <=? ( swap 2 or swap ) drop
+	r> swap ;
+
+:mort8pnt | -- 0/morton+1
+	pntnow> calcmm | adr mor0
+	swap
+	( pntlas> <? )( | mor0 adr
+		calcmm 		| mor0 adr' mor
+		pick2 <>? ( 3drop 0 ; )
+		drop ) drop
+	1+ ; | para que 0 sea sin coincidencia
 
 |---------- DUMP
 :dumpline
@@ -188,7 +218,14 @@
 :linevec
 	pntlas> 24 - @ invmorton2d yc + swap xc + swap op
 	pntnow>	( pntlas> <? )( dup @ invmorton2d yc + swap xc + swap line 24 + ) drop ;
+
 |-----------
+|
+| si divide un vertice con cuadrante distinto,
+| hay que recalcular a que cuadrante pertenece
+| y la condicion para dibidir es que esten en
+| quadrante separado!!!
+|
 :pushchild | i --
 |	dup "%d " print cr
 
@@ -253,7 +290,6 @@
 	setxy ;
 
 :fillquad | oct qua noct bit child 'oct -- oct qua noct bit
-	nip
 	octre - pixels + @  | getcolor
 	pick3 | setqbuffer
 	1 over 24 >> <<
@@ -266,24 +302,21 @@
 		) 3drop ;
 
 :fillpoint | oct qua --
-	trace
-	swap octre - pixels + @  | getcolor
-	swap | setqbuffer
-	setxymorton px!+ ;
+	| setqbuffer
+	setxymorton
+	octre - pixels + @
+	px!+ ;
 
-:reducequad | oct qua -- oct qua'
-	$1000000 - $ff000000 and mortonnow or ;
-
+|-------------------------------
 :m3dto2d-child | oct qua noct bit child mask -- oct qua noct bit
-	over pushchild
-	1- pick2 and popcnt 2 << pick3 +	| oct qua noct bit child 'oct
+	swap pushchild
+	1- over and popcnt 2 << pick2 +	| oct qua noct bit child 'oct
 	pixels >=? ( fillquad ; )			| ....si es ultimo llena quad
-	pick4 								| qua oct noct bit |oct' qua'
+	pick3 								| qua oct noct bit |oct' qua'
 :m3dto2d | oct qua --
-	( adv8pnt
-		showshot
-		 	dup 1- and 0? )( drop 		| oct qua
-		reducequad
+	( mort8pnt 1? )( 1-
+		adv8pnt   |** no modificado ..logica no anda
+		$1000000 - $ff000000 and or
 		$ff000000 nand? ( fillpoint ; )	| si es punto..pinta
 		) drop
 	over @ dup | oct qua nodo nodo
@@ -296,16 +329,22 @@
 
 	dmask 4 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
+
 	dmask 8 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
+
 	dmask 12 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
+
 	dmask 16 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
+
 	dmask 20 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
+
 	dmask 24 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
+
 	dmask 28 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 	4drop ;
