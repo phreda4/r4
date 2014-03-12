@@ -19,9 +19,7 @@
 
 |---------------------------------
 | vectores para rotar puntos
-
 #level
-
 #zsz #zsy #zsx
 #ysz #ysy #ysx
 #xsz #xsy #xsx
@@ -274,10 +272,10 @@
 |--------------- v2
 :pntquad | quad -- quad acc
 	dup 24 >> 1- 2 << 'cmorton + @ 'mquad !
-	pntnow> dup mortonn | adr mor
-	swap 	 			| mor adr
+	pntnow> dup mortonn | q adr mor
+	swap 	 			| q mor adr
 	( 16 + pntlas> <? )(
-		dup mortonn		| mor adr mor1
+		dup mortonn		| q mor adr mor1
 		pick2 <>? ( 3drop 0 ; )
 		drop ) drop
 	1+ ; | 1+ para que 0 sea no igual
@@ -311,13 +309,11 @@
 	4 << pntnow> +	| Gi
 	pntlas> dup >r pntnow>	| Gi last Gj
 	over 'pntnow> !
-	( over <? )(
-		pick2 | Gi last Gj Gi
-		@+ rot @+ rot + 2/ r!+ swap
-		@+ rot @+ rot + 2/ r!+ swap
-		@+ rot @+ rot + 2/ r!+ swap
-		4+ swap 4+ 4 r+
-		nip ) 3drop
+	( over <? )( pick2 | Gi last Gj Gi
+		@+ rot @+ rot + 2/ r!+ |swap
+		@+ rot @+ rot + 2/ r!+ |swap
+		@+ rot @+ rot + 2/ r!+
+		nip 4+ 4 r+ ) 3drop
 	r> 'pntlas> ! ;
 
 :popchild
@@ -338,33 +334,40 @@
 		'exit >esc<
 		cminiflecha ;
 
-|--------------
-| algo 1
+|------------------------------------------------------------
+| m3dto2d - recursivo
+|
 | si es hoja de quadtree, pintar el punto del color del octree
 | si es hoja del octree, pintar el quadtree del color del octree
 |
 | si los 8 vertices estan en un cuadrante..dividir quadtree
 | sino dividir el octree y otravez
-| --
+|-------------------------------------------------------------
 
 :setxymorton | morton --
 	256 >r
 	2 9 pick2 24 >> - 1- 2* << | mask	| 9 es quadsize
 	xc yc rot 		| morton x y mask
 	( 1? )( | morton x y mask
-		pick3 and? ( swap r + swap ) 2/
 		pick3 and? ( rot r + rot rot ) 2/
+		pick3 and? ( swap r + swap ) 2/
 		r> 2/ >r )
 	rdrop
 	drop rot drop
 	setxy ;
 
-:fillquad | oct qua noct bit child 'oct -- oct qua noct bit
-	nip
+:fillpoint | oct qua --
+	| setq1buffer
+	setxymorton
 	octre - pixels + @  | getcolor
-	pick3 | setqbuffer
-	1 over 24 >> <<
-	swap setxymorton | color size --
+	px!+ ;
+
+:fillquad | oct qua noct bit 'oct quad -- oct qua noct bit
+	trace
+	swap octre - pixels + @ swap | col qua
+	1 over 24 >> <<				| col qua size
+	swap | setqbuffer	| col size qua
+	setxymorton 	| col size
 	dup ( 1? )( 1-
 		over ( 1? )( 1-
 			pick3 px!+
@@ -372,93 +375,173 @@
 		sw pick2 - px+!
 		) 3drop ;
 
-:fillpoint | oct qua --
-	swap octre - pixels + @  | getcolor
-	swap | setqbuffer
-	setxymorton px!+ ;
+:fillquad2 | 'oct quad --
+	( pntquad 1? )( 1- 				| oct qua mort
+		swap $1000000 - $ff000000 and or
+		$ff000000 nand? ( fillpoint ; )	| si es punto..pinta
+		) drop
+	fillquad ;
+
+|********************
+:exitnow
+	,cr "stack: " ,s
+	( 33 <>? )( ,h ,sp ) ,d
+	"log.txt" savemem
+	empty
+	;
+
+:dumpstack
+	pick4 pick4 pick4 pick4 pick4 " %h %h %h %h %h " ,print ;
+
+:drawmor | quad color --
+	trace
+	1 pick2 24 >> <<
+	rot setxymorton | color size --
+	trace
+	dup ( 1? )( 1-
+		over ( 1? )( 1-
+			pick3 px!+
+			) drop
+		sw pick2 - px+!
+		) 3drop ;
+
+|********************
 
 :m3dto2d-child | oct qua noct bit child mask -- oct qua noct bit
 
-	,cr  pntlas> 'puntos - 7 >> ( 1? )( 1- ,sp ) drop
-	">" ,s over ,d
+|	pntlas> 'puntos - 7 >> ( 1? )( 1- ,sp ) drop
+|	">" ,s dumpstack ,cr
 
-	over pushchild
-	1- pick2 and popcnt 2 << pick3 +	| oct qua noct bit child 'oct
-	pixels >=? ( fillquad "q " ,s pick2 ,h ,cr ; )			| ....si es ultimo llena quad
-	pick4 								| qua oct noct bit |oct' qua'
+ 	swap pushchild
+	1- over and popcnt 2 << pick2 +	| oct qua noct bit 'oct
+	pixels >=? ( pick3 fillquad2 ; )			| ....si es ultimo llena quad
+	pick3 								| qua oct noct bit |oct' qua'
 :m3dto2d | oct qua --
-	"> " ,s dup ,h ,sp
+
+	redraw
+	|trace
+	"> " ,s pick4 pick4 pick4 pick4 pick4 "q:%h o:%h %h %h %h " ,print ,cr
+	"log.txt" savemem
+
 	( pntquad 1? )( 1- 				| oct qua mort
-		"R " ,s
-		|showshot
+
+|		"R " ,s  |showshot
+
 		swap $1000000 - $ff000000 and or
-		$ff000000 nand? ( "p " ,s dup ,h ,cr fillpoint ; )	| si es punto..pinta
+|		trace
+|		dup $ff drawmor
+		$ff000000 nand? ( fillpoint ; )	| si es punto..pinta
 		) drop
 
-	over @ dup | oct qua nodo nodo
-	8 >> 2 << octre + swap $ff and 			|  oct qua noct bit
+	over @ dup 						| oct qua nodo nodo
+	8 >> 2 << octre + swap $ff and 	| oct qua noct bit
+
+|	"1." ,print dumpstack ,cr
+
 	dmask $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
+
+|	"2." ,print dumpstack ,cr
 
 	dmask 4 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
+|	"3." ,print dumpstack ,cr
+
 	dmask 8 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
+
+|	"4." ,print dumpstack ,cr
 
 	dmask 12 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
+|	"5." ,print dumpstack ,cr
+
 	dmask 16 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
+
+|	"6." ,print dumpstack ,cr
 
 	dmask 20 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
+|	"7." ,print dumpstack ,cr
+
 	dmask 24 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
+|	"8." ,print dumpstack ,cr
+
 	dmask 28 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
-|	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
+
+|	pick4 pick4 pick4 pick4 pick4 " %h %h %h %h %h >" ,print
+|	,cr
+
 	4drop
-	,cr ;
+	;
 
 :octquad | oct x y z --
 	mark
 	dmask ,h ,cr
-	pntini
-	$9000000	| level(8)-morton(24) | $9 24 << xc 12 << yc  or or | view
+
+	pntini $9000000	| level(8)-morton(24) | $9 24 << xc 12 << yc  or or | view
 	m3dto2d
+
 	"log.txt" savemem
 	empty
 
 	trace
 	;
 
+|-----------------
+
+
+#vv 9
+
 :testquad | oct x y z --
 	pntini drop
-	0 pushchild
-	0 pushchild
-	$7000000 pntquad
-	"%h" print
-	24 >> 1- 2 << 'cmorton + @ 'mquad !
-	pntnow> dup mortonn | adr mor
-	dup "0 %h " print cr
-	swap 	 			| mor adr
-	( 16 + pntlas> <? )(
-		dup mortonn		| mor adr mor1
-		"  %h " print cr
-		) 2drop
-	;
 
+	vv 24 << pntquad "%h" print cr drop
+
+	pntnow> ( pntlas> <? )(
+		dup mortonn | adr mor
+		dup "  %h " print
+		$ff00 drawmor
+		16 + ) drop
+	cr
+
+
+	0 pushchild
+	vv 24 << pntquad "%h" print cr drop
+	pntnow> ( pntlas> <? )(
+		dup mortonn | adr mor
+		dup "  %h " print
+		$ff drawmor
+		16 + ) drop
+	cr
+
+	1 pushchild
+	vv 24 << pntquad "%h" print cr drop
+	pntnow> ( pntlas> <? )(
+		dup mortonn | adr mor
+		dup "  %h " print
+		$ff0000 drawmor
+		16 + ) drop
+	cr
+
+	popchild
+	popchild
+
+	;
 
 |-------------- orden segun vista
 #maskc
@@ -502,7 +585,7 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 
 |-------------
 :main
-	"media/3do/luigio.3do" load3do
+	"media/3do/blobo.3do" load3do
 
 	sh 2/ 256 - 'yc !
 	sw 2/ 256 - 'xc !
@@ -511,7 +594,7 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 		verde
 |		dup "%d " print cr
 		pick2 pick2 pick2 "%d %d %d" print cr
-
+		vv "%d" print cr
 		omode
 |		freelook
 
@@ -521,11 +604,12 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 		fillrotvec
 		calcmask
 
+		0 'level ! 	xcam ycam zcam octre viewom
+
+|		octre xcam ycam zcam testquad
 
 		octre xcam ycam zcam octquad
 
-|		octre xcam ycam zcam testquad
-|		0 'level ! 	xcam ycam zcam octre viewom
 
 		[ -0.025 'zcam +! ; ] <up>
 		[ 0.025 'zcam +! ; ] <dn>
@@ -533,6 +617,9 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 		[ 0.025 'xcam +! ; ] <ri>
 		[ -0.025 'ycam +! ; ] <pgup>
 		[ 0.025 'ycam +! ; ] <pgdn>
+
+		[ 1 'vv +! ; ] <spc>
+		[ -1 'vv +! ; ] <enter>
 
 		'exit >esc<
 		cminiflecha
