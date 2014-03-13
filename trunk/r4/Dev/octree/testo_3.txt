@@ -304,6 +304,15 @@
 	pntlas> 4 - @ invmorton2d yc + swap xc + swap op
 	pntnow>	( pntlas> <? )( dup @ invmorton2d yc + swap xc + swap line 16 + ) drop ;
 
+:dumppnts
+	|'puntos
+	pntnow>
+	( pntlas> <? )(
+		@+ "x:%d " ,print
+		@+ "y:%d " ,print
+		@+ "z:%d " ,print ,cr
+		4+ ) drop ;
+
 |-----------
 :pushchild | i --
 	4 << pntnow> +	| Gi
@@ -357,16 +366,18 @@
 	setxy ;
 
 :fillpoint | oct qua --
-	| setq1buffer
+|	setq1buffer |QQQQ
 	setxymorton
 	octre - pixels + @  | getcolor
 	px!+ ;
 
 :fillquad | oct qua noct bit 'oct quad -- oct qua noct bit
-	trace
 	swap octre - pixels + @ swap | col qua
-	1 over 24 >> <<				| col qua size
-	swap | setqbuffer	| col size qua
+	1 over 24 >>
+	8 >? ( 4drop ; ) | cuadrante muy grande para pintar
+	<<				| col qua size
+	swap
+|	setqbuffer	| QQQ col size qua
 	setxymorton 	| col size
 	dup ( 1? )( 1-
 		over ( 1? )( 1-
@@ -376,6 +387,11 @@
 		) 3drop ;
 
 :fillquad2 | 'oct quad --
+	|----------------------------------------------------
+	| problema:
+	| falta dividir por quadrante y llenar cada cuadrante
+	| ya que un cubo puede estar en varios cuadrantes
+	|-----------------------------------------------------
 	( pntquad 1? )( 1- 				| oct qua mort
 		swap $1000000 - $ff000000 and or
 		$ff000000 nand? ( fillpoint ; )	| si es punto..pinta
@@ -383,165 +399,62 @@
 	fillquad ;
 
 |********************
-:exitnow
-	,cr "stack: " ,s
-	( 33 <>? )( ,h ,sp ) ,d
-	"log.txt" savemem
-	empty
-	;
-
 :dumpstack
 	pick4 pick4 pick4 pick4 pick4 " %h %h %h %h %h " ,print ;
-
-:drawmor | quad color --
-	trace
-	1 pick2 24 >> <<
-	rot setxymorton | color size --
-	trace
-	dup ( 1? )( 1-
-		over ( 1? )( 1-
-			pick3 px!+
-			) drop
-		sw pick2 - px+!
-		) 3drop ;
 
 |********************
 
 :m3dto2d-child | oct qua noct bit child mask -- oct qua noct bit
-
-|	pntlas> 'puntos - 7 >> ( 1? )( 1- ,sp ) drop
-|	">" ,s dumpstack ,cr
-
  	swap pushchild
 	1- over and popcnt 2 << pick2 +	| oct qua noct bit 'oct
 	pixels >=? ( pick3 fillquad2 ; )			| ....si es ultimo llena quad
 	pick3 								| qua oct noct bit |oct' qua'
 :m3dto2d | oct qua --
-
-	redraw
-	|trace
-	"> " ,s pick4 pick4 pick4 pick4 pick4 "q:%h o:%h %h %h %h " ,print ,cr
-	"log.txt" savemem
-
 	( pntquad 1? )( 1- 				| oct qua mort
-
-|		"R " ,s  |showshot
-
 		swap $1000000 - $ff000000 and or
-|		trace
-|		dup $ff drawmor
 		$ff000000 nand? ( fillpoint ; )	| si es punto..pinta
 		) drop
 
 	over @ dup 						| oct qua nodo nodo
 	8 >> 2 << octre + swap $ff and 	| oct qua noct bit
 
-|	"1." ,print dumpstack ,cr
-
 	dmask $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
-
-|	"2." ,print dumpstack ,cr
 
 	dmask 4 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
-|	"3." ,print dumpstack ,cr
-
 	dmask 8 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
-
-|	"4." ,print dumpstack ,cr
 
 	dmask 12 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
-|	"5." ,print dumpstack ,cr
-
 	dmask 16 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
-
-|	"6." ,print dumpstack ,cr
 
 	dmask 20 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
-|	"7." ,print dumpstack ,cr
-
 	dmask 24 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
-|	"8." ,print dumpstack ,cr
-
 	dmask 28 >> $7 and 1 over <<
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
-
-|	pick4 pick4 pick4 pick4 pick4 " %h %h %h %h %h >" ,print
-|	,cr
 
 	4drop
 	;
 
 :octquad | oct x y z --
-	mark
-	dmask ,h ,cr
-
 	pntini $9000000	| level(8)-morton(24) | $9 24 << xc 12 << yc  or or | view
-	m3dto2d
-
-	"log.txt" savemem
-	empty
-
-	trace
-	;
-
-|-----------------
-
-
-#vv 9
-
-:testquad | oct x y z --
-	pntini drop
-
-	vv 24 << pntquad "%h" print cr drop
-
-	pntnow> ( pntlas> <? )(
-		dup mortonn | adr mor
-		dup "  %h " print
-		$ff00 drawmor
-		16 + ) drop
-	cr
-
-
-	0 pushchild
-	vv 24 << pntquad "%h" print cr drop
-	pntnow> ( pntlas> <? )(
-		dup mortonn | adr mor
-		dup "  %h " print
-		$ff drawmor
-		16 + ) drop
-	cr
-
-	1 pushchild
-	vv 24 << pntquad "%h" print cr drop
-	pntnow> ( pntlas> <? )(
-		dup mortonn | adr mor
-		dup "  %h " print
-		$ff0000 drawmor
-		16 + ) drop
-	cr
-
-	popchild
-	popchild
-
-	;
+	m3dto2d ;
 
 |-------------- orden segun vista
 #maskc
@@ -585,7 +498,7 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 
 |-------------
 :main
-	"media/3do/blobo.3do" load3do
+	"media/3do/luigio.3do" load3do
 
 	sh 2/ 256 - 'yc !
 	sw 2/ 256 - 'xc !
@@ -594,9 +507,9 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 		verde
 |		dup "%d " print cr
 		pick2 pick2 pick2 "%d %d %d" print cr
-		vv "%d" print cr
+
 		omode
-|		freelook
+		freelook
 
 |		msec 3 << mrotxi
 |		msec 4 << mrotyi
@@ -604,12 +517,11 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 		fillrotvec
 		calcmask
 
-		0 'level ! 	xcam ycam zcam octre viewom
+|		0 'level ! 	xcam ycam zcam octre viewom
 
 |		octre xcam ycam zcam testquad
 
 		octre xcam ycam zcam octquad
-
 
 		[ -0.025 'zcam +! ; ] <up>
 		[ 0.025 'zcam +! ; ] <dn>
@@ -617,9 +529,6 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 		[ 0.025 'xcam +! ; ] <ri>
 		[ -0.025 'ycam +! ; ] <pgup>
 		[ 0.025 'ycam +! ; ] <pgdn>
-
-		[ 1 'vv +! ; ] <spc>
-		[ -1 'vv +! ; ] <enter>
 
 		'exit >esc<
 		cminiflecha
