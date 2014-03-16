@@ -8,7 +8,7 @@
 ^r4/dev/octree/qbuffer.txt
 
 |#xcam 0 #ycam 0 #zcam 4096
-#xcam 000 #ycam 4000 #zcam 8192
+#xcam 000 #ycam 000 #zcam 8192
 
 #octre
 #pixels
@@ -19,7 +19,6 @@
 
 |---------------------------------
 | vectores para rotar puntos
-
 #level
 
 #zsz #zsy #zsx
@@ -32,6 +31,7 @@
 	0 0 2048 transform 'zsz ! 'zsy ! 'zsx !
 	0 2048 0 transform 'ysz ! 'ysy ! 'ysx !
 	2048 0 0 transform 'xsz ! 'xsy ! 'xsx !
+
 	'rotconv >r
 	xsx ysx zsx + + neg r!+	xsy ysy zsy + + neg r!+ xsz ysz zsz + + neg r!+	| 111
 	xsx ysx zsx + - r!+	xsy ysy zsy + - r!+ xsz ysz zsz + - r!+	| 110
@@ -103,38 +103,20 @@
 	nip 4drop
 	-1 'level +! ;
 
-|**** calculo orden v0 ****
-:prevx
-	pick4 xcam - +? ( 1 )( 0 ) nip
-	pick4 ycam - +? ( drop 2 or )( drop )
-	pick3 zcam - +? ( drop 4 or )( drop )
-
-	>r
-	r viewchildm
-	r 1 xor viewchildm
-	r 2 xor viewchildm
-	r 4 xor viewchildm
-	r 3 xor viewchildm
-	r 5 xor viewchildm
-	r 6 xor viewchildm
-	r> 7 xor viewchildm
-;
 |***************************
-
-|
 | morton d mx x my y
 | 8 puntos por nodo. 8 niveles = 6*8*8*4
-|
+|***************************
+
+#SIZEV 192
 #puntos )( 8192
-#pntnow> 'puntos
 #pntlas> 'puntos
 
-|-----------
 :pnt+! | x y z --
 	pntlas> >r 0 r!+ r!+ 0 r!+ swap r!+ 0 r!+ r> !+ 'pntlas> ! ;
 
 :pntini | x y z --
-	'puntos dup 'pntlas> ! 'pntnow> !
+	'puntos 'pntlas> !
 	'rotconv >r
 	pick2 r@+ + pick2 r@+ + pick2 r@+ + pnt+!
 	pick2 r@+ + pick2 r@+ + pick2 r@+ + pnt+!
@@ -146,90 +128,81 @@
 	pick2 r@+ + pick2 r@+ + pick2 r@+ + pnt+!
 	3drop rdrop ;
 
-|-------- avanzo quadrante (estn en el mismo!!)
+|-------- avanzo quadrante (estan en el mismo!!)
 | morton d mx x my y
-
-|!!! se sabe que hacen..>? puede evitarse
-|!!! y el calculo de morton tambien
-
-:calcline | adr -- adr'
-	>r
-	r@+ 2 << r@+ 2/ | acc m d/2
-	r@+ r@+ >? ( over - )( over + rot 1 or rot rot ) r 8 - !
-	r@+ r@+ >? ( over - )( over + rot 2 or rot rot ) r 8 - !
-	swap 			| acc d/2 m
-	r 24 - !+ !
-	r> ;
-
-|** no modificado ..logica no anda
-| morton --
-:adv8pnt | --
-	pntnow> ( pntlas> <? )( calcline  ) drop ;
-
-|-------- estan en el mismo cuadrante??
-:mortline | acc adr -- acc' adr'
-	8 + >r
-	0
-	r@+ r@+ <=? ( swap 1 or swap ) drop
-	r@+ r@+ <=? ( swap 2 or swap ) drop
-	1 swap << or
-	r> ;
-
-:mort8pnt | -- 0-ok / otro-no
-	0 pntnow> ( pntlas> <? )( mortline ) drop
-	dup 1- and ;
-
-|-- v2
+|--
 :calcmm | adr -- adr' mor
 	8 + >r
 	r@+ r@+ >? ( 0 )( 1 ) drop
 	r@+ r@+ <=? ( swap 2 or swap ) drop
 	r> swap ;
 
+|---- 0 si los vertices estan en cuadrantes separados
+|---- o un nivel de morton (ya que estan en el mismo cuadrante)
 :mort8pnt | -- 0/morton+1
-	pntnow> calcmm | adr mor0
-	swap
-	( pntlas> <? )( | mor0 adr
+	pntlas> dup SIZEV -
+	dup calcmm | adrl adr mor0
+	( pick2 <? )(	| mor0 adr
 		calcmm 		| mor0 adr' mor
-		pick2 <>? ( 3drop 0 ; )
-		drop ) drop
+		pick2 <>? ( 4drop 0 ; )
+		drop ) drop nip
 	1+ ; | para que 0 sea sin coincidencia
 
-|---------- DUMP
-:dumpline
-	>r r@+ r@+ r@+ r@+ r@+ r@+ "y:%d my:%d x:%d mx:%d d:%d m:%h " print cr r> ;
 
-:dumpoct
-	pntnow> ( pntlas> <? )( dumpline ) drop ;
-
-:dumpprev
-	pntnow> 192 - 'puntos <? ( drop ; )
-	( pntnow> <? )( dumpline ) drop ;
-
-:boxd | adr --
-	>r
-	r@+ invmorton2d yc + swap xc + swap atxy
-	r@+ r@+ r@+ r@+ r@+ "%d %d %d %d %d" print
+:calcmm | adr -- mor
+	8 + >r
+	r@+ r@+ >? ( 0 )( 1 ) drop
+	r@+ r@+ <=? ( swap 2 or swap ) drop
 	rdrop ;
 
-:dump8pnt
-	pntnow> ( pntlas> <? )( dup boxd 24 + ) drop ;
+:mort8pntf | --
+	pntlas> dup SIZEV -
+	( over <? )(
+		dup calcmm
+		over @ 2 << or swap !+ 20 +
+		) 2drop ;
 
-:linevec
-	pntlas> 24 - @ invmorton2d yc + swap xc + swap op
-	pntnow>	( pntlas> <? )( dup @ invmorton2d yc + swap xc + swap line 24 + ) drop ;
+|--------------------------
+:m00 | --
+	pntlas> dup SIZEV - | last first
+	( over <? )( >r
+		r @ 2 << r!+ r @ 2/ dup r!+			| last d/2
+		r @ over - r!+ 4 r+ r @ over - r!+ 4 r+
+		drop r> ) 2drop ;
 
-|-----------
-|
-| si divide un vertice con cuadrante distinto,
-| hay que recalcular a que cuadrante pertenece
-| y la condicion para dividir es que esten en
-| quadrante separado!!!
-|
+:m01 | --
+	pntlas> dup SIZEV - | last first
+	( over <? )( >r
+		r @ 2 << %01 or r!+	r @ 2/ dup r!+	| last d/2
+		r @ over + r!+ 4 r+ r @ over - r!+ 4 r+
+		drop r> ) 2drop ;
+
+:m10 | --
+	pntlas> dup SIZEV - | last first
+	( over <? )( >r
+		r @ 2 << %10 or r!+	r @ 2/ dup r!+	| last d/2
+		r @ over - r!+ 4 r+ r @ over + r!+ 4 r+
+		drop r> ) 2drop ;
+
+:m11 | --
+	pntlas> dup SIZEV - | last first
+	( over <? )( >r
+		r @ 2 << %11 or r!+	r @ 2/ dup r!+	| last d/2
+		r @ over + r!+ 4 r+ r @ over + r!+ 4 r+
+		drop r> ) 2drop ;
+
+#advm m00 m01 m10 m11
+
+:adv8pnt | morton --
+	$3 and 2 << 'advm + @ exec ;
+|		r @ pick3 1 and? ( drop over + )( drop over - ) r!+ 4 r+
+|		r @ pick3 2 and? ( drop over + )( drop over - ) r!+ 4 r+
+
 :pushchild | i --
-	3 << dup 2* + pntnow> +	| Gi
-	pntlas> dup >r pntnow>	| Gi last Gj
-	over 'pntnow> !
+	3 << dup 2* + SIZEV - 	| Gi
+	pntlas> dup rot +		| last Gi
+	swap dup SIZEV -		| Gi last G0
+	over >r
 	( over <? )( pick2 | Gi last Gj Gi
 		@+ r!+
 		@+ rot 4+ @+ rot + 2/ r!+ swap
@@ -239,22 +212,40 @@
 		@+ rot @+ rot + 2/ r!+
 		nip ) 3drop
 	r> 'pntlas> !
-
-|	dumpprev cr dumpoct redraw waitkey
 	;
 
 :popchild
-	-192 dup 'pntlas> +! 'pntnow> +! ;
+	-192 'pntlas> +! ;
 
 |********* DUMP ***********
+:dumpline
+	>r r@+ r@+ r@+ r@+ r@+ r@+ "y:%d my:%d x:%d mx:%d d:%d m:%h " print cr r> ;
+
+:dumpoct
+	pntlas> dup SIZEV - ( over <? )( dumpline ) 2drop ;
+
+:dumpprev
+	pntlas> SIZEV 2* - 'puntos <? ( drop ; )
+	( pntlas> <? )( dumpline ) drop ;
+
+:boxd | adr --
+	>r
+	r@+ invmorton2d yc + swap xc + swap atxy
+	r@+ r@+ r@+ r@+ r@+ "%d %d %d %d %d" print
+	rdrop ;
+
+:dump8pnt
+	pntlas> dup SIZEV - ( over <? )( dup boxd 24 + ) 2drop ;
+
+:linevec
+	pntlas> SIZEV - 24 - @ invmorton2d yc + swap xc + swap op
+	pntlas>	dup SIZEV - ( over <? )( dup @ invmorton2d yc + swap xc + swap line 24 + ) 2drop ;
 
 :showshot
 	show clrscr
 		pick2 pick2 pick2
 		"act:%h quad:%h oct:%d " print cr
 		pntlas> 'puntos - 24 / "%d vertices total " print cr
-		pntnow> 'puntos - 24 / "%d vertices ante " print cr
-		pntlas> pntnow> - 24 / "%d vertices " print cr
 
 		cr
 		dumpprev
@@ -264,8 +255,10 @@
 		'exit >esc<
 		cminiflecha ;
 
+|********* DUMP ***********
+
 |--------------
-| algo 1
+| algo 2
 | si es hoja de quadtree, pintar el punto del color del octree
 | si es hoja del octree, pintar el quadtree del color del octree
 |
@@ -311,7 +304,7 @@
 	pick3 								| qua oct noct bit |oct' qua'
 :m3dto2d | oct qua --
 	( mort8pnt 1? )( 1-
-		adv8pnt   |** no modificado ..logica no anda
+		adv8pnt   
 		$1000000 - $ff000000 and or
 		$ff000000 nand? ( fillpoint ; )	| si es punto..pinta
 		) drop
@@ -345,11 +338,179 @@
 	pick2 and? ( m3dto2d-child popchild )( 2drop )
 	4drop ;
 
+| morton d mx x my y
+
+:getxy | adr -- x y
+	dup 12 + @ swap
+	dup 20 + @ swap
+	4+ @
+	swap over c9 >r c9 xc + r> yc +
+	;
+
+:drawpnt
+	pntlas> dup 24 - getxy op
+	dup SIZEV -
+	( over <? )(
+		dup getxy line
+		24 + ) 2drop ;
+
 :octquad | oct x y z --
-	pntini
-				|	$9 24 << xc 12 << yc  or or | view
-	$9000000	| level(8)-morton(24)
-	m3dto2d ;
+	pntini mort8pntf
+|	$9000000	| level(8)-morton(24)
+|	m3dto2d
+	drop ;
+:ll
+	verde drawpnt dumpoct
+	0 pushchild mort8pntf
+	rojo drawpnt dumpoct
+	7 pushchild mort8pntf
+	azul drawpnt dumpoct
+	blanco
+	;
+
+|---------------------------------------------------------
+| size x y z octre Mx My morton
+|
+:dumppnt
+	'puntos ( pntlas> <? )(
+		@+ "s:%d " print
+		@+ "x:%d " print
+		@+ "y:%d " print
+		@+ "z:%d " print
+		@+ "o:%h " print
+		cr
+		) drop ;
+
+:drawbox | adr --
+	dup 12 + @ | adr z
+|	over @ -
+	over 4 + @ over c9 xc + | adr z X
+	pick2 8 + @ pick2 c9 yc + | adr z X Y
+	pick3 @ pick3 c9 256 - | adr z X Y R
+	box
+	2drop
+	;
+
+:getxy | x y z -- X Y
+	swap over c9 >r c9 xc + r> yc + ;
+
+:drawbox1 | adr
+	4+ >r
+	r@+ r@+ r@+ rdrop
+	pick2 pick2 pick2 0 idmov getxy op
+	8 ( 1? )( 1-
+		pick3 pick3 pick3 pick3 idmov getxy line
+		) drop
+	3drop ;
+
+|-----------------------------------
+
+:getoct | x z -- X
+	2/ 0 swap over | x 0 z 0
+	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 4 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 1+ )
+	nip nip nip ;
+
+:getlevel
+	'puntos >r
+	r@+ 8 r+ >r getoct
+	rdrop
+	;
+
+:innode | s x z -- nro lev
+	2/ 0 swap over | s x 0 z 0
+	0 ( 9 <? )( >r
+		pick3 >? (
+			pick4 pick4	swap +	| x+s
+			<? ( 2drop nip nip r> ; )
+			over - rot
+			)(
+			pick4 pick4 swap -		| x+s
+			>? ( 2drop nip nip r> ; )
+			over + rot 1+
+			)
+		2* rot 2/ rot
+		r> 1+ )
+	nip nip >r nip nip r> ;
+
+
+:getlim |
+	'puntos >r r@+ r@+ r@+ r@+ rdrop | S x y z --
+	swap pick3 swap pick2
+	innode >r >r innode r> r> | nrox levx nroy levy
+
+	;
+
+
+:getnode | x y -- x y
+	'puntos >r
+	r@+ r@+ r@+ r@+ | S x y z
+	rdrop
+	swap over getoct pick4 <>? ( 4drop 0 ; ) drop
+	swap over getoct pick4 <>? ( 3drop 0 ; ) drop
+	2drop
+	$ff00 ;
+
+:paintp | x y color -- x y
+	pick2 4 << xc + pick2 4 << yc + setxy
+	16 dup ( 1? )( 1-
+		over ( 1? )( 1-
+			pick3 px!+
+			) drop
+		sw pick2 - px+!
+		) 3drop ;
+
+:drawl2
+	0 ( 32 <? )(
+    	0 ( 32 <? )(
+			getnode paintp
+			1+ ) drop
+		1+ ) drop
+	;
+
+:drawl
+	getlim
+	"ly:%d ny:%h lx:%d nx:%h" print cr
+	;
+
+
+
+:dumplim
+	'puntos 4+ >r r@+ r@+ r@+ rdrop
+	8 ( 1? )( 1-
+		pick3 pick3 pick3 pick3 idmov
+		swap over
+		getoct "X: %h " print
+		getoct "Y: %h " print cr
+		) drop
+	3drop ;
+
+
+:octquadp | oct x y z --
+	'puntos >r
+	2048 r!+ rot r!+ swap r!+ r!+ r!+
+	r> 'pntlas> !
+
+	drawl
+
+	dumppnt
+	'puntos >r
+	r 12 + @
+	r 4 + @ over c9 " X:%d " print
+	r 8 + @ over c9 " Y:%d " print
+	r @ swap c9 " S:%d " print
+	rdrop
+	cyan
+	'puntos drawbox
+
+	cr
+|	dumplim
+	cr
+	;
+
 
 |-------------- orden segun vista
 #maskc
@@ -383,15 +544,14 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	2 << 'maskc + @ 'dmask !
 	;
 
-
-|-------------
+|--------------------------
 :freelook
 	xymouse
 	sh 2/ - 7 << swap
 	sw 2/ - neg 7 << swap
 	neg mrotx mroty ;
 
-|-------------
+|--------------------------
 :main
 	"media/3do/luigio.3do" load3do
 
@@ -403,6 +563,10 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 |		dup "%d " print cr
 		pick2 pick2 pick2 "%d %d %d" print cr
 
+
+		5 343 6024 innode "level:%d d:%h" print
+
+		cr
 		omode
 		freelook
 
@@ -412,10 +576,10 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 		fillrotvec
 		calcmask
 
+		octre xcam ycam zcam octquad
+
+		octre xcam ycam zcam octquadp
 		0 'level ! xcam ycam zcam octre viewom
-
-|		octre xcam ycam zcam octquad
-
 
 		[ -0.025 'zcam +! ; ] <up>
 		[ 0.025 'zcam +! ; ] <dn>

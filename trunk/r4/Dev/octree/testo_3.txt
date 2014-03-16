@@ -366,7 +366,7 @@
 	setxy ;
 
 :fillpoint | oct qua --
-|	setq1buffer |QQQQ
+	setq1buffer |QQQQ
 	setxymorton
 	octre - pixels + @  | getcolor
 	px!+ ;
@@ -387,15 +387,19 @@
 		) 3drop ;
 
 :fillquad2 | 'oct quad --
+	dup 24 >> 8 >? ( 3drop ; ) drop
+	2drop ;
+	fillpoint ;
+:a
 	|----------------------------------------------------
 	| problema:
 	| falta dividir por quadrante y llenar cada cuadrante
 	| ya que un cubo puede estar en varios cuadrantes
 	|-----------------------------------------------------
-	( pntquad 1? )( 1- 				| oct qua mort
-		swap $1000000 - $ff000000 and or
-		$ff000000 nand? ( fillpoint ; )	| si es punto..pinta
-		) drop
+|	( pntquad 1? )( 1- 				| oct qua mort
+|		swap $1000000 - $ff000000 and or
+|		$ff000000 nand? ( fillpoint ; )	| si es punto..pinta
+|		) drop
 	fillquad ;
 
 |********************
@@ -407,52 +411,54 @@
 :m3dto2d-child | oct qua noct bit child mask -- oct qua noct bit
  	swap pushchild
 	1- over and popcnt 2 << pick2 +	| oct qua noct bit 'oct
-	pixels >=? ( pick3 fillquad2 ; )			| ....si es ultimo llena quad
+	pixels >=? ( pick3 fillquad2 popchild ; )			| ....si es ultimo llena quad
 	pick3 								| qua oct noct bit |oct' qua'
 :m3dto2d | oct qua --
 	( pntquad 1? )( 1- 				| oct qua mort
 		swap $1000000 - $ff000000 and or
-		$ff000000 nand? ( fillpoint ; )	| si es punto..pinta
+		$ff000000 nand? ( fillpoint popchild ; )	| si es punto..pinta
 		) drop
 
 	over @ dup 						| oct qua nodo nodo
 	8 >> 2 << octre + swap $ff and 	| oct qua noct bit
 
 	dmask $7 and 1 over <<
-	pick2 and? ( m3dto2d-child popchild )( 2drop )
+	pick2 and? ( m3dto2d-child )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
 	dmask 4 >> $7 and 1 over <<
-	pick2 and? ( m3dto2d-child popchild )( 2drop )
+	pick2 and? ( m3dto2d-child )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
 	dmask 8 >> $7 and 1 over <<
-	pick2 and? ( m3dto2d-child popchild )( 2drop )
+	pick2 and? ( m3dto2d-child )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
 	dmask 12 >> $7 and 1 over <<
-	pick2 and? ( m3dto2d-child popchild )( 2drop )
+	pick2 and? ( m3dto2d-child )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
 	dmask 16 >> $7 and 1 over <<
-	pick2 and? ( m3dto2d-child popchild )( 2drop )
+	pick2 and? ( m3dto2d-child )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
 	dmask 20 >> $7 and 1 over <<
-	pick2 and? ( m3dto2d-child popchild )( 2drop )
+	pick2 and? ( m3dto2d-child )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
 	dmask 24 >> $7 and 1 over <<
-	pick2 and? ( m3dto2d-child popchild )( 2drop )
+	pick2 and? ( m3dto2d-child )( 2drop )
 |	pick2 getqbuffer 1? ( nip 4drop ; )( drop )
 
 	dmask 28 >> $7 and 1 over <<
-	pick2 and? ( m3dto2d-child popchild )( 2drop )
+	pick2 and? ( m3dto2d-child )( 2drop )
 
 	4drop
+	popchild
 	;
 
 :octquad | oct x y z --
+	quaini
 	pntini $9000000	| level(8)-morton(24) | $9 24 << xc 12 << yc  or or | view
 	m3dto2d ;
 
@@ -496,12 +502,14 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	sw 2/ - neg 7 << swap
 	neg mrotx mroty ;
 
+#vv 9
 |-------------
 :main
 	"media/3do/luigio.3do" load3do
 
 	sh 2/ 256 - 'yc !
-	sw 2/ 256 - 'xc !
+|	sw 2/ 256 -
+	0 'xc !
 	33
 	show clrscr
 		verde
@@ -523,6 +531,8 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 
 		octre xcam ycam zcam octquad
 
+		vv 512 yc drawlev
+
 		[ -0.025 'zcam +! ; ] <up>
 		[ 0.025 'zcam +! ; ] <dn>
 		[ -0.025 'xcam +! ; ] <le>
@@ -530,6 +540,8 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 		[ -0.025 'ycam +! ; ] <pgup>
 		[ 0.025 'ycam +! ; ] <pgdn>
 
+		[ 1 'vv +! ; ] <enter>
+		[ -1 'vv +! ; ] <spc>
 		'exit >esc<
 		cminiflecha
 		;
