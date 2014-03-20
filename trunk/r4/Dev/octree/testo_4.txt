@@ -17,9 +17,29 @@
 #dmask
 #xc #yc
 
+|---- v4  loopless
+:c9 | x z -- x'
+	2/ 0 swap over | x 0 z 0
+	pick3 >? ( over - rot )( over + rot 256 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 128 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 64 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 32 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 4+ ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
+	pick3 >? ( 2drop )( 2drop 1+ )
+	nip ;
+
+:pj | x y z -- x y
+	swap over c9 >r c9 xc + r> yc + ;
+
 |---------------------------------
 | vectores para rotar puntos
 #level
+
+#vx1 #vx2 #vy1 #vy2
+#ymin #ymax #xmin #xmax
 
 #zsz #zsy #zsx
 #ysz #ysy #ysx
@@ -41,7 +61,8 @@
 	xsx zsx ysx - + r!+ xsy zsy ysy - + r!+ xsz zsz ysz - + r!+ | 010
 	ysx zsx xsx - + r!+ ysy zsy xsy - + r!+ ysz zsz xsz - + r!+	| 001
 	xsx ysx zsx + + r!+	xsy ysy zsy + + r!+ xsz ysz zsz + + r!+	| 000
-	rdrop ;
+	rdrop
+	;
 
 :idmovn | x y z id -- x' y' z'
 	$7 and dup 2* + 2 << 'rotconv + >r
@@ -58,19 +79,6 @@
 	octre> 4 - @ octre + 'pixels !
 	octre> 'here ! ;
 
-|---- v4  loopless
-:c9 | x z -- x'
-	2/ 0 swap over | x 0 z 0
-	pick3 >? ( over - rot )( over + rot 256 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 128 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 64 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 32 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 4+ ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
-	pick3 >? ( 2drop )( 2drop 1+ )
-	nip ;
 
 :drawpoint	| x y z nodo
 	>r swap over c9 >r c9 xc + r> yc + setxy
@@ -304,7 +312,7 @@
 	pick3 								| qua oct noct bit |oct' qua'
 :m3dto2d | oct qua --
 	( mort8pnt 1? )( 1-
-		adv8pnt   
+		adv8pnt
 		$1000000 - $ff000000 and or
 		$ff000000 nand? ( fillpoint ; )	| si es punto..pinta
 		) drop
@@ -383,7 +391,6 @@
 
 :drawbox | adr --
 	dup 12 + @ | adr z
-|	over @ -
 	over 4 + @ over c9 xc + | adr z X
 	pick2 8 + @ pick2 c9 yc + | adr z X Y
 	pick3 @ pick3 c9 256 - | adr z X Y R
@@ -391,124 +398,72 @@
 	2drop
 	;
 
+|-----------------------------------
+
 :getxy | x y z -- X Y
 	swap over c9 >r c9 xc + r> yc + ;
 
-:drawbox1 | adr
-	4+ >r
-	r@+ r@+ r@+ rdrop
-	pick2 pick2 pick2 0 idmov getxy op
-	8 ( 1? )( 1-
-		pick3 pick3 pick3 pick3 idmov getxy line
-		) drop
-	3drop ;
-
-|-----------------------------------
-
-:getoct | x z -- X
-	2/ 0 swap over | x 0 z 0
-	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 4 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 1+ )
-	nip nip nip ;
-
-:getlevel
-	'puntos >r
-	r@+ 8 r+ >r getoct
-	rdrop
-	;
-
-:innode | s x z -- nro lev
-	2/ 0 swap over | s x 0 z 0
-	0 ( 9 <? )( >r
-		pick3 >? (
-			pick4 pick4	swap +	| x+s
-			<? ( 2drop nip nip r> ; )
-			over - rot
-			)(
-			pick4 pick4 swap -		| x+s
-			>? ( 2drop nip nip r> ; )
-			over + rot 1+
-			)
-		2* rot 2/ rot
-		r> 1+ )
-	nip nip >r nip nip r> ;
-
-
-:getlim |
-	'puntos >r r@+ r@+ r@+ r@+ rdrop | S x y z --
-	swap pick3 swap pick2
-	innode >r >r innode r> r> | nrox levx nroy levy
-
-	;
-
-
-:getnode | x y -- x y
-	'puntos >r
-	r@+ r@+ r@+ r@+ | S x y z
-	rdrop
-	swap over getoct pick4 <>? ( 4drop 0 ; ) drop
-	swap over getoct pick4 <>? ( 3drop 0 ; ) drop
-	2drop
-	$ff00 ;
-
-:paintp | x y color -- x y
-	pick2 4 << xc + pick2 4 << yc + setxy
-	16 dup ( 1? )( 1-
-		over ( 1? )( 1-
-			pick3 px!+
-			) drop
-		sw pick2 - px+!
-		) 3drop ;
-
-:drawl2
-	0 ( 32 <? )(
-    	0 ( 32 <? )(
-			getnode paintp
-			1+ ) drop
-		1+ ) drop
-	;
-
-:drawl
-	getlim
-	"ly:%d ny:%h lx:%d nx:%h" print cr
-	;
-
-
-
-:dumplim
+#x1 #y1 #x2 #y2
+:calcbox1
 	'puntos 4+ >r r@+ r@+ r@+ rdrop
+	pick2 pick2 pick2 0 idmov getxy 2dup 'y1 ! 'x1 ! 'y2 ! 'x2 !
 	8 ( 1? )( 1-
-		pick3 pick3 pick3 pick3 idmov
-		swap over
-		getoct "X: %h " print
-		getoct "Y: %h " print cr
+		pick3 pick3 pick3 pick3 idmov getxy
+		y1 <? ( dup 'y1 ! ) y2 >? ( dup 'y2 ! ) drop
+		x1 <? ( dup 'x1 ! ) x2 >? ( dup 'x2 ! ) drop
 		) drop
-	3drop ;
+	3drop
+	x1 y1 x2 y2 caja
+	;
 
 
-:octquadp | oct x y z --
+:calcbox2
+	'puntos 4+ >r r@+ r@+ r@+ rdrop
+
+	pick2 pick2 pick2 0 idmov getxy
+	dup 'ymin ! 'ymax ! dup 'xmin ! 'xmax !
+	0 dup dup dup 'vy1 ! 'vy2 ! 'vx1 ! 'vx2 !
+	1 ( 8 <? )(
+		pick3 pick3 pick3 pick3 idmov getxy
+		ymin <? ( dup 'ymin ! pick2 'vy1 ! )
+		ymax >? ( dup 'ymax ! pick2 'vy2 ! ) drop
+		xmin <? ( dup 'xmin ! over 'vx1 ! )
+		xmax >? ( dup 'xmax ! over 'vx2 ! ) drop
+		1+ ) drop
+	rdrop
+
+	pick2 pick2 pick2 vx1 idmov getxy drop 'x1 !
+	pick2 pick2 pick2 vx2 idmov getxy drop 'x2 !
+	pick2 pick2 pick2 vy1 idmov getxy nip 'y1 !
+	pick2 pick2 pick2 vy2 idmov getxy nip 'y2 !
+	3drop
+	x1 y1 x2 y2 caja
+	;
+
+:drawboxf
+	'puntos 4+ >r r@+ r@+ r@+ rdrop
+	pick2 pick2 pick2 0 idmov getxy op
+	pick2 pick2 pick2 1 idmov getxy line
+	pick2 pick2 pick2 3 idmov getxy line
+	pick2 pick2 pick2 2 idmov getxy line
+	pick2 pick2 pick2 0 idmov getxy line
+	pick2 pick2 pick2 4 idmov getxy line
+	pick2 pick2 pick2 5 idmov getxy line
+	pick2 pick2 pick2 7 idmov getxy line
+	pick2 pick2 pick2 6 idmov getxy line
+	pick2 pick2 pick2 4 idmov getxy line
+
+	3drop
+	;
+:octobox
 	'puntos >r
 	2048 r!+ rot r!+ swap r!+ r!+ r!+
 	r> 'pntlas> !
-
-	drawl
-
-	dumppnt
-	'puntos >r
-	r 12 + @
-	r 4 + @ over c9 " X:%d " print
-	r 8 + @ over c9 " Y:%d " print
-	r @ swap c9 " S:%d " print
-	rdrop
 	cyan
-	'puntos drawbox
-
-	cr
-|	dumplim
-	cr
+	calcbox1
+	verde
+	calcbox2
+	drawboxf
 	;
 
 
@@ -563,8 +518,7 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 |		dup "%d " print cr
 		pick2 pick2 pick2 "%d %d %d" print cr
 
-
-		5 343 6024 innode "level:%d d:%h" print
+		vy2 vx2 vy1 vx1 "%d %d %d %d " print cr
 
 		cr
 		omode
@@ -576,9 +530,10 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 		fillrotvec
 		calcmask
 
-		octre xcam ycam zcam octquad
+|		octre xcam ycam zcam octquad
 
-		octre xcam ycam zcam octquadp
+		octre xcam ycam zcam octobox
+
 		0 'level ! xcam ycam zcam octre viewom
 
 		[ -0.025 'zcam +! ; ] <up>
