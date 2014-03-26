@@ -161,6 +161,17 @@
 		cr ) 2drop cr ;
 
 
+#x1 #y1 #x2 #y2
+:callimites
+	lrud> 256 -
+	dup getaxy dup 'y1 ! 'y2 ! dup 'x2 ! 'x1 !
+	32 +
+	7 ( 1? )( 1- swap
+		dup getaxy
+		y1 <? ( dup 'y1 ! ) y2 >? ( dup 'y2 ! ) drop
+		x1 <? ( dup 'x1 ! ) x2 >? ( dup 'x2 ! ) drop
+		32 + swap ) 2drop
+	;
 
 
 :genpuntos | octree x y z -- octree
@@ -178,6 +189,8 @@
 	0 512 2dup r!+ r!+ r!+ r!+
 	r> 'bbox> !
 	| calcular puntos limites? vx1 vy1 vx2 vy2
+
+|	callimites
 	;
 
 :pushchild | i --
@@ -263,9 +276,10 @@
 :m3dto2d | oct --
 	( limites 1? )( reduce ) drop
 
-|	bbox> 16 -
-|	@+ swap @+ rot =? ( 2drop fillquad popchild ; ) drop
-|	@+ swap @ =? ( drop fillquad popchild ; ) drop
+	|-- corte porque la caja es un punto o una linea
+	bbox> 16 -
+	@+ swap @+ rot =? ( 2drop fillquad popchild ; ) drop
+	@+ swap @ =? ( drop fillquad popchild ; ) drop
 
 	1 'level +!
 	dup @ dup 8 >> 2 << octre + swap $ff and 	|  oct noct bit
@@ -287,15 +301,49 @@
 	0 'level ! genpuntos m3dto2d ;
 
 |-------------- test
+:searchbox | y x -- y x color
+	;
+
+:drawboxxx
+	x2 y2 x1 y1
+	2dup setxy
+	( pick2 <=? )( over | x2 y2 x1 yn xn
+		( pick4 <=? )(
+			searchbox
+			px!+
+			1+ )
+		pick2 - neg sw + px+!
+		1+ ) 4drop ;
 
 :m3dto2dt | oct --
+	callimites
+	drawboxxx
+	drop | quita oct
 	azul
 	dumpcubenow
-	( limites 1? )( reduce ) drop
+	callimites
+	x1 y1 x2 y2 caja
+
+	0 pushchild
+	verde
+	dumpcubenow
+	callimites
+	x1 y1 x2 y2 caja
+
+
+	3 pushchild
+	rojo
+	dumpcubenow
+	callimites
+	x1 y1 x2 y2 caja
+
+	3 pushchild
 	cyan
 	dumpcubenow
+	callimites
+	x1 y1 x2 y2 caja
+	drawboxxx
 
-	drop
 	;
 
 :renderm3d2dtest
@@ -365,9 +413,9 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 
 |		0 'level ! xcam ycam zcam octre viewom
 
-		octre xcam ycam zcam renderm3d2d | octre x y z
+|		octre xcam ycam zcam renderm3d2d | octre x y z
 
-|		octre xcam ycam zcam renderm3d2dtest | octre x y z
+		octre xcam ycam zcam renderm3d2dtest | octre x y z
 
 		[ -0.025 'zcam +! ; ] <up>
 		[ 0.025 'zcam +! ; ] <dn>

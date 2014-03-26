@@ -31,7 +31,7 @@
 	pick3 >? ( 2drop )( 2drop 1+ )
 	nip ;
 
-:pj | x y z -- x y
+:getxyd | x y z -- X Y
 	swap over c9 >r c9 xc + r> yc + ;
 
 |---------------------------------
@@ -71,6 +71,13 @@
 :idmov | x y z id -- x' y' z'
 	$7 and dup 2* + 2 << 'rotconv + >r
 	rot r@+ + rot r@+ + rot r> @ + ;
+
+:viewrot
+	'rotconv >r
+	0 ( 8 <? )(
+		r@+ r@+ r@+ pick3 "%d - %d %d %d " print cr
+		1+ ) drop
+	rdrop ;
 
 |------------------------------
 :load3do | "" --
@@ -400,15 +407,13 @@
 
 |-----------------------------------
 
-:getxy | x y z -- X Y
-	swap over c9 >r c9 xc + r> yc + ;
 
 #x1 #y1 #x2 #y2
 :calcbox1
 	'puntos 4+ >r r@+ r@+ r@+ rdrop
-	pick2 pick2 pick2 0 idmov getxy 2dup 'y1 ! 'x1 ! 'y2 ! 'x2 !
+	pick2 pick2 pick2 0 idmov getxyd 2dup 'y1 ! 'x1 ! 'y2 ! 'x2 !
 	8 ( 1? )( 1-
-		pick3 pick3 pick3 pick3 idmov getxy
+		pick3 pick3 pick3 pick3 idmov getxyd
 		y1 <? ( dup 'y1 ! ) y2 >? ( dup 'y2 ! ) drop
 		x1 <? ( dup 'x1 ! ) x2 >? ( dup 'x2 ! ) drop
 		) drop
@@ -420,11 +425,11 @@
 :calcbox2
 	'puntos 4+ >r r@+ r@+ r@+ rdrop
 
-	pick2 pick2 pick2 0 idmov getxy
+	pick2 pick2 pick2 0 idmov getxyd
 	dup 'ymin ! 'ymax ! dup 'xmin ! 'xmax !
 	0 dup dup dup 'vy1 ! 'vy2 ! 'vx1 ! 'vx2 !
 	1 ( 8 <? )(
-		pick3 pick3 pick3 pick3 idmov getxy
+		pick3 pick3 pick3 pick3 idmov getxyd
 		ymin <? ( dup 'ymin ! pick2 'vy1 ! )
 		ymax >? ( dup 'ymax ! pick2 'vy2 ! ) drop
 		xmin <? ( dup 'xmin ! over 'vx1 ! )
@@ -432,29 +437,31 @@
 		1+ ) drop
 	rdrop
 
-	pick2 pick2 pick2 vx1 idmov getxy drop 'x1 !
-	pick2 pick2 pick2 vx2 idmov getxy drop 'x2 !
-	pick2 pick2 pick2 vy1 idmov getxy nip 'y1 !
-	pick2 pick2 pick2 vy2 idmov getxy nip 'y2 !
+	pick2 pick2 pick2 vx1 idmov getxyd drop 'x1 !
+	pick2 pick2 pick2 vx2 idmov getxyd drop 'x2 !
+	pick2 pick2 pick2 vy1 idmov getxyd nip 'y1 !
+	pick2 pick2 pick2 vy2 idmov getxyd nip 'y2 !
 	3drop
 	x1 y1 x2 y2 caja
+
 	;
 
 :drawboxf
 	'puntos 4+ >r r@+ r@+ r@+ rdrop
-	pick2 pick2 pick2 0 idmov getxy op
-	pick2 pick2 pick2 1 idmov getxy line
-	pick2 pick2 pick2 3 idmov getxy line
-	pick2 pick2 pick2 2 idmov getxy line
-	pick2 pick2 pick2 0 idmov getxy line
-	pick2 pick2 pick2 4 idmov getxy line
-	pick2 pick2 pick2 5 idmov getxy line
-	pick2 pick2 pick2 7 idmov getxy line
-	pick2 pick2 pick2 6 idmov getxy line
-	pick2 pick2 pick2 4 idmov getxy line
+	pick2 pick2 pick2 0 idmov getxyd op
+	pick2 pick2 pick2 1 idmov getxyd line
+	pick2 pick2 pick2 3 idmov getxyd line
+	pick2 pick2 pick2 2 idmov getxyd line
+	pick2 pick2 pick2 0 idmov getxyd line
+	pick2 pick2 pick2 4 idmov getxyd line
+	pick2 pick2 pick2 5 idmov getxyd line
+	pick2 pick2 pick2 7 idmov getxyd line
+	pick2 pick2 pick2 6 idmov getxyd line
+	pick2 pick2 pick2 4 idmov getxyd line
 
 	3drop
 	;
+
 :octobox
 	'puntos >r
 	2048 r!+ rot r!+ swap r!+ r!+ r!+
@@ -462,9 +469,54 @@
 	cyan
 	calcbox1
 	verde
-	calcbox2
+|	calcbox2
 	drawboxf
 	;
+
+|---------------- searchpoint
+:viewchildm | node bit nro -- node bit
+	$7 xor	| de atras para adelante
+	dup place pick2 nand? ( 2drop ; ) | x y z node bit bitc
+	1- pick2 and popcnt 2 << pick3 +
+	>r >r pick4 pick4 pick4 r> idmovn r>
+
+	| ;; recursion !!
+
+|	level 7 >? ( drop drawpoint ; ) drop
+	pixels >? ( drawpoint ; )
+
+:search | node --
+
+	1 'level +!
+	@ dup 8 >> 2 << octre + swap $ff and | x y z adr bitmask
+
+	dmask $7 and viewchildm
+	dmask 4 >> $7 and viewchildm
+	dmask 8 >> $7 and viewchildm
+	dmask 12 >> $7 and viewchildm
+	dmask 16 >> $7 and viewchildm
+	dmask 20 >> $7 and viewchildm
+	dmask 24 >> $7 and viewchildm
+	dmask 28 >> $7 and viewchildm
+
+	nip 4drop
+	-1 'level +! ;
+
+
+:searchpoint | y x -- y x color
+	2dup xor
+
+|	octre search
+	;
+
+:renderwin | x y --
+	setxy
+ 	0 ( 512 <? )(
+	 	0 ( 512 <? )(
+			searchpoint px!+
+			1+ ) drop
+		sw 512 - px+!
+		1+ ) drop ;
 
 
 |-------------- orden segun vista
@@ -527,12 +579,18 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 |		msec 3 << mrotxi
 |		msec 4 << mrotyi
 
+
 		fillrotvec
+		viewrot
+
 		calcmask
 
 |		octre xcam ycam zcam octquad
-
 		octre xcam ycam zcam octobox
+
+|		xc yc renderwin
+
+
 
 		0 'level ! xcam ycam zcam octre viewom
 
