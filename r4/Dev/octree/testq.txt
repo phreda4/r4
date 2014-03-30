@@ -5,7 +5,7 @@
 ^r4/lib/morton.txt
 
 
-#xcam 0 #ycam 0 #zcam 4.0
+#xcam 0 #ycam 0 #zcam 0.25
 
 #octre
 #pixels
@@ -50,27 +50,140 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	;
 
 
+|---- v4  loopless
+:c9 | x z -- x'
+	2/ 0 swap over | x 0 z 0
+	pick3 >? ( over - rot )( over + rot 256 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 128 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 64 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 32 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 4+ ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
+	pick3 >? ( 2drop )( 2drop 1+ )
+	nip ;
+
+:getxyd | x y z -- X Y
+	swap over c9 >r c9 xc + r> yc + ;
+
+|---------------------------------
+| vectores para rotar puntos
+#level
+
 #zsz #zsy #zsx
 #ysz #ysy #ysx
 #xsz #xsy #xsx
 
-|---------------------------
-| tabla de vectores de sumas
-#addvec )( 576 | 16 niveles
-#addv 'addvec
+#rotconv )( 96 | 8 dir*3 dim*4 bytes
 
-:addv+ 36 'addv +! ;
-:addv- -36 'addv +! ;
+:fillrotvec | --
+	0 0 2048 transform 'zsz ! 'zsy ! 'zsx !
+	0 2048 0 transform 'ysz ! 'ysy ! 'ysx !
+	2048 0 0 transform 'xsz ! 'xsy ! 'xsx !
 
-:nextl | adr -- adr'
-	xsx dup 2/ 'xsx ! swap !+ xsy dup 2/ 'xsy ! swap !+ xsz dup 2/ 'xsz ! swap !+
-	ysx dup 2/ 'ysx ! swap !+ ysy dup 2/ 'ysy ! swap !+ ysz dup 2/ 'ysz ! swap !+
-	zsx dup 2/ 'zsx ! swap !+ zsy dup 2/ 'zsy ! swap !+ zsz dup 2/ 'zsz ! swap !+
+	'rotconv >r
+	xsx ysx zsx + + neg r!+	xsy ysy zsy + + neg r!+ xsz ysz zsz + + neg r!+	| 111
+	xsx ysx zsx + - r!+	xsy ysy zsy + - r!+ xsz ysz zsz + - r!+	| 110
+	ysx zsx xsx + - r!+	ysy zsy xsy + - r!+ ysz zsz xsz + - r!+	| 101
+	xsx ysx zsx - + r!+	xsy ysy zsy - + r!+ xsz ysz zsz - + r!+	| 100
+	zsx ysx xsx + - r!+ zsy ysy xsy + - r!+ zsz ysz xsz + - r!+ | 011
+	xsx zsx ysx - + r!+ xsy zsy ysy - + r!+ xsz zsz ysz - + r!+ | 010
+	ysx zsx xsx - + r!+ ysy zsy xsy - + r!+ ysz zsz xsz - + r!+	| 001
+	xsx ysx zsx + + r!+	xsy ysy zsy + + r!+ xsz ysz zsz + + r!+	| 000
+	rdrop ;
+
+:idmovn | x y z id -- x' y' z'
+	$7 and dup 2* + 2 << 'rotconv + >r
+	rot r@+ level >> + rot r@+ level >> + rot r> @ level >> + ;
+
+:idmov | x y z id -- x' y' z'
+	$7 and dup 2* + 2 << 'rotconv + >r
+	rot r@+ + rot r@+ + rot r> @ + ;
+
+#x1 #y1 #x2 #y2
+:calcbox | x y z --
+	pick2 pick2 pick2 0 idmovn getxyd 2dup 'y1 ! 'x1 ! 'y2 ! 'x2 !
+	8 ( 1? )( 1-
+		pick3 pick3 pick3 pick3 idmovn getxyd
+		y1 <? ( dup 'y1 ! ) y2 >? ( dup 'y2 ! ) drop
+		x1 <? ( dup 'x1 ! ) x2 >? ( dup 'x2 ! ) drop
+		) drop
+	3drop ;
+
+
+|-----------------------
+|  L R x  U D y 0 0
+| -z z c -z z y 0 0
+| 8*8*4=256
+|-----------------------
+
+#lrud )( 8192
+#lrud> 'lrud
+
+#bbox )( 2048
+#bbox> 'bbox
+
+|  L R x  U D y 0 0
+:getaxy | adr -- x y
+	dup 8 + @ swap dup 20 + @ swap 24 + @
+	swap over c9 >r c9 xc + r> yc + ;
+
+:callimites
+	lrud> 256 -
+	dup getaxy dup 'y1 ! 'y2 ! dup 'x2 ! 'x1 !
+	32 +
+	7 ( 1? )( 1- swap
+		dup getaxy
+		y1 <? ( dup 'y1 ! ) y2 >? ( dup 'y2 ! ) drop
+		x1 <? ( dup 'x1 ! ) x2 >? ( dup 'x2 ! ) drop
+		32 + swap ) 2drop
 	;
 
-:filladdvect
-	'addvec dup 'addv !
-	10 ( 1? )( 1- swap nextl swap ) 2drop ;
+:genpuntos | octree x y z -- octree
+	'lrud >r
+	8 ( 1? )( 1-
+		pick3 pick3 pick3 pick3 idmov rot	| y z x
+		over dup neg r!+ r!+ r!+
+		dup neg r!+ r!+ r!+
+		r 8 - @ dup r!+ r!+
+|		0 r!+ 0 r!+
+		)
+	r> 'lrud> !
+	4drop
+	'bbox >r
+	0 512 2dup r!+ r!+ r!+ r!+
+	r> 'bbox> !
+	| calcular puntos limites? vx1 vy1 vx2 vy2
+
+|	callimites
+	;
+
+:pushchild | i --
+	$7 xor
+	5 << lrud> dup >r
+	dup 256 - rot over + swap | last Gi G0
+	( pick2 <? )( over | last Gi Gn Gi
+		@+ rot @+ rot + 2/ r!+ swap
+		@+ rot @+ rot + 2/ r!+ swap
+		@+ rot @+ rot + 2/ r!+ swap
+		@+ rot @+ rot + 2/ r!+ swap
+		@+ rot @+ rot + 2/ r!+ swap
+
+		@+ rot @+ rot + 2/ r!+ swap
+		@+ rot @+ rot + 2/ r!+ swap
+
+		@+ rot @+ rot + 2/ r!+
+|		8 + 8 r+
+		nip ) 3drop
+	r> 'lrud> !
+	bbox> dup >r dup 16 -
+	( over <? )( @+ r!+ ) 2drop
+	r> 'bbox> !
+	;
+
+:popchild
+	-256 'lrud> +! -16 'bbox> +! ;
 
 |----------- graficacion
 :freelook
@@ -79,44 +192,25 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	sw 2/ - neg 7 << swap
 	neg mrotx mroty ;
 
-
-:drawp | x y z ---
-	project3d |2dup op line ;
-	-? ( 2drop ; ) sh >=? ( 2drop ; )
-	swap -? ( 2drop ; ) sw >=? ( 2drop ; ) swap
-	setxy
-	ink@ px!+
-	;
-
-:3dop project3d op ;
-:3dline project3d line ;
-
-
-:idmov | x y z id -- x y z
-	1 and? ( >r xsz + rot xsx + rot xsy + rot r> )( >r xsz - rot xsx - rot xsy - rot r> )
-	2 and? ( >r ysz + rot ysx + rot ysy + rot r> )( >r ysz - rot ysx - rot ysy - rot r> )
-	4 and? ( >r zsz + rot zsx + rot zsy + rot r> )( >r zsz - rot zsx - rot zsy - rot r> )
-	drop ;
-
 :viewbox | x y z
-	pick2 pick2 pick2 0 idmov project op
-	pick2 pick2 pick2 1 idmov project line
-	pick2 pick2 pick2 3 idmov project line
-	pick2 pick2 pick2 2 idmov project line
-	pick2 pick2 pick2 0 idmov project line
-	pick2 pick2 pick2 4 idmov project op
-	pick2 pick2 pick2 5 idmov project line
-	pick2 pick2 pick2 7 idmov project line
-	pick2 pick2 pick2 6 idmov project line
-	pick2 pick2 pick2 4 idmov project line
-	pick2 pick2 pick2 1 idmov project op
-	pick2 pick2 pick2 5 idmov project line
-	pick2 pick2 pick2 4 idmov project op
-	pick2 pick2 pick2 0 idmov project line
-	pick2 pick2 pick2 3 idmov project op
-	pick2 pick2 pick2 7 idmov project line
-	pick2 pick2 pick2 6 idmov project op
-	pick2 pick2 pick2 2 idmov project line
+	pick2 pick2 pick2 0 idmovn getxyd op
+	pick2 pick2 pick2 1 idmovn getxyd line
+	pick2 pick2 pick2 3 idmovn getxyd line
+	pick2 pick2 pick2 2 idmovn getxyd line
+	pick2 pick2 pick2 0 idmovn getxyd line
+	pick2 pick2 pick2 4 idmovn getxyd op
+	pick2 pick2 pick2 5 idmovn getxyd line
+	pick2 pick2 pick2 7 idmovn getxyd line
+	pick2 pick2 pick2 6 idmovn getxyd line
+	pick2 pick2 pick2 4 idmovn getxyd line
+	pick2 pick2 pick2 1 idmovn getxyd op
+	pick2 pick2 pick2 5 idmovn getxyd line
+	pick2 pick2 pick2 4 idmovn getxyd op
+	pick2 pick2 pick2 0 idmovn getxyd line
+	pick2 pick2 pick2 3 idmovn getxyd op
+	pick2 pick2 pick2 7 idmovn getxyd line
+	pick2 pick2 pick2 6 idmovn getxyd op
+	pick2 pick2 pick2 2 idmovn getxyd line
 	3drop
 	;
 
@@ -128,133 +222,184 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	octre> 'here ! ;
 
 
-|----------- version newmask
+|  L R x  U D y 0 0
+:getaxy | adr -- x y
+	dup 8 + @ swap dup 20 + @ swap 24 + @
+	swap over c9 >r c9 xc + r> yc + ;
 
-:pset | x y color
-	rot -? ( 3drop ; ) sw >? ( 3drop ; )
-	rot -? ( 3drop ; ) sh >? ( 3drop ; )
-	setxy px!+ ;
+:dumpcubenow
+	lrud> dup 256 -
+	over 32 - getaxy op
+	( over <? )(
+		dup getaxy line
+		32 + )
+	2drop ;
 
-:idmovn | x y z id -- x' y' z'
-	1 and? ( >r addv >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv >r rot r@+ - rot r@+ - rot r> @ - r> )
-	2 and? ( >r addv 12 + >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv 12 + >r rot r@+ - rot r@+ - rot r> @ - r> )
-	4 and? ( >r addv 24 + >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv 24 + >r rot r@+ - rot r@+ - rot r> @ - r> )
-	drop ;
+|----------------
+| x y
+#stackoct )( $ffff
+#stackoct> 'stackoct
 
-
-:viewchildm | x y z node bit nro -- x y z node bit
-	$7 xor
-	dup place pick2 nand? ( 2drop ; ) | x y z node bit bitc
-	1- pick2 and popcnt 2 << pick3 +
-	>r >r pick4 pick4 pick4 r> idmovn r>
-	|****** recursion (no poner ; !!)
-
-:viewom | x y z node --
-
-|	size lod <? ( drop octre - pixels + @ >r project r> pset ; ) drop
-	addv 'addvec 287 + >? ( drop octre - pixels + @ >r project r> pset ; ) 	drop
-
-	addv+
-	@ dup 8 >> 2 << octre + swap $ff and | x y z adr bitmask
-	dmask >r
-	r $7 and viewchildm
-	r 4 >> $7 and viewchildm
-	r 8 >> $7 and viewchildm
-	r 12 >> $7 and viewchildm
-	r 16 >> $7 and viewchildm
-	r 20 >> $7 and viewchildm
-	r 24 >> $7 and viewchildm
-	r> 28 >> $7 and viewchildm
-
-	nip 4drop
-	addv- ;
-
-:viewoctreeo | x y z --
-	octre viewom ;
+#noderoot
+#xr #yr
 
 
-|-------------
-:boxcover | x y z --
-	dup >r
-	project | x y
-	r> dup 2/ dup 2/ + + 16 >>
-	pick2 over - pick2 pick2 - op
-	pick2 over - pick2 pick2 + pline
-	pick2 over + pick2 pick2 + pline
-	pick2 over + pick2 pick2 - pline
-	pick2 over - pick2 pick2 - pline
-	poli
-	3drop
+:pusho |
+	stackoct> !+ 'stackoct> ! ;
+
+:popo	| 0 / nodo
+	stackoct> 'stackoct =? ( 0 nip ; )
+	4 - dup 'stackoct> ! @ ;
+
+
+:pushch | oct noct bit child -- oct noct bit
+	1 over << pick2 nand? ( 2drop ; ) 	| oct noct bit child place
+|	swap pushchild						| oct noct bit place
+	1- over and popcnt 2 << pick2 +		| oct noct bit 'oct
+	pusho
 	;
 
-|---------------------
-
-|---- v4  loopless
-:c9 | x z -- x'
-	2/ 0 swap over | x 0 z 0
-	pick3 >? ( over - rot )( over + rot 256 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 128 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 64 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 32 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 4 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 1+ )
-	nip nip nip ;
-
-
-:bcover | x y z --
-	addv @+ swap @+ swap @ max max
-
-	4drop
-	;
-
-
-:testz
-	addv+
-
-	violeta
-	pick2 pick2 pick2 bcover
-
-	cyan
-	pick2 pick2 pick2 0 idmovn project op
-	pick2 pick2 pick2 1 idmovn project line
-	pick2 pick2 pick2 3 idmovn project line
-	pick2 pick2 pick2 2 idmovn project line
-	pick2 pick2 pick2 0 idmovn project line
-
-	azul
-	pick2 pick2 pick2 0 idmovn boxcover
-
-	3drop
-	addv-
-	;
-
-
-|-------------
-:fillqtree | size xc yc --
-	setxy
-	dup ( 1? )( 1-
-		over ( 1? )( 1-
-			color px!+
-			) drop
-		sw pick2 - px+!
-		)
-	2drop
-	$f 'color +! ;
-
-:qtree | x y nivel --
-	1 =? ( drop setxy color px!+ 1  'color +! ; )
-	2/
-	pick2 pick2 pick2 qtree
-	pick2 pick2 pick2 + pick2 qtree
-	pick2 over + pick2 pick2 qtree
-	pick2 over + pick2 pick2 + pick2 qtree
+:allch | oct --
+	dup @ dup 8 >> 2 << octre + swap $ff and 	|  oct noct bit
+	dmask $7 and pushch
+	dmask 4 >> $7 and pushch
+	dmask 8 >> $7 and pushch
+	dmask 12 >> $7 and pushch
+	dmask 16 >> $7 and pushch
+	dmask 20 >> $7 and pushch
+	dmask 24 >> $7 and pushch
+	dmask 28 >> $7 and pushch
 	3drop ;
 
+
+:searchbox | y x -- y x octree
+	'stackoct noderoot !+ 'stackoct> !
+	( popo 1? )(
+		pixels >=? ( ; )	| si es ultimo .. color
+							| si el tamano es menor al pixel.. color
+     	allch
+		) drop ;
+
+:searchpoint | x y -- x y nodo/0 sin nodo
+
+
+	;
+
+
+:searchbox | y x -- y x color
+	2dup 'xr ! 'yr !
+|	'lrud 256 + 'lrud> !
+|	noderoot sear
+	color 1? ( octre - pixels + @ )
+	;
+
+:drawboxxx
+|	callimites
+	x2 y2 x1 y1
+	2dup setxy
+	( pick2 <=? )( over | x2 y2 x1 yn xn
+		( pick4 <=? )(
+			searchbox px!+
+			1+ )
+		pick2 - neg sw + px+!
+		1+ ) 4drop ;
+
+:m3dto2dt | --
+	azul dumpcubenow callimites x1 y1 x2 y2 caja
+	0 pushchild verde dumpcubenow callimites x1 y1 x2 y2 caja
+	0 pushchild rojo dumpcubenow callimites x1 y1 x2 y2 caja
+|	0 pushchild cyan dumpcubenow callimites x1 y1 x2 y2 caja
+	;
+
+:renderm3d2dtest | octree x y z --
+	0 'level !
+	genpuntos
+	'noderoot !
+	m3dto2dt ;
+
+|--------------------------------
+
+#rot2d )( 256
+
+:dumpcube
+	lrud> 12 - >r
+	r@+ r@+ r@+ rdrop
+	viewbox ;
+
+:dumpxy
+	bbox> 8 - >r
+	r@+ r@+ 2 box
+	rdrop ;
+
+:pushch | i --
+	1 'level +!
+	lrud> 12 - >r
+	r@+ r@+ r@+ pick3 idmovn
+
+	bbox> >r
+	pick2 pick2 pick2 getxyd
+	swap r!+ r!+ r> 'bbox> !
+
+	rot r!+ swap r!+ r!+ r> 'lrud> !
+	drop
+	;
+
+:push2d | i -- x y
+	3 << 'rot2d + >r
+	bbox> 8 - >r r@+ r@+ rdrop | x y
+
+	swap r@+ 2/ +
+	swap r@+ 2/ +
+	rdrop
+	;
+
+:m3dto2dt2
+	azul dumpcube dumpxy
+	0 push2d 4 box
+
+	0
+	pushch verde dumpcube |dumpxy
+	0
+	pushch rojo dumpcube |dumpxy
+	lrud> 12 - >r r@+ r@+ r@+ rdrop calcbox 
+	x1 y1 x2 y2 caja
+	;
+
+:dump2
+	'rot2d >r
+	0 ( 8 <? )( 1+
+		r@+ "dx: %d " print
+		r@+ "dy: %d " print cr
+		) drop rdrop
+	;
+:renderm3d2dtest2 | octree x y z --
+	0 'level !
+
+	'bbox >r
+	pick2 pick2 pick2 getxyd
+	swap r!+ r!+
+	r> 'bbox> !
+
+	'rot2d >r
+	0 ( 8 <? )(
+		pick3 pick3 pick3 pick3 idmov getxyd
+
+		swap bbox - r!+
+		'bbox 4+ @ - r!+
+		1+ ) drop
+	rdrop
+
+	'lrud >r
+	rot r!+ swap r!+ r!+
+	r> 'lrud> !
+
+	'noderoot !
+
+    dump2
+	m3dto2dt2 ;
+
 :main
-	"media/3do/luigi.3do" load3do
+	"media/3do/luigio.3do" load3do
 
 	sh 2/ 256 - 'yc !
 	sw 2/ 256 - 'xc !
@@ -265,30 +410,25 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	show clrscr
 		verde
 		dup "%d " print cr
-		yc xc "%d %d " print cr
-
-|		xc yc 512 qtree
 
 		omode
 		freelook
-
 |		msec 3 << mrotxi
 |		msec 4 << mrotyi
-		0 0 1.0 transform 'zsz ! 'zsy ! 'zsx !
-		0 1.0 0 transform 'ysz ! 'ysy ! 'ysx !
-		1.0 0 0 transform 'xsz ! 'xsy ! 'xsx !
-
+		fillrotvec
 		calcmask
-		xcam ycam zcam viewbox
-	    filladdvect
 
-|		xcam ycam zcam viewoctreeo
+|		octre xcam ycam zcam renderm3d2dtest | octre x y z
 
-		cyan
-		xcam ycam zcam testz
+		octre xcam ycam zcam renderm3d2dtest2 | octre x y z
 
-		[ -0.1 'zcam +! ; ] <up>
-		[ 0.1 'zcam +! ; ] <dn>
+		[ -0.025 'zcam +! ; ] <up>
+		[ 0.025 'zcam +! ; ] <dn>
+		[ -0.025 'xcam +! ; ] <le>
+		[ 0.025 'xcam +! ; ] <ri>
+		[ -0.025 'ycam +! ; ] <pgup>
+		[ 0.025 'ycam +! ; ] <pgdn>
+
 		'exit >esc<
 		cminiflecha
 		;
