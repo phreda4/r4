@@ -301,24 +301,111 @@
 	0 'level ! genpuntos m3dto2d ;
 
 |-------------- test
+#noderoot
+#xr #yr
+#color
+
+#stackoct )( $ffff
+#stackoct> 'stackoct
+
+:pusho |
+	stackoct> !+ 'stackoct> ! ;
+:popo	| 0 / nodo
+	stackoct> 'stackoct =? ( 0 nip ; )
+	4 - dup 'stackoct> ! @ ;
+
+:stacke
+	stackoct> 'stackoct - ;
+
+
+:pushch | oct noct bit child -- oct noct bit
+	1 over << pick2 nand? ( 2drop ; ) 	| oct noct bit child place
+|	swap pushchild						| oct noct bit place
+	1- over and popcnt 2 << pick2 +		| oct noct bit 'oct
+	pusho
+	;
+
+:allch | oct --
+	dup @ dup 8 >> 2 << octre + swap $ff and 	|  oct noct bit
+	dmask $7 and pushch
+	dmask 4 >> $7 and pushch
+	dmask 8 >> $7 and pushch
+	dmask 12 >> $7 and pushch
+	dmask 16 >> $7 and pushch
+	dmask 20 >> $7 and pushch
+	dmask 24 >> $7 and pushch
+	dmask 28 >> $7 and pushch
+	3drop ;
+
+
+:searchbox | y x -- y x octree
+	2dup 'xr ! 'yr !
+	'stackoct noderoot !+ 'stackoct> !
+	( popo 1? )(
+		pixels >=? ( ; )	| si es ultimo .. color
+							| si el tamano es menor al pixel.. color
+     	allch
+		) drop ;
+
+
+|-----------------
+:sear-child | oct noct bit child -- oct noct bit
+	1 over << pick2 nand? ( 2drop ; ) 	| oct noct bit child place
+	swap pushchild						| oct noct bit place
+
+	callimites
+	xr x1 <? ( 2drop popchild ; ) x2 >? ( 2drop popchild ; ) drop
+	yr y1 <? ( 2drop popchild ; ) y2 >? ( 2drop popchild ; ) drop
+
+	1- over and popcnt 2 << pick2 +		| oct noct bit 'oct
+
+|	x2 x1 - 1 <=? ( drop 'color ! popchild ; ) drop
+|	y2 y1 - 1 <=? ( drop 'color ! popchild ; ) drop
+
+	pixels >=? ( 'color ! popchild ; )	| ....si es ultimo llena quad
+
+:sear | oct --
+	dup @ dup 8 >> 2 << octre + swap $ff and 	|  oct noct bit
+	trace
+	dmask $7 and sear-child
+|	color 1? ( 4drop popchild ; ) drop
+	dmask 4 >> $7 and sear-child
+|	color 1? ( 4drop popchild ; ) drop
+	dmask 8 >> $7 and sear-child
+|	color 1? ( 4drop popchild ; ) drop
+	dmask 12 >> $7 and sear-child
+|	color 1? ( 4drop popchild ; ) drop
+	dmask 16 >> $7 and sear-child
+|	color 1? ( 4drop popchild ; ) drop
+	dmask 20 >> $7 and sear-child
+|	color 1? ( 4drop popchild ; ) drop
+	dmask 24 >> $7 and sear-child
+|	color 1? ( 4drop popchild ; ) drop
+	dmask 28 >> $7 and sear-child
+	3drop
+	popchild ;
+
 :searchbox | y x -- y x color
+	2dup 'xr ! 'yr !
+	0 'color !
+	'lrud 256 + 'lrud> !
+	noderoot sear
+	color 1? ( octre - pixels + @ )
 	;
 
 :drawboxxx
+	callimites
 	x2 y2 x1 y1
 	2dup setxy
 	( pick2 <=? )( over | x2 y2 x1 yn xn
 		( pick4 <=? )(
-			searchbox
-			px!+
+			searchbox px!+
 			1+ )
 		pick2 - neg sw + px+!
 		1+ ) 4drop ;
 
-:m3dto2dt | oct --
-	callimites
-	drawboxxx
-	drop | quita oct
+:m3dto2dt | --
+
 	azul
 	dumpcubenow
 	callimites
@@ -329,7 +416,6 @@
 	dumpcubenow
 	callimites
 	x1 y1 x2 y2 caja
-
 
 	3 pushchild
 	rojo
@@ -342,12 +428,16 @@
 	dumpcubenow
 	callimites
 	x1 y1 x2 y2 caja
-	drawboxxx
 
 	;
 
-:renderm3d2dtest
-	0 'level ! genpuntos m3dto2dt ;
+:renderm3d2dtest | octree x y z --
+	0 'level !
+	genpuntos
+	'noderoot !
+|	drawboxxx
+	m3dto2dt
+	;
 
 
 |-------------- orden segun vista
