@@ -1,0 +1,138 @@
+^r4/lib/gui.txt
+^r4/lib/bmr.txt
+^r4/dev/tiles.bmr
+
+#vxp  	#vyp
+
+#Estado
+#quieto 0 #caminando 1 #saltando 2  #cayendo 3
+
+#xp 64		#yp 64
+
+#escala 32
+#escalap 5
+#bloques 0 'pasto 'piedra 'escalera 'piedra2 'ladrillo 'ladrillo2 'pasto1 'tnt
+#anchomapa 	32
+#altomapa	18
+#mapa
+2 2 2 2 2 2 6 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+2 0 0 0 0 0 6 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2
+2 0 0 0 0 0 6 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2
+6 6 6 0 0 0 6 0 0 0 0 0 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2
+6 0 0 0 0 0 6 0 0 0 0 0 3 0 0 0 0 0 0 0 0 0 0 0 0 5 5 5 5 5 5 2
+2 0 0 0 0 0 6 0 0 0 0 0 3 0 0 0 0 0 0 0 0 0 0 0 0 5 5 0 0 0 0 2
+2 0 0 0 0 0 0 0 0 0 0 0 3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2
+2 4 4 4 0 0 0 0 0 0 0 0 3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2
+2 4 4 4 0 0 0 0 0 0 0 0 3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2
+2 0 0 0 0 0 0 0 2 2 2 2 2 0 0 0 0 0 0 0 0 8 0 0 0 0 0 0 0 0 0 2
+2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2 2 2 2 2 0 0 0 0 0 0 0 0 2
+2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2
+2 2 2 2 2 2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2
+2 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 2
+2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2
+2 0 0 0 0 0 0 2 1 1 1 2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 2
+2 0 0 0 0 0 2 1 1 1 1 2 2 7 7 7 7 7 7 0 0 0 0 0 0 0 0 0 0 0 8 2
+2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+
+:debug
+	xp "xp =%d" print cr
+	yp "yp =%d" print cr
+	vxp "vxp =%d" print cr
+	vyp "vyp =%d" print cr
+	estado "estado=%d" print
+	;
+
+
+:[mapa]	| x y -- dir
+	anchomapa * + 2 << 'mapa + ;
+
+:mapaba
+	xp escala 2/ + escala / yp escala + escala /
+	[mapa] @ ;
+
+:maparr
+	xp escala 2/ + escala / yp 1- escala /
+	[mapa] @ ;
+
+:mapder
+	xp escala + escala /
+	yp escala 2/ + escala /
+   [mapa] @ ;
+
+:mapizq
+	xp escala /
+ 	yp escala 2/ + escala /
+	[mapa] @ ;
+
+:nivelar
+	yp escala 1- not and 'yp !
+	quieto 'estado ! ;
+
+:gsalto
+	vyp 1+
+	escala >? ( drop escala )
+    +? ( cayendo 'estado ! )
+	'vyp !
+	;
+
+:gravedad
+	estado
+	saltando =? ( dup gsalto ; )
+	drop
+    mapaba
+	0? ( gsalto )( 0 'vyp ! nivelar )
+	drop
+	;
+
+:dibujopersonaje
+	xp yp 
+	'elcosito
+	escala dup bmr.drawscale
+	vxp
+	+? ( mapder )( mapizq )
+	1? ( 2drop 0 )( drop )
+	'xp +!
+	vyp
+	+? ( mapaba )( maparr )
+	1? ( 2drop 0 )( drop )
+	'yp +!
+	gravedad
+	;
+
+:dibujomapa
+	'mapa >r
+	0 ( altomapa <? )(
+		0 ( anchomapa <? )(
+			r@+ 0? ( drop )(
+			    over escalap <<
+			    pick3 escalap <<
+				rot 2 << 'bloques +
+				@ escala dup bmr.drawscale )
+		1+ ) drop
+	1+ ) drop
+	rdrop
+	;
+
+:saltar
+	estado
+	saltando =? ( drop ; )
+	cayendo =? ( drop ; )
+	drop
+	-15 'vyp ! saltando 'estado ! ;
+
+:juego
+	show clrscr
+		dibujomapa
+		debug
+		dibujopersonaje
+
+		'saltar <up>
+	    [ 4 'vxp ! ; ] <ri>
+		[ -4 'vxp ! ; ] <le>
+		[ 0 xp yp [mapa] ! ; ] <spc>
+		[ 0 'vxp ! ; ] dup >ri< >le<
+		'exit >esc<
+		;
+
+
+: juego ;
