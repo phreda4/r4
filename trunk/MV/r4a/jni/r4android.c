@@ -393,7 +393,7 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
     case WSTOREPLUS: *(short *)TOS=(short)*NOS;TOS+=2;NOS--;continue;
 //--- sistema
 	case UPDATE:
-		if (ALooper_pollAll(0,NULL,&events,(void**)&source)>=0) { // while come eventos?
+		if (ALooper_pollAll(engine.animating?0:-1,NULL,&events,(void**)&source)>=0) { // while come eventos? animating??
 			if (source != NULL) { source->process(engine.app, source); }
 			if (engine.app->destroyRequested != 0) {
 	                LOGI("Engine thread destroy requested!");
@@ -1073,7 +1073,7 @@ while  (namea!=0) {
 //	LOGE(namea);
 	if (*path!=0) { strcpy(namef,path+1);strcat(namef,"/"); } else *namef=0;
 	strcat(namef,namea);
-	LOGI(namef);
+//	LOGI(namef);
 	aaS=AAssetManager_open(aaM,namef,AASSET_MODE_BUFFER);
 
 	strcpy(namef,namep);strcat(namef,"/");strcat(namef,namea);
@@ -1093,13 +1093,17 @@ AAssetDir_close(aaD);
 static void buildFileSystem(void)
 {
 struct stat st = {0};
+LOGW("prebuild");
 
 if (stat(rootpath, &st) != -1) return; // ya existe la carpeta
+
+LOGW("creando");
 
 makeFolder("");
 makeFolder("/inc");
 makeFolder("/inc/rft");
 makeFolder("/inc/ric");
+makeFolder("/inc/gesto");
 makeFolder("/mem");
 makeFolder("/r4");
 makeFolder("/r4/apps");
