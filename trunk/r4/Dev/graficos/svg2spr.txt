@@ -1,0 +1,205 @@
+| Convierte SVG font a spr
+| PHREDA 2014
+|---------------------------------------------
+^r4/lib/gui.txt
+^r4/lib/parse.txt
+^r4/lib/trace.txt
+^r4/lib/dlgfilea.txt
+
+#$start
+#$end
+
+|------------------ PARSE
+:=p | s1 s2 -- 1/0
+	( c@+ 1? )( rot c@+ rot - 1? ( 3drop 0 ; ) drop swap ) 3drop 1 ;
+
+:findl | adr "texto" -- adr'/0
+	( 2dup =p 0? )( drop swap 1+ dup c@ 32 <? ( 3drop 0 ; ) drop swap ) 2drop ;
+
+:findc | 13 adr -- adr'
+	( c@+ 1? )( pick2 =? ( drop nip ; ) drop ) nip nip ;
+
+:nextline | adr -- adr'
+	( c@+ 32 >=? )( drop ) 0? ( nip ; ) drop ;
+
+|------------------ NRO
+:signo | str -- str signo
+	dup c@
+	$2c =? ( drop 1+ dup c@ )
+	$2b =? ( drop 1+ 0 ; )	| + $2b
+	$2d =? ( drop 1+ 1 ; )	| - $2d
+	drop 0 ;
+
+#f | fraccion
+
+:getfrac | nro adr' char -- nro adr' char
+	drop
+	0 swap | nro 0 adr'
+	( c@+ $2f >? )(
+			$39 >? ( rot 'f ! ; )
+			$30 - rot 10* + swap )
+	rot 'f ! ;
+
+:getnro | adr -- adr' nro
+	0 'f !
+	trim
+	signo
+	over c@ 33 <? ( 2drop 1- 0 ; ) | caso + y - solos
+	swap  1? ( [ neg ; ] >r ) drop
+	drop
+	0 swap ( c@+ $2f >? )(	| 0 adr car
+		$39 >? ( drop 1- swap ; )			| 0..9
+		$30 - rot 10* + swap )
+	$2e =? ( getfrac )
+	drop 1- swap ;
+
+:getfnro | adr -- adr fnro
+	getnro 16 << $10000 f
+	1 over ( 1 >? )( 10 / swap 10* swap ) drop
+	*/ $ffff and or
+	;
+
+|-------------------------
+#colsvg
+#svgx #svgy
+
+#$spr
+
+:,spr | nro --
+	 $spr !+ '$spr ! ;
+
+:getcolor | adr --
+	$23 swap findc 0? ( drop ; ) | #
+	str$>nro 'colsvg !
+	;
+
+:xy>oo | x y -- d
+	4 >> $3fff0 and swap 10 << $fffc0000 and or ;
+
+#last
+
+:getpoly | adr --
+	$22 swap findc 0? ( drop ; ) | "
+	getfnro 'svgx ! 1+ getfnro 'svgy ! trim
+	svgx svgy xy>oo dup 'last ! 1 or ,spr
+	( dup c@ $22 <>? )( drop
+		getfnro 'svgx ! 1+ getfnro 'svgy ! trim
+		svgx svgy xy>oo 3 or ,spr
+		) drop
+	last 3 or ,spr
+	colsvg 4 << $d or ,spr
+	;
+
+#x1 #y1 #x2 #y2
+:getvb | adr --
+	getfnro 'x1 !
+	getfnro 'y1 !
+	getfnro 'x2 !
+	getfnro 'y2 !
+	x2 x1 - y2 y1 - dim
+	x1 x2 + 2/ y1 y2 + 2/ pos
+	;
+
+|-------------------------
+:decodelimits | adr adrpoly -- adr
+	dup "viewbox=" findl 1? ( getvb ) drop
+	;
+
+:decodepoly | adr adrpoly -- adr
+	dup "fill=" findl 1? ( getcolor ) drop
+	dup "points=" findl 1? ( getpoly ) drop
+	drop
+	;
+
+:findline | adr -- adr
+	decodelimits
+	dup "<svg " findl 1? ( decodelimits ; ) drop
+	dup "<polygon " findl 1? ( decodepoly ; ) drop
+	;
+
+:convertsvg | adr --
+	$end '$spr !
+	( 1? )( |dup memmap
+		findline
+		nextline ) drop
+	0 ,spr ;
+
+|----------- stat & convert
+#xmin #ymin #xmax #ymax
+
+:movevert | adr val -- adr
+	dup $f and $a >? ( 2drop ; ) drop	| no es color!!
+	dup d>xy
+	ymin + swap 
+	xmin + swap
+	xy>d
+	swap $f and or over 4 - !
+	;
+
+:inistat
+	d>xy dup 'ymin ! 'ymax ! dup 'xmin ! 'xmax ! ;
+
+:addstat
+	dup $f and $a >? ( 2drop ; ) drop	| no es color!!
+	d>xy
+	ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
+	xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
+	;
+
+:centersvg
+	$end @+ inistat ( @+ 1? )( addstat ) 2drop
+	xmin xmax + 2/ neg 'xmin !
+	ymin ymax + 2/ neg 'ymin !
+	$end ( @+ 1? )( movevert ) 2drop
+	;
+
+#yw #xw
+:zoomvert
+	dup $f and $a >? ( 2drop ; ) drop	| no es color!!
+	dup d>xy
+	$1fff yw */ swap
+	$1fff xw */ swap
+	xy>d
+	swap $f and or over 4 - !
+	;
+
+:zoomsvg
+	$end @+ inistat ( @+ 1? )( addstat ) 2drop
+	xmax xmin - 'xw !
+	ymax ymin - 'yw !
+	$end ( @+ 1? )( zoomvert ) 2drop
+	;
+
+
+|------------- carga
+:cargasvg
+	"r4" dlgfileload 0? ( drop ; )
+	$start swap load 0 swap !+ '$end !
+	$start convertsvg
+	centersvg
+	;
+
+|------------- muestra
+:muestraspr
+	0.8 %s dup dim 0 dup fpos
+	gris 8 rgrilla
+	$end nsprite
+	;
+
+:main
+	33
+	show clrscr
+		dup "%d " print cr cr2
+
+		cyan
+		'cargasvg "SVG" sp btnt cr
+
+		muestraspr
+
+		'zoomsvg <f1>
+		'exit >esc<
+		cminiflecha ;
+
+:me mark here dup '$start ! dup '$end ! '$spr ! 0 $spr ! ;
+
+: me main ;
