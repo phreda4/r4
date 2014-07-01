@@ -3,13 +3,15 @@
 |-------------------
 ^r4/lib/gui.txt
 ^r4/lib/fontm.txt
-^r4/dev/fontmono/sourcecode13.txt
-^r4/dev/fontmono/inconsolata13.txt
-^r4/dev/fontmono/ubuntumon13.txt
-^r4/dev/fontmono/droidsand13.txt
+
+^inc/fntm/inconsolata13.txt
+|^inc/fntm/sourcecode13.txt
+|^inc/fntm/droidsans13.txt
+|^inc/fntm/ubuntumono14.txt
+
 ^r4/lib/trace.txt
 
-
+#fontstyle
 #wcon #hcon
 #advcha
 #advlin
@@ -18,12 +20,7 @@
 #clast>
 #ccolor $f0
 
-:fullconsola
-|	'fontInconsolata13 fontm
-	'fontdroidsand13 fontm
-|	'fontUbuntumon13 fontm
-	sw ccw / 'wcon !
-	sh cch / 'hcon !
+:setvars
 	sw cch * neg ccw + 'advcha !
 	sw cch * ccw wcon * - 'advlin !
 	here 'memcon !
@@ -32,27 +29,26 @@
 	memcon 'ccur> !
 	;
 
-:iniconsola | w h --
-|	'fontInconsolata13 fontm
-	'fontdroidsand13 fontm
-|	'fontUbuntumon13 fontm
+:fullconsola | 'font --
+	dup 'fontstyle ! fontm
+	sw ccw / 'wcon !
+	sh cch / 'hcon !
+	setvars ;
+
+:iniconsola | w h 'font --
+	dup 'fontstyle ! fontm
 	'hcon ! 'wcon !
-	sw cch * neg ccw + 'advcha !
-	sw cch * ccw wcon * - 'advlin !
-	here 'memcon !
-	wcon hcon * 2 << + 'here +!
-	here 4 - 'clast> !
-	memcon 'ccur> !
-	;
+	setvars ;
 
 :cuscroll
 	memcon wcon 2 << over + wcon hcon * move
-	clast> wcon 1- 2 << - wcon ( 1? )( 1- 0 rot !+ swap ) 2drop ;
+	clast> wcon 1- 2 << - wcon ( 1? )( 1- ccolor 8 << rot !+ swap ) 2drop
+	;
 
 :setcur | adr --
-	clast> >? ( cuscroll clast> wcon 1- 2 << - nip ) 'ccur> ! ;
+	clast> 1+ >? ( cuscroll clast> wcon 1- 2 << - nip ) 'ccur> ! ;
 :cemit | c --
-	ccolor 8 << or ccur> !+ setcur ;
+	$ff and ccolor 8 << or ccur> !+ setcur ;
 :cat | x y --
 	wcon * + 2 << memcon + setcur ;
 :chome
@@ -74,6 +70,7 @@
 
 :showconsola | x y -
 	setxy
+	fontstyle fontm
     blink
 	1? ( ccur> @ $100000 xor ccur> ! )
 	memcon >r
@@ -89,22 +86,26 @@
 	drop ;
 
 :main
-	sw ccw / sh cch / 2 - iniconsola
+	|'fontdroidSans13
+	'fontInconsolata13
+	|'fontUbuntuMono14
+	fullconsola
 	ccls
-	show clrscr
 
-		showconsola
+	ccr
+	":R4 - 2014" cprint ccr
+	33
+	show clrscr
+|      	dup "%d" print cr
+		ccur> "%h" print
+		0 0 showconsola
 
         [ key toasc cemit ; ] <visible>
-        [ ccr ; ] <enter>
+        'ccr <enter>
 		'cle <le>
 		'cri <ri>
 		'cdn <dn>
 		'cup <up>
-
-        [ rand catr 65 cemit ; ] <f1>
-        [ "Hola a todos" cprint ; ] <f2>
-		[ ccr ; ] <f3>
 
 		'exit >esc<
 		cminiflecha ;
