@@ -25,7 +25,7 @@
 ^r4/dev/ide/tokenprint.txt
 
 #nroerror 0
-#poserror 0
+#:poserror 0
 
 |---- Compila programa
 :,, | n --
@@ -74,13 +74,13 @@
 |------------------------------------------------------------
 |---  includes
 |------------------------------------------------------------
-#auxstr )( 64
+#auxstr )( 256
 
 :esinc 	| a -- a' ; incluye codigo
 	1+ dup ?include 1? ( drop ; ) drop
 	'auxstr over copynom
 	here 'auxstr load	| carga include
-	here =? ( " no existe" 'auxstr strcat 'auxstr 'nroerror ! drop 0 ; )
+	here =? ( 2 'nroerror ! drop 0 ; )
 	here pick2 indiceinc> !+ !+ 0 0 rot !+ !+ 'indiceinc> !
 	0 swap c!+ 'here !
 	pasapal ;
@@ -185,18 +185,18 @@
 				1 =? ( drop hole c.pop holefix c.push 1 c.push ; )
 			)( drop
 				2 =? ( drop c.pop hole c.push 3 c.push ; ) ) drop
-			")( error" 'nroerror ! 	0 ;
+			3 'nroerror ! 	0 ;
 :c)     c.pop salto 0? ( drop
 				1 =? ( drop holefix ; )
 				2 =? ( drop labelfix ; )
 				3 =? ( drop labelfix holefix ; ) drop
-				"salto desconocido" 'nroerror ! 0 ;
+				4 'nroerror ! 0 ;
 			)( drop
 				2 =? ( drop labelfix ; ) ) drop
-			") error" 'nroerror ! 0 ;
+			5 'nroerror ! 0 ;
 :c[     hole label 4 c.push ;
 :c]     | ** es ; el anterior token? NO-> error
-		c.pop 4 <>? ( "] error" 'nroerror ! 0 nip ; ) drop
+		c.pop 4 <>? ( 6 'nroerror ! 0 nip ; ) drop
 		c.pop holefix drop ; | agrega lit direccion
 
 #amacro 'c; 'c( 'c)( 'c) 'c[ 'c]
@@ -219,7 +219,7 @@
 	$22 =? ( drop escadena ; )	| $22 "	 Cadena
 	$27 =? ( drop 1+ dup dup	| $27 ' Direccion
 		?macro 1? ( 3drop
-			'poserror ! 2 'nroerror !
+			'poserror ! 7 'nroerror !
 			0 ; ) drop
 		?palabra 1? ( nip esdir ; ) 2drop
 		'poserror ! 1 'nroerror ! 0 ; )
@@ -227,9 +227,8 @@
 	dup ?numero 1? ( drop rot drop esnro ; ) drop | numero
 	dup ?fnumero 1? ( drop rot drop -1 'basen ! esnro ; ) drop | numero
 	dup ?macro 1? ( esmacro ; ) drop				| macro
-	dup ?palabra 1? ( nip espalabra ; ) drop		| palabra
-	dup ?sistema 1? ( nip essistema ; ) drop        | sistema solo directo
-
+	dup ?palabra 1? ( nip espalabra ; ) 2drop		| palabra
+	dup ?sistema 1? ( nip essistema ; ) 2drop        | sistema solo directo
  	'poserror ! 1 'nroerror ! 0 ;
 
 
@@ -240,16 +239,26 @@
 :finnrosv
 	;
 
+#errormsgl
+"Palabra No Encontrada"
+"No Existe Libreria"
+"Bloque mal formado )("
+"Bloque mal formado " | salto desconocido
+"Bloque mal formado )"
+"Definicion anonima mal cerrada"
+"Las palabras BASE no tienen direccion"
+0
+
+::errormsg | nro -- ""
+	1- 'errormsgl swap
+	( 1? )( swap >>0 swap ) drop
+	;
+
 |------------------------------------------------------------
 | a token
 |------------------------------------------------------------
-:tokenreset
-	0 'poserror !
-	0 'nroerror !
-	;
-
 ::str2token | adr -- error/0
-	tokenreset
+	0 dup 'poserror ! 'nroerror !
 	( compilatoken 0? ) drop
 	nroerror ;
 
@@ -280,7 +289,6 @@
 	dup ?macro 1? ( esmacro ; ) drop				| macro
 	dup ?palabra 1? ( nip espalabra ; ) drop		| palabra
 	dup ?sistema 1? ( nip essistema ; ) drop        | sistema solo directo
-
  	'poserror ! 1 'nroerror ! 0 ;
 
 |-----------------------
