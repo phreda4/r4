@@ -7,6 +7,8 @@
 #vxp
 #vyp
 
+#puntos
+
 #estado
 
 #quieto 0
@@ -15,13 +17,18 @@
 #cayendo 3
 #escalando 4
 
+|------- animaciones
 #amarioq mq0 mq0 mq0 mq0 mq0
-#amariod mds1 md1 md2 md1 md3
-#amarioi mis1 mi1 mi2 mi1 mi3
+#amariod mds1 md1 md2 md3 md2
+#amarioi mis1 mi1 mi2 mi3 mi2
 #amarioe me1 me2 me1 me3 me1
 
 #acoin coin1 coin2 coin3 coin4 coin4 coin3 coin2 coin1
 
+|------- sonidos
+#smoneda
+
+|-------- mapas
 #escala 32
 #escalap 5
 #anchomapa 	32
@@ -29,7 +36,7 @@
 
 #bloques 0 'coin1 'escalera 'piso 'tierra 'piedra2 'piedra2 'ladrillo 'ladrillo2 'pasto1 'tnt
 
-#mapa
+#mapa1
 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6
 6 0 0 0 0 0 6 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 6
 6 0 0 0 0 0 6 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 6
@@ -41,13 +48,25 @@
 6 4 4 4 0 0 0 0 0 0 0 0 2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 6
 6 0 0 0 0 0 0 0 6 6 6 6 6 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 6
 6 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 6 6 6 6 6 0 0 0 0 0 0 0 0 6
-6 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 6
-6 6 6 6 6 6 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 6
+6 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 6
+6 6 6 6 6 6 0 0 0 0 0 0 0 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 1 6
 6 0 0 0 0 0 0 0 0 0 0 0 0 4 4 4 4 4 0 0 0 0 0 0 0 0 0 0 0 0 8 6
 6 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 8 6
 6 0 0 0 0 0 0 6 8 8 8 6 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 8 6
 6 0 0 0 0 0 6 3 3 3 3 3 6 7 7 7 7 7 7 0 0 0 0 0 0 0 0 0 0 0 8 6
 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6
+
+#mapa )( 8192
+
+:copiamapa
+	'mapa >r
+	'mapa1
+	anchomapa altomapa *
+	( 1? )(
+		swap @+ r!+ swap
+		1- )
+	2drop rdrop
+	;
 
 
 :[mapa]	| x y -- dir
@@ -68,6 +87,9 @@
 :mapain
 	xp escala 2/ + escalap >> yp escala 2/ + escalap >> [mapa] @ ;
 
+:mapain! | v --
+	xp escala 2/ + escalap >> yp escala 2/ + escalap >> [mapa] ! ;
+
 :nivelar
 	yp escala 1- not and 'yp !
 	quieto 'estado ! ;
@@ -81,7 +103,7 @@
 
 :gravedad
 	estado
-	saltando =? ( dup gsalto ; )
+	saltando =? ( drop gsalto ; )
 	drop
     mapaba
 	2 <? ( gsalto )( 0 'vyp ! nivelar )
@@ -91,12 +113,14 @@
 :anima | -- bmr
 	estado escalando =? ( drop vyp 1? ( 'amarioe msec 5 >> $c and + )( 'amarioe ) nip @ ; ) drop
 	vxp 0? ( 'amarioq )( +? ( 'amariod )( 'amarioi ) ) nip
-	vyp 0? ( drop msec 5 >> $c and + 4+ )( drop )
+	vyp 0? ( drop msec 4 >> $c and + 4+ )( drop )
 	@
 	;
 
 :dibujopersonaje
-	xp yp anima escala dup bmr.drawscale
+	xp yp anima
+	escala dup bmr.drawscale
+	|bmr.draw
 	vxp
 	+? ( mapder )( mapizq )
 	2 >? ( 2drop 0 )( drop )
@@ -110,7 +134,9 @@
 	escalando =? ( drop mapain 2 <>? ( mapaba 2 <>? ( quieto 'estado ! 0 'vyp ! ) drop ) drop ; )
 	drop
 	mapain
+	1 =? ( 1 'puntos +! 0 mapain! smoneda splay )
 	2 =? ( drop escalando 'estado ! 0 'vyp ! ; )
+
 	drop
 
 	gravedad
@@ -128,8 +154,8 @@
 			    over escalap <<
 			    pick3 escalap <<
 				rot dibujotile
-				@ escala dup bmr.drawscale
-|				@ bmr.draw
+|				@ escala dup bmr.drawscale
+				@ bmr.draw
 				)
 		1+ ) drop
 	1+ ) drop
@@ -155,11 +181,12 @@
 	vxp "vxp =%d" print cr
 	vyp "vyp =%d" print cr
 	estado "estado=%d" print cr
-	mapaba "%d " print
+|mapaba "%d " print
 	;
 
 
 :juego
+	copiamapa
 	show30 clrscr
 		dibujomapa
 		debug
@@ -174,5 +201,10 @@
 		'exit >esc<
 		;
 
+:cargasonidos
+	mark
+	"media/milagros/start.ogg" sload 'smoneda !
+	;
 
-: juego ;
+
+: cargasonidos juego ;
