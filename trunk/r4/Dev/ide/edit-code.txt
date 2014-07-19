@@ -10,7 +10,6 @@
 ^r4/lib/trace.txt
 
 ^r4/system/mem-ed.txt
-^r4/system/mem-dic.txt
 
 #pantaini>	| comienzo de pantalla
 #pantafin>	| fin de pantalla
@@ -26,9 +25,11 @@
 #fuente> 	| cursor
 #$fuente	| fin de texto
 
-#clipboard #clipboard> |'clipboard
+#clipboard	|'clipboard
+#clipboard>
 
-#undobuffer #undobuffer> |'undobuffer
+#undobuffer |'undobuffer
+#undobuffer>
 
 #auxfile 0
 #auxfile> | 2file
@@ -41,7 +42,7 @@
 |---- debug.err
 #nrolin )( 32
 #error )( 256
-
+#errorlin
 #mensaje )( 1024
 
 :cursor>carlin | --
@@ -50,6 +51,7 @@
 	( dup c@ 13 <>? )( drop 1- ) drop | cuenta caracters a inicio de linea
 	fuente> swap - 'ed.ncar ! ;
 
+|----- edicion
 :lins  | c --
 	fuente> dup 1- $fuente over - 1+ cmove>
 	1 '$fuente +!
@@ -363,20 +365,6 @@
 	| agregar palabra :new  ;
 	;
 
-|----------------------------
-:debugcode  savetxt "r4/system/debug-code.txt" run ;
-:profcode   savetxt "r4/system/prof-code.txt" run ;
-:profcode2  savetxt "r4/system/prof-code2.txt" run ;
-:generacode savetxt "r4/system/genera-code.txt" run ;
-:mkplain	savetxt "r4/system/r4plain.txt" run ;
-|:mkplain  savetxt "r4/system/r4plaino.txt" run ;
-:mkasm		savetxt "r4/system/r4fasm.txt" run ;
-:mkasmo     savetxt "r4/system/r4fasmo.txt" run ;
-:mkbyte     savetxt "r4/system/r4js.txt" run ;
-
-:directrun
-	savetxt 'ed.nombre run  ;
-
 |------ Dibuja codigo
 :drawcur | com -- com
 	blink 1? ( drop ; ) drop
@@ -401,7 +389,7 @@
 	0 ( cntlinea <? )(
         gris
 		dup prilinea + "%d" print
-       	cch 2* dup 'tx1 ! 'ccx !
+       	ccw 2 << dup 'tx1 ! 'ccx !
 		swap
 		$fuente	<=? (
 			drawsel lf
@@ -416,14 +404,31 @@
 	( pantafin> >? )( scrolldw )
 	( pantaini> <? )( scrollup )
 	drop
+	|----------------- mensaje de error!!
+	errorlin -? ( drop ; )
+	prilinea <? ( drop ; )
+	prilinea -
+	cntlinea >=? ( drop ; )
+	3 swap gotoxy
+	blink 1? ( rojo )( amarillo ) drop
+	"!" print 'mensaje "<< %s  " printr
 	;
 
 
 |------------ panel info
 #panelinfo
+#infoini>
+
+:info>> | adr -- adr'
+	( c@+ 1? )( 13 =? ( drop ; ) drop ) drop 1- ;
 
 :panelinfos
-	panelinfo 1 xor 'panelinfo ! ;
+	panelinfo 1? ( drop 0 'panelinfo ! ; ) drop
+	1 'panelinfo !
+	auxfile
+	prilinea ( 1? )( 1- swap info>> swap ) drop
+	'infoini> !
+	;
 
 :drawpanelinfo
 	panelinfo 0? ( drop ; ) drop
@@ -431,11 +436,12 @@
 	$3f alpha azul gc.fbox $ff alpha
 	home blanco
 	cr
-
-	pantaini>
+	infoini>
 	0 ( cntlinea <? )(
-		dup prilinea + "%d" print cr
-		1+ ) 2drop
+		swap
+		dup "%l" print cr
+		info>>
+		swap 1+ ) 2drop
 
 |	dic.btns
 |	dic.printinc
@@ -474,15 +480,6 @@
 	dup buscawhelp 'wordhelp !  	| en ayuda?
 	'wordact !
 	;
-:help
-|	dic.name 'ed.nombre =w 0? ( drop helpcodeoff ; ) drop
-|	helpcodeon
-	wordact
-	dic.word? -? ( 2drop ; )
-|	trace
-	dic.word 'wordhelp !
-	drop
-	;
 
 :controloff
 	0 'panelcontrol !
@@ -501,7 +498,7 @@
 	'controlv 47 ?key " V-Paste" print
 
 	'controla <up>
-	'controls	<dn>
+	'controls <dn>
 
 	'controld 32 ?key " D-Def" print
 
@@ -521,23 +518,46 @@
 		) drop
 	;
 
+|----------------------------
+:directrun	savetxt 'ed.nombre run  ;
+:debugcode  savetxt "r4/system/debug-code.txt" run ;
+:profcode   savetxt "r4/system/prof-code.txt" run ;
+:profcode2  savetxt "r4/system/prof-code2.txt" run ;
+:generacode savetxt "r4/system/genera-code.txt" run ;
+:mkplain	savetxt "r4/system/r4plain.txt" run ;
+:mkasm	savetxt "r4/system/r4fasm.txt" run ;
+:mkasmo     savetxt "r4/system/r4fasmo.txt" run ;
+:mkbyte     savetxt "r4/system/r4js.txt" run ;
 
-|-------------------- pantalla editor
-:botones
-	verde
-	'directrun "Run" btnt
-|		'generacode
-	'debugcode "Debug" btnt
-	'profcode "Profile" btnt
-	'profcode2 "Profile2" btnt
-	'panelinfos "Panel" btnt
-	negro
-	'mkplain "Plain" btnt
-	'mkasm "ASM"  btnt
-	'mkasmo "ASMO" btnt
-|		'mkbyte "Byte" btnt
-	rojo 'exit "esc" sp btnt
-	;
+
+|--- sobre pantalla
+:mmemit | adr x xa -- adr x xa
+	rot c@+
+	9 =? ( drop swap $ffffffe0 and $20 + )( drop swap ccw + ) | x adr xa
+	rot swap ;
+
+:cursormouse
+	xymouse
+	pantaini>
+	swap cch 2*			| x adr y ya
+	( over <? )( cch + rot >>13 2 + rot rot ) 2drop
+	swap ccw 2 << ccw +	| adr x xa
+	( over <? )( mmemit ) 2drop
+	'fuente> ! ;
+
+:dns
+	cursormouse
+	fuente> '1sel ! ;
+
+:mos
+	cursormouse
+	fuente> 1sel over <? ( swap )
+	'finsel ! 'inisel ! ;
+
+:ups
+	cursormouse
+	fuente> 1sel over <? ( swap )
+	'finsel ! 'inisel ! ;
 
 |---------- manejo de teclado
 :teclado
@@ -555,8 +575,11 @@
 	[ 9 modo exec ; ] <tab>
 
 	'directrun <f1>
-	'panelinfos <f2> |'debugrun <f2>
-
+	'debugcode <f2>
+	'profcode <f3>
+	'profcode2 <f4>
+	'panelinfos <f5>
+	'mkplain <f9>
 	'mkasm <f10>
 	'mkasmo <f11>
 
@@ -566,22 +589,22 @@
 
 :editor
 	0 paper
-	'fontdroidsans13 fontm clrscr
+	'fontdroidsans13 fontm
+|	fonti
+	clrscr
 	rows 1- 'cntlinea !
 	show clrscr
-		home
+		'dns 'mos 'ups guiMap |------ mouse
+
 		$6600 ink 1 linesfill
 		verde dup ":R%d" print
+
 |		pick2 pick2 pick2 " %d %d %d " print
-		blanco "eDIT " print
+
+		blanco "eDIT " printx
         'ed.nombre "[%s] " print
+		cyan "  |F1-RUN|F2-DEBUG|F3-PROFILE|F9-PLAIN|F10-COMP|F11-OCOMP|" printx
 
-|		modo 'lins =? ( "INS" verde )( "OVR" rojo ) nip printx sp
-|		finsel 0? ( drop "0" )( fuente - inisel fuente - "%d..%d" ) print sp
-|	 	clipboard> clipboard <>? ( "clip" print sp ) drop
-|		verde ed.nlin "%d " print
-
-		blanco 'mensaje " %s" printr
 |------------------------------
 		cr chome!
 		drawcode
@@ -598,8 +621,6 @@
 |----
 :ram
 	here	| --- RAM
-	dic.load
-
 	dup 'helptxt !
 	"doc/helpr4.txt" load 0 swap !+
 
@@ -615,16 +636,16 @@
 	$ffff +         	| 64kb
 	dup 'auxfile !
 	dup 'auxfile> !
+	0 over !
 	$ffff + | 64kb
-
-|	loadincludes
-
 	'here  ! | -- FREE
 	mark
 	;
 
 :cargaestado
 	mark
+	-1 dup 'errorlin ! 'ed.nlin ! 0 'ed.ncar !
+
 	here dup "debug.err" load
 	empty
 	over 4+ <? ( 2drop ed.load ; )
@@ -632,7 +653,7 @@
 	| -- here  ...vacia antes de usarla
 	'ed.nombre cpy|
 	'nrolin cpy|
-	'nrolin ?numero 1? ( drop nip ) -1 =? ( drop ; ) 'ed.nlin !
+	'nrolin ?numero 1? ( drop nip ) -1 =? ( drop ; ) dup 'errorlin ! 'ed.nlin !
 	'nrolin cpy|
 	'nrolin ?numero 1? ( drop nip )  'ed.ncar !
 	'error swap ( c@+ 1? )( rot c!+ swap ) rot c! drop
@@ -642,7 +663,6 @@
 |----------- principal
 :main
 	ram
-	-1  'ed.nlin ! 0 'ed.ncar !
 	cargaestado
 	loadtxt
 	editor

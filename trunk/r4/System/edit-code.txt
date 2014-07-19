@@ -4,34 +4,36 @@
 ^r4/lib/gui.txt
 ^r4/lib/parse.txt
 ^r4/lib/codecolor.txt
-^r4/lib/dlgfile.txt
+
+^r4/lib/fontm.txt
+^inc/fntm/droidsans13.txt
 ^r4/lib/trace.txt
 
 ^r4/system/mem-ed.txt
-^r4/system/mem-dic.txt
 
 #pantaini>	| comienzo de pantalla
 #pantafin>	| fin de pantalla
 #prilinea	| primera linea visible
+#cntlinea
 
-#inisel 0 | inicio seleccion
-#finsel 0 | fin seleccion
+#inisel		| inicio seleccion
+#finsel		| fin seleccion
 
-#helptxt 0
+#helptxt
 
-#fuente 0 |)( $3ffff	| 256k de fuente editable
-#fuente> 'fuente	| cursor
-#$fuente 'fuente	| fin de texto
+#fuente  	| fuente editable
+#fuente> 	| cursor
+#$fuente	| fin de texto
 
-#clipboard #clipboard> |'clipboard
+#clipboard	|'clipboard
+#clipboard>
 
-#undobuffer #undobuffer> |'undobuffer
+#undobuffer |'undobuffer
+#undobuffer>
 
 #auxfile 0
 #auxfile> | 2file
 #iniaux>
-
-#pad )( 1024
 
 |---- palabra actual
 #wordact
@@ -40,7 +42,7 @@
 |---- debug.err
 #nrolin )( 32
 #error )( 256
-
+#errorlin
 #mensaje )( 1024
 
 :cursor>carlin | --
@@ -49,12 +51,11 @@
 	( dup c@ 13 <>? )( drop 1- ) drop | cuenta caracters a inicio de linea
 	fuente> swap - 'ed.ncar ! ;
 
-:sp|
-	blanco " | " printx ;
-
+|----- edicion
 :lins  | c --
 	fuente> dup 1- $fuente over - 1+ cmove>
 	1 '$fuente +!
+
 :lover | c --
 	fuente> c!+ dup 'fuente> !
 	$fuente >? ( dup '$fuente ! ) drop
@@ -228,7 +229,6 @@
 :kback
 	inisel 0? ( back )( borrasel ) drop ;
 
-
 |-------------
 | Edit CtrE
 |-------------
@@ -328,14 +328,35 @@
 	lins 'undobuffer> ! ;
 
 |-------------
-:controlf | search word
-	show clrscr
-		'exit >esc<
-		cminiflecha ;
+:=w | w1 w2 -- 1/0
+	( c@+ 32 >? )( toupp rot c@+ toupp rot - 1? ( 3drop 0 ; ) drop swap ) 3drop 1 ;
 
-:controlg | go
-	| si esta en definicion, retroceder en pila
-	| apilar lugar e ir a la definicion de esta palabra
+:exactw | adr 1c act cc -- adr 1c act 1/0
+	drop dup pick3 =w ;
+
+:setcur | adr 1c act 1
+	drop nip nip dup 'wordact ! 'fuente> ! ;
+
+:controla | -- ;find prev
+	wordact dup c@ 33 <? ( 2drop ; ) | adr 1c
+	toupp
+	over 1- | adr 1c act
+	( fuente >? )(
+		dup c@ toupp pick2 =? ( exactw 1? ( setcur ; ) )
+		drop 1- ) 3drop ;
+
+:controls | -- ;find next
+	wordact dup c@ 33 <? ( 2drop ; ) | adr 1c
+	$3A =? ( drop 1+ dup c@ )		| $3a :  Definicion
+	$23 =? ( drop 1+ dup c@  )		| $23 #  Variable
+	toupp
+	over 1+ | adr 1c act
+	( $fuente <? )(
+		dup c@ toupp pick2 =? ( exactw 1? ( setcur ; ) )
+		drop 1+ ) 3drop ;
+
+|-------------
+:controld | buscar definicion
 	;
 
 :controln  | new
@@ -344,156 +365,97 @@
 	| agregar palabra :new  ;
 	;
 
-#mm
-:mode1
-   	0 'mm !
-	fonti
-	;
-
-:mode2
-   	1 'mm !
-	fonti2
-	;
-
-:controlm | mode
-	mm 0? ( mode2 )( mode1 ) drop
-	;
-
-|----------------------------
-:debugcode  savetxt "r4/system/debug-code.txt" run ;
-:profcode   savetxt "r4/system/prof-code.txt" run ;
-:profcode2  savetxt "r4/system/prof-code2.txt" run ;
-:generacode savetxt "r4/system/genera-code.txt" run ;
-:mkplain	savetxt "r4/system/r4plain.txt" run ;
-|:mkplain  savetxt "r4/system/r4plaino.txt" run ;
-:mkasm		savetxt "r4/system/r4fasm.txt" run ;
-:mkasmo     savetxt "r4/system/r4fasmo.txt" run ;
-:mkbyte     savetxt "r4/system/r4js.txt" run ;
-
-|--------------------
-|--------------------
-|--------------------
-:tablascii
-	32 ( 255 <? )(
-		dup emit
-		dup ")%d " print
-		1+ ) drop
-	;
-
-:directrun
-	savetxt 'ed.nombre run  ;
-
-|----------------------------
-:archivos
-	savetxt
-	ed.path "*.txt" dlgfileload 0? ( drop ; )
-	'ed.nombre strcpy
-	loadtxt ;
-
 |------ Dibuja codigo
 :drawcur | com -- com
+	blink 1? ( drop ; ) drop
 	fuente> >? ( ; )
-	dup	( fuente> <? )( c@+ 13 =? ( 2drop ; ) gemit )
-	pick2 prilinea + 'ed.nlin !
-	blink 1? ( 2drop ; ) drop
-	modo 'lins =? ( gris )( rojo ) drop
+	dup	( fuente> <? )( c@+ 13 =? ( 2drop lf ; ) gemit )
+ |	pick2 prilinea + 'ed.nlin !
+	modo 'lins =? ( $ffffff )( $ffff00 ) ink drop
 	printcur drop
+	lf
 	;
 
 :drawsel | com -- com
 	inisel 0? ( drop ; ) drop
 	finsel >? ( ; )
 	dup ( inisel <? )( c@+ 13 =? ( 2drop ; ) gemit )
-	sel>>
-	( finsel <? )( c@+ 13 =? ( 2drop $77 ink sel<< ; ) gemit )
-	drop $77 ink sel<< ;
+	sel>> $88 ink
+	( finsel <? )( c@+ 13 =? ( 2drop sel<< ; ) gemit )
+	drop sel<< ;
 
 :drawcode
 	pantaini>
-	0 ( rows 4 - <? )(
-
-		mm 0? (
-			over prilinea +
-			ed.nlin =? ( blanco )( gris )
-			"%d" print
-        	32 )( 4 ) nip
-		dup 'tx1 ! 'ccx !
+	0 ( cntlinea <? )(
+        gris
+		dup prilinea + "%d" print
+       	ccw 2 << dup 'tx1 ! 'ccx !
 		swap
 		$fuente	<=? (
 			drawsel lf
-			drawcur lf
+			drawcur
 			>>lineacolor>>
 			)
 		0 'tx1 ! cr
 		swap 1+ ) drop
-	$fuente <? ( 1- )
-	'pantafin> !
+	$fuente <? ( 1- ) 'pantafin> !
 
 	fuente>
 	( pantafin> >? )( scrolldw )
 	( pantaini> <? )( scrollup )
 	drop
+	|----------------- mensaje de error!!
+	errorlin -? ( drop ; )
+	prilinea <? ( drop ; )
+	prilinea -
+	cntlinea >=? ( drop ; )
+	3 swap gotoxy
+	blink 1? ( rojo )( amarillo ) drop
+	"!" print 'mensaje "<< %s  " printr
 	;
 
-|--------
-#panel1
-#panel1o
 
-:helpcodeoff
-	0 'panel1o ! ;
+|------------ panel info
+#panelinfo
+#infoini>
 
-:helpcodeon
-	sw 3 / 2* 'panel1o ! ;
+:info>> | adr -- adr'
+	( c@+ 1? )( 13 =? ( drop ; ) drop ) drop 1- ;
 
-|-------- VER PALABRA
-:drawpanelhelpcode
-	panel1 panel1o over - 2/ 'panel1 +!
-	0? ( drop ; ) gc.right
-	$1f alpha violeta gc.fbox $ff alpha | gc.glass
+:panelinfos
+	panelinfo 1? ( drop 0 'panelinfo ! ; ) drop
+	1 'panelinfo !
+	auxfile
+	prilinea ( 1? )( 1- swap info>> swap ) drop
+	'infoini> !
+	;
 
-	fonti |fonta-dejavu10
+:drawpanelinfo
+	panelinfo 0? ( drop ; ) drop
+	sw 2/ gc.right
+	$3f alpha azul gc.fbox $ff alpha
 	home blanco
-|-- lineasde help
-|	'ltoken cadalinea
+	cr
+	infoini>
+	0 ( cntlinea <? )(
+		swap
+		dup "%l" print cr
+		info>>
+		swap 1+ ) 2drop
 
-|	"palabra " print
-|	wordact "%d " print
-|	wordhelp "%d " print
-
-	chome
-|	iniword sregdumpi
-	;
-
-
-|------------ info token
-#panel2
-#panel2o
-
-:drawpanelincludes
-	panel2 panel2o over - 2/ 'panel2 +!
-	0? ( drop ; ) gc.right |$f gc.hfill
-	$3f alpha azul gc.fbox $ff alpha | gc.glass
-|	fonta-dejavu10B
-	home
-	dic.btns
+|	dic.btns
 |	dic.printinc
-
 |	cr	verde
 |	dic.debug
-	amarillo "= INCLUDES =" print cr
+|	amarillo "= INCLUDES =" print cr
 |	dumpdebug
 |	amarillo "%d includes " print cr
 |	rinfo.cntloc rinfo.cntwor rojo "%d/%d palabras " print cr
 	;
 
-:panelswitch
-	panel1o 0? ( drop helpcodeon sw 3 / 'panel2o ! ; ) drop
-	0 'panel2o !
-	helpcodeoff
-	;
 
-|-------------------- tecla control
-#panelc #panelc2
+|-------------- panel control
+#panelcontrol
 
 :getword | adr -- adr car ; palabra que apunta el cursor
 	( dup c@ 32 >? )( 0? ( ; ) drop 1- ) drop
@@ -501,8 +463,10 @@
 	33 <? ( drop 1+ dup c@ )
 	;
 
-:modocontrol
-	128 'panelc2 !
+:controlon
+	1 'panelcontrol !
+	rows 5 - 'cntlinea !
+
 	fuente> getword
 	$5e =? ( "INCLUDE" 'wordhelp ! )	| $5e ^  Include
 	$3A =? ( "DEFINE" 'wordhelp ! )		| $3a :  Definicion
@@ -515,45 +479,37 @@
 |	dup	?palabra  1? ( nip espalabra ; ) drop		| palabra
 	dup buscawhelp 'wordhelp !  	| en ayuda?
 	'wordact !
-
-	dic.name 'ed.nombre =w 0? ( drop helpcodeoff ; ) drop
-	helpcodeon
-	wordact
-	dic.word? -? ( 2drop ; )
-|	trace
-	dic.word 'wordhelp !
-	drop
-
 	;
 
-
 :controloff
-	0 'panelc2 ! ;
+	0 'panelcontrol !
+	rows 1- 'cntlinea ! ;
 
 :drawpanelcontrol
-	panelc panelc2 over - 2/ 'panelc +!
-	0? ( drop ; )
-	scr gc.bottom |$f gc.hfill
-	gc.glass
-|	fonti
-	home cr2
-	cyan " CTRL+* " printr lf
+	panelcontrol 0? ( drop ; ) drop
+	0 cntlinea gotoxy
+	$6600 ink 1 linesfill blanco
+	'controle 18 ?key " E-Edit" print | ctrl-E dit
+|	'controlh 35 ?key " H-Help" print  | ctrl-H elp
+	'controlz 44 ?key " Z-Undo" print
 
-	gris
-	'controle dup 18 ?key "E-Edit" sp btnt | ctrl-E dit
-|	'controlh dup 35 ?key "H-Help" sp btnt  | ctrl-H elp
-	'controlz dup 44 ?key "Z-Undo" sp btnt
-	'controlx dup 45 ?key "X-Cut" sp btnt
-	'controlc dup 46 ?key "C-Copy" sp btnt
-	'controlv dup 47 ?key "V-Paste" sp btnt
-	cr cr
-	'controlf dup 33 ?key "F-Find" sp btnt
-	'controlg dup 34 ?key "G-Go" sp btnt
-	'controln dup 49 ?key "N-New" sp btnt
-	'controlm dup 50 ?key "M-Mode" sp btnt
-	cr cr2
-|	wordact 1? ( " %w " blanco print )( drop )
-	wordhelp 1? ( " %l" blanco print )( drop )
+	'controlx 45 ?key " X-Cut" print
+	'controlc 46 ?key " C-Copy" print
+	'controlv 47 ?key " V-Paste" print
+
+	'controla <up>
+	'controls <dn>
+
+	'controld 32 ?key " D-Def" print
+
+	'controln 49 ?key " N-New" print
+|	'controlm 50 ?key " M-Mode" print
+	cr
+	wordhelp 1? ( " %l" blanco print ; ) drop
+	wordact 1? ( " %w " verde print ; ) drop
+	;
+
+:showclip
 	cr
  	clipboard> clipboard <>? (
 		cyan cr
@@ -562,82 +518,109 @@
 		) drop
 	;
 
+|----------------------------
+:directrun	savetxt 'ed.nombre run  ;
+:debugcode  savetxt "r4/system/debug-code.txt" run ;
+:profcode   savetxt "r4/system/prof-code.txt" run ;
+:profcode2  savetxt "r4/system/prof-code2.txt" run ;
+:generacode savetxt "r4/system/genera-code.txt" run ;
+:mkplain	savetxt "r4/system/r4plain.txt" run ;
+:mkasm	savetxt "r4/system/r4fasm.txt" run ;
+:mkasmo     savetxt "r4/system/r4fasmo.txt" run ;
+:mkbyte     savetxt "r4/system/r4js.txt" run ;
 
-|-------------------- pantalla editor
+
+|--- sobre pantalla
+:mmemit | adr x xa -- adr x xa
+	rot c@+
+	9 =? ( drop swap $ffffffe0 and $20 + )( drop swap ccw + ) | x adr xa
+	rot swap ;
+
+:cursormouse
+	xymouse
+	pantaini>
+	swap cch 2*			| x adr y ya
+	( over <? )( cch + rot >>13 2 + rot rot ) 2drop
+	swap ccw 2 << ccw +	| adr x xa
+	( over <? )( mmemit ) 2drop
+	'fuente> ! ;
+
+:dns
+	cursormouse
+	fuente> '1sel ! ;
+
+:mos
+	cursormouse
+	fuente> 1sel over <? ( swap )
+	'finsel ! 'inisel ! ;
+
+:ups
+	cursormouse
+	fuente> 1sel over <? ( swap )
+	'finsel ! 'inisel ! ;
+
+|---------- manejo de teclado
+:teclado
+	keypad
+	panelcontrol 1? ( drop 'controloff >ctrl< ; ) drop
+
+	[ key toasc modo exec ; ] <visible>
+	'kback	<back>		'kdel	<del>
+	'karriba <up>		'kabajo	<dn>
+	'kder	<ri>		'kizq	<le>
+	'khome	<home>		'kend	<end>
+	'kpgup	<pgup>		'kpgdn	<pgdn>
+	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
+	[ 13 modo exec ; ] <enter>
+	[ 9 modo exec ; ] <tab>
+
+	'directrun <f1>
+	'debugcode <f2>
+	'profcode <f3>
+	'profcode2 <f4>
+	'panelinfos <f5>
+	'mkplain <f9>
+	'mkasm <f10>
+	'mkasmo <f11>
+
+	'exit  >esc<
+	'controlon <ctrl>
+	;
 
 :editor
 	0 paper
-|	dic.name 'ed.nombre
-|	=w 1? ( sw 3 / 'panel2o ! ) drop
-|	helpcodeon
-
-	fonti
-	mode1
+	'fontdroidsans13 fontm
+|	fonti
+	clrscr
+	rows 1- 'cntlinea !
 	show clrscr
-		home
-		gris 4 linesfill
-		cr2
+		'dns 'mos 'ups guiMap |------ mouse
+
+		$6600 ink 1 linesfill
 		verde dup ":R%d" print
-		blanco "eDIT " print
-|        'ed.nombre print
-		'archivos dup <f6> 'ed.nombre "%s" mprint $ff ink btnt
-		sp
-		modo 'lins =? ( "INS" verde )( "OVR" rojo ) nip printx sp
-		finsel 0? ( drop "0" )( fuente - inisel fuente - "%d..%d" ) print sp
-	 	clipboard> clipboard <>? ( "clip" print sp ) drop
-		verde ed.nlin "%d " print
-		cr cr
 
-		verde 'directrun dup <f1> "Run" btnt
-|		'generacode
-		'debugcode dup <f2> "Debug" btnt
+|		pick2 pick2 pick2 " %d %d %d " print
 
-		'profcode dup <f3> "Profile" btnt
-		'profcode2 dup <f4> "Profile2" btnt
-		'panelswitch dup <f5> "Panel" btnt
-		negro
-		'mkplain dup <f9> "Plain" btnt
-		'mkasm dup <f10> "ASM"  btnt
-		'mkasmo dup <f11> "ASMO" btnt
-|		'mkbyte dup <f12> "Byte" btnt
-		rojo 'exit "esc" sp btnt
-
-		blanco 'mensaje "%s " printr
+		blanco "eDIT " printx
+        'ed.nombre "[%s] " print
+		cyan "  |F1-RUN|F2-DEBUG|F3-PROFILE|F9-PLAIN|F10-COMP|F11-OCOMP|" printx
 
 |------------------------------
-		cr cr2 chome!
+		cr chome!
 		drawcode
-        drawpanelhelpcode
-		drawpanelincludes
 		drawpanelcontrol
-
+		drawpanelinfo
 |------------------------------
-		keypad
-		panelc 0? ( [ key toasc modo exec ; ] <visible> )  drop
-		'kback	<back>		'kdel	<del>
-		'karriba <up>		'kabajo	<dn>
-		'kder	<ri>		'kizq	<le>
-		'khome	<home>		'kend	<end>
-		'kpgup	<pgup>		'kpgdn	<pgdn>
-		[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
-		[ 13 modo exec ; ] <enter>
-		[ 9 modo exec ; ] <tab>
-		'exit  >esc<
-		| control
-		'modocontrol <ctrl> 'controloff >ctrl<
-
-		cminimano ;
+		teclado
+		cminiflecha ;
 
 |---- Mantiene estado del editor
-
 :cpy|
     swap ( c@+ $7c <>? )( rot c!+ swap ) drop 0 rot c! ;
 
 |----
 :ram
 	here	| --- RAM
-	dic.load
-
 	dup 'helptxt !
 	"doc/helpr4.txt" load 0 swap !+
 
@@ -651,19 +634,18 @@
 	dup 'undobuffer !
 	dup 'undobuffer> !
 	$ffff +         	| 64kb
-
 	dup 'auxfile !
 	dup 'auxfile> !
+	0 over !
 	$ffff + | 64kb
-
-|	loadincludes
-
 	'here  ! | -- FREE
 	mark
 	;
 
 :cargaestado
 	mark
+	-1 dup 'errorlin ! 'ed.nlin ! 0 'ed.ncar !
+
 	here dup "debug.err" load
 	empty
 	over 4+ <? ( 2drop ed.load ; )
@@ -671,7 +653,7 @@
 	| -- here  ...vacia antes de usarla
 	'ed.nombre cpy|
 	'nrolin cpy|
-	'nrolin ?numero 1? ( drop nip ) -1 =? ( drop ; ) 'ed.nlin !
+	'nrolin ?numero 1? ( drop nip ) -1 =? ( drop ; ) dup 'errorlin ! 'ed.nlin !
 	'nrolin cpy|
 	'nrolin ?numero 1? ( drop nip )  'ed.ncar !
 	'error swap ( c@+ 1? )( rot c!+ swap ) rot c! drop
@@ -681,11 +663,9 @@
 |----------- principal
 :main
 	ram
-	-1  'ed.nlin ! 0 'ed.ncar !
 	cargaestado
 	loadtxt
 	editor
 	savetxt ;
 
 : mark 4 main ;
-
