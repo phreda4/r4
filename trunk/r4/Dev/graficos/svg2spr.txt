@@ -19,6 +19,9 @@
 :findc | 13 adr -- adr'
 	( c@+ 1? )( pick2 =? ( drop nip ; ) drop ) nip nip ;
 
+:find | adr "texto" -- adr'
+	( 2dup =p 0? )( drop swap 1+ dup c@ 0? ( 3drop 0 ; ) drop swap ) 2drop ;
+
 :nextline | adr -- adr'
 	( c@+ 32 >=? )( drop ) 0? ( nip ; ) drop ;
 
@@ -78,18 +81,43 @@
 
 #last
 
+:,line | x y --
+	xy>oo 3 or ,spr ;
+
+:,op | x y --
+	xy>oo dup 'last ! 1 or ,spr ;
+
+:,cp | x y --
+	xy>oo 2 or ,spr ;
+
+:,curve | x y --
+	xy>oo 4 or ,spr ;
+
+:,cp2 | x y --
+	xy>oo 9 or ,spr ;
+
+:,curve2 | x y --
+	xy>oo 10 or ,spr ;
+
+:,last | --
+	last 3 or ,spr ;
+
+:,poly
+	colsvg 4 << $d or ,spr ;
+
 :getpoly | adr --
 	$22 swap findc 0? ( drop ; ) | "
 	getfnro 'svgx ! 1+ getfnro 'svgy ! trim
-	svgx svgy xy>oo dup 'last ! 1 or ,spr
+	svgx svgy ,op
 	( dup c@ $22 <>? )( drop
 		getfnro 'svgx ! 1+ getfnro 'svgy ! trim
-		svgx svgy xy>oo 3 or ,spr
+		svgx svgy ,line
 		) drop
-	last 3 or ,spr
-	colsvg 4 << $d or ,spr
+	,last
+	,poly
 	;
 
+|------------------------
 #x1 #y1 #x2 #y2
 :getvb | adr --
 	getfnro 'x1 !
@@ -100,9 +128,162 @@
 	x1 x2 + 2/ y1 y2 + 2/ pos
 	;
 
-|-------------------------
+|----------------------SVG path-----------------------
+#sx $100 #sy $100
+#x1 #y1
+#x2 #y2
+#x3 #y3
+
+:moveto | adr -- adr' ; XY
+	getfnro 'x1 !
+	getfnro 'y1 !
+	x1 y1 ,op ;
+:movetor | adr -- adr' ; xy
+	getfnro 'x1 +!
+	getfnro 'y1 +!
+	x1 y1 ,op ;
+
+:lineto | adr -- adr' ; XY
+	x1 y1 'y2 ! 'x2 !
+	getfnro 'x1 !
+	getfnro 'y1 !
+	x1 y1 ,line ;
+:linetor | adr -- adr' ; xy
+	x1 y1 'y2 ! 'x2 !
+	getfnro 'x1 +!
+	getfnro 'y1 +!
+	x1 y1 ,line ;
+:hori | adr -- adr' ; X
+	x1 y1 'y2 ! 'x2 !
+	getfnro 'x1 !
+	x1 y1 ,line ;
+:horir | adr -- adr' ; X
+	x1 y1 'y2 ! 'x2 !
+	getfnro 'x1 +!
+	x1 y1 ,line ;
+:vert | adr -- adr' ; Y
+	x1 y1 'y2 ! 'x2 !
+	getfnro 'y1 !
+	x1 y1 ,line ;
+:vertr | adr -- adr' ; Y
+	x1 y1 'y2 ! 'x2 !
+	getfnro 'y1 +!
+	x1 y1 ,line ;
+:ccurve | adr -- adr' ; XYXYXY
+	getfnro 'x3 !
+	getfnro 'y3 !
+	getfnro 'x2 !
+	getfnro 'y2 !
+	getfnro 'x1 !
+	getfnro 'y1 !
+	x1 y1 ,cp
+	x2 y2 ,cp2
+	x3 y3 ,curve2 ;
+:ccurver | adr -- adr' ; XYXYXY
+	getfnro x1 + 'x3 !
+	getfnro y1 + 'y3 !
+	getfnro x1 + 'x2 !
+	getfnro y1 + 'y2 !
+	getfnro x1 + 'x1 !
+	getfnro y1 + 'y1 !
+	x1 y1 ,cp
+	x2 y2 ,cp2
+	x3 y3 ,curve2 ;
+:surve | adr -- adr' ; XYXY
+	x1 2* x2 - 'x3 !
+	y1 2* y2 - 'y3 !
+	getfnro 'x2 !
+	getfnro 'y2 !
+	getfnro 'x1 !
+	getfnro 'y1 !
+	x1 y1 ,cp
+	x2 y2 ,cp2
+	x3 y3 ,curve2 ;
+:surver | adr -- adr' ; XYXY
+	x1 2* x2 - 'x3 !
+	y1 2* y2 - 'y3 !
+	getfnro x1 + 'x2 !
+	getfnro y1 + 'y2 !
+	getfnro x1 + 'x1 !
+	getfnro y1 + 'y1 !
+	x1 y1 ,cp
+	x2 y2 ,cp2
+	x3 y3 ,curve2 ;
+:qurve | adr -- adr' ; XYXY
+	getfnro 'x2 !
+	getfnro 'y2 !
+	getfnro 'x1 !
+	getfnro 'y1 !
+	x1 y1 ,cp
+	x2 y2 ,curve ;
+:qurver | adr -- adr' ; XYXY
+	getfnro x1 + 'x2 !
+	getfnro y1 + 'y2 !
+	getfnro x1 + 'x1 !
+	getfnro y1 + 'y1 !
+	x1 y1 ,cp
+	x2 y2 ,curve ;
+:turve | adr -- adr' ; XY
+	x1 2* x2 - 'x2 !
+	y1 2* y2 - 'y2 !
+	getfnro 'x1 !
+	getfnro 'y1 !
+	x1 y1 ,cp
+	x2 y2 ,curve ;
+:turver | adr -- adr' ; XY
+	x1 2* x2 - 'x2 !
+	y1 2* y2 - 'y2 !
+	getfnro x1 + 'x1 !
+	getfnro y1 + 'y1 !
+	x1 y1 ,cp
+	x2 y2 ,curve ;
+
+:ellip | adr -- adr' ; XY
+:ellipr
+	getfnro 'x1 !
+	getfnro 'y1 !
+	getfnro 'x1 !
+	getfnro 'y1 !
+	getfnro 'x1 !
+	getfnro 'y1 !
+	;
+:close | adr -- adr'
+	,poly ;
+
+:resolve | adr char -- adr'
+	$4d =? ( drop moveto ; )	| M move
+	$6d =? ( drop movetor ; )	| m move rel
+	$4c =? ( drop lineto ; )	| L lineto
+	$6c =? ( drop linetor ; )	| l lineto rel
+	$48 =? ( drop hori ; )		| H
+	$68 =? ( drop horir ; )		| h
+	$56 =? ( drop vert ; )		| V
+	$76 =? ( drop vertr ; )		| v
+	$43 =? ( drop ccurve ; )	| C
+	$63 =? ( drop ccurver ; )	| c
+	$53 =? ( drop surve ; )		| S
+	$73 =? ( drop surver ; )	| s
+	$51 =? ( drop qurve ; ) 	| Q curve
+	$71 =? ( drop qurver ; )	| q curve rel
+	$54 =? ( drop turve ; )		| T
+	$74 =? ( drop turver ; )	| t
+	$41 =? ( drop ellip ; )		| A
+	$61 =? ( drop ellipr ; )	| a
+	$5a =? ( drop close ; )		| Z
+	$7a =? ( drop close ; )		| z
+	drop ;
+
+:getpath | adr --
+	3 +
+|	dup memmap
+	( trim
+		c@+ 0? ( drop 1- ; )
+		$22 <>? )( resolve ) drop  ;
+
+|------------------------
 :decodelimits | adr adrpoly -- adr
 	dup "viewbox=" findl 1? ( getvb ) drop
+	drop
 	;
 
 :decodepoly | adr adrpoly -- adr
@@ -111,17 +292,27 @@
 	drop
 	;
 
+:decodepath | adr adrpoly -- adr
+	dup "fill=" findl 1? ( getcolor ) drop
+	dup "d=" findl 1? ( getpath ) drop
+	drop
+	"/>" find
+	;
+
 :findline | adr -- adr
-	decodelimits
 	dup "<svg " findl 1? ( decodelimits ; ) drop
 	dup "<polygon " findl 1? ( decodepoly ; ) drop
+	dup "<path " findl 1? ( decodepath ; ) drop
 	;
 
 :convertsvg | adr --
 	$end '$spr !
 	( 1? )( |dup memmap
 		findline
-		nextline ) drop
+|		dup memmap
+		nextline
+|		dup memmap
+		) drop
 	0 ,spr ;
 
 |----------- stat & convert
@@ -130,7 +321,7 @@
 :movevert | adr val -- adr
 	dup $f and $a >? ( 2drop ; ) drop	| no es color!!
 	dup d>xy
-	ymin + swap 
+	ymin + swap
 	xmin + swap
 	xy>d
 	swap $f and or over 4 - !
