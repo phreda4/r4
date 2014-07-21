@@ -3,22 +3,17 @@
 | PHREDA 2014
 |-----------------------------
 ^r4/lib/gui.txt
+^r4/lib/dlgfilea.txt
+
 ^r4/lib/fontj.txt
 ^r4/lib/trace.txt
 ^r4/lib/sort.txt
 ^r4/lib/bsearch.txt
 ^r4/lib/morton.txt
 
-|#sidevox 1024
-|#DEEPVOX 10 | profundidad
-
-#sidevox 256
-#DEEPVOX 8 | profundidad
-
 #memvox		| inicio de puntos ordenados
 #memvox>
 #vertices	| cantidad de puntos
-
 #octre
 #octre>
 
@@ -34,8 +29,41 @@
 #levels )( 1024	| niveles del octree
 #level>
 
-#xcam 0 #ycam 0 #zcam 2048
 #xmin #ymin #zmin #xmax #ymax #zmax
+#qsize $ff
+#sidevox 256
+#DEEPVOX 8 | profundidad
+
+#xcam 0 #ycam 0 #zcam 0.01
+
+:setdims | --
+	xmax ymax zmax max max
+	1024 <? ( $3ff dup 'qsize ! 1+ 'sidevox ! 10 'deepvox ! )
+	512 <? ( $1ff dup 'qsize ! 1+ 'sidevox ! 9 'deepvox ! )
+	256 <? ( $ff dup 'qsize ! 1+ 'sidevox ! 8 'deepvox ! )
+	drop ;
+
+|----- conversion
+|--- 3D x y z . 10 bits
+:p1x2 | x -- v
+	$3ff and
+	dup 16 << xor $ff0000ff and
+	dup 8 << xor  $0300f00f and
+	dup 4 << xor  $030c30c3 and
+	dup 2 << xor  $09249249 and ;
+
+:morton3d | x y z -- Z
+	p1x2 2* swap p1x2 or 2* swap p1x2 or ;
+
+:c1x2 | x - v
+	$09249249 and
+	dup 2 >> xor $030c30c3 and
+	dup 4 >> xor $0300f00f and
+	dup 8 >> xor $ff0000ff and
+	dup 16 >> xor $3ff and ;
+
+:invmorton3d | Z -- x y z
+ 	dup c1x2 swap 2/ dup c1x2 swap 2/ c1x2 ;
 
 |----------- graficacion
 :freelook
@@ -44,6 +72,44 @@
 	sw 2/ - neg 7 << swap
 	neg mrotx
 	mroty ;
+
+:3dop project3d op ;
+:3dline project3d line ;
+
+|---- dibujos de grillas
+:drawboxz | z --
+	0 0 pick2 3dop
+	qsize 0 pick2 3dline
+	qsize qsize pick2 3dline
+	0 qsize pick2 3dline
+	0 0 rot 3dline ;
+
+:drawboxy | y --
+	0 over 0 3dop
+	qsize over 0 3dline
+	qsize over qsize 3dline
+	0 over qsize 3dline
+	0 swap 0 3dline ;
+
+:drawboxx | x --
+	dup 0 0 3dop
+	dup qsize 0 3dline
+	dup qsize qsize 3dline
+	dup 0 qsize 3dline
+	0 0 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup 0 3dop qsize 3dline ;
+
+:draw3dbox
+	$707070 ink
+	0 drawboxz
+	qsize drawboxz
+	0 0 drawlinez
+	qsize 0 drawlinez
+	qsize qsize drawlinez
+	0 qsize drawlinez ;
+
 
 :drawp | x y z ---
 	project3d |2dup op line ;
@@ -89,7 +155,7 @@
 :,oc | val --
 	octre> !+ 'octre> ! ;
 
-#colores 0 0 0 0 0 0 0 0
+#colores 0 0 0 0 0 0 0 0 0 0
 #colores>
 
 #sumr #sumg #sumb
@@ -111,8 +177,9 @@
 	memvox> <? ( @+ ; ) @+ 8 >> ;
 
 :oct2!+
-	padre ,oc
-	promediocol 8 << bith or ,oc ;
+|	padre ,oc
+|	promediocol 8 << bith or ,oc
+	;
 
 :level!+
 	octre> level> !+ 'level> ! ;
@@ -133,7 +200,8 @@
 :collectnode | end start --
 	level!+
 	ininode
-	( over <? )( nextnode ) 2drop
+	( over <? )( nextnode )
+	2drop
 	oct2!+
 	level!+ ;
 
@@ -163,6 +231,7 @@
 	'levels 'level> !
 	|--- calcula hijos
 	memvox> memvox collectnode
+
 	'levels DEEPVOX 1-
 	( 1? )( 1- swap
 		@+ swap @+ rot collectnode
@@ -280,18 +349,6 @@
 	;
 
 |----------- ajuste
-:c1x2 | x - v
-	$09249249 and
-	dup 2 >> xor $030c30c3 and
-	dup 4 >> xor $0300f00f and
-	dup 8 >> xor $ff0000ff and
-	dup 16 >> xor $3ff and ;
-
-:invmorton3d | Z -- x y z
- 	dup c1x2 swap 2/ dup c1x2 swap 2/ c1x2 ;
-
-#xmin #ymin #zmin #xmax #ymax #zmax
-
 :getminmax
 	memvox
 	@+ invmorton3d
@@ -304,8 +361,8 @@
 		zmin <? ( dup 'zmin ! ) zmax >? ( dup 'zmax ! ) drop
 		ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
 		xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
-		4+ )
-	drop ;
+		4+ ) drop
+	setdims ;
 
 #ddx #ddy #ddz
 
@@ -321,31 +378,14 @@
 	;
 
 :centra
-	xmax xmin + 2/ neg 'ddx !
-	ymax ymin + 2/ neg 'ddy !
-	zmax zmin + 2/ neg 'ddz !
+	qsize 2/ xmax xmin + 2/ - 'ddx !
+	qsize 2/ ymax ymin + 2/ - 'ddy !
+	qsize 2/ zmax zmin + 2/ - 'ddz !
 	movevox
 	;
 
-|------------- load import
-:load3dm | "filename" --
-	memvox swap
-	load 'memvox> !
-
-| escala----de 1024 a 256
-|	memvox ( memvox> <? )( dup @ 6 >> swap !+ 4+ ) drop
-
-	repetidos
-	getminmax
-|	centra
-	memvox> memvox - 3 >> 'vertices !
-	;
-
 :memory
-	mark
-	here dup 'memvox ! 'memvox> !
-|	$ffffff 'here +!
-	;
+	mark here dup 'memvox ! 'memvox> ! ;
 
 :savetxt
 	$end 'here !
@@ -353,7 +393,6 @@
 	$octree ( $end <? )(
 		dup $octree - 2 >>  "%h." ,print
 		@+ "%h " ,print ,cr ) drop
-
 	"octree.txt" savemem
 	empty ;
 
@@ -371,40 +410,35 @@
 	;
 
 :saveoctree
-	$octree $end over - "media/3do/mm.3do" save
+	$octree $end over - "media/3do/mm.3do" save ;
+
+
+|------------- load import
+:load3dm | "filename" --
+	memvox swap
+	load dup 'memvox> ! 'here !
+| escala----de 1024 a 256
+|	memvox ( memvox> <? )( dup @ 6 >> swap !+ 4+ ) drop
+
+	repetidos
+	getminmax
+	centra
+	memvox> memvox - 3 >> 'vertices !
 	;
+
+:loaddisk3dm
+	"media/3dm" dlgfileload 1? ( load3dm ; ) drop ;
 
 |--------------------------
 :main
-|	"media/3dm/dice.3dm"
-
-|	"media/3dm/armadillo.3dm"
-|	"media/3dm/bunny.3dm"
-|	"media/3dm/xyzrgb_statuette.3dm"
-|	"media/3dm/dragon.3dm"
-
-	"media/3dm/cesna.3dm"
-|	"media/3dm/porche1.3dm"
-|	"media/3dm/luigi.3dm"
-
-|	"media/3dm/molino.3dm"
-|	"media/3dm/ldhorse.3dm"
-|	"media/3dm/moon.3dm"
-|	"media/3dm/earth.3dm"
-|	"media/3dm/horse.3dm"
-|	"media/3dm/mario.3dm"
-|	"media/3dm/bamboo.3dm"
-|	"media/3dm/tractor.3dm"
-
-	load3dm
-
 	4
 	show clrscr verde
-		dup ":r%d F1-BUILD F2-SAVE F3-OPT+SAVE" print cr
+		dup ":r%d F2-BUILD F3-SAVE F4-OPT+SAVE" print cr
 
 		vertices "Puntos: %d " print
 		vertices 3 << "mem:%d " print
 		cr
+		qsize "qsize:%h" print cr
 		xmin xmax "X max:%d min:%d " print
 		ymin ymax "Y max:%d min:%d " print
 		zmin zmax "Z max:%d min:%d " print
@@ -422,32 +456,34 @@
 		$pixels $octree - 4 >> $end $pixels - + "mem:%d " print 	cr
 		"ROctreelessm 16: "print
 		$pixels $octree - 4 >> $end $pixels - 2/ + "mem:%d " print 	cr
-
 		cr
+|		memvox ( memvox $3ff + <? )( >r r@+ r@+ "%h:%h " allowcr print r> ) drop cr
+|		memvox> memvox - "mem %d" print cr
 		$octree "%h " print
 		$lastlev "%h " print
 		$pixels "%h " print
 		$realpixels "%h " print
 		$end "%h " print
-
 		cr
 
 |		dumpoc
-
 		omode
 		freelook
 		xcam ycam zcam mtrans
+		qsize 2/ neg dup dup mtransi
 
+		draw3dbox
 		drawpcf
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
     	verde
-		[ buildoctree ; ] <f1>
-		[ saveoctree ; ] <f2>
-		[ buildoctree optoctree saveoctree ; ] <f3>
 
-		[ getminmax centra  ; ] <f5>
+		'loaddisk3dm <f1>
+		'buildoctree <f2>
+		[ saveoctree ; ] <f3>
+		[ buildoctree optoctree saveoctree ; ] <f4>
+		[ getminmax centra ; ] <f5>
 		'exit >esc< ;
 
 : memory main ;
