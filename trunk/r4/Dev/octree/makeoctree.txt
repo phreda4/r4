@@ -5,11 +5,13 @@
 ^r4/lib/gui.txt
 ^r4/lib/dlgfilea.txt
 
-^r4/lib/fontj.txt
+|^r4/lib/fontj.txt
 ^r4/lib/trace.txt
 ^r4/lib/sort.txt
 ^r4/lib/bsearch.txt
 ^r4/lib/morton.txt
+
+#filename )( 1024
 
 #memvox		| inicio de puntos ordenados
 #memvox>
@@ -30,18 +32,20 @@
 #level>
 
 #xmin #ymin #zmin #xmax #ymax #zmax
-#qsize $ff
-#sidevox 256
-#DEEPVOX 8 | profundidad
+
+#qsize $ff	| lado
+#deepvox 8 	| profundidad octree
 
 #xcam 0 #ycam 0 #zcam 0.01
 
 :setdims | --
 	xmax ymax zmax max max
-	1024 <? ( $3ff dup 'qsize ! 1+ 'sidevox ! 10 'deepvox ! )
-	512 <? ( $1ff dup 'qsize ! 1+ 'sidevox ! 9 'deepvox ! )
-	256 <? ( $ff dup 'qsize ! 1+ 'sidevox ! 8 'deepvox ! )
-	drop ;
+	1024 <? ( $3ff 'qsize ! 10 'deepvox ! )
+	512 <? ( $1ff 'qsize ! 9 'deepvox ! )
+	256 <? ( $ff 'qsize ! 8 'deepvox ! )
+	drop
+	qsize 1+ 2* 'zcam !
+	;
 
 |----- conversion
 |--- 3D x y z . 10 bits
@@ -126,9 +130,6 @@
 		invmorton3d drawp
 		) drop ;
 
-:3dop project3d op ;
-:3dline project3d line ;
-
 |------------ basicas
 :clearvox
 	memvox 'memvox> ! ;
@@ -143,8 +144,6 @@
 	mortonlut vox-cnt-mem binsearch
 	0? ( -1 nip ; ) 4+ @ ;
 
-:sortvox
-	vox-cnt-mem shellsort ;
 
 :dumpvox
 	memvox ( memvox> <? )(
@@ -156,6 +155,7 @@
 	octre> !+ 'octre> ! ;
 
 #colores 0 0 0 0 0 0 0 0 0 0
+#colores )( $ffff
 #colores>
 
 #sumr #sumg #sumb
@@ -167,18 +167,34 @@
 		dup $ff00 and 8 << 'sumg +!
 		$ff0000 and 'sumr +!
 		) drop
-	colores> 'colores - 2 >> 1.0 swap / | optimizacion
+	colores> 'colores - 2 >>
+|	8 >? ( trace )
+	1.0 swap / | optimizacion
 	sumr over *. $ff0000 and
 	sumg pick2 *. 8 >> $ff00 and or
 	sumb rot *. 16 >> $ff and or
 	;
 
+
+:shotbuild
+	show clrscr
+		pick2 pick2 pick2 "%h %h %h " print cr
+	'levels ( level> <? )(
+		@+ swap @+ rot - 3 >>
+		"%h " print
+|		8 - @+ swap @+ rot ( over <? )( 4+ @+ "%h " allowcr print ) 2drop
+		cr allowchome ) drop
+	cr
+
+	'exit >esc<
+	cflecha ;
+
 :nodecolor+ | node -- node+ color
 	memvox> <? ( @+ ; ) @+ 8 >> ;
 
 :oct2!+
-|	padre ,oc
-|	promediocol 8 << bith or ,oc
+	padre ,oc
+	promediocol 8 << bith or ,oc
 	;
 
 :level!+
@@ -227,15 +243,18 @@
 
 :buildoctree | --
 	"octree..." print cr redraw
-	memvox> dup 'octre ! 'octre> !
+	memvox>	dup 'octre ! 'octre> !
 	'levels 'level> !
 	|--- calcula hijos
 	memvox> memvox collectnode
 
-	'levels DEEPVOX 1-
+|	memvox memmap
+
+	'levels deepvox 1-
 	( 1? )( 1- swap
 		@+ swap @+ rot collectnode
 		swap ) 2drop
+
 
 	|--- graba octree real
     octre> '$octree !
@@ -333,9 +352,8 @@
 
 |------------ elimina repetidos
 :repetidos
-	"ordenando..." print cr redraw
-	sortvox
-	"repetidos..."  print cr redraw
+	memvox memvox> over - 3 >> 1+ swap
+	shellsort
 	memvox >r
 	r@+ 4 r+ memvox 8 +
 	( memvox> <? )(	| prevval nextdir
@@ -344,7 +362,7 @@
 			rot drop	| nextdir+ nextval
 			dup r!+ swap
 			@+ r!+ )
-		) drop
+		) 2drop
 	r> 'memvox> !
 	;
 
@@ -384,6 +402,67 @@
 	movevox
 	;
 
+|----- calcula normales
+#p0 #p0d
+#p1 #p1d
+
+:dist | p p1 -- p p1 dist2 | x^2+y^2+z^2
+	over @ over @ - dup *. >r
+	over 4+ @ over 4+ @ - dup *. r+
+	over 8 + @ over 8 + @ - dup *. r> + ;
+
+:dista | p p1 -- p p1 dist2 | |x|+|y|+|z|
+	over @ over @ - abs  >r
+	over 4+ @ over 4+ @ - abs r+
+	over 8 + @ over 8 + @ - abs r> + ;
+
+:compmax | p pn dist - p
+	0? ( 2drop ; )
+	p0d <? ( p0d 'p1d ! 'p0d ! p0 'p1 ! 'p0 ! ; )
+	p1d <? ( 'p1d ! 'p1 ! ; )
+	2drop ;
+
+:busco2mascerca | p -- p p0 p1
+	memvox >r
+	$7fffffff 'p0d !
+	$7fffffff 'p1d !
+	vertices ( 1? )( 1- swap
+		r dista compmax
+		16 r+ swap ) drop rdrop
+	p0 p1 ;
+
+#v0 0 0 0
+#v1 0 0 0
+
+|------------------------------------------------
+|	Vector3f v0 = (p0-p).Unit();
+|	Vector3f v1 = (p1-p).Unit();
+|	point.normal = v1.Cross(v0);
+|	if(p.Dot(point.normal) < 0) point.normal = -point.normal;
+|------------------------------------------------
+:calculonormal | p p0 p1 -- p zn yn xn
+	'v1 swap v3=
+	'v0 swap v3=
+	'v0 over v3- 'v0 v3nor
+	'v1 over v3- 'v0 v3nor
+	'v1 'v0 v3vec
+	dup 'v1 v3ddot -? ( 'v1 -1.0 v3* ) drop
+	|'v1 v3nor
+	'v1 @+ swap @+ swap @ swap rot
+	;
+
+:calcnormales
+	memvox> >r
+	memvox
+	vertices ( 1? )( 1- swap
+		busco2mascerca	| p p0 p1
+		calculonormal	| p xn yn zn
+		r!+ r!+ r!+ 	| guardo normal
+		16 + swap ) 2drop
+	rdrop
+	;
+
+|--------- archivos
 :memory
 	mark here dup 'memvox ! 'memvox> ! ;
 
@@ -395,7 +474,6 @@
 		@+ "%h " ,print ,cr ) drop
 	"octree.txt" savemem
 	empty ;
-
 
 :dumpoc
 	'levels ( level> <? )(
@@ -410,16 +488,27 @@
 	;
 
 :saveoctree
-	$octree $end over - "media/3do/mm.3do" save ;
-
+	$octree $end over -
+	"media/3do/" 'filename strcpy
+	'filename catdlgname
+	".3do" 'filename strcat
+	'filename save ;
 
 |------------- load import
+
+#last
+:showmem
+	memvox 'last !
+	show clrscr
+		last ( memvox> <? )( >r r@+ r@+ swap "%h:%h " print cr allowchome r> ) drop cr
+		[ -4000 'last +! ; ] <up>
+		[ 4000 'last +! ; ] <dn>
+		'exit >esc<
+	;
+
 :load3dm | "filename" --
 	memvox swap
 	load dup 'memvox> ! 'here !
-| escala----de 1024 a 256
-|	memvox ( memvox> <? )( dup @ 6 >> swap !+ 4+ ) drop
-
 	repetidos
 	getminmax
 	centra
@@ -429,14 +518,25 @@
 :loaddisk3dm
 	"media/3dm" dlgfileload 1? ( load3dm ; ) drop ;
 
+:dump
+	"ROctree 32: " print $end $octree - "mem:%d " print 	cr
+	"ROctree 16: " print $pixels $octree - $end $pixels - 2/ + "mem:%d " print cr
+	"ROctree 8:  " print $pixels $octree - $end $pixels - 2 >> + 1024 + "mem:%d " print cr
+	"ROctreelessm 32: "print $pixels $octree - 4 >> $end $pixels - + "mem:%d " print 	cr
+	"ROctreelessm 16: "print $pixels $octree - 4 >> $end $pixels - 2/ + "mem:%d " print 	cr
+	cr
+	;
+
 |--------------------------
 :main
 	4
 	show clrscr verde
-		dup ":r%d F2-BUILD F3-SAVE F4-OPT+SAVE" print cr
+		cr2
+		dup ":r%d 3dm->Octree Convert  " print
+		"F1-LOAD F2-BUILD F3-SAVE F4-OPT+SAVE" print cr
 
 		vertices "Puntos: %d " print
-		vertices 3 << "mem:%d " print
+|		vertices 3 << "mem:%d " print
 		cr
 		qsize "qsize:%h" print cr
 		xmin xmax "X max:%d min:%d " print
@@ -446,19 +546,9 @@
 		octre> octre - 3 >> "Octree: %d " print
 		octre> octre - 1 >> vertices 2 << + "mem:%d " print
 		cr
-		"ROctree 32: " print
-		$end $octree - "mem:%d " print 	cr
-		"ROctree 16: " print
-		$pixels $octree - $end $pixels - 2/ + "mem:%d " print cr
-		"ROctree 8:  " print
-		$pixels $octree - $end $pixels - 2 >> + 1024 + "mem:%d " print cr
-		"ROctreelessm 32: "print
-		$pixels $octree - 4 >> $end $pixels - + "mem:%d " print 	cr
-		"ROctreelessm 16: "print
-		$pixels $octree - 4 >> $end $pixels - 2/ + "mem:%d " print 	cr
-		cr
-|		memvox ( memvox $3ff + <? )( >r r@+ r@+ "%h:%h " allowcr print r> ) drop cr
-|		memvox> memvox - "mem %d" print cr
+|		memvox ( memvox $fff + <? )( >r r@+ r@+ swap "%h:%h " print cr allowchome r> ) drop cr
+		memvox> memvox "mem %h %h" print cr
+		octre> octre "oct %h %h " print cr
 		$octree "%h " print
 		$lastlev "%h " print
 		$pixels "%h " print
