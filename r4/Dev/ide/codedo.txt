@@ -1,18 +1,18 @@
-| CODEdo (ide)
+ | CODEdo (ide)
 | PHREDA 2013
 |----------------------
 ^r4/lib/gui.txt
 ^r4/lib/btn.txt
 ^r4/lib/input.txt
+^r4/lib/codecolor.txt
 
-^inc/fntm/droidsans13.txt
 ^r4/lib/fontm.txt
-
+^inc/fntm/droidsans13.txt
 ^r4/lib/ricons.txt
 ^inc/ric/fontawesomewebfont.ric
 
-^r4/dev/ide/tokenr4.txt
-^r4/dev/ide/tokenprint.txt
+^r4/system/r4code.txt
+^r4/system/anaword.txt
 
 #ypad
 #error
@@ -26,38 +26,71 @@
 #hist> 'hist
 
 |-----------------------------------------------
-
 :addhist
 	'pad count swap hist> strcat 'hist> +! ;
-|-----------------------------------------------
-
-:showtokens
-	'tokencod ( tokencod> <? )( @+
-		|allowcr
-		tokenstr printx sp
-		) drop
-	;
 
 |-----------------------------------------------
 :clearpad
 	0 'pad ! refreshfoco ;
 
 :seterror
-	errormsg 'error ! 2
-	poserror >>sp inwordset!
+	errormsg 'error !
 	;
 
-:compila&run
-	'pad str2token
-	1? ( seterror ; ) drop
+|----------------------------------
+:helpmodo
+	;
 
-	0 'error !
-	clearpad
+:memmapv
+	d.TOS memmap
+	;
 
-	stackreset
-|	'tokencod exectoken
-|	padreset
-	stacktotoken
+#voc-system
+"BYE" "HELP" "RESETVM" "MEMMAP"
+( 0 )
+
+#exe-system
+'exit 'helpmodo 'resetvm 'memmapv
+0
+
+:nextw
+    ( c@+ 32 >? )( drop )
+	0? ( drop 1- )( drop )
+	;
+
+:pushnro | val --
+	basen
+	10 =? ( drop d.pushDec ; )
+	2 =? ( drop d.pushBin ; )
+	drop
+	d.pushHex ;
+	;
+
+:palabraconsola | str -- str'
+	( dup c@ 33 <? )( 0? ( nip ; ) drop 1+ )		| quitar espacios
+|	$5e =? ( drop esinclude ; )			| $5e ^  Include
+|	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
+|	$3A =? ( drop esdefinicion ; )		| $3a :  Definicion
+|	$23 =? ( drop esvariable ; )		| $23 #  Variable
+
+|	$22 =? ( drop escadena ; )			| $22 "	 Cadena
+
+	$27 =? ( drop 1+ dup 				| $27 ' Direccion
+		dup ?macro 1? ( 3drop "mACROnOTdIR" mensaje! 0 ; ) drop
+		?palabra 1? ( nip stepadr nextw ; ) 2drop
+		"NOTdIR" seterror 3 - 0 ; )
+	drop
+	dup ?numero 1? ( drop pushnro nip ; ) drop
+	dup ?fnumero 1? ( drop d.pushFix nip ; ) drop
+	dup 'voc-system inupp? 1? ( 1- 2 << 'exe-system + @ exec nextw ; ) drop
+	dup ?macro 1? ( stepmacro nextw ; ) drop
+	dup ?palabra 1? ( stepword nextw ; ) drop
+	2drop 0
+	"NOTfOUND" mensaje! ;
+
+:correconsola
+	'consola ( palabraconsola 0? ) drop
+	0 'consola !
 	;
 
 :showglass
@@ -129,6 +162,7 @@
 	mark
 	sh 2/ dup 2/ + 'ypad !
 	'tokencod 'tokenrun> !
+	startvm
 	;
 
 : m main ;

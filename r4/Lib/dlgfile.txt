@@ -4,92 +4,162 @@
 ^r4/lib/btn.txt
 ^r4/lib/input.txt
 
+^r4/lib/rfont.txt
+^inc/rft/robotoregular.rft
+
+^r4/lib/ricons.txt
+^inc/ric/fontawesomewebfont.ric
+
 ^r4/lib/cursor.txt
-^r4/lib/trace.txt
+|^r4/lib/trace.txt
 
 |---- dlgload
-#buffname )( 1024
-#path
-#wild
+#:dlgfilename )( 1024
+#path )( 1024
 #inif #act #maxf #maxl
+#actpag
+#cntpag
+
+#nfiles
+#files )( 1024
+#files> 'files
+#infos )( 1024
+#infos> 'infos
 
 #filen )( 8192
 #filen> 'filen
-#files )( 4096
-#files> 'files
-#nfiles
+
+:FNAME | adr -- adrname
+|WIN|	44 +
+|AND|	19 +
+	;
+
+:FDIR? | adr -- adr 1/0
+|WIN|	@ $10
+|AND|	18 + c@ 4
+	=? ( 1 )( 0 ) nip ;
 
 :inifile
 	0 'nfiles !
 	'filen 'filen> !
 	'files 'files> !
-	path "%s\\*.*" mprint
-	ffirst drop fnext drop fnext | quita . y ..
-	( 1? )(
+	'infos 'infos> !
+	'path ffirst drop fnext drop | quita . y ..
+	( fnext 1? )(
 		filen> files> !+ 'files> !
-		44 + filen> strcpyl 'filen> !
-		fnext ) drop
+		dup FDIR? infos> !+ 'infos> !
+		FNAME filen> strcpyl 'filen> !
+		) drop
 	files> 'files - 2 >> 'nfiles !
-	;
 
-:file | n -- ""
-	nfiles >=? ( drop 0 ; )
-	2 << 'files + @ ;
+	robotoregular 32 rfont!
+	-0.38 0 fpos 0.4 0.71 fdim home
+	rows 2/ dup 2/ + 'maxl !
+	0 'inif !
+	nfiles maxl 2* / 'cntpag !
+	0 'actpag ! ;
 
 :clickf
 	dup 'act !
-	dup file 'buffname strcpy
-	exit
-	;
+	dup 2 << 'files + @ 'dlgfilename strcpy
+	exit ;
 
-:actinpage
-	act inif <? ( maxl neg 'inif +! )
-	inif maxl 3 * >? ( maxl 'inif +! )
-	drop ;
+:clickc
+	 "/" 'path strcat
+    dup 2 << 'files + @ 'path  strcat
+	inifile ;
+
+:escarpeta
+	amarillo oscuro
+	'clickc over 2 << 'files + @
+	8 btntf ;
+
+:cadafile | n -- n
+	nfiles >=? ( ; )
+	dup 2 << 'infos + @
+	1? ( drop escarpeta ; ) drop
+	negro 'clickf over 2 << 'files + @
+	8 btntf ;
+
+:clicka
+	'path ( c@+ 1? )( drop ) drop 1-
+	( 'path >? )(
+		dup c@ $2f =? ( drop 0 swap ! inifile ; )
+		drop 1- ) drop
+	inifile ;
+
+:boton>
+	inif maxl 2* + nfiles >? ( drop ; ) drop
+	64 qdim 0.86 0 fpos
+	[ 1 'actpag +! inif maxl 2* + 'inif ! ; ] dup <pgdn> guiBtn
+	blanco 'i.angle_right drawric ;
+
+:boton<
+	inif 0? ( drop ; ) drop
+	64 qdim -0.85 0 fpos
+	[ -1 'actpag +! inif maxl 2* - 'inif ! ; ] dup <pgup> guiBtn
+	blanco 'i.angle_left drawric ;
+
+:setpag | nro -- nro
+	dup 'actpag !
+	maxl 2* * 'inif ! ;
 
 :showload
 	oscurecetodo
-	0 0 fpos 0.9 0.9 fdim
-	gris gc.box
-	4 'w +! 4 'h +!
-	blanco gc.box
+	0 dup fpos 0.9 dup fdim
+	$88 ink gc.fbox
+
 	>xfb
 	inifile
-	0 'act !
-	0 'inif !
-	rows 3 - 2 3 */ 'maxl !
+	0 dup 'act ! 'inif !
 	show xfb>scr
+		0 dup fpos 0.88 0.86 fdim
+		home
+  		32 qdim qpos
+        rojo [ 0 'dlgfilename ! exit ; ] dup >esc< btn
+		blanco 'i.remove drawric
+		gc>> verde
+		[ act clickf drop ; ] dup >enter< btn
+		blanco 'i.ok drawric
+		gc>> gc>> amarillo
+		'clicka btn
+		negro 'i.arrow_left drawric
+		gc>> tpos
+		blanco 'dlgfilename 'path " [ %s/%s ] " print
+		boton< boton>
+		inif
+		0.4 0.71 fdim
+		-0.40 0 fpos home
+		0 ( maxl <? )( swap cadafile cr cr2 1+ swap 1+ ) drop
+		0.44 0 fpos home
+		0 ( maxl <? )( swap cadafile cr cr2 1+ swap 1+ ) drop
+		drop
 
-		0 0 fpos 0.9 0.9 fdim
-		home cr2
-		verde "  ARCHIVO :" print
-		blanco 'buffname 64 input
-		rojo sp [ 0 'buffname ! exit ; ] dup >esc< "ESC-X" link
-		verde sp [ act clickf drop ; ] dup <enter> "ENTER-O" link
-		cr cr
-		chome!
-		inif ( act =? ( verde )( negro )
-			dup file 1? )(
-			wild strwild 1? ( drop
-				'clickf swap 16 sp sp btntf cr cr2
-				allowchome
-				)( 2drop )
-			1+ ) drop 1- 'maxf !
-		[ act maxf <? ( 1+ ) 'act ! ; ] <dn>
-		[ act 1? ( 1- ) 'act ! ; ] <up>
-		[ act maxl + maxf <=? ( dup 'act ! ) drop ; ] <ri>
-		[ act maxl - 0 >=? ( dup 'act ! ) drop ; ] <le>
-		[ inif maxl + maxf <? ( 'inif ! ) drop ; ] <pgup>
-		[ inif maxl - 0 >=? ( 'inif ! ) drop ; ] <pgdn>
-
+		0 -0.9 fpos 0.8 0.15 fdim home
+		cyan
+  		16 qdim qpos
+		0 ( cntpag <=? )(
+			'setpag guiBtn
+			actpag =? ( gris )( blanco )
+			'i.circle drawric
+			gc>>
+			1+ ) drop
 		cmano ;
 
-| "path" "wild"
-::dlgfileload | "path" "wild" -- "fullname"
-	'wild ! 'path !
+::dlgfileload | "path" -- "fullname"/0
+	'path strcpy
 	showload
-	'buffname ;
+	dlgfilename 0? ( ; ) drop
+	"/" 'path strcat
+	'dlgfilename 'path  strcat
+	'path ;
 
-::dlgfilename | -- "name"
-	'buffname ;
-
+#last
+::catdlgname | 'var --
+	( c@+ 1? )( drop ) drop 1-
+	0 'last !
+	'dlgfilename
+	( c@+ 1? )(
+		$2e =? ( pick2 'last ! )
+		rot c!+ swap ) rot c! drop
+	0 last 0? ( 2drop ; ) c! ;
