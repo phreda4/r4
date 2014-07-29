@@ -30,43 +30,6 @@
 #nroerror 0
 #:poserror 0
 
-|---- Compila programa
-:,, | n --
-	tokencod> !+ 'tokencod> ! ;
-
-:,ctesimilar | n -- d  ; buscar iguales. muy lento si son muchos!!
-	'tokencte ( tokencte> <? )( @+
-		pick2 =? ( drop nip 'tokencte 4+ - ; )
-		drop ) drop
-:,cte | n -- d
-	tokencte> swap over !+ 'tokencte> ! 'tokencte - ;
-
-:rstr | c --
-	tokenmem> c!+ 'tokenmem> ! ;
-
-:realstr | cad -- cad'
-	( 1+ dup c@ 1? )(
-		34 =? ( drop 1+ dup c@ 34 <>? ( drop 0 rstr ; ) )
-		rstr ) rstr ;
-
-:,str | a -- a' d
-	tokenmem> swap realstr swap 'tokenmem - ;
-
-:realcom
-	( 1+ dup c@ 1? )(
-		32 <? ( drop 0 rstr ; )
-		rstr ) rstr ;
-:,com | a -- a' d
-	tokenmem> swap realcom swap 'tokenmem - ;
-
-:realtok
-	( 1+ dup c@ 1? )(
-		33 <? ( drop 0 rstr ; )
-		rstr ) rstr ;
-
-:,word | a -- a' d
-	tokenmem> swap realtok swap 'tokenmem - ;
-
 :escom
 	( c@+ 1? )( 14 <? ( drop 1- ; ) drop ) drop 1- ;
 :escad
@@ -84,7 +47,7 @@
 	'auxstr over copynom
 	here 'auxstr load	| carga include
 	here =? ( 2 'nroerror ! drop 0 ; )
-	here pick2 indiceinc> !+ !+ 0 0 rot !+ !+ 'indiceinc> !
+	here pick2 indiceinc> !+ !+ 0 dup rot !+ !+ 'indiceinc> !
 	0 swap c!+ 'here !
 	pasapal ;
 
@@ -95,39 +58,29 @@
 	$5e =? ( drop esinc ; )		| $5e ^  Include
 	drop pasapal ;
 
-:loadincludes | fuente --
+::loadincludes | str -- err/0
 	( includepal 0? ) drop 'poserror !
-	nroerror 1? ( drop ; )
+	nroerror 1? ( ; )
 	( drop indiceinc>
 		'indiceinc ( indiceinc> <? )(
 			4+ @+
 			( includepal 0? ) drop 'poserror !
-			nroerror 1? ( 4drop ; ) drop
+			nroerror 1? ( nip nip ; ) drop
 			8 + ) drop
-		indiceinc>
-		=? )
-	drop ;
-
-:realinc | str --
-	mark
-	here swap 1-
-	esinc drop
-	loadincludes
-	| compilar los includes, luego liberar mem src
-	empty
-	;
+		indiceinc> =? )
+	drop 0 ;
 
 |----------- genera token
 :essistema	| str n -- str
 	8 << ,, ;
 :esdefe | str -- str
 	2 word+!
-	1+ ,word 8 << 1 or ,, ;
+	1+ ,word 8 << 2 or ,, ;
 :esdef | str -- str
 	1 'modocomp !
 	dup 1+ c@ $3A =? ( drop esdefe ; ) drop
 	0 word+!
-	,word 8 << 2 or ,, ;
+	,word 8 << 1 or ,, ;
 
 :esvare | str -- str
 	3 word+!
@@ -143,7 +96,10 @@
 
 :esinclude | str -- str
 	,word dup 8 << 6 or ,,
-	'tokenmem + realinc ;
+
+	'tokenmem + |realinc ****** parseo aqui
+	drop
+	;
 
 :tiponro | -- tipon
 	basen
@@ -153,18 +109,19 @@
 	-1 =? ( drop 10 ; )
 	drop ;
 :esnro | val --
-	,ctesimilar 8 << tiponro or ,, ;
+|	,ctesimilar 8 << tiponro or ,, ;
+	,cte 8 << tiponro or ,, ;
 :escadena | str -- str
 	,str 8 << 11 or ,, ;
 
 :espalabra | dir --
-	adr>dic
-	8 << 12 or ,,
+	dup 8 + @ %10 and? ( 13 )( 12 ) nip
+	swap adr>dic 8 << or ,,
 	pasapal ;
 
 :esdir | dir --
-	adr>dic
-	8 << 14 or ,,
+	dup 8 + @ %10 and? ( 15 )( 14 ) nip
+	swap adr>dic 8 << or ,,
 	pasapal ;
 
 |--- Compila saltos
@@ -278,8 +235,7 @@
 
 ::errormsg | nro -- ""
 	1- 'errormsgl swap
-	( 1? )( swap >>0 swap ) drop
-	;
+	( 1? )( 1- swap >>0 swap ) drop ;
 
 |----------- DEBUG ---------------
 
