@@ -5,13 +5,13 @@
 |---- includes
 | 'string|'mem|first|last
 |  0      4    8     12
-#:indiceinc )( $7fff
+#:indiceinc )( $fff		| 255 includes
 #:indiceinc> 'indiceinc
 
 |---- diccionario
 | str|token|info|???   16 bytes por palabra
 | 0      4     8   12
-#:indicepal )( $fffff
+#:indicepal )( $7ffff	| 32k palabras
 #:indicepal> 'indicepal
 #:indicepal< 'indicepal
 
@@ -58,6 +58,7 @@
 		@+ pick2 =s 1? ( drop nip 4 - ; ) drop
 		12 + ) 2drop 0 ;
 
+
 ::word+! | tipo --
 	indicepal> >r
 	tokenmem> r!+	| str del nombre
@@ -66,14 +67,57 @@
 	0 r!+			| mem?
 	r> 0 over ! 'indicepal> ! ;
 
+|---- Compila programa
+::,, | n --
+	tokencod> !+ 'tokencod> ! ;
+
+::,ctesimilar | n -- d  ; buscar iguales. muy lento si son muchos!!
+	'tokencte ( tokencte> <? )( @+
+		pick2 =? ( drop nip 'tokencte 4+ - ; )
+		drop ) drop
+::,cte | n -- d
+	tokencte> swap over !+ 'tokencte> ! 'tokencte - ;
+
+:rstr | c --
+	tokenmem> c!+ 'tokenmem> ! ;
+
+:realstr | cad -- cad'
+	( 1+ dup c@ 1? )(
+		34 =? ( drop 1+ dup c@ 34 <>? ( drop 0 rstr ; ) )
+		rstr ) rstr ;
+
+::,str | a -- a' d
+	tokenmem> swap realstr swap 'tokenmem - ;
+
+:realcom
+	( 1+ dup c@ 1? )(
+		32 <? ( drop 0 rstr ; )
+		rstr ) rstr ;
+::,com | a -- a' d
+	tokenmem> swap realcom swap 'tokenmem - ;
+
+:realtok
+	( 1+ dup c@ 1? )(
+		33 <? ( drop 0 rstr ; )
+		rstr ) rstr ;
+
+::,word | a -- a' d
+	tokenmem> swap realtok swap 'tokenmem - ;
+
+|----------------------------
 ::dumpdic
-|	"includes" print cr
-|	'indiceinc ( indiceinc> <? )(
-|		@+ allowcr "%w" print sp
-|		12 + ) drop cr
+	verde
+	"includes" print cr
+	amarillo
+	'indiceinc ( indiceinc> <? )(
+		@+ "%w " print
+		@+ "%h " print
+		8 + cr ) drop
+	violeta
 	"words" print cr
+	verde
 	'indicepal ( indicepal> <? )(
-		@+ print sp
+		@+ "%s " print
 		@+ "%h " print
 		@+ "%h " print
 		@+ "%h " print cr
