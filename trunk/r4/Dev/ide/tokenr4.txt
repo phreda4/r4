@@ -1,32 +1,16 @@
-| token r4
-| PHREDA 2013
+| token r4 v.2
+| PHREDA 2014
 |----------------------------------
-| 0
-| 1 :
-| 2 ::
-| 3 #
-| 4 #:
-| 5 |
-| 6 ^
-| 7 dec
-| 8 hex
-| 9 bin
-| A fix
-| B str
-| C wor
-| D var
-| E dwor
-| F dvar
-| 10.. macro ; ..
-|----------------------------------
+
 ^r4/lib/macrosr4.txt
 ^r4/dev/ide/diccr4.txt
-^r4/dev/ide/tokenrun.txt
+|^r4/dev/ide/tokenrun.txt
 ^r4/dev/ide/tokenprint.txt
 
 ^r4/lib/trace.txt
 
 #modocomp 	| modo compilador 0-nada 1-def 2-var
+#:cntwords
 
 #:poserror 0
 #nroerror 0
@@ -46,7 +30,6 @@
 :c.push pilac> !+ 'pilac> ! ;
 :c.pop -4 'pilac> +! pilac> @ ;
 :c.cnt pilac> 'pilac - ;
-
 
 :escom
 	( c@+ 1? )( 13 =? ( drop 1- ; ) drop ) drop 1- ;
@@ -87,9 +70,14 @@
 	drop 0 ;
 
 |----------- genera token
+:calclen
+	indicepal> 4 - tokencod> over 8 - @ - 2 >> 20 << swap !		| graba largo (falta sin ;)
+	;
+
 :cerrarpalabra | -- guardar info de ultima definicion
 	c.cnt 1? ( 9 'nroerror ! 0 rdrop ; ) drop |	testear el c.pila... debe estar en 0
-	0 'salto ! ;
+	0 'salto ! 
+	calclen ;
 
 :essistema	| str n -- str
 	8 << ,, ;
@@ -140,19 +128,12 @@
 	escom ;								| no graba comentarios
 |	,com 8 << 5 or ,, ; 				| *****graba comentarios
 
-|......................
-|:esinclude | str -- str
-|	,word dup 8 << 6 or ,,
-|	'tokenmem + |realinc ****** parseo aqui
-|	drop
-|	;
-|......................
-
 :esinclude | a -- a' b'
-|	,word dup 8 << 6 or ,,
+
+|	,word dup 8 << 6 or ,,	| si quiere grabar el token..
+
 	1+ dup ( c@+ $ff and 32 >? )( drop ) drop 1-
 	swap
-|	dup memmap
 	include? 1? (
 		4+ dup @	| inc+4 cod
 		1? ( over 4 - dup @ pinc> !+ !+ 'pinc> !	| guarda nombre y dir include
@@ -168,6 +149,7 @@
 	16 =? ( drop 8 ; )
 	-1 =? ( drop 10 ; )
 	drop ;
+
 :esnro | val --
 	0 'salto !
 	,cte 8 << tiponro or ,, ;
@@ -198,8 +180,7 @@
 
 |--- calculo de longitud
 :finpalabra
-	0 'modocomp !
-	;
+	0 'modocomp ! ;
 
 |---  Macros
 :c;     c.cnt 0? ( finpalabra ) drop ; | falta si bloque no esta nivelado
@@ -251,8 +232,8 @@
 	pasapal ;
 
 :esmacro
-	modocomp 2 =? ( drop esmacrod ; ) drop
 	dup 15 + ,,
+	modocomp 2 =? ( drop esmacrod ; ) drop
 	7 <? ( dup 1- 2 << 'amacro + @ exec 0? ( nip pasapal ; ) )
 	7 >? ( 20 <? ( 1 )( 0 ) )( 0 ) 'salto ! | despues del exec !!!
 	drop
@@ -334,24 +315,13 @@
 |	'indicepal dup 'indicepal< !
 |	"main" 'pinc !+ !+ 'pinc> !	| 1er include es el codigo
 
-	0 swap |dup 					| 0 adr adr
+	0 swap 					| 0 adr
 	( ( compilatoken 0? ) drop
 		nroerror 1? ( ( 1? )( drop ) drop nroerror ; ) drop | corta si hay error
 		1? ( |indicepal> indicepal< pinc> 4 - @ 8 + !+ !	| graba fuente de palabras
 			indicepal> 'indicepal< ! )	| ignorar locales si es un include
 		-8 'pinc> +!					| desapila includes
-		0? )
-	drop
+		0? ) drop
+|	calclen
+	indicepal> 'indicepal - 4 >> 1- 'cntwords !
 	nroerror ;
-
-|-----------------------
-#lista 10 16 2 -1
-
-:setbasen | base --
-	7 - 2 << 'lista + @ 'basen ! ;
-
-::stacktotoken
-	'dpila ( dpila> <? )(
-		@+ setbasen @+ esnro
-		) drop
-	;
