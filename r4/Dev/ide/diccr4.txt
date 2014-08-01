@@ -11,8 +11,30 @@
 #:indiceinc> 'indiceinc
 
 |---- diccionario
-| str|token|info|???   16 bytes por palabra
+| str|token|info|mov  	16 bytes por palabra
 | 0      4     8   12
+| >str		->tokenmem
+| >>token	->tokencod
+| >>>info
+| bit  significado
+| 1		0 accion 1 dato
+| 2		0 local 1 exportado
+| 3		0 un ; 1 varios ;
+| 4		0 no usas R(A) 1 usa R(A) .. R(A) es cuando R se usa como auxiliar
+| 5		1 es usado con direccion
+| 6
+|
+| 13-23		llamadas (10 bits)
+| 24-32		nivel	(8 bits)
+|
+| 16-32 largo palabra (en tokens)
+| >>>>mov
+| byte	significado
+| 1		dD (-128..127)
+| 2     dU (-128..127)
+| 3/    dR ( -8..7 )
+| /4	largo en tokens (12 bits)
+|-----------------
 #:indicepal )( $7ffff	| 32k palabras
 #:indicepal> 'indicepal
 #:indicepal< 'indicepal
@@ -25,21 +47,22 @@
 #:tokenmem )( $ffff
 #:tokenmem> 'tokenmem
 
-::dic>str	4 << 'indicepal + ;			| n -- %a
-::dic>tok	4 << 'indicepal + 4+ ;		| n -- %a
-::dic>mem	4 << 'indicepal + 8 + ; 	| n -- m
-::dic>inf	4 << 'indicepal + 12 + ;	| n -- %a
+::dic>str	4 << 'indicepal + ;
+::dic>tok	4 << 'indicepal + 4+ ;
+::dic>inf	4 << 'indicepal + 8 + ;
+::dic>mov	4 << 'indicepal + 12 + ;
+
+::dic>len@	dic>mov @ 20 >> $fff and ;
+::dic>call@	dic>inf @ 13 >> $3ff and ;
 
 ::tok>cte	8 >> 'tokencte + @ ;	| tok -- nro
 ::tok>mem	8 >> 'tokenmem + ;		| tok -- adr
 ::tok>name	8 >> dic>str @ ;
 
-
 ::diccreset
 	'indicepal dup
 	'indicepal> ! 'indicepal< !
 	'indiceinc 'indiceinc> !
-::padreset
 	'tokencod 'tokencod> !
 	'tokencte 'tokencte> !
 	'tokenmem 'tokenmem> !
