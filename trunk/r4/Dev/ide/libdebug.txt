@@ -13,6 +13,9 @@
 #filename )( 1024
 #code
 #error
+#rsize 40
+#iniword
+
 
 :tokeniza
 	diccreset
@@ -20,28 +23,37 @@
 	code code2token 1? ( errormsg 'error ! ; ) drop
     tokenpost
 	"Ok." 'error !
+	cntwords rsize - 1+ 'iniword !
 	;
 
-#iniword
+
+:fixbin | nro bits --
+	( 1? )( 1- swap
+		1 and? ( "1" )( "0" ) printx
+		2/ swap ) 2drop ;
 
 :drawline | nro -- nro
 	cntwords >? ( ; )
+	blanco
 	dup 4 << 'indicepal +
 	@+ "%s" print
+	@+ swap |"%h" print
 	10 col
-	@+ "%h" print
-	18 col
-	@+ "%h" print
-	30 col
+	@+
+	dup 12 >> $fff and
+	0? ( 4drop ; )	| si no es llamada no mostrar
+	"%d-" print
+	$fff and 12 fixbin |"%b" print
+	25 col
 	@
 	dup 24 << 24 >> "d%d " print
 	dup 16 << 24 >> "u%d " print
 	dup 12 << 24 >> "r%d " print
-	20 >> $fff and "(%d)
- print
+	20 >> $fff and "(%d)" print
+	over dic>len@ ( 1? )( 1- swap @+ tokencolor tokenstr print sp swap ) 2drop
+
 	;
 
-#rsize 48
 :drawwords
 	iniword
 	rsize ( 1? )( 1- swap
@@ -65,17 +77,19 @@
 	;
 :main
 	0 'iniword !
+
 	"wait" 'error !
 	4
 	show clrscr
 		fonti
 		dup "%d " print
 		error 'filename "%s %s" print cr
-
+		tokencod> "%h " print cr
 		drawwords
+
 |		stackinc
 |		dumpinc
-|        dumpdic
+|		dumpdic
 |		codeprint
 
 		[ iniword cntwords rsize - <=? ( 1+ ) 'iniword ! ; ] <dn>

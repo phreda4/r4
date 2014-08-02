@@ -5,12 +5,13 @@
 ^r4/dev/ide/tokenr4.txt
 
 #nivel	0
+
 #usoD	0
 #deltaD	0	| pila de datos
 #deltaR	0	| pila de retorno
 #flags	0
 #cntfin
-#pano
+#pano		| anonima
 #cano
 
 #deltaD1fin | pila de datos en el 1er fin
@@ -67,7 +68,7 @@
 2 -2 0 0	|2DROP ab --
 3 -3 0 0	|3DROP abc --
 4 -4 0 0	|4DROP abcd --
-4 2 0 0		|2OVER  abcd -- abcdab
+4 2 0 0		|30 2OVER  abcd -- abcdab
 4 0 0 0		|2SWAP  abcd -- cdab
 1 -1 1 8	|>R    a -- R: -- a
 0 1 -1 8	|R>    -- a R: a --
@@ -76,14 +77,14 @@
 0 1 0 8		|R@+    -- a R: b -- c
 1 -1 0 8	|R!+   a -- R: b -- c
 0 0 -1 8	|RDROP	R: a --
-2 -1 0 0	|53 AND	ab -- c
+2 -1 0 0	|AND	ab -- c
 2 -1 0 0	|OR    ab -- c
 2 -1 0 0	|XOR   ab -- c
 1 0 0 0		|NOT    a -- b
 2 -1 0 0	|+		ab -- c
 2 -1 0 0	|-     ab -- c
 2 -1 0 0	|*     ab -- c
-2 -1 0 0	|/     ab -- c
+2 -1 0 0	|40 /     ab -- c
 3 -2 0 0	|*/    abc -- d
 3 -2 0 0	|*>>   abc -- d
 2 0 0 0		|/MOD   ab -- cd
@@ -99,7 +100,7 @@
 1 0 0 0		|2/     a -- b
 1 0 0 0		|2*     a -- b
 2 -1 0 0	|<<    ab -- c
-2 -1 0 0	|76 >>    ab -- c
+2 -1 0 0	|50 >>    ab -- c
 1 0 0 0		|@      a -- b
 1 0 0 0		|C@     a -- b
 1 0 0 0		|W@     a -- b
@@ -110,12 +111,12 @@
 2 -2 0 0	|C+!   ab --
 2 -2 0 0	|W+!   ab --
 1 1 0 0		|@+     a -- bc
-2 -1 0 0	|!+    ab -- c
+2 -1 0 0	|5b !+    ab -- c
 1 1 0 0		|C@+    a -- bc
-2 -1 0 0	|C!+   ab -- c
+2 -1 0 0	|5d C!+   ab -- c
 1 1 0 0		|W@+    a -- bc
-2 -1 0 0	|W!+   ab -- c
-3 -3 0 0	|MOVE  abc --
+2 -1 0 0	|5f W!+   ab -- c
+3 -3 0 0	|60 MOVE  abc --
 3 -3 0 0	|MOVE> abc --
 3 -3 0 0	|CMOVE abc --
 3 -3 0 0	|CMOVE> abc --
@@ -220,7 +221,7 @@
 	-4 'sst> +! sst> @ ;
 
 :usaR
-	$1 flags or 'flags ! ;
+	$8 flags or 'flags ! ;
 
 |--- Anonimas
 :es[
@@ -232,15 +233,11 @@
     -1 'pano +! ;
 
 |----- CONDICIONALES
-:salto? | -- 1/0
-	dup 8 - @ $ff and
-	18 >? ( 31 <? ( drop 1 ; ) )
-	drop 0 ;
+:salto? | adr -- 1/0
+	dup 8 - @ $ff and $16 >? ( $21 <? ( drop 1 ; ) ) drop 0 ;
 
-:;?
-	dup 8 - @ $ff and
-	12 =? ( drop 1 ; )
-	drop 0 ;
+:;?		| adr -- 1/0
+	dup 8 - @ $ff and $10 =? ( drop 1 ; ) drop 0 ;
 
 :es(
 	pushvar
@@ -277,8 +274,9 @@
 | adr adrt t tabla
 :esPal | palabra
 	dup 4 - @ 8 >>
-	pick3 =? ( drop $8 flags or 'flags ! ; ) | es recursiva?
+	pick3 =? ( drop $20 flags or 'flags ! ; ) | es recursiva?
 	dic>mov @
+|*****
 	dup 16 << 24 >> 1+ 'nivel !
 	dup 24 << 24 >> usoDcalc
 |	dup 24 >> 'deltaR +! | no se propaga, es flujo de ejecucion
@@ -293,6 +291,7 @@
 :esExe | calcular deltaD de palabra llamada
 	lastdircode	| averiguar palabra en pila !!!
 	dic>mov @
+|*******
 	dup 16 << 24 >> 1+ 'nivel !
 	dup 24 << 24 >> usoDcalc
 |	dup 24 >> 'deltaR +! | no se propaga, es flujo de ejecucion
@@ -305,8 +304,8 @@
 
 #acct 0 esPal es( es)( es) es[ es] esFin usaR esStr esExe esWordV
 
-:prosstoken | a -- a.
-	@+ $ff and 2 << 'deltainternos +
+:prosstoken | t --
+	2 << 'deltainternos +
 	c@+ usoDcalc
 	c@+ 'deltaD +!
 	c@+ 'deltaR +!
@@ -314,18 +313,17 @@
 
 |-----------------------------
 :resetvars | --
-	0 'usoD !
-	0 'deltaD !
-	0 'deltaR !
-	0 'nivel !
-	0 'flags !
-	0 'cntfin !
-	0 'pano !
-	0 'cano !
+	0 dup 'usoD !
+	dup 'deltaD !
+	dup 'deltaR !
+	dup 'nivel !
+	dup 'flags !
+	dup 'cntfin !
+	dup 'pano !
+	'cano !
 	'pilaint 'pilaint> !
-	 'sst 'sst> !
-	$ffff 'deltaD1fin !
-	;
+	'sst 'sst> !
+	$ffff 'deltaD1fin ! ;
 
 |:inlinemark
 |	$71000 nand? (  | no dir, no R, no ;;, no []
@@ -337,6 +335,8 @@
 |	;
 
 :setvars | nro -- nro
+	;
+:a
 	deltaR 8 <<
 
 	deltaD1fin $ffff =? ( deltaD nip ) | 1er fin de varios
@@ -345,22 +345,26 @@
 	nivel $ff and or 8 <<
 	usoD $ff and or
 	over dic>mov !
-	cntfin 1 >? ( $2 flags or 'flags ! ) drop
-	cano 1? ( $4 flags or 'flags ! ) drop
+	cntfin 1 >? ( $4 flags or 'flags ! ) drop	| +1;
+	cano 1? ( $20 flags or 'flags ! ) drop 		| anon
+
 |	flags 16 << over nro>inf
 |	dup @ rot or
 |	inlinemark | inline flag
 |	swap ! | acumula flags
 	;
 
+
 |----- analiza codigo
 :analisiscode | nro -- nro
 	resetvars
-	dup dic>len@
-	( 1? )( 1- swap	prosstoken swap ) 2drop
+	dup dic>tok @ over dic>len@
+	( 1? )( 1- >r
+		@+ $ff and prosstoken
+		r> ) 2drop
 	setvars ;
 
-|-----------------
+|----- externa
 :tokpal | tok -- userd Dstack Rstack
 	8 >>
 ::nro>udr | nro -- userd Dstack Rstack
@@ -378,64 +382,6 @@
 	c@+ swap
 	c@ ;
 
-|---- llamadas entre palabras
-#pilapend>		| pila de pendientes
-
-:addw | w --
-	pilapend> !+ 'pilapend> ! ;
-
-:+call | n --
-:addcall | n -- nant
-	dic>mov dup @ dup $10000 + rot ! 16 >> ;
-
-:useaddr | n --
-	dic>inf dup @ $10 or swap ! ;
-
-:overcode | valor xx -- valor xx
-	over 8 >> dup addcall 0? ( over addw ) 2drop ;
-
-:overdire | valor xx -- valor xx
-	over 8 >> dup addcall 0? ( over addw ) drop useaddr
-|-------------------- caso !+ w!+ c!+
-	pick2 @ $ff and
-	85 <? ( drop ; ) 92 >? ( drop ; ) | CONTROLAR PALABRA
-	drop
-	over 8 >> 1+ useaddr
-|--------------------
-	;
-
-:reccod | nrop -- nrop
-	dup dic>len@
-	( 1? )( 1- swap
-		@+ dup $ff and
-		$c =? ( overcode ) | call word
-		$d =? ( overcode ) | var
-		$e =? ( overdire ) | dir word
-		$f =? ( overdire ) | dir var
-		2drop swap ) 2drop
-	;
-
-:recdat | nrop -- nrop
-	dup 4 << 'indicepal + 4+ @
-	( @+ dup $ff and
-		5 <? ( 0 nip ) | corta con defc,defv
-		1? )( 	 | dirv n c
-		$c =? ( overdire ) | call word (dir word)
-		$d =? ( overdire ) | var (dir var)
-		$e =? ( overdire ) | dir word
-		$f =? ( overdire ) | dir var
-		2drop )
-	3drop
-	;
-
-|----------- indice de usadas
-#indexw
-#:cntw
-
-::ind2nro | nroindex -- nroreal
-	2 << indexw + @ ;
-
-
 |----- analiza variable
 #cntdv     | dir vars
 #cntdc     | dir codigo
@@ -446,12 +392,12 @@
 :copydeltaS | ar v -- ar v
 	over 4 - @ 8 >> dic>mov @ 'deltaS ! ;
 
-:sumavars
-	6 >? ( 11 <? ( over 4 - @ tok>cte 1? ( 1 'cntn0 +! ) drop  ) )		| NRO
+:sumavars | adr c -- adr
+	$6 >? ( $b <? ( over 4 - @ tok>cte 1? ( 1 'cntn0 +! ) drop  ) )		| NRO
 	$b =? ( 1 'cnts +! )												| string
 	$c =? ( 1 'cntdc +! copydeltaS ) $e =? ( 1 'cntdc +! copydeltaS )	| word y dir word
 	$d =? ( 1 'cntdv +! ) $f =? ( 1 'cntdv +! )							| var y dir var
-	;
+	drop ;
 
 |--- info de variables
 | valor               0
@@ -464,7 +410,7 @@
 | lista strings       7
 | estructura multiple 8
 |--------------------
-:decodeinfov | cnt -- cnt iv
+:decodeinfov | -- iv
 	cntdv cntdc or cnts or
 	0? ( drop 2 <? ( 0 ; ) 4 ; ) drop | todos numeros
 	cntdv cntdc or
@@ -473,57 +419,94 @@
 	0? ( drop 2 <? ( 2 ; ) 6 ; ) drop | direccion de codigo
 	2 <? ( 1 )( 5 ) ;                 | direccion de dato
 
-
 :analisisvar |  nro -- nro
-	0 'deltaS !
-	0 'cntdv !
-	0 'cntdc !
-	0 'cnts !
-	0 'cntn0 !
-	0 over dic>tok
-	( @+ $ff and 2 >? )( 	 | dirv n c
-		sumavars
-		18 <? ( drop swap 1+ swap )( drop )
-		) 2drop
-	decodeinfov 16 <<
-	pick2 dic>inf @ or pick2 dic>inf !
-	over 4 << 'indicepal + 12 + !
-	deltaS over dic>mov !
+	0 dup 'deltaS !
+	dup 'cntdv ! dup 'cntdc !
+	dup 'cnts !
+	'cntn0 !
+	dup dic>tok @ over dic>len@
+	( 1? )( 1- >r
+		@+ $ff and sumavars
+		r> ) 2drop
+
+|	decodeinfov 16 <<
+
 	;
+|	( @+ $ff and 2 >? )( 	 | dirv n c
+|		sumavars
+|		18 <? ( drop swap 1+ swap )( drop )
+|		) 2drop
+|	decodeinfov 16 <<
+|	pick2 dic>inf @ or pick2 dic>inf !
+|	deltaS over dic>mov !
+|	;
 
-
-:diccmap | 'vector --
-	0 ( cntwords <=? )(
-		dup dic>call@ 1? ( pick2 exec )( drop )
-		1+ ) 2drop ;
-
-:analisis
-	drop
-	dup 4 << 'indicepal + 8 + @
-	1 and? ( drop analisisvar ; )
+|----
+:analisis | nro -- nro
+	dup dic>inf @ 1 and? ( drop analisisvar ; )
 	drop analisiscode ;
 
-:analisis+prof
-	here 'indexw !
-	[ drop dup , ; ] diccmap
-	here indexw - 2 >> 1- 'cntw !
-	'analisis diccmap
+|----------------------------
+|---- Arbol de llamadas
+|----------------------------
+:+call | n --
+	dic>inf dup @ $1000 + swap ! ;
+
+:overcode | stack adr tok ctok -- stack adr .tok .ctok
+	drop 8 >> dup
+	dic>inf dup
+	@ dup $1000 + rot !		| +call
+	$3ff000 and 1? ( ; )	| n v
+	drop rot !+ swap
+	dup dup ;
+
+|--------- caso !+ w!+ c!+
+:nextis!+ | stack adr v -- stack adr v v
+	over @ $ff and
+	$5b =? ( ; ) | !+
+	$5d =? ( ; ) | c!+
+	$5f =? ( ; ) | w!+
+	over 1+ dic>inf dup @ $10 or swap !	| set adr!
 	;
 
+:overdire | stack adr tok ctok -- stack adr .tok .ctok
+	drop 8 >> dup
+	dic>inf dup
+	@ dup $1000 + $10 or rot !		| +call y adr!
+	$3ff000 and 1? ( drop nextis!+ ; )	| n v
+	drop rot !+ swap
+	dup nextis!+ ;
+
+:rcode | stack nro -- stack
+	dup dic>tok @ swap dic>len@
+	( 1? )( 1- >r
+		@+ dup $ff and
+		$c =? ( overcode ) | call word
+		$d =? ( overcode ) | var
+		$e =? ( overdire ) | dir word
+		$f =? ( overdire ) | dir var
+		2drop r> ) 2drop ;
+
+:rdata | stack nro -- stack
+	dup dic>tok @ swap dic>len@
+	( 1? )( 1- >r
+		@+ dup $ff and
+		$c >=? ( $f <=? ( overdire ) )
+		2drop r> ) 2drop ;
 
 |--------- COMPILA TOKENS 2da PASADA
 ::tokenpost
-	|-------- arbol de llamadas
-	mark
-	cntwords dup addcall drop
-	here !+ 'pilapend> !
-	( pilapend> here >? )(
-		4 - dup 'pilapend> ! @ | palabra a agregar
-		dup 4 << 'indicepal + 8 + @
-		%1 and? ( drop recdat )( drop reccod )
-		drop )
-	drop
-	empty
 
-	analisis+prof
+	| ...arbol de llamadas...
+	cntwords dup +call here !+
+	( here >? )(
+		4 - dup @
+		dup dic>inf 1 and? ( drop rdata )( drop rcode )
+		) drop
+
+	| ...solo para usadas...
+	0 ( cntwords <=? )(
+		dup dic>call@ 1? ( drop analisis )( drop )
+		1+ ) drop 
+
 	;
