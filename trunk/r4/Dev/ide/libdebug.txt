@@ -16,18 +16,47 @@
 #rsize 40
 #iniword
 
-
 :tokeniza
 	diccreset
 	code loadincludes 1? ( errormsg 'error ! ; ) drop
 	code code2token 1? ( errormsg 'error ! ; ) drop
     tokenpost
 	"Ok." 'error !
-	cntwords rsize - 1+ 
+	cntwords rsize - 1+
 	-? ( 0 nip ) 'iniword !
 	;
 
 
+|--- dibuja movimiento pilas
+:ncar | n car -- car
+	( swap 1? )( 1- swap dup emit 1+ ) drop ;
+
+:printusestack | mov --
+	97 >r
+	dup 16 << 24 >> | usedD
+	neg dup r> ncar >r
+	"--" print
+	over 24 << 24 >> + | deltaD
+	r> ncar >r
+	12 << 28 >>
+	0 <? ( dup " R:--" print neg r> ncar >r )
+	0 >? ( dup " R:" print r> ncar >r )
+	drop rdrop ;
+
+:printcomment | inf --
+	dup 12 >> $fff and
+	0? ( "NOUSO " print )		| no usada
+	drop
+	1 and? ( 
+		$4 nand? ( "CTE " print )	| dato constante
+	)(
+		$20 and? ( "REC " print )	| recursivo
+		$80 and? ( "CON " print )	| continuo (sin ;)
+	)
+	drop
+	;
+
+|----------
 :fixbin | nro bits --
 	( 1? )( 1- swap
 		dup 1 and $30 + emit
@@ -45,15 +74,30 @@
 	dup 12 >> $fff and
 |	0? ( 4drop ; )	| si no es llamada no mostrar
 	"%d-" print
-	$fff and 12 fixbin |"%b" print
+
+printcomment
+|	$fff and 12 fixbin |"%b" print
 	28 col
 	@
-	dup 24 << 24 >> "D%d " print
-	dup 16 << 24 >> "U%d " print
-	dup 12 << 28 >> "R%d " print
+	dup
+	sp printusestack sp
+
+|	dup 24 << 24 >> "D%d " print
+|	dup 16 << 24 >> "U%d " print
+|	dup 12 << 28 >> "R%d " print
 	20 >> $fff and "(%d)" print
 	over dic>len@ ( 1? )( 1- swap @+ tokencolor tokenstr print sp swap ) 2drop
+	;
 
+:drawline2 | nro
+	cntwords >? ( ; )
+	blanco
+	dup 4 << 'indicepal +
+	@+ "%s " print
+	4+ @+	| inf
+	swap @ 	| inf mov
+	printusestack
+	drop
 	;
 
 :drawwords
@@ -77,6 +121,8 @@
 		@+ tokencolor tokenstr allowcr print sp
 		) drop
 	;
+
+
 :main
 	0 'iniword !
 
@@ -87,6 +133,7 @@
 		dup "%d " print
 		error 'filename "%s %s" print cr
 
+		cr
 		drawwords
 
 |		stackinc

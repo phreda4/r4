@@ -71,12 +71,16 @@
 
 |----------- genera token
 :calclen
-	indicepal> 4 - tokencod> over 8 - @ - 2 >> 20 << swap !		| graba largo (falta sin ;)
+	indicepal> 4 - 
+	dup tokencod> over 8 - @ - 2 >> 20 << swap !	| largo
+	4 - @  1 and? ( drop ; ) drop					| solo para accion
+	tokencod> 4 - @ $10 =? ( drop ; ) drop
+	indicepal> 8 - dup @ $80 or swap ! 				| flag sin ;
 	;
 
 :cerrarpalabra | -- guardar info de ultima definicion
 	c.cnt 1? ( 9 'nroerror ! 0 rdrop ; ) drop |	testear el c.pila... debe estar en 0
-	0 'salto ! 
+	0 'salto !
 	calclen ;
 
 :essistema	| str n -- str
@@ -178,12 +182,8 @@
 :holefix     tokencod> c.pop dup >r 4+ - 8 << r @ or r> ! ;
 :labelfix    c.pop tokencod> 4 - dup @ rot tokencod> - 8 << or swap ! ;
 
-|--- calculo de longitud
-:finpalabra
-	0 'modocomp ! ;
-
 |---  Macros
-:c;     c.cnt 0? ( finpalabra ) drop ; | falta si bloque no esta nivelado
+:c;     c.cnt 0? ( 0 'modocomp ! ) drop ; | falta si bloque no esta nivelado
 :c(     salto 1? ( hole 1 )( label 2 ) c.push drop ;
 :c)(    c.pop salto 0? ( drop
 				1 =? ( drop hole c.pop holefix c.push 1 c.push ; )
@@ -306,6 +306,11 @@
 
 		cminiflecha ;
 
+:recalclen | nro inf -- nro inf
+	over 1+ dic>len@ 20 << pick2 dic>mov
+	swap over @ + swap !
+	;
+
 |------------------------------------------------------------
 | a token
 |------------------------------------------------------------
@@ -322,6 +327,11 @@
 			indicepal> 'indicepal< ! )	| ignorar locales si es un include
 		-8 'pinc> +!					| desapila includes
 		0? ) drop
-	calclen
+	calclen		| ultima palabra
 	indicepal> 'indicepal - 4 >> 1- 'cntwords !
+
+	cntwords ( 1- 1? )(
+		dup dic>inf @ $81 and $80 =? ( recalclen ) drop
+		) drop
+
 	nroerror ;
