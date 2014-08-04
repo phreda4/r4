@@ -14,7 +14,6 @@
 
 #:poserror 0
 #nroerror 0
-#inisrc 0
 
 #salto
 
@@ -32,26 +31,27 @@
 :c.cnt pilac> 'pilac - ;
 
 :escom
+|	"|WIN|" =pre 1? ( drop 5 + ; ) drop | Compila para WINDOWS
 	( c@+ 1? )( 13 =? ( drop 1- ; ) drop ) drop 1- ;
+
 :escad
 	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( drop 1- ; ) ) drop ) drop 1- ;
+
 :pasapal
 	( c@+ 1? )( $ff and 33 <? ( drop 1- ; ) drop ) drop 1- ;
 
 |----------- includes
-#auxstr )( 256
-
 :esinc 	| a -- a' ; incluye codigo
-	1+ dup include? 1? ( drop ; ) drop
-	'auxstr over copynom
-	here 'auxstr load	| carga include
+	dup include? 1? ( drop ; ) drop
+    here over "%w" mprint
+	load
 	here =? ( 2 'nroerror ! drop 0 ; )
-	here pick2 indiceinc> !+ !+ 0 dup rot !+ !+ 'indiceinc> !
+	here pick2 indiceinc> !+ !+ 'indiceinc> !
 	0 swap c!+ 'here !
 	pasapal ;
 
 :includepal | str -- str'
-	( dup c@ 33 <? )( 0? ( ; ) drop 1+ ) | quitar espacios
+	( c@+ 33 <? )( 0? ( swap 1- swap ; ) drop ) | quitar espacios
 	$7c =? ( drop escom ; )		| $7c |	 Comentario
 	$22 =? ( drop escad ; )		| $22 "	 Cadena
 	$5e =? ( drop esinc ; )		| $5e ^  Include
@@ -65,13 +65,14 @@
 			4+ @+
 			( includepal 0? ) drop 'poserror !
 			nroerror 1? ( nip nip ; ) drop
-			8 + ) drop
+			) drop
 		indiceinc> =? )
 	drop 0 ;
 
 |----------- genera token
 :calclen
-	indicepal> 4 - 
+	indicepal> 4 -
+	'indicepal <? ( drop ; )						| es la primera definicion
 	dup tokencod> over 8 - @ - 2 >> 20 << swap !	| largo
 	4 - @  1 and? ( drop ; ) drop					| solo para accion
 	tokencod> 4 - @ $10 =? ( drop ; ) drop
@@ -132,19 +133,16 @@
 	escom ;								| no graba comentarios
 |	,com 8 << 5 or ,, ; 				| *****graba comentarios
 
+
 :esinclude | a -- a' b'
-
 |	,word dup 8 << 6 or ,,	| si quiere grabar el token..
-
-	1+ dup ( c@+ $ff and 32 >? )( drop ) drop 1-
+	1+ dup ( c@+ 32 >? )( drop ) drop 1-
 	swap
 	include? 1? (
 		4+ dup @	| inc+4 cod
-		1? ( over 4 - dup @ pinc> !+ !+ 'pinc> !	| guarda nombre y dir include
-			0 rot !	|dup
-			; ) drop
+		1? ( |over 4 - dup @ pinc> !+ !+ 'pinc> !	| guarda nombre y dir include
+			0 rot !	; ) drop
 		) drop ;
-
 
 :tiponro | -- tipon
 	basen
@@ -154,7 +152,13 @@
 	-1 =? ( drop 10 ; )
 	drop ;
 
+:esnrod | val --	; nro en dato (resumir arrays****)
+	,cte 8 << tiponro or ,,
+|	,ctesimilar 8 << tiponro or ,, 	|*** reutiliza memoria
+	;
+
 :esnro | val --
+	modocomp 2 =? ( drop esnrod ; ) drop
 	0 'salto !
 	,cte 8 << tiponro or ,, ;
 |	,ctesimilar 8 << tiponro or ,, ;	|*** reutiliza memoria
@@ -330,6 +334,7 @@
 	calclen		| ultima palabra
 	indicepal> 'indicepal - 4 >> 1- 'cntwords !
 
+	|..... ajusta palabras que continuan
 	cntwords ( 1- 1? )(
 		dup dic>inf @ $81 and $80 =? ( recalclen ) drop
 		) drop

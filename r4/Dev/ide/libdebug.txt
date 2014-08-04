@@ -13,7 +13,7 @@
 #filename )( 1024
 #code
 #error
-#rsize 40
+#rsize 30
 #iniword
 
 :tokeniza
@@ -24,36 +24,6 @@
 	"Ok." 'error !
 	cntwords rsize - 1+
 	-? ( 0 nip ) 'iniword !
-	;
-
-
-|--- dibuja movimiento pilas
-:ncar | n car -- car
-	( swap 1? )( 1- swap dup emit 1+ ) drop ;
-
-:printusestack | mov --
-	97 >r
-	dup 16 << 24 >> | usedD
-	neg dup r> ncar >r
-	"--" print
-	over 24 << 24 >> + | deltaD
-	r> ncar >r
-	12 << 28 >>
-	0 <? ( dup " R:--" print neg r> ncar >r )
-	0 >? ( dup " R:" print r> ncar >r )
-	drop rdrop ;
-
-:printcomment | inf --
-	dup 12 >> $fff and
-	0? ( "NOUSO " print )		| no usada
-	drop
-	1 and? ( 
-		$4 nand? ( "CTE " print )	| dato constante
-	)(
-		$20 and? ( "REC " print )	| recursivo
-		$80 and? ( "CON " print )	| continuo (sin ;)
-	)
-	drop
 	;
 
 |----------
@@ -75,12 +45,12 @@
 |	0? ( 4drop ; )	| si no es llamada no mostrar
 	"%d-" print
 
-printcomment
+printinfword
 |	$fff and 12 fixbin |"%b" print
 	28 col
 	@
 	dup
-	sp printusestack sp
+	sp printmovword sp
 
 |	dup 24 << 24 >> "D%d " print
 |	dup 16 << 24 >> "U%d " print
@@ -96,12 +66,12 @@ printcomment
 	@+ "%s " print
 	4+ @+	| inf
 	swap @ 	| inf mov
-	printusestack
+	printmovword
 	drop
 	;
 
 :drawwords
-	iniword
+	iniword |0? ( drop ; )
 	rsize ( 1? )( 1- swap
 		drawline cr
 		1+ swap ) 2drop ;
@@ -123,6 +93,11 @@ printcomment
 	;
 
 
+:showerror
+	poserror 0? ( drop ; )
+	">>%w<<" print
+	;
+
 :main
 	0 'iniword !
 
@@ -131,15 +106,17 @@ printcomment
 	show clrscr
 		fonti
 		dup "%d " print
-		error 'filename "%s %s" print cr
+		error 'filename "%s %s " print
+		showerror cr
 
-		cr
 		drawwords
 
+|		infodic
 |		stackinc
-|		dumpinc
+		dumpinc
 |		dumpdic
 |		codeprint
+
 
 		[ iniword cntwords rsize - <=? ( 1+ ) 'iniword ! ; ] <dn>
 		[ iniword 1? ( 1- ) 'iniword ! ; ] <up>

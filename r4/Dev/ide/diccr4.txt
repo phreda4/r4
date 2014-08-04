@@ -5,9 +5,9 @@
 #:<<boot
 
 |---- includes
-| 'string|'mem|first|last
-|  0      4    8     12
-#:indiceinc )( $fff		| 255 includes
+| 'string|'mem
+|  0      4
+#:indiceinc )( $7ff		| 256 includes
 #:indiceinc> 'indiceinc
 
 |---- diccionario
@@ -48,14 +48,14 @@
 | lista strings       7
 | estructura multiple 8
 |--------------------
-#:indicepal )( $7ffff	| 32k palabras
+#:indicepal )( $3ffff	| 16k palabras
 #:indicepal> 'indicepal
 #:indicepal< 'indicepal
 
 |---- memoria token
-#:tokencod )( $ffff
+#:tokencod )( $7ffff
 #:tokencod> 'tokencod
-#:tokencte )( $ffff
+#:tokencte )( $3ffff
 #:tokencte> 'tokencte
 #:tokenmem )( $ffff
 #:tokenmem> 'tokenmem
@@ -99,7 +99,7 @@
 ::include? | str -- adr/0
 	'indiceinc ( indiceinc> <? )(
 		@+ pick2 =s 1? ( drop nip 4 - ; ) drop
-		12 + ) 2drop 0 ;
+		4+ ) 2drop 0 ;
 
 ::word+! | tipo --
 	indicepal> >r
@@ -147,18 +147,47 @@
 	tokenmem> swap realtok swap 'tokenmem - ;
 
 
+|--- dibuja movimiento pilas
+:ncar | n car -- car
+	( swap 1? )( 1- swap dup emit 1+ ) drop ;
+
+::printmovword | mov --
+	97 >r
+	dup 16 << 24 >> | usedD
+	neg dup r> ncar >r
+	"--" print
+	over 24 << 24 >> + | deltaD
+	r> ncar >r
+	12 << 28 >>
+	0 <? ( dup " R:--" print neg r> ncar >r )
+	0 >? ( dup " R:" print r> ncar >r "--" print )
+	drop rdrop ;
+
+::printinfword | inf --
+	dup 12 >> $fff and
+	0? ( "NOUSO " print )		| no usada
+	drop
+	1 and? (
+		$4 nand? ( "CTE " print )	| dato constante
+	)(
+		$20 and? ( "REC " print )	| recursivo
+		$80 and? ( "CON " print )	| continuo (sin ;)
+	)
+	drop
+	;
+
 
 |----------- DEBUG ---------------
 ::dumpinc
 	verde
+	indiceinc> 'indiceinc  - 3 >> "%d " print
 	"includes" print cr
 	amarillo
+	chome!
 	'indiceinc ( indiceinc> <? )(
 		@+ "%w " print
 		@+ "%h " print
-		@+ "%h " print
-		@+ "%h " print
-		cr ) drop ;
+		cr allowchome ) drop ;
 
 ::dumpdic
 	violeta
@@ -172,3 +201,8 @@
 		cr allowchome ) drop ;
 
 
+::infodic
+	tokencod> 'tokencod - "$%h code " print cr
+	tokencte> 'tokencte - "$%h cte " print cr
+	tokenmem> 'tokenmem - "$%h mem " print cr
+	;
