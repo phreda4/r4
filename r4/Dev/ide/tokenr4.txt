@@ -4,14 +4,13 @@
 
 ^r4/lib/macrosr4.txt
 ^r4/dev/ide/diccr4.txt
+^r4/dev/ide/postr4.txt
 |^r4/dev/ide/tokenrun.txt
 ^r4/dev/ide/tokenprint.txt
 
 ^r4/lib/trace.txt
 
 #modocomp 	| modo compilador 0-nada 1-def 2-var
-#:cntwords
-
 #:poserror 0
 #nroerror 0
 
@@ -73,9 +72,9 @@
 :calclen
 	indicepal> 4 -
 	'indicepal <? ( drop ; )						| es la primera definicion
-	dup tokencod> over 8 - @ - 2 >> 20 << swap !	| largo
+	dup code> over 8 - @ - 2 >> 20 << swap !	| largo
 	4 - @  1 and? ( drop ; ) drop					| solo para accion
-	tokencod> 4 - @ $10 =? ( drop ; ) drop
+	code> 4 - @ $10 =? ( drop ; ) drop
 	indicepal> 8 - dup @ $80 or swap ! 				| flag sin ;
 	;
 
@@ -89,7 +88,7 @@
 
 :esboot | str -- str
 	3 'modocomp !
-	tokencod> '<<boot !
+	code> '<<boot !
 	1 ,,
 	0 word+!
 	1+ ;
@@ -181,10 +180,10 @@
 
 |--- Compila saltos
 
-:hole	     tokencod> 4 - c.push ;
-:label	     tokencod> c.push ;
-:holefix     tokencod> c.pop dup >r 4+ - 8 << r @ or r> ! ;
-:labelfix    c.pop tokencod> 4 - dup @ rot tokencod> - 8 << or swap ! ;
+:hole	     code> 4 - c.push ;
+:label	     code> c.push ;
+:holefix     code> c.pop dup >r 4+ - 8 << r @ or r> ! ;
+:labelfix    c.pop code> 4 - dup @ rot code> - 8 << or swap ! ;
 
 |---  Macros
 :c;     c.cnt 0? ( 0 'modocomp ! ) drop ; | falta si bloque no esta nivelado
@@ -211,13 +210,13 @@
 
 |---- palabras de la memoria
 :m8 | nro8 --
-	tokenmem> c!+ 'tokenmem> ! ;
+	data> c!+ 'data> ! ;
 :m16 | nro16 --
-	tokenmem> w!+ 'tokenmem> ! ;
+	data> w!+ 'data> ! ;
 :m32 | nro32 --
-	tokenmem> !+ 'tokenmem> ! ;
+	data> !+ 'data> ! ;
 :mcnt | nro --
-	'tokenmem> +! ;
+	'data> +! ;
 
 #unidad 'm32
 
@@ -286,7 +285,7 @@
 
 |------- DEBUG
 ::codeprint
-	'tokencod ( tokencod> <? )(
+	code ( code> <? )(
 		@+ |dup "(%h)" print
 		tokencolor tokenstr allowcr	print sp
 		) drop ;
@@ -297,7 +296,7 @@
 ::showdump
 	fonti
 	show clrscr
-		tokencod> 'tokencod - 2 >> "%d tokens (" print
+		code> code - 2 >> "%d tokens (" print
 		pick4 pick4 pick4 pick4  pick4 "%h %h %h %h %h " print cr
         stackinc
 		dumpinc
@@ -320,10 +319,6 @@
 |------------------------------------------------------------
 ::code2token | adr -- error/0
 	'indicepal 'indicepal< !
-
-|	'indicepal dup 'indicepal< !
-|	"main" 'pinc !+ !+ 'pinc> !	| 1er include es el codigo
-
 	0 swap 					| 0 adr
 	( ( compilatoken 0? ) drop
 		nroerror 1? ( ( 1? )( drop ) drop nroerror ; ) drop | corta si hay error
@@ -340,3 +335,19 @@
 		) drop
 
 	nroerror ;
+
+
+::tokeniza | strcode -- error/0
+	'indicepal 'indicepal> !
+	'indiceinc 'indiceinc> !
+	dup loadincludes 1? ( nip ; ) drop
+	here
+	dup 'data ! dup 'data> !
+	$fffff +					| 1MB data code
+	dup 'code ! 'code> !
+
+	code2token 1? ( ; ) drop
+	code> 'here !
+    tokenpost
+	nroerror
+	;

@@ -2,6 +2,22 @@
 | PHREDA 2013
 |----------------------------------
 
+| MEM
+| las tablas en mem cte
+|-----------------
+| codigo...
+|-----------------  here
+| includes...
+|-----------------   data
+| constantes...		 data>
+|----------------- 	 code
+|					<<boot
+| programa...		 code>
+
+#:data
+#:data>
+#:code
+#:code>
 #:<<boot
 
 |---- includes
@@ -52,13 +68,7 @@
 #:indicepal> 'indicepal
 #:indicepal< 'indicepal
 
-|---- memoria token
-#:tokencod )( $7ffff
-#:tokencod> 'tokencod
-#:tokencte )( $3ffff
-#:tokencte> 'tokencte
-#:tokenmem )( $ffff
-#:tokenmem> 'tokenmem
+#:cntwords
 
 ::dic>str	4 << 'indicepal + ;
 ::dic>tok	4 << 'indicepal + 4+ ;
@@ -68,18 +78,9 @@
 ::dic>len@	dic>mov @ 20 >> $fff and ;
 ::dic>call@	dic>inf @ 12 >> $fff and ;
 
-::tok>cte	8 >> 'tokencte + @ ;	| tok -- nro
-::tok>mem	8 >> 'tokenmem + ;		| tok -- adr
+::tok>mem	8 >> data + ;		| tok -- adr
+::tok>cte	8 >> data + @ ;		| tok -- nro
 ::tok>name	8 >> dic>str @ ;
-
-::diccreset
-	'indicepal dup
-	'indicepal> ! 'indicepal< !
-	'indiceinc 'indiceinc> !
-	'tokencod 'tokencod> !
-	'tokencte 'tokencte> !
-	'tokenmem 'tokenmem> !
-	;
 
 ::adr>dic
 	'indicepal - 4 >> ;
@@ -103,25 +104,21 @@
 
 ::word+! | tipo --
 	indicepal> >r
-	tokenmem> r!+	| str del nombre
-	tokencod> r!+	| token de comienzo
+	data> r!+	| str del nombre
+	code> r!+	| token de comienzo
 	r!+				| info de palabra
 	0 r!+			| mem?
 	r> 0 over ! 'indicepal> ! ;
 
 |---- Compila programa
 ::,, | n --
-	tokencod> !+ 'tokencod> ! ;
+	code> !+ 'code> ! ;
 
-::,ctesimilar | n -- d  ; buscar iguales. muy lento si son muchos!!
-	'tokencte ( tokencte> <? )( @+
-		pick2 =? ( drop nip 'tokencte 4+ - ; )
-		drop ) drop
 ::,cte | n -- d
-	tokencte> swap over !+ 'tokencte> ! 'tokencte - ;
+	data> swap over !+ 'data> ! data - ;
 
 :rstr | c --
-	tokenmem> c!+ 'tokenmem> ! ;
+	data> c!+ 'data> ! ;
 
 :realstr | cad -- cad'
 	( 1+ dup c@ 1? )(
@@ -129,14 +126,14 @@
 		rstr ) rstr ;
 
 ::,str | a -- a' d
-	tokenmem> swap realstr swap 'tokenmem - ;
+	data> swap realstr swap data - ;
 
 :realcom
 	( 1+ dup c@ 1? )(
 		32 <? ( drop 0 rstr ; )
 		rstr ) rstr ;
 ::,com | a -- a' d
-	tokenmem> swap realcom swap 'tokenmem - ;
+	data> swap realcom swap data - ;
 
 :realtok
 	( 1+ dup c@ 1? )(
@@ -144,7 +141,7 @@
 		rstr ) rstr ;
 
 ::,word | a -- a' d
-	tokenmem> swap realtok swap 'tokenmem - ;
+	data> swap realtok swap data - ;
 
 
 |--- dibuja movimiento pilas
@@ -202,7 +199,6 @@
 
 
 ::infodic
-	tokencod> 'tokencod - "$%h code " print cr
-	tokencte> 'tokencte - "$%h cte " print cr
-	tokenmem> 'tokenmem - "$%h mem " print cr
+	code> code - "$%h code " print cr
+	data> data - "$%h data " print cr
 	;
