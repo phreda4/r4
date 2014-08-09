@@ -2,17 +2,15 @@
 | PHREDA 2014
 |---------------------------------------
 | genera codigo en :r4 y lo graba en "plain.txt"
-| Sin includes
-| Sin exportadas ::->:  ##->#
+| + Sin includes
 | + Sin Anonimas
 | + Reemplaza Ctes
-| + Copia Inlines
-| + Calcula Ctes
-| * Transforma Calculos
+| + Fold Ctes
+| *** Copia Inlines
+| *** Transforma Calculos
 |------------------------------------------------
 
 ^r4/lib/print.txt
-|^r4/system/mem-ed.txt
 ^r4/dev/ide/tokenr4.txt
 
 |-- nombre a nro
@@ -28,6 +26,7 @@
 
 #anons )( 128
 #anons> 'anons
+
 :>aa anons> !+ 'anons> ! ;
 :aa> -4 'anons> +! anons> @ ;
 :-aa 'anons 'anons> ! ;
@@ -151,18 +150,13 @@
 :untoken | adr+ val tok -- adr+
 	$7 >=? ( $a <=? ( addN ; ) )	| constante
 	$39 >=? ( $50 <=? ( optN ; ) )	| operacion
-	2drop -aa
-	;
+	2drop -aa ;
 
 |-------- descarga buffer -------
 :buffp | adr -- adr'
 	@+ dup $ff and
 	$15 =? ( 2drop nroanon "'_aa%h " ,print 1 'nroanon +! ; )
 	drop tokenstr ,print ;
-
-:generabuff
-	'buffaux ( buffaux> <? )( buffp ,sp ) drop
-	,cr ;
 
 |------- rellena buffer ---------
 :saltea | adr $14 -- adr' $15
@@ -180,8 +174,9 @@
 	over 8 >> dic>inf @ $4 and? ( drop ; ) 2drop
 	8 >> dic>tok @ 4+ @ dup ;
 
-:copybuff | adr cnt --
+:printbuff | adr cnt --
 	-buff
+	|--- copia en buffer
 	( 1? )( 1- swap
 		@+
 		$14 =? ( saltea )
@@ -193,14 +188,17 @@
 	|--- optimiza buffer
 	'buffaux ( buffaux> <? )(
 		@+ dup $ff and untoken
-		) drop ;
+		) drop
+	|--- emite buffer
+	'buffaux ( buffaux> <? )(
+		buffp ,sp ) drop
+	,cr ;
 
 :esanonima | cnt tok -- cnt' tok'
 	dup 4 - @ 8 >> code +	| desde
 	over over - 2 >> 1-		| cantida de tokens
-	copybuff
 	actanon ":_aa%h " ,print 1 'actanon +!
-	generabuff ;
+	printbuff ;
 
 :anonimas | nro inf -- nro inf
 	over dic>tok @ pick2 dic>len@
@@ -212,46 +210,31 @@
 :escodigo | nro -- nro
 	dup dic>inf @ $40 and? ( anonimas ) drop
 	dup dic>tok @ over dic>len@
-	copybuff
-	generabuff
-	;
+	printbuff ;
 
 :esvariable
 	dup dic>inf @ $4 nand? ( drop ; ) drop | constante
 	dup dic>tok @ over dic>len@
-	( 1? )( 1- swap @+ tokenstr ,print ,sp swap )
-	2drop
-	;
+	( 1? )( 1- swap @+ tokenstr ,print ,sp
+			swap $f nand? ( ,cr ) ) | evita lineas largas!
+	2drop ;
 
 |----------------------
-::makeplainsave
-	0 'nroanon !
-	0 'actanon !
-	mark
-	"| plain r4 " ,s ,cr
-	"|-----------------------" ,s ,cr
-	0 ( cntwords <=? )(
-		dup dic>call@ 1? ( drop
-			dup dic>inf @ 1 and? ( drop esvariable )( drop escodigo )
-			)( drop )
-		1+ ) drop
-
-	"r4asm/plain.txt" savemem
-	empty
-	;
-
 ::makeplain
 	0 'nroanon !
-	mark
+	0 'actanon !
 	"| plain r4 " ,s ,cr
 	"|-----------------------" ,s ,cr
 	0 ( cntwords <=? )(
-|		dup "%d " ,print ,cr
 		dup dic>call@ 1? ( drop	| solo palabras llamadas
 			dup dic>inf @ 1 and? ( drop esvariable )( drop escodigo )
 			)( drop )
 		1+ ) drop
-
-	empty
 	;
 
+::makeplainsave
+	mark
+	makeplain
+	"r4asm/plain.txt" savemem
+	empty
+	;
