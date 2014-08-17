@@ -19,6 +19,7 @@
 :tokenizacode
 	srcode tokeniza 1? ( errormsg 'error ! ; ) drop
 	"Ok." 'error !
+
 	cntwords rsize - 1+
 	-? ( 0 nip ) 'iniword !
 	;
@@ -73,6 +74,7 @@ printinfword
 		drawline cr
 		1+ swap ) 2drop ;
 
+|--- carga archivo y tokeniza
 :loadfile
 	"r4" dlgfileload 0? ( drop ; )
 	dup 'filename strcpy
@@ -80,18 +82,25 @@ printinfword
 	tokenizacode
 	;
 
-|--- genera para compilar (agrega asmbase.txt)
-:loadfile |--
+
+|---------- carga..genera plain y analiza otra vez
+:loadplain
 	"r4" dlgfileload 0? ( drop ; )
 	dup 'filename strcpy
 	modoasm
-	here dup 'srcode !
+	mark
+	here 'srcode !
 	"^r4/system/asmbase/asmbase.txt" ,ln
-	here pick2 load 0 swap c!+ 'here !
+	here swap load 0 swap c!+ 'here !
     tokenizacode
-	;
-
-:saveimg
+	mark
+	makeplain
+	"r4asm/plain.txt" savemem
+	empty
+	empty
+	here dup 'srcode !
+	"r4asm/plain.txt" load 0 swap c!+ 'here !
+	tokenizacode
 	;
 
 :codeprint
@@ -129,11 +138,15 @@ printinfword
 		drawwords
 
 		infodic
+		cnttokens 2 << "$%h codeinc " print
+		cnttokens "%d" print
+		cr
 		stackinc
+
+
 		dumpinc
 |		dumpdic
 |		codeprint
-
 
 		[ iniword cntwords rsize - <=? ( 1+ ) 'iniword ! ; ] <dn>
 		[ iniword 1? ( 1- ) 'iniword ! ; ] <up>
@@ -141,7 +154,7 @@ printinfword
 		[ iniword rsize - -? ( 0 nip ) 'iniword ! ; ] <pgup>
 
 		'loadfile <f1>
-		'saveimg <f2>
+		'loadplain <f2>
 		'genplain <f3>
 
 		'exit >esc<
