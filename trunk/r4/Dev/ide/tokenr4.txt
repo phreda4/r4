@@ -15,6 +15,7 @@
 #nroerror 0
 
 #salto
+#:cnttokens
 
 |----- pila de nombres de includes para saber donde esta el error
 #pinc )( 128
@@ -30,7 +31,7 @@
 :c.cnt pilac> 'pilac - ;
 
 :escom
-|	"|WIN|" =pre 1? ( drop 5 + ; ) drop | Compila para WINDOWS
+	"|WIN|" =pre 1? ( drop 5 + ; ) drop | Compila para WINDOWS
 	( c@+ 1? )( 13 =? ( drop 1- ; ) drop ) drop 1- ;
 
 :escad
@@ -50,13 +51,15 @@
 	pasapal ;
 
 :includepal | str -- str'
-	( c@+ 33 <? )( 0? ( swap 1- swap ; ) drop ) | quitar espacios
+	( c@+ $ff and 33 <? )( 0? ( swap 1- swap ; ) drop ) | quitar espacios
 	$7c =? ( drop escom ; )		| $7c |	 Comentario
-	$22 =? ( drop escad ; )		| $22 "	 Cadena
 	$5e =? ( drop esinc ; )		| $5e ^  Include
+	1 'cnttokens +!
+	$22 =? ( drop escad ; )		| $22 "	 Cadena
 	drop pasapal ;
 
 ::loadincludes | str -- err/0
+	0 'cnttokens !
 	( includepal 0? ) drop 'poserror !
 	nroerror 1? ( ; )
 	( drop indiceinc>
@@ -89,7 +92,6 @@
 :esboot | str -- str
 	3 'modocomp !
 	code> '<<boot !
-	1 ,,
 	0 word+!
 	,word 8 << 1 or ,,  | agrega :
 	1+ ;
@@ -119,14 +121,6 @@
 	drop
 	1 word+!
 	,word 8 << 3 or ,, ;
-
-:=pre | adr "str" -- adr 1/0
-	over swap
-	( c@+ 1? )( | adr adr' "str" c
-		toupp rot c@+ toupp rot
-		<>? ( 3drop 0 ; )
-		drop swap ) 3drop
-	1 ;
 
 :escomentario | str -- str
 	"|WIN|" =pre 1? ( drop 5 + ; ) drop | Compila para WINDOWS
@@ -247,7 +241,7 @@
 
 |--- busca palabra
 ::compilatoken | str -- str'/0
-	( dup c@ 33 <? )(
+	( dup c@ $ff and 33 <? )(
 		0? ( nip ; ) drop 1+ )	| quitar espacios
 	$5e =? ( drop esinclude ; )	| $5e ^  Include
 	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
@@ -347,11 +341,11 @@
 	'indiceinc 'indiceinc> !
 	dup loadincludes 1? ( nip ; ) drop
 	here
-	dup 'data ! dup 'data> !
-	$fffff +					| 1MB data code
-	dup 'code ! 'code> !
+	dup 'code ! dup 'code> !
+	cnttokens 2 << +			| token contados en loadincludes
+	dup 'data ! 'data> !
 	code2token 1? ( ; ) drop
-	code> 'here !
+	data> 'here !
     tokenpost
 	nroerror
 	;
