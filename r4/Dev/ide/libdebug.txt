@@ -9,71 +9,22 @@
 
 ^r4/dev/ide/tokenr4.txt
 ^r4/dev/ide/plainr4.txt
+^r4/dev/ide/vstackr4.txt
 
 #filename )( 1024
 #srcode
 #error
 #rsize 30
-#iniword
 
+#iniword
+#actual
+
+|----------------------------
 :tokenizacode
 	srcode tokeniza 1? ( errormsg 'error ! ; ) drop
 	"Ok." 'error !
-
-	cntwords rsize - 1+
-	-? ( 0 nip ) 'iniword !
+|	cntwords rsize - 1+ -? ( 0 nip ) 'iniword !
 	;
-
-|----------
-:fixbin | nro bits --
-	( 1? )( 1- swap
-		dup 1 and $30 + emit
-		2/ swap ) 2drop ;
-
-:drawline | nro -- nro
-	cntwords >? ( ; )
-	blanco
-	dup 4 << 'indicepal +
-	4+ |@+ "%s" print
-	@+ swap |"%h" print
-|	10 col
-	@+
-	dup 24 >> $ff and "%d " print
-	dup 12 >> $fff and
-|	0? ( 4drop ; )	| si no es llamada no mostrar
-	"%d-" print
-
-	printinfword
-
-|	$fff and 12 fixbin |"%b" print
-	10 col
-	@
-	dup
-	sp printmovword sp
-
-|	dup 24 << 24 >> "D%d " print
-|	dup 16 << 24 >> "U%d " print
-|	dup 12 << 28 >> "R%d " print
-	20 >> $fff and "(%d)" print
-	over dic>len@ ( 1? )( 1- swap @+ tokencolor tokenstr print sp swap ) 2drop
-	;
-
-:drawline2 | nro
-	cntwords >? ( ; )
-	blanco
-	dup 4 << 'indicepal +
-	@+ "%s " print
-	4+ @+	| inf
-	swap @ 	| inf mov
-	printmovword
-	drop
-	;
-
-:drawwords
-	iniword |0? ( drop ; )
-	rsize ( 1? )( 1- swap
-		drawline cr
-		1+ swap ) 2drop ;
 
 |--- carga archivo y tokeniza
 :loadfile
@@ -81,11 +32,10 @@
 	dup 'filename strcpy
 	here dup 'srcode ! swap load 0 swap c!+ 'here !
 	tokenizacode
-	tokenpostusa
+	tokenpostall
 	;
 
-
-|---------- carga..genera plain y analiza otra vez
+|--- carga..genera plain y analiza otra vez
 :loadplain
 	"r4" dlgfileload 0? ( drop ; )
 	dup 'filename strcpy
@@ -104,63 +54,124 @@
 	here dup 'srcode !
 	"r4asm/plain.txt" load 0 swap c!+ 'here !
 	tokenizacode
-	tokenpostusa
+	tokenpostall
 	;
 
-:codeprint
-	code ( code> <? )(
-		@+ tokencolor tokenstr allowcr print sp
-		) drop
-	;
-
-
-:showerror
-	poserror 0? ( drop ; )
-	">>%w<<" print
-	;
-
-:generatedebughelp
-
-	;
 
 :genplain
 |	makeplainsave
 	mark makeplain empty here memmap
 	;
 
-:main
-	0 'iniword !
+|------------------------------------------
+#lineactual
+#lineapag
+#tokenword
+#tokenlen
 
+:drawwordll | nro --
+	tokenlen >=? ( drop ; )
+	lineactual =? ( blanco "=>" print )
+	2 << tokenword + @
+	tokencolor tokenstr print sp
+	;
+
+:drawwordl
+	0 ( rsize <? )(
+		dup lineapag + drawwordll cr
+		1+ ) drop ;
+
+:refrescal
+	;
+
+:mainana
+	0 'lineactual !
+	0 'lineapag !
+	actual
+	dup dic>tok @ 'tokenword !
+	dup dic>len@ 'tokenlen !
+	dic>mov @ 16 << 24 >> neg iniNormStack
+	show clrscr
+		dup "%d " print
+		actual 4 << 'indicepal + @ "%s" print
+		cr
+		drawwordl
+		printStack
+
+		[ d.rot ; ] <f1>
+		[ ; ] <f2>
+
+		[ 1 'lineactual +! refrescal ; ] <dn>
+		[ -1 'lineactual +! refrescal ; ] <up>
+
+		'exit >esc<
+		cminiflecha ;
+
+|---------------------------------
+
+:drawline | nro -- nro
+	cntwords >? ( ; )
+	actual =? ( "=>" print )
+	blanco
+	dup 4 << 'indicepal +
+	4+ |@+ "%s" print
+	@+ swap |"%h" print
+	@+
+	dup 24 >> $ff and "%d " print
+	dup 12 >> $fff and
+|	0? ( 4drop ; )	| si no es llamada no mostrar
+	"%d-" print
+	printinfword
+|	$fff and 12 fixbin |"%b" print
+	@
+	dup sp printmovword sp
+	20 >> $fff and "(%d)" print
+	over dic>len@ ( 1? )( 1- swap @+ tokencolor tokenstr print sp swap ) 2drop
+	;
+
+:drawwords
+	iniword |0? ( drop ; )
+	rsize ( 1? )( 1- swap
+		drawline cr
+		1+ swap ) 2drop ;
+
+:refrescaa
+	actual
+	-? ( 0 nip )
+	cntwords >? ( cntwords nip )
+	iniword <? ( dup 'iniword ! )
+	iniword rsize + >=? ( dup rsize - 1+ 'iniword ! )
+	'actual !
+	;
+
+:showerror
+	poserror 0? ( drop ; )
+	">>%w<<" print
+	;
+
+:main
+	0 dup 'actual ! 'iniword !
 	"wait" 'error !
 	4
-	show clrscr
-		fonti
+	show clrscr fonti
 		dup "%d " print
 		error 'filename "%s %s " print
 		showerror cr
-
 		drawwords
-
 		infodic
 		cnttokens 2 << "$%h codeinc " print
 		cnttokens "%d" print
 		cr
 		stackinc
-
-
 		dumpinc
-|		dumpdic
-|		codeprint
-
-		[ iniword cntwords rsize - <=? ( 1+ ) 'iniword ! ; ] <dn>
-		[ iniword 1? ( 1- ) 'iniword ! ; ] <up>
-		[ iniword rsize + cntwords rsize - >? ( cntwords rsize - 1+ nip ) 'iniword ! ; ] <pgdn>
-		[ iniword rsize - -? ( 0 nip ) 'iniword ! ; ] <pgup>
-
+		[ 1 'actual +! refrescaa ; ] <dn>
+		[ -1 'actual +! refrescaa ; ] <up>
+		[ rsize 'actual +! refrescaa ; ] <pgdn>
+		[ rsize 'actual +! refrescaa ; ] <pgup>
 		'loadfile <f1>
 		'loadplain <f2>
 		'genplain <f3>
-
+		'mainana <enter>
 		'exit >esc<
 		cminiflecha ;
 
