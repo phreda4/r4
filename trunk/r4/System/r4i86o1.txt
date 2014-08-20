@@ -40,11 +40,10 @@
 #regact
 
 |--EDX
-:freeEDX
-	3 reg!!
-	3 REGCell -? ( drop ; ) drop
-	trace | hay un edx en la pila
-	;
+:freeEDX 3 reg!! ;
+
+:setEDX | cell --
+	3 dup reg! 5 rot cell! ;
 
 :usoEDX
 	3 reg!
@@ -58,47 +57,19 @@
 	5 rot cell!
 	;
 
-:setEDX | cell --
-	3 dup reg! 5 rot cell! ;
 
-|---------
-:usoECX | cell --
+|--- ECX o constante
+:cteorECX | cell --
+	resCPY
+	dup cellNRO? 1? ( 2drop ; ) drop
+	dup cellREG? 2 =? ( 2drop ; ) drop
+	registros %100 and? ( drop 2 reemplazaenreg drop )( drop )
 	"mov ecx," ,s dup ,CELL ,cr
 	2 5 rot cell!
 	2 reg! ;
 
-:soloECX | cell reg --
-	"mov ecx," ,s dup ,REG ,cr
-	reg!!
-	2 5 rot cell!
-	2 reg!
-	;
-
-:regECX | cell reg --
-	2 =? ( 2drop ; )
-	registros %100 nand? ( drop soloECX ; ) drop
-	newReg 6 >? ( drop freelastreg newReg )
-	dup reg!
-	"mov " ,s dup ,REG ",ecx" ,ln
-	5 rot cell!
-	"mov ecx," ,s ,REG ,cr
-	2 5 rot cell!
-	2 reg!
-	;
-
-|**** falta liberar ecx cuando esta ocupado!!
-:cteorECX | cell --
-	resCPY
-	dup cellADR? 1? ( drop usoECX ; ) drop
-	dup cellREG? 0 >=? ( regECX ; ) drop
-	drop ;
-
 |--EAX
-
-:freeEAX | libero EAX
-	0 reg!!
-|	0 REGCell -? ( drop ; ) drop
-	;
+:freeEAX 0 reg!! ;
 
 :setEAX | cell --
 	0 dup reg! 5 rot cell! ;
@@ -115,12 +86,9 @@
 :needEAX | cell --
 	dup cellREG? 0? ( 2drop ; ) drop
 	registros %1 nand? ( drop libreEAX ; ) drop
-
 	dup resCPY cellREG? 0? ( copiaEAX ; ) drop
-
 	newReg 6 >? ( drop freelastreg newReg )
 	0? ( drop libreEAX ; )
-
 	"mov " ,s dup ,REG ",eax" ,ln | c r
 	"mov eax," ,s over ,CELL ,cr
 	dup reg! 5 0 REGCell cell!	| cell(eax) en newreg
@@ -130,7 +98,6 @@
 :needREG | cell --
 	dup cellREG? 0 >=? ( 2drop ; ) drop	| ya es registro salir
 	newReg 6 >? ( drop freelastreg newReg )
-
 	dup reg! 	| buscar registro libre
 	5 rot cell! ;
 
@@ -164,11 +131,9 @@
 :needReadW | cell --
 :needReadB | cell --
 :needReadM | cell --
+	dup cellNRO? 1? ( 2drop ; ) drop
 	resCPY
 	dup cellADR? 1? ( drop needWrite ; ) 2drop ;
-
-:needRead | cell --
-	drop ;
 
 :needREGorMEM | cell --
 	resCPY
@@ -176,6 +141,11 @@
 	dup cellADR? 1? ( 2drop ; ) drop
 	cell2newReg ;
 
+:needREGorCTE | cell --
+	dup cellNRO? 1? ( 2drop ; ) drop
+	resCPY
+	dup cellREG? +? ( 2drop ; ) drop
+	cell2newReg ;
 |------ acceso a celdas
 :,TOS	d.tos ,cell ;
 :,TOSb	d.tos ,cellb ;
@@ -244,17 +214,9 @@
 		toknow 8 >> cte + strusestack
 		'strpending ! drop
 		nstr pushSTR 1 'nstr +! ;
-:,dwo	toknow 8 >> dup 'lastdircode ! pushCOD ; |dup 'lastdircode ! pushCOD ;
+:,dwo	toknow 8 >> dup 'lastdircode ! pushCOD ;
 :,dva   toknow 8 >> dup 'lastdircode ! pushDAT ;
 :,var	toknow 8 >> dup 'lastdircode ! pushVar ;
-
-:,varresuelto | evita perder valor de variables
-	toknow 8 >>
-	newReg 6 >? ( drop freelastreg newreg )
-	dup reg! dup pushREG
-	,cr
-	"mov " ,s ,REG ",dword [w" ,s ,h "]" ,s ,cr
-	;
 
 |-------- CONDICIONALES
 #jmpstr 0
@@ -275,7 +237,6 @@
 
 :,doble?
 	'jmpstr !
-	d.tos needRead
 	d.nos needWrite
 	d.tos cellADR? 1? ( drop
 		d.nos cellADR? 1? ( drop
@@ -296,7 +257,6 @@
 
 :,bit?
 	'jmpstr !
-	d.tos needRead
 	d.nos needWrite
 	d.tos cellADR? 1? ( drop
 		d.nos cellADR? 1? ( drop
@@ -323,7 +283,7 @@
 |----- BLOQUES
 :,(
 	block.new
-	blockNS block.now "; BLK %d %d PUSH " ,print printddvtack
+	blockNS block.now "; BLK %d %d (( " ,print printddvtack
 	blockNS 0? ( vpila2normal ) drop
 	vpPush
 	blockt
@@ -339,7 +299,7 @@
 	;
 
 :,)(
-	block.now ";BLK%d PREV " ,print printddvtack
+	block.now ";BLK %d )( " ,print printddvtack
 	blockNS 0? ( vpila2normal ) drop
 	blockt
 	1 =? ( <pilac +etiqueta jmp, ,etiqueta
@@ -350,7 +310,7 @@
 	;
 
 :,)
-	block.now ";BLK%d POP " ,print printddvtack
+	block.now ";BLK %d )) " ,print printddvtack
 	blockNS 0? ( vpila2normal ) drop
 	blockt
 	0 =? ( <pilac ,etiqueta
@@ -405,14 +365,12 @@
 :,RDROP r.drop ;
 
 :,R+
-	d.tos needRead
 	r.tos needWrite
 	"add " ,s ,RTOS "," ,s ,TOS ,cr
 |	d.tos Cellval+ r.tos Cell+ |
 	d.drop ;
 
 :,R!+
-	d.tos needRead
 	r.tos needWriteM
 	"mov dword [" ,s ,RTOS "]," ,s ,TOS ,cr
 	"add " ,s ,RTOS ",4" ,ln
@@ -450,38 +408,40 @@
 	"add dword [esp],4" ,ln ;
 
 |------- ARITMETICAS LOGICAS
+:oper21con
+	d.nos cellREG? +? ( drop ; ) drop
+	d.tos cellREG? +? ( drop d.swap ; ) drop
+	d.nos needWrite ;
+
 :,AND
-	d.tos needRead
-	d.nos needWrite
+	oper21con
 	"and " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,OR
-	d.tos needRead
-	d.nos needWrite
+	oper21con
 	"or " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,XOR
-	d.tos needRead
-	d.nos needWrite
+	oper21con
 	"xor " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,+
-	d.tos needRead
-	d.nos needWrite
+	oper21con
 	"add " ,s ,NOS "," ,s ,TOS ,cr
 |	d.tos Cell.value d.nos Cell+ | add 4
 	d.drop ;
 :,-
-	d.tos needRead
+|	d.nos cellNRO? 1? (
 	d.nos needWrite
 	"sub " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,*
-	d.tos needRead
-	d.nos needWrite
+	oper21con
+	| si d.tos es pow2..
 	"imul " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,/
+	| si d.tos es pow2..
 	d.nos needEAX
 	usoEDX
 	d.tos needREGorMEM
@@ -490,6 +450,7 @@
 	d.drop
 	freeEDX ;
 :,/MOD
+	| si d.tos es pow2..
 	d.nos needEAX
 	usoEDX
 	d.tos needREGorMEM
@@ -499,6 +460,7 @@
 	d.tos setEDX ;
 
 :,MOD
+	| si d.tos es pow2..
 	d.nos needEAX
 	usoEDX
 	d.tos needREGorMEM
@@ -521,6 +483,7 @@
 	freeEDX ;
 
 :,*>>
+	| si d.nos es pow2..
 	d.pk2 needEAX
 	usoEDX
 	d.nos needREGorMEM
@@ -724,27 +687,17 @@
 	"mov [SYSKEY]," ,s ,TOS ,cr
 	d.drop ;
 
-:setxyNOS
-	d.nos needWrite | x
-|	"imul " ,s ,NOS ",XRES" ,ln	| cualquier ancho
-	"shl " ,s ,NOS  ",10" ,ln	| 1024 de ancho
-	"lea ebp,[SYSFRAME+" ,s ,TOS "+" ,s ,NOS "*4]" ,ln ;
-
-
 :,SETXY | x y --
-	d.tos needWrite
 	d.tos cellNRO? 1? ( drop
-		d.nos needRead
 		d.nos cellNRO? 1? ( drop
 			"lea ebp,[SYSFRAME+(" ,s ,TOS "*XRES+" ,s ,NOS ")*4]" ,ln
-			)( drop
-			setxyNOS )
-		)( drop
-|		"imul " ,s ,TOS ",XRES" ,ln	| cualquier ancho
-		"shl " ,s ,TOS ",10" ,ln	| 1024 de ancho
-		d.nos cell0? 0? ( "add " ,s ,TOS "," ,s ,NOS ,cr ) drop
-		"lea ebp,[SYSFRAME+" ,s ,TOS "*4]" ,ln
-		)
+			d.2drop ; ) drop ) drop
+
+	d.tos needWrite
+|	"imul " ,s ,TOS ",XRES" ,ln	| cualquier ancho
+	"shl " ,s ,TOS ",10" ,ln	| 1024 de ancho
+	d.nos cell0? 0? ( "add " ,s ,TOS "," ,s ,NOS ,cr ) drop
+	"lea ebp,[SYSFRAME+" ,s ,TOS "*4]" ,ln
 	d.2DROP ;
 
 :,PX+!	| s --

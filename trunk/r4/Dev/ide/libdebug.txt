@@ -23,10 +23,20 @@
 :tokenizacode
 	srcode tokeniza 1? ( errormsg 'error ! ; ) drop
 	"Ok." 'error !
-|	cntwords rsize - 1+ -? ( 0 nip ) 'iniword !
+
+	cntwords rsize - 1+ -? ( 0 nip ) 'iniword !
+	cntwords 'actual !
 	;
 
 |--- carga archivo y tokeniza
+:loadfileini
+	"r4/test.txt"
+	dup 'filename strcpy
+	here dup 'srcode ! swap load 0 swap c!+ 'here !
+	tokenizacode
+	tokenpostall
+	;
+
 :loadfile
 	"r4" dlgfileload 0? ( drop ; )
 	dup 'filename strcpy
@@ -72,8 +82,15 @@
 :drawwordll | nro --
 	tokenlen >=? ( drop ; )
 	lineactual =? ( blanco "=>" print )
-	2 << tokenword + @
-	tokencolor tokenstr print sp
+	4 col
+	2 << dup tokenword + @
+	dup
+	tokencolor tokenstr print
+	18 col
+	"%h" print
+	27 col
+	'anabuff + @
+	"%h" print
 	;
 
 :drawwordl
@@ -82,21 +99,29 @@
 		1+ ) drop ;
 
 :refrescal
+	lineactual
+	-? ( 0 nip )
+	tokenlen >=? ( tokenlen 1- nip )
+	'lineactual !
 	;
 
 :mainana
 	0 'lineactual !
 	0 'lineapag !
 	actual
+
+	dup analisisWord
+
 	dup dic>tok @ 'tokenword !
 	dup dic>len@ 'tokenlen !
 	dic>mov @ 16 << 24 >> neg iniNormStack
+
 	show clrscr
 		dup "%d " print
 		actual 4 << 'indicepal + @ "%s" print
 		cr
 		drawwordl
-		printStack
+		mark ,printStack 0 ,c empty here print
 
 		[ d.rot ; ] <f1>
 		[ ; ] <f2>
@@ -111,8 +136,9 @@
 
 :drawline | nro -- nro
 	cntwords >? ( ; )
-	actual =? ( "=>" print )
 	blanco
+	actual =? ( "=>" print )
+	3 col
 	dup 4 << 'indicepal +
 	4+ |@+ "%s" print
 	@+ swap |"%h" print
@@ -152,6 +178,7 @@
 :main
 	0 dup 'actual ! 'iniword !
 	"wait" 'error !
+loadfileini
 	4
 	show clrscr fonti
 		dup "%d " print
