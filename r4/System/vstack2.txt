@@ -305,23 +305,30 @@
 		1+ ) drop
 	;
 
-::dumpblock, | n --
+:dumpblock, | n --
 	2 <<
-	dup 'block + @ "BL %d (" ,print
+	dup 'block + @ "; BL %d (" ,print
 	dup 'blocks + @ "%h-" ,print
 	dup 'blocke + @ "%h)" ,print
 	'blocki + @ "%h" ,print
 	,cr
 	;
 
+::infoblock
+	";----------------" ,ln
+	0 ( blockn <? )(
+		dup dumpblock,
+		1+ ) drop
+	";----------------" ,ln
+	;
 
 |------------------------BLOQUES
 ::block.new blockn pilab> !+ 'pilab> ! 1 'blockn +! ;
 ::block.end -4 'pilab> +! ;
 ::block.now pilab> 	4 - @ ; | -- nblo
 
-::blockt block.now 2 << 'block + @ ;
-::blockin block.now 2 << 'blocki + @ ;
+::blockt	block.now 2 << 'block + @ ;
+::blockin	block.now 2 << 'blocki + @ ;
 
 :blockT!	block.now 2 << 'block + ! ;
 
@@ -478,12 +485,22 @@
 	-4 'vpst> +!
 	vpst> @ 'vpmem> ! ;
 
-::vpMapD | 'x --  ; npila adr nrocell x
-	vpst> 4 - @ | pila objetivo
-	@+ ( 1? )( 1-
-		swap @+ pick3 exec
-		4 2 << + swap ) 3drop
+::vpprint
+	vpst> 4 - @ >r
+	r@+ "D: " ,s
+	( 1? )( 1-
+		r@+ "%h " ,print
+		) drop
+	r@+ "R: " ,s
+	( 1? )( 1-
+		r@+ "%h " ,print
+		) drop
+	r@+ "r:%h " ,print
+	r@+ "vpc:%h " ,print
+	r@+ "vrc:%h " ,print
+	rdrop
 	;
+
 
 |****************************
 ::vpGenerate | tengo una pila y genero la equivalente en vp
@@ -507,6 +524,10 @@
 	vpPush
 	blINI
 	salto? 1? ( 1 )( 2 ) >pilac drop
+
+	"; " ,s printddvtack
+	"; " ,s vpprint ,cr
+
 	;
 
 :es)(
@@ -521,7 +542,11 @@
 		vpDrop
 		<pilac drop 3 >pilac
 		) drop
-	vpPush ;
+	vpPush
+	"; " ,s printddvtack
+	"; " ,s vpprint ,cr
+
+	;
 
 |----------------------------------------
 | busca y marca celdas que deben estar en pila
@@ -536,26 +561,25 @@
 	$100 or swap !  | marca condicional
 	;
 
-:blConsume | bloa cntpilad --
-	2drop
+:blConsume | cntpilad --
+	drop
 	1 block.now 2 << 'blocki + !
 	d.cnt 0? ( drop ; )
 	1- ( 1? )( 1- dup d.rel cellST ) drop
 	;
 
-:blProduce | bloa cntpilad --
-	2drop
+:blProduce | cntpilad --
+	drop
 	2 block.now 2 << 'blocki + !
 	d.cnt 0? ( drop ; )
 	1- ( 1? )( 1- dup d.rel cellST ) drop
 	;
 
 :blSTACK
-	vpst> 4 - @
-	@+ | cntdpila
+	vpst> 4 - @ @ | cntdpila
 	d.cnt <? ( blConsume ; )
 	d.cnt >? ( blProduce ; )
-	2drop ;
+	drop ;
 
 |----------------------------------------
 | marca celdas que son clones de otras
@@ -564,8 +588,6 @@
 |	2dup "clone %d %d" ,print ,cr
 	cellClon ;
 
-:blCLONE
-	'cadacell vpMapD ;
 
 :es)
 	salto? 1? ( <pilac drop
@@ -573,18 +595,25 @@
 		)( <pilac
 		1 =? ( blIF
 			pick2 8 - @ $ff and | ;)
-			12 =? ( blNOSPLIT )( blCLONE )
+			12 =? ( blNOSPLIT )
 			drop
 			)
 		2 =? ( blREPEAT blSTACK )
 		3 =? ( blWHILE blSTACK 	)
 		4 =? (
 			pick2 8 - @ $ff and | ;)
-			12 <>? ( vpdrop vppush blCLONE )( blNOSPLIT )
+			12 <>? ( vpdrop vppush )( blNOSPLIT )
 			drop
 			)
 		drop ) drop
-	blEND vpPop
+
+	"; " ,s printddvtack
+	"; " ,s vpprint ,cr
+
+	blEND
+	vpPop
+
+
 	block.end ;
 
 |---	 anonimas
@@ -927,10 +956,12 @@ vuso4	|SSET  a --
 	inivpila
 	( over <? )(
 		@+ $ff and
+
 |**** debug
-|		,dumpstate
-|		dup ,d ,sp "r4asm/cod.asm" savemem
+		"; " ,s printddvtack
+
 |**** debug
+
 		2 << 'usocelda + @ exec | adri+ adr+
 		) 2drop ;
 
@@ -982,7 +1013,6 @@ vuso4	|SSET  a --
 	-? ( 2drop ; )
 	pick2 dpila> - 2 >> 1+ neg | corresponde
 	2 << over
-|	over over ,d "=" ,s ,d ,sp
 	=? ( 3drop ; ) drop
 	1 over 'listausados + +!
 	2drop ;
@@ -993,7 +1023,6 @@ vuso4	|SSET  a --
 	dup ( 1? )( 1- 0 r!+ ) drop
 	rdrop
 	'dpila ( dpila> <? )( @+ esesi? saveused ) 2drop
-|	,cr 'listausados >r ( 1? )( 1- r@+ ,d ,sp ) rdrop ,cr
 	;
 
 :cellused? | -- 0/n
@@ -1017,12 +1046,11 @@ vuso4	|SSET  a --
 	"xchg dword [esi" ,s
 	1? ( +? ( "+" ,s ) dup ,d )
 	"]," ,s over ,REG ,cr
-|	printddvtack
+
 	esitoreg2 | cell reg esi
 	nip | cell esi
 	5 $15 pick3 cell!
 	swap cell+!
-|	printddvtack
 	;
 
 :copiareglimpio | adr cell -- adr
@@ -1042,7 +1070,6 @@ vuso4	|SSET  a --
 :pasada_free_reg
 	listacellusados
 	'dpila ( dpila> 4 - <? )( @+ copiareglimpio ) drop
-|	"; FREEREG " ,s printddvtack
 	;
 
 :rescatousada | adr cell -- adr
@@ -1062,7 +1089,6 @@ vuso4	|SSET  a --
 :pasada_free_cell
 	listacellusados
 	'dpila ( dpila> 4 - <? )( @+ rescatousada ) drop
-|	"; FREEESI " ,s printddvtack
 	;
 
 |-------
@@ -1083,7 +1109,7 @@ vuso4	|SSET  a --
 
 :genEAX | cell --
 	dup cellREG? 0? ( 2drop ; ) drop	| ya es eax!
-|	dup 0 ,cell2REG | si usa xor limpia flags
+|	dup 0 ,cell2REG | ***** si usa xor limpia flags !!!
 	"mov eax," ,s dup ,CELL ,cr
 	0 5 rot cell! ;
 
@@ -1103,7 +1129,6 @@ vuso4	|SSET  a --
 
 	'dpila d.cnt |	copia resto
 	 1- ( 1? )( 1-
-|		dup ";%d " ,print printddvtack
 		swap @+ genRST
 		swap ) drop
 	@ genEAX ;
@@ -1119,25 +1144,12 @@ vuso4	|SSET  a --
 
 |---- transforma la pila actual a normal
 ::vpila2normal | --
-	inivpcnt d.cnt - | actual-origen
-
-|	dup "; **** %d N:" ,print ";" ,s printddvtack
-|	"r4asm/cod.asm" savemem
-
-	vpquitacp | quita copia
-	correESI
-
-|	";vpcopia " ,print ";" ,s printddvtack
-
-	vpcopia
-	d.cnt 'inivpcnt ! | ahora vpila tiene...
-|	";iniv" ,print ";" ,s printddvtack
-
-	emptyreg
-|	";empty" ,print ";" ,s printddvtack
-
-|	"; **** " ,s printddvtack
-|	"r4asm/cod.asm" savemem
+	inivpcnt d.cnt - 	| actual-origen
+	vpquitacp 			| quita copias
+	correESI			| corre esi a nuevo lugar
+	vpcopia				| copia los registros/ctes en pila
+	d.cnt 'inivpcnt !	| ahora vpila tiene...
+	emptyreg			| limpia registro
 	;
 
 |---- acomoda pila actual
@@ -1155,6 +1167,4 @@ vuso4	|SSET  a --
 	d.rel 0 5 rot cell! ;
 
 ::vpila2callV | nro --
-	nro>mov @ 8 << 24 >>
-|	dup "; **** %d  DELTA:" ,print printddvtack
-	vpila2v ;
+	nro>mov @ 8 << 24 >> vpila2v ;
