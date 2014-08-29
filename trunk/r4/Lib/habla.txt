@@ -1,0 +1,111 @@
+| Decir numeros
+| PHREDA 2013-
+|--------------------------------------------------------------------------
+
+|	ComponeFrase
+#frase  )( 1024
+#frase> 'frase
+#fraseA 0
+
+::frase,
+	frase> !+ 'frase> ! ;
+
+:clearfrase
+	'frase 'frase> ! ;
+
+::frase!
+	0 frase> !
+	fraseA 0? ( 'frase 'fraseA ! ) drop ;
+
+|--- agregar a show para que hable
+::Hablando
+	-1 sinfo 1? ( drop ; ) drop
+	fraseA 0? ( drop clearfrase ; )
+	@+ 1? ( splay )( nip )
+	'fraseA ! ;
+
+
+|--------------------------------------------------------------------------
+#s0 #s1 #s2 #s3 #s4 #s5 #s6 #s7 #s8 #s9
+#s11 #s12 #s13 #s14 #s15 #s16 #s17 #s18 #s19
+#s10 #s20 #s30 #s40 #s50 #s60 #s70 #s80 #s90
+#s20y #s30y #s40y #s50y #s60y #s70y #s80y #s90y
+#s100 #s200 #s300 #s400 #s500 #s600 #s700 #s800 #s900
+#sUn #sMillones #sUnMillon #sMil
+#sMenos #sComa #sSobre
+
+#soundfile
+"0cero.ogg"	"1uno.ogg" "2dos.ogg" "3tres.ogg" "4cuatro.ogg" "5cinco.ogg" "6seis.ogg" "7siete.ogg" "8ocho.ogg" "9nueve.ogg"
+"11once.ogg" "12doce.ogg" "13trece.ogg" "14catorce.ogg" "15quince.ogg" "16dieciseis.ogg" "17diecisiete.ogg" "18dieciocho.ogg" "19diecinueve.ogg"
+"10diez.ogg" "20veinte.ogg" "30treinta.ogg" "40cuarenta.ogg" "50cincuenta.ogg" "60sesenta.ogg" "70setenta.ogg" "80ochenta.ogg" "90noventa.ogg"
+"20y.ogg" "30y.ogg" "40y.ogg" "50y.ogg" "60y.ogg" "70y.ogg" "80y.ogg" "90y.ogg"
+"100ciento.ogg" "200doscientos.ogg" "300trescientos.ogg" "400cuatrocientos.ogg" "500quinientos.ogg" "600seicientos.ogg" "700setecientos.ogg" "800ochocientos.ogg" "900novecientos.ogg"
+"un.ogg" "Millones.ogg" "UnMillon.ogg" "Mil.ogg"
+"menos.ogg" "coma.ogg" "sobre.ogg"
+0
+
+:playU 2 << 's0 + @ frase, ;
+:playDb 2 << 's11 + @ frase, ;
+:playD 2 << 's10 + @ frase, ;
+:playC 2 << 's100 + @ frase, ;
+:playDe 2 << 's20y + @ frase, ;
+
+:decena | nro decena -- nro
+	0? ( drop ; )
+	over 10 mod 0? ( drop 1- playD ; )
+	swap 1 =? ( drop 1- playDb 0 nip ; )
+	nip 2 - playDe ;
+
+:cien2texto | nro 0 --
+	swap 0? ( 2drop ; )
+	100 =? ( 0 nip playC drop ; )
+	dup 100 / 10 mod
+	1? ( 1- playC )( drop )
+	dup 10 / 10 mod
+	decena
+	10 mod 0? ( 2drop ; )
+	1 =? ( swap 0? ( sUn frase, 2drop ; ) drop )( nip )
+	playU ;
+
+::sayInt | nro --
+	0? ( dup playU frase, frase, ; )
+	-? ( sMenos frase, neg )
+	dup 1000000 / 1000 mod
+	1 >? ( 0 cien2texto sMillones frase, )( 1 =? ( sUnMillon frase, ) drop )
+	dup 1000 / 1000 mod
+	1 >? ( 0 cien2texto sMil frase, )( 1 =? ( sMil frase, ) drop )
+	1000 mod
+	1 cien2texto
+	;
+
+::sayDigits | 'string --
+	( c@+ 1? )(
+		$30 - 0 >=? ( 9 <=? ( dup playU ) ) drop
+		) 2drop ;
+
+#digits )( 64
+
+::sayFix | nro --
+	dup 16 >> sayInt
+	sComa frase,
+	-? ( not ) $ffff and
+	10000 $ffff */ 10000 +	| solo 4 decimales
+	mark 'digits 'here ! ,d empty
+	'digits 1+ sayDigits
+	;
+
+::sayFrac | nro nro --
+	swap sayInt
+	1 <=? ( drop ; ) | siempre positivo
+	sSobre frase,
+	sayInt
+	;
+
+::loadSounds | 'path 'var 'name --
+	( dup c@ 1? )( drop
+		pick2 over swap "%s%s" mprint sload
+		rot !+ swap >>0 )
+	4drop ;
+
+::sayNroIni
+	"media/milagros/" 's0 'soundfile loadSounds ;
