@@ -20,8 +20,7 @@
 #sysregb "al" "bl" "cl" "dl" "*" "*" "*"
 
 :emptyreg
-	%1100001 | eax y esi,ebp siempre ocupados
-	'registros ! ;
+	%1100001 'registros ! ; | eax y esi,ebp siempre ocupados
 
 ::reg! | nro --
 	1 swap << registros or 'registros ! ;
@@ -1168,3 +1167,38 @@ vuso4	|SSET  a --
 
 ::vpila2callV | nro --
 	nro>mov @ 8 << 24 >> vpila2v ;
+
+|----- transforma pila a normal con nivel
+
+:vpcopiaFix | deep -- deep
+	dpila> over 2 << -
+	'dpila
+	( over <? )(
+		@+ "%h " ,print
+		) 2drop
+	,cr
+	;
+
+:assignreg | deep -- deep
+	%1100000 'registros ! | esi,ebp siempre ocupados
+	'dpila ( dpila> <? )(
+		@+ cellREG?	-? ( drop )( reg! )
+		) drop
+	dpila> over 2 << -
+	( dpila> <? )(
+		@+ "%h " ,print
+		) drop
+	,cr
+	;
+
+::vpila2fix | deep --
+	inivpcnt d.cnt - 	| actual-origen
+	vpquitacp 			| quita copias
+	correESI			| corre esi a nuevo lugar
+
+	vpcopiaFix				| copia los registros/ctes en pila
+
+	d.cnt 'inivpcnt !	| ahora vpila tiene...
+	assignreg			| asigna registros..
+	drop
+	;
