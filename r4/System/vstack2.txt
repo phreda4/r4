@@ -103,12 +103,6 @@
 	$4 <>? ( -1 nip ; ) drop
 	dup 2 << 'cellv + @ ;
 
-::cellCLON? | nro -- 0/1
-	2 << 'celli + @ $10 and ;
-
-::cellCLONTO | nro -- nro
-	2 << 'celli + @ 8 >> $ff and ;
-
 |------ bloques de codigo
 #blockn 0
 #block )( 1024	| tipo+info
@@ -412,14 +406,6 @@
 	d.tos 2 << 'celli + dup
 	@ $8 or swap ! ;
 
-| clone es igual a otra celda (para bloques)
-
-:cellClon | original clon --
-	2 << 'celli + dup @
-	$10 or
-	rot $ff and 8 << or
-	swap ! ;
-
 |--- pila de estado de pila y registros para bloques
 #vpst )( 1024
 #vpst> 'vpst
@@ -524,8 +510,8 @@
 	blINI
 	salto? 1? ( 1 )( 2 ) >pilac drop
 
-	"; " ,s printddvtack
-	"; " ,s vpprint ,cr
+|	"; " ,s printddvtack
+|	"; " ,s vpprint ,cr
 
 	;
 
@@ -542,8 +528,8 @@
 		<pilac drop 3 >pilac
 		) drop
 	vpPush
-	"; " ,s printddvtack
-	"; " ,s vpprint ,cr
+|	"; " ,s printddvtack
+|	"; " ,s vpprint ,cr
 
 	;
 
@@ -581,12 +567,6 @@
 	drop ;
 
 |----------------------------------------
-| marca celdas que son clones de otras
-:cadacell | npila adr nrocell -- npila adr
-	pick2 d.rel | original clon
-|	2dup "clone %d %d" ,print ,cr
-	cellClon ;
-
 
 :es)
 	salto? 1? ( <pilac drop
@@ -606,12 +586,11 @@
 			)
 		drop ) drop
 
-	"; " ,s printddvtack
-	"; " ,s vpprint ,cr
+|	"; " ,s printddvtack
+|	"; " ,s vpprint ,cr
 
 	blEND
 	vpPop
-
 
 	block.end ;
 
@@ -867,7 +846,6 @@ vuso4	|SSET  a --
 	"; post !!" ,s printddvtack
 	;
 
-
 ::freelastreg | --
 	"; libera !!!" ,s printddvtack
 	'dpila ( dpila> 4 - <? )(
@@ -957,8 +935,7 @@ vuso4	|SSET  a --
 		@+ $ff and
 
 |**** debug
-		"; " ,s printddvtack
-
+|		"; " ,s printddvtack
 |**** debug
 
 		2 << 'usocelda + @ exec | adri+ adr+
@@ -1169,14 +1146,60 @@ vuso4	|SSET  a --
 	nro>mov @ 8 << 24 >> vpila2v ;
 
 |----- transforma pila a normal con nivel
+:usedesi | sum -- cell/-1
+	'dpila ( dpila> <? )( @+ | sum adr cel
+		esesi? pick3 =? ( drop nip nip ; ) 2drop
+		) 2drop -1 ;
+
+| si la celda es usada.. intercambiar
+:xchgesi | cell cellr --
+	over cellREG? $5 rot cell!
+	"xchg dword [esi" ,s
+	pick3 pick3 + 1-	| ajuste por fix
+	 1? ( +? ( "+" ,s ) 2 << ,d )( drop )
+	"]," ,s dup ,CELL ,cr
+	5 $15 pick2 cell!
+	pick3 pick3 + 1-	| ajuste por fix
+	2 << swap cell+!
+	;
+
+:toSTK | nro adr cell -- nro adr
+	dup cellREGM? 5 =? (
+		drop dup cellSUM
+		pick4 pick4 + 1-	| ajuste por fix
+		2 << =? ( 2drop ; ) | si esta en el lugar no generar
+		) drop | nro xx cell x.sum.x
+
+	dup cellADR? 1? ( resolveADR ) drop
+
+	pick3 pick3 + 1- 2 << usedesi
+	0 >=? ( xchgesi ; ) drop
+
+	"mov dword [esi" ,s
+	pick3 pick3 + 1-	| ajuste por fix
+	 1? ( +? ( "+" ,s ) 2 << ,d )( drop )
+	"]," ,s dup ,CELL ,cr
+
+	5 $15 pick2 cell!
+	pick3 pick3 + 1-	| ajuste por fix
+	2 << swap cell+!
+	;
 
 :vpcopiaFix | deep -- deep
-	dpila> over 2 << -
 	'dpila
-	( over <? )(
-		@+ "%h " ,print
-		) 2drop
+	d.cnt pick2 -
+	( 1? )( 1-
+		swap @+ toSTK
+		swap ) 2drop
 	,cr
+	;
+
+:toREG | cell --
+	dup cellREG? 0 >=? ( 2drop ; ) drop
+	newReg | cell reg
+	2dup ,cell2REG
+	dup reg!
+	5 rot cell!
 	;
 
 :assignreg | deep -- deep
@@ -1186,19 +1209,53 @@ vuso4	|SSET  a --
 		) drop
 	dpila> over 2 << -
 	( dpila> <? )(
-		@+ "%h " ,print
+		@+ toREG
 		) drop
-	,cr
-	;
+	,cr ;
+
 
 ::vpila2fix | deep --
 	inivpcnt d.cnt - 	| actual-origen
 	vpquitacp 			| quita copias
 	correESI			| corre esi a nuevo lugar
-
-	vpcopiaFix				| copia los registros/ctes en pila
-
+	vpcopiaFix			| copia los registros/ctes en pila
 	d.cnt 'inivpcnt !	| ahora vpila tiene...
 	assignreg			| asigna registros..
 	drop
+	;
+
+|--------------------
+
+::vpilasave | nro deep --
+	;
+
+|--------------------
+:toREGN | nro adr cell --
+	dup cellREG? 0 >=? ( 2drop ; ) drop
+	newReg | cell reg
+	2dup ,cell2REG
+	dup reg!
+	5 rot cell!
+	;
+
+:assignregnro | nro deep -- deep
+	%1100000 'registros ! | esi,ebp siempre ocupados
+	'dpila ( dpila> <? )(
+		@+ cellREG?	-? ( drop )( reg! )
+		) drop
+	dpila> over 2 << -
+	( dpila> <? )(
+		@+ toREGN
+		) drop
+	,cr ;
+
+::vpilaload | nro deep --
+	inivpcnt d.cnt - 	| actual-origen
+	vpquitacp 			| quita copias
+	correESI			| corre esi a nuevo lugar
+	vpcopiaFix			| copia los registros/ctes en pila
+	d.cnt 'inivpcnt !	| ahora vpila tiene...
+	assignregnro			| asigna registros..
+	2drop
+
 	;
