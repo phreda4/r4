@@ -9,6 +9,8 @@
 #niv  | nivel de condicionales
 #niva | nivel de anonimas
 
+#usoD
+
 #:maxw 0				| cantidad de palabras
 
 #:anaword )( 8192 		| 256 palabras max
@@ -25,9 +27,71 @@
 :aux> | -- a
 	-4 'stacka> +! stacka> @ ;
 
-:everyword | token rtoken --
-	13 =? ( 1 'niv +! )		| (
-	15 =? ( -1 'niv +! )	| )
+|------ bloques de codigo
+#blockn 0
+#block )( 1024	| tipo+info
+#blocks )( 1024 | celda comienzo
+#blocke )( 1024 | celda fin
+#blocki )( 1024 | info de las celdas en bloque
+
+|----- pila para bloques
+#pilab )( 256	#pilab> 'pilab
+
+::block.start 0 'blockn ! ;
+::block.now pilab> 4 - @ ; | -- nblo
+
+::block.new
+	blockn pilab> !+ 'pilab> !
+	usoD block.now 2 << 'blocks + !
+	1 'blockn +!
+	;
+
+::block.end
+	usoD block.now 2 << 'blocke + !
+	-4 'pilab> +!
+	;
+
+
+::blockt	block.now 2 << 'block + @ ;
+::blockin	block.now 2 << 'blocki + @ ;
+
+:blockT!	block.now 2 << 'block + ! ;
+
+:blREPEAT  	0 blockT! ;
+:blIF       1 blockT! ;
+:blELSE  	2 blockT! ;
+:blWHILE	3 blockT! ;
+:blUNTIL  	4 blockT! ;
+
+|:blINI	celln block.now 2 << 'blocks + ! ;
+|:blEND	celln block.now 2 << 'blocke + ! ;
+
+:dumpblock | n --
+	2 <<
+	dup 'block + @ "; BL %d (" print
+	dup 'blocks + @ "%h-" print
+	dup 'blocke + @ "%h)" print
+	'blocki + @ "%h" print
+	;
+
+::infoblock
+	";----------------" print cr
+	0 ( blockn <? )(
+		dup dumpblock cr
+		1+ ) drop
+	";----------------" print cr
+	;
+
+:salto? | adr+ tok -- adr+ tok 1/0
+	pick2 8 - @ $ff and
+	18 >? ( 31 <? ( drop 1 ; ) )
+	drop 0 ;
+
+:everyword | token --
+	dup $ff and
+	13 =? ( 1 'niv +! block.new salto? 1? ( blIF ) drop )		| (
+	14 =? (	salto? 1? ( blWHILE )( blELSE ) drop ) 				| )(
+	15 =? ( -1 'niv +! salto? 1? ( blUNTIL ) drop block.end )	| )
 	16 =? ( accD 1+ >aux accR >aux 1 'niva +! )	| [
 	17 =? ( aux> 'accR ! aux> 'accD ! -1 'niva +! )	| ]
 	3 <? ( 2drop -1 'maxw +! ; )  | no guarda multiples :
@@ -42,15 +106,12 @@
 	swap +tok ;
 
 ::makeanaword | nro --
+	block.start
 	'anaword 'anaword> !
 	0 'accD ! 0 'accR !
 	0 'niv ! 0 'niva !
 	nro>toklen dup 'maxw !
-	( 1? )( 1-
-		swap @+
-		dup $ff and
-		everyword
-		swap ) 2drop ;
+	( 1? )( 1- swap @+ everyword swap ) 2drop ;
 
 |--- dibuja movimiento pilas
 #movp )( 64
