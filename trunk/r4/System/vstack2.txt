@@ -372,6 +372,14 @@
 	swap 1020 + @+ rot 1020 + !+
 	swap 1020 + @ swap 1020 + ! ;
 
+|---- quita referencias de copia
+:quitacp
+	dup cellCPY? 0? ( 2drop ; ) drop
+	dup resCPY 							| copia origen
+	swap cell2cell! ;
+
+:vpquitacp
+	'dpila ( dpila> <? )( @+ quitacp ) drop ;
 
 |---------------------------------------------
 |-------------------------------------------
@@ -475,20 +483,62 @@
 	-4 'vpst> +!
 	vpst> @ 'vpmem> ! ;
 
-::vpprint
+
+|---- trandforma pila actual en copia apilada
+
+#regused )( 1024
+#regused> 'regused
+
+:usedesi | reg -- cell/-1
+	'dpila ( dpila> <? )( @+ | reg adr cel
+		cellREG? pick2 =? ( drop nip nip ; ) 2drop
+		) 2drop -1 ;
+
+:compara | reg ,cell -- ; ubica reg en cell
+	dup cellREG? pick2 =? ( 3drop ; ) drop | son iguales
+
+
+	;
+
+:vptrans | --
+	dpila>
+	regused>
+	( 	4 - 'regused <? ( 2drop ; ) swap
+		4 - 'dpila <? ( 2drop ; ) swap
+		dup @ 0 >=? )(	| dpila reg nroreg
+		pick2 @ compara
+		)
+	3drop ;
+
+::vpFit | --
 	vpst> 4 - @ >r
-	r@+ "D: " ,s
+	"; " ,s
+	'regused 'regused> !
+	r@+ |"D: " ,s
 	( 1? )( 1-
-		r@+ "%h " ,print
+		r@+ drop
+		r@+ r@+ 8 r+ |r@+ r@+ 2drop | tipo nro
+		swap 5 =? ( drop )( 2drop -1 )
+		regused> !+ 'regused> !
 		) drop
-	r@+ "R: " ,s
-	( 1? )( 1-
-		r@+ "%h " ,print
+|	r@+ "R: " ,s
+|	( 1? )( 1-
+|		r@+ drop r@+ r@+ r@+ r@+ "%h %h %h %h " ,print
+|		) drop
+|	r@+ "r:%h " ,print
+|	r@+ "vpc:%h " ,print
+|	r@+ "vrc:%h " ,print
+    rdrop
+
+	vpquitacp
+	vptrans
+	dpila> regused>
+	( 4 - 'regused
+	regused> ( 4 - 'regused >=? )(
+		dup @ "%d " ,print
 		) drop
-	r@+ "r:%h " ,print
-	r@+ "vpc:%h " ,print
-	r@+ "vrc:%h " ,print
-	rdrop
+
+	,cr
 	;
 
 
@@ -545,7 +595,7 @@
 		3 =? ( blWHILE )
 		4 =? (
 			pick2 8 - @ $ff and | ;)
-			12 <>? ( vpdrop vppush )( trace blNOSPLIT )
+			12 <>? ( vpdrop vppush )( blNOSPLIT )
 			drop
 			)
 		drop ) drop
@@ -1068,14 +1118,6 @@ vuso4	|SSET  a --
 		swap ) drop
 	@ genEAX ;
 
-|---- quita referencias de copia
-:quitacp
-	dup cellCPY? 0? ( 2drop ; ) drop
-	dup resCPY | copia origen
-	swap cell2cell! ;
-
-:vpquitacp
-	'dpila ( dpila> <? )( @+ quitacp ) drop ;
 
 |---- transforma la pila actual a normal
 ::vpila2normal | --
@@ -1149,9 +1191,7 @@ vuso4	|SSET  a --
 	d.cnt pick2 -
 	( 1? )( 1-
 		swap @+ toSTK
-		swap ) 2drop
-	,cr
-	;
+		swap ) 2drop ;
 
 :toREG | cell --
 	dup cellREG? 0 >=? ( 2drop ; ) drop
@@ -1170,7 +1210,7 @@ vuso4	|SSET  a --
 	( dpila> <? )(
 		@+ toREG
 		) drop
-	,cr ;
+	;
 
 
 ::vpila2fix | deep --
@@ -1180,6 +1220,35 @@ vuso4	|SSET  a --
 	vpcopiaFix			| copia los registros/ctes en pila
 	d.cnt 'inivpcnt !	| ahora vpila tiene...
 	assignreg			| asigna registros..
+	drop
+	;
+
+|--------------------------------
+:vpcopiaFix2 | deep -- deep
+	'dpila
+	d.cnt pick2 -
+	( 1? )( 1-
+		swap @+ toSTK
+		swap ) 2drop ;
+
+:assignreg2 | deep -- deep
+	%1100000 'registros ! | esi,ebp siempre ocupados
+	'dpila ( dpila> <? )(
+		@+ cellREG?	-? ( drop )( reg! )
+		) drop
+	dpila> over 1+ 2 << -
+	( dpila> 4 - <? )(
+		@+ toREG
+		) drop
+	;
+
+::vpila2fix2 | deep --
+|	inivpcnt d.cnt - 	| actual-origen
+|	vpquitacp 			| quita copias
+|	correESI			| corre esi a nuevo lugar
+|	vpcopiaFix2			| copia los registros/ctes en pila
+|	d.cnt 'inivpcnt !	| ahora vpila tiene...
+	assignreg2			| asigna registros..
 	drop
 	;
 
@@ -1214,7 +1283,7 @@ vuso4	|SSET  a --
 	( dpila> <? )(
 		@+ toREGN
 		) drop
-	,cr ;
+	;
 
 ::vpilaload | nro deep --
 	inivpcnt d.cnt - 	| actual-origen
