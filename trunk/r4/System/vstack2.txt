@@ -3,6 +3,7 @@
 | PHREDA 2012
 |------------------------------------
 ^r4/system/r4token.txt
+^r4/system/r4post.txt
 ^r4/lib/trace.txt
 
 |-------- Registros del CPU
@@ -107,7 +108,7 @@
 #blockn 0
 #block )( 1024	| tipo+info
 #blocks )( 1024 | celda comienzo
-#blocke )( 1024 | celda fin
+#blocke )( 1024 | profundidad de bloque
 #blocki )( 1024 | info de las celdas en bloque
 
 |----- pila para bloques
@@ -299,11 +300,11 @@
 	;
 
 :dumpblock, | n --
-	2 <<
-	dup 'block + @ "; BL %d (" ,print
-	dup 'blocks + @ "%h-" ,print
-	dup 'blocke + @ "%h)" ,print
-	'blocki + @ "%h" ,print
+	2 << ";" ,s
+|	dup 'block + @ " BL %d " ,print
+
+	dup 'blocke + @ "<%d>" ,print
+	'blocki + @ " %h" ,print
 	,cr
 	;
 
@@ -322,6 +323,7 @@
 
 ::blockt	block.now 2 << 'block + @ ;
 ::blockin	block.now 2 << 'blocki + @ ;
+::blockde	block.now 2 << 'blocke + @ ;
 
 :blockT!	block.now 2 << 'block + ! ;
 
@@ -333,8 +335,11 @@
 
 :blNOSPLIT	block.now 2 << 'block + dup @ $10 or swap ! ;
 
-:blINI	celln block.now 2 << 'blocks + ! ;
-:blEND	celln block.now 2 << 'blocke + ! ;
+:blINI	dup 4 - block.now 2 << 'blocks + ! ;
+:blEND	dup 4 -
+	block.now 2 << 'blocks + @ getusedstack
+	neg block.now 2 << 'blocke + !
+	;
 
 :>pilac pilac> !+ 'pilac> ! ;
 :<pilac -4 'pilac> +! pilac> @ ;
@@ -509,10 +514,6 @@
 	vpPush
 	blINI
 	salto? 1? ( 1 )( 2 ) >pilac drop
-
-|	"; " ,s printddvtack
-|	"; " ,s vpprint ,cr
-
 	;
 
 :es)(
@@ -526,72 +527,30 @@
 	)( | WHILE
 		vpDrop
 		<pilac drop 3 >pilac
-		) drop
+		)
+	drop
 	vpPush
-|	"; " ,s printddvtack
-|	"; " ,s vpprint ,cr
-
 	;
-
-|----------------------------------------
-| busca y marca celdas que deben estar en pila
-
-:cellST | cell -- celda es stack
-	2 << 'celli + dup
-	@ $1 or swap ! ;
-
-:prevcond
-	over 8 - dup @ $ff and
-	19 <? ( 2drop ; ) 30 >? ( 2drop ; ) | es condicional?
-	$100 or swap !  | marca condicional
-	;
-
-:blConsume | cntpilad --
-	drop
-	1 block.now 2 << 'blocki + !
-	d.cnt 0? ( drop ; )
-	1- ( 1? )( 1- dup d.rel cellST ) drop
-	;
-
-:blProduce | cntpilad --
-	drop
-	2 block.now 2 << 'blocki + !
-	d.cnt 0? ( drop ; )
-	1- ( 1? )( 1- dup d.rel cellST ) drop
-	;
-
-:blSTACK
-	vpst> 4 - @ @ | cntdpila
-	d.cnt <? ( blConsume ; )
-	d.cnt >? ( blProduce ; )
-	drop ;
-
-|----------------------------------------
 
 :es)
 	salto? 1? ( <pilac drop
-		blUNTIL blSTACK prevcond
+		blUNTIL
 		)( <pilac
 		1 =? ( blIF
 			pick2 8 - @ $ff and | ;)
 			12 =? ( blNOSPLIT )
 			drop
 			)
-		2 =? ( blREPEAT blSTACK )
-		3 =? ( blWHILE blSTACK 	)
+		2 =? ( blREPEAT )
+		3 =? ( blWHILE )
 		4 =? (
 			pick2 8 - @ $ff and | ;)
-			12 <>? ( vpdrop vppush )( blNOSPLIT )
+			12 <>? ( vpdrop vppush )( trace blNOSPLIT )
 			drop
 			)
 		drop ) drop
-
-|	"; " ,s printddvtack
-|	"; " ,s vpprint ,cr
-
 	blEND
 	vpPop
-
 	block.end ;
 
 |---	 anonimas
@@ -1225,7 +1184,15 @@ vuso4	|SSET  a --
 	;
 
 |--------------------
+::deepnow | -- deep
+	dpila> 4 -
+	( 'dpila >=? )(
+		dup @ cellREG? -? ( drop dpila> - 2 >> neg 1- ; ) drop
+		4 - ) drop
+	dpila> 'dpila - 2 >> 1-
+	;
 
+|--------------------
 ::vpilasave | nro deep --
 	;
 
