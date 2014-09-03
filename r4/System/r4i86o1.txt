@@ -219,23 +219,25 @@
 
 |-------- CONDICIONALES
 #jmpstr 0
+#contype
 
-:,simple?
-	'jmpstr !
-	d.cnt 0? ( vpila2normal ) drop
+:consimple
+|	d.cnt 0? ( vpila2normal ) drop
 	d.tos needWrite
 	d.tos cellADR? 1? ( drop
 		"cmp " ,s ,TOS ",0" ,ln ; ) drop
 	"or " ,s ,TOS "," ,s ,TOS ,cr
 	;
 
+:,simple?
+	'jmpstr ! 'consimple 'contype ! ;
+
 :,0? "jnz " ,simple? ;
 :,+? "js "  ,simple? ;
 :,-? "jns " ,simple? ;
 :,1? "jz "  ,simple? ;
 
-:,doble?
-	'jmpstr !
+:condoble
 	d.nos needWrite
 	d.tos cellADR? 1? ( drop
 		d.nos cellADR? 1? ( drop
@@ -247,6 +249,9 @@
     "cmp " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 
+:,doble?
+	'jmpstr ! 'condoble 'contype ! ;
+
 :,=? "jnz " ,doble?	;
 :,<? "jge " ,doble?	;
 :,>? "jle " ,doble?	;
@@ -254,8 +259,7 @@
 :,>=? "jl " ,doble?	;
 :,<>? "jz " ,doble?	;
 
-:,bit?
-	'jmpstr !
+:conbit
 	d.nos needWrite
 	d.tos cellADR? 1? ( drop
 		d.nos cellADR? 1? ( drop
@@ -266,6 +270,9 @@
 			) )( drop )
     "test " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
+
+:,bit?
+	'jmpstr ! 'conbit 'contype ! ;
 
 :,and?  "jz " ,bit?	;
 :,nand? "jnz " ,bit? ;
@@ -280,10 +287,16 @@
 	nlabel 1+ dup 'nlabel ! dup >pilac ;
 
 |----- BLOQUES
+
 :vpilad
-	vpila2normal
-|	blockde vpila2fix
+|	vpila2normal
+	blockde vpila2fix
 	;
+
+:,cond
+	contype
+	'consimple =? ( blockde vpila2fix )( blockde vpila2fix2 )
+	exec ;
 
 :,(
 	block.new
@@ -291,11 +304,12 @@
 	blockt block.now "; BLK %d %d (( " ,print
 	deepnow blockde "; << %d >> %d " ,print printddvtack
 
-	blockt $10 nand? ( vpilad )
-	vpPush
+	blockt
+|	$10 nand? ( vpilad )
+|	vpPush
 	$f and
-	1 <=? ( +etiqueta ,jmpcond )	| IF/ELSE
-	2 >=? ( +etiqueta ,etiqueta )	| WHILE | UNTIL | REPEAT
+	1 <=? ( ,cond vppush +etiqueta ,jmpcond )	| IF/ELSE
+	2 >=? ( vpilad vppush +etiqueta ,etiqueta )	| WHILE | UNTIL | REPEAT
 	drop
 	;
 
@@ -306,7 +320,7 @@
 	blockt $10 nand? ( vpilad )
 	$f and
 	1 =? ( <pilac +etiqueta jmp, ,etiqueta vppop vppush )	| ELSE
-	2 =? ( <pilac +etiqueta ,jmpcond >pilac vpdrop vppush )	| WHILE
+	2 =? ( ,cond <pilac +etiqueta ,jmpcond >pilac vpdrop vppush )	| WHILE
 	drop
 	;
 
@@ -314,20 +328,23 @@
 	block.now ";BLK %d )) " ,print
 	deepnow blockde "; << %d >> %d " ,print printddvtack
 
-	blockt $10 nand? ( vpilad )
+	blockt
+|	$10 nand? ( vpilad )
 	$f and
 	1 <=? ( <pilac ,etiqueta				| IF ELSE
 			over 8 - @ $ff and 				| ;)
-			12 <>? ( vpdrop vppush )
+			12 =? ( 2drop vpDrop block.end ; ) |vpPop vpdrop vppush )
 			drop
+			vpFit
 			)
 	2 =? ( <pilac jmp, <pilac ,etiqueta )	| WHILE
-	3 =? ( <pilac ,jmpcond )				| UNTIL
+	3 =? ( ,cond <pilac ,jmpcond )	| UNTIL
 	4 =? ( <pilac jmp, )					| REPEAT
 	drop
 
-
 	vpPop
+	deepnow blockde "; << %d >> %d " ,print printddvtack
+
 	block.end ;
 
 |------- EXEC
@@ -820,8 +837,8 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	117 =? ( drop ; )
 	125 =? ( drop ; )
 	drop
-|	,cr "; " ,s printddvtack
-|	"r4asm/cod.asm" savemem
+	,cr "; " ,s printddvtack
+	"r4asm/cod.asm" savemem
 	;
 
 ::,compwordopt | nro --
@@ -844,7 +861,11 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	0 'strpending !
 	'bufftok ( buff> <? )(
 		@+
+
 |		imprimedebug | comentar para no imprimir comentarios
+
+	"r4asm/cod.asm" savemem
+
 		$ff and 2 << 'nivel1 + @ exec
 		registros registeruse or 'registeruse !
 		) drop
