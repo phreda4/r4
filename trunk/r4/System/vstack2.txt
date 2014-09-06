@@ -483,44 +483,42 @@
 	-4 'vpst> +!
 	vpst> @ 'vpmem> ! ;
 
-
 |---- trandforma pila actual en copia apilada
-
-#regused )( 1024
+#regused )( 256
 #regused> 'regused
 
-:usedesi | reg -- cell/-1
-	'dpila ( dpila> <? )( @+ | reg adr cel
-		cellREG? pick2 =? ( drop nip nip ; ) 2drop
-		) 2drop -1 ;
+:usado? | reg -- reg 1/0
+	-? ( 0 ; )
+	'regused ( regused> <? )(
+		@+ pick2 =? ( 2drop 1 ; ) drop
+		) drop 0 ;
 
-:compara | reg ,cell -- ; ubica reg en cell
-	dup cellREG? pick2 =? ( 3drop ; ) drop | son iguales
-
-
-	;
-
-:vptrans | --
-	dpila>
-	regused>
-	( 	4 - 'regused <? ( 2drop ; ) swap
-		4 - 'dpila <? ( 2drop ; ) swap
-		dup @ 0 >=? )(	| dpila reg nroreg
-		pick2 @ compara
+:cambiaregreg | reg cell reg --
+	nip | d f
+	2dup "xchg " ,s ,REG "," ,s ,REG ,cr
+	'regused ( regused> <? )(
+		@+ pick2 =? ( drop pick2 over 4 - ! dup ) drop
 		)
 	3drop ;
 
-::vpFit | --
+:asignaregcell | reg cell --
+	dup cellReg? pick2 =? ( 3drop ; ) | si ya esta..
+	usado? 1? ( drop cambiaregreg ; ) drop
+ 	drop swap
+	"mov " ,s ,REG "," ,s ,CELL ,cr ;
+
+
+::vpFit | dp --
 	vpst> 4 - @ >r
-	"; " ,s
 	'regused 'regused> !
 	r@+ |"D: " ,s
 	( 1? )( 1-
 		r@+ drop
-		r@+ r@+ 8 r+ |r@+ r@+ 2drop | tipo nro
+		r@+ r@+ 8 r+
 		swap 5 =? ( drop )( 2drop -1 )
 		regused> !+ 'regused> !
 		) drop
+
 |	r@+ "R: " ,s
 |	( 1? )( 1-
 |		r@+ drop r@+ r@+ r@+ r@+ "%h %h %h %h " ,print
@@ -531,25 +529,14 @@
     rdrop
 
 	vpquitacp
-	vptrans
-	dpila> regused>
-	( 4 - 'regused
-	regused> ( 4 - 'regused >=? )(
-		dup @ "%d " ,print
-		) drop
+	regused> dpila> rot
+	( 1? )( 1-
+		rot 4 - rot 4 -
+		over @ over @ asignaregcell
 
-	,cr
-	;
-
+		rot ) 3drop ;
 
 |****************************
-::vpGenerate | tengo una pila y genero la equivalente en vp
-	vpst> 4 - @ | pila objetivo
-	@+ ( 1? )( 1-
-		swap @+ pick3 exec
-		4 2 << + swap ) 3drop
-	;
-
 :toknow	dup 4 - @ ;
 :valnow	dup 4 - @ 8 >> ;
 
@@ -571,9 +558,7 @@
 		vpPop
 		<pilac drop 4 >pilac
 		blELSE
-		over 8 - @ $ff and | ;)
-		12 =? ( blNOSPLIT )
-		drop
+		over 8 - @ $ff and 12 =? ( blNOSPLIT ) drop | ;)
 	)( | WHILE
 		vpDrop
 		<pilac drop 3 >pilac
@@ -587,16 +572,12 @@
 		blUNTIL
 		)( <pilac
 		1 =? ( blIF
-			pick2 8 - @ $ff and | ;)
-			12 =? ( blNOSPLIT )
-			drop
+			pick2 8 - @ $ff and 12 =? ( blNOSPLIT )	drop | ;)
 			)
 		2 =? ( blREPEAT )
 		3 =? ( blWHILE )
-		4 =? (
-			pick2 8 - @ $ff and | ;)
-			12 <>? ( vpdrop vppush )( blNOSPLIT )
-			drop
+		4 =? ( | ELSE
+			pick2 8 - @ $ff and 12 <>? ( vpdrop vppush )( blNOSPLIT ) drop | ;)
 			)
 		drop ) drop
 	blEND
@@ -1244,7 +1225,7 @@ vuso4	|SSET  a --
 
 ::vpila2fix2 | deep --
 |	inivpcnt d.cnt - 	| actual-origen
-|	vpquitacp 			| quita copias
+	vpquitacp 			| quita copias
 |	correESI			| corre esi a nuevo lugar
 |	vpcopiaFix2			| copia los registros/ctes en pila
 |	d.cnt 'inivpcnt !	| ahora vpila tiene...
