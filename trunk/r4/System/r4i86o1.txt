@@ -378,41 +378,42 @@
 	,execr ;
 
 |------- PILAR
-:,>R	d.pop r.push ;
-:,R>    r.pop d.push ;
-:,R		r.tos d.push ;
-:,RDROP r.drop ;
 
-:,R+
+:,>R
+	toknow 8 >> 1? ( drop d.pop r.push ; ) drop
+	"push " ,s ,TOS ,cr d.drop ;
+
+:,R>
+	toknow 8 >> 1? ( drop r.pop d.push ; ) drop
+	d.dup d.tos needReg "pop " ,s ,TOS ,cr ;
+
+:,R
+	toknow 8 >> 1? ( drop r.tos d.push ; ) drop
+	d.dup d.tos needReg "mov " ,s ,TOS ",dword [esp]" ,ln ;
+
+:,RDROP
+	toknow 8 >> 1? ( drop r.drop ; ) drop
+	"lea esp,[esp+4]" ,ln ;
+
+:,R+a
 	r.tos needWrite
 	"add " ,s ,RTOS "," ,s ,TOS ,cr
 |	d.tos Cellval+ r.tos Cell+ |
 	d.drop ;
 
-:,R!+
+:,R+
+	toknow 8 >> 1? ( drop ,R+a ; ) drop
+	d.tos needReadM "add dword [esp]," ,s ,TOS ,cr d.drop ;
+
+:,R!+a
 	r.tos needWriteM
 	"mov dword [" ,s ,RTOS "]," ,s ,TOS ,cr
 	"add " ,s ,RTOS ",4" ,ln
 |	4 r.tos Cell+ | add 4
 	d.drop ;
 
-:,R@+
-	d.dup d.tos needReg
-	r.tos needReadM
-	"mov " ,s ,TOS ",[" ,s ,RTOS "]" ,ln
-	"add " ,s ,RTOS ",4" ,ln
-|	4 r.tos Cell+ | add 4
-	;
-
-|------ sin rpila virtual
-
-:,>R	"push " ,s ,TOS ,cr d.drop ;
-:,R>    d.dup d.tos needReg "pop " ,s ,TOS ,cr ;
-:,R     d.dup d.tos needReg "mov " ,s ,TOS ",dword [esp]" ,ln ;
-:,RDROP "lea esp,[esp+4]" ,ln ;
-:,R+	d.tos needReadM "add dword [esp]," ,s ,TOS ,cr d.drop ;
-
 :,R!+
+	toknow 8 >> 1? ( drop ,R!+a ; ) drop
 	d.tos needReadM
 	newReg 6 >? ( drop freelastreg newReg )
 	"mov " ,s dup ,REG ",dword [esp]" ,ln
@@ -420,7 +421,16 @@
 	"add dword [esp],4" ,ln
 	d.drop ;
 
+:,R@+a
+	d.dup d.tos needReg
+	r.tos needReadM
+	"mov " ,s ,TOS ",dword [" ,s ,RTOS "]" ,ln
+	"add " ,s ,RTOS ",4" ,ln
+|	4 r.tos Cell+ | add 4
+	;
+
 :,R@+
+	toknow 8 >> 1? ( drop ,R@+a ; ) drop
 	d.dup d.tos needReg
 	"mov " ,s ,TOS ",[esp]" ,ln
 	"mov " ,s ,TOS ",[" ,s ,TOS "]" ,ln
