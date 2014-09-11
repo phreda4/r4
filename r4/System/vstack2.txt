@@ -29,6 +29,9 @@
 ::reg!! | nro --
 	1 swap << not registros and 'registros ! ;
 
+::regu | nro -- nro 0/1
+	1 over << registros and ;
+
 ::newReg | -- reg | busca un registro libre
 	0 registros
 	( 1? )( 1 nand? ( drop ; ) | libre?
@@ -479,34 +482,54 @@
 	vp@ 'inivrcnt !
 	;
 
+::vpPick | -- ; pop del segundo
+	vpst> 8 - @ >r
+	'dpila 'dpila> !
+	r@+
+	( 1? )( 1-
+		r@+ dup d.push 2 <<
+		r@+ over 'cellt + !
+		r@+ over 'cellv + !
+		r@+ over 'cella + !
+		r@+ swap 'cells + !
+		) drop
+	'rpila 'rpila> !
+	r@+
+	( 1? )( 1-
+		r@+ dup r.push 2 <<
+		r@+ over 'cellt + !
+		r@+ over 'cellv + !
+		r@+ over 'cella + !
+		r@+ swap 'cells + !
+		) drop
+	r@+ 'registros !
+	r@+ 'inivpcnt !
+	r@+ 'inivrcnt !
+    rdrop
+	;
+
 ::vpDrop | --
 	-4 'vpst> +!
 	vpst> @ 'vpmem> ! ;
 
+::vpNip | --
+	-4  'vpst> +!
+	vpst> dup @ swap 4 - !
+	;
 |---- trandforma pila actual en copia apilada
 #regused )( 256
 #regused> 'regused
 
-:usado? | reg -- reg 1/0
-	-? ( 0 ; )
-	'regused ( regused> <? )(
-		@+ pick2 =? ( 2drop 1 ; ) drop
-		) drop 0 ;
-
 :cambiaregreg | reg cell reg --
-	nip | d f
-	2dup "xchg " ,s ,REG "," ,s ,REG ,cr
-	'regused ( regused> <? )(
-		@+ pick2 =? ( drop pick2 over 4 - ! dup ) drop
-		)
-	3drop ;
+	"xchg " ,s ,REG "," ,s ,REG ,cr
+	drop ;
 
 :asignaregcell | reg cell --
 	dup cellReg? pick2 =? ( 3drop ; ) | si ya esta..
-	usado? 1? ( drop cambiaregreg ; ) drop
- 	drop swap
-	"mov " ,s ,REG "," ,s ,CELL ,cr ;
-
+	rot | cell fuente destino
+	regu 1? ( drop cambiaregreg ; ) drop
+	swap -1 <>? ( dup reg!! ) drop
+ 	"mov " ,s ,REG "," ,s ,CELL ,cr ;
 
 ::vpFit | dp --
 	vpst> 4 - @ >r
@@ -533,7 +556,29 @@
 	( 1? )( 1-
 		rot 4 - rot 4 -
 		over @ over @ asignaregcell
+		rot ) 3drop ;
 
+::vpFitAll | --
+	vpst> 4 - @ >r
+	'regused 'regused> !
+	r@+ |"D: " ,s
+	( 1? )( 1-
+		r@+ drop
+		r@+ r@+ 8 r+
+		swap 5 =? ( drop )( 2drop -1 )
+		regused> !+ 'regused> !
+		) drop
+    rdrop
+
+	"; vFitall" ,print
+|	'regused ( regused> <? )( @+ 0 >=? ( dup ,sp ,REG ) drop ) drop
+	6 ( 1? )( 1- regu 1? ( drop dup ,sp ,REG )( drop ) ) drop
+	,cr
+	vpquitacp
+	regused> dpila> over 'regused - 2 >>
+	( 1? )( 1-
+		rot 4 - rot 4 -
+		over @ over @ asignaregcell
 		rot ) 3drop ;
 
 |****************************
@@ -1203,6 +1248,10 @@ vuso4	|SSET  a --
 	assignreg			| asigna registros..
 	drop
 	;
+
+::vpilareg | deep --
+	assignreg
+	drop ;
 
 |--------------------------------
 :vpcopiaFix2 | deep -- deep
