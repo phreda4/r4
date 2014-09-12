@@ -9,8 +9,8 @@
 |-------- Registros del CPU
 #:registros 0    | uso de registros
 
-#inivpcnt		| nivel de inicio de pila D
-#inivrcnt		| nivel de inicio de pila R
+#:inivpcnt		| nivel de inicio de pila D
+#:inivrcnt		| nivel de inicio de pila R
 
 |-------- constantes del sistema
 #syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
@@ -520,7 +520,10 @@
 #regused )( 256
 #regused> 'regused
 
-:cambiaregreg | reg cell reg --
+:cambiaregreg | cell regf regd --
+	'regused ( regused> <? )(
+		@+ pick3 =? ( drop over over 4 - ! dup ) drop
+		) drop
 	"xchg " ,s ,REG "," ,s ,REG ,cr
 	drop ;
 
@@ -541,16 +544,7 @@
 		swap 5 =? ( drop )( 2drop -1 )
 		regused> !+ 'regused> !
 		) drop
-
-|	r@+ "R: " ,s
-|	( 1? )( 1-
-|		r@+ drop r@+ r@+ r@+ r@+ "%h %h %h %h " ,print
-|		) drop
-|	r@+ "r:%h " ,print
-|	r@+ "vpc:%h " ,print
-|	r@+ "vrc:%h " ,print
     rdrop
-
 	vpquitacp
 	regused> dpila> rot
 	( 1? )( 1-
@@ -570,10 +564,11 @@
 		) drop
     rdrop
 
-	"; vFitall" ,print
+|	"; vFitall" ,print
 |	'regused ( regused> <? )( @+ 0 >=? ( dup ,sp ,REG ) drop ) drop
-	6 ( 1? )( 1- regu 1? ( drop dup ,sp ,REG )( drop ) ) drop
-	,cr
+|	6 ( 1? )( 1- regu 1? ( drop dup ,sp ,REG )( drop ) ) drop
+|	,cr
+
 	vpquitacp
 	regused> dpila> over 'regused - 2 >>
 	( 1? )( 1-
@@ -1238,7 +1233,7 @@ vuso4	|SSET  a --
 		) drop
 	;
 
-
+|--------------------------------
 ::vpila2fix | deep --
 	inivpcnt d.cnt - 	| actual-origen
 	vpquitacp 			| quita copias
@@ -1249,7 +1244,19 @@ vuso4	|SSET  a --
 	drop
 	;
 
-::vpilareg | deep --
+|--------------------------------
+::vpila2reg | deep --
+
+	'dpila inivpcnt |	copia resto
+	 1- ( 1? )( 1-
+		swap @+ genRST
+		swap ) drop
+	@ genEAX
+
+|	inivpcnt d.cnt -
+|	correESI
+|	vpcopiaFix
+
 	assignreg
 	drop ;
 
@@ -1291,37 +1298,3 @@ vuso4	|SSET  a --
 	dpila> 'dpila - 2 >> 1-
 	;
 
-|--------------------
-::vpilasave | nro deep --
-	;
-
-|--------------------
-:toREGN | nro adr cell --
-	dup cellREG? 0 >=? ( 2drop ; ) drop
-	newReg | cell reg
-	2dup ,cell2REG
-	dup reg!
-	5 rot cell!
-	;
-
-:assignregnro | nro deep -- deep
-	%1100000 'registros ! | esi,ebp siempre ocupados
-	'dpila ( dpila> <? )(
-		@+ cellREG?	-? ( drop )( reg! )
-		) drop
-	dpila> over 2 << -
-	( dpila> <? )(
-		@+ toREGN
-		) drop
-	;
-
-::vpilaload | nro deep --
-	inivpcnt d.cnt - 	| actual-origen
-	vpquitacp 			| quita copias
-	correESI			| corre esi a nuevo lugar
-	vpcopiaFix			| copia los registros/ctes en pila
-	d.cnt 'inivpcnt !	| ahora vpila tiene...
-	assignregnro			| asigna registros..
-	2drop
-
-	;
