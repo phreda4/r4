@@ -2,6 +2,7 @@
 | reemplazo para ASM
 | PHREDA 2013
 |------------------------
+^r4/lib/math.txt
 
 #BPP 4 #TOLERANCE 24 #VALUES $10 #QFULL $100 #MASK $f
 |#BPP 2 #TOLERANCE 8 #VALUES $4 #QFULL $8 #MASK $3
@@ -67,15 +68,8 @@
 	drop nip ;
 
 |---------- GRAFICOS ------------
-:clamp0 | v -- v
-	dup neg 31 >> and ;
-
-:clampmax | v max -- v
-	swap over - dup 31 >> and + ;
 
 |----- mexcla de colores
-:pxa | alpha --
-	col
 :acpx!+ | alpha col --
 	dup $ff00ff and				| alpha color colorand
 	px@ dup $ff00ff and 		| alpha color colorand inkc inkcand
@@ -85,6 +79,9 @@
 	swap $ff00 and 				| alpha colorand pxa
 	over - rot * 8 >> + $ff00 and
 	r> or px!+  ;
+
+:pxa
+	col acpx!+ ;
 
 :gr_mix | a b al -- c (DWORD col,BYTE alpha)
 	>r
@@ -118,23 +115,20 @@
 
 |------- clipline
 :clip1 | y1 x1 y2 x2 c1 -- y1 x1 y2 x2 c1
-|    8 <? ( 0 )( sh 2 - ) nip >r
     8 <? ( 0 )( sh 1- ) nip >r
 	2swap | y2 x2 y1 x1
 |		X1+=(V-Y1)*(X2-X1)/(Y2-Y1);Y1=V;
  	pick3 pick2 - r pick3 - pick4 pick3 - rot */ +
 	nip r> swap
-	-? ( $1 )( 0 ) >r sw >=? ( $2 r+ )
-	2swap r> ;
+	-? ( $1 )( sw >=? ( $2 )( 0 ) )
+	>r 2swap r> ;
 
 :clip2 | y1 x1 y2 x2 c2 -- y1 x1 y2 x2 c2
-|	8 <? ( 0 )( sh 2 - ) nip >r	| y1 x1 y2 x2
 	8 <? ( 0 )( sh 1- ) nip >r	| y1 x1 y2 x2
 | 		X2+=(V-Y2)*(X2-X1)/(Y2-Y1);Y2=V;
 	over pick4 - over pick4 - r pick4 - swap rot */ +
 	nip r> swap
-	-? ( $1 )( 0 ) >r sw >=? ( $2 r+ )
-	r> ;
+	-? ( $1 )( sw >=? ( $2 )( 0 ) ) ;
 
 :clip3 | y1 x1 y2 x2 c2 -- y1 x1 y2 x2 c2
 	1 =? ( 0 )( sw 1- ) nip >r
@@ -152,11 +146,11 @@
 	2swap 0 ;
 
 :clipline | x2 y2 x1 y1 -- y1 x1 y2 x2 in
-	sh >=? ( $8 )( 0 ) >r -? ( $4 r+ )	| y1
-	swap sw >=? ( $2 r+ ) -? ( $1 r+ )	| x1
+	sh >=? ( $8 )( -? ( $4 )( 0 ) ) >r	| y1
+	swap sw >=? ( $2 r+ )( -? ( $1 r+ ) )	| x1
 	2swap | y1 x1 x2 y2
-	sh >=? ( $8 )( 0 ) >r -? ( $4 r+ )	| y2
-	swap sw >=? ( $2 r+ ) -? ( $1 r+ )	| x2
+	sh >=? ( $8 )( -? ( $4 )( 0 ) ) >r  | y2
+	swap sw >=? ( $2 r+ )( -? ( $1 r+ ) )	| x2
 	r> r>	| y1 x1 y2 x2 c2 c1
 	2dup and 1? ( drop or ; ) drop
 	2dup or 0? ( drop or ; ) drop
