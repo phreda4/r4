@@ -112,7 +112,6 @@
 	dup reg! 5 rot cell! ;
 
 
-
 |************* si hay copia del registro hay que separar
 :needWrite | cell -- ; pone en registro si no esta
 	dup cellREG? 0 >=? ( 2drop ; ) drop
@@ -145,6 +144,44 @@
 	resCPY
 	dup cellREG? 0 >=? ( 2drop ; ) drop
 	cell2newReg ;
+
+|--------------------------
+:inverteaxreg
+	d.tos d.nos "xchg " ,s ,CELL "," ,s ,CELL ,cr
+	usoEDX ;
+
+:nosEAXtosREGMEMfreeEDX
+	d.tos cellREG? 0? ( d.nos cellREG? +? ( 2drop inverteaxreg ; ) drop ) drop
+	d.nos needEAX
+	usoEDX
+	d.tos needREGorMEM
+	;
+
+:inv1eaxreg
+	d.pk2 d.nos 
+	2dup "xchg " ,s ,CELL "," ,s ,CELL ,cr
+	cell2cell!
+	usoEDX
+	d.nos needREGorMEM
+	d.tos needREGorMEM ;
+
+:inv2eaxreg
+	d.pk2 d.tos
+	2dup "xchg " ,s ,CELL "," ,s ,CELL ,cr
+	cell2cell!
+	usoEDX
+	d.nos needREGorMEM
+	d.tos needREGorMEM ;
+
+:pk2EAXtosnosREGMEMfreeEDX
+	d.nos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv1eaxreg ; ) drop ) drop
+	d.tos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv2eaxreg ; ) drop ) drop
+	d.pk2 needEAX
+	usoEDX
+	d.nos needREGorMEM
+	d.tos needREGorMEM ;
+
+
 |------ acceso a celdas
 :,TOS	d.tos ,cell ;
 :,TOSb	d.tos ,cellb ;
@@ -290,35 +327,37 @@
 
 :vpilad
 |	vpila2normal
+	deepnow blockde ";vpila2reg << %d >> %d " ,print printddvtack
 	blockde vpila2reg
+	deepnow blockde ";vpila2reg << %d >> %d " ,print printddvtack
 	;
 
 :,cond
-|	d.cnt "; cantidad: %d " ,print blockde "; blockde: %d " ,print inivpcnt "; inivpcnt: %d " ,print ,cr
+	d.cnt "; COND cnt: %d " ,print blockde "; blockde: %d " ,print inivpcnt "; inivpcnt: %d " ,print
+	printddvtack
 
 	contype
 	blockt $10 nand? ( drop
 		'consimple =? ( blockde vpila2fix )( blockde vpila2fix2 )
 		)( drop )
-	exec ;
+	exec
+
+	d.cnt "; COND cnt: %d " ,print blockde "; blockde: %d " ,print inivpcnt "; inivpcnt: %d " ,print
+	printddvtack
+	;
 
 :,bloque
 |	d.cnt "; cantidad: %d " ,print blockde "; blode: %d " ,print inivpcnt "; incnt: %d " ,print ,cr
-
 	d.cnt inivpcnt - vpila2reg
 |	"; " ,s printddvtack
-
 	;
 
 :,(
 	block.new
-|	blockt block.now "; BLK %d %d (( " ,print ,cr
+	blockt block.now "; BLK %d %d (( " ,print printddvtack
 |	"r4asm/cod.asm" savemem
 
-	blockt
-|	$10 nand? ( vpilad )
-|	vpPush
-	$f and
+	blockt $f and
 	1 <=? ( ,cond vppush +etiqueta ,jmpcond )	| IF/ELSE
 	2 >=? ( vpilad vppush +etiqueta ,etiqueta )	| WHILE | UNTIL | REPEAT
 	drop
@@ -327,12 +366,10 @@
 	;
 
 :,)(
-|	block.now ";BLK %d )( " ,print ,cr
+	block.now ";BLK %d )( " ,print printddvtack
 |	"r4asm/cod.asm" savemem
 
-	blockt
-|	$10 nand? ( vpilad )
-	$f and
+	blockt $f and
 	1 =? ( ,bloque <pilac +etiqueta jmp, ,etiqueta vppush vppick vpnip )	| ELSE
 	2 =? ( ,cond <pilac +etiqueta ,jmpcond >pilac vpdrop vppush )	| WHILE
 	drop
@@ -343,12 +380,9 @@
 	;
 
 :,)
-|	block.now ";BLK %d )) " ,print ,cr
-|	deepnow blockde "; << %d >> %d " ,print printddvtack
-"r4asm/cod.asm" savemem
-	blockt
-|	$10 nand? ( vpilad )
-	$f and
+	block.now ";BLK %d )) " ,print printddvtack
+|"r4asm/cod.asm" savemem
+	blockt $f and
 	1 <=? (
 			over 8 - @ $ff and 12 <>? ( vpFitAll ) drop
 			<pilac ,etiqueta				| IF ELSE
@@ -486,18 +520,16 @@
 	d.drop ;
 :,/
 	| si d.tos es pow2..
-	d.nos needEAX
-	usoEDX
-	d.tos needREGorMEM
+	nosEAXtosREGMEMfreeEDX
+
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 	d.drop
 	freeEDX ;
 :,/MOD
 	| si d.tos es pow2..
-	d.nos needEAX
-	usoEDX
-	d.tos needREGorMEM
+	nosEAXtosREGMEMfreeEDX
+
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 	d.nos setEAX
@@ -505,9 +537,8 @@
 
 :,MOD
 	| si d.tos es pow2..
-	d.nos needEAX
-	usoEDX
-	d.tos needREGorMEM
+	nosEAXtosREGMEMfreeEDX
+
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 	d.drop
@@ -515,10 +546,8 @@
 	freeEAX ;
 
 :,*/
-	d.pk2 needEAX
-	usoEDX
-	d.nos needREGorMEM
-	d.tos needREGorMEM
+	pk2EAXtosnosREGMEMfreeEDX
+
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
@@ -532,6 +561,7 @@
 	usoEDX
 	d.nos needREGorMEM
 	d.tos cteorECX
+
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
@@ -545,6 +575,7 @@
 	usoEDX
 	d.nos needREGorMEM
 	d.tos cteorECX
+
 	"cdq" ,ln
     "shld edx,eax," ,s ,TOSb ,cr
 	"shl eax," ,s ,TOSb ,cr

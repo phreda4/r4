@@ -219,7 +219,7 @@
 |---- imprime celda
 :list2str swap ( 1? )( 1- swap >>0 swap ) drop ;
 
-:mt0 value -? ( "(%d)" )( "$%h" ) ,print ;			|--	0 nro 	33
+:mt0 value "$%h" ,print ;			|--	0 nro 	33
 :mt1 value 'syscons list2str ,s ;	|--	1 cte	XRES
 :mt2 value "str%h" ,print ;			|--	2 str   "hola"
 :mt3 value "w%h" ,print ;			|--	3 cod  'func
@@ -527,12 +527,17 @@
 	"xchg " ,s ,REG "," ,s ,REG ,cr
 	drop ;
 
+:,cell2REG | cell reg --
+	over cell0?
+	1? ( drop nip "xor " ,s dup ,REG "," ,s ,REG ,cr ; ) drop
+	"mov " ,s ,REG "," ,s ,CELL ,cr ;
+
 :asignaregcell | reg cell --
 	dup cellReg? pick2 =? ( 3drop ; ) | si ya esta..
 	rot | cell fuente destino
 	regu 1? ( drop cambiaregreg ; ) drop
 	swap -1 <>? ( dup reg!! ) drop
- 	"mov " ,s ,REG "," ,s ,CELL ,cr ;
+	,cell2REG ;
 
 ::vpFit | dp --
 	vpst> 4 - @ >r
@@ -564,11 +569,11 @@
 		) drop
     rdrop
 
-|	"; vFitall" ,print
-|	'regused ( regused> <? )( @+ 0 >=? ( dup ,sp ,REG ) drop ) drop
-|	6 ( 1? )( 1- regu 1? ( drop dup ,sp ,REG )( drop ) ) drop
-|	,cr
-
+	"; vFitall" ,print
+	'regused ( regused> <? )( @+ 0 >=? ( dup ,sp ,REG )( -1 ,sp ,d )  drop ) drop ,cr
+	"; " ,s 6 ( 1? )( 1- regu 1? ( drop dup ,sp ,REG )( drop ) ) drop
+	,cr
+"r4asm/cod.asm" savemem
 	vpquitacp
 	regused> dpila> over 'regused - 2 >>
 	( 1? )( 1-
@@ -1115,8 +1120,10 @@ vuso4	|SSET  a --
 
 :genEAX | cell --
 	dup cellREG? 0? ( 2drop ; ) drop	| ya es eax!
-|	dup 0 ,cell2REG | ***** si usa xor limpia flags !!!
-	"mov eax," ,s dup ,CELL ,cr
+
+	dup 0 ,cell2REG | ***** si usa xor limpia flags !!! O1 necesita esto**********
+|	"mov eax," ,s dup ,CELL ,cr
+
 	0 5 rot cell! ;
 
 :vplast
@@ -1235,24 +1242,26 @@ vuso4	|SSET  a --
 
 |--------------------------------
 ::vpila2fix | deep --
-	inivpcnt d.cnt - 	| actual-origen
+	"; fix1 " ,s dup ,d ,cr
+|	inivpcnt d.cnt - 	| actual-origen
 	vpquitacp 			| quita copias
-	correESI			| corre esi a nuevo lugar
-	vpcopiaFix			| copia los registros/ctes en pila
-	d.cnt 'inivpcnt !	| ahora vpila tiene...
+|	correESI			| corre esi a nuevo lugar
+|	vpcopiaFix			| copia los registros/ctes en pila
+|	d.cnt 'inivpcnt !	| ahora vpila tiene...
 	assignreg			| asigna registros..
 	drop
 	;
 
 |--------------------------------
 ::vpila2reg | deep --
+	"; reg " ,s dup ,d ,cr
 
-	'dpila inivpcnt |	copia resto
-	 1- ( 1? )( 1-
-		swap @+ genRST
-		swap ) drop
-	@ genEAX
-
+|	1? (
+|	'dpila d.cnt pick2 - |inivpcnt |	copia resto
+|	+? ( 1- ( 1? )( 1- swap @+ genRST swap ) )
+|	2drop
+|	)( 1+ )
+	0? ( 1+ )
 |	inivpcnt d.cnt -
 |	correESI
 |	vpcopiaFix
@@ -1280,6 +1289,7 @@ vuso4	|SSET  a --
 	;
 
 ::vpila2fix2 | deep --
+|	"; fix2 " ,s ,cr
 |	inivpcnt d.cnt - 	| actual-origen
 	vpquitacp 			| quita copias
 |	correESI			| corre esi a nuevo lugar
@@ -1295,6 +1305,6 @@ vuso4	|SSET  a --
 	( 'dpila >=? )(
 		dup @ cellREG? -? ( drop dpila> - 2 >> neg 1- ; ) drop
 		4 - ) drop
-	dpila> 'dpila - 2 >> 1-
+	dpila> 'dpila - 2 >> |1-
 	;
 
