@@ -370,6 +370,28 @@ do {
 return g;
 }
 
+// http://www.cc.utah.edu/~nahaj/factoring/isqrt.legalize.c.html
+/* Integer square root by Halleck's method, with Legalize's speedup */
+/*
+static int isqrt32(int x)
+{
+if (x<1) return 0;
+int squaredbit, remainder, root;
+squaredbit  = (long) ((((unsigned long) ~0L) >> 1) & ~(((unsigned long) ~0L) >> 2));
+remainder = x;  root = 0;
+while (squaredbit > 0) {
+ if (remainder >= (squaredbit | root)) {
+     remainder -= (squaredbit | root);
+     root >>= 1; root |= squaredbit;
+ } else {
+     root >>= 1;
+ }
+ squaredbit >>= 2;
+}
+return root;
+}
+*/
+
 //---------------------------------------------------------------
 int interprete(BYTE *codigo)// 1=recompilar con nombre en linea
 {
@@ -409,7 +431,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case PIF: W=*(char*)IP;IP++;if (TOS<=0) IP+=W; continue;
 	case NIF: W=*(char*)IP;IP++;if (TOS>=0) IP+=W; continue;
     case UIF: W=*(char*)IP;IP++;if (TOS==0) IP+=W; continue;
-    case IFN: W=*(char*)IP;IP++;if (TOS!=*NOS) IP+=W; 
+    case IFN: W=*(char*)IP;IP++;if (TOS!=*NOS) IP+=W;
 		TOS=*NOS;NOS--;continue;
     case IFNO: W=*(char*)IP;IP++;if (TOS==*NOS) IP+=W; 
 		TOS=*NOS;NOS--;continue;
@@ -426,7 +448,8 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
     case IFNAND: W=*(char*)IP;IP++;if (TOS&*NOS) IP+=W;
 		TOS=*NOS;NOS--;continue;
 //--- fin condicionales dependiente de bloques    
-	case EXEC:W=TOS;TOS=*NOS;NOS--;if (W!=0) { R++;*R=IP;IP=(BYTE*)W; } continue;
+//	case EXEC:W=TOS;TOS=*NOS;NOS--;if (W!=0) { R++;*R=IP;IP=(BYTE*)W; } continue;
+	case EXEC:R++;*R=IP;IP=(BYTE*)TOS;TOS=*NOS;NOS--;continue;
 //--- pila de datos
 	case DUP: NOS++;*NOS=TOS;continue;
     case DROP: TOS=*NOS;NOS--;continue;
@@ -569,7 +592,7 @@ while (true)  {// Charles Melice  suggest next:... goto next; bye !
 	case ALPHA: gr_alpha(TOS);TOS=*NOS;NOS--;continue;
 //--- dibujo
     case OP: gy1=TOS;gx1=*NOS;NOS--;TOS=*NOS;NOS--;continue;
-	case LINE: 
+	case LINE:
 		gr_line(gx1,gy1,*NOS,TOS);gx1=*NOS;gy1=TOS;
         NOS--;TOS=*NOS;NOS--;continue;
     case CURVE: 

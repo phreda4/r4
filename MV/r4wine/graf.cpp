@@ -351,20 +351,22 @@ int C1,C2,V;
 if (*X1<0) C1=1; else C1=0;
 if (*X1>=gr_ancho) C1|=0x2;
 if (*Y1<0) C1|=0x4;
-if (*Y1>=gr_alto-1) C1|=0x8;
+//if (*Y1>=gr_alto-1) C1|=0x8;
+if (*Y1>=gr_alto) C1|=0x8;
 if (*X2<0) C2=1; else C2=0;
 if (*X2>=gr_ancho) C2|=0x2;
 if (*Y2<0) C2|=0x4;
-if (*Y2>=gr_alto-1) C2|=0x8;
+//if (*Y2>=gr_alto-1) C2|=0x8;
+if (*Y2>=gr_alto) C2|=0x8;
 if ((C1&C2)==0 && (C1|C2)!=0) {
 	if ((C1&12)!=0) {
-		if (C1<8) V=0; else V=gr_alto-2;
+		if (C1<8) V=0; else V=gr_alto-1;
 		*X1+=(V-*Y1)*(*X2-*X1)/(*Y2-*Y1);*Y1=V;
 		if (*X1<0) C1=1; else C1=0;
 		if (*X1>=gr_ancho) C1|=0x2;
 		}
     if ((C2&12)!=0) {
-		if (C2<8) V=0; else V=gr_alto-2;
+		if (C2<8) V=0; else V=gr_alto-1;
 		*X2+=(V-*Y2)*(*X2-*X1)/(*Y2-*Y1);*Y2=V;
 		if (*X2<0) C2=1; else C2=0;
 		if (*X2>=gr_ancho) C2|=0x2;
