@@ -223,7 +223,7 @@
 |---- imprime celda
 :list2str swap ( 1? )( 1- swap >>0 swap ) drop ;
 
-:mt0 value "$%h" ,print ;			|--	0 nro 	33
+:mt0 value -? ( "(%d)" ,print ; ) "$%h" ,print ;			|--	0 nro 	33
 :mt1 value 'syscons list2str ,s ;	|--	1 cte	XRES
 :mt2 value "str%h" ,print ;			|--	2 str   "hola"
 :mt3 value "w%h" ,print ;			|--	3 cod  'func
@@ -524,6 +524,9 @@
 #regused )( 256
 #regused> 'regused
 
+#realused )( 256
+#realused> 'regused
+
 :cambiaregreg | cell regf regd --
 	'regused ( regused> <? )(
 		@+ pick3 =? ( drop over over 4 - ! dup ) drop
@@ -534,16 +537,29 @@
 :asignaregcell | reg cell --
 	dup cellReg? pick2 =? ( 3drop ; ) | si ya esta..
 	rot | cell fuente destino
+	-? ( 3drop ; )
 	regu 1? ( drop cambiaregreg ; ) drop
 	swap -1 <>? ( dup reg!! ) drop
+
 	,cell2REG ;
+
+:asignaregcell2 | cel' cell --
+	swap	| cell celd
+	dup @ 	| cell celd tipo
+
+
+	;
+
 
 ::vpFit | dp --
 	vpst> 4 - @ >r
 	'regused 'regused> !
+	'realused 'realused> !
+
 	r@+ |"D: " ,s
 	( 1? )( 1-
 		r@+ drop
+		r realused> !+ 'realused> !
 		r@+ r@+ 8 r+
 		swap 5 =? ( drop )( 2drop -1 )
 		regused> !+ 'regused> !
@@ -557,30 +573,44 @@
 		rot ) 3drop ;
 
 ::vpFitAll | --
+	"; vFitall " ,print
+	d.cnt "d.cnt:%d " ,print
 	vpst> 4 - @ >r
 	'regused 'regused> !
 	r@+ |"D: " ,s
 	( 1? )( 1-
 		r@+ drop
+		r realused> !+ 'realused> !	| busca todo
 		r@+ r@+ 8 r+
-		swap 5 =? ( drop )( 2drop -1 )
+		swap 5 =? ( drop )(
+			2drop r 8 - @ 1+ neg ) | 1+ distinge eax de [esi]
+|			2drop -1 )
 		regused> !+ 'regused> !
 		) drop
+
+	r@+ | r:
+	( 1? )( 1- r@+ drop 16 r+ ) drop
+	r@+ drop |'registros !
+	r@+ " inivpcnt:%d  " ,print |drop |'inivpcnt !
+	r@+ drop |'inivrcnt !
     rdrop
 
-	"; vFitall" ,print
-	'regused ( regused> <? )( @+ 0 >=? ( dup ,sp ,REG )( -1 ,sp ,d )  drop ) drop ,cr
+	'regused ( regused> <? )( @+ 0 >=? ( dup ,sp ,REG )( dup ,sp ,d )  drop ) drop ,cr
 	"; " ,s 6 ( 1? )( 1- regu 1? ( drop dup ,sp ,REG )( drop ) ) drop
 	,cr
 "r4asm/cod.asm" savemem
 
-
 	vpquitacp
-	regused> dpila> over 'regused - 2 >>
+
+|	realused> dpila> over 'realused - 2 >>
+|	( 1? )( 1- 	rot 4 - rot 4 - over @ over @ asignaregcell2 rot ) 3drop ;
+
+	regused> dpila> rot
 	( 1? )( 1-
 		rot 4 - rot 4 -
 		over @ over @ asignaregcell
 		rot ) 3drop ;
+
 
 |****************************
 :toknow	dup 4 - @ ;
