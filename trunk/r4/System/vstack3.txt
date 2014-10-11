@@ -520,17 +520,37 @@
 	-4  'vpst> +!
 	vpst> dup @ swap 4 - !
 	;
+
 |---- trandforma pila actual en copia apilada
 #regused )( 256
 #regused> 'regused
 
-#realused )( 256
-#realused> 'regused
+:regen | reg -- rege
+	dpila> ( 'dpila >=? )(
+		dup @ cellREG pick2 =? ( )
+		drop 4 - ) drop
+	;
 
-:cambiaregreg | cell regf regd --
+:usadosolodestino | cell regd --
+
+| obtener regf
+
 	'regused ( regused> <? )(
 		@+ pick3 =? ( drop over over 4 - ! dup ) drop
 		) drop
+	over "xchg " ,s ,REG "," ,s ,REG ,cr
+
+	swap | cell reg
+	,cell2REG
+	;
+
+:cambiaregreg | cell regf regd --
+	swap -? ( drop usadosolodestino ; ) swap
+	'regused ( regused> <? )(
+		@+ pick3 =? ( drop over over 4 - ! dup ) drop
+		) drop
+|	2dup ";** %d %d " ,print
+|	"r4asm/cod.asm" savemem
 	"xchg " ,s ,REG "," ,s ,REG ,cr
 	drop ;
 
@@ -540,26 +560,18 @@
 	-? ( 3drop ; )
 	regu 1? ( drop cambiaregreg ; ) drop
 	swap -1 <>? ( dup reg!! ) drop
-
-	,cell2REG ;
-
-:asignaregcell2 | cel' cell --
-	swap	| cell celd
-	dup @ 	| cell celd tipo
-
-
+	,cell2REG
+	"r4asm/cod.asm" savemem
 	;
 
 
 ::vpFit | dp --
 	vpst> 4 - @ >r
 	'regused 'regused> !
-	'realused 'realused> !
 
 	r@+ |"D: " ,s
 	( 1? )( 1-
 		r@+ drop
-		r realused> !+ 'realused> !
 		r@+ r@+ 8 r+
 		swap 5 =? ( drop )( 2drop -1 )
 		regused> !+ 'regused> !
@@ -577,10 +589,9 @@
 	d.cnt "d.cnt:%d " ,print
 	vpst> 4 - @ >r
 	'regused 'regused> !
-	r@+ |"D: " ,s
+	r@+ dup "D:%d) " ,print
 	( 1? )( 1-
 		r@+ drop
-		r realused> !+ 'realused> !	| busca todo
 		r@+ r@+ 8 r+
 		swap 5 =? ( drop )(
 			2drop r 8 - @ 1+ neg ) | 1+ distinge eax de [esi]
@@ -596,16 +607,13 @@
     rdrop
 
 	'regused ( regused> <? )( @+ 0 >=? ( dup ,sp ,REG )( dup ,sp ,d )  drop ) drop ,cr
-	"; " ,s 6 ( 1? )( 1- regu 1? ( drop dup ,sp ,REG )( drop ) ) drop
-	,cr
-"r4asm/cod.asm" savemem
+|	"; " ,s 6 ( 1? )( 1- regu 1? ( drop dup ,sp ,REG )( drop ) ) drop ,cr
+
+	"r4asm/cod.asm" savemem
 
 	vpquitacp
 
-|	realused> dpila> over 'realused - 2 >>
-|	( 1? )( 1- 	rot 4 - rot 4 - over @ over @ asignaregcell2 rot ) 3drop ;
-
-	regused> dpila> rot
+	regused> dpila> d.cnt
 	( 1? )( 1-
 		rot 4 - rot 4 -
 		over @ over @ asignaregcell
