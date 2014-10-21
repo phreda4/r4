@@ -5,20 +5,21 @@
 ^r4/lib/btn.txt
 ^r4/lib/input.txt
 ^r4/lib/sort.txt
-
-^r4/system/mem-ed.txt
-
 ^r4/lib/rfont.txt
 ^r4/lib/ricons.txt
+
+^r4/lib/3d-escena.txt
+
+^inc/ric/fontawesomewebfont.ric
+^inc/rft/robotoregular.rft
+^inc/rft/robotobold.rft
+
+^r4/system/mem-ed.txt
 
 |^r4/lib/dlgfilea.txt
 |^r4/lib/vkeyboard.txt
 
 ^r4/lib/trace.txt
-
-^inc/ric/fontawesomewebfont.ric
-^inc/rft/robotoregular.rft
-^inc/rft/robotobold.rft
 
 
 #nfiles
@@ -30,71 +31,25 @@
 #filen> 'filen
 #xypos )( 8192
 #xypos> 'xypos
-#sortf )( 2048
 
-#pagina
 #actual
 #path )( 1024
 #fileactual )( 32
 
-|------------------- OS DEp ---------------------
-:FNAME | adr -- adrname
-|WIN|	44 +
-|AND|	19 +
-	;
-
-:FDIR? | adr -- 1/0
-|WIN|	@ $10
-|AND|	18 + c@ 4
-	=? ( 1 )( 0 ) nip ;
-|----------------------------------------
-
-:FINFO | adr -- adr info
-	dup FDIR? 1? ( 0 nip ; ) drop
-	dup FNAME
-	".txt" =pos 1? ( 2drop 1 ; ) drop
-	".bmr" =pos 1? ( 2drop 2 ; ) drop
-	".inc" =pos 1? ( 2drop 3 ; ) drop
-	".rmt" =pos 1? ( 2drop 4 ; ) drop
-	".spr" =pos 1? ( 2drop 5 ; ) drop
-	".vsp" =pos 1? ( 2drop 6 ; ) drop
-	7 nip ;
-
-:rebuild
-	0 'pagina !
-	0 'nfiles !
-	'filen 'filen> !
-	'files 'files> !
-	'infos 'infos> !
-	'path ffirst drop fnext drop | quita . y ..
-	( fnext 1? )(
-		filen> files> !+ 'files> !
-		FINFO infos> !+ 'infos> !
-		FNAME filen> strcpyl 'filen> !
-		) drop
-	files> 'files - 2 >> 'nfiles !
-
-
-	'sortf >r
-	0 ( nfiles <? )(
-		dup 2 << 'infos + @ 24 <<
-|		over 2 << 'files +
-|		c@+ swap c@+ swap c@
-|		rot 16 << or swap 8 << or or
-		r!+
-		dup r!+
-		1+ ) drop rdrop
-	nfiles 1+ 'sortf shellsort
-	;
-
-:getname | nro -- ""
-	3 << 'sortf + 4+ @ 2 << 'files + @ ;
-
-:getinfo | nro -- info
-	3 << 'sortf + 4+ @ 2 << 'infos + @ ;
+|---------------------------------------------
+#xcam #ycam #zcam 2.0
+#iconos 0 0
 
 #namesolo )( 64
+
+:getname | nro -- ""
+	2 << 'files + @ ;
+
+:getinfo | nro -- info
+	2 << 'infos + @ ;
+
 :getnamesolo | nro -- ""
+	-? ( "" nip ; )
 	dup getinfo 0? ( drop getname ; ) drop
 	getname 'namesolo strcpyl
 	0 swap 5 - c! | quita ".txt"
@@ -103,7 +58,7 @@
 :addpath | nro -- nro
 	 "/" 'path strcat
     dup getname 'path  strcat
-	rebuild ;
+	;
 
 :clearact
 	-1 'actual ! "" 'fileactual strcpy ;
@@ -111,27 +66,25 @@
 :rempath
 	'path ( c@+ 1? )( drop ) drop 1-
 	( 'path >? )(
-		dup c@ $2f =? ( drop 0 swap ! rebuild clearact ; )
+		dup c@ $2f =? ( drop 0 swap ! ; )
 		drop 1- ) drop
-	rebuild clearact ;
+	;
 
 
 |----------------------------------------
 :clearall
-	0 'pagina !
 	clearact
 	"r4" 'path strcpy ;
 
 :loadm
-	'pagina "mem/main.mem" load
-	'pagina =? ( clearall ) drop
-	rebuild
+	'actual "mem/main.mem" load
+	'actual =? ( clearall ) drop
 	actual -? ( drop ; )
 	getnamesolo 'fileactual strcpy
 	;
 
 :savem
-	'pagina 8 1024 +
+	'actual 8 1024 +
 	"mem/main.mem" save ;
 
 :multip
@@ -197,6 +150,7 @@
 |and|	"r4/system/edit-codea.txt" run
 	;
 
+|-----------------------------------------------------
 #newfile
 
 :remaddtxt | --
@@ -227,98 +181,196 @@
 |and|	"r4/system/edit-codea.txt" run
 	;
 
+
+|-----------------------------
+:3dop project3d op ;
+:3dline project3d line ;
+
+:grillaxy
+	-5.0 ( 5.0 <=? )( dup -5.0 0 3dop dup 5.0 0 3dline
+		-5.0 over 0 3dop 5.0 over 0 3dline 1.0 + ) drop ;
+:grillayz
+	-5.0 ( 5.0 <=? )( 0 over -5.0 3dop 0 over 5.0 3dline
+		0 -5.0 pick2 3dop 0 5.0 pick2 3dline 1.0 + ) drop ;
+:grillaxz
+	-5.0 ( 5.0 <=? )( dup 0 -5.0 3dop dup 0 5.0 3dline
+		-5.0 0 pick2 3dop 5.0 0 pick2 3dline 1.0 + ) drop ;
+
+|---- caja en normalizado
+:drawboxz | z --
+	-0.05 -0.05 pick2 3dop
+	0.05 -0.05 pick2 3dline
+	0.05 0.05 pick2 3dline
+	-0.05 0.05 pick2 3dline
+	-0.05 -0.05 rot 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup -0.05 3dop 0.05 3dline ;
+
+:draw3dnorm
+	-0.05 drawboxz
+	0.05 drawboxz
+	-0.05 -0.05 drawlinez
+	0.05 -0.05 drawlinez
+	0.05 0.05 drawlinez
+	-0.05 0.05 drawlinez ;
+
+|---------------------------------------------
+:sicon.upd
+	esc.z+ ;
+
 :clickbtn | nro -- nro
 	dup getinfo
-	0? ( drop clearact addpath ; )
+	0? ( drop clearact addpath ; ) | rebuild
 	drop
 	actual =? ( runfile ; )
 	dup 'actual !
 	dup getnamesolo 'fileactual strcpy
 	;
 
-:botonapp | nro -- nro
+:drawcarta | nro -- nro
 	nfiles >=? ( ; )
-	'clickbtn btnb
+	mpush
 	dup getinfo
 	2 << dup 'iconcolor + @ ink
-	'iconinfo + @ drawric
+	'iconinfo + @ 3ddrawric
 	home blanco
 	dup getnamesolo cr cr printc
-	actual =? ( gc.box )
-|	actual =? ( gris gc.fbox )
+	mpop ;
+
+:sicon.draw
+	mpush
+	esc.pos
+
+|    home 0 0 0 project3d atxy
+|	dup "%h" print
+
+	draw3dnorm
+
+	mpop ;
+
+:sicon.add | z y x --
+	'iconos esc. >r
+	'sicon.upd r!+
+	r!+ r!+ r!+ | x y z
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+	0 r!+ 0 r!+
+	'sicon.draw r!+
+
+	rdrop ;
+
+|------------------- OS DEp ---------------------
+:FNAME | adr -- adrname
+|WIN|	44 +
+|AND|	19 +
+	;
+
+:FDIR? | adr -- 1/0
+|WIN|	@ $10
+|AND|	18 + c@ 4
+	=? ( 1 )( 0 ) nip ;
+|----------------------------------------
+
+:FINFO | adr -- adr info
+	dup FDIR? 1? ( 0 nip ; ) drop
+	dup FNAME
+	".txt" =pos 1? ( 2drop 1 ; ) drop
+	".bmr" =pos 1? ( 2drop 2 ; ) drop
+	".inc" =pos 1? ( 2drop 3 ; ) drop
+	".rmt" =pos 1? ( 2drop 4 ; ) drop
+	".spr" =pos 1? ( 2drop 5 ; ) drop
+	".vsp" =pos 1? ( 2drop 6 ; ) drop
+	7 nip ;
+
+:rebuild
+	0 'nfiles !
+	'filen 'filen> !
+	'files 'files> !
+	'infos 'infos> !
+	'path ffirst drop fnext drop | quita . y ..
+	( fnext 1? )(
+		filen> files> !+ 'files> !
+		FINFO infos> !+ 'infos> !
+		FNAME filen> strcpyl 'filen> !
+		) drop
+	files> 'files - 2 >> 'nfiles !
+
+
+	'iconos esc.clear
+	0 nfiles 12 << neg 0
+	nfiles ( 1? )( 1- >r
+		pick2 pick2 pick2 sicon.add
+		swap 0.11 + swap
+		r> ) 4drop
 
 	;
 
-#fcnt #fsize
-#ccnt #csize
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
 
-:prevp
-	pagina fcnt - -? ( fcnt + ) 'pagina ! ;
-:nextp
-	pagina fcnt + nfiles >=? ( fcnt - ) 'pagina ! ;
+|-----------------------------------------------------
+:printbtns
+	omode
+	freelook
+	xcam ycam zcam mtrans
 
-:menubtn
-	robotobold 24 rfont!
-	80 qdim
-|	fonti
-
-	sw 80 / 2.0 over / 'fsize ! 2 - 'fcnt !
-	sh 80 / 2.0 over / 'csize ! 2 - 'ccnt !
-
-	fcnt 1- fsize * 2/
-	ccnt 1- csize * 2/
-
-	pagina >r
-	0 ( ccnt <? )(
-		0 ( fcnt <? )(
-			dup	fsize * pick4 -
-			pick2 csize * pick4 -
-			neg fpos
-			r> botonapp 1+ >r
-			1+ ) drop
-		1+ ) drop
-	2drop rdrop
+	esc.zclear
+	'iconos esc.draw
+	esc.zdraw
 	;
 
+
+|--------------------------------------------
 :icono | rojo  "ESC" 'i.off 'exit --
-|	btnb swap home print blanco drawric
-	negro
-	btnb drawric home blanco print
-|	blanco gc.box
+	negro btnb drawric home blanco print
 	;
 
 :botonera
 	robotobold 24 rfont!
-	32 qdim 20 sh 17 - pos
-	rojo "ESC" 'i.off 'exit dup >esc< icono gc>>
-	verde "F1" 'i.bolt [ actual -? ( drop ; ) runfile ; ] dup <f1> icono gc>>
-	verde "F2" 'i.edit 'editfile dup <f2> icono gc>>
-	verde "F3" 'i.light_bulb [ 1 'newfile ! 0 'fileactual ! ; ] dup <f3> icono gc>>
-
-|	cyan
-|	'nextp btnb 'i.chevron_down drawric gc>>
-|	'prevp btnb 'i.chevron_up drawric gc>>
-
+	32 qdim
+	20 sh 17 - pos
+	rojo "ESC" 'i.off 'exit dup >esc< icono
+	gc>>
+	verde "F1" 'i.bolt [ actual -? ( drop ; ) runfile ; ] dup <f1> icono
+	gc>>
+	verde "F2" 'i.edit 'editfile dup <f2> icono
+	gc>>
+	verde "F3" 'i.light_bulb [ 1 'newfile ! 0 'fileactual ! ; ] dup <f3> icono
 	sw 20 - sh 17 - pos
 	cyan 'config btnb 'i.info_sign drawric
+
+|	verde 'i.light_bulb drawric home blanco "ESPACE" print
 	;
 
+|--------------------------------------------
 :main
 	4
 	0 'newfile !
+	$fffff 'iconos esc.create
+	rebuild
 	show clrscr
 		robotoregular 48 rfont!
-		home cr2
+		scr 48 gc.top home
 		blanco [ rempath rebuild clearact ; ] ".." link
 
 		80 gc.bottom $777111 gc.hfill
 		home
-		'path " %s/" blanco print
+		blanco dup ":r%d" print
+		'path "%s/" blanco print
 		newfile 0? ( 'fileactual print )( 'fileactual 32 inputcell 'createfile <enter> ) drop
-		menubtn
 		botonera
-		cminimano
+		printbtns
 
+		cminimano
 		;
 
-: 0 paper mark loadm main savem ;
+
+: 0 paper mark
+|loadm
+main
+|savem
+;
