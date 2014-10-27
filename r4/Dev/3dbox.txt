@@ -1,0 +1,199 @@
+|	3dbox
+|	PHREDA 2014
+|----------------------------------
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/input.txt
+^r4/lib/sort.txt
+^r4/lib/rfont.txt
+^r4/lib/ricons.txt
+
+^r4/lib/3d-escena.txt
+
+^inc/ric/fontawesomewebfont.ric
+^inc/rft/robotoregular.rft
+^inc/rft/robotobold.rft
+
+^r4/system/mem-ed.txt
+
+|^r4/lib/dlgfilea.txt
+|^r4/lib/vkeyboard.txt
+
+^r4/lib/trace.txt
+
+|---------------------------------------------
+#xcam #ycam #zcam 2.0
+#iconos 0 0
+
+|-----------------------------
+:3dop project3d op ;
+:3dline project3d line ;
+:3dpline project3d pline ;
+
+:grillaxy
+	-5.0 ( 5.0 <=? )( dup -5.0 0 3dop dup 5.0 0 3dline
+		-5.0 over 0 3dop 5.0 over 0 3dline 1.0 + ) drop ;
+:grillayz
+	-5.0 ( 5.0 <=? )( 0 over -5.0 3dop 0 over 5.0 3dline
+		0 -5.0 pick2 3dop 0 5.0 pick2 3dline 1.0 + ) drop ;
+:grillaxz
+	-5.0 ( 5.0 <=? )( dup 0 -5.0 3dop dup 0 5.0 3dline
+		-5.0 0 pick2 3dop 5.0 0 pick2 3dline 1.0 + ) drop ;
+
+|---- caja en normalizado
+:drawboxz | z --
+	-0.05 -0.05 pick2 3dop
+	0.05 -0.05 pick2 3dline
+	0.05 0.05 pick2 3dline
+	-0.05 0.05 pick2 3dline
+	-0.05 -0.05 rot 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup -0.05 3dop 0.05 3dline ;
+
+:draw3dnorm
+	-0.05 drawboxz
+	0.05 drawboxz
+	-0.05 -0.05 drawlinez
+	0.05 -0.05 drawlinez
+	0.05 0.05 drawlinez
+	-0.05 0.05 drawlinez ;
+
+
+:drawboxzp | z --
+	-0.05 -0.05 pick2 3dop
+	0.05 -0.05 pick2 3dpline
+	0.05 0.05 pick2 3dpline
+	-0.05 0.05 pick2 3dpline
+	-0.05 -0.05 rot 3dpline poli ;
+
+:drawboxyp | z --
+	-0.05 over -0.05 3dop
+	0.05 over -0.05 3dpline
+	0.05 over 0.05 3dpline
+	-0.05 over 0.05 3dpline
+	-0.05 swap -0.05 3dpline poli ;
+
+:drawboxxp | z --
+	dup -0.05 -0.05 3dop
+	dup 0.05 -0.05 3dpline
+	dup 0.05 0.05 3dpline
+	dup -0.05 0.05 3dpline
+	-0.05 -0.05 3dpline poli ;
+
+:aclara
+    ink@ $020202 - $777777 and ink
+	;
+#drawpolis
+:draw3dnormp
+	-0.05 drawboxzp
+	aclara 0.05 drawboxzp
+	aclara 0.05 drawboxyp
+	aclara 0.05 drawboxyp
+	aclara -0.05 drawboxxp
+	aclara 0.05 drawboxxp
+	6 'drawpolis +!
+	;
+
+|-----------------------------------
+:draw3dnorme
+	0 0 0 project3d
+	3
+	fcircle
+	;
+
+|---------------------------------------------
+:sicon.upd
+	esc.z+ ;
+
+:sicon.draw
+	mpush
+	esc.posrot
+	dup 28 + @ ink
+
+
+	draw3dnormp
+|	draw3dnorme
+
+	mpop ;
+
+:sicon.add | z y x --
+	'iconos esc. >r
+	'sicon.upd r!+
+	r!+ r!+ r!+ | x y z
+
+|	rand r!+ rand r!+ rand r!+ | rx ry rz
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+
+	rand |$FF00 and $FF or
+	r!+ 0 r!+
+	'sicon.draw r!+
+
+	rdrop ;
+
+
+#cntlado
+#total
+
+:rebuild
+	'iconos esc.clear
+	0 'total !
+	0 'cntlado !
+	-0.5 ( 0.5 <? )(
+		-0.5 ( 0.5 <? )(
+			-0.5 ( 0.5 <? )(
+				rand %100 and? ( drop pick2 pick2 pick2 sicon.add )( drop )
+		|	pick2 pick2 pick2 sicon.add
+				1 'total +!
+				0.1 + ) drop
+			0.1 + ) drop
+			1 'cntlado +!
+		0.1 + ) drop
+
+	;
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+|-----------------------------------------------------
+:escena
+	omode
+	freelook
+	xcam ycam zcam mtrans
+
+	esc.zclear
+	0 'drawpolis !
+	'iconos esc.draw
+	esc.zdraw
+	;
+
+
+#vzcam 0
+
+:teclado
+	[ 0.1 'vzcam ! ; ] <dn>
+	[ -0.1 'vzcam ! ; ] <up>
+	[ 0 'vzcam ! ; ] dup >up< >dn<
+	vzcam 'zcam +!
+	;
+
+|--------------------------------------------
+:main
+	$fffff 'iconos esc.create
+	rebuild
+	show clrscr
+		blanco cntlado total "total:%d lado:%d" print
+		drawpolis "drawpolis:%d" cr print
+		teclado
+        escena
+
+        'exit >esc<
+		cminimano
+		;
+
+
+: 0 paper mark main ;
