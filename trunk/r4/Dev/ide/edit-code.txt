@@ -7,9 +7,14 @@
 
 ^r4/lib/fontm.txt
 ^inc/fntm/droidsans13.txt
+
 ^r4/lib/trace.txt
 
 ^r4/system/mem-ed.txt
+
+^r4/dev/ide/tokenr4.txt
+^r4/dev/ide/tokenrun.txt
+
 
 #pantaini>	| comienzo de pantalla
 #pantafin>	| fin de pantalla
@@ -18,8 +23,6 @@
 
 #inisel		| inicio seleccion
 #finsel		| fin seleccion
-
-#helptxt
 
 #fuente  	| fuente editable
 #fuente> 	| cursor
@@ -32,12 +35,11 @@
 #undobuffer>
 
 #auxfile 0
-#auxfile> | 2file
+#auxfile>
 #iniaux>
 
 |---- palabra actual
 #wordact
-#wordhelp
 
 |---- debug.err
 #nrolin )( 32
@@ -257,49 +259,6 @@
 	"r4/system/inc-%w.txt" mprint run ;
 
 |-------------
-| Help Ctr
-|-------------
-:ayudainclude
-	"include" 'mensaje strcpy
-	;
-:ayudadef
-	"definicion" 'mensaje strcpy
-	;
-:ayudavar
-	"variable" 'mensaje strcpy
-	;
-:ayudadir
-	"direccion" 'mensaje strcpy
-	;
-:ayudanum
-	"numero" 'mensaje strcpy
-	;
-
-:buscawhelp | str -- wstr/0
-	helptxt
-	( 2dup =w 1? ( drop nip ; ) drop
-		( c@+ 13 >? )( drop )
-		0? ( nip nip ; )
-		drop )
-	2drop "imposible" ;
-
-:buscacom
-	fuente>
-	( dup c@ $7f <>? )(
-			32 <? ( 2drop ; )
-			drop 1- ) 2drop
-	"comentario" 'mensaje strcpy
-	;
-
-:buscacad
-	fuente>
-	( dup c@ $22 <>? )(
-			32 <? ( 2drop ; )
-			drop 1- ) 2drop
-	"cadena" 'mensaje strcpy
-	;
-
-|-------------
 :controlc | copy
 	copysel ;
 
@@ -404,119 +363,112 @@
 	cntlinea >=? ( drop ; )
 	3 swap gotoxy
 	blink 1? ( rojo )( amarillo ) drop
-	"!" print 'mensaje "<< %s  " printr
+	">" print 'mensaje "!! %s  " printr
+	;
+
+
+|------------ recompilar
+
+#infoini>		| linea de inicio de pantalla de archivo auxiliar
+#pantainif>		| anterior linea de pantalla
+
+:recompilar
+	home
+	$6600 ink 1 linesfill
+	verde dup ":R%d" print
+	rojo "cOMPILANDO " printx
+   'ed.nombre "[%s] " print
+
+	mark
+	fuente tokeniza
+	empty
+
+|	1? ( paderror ; ) drop
+	drop
+
+|	'mok 'msg !
+|	0 'pad !
+
+|	auxfile
+|	prilinea ( 1? )( 1- swap info>> swap ) drop
+|	'infoini> !
+	;
+
+:generainfo
+	auxfile 0 over ! 'infoini> !
+
+	auxfile fuente
+	( $fuente <? )(
+		pantaini> =? ( over 'infoini> ! dup 'pantainif> ! )
+		c@+ 13 =? ( rot c!+ swap )( rot c!+ swap )
+		) 2drop
 	;
 
 
 |------------ panel info
-#panelinfo
-#infoini>
 
 :info>> | adr -- adr'
 	( c@+ 1? )( 13 =? ( drop ; ) drop ) drop 1- ;
+
+#panelinfo
 
 :panelinfos
 	panelinfo 1? ( drop 0 'panelinfo ! ; ) drop
 	1 'panelinfo !
 
 	|...........REHACER DEBUG
-|	auxfile
-|	prilinea ( 1? )( 1- swap info>> swap ) drop
-|	'infoini> !
+	recompilar
+	generainfo
 	;
 
-:drawpanelhelp
-	panelinfo 0? ( drop ; ) drop
-	sw 2/ gc.right
-	$3f alpha azul gc.fbox $ff alpha
-	home blanco
-	"F1-Hide" print cr
-	"F2-Debug" print cr
-	"F3-Profile" print cr
-|	'profcode2 <f4>
-|	'panelinfos <f5>
-
-	"F9-Run" print cr
-	"F10-Compile" print cr
-	"F11-Compile Opt" print cr
-	"F12-Make plain" print cr
-
-
-|	dic.btns
-|	dic.printinc
-|	cr	verde
-|	dic.debug
-|	amarillo "= INCLUDES =" print cr
-|	dumpdebug
-|	amarillo "%d includes " print cr
-|	rinfo.cntloc rinfo.cntwor rojo "%d/%d palabras " print cr
+:recalcinfoini | pi -- pi
+	dup 'pantainif> !
+	0 fuente ( pantaini> <? )( c@+ 13 =? ( rot 1+ rot rot ) drop ) drop
+	auxfile swap ( 1? )( 1- swap info>> swap ) drop 'infoini> !
 	;
 
 :drawpanelinfo
 	panelinfo 0? ( drop ; ) drop
 	sw 2/ gc.right
 	$3f alpha azul gc.fbox $ff alpha
-	home blanco cr
+	home cr blanco
+
+	pantaini> pantainif> <>? ( recalcinfoini ) drop
 	infoini>
 	0 ( cntlinea <? )(
 		swap
-		dup ".%l" print cr
+		dup "%l" print cr
 		info>>
 		swap 1+ ) 2drop
+
+|	codeprint cr
+|	infodic cr
+|	dumpvstack
+
 	;
 |-------------- panel control
 #panelcontrol
 
-:getword | adr -- adr car ; palabra que apunta el cursor
-	( dup c@ 32 >? )( 0? ( ; ) drop 1- ) drop
-    dup c@ 0? ( ; )
-	33 <? ( drop 1+ dup c@ )
-	;
-
-:controlon
-	1 'panelcontrol !
-	rows 5 - 'cntlinea !
-
-	fuente> getword
-	$5e =? ( "INCLUDE" 'wordhelp ! )	| $5e ^  Include
-	$3A =? ( "DEFINE" 'wordhelp ! )		| $3a :  Definicion
-	$23 =? ( "VARIABLE" 'wordhelp ! )		| $23 #  Variable
-	$27 =? ( "DIRECCION" 'wordhelp ! )		| $27 ' direccion
-	drop
-|	dup ?numero  1? ( ayudanum ; ) drop | numero
-|	dup ?fnumero  1? ( drop rot drop -1 'basen ! esnumero ; ) drop | numero
-|	dup ?macro 1? ( rot drop esmacro ; ) drop		| macro
-|	dup	?palabra  1? ( nip espalabra ; ) drop		| palabra
-	dup buscawhelp 'wordhelp !  	| en ayuda?
-	'wordact !
-	;
-
-:controloff
-	0 'panelcontrol !
-	rows 1- 'cntlinea ! ;
+:controlon	1 'panelcontrol ! ;
+:controloff 0 'panelcontrol ! ;
 
 :drawpanelcontrol
 	panelcontrol 0? ( drop ; ) drop
-	0 cntlinea gotoxy
-	$6600 ink 1 linesfill blanco
-	'controle 18 ?key " E-Edit" print | ctrl-E dit
+	'controle 18 ?key |" E-Edit" print | ctrl-E dit
 |	'controlh 35 ?key " H-Help" print  | ctrl-H elp
-	'controlz 44 ?key " Z-Undo" print
+	'controlz 44 ?key |" Z-Undo" print
 
-	'controlx 45 ?key " X-Cut" print
-	'controlc 46 ?key " C-Copy" print
-	'controlv 47 ?key " V-Paste" print
+	'controlx 45 ?key |" X-Cut" print
+	'controlc 46 ?key |" C-Copy" print
+	'controlv 47 ?key |" V-Paste" print
 
 	'controla <up>
 	'controls <dn>
 
-	'controld 32 ?key " D-Def" print
+	'controld 32 ?key |" D-Def" print
 
-	'controln 49 ?key " N-New" print
-|	'controlm 50 ?key " M-Mode" print
-	cr
-	wordhelp 1? ( " %l" blanco print ; ) drop
-	wordact 1? ( " %w " verde print ; ) drop
+	'controln 49 ?key |" N-New" print
+|	'controlm 50 ?key |" M-Mode" print
 	;
 
 :showclip
@@ -537,7 +489,6 @@
 :mkplain	savetxt "r4/system/r4plain.txt" run ;
 :mkasm	savetxt "r4/system/r4fasm.txt" run ;
 :mkasmo     savetxt "r4/system/r4fasmo.txt" run ;
-:mkbyte     savetxt "r4/system/r4js.txt" run ;
 
 
 |--- sobre pantalla
@@ -588,7 +539,6 @@
 	'panelinfos <f1>
 	'debugcode <f2>
 	'profcode <f3>
-
 |	'profcode2 <f4>
 
 	'directrun <f9>
@@ -605,7 +555,7 @@
 	'fontdroidsans13 fontm
 |	fonti
 	clrscr
-	rows 1- 'cntlinea !
+	rows 3 - 'cntlinea !
 	show clrscr
 		'dns 'mos 'ups guiMap |------ mouse
 
@@ -614,14 +564,15 @@
 
 |		pick2 pick2 pick2 " %d %d %d " print
 
-		blanco "eDIT " printx
+		blanco "dEBUG " printx
         'ed.nombre "[%s] " print
 |		cyan "  |F1-RUN|F2-DEBUG|F3-PROFILE|F9-PLAIN|F10-COMP|F11-OCOMP|" printx
-		"F1-Help " printr
+		"F1-DEBUG " printr
 
 |------------------------------
 		cr chome!
 		drawcode
+
 		drawpanelcontrol
 		drawpanelinfo
 |------------------------------
@@ -635,9 +586,6 @@
 |----
 :ram
 	here	| --- RAM
-	dup 'helptxt !
-	"doc/helpr4.txt" load 0 swap !+
-
 	dup 'fuente !
 	dup 'fuente> !
 	dup '$fuente !
