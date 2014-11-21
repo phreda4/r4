@@ -1,0 +1,90 @@
+| token r4 v.2
+| PHREDA 2014
+|----------------------------------
+
+^r4/dev/ide/tokenr4.txt
+^r4/lib/trace.txt
+
+:escom
+	"|WIN|" =pre 1? ( drop 5 + ; ) drop | Compila para WINDOWS
+	( c@+ 1? )( 13 =? ( drop 1- ; ) drop ) drop 1- ;
+
+:escad
+	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( drop 1- ; ) ) drop ) drop 1- ;
+
+:pasapal
+	( c@+ 1? )( $ff and 33 <? ( drop 1- ; ) drop ) drop 1- ;
+
+|---------------------------------------------------------
+| Analisis mas profundo grabando info en here
+|---------------------------------------------------------
+
+#palnow
+
+:pal++
+	16 'palnow +! ;
+
+:infoinc
+	"I " ,s
+	pasapal ;
+:infocom
+	escom ;
+:infodef
+	"| " ,s
+	palnow 12 + @ ,printmovword
+
+	pal++
+	pasapal ;
+:infovar
+	"# " ,s
+
+	pal++
+	pasapal ;
+:infocad
+	"s " ,s
+	escad ;
+:infodir
+	"' " ,s
+	pasapal ;
+:infonro
+	"1 " ,s
+	pasapal ;
+:infomac
+	"+ " ,s
+	pasapal ;
+:infopal
+	"w " ,s
+	pasapal ;
+
+:findelinea
+	| genera info salida
+	,cr
+	;
+
+:infotoken | str -- str'/0
+	( dup c@ $ff and 33 <? )(	| quitar espacios
+		13 =? ( findelinea )
+		0? ( nip ; )
+		drop 1+ )
+	$5e =? ( drop infoinc ; )	| $5e ^  Include
+	$7c =? ( drop infocom ; )	| $7c |	 Comentario
+	$3A =? ( drop infodef ; )	| $3a :  Definicion
+	$23 =? ( drop infovar ; )	| $23 #  Variable
+	$22 =? ( drop 1+ infocad ; )	| $22 "	 Cadena
+	$27 =? ( drop 1+ 	 		| $27 ' Direccion
+		?palabra 1? ( drop infodir ; ) drop
+		'poserror ! 0 ; )
+	drop
+	dup ?numero 1? ( 2drop nip infonro ; ) drop		| numero
+	dup ?fnumero 1? ( 2drop nip infonro ; ) drop	| numero
+	dup ?macro 1? ( drop infomac ; ) drop			| macro
+	?palabra 1? ( drop infopal ; ) drop				| palabra
+ 	'poserror ! 1 'nroerror ! 0 ;
+
+
+::tokeninfo | strcode -- error/0
+	indicepal< 'palnow !
+	0 'nroerror !
+    ( infotoken 0? ) drop
+	0 ,c
+	nroerror ;
