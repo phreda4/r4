@@ -16,57 +16,57 @@
 
 #dmask
 
-|-------------- orden segun vista
-#maskc
-$4152637	$15043726	$26370415	$37261504	$40516273	$51407362	$62734051	$73625140
-$4216537	$15307426	$26034715	$37152604	$40625173	$51743062	$62470351	$73516240
-$1234567	$10352476	$23016745	$32107654	$45670123	$54761032	$67452301	$76543210
-$1452367	$10534276	$23670145	$32716054	$45016723	$54107632	$67234501	$76325410
-$2461357	$13570246	$20634175	$31725064	$46052713	$57134602	$64207531	$75316420
-$2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
-
-|-------
-:maskabs | ax ay az -- mask
-	| ax ay az
-	pick2 <? ( over <? ( | x<z && y<z
-			drop <? ( 0 )( 8 )
-			nip ; ) )
-	rot | ay az ax
-	pick2 <? ( over <? ( | y<x && z<x
-			drop <? ( 16 )( 24 )
-			nip ; ) )
-	<? ( 32 )( 40 )
-	nip nip ;
-
-:calcmask
-	matinv
-	0 0 1.0 transform
-	rot +? ( 1 )( 0 ) >r abs
-	rot +? ( 2 r+ ) abs
-	rot +? ( 4 r+ ) abs
-	maskabs r> or
-	2 << 'maskc + @ 'dmask !
-	;
-
 |---------------------------------
 | vectores para rotar puntos
 
 #level
 
+#ymin #nymin
+#ymax #nymax
+#xmin #nxmin
+#xmax #nxmax
+#zmin #nzmin
 #rotsum )( 640
 #rotsum> 'rotsum
 
+:id3di | id x y z -- u v
+	transform
+	dup 'zmin ! pick3 'nzmin !
+	project | id x y
+	dup 'ymin ! pick2 'nymin !
+	dup 'ymax ! pick2 'nymax !
+	swap
+	dup 'xmin ! pick2 'nxmin !
+	dup 'xmax ! pick2 'nxmax !
+	swap rot drop ;
+
+:id3d | id x y z -- u v
+	transform
+	zmin <? ( dup 'zmin ! pick3 'nzmin ! )
+	project | id x y
+	ymin <? ( dup 'ymin ! pick2 'nymin ! )
+	ymax >? ( dup 'ymax ! pick2 'nymax ! )
+	swap
+	xmin <? ( dup 'xmin ! pick2 'nxmin ! )
+	xmax >? ( dup 'xmax ! pick2 'nxmax ! )
+	swap rot drop ;
+
 :fillrotvec | --
 	'rotsum >r
-	1024 1024 1024 project3d r!+ r!+	| 111
-	1024 1024 -1024 project3d r!+ r!+	| 110
-	1024 -1024 1024 project3d r!+ r!+	| 101
-	1024 -1024 -1024 project3d r!+ r!+	| 100
-	-1024 1024 1024 project3d r!+ r!+	| 011
-	-1024 1024 -1024 project3d r!+ r!+	| 010
-	-1024 -1024 1024 project3d r!+ r!+	| 001
-	-1024 -1024 -1024 project3d r!+ r!+	| 000
+	0 1024 1024 1024 id3di r!+ r!+	| 111
+	1 1024 1024 -1024 id3d r!+ r!+	| 110
+	2 1024 -1024 1024 id3d r!+ r!+	| 101
+	3 1024 -1024 -1024 id3d r!+ r!+	| 100
+	4 -1024 1024 1024 id3d r!+ r!+	| 011
+	5 -1024 1024 -1024 id3d r!+ r!+	| 010
+	6 -1024 -1024 1024 id3d r!+ r!+	| 001
+	7 -1024 -1024 -1024 id3d r!+ r!+ | 000
 	r> 'rotsum> !
+	nymin 3 << 64 - 'nymin !
+	nymax 3 << 64 - 'nymax !
+	nxmin 3 << 4+ 64 - 'nxmin !
+	nxmax 3 << 4+ 64 - 'nxmax !
+	nzmin 'dmask !
 	;
 
 :addchild | id --
@@ -84,60 +84,86 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	3drop r> 'rotsum> ! ;
 
 
-:drawpixels
-	0 0 setxy
-	pixels ( octre> <? )( @+ px!+ ) drop ;
+:dbox | x1 y1 x2 y2 --
+	2over op
+	pick3 over line
+	2dup line
+	over pick3 line
+	2drop line ;
 
+:fbox | x1 y1 x2 y2 --
+	2over op
+	pick3 over pline
+	2dup pline
+	over pick3 pline
+	2drop pline poli ;
 
-:drawpoint	| oct --
+:drawbox	| oct --
 	octre - pixels + @ ink
-	rotsum> 64 - >r
-	r@+ r@+ swap op
-	r@+ r@+ swap line
-	r@+ r@+ swap line
-	r@+ r@+ swap line
-	r@+ r@+ swap line
-	r@+ r@+ swap line
-	r@+ r@+ swap line
-	r@+ r@+ swap line
-	rdrop
+	rotsum> >r
+	nxmin r + @
+	nymin r + @
+	nxmax r + @
+	nymax r> + @
+	fbox
 	;
 
+:drawpoint | oct x y --
+	setxy octre - pixels + @ px!+ ;
+
+:drawpoint1 | oct x --
+	rotsum> nymin + @
+	rotsum> nymax + @ =? ( drawpoint ; )
+	rot octre - pixels + @ ink
+	over rotsum> nymax + @
+	op line ;
+
+:drawpoint2 | oct x y --
+	rot octre - pixels + @ ink
+    rotsum> nxmax + @ over
+	op line ;
+
 :viewchildm | node bitm nro -- node bitm
-|	$7 xor	| de atras para adelante
 	1 over << pick2 nand? ( 2drop ; )	| node bitm nro place
 	swap addchild
 	1- over and popcnt 2 << pick2 +    | node bitm node'
 
-	level 7 >? ( drop drawpoint -64 'rotsum> +! ; ) drop
-|	pixels >? ( drawpoint ; )
+	rotsum>	nxmin + @
+	rotsum>	nxmax + @ =? ( drawpoint1 -64 'rotsum> +! ; )
+	rotsum>	nymin + @
+	rotsum>	nymax + @ =? ( drawpoint2 -64 'rotsum> +! ; )
+	2drop
+	level 7 >? ( drop drawbox -64 'rotsum> +! ; ) drop
+
+|	pixels >? ( drawbox -64 'rotsum> +! ; )
 
 :viewo | node --
 
 	1 'level +!
 	@ dup 8 >> 2 << octre + swap $ff and | adr bitmask
 
-	dmask $7 and viewchildm
-	dmask 4 >> $7 and viewchildm
-	dmask 8 >> $7 and viewchildm
-	dmask 12 >> $7 and viewchildm
-	dmask 16 >> $7 and viewchildm
-	dmask 20 >> $7 and viewchildm
-	dmask 24 >> $7 and viewchildm
-	dmask 28 >> $7 and viewchildm
+	dmask viewchildm
+	dmask 1 xor viewchildm
+	dmask 2 xor viewchildm
+	dmask 4 xor viewchildm
+	dmask 3 xor viewchildm
+	dmask 5 xor viewchildm
+	dmask 6 xor viewchildm
+	dmask 7 xor viewchildm
 
 	2drop
 	-1 'level +!
 	-64 'rotsum> +!
 	;
 
+:boxlim
+	verde xmin ymin xmax ymax dbox ;
+
 ::drawiso | octre --
-	>r
 	fillrotvec
-	calcmask
 	0 'level !
-	r>
 	viewo
+	boxlim
 	;
 
 |-------------
@@ -148,6 +174,10 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	neg mrotx mroty ;
 
 |------------------------------
+:drawpixels
+	0 0 setxy
+	pixels ( octre> <? )( @+ px!+ ) drop ;
+
 :load3do | "" --
 	here 'octre !
 	octre swap load 'octre> !
