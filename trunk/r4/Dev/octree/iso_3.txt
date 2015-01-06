@@ -14,8 +14,8 @@
 #octre>
 
 #dmask
-#level
 
+#level
 #ymin #nymin
 #ymax #nymax
 #xmin #nxmin
@@ -61,7 +61,6 @@
 	nymax 3 << 64 - 'nymax !
 	nxmin 3 << 4+ 64 - 'nxmin !
 	nxmax 3 << 4+ 64 - 'nxmax !
-	nzmin 'dmask !
 	;
 
 :addchild | id --
@@ -99,8 +98,7 @@
 	nymin r + @
 	nxmax r + @
 	nymax r> + @
-	fbox
-	;
+	fbox ;
 
 #contorno (
 1 5 4 6 2 3
@@ -125,11 +123,12 @@
 	c@+ getxy pline
 	c@+ getxy pline
 	c@ getxy pline pline
-	poli
-	;
+	poli ;
 
 :drawpoint | oct x y --
-	setxy octre - pixels + @ px!+ ;
+	rot octre - pixels + @ ink
+	2dup op line ;
+|	setxy octre - pixels + @ px!+ ;
 
 :drawpoint1 | oct x --
 	rotsum> nymin + @
@@ -154,7 +153,8 @@
 	rotsum>	nymin + @
 	rotsum>	nymax + @ =? ( drawpoint2 -64 'rotsum> +! ; )
 	2drop
-	level 7 >? ( drop drawcon -64 'rotsum> +! ; ) drop
+	level 7 >? ( drop drawbox -64 'rotsum> +! ; ) drop
+
 |	pixels >? ( drawbox -64 'rotsum> +! ; )
 |.........................
 
@@ -163,14 +163,14 @@
 	1 'level +!
 	@ dup 8 >> 2 << octre + swap $ff and | adr bitmask
 
-	dmask viewchildm
-	dmask 1 xor viewchildm
-	dmask 2 xor viewchildm
-	dmask 4 xor viewchildm
-	dmask 3 xor viewchildm
-	dmask 5 xor viewchildm
-	dmask 6 xor viewchildm
-	dmask 7 xor viewchildm
+	nzmin viewchildm
+	nzmin 1 xor viewchildm
+	nzmin 2 xor viewchildm
+	nzmin 4 xor viewchildm
+	nzmin 3 xor viewchildm
+	nzmin 5 xor viewchildm
+	nzmin 6 xor viewchildm
+	nzmin 7 xor viewchildm
 
 	2drop
 	-1 'level +!
@@ -225,36 +225,26 @@
 	nymax 3 << 64 - 'nymax !
 	nxmin 3 << 4+ 64 - 'nxmin !
 	nxmax 3 << 4+ 64 - 'nxmax !
-	nzmin 'dmask !
 	;
-
 
 
 :fillvec3 | --
 	'octvert >r
-	1024 1024 1024 transform dup 'zmin ! 0 'nzmin !
-	swap rot
+	1024 1024 1024 transform dup 'zmin ! 0 'nzmin ! swap rot
 	r!+ r!+ r!+ | 111
-	1024 1024 -1024 transform zmin >? ( dup 'zmin ! 1 'nzmin ! )
-	swap rot
+	1024 1024 -1024 transform zmin >? ( dup 'zmin ! 1 'nzmin ! ) swap rot
 	r!+ r!+ r!+ | 110
-	1024 -1024 1024 transform zmin >? ( dup 'zmin ! 1 'nzmin ! )
-	swap rot
+	1024 -1024 1024 transform zmin >? ( dup 'zmin ! 2 'nzmin ! ) swap rot
 	r!+ r!+ r!+ | 101
-	1024 -1024 -1024 transform zmin >? ( dup 'zmin ! 1 'nzmin ! )
-	swap rot
+	1024 -1024 -1024 transform zmin >? ( dup 'zmin ! 3 'nzmin ! ) swap rot
 	r!+ r!+ r!+ | 100
-	-1024 1024 1024 transform zmin >? ( dup 'zmin ! 1 'nzmin ! )
-	swap rot
+	-1024 1024 1024 transform zmin >? ( dup 'zmin ! 4 'nzmin ! ) swap rot
 	r!+ r!+ r!+ | 011
-	-1024 1024 -1024 transform zmin >? ( dup 'zmin ! 1 'nzmin ! )
-	swap rot
+	-1024 1024 -1024 transform zmin >? ( dup 'zmin ! 5 'nzmin ! ) swap rot
 	r!+ r!+ r!+ | 010
-	-1024 -1024 1024 transform zmin >? ( dup 'zmin ! 1 'nzmin ! )
-	swap rot
+	-1024 -1024 1024 transform zmin >? ( dup 'zmin ! 6 'nzmin ! ) swap rot
 	r!+ r!+ r!+ | 001
-	-1024 -1024 -1024 transform zmin >? ( dup 'zmin ! 1 'nzmin ! )
-	swap rot
+	-1024 -1024 -1024 transform zmin >? ( dup 'zmin ! 7 'nzmin ! ) swap rot
 	r!+ r!+ r!+ | 000
 	r> 'octvert> !
 	nzmin 'dmask !
@@ -314,19 +304,6 @@
 	viewoct
 	;
 
-|----------------
-::drawiso1 | octree
-	fillrotvec
-	0 'level !
-
-	0 addchild
-	dup drawcon
-	-64 'rotsum> +!
-	7 addchild
-	0 addchild
-	drawcon
-	;
-
 |-------------
 :freelook
 	xymouse
@@ -354,26 +331,30 @@
 
 |-------------
 :main
-	"media/3do/mario.3do" load3do
+	"media/3do/luigi.3do" load3do
+|	"luigi.3do" load3do
 
 	33
 	show clrscr
 |		drawpixels
 
-		verde
+		verde fonti
 		dup "%d " print cr
-		LOD "LOD %d" print cr
+		cr2
+		'loadoctree dup <f1> "F1-Load" sp btnt cr cr2
+		LOD "LEVEL %d <F2-F3>" print cr
+		"up/dn      .. zcam" print cr
+		"left/right .. xcam" print cr
+		"pgup/pgdn  .. ycam" print cr
 
 		omode
 		freelook
 		xcam ycam zcam mtrans
 
-|		octre drawiso1
 |		octre drawiso
-		octre drawoct
 
-		cr2 fonti
-		'loadoctree dup <f1> "F1-Load" sp btnt cr
+		octre drawoct
+|		0 0.02 0 mtransi octre drawoct
 
 		[ -0.025 'zcam +! ; ] <up>
 		[ 0.025 'zcam +! ; ] <dn>
@@ -382,8 +363,8 @@
 		[ -0.025 'ycam +! ; ] <pgup>
 		[ 0.025 'ycam +! ; ] <pgdn>
 
-		[ 1 'LOD +! ; ] <f2>
-		[ -1 'LOD +! ; ] <f3>
+		[ -1 'LOD +! ; ] <f2>
+		[ 1 'LOD +! ; ] <f3>
 
 		'exit >esc< cminiflecha ;
 
