@@ -1,4 +1,4 @@
-| iso test 3
+| iso test 4
 | PHREDA 2015
 |---------------------
 ^r4/lib/gui.txt
@@ -7,9 +7,7 @@
 ^r4/lib/morton.txt
 ^r4/lib/trace.txt
 
-
 |--- maskbuffer | 1024*sh
-#xsc #ysc
 #maskb
 
 :mask.adr | x y -- m d
@@ -21,24 +19,87 @@
 :maskb.set | x y --
 	mask.adr dup @ rot or swap ! ;
 
+|........ fast?
+#mask1
+$00000001 $00000003 $00000007 $0000000f $0000001f $0000003f $0000007f $000000ff
+$000001ff $000003ff $000007ff $00000fff $00001fff $00003fff $00007fff $0000ffff
+$0001ffff $0003ffff $0007ffff $000fffff $001fffff $003fffff $007fffff $00ffffff
+$01ffffff $03ffffff $07ffffff $0fffffff $1fffffff $3fffffff $7fffffff $ffffffff
+
+:gmask1
+	$1f and 2 << 'mask1 + @ ;
+|........
+
+:gmask1
+	$1f and 1 swap << 1- 2* 1 or ;
+
+:gmask2
+	$1f and -1 swap << ;
+
+:filline | x1 y1 x2 y2 a --
+	2 << pick3 7 << + maskb + >r
+	rot - | x1 x2 cnt
+	rot gmask2 rot gmask1 and
+	swap 1+
+	( 1? )( 1-
+		r @ pick2 or r !
+		128 r+
+		) 2drop
+	rdrop ;
+
 :maskb.fill | x1 y1 x2 y2 --
-	4drop ;
+	pick3 5 >> pick2 5 >> =? ( filline ; )
+	2 << pick3 7 << + maskb + >r
+	rot - 							| x1 x2 cnty
+	over 5 >> pick3 5 >> - 1- swap	| x1 x2 cntx cnty
+	2swap gmask1 swap gmask2
+	2swap 1+						| maska maskb cntx cnty
+	( 1? )( 1- r @
+		pick3 or r !+ 				| maska maskb cntx cnty adr
+		pick2 ( 1? )( 1- -1 rot !+ swap ) drop
+		pick4 over @ or swap !
+		128 r+
+		) 4drop
+	rdrop ;
+
+
+:getline | x1 y1 x2 y2 a -- b
+	2 << pick3 7 << + maskb + >r
+	rot - | x1 x2 cnt
+	rot gmask1 rot gmask2 and
+	swap 1+
+	( 1? )( 1-
+		r @ pick2 nand? ( 3drop rdrop 1 ; ) drop
+		128 r+
+		) 2drop
+	rdrop 0 ;
 
 :maskb.rget | x1 y1 x2 y2 -- b
-	3drop ;
+	pick3 5 >> pick2 5 >> =? ( getline ; )
+	2 << pick3 7 << + maskb + >r
+	rot - 							| x1 x2 cnty
+	over 5 >> pick3 5 >> - 1- swap	| x1 x2 cntx cnty
+	2swap gmask1 swap gmask2
+	2swap 1+						| maska maskb cntx cnty
+	( 1? )( 1- r @+
+		pick3 nand? ( 4drop drop rdrop 1 ; ) drop	| maska maskb cntx cnty adr
+		pick2 ( 1? )( 1- swap
+				@+ pick4 nand? ( 4drop 2drop rdrop 1 ; ) drop
+				swap ) drop
+		@ pick4 nand? ( 4drop drop rdrop 1 ; )
+		128 r+
+		) 4drop
+	rdrop 0 ;
 
 :maskb.clear
 	maskb >r
 	sh 5 << ( 1? )( 0 r!+ 1- ) drop
-	rdrop
-	;
+	rdrop ;
 
 :maskb.ini
-	1024 sw - 2/ neg 'xsc !
-	1024 sh - 2/ neg 'ysc !
 	here dup 'maskb !
-	sh 7 << + 'here !
-	;
+	sh 7 << + 'here ! ;
+
 |-------------
 #xcam 0 #ycam 0 #zcam 0.08
 
@@ -56,27 +117,14 @@
 #zmin #nzmin
 #rotsum )( 640
 #rotsum> 'rotsum
+#octvert )( 960 | 10 niveles de 3 valores*8vertices
+#octvert> 'octvert
 
-:c10 | x z -- x'
-	2/ 0 swap over | x 0 z 0
-	pick3 >? ( over - rot )( over + rot 512 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 256 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 128 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 64 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 32 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 4+ ) rot 2/ rot
-	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
-	pick3 >? ( 2drop )( 2drop 1+ )
-	nip ;
-
-:project | x y z -- x y
-	swap over c10 ysc + >r c10 xsc + r> ;
-
+:id3dit | id x y z -- u v
+	transform
 :id3di | id x y z -- u v
 	dup 'zmin ! pick3 'nzmin !
-	project | id x y
+	3dproject | id x y
 	dup 'ymin ! pick2 'nymin !
 	dup 'ymax ! pick2 'nymax !
 	swap
@@ -84,9 +132,11 @@
 	dup 'xmax ! pick2 'nxmax !
 	swap rot drop ;
 
+:id3dt | id x y z -- u v
+	transform
 :id3d | id x y z -- u v
 	zmin >? ( dup 'zmin ! pick3 'nzmin ! )
-	project | id x y
+	3dproject | id x y
 	ymin <? ( dup 'ymin ! pick2 'nymin ! )
 	ymax >? ( dup 'ymax ! pick2 'nymax ! )
 	swap
@@ -95,20 +145,20 @@
 	swap rot drop ;
 
 :fillrotvec | --
-	'rotsum >r
-	0 1024 1024 1024 transform id3di r!+ r!+	| 111
-	1 1024 1024 -1024 transform id3d r!+ r!+	| 110
-	2 1024 -1024 1024 transform id3d r!+ r!+	| 101
-	3 1024 -1024 -1024 transform id3d r!+ r!+	| 100
-	4 -1024 1024 1024 transform id3d r!+ r!+	| 011
-	5 -1024 1024 -1024 transform id3d r!+ r!+	| 010
-	6 -1024 -1024 1024 transform id3d r!+ r!+	| 001
-	7 -1024 -1024 -1024 transform id3d r!+ r!+ | 000
-	r> 'rotsum> !
+	'rotsum
+	0 1024 1024 1024 id3dit rot !+ !+	| 111
+	1 1024 1024 -1024 id3dt rot !+ !+	| 110
+	2 1024 -1024 1024 id3dt rot !+ !+	| 101
+	3 1024 -1024 -1024 id3dt rot !+ !+	| 100
+	4 -1024 1024 1024 id3dt rot !+ !+	| 011
+	5 -1024 1024 -1024 id3dt rot !+ !+	| 010
+	6 -1024 -1024 1024 id3dt rot !+ !+	| 001
+	7 -1024 -1024 -1024 id3dt rot !+ !+ | 000
+	'rotsum> !
 	nymin 3 << 64 - 'nymin !
 	nymax 3 << 64 - 'nymax !
-	nxmin 3 << 4+ 64 - 'nxmin !
-	nxmax 3 << 4+ 64 - 'nxmax !
+	nxmin 3 << 64 - 4+ 'nxmin !
+	nxmax 3 << 64 - 4+ 'nxmax !
 	;
 
 :addchild | id --
@@ -125,19 +175,9 @@
 	@+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
 	3drop r> 'rotsum> ! ;
 
-:dbox | x1 y1 x2 y2 --
-	2over op
-	pick3 over line
-	2dup line
-	over pick3 line
-	2drop line ;
-
-:fbox | x1 y1 x2 y2 --
-	2over op
-	pick3 over pline
-	2dup pline
-	over pick3 pline
-	2drop pline poli ;
+|-------------------------------
+:octcolor | oct -- color
+    octre - pixels + @ ;
 
 |-------------------------------
 :fpbox | x2 x1 y2 y1--
@@ -148,40 +188,41 @@
 		r px+!
 		1+ ) 4drop rdrop ;
 
-:fpbox
+:fpbox1 | x2 x1 y2 y1--
 	rot swap
 	2over op pick3 over pline
 	2dup pline over pick3 pline
 	2drop pline poli ;
 
 :drawbox | oct --
-	octre - pixels + @ ink
+	octcolor ink
 	rotsum> >r
-	nxmax r + @ |-? ( rdrop drop ; ) sw >=? ( sw 1- nip )
-	nxmin r + @ |sw >=? ( rdrop 2drop ; ) -? ( 0 nip )
-	nymax r + @ |-? ( rdrop 3drop ; ) sh >=? ( sh 1- nip )
-	nymin r> + @ |sh >=? ( rdrop 4drop ; ) -? ( 0 nip )
+	nxmax r + @ |-? ( rdrop drop ; ) sw 1- clampmax
+	nxmin r + @ |sw >=? ( rdrop 2drop ; ) clamp0
+	nymax r + @ |-? ( rdrop 3drop ; ) sh 1- clampmax
+	nymin r> + @ |sh >=? ( rdrop 4drop ; ) clamp0
 	fpbox
 	;
 
 :drawpoint | oct x y --
-	setxy octre - pixels + @ px!+ ;
+	setxy octcolor px!+ ;
 
 :drawpoint1 | oct x --
 	rotsum> nymin over + @
 	swap nymax + @ =? ( drawpoint ; )
-	rot octre - pixels + @ ink
+	rot octcolor ink
 	over rotsum> nymax + @
 	op line ;
 
 :drawpoint2 | oct x y --
-	rot octre - pixels + @ ink
+	rot octcolor ink
     rotsum> nxmax + @ over
 	op line ;
 
 :viewchildm | node bitm nro -- node bitm
 	1 over << pick2 nand? ( 2drop ; )	| node bitm nro place
 	swap addchild
+
 	1- over and popcnt 2 << pick2 +    | node bitm node'
 
 |.........................
@@ -214,50 +255,42 @@
 	-64 'rotsum> +!
 	;
 
-:boxlim
-	verde xmin ymin xmax ymax dbox ;
-
 ::drawiso | octre --
-	fillrotvec
 	0 'level !
-	viewo
-|	boxlim
-	;
+	fillrotvec
+	viewo ;
+
 |-------------------------------------------
-#octvert )( 960 | 10 niveles de 3 valores*8vertices
-#octvert> 'octvert
 
 :fillveciso | --
 	octvert> 96 - >r
-	0 r@+ r@+ r@+ id3di 'rotsum !+ !+ 'rotsum> !
-	1 r@+ r@+ r@+ id3d rotsum> !+ !+ 'rotsum> !
-	2 r@+ r@+ r@+ id3d rotsum> !+ !+ 'rotsum> !
-	3 r@+ r@+ r@+ id3d rotsum> !+ !+ 'rotsum> !
-	4 r@+ r@+ r@+ id3d rotsum> !+ !+ 'rotsum> !
-	5 r@+ r@+ r@+ id3d rotsum> !+ !+ 'rotsum> !
-	6 r@+ r@+ r@+ id3d rotsum> !+ !+ 'rotsum> !
-	7 r@+ r@+ r@+ id3d rotsum> !+ !+ 'rotsum> !
+	'rotsum
+	0 r@+ r@+ r@+ id3di rot !+ !+
+	1 r@+ r@+ r@+ id3d rot !+ !+
+	2 r@+ r@+ r@+ id3d rot !+ !+
+	3 r@+ r@+ r@+ id3d rot !+ !+
+	4 r@+ r@+ r@+ id3d rot !+ !+
+	5 r@+ r@+ r@+ id3d rot !+ !+
+	6 r@+ r@+ r@+ id3d rot !+ !+
+	7 r@+ r@+ r@+ id3d rot !+ !+
+	'rotsum> !
 	rdrop
 	nymin 3 << 64 - 'nymin !
 	nymax 3 << 64 - 'nymax !
-	nxmin 3 << 4+ 64 - 'nxmin !
-	nxmax 3 << 4+ 64 - 'nxmax !
+	nxmin 3 << 64 - 4+ 'nxmin !
+	nxmax 3 << 64 - 4+ 'nxmax !
 	;
 
 :id3d3 | id --
 	>r transform r>
-|	pick3 pick3 pick3 + + | real dist?
-	over
-	zmin >? ( 'zmin ! 'nzmin ! swap rot ; ) 2drop swap rot ;
+	over zmin >? ( 'zmin ! 'nzmin ! swap rot ; ) 2drop swap rot ;
 
 #ozmin
 #ozmax
 :fillvec3 | --
 	'octvert >r
 	1024 1024 1024 transform
-|	pick2 pick2 pick2 + + | real dist?
-	dup
-	'zmin ! 0 'nzmin ! swap rot
+	dup 'zmin ! 0 'nzmin ! swap rot
 	r!+ r!+ r!+ | 111
 	1024 1024 -1024 1 id3d3 r!+ r!+ r!+ | 110
 	1024 -1024 1024 2 id3d3 r!+ r!+ r!+ | 101
@@ -268,7 +301,7 @@
 	-1024 -1024 -1024 7 id3d3 r!+ r!+ r!+ | 000
 	r> 'octvert> !
 	nzmin 'dmask !
-	dmask 7 xor 2 << dup 2* +  96 - 8 + 'ozmin !
+	dmask 7 xor 2 << dup 2* + 96 - 8 + 'ozmin !
 	dmask 2 << dup 2* + 96 - 8 + 'ozmax !
 	;
 
@@ -302,13 +335,9 @@
 	1- over and popcnt 2 << pick2 +    | node bitm node'
 
 |.............................
-	ozmin octvert> + @ 16 <<
-	-? ( drop isonow ; )
+	ozmin octvert> + @ 16 << -? ( drop isonow ; )
 	ozmax octvert> + @
 	1? ( / RATIO >? ( drop isonow ; ) drop )( 2drop )
-
-|	boxlim
-
 |.............................
 
 :viewoct | node --
@@ -333,13 +362,11 @@
 	0 'level !
 	fillvec3
 
-	ozmin octvert> + @ 16 <<
-	-? ( drop isonow ; )
+	ozmin octvert> + @ 16 << -? ( drop isonow ; )
 	ozmax octvert> + @
 	1? ( / RATIO >? ( drop isonow ; ) drop )( 2drop )
 
-	viewoct
-	;
+	viewoct ;
 
 |-------------
 :freelook
@@ -349,10 +376,6 @@
 	neg mrotx mroty ;
 
 |------------------------------
-:drawpixels
-	0 0 setxy
-	pixels ( octre> <? )( @+ px!+ ) drop ;
-
 :load3do | "" --
 	here 'octre !
 	octre swap load 'octre> !
@@ -367,14 +390,13 @@
 	empty ;
 
 |-------------
-
 :maskb.draw
 	maskb >r
 	0 0 setxy
 	sh ( 1? )( 1-
 		32 ( 1? )( 1-
 			r@+ 32 ( 1? )( 1- swap
-				1 and? ( $ff )( 0 ) px!+
+				1 and? ( $ffffff px!+ )( 1 px+! )
 				2/
 				swap ) 2drop
 			) drop
@@ -383,19 +405,26 @@
 
 :mainmask
 	maskb.clear
+	cls
+	verde 10 20 op 40 20 line 40 30 line 10 30 line 10 20 line
 	show
         maskb.draw
 		xymouse maskb.set
 		'exit >esc<
-		[ 10 10 30 20 maskb.fill ; ] <f1>
-		cminiflecha ;
+		[ 10 20 40 30 maskb.fill ; ] <f1>
+		[ 10 31 11 40 maskb.fill ; ] <f2>
+		[ 10 41 12 50 maskb.fill ; ] <f3>
+		[ 10 51 13 60 maskb.fill ; ] <f4>
+		;
 
+|-------------
 :main
+	mark
+    maskb.ini
 	"media/3do/horse.3do" load3do
-
+	$88 paper
 	33
 	show clrscr
-|		drawpixels
 
 		verde fonti
 		dup "%d " print cr
@@ -405,11 +434,9 @@
 		"left/right .. xcam" print cr
 		"pgup/pgdn  .. ycam" print cr
 
-		omode
+		3dini
 		freelook
 		xcam ycam zcam mtrans
-
-|		octre drawiso
 
 		octre drawoct
 |		0 0.02 0 mtransi octre drawoct
@@ -424,5 +451,5 @@
 		'mainmask <f4>
 		'exit >esc< cminiflecha ;
 
-: mark maskb.ini main ;
+: main ;
 
