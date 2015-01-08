@@ -240,6 +240,8 @@
 		,oc
 		) 2drop ;
 
+#$colori
+
 :buildoctree | --
 	"octree..." print cr redraw
 	memvox>	dup 'octre ! 'octre> !
@@ -268,15 +270,18 @@
 		dup 4+ @ over @
 		,levelcolor
 		 ) drop
-	octre> '$realpixels !
+	octre> dup '$realpixels ! '$colori !
 	memvox ( memvox> <? )(
 		4+ @+
 |***		$f8fcf8 and | 16 bits
+|***		$fcfcfc and | 18 bits
+|***		$fefefe and | 21 bits
 		,oc ) drop
 
 	$pixels $octree - ,oc
 	octre> '$end !
 	;
+
 
 |------------ optimiza ultimo nivel
 :todos? | cant dir1 dir2 -- 0/1
@@ -285,21 +290,14 @@
 		drop )
 	rdrop 2drop 1 ;
 
-:buscacolq | nodo cant direccion -- nodo cant nuevadireccion/0
-	>r 			| nodo cant dirpix
-	$pixels 	| nodo cant dirpix r:dirini
-	( $realpixels pick2 2 << - <? )(
-		@+ r @ =? ( drop over 1- over r	4+ | ya comprobo el primero!!
-				todos? 1? ( drop rdrop 4 - ; ) )
-		drop )
-	rdrop drop 0 ;
-
 :buscacol | nodo cant direccion -- nodo cant nuevadireccion/0
 	@+ swap >r 			| nodo cant dirpix
-	$pixels 	| nodo cant primerc dirpix r:dirini
+
+	|$pixels 	| nodo cant primerc dirpix r:dirini
+	$colori		| busca desde los colores originales
 	( $realpixels pick3 2 << - <? )(
 		@+ pick2 =? ( drop pick2 1- over r 		| ya comprobo el primero!!
-				todos? 1? ( drop nip rdrop 4 - ; ) )
+			todos? 1? ( drop nip rdrop 4 - ; ) )
 		drop )
 	rdrop 2drop 0 ;
 
@@ -318,7 +316,7 @@
 	rdrop
 	;
 
-
+|--------------------------------------
 :shot
 	show clrscr
 
@@ -339,7 +337,7 @@
 
 	'exit >esc<
 	cflecha ;
-
+|--------------------------------------
 
 :optoctree
 	"optimizando..." print cr redraw
@@ -447,7 +445,9 @@
 	'v1 over v3- 'v0 v3nor
 	'v1 'v0 v3vec
 	dup 'v1 v3ddot -? ( 'v1 -1.0 v3* ) drop
-	|'v1 v3nor
+
+'v1 v3nor
+
 	'v1 @+ swap @+ swap @ swap rot
 	;
 
@@ -460,6 +460,16 @@
 		r!+ r!+ r!+ 	| guardo normal
 		16 + swap ) 2drop
 	rdrop
+| guarda como color
+	memvox> >r
+	memvox ( memvox> <? )(
+		4+
+		r@+ 9 >> $ff and
+		r@+ 1 >> $ff00 and or
+		r@+ 7 << $ff0000 and or
+		swap !+
+		) drop
+
 	;
 
 |--------- archivos
@@ -576,6 +586,7 @@
 		[ saveoctree ; ] <f3>
 		[ buildoctree optoctree saveoctree ; ] <f4>
 		[ getminmax centra ; ] <f5>
+		'calcnormales <f6>
 		'exit >esc< ;
 
 : memory main ;

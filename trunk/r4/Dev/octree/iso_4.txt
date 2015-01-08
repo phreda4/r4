@@ -93,14 +93,12 @@
 	sh 7 << + 'here ! ;
 
 |-------------
-#xcam 0 #ycam 0 #zcam 0.08
+#xcam 0 #ycam 0 #zcam 0.1
 
 #octre
 #pixels
 #paleta
 #octre>
-
-#level
 
 #ymin #nymin
 #ymax #nymax
@@ -222,8 +220,8 @@
 	octcolor ink
 	xmax |sw 1- clampmax -? ( rdrop drop ; )
 	xmin |clamp0 sw >=? ( rdrop 2drop ; )
-	ymax |sh 1- clampmax -? ( rdrop 3drop ; )
-	ymin |clamp0 sh >=? ( rdrop 4drop ; )
+	ymax sh 1- clampmax -? ( rdrop 3drop ; )
+	ymin clamp0 sh >=? ( rdrop 4drop ; )
 	fpbox ;
 
 :drawpoint | oct x y --
@@ -250,12 +248,10 @@
 	xmin xmax =? ( drawpoint1 ; )
 	ymin ymax =? ( drawpoint2 ; )
 	2drop
-	level 7 >? ( drop drawbox ; ) drop
-
-|	pixels >? ( drawbox ; )
+|	level 7 >? ( drop drawbox ; ) drop
+	pixels >? ( drawbox ; )
 
 :viewo | node --
-	1 'level +!
 	@ dup 8 >> 2 << octre + swap $ff and | adr bitmask
 
 	nzmin viewchildm
@@ -268,25 +264,41 @@
 	nzmin 7 xor viewchildm
 
 	2drop
-	-1 'level +!
 	-64 'rotsum> +!
 	;
 
 ::drawiso | octre --
-	0 'level !
 	fillrotvec
 	viewo ;
 
 |-------------------------------------------
+#acull
+#ocull
+
+:xyzcull | x y z -- x y z
+	0.001 <? ( $10 )( 0 ) >r
+	over -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
+	pick2 -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
+	r> dup acull and 'acull ! ocull or 'ocull ! ;
+
+:xyzcull2 | x y z --
+	0.001 <? ( $10 )( 0 ) >r
+	swap -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
+	swap -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
+	drop
+	r> dup acull and 'acull ! ocull or 'ocull ! ;
+
 :id3d3 | id --
-	>r transform r>
+	>r transform xyzcull r>
 	over zmin >? ( 'zmin ! 'nzmin ! swap rot ; ) 2drop swap rot ;
 
 #ozmin
 #ozmax
+
 :fillvec3 | --
 	'octvert >r
 	1024 1024 1024 transform
+	$ff 'acull ! xyzcull
 	dup 'zmin ! 0 'nzmin ! swap rot
 	r!+ r!+ r!+ | 111
 	1024 1024 -1024 1 id3d3 r!+ r!+ r!+ | 110
@@ -309,6 +321,10 @@
 	swap 2 << dup 2* +	| 12*
 	over + swap >r >r | prev pivot
 	r@+ r@+ r> @ r> | x y z pri
+
+|	$ff 'acull !
+|	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ xyzcull2
+
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
@@ -321,6 +337,7 @@
 	dup ozmin + @ 'zmin !
 	dup ozmax + @ 'zmax !
 	'octvert> ! ;
+
 
 #RATIO 0.9
 
@@ -336,7 +353,6 @@
 	zmin 1.0 zmax */ RATIO >? ( drop isonow ; ) drop
 
 :viewoct | node --
-	1 'level +!
 	@ dup 8 >> 2 << octre + swap $ff and | adr bitmask
 
 	dmask viewchildo
@@ -348,15 +364,14 @@
 	dmask 6 xor viewchildo
 	dmask 7 xor viewchildo
 	2drop
-	-1 'level +!
 	-96 'octvert> +!
 	;
 
 ::drawoct | octre --
-	0 'level !
 	fillvec3
 	zmin 1.0 zmax */ RATIO >? ( drop isonow ; ) drop
 	viewoct ;
+
 
 |-------------
 :freelook
@@ -426,6 +441,7 @@
 :main
 	mark
     maskb.ini
+
 	"media/3do/horse.3do" load3do
 |	$88 paper
 	33
@@ -440,7 +456,6 @@
 		freelook
 		xcam ycam zcam mtrans
 
-|		0 'level ! fillvec3 octre isonow
 		octre drawoct
 
 |		0 0.02 0 mtransi octre drawiso
