@@ -2,8 +2,6 @@
 | PHREDA 2015
 |---------------------
 ^r4/lib/gui.txt
-^r4/lib/dlgfile.txt
-
 ^r4/lib/morton.txt
 ^r4/lib/trace.txt
 
@@ -12,10 +10,11 @@
 |-------------
 #xcam 0 #ycam 0 #zcam 0.1
 
+#RATIO 0.9
+
 #$octree
 #$pixels
 #$paleta
-#$octree> |**********
 
 #ymin #nymin
 #ymax #nymax
@@ -28,13 +27,16 @@
 #ozmax
 
 #dmask
+
+#acull
+#ocull
+
 #rotsum )( 640
 #rotsum> 'rotsum
 #octvert )( 960 | 10 niveles de 3 valores*8vertices
 #octvert> 'octvert
 
 |---------------
-
 :id3dit | id x y z -- u v
 	transform
 :id3di | id x y z -- u v
@@ -73,8 +75,7 @@
 	nymax 3 << 64 - 2dup + @ 'ymax ! 'nymax !
 	nxmin 3 << 64 - 4+ 2dup + @ 'xmin ! 'nxmin !
 	nxmax 3 << 64 - 4+ 2dup + @ 'xmax ! 'nxmax !
-	'rotsum> !
-	;
+	'rotsum> ! ;
 
 :addchild | id --
 	rotsum> dup >r
@@ -93,8 +94,7 @@
 	dup nxmax + @ 'xmax !
 	dup nymin + @ 'ymin !
 	dup nymax + @ 'ymax !
-	'rotsum> !
-	;
+	'rotsum> ! ;
 
 |-------------------------------
 :octcolor | oct -- color
@@ -185,13 +185,11 @@
 	nymax 3 << 64 - 2dup + @ 'ymax ! 'nymax !
 	nxmin 3 << 64 - 4+ 2dup + @ 'xmin ! 'nxmin !
 	nxmax 3 << 64 - 4+ 2dup + @ 'xmax ! 'nxmax !
-	'rotsum> !
-	;
+	'rotsum> ! ;
 
 :isonow | oct --
     fillveciso viewi
 	-96 'octvert> +! ;
-
 
 :addchildr | id --
 	octvert> dup >r
@@ -212,8 +210,6 @@
 	dup ozmax + @ 'zmax !
 	'octvert> ! ;
 
-#RATIO 0.9
-
 :viewchildr | node bitm nro -- node bitm
 	1 over << pick2 nand? ( 2drop ; )	| node bitm nro place
 	swap addchildr
@@ -221,6 +217,7 @@
 
 :viewr | node --
 	zmin 1.0 zmax */ RATIO >? ( drop isonow ; ) drop
+	$pixels >? ( drop isonow ; )
 
 	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask
 	dmask viewchildr
@@ -232,15 +229,11 @@
 	dmask 6 xor viewchildr
 	dmask 7 xor viewchildr
 	2drop
-	-96 'octvert> +!
-	;
+	-96 'octvert> +! ;
 
 |----------- search cube in screen
-#acull
-#ocull
-
 :xyzcull | x y z -- x y z
-	0.07 <? ( $10 )( 0 ) >r
+	0.01 <? ( $10 )( 0 ) >r
 	over -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
 	pick2 -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
 	r> dup acull and 'acull ! ocull or 'ocull ! ;
@@ -266,11 +259,10 @@
 	nzmin 'dmask !
 	dmask 7 xor 2 << dup 2* + 96 - 8 + 2dup + @ 'zmin ! 'ozmin !
 	dmask 2 << dup 2* + 96 - 8 + 2dup + @ 'zmax ! 'ozmax !
-	'octvert> !
-	;
+	'octvert> ! ;
 
 :xyzcull2 | x y z --
-	0.07 <? ( $10 )( 0 ) >r
+	0.01 <? ( $10 )( 0 ) >r
 	swap -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
 	swap -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
 	drop
@@ -302,9 +294,9 @@
 	1- over and popcnt 2 << pick2 +    | node bitm node'
 
 :viewo | node --
+	acull 1? ( 2drop -96 'octvert> +! ; ) drop
 	ocull 0? ( drop viewr ; ) drop
-	acull 1? ( 2drop ; ) drop
-	$pixels >? ( drop ; )	| hace falta?
+	$pixels >? ( drop -96 'octvert> +! ; )
 
 	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask
 	dmask viewchildo
@@ -316,32 +308,26 @@
 	dmask 6 xor viewchildo
 	dmask 7 xor viewchildo
 	2drop
-	-96 'octvert> +!
-	;
+	-96 'octvert> +! ;
 
 |--------------
 :adjustmem | octree -- octree
-	4+ | magicnumber |$3d001
-	'$octree !
-	'$pixels !
-	'$paleta !
-	| xlim
-	| ylim
-	| zlin
-	|----- octree
-	|----- pixels
-	|----- paleta
-	;
+	dup 28 + '$octree !
+	4+ @ $octree + '$pixels !
+	$octree ;
 
-::drawoctree | octree --
-	| adjustmem
+::drawoctree | moctree --
+	adjustmem
 	fillstart
 	viewo ;
 
-::drawiso | octre --
-	| adjustmem
+::drawiso | moctree --
+	adjustmem
 	fillstartiso
 	viewi ;
+
+::load3do | "" -- moctree
+	here dup rot load 'here ! ;
 
 |-------------
 :freelook
@@ -350,40 +336,37 @@
 	sw 2/ - neg 7 << swap
 	neg mrotx mroty ;
 
-|------------------------------
-:load3do | "" --
-	here '$octree !
-	$octree swap load '$octree> !
-	$octree> 4 - @ $octree + '$pixels !
-|	$octree> 'here !
-	;
-
-:loadoctree
-	mark
-	"media/3do" dlgfileload 0? ( drop empty ; )
-	load3do
-	empty ;
-
 |-------------
+#Ocaballo
+#Omario
+#Oluigi
+
+#Onow
+
 :main
 	mark
     maskb.ini
+	"media/3do/horse.3do" load3do 'Ocaballo !
+	"media/3do/mario.3do" load3do 'Omario !
+	"media/3do/luigi.3do" load3do 'Oluigi !
 
-	"media/3do/horse.3do" load3do
+	Ocaballo 'oNow !
 |	$88 paper
 	33
 	show clrscr
 
 		verde fonti
 		dup "%d " print cr
-		cr2
-		'loadoctree dup <f1> "F1-Load" sp btnt cr cr2
 
 		3dini
 		freelook
 		xcam ycam zcam mtrans
 
-		$octree drawoctree
+		oNow drawoctree
+|		0 0 0.1 mtransi
+|		Oluigi drawoctree
+|		0 0 0.1 mtransi
+|		Omario drawoctree
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
@@ -392,6 +375,9 @@
 		[ -0.01 'ycam +! ; ] <pgup>
 		[ 0.01 'ycam +! ; ] <pgdn>
 
+		[ Oluigi 'Onow ! ; ] <f1>
+		[ Omario 'Onow ! ; ] <f2>
+		[ Ocaballo 'Onow ! ; ] <f3>
 		'exit >esc< cminiflecha ;
 
 : main ;

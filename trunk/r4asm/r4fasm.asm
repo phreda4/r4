@@ -290,7 +290,18 @@ SYSFFIRST: ; ( "path" -- fdd )
 	jz .noc
 	invoke FindClose,[hfind]
 .noc:
-	invoke FindFirstFile,eax,fdd
+	mov esi,_dir
+.bcpy:
+	mov bl,[eax]
+	or bl,bl
+	jz .ends
+	mov byte[esi],bl
+	add eax,1
+	add esi,1
+	jmp .bcpy
+.ends:
+	mov dword [esi],$002A2f2f
+	invoke FindFirstFile,_dir,fdd
 	mov [hfind],eax
 	cmp eax,INVALID_HANDLE_VALUE
 	je .nin
@@ -460,7 +471,7 @@ section '.data' data readable writeable
 			db	 96, 97, 98, 99,100,101,102,103,104,105,106,107,108,109,110,111
 			db	112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127
 	_title	db ':r4',0
-	_dir	db '*',0
+	_dir	rb 1024
 
 align 4
 	SYSXYM	dd 0

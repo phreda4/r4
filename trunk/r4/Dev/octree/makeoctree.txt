@@ -20,9 +20,11 @@
 #octre>
 
 |---- archivo a grabar
+#$inifile
 #$octree
 #$lastlev
 #$pixels
+#$colori
 #$realpixels
 #$end
 
@@ -240,8 +242,7 @@
 		,oc
 		) 2drop ;
 
-#$colori
-
+|-------------------------------
 :buildoctree | --
 	"octree..." print cr redraw
 	memvox>	dup 'octre ! 'octre> !
@@ -249,14 +250,21 @@
 	|--- calcula hijos
 	memvox> memvox collectnode
 
-|	memvox memmap
-
 	'levels deepvox 1-
 	( 1? )( 1- swap
 		@+ swap @+ rot collectnode
 		swap ) 2drop
 
 	|--- graba octree real
+	octre> '$inifile !
+	$3d000000 ,oc
+	0 ,oc | pixels
+	0 ,oc | p1
+	0 ,oc | p2
+	0 ,oc | xlim
+	0 ,oc | ylim
+	0 ,oc | zlim
+
     octre> '$octree !
 	level> ( 'levels >? )( 8 -
 		'levels =? ( octre> '$lastlev ! )
@@ -265,11 +273,13 @@
 		 ) drop
 
 	1 $octree ( octre> <? )( calcdir ) 2drop
+
     octre> '$pixels !
 	level> ( 'levels >? )( 8 -
 		dup 4+ @ over @
 		,levelcolor
 		 ) drop
+
 	octre> dup '$realpixels ! '$colori !
 	memvox ( memvox> <? )(
 		4+ @+
@@ -277,9 +287,11 @@
 |***		$fcfcfc and | 18 bits
 |***		$fefefe and | 21 bits
 		,oc ) drop
-
-	$pixels $octree - ,oc
 	octre> '$end !
+
+	|... save header
+	$pixels $octree - $inifile 4+ !
+
 	;
 
 
@@ -498,7 +510,7 @@
 	;
 
 :saveoctree
-	$octree $end over -
+	$inifile $end over -
 	"media/3do/" 'filename strcpy
 	'filename catdlgname
 	".3do" 'filename strcat
