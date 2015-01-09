@@ -1,0 +1,135 @@
+| mask buffer
+| PHREDA 2015
+|-------------------------
+
+|--- maskbuffer | 1024*sh
+#maskb
+
+:mask.adr | x y -- m d
+	1 pick2 $1f and << rot 5 >> 2 << rot 7 << + maskb + ;
+
+::maskb.get | x y -- b
+	mask.adr @ and ;
+
+::maskb.set | x y --
+	mask.adr dup @ rot not and swap ! ;
+
+:gmask1
+	$1f and 1 swap << dup 1- or ;
+
+:gmask2
+	$1f and -1 swap << ;
+
+:filline | x1 y1 x2 y2 a --
+	2 << pick3 7 << + maskb + >r
+	rot - | x1 x2 cnt
+	rot gmask2 rot gmask1 and not
+	swap 1+
+	( 1? )( 1-
+		r @ pick2 and r !
+		128 r+
+		) 2drop
+	rdrop ;
+
+::maskb.rset | x1 y1 x2 y2 --
+	pick3 5 >>
+	pick2 5 >> =? ( filline ; )
+	2 << pick3 7 << + maskb + >r
+	rot - 							| x1 x2 cnty
+	over 5 >> pick3 5 >> - 1- swap	| x1 x2 cntx cnty
+	2swap gmask1 not swap gmask2 not
+	2swap 1+						| maska maskb cntx cnty
+	( 1? )( 1- r @
+		pick3 and r !+ 				| maska maskb cntx cnty adr
+		pick2 ( 1? )( 1- 0 rot !+ swap ) drop
+		pick4 over @ and swap !
+		128 r+
+		) 4drop
+	rdrop ;
+
+
+:rgetline | x1 y1 x2 y2 a -- b
+	2 << pick3 7 << + maskb + >r
+	rot - | x1 x2 cnt
+	rot gmask2 rot gmask1 and
+	swap 1+	| mask cnt
+	negro
+	( 1? )( 1-
+		r @ pick2 and? ( 3drop rdrop 1 ; ) drop
+		128 r+
+		) 2drop
+	rdrop 0 ;
+
+::maskb.rget | x1 y1 x2 y2 -- b
+	pick3 5 >>
+	pick2 5 >> =? ( rgetline ; )
+	2 << pick3 7 << + maskb + >r
+	rot - 							| x1 x2 cnty
+	over 5 >> pick3 5 >> - 1- swap	| x1 x2 cntx cnty
+	2swap gmask1 swap gmask2
+	2swap 1+						| maska maskb cntx cnty
+	( 1? )( 1- r @+
+		pick4 and? ( 4drop 2drop rdrop 1 ; ) drop	| maska maskb cntx cnty adr
+		pick2 ( 1? )( 1- swap
+			@+ -1 <>? ( 4drop 3drop rdrop 1 ; ) drop
+			swap ) drop
+		@ pick4 and? ( 4drop drop rdrop 1 ; ) drop
+		128 r+
+		) 4drop
+	rdrop 0 ;
+
+::maskb.clear
+	maskb >r
+	sh 5 << ( 1? )( -1 r!+ 1- ) drop
+	rdrop ;
+
+::maskb.ini
+	here dup 'maskb !
+	sh 7 << + 'here ! ;
+
+|-------------test mask
+:maskb.draw
+	maskb >r
+	0 0 setxy
+	sh ( 1? )( 1-
+		32 ( 1? )( 1-
+			r@+ 32 ( 1? )( 1- swap
+				1 and? ( $ffffff )( 0 ) px!+
+				2/
+				swap ) 2drop
+			) drop
+		) drop
+	rdrop ;
+
+:dbox | x1 y1 x2 y2 --
+	2over op
+	pick3 over line
+	2dup line
+	over pick3 line
+	2drop line ;
+
+:main
+	maskb.ini
+	maskb.clear
+	cls
+	33
+	show
+        maskb.draw
+      	home dup "%d" print
+		40 40 over 8 + over 8 +
+		maskb.rget 1? ( rojo )( verde ) drop
+		40 40 over 8 + over 8 + dbox
+
+		100 40 maskb.get 1? ( rojo )( verde ) drop
+		100 40 2dup op line
+
+		xymouse maskb.set
+		'exit >esc<
+		[ xymouse over 6 + over 6 + maskb.rset ; ] <f1>
+		[ 10 31 11 40 maskb.rset ; ] <f2>
+		[ 10 41 12 50 maskb.rset ; ] <f3>
+		[ 10 51 13 60 maskb.rset ; ] <f4>
+		;
+
+: mark main ;
+
