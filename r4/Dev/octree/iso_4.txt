@@ -63,14 +63,14 @@
 
 :fillstartiso | --
 	'rotsum
-	0 1024 1024 1024 id3dit rot !+ !+	| 111
-	1 1024 1024 -1024 id3dt rot !+ !+	| 110
-	2 1024 -1024 1024 id3dt rot !+ !+	| 101
-	3 1024 -1024 -1024 id3dt rot !+ !+	| 100
-	4 -1024 1024 1024 id3dt rot !+ !+	| 011
-	5 -1024 1024 -1024 id3dt rot !+ !+	| 010
-	6 -1024 -1024 1024 id3dt rot !+ !+	| 001
-	7 -1024 -1024 -1024 id3dt rot !+ !+ | 000
+	0 0.1 0.1 0.1 id3dit rot !+ !+	| 111
+	1 0.1 0.1 -0.1 id3dt rot !+ !+	| 110
+	2 0.1 -0.1 0.1 id3dt rot !+ !+	| 101
+	3 0.1 -0.1 -0.1 id3dt rot !+ !+	| 100
+	4 -0.1 0.1 0.1 id3dt rot !+ !+	| 011
+	5 -0.1 0.1 -0.1 id3dt rot !+ !+	| 010
+	6 -0.1 -0.1 0.1 id3dt rot !+ !+	| 001
+	7 -0.1 -0.1 -0.1 id3dt rot !+ !+ | 000
 	nymin 3 << 64 - 2dup + @ 'ymin ! 'nymin !
 	nymax 3 << 64 - 2dup + @ 'ymax ! 'nymax !
 	nxmin 3 << 64 - 4+ 2dup + @ 'xmin ! 'nxmin !
@@ -100,50 +100,61 @@
 :octcolor | oct -- color
     $octree - $pixels + @ ;
 
-:octcolor8
+:octcolor3 | oct -- color
+	$octree - 2 >> dup 2* + 1- $pixels + @ $ffffff and ;
+
+:octcolor8 | oct -- color
 	$octree - 2 >> $pixels + c@ $ff and 2 << $paleta + @ ;
 
-:octcolor16
+:octcolor16 | oct -- color
 	$octree - 2/ $pixels + w@ ; |16to32 ;
 
 |-------------------------------
-:fpbox | x2 x1 y2 y1 --
-	pick2 over setxy
-	sw pick4 pick4 - - 1- >r
-	( over <=? )(
-		pick2 ( pick4 <=? )( ink@ px!+ 1+ ) drop
-		r px+!
-		1+ ) 4drop rdrop ;
+:fpbox | color x2 y2 x1 y1 --
+	2dup setxy
+	rot swap - 1+ >r - 1+
+	sw over - r> | cntx sum cnty
+	( 1? )(
+		pick2 ( 1? )( 1- pick4 px!+ ) drop
+		over px+! 1- ) 4drop ;
 
-:fpbox1 | x2 x1 y2 y1 --
-	rot swap
-	2over op pick3 over pline
-	2dup pline over pick3 pline
-	2drop pline poli ;
+:fpx | color xmin ymin xmax --
+	pick2 - 1+ >r
+	setxy r>
+	( 1? )( over px!+ 1- ) 2drop ;
 
-:drawbox | oct --
-	-64 'rotsum> +!
-	octcolor ink
-	xmax |sw 1- clampmax
-	xmin |clamp0
-	ymax sh 1- clampmax
-	ymin clamp0
-	fpbox ;
+:fpy | color xmin ymin ymax --
+	over - 1+ >r
+	setxy sw 1- r>
+	( 1? )( pick2 px!+ over px+! 1- ) 3drop ;
 
 :drawpoint | oct x y --
-|	rot octcolor ink 2dup op line ;
+	-? ( 3drop ; ) sh >=? ( 3drop ; )	| CLIP
 	setxy octcolor px!+ ;
 
+|----------------------
 :drawpoint1 | oct x --
 	-64 'rotsum> +!
 	ymin ymax =? ( drawpoint ; )
-	rot octcolor ink
-	over ymax op line ;
+	clamp0 sh >=? ( 3drop ; )			| CLIP
+	rot octcolor rot rot
+	ymax sh 1- clampmax  -? ( 4drop ; ) | CLIP
+	fpy ;
 
 :drawpoint2 | oct x y --
 	-64 'rotsum> +!
-	rot octcolor ink
-    xmax over op line ;
+	-? ( 3drop ; ) sh >=? ( 3drop ; ) 	| CLIP
+	rot octcolor rot rot
+    xmax fpx ;
+
+:drawbox | oct --
+	-64 'rotsum> +!
+	octcolor
+	xmax   |sw 1- clampmax
+	ymax sh 1- clampmax -? ( 3drop ; ) 	| CLIP
+	xmin   |clamp0
+	ymin clamp0 sh >=? ( nip 4drop ; ) | CLIP
+	fpbox ;
 
 :viewchildm | node bitm nro -- node bitm
 	1 over << pick2 nand? ( 2drop ; )	| node bitm nro place
@@ -154,7 +165,7 @@
 	xmin xmax =? ( drawpoint1 ; )
 	ymin ymax =? ( drawpoint2 ; )
 	2drop
-	$pixels >? ( drawbox ; )
+	$pixels >=? ( drawbox ; )
 
 	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask
 	nzmin viewchildm
@@ -217,7 +228,7 @@
 
 :viewr | node --
 	zmin 1.0 zmax */ RATIO >? ( drop isonow ; ) drop
-	$pixels >? ( drop isonow ; )
+	$pixels >=? ( isonow ; )
 
 	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask
 	dmask viewchildr
@@ -245,16 +256,16 @@
 :fillstart | --
 	$ff 'acull ! 0 'ocull !
 	'octvert >r
-	1024 1024 1024 transform xyzcull
+	0.1 0.1 0.1 transform xyzcull
 	dup 'zmin ! 0 'nzmin ! swap rot
 	r!+ r!+ r!+ | 111
-	1024 1024 -1024 1 id3d3 r!+ r!+ r!+ | 110
-	1024 -1024 1024 2 id3d3 r!+ r!+ r!+ | 101
-	1024 -1024 -1024 3 id3d3 r!+ r!+ r!+ | 100
-	-1024 1024 1024 4 id3d3 r!+ r!+ r!+ | 011
-	-1024 1024 -1024 5 id3d3 r!+ r!+ r!+ | 010
-	-1024 -1024 1024 6 id3d3 r!+ r!+ r!+ | 001
-	-1024 -1024 -1024 7 id3d3 r!+ r!+ r!+ | 000
+	0.1 0.1 -0.1 1 id3d3 r!+ r!+ r!+ | 110
+	0.1 -0.1 0.1 2 id3d3 r!+ r!+ r!+ | 101
+	0.1 -0.1 -0.1 3 id3d3 r!+ r!+ r!+ | 100
+	-0.1 0.1 0.1 4 id3d3 r!+ r!+ r!+ | 011
+	-0.1 0.1 -0.1 5 id3d3 r!+ r!+ r!+ | 010
+	-0.1 -0.1 0.1 6 id3d3 r!+ r!+ r!+ | 001
+	-0.1 -0.1 -0.1 7 id3d3 r!+ r!+ r!+ | 000
 	r>
 	nzmin 'dmask !
 	dmask 7 xor 2 << dup 2* + 96 - 8 + 2dup + @ 'zmin ! 'ozmin !
@@ -294,9 +305,9 @@
 	1- over and popcnt 2 << pick2 +    | node bitm node'
 
 :viewo | node --
-	acull 1? ( 2drop -96 'octvert> +! ; ) drop
 	ocull 0? ( drop viewr ; ) drop
-	$pixels >? ( drop -96 'octvert> +! ; )
+	acull 1? ( 2drop -96 'octvert> +! ; ) drop
+	$pixels >=? ( drop -96 'octvert> +! ; )
 
 	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask
 	dmask viewchildo
@@ -340,6 +351,7 @@
 #Ocaballo
 #Omario
 #Oluigi
+#Oearth
 
 #Onow
 
@@ -349,9 +361,11 @@
 	"media/3do/horse.3do" load3do 'Ocaballo !
 	"media/3do/mario.3do" load3do 'Omario !
 	"media/3do/luigi.3do" load3do 'Oluigi !
+	"media/3do/luigi.3do" load3do 'Oluigi !
+	"media/3do/earth.3do" load3do 'Oearth !
+|	"media/3do/mm.3do" load3do 'Oearth !
 
 	Ocaballo 'oNow !
-|	$88 paper
 	33
 	show clrscr
 
@@ -363,10 +377,6 @@
 		xcam ycam zcam mtrans
 
 		oNow drawoctree
-|		0 0 0.1 mtransi
-|		Oluigi drawoctree
-|		0 0 0.1 mtransi
-|		Omario drawoctree
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
@@ -378,6 +388,7 @@
 		[ Oluigi 'Onow ! ; ] <f1>
 		[ Omario 'Onow ! ; ] <f2>
 		[ Ocaballo 'Onow ! ; ] <f3>
+		[ Oearth 'Onow ! ; ] <f4>
 		'exit >esc< cminiflecha ;
 
 : main ;

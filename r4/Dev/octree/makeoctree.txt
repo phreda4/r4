@@ -72,12 +72,6 @@
  	dup c1x2 swap 2/ dup c1x2 swap 2/ c1x2 ;
 
 |----------- graficacion
-:freelook
-	xymouse
-	sh 2/ - 7 << swap
-	sw 2/ - neg 7 << swap
-	neg mrotx
-	mroty ;
 
 :3dop project3d op ;
 :3dline project3d line ;
@@ -245,6 +239,7 @@
 |-------------------------------
 :buildoctree | --
 	"octree..." print cr redraw
+	memvox memvox> over - 3 >> 1+ swap shellsort | necesita ordenar
 	memvox>	dup 'octre ! 'octre> !
 	'levels 'level> !
 	|--- calcula hijos
@@ -286,6 +281,74 @@
 |***		$f8fcf8 and | 16 bits
 |***		$fcfcfc and | 18 bits
 |***		$fefefe and | 21 bits
+		,oc ) drop
+	octre> '$end !
+
+	|... save header
+	$pixels $octree - $inifile 4+ !
+
+	;
+
+|----------------------------------
+| octree sin punteros
+|----------------------------------
+:,occ | val --
+	octre> c!+ 'octre> ! ;
+
+:,levelnodeE |  hasta desde --
+	( over <? )(
+		4+ @+ $ff and ,occ
+		) 2drop ;
+
+:,levelcolorE |  hasta desde --
+	( over <? )(
+		4+ @+ 8 >>
+		$ffffff and
+|***		$f8fcf8 and | 16 bits
+		,oc
+		) 2drop ;
+
+:buildoctreeE | --
+	"octree..." print cr redraw
+	memvox memvox> over - 3 >> 1+ swap shellsort | necesita ordenar
+	memvox>	dup 'octre ! 'octre> !
+	'levels 'level> !
+	|--- calcula hijos
+	memvox> memvox collectnode
+
+	'levels deepvox 1-
+	( 1? )( 1- swap
+		@+ swap @+ rot collectnode
+		swap ) 2drop
+
+	|--- graba octree real
+	octre> '$inifile !
+	$3d000000 ,oc
+	0 ,oc | pixels
+	0 ,oc | p1
+	0 ,oc | p2
+	0 ,oc | xlim
+	0 ,oc | ylim
+	0 ,oc | zlim
+
+    octre> '$octree !
+	level> ( 'levels >? )( 8 -
+		'levels =? ( octre> '$lastlev ! )
+		dup 4+ @ over @
+		,levelnodeE
+		 ) drop
+
+|	1 $octree ( octre> <? )( calcdir ) 2drop
+
+    octre> '$pixels !
+	level> ( 'levels >? )( 8 -
+		dup 4+ @ over @
+		,levelcolorE
+		 ) drop
+
+	octre> dup '$realpixels ! '$colori !
+	memvox ( memvox> <? )(
+		4+ @+
 		,oc ) drop
 	octre> '$end !
 
@@ -481,7 +544,31 @@
 		r@+ 7 << $ff0000 and or
 		swap !+
 		) drop
+	rdrop
+	;
+|--------- rotaciones
+:rotaenx
+	memvox ( memvox> <? )(
+		dup @
+		invmorton3d swap morton3d
+		swap !+
+		4+ ) drop
+	;
 
+:rotaeny
+	memvox ( memvox> <? )(
+		dup @
+		invmorton3d rot morton3d
+		swap !+
+		4+ ) drop
+	;
+
+:rotaenz
+	memvox ( memvox> <? )(
+		dup @
+		invmorton3d >r swap r> morton3d
+		swap !+
+		4+ ) drop
 	;
 
 |--------- archivos
@@ -534,7 +621,7 @@
 	repetidos
 	getminmax
 	centra
-	memvox memvox> over - 3 >> 1+ swap shellsort | necesita ordenar
+	getminmax
 	memvox> memvox - 3 >> 'vertices !
 	;
 
@@ -550,6 +637,15 @@
 	cr
 	;
 
+
+:freelook
+	xymouse
+	sh 2/ - neg 2 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty
+	;
+
 |--------------------------
 :main
 	4
@@ -560,17 +656,15 @@
 
 		vertices "Puntos: %d " print
 |		vertices 3 << "mem:%d " print
-		cr
 		qsize "qsize:%h " print
 		deepvox "deepvox:%d " print cr
-		xmin xmax "X max:%d min:%d " print
-		ymin ymax "Y max:%d min:%d " print
-		zmin zmax "Z max:%d min:%d " print
+		xmin xmax "X %d-%d " print
+		ymin ymax "Y %d-%d " print
+		zmin zmax "Z %d-%d " print
 		cr
 		octre> octre - 3 >> "Octree: %d " print
 		octre> octre - 1 >> vertices 2 << + "mem:%d " print
 		cr
-|		memvox ( memvox $fff + <? )( >r r@+ r@+ swap "%h:%h " print cr allowchome r> ) drop cr
 		memvox> memvox "mem %h %h" print cr
 		octre> octre "oct %h %h " print cr
 		$octree "%h " print
@@ -591,7 +685,7 @@
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
-    	verde
+
 
 		'loaddisk3dm <f1>
 		'buildoctree <f2>
@@ -599,6 +693,10 @@
 		[ buildoctree optoctree saveoctree ; ] <f4>
 		[ getminmax centra ; ] <f5>
 		'calcnormales <f6>
+
+		'rotaenx <f7>
+		'rotaeny <f8>
+		'rotaenz <f9>
 		'exit >esc< ;
 
 : memory main ;
