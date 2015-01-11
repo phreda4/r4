@@ -45,6 +45,8 @@
 	1024 <? ( $3ff 'qsize ! 10 'deepvox ! )
 	512 <? ( $1ff 'qsize ! 9 'deepvox ! )
 	256 <? ( $ff 'qsize ! 8 'deepvox ! )
+	128 <? ( $7f 'qsize ! 7 'deepvox ! )
+	64 <? ( $3f 'qsize ! 6 'deepvox ! )
 	drop
 	qsize 1+ 2* 'zcam !
 	;
@@ -546,16 +548,9 @@
 		) drop
 	rdrop
 	;
-|--------- rotaciones
-:rotaenx
-	memvox ( memvox> <? )(
-		dup @
-		invmorton3d swap morton3d
-		swap !+
-		4+ ) drop
-	;
 
-:rotaeny
+|--------- cambia coordenada
+:rotacoord
 	memvox ( memvox> <? )(
 		dup @
 		invmorton3d rot morton3d
@@ -563,12 +558,24 @@
 		4+ ) drop
 	;
 
-:rotaenz
+|--------- espejo coordenada
+:espejo
 	memvox ( memvox> <? )(
 		dup @
-		invmorton3d >r swap r> morton3d
+		qsize dup 10 << over 20 << or or
+		xor
 		swap !+
 		4+ ) drop
+
+	;
+
+|---------
+:colorea
+	memvox ( memvox> <? )(
+		@+
+		invmorton3d
+		$ff and swap $ff and 8 << or swap $ff and 16 << or
+		!+ ) drop
 	;
 
 |--------- archivos
@@ -584,18 +591,6 @@
 	"octree.txt" savemem
 	empty ;
 
-:dumpoc
-	'levels ( level> <? )(
-		@+ swap @+ rot - 3 >>
-		"%h " print
-		8 - @+ swap @+ rot ( over <? )( 4+ @+ "%h " allowcr print ) 2drop
-		cr allowchome ) drop
-	cr
-	$octree ( $pixels <? )(
-		@+ "%h " allowcr print ) cr
-	( $end <? )( @+ "%h " allowcr print ) drop
-	;
-
 :saveoctree
 	$inifile $end over -
 	"media/3do/" 'filename strcpy
@@ -604,17 +599,6 @@
 	'filename save ;
 
 |------------- load import
-
-#last
-:showmem
-	memvox 'last !
-	show clrscr
-		last ( memvox> <? )( >r r@+ r@+ swap "%h:%h " print cr allowchome r> ) drop cr
-		[ -4000 'last +! ; ] <up>
-		[ 4000 'last +! ; ] <dn>
-		'exit >esc<
-	;
-
 :load3dm | "filename" --
 	memvox swap
 	load dup 'memvox> ! 'here !
@@ -674,7 +658,6 @@
 		$end "%h " print
 		cr
 
-|		dumpoc
 		omode
 		freelook
 		xcam ycam zcam mtrans
@@ -694,9 +677,11 @@
 		[ getminmax centra ; ] <f5>
 		'calcnormales <f6>
 
-		'rotaenx <f7>
-		'rotaeny <f8>
-		'rotaenz <f9>
+		'rotacoord <f7>
+|		'espejo <f8>
+		'colorea <f9>
+
+
 		'exit >esc< ;
 
 : memory main ;

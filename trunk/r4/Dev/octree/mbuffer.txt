@@ -1,7 +1,7 @@
 | mask buffer
 | PHREDA 2015
 |-------------------------
-
+^r4/lib/gui.txt
 |--- maskbuffer | 1024*sh
 #maskb
 
@@ -48,6 +48,8 @@
 	rdrop ;
 
 
+::mask.linexset | x1 y1 x2
+
 :rgetline | x1 y1 x2 y2 a -- b
 	2 << pick3 7 << + maskb + >r
 	rot - | x1 x2 cnt
@@ -87,6 +89,67 @@
 	here dup 'maskb !
 	sh 7 << + 'here ! ;
 
+|-------------------------------
+:fpbox | color x2 y2 x1 y1 --
+	2dup setxy
+	rot swap - 1+ >r - 1+
+	sw over - r> | cntx sum cnty
+	( 1? )(
+		pick2 ( 1? )( 1- pick4 px!+ ) drop
+		over px+! 1- ) 4drop ;
+
+:fpx | color xmin ymin xmax --
+	pick2 - 1+ >r
+	setxy r>
+	( 1? )( over px!+ 1- ) 2drop ;
+
+:fpy | color xmin ymin ymax --
+	over - 1+ >r
+	setxy sw 1- r>
+	( 1? )( pick2 px!+ over px+! 1- ) 3drop ;
+
+:drawpoint | oct x y --
+|	-? ( 3drop ; ) sh >=? ( 3drop ; )	| CLIP
+	2dup maskb.get 0? ( 4drop ; ) drop
+	2dup maskb.set
+	setxy px!+ ;
+
+
+:maskpxy | oct x y --
+	2dup mask.adr swap over @
+	nand? ( nip 4drop ; )
+	not over @ and swap !
+	setxy px!+ ;
+
+:onemask |oct x y x minxdw
+	;
+
+:maskfpx | oct x y x --
+	pick2 5 >>
+	over 5 >> =? ( onemask ; )
+	dup pick2 - 1+ >r				| oct x y x minxdw r:cntpixeles
+	2 << pick3 7 << + maskb + >r	| oct x y x r:dwordadr cntpixeles
+	5 >> pick2 5 >> - 1- 			| oct x y cntdwords
+	>r setxy r> r> | oct cntword dwordadr
+
+
+
+
+	1- swap	| x1 x2 cntx cnty
+	2swap gmask1 swap gmask2
+	2swap 1+						| maska maskb cntx cnty
+	( 1? )( 1- r @+
+		pick4 and? ( 4drop 2drop rdrop 1 ; ) drop	| maska maskb cntx cnty adr
+		pick2 ( 1? )( 1- swap
+			@+ -1 <>? ( 4drop 3drop rdrop 1 ; ) drop
+			swap ) drop
+		@ pick4 and? ( 4drop drop rdrop 1 ; ) drop
+		128 r+
+		) 4drop
+
+	setxy r>
+	( 1? )( over px!+ 1- ) 2drop ;
+	;
 |-------------test mask
 :maskb.draw
 	maskb >r
@@ -108,25 +171,26 @@
 	over pick3 line
 	2drop line ;
 
+#color
+
 :main
 	maskb.ini
 	maskb.clear
 	cls
 	33
+	$ff00 'color !
 	show
-        maskb.draw
-      	home dup "%d" print
-		40 40 over 8 + over 8 +
+		40 40 over 48 + over 48 +
 		maskb.rget 1? ( rojo )( verde ) drop
-		40 40 over 8 + over 8 + dbox
+		40 40 over 48 + over 48 + dbox
 
 		100 40 maskb.get 1? ( rojo )( verde ) drop
 		100 40 2dup op line
 
-		xymouse maskb.set
+		color xymouse maskpxy
 		'exit >esc<
 		[ xymouse over 6 + over 6 + maskb.rset ; ] <f1>
-		[ 10 31 11 40 maskb.rset ; ] <f2>
+		[ $ff0000 'color !  ; ] <f2>
 		[ 10 41 12 50 maskb.rset ; ] <f3>
 		[ 10 51 13 60 maskb.rset ; ] <f4>
 		;
