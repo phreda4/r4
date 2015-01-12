@@ -1,32 +1,31 @@
-| iso test 4
+| iso test 5
 | PHREDA 2015
 |---------------------
 ^r4/lib/gui.txt
 ^r4/lib/morton.txt
-^r4/lib/trace.txt
+^r4/lib/mbuffer.txt
 
-^r4/dev/octree/mbuffer.txt
+^r4/lib/trace.txt
 
 |-------------
 #xcam 0 #ycam 0 #zcam 0.1
 
-#RATIO 0.9
+#RATIO 0.94
 
 #$octree
 #$pixels
 #$paleta
 
 #ymin #nymin
-#ymax #nymax
 #xmin #nxmin
-#xmax #nxmax
+#zmin #nzmin
 
-#zmax #zmin #nzmin
+#ymax #nymax
+#xmax #nxmax
+#zmax
 
 #ozmin
 #ozmax
-
-#dmask
 
 #acull
 #ocull
@@ -37,15 +36,27 @@
 #octvert> 'octvert
 
 |---------------
-:id3di | id x y z -- u v
-	dup 'zmin ! pick3 'nzmin !
-	3dproject | id x y
-	dup 'ymin ! pick2 'nymin !
-	over 'xmin ! pick2 'nxmin !
-	rot drop ;
+:dist3d | x y z -- x y z d
+	pick2 dup * pick2 dup * + over dup * + ;
+
+:dist3dc | x y z -- d
+	dup * swap dup * + swap dup * + ;
+
+:dist3d1 | x y z -- x y z d
+	2dup distfast pick3 distfast ;
+
+:dist3dc1 | x y z -- d
+	distfast distfast ;
+
+|-----------------------
+:id3di | x y z -- u v
+	dist3d 'zmin ! 0 'nzmin !
+	3dproject 	| x y
+	dup 'ymin ! 0 'nymin !
+	over 'xmin ! 0 'nxmin ! ;
 
 :id3d | id x y z -- u v
-	zmin <? ( dup 'zmin ! pick3 'nzmin ! )
+	dist3d zmin <? ( 'zmin ! pick3 'nzmin ! )( drop )
 	3dproject | id x y
 	ymin <? ( dup 'ymin ! pick2 'nymin ! )
 	swap
@@ -54,7 +65,7 @@
 
 :fillstartiso | --
 	'rotsum
-	0 0.05 0.05 0.05 transform id3di rot !+ !+	| 111
+	0.05 0.05 0.05 transform id3di rot !+ !+	| 111
 	1 0.05 0.05 -0.05 transform id3d rot !+ !+	| 110
 	2 0.05 -0.05 0.05 transform id3d rot !+ !+	| 101
 	3 0.05 -0.05 -0.05 transform id3d rot !+ !+	| 100
@@ -160,7 +171,7 @@
 :fillveciso | --
 	octvert> 96 - >r
 	'rotsum
-	0 r@+ r@+ r@+ id3di rot !+ !+
+	r@+ r@+ r@+ id3di rot !+ !+
 	1 r@+ r@+ r@+ id3d rot !+ !+
 	2 r@+ r@+ r@+ id3d rot !+ !+
 	3 r@+ r@+ r@+ id3d rot !+ !+
@@ -178,21 +189,28 @@
     fillveciso viewi
 	-96 'octvert> +! ;
 
+:xyz2i | x y z --
+	dist3dc 'zmin ! 0 'nzmin ! ;
+
+:xyz2 | x y z id --
+	>r dist3dc zmin <? ( 'zmin ! r> 'nzmin ! ; )
+	drop rdrop ;
+
 :addchildr | id --
 	octvert> dup >r
 	96 -
 	swap 2 << dup 2* +	| 12*
 	over + swap >r >r | prev pivot
 	r@+ r@+ r> @ r> | x y z pri
-	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @ + 2/ r!+
-	2drop r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r xyz2i r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r 1 xyz2 r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r 2 xyz2 r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r 3 xyz2 r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r 4 xyz2 r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r 5 xyz2 r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r 6 xyz2 r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @ pick3 + 2/ dup r!+ 7 xyz2
+	3drop r>
 	dup ozmin + @ 'zmin !
 	dup ozmax + @ 'zmax !
 	'octvert> ! ;
@@ -204,38 +222,44 @@
 
 :viewr | node --
 	zmax 1.0 zmin */ RATIO >? ( drop isonow ; ) drop
-
-|	$pixels >=? ( trace isonow ; ) |*****
+	$pixels >=? ( isonow ; )
 
 	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask
-	dmask viewchildr
-	dmask 1 xor viewchildr
-	dmask 2 xor viewchildr
-	dmask 4 xor viewchildr
-	dmask 3 xor viewchildr
-	dmask 5 xor viewchildr
-	dmask 6 xor viewchildr
-	dmask 7 xor viewchildr
+	nzmin >r
+	r viewchildr
+	r 1 xor viewchildr
+	r 2 xor viewchildr
+	r 4 xor viewchildr
+	r 3 xor viewchildr
+	r 5 xor viewchildr
+	r 6 xor viewchildr
+	r> 7 xor viewchildr
 	2drop
 	-96 'octvert> +! ;
 
+
 |----------- search cube in screen
-:xyzcull | x y z -- x y z
-	0.01 <? ( $10 )( 0 ) >r
+
+:id3d3i
+	transform
+	0.001 <? ( $10 )( 0 ) >r
 	over -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
 	pick2 -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
-	r> dup acull and 'acull ! ocull or 'ocull ! ;
+	r> dup 'acull ! 'ocull !
+	dist3d 'zmin ! 0 'nzmin ! swap rot ;
 
 :id3d3 | id --
-	>r transform xyzcull r>
-	over zmin <? ( 'zmin ! 'nzmin ! swap rot ; ) 2drop swap rot ;
+	>r transform
+	0.001 <? ( $10 )( 0 ) >r
+	over -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
+	pick2 -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
+	r> dup acull and 'acull ! ocull or 'ocull !
+	dist3d zmin <? ( 'zmin ! r> 'nzmin ! swap rot ; )
+	drop rdrop swap rot ;
 
 :fillstart | --
-	$ff 'acull ! 0 'ocull !
 	'octvert >r
-	0.05 0.05 0.05 transform xyzcull
-	dup 'zmin ! 0 'nzmin ! swap rot
-	r!+ r!+ r!+ | 111
+	0.05 0.05 0.05 id3d3i r!+ r!+ r!+ | 111
 	0.05 0.05 -0.05 1 id3d3 r!+ r!+ r!+ | 110
 	0.05 -0.05 0.05 2 id3d3 r!+ r!+ r!+ | 101
 	0.05 -0.05 -0.05 3 id3d3 r!+ r!+ r!+ | 100
@@ -244,36 +268,42 @@
 	-0.05 -0.05 0.05 6 id3d3 r!+ r!+ r!+ | 001
 	-0.05 -0.05 -0.05 7 id3d3 r!+ r!+ r!+ | 000
 	r>
-	nzmin 'dmask !
-	dmask 7 xor 2 << dup 2* + 96 - 8 + 2dup + @ 'zmin ! 'ozmin !
-	dmask 2 << dup 2* + 96 - 8 + 2dup + @ 'zmax ! 'ozmax !
+	nzmin 7 xor 2 << dup 2* + 96 - 8 + 'ozmin !
+	nzmin 2 << dup 2* + 96 - 8 + 2dup + @ 'zmax ! 'ozmax !
 	'octvert> ! ;
 
-:xyzcull2 | x y z --
-	0.01 <? ( $10 )( 0 ) >r
+:xyzcull2i | x y z --
+	dist3d 'zmin ! 0 'nzmin !
+	0.001 <? ( $10 )( 0 ) >r
+	swap -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
+	swap -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
+	drop
+	r> dup 'acull ! 'ocull ! ;
+
+:xyzcull2 | x y z id --
+	>r dist3d zmin <? ( 'zmin ! r> 'nzmin ! )( drop rdrop )
+	0.001 <? ( $10 )( 0 ) >r
 	swap -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
 	swap -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
 	drop
 	r> dup acull and 'acull ! ocull or 'ocull ! ;
 
 :addchildo | id --
-	$ff 'acull ! 0 'ocull !
 	octvert> dup >r 96 -
 	swap 2 << dup 2* +	| 12*
 	over + swap >r >r | prev pivot
 	r@+ r@+ r> @ r> | x y z pri
-	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r xyzcull2 r>
-	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r xyzcull2 r>
-	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r xyzcull2 r>
-	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r xyzcull2 r>
-	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r xyzcull2 r>
-	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r xyzcull2 r>
-	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r xyzcull2 r>
-	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @ pick3 + 2/ dup r!+ xyzcull2
-	3drop
-	r>
-	dup ozmin + @ 'zmin !
-	dup ozmax + @ 'zmax !
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r xyzcull2i r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r 1 xyzcull2 r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r 2 xyzcull2 r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r 3 xyzcull2 r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r 4 xyzcull2 r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r 5 xyzcull2 r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap >r 6 xyzcull2 r>
+	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @ pick3 + 2/ dup r!+ 7 xyzcull2
+	3drop r>
+|	dup ozmin + @ 'zmin !
+|	dup ozmax + @ 'zmax !
 	'octvert> ! ;
 
 :viewchildo | node bitm nro -- node bitm
@@ -287,14 +317,15 @@
 	$pixels >=? ( drop -96 'octvert> +! ; )
 
 	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask
-	dmask viewchildo
-	dmask 1 xor viewchildo
-	dmask 2 xor viewchildo
-	dmask 4 xor viewchildo
-	dmask 3 xor viewchildo
-	dmask 5 xor viewchildo
-	dmask 6 xor viewchildo
-	dmask 7 xor viewchildo
+	nzmin >r
+	r viewchildo
+	r 1 xor viewchildo
+	r 2 xor viewchildo
+	r 4 xor viewchildo
+	r 3 xor viewchildo
+	r 5 xor viewchildo
+	r 6 xor viewchildo
+	r> 7 xor viewchildo
 	2drop
 	-96 'octvert> +! ;
 
@@ -343,10 +374,11 @@
 	"media/3do/luigi.3do" load3do 'Oluigi !
 	"media/3do/luigi.3do" load3do 'Oluigi !
 |	"media/3do/earth.3do" load3do 'Oearth !
-	"media/3do/mm.3do" load3do 'Oearth !
+	"media/3do/xyzrgb_statuette.3do" load3do 'Oearth !
 
 	Ocaballo 'oNow !
 	33
+	$88 paper
 	show clrscr
 		3dini
 		freelook

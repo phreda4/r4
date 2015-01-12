@@ -1,8 +1,7 @@
-| mask buffer
+| mask buffer - stencil
 | PHREDA 2015
 |-------------------------
 ^r4/lib/gui.txt
-^r4/lib/trace.txt
 
 |--- maskbuffer | 1024*sh
 #maskb
@@ -89,38 +88,13 @@
 	here dup 'maskb !
 	sh 7 << + 'here ! ;
 
-|-------------------------------
-:fpbox | color x2 y2 x1 y1 --
-	2dup setxy
-	rot swap - 1+ >r - 1+
-	sw over - r> | cntx sum cnty
-	( 1? )(
-		pick2 ( 1? )( 1- pick4 px!+ ) drop
-		over px+! 1- ) 4drop ;
-
-:fpx | color xmin ymin xmax --
-	pick2 - 1+ >r
-	setxy r>
-	( 1? )( over px!+ 1- ) 2drop ;
-
-:fpy | color xmin ymin ymax --
-	over - 1+ >r
-	setxy sw 1- r>
-	( 1? )( pick2 px!+ over px+! 1- ) 3drop ;
-
-:drawpoint | oct x y --
-|	-? ( 3drop ; ) sh >=? ( 3drop ; )	| CLIP
-	2dup maskb.get 0? ( 4drop ; ) drop
-	2dup maskb.set
-	setxy px!+ ;
-
 |------------------------------------
 ::maskpxy | color x y --
+|	-? ( 3drop ; ) sh >=? ( 3drop ; )	| CLIP
 	2dup mask.adr swap over @
 	nand? ( nip 4drop ; )
 	not over @ and swap !
 	setxy px!+ ;
-
 
 :proc8 | mask -- mask
 	$ff nand? ( 8 px+! ; )	| todos 0
@@ -197,63 +171,3 @@
 		32 pick2 2 + - 2 << r+
 		sw pick2 2 + 5 << - px+!
 		1- ) 4drop rdrop ;
-
-|-------------test mask
-:maskb.draw
-	maskb >r
-	0 0 setxy
-	sh ( 1? )( 1-
-		32 ( 1? )( 1-
-			r@+ 32 ( 1? )( 1- swap
-				1 and? ( $ffffff )( 0 ) px!+
-				2/
-				swap ) 2drop
-			) drop
-		) drop
-	rdrop ;
-
-:dbox | x1 y1 x2 y2 --
-	2over op
-	pick3 over line
-	2dup line
-	over pick3 line
-	2drop line ;
-
-:livetest
-	40 40 over 48 + over 48 +
-	maskb.rget 1? ( rojo )( verde ) drop
-	40 40 over 48 + over 48 + dbox
-	100 40 maskb.get 1? ( rojo )( verde ) drop
-	100 40 2dup op line
-	;
-
-:boxytest | x y color --
-	ink
-	xymouse
-	2swap pick2 +
-	swap pick3 + swap
-	2over 2over dbox maskb.rset ;
-
-#test $f0f0f0a1
-:main
-	maskb.ini
-	maskb.clear
-	cls
-	33
-	show clrscr
-		dup "%d " print cr
-
-		livetest
-
-		rand xymouse maskpxy
-
-		[ rojo 20 ( 40 <? )( 34 over 74 maskfpx 1+ ) drop ; ] <f1>
-		[ verde 30 ( 50 <? )( 40 over 184 maskfpx 1+ ) drop ; ] <f2>
-		[ amarillo 50 ( 90 <? )( dup 10 200 maskfpy 1+ ) drop ; ] <f3>
-		[ azul 35 34 56 48 maskfpxy ; ] <f4>
-		[ violeta 40 40 190 120 maskfpxy ; ] <f5>
-		'exit >esc<
-		;
-
-: mark main ;
-
