@@ -40,16 +40,18 @@
 #x4 #y4 #z4	| Nz
 
 :calcmask
-	x1 2/ x0 * y1 2/ y0 * + z1 2/ z0 * + +? ( 1 )( 0 ) >r drop
-	x2 2/ x0 * y2 2/ y0 * + z2 2/ z0 * + +? ( 2 r+ ) drop
-	x4 2/ x0 * y4 2/ y0 * + z4 2/ z0 * + +? ( 4 r+ ) drop
+	x1 x0 * y1 y0 * + z1 z0 * + +? ( 1 )( 0 ) >r drop
+	x2 x0 * y2 y0 * + z2 z0 * + +? ( 2 r+ ) drop
+	x4 x0 * y4 y0 * + z4 z0 * + +? ( 4 r+ ) drop
 	r> ;
 
 :get2dlimit | adr -- adr
-	dup nxmin + @ clamp0 sw 1- clampmax 'xmin !
-	dup nxmax + @ clamp0 sw 1- clampmax 'xmax !
-	dup nymin + @ clamp0 sh 1- clampmax 'ymin !
-	dup nymax + @ clamp0 sh 1- clampmax 'ymax !
+	dup nxmin + @ |sw 1- clamp0max
+	'xmin !
+	dup nxmax + @ |sw 1- clamp0max
+	'xmax !
+	dup nymin + @ sh 1- clamp0max 'ymin !
+	dup nymax + @ sh 1- clamp0max 'ymax !
 	;
 
 |-------------------------------
@@ -152,8 +154,8 @@
 	7 -0.05 -0.05 -0.05 transform id3d rot !+ !+ | 000
 	nymin 7 xor 3 << 64 - 'nymax !
 	nymin 3 << 64 - 'nymin !
-	nxmin 7 xor 3 << 64 - 4+ 'nxmax !
-	nxmin 3 << 64 - 4+ 'nxmin !
+	nxmin 7 xor 3 << 60 - 'nxmax !
+	nxmin 3 << 60 - 'nxmin !
 	get2dlimit
 	'rotsum> ! ;
 
@@ -172,8 +174,8 @@
 	7 r@+ r@+ r> @ id3d rot !+ !+
 	nymin 7 xor 3 << 64 - 'nymax !
 	nymin 3 << 64 - 'nymin !
-	nxmin 7 xor 3 << 64 - 4+ 'nxmax !
-	nxmin 3 << 64 - 4+ 'nxmin !
+	nxmin 7 xor 3 << 60 - 'nxmax !
+	nxmin 3 << 60 - 'nxmin !
 	get2dlimit
 	'rotsum> ! ;
 
@@ -188,10 +190,10 @@
 	over + swap >r >r | prev pivot
 	r@+ r@+ r> @ r> | x y z pri
 	@+ pick4 + 2/ dup 'x0 ! r!+ @+ pick3 + 2/ dup 'y0 ! r!+ @+ pick2 + 2/ dup 'z0 ! r!+
-	@+ pick4 + 2/ x0 over - 'x1 ! r!+ @+ pick3 + 2/ y0 over - 'y1 ! r!+ @+ pick2 + 2/ z0 over - 'z1 ! r!+
-	@+ pick4 + 2/ x0 over - 'x2 ! r!+ @+ pick3 + 2/ y0 over - 'y2 ! r!+ @+ pick2 + 2/ z0 over - 'z2 ! r!+
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick4 + 2/ x0 over - 'x4 ! r!+ @+ pick3 + 2/ y0 over - 'y4 ! r!+ @+ pick2 + 2/ z0 over - 'z4 ! r!+
+	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
+	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
+	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
 	@+ pick4 + 2/ dup x0 + 2/ 'x0 ! r!+ @+ pick3 + 2/ dup y0 + 2/ 'y0 ! r!+ @ + 2/ dup z0 + 2/ 'z0 ! r!+
@@ -229,51 +231,24 @@
 	-96 'octvert> +! ;
 
 |----------- search cube in screen
-:id3d3i | xyz --zyx
-	transform
+:id3doi | xyz -- xyz
 	0.001 <? ( $10 )( 0 ) >r
 	over -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
 	pick2 -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
-	r> dup 'acull ! 'ocull !
-	swap rot
-	;
+	r> dup 'acull ! 'ocull ! ;
 
-:id3d3 | xyz --zyx
-	transform
+:id3do | xyz -- xyz
 	0.001 <? ( $10 )( 0 ) >r
 	over -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
 	pick2 -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
-	r> dup acull and 'acull ! ocull or 'ocull !
-	swap rot ;
+	r> dup acull and 'acull ! ocull or 'ocull ! ;
 
-:fillstart | --
-	'octvert >r
-	0.05 0.05 0.05 id3d3i dup 'x0 ! r!+ dup 'y0 ! r!+ dup 'z0 ! r!+ | 111
-	0.05 0.05 -0.05 id3d3 x0 over - 'x1 ! r!+ y0 over - 'y1 ! r!+ z0 over - 'z1 ! r!+ | 110
-	0.05 -0.05 0.05 id3d3 x0 over - 'x2 ! r!+ y0 over - 'y2 ! r!+ z0 over - 'z2 ! r!+ | 101
-	0.05 -0.05 -0.05 id3d3 r!+ r!+ r!+ | 100
-	-0.05 0.05 0.05 id3d3 x0 over - 'x4 ! r!+ y0 over - 'y4 ! r!+ z0 over - 'z4 ! r!+ | 011
-	-0.05 0.05 -0.05 id3d3 r!+ r!+ r!+ | 010
-	-0.05 -0.05 0.05 id3d3 r!+ r!+ r!+ | 001
-	-0.05 -0.05 -0.05 id3d3 x0 over + 2/ 'x0 ! r!+ y0 over + 2/ 'y0 ! r!+ z0 over + 2/ 'z0 ! r!+ | 000
-	calcmask 'nzmin ! r>
-	'octvert> !
-	;
-
-:id3doi | xyz --zyx
+:id3de | xyz -- xyz
 	0.001 <? ( $10 )( 0 ) >r
-	over -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
-	pick2 -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
-	r> dup 'acull ! 'ocull !
-	swap rot
-	;
-
-:id3do | xyz --zyx
-	0.001 <? ( $10 )( 0 ) >r
-	over -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
-	pick2 -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
-	r> dup acull and 'acull ! ocull or 'ocull !
-	swap rot ;
+	swap -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
+	swap -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
+	drop
+	r> dup acull and 'acull ! ocull or 'ocull ! ;
 
 :addchildo | id --
 	octvert> dup >r 96 -
@@ -281,28 +256,28 @@
 	over + swap >r >r | prev pivot
 	r@+ r@+ r> @ r> | x y z pri
 	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap
-	>r id3doi 'x0 ! 'y0 ! 'z0 ! r>
+	>r id3doi 'z0 ! 'y0 ! 'x0 ! r>
 	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap
-	>r id3do x0 swap - 'x1 ! y0 swap - 'y1 ! z0 swap - 'z1 ! r>
+	>r id3de r>
 	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap
-	>r id3do x0 swap - 'x2 ! y0 swap - 'y2 ! z0 swap - 'z2 ! r>
+	>r id3de r>
 	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap
-	>r id3do 3drop r>
+	>r id3de r>
 	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap
-	>r id3do x0 swap - 'x4 ! y0 swap - 'y4 ! z0 swap - 'z4 ! r>
+	>r id3de r>
 	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap
-	>r id3do 3drop r>
+	>r id3de r>
 	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap
-	>r id3do 3drop r>
+	>r id3de r>
 	@+ pick4 + 2/ dup r!+ swap @+ pick4 + 2/ dup r!+ swap @ pick3 + 2/ dup r!+
-	id3do x0 + 2/ 'x0 ! y0 + 2/ 'y0 ! z0 + 2/ 'z0 !
+	id3do z0 + 2/ 'z0 ! y0 + 2/ 'y0 ! x0 + 2/ 'x0 !
 	3drop
 	calcmask 'nzmin ! r> 'octvert> ! ;
 
 :viewrminmax
 	octvert>
-	nzmin 7 xor 2 << dup 2* + 96 - 8 + 2dup + @ 'zmin ! 'ozmin !
-	nzmin 2 << dup 2* + 96 - 8 + 2dup + @ 'zmax ! 'ozmax !
+	nzmin 7 xor 2 << dup 2* + 88 - 2dup + @ 'zmin ! 'ozmin ! | 96 - 8 +
+	nzmin 2 << dup 2* + 88 - 2dup + @ 'zmax ! 'ozmax !
 	drop
 	viewr ;
 
@@ -329,7 +304,29 @@
 	2drop
 	-96 'octvert> +! ;
 
-|--------------
+|--------- inicializo
+:fillstart | --
+	'octvert >r
+	0.05 0.05 0.05 transform id3doi swap rot
+	dup 'x0 ! r!+ dup 'y0 ! r!+ dup 'z0 ! r!+ | 111
+	0.05 0.05 -0.05 transform id3do swap rot
+	x0 over - 'x1 ! r!+ y0 over - 'y1 ! r!+ z0 over - 'z1 ! r!+ | 110
+	0.05 -0.05 0.05 transform id3do swap rot
+	x0 over - 'x2 ! r!+ y0 over - 'y2 ! r!+ z0 over - 'z2 ! r!+ | 101
+	0.05 -0.05 -0.05 transform id3do swap rot
+	r!+ r!+ r!+ | 100
+	-0.05 0.05 0.05 transform id3do swap rot
+	x0 over - 'x4 ! r!+ y0 over - 'y4 ! r!+ z0 over - 'z4 ! r!+ | 011
+	-0.05 0.05 -0.05 transform id3do swap rot
+	r!+ r!+ r!+ | 010
+	-0.05 -0.05 0.05 transform id3do swap rot
+	r!+ r!+ r!+ | 001
+	-0.05 -0.05 -0.05 transform id3do swap rot
+	x0 over + 2/ 'x0 ! r!+ y0 over + 2/ 'y0 ! r!+ z0 over + 2/ 'z0 ! r!+ | 000
+	r> 'octvert> !
+	calcmask 'nzmin ! ;
+
+|--------- exportadas
 :adjustmem | octree -- octree
 	dup 28 + '$octree !
 	4+ @ $octree + '$pixels !
@@ -370,17 +367,18 @@
 :main
 	mark
     maskb.ini
-	"media/3do/horse1.3do" load3do 'Ocaballo !
-	"media/3do/mario.3do" load3do 'Omario !
-	"media/3do/luigi.3do" load3do 'Oluigi !
+	"media/3do/horse.3do" load3do 'Ocaballo !
+	"media/3do/ldhorse.3do" load3do 'Omario !
+	"media/3do/earth.3do" load3do 'Oluigi !
 |	"media/3do/ldhorse.3do" load3do 'Oearth !
-	"media/3do/earth1.3do" load3do 'Oearth !
+	"media/3do/horse1.3do" load3do 'Oearth !
 |	"media/3do/mm.3do" load3do 'Oearth !
 
 	Ocaballo 'oNow !
 	33
-	$88 paper
+	$8800 paper
 	show clrscr
+
 		3dini
 		freelook
 		xcam ycam zcam mtrans
