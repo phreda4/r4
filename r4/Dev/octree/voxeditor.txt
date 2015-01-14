@@ -18,7 +18,9 @@
 #xcam 0 #ycam 0 #zcam 0.2
 #rx #ry
 
+|-------- cursor
 #curx #cury #curz
+#color $ff00
 
 |----------------
 :clearvox
@@ -33,10 +35,6 @@
 :vox@ | x y z -- c
 	mortonlut vox-cnt-mem binsearch
 	0? ( -1 nip ; ) 4+ @ ;
-
-:sortvox
-	vox-cnt-mem shellsort ;
-
 
 |----------- graficacion
 :3dop transform 3dproject op ;
@@ -82,12 +80,13 @@
 	;
 
 :testmodel
+	clearvox
 	qsize ( 1? )( 1-
 		$ff 0 0 pick3 vox!
 		$ff00 0 pick2 0 vox!
 		$ff0000 over 0 0 vox!
 		) drop
-	$ffffff 0 0 0 vox!
+|	$ffffff 0 0 0 vox!
 	;
 
 
@@ -110,24 +109,23 @@
 	ym over 'ym ! - 7 << 'rx +!
 	xm over 'xm ! - neg 7 << neg 'ry +!  ;
 
-
-
 |-----------------
 :main
 |	randvox
+	$f 'qsize ! 4 'deepvox !
 	testmodel
 	buildoctree
 
 |	qsize 1+ 5 << 'zcam !
 	4
 	show clrscr verde
-		dup ":r%d " print cr
-		qsize deepvox "profundidad:%d lado:%d " print
-		memvox> memvox - 3 >> "puntos: %d " print
-		octre> octre - 2 >> "nodos: %d " print
+		dup ":r%d VoxelEditor " print
+		qsize deepvox "O:%d size:%d " print
+		memvox> memvox - 3 >> "pnts:%d " print
+		octre> octre - 2 >> "nod:%d " print
 		cr
 
-		curz cury curx "%d %d %d" print cr
+		curz cury curx "x:%d y:%d z:%d" print cr
 
 		3dini
 		rx mrotx ry mroty
@@ -140,15 +138,17 @@
 
 		'dnlook 'movelook guiDnMove
 
-		[ 4 'curx +! ; ] <up>
-		[ -4 'curx +! ; ] <dn>
+		[ curx 1+ qsize >=? ( 0 nip ) 'curx ! ; ] <up>
+		[ curx 1- -? ( qsize 1- nip ) 'curx ! ; ] <dn>
+		[ cury 1+ qsize >=? ( 0 nip ) 'cury ! ; ] <le>
+		[ cury 1- -? ( qsize 1- nip ) 'cury ! ; ] <ri>
+		[ curz 1+ qsize >=? ( 0 nip ) 'curz ! ; ] <pgup>
+		[ curz 1- -? ( qsize 1- nip ) 'curz ! ; ] <pgdn>
+		[ color curx cury curz vox! buildoctree ; ] <spc>
 
-		[ 1 'cury +! ; ] <le>
-		[ -1 'cury +! ; ] <ri>
-
-		[ 1 'curz +! ; ] <pgup>
-		[ -1 'curz +! ; ] <pgdn>
-
+		[ 1 0 0 movevoxel buildoctree ; ] <f1>
+		[ 0 1 0 movevoxel buildoctree ; ] <f2>
+		[ 0 0 1 movevoxel buildoctree ; ] <f3>
 		'exit >esc<
 		cminiflecha ;
 
