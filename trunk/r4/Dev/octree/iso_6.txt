@@ -1,5 +1,11 @@
-| iso test 5
+| iso test 6
 | PHREDA 2015
+| ultimo buffer de 16bits
+| --- no funcional los limites en y por el ajuste a pantalla!!
+| debe ser  numeros positivos
+| aprovechar que c10 solo tira positivos (no ajustar hasta ultimo momento)
+| utilizar el maskbuffer para no escribir afuera de la pantalla
+| ++ velocidad!!
 |---------------------
 ^r4/lib/gui.txt
 ^r4/lib/morton.txt
@@ -8,7 +14,7 @@
 ^r4/lib/trace.txt
 
 |-------------
-#xcam 0 #ycam 0 #zcam 0.1
+#xcam 0 #ycam 0 #zcam 0.2
 
 #RATIO 0.94
 
@@ -29,7 +35,7 @@
 #acull
 #ocull
 
-#rotsum )( 2048		| 32 niveles de 2 valores*8 vert
+#rotsum )( 1024		| 32 niveles de 2 valores*8 vert
 #rotsum> 'rotsum
 #octvert )( 3072 	| 32 niveles de 3 valores*8 vert
 #octvert> 'octvert
@@ -46,12 +52,10 @@
 	r> ;
 
 :get2dlimit | adr -- adr
-	dup nxmin + @ |sw 1- clamp0max
-	'xmin !
-	dup nxmax + @ |sw 1- clamp0max
-	'xmax !
-	dup nymin + @ sh 1- clamp0max 'ymin !
-	dup nymax + @ sh 1- clamp0max 'ymax !
+	dup nxmin + @ 16 >> 'xmin !
+	dup nymin + @ $ffff and 'ymin !
+	dup nxmax + @ 16 >> 'xmax !
+	dup nymax + @ $ffff and 'ymax !
 	;
 
 |-------------------------------
@@ -73,35 +77,35 @@
 	rot octcolor rot rot maskpxy ;
 
 :drawpoint1 | oct x --
-	-64 'rotsum> +!
+	-32 'rotsum> +!
 	ymin ymax =? ( drawpoint ; )
 	rot octcolor ink
 	ymax maskfpy ;
 
 :drawpoint2 | oct x y --
-	-64 'rotsum> +!
+	-32 'rotsum> +!
 	rot octcolor ink
     xmax maskfpx ;
 
 :drawbox | oct --
-	-64 'rotsum> +!
+	-32 'rotsum> +!
 	octcolor ink
 	xmin ymin xmax ymax maskfpxy ;
 
 |----------------------
 :addchild | id --
 	rotsum> dup >r
-	64 - swap 3 << over + | prev pivot
-	@+ swap @ rot | y x prev
-	@+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick3 + 2/ r!+ @ + 2/ r!+
-	drop r>
+	32 - swap 2 << over + | prev pivot
+	@ swap | xy prev
+	@+ pick2 + 2/ $3fff3fff and r!+
+	@+ pick2 + 2/ $3fff3fff and r!+
+	@+ pick2 + 2/ $3fff3fff and r!+
+	@+ pick2 + 2/ $3fff3fff and r!+
+	@+ pick2 + 2/ $3fff3fff and r!+
+	@+ pick2 + 2/ $3fff3fff and r!+
+	@+ pick2 + 2/ $3fff3fff and r!+
+	@ + 2/ $3fff3fff and r!+
+	r>
 	get2dlimit
 	'rotsum> ! ;
 
@@ -113,7 +117,7 @@
 :viewi | node --
 	xmin xmax =? ( drawpoint1 ; )
 	ymin ymax =? ( drawpoint2 ; )
-	xmax ymax maskb.rget 0? ( 2drop -64 'rotsum> +! ; ) drop
+	xmax ymax maskb.rget 0? ( 2drop -32 'rotsum> +! ; ) drop
 	$pixels >=? ( drawbox ; )
 
 	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask
@@ -126,35 +130,38 @@
 	nzmin 6 xor viewchildm
 	nzmin 7 xor viewchildm
 	2drop
-	-64 'rotsum> +!
+	-32 'rotsum> +!
 	;
 
 |-----------------------
-:id3di | x y z -- u v
+:id3di | x y z -- xy
 	3dproject 	| x y
 	dup 'ymin ! 0 'nymin !
-	over 'xmin ! 0 'nxmin ! ;
+	swap
+	dup 'xmin ! 0 'nxmin !
+	16 << or ;
 
-:id3d | id x y z -- u v
+:id3d | id x y z -- xy
 	3dproject | id x y
 	ymin <? ( dup 'ymin ! pick2 'nymin ! )
 	swap
 	xmin <? ( dup 'xmin ! pick2 'nxmin ! )
-	swap rot drop ;
+	16 << or
+	nip ;
 
 :fillveciso | --
 	octvert> 96 - >r
 	'rotsum
-	r@+ r@+ r@+ id3di rot !+ !+
-	1 r@+ r@+ r@+ id3d rot !+ !+
-	2 r@+ r@+ r@+ id3d rot !+ !+
-	3 r@+ r@+ r@+ id3d rot !+ !+
-	4 r@+ r@+ r@+ id3d rot !+ !+
-	5 r@+ r@+ r@+ id3d rot !+ !+
-	6 r@+ r@+ r@+ id3d rot !+ !+
-	7 r@+ r@+ r> @ id3d rot !+ !+
-	nymin dup 3 << 64 - 'nymin ! 7 xor 3 << 64 - 'nymax !
-	nxmin dup 3 << 60 - 'nxmin ! 7 xor 3 << 60 - 'nxmax !
+	r@+ r@+ r@+ id3di swap !+
+	1 r@+ r@+ r@+ id3d swap !+
+	2 r@+ r@+ r@+ id3d swap !+
+	3 r@+ r@+ r@+ id3d swap !+
+	4 r@+ r@+ r@+ id3d swap !+
+	5 r@+ r@+ r@+ id3d swap !+
+	6 r@+ r@+ r@+ id3d swap !+
+	7 r@+ r@+ r> @ id3d swap !+
+	nymin dup 2 << 32 - 'nymin ! 7 xor 2 << 32 - 'nymax !
+	nxmin dup 2 << 32 - 'nxmin ! 7 xor 2 << 32 - 'nxmax !
 	get2dlimit
 	'rotsum> ! ;
 
@@ -165,19 +172,18 @@
 |--- solo iso
 :fillstartiso | --
 	'rotsum
-	0.05 0.05 0.05 transform id3di rot !+ !+	| 111
-	1 0.05 0.05 -0.05 transform id3d rot !+ !+	| 110
-	2 0.05 -0.05 0.05 transform id3d rot !+ !+	| 101
-	3 0.05 -0.05 -0.05 transform id3d rot !+ !+	| 100
-	4 -0.05 0.05 0.05 transform id3d rot !+ !+	| 011
-	5 -0.05 0.05 -0.05 transform id3d rot !+ !+	| 010
-	6 -0.05 -0.05 0.05 transform id3d rot !+ !+	| 001
-	7 -0.05 -0.05 -0.05 transform id3d rot !+ !+ | 000
-	nymin dup 3 << 64 - 'nymin ! 7 xor 3 << 64 - 'nymax !
-	nxmin dup 3 << 60 - 'nxmin ! 7 xor 3 << 60 - 'nxmax !
+	0.05 0.05 0.05 transform id3di swap !+ 		| 111
+	1 0.05 0.05 -0.05 transform id3d swap !+ 	| 110
+	2 0.05 -0.05 0.05 transform id3d swap !+ 	| 101
+	3 0.05 -0.05 -0.05 transform id3d swap !+	| 100
+	4 -0.05 0.05 0.05 transform id3d swap !+	| 011
+	5 -0.05 0.05 -0.05 transform id3d swap !+ 	| 010
+	6 -0.05 -0.05 0.05 transform id3d swap !+	| 001
+	7 -0.05 -0.05 -0.05 transform id3d swap !+	| 000
+	nymin dup 3 << 32 - 'nymin ! 7 xor 2 << 32 - 'nymax !
+	nxmin dup 2 << 32 - 'nxmin ! 7 xor 2 << 32 - 'nxmax !
 	get2dlimit
 	'rotsum> ! ;
-
 
 |---------------- search iso ratio
 :addchildr | id --
@@ -348,6 +354,7 @@
 	sh 2/ - 7 << swap
 	sw 2/ - neg 7 << swap
 	neg mrotx mroty
+
 	;
 
 |-------------
