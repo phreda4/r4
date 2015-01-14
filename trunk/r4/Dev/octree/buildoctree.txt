@@ -5,9 +5,7 @@
 ^r4/lib/gui.txt
 ^r4/lib/trace.txt
 ^r4/lib/sort.txt
-^r4/lib/bsearch.txt
 ^r4/lib/morton.txt
-
 
 #:memvox		| inicio de puntos ordenados
 #:memvox>
@@ -95,8 +93,7 @@
 
 :oct2!+
 	padre ,oc
-	promediocol 8 << bith or ,oc
-	;
+	promediocol 8 << bith or ,oc ;
 
 :level!+
 	octre> level> !+ 'level> ! ;
@@ -107,18 +104,15 @@
 	nodecolor+ 'colores !+ 'colores> ! ;
 
 :nextnode | nodo -- nodo+
-	@+
-	dup 3 >> $1fffffff and padre =? ( drop $7 and place bith or 'bith ! nodecolor+ colores> !+ 'colores> ! ; )
+	@+ dup 3 >> $1fffffff and
+	padre =? ( drop $7 and place bith or 'bith ! nodecolor+ colores> !+ 'colores> ! ; )
 	oct2!+
 	'padre ! $7 and place 'bith !
-	nodecolor+ 'colores !+ 'colores> !
-	;
+	nodecolor+ 'colores !+ 'colores> ! ;
 
 :collectnode | end start --
 	level!+
-	ininode
-	( over <? )( nextnode )
-	2drop
+	ininode ( over <? )( nextnode ) 2drop
 	oct2!+
 	level!+ ;
 
@@ -145,7 +139,8 @@
 |-------------------------------
 ::buildoctree | --
 	memvox memvox> over - 3 >> 1+ swap shellsort | necesita ordenar
-	memvox>	dup 'octre ! 'octre> !
+	memvox>	dup
+	'octre ! 'octre> !
 	'levels 'level> !
 	|--- calcula hijos
 	memvox> memvox collectnode
@@ -187,15 +182,14 @@
 |***		$fcfcfc and | 18 bits
 |***		$fefefe and | 21 bits
 		,oc ) drop
-	octre> '$end !
+	octre> dup '$end ! 'here !
 
 	|... save header
 	$pixels $octree - $inifile 4+ !
-
 	;
 
 |------------ elimina repetidos
-:repetidos
+::repevoxel
 	memvox memvox> over - 3 >> 1+ swap
 	shellsort
 	memvox >r
@@ -232,19 +226,22 @@
 	memvox
 	( memvox> <? )( >r
 		r @ invmorton3d
-		ddz + rot
-		ddx + rot
-		ddy + rot
+		ddz + qsize and rot
+		ddx + qsize and rot
+		ddy + qsize and rot
 		morton3d r>
-		!+ 4+ ) drop
-	;
+		!+ 4+ ) drop ;
 
-:centra
+::centravoxel | --
+	getminmax
 	qsize 2/ xmax xmin + 2/ - 'ddx !
 	qsize 2/ ymax ymin + 2/ - 'ddy !
 	qsize 2/ zmax zmin + 2/ - 'ddz !
-	movevox
-	;
+	movevox ;
+
+::movevoxel | x y z --
+	'ddz ! 'ddy ! 'ddx !
+	movevox ;
 
 |----- calcula normales
 #p0 #p0d
@@ -319,7 +316,7 @@
 	;
 
 |--------- cambia coordenada
-:rotacoord
+::rotacoordvoxel
 	memvox ( memvox> <? )(
 		dup @
 		invmorton3d rot morton3d
@@ -328,16 +325,18 @@
 	;
 
 |--------- espejo coordenada
-:espejo
+::espejovoxel
 	memvox ( memvox> <? )(
-		dup @
-		qsize dup 10 << over 20 << or or
-		xor
+		dup @ invmorton3d
+		neg qsize and rot
+		neg qsize and rot
+		neg qsize and rot
+		morton3d
 		swap !+
 		4+ ) drop ;
 
 |---------
-:colorea
+::coloreavoxel
 	memvox ( memvox> <? )(
 		@+
 		invmorton3d
@@ -346,8 +345,4 @@
 		swap 2 >> $ff and 16 << or
 		swap !+ ) drop
 	;
-
-|--------- archivos
-:memory
-	mark here dup 'memvox ! 'memvox> ! ;
 
