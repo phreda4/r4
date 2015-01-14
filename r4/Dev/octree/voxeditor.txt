@@ -2,9 +2,11 @@
 | PHREDA 2014
 |-----------------------------
 ^r4/lib/gui.txt
+^r4/lib/btn.txt
 ^r4/lib/sort.txt
 ^r4/lib/bsearch.txt
 ^r4/lib/morton.txt
+^r4/lib/bmr.txt
 
 ^r4/dev/octree/buildoctree.txt
 ^r4/dev/octree/iso_5.txt
@@ -21,6 +23,11 @@
 |-------- cursor
 #curx #cury #curz
 #color $ff00
+
+#memini
+#bitmap1
+#bitmap2
+#bitmap3
 
 |----------------
 :clearvox
@@ -74,19 +81,77 @@
 	octsize octsize drawlinez
 	octsize neg octsize drawlinez ;
 
-
-|------------- load import
-:loadmodel
+|------------- generadores
+:memmapas
+	qsize 1+ dup * 2 <<
+	memini
+	dup 'bitmap1 !
+	over + 'bitmap2 !
+	over + 'bitmap3 !
+	+ dup 'memvox !
+	'memvox> !
 	;
 
+:bitxy | x y -- adr
+    qsize and qsize 1+ * swap qsize and + 2 << ;
+
+:getbitmap1 | x y -- color
+	bitxy bitmap1 + @ ;
+
+:getbitmap2 | x y -- color
+	bitxy bitmap2 + @ ;
+
+:getbitmap3 | x y -- color
+	bitxy bitmap3 + @ ;
+
+|---- 1 mapa
+:get1 | x y z -- x y z c
+	qsize 1+ 2/ neg >r
+	pick2 r - dup * over r> - dup * + sqrt pick3 +
+	pick2 getbitmap1 ;
+
+:cadaVoxel1 | x y z -- x y z
+	get1 -? ( drop ; ) pick3 pick3 pick3 vox! ;
+
+:genera1
+	memvox 'memvox> !
+	0 ( qsize <=? )(
+		0 ( qsize <=? )(
+			0 ( qsize <=? )(
+				cadaVoxel1
+			1+ ) drop
+		1+ ) drop
+	1+ ) drop
+	;
+
+:main1map
+
+	show clrscr
+
+		fonti
+		verde over ":r%d 1 MAPA " print
+		cyan qsize 1+ dup "%dx%d " print
+
+		[ genera1 exit ; ] <f1>
+		'exit >esc<
+		cminiflecha ;
+
+:gen1mapa
+	memini
+	main1map
+	buildoctree
+	;
+
+|------------- load import
 :testmodel
 	clearvox
-	qsize ( 1? )( 1-
+	qsize 1+ ( 1? )( 1-
 		$ff 0 0 pick3 vox!
 		$ff00 0 pick2 0 vox!
 		$ff0000 over 0 0 vox!
 		) drop
 |	$ffffff 0 0 0 vox!
+	repevoxel
 	;
 
 
@@ -118,15 +183,7 @@
 
 |	qsize 1+ 5 << 'zcam !
 	4
-	show clrscr verde
-		dup ":r%d VoxelEditor " print
-		qsize deepvox "O:%d size:%d " print
-		memvox> memvox - 3 >> "pnts:%d " print
-		octre> octre - 2 >> "nod:%d " print
-		cr
-
-		curz cury curx "x:%d y:%d z:%d" print cr
-
+	show clrscr
 		3dini
 		rx mrotx ry mroty
 		xcam ycam zcam mtrans
@@ -137,6 +194,20 @@
 		$inifile drawoctree
 
 		'dnlook 'movelook guiDnMove
+
+		verde
+		dup ":r%d VoxelEditor " print
+		qsize deepvox "O:%d size:%d " print
+		memvox> memvox - 3 >> "pnts:%d " print
+		octre> octre - 2 >> "nod:%d " print
+		cr
+
+		curz cury curx "x:%d y:%d z:%d" print cr
+
+		1 rows 2 - gotoxy azul
+		'main1map dup <f5> "F5-1xI" sp btnt
+		'main1map dup <f6> "F6-2xI" sp btnt
+		'main1map dup <f7> "F7-3xI" sp btnt
 
 		[ curx 1+ qsize >=? ( 0 nip ) 'curx ! ; ] <up>
 		[ curx 1- -? ( qsize 1- nip ) 'curx ! ; ] <dn>
@@ -156,7 +227,9 @@
 :memory
 	mark
 	maskb.ini
-	here dup 'memvox ! 'memvox> !
+	here dup 'memini !
+	dup 'memvox !
+	'memvox> !
 	;
 
 : memory main ;
