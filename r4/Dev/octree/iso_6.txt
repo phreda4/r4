@@ -1,20 +1,17 @@
 | iso test 6
 | PHREDA 2015
 | ultimo buffer de 16bits
-| --- no funcional los limites en y por el ajuste a pantalla!!
-| debe ser  numeros positivos
-| aprovechar que c10 solo tira positivos (no ajustar hasta ultimo momento)
 | utilizar el maskbuffer para no escribir afuera de la pantalla
 | ++ velocidad!!
 |---------------------
 ^r4/lib/gui.txt
 ^r4/lib/morton.txt
-^r4/lib/mbuffer.txt
+^r4/lib/mfbuffer.txt
 
 ^r4/lib/trace.txt
 
 |-------------
-#xcam 0 #ycam 0 #zcam 0.2
+#xcam 0 #ycam 0 #zcam 0.1
 
 #RATIO 0.94
 
@@ -92,6 +89,41 @@
 	octcolor ink
 	xmin ymin xmax ymax maskfpxy ;
 
+|---- real cube
+#faces (
+0 1 3 2 0 2 6 4 0 1 5 4
+1 3 2 0 1 3 7 5 1 0 4 5
+2 3 1 0 2 0 4 6 2 3 7 6
+3 1 0 2 3 1 5 7 3 2 6 7
+4 5 7 6 4 6 2 0 4 5 1 0
+5 4 6 7 5 1 3 7 5 1 0 4
+6 4 5 7 6 2 0 4 6 2 3 7
+7 6 4 5 7 5 1 3 7 3 2 6
+)
+
+:getn | n -- x y
+	2 << 'rotsum |rotsum> 32 -
+	+ @ dup 16 >> swap $ffff and ;
+
+:aclara
+    ink@ $030303 + $fefefe and ink
+	;
+
+:dface | adr -- adr'
+	c@+ getn 2dup maskop rot
+	c@+ getn maskline
+	c@+ getn maskline
+	c@+ getn maskline
+	rot rot maskline maskpoly
+	;
+
+:drawboxd | oct --
+	-32 'rotsum> +!
+	octcolor ink
+	nzmin 2 << dup 2* + 'faces +
+	dface aclara dface aclara dface drop
+	;
+
 |----------------------
 :addchild | id --
 	rotsum> dup >r
@@ -135,14 +167,14 @@
 
 |-----------------------
 :id3di | x y z -- xy
-	3dproject 	| x y
+	3dproj | x y
 	dup 'ymin ! 0 'nymin !
 	swap
 	dup 'xmin ! 0 'nxmin !
 	16 << or ;
 
 :id3d | id x y z -- xy
-	3dproject | id x y
+	3dproj | id x y
 	ymin <? ( dup 'ymin ! pick2 'nymin ! )
 	swap
 	xmin <? ( dup 'xmin ! pick2 'nxmin ! )
@@ -215,8 +247,8 @@
 
 :viewr | node --
 |	zmax 1.0 zmin */ RATIO >? ( drop isonow ; ) drop
-|	zmax zmin 16 <</ RATIO >? ( drop isonow ; ) drop
-	zmin dup clz swap zmax - clz 4 - <=? ( drop isonow ; ) drop
+	zmax zmin 16 <</ RATIO >? ( drop isonow ; ) drop
+|	zmin dup clz swap zmax - clz 4 - <=? ( drop isonow ; ) drop
 
 	$pixels >=? ( isonow ; )
 
@@ -235,19 +267,19 @@
 
 |----------- search cube in screen
 :id3doi | xyz -- xyz
-	0.001 <? ( $10 )( 0 ) >r
+	0.005 <? ( $10 )( 0 ) >r
 	over -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
 	pick2 -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
 	r> dup 'acull ! 'ocull ! ;
 
 :id3do | xyz -- xyz
-	0.001 <? ( $10 )( 0 ) >r
+	0.005 <? ( $10 )( 0 ) >r
 	over -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
 	pick2 -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
 	r> dup acull and 'acull ! ocull or 'ocull ! ;
 
 :id3de | xyz -- xyz
-	0.001 <? ( $10 )( 0 ) >r
+	0.005 <? ( $10 )( 0 ) >r
 	swap -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
 	swap -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
 	drop
@@ -377,7 +409,7 @@
 	"media/3do/earth.3do" load3do 'Oluigi !
 |	"media/3do/ldhorse.3do" load3do 'Oearth !
 	"media/3do/horse1.3do" load3do 'Oearth !
-|	"media/3do/mm.3do" load3do 'Oearth !
+	"media/3do/mm.3do" load3do 'Oearth !
 
 	Ocaballo 'oNow !
 	33
@@ -389,6 +421,9 @@
 		xcam ycam zcam mtrans
 
 		maskb.clear
+
+|	azul 0 2 << dup 2* + 'faces + dface aclara dface aclara dface drop
+
 		oNow drawoctree
 
 		1 'fpsc +!
