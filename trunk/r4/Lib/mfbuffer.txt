@@ -1,9 +1,10 @@
 | mask buffer - stencil
 | PHREDA 2015
 |-------------------------
-^r4/lib/gui.txt
+^r4/lib/3dmat.txt
 
-|--- maskbuffer | 1024*sh
+|--- maskbuffer | 1024*1024
+
 #maskb
 
 :mask.adr | x y -- m d
@@ -81,21 +82,22 @@
 
 ::maskb.clear
 	maskb >r
+	oy abs 5 << ( 1? )( 0 r!+ 1- ) drop
 	sh 5 << ( 1? )( -1 r!+ 1- ) drop
+	oy abs 5 << ( 1? )( 0 r!+ 1- ) drop
 	rdrop ;
 
 ::maskb.ini
 	here dup 'maskb !
-	sh 7 << + 'here ! ;
+	1024 7 << + 'here ! ;
 
 
 |------------------------------------
 ::maskpxy | color x y --
-|	-? ( 3drop ; ) sh >=? ( 3drop ; )	| CLIP
 	2dup mask.adr swap over @
 	nand? ( nip 4drop ; )
 	not over @ and swap !
-	setxy px!+ ;
+	oy + setxy px!+ ;
 
 :proc8 | mask -- mask
 	$ff nand? ( 8 px+! ; )	| todos 0
@@ -115,7 +117,7 @@
 	proc8 8 >> proc8 8 >> proc8 8 >> proc8 drop ;
 
 :maskfpxl | x1 y x2 --
-	pick2 $ffffffe0 and pick2 setxy 		| x y x2
+	pick2 $ffffffe0 and pick2 oy + setxy 		| x y x2
 	pick2 5 >> 2 << rot 7 << + maskb + >r	| x x2
 	gmask1 swap gmask2 and
 	r @ 2dup and oneword swap not and r> ! ;
@@ -123,7 +125,7 @@
 ::maskfpx | x y x --
 	dup 5 >> pick3 5 >> -
 	0? ( drop maskfpxl ; ) 1- >r				| x1 y x2 r:cntx
-	pick2 $ffffffe0 and pick2 setxy 		| x y x2   r:cntx
+	pick2 $ffffffe0 and pick2 oy + setxy 		| x y x2   r:cntx
 	pick2 5 >> 2 << rot 7 << + maskb + 		| x1 x2 adr
 	r> swap >r                              | x1 x2 cntx
 	rot gmask2 r @ 2dup and oneword swap not and r!+			| x2 cntx
@@ -133,7 +135,7 @@
 
 
 ::maskfpy | x y1 y2 --
-	pick2 pick2 setxy 		| x y1 y2
+	pick2 pick2 oy + setxy 		| x y1 y2
 	pick2 5 >> 2 << pick2 7 << + maskb + >r	| x y1 y2
 	swap - 1 rot $1f and << | cnty mask
 	swap 1+
@@ -145,7 +147,7 @@
 
 
 :maskfpxyl | x1 y1 x2 y2 --
-	pick3 $ffffffe0 and pick3 setxy
+	pick3 $ffffffe0 and pick3 oy + setxy
 	pick3 5 >> 2 << pick3 7 << + maskb + >r
 	rot - 						| x1 x2 cnty
 	rot gmask2 rot gmask1 and	| cntx mask
@@ -158,7 +160,7 @@
 ::maskfpxy | x1 y1 x2 y2 --
 	over 5 >> pick4 5 >> -
 	0? ( drop maskfpxyl ; ) 1- >r	| x1 y1 x2 y2 r:cntx
-	pick3 $ffffffe0 and pick3 setxy
+	pick3 $ffffffe0 and pick3 oy + setxy
 	pick3 5 >> 2 << pick3 7 << + maskb +
 	r> swap >r >r					| x1 y1 x2 y2   r:cntx adr
 	rot -							| x1 x2 cnty
@@ -172,3 +174,83 @@
 		32 pick2 2 + - 2 << r+
 		sw pick2 2 + 5 << - px+!
 		1- ) 4drop rdrop ;
+
+|--- convex polygon
+#FBASE	8
+
+#py #px
+#ymax -1
+
+|--------- segmentos
+| ymin x delta1x ymax
+|-----------------------
+#segs )( 128   | 8 vertices
+#segs> 'segs
+
+#heapseg )( 32
+#heapseg> 'heapseg
+
+::maskop | x y --
+	'py ! 'px ! ;
+
+::maskline | x y --
+	py =? ( drop 'px ! ; )
+	px py pick2 >? ( 2swap 2dup )( 2over ) | x2 y2 x1 y1
+	'py ! 'px !
+	sh >=? ( 4drop ; ) rot 0 <=? ( 4drop ; ) | x2 x1 y1 y2
+	ymax >? ( dup 'ymax ! )		| comprueba el mayor
+	>r >r FBASE << swap FBASE << 	| x1 x2
+	over - r> r over -				| x1 (x2-x1) y1 (y2-y1)
+	rot swap / swap					| x1 t y1
+	-? ( neg over * rot + swap 0 )	| x1 t y1
+	segs> !+ rot pick2 2/ +
+	swap !+ !+
+	r> swap !+ 'segs> !
+	;
+
+:swapseg | heap -- heap
+	dup 4 - @ over @ pick2 4 - ! over ! ;
+
+:testsort | heap -- heap
+	dup 4 - @ @
+	over @ @ over >? ( 2drop ; )
+	=? ( drop dup 4 - @ 4+ @ over @ 4+ @ >? ( drop swapseg ; ) drop ; )
+	drop
+	swapseg ;
+
+:sortseg
+	'heapseg
+	'segs ( segs> <? )(
+		dup pick2 ! | 'heap 'seg
+		over ( 'heapseg >? )( testsort 4 - ) drop
+		16 + swap 4+ swap )
+	ymax over ! swap ! | ultimo es ultima linea
+	;
+
+|-----------------------
+:endpoli
+	'segs 'segs> ! -1 'ymax ! ;
+
+:stepline | left rigth yl y -- left rigth yl y
+	pick3 4+ dup @+ swap @ + dup rot ! FBASE >> clamp0
+	pick3 4+ dup @+ swap @ + dup rot ! FBASE >> sw 1- clampmax
+	pick2 swap
+	maskfpx
+	;
+
+::maskpoly
+	ymax -? ( drop endpoli ; )
+	sh >? ( sh 'ymax ! ) drop
+	sortseg
+	heapseg @
+	'heapseg @+ swap @+ swap 'heapseg> !
+	rot | left rigth y
+	(   heapseg> @ @ swap
+		( over <? )( stepline 1+ )
+		nip ymax <? )(
+		pick2 12 + @ =? ( rot drop heapseg> @+ swap 'heapseg> ! rot rot )
+		over 12 + @ =? ( nip heapseg> @+ swap 'heapseg> ! swap )
+		)
+	3drop
+ 	endpoli ;
+
