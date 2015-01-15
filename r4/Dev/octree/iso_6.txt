@@ -71,7 +71,7 @@
 |-------------------------------
 
 :drawpoint | oct x y --
-	rot octcolor rot rot maskpxy ;
+	rot octcolor rot rot maskpxyo ;
 
 :drawpoint1 | oct x --
 	-32 'rotsum> +!
@@ -83,6 +83,7 @@
 	-32 'rotsum> +!
 	rot octcolor ink
     xmax maskfpx ;
+
 
 :drawbox | oct --
 	-32 'rotsum> +!
@@ -102,20 +103,18 @@
 )
 
 :getn | n -- x y
-	2 << 'rotsum |rotsum> 32 -
-	+ @ dup 16 >> swap $ffff and ;
+	2 << rotsum> + @ dup 16 >> swap $ffff and ;
 
 :aclara
-    ink@ $030303 + $fefefe and ink
-	;
+    ink@ $f0f0f colavg ink ;
 
 :dface | adr -- adr'
 	c@+ getn 2dup maskop rot
 	c@+ getn maskline
 	c@+ getn maskline
 	c@+ getn maskline
-	rot rot maskline maskpoly
-	;
+	rot rot maskline
+	maskpoly ;
 
 :drawboxd | oct --
 	-32 'rotsum> +!
@@ -123,6 +122,14 @@
 	nzmin 2 << dup 2* + 'faces +
 	dface aclara dface aclara dface drop
 	;
+
+#dbox 'drawbox
+
+::voxelcuad
+	'drawbox 'dbox ! ;
+
+::voxelbox
+	'drawboxd 'dbox ! ;
 
 |----------------------
 :addchild | id --
@@ -147,10 +154,10 @@
 	1- over and popcnt 2 << pick2 +    | node bitm node'
 
 :viewi | node --
+	xmin ymin xmax ymax maskb.rget 0? ( 2drop -32 'rotsum> +! ; ) drop
 	xmin xmax =? ( drawpoint1 ; )
-	ymin ymax =? ( drawpoint2 ; )
-	xmax ymax maskb.rget 0? ( 2drop -32 'rotsum> +! ; ) drop
-	$pixels >=? ( drawbox ; )
+	ymin ymax =? ( drawpoint2 ; ) 2drop
+	$pixels >=? ( dbox exec ; )
 
 	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask
 	nzmin viewchildm
@@ -247,8 +254,8 @@
 
 :viewr | node --
 |	zmax 1.0 zmin */ RATIO >? ( drop isonow ; ) drop
-	zmax zmin 16 <</ RATIO >? ( drop isonow ; ) drop
-|	zmin dup clz swap zmax - clz 4 - <=? ( drop isonow ; ) drop
+|	zmax zmin 16 <</ RATIO >? ( drop isonow ; ) drop
+	zmin dup clz swap zmax - clz 4 - <=? ( drop isonow ; ) drop
 
 	$pixels >=? ( isonow ; )
 
@@ -401,6 +408,17 @@
 #fpsc
 #mseca
 
+:test
+|	azul 0 2 << dup 2* + 'faces + dface aclara dface aclara dface drop
+
+		50 260 2dup maskop
+		400 300 maskline
+|		xymouse maskline
+|		300 xcam + 500 ycam + maskline
+		xymouse maskline
+		60 350 maskline
+		maskline maskpoly
+;
 :main
 	mark
     maskb.ini
@@ -409,7 +427,7 @@
 	"media/3do/earth.3do" load3do 'Oluigi !
 |	"media/3do/ldhorse.3do" load3do 'Oearth !
 	"media/3do/horse1.3do" load3do 'Oearth !
-	"media/3do/mm.3do" load3do 'Oearth !
+|	"media/3do/mm.3do" load3do 'Oearth !
 
 	Ocaballo 'oNow !
 	33
@@ -422,7 +440,6 @@
 
 		maskb.clear
 
-|	azul 0 2 << dup 2* + 'faces + dface aclara dface aclara dface drop
 
 		oNow drawoctree
 

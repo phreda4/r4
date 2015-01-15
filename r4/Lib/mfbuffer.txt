@@ -99,6 +99,10 @@
 	not over @ and swap !
 	oy + setxy px!+ ;
 
+::maskpxyo | color x y --
+	2dup maskb.set
+	oy + setxy px!+ ;
+
 :proc8 | mask -- mask
 	$ff nand? ( 8 px+! ; )	| todos 0
 	$01 and? ( ink@ px!+ )( 1 px+! )
@@ -176,7 +180,7 @@
 		1- ) 4drop rdrop ;
 
 |--- convex polygon
-#FBASE	8
+#FBASE	16
 
 #py #px
 #ymax -1
@@ -186,7 +190,6 @@
 |-----------------------
 #segs )( 128   | 8 vertices
 #segs> 'segs
-
 #heapseg )( 32
 #heapseg> 'heapseg
 
@@ -197,13 +200,13 @@
 	py =? ( drop 'px ! ; )
 	px py pick2 >? ( 2swap 2dup )( 2over ) | x2 y2 x1 y1
 	'py ! 'px !
-	sh >=? ( 4drop ; ) rot 0 <=? ( 4drop ; ) | x2 x1 y1 y2
+	1024 >=? ( 4drop ; ) rot 0 <=? ( 4drop ; ) | x2 x1 y1 y2
 	ymax >? ( dup 'ymax ! )		| comprueba el mayor
 	>r >r FBASE << swap FBASE << 	| x1 x2
 	over - r> r over -				| x1 (x2-x1) y1 (y2-y1)
 	rot swap / swap					| x1 t y1
 	-? ( neg over * rot + swap 0 )	| x1 t y1
-	segs> !+ rot pick2 2/ +
+	segs> !+ rot |pick2 4 >> +
 	swap !+ !+
 	r> swap !+ 'segs> !
 	;
@@ -228,19 +231,16 @@
 	;
 
 |-----------------------
-:endpoli
-	'segs 'segs> ! -1 'ymax ! ;
 
 :stepline | left rigth yl y -- left rigth yl y
-	pick3 4+ dup @+ swap @ + dup rot ! FBASE >> clamp0
-	pick3 4+ dup @+ swap @ + dup rot ! FBASE >> sw 1- clampmax
-	pick2 swap
-	maskfpx
-	;
+	pick3 4+ dup @+ swap @ + dup rot ! FBASE >> clamp0 1024 >=? ( drop ; )
+	pick3 4+ dup @+ swap @ + dup rot ! FBASE >> sw 1- clampmax -? ( 2drop ; )
+	over <? ( swap )
+	pick2 swap maskfpx ;
 
 ::maskpoly
-	ymax -? ( drop endpoli ; )
-	sh >? ( sh 'ymax ! ) drop
+	ymax -? ( drop 'segs 'segs> ! -1 'ymax ! ; )
+	1023 >? ( 1023 'ymax ! ) drop
 	sortseg
 	heapseg @
 	'heapseg @+ swap @+ swap 'heapseg> !
@@ -252,5 +252,5 @@
 		over 12 + @ =? ( nip heapseg> @+ swap 'heapseg> ! swap )
 		)
 	3drop
- 	endpoli ;
+	'segs 'segs> ! -1 'ymax ! ;
 
