@@ -6,7 +6,7 @@
 ^r4/lib/sort.txt
 ^r4/lib/bsearch.txt
 ^r4/lib/morton.txt
-^r4/lib/bmr.txt
+^r4/lib/dlg.txt
 
 ^r4/dev/octree/buildoctree.txt
 ^r4/dev/octree/iso_5.txt
@@ -82,11 +82,14 @@
 	octsize neg octsize drawlinez ;
 
 |------------- generadores
+:3* dup 2* + ;
+
 :clearbitmap
-	qsize 1+ dup * 3 *
+	qsize 1+ dup * 3*
 	bitmap1 >r
 	( 1? )( 1- -1 r!+ ) drop
 	rdrop ;
+
 
 :memmapas
 	qsize 1+ dup * 2 <<
@@ -127,7 +130,7 @@
 	dup px!+ dup px!+ dup px!+ dup px!+ sw 4 - px+!
 	dup px!+ dup px!+ dup px!+ dup px!+ sw 4 - px+!
 	dup px!+ dup px!+ dup px!+ px!+
-	sw 3 * neg px+! ;
+	sw 3* neg px+! ;
 
 :drawbitmap4 | adr --
 	>r qsize 1+ ( 1? )( 1-
@@ -184,41 +187,69 @@
 	colavg
 	pick3 pick3 pick3 vox! ;
 
-|---------------------------------------------
+|----- dibujo
+
+|-- zoom4
+:bp4! | x y --
+	yc h 2/ - - 2 >> swap xc w 2/ - - 2 >>
+	swap bitxy pick3 + color swap ! ;
+
+:boxedit4
+	gcxyxy [ xymouse bp4! ; ] [ xymouse bp4! ; ]  guiDnMove
+	setxy drawbitmap4 ;
+
+:suma4
+	2dup qsize 1+ 2 << pick2 + qsize 1+ 2 << pick2 + ;
+
 :draw4x
-	4 32 setxy
-	bitmap1 drawbitmap4
-	16 qsize 2 << + 32 setxy
-	bitmap2 drawbitmap4
-	28 qsize 3 << + 32 setxy
-	bitmap3 drawbitmap4
+	bitmap1 4 32 suma4 boxedit4
+	bitmap2 16 qsize 2 << + 32 suma4 boxedit4
+    bitmap3 28 qsize 3 << + 32 suma4 boxedit4
 	;
+
+|-- zoom2
+:bp2! | x y --
+	yc h 2/ - - 2/ swap xc w 2/ - - 2/
+	swap bitxy pick3 + color swap ! ;
+
+:boxedit2
+	gcxyxy [ xymouse bp2! ; ] [ xymouse bp2! ; ]  guiDnMove
+	setxy drawbitmap2 ;
+
+:suma2
+	2dup qsize 1+ 2* pick2 + qsize 1+ 2* pick2 + ;
 
 :draw2x
-	4 32 setxy
-	bitmap1 drawbitmap2
-	16 qsize 2* + 32 setxy
-	bitmap2 drawbitmap2
-	28 qsize 2 << + 32 setxy
-	bitmap3 drawbitmap2
+	bitmap1 4 32 suma2 boxedit2
+	bitmap2 16 qsize 2* + 32 suma2 boxedit2
+	bitmap3 28 qsize 2 << + 32 suma2 boxedit2
 	;
+
+|----- zoom1
+:bp1! | x y --
+	yc h 2/ - - swap xc w 2/ - -
+	swap bitxy pick3 + color swap ! ;
+
+:boxedit1
+	gcxyxy [ xymouse bp1! ; ] [ xymouse bp1! ; ]  guiDnMove
+	setxy drawbitmap ;
+
+:suma1
+	2dup qsize 1+ pick2 + qsize 1+ pick2 + ;
 
 :draw1x
-	4 32 setxy
-	bitmap1 drawbitmap
-	16 qsize + 32 setxy
-	bitmap2 drawbitmap
-	28 qsize 2* + 32 setxy
-	bitmap3 drawbitmap
+	bitmap1 4 32 suma1 boxedit1
+	bitmap2 16 qsize + 32 suma1 boxedit1
+	bitmap3 28 qsize 2* + 32 suma1 boxedit1
 	;
 
-:drawmapas
-	deepvox
-	7 <? ( drop draw4x ; )
-	8 <? ( drop draw2x ; )
-	drop draw1x ;
+|---------------
+#drawmapas 'draw4x
 
 :setsize
+	8 =? ( 'draw1x 'drawmapas ! )
+	7 =? ( 'draw2x 'drawmapas ! )
+	7 <? ( 'draw4x 'drawmapas ! )
 	dup 'deepvox !
 	1 over << 1- 'qsize !
 	memmapas ;
@@ -234,12 +265,14 @@
 
 :mainmapas
 	memmapas
+	4
 	show clrscr fonti
-		verde " Voxel GenMap " print cr cr2
+		verde dup ":r%d Voxel GenMap " print cr cr2
 
-		drawmapas
+		drawmapas exec
 
 		1 rows 4 - gotoxy
+		sp 'color dlgcolora sp
 		cyan
 		toolsize cr cr
 		azul
@@ -285,7 +318,7 @@
 
 |-----------------
 :main
-	$7f 'qsize ! 7 'deepvox !
+	$3f 'qsize ! 6 'deepvox !
 
 |	testmodel
 	randvox
