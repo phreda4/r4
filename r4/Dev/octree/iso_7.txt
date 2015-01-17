@@ -10,12 +10,10 @@
 
 ^r4/lib/trace.txt
 
-|-------------
-#xcam 0 #ycam 0 #zcam 0.1
-
 #RATIO 0.94
 
-#$type
+#$base
+#$magic
 #$octree
 #$pixels
 #$paleta
@@ -29,8 +27,7 @@
 #zmax
 #nzmin
 
-#acull
-#ocull
+#aocull
 
 #rotsum )( 2048		| 32 niveles de 2 valores*8 vert
 #rotsum> 'rotsum
@@ -59,10 +56,10 @@
 
 :idsum | x y z id -- x y z
 	4 << 'vecpos + >r
-	rot r@+ level >> +
-	rot r@+ level >> +
-	rot r> @ level >> +
-	;
+	rot r@+ level >> + rot r@+ level >> + rot r> @ level >> + ;
+
+:idsumz | z id -- z
+	4 << 'vecpos + 8 + @ level >> + ;
 
 :calcmask | x y z -- x y z mask
 	x1 pick3 * y1 pick3 * + z1 pick2 * + +? ( 1 )( 0 ) >r drop
@@ -101,7 +98,6 @@
 	$octree ;
 
 |-------------------------------
-
 :drawpoint | oct x y --
 	rot octcolor rot rot maskpxyo ;
 
@@ -157,25 +153,19 @@
 
 #dbox 'drawbox
 
-::voxelcuad
-	'drawbox 'dbox ! ;
-
-::voxelbox
-	'drawboxd 'dbox ! ;
-
 |----------------------
 :addchild | id --
 	rotsum> dup >r
 	32 - swap 2 << over + | prev pivot
 	@ swap | xy prev
-	@+ pick2 + 2/ $3fff3fff and r!+
-	@+ pick2 + 2/ $3fff3fff and r!+
-	@+ pick2 + 2/ $3fff3fff and r!+
-	@+ pick2 + 2/ $3fff3fff and r!+
-	@+ pick2 + 2/ $3fff3fff and r!+
-	@+ pick2 + 2/ $3fff3fff and r!+
-	@+ pick2 + 2/ $3fff3fff and r!+
-	@ + 2/ $3fff3fff and r!+
+	@+ pick2 + 2/ $7fff7fff and r!+
+	@+ pick2 + 2/ $7fff7fff and r!+
+	@+ pick2 + 2/ $7fff7fff and r!+
+	@+ pick2 + 2/ $7fff7fff and r!+
+	@+ pick2 + 2/ $7fff7fff and r!+
+	@+ pick2 + 2/ $7fff7fff and r!+
+	@+ pick2 + 2/ $7fff7fff and r!+
+	@ + 2/ $7fff7fff and r!+
 	r>
 	get2dlimit
 	'rotsum> ! ;
@@ -190,7 +180,9 @@
 	maskb.rget 0? ( 2drop -32 'rotsum> +! ; ) drop
 	xmin xmax =? ( drawpoint1 ; )
 	ymin ymax =? ( drawpoint2 ; ) 2drop
-	$pixels >=? ( dbox exec ; )
+
+|	$pixels >=? ( dbox exec ; )
+	$pixels >=? ( $magic $100 nand? ( drop dbox exec  ; ) drop getoct viewi getocti ; )
 
 	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask
 	nzmin viewchildm
@@ -203,10 +195,6 @@
 	nzmin 7 xor viewchildm
 	2drop
 	-32 'rotsum> +!
-	;
-
-:contiles
-	( $type 0 and? ( drop dbox exec  ; ) drop getoct viewi getocti -1 'level +! ; )
 	;
 
 |-----------------------
@@ -246,10 +234,10 @@
 |---------------- search iso ratio
 :addchildr | x y z id --  x' y' z'
 	idsum
-	calcmask 'nzmin !
-	pick2 pick2 pick2 nzmin 7 xor idsum 'zmin ! 2drop
-	pick2 pick2 pick2 nzmin idsum 'zmax ! 2drop
-	;
+	calcmask
+	2dup 7 xor idsumz 'zmin !
+	2dup idsumz 'zmax !
+	'nzmin ! ;
 
 :viewchildr | node bitm nro -- node bitm
 	1 over << pick2 nand? ( 2drop ; )	| node bitm nro place
@@ -261,7 +249,8 @@
 |	zmax zmin 16 <</ RATIO >? ( drop isonow ; ) drop
 	zmin dup clz swap zmax - clz 4 - <=? ( drop isonow ; ) drop
 
-	$pixels >=? ( isonow ; )
+|	$pixels >=? ( isonow ; )
+	$pixels >=? ( $magic $100 nand? ( drop isonow ; ) drop getoct viewr getocti ; )
 
 	1 'level +!
 	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask
@@ -277,24 +266,18 @@
 	nip 4drop
 	-1 'level +! ;
 
-:contiles
-	$type 0 and? ( drop isonow ; ) drop getoct viewr getocti -1 'level +! ;
-	;
-
 |----------- search cube in screen
-:id3doi | xyz --
+:culling | xyz -- cull
 	0.005 <? ( $10 )( 0 ) >r
 	swap -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
 	swap -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
-	drop
-	r> dup 'acull ! 'ocull ! ;
+	drop r> ;
+
+:id3doi | xyz --
+	culling dup 8 << or 'aocull ! ;
 
 :id3do | xyz --
-	0.005 <? ( $10 )( 0 ) >r
-	swap -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
-	swap -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
-	drop
-	r> dup acull and 'acull ! ocull or 'ocull ! ;
+	culling dup 8 << $ff or aocull and or 'aocull ! ;
 
 :addchildo | x y z id -- x' y' z'
 	idsum
@@ -310,8 +293,8 @@
 	;
 
 :viewrminmax | x y z node --
-	pick3 pick3 pick3 nzmin 7 xor idsum 'zmin ! 2drop
-	pick3 pick3 pick3 nzmin idsum 'zmax ! 2drop
+	over nzmin 7 xor idsumz 'zmin !
+	over nzmin idsumz 'zmax !
 	viewr ;
 
 :viewchildo | x y z node bitm nro -- node bitm
@@ -320,9 +303,13 @@
 	>r >r pick4 pick4 pick4 r> addchildo r>
 
 :viewo | x y z node --
-	ocull 0? ( drop viewrminmax ; ) drop
-	acull 1? ( nip 4drop ; ) drop
-	$pixels >=? ( 4drop ; )
+	aocull
+	0? ( drop viewrminmax ; )
+	$ff00 and 1? ( nip 4drop ; )
+	drop
+
+|	$pixels >=? ( 4drop ; )
+	$pixels >=? ( $magic $100 nand? ( nip 4drop ; ) drop getoct viewo getocti ; )
 
 	1 'level +!
 	@ dup 8 >> 2 << $octree + swap $ff and | x y z adr bitmask
@@ -338,14 +325,12 @@
 	nip 4drop
 	-1 'level +! ;
 
-:contiles
-	 ( $type 1 and? ( drop getoct viewo getocti )( 2drop ) -1 'level +! ; )
-	;
-
 |--------- exportadas
 :adjustmem | octree --
+	dup '$base !
 	dup 28 + '$octree !
-	4+ @ $octree + '$pixels !
+	@+ '$magic !
+	@ $octree + '$pixels !
 	;
 
 ::drawoctree | moctree --
@@ -364,16 +349,21 @@
 	pick2 pick2 pick2 7 idsum id3do
 	$octree viewo ;
 
+
+::voxelcuad 'drawbox 'dbox ! ;
+::voxelbox 'drawboxd 'dbox ! ;
+
 ::load3do | "" -- moctree
 	here dup rot load 'here ! ;
 
-|-------------
+|--------------------------------------------------------
+#xcam 0 #ycam 0 #zcam 0.1
+
 :freelook
 	xymouse
 	sh 2/ - 7 << swap
 	sw 2/ - neg 7 << swap
 	neg mrotx mroty
-
 	;
 
 |-------------
@@ -388,17 +378,6 @@
 #fpsc
 #mseca
 
-:test
-|	azul 0 2 << dup 2* + 'faces + dface aclara dface aclara dface drop
-
-		50 260 2dup maskop
-		400 300 maskline
-|		xymouse maskline
-|		300 xcam + 500 ycam + maskline
-		xymouse maskline
-		60 350 maskline
-		maskline maskpoly
-;
 :main
 	mark
     maskb.ini

@@ -1,0 +1,373 @@
+| Editor de Voxels
+| PHREDA 2014
+|-----------------------------
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/sort.txt
+^r4/lib/bsearch.txt
+^r4/lib/morton.txt
+^r4/lib/dlg.txt
+^r4/lib/dlgfile.txt
+
+^r4/dev/octree/buildoctree.txt
+^r4/dev/octree/iso_7.txt
+
+^r4/lib/trace.txt
+
+#filename )( 1024
+
+|-------- cursor
+#curx #cury #curz
+#color $ff00
+
+#memini
+
+#tiles )( 1024
+#tiles> 'tiles
+#$tiles )( 1024
+#$tiles> '$tiles
+
+#names )( 2048
+#names> 'names
+
+
+#octsize 0.05
+
+#xcam 0 #ycam 0 #zcam 0.2
+#rx #ry
+
+#:octre
+#:octre>
+
+|---- archivo a grabar
+#:$inifile
+#$octree
+#$lastlev
+#$pixels
+#$colori
+#$realpixels
+#$end
+
+#bith	| bitmask hijos
+#padre	| de que padre
+#levels )( 1024	| niveles del octree
+#level>
+
+#xmin #ymin #zmin #xmax #ymax #zmax
+
+#:qsize $ff	| lado
+#:deepvox 8 	| profundidad octree
+
+|------------ construye octree
+:,oc | val --
+	octre> !+ 'octre> ! ;
+
+#colores 0 0 0 0 0 0 0 0 0 0
+#colores )( $ffff
+#colores>
+
+#sumr #sumg #sumb
+:promediocol | -- rgb
+	0 'sumr ! 0 'sumg ! 0 'sumb !
+	'colores ( colores> <? )(
+		@+
+		dup $ff and 16 << 'sumb +!
+		dup $ff00 and 8 << 'sumg +!
+		$ff0000 and 'sumr +!
+		) drop
+	colores> 'colores - 2 >>
+	1.0 swap / | optimizacion
+	sumr over *. $ff0000 and
+	sumg pick2 *. 8 >> $ff00 and or
+	sumb rot *. 16 >> $ff and or
+	;
+
+:nodecolor+ | node -- node+ color
+	memvox> <? ( @+ ; ) @+ 8 >> ;
+
+:oct2!+
+	padre ,oc
+	promediocol 8 << bith or ,oc ;
+
+:level!+
+	octre> level> !+ 'level> ! ;
+
+:ininode | nodo -- nodo+			| inicio de nivel
+	@+ dup 3 >> $1fffffff and 'padre !
+	$7 and place 'bith !
+	nodecolor+ 'colores !+ 'colores> ! ;
+
+:nextnode | nodo -- nodo+
+	@+ dup 3 >> $1fffffff and
+	padre =? ( drop $7 and place bith or 'bith ! nodecolor+ colores> !+ 'colores> ! ; )
+	oct2!+
+	'padre ! $7 and place 'bith !
+	nodecolor+ 'colores !+ 'colores> ! ;
+
+:collectnode | end start --
+	level!+
+	ininode ( over <? )( nextnode ) 2drop
+	oct2!+
+	level!+ ;
+
+:,levelnode |  hasta desde --
+	( over <? )(
+		4+ @+ $ff and ,oc
+		) 2drop ;
+
+:calcdir | suma adr --- suma adr+
+	dup @	 		| suma adr valor
+	dup popcnt >r
+	pick2 8 << or swap !+
+	swap r> + swap
+	;
+
+:,levelcolor |  hasta desde --
+	( over <? )(
+		4+ @+ 8 >>
+		$ffffff and
+|***		$f8fcf8 and | 16 bits
+		,oc
+		) 2drop ;
+
+|-------------------------------
+::buildoctree | --
+	memvox memvox> over - 3 >> 1+ swap shellsort | necesita ordenar
+	memvox>	dup
+	'octre ! 'octre> !
+	'levels 'level> !
+	|--- calcula hijos
+	memvox> memvox collectnode
+
+	'levels deepvox 1-
+	( 1? )( 1- swap
+		@+ swap @+ rot collectnode
+		swap ) 2drop
+
+	|--- graba octree real
+	octre> '$inifile !
+	$3d000100 ,oc
+	0 ,oc | pixels
+	0 ,oc | p1
+	0 ,oc | p2
+	0 ,oc | xlim
+	0 ,oc | ylim
+	0 ,oc | zlim
+
+    octre> '$octree !
+	level> ( 'levels >? )( 8 -
+		'levels =? ( octre> '$lastlev ! )
+		dup 4+ @ over @
+		,levelnode
+		 ) drop
+
+	1 $octree ( octre> <? )( calcdir ) 2drop
+
+    octre> '$pixels !
+	level> ( 'levels >? )( 8 -
+		dup 4+ @ over @
+		,levelcolor
+		 ) drop
+
+	octre> dup '$realpixels ! '$colori !
+	memvox ( memvox> <? )(
+		4+ @+
+|***		$f8fcf8 and | 16 bits
+|***		$fcfcfc and | 18 bits
+|***		$fefefe and | 21 bits
+		,oc ) drop
+	octre> dup '$end ! 'here !
+
+	|... save header
+	$pixels $octree - $inifile 4+ !
+	;
+
+:buildmaptree
+	here dup 'octre ! 'octre> !
+	|--- graba octree real
+	octre> '$inifile !
+	$3d000100 ,oc
+	0 ,oc | pixels
+	0 ,oc | p1
+	0 ,oc | p2
+	0 ,oc | xlim
+	0 ,oc | ylim
+	0 ,oc | zlim
+	$0f000001 ,oc
+	$f0000005 ,oc
+	$f0000009 ,oc
+	$f000000d ,oc
+	$f0000011 ,oc
+    octre> '$pixels !
+	$00ffffff ,oc
+	$00ff00ff ,oc
+	$00ff00ff ,oc
+	$00ff00ff ,oc
+	$00ff00ff ,oc
+	octre> dup '$realpixels ! '$colori !
+	$00000021 ,oc
+	$00000021 ,oc
+	$00000021 ,oc
+	$00000021 ,oc
+	$00000021 ,oc
+	$00000021 ,oc
+	$00000021 ,oc
+	$00000021 ,oc
+	$00000021 ,oc
+	$00000021 ,oc
+	$00000021 ,oc
+	$00000021 ,oc
+	$00000021 ,oc
+	$00000021 ,oc
+	$00000021 ,oc
+	$00000021 ,oc
+
+	tiles> 4 - @ ( $tiles> 4 - @ <? )(
+		@+ ,oc ) drop
+
+	octre> dup '$end ! 'here !
+	|... save header
+	$pixels $octree - $inifile 4+ !
+
+	;
+
+:savemaptree
+	$inifile $end over -
+	"media/3do/map.3do"
+	save
+	;
+|	"media/3do/" 'filename strcpy
+|	'filename catdlgname
+|	".3do" 'filename strcat
+|	'filename save
+	;
+
+|----------------
+:clearvox
+	memvox 'memvox> ! ;
+
+:vox-cnt-mem | -- cnt mem
+	memvox memvox> over - 3 >> 1+ swap ;
+
+:vox! | c x y z --
+	mortonlut memvox> !+ !+ 'memvox> ! ;
+
+:vox@ | x y z -- c
+	mortonlut vox-cnt-mem binsearch
+	0? ( -1 nip ; ) 4+ @ ;
+
+|----------- graficacion
+:3dop transform 3dproject op ;
+:3dline transform 3dproject line ;
+
+|---- dibujos de grillas
+:drawboxz | z --
+	octsize neg octsize neg pick2 3dop
+	octsize octsize neg pick2 3dline
+	octsize octsize pick2 3dline
+	octsize neg octsize pick2 3dline
+	octsize neg octsize neg rot 3dline ;
+
+:drawboxy | y --
+	octsize neg over octsize neg 3dop
+	octsize over octsize neg 3dline
+	octsize over octsize 3dline
+	octsize neg over octsize 3dline
+	octsize neg swap octsize neg 3dline ;
+
+:drawboxx | x --
+	dup octsize neg octsize neg 3dop
+	dup octsize octsize neg 3dline
+	dup octsize octsize 3dline
+	dup octsize neg octsize 3dline
+	octsize neg octsize neg 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup octsize neg 3dop octsize 3dline ;
+
+:draw3dbox
+	$707070 neg ink
+	octsize neg drawboxz
+	octsize drawboxz
+	octsize neg octsize neg drawlinez
+	octsize octsize neg drawlinez
+	octsize octsize drawlinez
+	octsize neg octsize drawlinez ;
+
+
+|------------- load import
+
+:loadoctree
+	"media/3do" dlgfileload 0? ( drop ; )
+
+	load3do tiles> !+ 'tiles> !
+	here $tiles> !+ '$tiles> !
+	;
+
+
+:builmap
+
+	;
+
+|------ vista
+#xm #ym
+:dnlook
+	xymouse 'ym ! 'xm ! ;
+
+:movelook
+	xymouse
+	ym over 'ym ! - 7 << 'rx +!
+	xm over 'xm ! - neg 7 << neg 'ry +!  ;
+
+|-----------------
+:main
+|	qsize 1+ 5 << 'zcam !
+	4
+	show clrscr
+
+		3dini
+		rx mrotx ry mroty
+		xcam ycam zcam mtrans
+		qsize 2/ neg dup dup mtransi
+
+|		draw3dbox
+|		maskb.clear
+|		$inifile drawoctree
+
+		'dnlook 'movelook guiDnMove
+
+		verde fonti
+		dup ":r%d MapEditor " print
+		qsize 1+ dup dup "%dx%dx%d " print
+		cr
+		tiles> 'tiles - 2 >> "%d tiles" print cr
+		curz cury curx "x:%d y:%d z:%d" print cr
+
+		1 rows 2 - gotoxy azul
+		'loadoctree dup <f1> "F1-Load" sp btnt
+		[ buildmaptree savemaptree ; ] dup <f2> "F2-Save Map" sp btnt cr cr2
+
+		[ curx 1+ qsize >=? ( 0 nip ) 'curx ! ; ] <up>
+		[ curx 1- -? ( qsize 1- nip ) 'curx ! ; ] <dn>
+		[ cury 1+ qsize >=? ( 0 nip ) 'cury ! ; ] <le>
+		[ cury 1- -? ( qsize 1- nip ) 'cury ! ; ] <ri>
+		[ curz 1+ qsize >=? ( 0 nip ) 'curz ! ; ] <pgup>
+		[ curz 1- -? ( qsize 1- nip ) 'curz ! ; ] <pgdn>
+
+
+		'exit >esc<
+		cminiflecha ;
+
+|--------------------------
+:memory
+	mark
+	maskb.ini
+	here 'memini !
+
+	'tiles 'tiles> !
+	'$tiles '$tiles> !
+	'names 'names> !
+
+	;
+
+: memory main ;
