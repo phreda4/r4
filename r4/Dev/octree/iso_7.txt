@@ -23,10 +23,8 @@
 #ymax #nymax
 #xmax #nxmax
 
-#zmin
-#zmax
 #nzmin
-|#zlen
+#zlen
 
 #aocull
 
@@ -41,6 +39,7 @@
 #vecpos )( 128
 
 :fillrotvec | x y z -- x y z
+	0.2 clz 5 - 'zlen !
 	0 0 0.1 transform pick3 - 'z1 ! pick3 - 'y1 ! pick3 - 'x1 !
 	0 0.1 0 transform pick3 - 'z2 ! pick3 - 'y2 ! pick3 - 'x2 !
 	0.1 0 0 transform pick3 - 'z4 ! pick3 - 'y4 ! pick3 - 'x4 !
@@ -251,10 +250,6 @@
 :addchildr | x y z id --  x' y' z'
 	idsum
 	calcmask
-
-	2dup 7 xor idsumz 'zmin !
-	2dup idsumz 'zmax !
-
 	'nzmin ! ;
 
 :viewchildr | node bitm nro -- node bitm
@@ -265,10 +260,9 @@
 :viewr | x y z node --
 |	zmax 1.0 zmin */ RATIO >? ( drop isonow ; ) drop
 |	zmax zmin 16 <</ RATIO >? ( drop isonow ; ) drop
+|	zmin dup clz swap zmax - clz 4 - <=? ( drop isonow ; ) drop
 
-	zmin dup clz swap zmax - clz 4 - <=? ( drop isonow ; ) drop
-
-| 	over clz zlen clz 4 - level + <=? ( drop isonow ; ) drop
+ 	over clz zlen level + <=? ( drop isonow ; ) drop
 
 |	$pixels >=? ( isonow ; )
 	$pixels >=? ( $magic $100 nand? ( drop isonow ; ) drop getoct viewr getocti ; )
@@ -313,11 +307,6 @@
 	pick2 pick2 pick2 7 idsum id3do
 	;
 
-:viewrminmax | x y z node --
-	over nzmin 7 xor idsumz 'zmin !
-	over nzmin idsumz 'zmax !
-	viewr ;
-
 :viewchildo | x y z node bitm nro -- node bitm
 	1 over << pick2 nand? ( 2drop ; )	| node bitm nro place
 	1- pick2 and popcnt 2 << pick3 +    | node bitm nro node'
@@ -325,7 +314,7 @@
 
 :viewo | x y z node --
 	aocull
-	0? ( drop viewrminmax ; )
+	0? ( drop viewr ; )
 	$ff00 and? ( nip 4drop ; )
 	drop
 
