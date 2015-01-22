@@ -2,6 +2,7 @@
 | PHREDA 2007
 |---------------------------------------
 ^r4/lib/gui.txt
+^r4/lib/btn.txt
 ^r4/lib/parse.txt
 ^r4/lib/codecolor.txt
 
@@ -11,7 +12,6 @@
 ^r4/lib/trace.txt
 
 ^r4/system/mem-ed.txt
-
 ^r4/dev/ide/r4-token.txt
 ^r4/dev/ide/r4-info.txt
 
@@ -36,9 +36,9 @@
 #undobuffer |'undobuffer
 #undobuffer>
 
-#auxfile 0
-#auxfile>
-#iniaux>
+|---- arreglo de info
+#infomode 0
+#textinfo 0
 
 |---- palabra actual
 #wordact
@@ -336,11 +336,43 @@
 
 :drawsel | com -- com
 	inisel 0? ( drop ; ) drop
-	finsel >? ( ; )
+	finsel >=? ( ; )
 	dup ( inisel <? )( c@+ 13 =? ( 2drop ; ) gemit )
 	sel>> $88 ink
 	( finsel <? )( c@+ 13 =? ( 2drop sel<< ; ) gemit )
 	drop sel<< ;
+
+|------ info code
+ :idef
+	$f not and 'indicepal +
+	azul sp print "| " print
+	dup 12 + @ printmovword
+	" " print
+	8 + @ printinfword
+	;
+
+:ivar
+	$f not and 'indicepal +
+	azul " |" print
+	8 + @
+	6 >> vtype print ;
+
+:ierr
+	4 >> errormsg sp "!! %s "
+	rojo fillp blanco print ;
+
+:iwar
+	amarillo " ! " print
+	drop
+	;
+
+#tipoinfo 0 'idef 'ivar 'ierr 'iwar 0 0 0 0 0 0 0 0 0 0 0 0
+
+:infoline
+	infomode 0? ( drop ; ) drop
+	over prilinea + 2 << textinfo + @ | infolinea
+	0? ( drop ; )
+	dup $f and 2 << 'tipoinfo + @ exec ;
 
 :drawcode
 	pantaini>
@@ -350,14 +382,16 @@
        	ccw 2 << dup 'tx1 ! 'ccx !
 		swap
 		drawsel lf drawcur lf >>lineacolor0
+		infoline
 		0? ( 2drop cntlinea $fuente )( 0 'tx1 ! cr )
 		swap 1+ ) drop
 	$fuente <? ( 1- ) 'pantafin> !
-
 	fuente>
 	( pantafin> >? )( scrolldw )
 	( pantaini> <? )( scrollup )
 	drop
+	;
+:a
 	|----------------- mensaje de error!!
 	errorlin -? ( drop ; )
 	prilinea <? ( drop ; )
@@ -369,45 +403,29 @@
 	;
 
 
+:tokerror
+	4 << $03 or
+	errornrolinea 2 << textinfo + !
+	1 'infomode !
+	;
+
 |------------ recompilar
-#infoini>		| linea de inicio de pantalla de archivo auxiliar
-#pantainif>		| anterior linea de pantalla
-
-
 :recompilar
 	home
 	$6600 ink 1 linesfill
 	verde dup ":R%d" print
 	rojo "cOMPILANDO " printx
    'ed.nombre "[%s] " print
-	redraw 
+	redraw
 	mark
 	fuente tokeniza
 	empty
-|	1? ( paderror ; )
+	1? ( tokerror ; )
 	drop
-
 	tokenpostall | analisis de palabras
-	;
-
-:info>> | adr -- adr'
-	( c@+ 1? )( 13 =? ( drop ; ) drop ) drop 1- ;
-
-:recalcinfoini | pi -- pi
-	dup 'pantainif> !
-	auxfile fuente
-	( pantaini> <? )(
-		c@+ 13 =? ( rot info>> rot rot )
-		drop ) drop
-	'infoini> !
-	;
-
-:generainfo
-	mark
-	auxfile 'here !
-	fuente tokeninfo drop
-	empty
-	pantaini> recalcinfoini drop
+|---- arma array info
+	fuente textinfo arrayinfo
+	1 'infomode !
 	;
 
 |------------ panel info
@@ -419,14 +437,7 @@
 
 	|...........REHACER DEBUG
 	recompilar
-	generainfo
 	;
-
-:printline | adr -- adr'
-	( c@+ 1? )(
-		13 =? ( emit ; )
-		emit ) drop
-	1- ;
 
 :drawpanelinfo
 	panelinfo 0? ( drop ; ) drop
@@ -434,18 +445,10 @@
 	$3f alpha azul gc.fbox $ff alpha
 	home cr blanco
 
-	pantaini> pantainif> <>? ( recalcinfoini ) drop
-	infoini>
-	0 ( cntlinea <? )(
-		swap
-		printline
-		swap 1+ ) 2drop
-
 |	codeprint cr
 |	infodic cr
-|	dumpvstack
-
 	;
+
 |-------------- panel control
 #panelcontrol
 
@@ -596,11 +599,10 @@
 	dup 'undobuffer !
 	dup 'undobuffer> !
 	$ffff +         	| 64kb
-	dup 'auxfile !
-	dup 'auxfile> !
-	0 over !
-	$ffff + | 64kb
+	dup 'textinfo !
+	$fff +
 	'here  ! | -- FREE
+	0 'infomode !
 	mark
 	;
 
