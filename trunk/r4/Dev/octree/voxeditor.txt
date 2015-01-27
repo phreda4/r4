@@ -21,12 +21,11 @@
 
 #filename )( 1024
 
-#octsize 0.05
-
+|------ vista
 #xcam 0 #ycam 0 #zcam 1.5
 #rx #ry
 
-|-------- cursor
+|------ cursor
 #curx #cury #curz
 #color $ff00
 
@@ -34,6 +33,13 @@
 #bitmap1
 #bitmap2
 #bitmap3
+
+|------ ajustes
+:setvoxsize | level -- level
+	dup 'deepvox !
+	1 over << 1- 'qsize !
+	;
+
 
 |----------------
 :clearvox
@@ -48,6 +54,15 @@
 :vox@ | x y z -- c
 	mortonlut vox-cnt-mem binsearch
 	0? ( -1 nip ; ) 4+ @ ;
+
+:vox- | x y z --
+	mortonlut vox-cnt-mem binsearch
+	0? ( drop ; ) | adr
+	dup 8 +   | dest src
+	memvox> over - 3 >> 1+
+	move
+|	-8 'memvox> +!
+	;
 
 
 |------------- generadores
@@ -224,8 +239,7 @@
 	8 =? ( 'draw1x 'drawmapas ! )
 	7 =? ( 'draw2x 'drawmapas ! )
 	7 <? ( 'draw4x 'drawmapas ! )
-	dup 'deepvox !
-	1 over << 1- 'qsize !
+	setvoxsize
 	memmapas ;
 
 :toolsize
@@ -269,6 +283,8 @@
 		'exit >esc<
 		cminiflecha ;
 
+|--------------------------------------------------------------
+
 :saveoctree
 	$inifile $end over -
 |	"media/3do/" 'filename strcpy
@@ -284,7 +300,6 @@
 		$ff0000 over 0 0 vox!
 		) drop
 |	$ffffff 0 0 0 vox!
-	repevoxel
 	;
 
 
@@ -297,13 +312,64 @@
 	$ff0000 0 1 1 vox!
 	;
 
-|----- botonera
-#modo
+|------ vista
+#xm #ym
+:dnlook
+	xymouse 'ym ! 'xm ! ;
 
+:movelook
+	xymouse
+	ym over 'ym ! - 7 << 'rx +!
+	xm over 'xm ! - neg 7 << neg 'ry +!  ;
+
+:modvista
+	'dnlook 'movelook guiDnMove ;
+
+|------- cursor
+:drawcursor
+	blink 1? ( blanco )( negro ) drop
+	1.0 deepvox >> >r
+	1 deepvox 1- <<
+	dup curz - r * r 2/ -
+	over cury - r * r 2/ -
+	pick2 curx - r * r 2/ -
+	r> xyzcubo
+	drop
+	;
+
+:drawgrid
+	1.0 deepvox 2 - >> 0.5 0.5 grillaxy
+	1.0 deepvox 2 - >> 0.5 0.5 grillayz
+	1.0 deepvox 2 - >> 0.5 0.5 grillaxz
+	;
+
+|------- pencil
+:setvox
+    curx cury curz vox-
+	color curx cury curz vox!
+	buildoctree ;
+
+:modpencil
+	;
+
+
+|------- tinta
+:modtint
+	;
+
+|------- goma
+:modcut
+	;
+
+|----- botonera
+#modos 'modvista 'modpencil 'modtint 'modcut
+
+#modo 0
+#modogui 'modvista
 
 :botonmodo | icon nro --
 	modo =? ( azul )( negro )
-	[ dup 'modo ! ; ] btne
+	[ dup 'modo ! dup 2 << 'modos + @ 'modogui ! ; ] btne
 	modo =? ( blanco )( gris )
 	drop
 	8-gc drawric 8+gc gcdn ;
@@ -324,15 +390,6 @@
 	'i.cog 'mainmapas botonsimple
 	;
 
-|------ vista
-#xm #ym
-:dnlook
-	xymouse 'ym ! 'xm ! ;
-
-:movelook
-	xymouse
-	ym over 'ym ! - 7 << 'rx +!
-	xm over 'xm ! - neg 7 << neg 'ry +!  ;
 
 :drawvoxel
 	$inifile dup @ 16 >> $3d00 <>? ( 2drop ; ) drop
@@ -341,33 +398,28 @@
 
 |-----------------
 :main
-	$3f 'qsize ! 6 'deepvox !
+	4 setvoxsize
 
 	testmodel
 |	randvox
 	buildoctree
 
-|	qsize 1+ 5 << 'zcam !
+	voxelbox
 	4
 	show clrscr
 
 		3dini
 		rx mrotx ry mroty
 		xcam ycam zcam mtrans
-|		qsize 2/ neg dup dup mtransi
 
-|		draw3dbox
-		1.0 deepvox 2 - >> 0.5 0.5 grillaxy
-		1.0 deepvox 2 - >> 0.5 0.5 grillayz
-		1.0 deepvox 2 - >> 0.5 0.5 grillaxz
-
+		drawgrid
 		drawvoxel
-		'dnlook 'movelook guiDnMove
+		drawcursor
+		modogui exec
 
 		verde
 		dup ":r%d VoxelEditor " print
 		'filename print
-
 		qsize 1+ dup dup "%dx%dx%d " print
 		memvox> memvox - 3 >> "Pnt:%d " print
 		octre> octre - 2 >> "Oct:%d " print
@@ -384,13 +436,13 @@
 		'voxelcuad dup <f11> "F11-box" sp btnt
 		cr cr2
 
-		[ curx 1+ qsize >=? ( 0 nip ) 'curx ! ; ] <up>
-		[ curx 1- -? ( qsize 1- nip ) 'curx ! ; ] <dn>
-		[ cury 1+ qsize >=? ( 0 nip ) 'cury ! ; ] <le>
-		[ cury 1- -? ( qsize 1- nip ) 'cury ! ; ] <ri>
-		[ curz 1+ qsize >=? ( 0 nip ) 'curz ! ; ] <pgup>
-		[ curz 1- -? ( qsize 1- nip ) 'curz ! ; ] <pgdn>
-		[ color curx cury curz vox! buildoctree ; ] <spc>
+		[ curx 1+ qsize >? ( 0 nip ) 'curx ! ; ] <up>
+		[ curx 1- -? ( qsize nip ) 'curx ! ; ] <dn>
+		[ cury 1+ qsize >? ( 0 nip ) 'cury ! ; ] <le>
+		[ cury 1- -? ( qsize nip ) 'cury ! ; ] <ri>
+		[ curz 1+ qsize >? ( 0 nip ) 'curz ! ; ] <pgup>
+		[ curz 1- -? ( qsize nip ) 'curz ! ; ] <pgdn>
+		'setvox <spc>
 
 		[ 1 0 0 movevoxel buildoctree ; ] <f1>
 		[ 0 1 0 movevoxel buildoctree ; ] <f2>
