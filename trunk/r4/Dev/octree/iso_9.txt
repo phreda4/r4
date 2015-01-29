@@ -22,8 +22,8 @@
 #ymin #nymin
 #xmin #nxmin
 
-#wiso
-#hiso
+#wiso #wison
+#hiso #hison
 
 #nzmin
 #zlen
@@ -75,7 +75,12 @@
 
 :idsumi | x y id -- x y
 	3 << 'ivecpos + >r
-	r@+ ilevel >> rot + r> @ ilevel >> rot + ;
+
+|	r@+ ilevel >> rot +
+|	r> @ ilevel >> rot + ;
+
+	r@+ ilevel 1- >> 1+ 2/ rot +
+	r> @ ilevel 1- >> 1+ 2/ rot + ;
 
 |-------------------------------
 :octcolor | oct -- color
@@ -119,18 +124,18 @@
 	octcolor rot rot maskpxyo ;
 
 :drawpoint1 | x y oct --
-	hiso ilevel >> 0? ( drop drawpoint ; )
+	hison 0? ( drop drawpoint ; )
 	swap octcolor ink	| x y h
 	over + maskfpy ;
 
 :drawpoint2 | x y oct --
 	octcolor ink
-	wiso ilevel >> pick2 + maskfpx ;
+	wison pick2 + maskfpx ;
 
 |---- quad cube
 :drawbox | x y oct --
 	octcolor ink
-	wiso ilevel >> pick2 + hiso ilevel >> pick2 +
+	wison pick2 + hison pick2 +
 	maskfpxy ;
 
 |---- real cube
@@ -145,9 +150,10 @@
 7 6 4 5 7 5 1 3 7 3 2 6
 )
 
-:getn | x y a id -- x y
+:getn | x y a id -- x y a x y
 	3 << 'ivecpos + >r
-	pick2 r@+ ilevel >> + pick2 r> @ ilevel >> + ;
+	pick2 r@+ ilevel 1- >> 1+ 2/ +
+	pick2 r> @ ilevel 1- >> 1+ 2/ + ;
 
 :aclara
     ink@ $f0f0f colavg ink ;
@@ -163,7 +169,7 @@
 :drawboxd | x y oct --
 	octcolor ink
 	nzmin 2 << dup 2* + 'faces +
-	dface aclara dface aclara dface 
+	dface aclara dface aclara dface
 	3drop
 	;
 
@@ -196,15 +202,22 @@
 |----------------------
 :childi | x y node bitm nro place -- node bitm
 	1- pick2 and popcnt 2 << pick3 +
-	>r >r pick3 pick3 r> idsumi r> ;
+	>r >r pick3 pick3 r> idsumi r>
+
+|	ilevel
+|	wiso over >> 'wison !
+|	hiso swap >> 'hison !
+
+	ilevel 1-
+	wiso over >> 1+ 2/ 'wison !
+	hiso swap >> 1+ 2/ 'hison !
+	;
 
 :viewi | x y node --
-	pick2 pick2
-	wiso ilevel >> pick2 +
-	hiso ilevel >> pick2 +
+	pick2 pick2 wison pick2 + hison pick2 +
 	maskb.rget 0? ( 4drop ; ) drop
-	wiso ilevel >> 0? ( drop drawpoint1 ; ) drop
-	hiso ilevel >> 0? ( drop drawpoint2 ; ) drop
+	wison 0? ( drop drawpoint1 ; ) drop
+	hison 0? ( drop drawpoint2 ; ) drop
 
 |	$pixels >=? ( dbox exec ; )
 	$pixels >=? ( $magic $100 nand? ( drop dbox exec ; ) drop getoct viewi getocti ; )
@@ -261,10 +274,8 @@
 	dup @ pick3 - swap !+ dup @ pick2 - swap !+
 	dup @ pick3 - swap !+ dup @ pick2 - swap !
 
-	nxmin 7 xor 3 << 'ivecpos + @ |dup 1 and +
-	'wiso !
-	nymin 7 xor 3 << 'ivecpos + 4+ @ |dup 1 and +
-	'hiso !
+	nxmin 7 xor 3 << 'ivecpos + @ dup 'wison ! 'wiso !
+	nymin 7 xor 3 << 'ivecpos + 4+ @ dup 'hison ! 'hiso !
 
 	r> viewi ;
 
@@ -382,8 +393,8 @@
 	xymouse
 	sh 2/ - 7 << swap
 	sw 2/ - neg 7 << swap
-|	neg mrotx mroty
-	2drop
+	neg mrotx mroty
+|	2drop
 	;
 
 |-------------
