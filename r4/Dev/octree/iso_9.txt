@@ -1,9 +1,9 @@
-| iso test 8
+| iso test 9
 | PHREDA 2015
 | ultimo buffer de 16bits
 | utilizar el maskbuffer para no escribir afuera de la pantalla
 | vectores de suma en vez de cubos
-| vectores de suma en vez de cajas
+| vectores de suma en vez de cajas, base es minimo
 |---------------------
 ^r4/lib/gui.txt
 ^r4/lib/morton.txt
@@ -21,8 +21,9 @@
 
 #ymin #nymin
 #xmin #nxmin
-#ymax #nymax
-#xmax #nxmax
+
+#wiso
+#hiso
 
 #nzmin
 #zlen
@@ -72,13 +73,6 @@
 	x4 pick3 * y4 pick3 * + z4 pick2 * + +? ( 4 r+ ) drop
 	r> ;
 
-:get2dlimit | x y  -- x y
-	nxmin ilevel >> pick2 + 'xmin !
-	nymin ilevel >> over + 'ymin !
-	nxmax ilevel >> pick2 + 'xmax !
-	nymax ilevel >> over + 'ymax !
-	;
-
 :idsumi | x y id -- x y
 	3 << 'ivecpos + >r
 	r@+ ilevel >> rot + r> @ ilevel >> rot + ;
@@ -121,26 +115,23 @@
 	;
 
 |-------------------------------
-:drawpoint | oct x y --
-|	rot octcolor ink 2dup op line ;
-	rot octcolor rot rot maskpxyo ;
+:drawpoint | x y oct --
+	octcolor rot rot maskpxyo ;
 
-:drawpoint1 | oct x --
-	ymin ymax =? ( drawpoint ; )
-	rot octcolor ink
-|	op xmin ymax line ;
-	ymax maskfpy ;
+:drawpoint1 | x y oct --
+	hiso ilevel >> 0? ( drop drawpoint ; )
+	swap octcolor ink	| x y h
+	over + maskfpy ;
 
-:drawpoint2 | oct x y --
-	rot octcolor ink
-|	op xmax ymin line ;
-    xmax maskfpx ;
+:drawpoint2 | x y oct --
+	octcolor ink
+	wiso ilevel >> pick2 + maskfpx ;
 
 |---- quad cube
-:drawbox | oct --
+:drawbox | x y oct --
 	octcolor ink
-|	xmin ymin 2dup op xmin ymax line xmax ymax line xmax ymin line line ;
-	xmin ymin xmax ymax maskfpxy ;
+	wiso ilevel >> pick2 + hiso ilevel >> pick2 +
+	maskfpxy ;
 
 |---- real cube
 #faces (
@@ -172,7 +163,8 @@
 :drawboxd | x y oct --
 	octcolor ink
 	nzmin 2 << dup 2* + 'faces +
-	dface aclara dface aclara dface drop
+	dface aclara dface aclara dface 
+	3drop
 	;
 
 |---- 1 color cube
@@ -187,7 +179,7 @@
 1 5 4 6 2 3 0 0
 )
 
-:drawboxc | oct --
+:drawboxc | x y oct --
 	octcolor ink
 	nzmin 3 << 'contorno +
 	c@+ getn 2dup >r >r maskop
@@ -195,7 +187,7 @@
 	c@+ getn maskline
 	c@+ getn maskline
 	c@+ getn maskline
-	c@+ getn maskline drop
+	c@+ getn maskline 3drop
 	r> r> maskline
 	maskpoly ;
 
@@ -204,17 +196,18 @@
 |----------------------
 :childi | x y node bitm nro place -- node bitm
 	1- pick2 and popcnt 2 << pick3 +
-	>r >r pick3 pick3 r> idsumi
-	get2dlimit r> ;
+	>r >r pick3 pick3 r> idsumi r> ;
 
 :viewi | x y node --
-	xmin ymin xmax ymax
+	pick2 pick2
+	wiso ilevel >> pick2 +
+	hiso ilevel >> pick2 +
 	maskb.rget 0? ( 4drop ; ) drop
-	xmin xmax =? ( drawpoint1 2drop ; )
-	ymin ymax =? ( drawpoint2 2drop ; ) 2drop
+	wiso ilevel >> 0? ( drop drawpoint1 ; ) drop
+	hiso ilevel >> 0? ( drop drawpoint2 ; ) drop
 
-|	$pixels >=? ( dbox exec 2drop ; )
-	$pixels >=? ( $magic $100 nand? ( drop dbox exec 2drop ; ) drop getoct viewi getocti ; )
+|	$pixels >=? ( dbox exec ; )
+	$pixels >=? ( $magic $100 nand? ( drop dbox exec ; ) drop getoct viewi getocti ; )
 
 	1 'ilevel +!
 	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask
@@ -256,7 +249,8 @@
    	5 pick4 pick4 pick4 5 idsum id3d rot !+ !+
    	6 pick4 pick4 pick4 6 idsum id3d rot !+ !+
    	7 pick4 pick4 pick4 7 idsum id3d rot !+ !
-	3dproj | x y
+	3drop
+	xmin ymin
 	'ivecpos
 	dup @ pick3 - swap !+ dup @ pick2 - swap !+
 	dup @ pick3 - swap !+ dup @ pick2 - swap !+
@@ -266,14 +260,12 @@
 	dup @ pick3 - swap !+ dup @ pick2 - swap !+
 	dup @ pick3 - swap !+ dup @ pick2 - swap !+
 	dup @ pick3 - swap !+ dup @ pick2 - swap !
-	nxmin dup
-	7 xor 3 << 'ivecpos + @ 'nxmax !
-	3 << 'ivecpos + @ 'nxmin !
-	nymin dup
-	7 xor 3 << 'ivecpos + 4+ @ 'nymax !
-	3 << 'ivecpos + 4+ @ 'nymin !
-	0 'ilevel !
-	get2dlimit
+
+	nxmin 7 xor 3 << 'ivecpos + @ |dup 1 and +
+	'wiso !
+	nymin 7 xor 3 << 'ivecpos + 4+ @ |dup 1 and +
+	'hiso !
+
 	r> viewi ;
 
 |---------------- search iso ratio
