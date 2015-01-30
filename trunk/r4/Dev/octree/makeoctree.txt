@@ -226,7 +226,10 @@
 :calcdir | suma adr --- suma adr+
 	dup @	 		| suma adr valor
 	dup popcnt >r
-	pick2 8 << or swap !+
+
+	pick2 pick2 4+ $octree - 2 >> - 8 << or swap !+	| relativo
+|	pick2 8 << or swap !+	| absoluto
+
 	swap r> + swap
 	;
 
@@ -291,76 +294,9 @@
 
 	;
 
-|----------------------------------
-| octree sin punteros
-|----------------------------------
-:,occ | val --
-	octre> c!+ 'octre> ! ;
-
-:,levelnodeE |  hasta desde --
-	( over <? )(
-		4+ @+ $ff and ,occ
-		) 2drop ;
-
-:,levelcolorE |  hasta desde --
-	( over <? )(
-		4+ @+ 8 >>
-		$ffffff and
-|***		$f8fcf8 and | 16 bits
-		,oc
-		) 2drop ;
-
-:buildoctreeE | --
-	"octree..." print cr redraw
-	memvox memvox> over - 3 >> 1+ swap shellsort | necesita ordenar
-	memvox>	dup 'octre ! 'octre> !
-	'levels 'level> !
-	|--- calcula hijos
-	memvox> memvox collectnode
-
-	'levels deepvox 1-
-	( 1? )( 1- swap
-		@+ swap @+ rot collectnode
-		swap ) 2drop
-
-	|--- graba octree real
-	octre> '$inifile !
-	$3d000000 ,oc
-	0 ,oc | pixels
-	0 ,oc | p1
-	0 ,oc | p2
-	0 ,oc | xlim
-	0 ,oc | ylim
-	0 ,oc | zlim
-
-    octre> '$octree !
-	level> ( 'levels >? )( 8 -
-		'levels =? ( octre> '$lastlev ! )
-		dup 4+ @ over @
-		,levelnodeE
-		 ) drop
-
-|	1 $octree ( octre> <? )( calcdir ) 2drop
-
-    octre> '$pixels !
-	level> ( 'levels >? )( 8 -
-		dup 4+ @ over @
-		,levelcolorE
-		 ) drop
-
-	octre> dup '$realpixels ! '$colori !
-	memvox ( memvox> <? )(
-		4+ @+
-		,oc ) drop
-	octre> '$end !
-
-	|... save header
-	$pixels $octree - $inifile 4+ !
-
-	;
-
-
 |------------ optimiza ultimo nivel
+| No funciona por cambio a relativo!!
+|**********************************
 :todos? | cant dir1 dir2 -- 0/1
 	>r ( swap 1? )( 1- swap
 		@+ r@+ <>? ( rdrop 3drop 0 ; )
