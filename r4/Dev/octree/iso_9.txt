@@ -11,8 +11,6 @@
 
 ^r4/lib/trace.txt
 
-#RATIO 0.94
-
 #$base
 #$magic
 #$octree
@@ -40,7 +38,7 @@
 #ilevel 0
 #ivecpos )( 64
 
-:fillrotvec | x y z -- x y z
+:fillrotvec | -- x y z
 	1.0 clz 4 - 'zlen !
 	0 0 0 transform	| origen
 	0 0 0.5 transform pick3 - 'z1 ! pick3 - 'y1 ! pick3 - 'x1 !
@@ -75,12 +73,8 @@
 
 :idsumi | x y id -- x y
 	3 << 'ivecpos + >r
-
-|	r@+ ilevel >> rot +
-|	r> @ ilevel >> rot + ;
-
-	r@+ ilevel 1- >> 1+ 2/ rot +
-	r> @ ilevel 1- >> 1+ 2/ rot + ;
+	r@+ ilevel 1- >> 1+ 2/ rot + r> @ ilevel 1- >> 1+ 2/ rot + ;
+|	r@+ ilevel >> rot + r> @ ilevel >> rot + ;
 
 |-------------------------------
 :octcolor | oct -- color
@@ -152,8 +146,8 @@
 
 :getn | x y a id -- x y a x y
 	3 << 'ivecpos + >r
-	pick2 r@+ ilevel 1- >> 1+ 2/ +
-	pick2 r> @ ilevel 1- >> 1+ 2/ + ;
+	pick2 r@+ ilevel >> + pick2 r> @ ilevel >> + ;
+|	pick2 r@+ ilevel 1- >> 1+ 2/ + pick2 r> @ ilevel 1- >> 1+ 2/ + ; | level=0!!
 
 :aclara
     ink@ $f0f0f colavg ink ;
@@ -199,6 +193,12 @@
 
 #dbox 'drawbox
 
+|-----------------------
+:oct++ | adr -- adr bitmask
+|	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask	| absoluto
+	@+ dup 8 >> 2 << rot + swap $ff and 	| adr bitmask  | relativo
+	;
+
 |----------------------
 :childi | x y node bitm nro place -- node bitm
 	1- pick2 and popcnt 2 << pick3 +
@@ -219,11 +219,11 @@
 	wison 0? ( drop drawpoint1 ; ) drop
 	hison 0? ( drop drawpoint2 ; ) drop
 
-|	$pixels >=? ( dbox exec ; )
 	$pixels >=? ( $magic $100 nand? ( drop dbox exec ; ) drop getoct viewi getocti ; )
 
 	1 'ilevel +!
-	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask
+	oct++
+
 	nzmin 1 over << pick2 nand? ( 2drop )( childi viewi )
 	nzmin 1 xor 1 over << pick2 nand? ( 2drop )( childi viewi )
 	nzmin 2 xor 1 over << pick2 nand? ( 2drop )( childi viewi )
@@ -274,9 +274,10 @@
 	dup @ pick3 - swap !+ dup @ pick2 - swap !+
 	dup @ pick3 - swap !+ dup @ pick2 - swap !
 
-	nxmin 7 xor 3 << 'ivecpos + @ dup 'wison ! 'wiso !
-	nymin 7 xor 3 << 'ivecpos + 4+ @ dup 'hison ! 'hiso !
-
+	nxmin 7 xor 3 << 'ivecpos + @
+	dup 'wison ! 'wiso !
+	nymin 7 xor 3 << 'ivecpos + 4+ @
+	dup 'hison ! 'hiso !
 	r> viewi ;
 
 |---------------- search iso ratio
@@ -293,9 +294,9 @@
 	$pixels >=? ( $magic $100 nand? ( drop isonow ; ) drop getoct viewr getocti ; )
 
 	1 'level +!
-	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask
-	nzmin >r
+	oct++
 
+	nzmin >r
 	r 1 over << pick2 nand? ( 2drop )( childr viewr )
 	r 1 xor 1 over << pick2 nand? ( 2drop )( childr viewr )
 	r 2 xor 1 over << pick2 nand? ( 2drop )( childr viewr )
@@ -343,11 +344,11 @@
 	$ff00 and? ( nip 4drop ; )
 	drop
 
-|	$pixels >=? ( 4drop ; )
 	$pixels >=? ( $magic $100 nand? ( nip 4drop ; ) drop getoct viewo getocti ; )
 
 	1 'level +!
-	@ dup 8 >> 2 << $octree + swap $ff and | x y z adr bitmask
+	oct++
+
 	nzmin >r
 	r 1 over << pick2 nand? ( 2drop )( childo viewo )
 	r 1 xor 1 over << pick2 nand? ( 2drop )( childo viewo )
@@ -364,7 +365,7 @@
 |--------- exportadas
 
 ::drawoctree | moctree --
-	0 'level !
+	0 'level ! 0 'ilevel !
 	adjustmem
 	fillrotvec
 	calcmask 'nzmin !
@@ -385,6 +386,7 @@
 
 ::load3do | "" -- moctree
 	here dup rot load 'here ! ;
+
 
 |--------------------------------------------------------
 #xcam 0 #ycam 0 #zcam 1.0
