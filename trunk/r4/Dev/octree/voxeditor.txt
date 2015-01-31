@@ -355,10 +355,76 @@
 	1.0 deepvox 2 - >> 0.5 0.5 grillaxz
 	;
 
+#ex #ey #ez
+#cx #cy #cz
+#dx #dy #dz
+#sx #sy #sz
+
+|---------- bresenham
+#paso
+
+:pasox
+	ey +? ( sy 'cy +! dx 2* - ) dy 2* + 'ey !
+	ez +? ( sz 'cz +! dx 2* - ) dz 2* + 'ez !
+	sx 'cx +!
+	;
+:pasoy
+	ex +? ( sx 'cx +! dy 2* - ) dx 2* + 'ex !
+	ez +? ( sz 'cz +! dy 2* - ) dz 2* + 'ez !
+	sy 'cy +!
+	;
+:pasoz
+	ey +? ( sy 'cy +! dx 2* - ) dy 2* + 'ey !
+	ex +? ( sx 'cx +! dz 2* - ) dx 2* + 'ex !
+	sz 'cz +!
+	;
+
+:bre3ini | xd yd zd x y z --
+	'cz ! 'cy ! 'cx !
+	+? ( 1 )( -1 ) 'sz ! abs 'dz !
+	+? ( 1 )( -1 ) 'sy ! abs 'dy !
+	+? ( 1 )( -1 ) 'sx ! abs 'dx !
+	dx dy >=? (
+		dz >=? ( drop
+			dy 2* dx - 'ey !
+			dz 2* dx - 'ez !
+			'pasox 'paso ! ; )
+		drop
+		dx 2* dz - 'ex !
+		dy 2* dz - 'ey !
+		'pasoz 'paso ! ; )
+	drop
+	dy dz >=? (
+		drop
+		dx 2* dy - 'ex !
+		dz 2* dy - 'ez !
+		'pasoy 'paso ! ; )
+	drop
+	dx 2* dz - 'ex !
+	dy 2* dz - 'ey !
+	'pasoz 'paso ! ;
+
+:testbre3 | dx dy dz x y z --
+	bre3ini
+	5 ( 1? )( 1-
+		color
+		cx qsize clamp0max
+		cy qsize clamp0max
+		cz qsize clamp0max
+		vox!
+		paso exec
+		) drop
+	buildoctree
+	;
+
 |------- pencil
 :setvox
     curx cury curz vox-
 	color curx cury curz vox!
+	buildoctree ;
+
+:delvox
+    curx cury curz vox-
 	buildoctree ;
 
 :modpencil
@@ -457,12 +523,14 @@
 		[ curz 1+ qsize >? ( 0 nip ) 'curz ! ; ] <pgup>
 		[ curz 1- -? ( qsize nip ) 'curz ! ; ] <pgdn>
 		'setvox <spc>
+		'delvox <del>
 
 		[ 1 0 0 movevoxel buildoctree ; ] <f1>
 		[ 0 1 0 movevoxel buildoctree ; ] <f2>
 		[ 0 0 1 movevoxel buildoctree ; ] <f3>
 
 
+		[ 1 1 1 curx cury curz testbre3 ; ] <f4>
 		botonera
 		'exit >esc<
 		cminiflecha ;
