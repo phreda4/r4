@@ -322,7 +322,8 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
     case IFNAND: W=*(int8_t*)IP;IP++;if (TOS&*NOS) IP+=W;
 		TOS=*NOS;NOS--;continue;
 //--- fin condicionales dependiente de bloques
-	case EXEC:W=TOS;TOS=*NOS;NOS--;if (W!=0) { R++;*R=IP;IP=(unsigned char*)W; } continue;
+//	case EXEC:W=TOS;TOS=*NOS;NOS--;if (W!=0) { R++;*R=IP;IP=(unsigned char*)W; } continue;
+	case EXEC:R++;*R=IP;IP=(unsigned char*)TOS;TOS=*NOS;NOS--;continue;
 //--- pila de datos
 	case DUP: NOS++;*NOS=TOS;continue;
     case DROP: TOS=*NOS;NOS--;continue;
@@ -356,16 +357,11 @@ while (1)  {// Charles Melice  suggest next:... goto next; bye !
 	case SUMA: TOS=(*NOS)+TOS;NOS--;continue;
     case RESTA: TOS=(*NOS)-TOS;NOS--;continue;
 	case MUL: TOS=(*NOS)*TOS;NOS--;continue;
-    case DIV: //if (TOS==0) { TOS=*NOS;NOS--;continue; }
-	     TOS=*NOS/TOS;NOS--;continue;
-	case MULDIV: //if (TOS==0) { NOS--;TOS=*NOS;NOS--;continue; }
-	     TOS=(long long)(*(NOS-1))*(*NOS)/TOS;NOS-=2;continue;
-
+    case DIV: TOS=*NOS/TOS;NOS--;continue;
+	case MULDIV: TOS=(long long)(*(NOS-1))*(*NOS)/TOS;NOS-=2;continue;
 	case MULSHR: TOS=((long long)(*(NOS-1))*(*NOS))>>TOS;NOS-=2;continue;
     case CDIVSH: TOS=(((long long)(*(NOS-1))<<TOS)/(*NOS));NOS-=2;continue;
-
-    case DIVMOD: //if (TOS==0) { NOS--;TOS=*NOS;NOS--;continue; }
-	     W=*NOS%TOS;*NOS=*NOS/TOS;TOS=W;continue;
+    case DIVMOD: W=*NOS%TOS;*NOS=*NOS/TOS;TOS=W;continue;
 	case MOD: TOS=*NOS%TOS;NOS--;continue;
     case ABS: W=(TOS>>31);TOS=(TOS+W)^W;continue;
     case CSQRT: TOS=isqrt32(TOS);continue;

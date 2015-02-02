@@ -121,23 +121,26 @@ free(gr_buffer);
 }
 
 //------------------------------------
-#define GR_SET(X,Y) gr_pos=gr_buffer+(Y*buffergr.width)+X;
+#define GR_SET(X,Y) gr_pos=gr_buffer+(Y*buffergr.stride)+X;
 #define GR_X(X) gr_pos+=X;
-#define GR_Y(Y) gr_pos+=Y*buffergr.width;
+#define GR_Y(Y) gr_pos+=Y*buffergr.stride;
 
 //#define ASM
 
 #ifdef ASM
 // ASM
 static void blit32to565(const int *dst,const int *src, int cnt);
-static void copymem32(const int *dst,const int *src, int cnt);
 static void setmem32(const int *dst,int valor, int cnt);
+static void copymem32(const int *dst,const int *src, int cnt);
+
 #endif
+
 
 #define RED5  0xF800
 #define GRE6  0x07E0
 #define BLU5  0x001F
 
+/*
 inline static int to565(int c)
 {
 return ((c>>8)&RED5)|((c>>5)&GRE6)|((c>>3)&BLU5);
@@ -152,7 +155,7 @@ register int *s=gr_buffer;
 register int *d=(int*)buffergr.bits;
 register int y,x;
 for(y=buffergr.height;y>0;--y)
-	for(x=buffergr.width;x>0;x-=8) {
+	for(x=buffergr.stride;x>0;x-=8) {
         *d++=to565(*s++)|(to565(*s++)<<16);
         *d++=to565(*s++)|(to565(*s++)<<16);
         *d++=to565(*s++)|(to565(*s++)<<16);
@@ -170,18 +173,18 @@ register int *s=gr_buffer;
 register int *d=(int*)buffergr.bits;
 register int x,y;
 for(y=buffergr.height;y>0;--y)
-	for(x=buffergr.width;x>0;x-=8) {
+	for(x=buffergr.stride;x>0;x-=8) {
     *d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;
     *d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++; }
 #endif
 }
 
 void (*copiabuffer)(void);
-
+*/
 void gr_size(struct android_app* app)
 {
 ANativeWindow_lock(app->window, &buffergr, NULL);
-gr_realsize=buffergr.width*buffergr.height;
+gr_realsize=buffergr.stride*buffergr.height;
 ANativeWindow_unlockAndPost(app->window);
 //LOGI("new size %d %d",buffergr.width,buffergr.height);
 }
@@ -191,13 +194,15 @@ void gr_init(struct android_app* app)
 {
 //---- obtener info pantalla
 ANativeWindow_lock(app->window, &buffergr, NULL);
-if (buffergr.format==4) //565
+/*
 	{ copiabuffer=copia565; }
 else
 	{ copiabuffer=copia888; }
-gr_realsize=buffergr.width*buffergr.height;
-int maxsize=(buffergr.width>buffergr.height?buffergr.width:buffergr.height);
+	*/
+gr_realsize=buffergr.stride*buffergr.height;
+int maxsize=(buffergr.stride>buffergr.height?buffergr.stride:buffergr.height);
 maxsize*=maxsize;
+gr_realsize=maxsize;
 ANativeWindow_unlockAndPost(app->window);
 
 gr_buffer=(int*)malloc(maxsize<<2);
@@ -222,9 +227,23 @@ inline void fillcol(unsigned int c1,unsigned int c2)
 
 void gr_swap(struct android_app* app)
 {
+	/*
 ANativeWindow_lock(app->window, &buffergr, NULL);
 copiabuffer();
 ANativeWindow_unlockAndPost(app->window);
+*/
+int32_t w = ANativeWindow_getWidth(app->window);
+int32_t h = ANativeWindow_getHeight(app->window);
+ANativeWindow_setBuffersGeometry(app->window, w, h, WINDOW_FORMAT_RGBA_8888);
+int lockResult = -1;
+lockResult = ANativeWindow_lock(app->window, &buffergr, NULL);
+if(lockResult == 0){
+    //write data
+	memcpy(buffergr.bits,gr_buffer,  w*h*4);
+	//copymem32((int*)buffergr.bits,gr_buffer,gr_realsize);
+    ANativeWindow_unlockAndPost(app->window);
+}
+
 }
 
 void gr_clrscr(void)
@@ -332,8 +351,8 @@ if (y1<0) y1=0;
 if (y2>=buffergr.height) { y2=buffergr.height-1;if (y1>=buffergr.height) return; }
 register int *gr_pos;
 GR_SET(x1,y1);
-int *pf=gr_pos+((y2-y1+1)*buffergr.width);
-do { gr_pixel(gr_pos);gr_pos+=buffergr.width; } while (gr_pos<pf);
+int *pf=gr_pos+((y2-y1+1)*buffergr.stride);
+do { gr_pixel(gr_pos);gr_pos+=buffergr.stride; } while (gr_pos<pf);
 }
 
 int gr_clipline(int *X1,int *Y1,int *X2,int *Y2)
@@ -713,7 +732,7 @@ Segm **jj;
 yMin=segmentos[(heapIHY()&0xffff)].y;
 int i;
 if (yMax>buffergr.height<<BPP) { yMax=buffergr.height<<BPP; }
-int *gr_pant=(int*)gr_buffer+(yMin>>BPP)*buffergr.width;
+int *gr_pant=(int*)gr_buffer+(yMin>>BPP)*buffergr.stride;
 for (;yMin<yMax;) {
   *runlenscan=SETLEN(buffergr.width+1);*(runlenscan+1)=0;
   for (i=VALUES;i!=0;--i) {
@@ -733,7 +752,7 @@ for (;yMin<yMax;) {
     }
   while (*rl!=0) rl++;*(rl-1)=0;  // quito el ultimo espacio
   runlen(gr_pant);
-  gr_pant+=buffergr.width;
+  gr_pant+=buffergr.stride;
   }
 initIHY();
 }
