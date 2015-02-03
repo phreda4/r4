@@ -121,70 +121,16 @@ free(gr_buffer);
 }
 
 //------------------------------------
-#define GR_SET(X,Y) gr_pos=gr_buffer+(Y*buffergr.stride)+X;
+#define GR_SET(X,Y) gr_pos=gr_buffer+(Y*buffergr.width)+X;
 #define GR_X(X) gr_pos+=X;
-#define GR_Y(Y) gr_pos+=Y*buffergr.stride;
+#define GR_Y(Y) gr_pos+=Y*buffergr.width;
 
 //#define ASM
 
-#ifdef ASM
-// ASM
-static void blit32to565(const int *dst,const int *src, int cnt);
-static void setmem32(const int *dst,int valor, int cnt);
-static void copymem32(const int *dst,const int *src, int cnt);
-
-#endif
-
-
-#define RED5  0xF800
-#define GRE6  0x07E0
-#define BLU5  0x001F
-
-/*
-inline static int to565(int c)
-{
-return ((c>>8)&RED5)|((c>>5)&GRE6)|((c>>3)&BLU5);
-}
-
-static void copia565(void)
-{
-#ifdef ASM
-blit32to565((int*)buffergr.bits,(int*)gr_buffer,gr_realsize);
-#else
-register int *s=gr_buffer;
-register int *d=(int*)buffergr.bits;
-register int y,x;
-for(y=buffergr.height;y>0;--y)
-	for(x=buffergr.stride;x>0;x-=8) {
-        *d++=to565(*s++)|(to565(*s++)<<16);
-        *d++=to565(*s++)|(to565(*s++)<<16);
-        *d++=to565(*s++)|(to565(*s++)<<16);
-        *d++=to565(*s++)|(to565(*s++)<<16);
-        }
-#endif
-}
-
-static void copia888(void)
-{
-#ifdef ASM
-	copymem32((int*)buffergr.bits,gr_buffer,gr_realsize);
-#else
-register int *s=gr_buffer;
-register int *d=(int*)buffergr.bits;
-register int x,y;
-for(y=buffergr.height;y>0;--y)
-	for(x=buffergr.stride;x>0;x-=8) {
-    *d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;
-    *d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++; }
-#endif
-}
-
-void (*copiabuffer)(void);
-*/
 void gr_size(struct android_app* app)
 {
 ANativeWindow_lock(app->window, &buffergr, NULL);
-gr_realsize=buffergr.stride*buffergr.height;
+gr_realsize=buffergr.width*buffergr.height;
 ANativeWindow_unlockAndPost(app->window);
 //LOGI("new size %d %d",buffergr.width,buffergr.height);
 }
@@ -194,13 +140,9 @@ void gr_init(struct android_app* app)
 {
 //---- obtener info pantalla
 ANativeWindow_lock(app->window, &buffergr, NULL);
-/*
-	{ copiabuffer=copia565; }
-else
-	{ copiabuffer=copia888; }
-	*/
-gr_realsize=buffergr.stride*buffergr.height;
-int maxsize=(buffergr.stride>buffergr.height?buffergr.stride:buffergr.height);
+
+gr_realsize=buffergr.width*buffergr.height;
+int maxsize=(buffergr.width>buffergr.height?buffergr.width:buffergr.height);
 maxsize*=maxsize;
 gr_realsize=maxsize;
 ANativeWindow_unlockAndPost(app->window);
@@ -225,66 +167,52 @@ inline void fillmat(int a,int b)
 inline void fillcol(unsigned int c1,unsigned int c2)
 { col1=c1;col2=c2; }
 
+static void copiastr(void)
+{
+register int *s=gr_buffer;
+register int *d=(int*)buffergr.bits;
+register int x,y;
+for(y=buffergr.height;y>0;--y,d+=buffergr.stride-buffergr.width)
+	for(x=buffergr.width;x>0;x--) *d++=*s++;
+}
+
 void gr_swap(struct android_app* app)
 {
-	/*
-ANativeWindow_lock(app->window, &buffergr, NULL);
-copiabuffer();
-ANativeWindow_unlockAndPost(app->window);
-*/
 int32_t w = ANativeWindow_getWidth(app->window);
 int32_t h = ANativeWindow_getHeight(app->window);
 ANativeWindow_setBuffersGeometry(app->window, w, h, WINDOW_FORMAT_RGBA_8888);
 int lockResult = -1;
 lockResult = ANativeWindow_lock(app->window, &buffergr, NULL);
-if(lockResult == 0){
-    //write data
-	memcpy(buffergr.bits,gr_buffer,  w*h*4);
-	//copymem32((int*)buffergr.bits,gr_buffer,gr_realsize);
-    ANativeWindow_unlockAndPost(app->window);
-}
-
+if(lockResult != 0) return;
+copiastr();
+ANativeWindow_unlockAndPost(app->window);
 }
 
 void gr_clrscr(void)
 {
-#ifdef ASM
-setmem32(gr_buffer,gr_color2,gr_realsize);
-#else
 register int *d=gr_buffer;
 register int i,c=gr_color2;
 //for(i=buffergr.height*buffergr.width;i>0;i-=8)
 for(i=gr_realsize;i>0;i-=8)
 	{ *d++=c;*d++=c;*d++=c;*d++=c;*d++=c;*d++=c;*d++=c;*d++=c; }
-#endif
 }
 
 void gr_toxfb(void)
 {
-#ifdef ASM
-copymem32(XFB,gr_buffer,gr_realsize);
-#else
 register int *d=XFB;
 register int *s=gr_buffer;
 register int i;
-//for(i=buffergr.height*buffergr.width;i>0;i-=8)
 for(i=gr_realsize;i>0;i-=8)
 	{ *d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++; }
-#endif
 }
 
 void gr_xfbto(void)
 {
-#ifdef ASM
-copymem32(gr_buffer,XFB,gr_realsize);
-#else
 register int *d=gr_buffer;
 register int *s=XFB;
 register int i;
-//for(i=buffergr.height*buffergr.width;i>0;i-=8)
 for(i=gr_realsize;i>0;i-=8)
 	{ *d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++;*d++=*s++; }
-#endif
 }
 
 #define RED_MASK 0xFF0000
@@ -351,8 +279,8 @@ if (y1<0) y1=0;
 if (y2>=buffergr.height) { y2=buffergr.height-1;if (y1>=buffergr.height) return; }
 register int *gr_pos;
 GR_SET(x1,y1);
-int *pf=gr_pos+((y2-y1+1)*buffergr.stride);
-do { gr_pixel(gr_pos);gr_pos+=buffergr.stride; } while (gr_pos<pf);
+int *pf=gr_pos+((y2-y1+1)*buffergr.width);
+do { gr_pixel(gr_pos);gr_pos+=buffergr.width; } while (gr_pos<pf);
 }
 
 int gr_clipline(int *X1,int *Y1,int *X2,int *Y2)
@@ -732,7 +660,7 @@ Segm **jj;
 yMin=segmentos[(heapIHY()&0xffff)].y;
 int i;
 if (yMax>buffergr.height<<BPP) { yMax=buffergr.height<<BPP; }
-int *gr_pant=(int*)gr_buffer+(yMin>>BPP)*buffergr.stride;
+int *gr_pant=(int*)gr_buffer+(yMin>>BPP)*buffergr.width;
 for (;yMin<yMax;) {
   *runlenscan=SETLEN(buffergr.width+1);*(runlenscan+1)=0;
   for (i=VALUES;i!=0;--i) {
@@ -752,7 +680,7 @@ for (;yMin<yMax;) {
     }
   while (*rl!=0) rl++;*(rl-1)=0;  // quito el ultimo espacio
   runlen(gr_pant);
-  gr_pant+=buffergr.stride;
+  gr_pant+=buffergr.width;
   }
 initIHY();
 }
@@ -763,148 +691,3 @@ void gr_pcurve(int x1,int y1,int x2,int y2,int x3,int y3)
 { gr_pspline(FTOI(x1),FTOI(y1),FTOI(x2),FTOI(y2),FTOI(x3),FTOI(y3)); }
 void gr_pcurve3(int x1,int y1,int x2,int y2,int x3,int y3,int x4,int y4)
 { gr_pspline3(FTOI(x1),FTOI(y1),FTOI(x2),FTOI(y2),FTOI(x3),FTOI(y3),FTOI(x4),FTOI(y4)); }
-
-//---------------------------------------------------------------
-// Optimizacion de rutinas
-#ifdef ASM
-static void blit32to565v1(const int *dst,const int *src, int cnt)
-{
-asm volatile (
-"1:							\n\t"
-	"ldr r3,[%[src]],#4		\n\t"
-	"mov r4,r3, lsr #3		\n\t"
-	"and r5,r4,#0x1f		\n\t"
-	"mov r4,r3, lsr #5		\n\t"
-	"and r4,r4,#0x7e0		\n\t"
-	"orr r5,r5,r4			\n\t"
-	"mov r4,r3, lsr #8		\n\t"
-	"and r4,r4,#0xf800		\n\t"
-	"orr r5,r5,r4			\n\t"
-
-	"ldr r3,[%[src]],#4		\n\t"
-	"mov r4,r3, lsr #3		\n\t"
-	"and r4,r4,#0x1f		\n\t"
-	"orr r5,r5,r4, lsl #16	\n\t"
-	"mov r4,r3, lsr #5		\n\t"
-	"and r4,r4,#0x7e0		\n\t"
-	"orr r5,r5,r4, lsl #16	\n\t"
-	"mov r4,r3, lsr #8		\n\t"
-	"and r4,r4,#0xf800		\n\t"
-	"orr r5,r5,r4, lsl #16	\n\t"
-
-	"str r5,[%[dst]],#4		\n\t"
-	"subs %[cnt],%[cnt],#2	\n\t"
-	"bne    1b				\n\t"
-: [dst] "+r" (dst), [src] "+r" (src), [cnt] "+r" (cnt)
-: : "memory", "cc", "r3", "r4", "r5" );
-}
-
-static void blit32to565v2(const int *dst,const int *src, int cnt)
-{
-asm volatile (
-"1:							\n\t"
-	"ldmia %[src]!,{r3,r4}	\n\t"
-
-	"mov r5,r3, lsr #3		\n\t"
-	"mov r6,r4, lsr #3		\n\t"
-	"and r7,r5,#0x1f		\n\t"
-	"and r6,r6,#0x1f 		\n\t"
-	"orr r7,r7,r6, lsl #16	\n\t"
-	"mov r5,r3, lsr #5		\n\t"
-	"mov r6,r4, lsr #5		\n\t"
-	"and r5,r5,#0x7e0		\n\t"
-	"and r6,r6,#0x7e0		\n\t"
-	"orr r7,r7,r5			\n\t"
-	"orr r7,r7,r6, lsl #16	\n\t"
-	"and r3,r3,#0xf80000	\n\t"
-	"and r4,r4,#0xf80000	\n\t"
-	"orr r7,r7,r3, lsr #8	\n\t"
-	"orr r7,r7,r4, lsl #8	\n\t"
-
-	"str r7,[%[dst]],#4		\n\t"
-	"subs %[cnt],%[cnt],#2	\n\t"
-	"bge    1b				\n\t"
-: [dst] "+r" (dst), [src] "+r" (src), [cnt] "+r" (cnt)
-: : "memory", "cc", "r3", "r4", "r5","r6","r7" );
-}
-
-static void blit32to565(const int *dst,const int *src, int cnt)
-{
-asm volatile (
-"loop:									\n"
-		"pld     [%[src], #32]					\n"
-		"vld4.8  {d16, d17, d18, d19}, [%[src]]! \n"
-		"subs    %[cnt],%[cnt], #8				\n"
-
-		"vsri.8	 d18,d17,#5		\n"
-		"vshl.u8 d17,d17,#3		\n"
-		"vsri.8  d17,d16,#3		\n"
-
-		"vst2.8  {d17, d18}, [%[dst]]!			\n"
-		"bgt     loop							\n"
-: [dst] "+r" (dst), [src] "+r" (src), [cnt] "+r" (cnt)
-: : "memory", "cc", "d16", "d17", "d18","d19" );
-}
-
-//--------------------------------------------------------------
-static void copymem32v1(const int *dst,const int *src, int cnt)
-{
-	asm volatile (
-"1:								\n\t"
-	"LDMIA %[src]!, {r3 - r10}	\n\t"
-    "STMIA %[dst]!, {r3 - r10}	\n\t"
-    "SUBS %[cnt],%[cnt], #8		\n\t"
-    "BGE 1b					\n\t"
-: [dst] "+r" (dst), [src] "+r" (src), [cnt] "+r" (cnt)
-: : "memory", "cc","r3","r4","r5","r6","r7","r8","r9","r10" );
-}
-
-// NEON
-static void copymem32(const int *dst,const int *src, int cnt)
-{
-	asm volatile (
-"1:               	    \n\t"
-"      PLD [%[src], #0xC0]	\n\t"
-"      VLDM %[src]!,{d0-d7}	\n\t"
-"      VSTM %[dst]!,{d0-d7}	\n\t"
-"      SUBS %[cnt],%[cnt],#16	\n\t"
-"      BGE 1b	        \n\t"
-: [dst] "+r" (dst), [src] "+r" (src), [cnt] "+r" (cnt)
-: : "memory", "cc","d0","d1","d2","d3","d4","d5","d6","d7" );
-}
-
-//--------------------------------------------------------------
-static void setmem32v1(const int *dst,int valor, int cnt)
-{
-asm volatile (
-"1:							\n\t"
-	"str %[valor],[%[dst]],#4	\n\t"
-	"subs %[cnt],%[cnt],#1	\n\t"
-	"bne    1b				\n\t"
-: [dst] "+r" (dst), [valor] "+r" (valor), [cnt] "+r" (cnt)
-: : "memory", "cc" );
-}
-
-static void setmem32(const int *dst,int valor, int cnt)
-{
-asm volatile (
-"   mov r3, %[valor]\n"
-"   mov r4, %[valor]\n"
-"   mov r5, %[valor]\n"
-"1:\n"
-"   subs %[cnt], %[cnt], #8\n"
-"   stmhsia %[dst]!, {%[valor], r3, r4, r5}\n"
-"   stmhsia %[dst]!, {%[valor], r3, r4, r5}\n"
-"   bhs 1b\n"
-"   add %[cnt], %[cnt], #8\n"
-"   movs %[cnt], %[cnt], lsl #30\n"
-"   stmcsia %[dst]!, {%[valor], r3, r4, r5}\n"
-"   stmmiia %[dst]!, {r4, r5}\n"
-"   movs %[cnt], %[cnt], lsl #2\n"
-"   strcs %[valor], [%[dst]]\n"
-: [dst] "+r" (dst), [valor] "+r" (valor), [cnt] "+r" (cnt)
-: : "memory", "cc","r3","r4","r5" );
-}
-
-
-#endif
