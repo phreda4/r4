@@ -17,8 +17,8 @@
 #$pixels
 #$paleta
 
-#ymin #nymin
-#xmin #nxmin
+#ymin #ymax
+#xmin #xmax
 
 #wiso #wison
 #hiso #hison
@@ -57,24 +57,6 @@
 	0 255 0 transform pick3 - 'z2 ! pick3 - 'y2 ! pick3 - 'x2 !
 	255 0 0 transform pick3 - 'z4 ! pick3 - 'y4 ! pick3 - 'x4 !
 	;
-
-:idsum | x y z id -- x y z
-	4 << 'vecpos + >r
-	rot r@+ level >> + rot r@+ level >> + rot r> @ level >> + ;
-
-:idsumz | z id -- z
-	4 << 'vecpos + 8 + @ level >> + ;
-
-:calcmask | x y z -- x y z mask
-	x1 pick3 * y1 pick3 * + z1 pick2 * + +? ( 1 )( 0 ) >r drop
-	x2 pick3 * y2 pick3 * + z2 pick2 * + +? ( 2 r+ ) drop
-	x4 pick3 * y4 pick3 * + z4 pick2 * + +? ( 4 r+ ) drop
-	r> ;
-
-:idsumi | x y id -- x y
-	3 << 'ivecpos + >r
-	r@+ ilevel 1- >> 1+ 2/ rot + r> @ ilevel 1- >> 1+ 2/ rot + ;
-|	r@+ ilevel >> rot + r> @ ilevel >> rot + ;
 
 |-------------------------------
 :octcolor | oct -- color
@@ -196,6 +178,24 @@
 #dbox 'drawbox
 
 |-----------------------
+:idsum | x y z id -- x y z
+	4 << 'vecpos + >r
+	rot r@+ level >> + rot r@+ level >> + rot r> @ level >> + ;
+
+:idsumz | z id -- z
+	4 << 'vecpos + 8 + @ level >> + ;
+
+:calcmask | x y z -- x y z mask
+	x1 pick3 * y1 pick3 * + z1 pick2 * + +? ( 1 )( 0 ) >r drop
+	x2 pick3 * y2 pick3 * + z2 pick2 * + +? ( 2 r+ ) drop
+	x4 pick3 * y4 pick3 * + z4 pick2 * + +? ( 4 r+ ) drop
+	r> ;
+
+:idsumi | x y id -- x y
+	3 << 'ivecpos + >r
+	r@+ ilevel 1- >> 1+ 2/ rot + r> @ ilevel 1- >> 1+ 2/ rot + ;
+|	r@+ ilevel >> rot + r> @ ilevel >> rot + ;
+
 :oct++ | adr -- adr bitmask
 |	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask	| absoluto
 	@+ dup 8 >> 2 << rot + swap $ff and 	| adr bitmask  | relativo
@@ -241,31 +241,34 @@
 |-----------------------
 :id3di | x y z -- xy
 	3dproj | x y
-	dup 'ymin ! 0 'nymin !
+	dup 'ymin ! dup 'ymax !
 	swap
-	dup 'xmin ! 0 'nxmin !
+	dup 'xmin ! dup 'xmax !
 	;
 
-:id3d | id x y z -- xy
-	3dproj | id x y
-	ymin <? ( dup 'ymin ! pick2 'nymin ! )
+:id3d | x y z -- xy
+	3dproj | x y
+	ymin <? ( dup 'ymin ! )
+	ymax >? ( dup 'ymax ! )
 	swap
-	xmin <? ( dup 'xmin ! pick2 'nxmin ! )
-	rot drop ;
+	xmin <? ( dup 'xmin ! )
+	xmax >? ( dup 'xmax ! )
+	;
 
 :isonow | x y z oct --
 	>r
 	'ivecpos
 	pick3 pick3 pick3 0 idsum id3di rot !+ !+
-   	1 pick4 pick4 pick4 1 idsum id3d rot !+ !+
-   	2 pick4 pick4 pick4 2 idsum id3d rot !+ !+
-   	3 pick4 pick4 pick4 3 idsum id3d rot !+ !+
-   	4 pick4 pick4 pick4 4 idsum id3d rot !+ !+
-   	5 pick4 pick4 pick4 5 idsum id3d rot !+ !+
-   	6 pick4 pick4 pick4 6 idsum id3d rot !+ !+
-   	7 pick4 pick4 pick4 7 idsum id3d rot !+ !
+   	pick3 pick3 pick3 1 idsum id3d rot !+ !+
+   	pick3 pick3 pick3 2 idsum id3d rot !+ !+
+   	pick3 pick3 pick3 3 idsum id3d rot !+ !+
+   	pick3 pick3 pick3 4 idsum id3d rot !+ !+
+   	pick3 pick3 pick3 5 idsum id3d rot !+ !+
+   	pick3 pick3 pick3 6 idsum id3d rot !+ !+
+   	pick3 pick3 pick3 7 idsum id3d rot !+ !
 	3drop
-	xmin ymin
+	xmin xmax over - dup 'wison ! 'wiso !
+	ymin ymax over - dup 'hison ! 'hiso !
 	'ivecpos
 	dup @ pick3 - swap !+ dup @ pick2 - swap !+
 	dup @ pick3 - swap !+ dup @ pick2 - swap !+
@@ -275,11 +278,6 @@
 	dup @ pick3 - swap !+ dup @ pick2 - swap !+
 	dup @ pick3 - swap !+ dup @ pick2 - swap !+
 	dup @ pick3 - swap !+ dup @ pick2 - swap !
-
-	nxmin 7 xor 3 << 'ivecpos + @
-	dup 'wison ! 'wiso !
-	nymin 7 xor 3 << 'ivecpos + 4+ @
-	dup 'hison ! 'hiso !
 	r> viewi ;
 
 |---------------- search iso ratio

@@ -314,12 +314,12 @@
 
 |---- pick voxel w/cursor
 
-#dx #dy #dz
+|#dx #dy #dz
 :setmousecursor
-	xymouse 0.1 | x y z
-	'dx ! |qsize clamp0max 'curx !
-	sh 2/ swap - 'dy ! |qsize clamp0max 'cury !
-	sw 2/ swap - 'dz ! |qsize clamp0max 'curz !
+|	xymouse 0.1 | x y z
+|	'dx ! |qsize clamp0max 'curx !
+|	sh 2/ swap - 'dy ! |qsize clamp0max 'cury !
+|	sw 2/ swap - 'dz ! |qsize clamp0max 'curz !
 
 	;
 
@@ -380,11 +380,48 @@
 	sz 'cz +!
 	;
 
+
+:pasoxc
+	ey dy >? ( sy 'cy +! dx 2* - 'ey ! ; ) dy 2* + 'ey !
+	ez dz >? ( sz 'cz +! dx 2* - 'ez ! ; ) dz 2* + 'ez !
+	sx 'cx +! ;
+
+:pasoyc
+	ex dx >? ( sx 'cx +! dy 2* - 'ex ! ; ) dx 2* + 'ex !
+	ez dz >? ( sz 'cz +! dy 2* - 'ez ! ; ) dz 2* + 'ez !
+	sy 'cy +! ;
+
+:pasozc
+	ex dx >? ( sx 'cx +! dz 2* - 'ex ! ; ) dx 2* + 'ex !
+	ey dy >? ( sy 'cy +! dz 2* - 'ey ! ; ) dy 2* + 'ey !
+	sz 'cz +! ;
+
 |------------------------------------
+
+:showll
+	cls home cr cr cr verde
+'ex >r
+r@+ r@+ r@+ swap rot
+"#ex %d #ey %d #ez %d" print cr
+r@+ r@+ r@+ swap rot
+"#cx %d #cy %d #cz %d " print cr
+r@+ r@+ r@+ swap rot
+"#dx %d #dy %d #dz %d " print cr
+r@+ r@+ r@+ swap rot
+"#sx %d #sy %d #sz %d " print cr
+rdrop
+	curz cury curx "curx %d cury %d curz %d " print cr
+	trace
+	;
+
 :3dbreline | xf yf zf --
-	pick2 curx over - 1? ( +? ( 1 )( -1 ) )( 0 ) 'sx ! abs 'dx ! 'cx !
-	over cury over - 1? ( +? ( 1 )( -1 ) )( 0 ) 'sy ! abs 'dy ! 'cy !
-	dup curz over - 1? ( +? ( 1 )( -1 ) )( 0 ) 'sz ! abs 'dz ! 'cz !
+	trace
+	pick2 curx over -
+	trace
+	+? ( 1 )( -1 ) trace 'sx ! abs 'dx ! 'cx !
+	over cury over - +? ( 1 )( -1 ) trace 'sy ! abs 'dy ! 'cy !
+	dup curz over - +? ( 1 )( -1 ) trace 'sz ! abs 'dz ! 'cz !
+
 	dx dy >=? (
 		dz >=? ( drop
 			dy 2* dx - 'ey ! dz 2* dx - 'ez ! 'pasox 'paso ! ; )
@@ -398,16 +435,33 @@
 	dx 2* dz - 'ex ! dy 2* dz - 'ey ! 'pasoz 'paso ! ;
 
 
+:limits
+	cx qsize clamp0max 'cx !
+	cy qsize clamp0max 'cy !
+	cz qsize clamp0max 'cz !
+	;
+
+:stepbres
+	paso exec ;
+
 :3dline | x y z --
 	3dbreline
-	( cx curx - cy cury - or cz curz - or 1? )( drop
-		color cx cy cz
-		trace
-		vox!
-		paso exec ) drop
-	'curz ! 'cury ! 'curx !
+	( color cx cy cz vox!
+		cx curx - cy cury - or cz curz - or 1? )( drop
+		stepbres
+		) drop
+|	'curz ! 'cury ! 'curx !
+	3drop
 	buildoctree
 	;
+
+:test3dline
+	clearvox
+|	rand $f and
+|	rand $f and
+|	rand $f and
+	3 8 9
+	3dline ;
 
 |------- pencil
 :setvox
@@ -522,7 +576,7 @@
 		[ 0 0 1 movevoxel buildoctree ; ] <f3>
 
 
-		[ clearvox rand qsize and rand qsize and rand qsize and 3dline ; ] <f4>
+		'test3dline  <f4>
 		botonera
 		'exit >esc<
 		cminiflecha ;
