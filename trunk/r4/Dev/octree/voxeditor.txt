@@ -49,10 +49,14 @@
 	memvox memvox> over - 3 >> 1+ swap ;
 
 :vox! | c x y z --
-	mortonlut memvox> !+ !+ 'memvox> ! ;
+	mortonlut
+:mvox! | c m --
+	memvox> !+ !+ 'memvox> ! ;
 
 :vox@ | x y z -- c
-	mortonlut vox-cnt-mem binsearch
+	mortonlut
+:mvox@ | m -- c
+	vox-cnt-mem binsearch
 	0? ( -1 nip ; ) 4+ @ ;
 
 :vox- | x y z --
@@ -63,7 +67,6 @@
 	move
 |	-8 'memvox> +!
 	;
-
 
 |------------- generadores
 :3* dup 2* + ;
@@ -283,15 +286,27 @@
 		'exit >esc<
 		cminiflecha ;
 
-|--------------------------------------------------------------
 
+|------------- load import
 :saveoctree
 	$inifile $end over -
 |	"media/3do/" 'filename strcpy
 |	".3do" 'filename strcat
 	'filename save ;
 
-|------------- load import
+:loadoctree
+	mark
+	"media/3do" dlgfileload 0? ( drop empty ; )
+	load3do drop
+	here '$inifile !
+	8 setvoxsize
+	clearvox
+	[ mvox! ; ] $inifile 3domap
+	empty
+	buildoctree
+	;
+
+|--------------------------------------------------------------
 :testmodel
 	clearvox
 	qsize 1+ ( 1? )( 1-
@@ -299,19 +314,7 @@
 		$ff00 0 pick2 0 vox!
 		$ff0000 over 0 0 vox!
 		) drop
-|	$ffffff 0 0 0 vox!
 	;
-
-
-:randvox
-	$ff00 0 0 0 vox!
-	$ff00 0 0 1 vox!
-	$ff 1 0 0 vox!
-	$ff 1 0 1 vox!
-	$ff0000 0 1 0 vox!
-	$ff0000 0 1 1 vox!
-	;
-
 |---- pick voxel w/cursor
 
 |#dx #dy #dz
@@ -349,19 +352,44 @@
 	drop
 	;
 
+|--------- grilla
+#nx #ny #nz
+
+:dotprod2 | x y z -- dp
+	nz * swap ny * + swap nx * + ;
+
 :drawgrid
-	gris
-	1.0 deepvox 2 - >> 0.5 0.5 grillaxy
-	1.0 deepvox 2 - >> 0.5 0.5 grillayz
-	1.0 deepvox 2 - >> 0.5 0.5 grillaxz
+	0 0 0 transform
+	'nz ! 'ny ! 'nx !
+
+	$aa0000 ink
+	0 0 $ff transform
+	rot nx - rot ny - rot nz -
+	dotprod2 +? ( 0.5 )( -0.5 )
+	0.25 0.5 rot grillaxy
+	drop |"%d " print
+
+	$aa00 ink
+	0 $ff 0 transform
+	rot nx - rot ny - rot nz -
+	dotprod2 +? ( 0.5 )( -0.5 )
+	0.25 0.5 rot grillaxz
+	drop |"%d " print
+
+	$aa ink
+	$ff 0 0 transform
+	rot nx - rot ny - rot nz -
+	dotprod2 +? ( 0.5 )( -0.5 )
+	0.25 0.5 rot grillayz
+	drop |"%d " print
 	;
 
+|---------- bresenham
 #ex #ey #ez
 #cx #cy #cz
 #dx #dy #dz
 #sx #sy #sz
 
-|---------- bresenham
 #paso
 
 :pasox
@@ -425,12 +453,24 @@
 	buildoctree
 	;
 
+:3dempty | x y z --
+	3dbreline 3drop
+	( cx curx - cy cury - or cz curz - or 1? )( drop
+		cx cy cz
+		paso exec
+		cx cy cz vox@ -? ( drop 'curz ! 'cury ! 'curx ! ; )
+		4drop
+		) drop ;
+
+|-------
 :test3dline
+	64 ( 1? )( 1-
 	rand 5 >> qsize and
 	rand 7 >> qsize and
 	rand 9 >> qsize and
 	3dline
 	rand 3 >> 'color !
+	) drop
 	;
 
 |------- pencil
@@ -472,6 +512,11 @@
 :botonsimple | icon vec --
 	btne blanco 8-gc drawric 8+gc gcdn ;
 
+:tooleye
+	cyan oscuro		'i.arrow_up [ -0.01 'zcam +! ; ] botonsimple
+	cyan oscuro		'i.arrow_down [ 0.01 'zcam +! ; ] botonsimple
+	;
+
 :botonera
 	48 qdim
 	sw 32 - sh 32 - pos
@@ -481,8 +526,10 @@
 	'i.pencil 1 botonmodo
 	'i.tint 2 botonmodo
 	'i.cut 3 botonmodo
-	verde
-	'i.cog 'mainmapas botonsimple
+	verde oscuro 	'i.cog 'mainmapas botonsimple
+	amarillo oscuro 'i.file 'loadoctree botonsimple
+
+	tooleye
 	;
 
 
@@ -494,14 +541,10 @@
 |-----------------
 :main
 	4 setvoxsize
-
-	testmodel
-|	randvox
+	clearvox
 	buildoctree
-
 	voxelbox
-	4
-	show clrscr
+	4 show clrscr
 
 		3dini
 		rx mrotx ry mroty
@@ -512,7 +555,7 @@
 		drawcursor
 		modogui exec
 
-		verde
+		verde fonti
 		dup ":r%d VoxelEditor " print
 		'filename print
 		qsize 1+ dup dup "%dx%dx%d " print
@@ -557,7 +600,8 @@
 	maskb.ini
 	here dup 'memini !
 	dup 'memvox !
-	'memvox> !
+	dup 'memvox> !
+	$ffff1 + 'here !
 	;
 
 : memory main ;
