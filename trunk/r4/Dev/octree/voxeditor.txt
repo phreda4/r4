@@ -19,7 +19,7 @@
 
 ^r4/lib/trace.txt
 
-#filename )( 1024
+#filename "media/3do/test.3do" )( 1024
 
 |------ vista
 #xcam 0 #ycam 0 #zcam 1.6
@@ -40,6 +40,10 @@
 	1 over << 1- 'qsize !
 	;
 
+:drawvoxel
+	$inifile dup @ 16 >> $3d00 <>? ( 2drop ; ) drop
+	maskb.clear
+	drawoctree ;
 
 |----------------
 :clearvox
@@ -54,9 +58,7 @@
 	memvox> !+ !+ 'memvox> ! ;
 
 :vox@ | x y z -- c
-	mortonlut
-:mvox@ | m -- c
-	vox-cnt-mem binsearch
+	mortonlut vox-cnt-mem binsearch
 	0? ( -1 nip ; ) 4+ @ ;
 
 :vox- | x y z --
@@ -160,13 +162,13 @@
 	pick2 r - dup * over r - dup * + sqrt r> +
 	pick2 getbitmap1
 	-? ( drop ; )
-	pick3 pick3 pick3 vox! ;
+	pick3 qsize pick4 - pick3 vox! ;
 
 :mVoxel2 | x y z -- x y z
 	pick2 pick2 getbitmap1 -? ( drop ; )
 	over pick3 getbitmap2 -? ( 2drop ; )
 	colavg
-	pick3 pick3 pick3 vox! ;
+	pick3 qsize pick4 - pick3 vox! ;
 
 :mVoxel3 | x y z -- x y z
 	pick2 pick2 getbitmap1 -? ( drop ; )
@@ -174,7 +176,7 @@
 	colavg
 	pick3 pick2 getbitmap3 -? ( 2drop ; )
 	colavg
-	pick3 pick3 pick3 vox! ;
+	pick3 qsize pick4 - pick3 vox! ;
 
 |----- dibujo
 
@@ -273,15 +275,9 @@
 		[ 'mVoxel3 voxelmap ; ] dup <f3> "F3-Map 3" sp btnt
 
 		3dini
-
-|		sw sh sw 2/ sh 2/ voxelini
 		rx mrotx ry mroty
-		xcam ycam zcam mtrans
-		qsize 2/ neg dup dup mtransi
-
-|		draw3dbox
-		maskb.clear
-|		$inifile drawoctree
+		xcam ycam zcam 1.0 + mtrans
+		drawvoxel
 
 		'exit >esc<
 		cminiflecha ;
@@ -295,26 +291,17 @@
 	'filename save ;
 
 :loadoctree
+	"media/3do" dlgfileload 0? ( drop ; )
 	mark
-	"media/3do" dlgfileload 0? ( drop empty ; )
-	load3do drop
-	here '$inifile !
-	8 setvoxsize
+	load3do '$inifile !
+	empty
+	$inifile @ $f and
+	setvoxsize drop
 	clearvox
 	[ mvox! ; ] $inifile 3domap
-	empty
 	buildoctree
 	;
 
-|--------------------------------------------------------------
-:testmodel
-	clearvox
-	qsize 1+ ( 1? )( 1-
-		$ff 0 0 pick3 vox!
-		$ff00 0 pick2 0 vox!
-		$ff0000 over 0 0 vox!
-		) drop
-	;
 |---- pick voxel w/cursor
 
 |#dx #dy #dz
@@ -342,7 +329,7 @@
 
 |------- cursor
 :drawcursor
-	blink 1? ( blanco )( negro ) drop
+	 blink 1? ( blanco )( gris ) drop
 	1.0 deepvox >> >r
 	1 deepvox 1- <<
 	dup curz - r * r 2/ -
@@ -350,38 +337,6 @@
 	pick2 curx - r * r 2/ -
 	r> xyzcubo
 	drop
-	;
-
-|--------- grilla
-#nx #ny #nz
-
-:dotprod2 | x y z -- dp
-	nz * swap ny * + swap nx * + ;
-
-:drawgrid
-	0 0 0 transform
-	'nz ! 'ny ! 'nx !
-
-	$aa0000 ink
-	0 0 $ff transform
-	rot nx - rot ny - rot nz -
-	dotprod2 +? ( 0.5 )( -0.5 )
-	0.25 0.5 rot grillaxy
-	drop |"%d " print
-
-	$aa00 ink
-	0 $ff 0 transform
-	rot nx - rot ny - rot nz -
-	dotprod2 +? ( 0.5 )( -0.5 )
-	0.25 0.5 rot grillaxz
-	drop |"%d " print
-
-	$aa ink
-	$ff 0 0 transform
-	rot nx - rot ny - rot nz -
-	dotprod2 +? ( 0.5 )( -0.5 )
-	0.25 0.5 rot grillayz
-	drop |"%d " print
 	;
 
 |---------- bresenham
@@ -533,24 +488,21 @@
 	;
 
 
-:drawvoxel
-	$inifile dup @ 16 >> $3d00 <>? ( 2drop ; ) drop
-	maskb.clear
-	drawoctree ;
-
 |-----------------
 :main
 	4 setvoxsize
+	voxelbox
+
 	clearvox
 	buildoctree
-	voxelbox
+
 	4 show clrscr
 
 		3dini
 		rx mrotx ry mroty
 		xcam ycam zcam mtrans
 
-		drawgrid
+		draw3dgrid
 		drawvoxel
 		drawcursor
 		modogui exec
@@ -601,7 +553,7 @@
 	here dup 'memini !
 	dup 'memvox !
 	dup 'memvox> !
-	$ffff1 + 'here !
+	$fffff + 'here !
 	;
 
 : memory main ;
