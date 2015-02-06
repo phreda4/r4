@@ -1,0 +1,157 @@
+| Navegador de Colores
+| PHREDA 2006
+|---------------------------------------
+^r4/lib/gui.txt
+^r4/lib/color.txt
+^r4/lib/ricons.txt
+
+^inc/ric/fontawesomewebfont.ric
+
+^r4/lib/trace.txt
+
+|--- precalculo
+#:coloractual
+
+#TOPLUMA 72
+
+#vhue #yluma #xluma
+#alp
+#colorrampa $ff0000
+
+|---- Dialogo Color
+:setcol | color --
+	alp 24 << or
+	'coloractual ! ;
+
+:vhue! | nro --
+	dup 'vhue !
+	8 << 1.0 1.0 hsv2rgb 'colorrampa !
+	tx1 xluma + ty1 yluma + getpixel setcol ;
+
+:xyluma! | x y --
+	ty1 TOPLUMA + <? ( ty1 TOPLUMA + nip )
+	ty1 255 + TOPLUMA + >? ( ty1 255 + TOPLUMA + nip )
+	swap
+	tx1 8 + <? ( tx1 8 + nip )
+	tx1 255 + 8 + >? ( tx1 255 + 8 + nip )
+	swap
+	2dup
+	getpixel setcol
+	ty1 - 'yluma ! tx1 - 'xluma ! ;
+
+:lumagrid
+	tx1 8 + ty1 TOPLUMA +
+	256 ( 1? )( 1-
+		dup 0 colorrampa lerpcol
+		over dup 8 << dup 8 << or or
+		degrade32!
+		>r 2dup setxy
+		255 ( 1? )( 1- deg@+ px!+ ) drop
+		1+ r> ) drop
+	setxy 255 ( 1? )( 1- 0 px!+ ) drop
+
+	gc.push
+	tx1 8 + ty1 TOPLUMA + 255 dup gc.xywh
+    [ xymouse xyluma! ; ] guiMove
+	gc.pop
+	blanco
+	tx1 xluma + ty1 yluma + pos
+	6 dup dim
+	gc.box
+	;
+
+:drawcromaline
+	tx1 278 + ty1 TOPLUMA + | ini croma
+	256 ( 1? )( 1-
+		255 over - 8 <<  1.0 1.0 hsv2rgb ink
+		pick2 pick2 over 16 + over op line
+		swap 1+ swap ) drop
+	2drop ;
+
+:cromaline
+	tx1 270 + ty1 TOPLUMA + vhue +
+	over 32 + over op line
+	drawcromaline
+	gc.push
+	tx1 270 + ty1 TOPLUMA + 32 256 gc.xywh | x y w h
+    [ xymouse nip ty1 TOPLUMA + - vhue! ; ] guiMove
+	gc.pop
+	;
+
+:setvxy | color --
+	dup setcol
+	rgb2hsv
+	neg $ff and TOPLUMA + 'yluma !
+	$fe clampmax 8 + 'xluma !
+	$ff $600 */ dup 8 << 1.0 1.0 hsv2rgb 'colorrampa !
+	'vhue ! ;
+
+|---------------------------------------------------------
+#paleta )( 1024
+
+#x1p #x2p
+#y1p #y2p
+
+:colbox	ink gc.fbox gcdn ;
+:colcr  9 gcupn gc>> ;
+
+:collin
+	dup 1.0 0.1 hsv2rgb colbox
+	dup 1.0 0.25 hsv2rgb colbox
+	dup 1.0 0.5 hsv2rgb colbox
+	dup 1.0 0.75 hsv2rgb colbox
+	dup 1.0 1.0 hsv2rgb colbox
+	dup 0.8 1.0 hsv2rgb colbox
+	dup 0.6 1.0 hsv2rgb colbox
+	dup 0.3 1.0 hsv2rgb colbox
+	dup 0.2 1.0 hsv2rgb colbox
+	colcr ;
+
+:minipaleta
+	8 qdim
+	-0.84 -0.4 fpos
+	xc w 2/ - 'x1p !
+	yc h 2/ - 'y1p !
+	0.0 ( 1.0 <? )( collin 0.01 + ) drop
+	gc<< 9 gcdnn
+	xc w 2/ + 'x2p !
+	yc h 2/ + 'y2p !
+	
+	;
+
+::dlgcolora | --
+	oscurecetodo
+	0 0 fpos 0.9 0.9 fdim
+	$f0f7f ink gc.fbox
+	$ff ink gc.box
+	minipaleta
+	coloractual setvxy
+	>xfb
+	show xfb>scr
+		0 0 fpos 0.9 0.9 fdim
+		home
+		lumagrid
+		cromaline
+
+		x1p y1p x2p y2p gcxyxy
+		[ xymouse setxy px@ setvxy ; ] guiBtn
+
+		48 qdim verde
+		tx2 32 - ty1 32 + pos
+        'exit dup >esc< btn
+		blanco 'i.ok drawric
+
+		tx1 32 + ty1 32 + pos
+		coloractual ink gc.fbox
+		gcdn tpos
+		coloractual " $%h" blanco printc
+
+
+		cminimano ;
+
+::btncol | 'color --
+	dup @ 'coloractual !
+	gc.push
+	dlgcolora coloractual swap !
+	gc.pop
+	;
