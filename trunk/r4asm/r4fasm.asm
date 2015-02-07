@@ -285,11 +285,6 @@ SYSDATE: ;  ( -- y m d )
 ;===============================================
 SYSFFIRST: ; ( "path" -- fdd )
 	push ebx ecx edx edi esi
-	mov ebx,[hfind]
-	or ebx,ebx
-	jz .noc
-	invoke FindClose,[hfind]
-.noc:
 	mov esi,_dir
 .bcpy:
 	mov bl,[eax]
@@ -324,6 +319,7 @@ SYSFNEXT: ; ( -- fdd/0)
 	mov eax,fdd
 	jmp .fin
 .nin:
+	invoke FindClose,[hfind]
 	xor eax,eax
 .fin:
 	pop esi edi edx ecx ebx
