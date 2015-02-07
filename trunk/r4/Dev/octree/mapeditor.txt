@@ -13,12 +13,28 @@
 ^inc/ric/fontawesomewebfont.ric
 
 ^r4/dev/octree/wirelib.txt
-^r4/dev/octree/buildoctree.txt
 ^r4/dev/octree/iso_9.txt
 
 ^r4/lib/trace.txt
 
 #filename )( 1024
+
+#:memvox		| inicio de puntos ordenados
+#:memvox>
+#:octre			| inicio de octree
+#:octre>
+
+|---- archivo a grabar
+#:$inifile
+#$octree
+#$lastlev
+#$pixels
+#$colori
+#$realpixels
+#:$end
+
+#:qsize $ff	| lado
+#:deepvox 8 	| profundidad octree
 
 |------ vista
 #xcam 0 #ycam 0 #zcam 1.6
@@ -28,14 +44,13 @@
 #curx #cury #curz
 #color $0
 
-#memini
-
 #tiles )( 1024
 #tiles> 'tiles
 #tsize )( 1024
 #tsize> 'tsize
 #tname )( 1024
 #tname> 'tname
+#fposi )( 1024
 
 #strname )( 8192
 #strname> 'strname
@@ -68,6 +83,12 @@
 		[ dup 'color ! ; ] over tilename "%s" mprint link cr
 		1+ ) 2drop ;
 
+:filepos! | val n --
+	2 << 'fposi + ! ;
+
+:filepos | n --
+	2 << 'fposi + @ ;
+
 |---------------------
 :setvoxsize | level -- level
 	dup 'deepvox !
@@ -75,21 +96,11 @@
 	;
 
 |---- archivo a grabar
-#:$inifile
-#$octree
-#$lastlev
-#$pixels
-#$colori
-#$realpixels
-#$end
-
 #bith	| bitmask hijos
 #padre	| de que padre
 
 #levels )( 1024	| niveles del octree
 #level>
-
-#xmin #ymin #zmin #xmax #ymax #zmax
 
 |------------ construye octree
 :,oc | val --
@@ -151,7 +162,10 @@
 :calcdir | suma adr --- suma adr+
 	dup @	 		| suma adr valor
 	dup popcnt >r
-	pick2 8 << or swap !+
+
+	pick2 pick2 4+ $octree - 2 >> - 8 << or swap !+	| relativo
+|	pick2 8 << or swap !+	| absoluto
+
 	swap r> + swap
 	;
 
@@ -159,7 +173,6 @@
 	( over <? )(
 		4+ @+ 8 >>
 		$ffffff and
-|***		$f8fcf8 and | 16 bits
 		,oc
 		) 2drop ;
 
@@ -179,6 +192,7 @@
 		) 2drop
 	r> 'memvox> !
 	;
+
 |-------------------------------
 ::buildmaptree | --
 	memvox> dup '$inifile !
@@ -224,9 +238,17 @@
 		 ) drop
 
 	octre> dup '$realpixels ! '$colori !
+
+	|....... calculo de includes
+	octre> $inifile - memvox> memvox - 2/ +
+	0 ( tilecnt <? )(
+		2dup filepos!
+		dup tilesize rot + swap
+		1+ ) 2drop
+
 	memvox ( memvox> <? )(
 		4+ @+	| nro de tile
-
+        filepos 2 >>
 		,oc ) drop
 
 	|... save header
@@ -240,60 +262,6 @@
 		1+ ) drop
 
 	octre> dup '$end ! 'here !
-	;
-
-|--------------------------------------------------
-:buildmaptree
-	here dup 'octre ! 'octre> !
-	|--- graba octree real
-	octre> '$inifile !
-	$3d000100 ,oc
-	0 ,oc | pixels
-	0 ,oc | p1
-	0 ,oc | p2
-	0 ,oc | xlim
-	0 ,oc | ylim
-	0 ,oc | zlim
-    octre> '$octree !
-	$00000035 ,oc
-	$00000353 ,oc
-	$00000635 ,oc
-	$00000953 ,oc
-	$00000c35 ,oc
-    octre> '$pixels !
-	$00ffffff ,oc
-	$00ff00ff ,oc
-	$00ff007f ,oc
-	$00ff03f ,oc
-	$00ff01f ,oc
-	octre> dup '$realpixels ! '$colori !
-	$00000021 ,oc
-	$00000021 ,oc
-	$00000021 ,oc
-	$00000021 ,oc
-	$00000021 ,oc
-	$00000021 ,oc
-	$00000021 ,oc
-	$0000000 ,oc
-	$00000021 ,oc
-	$00000021 ,oc
-	$00000021 ,oc
-	$00000021 ,oc
-	$00000021 ,oc
-	$00000021 ,oc
-	$00000021 ,oc
-	$00000021 ,oc
-	|... save header
-	$pixels $octree - $inifile 4+ !
-
-	|.... tiles
-	0 tile >r
-	0 tilesize 2 >>
-	( 1? )( r@+ ,oc 1- )
-	drop rdrop
-
-	octre> dup '$end ! 'here !
-
 	;
 
 |----------------
@@ -321,7 +289,6 @@
 |	-8 'memvox> +!
 	;
 
-
 |----------------
 :savemaptree
 	"media/3do" dlgfilesave 0? ( drop ; )
@@ -337,6 +304,7 @@
 	dup addstr tname> !+ 'tname> !
 	load3do dup tiles> !+ 'tiles> !
 	here swap - tsize> !+ 'tsize> !
+	here '$inifile !
 	;
 
 |------ vista
@@ -385,7 +353,6 @@
 	;
 
 :drawvoxel
-; :a
 	$inifile dup @ 16 >> $3d00 <>? ( 2drop ; ) drop
 	maskb.clear
 	drawoctree
@@ -393,6 +360,8 @@
 
 :main
 	4 setvoxsize drop
+	clearvox
+	buildmaptree
 	4
 	show clrscr
 
@@ -412,14 +381,14 @@
 		verde oscuro 2 linesfill blanco
 		dup ":r%d MapEditor " print
 		tiles> 'tiles - 2 >> "[ %d tiles ]" print memvox> memvox - 3 >> "[ %d Pnts ]" print cr
-		'filename sp print cr
-|		tiles> 'tiles - 2 >> "%d tiles" print cr
+		'filename sp print cr cr2
+
 		listiles
 
 		1 rows 2 - gotoxy azul
 		'changesize qsize 1+ dup dup "%dx%dx%d" mprint sp btnt
 		'loadoctree dup <f1> "F1-Load" sp btnt
-		[ buildmaptree savemaptree ; ] dup <f2> "F2-Save" sp btnt
+		'savemaptree dup <f2> "F2-Save" sp btnt
 		azul
 		naranja
 		'voxelbox "1" sp btnt
@@ -443,7 +412,10 @@
 :memory
 	mark
 	maskb.ini
-	here 'memini !
+	here 
+	dup 'memvox !
+	$fffff + dup '$inifile !
+	'here !
 
 	'tiles 'tiles> !
 	'tsize 'tsize> !
