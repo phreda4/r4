@@ -292,16 +292,79 @@
 
 |---- pick voxel w/cursor
 
-|#dx #dy #dz
-:setmousecursor
-	xymouse 0.1 | x y z
-	|'dx !
-	qsize clamp0max 'curx !
-	sh 2/ swap - |'dy !
-	qsize clamp0max 'cury !
-	sw 2/ swap - |'dz ! 
-	qsize clamp0max 'curz !
+#dx #dy #dz
+#ox #oy #oz
+#tx0 #ty0 #tz0
+#tx1 #ty1 #tz1
 
+:norm | x y z -- x y z
+	pick2 dup * pick2 dup * + over dup * + sqrt >r
+	rot 1.0 r */ rot 1.0 r */ rot 1.0 r> */ ;
+
+
+:setmousecursor
+	matinv
+	0 0 0 transform 'oz ! 'oy ! 'ox !
+	xymouse
+	sh 2/ - swap
+	sw 2/ - swap
+	512 norm transform
+
+	oz -
+	-? ( neg 0.5 )( -0.5 ) swap
+	1? ( 1.0 swap /. )	| lim dz
+	over oz - over *. 'tz0 !
+	swap neg oz - *. 'tz1 !
+	oy -
+	-? ( neg 0.5 )( -0.5 ) swap
+	1? ( 1.0 swap /. )	| lim dy
+	over oy - over *. 'ty0 !
+	swap neg oy - *. 'ty1 !
+	ox -
+	-? ( neg 0.5 )( -0.5 ) swap
+	1? ( 1.0 swap /. )	| lim dx
+	over ox - over *. 'tx0 !
+	swap neg ox - *. 'tx1 !
+
+|	tx0 ty0 tz0 max max tx1 ty1 tz1 min min -
+	tx0 qsize clampmax 'curx !
+	ty0 qsize clampmax 'cury !
+	tz0 qsize clampmax 'curz !
+	;
+
+:getval | x y -- x y c
+	2dup 512 norm transform
+
+	oz -
+	-? ( neg 0.5 )( -0.5 ) swap
+	1? ( 1.0 swap /. )	| lim dz
+	over oz - over *. 'tz0 !
+	swap neg oz - *. 'tz1 !
+	oy -
+	-? ( neg 0.5 )( -0.5 ) swap
+	1? ( 1.0 swap /. )	| lim dy
+	over oy - over *. 'ty0 !
+	swap neg oy - *. 'ty1 !
+	ox -
+	-? ( neg 0.5 )( -0.5 ) swap
+	1? ( 1.0 swap /. )	| lim dx
+	over ox - over *. 'tx0 !
+	swap neg ox - *. 'tx1 !
+
+	tx0 ty0 tz0 max max
+	tx1 ty1 tz1 min min
+	-
+	;
+
+:tracetest
+	matinv
+	0 0 0 transform 'oz ! 'oy ! 'ox !
+	-127 ( 127 <? )(
+		-127 ( 127 <? )(
+			over sw 2/ + over sh 2/ + setxy
+			getval px!+
+			1+ ) drop
+		1+ ) drop
 	;
 
 |------- cursor
@@ -452,11 +515,16 @@
 
 :modpencil
 	setmousecursor
+|	"%d" print cr
 	;
 
 :toopencil
 	verde oscuro
 	'i.cog 'mainmapas botonsimple2 gc>>
+	gcdn gc<<
+	tpos
+	tz0 ty0 tx0 "%h %h %h " print cr
+	tz1 ty1 tx1 "%h %h %h " print cr
 	;
 
 |------- tinta
@@ -464,6 +532,7 @@
 	;
 
 :tootint
+	tracetest
 	;
 
 |------- goma
@@ -546,6 +615,8 @@
 		3dini
 		rx mrotx ry mroty
 		xcam ycam zcam mtrans
+
+|mpush tracetest mpop
 
 		draw3dgrid
 		drawvoxel
