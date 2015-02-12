@@ -9,14 +9,13 @@
 ^r4/lib/fontm.txt
 ^inc/fntm/droidsans13.txt
 
-^r4/lib/trace.txt
-
 ^r4/system/mem-ed.txt
 ^r4/dev/ide/r4-token.txt
 ^r4/dev/ide/r4-info.txt
 
 |^r4/dev/ide/r4-tokenrun.txt
 
+^r4/lib/trace.txt
 
 #pantaini>	| comienzo de pantalla
 #pantafin>	| fin de pantalla
@@ -183,22 +182,18 @@
 	mark
 	here 'ed.nombre load 0 swap c!
 
-	fuente dup 'pantaini> ! 'fuente> !
-
-	|-- si no hay cr y si ln reemplazar
-	0 here ( c@+ 1? )( 13 =? ( rot 1+ rot rot ) drop ) 2drop
-	0? ( here ( c@+ 1? )( 10 =? ( 13 pick2 1- c! ) drop ) 2drop )
-	drop
-	|--quitar 10
-	fuente here ( c@+ 1? )(
-		10 =? ( drop swap fuente> <? ( -1 'fuente> +!  ) swap )( rot c!+ swap )
-		) 2drop '$fuente ! 0lin
+	|-- quesa solo cr al fin de linea
+	fuente dup 'pantaini> ! dup 'fuente> !
+	here ( c@+ 1? )(
+		13 =? ( over c@ 10 =? ( drop swap 1+ swap )( drop ) )
+		10 =? ( drop c@+ 13 <>? ( drop 1- 13 ) )
+		rot c!+ swap ) 2drop '$fuente !
+	0lin
 
 	|-- ubicar el cursor
 	ed.nlin 0 >? ( ( 1? )( 1- fuente> >>13 2 + 'fuente> ! ) ) drop
 	ed.ncar +? ( dup 'fuente> +! ) drop
 	0 'prilinea !
-
 	empty
 	;
 
@@ -345,18 +340,26 @@
 |------ info code
  :idef
 	$f not and 'indicepal +
-	azul sp "| " print
-|	dup @ print sp	| !!!nombre
-	dup 12 + @ printmovword
-	" " print
-	8 + @ printinfword
+	sp
+	mark
+		|	dup @ print sp	| !!!nombre
+	dup 12 + @ ,printmovword
+	empty
+	here azul
+	'exit swap link |fillp blanco print
+	mark
+	8 + @ ,printinfowor
+	empty
+	here amarillo oscuro
+	'exit swap link |fillp blanco print
 	;
 
 :ivar
 	$f not and 'indicepal +
-	azul " |" print
+	sp
 	8 + @
-	6 >> vtype print ;
+	6 >> vtype " %s "
+	azul fillp blanco print ;
 
 :ierr
 	4 >> errormsg sp "!! %s "
@@ -384,7 +387,8 @@
 		swap
 		drawsel lf drawcur lf >>lineacolor0
 		infoline
-		0? ( 2drop cntlinea $fuente )( 0 'tx1 ! cr )
+		0 'tx1 !
+		0? ( 2drop cntlinea $fuente )( cr )
 		swap 1+ ) drop
 	$fuente <? ( 1- ) 'pantafin> !
 	fuente>
@@ -392,22 +396,10 @@
 	( pantaini> <? )( scrollup )
 	drop
 	;
-:a
-	|----------------- mensaje de error!!
-	errorlin -? ( drop ; )
-	prilinea <? ( drop ; )
-	prilinea -
-	cntlinea >=? ( drop ; )
-	3 swap gotoxy
-	blink 1? ( rojo )( amarillo ) drop
-	">" print 'mensaje "!! %s  " printr
-	;
-
 
 :tokerror
 	4 << $03 or
 	errornrolinea 2 << textinfo + !
-
 	1 'infomode !
 	;
 
@@ -463,21 +455,22 @@
 
 :drawpanelcontrol
 	panelcontrol 0? ( drop ; ) drop
-	'controle 18 ?key |" E-Edit" print | ctrl-E dit
+	blanco
+	'controle 18 ?key " E-Edit" print | ctrl-E dit
 |	'controlh 35 ?key " H-Help" print  | ctrl-H elp
-	'controlz 44 ?key |" Z-Undo" print
+	'controlz 44 ?key " Z-Undo" print
 
-	'controlx 45 ?key |" X-Cut" print
-	'controlc 46 ?key |" C-Copy" print
-	'controlv 47 ?key |" V-Paste" print
+	'controlx 45 ?key " X-Cut" print
+	'controlc 46 ?key " C-Copy" print
+	'controlv 47 ?key " V-Paste" print
+
+	'controld 32 ?key " D-Def" print
+
+	'controln 49 ?key " N-New" print
+|	'controlm 50 ?key " M-Mode" print
 
 	'controla <up>
 	'controls <dn>
-
-	'controld 32 ?key |" D-Def" print
-
-	'controln 49 ?key |" N-New" print
-|	'controlm 50 ?key |" M-Mode" print
 	;
 
 :showclip
@@ -563,26 +556,26 @@
 	'fontdroidsans13 fontm
 |	fonti
 	clrscr
-	rows 3 - 'cntlinea !
+	rows 2 - 'cntlinea !
 	show clrscr
 		'dns 'mos 'ups guiMap |------ mouse
 
 		$6600 ink 1 linesfill
 		verde dup ":R%d" print
 
-|		pick2 pick2 pick2 " %d %d %d " print
-
 		blanco "dEBUG " printx
         'ed.nombre "[%s] " print
 |		cyan "  |F1-RUN|F2-DEBUG|F3-PROFILE|F9-PLAIN|F10-COMP|F11-OCOMP|" printx
-		"F1-DEBUG " printr
+		"|F1-ANALISIS|F2-PROFILE " printr
 
 |------------------------------
 		cr chome!
 		drawcode
 
+		0 cntlinea gotoxy
+		$6600 ink 1 linesfill | linea abajo
 		drawpanelcontrol
-		drawpanelinfo
+|		drawpanelinfo
 |------------------------------
 		teclado
 		cminiflecha ;
