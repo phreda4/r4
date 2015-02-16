@@ -338,7 +338,13 @@
 	drop sel<< ;
 
 |------ info code
- :idef
+:moreword
+	mark ,printinfowor empty
+	here amarillo oscuro
+	'exit swap link |fillp blanco print
+	;
+
+:idef
 	$f not and 'indicepal +
 	sp
 		|	dup @ print sp	| !!!nombre
@@ -347,11 +353,8 @@
 	empty
 	here azul
 	'exit swap link |fillp blanco print
-	8 + @ $a0 and
-	0? ( drop ; ) | no mas info de palabra
-	mark ,printinfowor empty
-	here amarillo oscuro
-	'exit swap link |fillp blanco print
+	8 + @ $a0 and 1? ( moreword )( drop )
+
 	;
 
 :ivar
@@ -424,6 +427,8 @@
 |---- arma array info
 	fuente textinfo arrayinfo
 	1 'infomode !
+
+
 	;
 
 |------------ panel info
@@ -432,28 +437,15 @@
 :panelinfos
 	panelinfo 1? ( drop 0 'panelinfo ! ; ) drop
 	1 'panelinfo !
-
 	|...........REHACER DEBUG
 	recompilar
 	;
-
-#cntprofile
-#tablaprofile
 
 :drawpanelinfo
 	panelinfo 0? ( drop ; ) drop
 	sw 2/ gc.right
 	$3f alpha azul gc.fbox $ff alpha
 	home cr blanco
-
-	tablaprofile >r
-	cntprofile ( 1? )(
-		r@+ drop |"%s " print
-		r@+ "%d msec " print
-		r@+ "%d call " print
-		cr
-		1- ) drop
-	rdrop
 
 |	codeprint cr
 |	infodic cr
@@ -496,17 +488,23 @@
 
 |----------------------------
 :directrun	savetxt 'ed.nombre run  ;
-:debugcode
-|	"profrun.txt" run ;
-			savetxt "r4/system/debug-code.txt" run ;
-:profcode   savetxt "r4/system/prof-code.txt" run ;
-:profcode2  savetxt "r4/system/prof-code2.txt" run ;
-:generacode savetxt "r4/system/genera-code.txt" run ;
-:mkplain	savetxt "r4/system/r4plain.txt" run ;
-:mkasm		savetxt "r4/system/r4fasm.txt" run ;
-:mkasmo     savetxt "r4/system/r4fasmo.txt" run ;
+:compilai86	savetxt "r4/dev/ide/r4-i86opt.txt" run ;
 
 |------------ profile
+#cntprofile 0
+#tablaprofile
+
+:dumppro
+	tablaprofile >r
+	cntprofile ( 1? )(
+		r@+ drop |"%s " print
+		r@+ "%d msec " print
+		r@+ "%d call " print
+		cr
+		1- ) drop
+	rdrop
+	;
+
 :wordcntok | adr -- adr token cnt
 	dup 4+ @ over 12 + @ 20 >> $fff and ;
 
@@ -602,16 +600,10 @@
 	[ 13 modo exec ; ] <enter>
 	[ 9 modo exec ; ] <tab>
 
-	'panelinfos <f1>
-	'debugcode <f2>
-
-|	'profcode <f3>
+	'directrun <f1>
+	'recompilar <f2>
 	'profile <f3>
-
-	'directrun <f9>
-	'mkasm <f10>
-	'mkasmo <f11>
-	'mkplain <f12>
+	'compilai86 <f10>
 
 	'exit  >esc<
 	'controlon <ctrl>
@@ -631,8 +623,10 @@
 
 		blanco "dEBUG " printx
         'ed.nombre "[%s] " print
+		cntprofile "%d" print
+
 |		cyan "  |F1-RUN|F2-DEBUG|F3-PROFILE|F9-PLAIN|F10-COMP|F11-OCOMP|" printx
-		"|F1-ANALISIS|F2-PROFILE " printr
+		"|F1-RUN|F2-ANALISIS|F3-PROFILE " printr
 
 |------------------------------
 		cr chome!
@@ -696,7 +690,6 @@
 	@+ 'cntprofile !
 	'ed.nombre over =s
 	0? ( nip dup "mem/profile.mem" save ; ) drop
-	1 'panelinfo !
 	>>0 'tablaprofile !
 	;
 

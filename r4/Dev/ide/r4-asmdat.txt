@@ -1,0 +1,143 @@
+| R4asmdat.txt - PHREDA 2010
+| Generacion de data para i86-FASM
+|
+|--------------------------------------------
+^r4/lib/gui.txt
+^r4/lib/parse.txt
+^r4/lib/trace.txt
+
+^r4/dev/ide/r4-post.txt
+
+:nro>dicn 8 >> "w%h" mprint ;			| numero de palabra
+
+|----- pila de compilador
+#pilac )( 256	#pilac> 'pilac
+
+:>pilac pilac> ! 4 'pilac> +! ;
+:<pilac -4 'pilac> +! pilac> @ ;
+:pilac! 'pilac 'pilac> ! ;
+
+|----- nro de str y label
+#nstr	| nro de string
+
+|------------ compila DATO
+#d1 "dd "
+#d2 "dw "
+#d3	"db "
+#d4 "rb "
+#dtipo 'd1
+#dini 0
+#dcnt 0
+#instr 0
+
+:pasoinstr	| cuando hay un string en otro tipo
+	,cr dtipo ,s 0 'dini ! 0 'instr ! ;
+
+:stringdd | cuando hay string dentro de otro tipo
+	dtipo 'd3 =? ( drop "," ,s ; ) drop
+	,cr "db " ,s 1 'instr ! ;
+
+:dfin
+	instr 1? ( drop pasoinstr ; ) drop
+	dini 1? ( dtipo )( "," ) ,s drop 0 'dini ! ;
+:dfins
+	dini 1? ( "db " )( drop stringdd ; ) ,s drop 0 'dini ! ;
+:dfind
+	instr 1? ( drop pasoinstr ; ) drop
+	dini 1? ( "dd " )( "," ) ,s drop 0 'dini ! ;
+
+:dtipoch dini 0? ( ,cr 1 'dini ! ) drop  ;
+
+:cpycad | adr --
+	( c@+ 1? )( 34 =? ( dup ,c ) ,c ) 2drop ;
+
+:stringwith0
+	34 ,c here swap cpycad here - 34 ,c drop ",0" ,s ;
+
+:,dnil drop ;
+
+:,dlit  1 'dcnt +!
+		dfin tok>cte
+		99 >? ( "$" ,s ,h ; )
+		-9999999 <? ( "$" ,s ,h ; )
+		,d
+		;
+
+:,dlits	1 'dcnt +! dfins tok>mem stringwith0 ;
+:,dwor	1 'dcnt +! dfind nro>dicn ,s ;
+:,d;	drop ;
+:,d(	drop dtipo >pilac 'd3 'dtipo ! dtipoch ;
+:,d)(	drop 'd4 'dtipo ! dtipoch ;
+:,d)	drop <pilac 'dtipo ! dtipoch ;
+:,d[	drop dtipo >pilac 'd2 'dtipo ! dtipoch ;
+:,d]	drop <pilac 'dtipo ! dtipoch ;
+
+#coded 0 ,dnil ,dnil ,dnil ,dnil ,dnil ,dnil
+,dlit ,dlit ,dlit ,dlit ,dlits 
+,dwor ,dwor ,dwor ,dwor
+,d; ,d( ,d)( ,d) ,d[ ,d]
+
+|----------------------------------------------
+
+|---- datos
+:compvar | nropal cntlla -- nropal
+	over dic>str "; %w" ,print
+	,cr
+	drop dup "w%h " ,print
+	'd1 'dtipo !
+	1 'dini ! 0 'dcnt ! pilac!
+	0 'instr !
+	dup dic>tok @
+	( @+ dup $ff and
+		4 >? )( 	 | dirv n c
+		22 <? ( 2 << 'coded + @ exec )( 2drop )
+		,sp )
+	3drop
+	dini 0? ( drop ,cr ; ) drop
+	dcnt 1? ( drop ,cr ; ) drop
+	dtipo ,s 0 ,d ,cr ;
+
+:otrostr
+	over
+	1 'dini !
+	nstr "str%h " ,print
+	,dlits
+	1 'nstr +!
+	,cr ;
+
+:compvarw | nropal cntlla -- nropal
+	drop
+	dup dic>len@
+	( 1? )( 1- swap
+		@+ dup $ff and
+
+		1 =? ( 4drop ; )	| terminar por palabra continuada
+		2 =? ( 4drop ; )	| terminar por palabra continuada
+
+		11 =? ( otrostr ) 2drop
+		swap )
+	2drop ;
+
+:wordmap | 'vector --
+	0 ( cntwords <=? )(
+		dup 5 << 'indicepal + 8 + @
+		1 and? ( drop )( drop
+			dup dic>call@ 1? ( pick2 exec )( drop )
+			)
+		1+ ) 2drop ;
+
+:varmap | 'vector --
+	0 ( cntwords <=? )(
+		dup 5 << 'indicepal + 8 + @
+		1 nand? ( drop )( drop
+			dup dic>call@ 1? ( pick2 exec )( drop )
+			)
+		1+ ) 2drop ;
+
+::,comp.dat.asm
+	0 'nstr !
+	"; *** STRINGS ***" ,s ,cr
+    'compvarw wordmap
+	"; *** VARS ***" ,s ,cr
+	"align 16 " ,s ,cr
+    'compvar varmap ;

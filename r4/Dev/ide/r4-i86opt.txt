@@ -1,0 +1,229 @@
+| r4-i84opt.txt
+| PHREDA 2015
+|------------------------------------------------
+^r4/lib/gui.txt
+^r4/system/mem-ed.txt
+
+^r4/dev/ide/r4-token.txt
+^r4/dev/ide/r4-post.txt
+^r4/dev/ide/r4-asmdat.txt
+
+|^r4/dev/ide/r4i86o3.txt	| con bloques
+
+#msgOK "OK."
+#mensaje 'msgOk
+
+|-- nombre a nro
+|:nro>dicn   8 >> "w%h" mprint ;		| w<nro palabra>
+:nro>dicn   8 >> 5 << 'indicepal + @ "%w" mprint ; | nombre
+
+|	dup nro>info @
+|	$1000 nand? ( 2drop ; ) drop | constante
+
+
+|--- Accion
+#nroanon 0
+
+#totoken
+#niva	| nivel de anonimas
+
+#niv )( 1024
+#niv> 'niv
+:+niv	niv> c!+ 'niv> ! ;
+:-niv   'niv 'niv> ! ;
+
+#anonind )( 256
+#anonind> 'anonind
+:+ind 	anonind> !+ 'anonind> ! ;
+:-ind	'anonind 'anonind> ! ;
+
+#anons )( 128
+#anons> 'anons
+:>aa anons> !+ 'anons> ! ;
+:aa> -4 'anons> +! anons> @ ;
+:-aa 'anons 'anons> ! ;
+:aa# anons> 'anons - 2 >> ;
+
+#buffaux )( 8192
+#buffaux> 'buffaux
+:+buff	buffaux> !+ 'buffaux> ! ;
+:-buff	'buffaux 'buffaux> ! ;
+
+:es[
+	1 'niva +!
+	niv> +ind
+	nroanon dup >aa
+	8 << 16 or pick2 4 - ! | graba en token
+	1 'nroanon +!
+	;
+:es]
+	-1 'niva +!
+	aa> 8 << 17 or pick2 4 - ! | graba en token
+	;
+
+:everyword | adr rtoken -- adr
+	16 =? ( es[ )
+	17 =? ( es] )
+	drop
+	niva +niv
+	;
+
+:marcaniveles | nro --
+	-aa -niv -ind
+	0 'niva !
+	dic>len@ over 'totoken  !
+	( 1? )( 1-
+		swap @+ $ff and
+		everyword
+		swap ) 2drop
+	-1 niv> c! ;
+
+
+|------------------------
+:buscacte
+	drop
+	dup 8 >> dic>inf @
+	$1000 and? ( drop +buff ; ) drop
+	8 >> dic>tok @ | token de variable
+
+	dup $ff and
+|	2 =? ( 2drop 0 genCTE +buff ; ) | caso #cte #var
+	| 7 =? () | #v "hola"
+	8 =? ( 10 nip ) 10 =? ( drop $fffffff0 and 10 or +buff ; ) | caso #cte 'word
+	9 =? ( 11 nip ) 11 =? ( drop $fffffff0 and 11 or +buff ; ) | caso #cte 'var
+	drop
+
+|	tok>cte genCTE	| caso #cte 4
+	+buff ;
+
+:buscainline
+	drop
+	dup 8 >> dic>inf @
+	$100 nand? ( drop +buff ; ) drop
+	8 >> dic>len@ 1-
+	( 1? )( 1- swap
+		@+ dup $ff and
+		8 =? ( buscainline )( | es word? inline?
+			9 =? ( buscacte )( drop +buff ) ) | es var? cte?
+|		drop +buff
+		swap ) 2drop
+	;
+
+:+buffer | adr -- adr++
+	@+ dup $ff and
+	3 <? ( 2drop ; )
+	8 =? ( buscainline ; )
+	9 =? ( buscacte ; )
+	drop +buff ;
+
+
+|--- imprime de buffer
+:buffp
+	@+ dup $ff and
+	3 <? ( 2drop ; )
+	16 =? ( drop 8 >> ":_aa%h" ,print ; )
+	17 =? ( drop 8 >> " '_aa%h" ,print ; )
+|	,sp ,tokenp
+	 ;
+
+|--- copy y genera
+:copynivl | lugarniv --
+	dup 'niv - 2 << totoken + | niv tok
+	over c@
+:copynivr | lugarniv tok v
+	-buff
+	swap rot | niv@ tok niv
+	( c@+ pick3 >=? )( | mismo nivel o mayor
+		pick3 >? ( drop swap 4+ )( drop swap +buffer )
+		swap ) 4drop
+
+	|--- optimiza buffer
+|	'buffaux ( buffaux> <? )(
+|		@+ dup $ff and untoken
+|		) drop
+
+	|--- descarga buffer
+	'buffaux ( buffaux> <? )(
+		buffp ) drop
+	,cr
+	;
+
+|-------------------
+:escodigo | nro --
+	dup dic>inf @
+	$100 and? ( 2drop ; ) drop | inline
+	dup marcaniveles
+	|-- generar anonimos
+	anonind> ( 'anonind >? )( 4 -
+		dup @ copynivl
+		) drop
+	|-- genera principal
+	dic>str ":%w" ,print
+	'niv totoken 0 copynivr
+	;
+
+:gencodigo | nro --
+	dup dic>inf
+|	1 and? ( drop esvariable )( drop escodigo )
+	;
+
+
+|------------------------------------
+:compiladato
+	mark
+	";---:r4 compiler dat.asm" ,ln
+	,comp.dat.asm
+    0 ,c
+	"r4asm/dat.asm" savemem
+	empty ;
+
+:gencodigo | nro llamadas -- nro
+	drop
+	cntwords =? ( "inicio: " )( dup "w%h: " ) ,print
+	dup 5 << 'indicepal + @ "; ::: %w ::: " ,print
+	dup dic>mov @
+	dup 24 << 24 >> "uso:%d " ,print
+	8 << 24 >> "dD:%d " ,print
+	,cr
+|*** DEBUG
+|	"r4asm/cod.asm" savemem
+
+|	dup ,compwordopt
+|	dup nro>mem "; %b" ,print ,cr
+	,cr
+|*** DEBUG
+|	"r4asm/cod.asm" savemem
+	;
+
+:compilacodigo
+|	ini.compila
+	mark
+	";---:r4 compiler cod.asm" ,ln
+|	'gencodigo wordmap
+	0 ,c
+	"r4asm/cod.asm" savemem
+	empty ;
+
+|------------------------------------
+:showprogress
+	fonti
+	show clrscr
+		dumpdic
+		'exit >esc< ;
+
+
+:main
+	ed.load
+	mark
+	'ed.nombre tokenasm
+	1? ( drop ; ) drop
+	tokenpost
+|	compiladato
+|	compilacodigo
+	empty
+
+	showprogress
+|	"r4fasm.bat" system
+	;
+
+: mark main ;
