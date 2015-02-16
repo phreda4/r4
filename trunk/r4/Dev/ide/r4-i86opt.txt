@@ -17,10 +17,6 @@
 |:nro>dicn   8 >> "w%h" mprint ;		| w<nro palabra>
 :nro>dicn   8 >> 5 << 'indicepal + @ "%w" mprint ; | nombre
 
-|	dup nro>info @
-|	$1000 nand? ( 2drop ; ) drop | constante
-
-
 |--- Accion
 #nroanon 0
 
@@ -169,22 +165,16 @@
 
 
 |------------------------------------
-:compiladato
-	mark
-	";---:r4 compiler dat.asm" ,ln
-	,comp.dat.asm
-    0 ,c
-	"r4asm/dat.asm" savemem
-	empty ;
+:gencodigo | nro -- nro
+	dup dic>inf @ 
+	1 and? ( drop ; )					| solo codigo
+	$100 and? ( drop ; ) drop			| no inline
+	dup dic>call@ 0? ( drop ; ) drop	| con llamadas
+	dup dic>str @ "; --- %s ---" ,print ,nl
+	dup dic>inf @ "; %h " ,print dup dic>len@ " %d" ,print
+	,nl
+	cntwords 1- =? ( "inicio: " )( dup "w%h: " ) ,print ,nl
 
-:gencodigo | nro llamadas -- nro
-	drop
-	cntwords =? ( "inicio: " )( dup "w%h: " ) ,print
-	dup 5 << 'indicepal + @ "; ::: %w ::: " ,print
-	dup dic>mov @
-	dup 24 << 24 >> "uso:%d " ,print
-	8 << 24 >> "dD:%d " ,print
-	,cr
 |*** DEBUG
 |	"r4asm/cod.asm" savemem
 
@@ -195,11 +185,14 @@
 |	"r4asm/cod.asm" savemem
 	;
 
-:compilacodigo
+:make_cod.asm
 |	ini.compila
 	mark
 	";---:r4 compiler cod.asm" ,ln
-|	'gencodigo wordmap
+	0 ( cntwords <? )(
+		gencodigo
+		1+ ) 2drop
+
 	0 ,c
 	"r4asm/cod.asm" savemem
 	empty ;
@@ -211,15 +204,16 @@
 		dumpdic
 		'exit >esc< ;
 
-
 :main
 	ed.load
 	mark
 	'ed.nombre tokenasm
 	1? ( drop ; ) drop
 	tokenpost
-|	compiladato
-|	compilacodigo
+	tokenpostusa
+
+	make_dat.asm
+	make_cod.asm
 	empty
 
 	showprogress

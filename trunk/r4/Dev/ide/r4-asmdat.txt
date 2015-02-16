@@ -73,21 +73,22 @@
 :,d]	drop <pilac 'dtipo ! dtipoch ;
 
 #coded 0 ,dnil ,dnil ,dnil ,dnil ,dnil ,dnil
-,dlit ,dlit ,dlit ,dlit ,dlits 
+,dlit ,dlit ,dlit ,dlit ,dlits
 ,dwor ,dwor ,dwor ,dwor
 ,d; ,d( ,d)( ,d) ,d[ ,d]
 
-|----------------------------------------------
-
 |---- datos
-:compvar | nropal cntlla -- nropal
-	over dic>str "; %w" ,print
-	,cr
-	drop dup "w%h " ,print
+:compvar | nropal -- nropal
+	dup dic>inf @ 1 nand? ( drop ; ) drop	| solo variables
+	dup dic>call@ 0? ( drop ; ) drop
+	dup dic>inf @ %100 nand? ( drop ; ) drop | constante
+	dup dic>str @ ";-- %w --" ,print
+	,nl
+	dup "w%h " ,print
 	'd1 'dtipo !
 	1 'dini ! 0 'dcnt ! pilac!
 	0 'instr !
-	dup dic>tok @
+	dup dic>tok @ 4+
 	( @+ dup $ff and
 		4 >? )( 	 | dirv n c
 		22 <? ( 2 << 'coded + @ exec )( 2drop )
@@ -97,6 +98,7 @@
 	dcnt 1? ( drop ,cr ; ) drop
 	dtipo ,s 0 ,d ,cr ;
 
+|---- str cte en codigo
 :otrostr
 	over
 	1 'dini !
@@ -105,9 +107,11 @@
 	1 'nstr +!
 	,cr ;
 
-:compvarw | nropal cntlla -- nropal
-	drop
-	dup dic>len@
+:compvarw | nropal -- nropal
+	dup dic>inf @ 1 and? ( drop ; ) drop	| solo codigo
+	dup dic>call@ 0? ( drop ; ) drop
+	dup dic>tok @ 4+
+	over dic>len@ 1-
 	( 1? )( 1- swap
 		@+ dup $ff and
 
@@ -118,26 +122,24 @@
 		swap )
 	2drop ;
 
-:wordmap | 'vector --
-	0 ( cntwords <=? )(
-		dup 5 << 'indicepal + 8 + @
-		1 and? ( drop )( drop
-			dup dic>call@ 1? ( pick2 exec )( drop )
-			)
-		1+ ) 2drop ;
+|-----------
+::make_dat.asm
+	mark
+	";---:r4 compiler dat.asm" ,ln
 
-:varmap | 'vector --
-	0 ( cntwords <=? )(
-		dup 5 << 'indicepal + 8 + @
-		1 nand? ( drop )( drop
-			dup dic>call@ 1? ( pick2 exec )( drop )
-			)
-		1+ ) 2drop ;
-
-::,comp.dat.asm
 	0 'nstr !
-	"; *** STRINGS ***" ,s ,cr
-    'compvarw wordmap
-	"; *** VARS ***" ,s ,cr
-	"align 16 " ,s ,cr
-    'compvar varmap ;
+	"; *** STRINGS ***" ,s ,nl
+	0 ( cntwords <=? )(
+		compvarw
+		1+ ) drop
+
+	"; *** VARS ***" ,s ,nl
+	"align 16 " ,s ,nl
+	0 ( cntwords <=? )(
+		compvar
+		1+ ) drop
+    0 ,c
+
+	"r4asm/dat.asm" savemem
+	empty ;
+
