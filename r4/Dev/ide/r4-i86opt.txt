@@ -8,7 +8,7 @@
 ^r4/dev/ide/r4-post.txt
 ^r4/dev/ide/r4-asmdat.txt
 
-|^r4/dev/ide/r4i86o3.txt	| con bloques
+^r4/dev/ide/r4i86o3.txt
 
 |-- nombre a nro
 |:nro>dicn   8 >> "w%h" mprint ;		| w<nro palabra>
@@ -36,7 +36,7 @@
 :-aa 'anons 'anons> ! ;
 :aa# anons> 'anons - 2 >> ;
 
-#buffaux )( 8192
+#buffaux )( 4096
 #buffaux> 'buffaux
 :+buff	buffaux> !+ 'buffaux> ! ;
 :-buff	'buffaux 'buffaux> ! ;
@@ -56,7 +56,7 @@
 :marcaniveles | nro -- nro
 	-aa -niv -ind
 	0 'niva !
-	dup dic>tok @ over dic>len@
+	dup dic>tok @ 4+ over dic>len@ 1-
 	over 'totoken ! | token definicion sin contar
 	( 1? )( 1-
 		swap @+ $ff and
@@ -76,12 +76,12 @@
 	4+ @ dup $ff and
 
 |	2 =? ( 2drop 0 genCTE +buff ; ) | caso #cte #var
-| 	7 =? () | #v "hola"
 
 	$c =? ( $e nip ) $e =? ( drop $fffffff0 and $e or +buff ; ) | caso #cte 'word
 	$d =? ( $f nip ) $f =? ( drop $fffffff0 and $f or +buff ; ) | caso #cte 'var
 	drop
-	$fffffff0 and 7 or +buff ;
+	|$fffffff0 and 7 or   |*** copia el mismo token
+	+buff ;
 
 :buscainline | adr+ val -- adr+
 	dup 8 >> dic>inf @
@@ -97,8 +97,6 @@
 
 :+buffer | adr -- adr++
 	@+ dup $ff and
-|	5 <? ( 2drop ; )
-
 	$c =? ( drop buscainline ; )
 	$d =? ( drop buscacte ; )
 	drop +buff ;
@@ -107,12 +105,12 @@
 :buffp
 	@+ dup $ff and
 
-	5 <? ( 2drop ; )
-	$14 =? ( drop 8 >> ":_aa%h" ,print ,nl ; )
+|	5 <? ( 2drop ; )
+	$14 =? ( drop 8 >> "_aa%h:" ,print ,nl ; )
 	$15 =? ( drop 8 >> " '_aa%h" ,print ,nl ; )
 	drop
 
-	,sp tokenstrA ,print ,nl
+	" ; " ,s tokenstrA ,print ,nl
 	;
 
 |--- copia y genera
@@ -126,10 +124,12 @@
 		pick3 >? ( drop swap 4+ )( drop swap +buffer )
 		swap ) 4drop
 
+	buffaux> 'buffaux compilatok
+
 |---- compilar el buffer ----
 |	|--- descarga buffer
-	'buffaux ( buffaux> <? )(
-		buffp ) drop
+|	'buffaux ( buffaux> <? )(
+|		buffp ) drop
 |---- compilar el buffer ----
 
 	,nl ;
@@ -157,23 +157,16 @@
 	|-- genera principal
 	cntwords 1- =? ( "inicio: " )( dup "w%h: " ) ,print ,nl
 	'niv totoken 0 copynivr
-
 	,nl ;
-
-|*** DEBUG
-|	"r4asm/cod.asm" savemem
 
 
 :make_cod.asm
-
-|	ini.compila
-
+	ini.compila
 	mark
 	";---:r4 compiler cod.asm" ,ln
 	0 ( cntwords <? )(
 		gencodigo
 		1+ ) 2drop
-
 	0 ,c
 	"r4asm/cod.asm" savemem
 	empty ;

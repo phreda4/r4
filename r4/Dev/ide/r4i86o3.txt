@@ -1,4 +1,4 @@
-| R4i86o.txt - PHREDA 2010
+| R4i86o3.txt - PHREDA 2015
 | Generacion de codigo para i86-FASM
 |
 | .. [esp] - pila R
@@ -11,15 +11,13 @@
 | ebp - VFRAME pointer
 | MMX - auxiliares de almacenamiento
 |
-| nivel 0 -- solo macros,variable y direcciones
-| nivel 1 -- llamada a palabras de nivel 0
-| nivel 2 -- llamada a palabras de nivel 1 y 0
 |--------------------------------------------
 ^r4/lib/gui.txt
 ^r4/lib/parse.txt
 
-|^r4/system/r4print.txt
-|^r4/system/vstack3.txt
+|^r4/dev/ide/r4-tokenprint.txt
+
+^r4/dev/ide/vstack.txt
 
 ^r4/lib/trace.txt
 
@@ -38,8 +36,6 @@
 :-pilac 'pilac 'pilac> ! ;
 
 |-------------------------------------
-#regact
-
 |--EDX
 :freeEDX 3 reg!! ;
 
@@ -209,7 +205,7 @@
 	vpila2normal
 	dup @ $ff and 			| word ;
 	12 =? ( "jmp " )( "call " ) nip ,s
-	toknow nro>dicn ,s ,cr
+	toknow tok>name ,s ,cr
 
 	toknow 8 >> vpila2callV
 	strpending neg
@@ -248,7 +244,7 @@
 
 :,lit	toknow tok>cte pushNRO ;
 :,lits
-		toknow 8 >> cte + strusestack
+		toknow tok>mem strusestack
 		'strpending ! drop
 		nstr pushSTR 1 'nstr +! ;
 :,dwo	toknow 8 >> dup 'lastdircode ! pushCOD ;
@@ -399,7 +395,7 @@
 
 |------- EXEC
 :stackeffectex | -- sf
-	lastdircode nro>mov @ 8 << 24 >> ;
+	lastdircode dic>mov @ 8 << 24 >> ;
 
 :,execr
 |	stackeffectex 0? ( "or ecx,ecx" ,ln "jz @f" ,ln ) drop
@@ -822,7 +818,7 @@
 
 :,0 ;
 
-#nivel1 ,0
+#acompila ,0
 ,defw ,defv ,lit ,lit ,lit ,lit ,lits ,wor ,var ,dwo ,dva | 11
 ,; ,( ,)( ,) ,[ ,] ,EXEC	| 18
 ,0? ,+? ,-? ,1? ,=? ,<? ,>? ,<=? ,>=? ,<>? ,AND? ,NAND? | 30
@@ -856,63 +852,19 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 ,SYSTEM
 
 |------------------------------
-#bufprim 0 | para salto?
-#bufftok )( 8192
-#buff> 'bufftok
-
-:+buff | tok --
-	buff> !+ 'buff> ! ;
-:-buff | --
-	0 'bufprim !
-	'bufftok 'buff> ! ;
-
-#registeruse
-
 :imprimedebug | token -- token
-	dup tokenstr " ; " ,s ,ln | palabra que compila
-
-	dup $ff and
-	8 <? ( drop ; )
-	9 >=? ( 11 <=? ( drop  ; ) )
-	31 >=? ( 45 <=? ( drop  ; ) )
-	96 =? ( drop ; )
-	116 =? ( drop ; )
-	117 =? ( drop ; )
-	125 =? ( drop ; )
-	drop
-	,cr "; " ,s printddvtack
+	" ; " ,s dup tokenstrA ,print
+|	printddvtack
+	,nl
 	"r4asm/cod.asm" savemem
 	;
 
-::,compwordopt | nro --
-|---- carga en buffer
-	-buff
-	dup nro>toklen
-	( 1? )( 1- swap @+ +buff swap ) 2drop
-
-	buff> 'bufftok pick2 nro>mov @ 24 << 24 >> neg | finbuff buff use
-	calccell
-
-|	infoblock	| debug de bloques
-
-|**** debug
-|	dumpcells,
-|**** debug
-
-	dup nro>mov @ 24 << 24 >> neg inivpila
-	0 'registeruse !
+::compilatok | bufend bufini --
+	2dup getusedstack neg inivpila
 	0 'strpending !
-	'bufftok ( buff> <? )(
+	( over <? )(
 		@+
-
-|		imprimedebug | comentar para no imprimir comentarios
-
-|	"r4asm/cod.asm" savemem
-
-		$ff and 2 << 'nivel1 + @ exec
-		registros registeruse or 'registeruse !
-		) drop
-	registeruse swap nro>mem!
-
-
+|		imprimedebug
+		$ff and 2 << 'acompila + @ exec
+		) 2drop
 	;
