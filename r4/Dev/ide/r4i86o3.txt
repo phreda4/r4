@@ -204,7 +204,7 @@
 :,wor
 	vpila2normal
 	dup @ $ff and 			| word ;
-	12 =? ( "jmp " )( "call " ) nip ,s
+	$10 =? ( "jmp " )( "call " ) nip ,s
 	toknow tok>name ,s ,cr
 
 	toknow 8 >> vpila2callV
@@ -217,7 +217,7 @@
 :,callsys | usapila? --
 	1? ( vpila2normal ) drop
 	dup @ $ff and | word ;
-	12 =? ( "jmp " )( "call " ) nip
+	$10 =? ( "jmp " )( "call " ) nip
 	,s ;
 
 :,END		"jmp SYSEND" ,ln ;
@@ -380,7 +380,7 @@
 |	"r4asm/cod.asm" savemem
 	blockt $f and
 	1 <=? (
-			over 8 - @ $ff and 12 <>? ( vpFitAll ) drop
+			over 8 - @ $ff and $10 <>? ( vpFitAll ) drop
 			<pilac ,etiqueta				| IF ELSE
 			)
 	2 =? ( <pilac jmp, <pilac ,etiqueta )	| WHILE
@@ -398,16 +398,13 @@
 	lastdircode dic>mov @ 8 << 24 >> ;
 
 :,execr
-|	stackeffectex 0? ( "or ecx,ecx" ,ln "jz @f" ,ln ) drop
 	dup @ $ff and 			| word ;
-	12 =? ( "jmp ecx" )( "call ecx" ) nip
+	$10 =? ( "jmp ecx" )( "call ecx" ) nip
 	,s ,cr
-|	stackeffectex 0? ( "@@:" ,ln ) drop
 	lastdircode vpila2callV ;
 
 :,EXECPP | v --
 	"push " ,s d.tos ,CELL ,cr
-
 
 	d.drop
 	vpilanormal?
@@ -551,8 +548,9 @@
 
 :,*>>
 	| si d.nos es pow2..
-	d.pk2 needEAX
+
 	usoEDX
+	d.pk2 needEAX
 	d.nos needREGorMEM
 	d.tos cteorECX
 
@@ -819,7 +817,8 @@
 :,0 ;
 
 #acompila ,0
-,defw ,defv ,lit ,lit ,lit ,lit ,lits ,wor ,var ,dwo ,dva | 11
+,defw ,defw ,defv ,defv ,0 ,0 
+,lit ,lit ,lit ,lit ,lits ,wor ,var ,dwo ,dva | 11
 ,; ,( ,)( ,) ,[ ,] ,EXEC	| 18
 ,0? ,+? ,-? ,1? ,=? ,<? ,>? ,<=? ,>=? ,<>? ,AND? ,NAND? | 30
 
@@ -854,8 +853,7 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 |------------------------------
 :imprimedebug | token -- token
 	" ; " ,s dup tokenstrA ,print
-|	printddvtack
-	,nl
+	" : " ,s printddvtack
 	"r4asm/cod.asm" savemem
 	;
 
@@ -864,7 +862,7 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	0 'strpending !
 	( over <? )(
 		@+
-|		imprimedebug
+		imprimedebug
 		$ff and 2 << 'acompila + @ exec
 		) 2drop
 	;
