@@ -1114,44 +1114,93 @@ vuso4	|SSET  a --
 	@ genEAX ;
 
 |---------------------------
-#cell2fix )( 1024
+#cell2fix )( 256
 #cell2fix> 'cell2fix
+#stackuse )( 256
 
-:enlugar? | nro XX cell -- nro XX CELL 0/1
-	dup cellREGM? 5 =? (
-		drop dup cellSUM
-		pick3 2 << =? ( drop 1 ; ) | si esta en el lugar no generar
-		)
-	drop 0 ;
+:printstate
+	'cell2fix
+	( cell2fix> <? )(
+		@+ "[esi+%d] <-- " ,print @+ ,cellp ,sp
+		) drop
+	,cr
+	'stackuse 0 ( 8 <? )( swap
+     	c@+ 1? ( pick2 2 << "[esi+%d] " ,print )
+		drop swap 1+ ) 2drop
+	,cr ;
 
-:,tofix | cell --
-	pick2 2 << cell2fix> !+ !+ 'cell2fix> ! ;
+:clearstackuse
+	'stackuse 64 ( 1? )( 1- 0 rot !+ swap ) 2drop ;
+
+|---
+:realmover | dest cell --
+	"mov dword [esi" ,s
+	over 1? ( "+" ,s ,d )( drop )
+	"]," ,s dup ,CELL ,cr
+	5 $15 pick2 cell! cell+! ;
+
+:movereg
+	'cell2fix
+	( cell2fix> <? )( >r
+		r@+ r@+
+        dup cellREG? -? ( 3drop )( drop realmover -1 -1 r 8 - !+ ! )
+		r> ) drop ;
+
+|---
+:resolveADR | dest cell adr -- dest cell adr
+	newReg pick2 over ,cell2REG
+	5 pick3 cell! ;
+
+:realmovec | dest cell --
+	dup cellADR? 1? ( resolveADR ) drop
+	"mov dword [esi" ,s
+	over 1? ( +? ( "+" ,s ) ,d )( drop )
+	"]," ,s dup ,CELL ,cr
+	5 $15 pick2 cell! cell+! ;
+
+:movecell
+	'cell2fix
+	( cell2fix> <? )( >r
+		r@+ r@+
+		-? ( 2drop )( realmovec ) | solo los que quedan
+		r> ) drop ;
+
+|----
+:enlugar? | nro XX cell -- nro XX
+	dup cellREGM? 5 =? ( drop
+		dup cellSUM
+		1 over 2 >> 'stackuse + ! | marca usado
+		pick3 2 << =? ( 2drop ; )
+		) drop
+	pick2 2 << cell2fix> !+ !+ 'cell2fix> !
+	;
 
 :vpcopia2
 	d.cnt 0? ( drop vplast ; )
-
+	clearstackuse
 	'cell2fix 'cell2fix> !
 	1- 'dpila
-	( swap 1? )(
-		1- swap @+
-		enlugar? 1? ( 2drop )( drop ,tofix )
-		)
-	2drop
+	( swap 1? )( 1- swap @+ enlugar? ) 2drop
 
-	'cell2fix
-	( cell2fix> <? )(
-		@+ "%d " ,print @+ "%d :" ,print
-		) drop
-	,cr
-	2drop
+	printstate
+	printddvtack
+	movereg
+	printddvtack
+	movecell
 	;
+
+:genEAX | --
+	d.tos
+	dup cellREG? 0? ( 2drop ; ) drop	| ya es eax!
+	dup 0 ,cell2REG
+	0 5 rot cell! ;
 
 |---- transforma la pila actual a normal
 ::vpila2normal | --
 	inivpcnt d.cnt - correESI			| corre esi a nuevo lugar
 
-	printddvtack
-
 	vpcopia2				| copia los registros/ctes en pila
+
+	genEAX
 	d.cnt 'inivpcnt !	| ahora vpila tiene...
 	;
