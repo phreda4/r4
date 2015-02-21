@@ -7,7 +7,6 @@
 ^r4/lib/trace.txt
 
 #:inivpcnt		| nivel de inicio de pila D
-#:inivrcnt		| nivel de inicio de pila R
 
 |-------- constantes del sistema
 #syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
@@ -35,15 +34,6 @@
 :suma	over 2048 + @ ;
 :shift	over 3072 + @ ;
 
-|----- pila para bloques
-#pilab )( 256	#pilab> 'pilab
-
-|----- pila de compilador
-#pilac )( 256	#pilac> 'pilac
-
-:>pilac pilac> !+ 'pilac> ! ;
-:<pilac -4 'pilac> +! pilac> @ ;
-
 |--- PILA DATO
 #dpila )( 1024
 #dpila> 'dpila
@@ -51,13 +41,6 @@
 |--- PILA RETORNO
 #rpila )( 1024
 #rpila> 'rpila
-
-|------ bloques de codigo
-#blockn 0
-#block )( 1024	| tipo+info
-#blocks )( 1024 | celda comienzo
-#blocke )( 1024 | profundidad de bloque
-#blocki )( 1024 | info de las celdas en bloque
 
 |----------------------------------------
 ::cellNRO? | nro -- 1/0
@@ -105,8 +88,7 @@
 ::cellSTACK | cell -- -1/esi+?
 	2 << dup 'cellt + @ $1f and
 	$15 <>? ( 2drop -1 ; ) drop
-	'cella + @ 2 >> ;
-
+	'cella + @ ;
 
 |----- dpila
 ::d.rel		1+ 2 << dpila> swap - @ ;
@@ -175,22 +157,6 @@
 :r.rel		1+ 2 << rpila> swap - @ ;
 :r.ini 		'rpila 'rpila> ! ;
 
-|------------------
-:estareg | val reg dir cell -- val reg dir
-	cellREG? pick2 <>? ( drop ; ) drop
-	rot drop
-	dup 4 - @
-	rot rot ;
-
-| en que celda esta el registro
-::REGcell | reg -- cell/-1
-	5 =? ( drop $ff ; )	| esi ocupado
-	6 =? ( drop $ff ; )	| ebp ocupado
-	-1 swap
-	'dpila ( dpila> <? )( @+ estareg ) drop
-	'rpila ( rpila> <? )( @+ estareg ) drop
-	drop ;
-
 |---- imprime celda
 :list2str swap ( 1? )( 1- swap >>0 swap ) drop ;
 
@@ -208,10 +174,10 @@
 :mt5w value 'sysregw list2str ,s ;
 #tiposrmw mt0 mt1 mt2 mt3 mt4 mt5w 0 0 0
 
-::,REG | nro --
+:,REG | nro --
 	'sysregs list2str ,s ;
 
-::,cell | nro --
+:,cell | nro --
 	2 << 'cellt + dup @ dup $f and
 	swap $10 and? ( "dword [" ,s )
 	swap 2 << 'tiposrm + @ exec
@@ -220,7 +186,7 @@
 	$10 and? ( "]" ,s )
 	2drop ;
 
-::,cellb | nro --
+:,cellb | nro --
 	2 << 'cellt + dup @ dup $f and
 	swap $10 and? ( "byte [" ,s )
 	swap 2 << 'tiposrmb + @ exec
@@ -229,7 +195,7 @@
 	$10 and? ( "]" ,s )
 	2drop ;
 
-::,cellw | nro --
+:,cellw | nro --
 	2 << 'cellt + dup @ dup $f and
 	swap $10 and? ( "word [" ,s )
 	swap 2 << 'tiposrmw + @ exec
@@ -242,31 +208,6 @@
 	over cell0?
 	1? ( drop nip "xor " ,s dup ,REG "," ,s ,REG ,cr ; ) drop
 	"mov " ,s ,REG "," ,s ,CELL ,cr ;
-
-|------------------------BLOQUES
-::block.new blockn pilab> !+ 'pilab> ! 1 'blockn +! ;
-::block.end -4 'pilab> +! ;
-::block.now pilab> 	4 - @ ; | -- nblo
-
-::blockt	block.now 2 << 'block + @ ;
-::blockin	block.now 2 << 'blocki + @ ;
-::blockde	block.now 2 << 'blocke + @ ;
-
-:blockT!	block.now 2 << 'block + ! ;
-
-:blIF       0 blockT! ;
-:blELSE  	1 blockT! ;
-:blWHILE	2 blockT! ;
-:blUNTIL  	3 blockT! ;
-:blREPEAT  	4 blockT! ;
-
-:blNOSPLIT	block.now 2 << 'block + dup @ $10 or swap ! ;
-
-:blINI	dup 4 - block.now 2 << 'blocks + ! ;
-:blEND	dup 4 -
-	block.now 2 << 'blocks + @ getusedstack
-	neg block.now 2 << 'blocke + !
-	;
 
 
 ::cell+ | add nro --
@@ -294,575 +235,24 @@
 	0 swap 1020 + ! | shift
 	;
 
+|------------------
+:estareg | val reg dir cell -- val reg dir
+	cellREG? pick2 <>? ( drop ; ) drop
+	rot drop
+	dup 4 - @
+	rot rot ;
 
-|---------------------------------------------
-|-------------------------------------------
-| calcula informacion de celdas
-| RRRRRRRRWWWWWWWWxxxxxxxx...CXBMS
-| R cnt de lecturas
-| W cnt de escrituras
-| flags........
-| C clon
-| X direccion de codigo
-| B usa byte / Word
-| M usa memoria
-| S es stack puro
-|-------------------------------------------
-:cellW1	| celda+1W
-	d.TOS 2 << 'celli + dup
-	@ dup $ff00ffff and swap
-	$10000 + $ff0000 and or
-	swap ! ;
-
-:cellR1 | celda+1R
-	d.TOS 2 << 'celli + dup
-	@ dup $ffffff and swap
-	$1000000 + $ff000000 and or
-	swap ! ;
-
-:cellMem | celda que es direccion de memoria
-	d.tos 2 << 'celli + dup
-	@ $2 or swap ! ;
-
-:cellBW | usa byte o word (necesita parte de 8 o 16bits)
-	d.tos 2 << 'celli + dup
-	@ $4 or swap ! ;
-
-:cellEx | celda es direccion de codigo
-	d.tos 2 << 'celli + dup
-	@ $8 or swap ! ;
-
-|--- pila de estado de pila y registros para bloques
-#vpst )( 1024
-#vpst> 'vpst
-#vpmem )( $3fff
-#vpmem> 'vpmem
-
-:,vp vpmem> !+ 'vpmem> ! ;
-:vp@ vpmem> @+ swap 'vpmem> ! ;
-
-:,cpcell | nro --
-	2 <<
-	dup 'cellt + @ ,vp
-	dup 'cellv + @ ,vp
-	dup 'cella + @ ,vp
-	'cells + @ ,vp
-	;
-
-:cpcell@ | nro --
-	2 <<
-	vp@ over 'cellt + !
-	vp@ over 'cellv + !
-	vp@ over 'cella + !
-	vp@ swap 'cells + !
-	;
-
-::vpPush | --
-	vpmem> vpst> !+ 'vpst> !
-	dpila> 'dpila - 2 >>
-	,vp
-	'dpila ( dpila> <? )(
-		@+ dup ,vp ,cpcell
-		) drop
-	rpila> 'rpila - 2 >>
-	,vp
-	'rpila ( rpila> <? )(
-		@+ dup ,vp ,cpcell
-		) drop
-	inivpcnt ,vp
-	inivrcnt ,vp
-	;
-
-::vpPop | --
-	-4 'vpst> +!
-	vpst> @ 'vpmem> !
-	'dpila 'dpila> !
-	vp@
-	( 1? )( 1-
-		vp@ dup d.push cpcell@
-		) drop
-	'rpila 'rpila> !
-	vp@
-	( 1? )( 1-
-		vp@ dup r.push cpcell@
-		) drop
-	vp@ 'inivpcnt !
-	vp@ 'inivrcnt !
-	;
-
-::vpPick | -- ; pop del segundo
-	vpst> 8 - @ >r
-	'dpila 'dpila> !
-	r@+
-	( 1? )( 1-
-		r@+ dup d.push 2 <<
-		r@+ over 'cellt + !
-		r@+ over 'cellv + !
-		r@+ over 'cella + !
-		r@+ swap 'cells + !
-		) drop
-	'rpila 'rpila> !
-	r@+
-	( 1? )( 1-
-		r@+ dup r.push 2 <<
-		r@+ over 'cellt + !
-		r@+ over 'cellv + !
-		r@+ over 'cella + !
-		r@+ swap 'cells + !
-		) drop
-	r@+ 'inivpcnt !
-	r@+ 'inivrcnt !
-    rdrop
-	;
-
-::vpDrop | --
-	-4 'vpst> +!
-	vpst> @ 'vpmem> ! ;
-
-::vpNip | --
-	-4  'vpst> +!
-	vpst> dup @ swap 4 - !
-	;
-
-|---- transforma pila actual en copia apilada
-#regused )( 256
-#regused> 'regused
-
-:usadosolodestino | cell regd --
-
-| obtener regf
-
-	'regused ( regused> <? )(
-		@+ pick3 =? ( drop over over 4 - ! dup ) drop
-		) drop
-	over "xchg " ,s ,REG "," ,s ,REG ,cr
-
-	swap | cell reg
-	,cell2REG
-	;
-
-:cambiaregreg | cell regf regd --
-	swap -? ( drop usadosolodestino ; ) swap
-	'regused ( regused> <? )(
-		@+ pick3 =? ( drop over over 4 - ! dup ) drop
-		) drop
-|	2dup ";** %d %d " ,print
-|	"r4asm/cod.asm" savemem
-	"xchg " ,s ,REG "," ,s ,REG ,cr
+| en que celda esta el registro
+:REGcell | reg -- cell/-1
+	5 =? ( drop $ff ; )	| esi ocupado
+	6 =? ( drop $ff ; )	| ebp ocupado
+	-1 swap
+	'dpila ( dpila> <? )( @+ estareg ) drop
+	'rpila ( rpila> <? )( @+ estareg ) drop
 	drop ;
-
-:asignaregcell | reg cell --
-	dup cellReg? pick2 =? ( 3drop ; ) | si ya esta..
-	rot | cell fuente destino
-	-? ( 3drop ; )
-|	regu 1? ( drop cambiaregreg ; ) drop
-|	swap -1 <>? ( dup reg!! ) drop
-	,cell2REG
-	"r4asm/cod.asm" savemem
-	;
-
-
-::vpFit | dp --
-	vpst> 4 - @ >r
-	'regused 'regused> !
-
-	r@+ |"D: " ,s
-	( 1? )( 1-
-		r@+ drop
-		r@+ r@+ 8 r+
-		swap 5 =? ( drop )( 2drop -1 )
-		regused> !+ 'regused> !
-		) drop
-    rdrop
-	regused> dpila> rot
-	( 1? )( 1-
-		rot 4 - rot 4 -
-		over @ over @ asignaregcell
-		rot ) 3drop ;
-
-::vpFitAll | --
-	"; vFitall " ,print
-	d.cnt "d.cnt:%d " ,print
-	vpst> 4 - @ >r
-	'regused 'regused> !
-	r@+ dup "D:%d) " ,print
-	( 1? )( 1-
-		r@+ drop
-		r@+ r@+ 8 r+
-		swap 5 =? ( drop )(
-			2drop r 8 - @ 1+ neg ) | 1+ distinge eax de [esi]
-|			2drop -1 )
-		regused> !+ 'regused> !
-		) drop
-
-	r@+ | r:
-	( 1? )( 1- r@+ drop 16 r+ ) drop
-	r@+ drop |'registros !
-	r@+ " inivpcnt:%d  " ,print |drop |'inivpcnt !
-	r@+ drop |'inivrcnt !
-    rdrop
-
-	'regused ( regused> <? )( @+ 0 >=? ( dup ,sp ,REG )( dup ,sp ,d )  drop ) drop ,cr
-|	"; " ,s 6 ( 1? )( 1- regu 1? ( drop dup ,sp ,REG )( drop ) ) drop ,cr
-
-	"r4asm/cod.asm" savemem
-
-
-	regused> dpila> d.cnt
-	( 1? )( 1-
-		rot 4 - rot 4 -
-		over @ over @ asignaregcell
-		rot ) 3drop ;
-
-
-|****************************
-:toknow	dup 4 - @ ;
-:valnow	dup 4 - @ 8 >> ;
-
-|--- condicionales
-:salto? | -- 1/0
-	dup 8 - @ $ff and
-	18 >? ( 31 <? ( drop 1 ; ) )
-	drop 0 ;
-
-:es(
-	block.new
-	vpPush
-	blINI
-	salto? 1? ( 1 )( 2 ) >pilac drop
-	;
-
-:es)(
-	salto? 0? ( | ELSE
-		vpPop
-		<pilac drop 4 >pilac
-		blELSE
-		over 8 - @ $ff and 12 =? ( blNOSPLIT ) drop | ;)
-	)( | WHILE
-		vpDrop
-		<pilac drop 3 >pilac
-		)
-	drop
-	vpPush
-	;
-
-:es)
-	salto? 1? ( <pilac drop
-		blUNTIL
-		)( <pilac
-		1 =? ( blIF
-			pick2 8 - @ $ff and 12 =? ( blNOSPLIT )	drop | ;)
-			)
-		2 =? ( blREPEAT )
-		3 =? ( blWHILE )
-		4 =? ( | ELSE
-			pick2 8 - @ $ff and 12 <>? ( vpdrop vppush )( blNOSPLIT ) drop | ;)
-			)
-		drop ) drop
-	blEND
-	vpPop
-	block.end ;
-
-|---	 anonimas
-:es[ :es] :es;	;
-
-#lastdircode
-
-:litN	toknow tok>cte pushNRO ;
-:litS	0 pushSTR ;
-:litAW	valnow dup 'lastdircode ! pushCOD ;
-:litAV	valnow dup 'lastdircode ! pushDAT ;
-:litV	valnow dup 'lastdircode ! pushVAR ;
-
-:callW	| ww
-	valnow dic>mov @
-	dup 24 << 24 >> |duso
-	dup ( 1? )( 1+ cellR1 d.drop ) drop
-	swap 8 << 24 >> - abs
-	( 1? )( 1- 0 pushREG ) drop
-	;
-
-:exexec 	| exec
-	cellEx
-    cellR1 d.drop
-	lastdircode dic>mov @
-	dup 24 << 24 >> |duso
-	dup ( 1? )( 1+ cellR1 d.drop ) drop
-	swap 8 << 24 >> - abs
-	( 1? )( 1- 0 pushREG ) drop ;
-
-:c0 | 0? 1? ..
-	cellR1 ;
-:c1 | =? <? ..
-	cellR1 d.drop cellR1 ;
-
-:op1a1	cellW1 ; | neg not 1+ 4+ 1- 2/ ..
-:vop1a1 cellW1 ; | abs  clz  ..
-:op2a1	cellR1 d.drop cellW1 ; | + - * and or xor ..
-:vop2a1 cellR1 d.drop cellW1 ; | / mod
-:xop2a1	cellR1 d.drop cellW1 ; | << >>
-:op3a1	cellR1 d.drop cellR1 d.drop cellW1 ; | */
-:vop3a1	cellR1 d.drop cellR1 d.drop cellW1 ; | *>> /<<
-
-:op2a2	cellW1 d.swap cellW1 ; | mod/
-
-:1@	| @ c@ w@
-	cellMem cellW1 ;
-:1!	| ! c! w!
-	cellMem cellR1 d.drop cellR1 d.drop ;
-:2@	| @+ c@+ w@+
-	cellMem cellW1 d.tos pushREG  ;
-:2!	| !+ c!+ w!+
-	d.swap cellR1 d.swap cellMem cellW1 d.nip ;
-:2+! | +! c+! w+!
-	cellMem cellR1 d.drop cellR1 d.drop ;
-
-:vuso6	cellR1 d.drop cellR1 d.drop
-:vuso4	cellR1 d.drop
-:vuso3	cellR1 d.drop
-:vuso2	cellR1 d.drop
-:vuso1	cellR1 d.drop ;
-:vuso11	cellR1 ;
-:vuso21	cellR1 d.drop cellR1 ;
-:v1cte	0 pushCTE ;
-:v3v	0 pushREG
-:v2v	0 pushREG
-:v1v	0 pushREG ;
-:v>R
-		d.pop r.push ;
-:vR>
-		r.cnt 1? ( r.pop )( 6 5 newcell )
-		nip d.push ;
-:vR		r.tos d.push ;
-:vr+	r.tos d.push cellW1 d.2drop ; |R+    a -- R: b -- c
-:vr@+	r.tos d.push cellW1 cellMem d.drop d.tos pushREG ; |R@+    -- a R: b -- c
-:vr!+	r.tos d.push cellW1 cellMem d.drop cellR1 d.drop ; |R!+   a -- R: b -- c
-
-#usocelda
-0
-0
-0	|0 1 :,,defc 2 :,,defv
-litN
-litN
-litN
-litN	|3 :,,litd | --	n numero decimal
-litS	|7 :,,lits | --	s string
-callW	|8 :,,word 	| ..--..  word <---- debe ser calculado
-litV	|9 :,,var 	| -- v var
-litAW	|10:,,dword | -- dw dir word
-litAV	|11:,,dvar 	| -- dv dir var
-es;		|; | fin de palabra (12)
-es(
-es)(
-es)
-es[
-es]
-exexec	|EXEC  x/0 --    TOS es dcod (18)
-c0
-c0
-c0
-c0					|0? a -- a  (19-22)
-c1
-c1
-c1
-c1
-c1
-c1
-c1
-c1		|=?  ab -- a (23-30)
-d.dup
-d.drop
-d.over
-d.pick2
-d.pick3
-d.pick4
-d.swap
-d.nip | ( 31--38)
-d.rot
-d.2dup
-d.2drop
-d.3drop
-d.4drop
-d.2over
-d.2swap     | ( 39--45)
-v>R		|>R    a -- R: -- a	(46)
-vR>		|R>    -- a R: a -- (47)
-vr		|R      -- a R: a -- a
-vr+		|R+    a -- R: b -- c
-vr@+	|R@+    -- a R: b -- c
-vr!+	|R!+   a -- R: b -- c
-r.drop	|RDROP	R: a -- (52)
-op2a1	|53 AND	ab -- c
-op2a1	|OR    ab -- c
-op2a1	|XOR   ab -- c
-op1a1	|NOT    a -- b
-op2a1	|+		ab -- c
-op2a1	|-     ab -- c
-op2a1	|*     ab -- c
-vop2a1	|/     ab -- c		usa eax,edx
-op3a1	|*/    abc -- d     usa eax,edx
-vop3a1	|*>>   abc -- d     usa eax,edx, ecx
-op2a2	|/MOD   ab -- cd    usa eax,edx
-vop2a1	|MOD    ab -- c     usa eax,edx
-vop1a1	|ABS    a -- b      usa eax,edx
-op1a1	|SQRT	a -- b
-vop1a1	|CLZ	a -- b     usa eax,edx
-vop3a1	|<</	abc -- d   usa eax,edx, ecx
-op1a1	|NEG    a -- b
-op1a1	|1+     a -- b
-op1a1	|4+     a -- b
-op1a1	|1-     a -- b
-op1a1	|2/     a -- b
-op1a1	|2*     a -- b
-xop2a1	|<<    ab -- c     usa ecx
-xop2a1	|76 >>    ab -- c  usa ecx
-1@	|@      a -- b     tos es ddat
-1@	|C@     a -- b		tos es ddat
-1@	|W@     a -- b      tos es ddat
-1!	|!     ab --        tos es ddat
-1!	|C!    ab --        tos es ddat
-1!	|W!    ab --        tos es ddat
-2+!	|+!    ab --        tos es ddat
-2+!	|C+!   ab --        tos es ddat
-2+!	|W+!   ab --        tos es ddat
-2@	|@+     a -- bc     tos es ddat
-2!	|!+    ab -- c      tos es ddat
-2@	|C@+    a -- bc     tos es ddat
-2!	|C!+   ab -- c      tos es ddat
-2@	|W@+    a -- bc     tos es ddat
-2!	|W!+   ab -- c      tos es ddat
-vuso3	|MOVE  abc --       a,b es ddat
-vuso3	|MOVE> abc --		a,b es ddat
-vuso3	|CMOVE abc --		a,b es ddat
-vuso3	|CMOVE> abc --		a,b es ddat
-v1cte	|MEM	-- a		a es ddat
-vuso11	|FFIRST    a -- b
-v1v		|FNEXT  -- a
-vuso21	|LOAD   ab -- c
-vuso3	|SAVE   abc --
-vuso3	|APPEND   abc --
-vuso11	|UPDATE  a -- a
-v2v		|XYMOUSE -- ab
-v1v		|BMOUSE  -- a
-vuso1	|IKEY!  a --
-v1v		|KEY     -- a
-v1v		|CNTJOY  -- a
-v1v		|GETJOY  -- a
-v1v	|MSEC    -- a
-v3v	|TIME    -- abc
-v3v	|DATE    -- abc
-0	|END     --
-vuso1	|RUN    a --
-v1cte	|SW      -- a
-v1cte	|SH      -- a
-0	|CLS     --
-0	|REDRAW  --
-v1v	|FRAMEV  -- a
-vuso2	|SETXY  ab --
-vuso1	|PX+!   a --
-vuso1	|PX!+   a --
-v1v	|PX@     -- a
-v1cte	|XFB     -- a
-0	|>XFB    --
-0	|XFB>    --
-vuso1	|PAPER  a --
-vuso1	|INK    a --
-v1v		|INK@    -- a
-vuso1	|ALPHA  a --
-vuso2	|OP     ab --
-vuso2	|LINE   ab --
-vuso4	|CURVE  abcd --
-vuso6	|CURVE3  abcdef --
-vuso2	|PLINE  ab --
-vuso4	|PCURVE abcd --
-vuso6	|PCURVE3 abcdef --
-0		|POLI    --
-vuso2	|FCOL   ab --
-vuso2	|FCEN   ab --
-vuso2	|FMAT   ab --
-0 0 0	|SFILL LFILL RFILL  --
-vuso1	|TFILL  a --
-vuso11	|SLOAD   a -- a
-vuso1	|SPLAY  a --
-vuso11	|SINFO   a -- a
-vuso4	|SSET  a --
-|---- falta
-0	|OPENURL
-0	|DOCINI
-0	|DOCEND
-0	|DOCAT
-0	|DOCLINE
-0	|DOCTEXT
-0	|DOCFONT
-0	|DOCBIT
-0	|DOCRES
-0	|DOCSIZE
-0	|SYSTEM
-
 
 :newreg | -- reg
 	0 ( dup REGcell -1 <>? )( drop 1+ ) drop ;
-
-|------------------------------------------------
-:freelreg | adr cell reg --
-	pick2 dpila> - 2 >> 1+ neg d.cnt inivpcnt - - 1-
-	"mov [esi" ,s
-	1? ( +? ( "+" ,s ) 2 << ,d )( drop )
-	"]," ,s ,REG ,cr
-
-	5 $15 pick2 cell!
-	swap dpila> - 4+ neg d.cnt inivpcnt - 2 << - 4 -
-	swap cell+!
-	;
-
-::freelastreg | --
-	'dpila ( dpila> 4 - <? )(
-		@+ dup cellREG? 0 >=? ( freelreg ; )
-		2drop ) drop
-	 ;
-
-|------------------------------------------------
-:back2stack | cell reg adr reg -- cell reg adr reg
-	over dpila> - 2 >> 1+ neg d.cnt inivpcnt - -
-	"mov dword [esi" ,s
-	1? ( +? ( "+" ,s ) 2 << ,d )( drop )
-	"]," ,s dup ,REG ,cr
-	5 $15 pick3 4 - @ cell!
-	over dpila> - 4+ neg d.cnt inivpcnt - 2 << -
-	pick2 4 - @ cell+!
-	;
-
-::reemplazaenreg | cell reg -- cell reg
-|	"; reemplaza " ,s dup ,d  ";" ,s inivpcnt ,d printddvtack
-	'dpila ( dpila> 4 - <? )( @+ | cell reg adr c0
-		cellREG? | cell reg adr reg
-		pick2 =? ( dup 5 pick3 4 - @ cell! )
-		drop ) drop
-|	";" ,s inivpcnt ,d printddvtack
-	'dpila ( dpila> 4 - <? )( @+ | cell reg adr c0
-		pick3 <>? (
-			cellREG? | cell reg adr reg
-			pick2 =? ( back2stack )
-			)
-		drop ) drop
-|	";" ,s inivpcnt ,d printddvtack
-	;
-
-
-|-----------------
-:esvari | cell var adr c0 -- cell var adr
-	cellVAR |-? ( 2drop ; ) | c0 var
-	pick3 <>? ( 2drop ; )
-	newReg
-	"mov " ,s dup ,REG ",dword [w" ,s swap ,h "]" ,s ,cr
-	5 rot cell!
-	;
-
-::resguardavar | cell --
-	cellDVAR -? ( 2drop ; ) | cell var
-	'dpila ( dpila> 4 - <? )( | cell var adr
-		@+ esvari
-		) 3drop ;
 
 |-------------------------------------------
 | DEBUG: imprime pila virtual
@@ -887,7 +277,8 @@ vuso4	|SSET  a --
 ::dumpcells, | -- ; imprime info celdas
 |	"Nro:Read:Write:T" ,print ,cr
 	0 ( celln <? )(
-		dup "; %h:" ,print
+		dup ,cell
+		dup " ; %h:" ,print
 		dup 2 << 'celli + @
 		dup 24 >> $ff and "%d:" ,print
 		dup 16 >> $ff and "%d:" ,print
@@ -895,65 +286,6 @@ vuso4	|SSET  a --
 		$ff and  "%h" ,print ,cr
 		1+ ) drop
 	;
-
-:dumpblock, | n --
-	2 << ";" ,s
-|	dup 'block + @ " BL %d " ,print
-
-	dup 'blocke + @ "<%d>" ,print
-	'blocki + @ " %h" ,print
-	,cr
-	;
-
-::infoblock
-	";----------------" ,ln
-	0 ( blockn <? )(
-		dup dumpblock,
-		1+ ) drop
-	";----------------" ,ln
-	;
-
-
-|------------------------------------------
-| inicia vpila como normal con USADO celdas
-| de forma normal, guarda nivel en INIVPCNT
-| [esi+4] [esi] eax -- para usado=3
-|------------------------------------------
-:inivstack
-	0 'celln !
-	0 'blockn !
-	'dpila 'dpila> !
-	'rpila 'rpila> !
-	'pilac 'pilac> !
-	'pilab 'pilab> !
-	'vpmem 'vpmem> !
-	'vpst 'vpst> !
-	;
-
-::inivpila | usado --
-	0? ( 1 nip )
-	dup 'inivpcnt !
-	0 'inivrcnt !
-	inivstack
-	1- ( 1? )( 1-
-		5 $15 newcell
-		over 2 << over
-		cell+ d.push 	| [esi+..
-		) drop
-	0 5 newcell d.push	| eax
-	;
-
-::calccell | fin buff use --
-	inivpila
-	( over <? )(
-		@+ $ff and
-
-|**** debug
-|		"; " ,s printddvtack
-|**** debug
-
-		2 << 'usocelda + @ 1? ( exec )( drop ) | adri+ adr+
-		) 2drop ;
 
 |---- corre esi
 :cellESI | cell deltasi --
@@ -967,240 +299,166 @@ vuso4	|SSET  a --
 	'rpila ( rpila> <? )( @+ pick2 cellESI ) drop
 	drop ;
 
-:resolveADR | nro xx cell yy -- nro xx cell yy
-	newReg pick2 over ,cell2REG
-	5 pick3 cell! ;
+|---------------------------
+#stackuse )( 256
 
+:printstate
+	";* " ,s
+	'stackuse 0 ( 8 <? )( swap
+     	c@+ 1? ( pick2 2 << "[esi+%d] " ,print )
+		drop swap 1+ ) 2drop
+	,cr ;
 
-:esesi? | cell -- cell -1/sum
-	dup cellREGM? 5 <>? ( drop -1 ; ) drop
-	dup cellSUM ;
+|--- cambia registros en pila
+:inchange | reg dest cnt 'dpila cell sum
+	drop pick4 5 rot cell! 2dup ;
 
-:esitoreg2 | cell reg sum -- cell reg sum
-	'dpila ( dpila> <? )( @+ | reg sum adr cel
-		esesi? pick3 =? ( drop
-			pick3 5 pick2 cell!
-			dup )
-		2drop )
-	drop ;
+:changeREG | dest cell reg -- dest cell
+	pick2 d.cnt 1- 'dpila | dest cell reg dest cnt 'dpila
+	( dpila> <? )( swap 1- swap @+
+		dup cellSTACK
+		-? ( 2drop )( pick3 2 << <>? ( pick4 2 << =? ( inchange ) ) 2drop )
+		) 4drop ;
 
-|------
-#listausados )( 1024
-
-:saveused | adr cell esi -- adr
-	-? ( 2drop ; )
-	pick2 dpila> - 2 >> 1+ neg | corresponde
-	2 << over
-	=? ( 3drop ; ) drop
-	1 over 'listausados + +!
-	2drop ;
-
-:listacellusados
-	dpila> 'dpila - 2 >>
-	'listausados >r
-	dup ( 1? )( 1- 0 r!+ ) drop
-	rdrop
-	'dpila ( dpila> <? )( @+ esesi? saveused ) 2drop
-	;
-
-:cellused? | -- 0/n
-	0
-	'listausados
-	dpila> 'dpila - 2 >>
-	( 1? )( 1- swap @+
-		1? ( drop rot 1+ rot rot )( drop )
-		swap ) 2drop
-	;
-
-:regcnt? | reg -- reg cnt
-	0 'dpila ( dpila> <? )( @+ | reg sum adr cel
-		cellREG? pick3 =? ( rot 1+ rot rot )
-		drop )
-	drop ;
-
-:copiaregusado | adr cell reg -- adr
-	regcnt? 1 >? ( 3drop ; ) drop
-	pick2 dpila> - 4+ neg
+:chg2stack | dest cell --
 	"xchg dword [esi" ,s
-	1? ( +? ( "+" ,s ) dup ,d )
-	"]," ,s over ,REG ,cr
+	over 2 << 1? ( +? ( "+" ,s ) ,d )( drop )
+	"]," ,s dup ,CELL ,cr
+	dup cellREG? changeREG | dest cell reg
 
-	esitoreg2 | cell reg esi
-	nip | cell esi
-	5 $15 pick3 cell!
-	swap cell+!
-	;
+	5 $15 pick2 cell! swap 2 << swap cell+! ;
 
-:copiareglimpio | adr cell -- adr
-	dup cellREG? -? ( 2drop ; ) | adr cell reg
-	pick2 dpila> - 2 >> 1+ neg | corresponde
-	2 << 'listausados + @
-	1? ( drop copiaregusado ; ) drop
-	pick2 dpila> - 4+ neg
+:mov2stack | dest cell --
+	over 'stackuse + c@ 1? ( drop chg2stack ; ) drop
 	"mov dword [esi" ,s
-	1? ( +? ( "+" ,s ) dup ,d )
-	"]," ,s swap ,REG ,cr
-	| cell sum
-	5 $15 pick3 cell!
-	swap cell+! ;
-
-:pasada_free_reg
-	listacellusados
-	'dpila ( dpila> 4 - <? )( @+ copiareglimpio ) drop
-	;
-
-:rescatousada | adr cell -- adr
-	over dpila> - 4+ neg | corresponde
-	'listausados + @
-	0? ( 2drop ; ) drop
-	newReg | adr cell reg
-
-|	6 >? ( 2drop ; ) | no alcanzan registros
-
-	"mov " ,s dup ,REG ",dword [esi" ,s
-	pick2 dpila> - 4+ neg
-	1? ( +? ( "+" ,s ) dup ,d )
-	"]" ,ln
-	esitoreg2 | cell reg esi
-	3drop ;
-
-:pasada_free_cell
-	listacellusados
-	'dpila ( dpila> 4 - <? )( @+ rescatousada ) drop
-	;
-
-|-------
-:genRST | nro XX cell -- nro XX
-	dup cellREGM? 5 =? (
-		drop dup cellSUM
-		pick3 2 << =? ( 2drop ; ) | si esta en el lugar no generar
-		) drop | nro xx cell x.sum.x
-
-	dup cellADR? 1? ( resolveADR ) drop
-
-	"mov dword [esi" ,s
-	pick2 1? ( +? ( "+" ,s ) 2 << ,d )( drop )
+	over 2 << 1? ( +? ( "+" ,s ) ,d )( drop )
 	"]," ,s dup ,CELL ,cr
 
-	5 $15 pick2 cell!
-	pick2 2 << swap cell+! ;
+	5 $15 pick2 cell! swap 2 << swap cell+! ;
 
-:genEAX | cell --
-	dup cellREG? 0? ( 2drop ; ) drop	| ya es eax!
-	dup 0 ,cell2REG
-	0 5 rot cell! ;
+|--- mueve los que son registros
+:movereg
+	d.cnt 1- 'dpila
+	( dpila> 4 - <? )( swap 1- swap @+
+		dup cellREG? 0 >=? ( drop nip mov2stack 1 ; ) 2drop
+		) 2drop 0 ;
+
+|--- mueve constantes iguales !!!! optimizacion
+:movecte
+	'dpila
+	( dpila> <? )(
+		@+ cellNRO? drop |*******
+		) drop ;
+
+|--- mueve los que quedan
+:resolveADR | cnt adr cell xx -- cnt adr cell xx
+	newReg pick2 over ,cell2REG
+	|--- cnt adr cell xx reg
+	pick2 cellSTACK 2 >> pick3 pick2 changeREG | dest cell reg
+	2drop
+	5 pick3 cell!
+|	printddvtack
+	;
+
+:realmove | cnt adr cell -- cnt adr x x
+	dup cellADR? 1? ( resolveADR ) drop
+	| cnt adr cell
+|	" ; " ,s printddvtack
+	pick2 swap mov2stack | dest cell
+|	" ; " ,s printddvtack
+	2dup
+	;
+
+:movecell
+	d.cnt 1- 'dpila
+	( dpila> 4 - <? )( swap 1- swap @+
+		dup cellSTACK pick3 2 <<
+		<>? ( drop realmove ) 2drop
+		) 2drop ;
+
+|----
+:usado | nro XX cell -- nro XX
+	dup cellREGM? 5 =? ( drop
+		dup cellSUM pick3 2 <<
+		<>? ( 1 swap 2 >> 'stackuse + c! drop ; )
+		) 2drop ;
+
+:fillstackuse
+	'stackuse d.cnt
+	( 1? )( 1- 0 rot c!+ swap ) 2drop
+	d.cnt 1- 'dpila
+	( dpila> <? )( swap 1- swap @+
+		usado ) 2drop ;
 
 :vplast
 	inivpcnt 0? ( drop ; ) drop
 	"mov eax,dword [esi-4]" ,s ,cr
 	0 5 d.tos cell! ;
 
-:vpcopia
-	d.cnt
-
-|	-? ( drop 'dpila 'dpila> ! vplast ; ) |****
-	-? ( trace ; ) | no se puede dar !!
-
-	0? ( drop vplast ; ) drop
-
-	( 	pasada_free_reg
-		pasada_free_cell
-		cellused? 1? )( drop ) drop
-
-	'dpila d.cnt |	copia resto
-	 1- ( 1? )( 1-
-		swap @+ genRST
-		swap ) drop
-	@ genEAX ;
-
-|---------------------------
-#cell2fix )( 256
-#cell2fix> 'cell2fix
-#stackuse )( 256
-
-:printstate
-	'cell2fix
-	( cell2fix> <? )(
-		@+ "[esi+%d] <-- " ,print @+ ,cellp ,sp
-		) drop
-	,cr
-	'stackuse 0 ( 8 <? )( swap
-     	c@+ 1? ( pick2 2 << "[esi+%d] " ,print )
-		drop swap 1+ ) 2drop
-	,cr ;
-
-:clearstackuse
-	'stackuse 64 ( 1? )( 1- 0 rot !+ swap ) 2drop ;
-
-|---
-:realmover | dest cell --
-	"mov dword [esi" ,s
-	over 1? ( "+" ,s ,d )( drop )
-	"]," ,s dup ,CELL ,cr
-	5 $15 pick2 cell! cell+! ;
-
-:movereg
-	'cell2fix
-	( cell2fix> <? )( >r
-		r@+ r@+
-        dup cellREG? -? ( 3drop )( drop realmover -1 -1 r 8 - !+ ! )
-		r> ) drop ;
-
-|---
-:resolveADR | dest cell adr -- dest cell adr
-	newReg pick2 over ,cell2REG
-	5 pick3 cell! ;
-
-:realmovec | dest cell --
-	dup cellADR? 1? ( resolveADR ) drop
-	"mov dword [esi" ,s
-	over 1? ( +? ( "+" ,s ) ,d )( drop )
-	"]," ,s dup ,CELL ,cr
-	5 $15 pick2 cell! cell+! ;
-
-:movecell
-	'cell2fix
-	( cell2fix> <? )( >r
-		r@+ r@+
-		-? ( 2drop )( realmovec ) | solo los que quedan
-		r> ) drop ;
-
-|----
-:enlugar? | nro XX cell -- nro XX
-	dup cellREGM? 5 =? ( drop
-		dup cellSUM
-		1 over 2 >> 'stackuse + ! | marca usado
-		pick3 2 << =? ( 2drop ; )
-		) drop
-	pick2 2 << cell2fix> !+ !+ 'cell2fix> !
-	;
-
 :vpcopia2
-	d.cnt 0? ( drop vplast ; )
-	clearstackuse
-	'cell2fix 'cell2fix> !
-	1- 'dpila
-	( swap 1? )( 1- swap @+ enlugar? ) 2drop
+	d.cnt 0? ( drop vplast ; ) drop
+	fillstackuse
 
-	printstate
-	printddvtack
-	movereg
-	printddvtack
+|	printstate
+
+	( |	printddvtack
+	movereg 1? )( drop ) drop
+
+	movecte
+
+|	printddvtack
 	movecell
-	;
 
-:genEAX | --
 	d.tos
 	dup cellREG? 0? ( 2drop ; ) drop	| ya es eax!
 	dup 0 ,cell2REG
 	0 5 rot cell! ;
 
+
+|------------------------------------------
+| inicia vpila como normal con USADO celdas
+| de forma normal, guarda nivel en INIVPCNT
+| [esi+4] [esi] eax -- para usado=3
+|------------------------------------------
+:inivstack
+	0 'celln !
+	'dpila 'dpila> !
+	'rpila 'rpila> !
+	;
+
+::inivpila | usado --
+	0? ( 1 nip )
+	dup 'inivpcnt !
+	inivstack
+	1- ( 1? )( 1-
+		5 $15 newcell
+		over 2 << over
+		cell+ d.push 	| [esi+..
+		) drop
+	0 5 newcell d.push	| eax
+	;
+
 |---- transforma la pila actual a normal
 ::vpila2normal | --
-	inivpcnt d.cnt - correESI			| corre esi a nuevo lugar
-
-	vpcopia2				| copia los registros/ctes en pila
-
-	genEAX
+	inivpcnt d.cnt -
+	correESI			| corre esi a nuevo lugar
+	vpcopia2			| copia los registros/ctes en pila
 	d.cnt 'inivpcnt !	| ahora vpila tiene...
 	;
+
+
+|---- normal hasta nivel n
+::vpila2normalf | n --
+	drop
+	;
+
+|------ acceso a celdas
+::,TOS	d.tos ,cell ;
+::,TOSb	d.tos ,cellb ;
+
+::,NOS	d.nos ,cell ;
+::,NOSb	d.nos ,cellb ;
+::,NOSw	d.nos ,cellw ;
+
+::,NOS2	d.pk2 ,cell ;
+::,RTOS	r.tos ,cell ;
