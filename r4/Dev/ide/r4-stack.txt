@@ -174,10 +174,10 @@
 :mt5w value 'sysregw list2str ,s ;
 #tiposrmw mt0 mt1 mt2 mt3 mt4 mt5w 0 0 0
 
-:,REG | nro --
+::,REG | nro --
 	'sysregs list2str ,s ;
 
-:,cell | nro --
+::,cell | nro --
 	2 << 'cellt + dup @ dup $f and
 	swap $10 and? ( "dword [" ,s )
 	swap 2 << 'tiposrm + @ exec
@@ -251,7 +251,7 @@
 	'rpila ( rpila> <? )( @+ estareg ) drop
 	drop ;
 
-:newreg | -- reg
+::newreg | -- reg
 	0 ( dup REGcell -1 <>? )( drop 1+ ) drop ;
 
 |-------------------------------------------
@@ -426,7 +426,7 @@
 	'rpila 'rpila> !
 	;
 
-::inivpila | usado --
+::inivpila | deep --
 	0? ( 1 nip )
 	dup 'inivpcnt !
 	inivstack
@@ -447,10 +447,21 @@
 	;
 
 
-|---- normal hasta nivel n
-::vpila2normalf | n --
+|---- acomoda pila actual
+::vpila2v | deep --
+	1? ( -? ( ( 1? )( 1+ d.drop ) )( ( 1? )( 1- d.dup ) ) )
 	drop
-	;
+	d.cnt dup 'inivpcnt ! | ahora vpila tiene...
+	0? ( drop ; )
+	1- ( 1? )( 1-
+		dup 1+ d.rel
+		5 $15 pick2 cell!
+		over 2 << swap cell+!
+		)
+	d.rel 0 5 rot cell! ;
+
+::vpila2callV | nro --
+	dic>mov @ 16 << 24 >> vpila2v ;
 
 |------ acceso a celdas
 ::,TOS	d.tos ,cell ;
@@ -462,3 +473,31 @@
 
 ::,NOS2	d.pk2 ,cell ;
 ::,RTOS	r.tos ,cell ;
+
+:cell2newReg
+	newREG
+	over cell0? 0? ( drop
+		"mov " ,s dup ,REG "," ,s over ,CELL
+		)( drop
+		"xor " ,s dup ,REG "," ,s dup ,REG
+		)
+	,cr
+	5 rot cell! ;
+
+::cell2REG | cell --
+	dup cellREG? 0 >=? ( 2drop ; ) drop
+    cell2newReg ;
+
+::cell2NMEM | cell --
+	dup cellADR? 0? ( 2drop ; ) drop
+    cell2newReg ;
+
+::cell2REGorMEM | cell --
+	dup cellREG? 0 >=? ( 2drop ; ) drop
+	dup cellADR? 1? ( 2drop ; ) drop
+	cell2newReg ;
+
+::cell2REGorCTE | cell --
+	dup cellNRO? 1? ( 2drop ; ) drop
+	dup cellREG? 0 >=? ( 2drop ; ) drop
+	cell2newReg ;
