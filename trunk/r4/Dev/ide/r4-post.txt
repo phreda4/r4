@@ -195,6 +195,7 @@
 1 -1 0 0	|SYSTEM
 )
 
+
 |------------- recorre cada palabra
 #pilaint )( 1024
 #pilaint> 'pilaint
@@ -223,7 +224,7 @@
 :usaR
 	$8 flags or 'flags ! ;
 
-|--- Anonimas
+|---- Anonimas
 :es[
 	pushvar
 	1 'pano +! 1 'cano +! ;
@@ -231,6 +232,36 @@
 :es]
 	popvar
     -1 'pano +! ;
+
+|---- BLOQUES
+#blockn 0
+#block )( 1024	| tipo+info
+#blocks )( 1024 | celda comienzo
+#blocke )( 1024 | celda fin
+#blocki )( 1024 | info de las celdas en bloque
+
+|----- pila para bloques
+#pilab )( 256	#pilab> 'pilab
+
+::block.new blockn pilab> !+ 'pilab> ! 1 'blockn +! ;
+::block.end -4 'pilab> +! ;
+::block.now pilab> 4 - @ ; | -- nblo
+
+::blockt	block.now 2 << 'block + @ ;
+::blockin	block.now 2 << 'blocki + @ ;
+
+:blockT!	block.now 2 << 'block + ! ;
+
+:blIF       0 blockT! ;
+:blELSE  	1 blockT! ;
+:blWHILE	2 blockT! ;
+:blUNTIL  	3 blockT! ;
+:blREPEAT  	4 blockT! ;
+
+:blNOSPLIT	block.now 2 << 'block + dup @ $10 or swap ! ;
+
+|:blINI	celln block.now 2 << 'blocks + ! ;
+|:blEND	celln block.now 2 << 'blocke + ! ;
 
 |----- CONDICIONALES
 :salto? | adr -- 1/0
@@ -240,6 +271,7 @@
 	dup 8 - @ $ff and $10 =? ( drop 1 ; ) drop 0 ;
 
 :es(
+	block.new
 	pushvar
 	salto? sst!
 	;
@@ -249,6 +281,9 @@
 	sst@ 2drop
 	popvar pushvar
 	2 sst!
+|		over 8 - @ $ff and | ;)
+|		12 =? ( blNOSPLIT )
+|		drop
 	;
 
 :tipo1 | ?( )
@@ -256,12 +291,15 @@
 	dropvar ;
 
 :es)	|)
-	sst@ 0? ( drop dropvar ; ) | (  ? ) o (    )
-	1- 0? ( drop tipo1 ; )
-	1- 0? ( drop dropvar ; ) | ?( )( )
-	drop | ( ? )(  )
-	popvar ;
+	sst@ 0? ( drop dropvar
+		salto? 1? ( blUNTIL )( blREPEAT ) drop
+		block.end ; )								| (  ? ) o (    )
+	1- 0? ( drop tipo1 blIF block.end ; ) 			| ? ( )
+	1- 0? ( drop dropvar blELSE block.end ; ) 		| ?( )( )
+	drop popvar blWHILE block.end ;					| ( ? )(  )
 
+
+|----------------------
 :esFin
 	pano 1? ( drop ; ) drop
 	cntfin 0? ( deltaD 'deltaD1fin ! ) drop
@@ -323,6 +361,8 @@
 	dup 'pano ! 'cano !
 	'pilaint 'pilaint> !
 	'sst 'sst> !
+	0 'blockn !
+	'pilab 'pilab> !
 	;
 
 
@@ -523,3 +563,21 @@
 		) 2drop
 	usoD ;
 
+
+|------------ DEBUG bloques
+:dumpblock, | n --
+	2 <<
+	dup 'block + @ "; BL %d (" ,print
+	dup 'blocks + @ "%h-" ,print
+	dup 'blocke + @ "%h)" ,print
+	'blocki + @ "%h" ,print
+	,cr
+	;
+
+::infoblock
+	";----------------" ,ln
+	0 ( blockn <? )(
+		dup dumpblock,
+		1+ ) drop
+	";----------------" ,ln
+	;
