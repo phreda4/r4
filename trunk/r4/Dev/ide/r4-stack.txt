@@ -474,6 +474,14 @@
 ::,NOS2	d.pk2 ,cell ;
 ::,RTOS	r.tos ,cell ;
 
+::cell2cell! | origen destino --
+	2 << 'cellt +
+	swap 2 << 'cellt +
+	@+ rot !+
+	swap 1020 + @+ rot 1020 + !+
+	swap 1020 + @+ rot 1020 + !+
+	swap 1020 + @ swap 1020 + ! ;
+
 :cell2newReg
 	newREG
 	over cell0? 0? ( drop
@@ -501,3 +509,78 @@
 	dup cellNRO? 1? ( 2drop ; ) drop
 	dup cellREG? 0 >=? ( 2drop ; ) drop
 	cell2newReg ;
+
+
+::setEAX | cell --
+	0 5 rot cell! ;
+
+::setEDX | cell --
+	3 5 rot cell! ;
+
+:pk2EAX | anterior a pk2 sin eax, no usar edx
+	;
+
+:nosEAX | anterior a nos sin eax, no usar edx
+	;
+
+|--- ECX o constante
+::cteorECX | cell --
+	dup cellNRO? 1? ( 2drop ; ) drop
+	dup cellREG? 2 =? ( 2drop ; ) drop
+|	registros %100 and? ( drop 2 reemplazaenreg drop )( drop )
+	"mov ecx," ,s dup ,CELL ,cr
+	2 5 rot cell! ;
+
+::needREGorMEM | cell --
+	dup cellREG? 0 >=? ( 2drop ; ) drop
+	dup cellADR? 1? ( 2drop ; ) drop
+	cell2newReg ;
+
+:needREGorCTE | cell --
+	dup cellNRO? 1? ( 2drop ; ) drop
+	dup cellREG? 0 >=? ( 2drop ; ) drop
+	cell2newReg ;
+
+:inverteaxreg
+	d.tos d.nos "xchg " ,s ,CELL "," ,s ,CELL ,cr
+|	usoEDX
+	;
+
+::nosEAXtosREGMEMfreeEDX
+	d.tos cellREG? 0? ( d.nos cellREG? +? ( 2drop inverteaxreg ; ) drop ) drop
+	nosEAX
+|	usoEDX
+	d.tos needREGorMEM
+	;
+
+:inv1eaxreg
+	d.pk2 d.nos
+	2dup "xchg " ,s ,CELL "," ,s ,CELL ,cr
+	cell2cell!
+|	usoEDX
+	d.nos needREGorMEM
+	d.tos needREGorMEM ;
+
+:inv2eaxreg
+	d.pk2 d.tos
+	2dup "xchg " ,s ,CELL "," ,s ,CELL ,cr
+	cell2cell!
+|	usoEDX
+	d.nos needREGorMEM
+	d.tos needREGorMEM ;
+
+::pk2EAXtosnosREGMEMfreeEDX
+	d.nos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv1eaxreg ; ) drop ) drop
+	d.tos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv2eaxreg ; ) drop ) drop
+	pk2EAX
+|	usoEDX
+	d.nos needREGorMEM
+	d.tos needREGorMEM ;
+
+::pk2EAXnosREGMEMtosECXfreeEDX
+	d.nos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv1eaxreg ; ) drop ) drop
+	d.tos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv2eaxreg ; ) drop ) drop
+	pk2EAX
+	d.nos needREGorMEM
+	d.tos cteorECX
+	;
