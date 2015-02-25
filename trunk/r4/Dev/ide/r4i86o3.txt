@@ -52,7 +52,7 @@
 	vpila2normal
 	dup @ $ff and 			| word ;
 	$10 =? ( "jmp " )( "call " ) nip ,s
-	toknow tok>name ,s ,cr
+	toknow nro>dicn ,s ,cr
 	toknow 8 >> vpila2callV
 	strpending neg vpila2v
 	0 'strpending !
@@ -173,9 +173,9 @@
 	;
 
 :,cond
-	d.cnt "; COND cnt: %d " ,print
-|	blockde "; blockde: %d " ,print
-	inivpcnt "; inivpcnt: %d " ,print
+	d.cnt "; IC cnt:%d " ,print
+|	blockde " blockde:%d " ,print
+	inivpcnt " inivpcnt:%d " ,print
 	printddvtack
 
 	contype
@@ -184,9 +184,9 @@
 |		)( drop )
 	exec
 
-	d.cnt "; COND cnt: %d " ,print
+	d.cnt "; FC cnt:%d " ,print
 |	blockde "; blockde: %d " ,print
-	inivpcnt "; inivpcnt: %d " ,print
+	inivpcnt " inivpcnt:%d " ,print
 	printddvtack
 	;
 
@@ -198,22 +198,9 @@
 |	"; " ,s printddvtack
 	;
 
-:vppush
-	;
-:vppop
-	;
-:vppick
-	;
-:vpdrop
-	;
-:vpnip
-	;
-:vpFitAll
-	;
-
 :,(
 	block.new
-	blockt block.now "; BLK %d %d (( " ,print printddvtack
+	blockt block.now "; BLK %d %d (( " ,print ,nl
 |	"r4asm/cod.asm" savemem
 
 	blockt $f and
@@ -225,7 +212,7 @@
 	;
 
 :,)(
-	block.now ";BLK %d )( " ,print printddvtack
+	block.now ";BLK %d )( " ,print ,nl
 |	"r4asm/cod.asm" savemem
 
 	blockt $f and
@@ -239,7 +226,7 @@
 	;
 
 :,)
-	block.now ";BLK %d )) " ,print printddvtack
+	block.now ";BLK %d )) " ,print ,nl
 |	"r4asm/cod.asm" savemem
 	blockt $f and
 	1 <=? (
@@ -344,27 +331,47 @@
 	d.tos cellREG? 0 >=? ( drop d.swap ; ) drop
 	d.nos cell2REG ;
 
+:directo
+	d.nos cellNRO? 0? ( ; ) drop
+	d.tos cellNRO? 0? ( ; ) drop
+	1 ;
+
+:directo1
+	d.tos cellNRO? 0? ( ; ) drop 1 ;
+
+:directo3
+	d.pk2 cellNRO? 0? ( ; ) drop
+	d.nos cellNRO? 0? ( ; ) drop
+	d.tos cellNRO? 0? ( ; ) drop
+	1 ;
+
 :,AND
+	directo 1? ( d.pop cellVal d.pop cellVal and pushNRO ; ) drop
 	oper21con
 	"and " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,OR
+	directo 1? ( d.pop cellVal d.pop cellVal or pushNRO ; ) drop
 	oper21con
 	"or " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,XOR
+	directo 1? ( d.pop cellVal d.pop cellVal xor pushNRO ; ) drop
 	oper21con
 	"xor " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,+
+	directo 1? ( d.pop cellVal d.pop cellVal + pushNRO ; ) drop
 	oper21con
 	"add " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,-
+	directo 1? ( d.pop cellVal d.pop cellVal swap - pushNRO ; ) drop
 	d.nos cell2REG
 	"sub " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,*
+	directo 1? ( d.pop cellVal d.pop cellVal * pushNRO ; ) drop
 	oper21con
 	| si d.tos es pow2..
 	"imul " ,s ,NOS "," ,s ,TOS ,cr
@@ -373,6 +380,7 @@
 
 |--------------------------
 :,/
+	directo 1? ( d.pop cellVal d.pop cellVal swap / pushNRO ; ) drop
 	| si d.tos es pow2..
 	nosEAXtosREGMEMfreeEDX
 
@@ -381,6 +389,8 @@
 	d.drop ;
 
 :,/MOD
+	directo 1? ( d.pop cellVal d.pop cellVal swap /mod swap pushNRO pushNRO ; ) drop
+
 	| si d.tos es pow2..
 	nosEAXtosREGMEMfreeEDX
 
@@ -390,6 +400,8 @@
 	d.tos setEDX ;
 
 :,MOD
+	directo 1? ( d.pop cellVal d.pop cellVal swap mod pushNRO ; ) drop
+
 	| si d.tos es pow2..
 	nosEAXtosREGMEMfreeEDX
 
@@ -399,6 +411,8 @@
 	d.tos setEDX ;
 
 :,*/
+	directo3 1? ( d.pop cellVal d.pop cellVal d.pop cellVal swap rot */ pushNRO ; ) drop
+
 	pk2EAXtosnosREGMEMfreeEDX
 
 	"cdq" ,ln
@@ -408,7 +422,11 @@
 	d.tos setEAX ;
 
 :,*>>
+	directo3 1? ( d.pop cellVal d.pop cellVal d.pop cellVal swap rot *>> pushNRO ; ) drop
+
 	| si d.nos es pow2..
+	d.nos cellREG? 0? ( d.pop d.swap d.push ) drop
+
 	pk2EAXnosREGMEMtosECXfreeEDX
 
 	"cdq" ,ln
@@ -416,9 +434,12 @@
 	"shrd eax,edx," ,s ,TOSb ,cr
 |	"shr edx," ,s ,TOSb ,cr | no hace falta!!
 	d.2DROP
-	d.tos setEAX ;
+	d.tos setEAX
+	;
 
 :,<</
+	directo3 1? ( d.pop cellVal d.pop cellVal d.pop cellVal swap rot <</ pushNRO ; ) drop
+
 	| si d.nos es pow2..
 	pk2EAXnosREGMEMtosECXfreeEDX
 
@@ -430,18 +451,23 @@
 	d.tos setEAX ;
 
 :,<<
+	directo 1? ( d.pop cellVal d.pop cellVal swap << pushNRO ; ) drop
+
 	d.tos cteorECX
 	d.nos cell2REG
 	"sal " ,s ,NOS "," ,s ,TOSb ,cr
 	d.drop ;
 
 :,>>
+	directo 1? ( d.pop cellVal d.pop cellVal swap >> pushNRO ; ) drop
+
 	d.tos cteorECX
 	d.nos cell2REG
 	"sar " ,s ,NOS "," ,s ,TOSb ,cr
 	d.drop ;
 
 :,ABS
+	directo1 1? ( d.pop cellVal abs pushNRO ; ) drop
 |	usoEDX
 	d.tos cell2REG
 	d.tos cellREG? 0? ( | EAX
@@ -454,28 +480,44 @@
 	"xor " ,s ,TOS ",edx" ,ln ;
 
 :,CLZ
+	directo1 1? ( d.pop cellVal clz pushNRO ; ) drop
+
 	d.tos cell2REG
 	"bsr " ,s ,TOS  "," ,s ,TOS ,cr
 	"xor " ,s ,TOS ",31" ,ln ;
 :,NOT
+	directo1 1? ( d.pop cellVal not pushNRO ; ) drop
+
 	d.tos cell2REG
 	"not " ,s ,TOS ,cr ;
 :,NEG
+	directo1 1? ( d.pop cellVal neg pushNRO ; ) drop
+
 	d.tos cell2REG
 	"neg " ,s ,TOS ,cr ;
 :,1+
+	directo1 1? ( d.pop cellVal 1+ pushNRO ; ) drop
+
 	d.tos cell2REG
 	"add " ,s ,TOS ",1" ,ln ;
 :,4+
+	directo1 1? ( d.pop cellVal 4+ pushNRO ; ) drop
+
 	d.tos cell2REG
 	"add " ,s ,TOS ",4" ,ln ;
 :,1-
+	directo1 1? ( d.pop cellVal 1- pushNRO ; ) drop
+
 	d.tos cell2REG
 	"sub " ,s ,TOS ",1" ,ln ;
 :,2/
+	directo1 1? ( d.pop cellVal 2/ pushNRO ; ) drop
+
 	d.tos cell2REG
 	"sar " ,s ,TOS ",1" ,ln ;
 :,2*
+	directo1 1? ( d.pop cellVal 2* pushNRO ; ) drop
+
 	d.tos cell2REG
 	"sal " ,s ,TOS ",1" ,ln ;
 
@@ -698,13 +740,15 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 
 |------------------------------
 :imprimedebug | token -- token
-	" ; " ,s dup tokenstrA ,print
+	" ;; " ,s dup tokenstr ,print
 	" : " ,s printddvtack
 	"r4asm/cod.asm" savemem
 	;
 
 ::compilatok | bufend bufini --
 	2dup getusedstack neg inivpila
+	infoblock
+
 	0 'strpending !
 	( over <? )(
 		@+
