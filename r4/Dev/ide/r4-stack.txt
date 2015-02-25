@@ -13,14 +13,15 @@
 "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY" | []
 
 |-------- Registros del CPU
-#sysregs "eax" "ebx" "ecx" "edx" "edi" "esi" "ebp" "xmm1" "xmm2" "xmm3" "xmm4" "xmm5" "xmm6" "xmm7" "xmm8"
-#sysregw "ax" "bx" "cx" "dx" "di" "si" "bp" "*" "*" "*" "*" "*" "*" "*" "*"
-#sysregb "al" "bl" "cl" "dl" "*" "*" "*" "*" "*" "*" "*" "*" "*" "*" "*"
+#sysregs "eax" "ebx" "ecx" "edx" "edi" "esi" "ebp"
+#sysregx "xmm1" "xmm2" "xmm3" "xmm4" "xmm5" "xmm6" "xmm7" "xmm8"
+#sysregw "ax" "bx" "cx" "dx" "di" "si" "bp" "
+#sysregb "al" "bl" "cl" "dl" "*" "*" "*"
 
 |------ Celda de la pila
 | T Tipo (NUMERO CONSTANTE 'STRING CODIGO DATO REGISTRO)
 | M Indireccion de memoria
-| S tiene escalaysuma
+| S tiene escalaysuma***
 | ..SMTTTT
 |-------- tipos de celdas
 #celln 0
@@ -42,6 +43,12 @@
 #rpila )( 1024
 #rpila> 'rpila
 
+|---- pila para celdas en bloques
+#vpst )( 1024
+#vpst> 'vpst
+#vpmem )( $3fff
+#vpmem> 'vpmem
+
 |----------------------------------------
 ::cellNRO? | nro -- 1/0
 	2 << 'cellt + @ $1f and
@@ -52,6 +59,9 @@
 	1? ( 2drop 0 ; ) drop
 	'cellv + @ 1? ( drop 0 ; ) drop
 	1 ;
+
+::cellVal | nro -- valor
+	2 << 'cellv + @ ;
 
 ::cellREG? | nro -- nroreg
 	2 << dup 'cellt + @ $1f and
@@ -252,7 +262,15 @@
 	drop ;
 
 ::newreg | -- reg
-	0 ( dup REGcell -1 <>? )( drop 1+ ) drop ;
+	0 ( dup REGcell -1 <>? )( drop 1+ ) drop
+	| !!!! falta manegar cuando no hay mas registros
+	;
+
+::newRegX | -- reg ; no ecx ni edx ni eax
+	1 regcell -1 =? ( drop 1 ; ) drop | ebx
+	4 regcell -1 =? ( drop 4 ; ) drop | edi
+	7 ( dup REGcell -1 <>? )( drop 1+ ) drop ;
+
 
 |-------------------------------------------
 | DEBUG: imprime pila virtual
@@ -343,7 +361,7 @@
 		dup cellREG? 0 >=? ( drop nip mov2stack 1 ; ) 2drop
 		) 2drop 0 ;
 
-|--- mueve constantes iguales !!!! optimizacion
+|--- mueve constantes iguales !!!! optimizacion !!!!
 :movecte
 	'dpila
 	( dpila> <? )(
@@ -357,15 +375,12 @@
 	pick2 cellSTACK 2 >> pick3 pick2 changeREG | dest cell reg
 	2drop
 	5 pick3 cell!
-|	printddvtack
 	;
 
 :realmove | cnt adr cell -- cnt adr x x
 	dup cellADR? 1? ( resolveADR ) drop
 	| cnt adr cell
-|	" ; " ,s printddvtack
 	pick2 swap mov2stack | dest cell
-|	" ; " ,s printddvtack
 	2dup
 	;
 
@@ -398,17 +413,9 @@
 :vpcopia2
 	d.cnt 0? ( drop vplast ; ) drop
 	fillstackuse
-
-|	printstate
-
-	( |	printddvtack
-	movereg 1? )( drop ) drop
-
+	( movereg 1? )( drop ) drop
 	movecte
-
-|	printddvtack
 	movecell
-
 	d.tos
 	dup cellREG? 0? ( 2drop ; ) drop	| ya es eax!
 	dup 0 ,cell2REG
@@ -424,6 +431,8 @@
 	0 'celln !
 	'dpila 'dpila> !
 	'rpila 'rpila> !
+	'vpst 'vpst> !
+	'vpmem 'vpmem> !
 	;
 
 ::inivpila | deep --
@@ -461,7 +470,7 @@
 	d.rel 0 5 rot cell! ;
 
 ::vpila2callV | nro --
-	dic>mov @ 16 << 24 >> vpila2v ;
+	dic>mov @ 16 << 24 >> neg vpila2v ;
 
 |------ acceso a celdas
 ::,TOS	d.tos ,cell ;
@@ -517,17 +526,38 @@
 ::setEDX | cell --
 	3 5 rot cell! ;
 
-:pk2EAX | anterior a pk2 sin eax, no usar edx
+:noregdesde | reg --
+	'dpila
+	( dpila> 16 - <? )( swap 1- swap @+
+		dup cellREG? 0 >=? ( drop nip mov2stack 1 ; ) 2drop
+		) 2drop 0 ;
+
+:pk2EAX | -- ; anterior a pk2 sin eax, no usar edx
+	0 'dpila ( dpila> 12 - <? )(
+		@+ cellREG? 0? ( rot 1+ rot rot ) drop ) drop
+	0? ( drop ; ) drop | no hay eax abajo de pk2
+	newRegX
+	"mov " ,s dup ,REG ",eax" ,s ,nl
+	'dpila ( dpila> 12 - <? )(
+		@+ dup cellREG? 0? ( drop pick2 5 rot cell! )( 2drop ) ) 2drop
+	"; " ,s printddvtack
 	;
 
 :nosEAX | anterior a nos sin eax, no usar edx
+	0 'dpila ( dpila> 8 - <? )(
+		@+ cellREG? 0? ( rot 1+ rot rot ) drop ) drop
+	0? ( drop ; ) drop | no hay eax abajo de nos
+	newRegX
+	"mov " ,s dup ,REG ",eax" ,s ,nl
+	'dpila ( dpila> 8 - <? )(
+		@+ dup cellREG? 0? ( drop pick2 5 rot cell! )( 2drop ) ) 2drop
+	"; " ,s printddvtack
 	;
 
 |--- ECX o constante
 ::cteorECX | cell --
 	dup cellNRO? 1? ( 2drop ; ) drop
 	dup cellREG? 2 =? ( 2drop ; ) drop
-|	registros %100 and? ( drop 2 reemplazaenreg drop )( drop )
 	"mov ecx," ,s dup ,CELL ,cr
 	2 5 rot cell! ;
 
@@ -543,37 +573,28 @@
 
 :inverteaxreg
 	d.tos d.nos "xchg " ,s ,CELL "," ,s ,CELL ,cr
-|	usoEDX
 	;
 
 ::nosEAXtosREGMEMfreeEDX
 	d.tos cellREG? 0? ( d.nos cellREG? +? ( 2drop inverteaxreg ; ) drop ) drop
 	nosEAX
-|	usoEDX
 	d.tos needREGorMEM
 	;
 
 :inv1eaxreg
 	d.pk2 d.nos
 	2dup "xchg " ,s ,CELL "," ,s ,CELL ,cr
-	cell2cell!
-|	usoEDX
-	d.nos needREGorMEM
-	d.tos needREGorMEM ;
+	cell2cell! ;
 
 :inv2eaxreg
 	d.pk2 d.tos
 	2dup "xchg " ,s ,CELL "," ,s ,CELL ,cr
-	cell2cell!
-|	usoEDX
-	d.nos needREGorMEM
-	d.tos needREGorMEM ;
+	cell2cell! ;
 
 ::pk2EAXtosnosREGMEMfreeEDX
 	d.nos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv1eaxreg ; ) drop ) drop
 	d.tos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv2eaxreg ; ) drop ) drop
 	pk2EAX
-|	usoEDX
 	d.nos needREGorMEM
 	d.tos needREGorMEM ;
 
@@ -582,5 +603,93 @@
 	d.tos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv2eaxreg ; ) drop ) drop
 	pk2EAX
 	d.nos needREGorMEM
-	d.tos cteorECX
+	d.tos cteorECX ;
+
+
+|--- pila de estado de pila y registros para bloques
+
+:,vp vpmem> !+ 'vpmem> ! ;
+:vp@ vpmem> @+ swap 'vpmem> ! ;
+
+:,cpcell | nro --
+	2 <<
+	dup 'cellt + @ ,vp
+	dup 'cellv + @ ,vp
+	dup 'cella + @ ,vp
+	'cells + @ ,vp
+	;
+
+:cpcell@ | nro --
+	2 <<
+	vp@ over 'cellt + !
+	vp@ over 'cellv + !
+	vp@ over 'cella + !
+	vp@ swap 'cells + !
+	;
+
+::vpPush | --
+	vpmem> vpst> !+ 'vpst> !
+	dpila> 'dpila - 2 >>
+	,vp
+	'dpila ( dpila> <? )(
+		@+ dup ,vp ,cpcell
+		) drop
+	rpila> 'rpila - 2 >>
+	,vp
+	'rpila ( rpila> <? )(
+		@+ dup ,vp ,cpcell
+		) drop
+	inivpcnt ,vp
+	;
+
+::vpPop | --
+	-4 'vpst> +!
+	vpst> @ 'vpmem> !
+	'dpila 'dpila> !
+	vp@
+	( 1? )( 1-
+		vp@ dup d.push cpcell@
+		) drop
+	'rpila 'rpila> !
+	vp@
+	( 1? )( 1-
+		vp@ dup r.push cpcell@
+		) drop
+	vp@ 'inivpcnt !
+	;
+
+::vpPick | -- ; pop del segundo
+	vpst> 8 - @ >r
+	'dpila 'dpila> !
+	r@+
+	( 1? )( 1-
+		r@+ dup d.push 2 <<
+		r@+ over 'cellt + !
+		r@+ over 'cellv + !
+		r@+ over 'cella + !
+		r@+ swap 'cells + !
+		) drop
+	'rpila 'rpila> !
+	r@+
+	( 1? )( 1-
+		r@+ dup r.push 2 <<
+		r@+ over 'cellt + !
+		r@+ over 'cellv + !
+		r@+ over 'cella + !
+		r@+ swap 'cells + !
+		) drop
+	r@+ 'inivpcnt !
+    rdrop
+	;
+
+::vpDrop | --
+	-4 'vpst> +!
+	vpst> @ 'vpmem> ! ;
+
+::vpNip | --
+	-4  'vpst> +!
+	vpst> dup @ swap 4 - !
+	;
+
+::vpFitAll
 	;
