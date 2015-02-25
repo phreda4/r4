@@ -238,66 +238,64 @@
 #block )( 1024	| tipo+info
 #blocks )( 1024 | celda comienzo
 #blocke )( 1024 | celda fin
-#blocki )( 1024 | info de las celdas en bloque
+#blocki )( 1024 | celda medio
 
 |----- pila para bloques
 #pilab )( 256	#pilab> 'pilab
 
 ::block.new blockn pilab> !+ 'pilab> ! 1 'blockn +! ;
 ::block.end -4 'pilab> +! ;
-::block.now pilab> 4 - @ ; | -- nblo
+:block.now pilab> 4 - @ ; | -- nblo
 
-::blockt	block.now 2 << 'block + @ ;
-::blockin	block.now 2 << 'blocki + @ ;
+:blocka		block.now 2 << 'block + ;
 
-:blockT!	block.now 2 << 'block + ! ;
-
-:blIF       0 blockT! ;
-:blELSE  	1 blockT! ;
-:blWHILE	2 blockT! ;
-:blUNTIL  	3 blockT! ;
-:blREPEAT  	4 blockT! ;
+:blCLEAR	0 blocka ! ;
+:blIF       blocka dup @ 0 or swap ! ;
+:blELSE  	blocka dup @ 1 or swap ! ;
+:blWHILE	blocka dup @ 2 or swap ! ;
+:blUNTIL  	blocka dup @ 3 or swap ! ;
+:blREPEAT  	blocka dup @ 4 or swap ! ;
 
 :blNOSPLIT	block.now 2 << 'block + dup @ $10 or swap ! ;
 
-|:blINI	celln block.now 2 << 'blocks + ! ;
-|:blEND	celln block.now 2 << 'blocke + ! ;
+:blINI	dup block.now 2 << 'blocks + ! ;
+:blEND	dup block.now 2 << 'blocke + ! ;
+:blMED	dup block.now 2 << 'blocki + ! ;
+
+::blINFO	blocka @ ;
 
 |----- CONDICIONALES
 :salto? | adr -- 1/0
-	dup 8 - @ $ff and $16 >? ( $21 <? ( drop 1 ; ) ) drop 0 ;
+	dup 8 - @ $ff and $16 >? ( $23 <? ( drop 1 ; ) ) drop 0 ;
 
 :;?		| adr -- 1/0
-	dup 8 - @ $ff and $10 =? ( drop 1 ; ) drop 0 ;
+	over 8 - @ $ff and $10 =? ( drop 1 ; ) drop 0 ;
 
 :es(
-	block.new
+	block.new blCLEAR blINI
 	pushvar
 	salto? sst!
 	;
 
 :es)(
-	salto? 1? ( sst@ 2drop dropvar pushvar 3 sst! ; ) | while
-	sst@ 2drop
-	popvar pushvar
-	2 sst!
+	blMED
+	sst@ drop
+	salto? 1? ( drop dropvar pushvar 3 sst! ; ) | while
+	drop popvar pushvar 2 sst!
 |		over 8 - @ $ff and | ;)
-|		12 =? ( blNOSPLIT )
+|		$10 =? ( blNOSPLIT )
 |		drop
 	;
 
-:tipo1 | ?( )
-	;? 1? ( drop popvar ; ) drop
-	dropvar ;
-
 :es)	|)
-	sst@ 0? ( drop dropvar
-		salto? 1? ( blUNTIL )( blREPEAT ) drop
-		block.end ; )								| (  ? ) o (    )
-	1- 0? ( drop tipo1 blIF block.end ; ) 			| ? ( )
-	1- 0? ( drop dropvar blELSE block.end ; ) 		| ?( )( )
-	drop popvar blWHILE block.end ;					| ( ? )(  )
-
+	blEND
+	sst@
+	0? ( dropvar swap salto? 1? ( blUNTIL )( blREPEAT ) drop swap )
+	1 =? ( ;? 1? ( popvar )( dropvar ) drop blIF  )
+	2 =? ( dropvar blELSE )
+	3 =? ( popvar blWHILE )
+	drop
+	block.end ;
 
 |----------------------
 :esFin
@@ -364,8 +362,6 @@
 	0 'blockn !
 	'pilab 'pilab> !
 	;
-
-
 
 :inlinemark
 	$f4 nand? (  | no dir, no R, no ;;, no []
@@ -561,7 +557,9 @@
 	( over <? )(
 		@+ $ff and prosstoken
 		) 2drop
-	usoD ;
+	0 'blockn ! | em
+	usoD
+	;
 
 
 |------------ DEBUG bloques
@@ -569,8 +567,8 @@
 	2 <<
 	dup 'block + @ "; BL %d (" ,print
 	dup 'blocks + @ "%h-" ,print
-	dup 'blocke + @ "%h)" ,print
-	'blocki + @ "%h" ,print
+	dup 'blocki + @ "%h-" ,print
+	'blocke + @ "%h)" ,print
 	,cr
 	;
 
