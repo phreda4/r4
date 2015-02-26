@@ -49,6 +49,10 @@
 #vpmem )( $3fff
 #vpmem> 'vpmem
 
+|---- auxiliar de usadas
+#regused )( 1024
+#regused> 'regused
+
 |----------------------------------------
 ::cellNRO? | nro -- 1/0
 	2 << 'cellt + @ $1f and
@@ -217,8 +221,8 @@
 :,cell2REG | cell reg --
 	over cell0?
 	1? ( drop nip "xor " ,s dup ,REG "," ,s ,REG ,cr ; ) drop
-	"mov " ,s ,REG "," ,s ,CELL ,cr ;
-
+	"mov " ,s ,REG "," ,s ,CELL ,cr
+	;
 
 ::cell+ | add nro --
 	| si hay mem resolver
@@ -268,6 +272,7 @@
 
 ::newRegX | -- reg ; no ecx ni edx ni eax
 	1 regcell -1 =? ( drop 1 ; ) drop | ebx
+	2 regcell -1 =? ( drop 2 ; ) drop | ecx
 	4 regcell -1 =? ( drop 4 ; ) drop | edi
 	7 ( dup REGcell -1 <>? )( drop 1+ ) drop ;
 
@@ -318,11 +323,10 @@
 	drop ;
 
 |---------------------------
-#stackuse )( 256
 
 :printstate
 	";* " ,s
-	'stackuse 0 ( 8 <? )( swap
+	'regused 0 ( 8 <? )( swap
      	c@+ 1? ( pick2 2 << "[esi+%d] " ,print )
 		drop swap 1+ ) 2drop
 	,cr ;
@@ -347,7 +351,7 @@
 	5 $15 pick2 cell! swap 2 << swap cell+! ;
 
 :mov2stack | dest cell --
-	over 'stackuse + c@ 1? ( drop chg2stack ; ) drop
+	over 'regused + c@ 1? ( drop chg2stack ; ) drop
 	"mov dword [esi" ,s
 	over 2 << 1? ( +? ( "+" ,s ) ,d )( drop )
 	"]," ,s dup ,CELL ,cr
@@ -395,11 +399,11 @@
 :usado | nro XX cell -- nro XX
 	dup cellREGM? 5 =? ( drop
 		dup cellSUM pick3 2 <<
-		<>? ( 1 swap 2 >> 'stackuse + c! drop ; )
+		<>? ( 1 swap 2 >> 'regused + c! drop ; )
 		) 2drop ;
 
 :fillstackuse
-	'stackuse d.cnt
+	'regused d.cnt
 	( 1? )( 1- 0 rot c!+ swap ) 2drop
 	d.cnt 1- 'dpila
 	( dpila> <? )( swap 1- swap @+
@@ -455,6 +459,13 @@
 	d.cnt 'inivpcnt !	| ahora vpila tiene...
 	;
 
+::vpila2normal? | -- 0/1 ; esta en normal?
+	inivpcnt d.cnt <>? ( drop 0 ; ) drop
+	1- 'dpila
+	( swap 1? )( 1- swap
+		@+ cellSTACK pick2 2 << <>? ( 3drop 0 ; ) drop
+		) drop
+	cellREG? 1? ( drop 0 ; ) drop 1 ;
 
 |---- acomoda pila actual
 ::vpila2v | deep --
@@ -470,7 +481,26 @@
 	d.rel 0 5 rot cell! ;
 
 ::vpila2callV | nro --
-	dic>mov @ 16 << 24 >> neg vpila2v ;
+	dic>mov @ 24 << 24 >> neg vpila2v ; | uso de pila
+
+
+:toREG | cell --
+	dup cellREG? 0 >=? ( 2drop ; ) drop
+	newReg | cell reg
+	2dup ,cell2REG
+	5 rot cell!
+|	printddvtack
+|		"r4asm/cod.asm" savemem
+
+	;
+
+::vpila2fixdeep | deep --
+	dpila> over 1+ 2 << -
+	( dpila> 4 - <? )(
+		trace
+
+		@+ toREG
+		) drop ;
 
 |------ acceso a celdas
 ::,TOS	d.tos ,cell ;
@@ -491,18 +521,41 @@
 	swap 1020 + @+ rot 1020 + !+
 	swap 1020 + @ swap 1020 + ! ;
 
-:cell2newReg
+:cell=? | cell cell -- cell 1/0
+	over 2 << 'cellt + @ over 2 << 'cellt + @ <>? ( 2drop 0 ; ) drop
+	over 2 << 'cellv + @ over 2 << 'cellv + @ <>? ( 2drop 0 ; ) drop
+	over 2 << 'cella + @ over 2 << 'cella + @ <>? ( 2drop 0 ; )
+	2drop 1 ;
+
+:cell2newReg | cell --
 	newREG
 	over cell0? 0? ( drop
 		"mov " ,s dup ,REG "," ,s over ,CELL
 		)( drop
 		"xor " ,s dup ,REG "," ,s dup ,REG
 		)
-	,cr
+	,cr 	| cell reg ; celdas iguale con el mismo registro
+	'dpila ( dpila> <? )(
+		@+ | cell reg adr cell
+		pick3 cell=? 1? ( drop pick2 5 rot cell! )( 2drop )
+		) 3drop ;
+
+#regdup -1
+
+:realmov | cell reg adr cell -- cell reg adr
+	regdup -? ( drop NewReg
+		"mov " ,s dup ,REG "," ,s pick3 ,REG ,nl
+		dup 'regdup ! )
 	5 rot cell! ;
 
+::removedup | cell reg --
+	-1 'regdup !
+	'dpila ( @+ pick3 <>? )(
+		dup cellREG? pick3 =? ( drop realmov )( 2drop )
+		) 4drop ;
+
 ::cell2REG | cell --
-	dup cellREG? 0 >=? ( 2drop ; ) drop
+	dup cellREG? 0 >=? ( removedup ; ) drop
     cell2newReg ;
 
 ::cell2NMEM | cell --
@@ -518,7 +571,6 @@
 	dup cellNRO? 1? ( 2drop ; ) drop
 	dup cellREG? 0 >=? ( 2drop ; ) drop
 	cell2newReg ;
-
 
 ::setEAX | cell --
 	0 5 rot cell! ;
@@ -540,7 +592,7 @@
 	"mov " ,s dup ,REG ",eax" ,s ,nl
 	'dpila ( dpila> 12 - <? )(
 		@+ dup cellREG? 0? ( drop pick2 5 rot cell! )( 2drop ) ) 2drop
-	"; " ,s printddvtack
+|	"; " ,s printddvtack
 	;
 
 :nosEAX | anterior a nos sin eax, no usar edx
@@ -551,7 +603,7 @@
 	"mov " ,s dup ,REG ",eax" ,s ,nl
 	'dpila ( dpila> 8 - <? )(
 		@+ dup cellREG? 0? ( drop pick2 5 rot cell! )( 2drop ) ) 2drop
-	"; " ,s printddvtack
+|	"; " ,s printddvtack
 	;
 
 |--- ECX o constante
@@ -594,20 +646,19 @@
 ::pk2EAXtosnosREGMEMfreeEDX
 	d.nos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv1eaxreg ; ) drop ) drop
 	d.tos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv2eaxreg ; ) drop ) drop
-	pk2EAX
 	d.nos needREGorMEM
-	d.tos needREGorMEM ;
+	d.tos needREGorMEM
+	pk2EAX ;
 
 ::pk2EAXnosREGMEMtosECXfreeEDX
 	d.nos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv1eaxreg ; ) drop ) drop
 	d.tos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv2eaxreg ; ) drop ) drop
-	pk2EAX
 	d.nos needREGorMEM
-	d.tos cteorECX ;
+	d.tos cteorECX
+	pk2EAX ;
 
 
 |--- pila de estado de pila y registros para bloques
-
 :,vp vpmem> !+ 'vpmem> ! ;
 :vp@ vpmem> @+ swap 'vpmem> ! ;
 
@@ -688,8 +739,80 @@
 
 ::vpNip | --
 	-4  'vpst> +!
-	vpst> dup @ swap 4 - !
+	vpst> dup @ swap 4 - ! ;
+
+|---- transforma pila actual en copia apilada
+:usadosolodestino | cell regd --
+	'regused ( regused> <? )(
+		@+ pick3 =? ( drop over over 4 - ! dup ) drop
+		) drop
+	over "xchg " ,s ,REG "," ,s ,REG ,cr
+	swap ,cell2REG ;
+
+:cambiaregreg | cell regf regd --
+	swap -? ( drop usadosolodestino ; ) swap
+	'regused ( regused> <? )(
+		@+ pick3 =? ( drop over over 4 - ! dup ) drop
+		) drop
+|	2dup ";** %d %d " ,print
+|	"r4asm/cod.asm" savemem
+	"xchg " ,s ,REG "," ,s ,REG ,cr
+	drop ;
+
+:asignaregcell | reg cell --
+	dup cellReg? pick2 =? ( 3drop ; ) | si ya esta..
+	rot | cell fuente destino
+	-? ( 3drop ; )
+	dup REGcell 0 >=? ( drop cambiaregreg ; ) drop
+	nip 2dup ,cell2REG 5 rot cell!
+	"r4asm/cod.asm" savemem
 	;
 
-::vpFitAll
+::vpFit | dp --
+	vpst> 4 - @ >r
+	'regused 'regused> !
+	r@+ |"D: " ,s
+	( 1? )( 1-
+		r@+ drop
+		r@+ r@+ 8 r+
+		swap 5 =? ( drop )( 2drop -1 )
+		regused> !+ 'regused> !
+		) drop
+    rdrop
+	regused> dpila> rot
+	( 1? )( 1-
+		rot 4 - rot 4 -
+		over @ over @ asignaregcell
+		rot ) 3drop ;
+
+::vpFitAll | --
+	"; vFitall " ,print
+	d.cnt "d.cnt:%d " ,print
+	vpst> 4 - @ >r
+	'regused 'regused> !
+	r@+ dup "D:%d) " ,print
+	( 1? )( 1-
+		r@+ drop
+		r@+ r@+ 8 r+
+		swap 5 =? ( drop )(
+			2drop r 8 - @ 1+ neg ) | 1+ distinge eax de [esi]
+|			2drop -1 )
+		regused> !+ 'regused> !
+		) drop
+
+	r@+ | r:
+	( 1? )( 1- r@+ drop 16 r+ ) drop
+	r@+ " inivpcnt:%d  " ,print |drop |'inivpcnt !
+    rdrop
+
+	'regused ( regused> <? )( @+ 0 >=? ( dup ,sp ,REG )( dup ,sp ,d )  drop ) drop ,cr
+|	"; " ,s 6 ( 1? )( 1- regu 1? ( drop dup ,sp ,REG )( drop ) ) drop ,cr
+
+|	"r4asm/cod.asm" savemem
+
+	regused> dpila> d.cnt
+	( 1? )( 1-
+		rot 4 - rot 4 -
+		over @ over @ asignaregcell
+		rot ) 3drop ;
 	;
