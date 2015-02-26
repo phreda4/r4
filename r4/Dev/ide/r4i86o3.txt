@@ -170,6 +170,8 @@
 |	deepnow blockde ";vpila2reg << %d >> %d " ,print printddvtack
 |	blockde vpila2reg
 |	deepnow blockde ";vpila2reg << %d >> %d " ,print printddvtack
+
+|	inivpcnt 1- vpila2fixdeep
 	;
 
 :,cond
@@ -276,11 +278,13 @@
 
 :,R>
 	toknow 8 >> 1? ( drop r.pop d.push ; ) drop
-	d.dup d.tos cell2REG "pop " ,s ,TOS ,cr ;
+	newReg pushREG |	d.dup d.tos cell2REG
+	"pop " ,s ,TOS ,cr ;
 
 :,R
 	toknow 8 >> 1? ( drop r.tos d.push ; ) drop
-	d.dup d.tos cell2REG "mov " ,s ,TOS ",dword [esp]" ,ln ;
+	newReg pushREG	|	d.dup d.tos cell2REG
+	"mov " ,s ,TOS ",dword [esp]" ,ln ;
 
 :,RDROP
 	toknow 8 >> 1? ( drop r.drop ; ) drop
@@ -311,7 +315,7 @@
 	d.drop ;
 
 :,R@+a
-	d.dup d.tos cell2REG
+	newReg pushREG	|	d.dup d.tos cell2REG
 	r.tos cell2NMEM
 	"mov " ,s ,TOS ",dword [" ,s ,RTOS "]" ,ln
 	"add " ,s ,RTOS ",4" ,ln
@@ -320,24 +324,24 @@
 
 :,R@+
 	toknow 8 >> 1? ( drop ,R@+a ; ) drop
-	d.dup d.tos cell2REG
+	newReg pushREG |	d.dup d.tos cell2REG
 	"mov " ,s ,TOS ",[esp]" ,ln
 	"mov " ,s ,TOS ",[" ,s ,TOS "]" ,ln
 	"add dword [esp],4" ,ln ;
 
-|------- ARITMETICAS LOGICAS
+|------- optimizar celdas
 :oper21con
-	d.nos cellREG? 0 >=? ( drop ; ) drop
+	d.nos cellREG? 0 >=? ( d.nos swap removedup ; ) drop |drop ; ) drop
 	d.tos cellREG? 0 >=? ( drop d.swap ; ) drop
 	d.nos cell2REG ;
 
-:directo
+:directo1
+	d.tos cellNRO? 0? ( ; ) drop 1 ;
+
+:directo2
 	d.nos cellNRO? 0? ( ; ) drop
 	d.tos cellNRO? 0? ( ; ) drop
 	1 ;
-
-:directo1
-	d.tos cellNRO? 0? ( ; ) drop 1 ;
 
 :directo3
 	d.pk2 cellNRO? 0? ( ; ) drop
@@ -345,66 +349,61 @@
 	d.tos cellNRO? 0? ( ; ) drop
 	1 ;
 
+|------- ARITMETICAS LOGICAS
 :,AND
-	directo 1? ( d.pop cellVal d.pop cellVal and pushNRO ; ) drop
+	directo2 1? ( d.pop cellVal d.pop cellVal and pushNRO ; ) drop
 	oper21con
 	"and " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,OR
-	directo 1? ( d.pop cellVal d.pop cellVal or pushNRO ; ) drop
+	directo2 1? ( d.pop cellVal d.pop cellVal or pushNRO ; ) drop
 	oper21con
 	"or " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,XOR
-	directo 1? ( d.pop cellVal d.pop cellVal xor pushNRO ; ) drop
+	directo2 1? ( d.pop cellVal d.pop cellVal xor pushNRO ; ) drop
 	oper21con
 	"xor " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,+
-	directo 1? ( d.pop cellVal d.pop cellVal + pushNRO ; ) drop
+	directo2 1? ( d.pop cellVal d.pop cellVal + pushNRO ; ) drop
 	oper21con
 	"add " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,-
-	directo 1? ( d.pop cellVal d.pop cellVal swap - pushNRO ; ) drop
+	directo2 1? ( d.pop cellVal d.pop cellVal swap - pushNRO ; ) drop
 	d.nos cell2REG
 	"sub " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 :,*
-	directo 1? ( d.pop cellVal d.pop cellVal * pushNRO ; ) drop
+	directo2 1? ( d.pop cellVal d.pop cellVal * pushNRO ; ) drop
 	oper21con
 	| si d.tos es pow2..
 	"imul " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 
-
 |--------------------------
 :,/
-	directo 1? ( d.pop cellVal d.pop cellVal swap / pushNRO ; ) drop
+	directo2 1? ( d.pop cellVal d.pop cellVal swap / pushNRO ; ) drop
 	| si d.tos es pow2..
 	nosEAXtosREGMEMfreeEDX
-
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 	d.drop ;
 
 :,/MOD
-	directo 1? ( d.pop cellVal d.pop cellVal swap /mod swap pushNRO pushNRO ; ) drop
-
+	directo2 1? ( d.pop cellVal d.pop cellVal swap /mod swap pushNRO pushNRO ; ) drop
 	| si d.tos es pow2..
 	nosEAXtosREGMEMfreeEDX
-
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 	d.nos setEAX
 	d.tos setEDX ;
 
 :,MOD
-	directo 1? ( d.pop cellVal d.pop cellVal swap mod pushNRO ; ) drop
-
+	directo2 1? ( d.pop cellVal d.pop cellVal swap mod pushNRO ; ) drop
 	| si d.tos es pow2..
 	nosEAXtosREGMEMfreeEDX
-
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 	d.drop
@@ -412,9 +411,7 @@
 
 :,*/
 	directo3 1? ( d.pop cellVal d.pop cellVal d.pop cellVal swap rot */ pushNRO ; ) drop
-
 	pk2EAXtosnosREGMEMfreeEDX
-
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
@@ -423,12 +420,9 @@
 
 :,*>>
 	directo3 1? ( d.pop cellVal d.pop cellVal d.pop cellVal swap rot *>> pushNRO ; ) drop
-
 	| si d.nos es pow2..
 	d.nos cellREG? 0? ( d.pop d.swap d.push ) drop
-
 	pk2EAXnosREGMEMtosECXfreeEDX
-
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
@@ -439,10 +433,8 @@
 
 :,<</
 	directo3 1? ( d.pop cellVal d.pop cellVal d.pop cellVal swap rot <</ pushNRO ; ) drop
-
 	| si d.nos es pow2..
 	pk2EAXnosREGMEMtosECXfreeEDX
-
 	"cdq" ,ln
 	"shld edx,eax," ,s ,TOSb ,cr
 	"shl eax," ,s ,TOSb ,cr
@@ -451,16 +443,14 @@
 	d.tos setEAX ;
 
 :,<<
-	directo 1? ( d.pop cellVal d.pop cellVal swap << pushNRO ; ) drop
-
+	directo2 1? ( d.pop cellVal d.pop cellVal swap << pushNRO ; ) drop
 	d.tos cteorECX
 	d.nos cell2REG
 	"sal " ,s ,NOS "," ,s ,TOSb ,cr
 	d.drop ;
 
 :,>>
-	directo 1? ( d.pop cellVal d.pop cellVal swap >> pushNRO ; ) drop
-
+	directo2 1? ( d.pop cellVal d.pop cellVal swap >> pushNRO ; ) drop
 	d.tos cteorECX
 	d.nos cell2REG
 	"sar " ,s ,NOS "," ,s ,TOSb ,cr
@@ -481,43 +471,35 @@
 
 :,CLZ
 	directo1 1? ( d.pop cellVal clz pushNRO ; ) drop
-
 	d.tos cell2REG
 	"bsr " ,s ,TOS  "," ,s ,TOS ,cr
 	"xor " ,s ,TOS ",31" ,ln ;
 :,NOT
 	directo1 1? ( d.pop cellVal not pushNRO ; ) drop
-
 	d.tos cell2REG
 	"not " ,s ,TOS ,cr ;
 :,NEG
 	directo1 1? ( d.pop cellVal neg pushNRO ; ) drop
-
 	d.tos cell2REG
 	"neg " ,s ,TOS ,cr ;
 :,1+
 	directo1 1? ( d.pop cellVal 1+ pushNRO ; ) drop
-
 	d.tos cell2REG
 	"add " ,s ,TOS ",1" ,ln ;
 :,4+
 	directo1 1? ( d.pop cellVal 4+ pushNRO ; ) drop
-
 	d.tos cell2REG
 	"add " ,s ,TOS ",4" ,ln ;
 :,1-
 	directo1 1? ( d.pop cellVal 1- pushNRO ; ) drop
-
 	d.tos cell2REG
 	"sub " ,s ,TOS ",1" ,ln ;
 :,2/
 	directo1 1? ( d.pop cellVal 2/ pushNRO ; ) drop
-
 	d.tos cell2REG
 	"sar " ,s ,TOS ",1" ,ln ;
 :,2*
 	directo1 1? ( d.pop cellVal 2* pushNRO ; ) drop
-
 	d.tos cell2REG
 	"sal " ,s ,TOS ",1" ,ln ;
 
@@ -585,17 +567,20 @@
 
 :,@+
 	d.tos cell2REG
-	d.dup d.tos cell2REG
+|	d.dup d.tos cell2REG
+	newReg pushREG
 	"mov " ,s ,TOS ",dword [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",4" ,ln ;
 :,W@+
 	d.tos cell2REG
-	d.dup d.tos cell2REG
+|	d.dup d.tos cell2REG
+	newReg pushREG
 	"movsx " ,s ,TOS ",word [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",2" ,ln ;
 :,C@+
 	d.tos cell2REG
-	d.dup d.tos cell2REG
+|	d.dup d.tos cell2REG
+	newReg pushREG
 	"movsx " ,s ,TOS ",byte [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",1" ,ln ;
 
@@ -654,12 +639,15 @@
 	d.drop ;
 
 :,PX@	| -- rgb
-	d.dup d.tos cell2REG
+|	d.dup d.tos cell2REG
+	newReg pushREG
 	"mov " ,s ,TOS ",dword [ebp]" ,ln ;
 
 :,XYMOUSE | -- x y
-	d.dup d.tos cell2REG
-	d.dup d.tos cell2REG
+|	d.dup d.tos cell2REG
+|	d.dup d.tos cell2REG
+	newReg pushREG
+	newReg pushREG
 	"mov " ,s ,TOS ",[SYSXYM]" ,ln
 	"mov " ,s ,NOS "," ,s ,TOS ,cr
 	"and " ,s ,NOS ",$ffff" ,ln
@@ -740,7 +728,7 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 
 |------------------------------
 :imprimedebug | token -- token
-	" ;; " ,s dup tokenstr ,print
+	" ; " ,s dup tokenstr ,print
 	" : " ,s printddvtack
 	"r4asm/cod.asm" savemem
 	;
