@@ -158,7 +158,16 @@
 :label		"_" ,s ,h ;
 :jmp,		"jmp " ,s label ,cr ;
 :,etiqueta	label ": " ,s ;
+
+
 :,jmpcond   jmpstr ,s label ,cr ;
+
+|-- permite invertir condicion!!
+#jmplist "jz" "jnz" "jg" "jle" "jl" "jge" "js" "jns"
+
+:,jmpdir 'jmplist jmpstr n>>0 ,s ,sp ;
+:,jmpinv 'jmplist jmpstr 1 xor n>>0 ,s ,sp ;
+
 
 :+etiqueta	| -- nueva   // y agrega a pila
 	nlabel 1+ dup 'nlabel ! dup >pilac ;
@@ -193,56 +202,46 @@
 	;
 
 :,bloque
-	";----- BLOQUE ----" ,s ,cr
 |	d.cnt "; cantidad: %d " ,print blockde "; blode: %d " ,print inivpcnt "; incnt: %d " ,print ,cr
 |	d.cnt inivpcnt - vpila2reg
 
-|	"; " ,s printddvtack
+	"; " ,s printddvtack
 	;
 
 :,(
 	block.new
-	blINFO "; BLK %d ((" ,print ,nl
+	blINFO "; BLK %h ((" ,print ,nl
 |	"r4asm/cod.asm" savemem
 
 	blINFO $f and
 	1 <=? ( ,cond vppush +etiqueta ,jmpcond )	| IF/ELSE
 	2 >=? ( vpilad vppush +etiqueta ,etiqueta )	| WHILE/UNTIL/REPEAT
-	drop
-
-|	deepnow blockde "; << %d >> %d " ,print printddvtack
-	;
+	drop ;
 
 :,)(
-	blINFO ";BLK %d )( " ,print ,nl
+	blINFO ";BLK %h )( " ,print ,nl
 |	"r4asm/cod.asm" savemem
 
 	blINFO $f and
 	1 =? ( ,bloque <pilac +etiqueta jmp, ,etiqueta vppush vppick vpnip )	| ELSE
 	2 =? ( ,cond <pilac +etiqueta ,jmpcond >pilac vpdrop vppush )	| WHILE
-	drop
-
-|	deepnow blockde "; << %d >> %d " ,print printddvtack
-|	"r4asm/cod.asm" savemem
-
-	;
+	drop ;
 
 :,)
-	blINFO ";BLK %d )) " ,print ,nl
+	blINFO ";BLK %h )) " ,print ,nl
 |	"r4asm/cod.asm" savemem
+
 	blINFO $f and
 	1 <=? (
-			over 8 - @ $ff and $10 <>? ( vpFitAll ) drop
+			over 8 - @ $ff and
+			$10 <>? ( vpFitAll ) drop
 			<pilac ,etiqueta				| IF ELSE
 			)
 	2 =? ( <pilac jmp, <pilac ,etiqueta )	| WHILE
 	3 =? ( ,cond <pilac ,jmpcond )	| UNTIL
 	4 =? ( <pilac jmp, )					| REPEAT
 	drop
-
 	vpPop
-|	deepnow blockde "; << %d >> %d " ,print printddvtack
-
 	block.end ;
 
 |------- EXEC

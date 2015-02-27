@@ -2,6 +2,7 @@
 | analisis profundo de cada palabra usada
 | PHREDA 2014
 |---------------------------------------------------------------
+^r4/lib/trace.txt
 ^r4/dev/ide/r4-dicc.txt
 
 #MAXINLINE 12
@@ -258,6 +259,9 @@
 
 :blNOSPLIT	block.now 2 << 'block + dup @ $10 or swap ! ;
 
+:blWORD		pilab> 'pilab =? ( drop ; )
+			4 + @ 2 << 'block + dup @ $20 or swap ! ;
+
 :blINI	dup block.now 2 << 'blocks + ! ;
 :blEND	dup block.now 2 << 'blocke + ! ;
 :blMED	dup block.now 2 << 'blocki + ! ;
@@ -279,19 +283,17 @@
 
 :es)(
 	blMED
+	dup 8 - @ $ff and $10 =? ( blNOSPLIT ) drop
 	sst@ drop
 	salto? 1? ( drop dropvar pushvar 3 sst! ; ) | while
 	drop popvar pushvar 2 sst!
-|		over 8 - @ $ff and | ;)
-|		$10 =? ( blNOSPLIT )
-|		drop
 	;
 
 :es)	|)
 	blEND
 	sst@
 	0? ( dropvar swap salto? 1? ( blUNTIL )( blREPEAT ) drop swap )
-	1 =? ( ;? 1? ( popvar )( dropvar ) drop blIF  )
+	1 =? ( ;? 1? ( popvar blNOSPLIT )( dropvar ) drop blIF  )
 	2 =? ( dropvar blELSE )
 	3 =? ( popvar blWHILE )
 	drop
@@ -309,12 +311,10 @@
 
 | adr adrt t tabla
 :esPal | palabra
-	dup 4 - @ 8 >> | obtener palabra
-
+	blWORD			| marca bloque con palabra
+	dup 4 - @ 8 >>	| obtener palabra
 	pick2 =? ( drop $20 flags or 'flags ! ; ) | es recursiva?
-
     dup dic>inf @ 24 >> 1+ 'nivel !
-
 	dic>mov @
 |	dup 12 << 28 >> 'deltaR +! | no se propaga, es flujo de ejecucion
 	dup 16 << 24 >> usoDcalc
@@ -551,21 +551,10 @@
 	c@+ swap
 	c@ ;
 
-|---------- Calculo uso de pila d
-::getusedstack | last ini -- usoD
-	resetvars
-	( over <? )(
-		@+ $ff and prosstoken
-		) 2drop
-	0 'blockn ! | em
-	usoD
-	;
-
-
 |------------ DEBUG bloques
 :dumpblock, | n --
 	2 <<
-	dup 'block + @ "; BL %d (" ,print
+	dup 'block + @ "; BL %h (" ,print
 	dup 'blocks + @ "%h-" ,print
 	dup 'blocki + @ "%h-" ,print
 	'blocke + @ "%h)" ,print
@@ -573,9 +562,25 @@
 	;
 
 ::infoblock
+	blockn 0? ( drop ; ) drop
 	";----------------" ,ln
 	0 ( blockn <? )(
 		dup dumpblock,
 		1+ ) drop
 	";----------------" ,ln
 	;
+
+|---------- Calculo uso de pila d
+::getusedstack | last ini -- usoD
+	resetvars
+	( over <? )(
+		@+ $ff and prosstoken
+		) 2drop
+
+	infoblock
+
+	0 'blockn ! | em
+	usoD
+	;
+
+
