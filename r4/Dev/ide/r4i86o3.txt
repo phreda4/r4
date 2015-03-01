@@ -96,6 +96,8 @@
 :,var	toknow 8 >> dup 'lastdircode ! pushVar ;
 
 |-------- CONDICIONALES
+|#jmplist "jz" "jnz" "jg" "jle" "jl" "jge" "js" "jns"
+
 #jmpstr 0
 #contype
 
@@ -109,10 +111,10 @@
 :,simple?
 	'jmpstr ! 'consimple 'contype ! ;
 
-:,0? "jnz " ,simple? ;
-:,+? "js "  ,simple? ;
-:,-? "jns " ,simple? ;
-:,1? "jz " ,simple? ;
+:,1? 0 ,simple? ;
+:,0? 1 ,simple? ;
+:,+? 6 ,simple? ;
+:,-? 7 ,simple? ;
 
 :condoble
 	d.nos cell2REG
@@ -129,12 +131,12 @@
 :,doble?
 	'jmpstr ! 'condoble 'contype ! ;
 
-:,=? "jnz " ,doble?	;
-:,<? "jge " ,doble?	;
-:,>? "jle " ,doble?	;
-:,<=? "jg " ,doble?	;
-:,>=? "jl " ,doble?	;
-:,<>? "jz " ,doble?	;
+:,<>? 0 ,doble?	;
+:,=? 1 ,doble?	;
+:,<=? 2 ,doble?	;
+:,>? 3 ,doble?	;
+:,>=? 4 ,doble?	;
+:,<? 5 ,doble?	;
 
 :conbit
 	d.nos cell2REG
@@ -151,16 +153,13 @@
 :,bit?
 	'jmpstr ! 'conbit 'contype ! ;
 
-:,and?  "jz " ,bit?	;
-:,nand? "jnz " ,bit? ;
+:,and?  0 ,bit?	;
+:,nand? 1 ,bit? ;
 
 |----- auxiliares bloques
-:label		"_" ,s ,h ;
-:jmp,		"jmp " ,s label ,cr ;
-:,etiqueta	label ": " ,s ;
-
-
-:,jmpcond   jmpstr ,s label ,cr ;
+:,label		"_" ,s ,h ;
+:jmp,		"jmp " ,s ,label ,cr ;
+:,etiqueta	,label ": " ,s ;
 
 |-- permite invertir condicion!!
 #jmplist "jz" "jnz" "jg" "jle" "jl" "jge" "js" "jns"
@@ -168,6 +167,8 @@
 :,jmpdir 'jmplist jmpstr n>>0 ,s ,sp ;
 :,jmpinv 'jmplist jmpstr 1 xor n>>0 ,s ,sp ;
 
+:,jmpcond ,jmpdir ,label ,cr ;
+|:,jmpcond   jmpstr ,s ,label ,cr ;
 
 :+etiqueta	| -- nueva   // y agrega a pila
 	nlabel 1+ dup 'nlabel ! dup >pilac ;
@@ -211,7 +212,7 @@
 :,(
 	block.new
 	blINFO "; BLK %h ((" ,print ,nl
-|	"r4asm/cod.asm" savemem
+	"r4asm/cod.asm" savemem
 
 	blINFO $f and
 	1 <=? ( ,cond vppush +etiqueta ,jmpcond )	| IF/ELSE
@@ -220,7 +221,7 @@
 
 :,)(
 	blINFO ";BLK %h )( " ,print ,nl
-|	"r4asm/cod.asm" savemem
+	"r4asm/cod.asm" savemem
 
 	blINFO $f and
 	1 =? ( ,bloque <pilac +etiqueta jmp, ,etiqueta vppush vppick vpnip )	| ELSE
@@ -229,7 +230,7 @@
 
 :,)
 	blINFO ";BLK %h )) " ,print ,nl
-|	"r4asm/cod.asm" savemem
+	"r4asm/cod.asm" savemem
 
 	blINFO $f and
 	1 <=? (
@@ -238,7 +239,7 @@
 			<pilac ,etiqueta				| IF ELSE
 			)
 	2 =? ( <pilac jmp, <pilac ,etiqueta )	| WHILE
-	3 =? ( ,cond <pilac ,jmpcond )	| UNTIL
+	3 =? ( ,cond <pilac ,jmpcond )			| UNTIL
 	4 =? ( <pilac jmp, )					| REPEAT
 	drop
 	vpPop
