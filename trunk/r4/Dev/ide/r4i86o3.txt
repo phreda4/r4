@@ -158,7 +158,7 @@
 
 |----- auxiliares bloques
 :,label		"_" ,s ,h ;
-:jmp,		"jmp " ,s ,label ,cr ;
+:,jmp		"jmp " ,s ,label ,cr ;
 :,etiqueta	,label ": " ,s ;
 
 |-- permite invertir condicion!!
@@ -168,29 +168,22 @@
 :,jmpinv 'jmplist jmpstr 1 xor n>>0 ,s ,sp ;
 
 :,jmpcond ,jmpdir ,label ,cr ;
-|:,jmpcond   jmpstr ,s ,label ,cr ;
 
 :+etiqueta	| -- nueva   // y agrega a pila
 	nlabel 1+ dup 'nlabel ! dup >pilac ;
 
 |----- BLOQUES
-:vpilad
-	vpila2normal
+:vpilad | ; ajusta pila para bloque
+	blINFO 16 >> neg vpila2fixdeep ;
 
-|	deepnow blockde ";vpila2reg << %d >> %d " ,print printddvtack
-|	blockde vpila2reg
-|	deepnow blockde ";vpila2reg << %d >> %d " ,print printddvtack
-
-|	inivpcnt 1- vpila2fixdeep
-	;
-
-:,cond
+:,cond | ; arma condicional
 	d.cnt "; IC cnt:%d " ,print
 |	blockde " blockde:%d " ,print
 	inivpcnt " inivpcnt:%d " ,print
 	printddvtack
 
 	contype
+|	'condsimple =? ( )( )
 |	blockt $10 nand? ( drop
 |		'consimple =? ( blockde vpila2fix )( blockde vpila2fix2 )
 |		)( drop )
@@ -203,34 +196,64 @@
 	;
 
 :,bloque
-|	d.cnt "; cantidad: %d " ,print blockde "; blode: %d " ,print inivpcnt "; incnt: %d " ,print ,cr
-|	d.cnt inivpcnt - vpila2reg
+	d.cnt inivpcnt - trace vpila2fixdeep ;
+| vpila2reg	"; " ,s printddvtack ;
 
-	"; " ,s printddvtack
+:IFWORD | ; ?( word ; )
+	contype
+|	'consimple =? ( vpila2normal )( vpila2normal2 )
+	exec
+	,jmpinv @+ nro>dicn ,s ,cr
+	8 + | skip "; )"
+	;
+
+:WHILE( | optimiza while
+	vpilad
+	vppush
+	+etiqueta +etiqueta
+	,jmp ,etiqueta
+	drop bl)(
+	;
+
+:WHILE)( | optimiza while
+|    vpFit
+	<pilac
+	,cond
+	,jmpinv ,label ,cr
+	vpdrop
+	drop bl))
+	;
+
+:WHILE) | optimiza while
+	<pilac ,etiqueta
+|	vpFit |vpdrop vppush
+	drop bl((
 	;
 
 :,(
 	block.new
-	blINFO "; BLK %h ((" ,print ,nl
-	"r4asm/cod.asm" savemem
+	blINFO "; BLK %h ((" ,print
+	blSIZE " SIZE:%d " ,print
+	,nl
 
-	blINFO $f and
+	blINFO $ff and
+	$30 =? ( blSIZE 3 =? ( 2drop IFWORD ; ) drop )
+	$f and
 	1 <=? ( ,cond vppush +etiqueta ,jmpcond )	| IF/ELSE
-	2 >=? ( vpilad vppush +etiqueta ,etiqueta )	| WHILE/UNTIL/REPEAT
+	2 =? ( drop WHILE( ; )
+	2 >? ( vpilad vppush +etiqueta ,etiqueta )	| UNTIL/REPEAT
 	drop ;
 
 :,)(
 	blINFO ";BLK %h )( " ,print ,nl
-	"r4asm/cod.asm" savemem
 
 	blINFO $f and
-	1 =? ( ,bloque <pilac +etiqueta jmp, ,etiqueta vppush vppick vpnip )	| ELSE
-	2 =? ( ,cond <pilac +etiqueta ,jmpcond >pilac vpdrop vppush )	| WHILE
+	1 =? ( ,bloque <pilac +etiqueta ,jmp ,etiqueta vppush vppick vpnip )	| ELSE
+	2 =? ( drop WHILE)( ; ) |,cond <pilac +etiqueta ,jmpcond >pilac vpdrop vppush )	| WHILE
 	drop ;
 
 :,)
 	blINFO ";BLK %h )) " ,print ,nl
-	"r4asm/cod.asm" savemem
 
 	blINFO $f and
 	1 <=? (
@@ -238,9 +261,9 @@
 			$10 <>? ( vpFitAll ) drop
 			<pilac ,etiqueta				| IF ELSE
 			)
-	2 =? ( <pilac jmp, <pilac ,etiqueta )	| WHILE
+	2 =? ( drop WHILE) ; ) |<pilac ,jmp <pilac ,etiqueta )	| WHILE
 	3 =? ( ,cond <pilac ,jmpcond )			| UNTIL
-	4 =? ( <pilac jmp, )					| REPEAT
+	4 =? ( <pilac ,jmp )					| REPEAT
 	drop
 	vpPop
 	block.end ;
