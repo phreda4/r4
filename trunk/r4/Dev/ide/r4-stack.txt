@@ -29,7 +29,6 @@
 #cellv )( 1024	| valor
 #cella )( 1024  | suma
 #cells )( 1024  | shift
-#celli )( 1024 	| info de celda
 
 :value	over 1024 + @ ;
 :suma	over 2048 + @ ;
@@ -58,13 +57,18 @@
 	2 << 'cellt + @ $1f and
 	0? ( 1 )( 0 ) nip ;
 
+::cellCTE? | nro -- 1/0
+	2 << 'cellt + @ $1f and
+	1 <>? ( 0 nip )
+	;
+
 ::cell0? | nro -- 1/0 (1 si es 0 literal)
 	2 << dup 'cellt + @ $1f and
 	1? ( 2drop 0 ; ) drop
 	'cellv + @ 1? ( drop 0 ; ) drop
 	1 ;
 
-::cellVal | nro -- valor
+::cellVAL | nro -- valor
 	2 << 'cellv + @ ;
 
 ::cellREG? | nro -- nroreg
@@ -194,10 +198,13 @@
 ::,cell | nro --
 	2 << 'cellt + dup @ dup $f and
 	swap $10 and? ( "dword [" ,s )
-	swap 2 << 'tiposrm + @ exec
+	swap
+	1 =? ( "(" ,s )
+	2 << 'tiposrm + @ exec
 	shift 1? ( "*" ,s dup ,d ) drop
 	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
 	$10 and? ( "]" ,s )
+	$f and 1 =? ( ")" ,s )
 	2drop ;
 
 :,cellb | nro --
@@ -302,11 +309,6 @@
 	0 ( celln <? )(
 		dup ,cell
 		dup " ; %h:" ,print
-		dup 2 << 'celli + @
-		dup 24 >> $ff and "%d:" ,print
-		dup 16 >> $ff and "%d:" ,print
-		dup 8 >> $ff and "%d:" ,print
-		$ff and  "%h" ,print ,cr
 		1+ ) drop
 	;
 
@@ -736,45 +738,41 @@
 	vpst> dup @ swap 4 - ! ;
 
 |---- transforma pila actual en copia apilada
-:usadosolodestino | cell regd --
-	'regused ( regused> <? )(
-		@+ pick3 =? ( drop over over 4 - ! dup ) drop
-		) drop
-	over "xchg " ,s ,CELL "," ,s ,REG ,cr
-	swap ,cell2REG 
-	"r4asm/cod.asm" savemem
+:cell=? | a b -- a b 1/0
+	over 2 << over 2 <<
+	over 'cellt + @ over 'cellt + @ <>? ( 3drop 0 ; ) drop
+	over 'cella + @ over 'cella + @ <>? ( 3drop 0 ; ) drop
+	over 'cellv + @ over 'cellv + @ <>? ( 3drop 0 ; ) drop
+	over 'cells + @ over 'cells + @ <>? ( 3drop 0 ; )
+	3drop 1
 	;
 
-:cambiaregreg | cell regf regd --
-|	swap -? ( drop usadosolodestino ; ) swap
-	'regused ( regused> <? )(
-		@+ pick3 =? ( drop over over 4 - ! dup ) drop
+:xchgcellcell | dest src
+	cellREG? swap cellREG?
+	2dup "xchg " ,s ,REG "," ,s ,REG ,cr
+	| src dst
+	'dpila ( dpila> <? )(
+		@+ dup cellREG? +? ( pick3 =? ( pick4 5 pick3 cell! ) ) 2drop
 		) drop
-|	2dup ";** %d %d " ,print
-|	"r4asm/cod.asm" savemem
-	"xchg " ,s ,REG "," ,s ,REG ,cr
-	drop ;
-
-:asignaregcell | reg cell --
-	dup cellReg? pick2 =? ( 3drop ; ) | si ya esta..
-	rot | cell fuente destino
-|	-? ( 3drop ; )
-	dup REGcell 0 >=? ( drop cambiaregreg ; ) drop
-	nip 2dup ,cell2REG 5 rot cell!
-	"r4asm/cod.asm" savemem
+	2drop
 	;
 
-:fillregused
-	'regused 'regused> !
+:copycellcell | dest src --
+	cell=? 1? ( 3drop ; ) drop
+	over cellREG? REGcell +? ( drop xchgcellcell ; ) drop
+	swap cellREG?
+	2dup ,cell2REG 5 rot cell!
+	;
+
+:makemap
 	vpst> 4 - @ >r
 	'regused 'regused> !
 	r@+ dup "D:%d) " ,print
 	( 1? )( 1-
 		r@+ drop
-		r@+ r@+ 8 r+
-		swap 5 =? ( drop )(
-			2drop r 8 - @ 1+ neg ) | 1+ distinge eax de [esi]
-|			2drop -1 )
+		r@+ r@+ swap newcell
+		r@+ over cell+
+		r@+ over cell<<
 		regused> !+ 'regused> !
 		) drop
 	r@+ | r:
@@ -783,25 +781,29 @@
     rdrop
 	;
 
-::vpFit | dp --
-	fillregused
-	regused> dpila> rot
-	( 1? )( 1-
-		rot 4 - rot 4 -
-		over @ over @ asignaregcell
-		rot ) 3drop ;
-
 ::vpFitAll | --
-	"; vFitall " ,print
+	"; vFitall2 " ,print
 	d.cnt "d.cnt:%d " ,print
-	fillregused
-
-	'regused ( regused> <? )( @+ 0 >=? ( dup ,sp ,REG )( dup ,sp ,d )  drop ) drop ,cr
-|	"; " ,s 6 ( 1? )( 1- regu 1? ( drop dup ,sp ,REG )( drop ) ) drop ,cr
-|	"r4asm/cod.asm" savemem
-
+	celln makemap 'celln !
+	,cr
+	"r4asm/cod.asm" savemem
 	regused> dpila> d.cnt
 	( 1? )( 1-
 		rot 4 - rot 4 -
-		over @ over @ asignaregcell
+		over @ over @ copycellcell
 		rot ) 3drop ;
+
+|-----------------
+:esvari | cell var adr c0 -- cell var adr
+	cellVAR |-? ( 2drop ; ) | c0 var
+	pick3 <>? ( 2drop ; )
+	newReg  | c0 var reg
+	"mov " ,s dup ,REG ",dword [w" ,s swap ,h "]" ,s ,cr
+	5 rot cell!
+	;
+
+::resguardavar | cell --
+	cellDVAR -? ( 2drop ; ) | cell var
+	'dpila ( dpila> 4 - <? )( | cell var adr
+		@+ esvari
+		) 3drop ;
