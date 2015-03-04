@@ -272,17 +272,6 @@
 	'rpila ( rpila> <? )( @+ estareg ) drop
 	drop ;
 
-::newreg | -- reg
-	0 ( dup REGcell -1 <>? )( drop 1+ ) drop
-	| !!!! falta manegar cuando no hay mas registros
-	;
-
-::newRegX | -- reg ; no ecx ni edx ni eax
-	1 regcell -1 =? ( drop 1 ; ) drop | ebx
-	2 regcell -1 =? ( drop 2 ; ) drop | ecx
-	4 regcell -1 =? ( drop 4 ; ) drop | edi
-	7 ( dup REGcell -1 <>? )( drop 1+ ) drop ;
-
 
 |-------------------------------------------
 | DEBUG: imprime pila virtual
@@ -310,6 +299,44 @@
 		dup ,cell
 		dup " ; %h:" ,print
 		1+ ) drop
+	;
+
+|------------------------------------------------
+:freelreg | adr cell reg --
+	pick2 dpila> - 2 >> 1+ neg d.cnt inivpcnt - - 1-
+	"mov [esi" ,s
+	1? ( +? ( "+" ,s ) 2 << ,d )( drop )
+	"]," ,s ,REG ,cr
+	5 $15 pick2 cell!
+	swap dpila> - 4+ neg d.cnt inivpcnt - 2 << - 4 -
+	swap cell+!
+	"; post !!" ,s printddvtack
+	;
+
+::freelastreg | --
+	"; libera !!!" ,s printddvtack
+	'dpila ( dpila> 4 - <? )(
+		@+ dup cellREG? 0 >=? ( freelreg ; )
+		2drop ) drop
+	 ;
+
+::newreg | -- reg
+	0 ( dup REGcell -1 <>? )( drop 1+ ) drop
+	7 <? ( ; )
+	freelastreg
+	0 ( dup REGcell -1 <>? )( drop 1+ ) drop
+	;
+
+::newRegX | -- reg ; no ecx ni edx ni eax
+	1 regcell -1 =? ( drop 1 ; ) drop | ebx
+	2 regcell -1 =? ( drop 2 ; ) drop | ecx
+	4 regcell -1 =? ( drop 4 ; ) drop | edi
+	freelastreg
+	1 regcell -1 =? ( drop 1 ; ) drop | ebx
+	2 regcell -1 =? ( drop 2 ; ) drop | ecx
+	4 regcell -1 =? ( drop 4 ; ) drop | edi
+ 	7
+|	7 ( dup REGcell -1 <>? )( drop 1+ ) drop
 	;
 
 |---- corre esi
@@ -757,6 +784,7 @@
 	2drop
 	;
 
+
 :copycellcell | dest src --
 	cell=? 1? ( 3drop ; ) drop
 	over cellREG? REGcell +? ( drop xchgcellcell ; ) drop
@@ -782,11 +810,9 @@
 	;
 
 ::vpFitAll | --
-	"; vFitall2 " ,print
-	d.cnt "d.cnt:%d " ,print
+	"; vFitall " ,print d.cnt "d.cnt:%d " ,print
 	celln makemap 'celln !
 	,cr
-	"r4asm/cod.asm" savemem
 	regused> dpila> d.cnt
 	( 1? )( 1-
 		rot 4 - rot 4 -

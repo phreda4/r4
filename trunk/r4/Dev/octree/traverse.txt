@@ -1,0 +1,81 @@
+| traverse test
+| PHREDA 2014
+|-----------------------------
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+^r4/dev/octree/wirelib.txt
+
+|------ vista
+#xcam 0 #ycam 0 #zcam 3.0
+
+#tx0	#tx1
+#ty0    #ty1
+#tz0	#tz1
+
+#ox #oy #oz
+
+:norm | x y z -- x y z
+	pick2 dup * pick2 dup * + over dup * + sqrt
+	1.0 swap /. >r
+	rot r *. rot r *. rot r> *. ;
+
+:getval | x y -- x y c
+	over over 128 norm
+	transform
+	1? ( 1.0 swap /. )
+	-0.5 oz - over *. 0.5 oz - rot *.
+	over <? ( swap )
+	'tz1 ! 'tz0 !
+
+	1? ( 1.0 swap /. )
+	-0.5 oy - over *. 0.5 oy - rot *.
+	over <? ( swap )
+	'ty1 ! 'ty0 !
+
+	1? ( 1.0 swap /. )
+	-0.5 ox - over *. 0.5 ox - rot *.
+	over <? ( swap )
+	'tx1 ! 'tx0 !
+
+	tx0 ty0 tz0 max max
+	tx1 ty1 tz1 min min
+|	-
+	>? ( $ff nip ; )
+	$ff00 nip
+	;
+
+:tracetest
+	matinv
+	0 0 0 transform 'oz ! 'oy ! 'ox !
+	-127 ( 127 <? )(
+		-127 ( 127 <? )(
+			sw 2/ pick2 - sh 2/ pick2 - setxy
+			getval px!+
+			2 + ) drop
+		2 + ) drop
+	;
+
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:main
+	4 show clrscr
+		3dini
+		freelook
+		xcam ycam zcam mtrans
+
+		draw3dgrid
+|		10 100 renderwin3
+		tracetest
+
+
+		'exit >esc<
+		cminiflecha ;
+
+: mark main ;
