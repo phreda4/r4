@@ -15,25 +15,20 @@
 
 #ox #oy #oz
 
-:norm | x y z -- x y z
-	pick2 dup * pick2 dup * + over dup * + sqrt
-	1.0 swap /. >r
-	rot r *. rot r *. rot r> *. ;
-
 :getval | x y -- x y c
-	over over 128 norm
+	2dup 512 normInt2Fix
 	transform
-	1? ( 1.0 swap /. )
+	neg oz + 1? ( 1.0 swap /. )
 	-0.5 oz - over *. 0.5 oz - rot *.
 	over <? ( swap )
 	'tz1 ! 'tz0 !
 
-	1? ( 1.0 swap /. )
+	neg oy + 1? ( 1.0 swap /. )
 	-0.5 oy - over *. 0.5 oy - rot *.
 	over <? ( swap )
 	'ty1 ! 'ty0 !
 
-	1? ( 1.0 swap /. )
+	neg ox + 1? ( 1.0 swap /. )
 	-0.5 ox - over *. 0.5 ox - rot *.
 	over <? ( swap )
 	'tx1 ! 'tx0 !
@@ -41,21 +36,50 @@
 	tx0 ty0 tz0 max max
 	tx1 ty1 tz1 min min
 |	-
-	>? ( $ff nip ; )
-	$ff00 nip
+	>? ( $ff )( $ff00 ) nip
 	;
 
 :tracetest
 	matinv
 	0 0 0 transform 'oz ! 'oy ! 'ox !
-	-127 ( 127 <? )(
-		-127 ( 127 <? )(
-			sw 2/ pick2 - sh 2/ pick2 - setxy
+	-256 ( 256 <? )(
+		-256 ( 256 <? )(
+|			sw 2/ pick2 - sh 2/ pick2 - setxy
+			over sw 2/ + over sh 2/ + setxy
 			getval px!+
-			2 + ) drop
-		2 + ) drop
+			4+ ) drop
+		4+ ) drop
 	;
 
+
+:mousetest
+	0 0 0 transform 'ox ! 'oy ! 'oz !
+
+	xymouse swap sw 2/ - swap sh 2/ -
+	2dup "%d %d" print cr
+	512
+	normInt2Fix transform
+
+	neg oz + 1? ( 1.0 swap /. )
+	-0.5 oz - over *. 0.5 oz - rot *.
+	over <? ( swap )
+	'tz1 ! 'tz0 !
+
+	neg oy + 1? ( 1.0 swap /. )
+	-0.5 oy - over *. 0.5 oy - rot *.
+	over <? ( swap )
+	'ty1 ! 'ty0 !
+
+	neg ox + 1? ( 1.0 swap /. )
+	-0.5 ox - over *. 0.5 ox - rot *.
+	over <? ( swap )
+	'tx1 ! 'tx0 !
+
+	tx0 ty0 tz0 max max
+	tx1 ty1 tz1 min min
+	>? ( drop ; ) drop
+
+	;
 
 :freelook
 	xymouse
@@ -67,12 +91,24 @@
 :main
 	4 show clrscr
 		3dini
-		freelook
+|		freelook
 		xcam ycam zcam mtrans
 
 		draw3dgrid
-|		10 100 renderwin3
 		tracetest
+
+		mousetest
+
+		verde
+		tz0 ty0 tx0 "%f %f %f " print cr
+		tz1 ty1 tx1 "%f %f %f " print cr
+
+		[ 0.1 'zcam +! ; ] <dn>
+		[ -0.1 'zcam +! ; ] <up>
+		[ 0.1 'xcam +! ; ] <le>
+		[ -0.1 'xcam +! ; ] <ri>
+		[ 0.1 'ycam +! ; ] <pgup>
+		[ -0.1 'ycam +! ; ] <pgdn>
 
 
 		'exit >esc<
