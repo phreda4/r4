@@ -293,79 +293,41 @@
 |---- pick voxel w/cursor
 
 #ox #oy #oz
+
 #tx0 #ty0 #tz0
 #tx1 #ty1 #tz1
-
-:norm | x y z -- x y z
-	pick2 dup * pick2 dup * + over dup * + sqrt >r
-	rot 1.0 r */ rot 1.0 r */ rot 1.0 r> */ ;
-
 
 :setmousecursor
 	matinv
 	0 0 0 transform 'ox ! 'oy ! 'oz !
-	xymouse
-	sh 2/ - neg swap
-	sw 2/ - neg swap
-	512 norm transform
 
-	-? ( neg 0.5 )( -0.5 ) swap
-	1? ( 1.0 swap /. )	| lim dx
-	over ox - over *. 'tx0 !
-	swap neg ox - *. 'tx1 !
+	xymouse swap sw 2/ - swap sh 2/ - 512
+	normInt2Fix transform
 
-	-? ( neg 0.5 )( -0.5 ) swap
-	1? ( 1.0 swap /. )	| lim dy
-	over oy - over *. 'ty0 !
-	swap neg oy - *. 'ty1 !
+	neg oz + 1? ( 1.0 swap /. )
+	-0.5 oz - over *. 0.5 oz - rot *.
+	over <? ( swap )
+	'tz1 ! 'tz0 !
 
-	-? ( neg 0.5 )( -0.5 ) swap
-	1? ( 1.0 swap /. )	| lim dz
-	over oz - over *. 'tz0 !
-	swap neg oz - *. 'tz1 !
+	neg oy + 1? ( 1.0 swap /. )
+	-0.5 oy - over *. 0.5 oy - rot *.
+	over <? ( swap )
+	'ty1 ! 'ty0 !
 
-
-|	tx0 ty0 tz0 max max tx1 ty1 tz1 min min -
-	tx0 16 >> qsize clamp0max 'curx !
-	ty0 16 >> qsize clamp0max 'cury !
-	tz0 16 >> qsize clamp0max 'curz !
-	;
-
-:getval | x y -- x y c
-	2dup 512 norm
-	transform
-
-|	oz -
-	-? ( neg 0.5 )( -0.5 ) swap
-	1? ( 1.0 swap /. )	| lim dz
-	over oz - over *. 'tz0 !
-	swap neg oz - *. 'tz1 !
-|	oy -
-	-? ( neg 0.5 )( -0.5 ) swap
-	1? ( 1.0 swap /. )	| lim dy
-	over oy - over *. 'ty0 !
-	swap neg oy - *. 'ty1 !
-|	ox -
-	-? ( neg 0.5 )( -0.5 ) swap
-	1? ( 1.0 swap /. )	| lim dx
-	over ox - over *. 'tx0 !
-	swap neg ox - *. 'tx1 !
+	neg ox + 1? ( 1.0 swap /. )
+	-0.5 ox - over *. 0.5 ox - rot *.
+	over <? ( swap )
+	'tx1 ! 'tx0 !
 
 	tx0 ty0 tz0 max max
 	tx1 ty1 tz1 min min
-	-
+	>? ( drop ; ) drop
+
+|	tx0 9 >> neg qsize and 'curz !
+|	ty0 9 >> qsize and 'cury !
+|	tz0 9 >> qsize and 'curx !
 	;
 
-:tracetest
-	matinv
-	0 0 0 transform 'oz ! 'oy ! 'ox !
-	-127 ( 127 <? )(
-		-127 ( 127 <? )(
-			over sw 2/ + over sh 2/ + setxy
-			getval px!+
-			1+ ) drop
-		1+ ) drop
-	;
 
 |------- cursor
 :drawcursor
@@ -456,8 +418,8 @@
 		cx cy cz vox@ -? ( drop 'curz ! 'cury ! 'curx ! ; )
 		4drop
 		) drop ;
-|--------------------------------------
 
+|--------------------------------------
 :deletevox
 	"Delete Voxels?" dlgsino 0? ( drop ; ) drop
 	clearvox
@@ -513,9 +475,9 @@
     curx cury curz vox-
 	buildoctree ;
 
+
 :modpencil
-	setmousecursor
-|	"%d" print cr
+	mpush setmousecursor mpop
 	;
 
 :toopencil
@@ -523,8 +485,8 @@
 	'i.cog 'mainmapas botonsimple2 gc>>
 	gcdn gc<<
 	tpos
-	tz0 ty0 tx0 "%h %h %h " print cr
-	tz1 ty1 tx1 "%h %h %h " print cr
+	tz0 ty0 tx0 "%f %f %f " print cr
+	tz1 ty1 tx1 "%f %f %f " print cr
 	;
 
 |------- tinta
@@ -532,7 +494,6 @@
 	;
 
 :tootint
-	tracetest
 	;
 
 |------- goma
@@ -616,12 +577,11 @@
 		rx mrotx ry mroty
 		xcam ycam zcam mtrans
 
-|	mpush tracetest mpop
-
 		draw3dgrid
+		modogui exec
+
 		drawvoxel
 		drawcursor
-		modogui exec
 
 		fonti
 		verde oscuro 2 linesfill blanco
