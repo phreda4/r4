@@ -10,6 +10,7 @@
 
 ^r4/dev/ide/r4i86o3.txt
 
+
 |--- resolver anonimos
 #nroanon 0
 #totoken
@@ -32,19 +33,14 @@
 :-aa 'anons 'anons> ! ;
 :aa# anons> 'anons - 2 >> ;
 
-#buffaux )( 4096
-#buffaux> 'buffaux
-:+buff	buffaux> !+ 'buffaux> ! ;
-:-buff	'buffaux 'buffaux> ! ;
-
-:es[
+:t[
 	1 'niva +!
 	niv> +ind
 	nroanon dup >aa
 	8 << $14 or pick2 4 - ! | graba en token
 	1 'nroanon +!
 	;
-:es]
+:t]
 	-1 'niva +!
 	aa> 8 << $15 or pick2 4 - ! | graba en token
 	;
@@ -56,13 +52,97 @@
 	over 'totoken ! | token definicion sin contar
 	( 1? )( 1-
 		swap @+ $ff and
-		$14 =? ( es[ )
-		$15 =? ( es] )
+		$14 =? ( t[ )
+		$15 =? ( t] )
 		drop
 		niva +niv
 		swap ) 2drop
 	-1 niv> c!
 	;
+
+|--- resolver r
+|  1 es pila real (no cargada)
+| 10 es una dreccion
+
+#nivr 0
+#rinfo )( 1024
+#rstk )( 128
+#rstk>  'rstk
+
+:rnow rstk> 'rstk =? ( drop nivr dup 1+ 'nivr ! ; ) 1- c@ ;
+
+:rinfo rnow 2 << 'rinfo + @ ;
+
+:rREAL
+	rnow 2 << 'rinfo + dup @ 1 or swap ! ;
+:rADR
+	rnow 2 << 'rinfo + dup @ 2 or swap ! ;
+
+:+nivr
+	nivr rstk> c!+ 'rstk> !
+	1 'nivr +! ;
+
+:-nivr
+	rstk> 'rstk =? ( drop rREAL ; )
+	1- 'rstk> ! ;
+
+:t>R
+	+nivr
+	;
+:tR>
+	-nivr
+	;
+:tR
+	;
+:tR+
+	rADR ;
+:tR@+
+	rADR ;
+:tR!+
+	rADR ;
+:tRDROP
+	-nivr
+	;
+
+|--- buffer de codigo
+#buffaux )( 4096
+#buffaux> 'buffaux
+
+:-buff
+	'buffaux 'buffaux> !
+	'rinfo >r 256 ( 1? )( 1- 0 r!+ ) drop rdrop
+	'rstk 'rstk> ! 0 'nivr ! ;
+:+buff
+	$32 =? ( t>R )
+	$33 =? ( tR> )
+	$34 =? ( tR )
+	$35 =? ( tR+ )
+	$36 =? ( tR@+ )
+	$37 =? ( tR!+ )
+	$38 =? ( tRDROP )
+	buffaux> !+ 'buffaux> ! ;
+
+:marca | adr v -- adr v
+	rinfo
+	1 and? ( drop ; ) | es real
+	2 and? ( drop over 4 - dup @ $100 or swap ! ; )
+
+	| uso < limite o w
+
+	;
+
+
+:resuelveR
+	'buffaux ( buffaux> <? )(
+		@+
+		$32 =? ( t>R marca )
+		$33 =? ( tR> marca )
+		$34 =? ( tR marca )
+		$35 =? ( marca )
+		$36 =? ( marca )
+		$37 =? ( marca )
+		$38 =? ( tRDROP marca )
+		drop ) drop ;
 
 |------------------------
 :buscacte | adr+ val -- adr+
@@ -154,9 +234,10 @@
 		dup @ copynivl
 		) drop
 
-	dup dic>str @ "; --- %s ---" ,print ,nl
 	|-- genera principal
-	cntwords 1- =? ( "inicio: " )( dup "w%h: " ) ,print ,nl
+	cntwords 1- =? ( "inicio: " )( dup "w%h: " ) ,print
+	dup dic>str @ " ; --- %s ---" ,print
+	,nl
 	'niv totoken 0 copynivr
 	,nl ;
 
