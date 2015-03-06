@@ -65,44 +65,27 @@
 | 10 es una dreccion
 
 #nivr 0
-#rinfo )( 1024
+#rinfod )( 1024
 #rstk )( 128
 #rstk>  'rstk
 
-:rnow rstk> 'rstk =? ( drop nivr dup 1+ 'nivr ! ; ) 1- c@ ;
+:rnow rstk> 1- c@ ;
+:rinfo rnow 2 << 'rinfod + ;
 
-:rinfo rnow 2 << 'rinfo + @ ;
+:rREAL	rstk> 'rstk =? ( drop ; ) drop rinfo dup @ 1 or swap ! ;
+:rADR   rinfo dup @ 2 or swap ! ;
 
-:rREAL
-	rnow 2 << 'rinfo + dup @ 1 or swap ! ;
-:rADR
-	rnow 2 << 'rinfo + dup @ 2 or swap ! ;
+:+nivr	nivr rstk> c!+ 'rstk> ! 1 'nivr +! ;
+:-nivr  -1 'rstk> +! ;
+:checklast	rstk> 'rstk =? ( +nivr rREAL ) drop ;
 
-:+nivr
-	nivr rstk> c!+ 'rstk> !
-	1 'nivr +! ;
-
-:-nivr
-	rstk> 'rstk =? ( drop rREAL ; )
-	1- 'rstk> ! ;
-
-:t>R
-	+nivr
-	;
-:tR>
-	-nivr
-	;
-:tR
-	;
-:tR+
-	rADR ;
-:tR@+
-	rADR ;
-:tR!+
-	rADR ;
-:tRDROP
-	-nivr
-	;
+:t>R	+nivr ;
+:tR>    checklast -nivr ;
+:tR		checklast ;
+:tR+	rADR ; |	checklast | error
+:tR@+	rADR ; |	checklast | error
+:tR!+	rADR ; |	checklast | error
+:tRDROP checklast -nivr ;
 
 |--- buffer de codigo
 #buffaux )( 4096
@@ -110,9 +93,12 @@
 
 :-buff
 	'buffaux 'buffaux> !
-	'rinfo >r 256 ( 1? )( 1- 0 r!+ ) drop rdrop
+	'rinfod >r 255 ( 1? )( 1- 0 r!+ ) drop rdrop
 	'rstk 'rstk> ! 0 'nivr ! ;
+
 :+buff
+	dup $ff and $c =? ( rREAL ) drop
+	$10 =? ( rREAL )
 	$32 =? ( t>R )
 	$33 =? ( tR> )
 	$34 =? ( tR )
@@ -122,17 +108,18 @@
 	$38 =? ( tRDROP )
 	buffaux> !+ 'buffaux> ! ;
 
+
 :marca | adr v -- adr v
 	rinfo
 	1 and? ( drop ; ) | es real
 	2 and? ( drop over 4 - dup @ $100 or swap ! ; )
 
 	| uso < limite o w
-
+	drop
+	over 4 - dup @ $100 or swap !
 	;
 
-
-:resuelveR
+:marcaRstack
 	'buffaux ( buffaux> <? )(
 		@+
 		$32 =? ( t>R marca )
@@ -195,11 +182,13 @@
 	over c@
 :copynivr | lugarniv tok v --
 	-buff
+
 	swap rot | niv@ tok niv
 	( c@+ pick3 >=? )( | mismo nivel o mayor
 		pick3 >? ( drop swap 4+ )( drop swap +buffer )
 		swap ) 4drop
 
+	marcaRstack
 	buffaux> 'buffaux compilatok
 
 |---- compilar el buffer ---- ************
@@ -207,8 +196,7 @@
 |	'buffaux ( buffaux> <? )(
 |		buffp ) drop
 |---- compilar el buffer ----
-
-	,nl ;
+	;
 
 |------------------------------------
 :gencodigo | nro -- nro
@@ -236,11 +224,9 @@
 
 	|-- genera principal
 	cntwords 1- =? ( "inicio: " )( dup "w%h: " ) ,print
-	dup dic>str @ " ; --- %s ---" ,print
-	,nl
+	dup dic>str @ " ; --- %s --- ;" ,print ,nl
 	'niv totoken 0 copynivr
 	,nl ;
-
 
 :make_cod.asm
 	ini.compila
