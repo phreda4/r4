@@ -291,6 +291,8 @@
 	buildoctree ;
 
 |---------- bresenham
+#ox #oy #oz	| origen
+
 #ex #ey #ez
 #cx #cy #cz
 #dx #dy #dz
@@ -298,37 +300,24 @@
 
 #paso
 
-:pasox
-	ey +? ( sy 'cy +! dx 2* - ) dy 2* + 'ey !
-	ez +? ( sz 'cz +! dx 2* - ) dz 2* + 'ez !
-	sx 'cx +! ;
-:pasoy
-	ex +? ( sx 'cx +! dy 2* - ) dx 2* + 'ex !
-	ez +? ( sz 'cz +! dy 2* - ) dz 2* + 'ez !
-	sy 'cy +! ;
-:pasoz
-	ey +? ( sy 'cy +! dz 2* - ) dy 2* + 'ey !
-	ex +? ( sx 'cx +! dz 2* - ) dx 2* + 'ex !
-	sz 'cz +! ;
-
 |-- recorrido completo
-:pasox1
+:pasox
 	ey dy >? ( sy 'cy +! dx 2* - 'ey ! ; ) dy 2* + 'ey !
 	ez dz >? ( sz 'cz +! dx 2* - 'ez ! ; ) dz 2* + 'ez !
 	sx 'cx +! ;
-:pasoy1
+:pasoy
 	ex dx >? ( sx 'cx +! dy 2* - 'ex ! ; ) dx 2* + 'ex !
 	ez dz >? ( sz 'cz +! dy 2* - 'ez ! ; ) dz 2* + 'ez !
 	sy 'cy +! ;
-:pasoz1
+:pasoz
 	ex dx >? ( sx 'cx +! dz 2* - 'ex ! ; ) dx 2* + 'ex !
 	ey dy >? ( sy 'cy +! dz 2* - 'ey ! ; ) dy 2* + 'ey !
 	sz 'cz +! ;
 
 :3dbreline | xf yf zf --
-	pick2 curx over - +? ( 1 )( -1 ) 'sx ! abs 'dx ! 'cx !
-	over cury over - +? ( 1 )( -1 ) 'sy ! abs 'dy ! 'cy !
-	dup curz over - +? ( 1 )( -1 ) 'sz ! abs 'dz ! 'cz !
+	rot ox over - +? ( 1 )( -1 ) 'sx ! abs 'dx ! 'cx !
+	swap oy over - +? ( 1 )( -1 ) 'sy ! abs 'dy ! 'cy !
+	oz over - +? ( 1 )( -1 ) 'sz ! abs 'dz ! 'cz !
 	dx dy >=? (
 		dz >=? ( drop
 			dy 2* dx - 'ey ! dz 2* dx - 'ez ! 'pasox 'paso ! ; )
@@ -342,8 +331,8 @@
 	dx 2* dz - 'ex ! dy 2* dz - 'ey ! 'pasoz 'paso ! ;
 
 |------------------------------------
-
 :3dline | x y z --
+	pick3 pick3 pick3
 	3dbreline
 	( cx curx - cy cury - or cz curz - or 1? )( drop
 		color cx cy cz vox!
@@ -354,72 +343,60 @@
 	buildoctree
 	;
 
-:3dempty | x y z --
-	3dbreline 3drop
-	( cx curx - cy cury - or cz curz - or 1? )( drop
-		cx cy cz
-		paso exec
-		cx cy cz vox@ -? ( drop 'curz ! 'cury ! 'curx ! ; )
-		4drop
-		) drop ;
-
-
 |---- pick voxel w/cursor
-#ox #oy #oz
-
 #tx0 #ty0 #tz0
 #tx1 #ty1 #tz1
 
-:hitbox | -- 1/0
-	matinv
-	0 0 0 transform 'oz ! 'oy ! 'ox !
-	xymouse swap sw 2/ - swap sh 2/ - 512
-	normInt2Fix transform
-	neg oz + 1? ( 1.0 swap /. )
-	-0.5 oz - over *. 0.5 oz - rot *.
-	over <? ( swap )
-	'tz1 ! 'tz0 !
-	neg oy + 1? ( 1.0 swap /. )
-	-0.5 oy - over *. 0.5 oy - rot *.
-	over <? ( swap )
-	'ty1 ! 'ty0 !
-	neg ox + 1? ( 1.0 swap /. )
-	-0.5 ox - over *. 0.5 ox - rot *.
-	over <? ( swap )
-	'tx1 ! 'tx0 !
-	tx0 ty0 tz0 max max
-	tx1 ty1 tz1 min min
-	>? ( drop 1 ; ) drop 0 ;
+:inside? | ; adentro del bbox?
+	cx cy or cz or
+	16 deepvox - >>
+	qsize not ;
+
+:setcur! | ; guarda en cursor
+	16 deepvox -
+	cx over >> 'curx !
+	cy over >> 'cury !
+	cz swap >> 'curz ! ;
+
+:stepvox | ; avanza hasta cambiar de voxel
+	qsize 16 deepvox - <<
+	cx cy xor cz xor over and
+	( paso exec
+		cx cy xor cz xor pick2 and
+		over =? )( drop ) 3drop ;
+
+:ray0hit | --
+	( cx ox neg >? )( drop
+		stepvox
+		inside? nand? ( drop 1 ; ) drop
+		) drop 0 ;
+
+:ray1hit | --
+	16 deepvox -
+	( cx ox neg >? )( drop
+		cx over >> cy pick2 >> cz pick3 >>
+		vox@ +? ( 2drop ; ) drop				| voxel lleno
+		inside? and? ( 2drop ; ) drop | salio
+		setcur!
+		stepvox
+		) 2drop ;
 
 :setmousecursor
 	matinv
-	0 0 0 transform 'oz ! 'oy ! 'ox !
-
-|	hitbox 0? ( drop ; ) drop
-
-	xymouse swap sw 2/ - swap sh 2/ - -512
-	normInt2Fix transform
-	1.0 deepvox >> >r
-	neg oz + r / 'tx1 !
-	neg oy + r / 'ty1 !
-	neg ox + r / 'tz1 !
-	ox 0.5 + r / 'tz0 !
-	oy 0.5 + r / 'ty0 !
-	oz 0.5 + r> / 'tx0 !
-	tx0 'curx ! ty0 'cury ! tz0 'curz !
-	tx0 tx1 - ty0 ty1 - tz0 tz1 - 3dbreline 3drop
-	400
-	( 1? )( 1-
-|		cz cy cx pick2 pick2 pick2 or or "%h %d %d %d " print cr allowchome
-		cx cy or cz or qsize not nand? (
-			color cx cy cz vox!
-			) drop
-		paso exec
-		) drop
-|	color cx cy cz vox!
-|	'curz ! 'cury ! 'curx !
-	buildoctree
-	;
+	0 0 0 transform 'oz ! 'oy ! 'ox !	| flip!
+	xymouse swap sw 2/ - swap sh 2/ - 512
+	transform
+	neg oz + 'tx1 !
+	neg oy + 'ty1 !
+	neg ox + 'tz1 !
+	ox 0.5 + 'tz0 !
+	oy 0.5 + 'ty0 !
+	oz 0.45 - neg 'tx0 !
+	tx0 'ox ! ty0 'oy ! tz0 'oz !
+	tx0 tx1 - ty0 ty1 - tz0 tz1 - 3dbreline
+	ray0hit 0? ( drop ; ) drop
+	setcur!
+	ray1hit ;
 
 |------- cursor
 :drawcursor
@@ -498,9 +475,7 @@
 	verde oscuro
 	'i.cog 'mainmapas botonsimple2 gc>>
 	gcdn gc<<
-	tpos
-	tz0 ty0 tx0 "%d %d %d " print cr
-	tz0 tz1 - ty0 ty1 - tx0 tx1 - "%d %d %d " print cr
+|	tpos
 	;
 
 |------- tinta
