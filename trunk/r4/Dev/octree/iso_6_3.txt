@@ -8,30 +8,26 @@
 
 ^r4/lib/trace.txt
 
-|-------------
-#xcam 0 #ycam 0 #zcam 0.1
-
 #$base
 #$magic
 #$octree
 #$pixels
 #$paleta
 
-#ymin #nymin
-#xmin #nxmin
-#ymax #nymax
-#xmax #nxmax
+#ymin #xmin
+#ymax #xmax
 
 #nzmin
 #zlen
-#ozmin #ozmax
-#zmin #zmax
-#aocull
 
-#rotsum )( 1024		| 32 niveles de 2 valores*8 vert
-#rotsum> 'rotsum
-#octvert )( 3072 	| 32 niveles de 3 valores*8 vert
+#wiso #wison
+#hiso #hison
+
+#octvert )( 4096 	| 32 niveles de 3 valores*8 vert
 #octvert> 'octvert
+
+#ilevel 0
+#ivecpos )( 64
 
 #x0 #y0 #z0	| centro
 #x1 #y1 #z1	| Nx
@@ -43,14 +39,6 @@
 	x2 x0 * y2 y0 * + z2 z0 * + +? ( 2 r+ ) drop
 	x4 x0 * y4 y0 * + z4 z0 * + +? ( 4 r+ ) drop
 	r> ;
-
-
-:get2dlimit | adr -- adr
-	dup nxmin + @ 16 >> 'xmin !
-	dup nymin + @ $ffff and 'ymin !
-	dup nxmax + @ 16 >> 'xmax !
-	dup nymax + @ $ffff and 'ymax !
-	;
 
 |-------------------------------
 :octcolor | oct -- color
@@ -90,26 +78,23 @@
 	;
 
 |-------------------------------
+:drawpoint | x y oct --
+	octcolor rot rot maskpxyo ;
 
-:drawpoint | oct x y --
-	rot octcolor rot rot maskpxyo ;
+:drawpoint1 | x y oct --
+	hison 0? ( drop drawpoint ; )
+	swap octcolor ink	| x y h
+	over + maskfpy ;
 
-:drawpoint1 | oct x --
-	-32 'rotsum> +!
-	ymin ymax =? ( drawpoint ; )
-	rot octcolor ink
-	ymax maskfpy ;
-
-:drawpoint2 | oct x y --
-	-32 'rotsum> +!
-	rot octcolor ink
-    xmax maskfpx ;
-
-
-:drawbox | oct --
-	-32 'rotsum> +!
+:drawpoint2 | x y oct --
 	octcolor ink
-	xmin ymin xmax ymax maskfpxy ;
+	wison pick2 + maskfpx ;
+
+|---- quad cube
+:drawbox | x y oct --
+	octcolor ink
+	wison pick2 + hison pick2 +
+	maskfpxy ;
 
 |---- real cube
 #faces (
@@ -123,117 +108,138 @@
 7 6 4 5 7 5 1 3 7 3 2 6
 )
 
-:getn | n -- x y
-	2 << rotsum> + @ dup 16 >> swap $ffff and ;
+:getn | x y a id -- x y a x y
+	3 << 'ivecpos + >r
+	pick2 r@+ ilevel >> + pick2 r> @ ilevel >> + ;
+|	pick2 r@+ ilevel 1- >> 1+ 2/ + pick2 r> @ ilevel 1- >> 1+ 2/ + ; | level=0!!
+
 
 :aclara
     ink@ $f0f0f colavg ink ;
 
 :dface | adr -- adr'
-	c@+ getn 2dup maskop rot
+	c@+ getn 2dup >r >r maskop
 	c@+ getn maskline
 	c@+ getn maskline
 	c@+ getn maskline
-	rot rot maskline
+	r> r> maskline
 	maskpoly ;
 
-:drawboxd | oct --
-	-32 'rotsum> +!
+:drawboxd | x y oct --
 	octcolor ink
 	nzmin 2 << dup 2* + 'faces +
-	dface aclara dface aclara dface drop
-	;
+	dface aclara dface aclara dface
+	3drop ;
+
+|---- 1 color cube
+#contorno (
+1 5 4 6 2 3 0 0
+0 2 3 7 5 4 0 0
+0 1 3 7 6 4 0 0
+0 2 6 7 5 1 0 0
+0 2 6 7 5 1 0 0
+0 1 3 7 6 4 0 0
+0 2 3 7 5 4 0 0
+1 5 4 6 2 3 0 0
+)
+
+:drawboxc | x y oct --
+	octcolor ink
+	nzmin 3 << 'contorno +
+	c@+ getn 2dup >r >r maskop
+	c@+ getn maskline
+	c@+ getn maskline
+	c@+ getn maskline
+	c@+ getn maskline
+	c@+ getn maskline 3drop
+	r> r> maskline
+	maskpoly ;
 
 #dbox 'drawbox
 
-::voxelcuad
-	'drawbox 'dbox ! ;
-
-::voxelbox
-	'drawboxd 'dbox ! ;
-
 :oct++ | adr -- adr bitmask
-|	@ dup 8 >> 2 << $octree + swap $ff and | adr bitmask	| absoluto
-	@+ dup 8 >> 2 << rot + swap $ff and 	| adr bitmask  | relativo
+|	@ dup 8 >> 2 << $octree + swap $ff and	| adr bitmask	| absoluto
+	@+ dup 8 >> 2 << rot + swap $ff and 	| adr bitmask	| relativo
 	;
+
 |----------------------
-:addchild | id --
-	rotsum> dup >r
-	32 - swap 2 << over + | prev pivot
-	@ swap | xy prev
-	@+ pick2 + 2/ $3fff3fff and r!+
-	@+ pick2 + 2/ $3fff3fff and r!+
-	@+ pick2 + 2/ $3fff3fff and r!+
-	@+ pick2 + 2/ $3fff3fff and r!+
-	@+ pick2 + 2/ $3fff3fff and r!+
-	@+ pick2 + 2/ $3fff3fff and r!+
-	@+ pick2 + 2/ $3fff3fff and r!+
-	@ + 2/ $3fff3fff and r!+
-	r>
-	get2dlimit
-	'rotsum> ! ;
+:idsumi | x y id -- x y
+	3 << 'ivecpos + >r
+	r@+ ilevel 1- >> 1+ 2/ rot + r> @ ilevel 1- >> 1+ 2/ rot + ;
+|	r@+ ilevel >> rot + r> @ ilevel >> rot + ;
 
-:viewchildm | node bitm nro -- node bitm
-	1 over << pick2 nand? ( 2drop ; )	| node bitm nro place
-	swap addchild
-	1- over and popcnt 2 << pick2 +    | node bitm node'
+:childi | x y node bitm nro place -- node bitm
+	1- pick2 and popcnt 2 << pick3 +
+	>r >r pick3 pick3 r> idsumi r>
 
-:viewi | node --
-	xmin ymin xmax ymax maskb.rget 0? ( 2drop -32 'rotsum> +! ; ) drop
-	xmin xmax =? ( drawpoint1 ; )
-	ymin ymax =? ( drawpoint2 ; ) 2drop
+|	ilevel wiso over >> 'wison ! hiso swap >> 'hison !
+	ilevel 1- wiso over >> 1+ 2/ 'wison ! hiso swap >> 1+ 2/ 'hison !
+
+	;
+
+:viewi | x y node --
+	pick2 pick2 wison pick2 + hison pick2 +
+	maskb.rget 0? ( 4drop ; ) drop
+	wison 0? ( drop drawpoint1 ; ) drop
+	hison 0? ( drop drawpoint2 ; ) drop
 
 	$pixels >=? ( $magic $100 nand? ( drop dbox exec ; ) drop getoct viewi getocti ; )
-|	$pixels >=? ( dbox exec ; )
 
 	oct++
-	nzmin viewchildm
-	nzmin 1 xor viewchildm
-	nzmin 2 xor viewchildm
-	nzmin 4 xor viewchildm
-	nzmin 3 xor viewchildm
-	nzmin 5 xor viewchildm
-	nzmin 6 xor viewchildm
-	nzmin 7 xor viewchildm
-	2drop
-	-32 'rotsum> +!
+	1 'ilevel +!
+	nzmin 1 over << pick2 nand? ( 2drop )( childi viewi )
+	nzmin 1 xor 1 over << pick2 nand? ( 2drop )( childi viewi )
+	nzmin 2 xor 1 over << pick2 nand? ( 2drop )( childi viewi )
+	nzmin 4 xor 1 over << pick2 nand? ( 2drop )( childi viewi )
+	nzmin 3 xor 1 over << pick2 nand? ( 2drop )( childi viewi )
+	nzmin 5 xor 1 over << pick2 nand? ( 2drop )( childi viewi )
+	nzmin 6 xor 1 over << pick2 nand? ( 2drop )( childi viewi )
+	nzmin 7 xor 1 over << pick2 nand? ( 2drop )( childi viewi )
+	4drop
+	-1 'ilevel +!
 	;
 
 |-----------------------
 :id3di | x y z -- xy
 	3dproj | x y
-	dup 'ymin ! 0 'nymin !
+	dup 'ymin ! dup 'ymax !
 	swap
-	dup 'xmin ! 0 'nxmin !
-	16 << or ;
+	dup 'xmin ! dup 'xmax !
+	;
 
-:id3d | id x y z -- xy
-	3dproj | id x y
-	ymin <? ( dup 'ymin ! pick2 'nymin ! )
+:id3d | x y z -- xy
+	3dproj | x y
+	ymin <? ( dup 'ymin ! )
+	ymax >? ( dup 'ymax ! )
 	swap
-	xmin <? ( dup 'xmin ! pick2 'nxmin ! )
-	16 << or
-	nip ;
-
-:fillveciso | --
-	octvert> 96 - >r
-	'rotsum
-	r@+ r@+ r@+ id3di swap !+
-	1 r@+ r@+ r@+ id3d swap !+
-	2 r@+ r@+ r@+ id3d swap !+
-	3 r@+ r@+ r@+ id3d swap !+
-	4 r@+ r@+ r@+ id3d swap !+
-	5 r@+ r@+ r@+ id3d swap !+
-	6 r@+ r@+ r@+ id3d swap !+
-	7 r@+ r@+ r> @ id3d swap !+
-	nymin dup 2 << 32 - 'nymin ! 7 xor 2 << 32 - 'nymax !
-	nxmin dup 2 << 32 - 'nxmin ! 7 xor 2 << 32 - 'nxmax !
-	get2dlimit
-	'rotsum> ! ;
+	xmin <? ( dup 'xmin ! )
+	xmax >? ( dup 'xmax ! )
+	;
 
 :isonow | oct --
-    fillveciso viewi
-	-96 'octvert> +! ;
+	>r
+	octvert> 96 - dup 'octvert> ! >r
+	'ivecpos
+	r@+ r@+ r@+ id3di rot !+ !+
+	r@+ r@+ r@+ id3d rot !+ !+
+	r@+ r@+ r@+ id3d rot !+ !+
+	r@+ r@+ r@+ id3d rot !+ !+
+	r@+ r@+ r@+ id3d rot !+ !+
+	r@+ r@+ r@+ id3d rot !+ !+
+	r@+ r@+ r@+ id3d rot !+ !+
+	r@+ r@+ r> @ id3d rot !+ !
+	xmin xmax over - dup 'wison ! 'wiso !
+	ymin ymax over - dup 'hison ! 'hiso !
+	'ivecpos
+	dup @ pick3 - swap !+ dup @ pick2 - swap !+
+	dup @ pick3 - swap !+ dup @ pick2 - swap !+
+	dup @ pick3 - swap !+ dup @ pick2 - swap !+
+	dup @ pick3 - swap !+ dup @ pick2 - swap !+
+	dup @ pick3 - swap !+ dup @ pick2 - swap !+
+	dup @ pick3 - swap !+ dup @ pick2 - swap !+
+	dup @ pick3 - swap !+ dup @ pick2 - swap !+
+	dup @ pick3 - swap !+ dup @ pick2 - swap !
+	r> viewi ;
 
 |---------------- search iso ratio
 :getz | nro -- Z
@@ -261,15 +267,14 @@
 	1- over and popcnt 2 << pick2 +    | node bitm node'
 
 :viewr | node --
+
 	calcmask dup 'nzmin !
 	|7 xor
 	getz clz zlen <=? ( drop isonow ; ) drop
-
-|	$pixels >=? ( isonow ; )
 	$pixels >=? ( $magic $100 nand? ( drop isonow ; ) drop getoct viewr getocti ; )
 
-	1 'zlen +!
 	oct++
+	1 'zlen +!
 	nzmin >r
 	r viewchildr
 	r 1 xor viewchildr
@@ -285,7 +290,7 @@
 
 |----------- search cube in screen
 :culling | xyz -- cull
-	0.005 <? ( $10 )( 0 ) >r
+	1 <? ( $10 )( 0 ) >r
 	swap -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
 	swap -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
 	drop r> ;
@@ -302,8 +307,8 @@
 	r@+ r@+ r@+ cull1
 	r@+ r@+ r@+ culln
 	r@+ r@+ r@+ culln
-	r@+ dup 'x0 ! r@+ dup 'y0 ! r@+ dup 'z0 ! culln
-	r@+ dup x0 + 2/ 'x0 ! r@+ dup y0 + 2/ 'y0 ! r@+ dup z0 + 2/ 'z0 ! culln
+	r@+ r@+ r@+ culln
+	r@+ r@+ r@+ culln
 	r@+ r@+ r@+ culln
 	r@+ r@+ r@+ culln
 	r@+ r@+ r> @ culln ;
@@ -313,14 +318,15 @@
 	swap 2 << dup 2* +	| 12*
 	over + swap >r >r | prev pivot
 	r@+ r@+ r> @ r> | x y z pri
+	@+ pick4 + 2/ dup 'x0 ! r!+ @+ pick3 + 2/ dup 'y0 ! r!+ @+ pick2 + 2/ dup 'z0 ! r!+
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @ + 2/ r> !+ 'octvert> !
+	@+ pick4 + 2/ dup x0 + 2/ 'x0 ! r!+ @+ pick3 + 2/ dup y0 + 2/ 'y0 ! r!+ @ + 2/ dup z0 + 2/ 'z0 !
+	r> !+ 'octvert> !
 	2drop ;
 
 :viewchildo | node bitm nro -- node bitm
@@ -334,7 +340,6 @@
 	$ff00 and? ( 2drop -96 'octvert> +! ; )
 	drop
 
-|	$pixels >=? ( drop -96 'octvert> +! ; )
 	$pixels >=? ( $magic $100 nand? ( 2drop -96 'octvert> +! ; ) drop getoct viewo getocti ; )
 
 	1 'zlen +!
@@ -383,6 +388,14 @@
 
 ::load3do | "" -- moctree
 	here dup rot load 'here ! ;
+
+::voxelcuad 'drawbox 'dbox ! ;
+::voxelbox 'drawboxd 'dbox ! ;
+::voxelboxc 'drawboxc 'dbox ! ;
+
+
+|-------------
+#xcam 0 #ycam 0 #zcam 1.0
 
 |-------------
 :freelook
@@ -442,6 +455,11 @@
 		[ Omario 'Onow ! ; ] <f2>
 		[ Ocaballo 'Onow ! ; ] <f3>
 		[ Oearth 'Onow ! ; ] <f4>
+
+		'voxelcuad <f5>
+		'voxelbox <f6>
+		'voxelboxc <f7>
+
 		'exit >esc< cminiflecha
 		1000 .mseg .restart
 		fpsc 'fps ! 0 'fpsc !
