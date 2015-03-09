@@ -16,7 +16,7 @@
 ^r4/dev/octree/wirelib.txt
 
 ^r4/dev/octree/buildoctree.txt
-^r4/dev/octree/iso_9.txt
+^r4/dev/octree/iso_6_3.txt
 
 ^r4/lib/trace.txt
 
@@ -348,9 +348,13 @@
 #tx1 #ty1 #tz1
 
 :inside? | ; adentro del bbox?
-	cx cy or cz or
-	16 deepvox - >>
-	qsize not ;
+	cx cy or cz or $ffff0000 ;
+
+:outside2
+	cx abs cy abs or cz abs or $fffc0000 ;
+
+:outside
+	cx $20000 + cy $20000 + or cz $20000 + or $fff80000 ;
 
 :setcur! | ; guarda en cursor
 	16 deepvox -
@@ -365,39 +369,39 @@
 		cx cy xor cz xor pick2 and
 		over =? )( drop ) 3drop ;
 
+
 :ray0hit | --
-	( cx ox neg >? )( drop
+	( outside nand? )( drop
 		stepvox
 		inside? nand? ( drop 1 ; ) drop
 		) drop 0 ;
 
 :ray1hit | --
 	16 deepvox -
-	( cx ox neg >? )( drop
+	( inside? nand? )( drop
 		cx over >> cy pick2 >> cz pick3 >>
 		vox@ +? ( 2drop ; ) drop				| voxel lleno
-		inside? and? ( 2drop ; ) drop | salio
 		setcur!
 		stepvox
 		) 2drop ;
 
 :setmousecursor
 	matinv
-	0 0 0 transform 'oz ! 'oy ! 'ox !	| flip!
+	0 0 0 transform 'ox ! 'oy ! 'oz !
 	xymouse swap sw 2/ - swap sh 2/ - 512
 	transform
-	neg oz + 'tx1 !
+	neg ox + 'tx1 !
 	neg oy + 'ty1 !
-	neg ox + 'tz1 !
-	ox 0.5 + 'tz0 !
-	oy 0.5 + 'ty0 !
-	oz 0.45 - neg 'tx0 !
-	tx0 'ox ! ty0 'oy ! tz0 'oz !
-	tx0 tx1 - ty0 ty1 - tz0 tz1 - 3dbreline
+	neg oz + 'tz1 !
+	oz 0.5 - neg tz1 2* - 'oz !
+	oy 0.5 - neg ty1 2* - 'oy !
+	ox 0.55 - neg tx1 2* - 'ox !
+	ox tx1 - oy ty1 - oz tz1 -
+	3dbreline
 	ray0hit 0? ( drop ; ) drop
 	setcur!
 	ray1hit ;
-
+;
 |------- cursor
 :drawcursor
 	 blink 1? ( blanco )( gris ) drop

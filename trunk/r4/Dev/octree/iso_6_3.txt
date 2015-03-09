@@ -23,9 +23,8 @@
 #wiso #wison
 #hiso #hison
 
-#octvert )( 4096 	| 32 niveles de 3 valores*8 vert
+#octvert )( 4096
 #octvert> 'octvert
-
 #ilevel 0
 #ivecpos )( 64
 
@@ -111,8 +110,7 @@
 :getn | x y a id -- x y a x y
 	3 << 'ivecpos + >r
 	pick2 r@+ ilevel >> + pick2 r> @ ilevel >> + ;
-|	pick2 r@+ ilevel 1- >> 1+ 2/ + pick2 r> @ ilevel 1- >> 1+ 2/ + ; | level=0!!
-
+|	pick2 r@+ ilevel 1- >> 1+ 2/ + pick2 r> @ ilevel 1- >> 1+ 2/ + ; | level=0!!**
 
 :aclara
     ink@ $f0f0f colavg ink ;
@@ -168,13 +166,20 @@
 	r@+ ilevel 1- >> 1+ 2/ rot + r> @ ilevel 1- >> 1+ 2/ rot + ;
 |	r@+ ilevel >> rot + r> @ ilevel >> rot + ;
 
+:idsum
+	3 << 'ivecpos + >r
+	r@+ ilevel 1- >> 1+ 2/ pick4 + r> @ ilevel 1- >> 1+ 2/ pick4 +
+|	r@+ ilevel >> pick4 + r> @ ilevel >> pick4 +
+	;
+
 :childi | x y node bitm nro place -- node bitm
 	1- pick2 and popcnt 2 << pick3 +
-	>r >r pick3 pick3 r> idsumi r>
-
+	>r
+	idsum
+|	>r pick3 pick3 r> idsumi
+	r>
 |	ilevel wiso over >> 'wison ! hiso swap >> 'hison !
 	ilevel 1- wiso over >> 1+ 2/ 'wison ! hiso swap >> 1+ 2/ 'hison !
-
 	;
 
 :viewi | x y node --
@@ -261,29 +266,27 @@
 	r> !+ 'octvert> !
 	2drop ;
 
-:viewchildr | node bitm nro -- node bitm
-	1 over << pick2 nand? ( 2drop ; )	| node bitm nro place
+:childr | node bitm nro -- node bitm
 	swap addchildr
 	1- over and popcnt 2 << pick2 +    | node bitm node'
+	;
 
 :viewr | node --
-
-	calcmask dup 'nzmin !
-	|7 xor
+	calcmask dup 'nzmin !	|7 xor
 	getz clz zlen <=? ( drop isonow ; ) drop
 	$pixels >=? ( $magic $100 nand? ( drop isonow ; ) drop getoct viewr getocti ; )
 
 	oct++
 	1 'zlen +!
 	nzmin >r
-	r viewchildr
-	r 1 xor viewchildr
-	r 2 xor viewchildr
-	r 4 xor viewchildr
-	r 3 xor viewchildr
-	r 5 xor viewchildr
-	r 6 xor viewchildr
-	r> 7 xor viewchildr
+	r 1 over << pick2 nand? ( 2drop )( childr viewr )
+	r 1 xor 1 over << pick2 nand? ( 2drop )( childr viewr )
+	r 2 xor 1 over << pick2 nand? ( 2drop )( childr viewr )
+	r 4 xor 1 over << pick2 nand? ( 2drop )( childr viewr )
+	r 3 xor 1 over << pick2 nand? ( 2drop )( childr viewr )
+	r 5 xor 1 over << pick2 nand? ( 2drop )( childr viewr )
+	r 6 xor 1 over << pick2 nand? ( 2drop )( childr viewr )
+	r> 7 xor 1 over << pick2 nand? ( 2drop )( childr viewr )
 	2drop
 	-96 'octvert> +!
 	-1 'zlen +! ;
@@ -302,7 +305,7 @@
 	culling dup 8 << $ff or rot and or ;
 
 :cullingcalc | -- aocull
-| agegar test por esfera
+					|.. agegar test por esfera
 	octvert> 96 - >r
 	r@+ r@+ r@+ cull1
 	r@+ r@+ r@+ culln
@@ -329,10 +332,10 @@
 	r> !+ 'octvert> !
 	2drop ;
 
-:viewchildo | node bitm nro -- node bitm
-	1 over << pick2 nand? ( 2drop ; )	| node bitm nro place
+:childo | node bitm nro -- node bitm
 	swap addchildo
 	1- over and popcnt 2 << pick2 +    | node bitm node'
+	;
 
 :viewo | node --
 	cullingcalc
@@ -340,19 +343,19 @@
 	$ff00 and? ( 2drop -96 'octvert> +! ; )
 	drop
 
-	$pixels >=? ( $magic $100 nand? ( 2drop -96 'octvert> +! ; ) drop getoct viewo getocti ; )
+	$pixels >=? ( $magic $100 nand? ( drop calcmask 'nzmin ! isonow ; ) drop getoct viewo getocti ; )
 
 	1 'zlen +!
 	oct++
 	calcmask >r
-	r viewchildo
-	r 1 xor viewchildo
-	r 2 xor viewchildo
-	r 4 xor viewchildo
-	r 3 xor viewchildo
-	r 5 xor viewchildo
-	r 6 xor viewchildo
-	r> 7 xor viewchildo
+	r 1 over << pick2 nand? ( 2drop )( childo viewo )
+	r 1 xor 1 over << pick2 nand? ( 2drop )( childo viewo )
+	r 2 xor 1 over << pick2 nand? ( 2drop )( childo viewo )
+	r 4 xor 1 over << pick2 nand? ( 2drop )( childo viewo )
+	r 3 xor 1 over << pick2 nand? ( 2drop )( childo viewo )
+	r 5 xor 1 over << pick2 nand? ( 2drop )( childo viewo )
+	r 6 xor 1 over << pick2 nand? ( 2drop )( childo viewo )
+	r> 7 xor 1 over << pick2 nand? ( 2drop )( childo viewo )
 	2drop
 	-96 'octvert> +!
 	-1 'zlen +! ;
@@ -393,6 +396,35 @@
 ::voxelbox 'drawboxd 'dbox ! ;
 ::voxelboxc 'drawboxc 'dbox ! ;
 
+|---------- mapeo
+#vector
+#zposnow
+
+:3dchi | adr bitm nro n --  adr bitm adrc
+	zposnow $fffffff8 and or 'zposnow !
+	1- over and popcnt 2 << pick2 + ;  | node bitm node'
+
+:3drec | oct --
+	$pixels	>=? ( octcolor zposnow vector exec ; )
+	oct++
+	zposnow 3 << 'zposnow !
+	1 over nand? ( drop )( 0 3dchi 3drec )
+	2 over nand? ( drop )( 1 3dchi 3drec )
+	4 over nand? ( drop )( 2 3dchi 3drec )
+	8 over nand? ( drop )( 3 3dchi 3drec )
+	16 over nand? ( drop )( 4 3dchi 3drec )
+	32 over nand? ( drop )( 5 3dchi 3drec )
+	64 over nand? ( drop )( 6 3dchi 3drec )
+	128 over nand? ( drop )( 7 3dchi 3drec )
+	2drop
+	zposnow 3 >> 'zposnow !
+	;
+
+::3domap | vector 3d0 --
+	adjustmem
+	'vector !
+	0 'zposnow !
+	$octree 3drec ;
 
 |-------------
 #xcam 0 #ycam 0 #zcam 1.0
