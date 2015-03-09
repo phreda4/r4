@@ -68,7 +68,7 @@
 	dup 8 +   | dest src
 	memvox> over - 3 >> 1+
 	move
-|	-8 'memvox> +!
+|	-8 'memvox> +! |*****
 	;
 
 |------------- generadores
@@ -292,15 +292,13 @@
 
 |---------- bresenham
 #ox #oy #oz	| origen
-
 #ex #ey #ez
 #cx #cy #cz
-#dx #dy #dz
+#dx #dy #dz	| direccion
 #sx #sy #sz
 
 #paso
 
-|-- recorrido completo
 :pasox
 	ey +? ( sy 'cy +! dx 2* - ) dy 2* + 'ey !
 	ez +? ( sz 'cz +! dx 2* - ) dz 2* + 'ez !
@@ -330,30 +328,11 @@
 	drop
 	dx 2* dz - 'ex ! dy 2* dz - 'ey ! 'pasoz 'paso ! ;
 
-|------------------------------------
-:3dline | x y z --
-	pick3 pick3 pick3
-	3dbreline
-	( cx curx - cy cury - or cz curz - or 1? )( drop
-		color cx cy cz vox!
-		paso exec
-		) drop
-	color cx cy cz vox!
-	'curz ! 'cury ! 'curx !
-	buildoctree
-	;
-
 |---- pick voxel w/cursor
-#tx0 #ty0 #tz0
-#tx1 #ty1 #tz1
-
 :inside? | ; adentro del bbox?
 	cx cy or cz or $ffff0000 ;
 
-:outside2
-	cx abs cy abs or cz abs or $fffc0000 ;
-
-:outside
+:outside?
 	cx $20000 + cy $20000 + or cz $20000 + or $fff80000 ;
 
 :setcur! | ; guarda en cursor
@@ -369,9 +348,8 @@
 		cx cy xor cz xor pick2 and
 		over =? )( drop ) 3drop ;
 
-
 :ray0hit | --
-	( outside nand? )( drop
+	( outside? nand? )( drop
 		stepvox
 		inside? nand? ( drop 1 ; ) drop
 		) drop 0 ;
@@ -390,18 +368,50 @@
 	0 0 0 transform 'ox ! 'oy ! 'oz !
 	xymouse swap sw 2/ - swap sh 2/ - 512
 	transform
-	neg ox + 'tx1 !
-	neg oy + 'ty1 !
-	neg oz + 'tz1 !
-	oz 0.5 - neg tz1 2* - 'oz !
-	oy 0.5 - neg ty1 2* - 'oy !
-	ox 0.55 - neg tx1 2* - 'ox !
-	ox tx1 - oy ty1 - oz tz1 -
-	3dbreline
+	neg ox + 'dx ! neg oy + 'dy ! neg oz + 'dz !	| direccion
+	ox 0.55 - neg dx 2* - 'ox !						| origen
+	oz 0.5 - neg dz 2* - 'oz !
+	oy 0.5 - neg dy 2* - 'oy !
+	ox dx - oy dy - oz dz - 3dbreline
 	ray0hit 0? ( drop ; ) drop
 	setcur!
 	ray1hit ;
-;
+
+:rayhit | --
+	16 deepvox -
+	( inside? nand? )( drop
+		cx over >> cy pick2 >> cz pick3 >>
+		vox@ +? ( 2drop setcur! ; ) drop				| voxel lleno
+		stepvox
+		) 2drop ;
+
+:setmousecursorv
+	matinv
+	0 0 0 transform 'ox ! 'oy ! 'oz !
+	xymouse swap sw 2/ - swap sh 2/ - 512
+	transform
+	neg ox + 'dx ! neg oy + 'dy ! neg oz + 'dz !	| direccion
+	ox 0.55 - neg dx 2* - 'ox !						| origen
+	oz 0.5 - neg dz 2* - 'oz !
+	oy 0.5 - neg dy 2* - 'oy !
+	ox dx - oy dy - oz dz - 3dbreline
+	ray0hit 0? ( drop ; ) drop
+|	setcur!
+	rayhit ;
+
+|------------------------------------
+:3dline | x y z --
+	pick3 pick3 pick3
+	3dbreline
+	( cx curx - cy cury - or cz curz - or 1? )( drop
+		color cx cy cz vox!
+		paso exec
+		) drop
+	color cx cy cz vox!
+	'curz ! 'cury ! 'curx !
+	buildoctree
+	;
+
 |------- cursor
 :drawcursor
 	 blink 1? ( blanco )( gris ) drop
@@ -425,30 +435,17 @@
 :botonsimple2
 	btne blanco 8-gc drawric 8+gc ;
 
-|------ vista
+|------ rotar
 #xm #ym
+
 :dnlook
-	xymouse 'ym ! 'xm !
-	;
+	xymouse 'ym ! 'xm ! ;
 
 :movelook
 	xymouse
 	ym over 'ym ! - 7 << 'rx +!
-	xm over 'xm ! - neg 7 << neg 'ry +!  ;
+	xm over 'xm ! - neg 7 << neg 'ry +! ;
 
-:modvista
-	'dnlook 'movelook guiDnMove ;
-
-:toovista
-	cyan oscuro
-	'i.download_alt 'loadoctree botonsimple2 gc>>
-	cyan oscuro
-	'i.upload_alt 'saveoctree botonsimple2 gc<< gcdn
-	cyan oscuro
-	'i.zoom_in [ -0.01 'zcam +! ; ] botonsimple2 gc>>
-	cyan oscuro
-	'i.zoom_out [ 0.01 'zcam +! ; ] botonsimple2
-	;
 |-------
 :test3dline
 	64 ( 1? )( 1-
@@ -470,12 +467,21 @@
     curx cury curz vox-
 	buildoctree ;
 
-
 :modpencil
+	'dnlook 'movelook guiDnMove
 	mpush setmousecursor mpop
+	'setvox <spc>
 	;
 
 :toopencil
+	cyan oscuro
+	'i.download_alt 'loadoctree botonsimple2 gc>>
+	cyan oscuro
+	'i.upload_alt 'saveoctree botonsimple2 gc<< gcdn
+|	cyan oscuro
+|	'i.zoom_in [ -0.01 'zcam +! ; ] botonsimple2 gc>>
+|	cyan oscuro
+|	'i.zoom_out [ 0.01 'zcam +! ; ] botonsimple2 gc<< gcdn
 	verde oscuro
 	'i.cog 'mainmapas botonsimple2 gc>>
 	gcdn gc<<
@@ -484,6 +490,9 @@
 
 |------- tinta
 :modtint
+	'dnlook 'movelook guiDnMove
+	mpush setmousecursorv mpop
+	'setvox <spc>
 	;
 
 :tootint
@@ -491,6 +500,9 @@
 
 |------- goma
 :modcut
+	'dnlook 'movelook guiDnMove
+	mpush setmousecursorv mpop
+	'delvox <spc>
 	;
 
 :toocut
@@ -499,12 +511,12 @@
 	;
 
 |----- botonera
-#modos 'modvista 'modpencil 'modtint 'modcut
-#tools 'toovista 'toopencil 'tootint 'toocut
+#modos 'modpencil 'modtint 'modcut
+#tools 'toopencil 'tootint 'toocut
 
 #modo 0
-#modogui 'modvista
-#modotoo 'toovista
+#modogui 'modpencil
+#modotoo 'toopencil
 
 :setmodo
 	dup 'modo !
@@ -529,10 +541,9 @@
 	rojo 'exit dup >esc< btne blanco 'i.off drawric
 
 	24 48 pos
-	'i.eye_open 0 botonmodo
-	'i.pencil 1 botonmodo
-	'i.tint 2 botonmodo
-	'i.cut 3 botonmodo
+	'i.pencil 0 botonmodo
+	'i.tint 1 botonmodo
+	'i.cut 2 botonmodo
     24 qdim
 	-10 -10 +pos
 	modotoo exec
@@ -599,8 +610,6 @@
 		[ cury 1- -? ( qsize nip ) 'cury ! ; ] <ri>
 		[ curz 1+ qsize >? ( 0 nip ) 'curz ! ; ] <pgup>
 		[ curz 1- -? ( qsize nip ) 'curz ! ; ] <pgdn>
-		'setvox <spc>
-		'delvox <del>
 
 		[ 1 0 0 movevoxel buildoctree ; ] <f1>
 		[ 0 1 0 movevoxel buildoctree ; ] <f2>
