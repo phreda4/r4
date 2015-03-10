@@ -146,6 +146,7 @@
 ::voxPaso
 	paso exec ;
 
+|-----------
 ::mouseInVox | -- 1/0
 	0 0 0 transform 'oz ! 'oy ! 'ox !
 	xymouse swap sw 2/ - swap sh 2/ - 512
@@ -199,3 +200,133 @@
 	'vector !
 	0 'zposnow !
 	$octree 3drec ;
+
+|------------ point in cuad
+#xt #yt #inside
+
+:testline | x1 y1 x2 y2 -- x2 y2
+	2swap
+	pick2 yt - over yt - xor +? ( 3drop ; ) drop  	 | yt entre y1..y2
+	pick3 pick2 - yt pick2 - pick4 pick3 - 0? ( nip 4drop ; ) */
+	nip + xt >=? ( 1 'inside +! ) drop ;
+
+:testini | x y --
+	'yt ! 'xt ! 0 'inside ! ;
+
+:top
+	0 'inside !
+	transform 3dproject 2dup ;
+:tline
+	transform 3dproject testline ;
+:tinside
+	testline 2drop inside 1 and ;
+
+:planexy | z --
+	>r
+	-0.5 -0.5 r top
+	 0.5 -0.5 r tline
+	 0.5  0.5 r tline
+	-0.5  0.5 r> tline
+	tinside ;
+
+:planeyz | x --
+	>r
+	r -0.5 -0.5 top
+	r  0.5 -0.5 tline
+	r 0.5  0.5 tline
+	r> -0.5  0.5 tline
+	tinside ;
+
+:planexz | y --
+	>r
+	-0.5 r -0.5 top
+	 0.5 r -0.5 tline
+	 0.5 r 0.5  tline
+	-0.5 r> 0.5  tline
+	tinside ;
+
+#:hx0 #:hy0 #:hz0
+#:hx1 #:hy1 #:hz1
+
+#vertex )( 2048
+#vertex>
+
+:quadinside | -- in
+	vertex> 64 - >r
+	r@+ r@+ r@+ top
+	r@+ r@+ r@+ tline
+	r@+ r@+ r@+
+	r@+ r@+ r> @
+	tline tline tinside ;
+
+:quadchild | id --
+	vertex> dup >r 64 -
+	swap 2 << dup 2* + | 12*
+	over + swap >r >r | prev pivot
+	r@+ r@+ r> @ r> | x y z pri
+	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
+	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
+	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
+	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @ + 2/ r> !+ 'vertex> !
+	2drop ;
+:remchid
+	-64 'vertex> ! ;
+
+:testchild | -- z
+	0 quadchild quadinside 1? ( drop 0 ; ) drop remchid
+	1 quadchild quadinside 1? ( drop 1 ; ) drop remchid
+	2 quadchild quadinside 1? ( drop 2 ; ) drop remchid
+	3
+|	3 quadchild quadinside 1? ( drop 3 ; ) drop remchid
+	;
+
+:zsearch | zorder2d
+	0 deepvox ( 1? )( 1-
+		testchild rot 2 << or
+		swap ) drop ;
+
+:quadinixy | z --
+	'vertex >r
+	-0.5 r!+ -0.5 r!+ dup r!+
+	 0.5 r!+ -0.5 r!+ dup r!+
+	-0.5 r!+  0.5 r!+ dup r!+
+	 0.5 r!+  0.5 r!+ r> !+ 'vertex> ! ;
+:quadxy | z -- x y
+	quadinixy zsearch invmorton2d ;
+
+:quadiniyz | z --
+	'vertex >r
+	dup r!+ -0.5 r!+ -0.5 r!+
+	dup r!+  0.5 r!+ -0.5 r!+
+	dup r!+ -0.5 r!+  0.5 r!+
+	r!+      0.5 r!+  0.5 r> !+ 'vertex> ! ;
+:quadyz | x -- y z
+	quadiniyz zsearch invmorton2d ;
+
+:quadinixz | z --
+	'vertex >r
+	-0.5 r!+ dup r!+ -0.5 r!+
+	 0.5 r!+ dup r!+ -0.5 r!+
+	-0.5 r!+ dup r!+  0.5 r!+
+	 0.5 r!+ r!+      0.5 r> !+ 'vertex> ! ;
+:quadxz | y -- x z
+	quadiniyz zsearch invmorton2d ;
+
+:p! | x y z
+	hx0 -? ( drop 'hz0 ! 'hy0 ! 'hx0 ! ; ) drop
+	'hz1 ! 'hy1 ! 'hx1 ! ;
+
+#hit
+::testbox | x y -- 1/0
+	'yt ! 'xt !
+	0 'hit !
+	-1 'hx0 !
+	-0.5 planexy 1? ( 1 'hit +! -0.5 quadxy 0 p! ) drop
+	 0.5 planexy 1? ( 2 'hit +!  0.5 quadxy qsize p! ) drop
+	-0.5 planeyz 1? ( 4 'hit +! -0.5 quadyz 0 rot rot p! ) drop
+	 0.5 planeyz 1? ( 8 'hit +!  0.5 quadyz qsize rot rot p! ) drop
+	-0.5 planexz 1? ( 16 'hit +! -0.5 quadxz 0 swap p! ) drop
+	 0.5 planexz 1? ( 32 'hit +!  0.5 quadxz qsize swap p! ) drop
+	hit ;
+
+
