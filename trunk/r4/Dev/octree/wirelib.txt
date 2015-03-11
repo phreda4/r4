@@ -38,7 +38,7 @@
 		pick2 + )
 	3drop rdrop ;
 
-#qsize
+#csize
 #vert )( 64
 
 :to3d
@@ -48,17 +48,17 @@
 	3 << 'vert + @+ swap @ ;
 
 ::xyzcubo | x y z size --
-	'qsize !
+	'csize !
 	'vert >r
 	pick2 pick2 pick2 to3d r!+ r!+
-	pick2 qsize + pick2 pick2 to3d r!+ r!+
-	pick2 pick2 qsize + pick2 to3d r!+ r!+
-	pick2 qsize + pick2 qsize + pick2 to3d r!+ r!+
-	qsize +
+	pick2 csize + pick2 pick2 to3d r!+ r!+
+	pick2 pick2 csize + pick2 to3d r!+ r!+
+	pick2 csize + pick2 csize + pick2 to3d r!+ r!+
+	csize +
 	pick2 pick2 pick2 to3d r!+ r!+
-	pick2 qsize + pick2 pick2 to3d r!+ r!+
-	pick2 pick2 qsize + pick2 to3d r!+ r!+
-	pick2 qsize + pick2 qsize + pick2 to3d r!+ r> !
+	pick2 csize + pick2 pick2 to3d r!+ r!+
+	pick2 pick2 csize + pick2 to3d r!+ r!+
+	pick2 csize + pick2 csize + pick2 to3d r!+ r> !
 	3drop
 	0 nver 2dup op 1 nver line 3 nver line 2 nver line line
 	4 nver 2dup op 5 nver line 7 nver line 6 nver line line
@@ -115,16 +115,16 @@
 #paso
 
 :pasox
-	ey +? ( sy 'cy +! dx 2* - ) dy 2* + 'ey !
-	ez +? ( sz 'cz +! dx 2* - ) dz 2* + 'ez !
+	ey dy >? ( sy 'cy +! dx 2* - 'ey ! ; ) dy 2* + 'ey !
+	ez dz >? ( sz 'cz +! dx 2* - 'ez ! ; ) dz 2* + 'ez !
 	sx 'cx +! ;
 :pasoy
-	ex +? ( sx 'cx +! dy 2* - ) dx 2* + 'ex !
-	ez +? ( sz 'cz +! dy 2* - ) dz 2* + 'ez !
+	ex dx >? ( sx 'cx +! dy 2* - 'ex ! ; ) dx 2* + 'ex !
+	ez dz >? ( sz 'cz +! dy 2* - 'ez ! ; ) dz 2* + 'ez !
 	sy 'cy +! ;
 :pasoz
-	ey +? ( sy 'cy +! dz 2* - ) dy 2* + 'ey !
-	ex +? ( sx 'cx +! dz 2* - ) dx 2* + 'ex !
+	ex dx >? ( sx 'cx +! dz 2* - 'ex ! ; ) dx 2* + 'ex !
+	ey dy >? ( sy 'cy +! dz 2* - 'ey ! ; ) dy 2* + 'ey !
 	sz 'cz +! ;
 
 ::voxLine | xf yf zf --
@@ -146,30 +146,6 @@
 ::voxPaso
 	paso exec ;
 
-|-----------
-::mouseInVox | -- 1/0
-	0 0 0 transform 'oz ! 'oy ! 'ox !
-	xymouse swap sw 2/ - swap sh 2/ - 512
-	normInt2Fix transform
-
-	neg oz + 1? ( 1.0 swap /. )
-	-0.5 oz - over *. 0.5 oz - rot *.
-	over <? ( swap )
-	'ez ! 'sz !
-
-	neg oy + 1? ( 1.0 swap /. )
-	-0.5 oy - over *. 0.5 oy - rot *.
-	over <? ( swap )
-	'ey ! 'sy !
-
-	neg ox + 1? ( 1.0 swap /. )
-	-0.5 ox - over *. 0.5 ox - rot *.
-	over <? ( swap )
-	'ex ! 'sx !
-
-	sx sy max sz max
-	ex ey min ez min
-	>? ( 0 )( 1 ) nip ;
 
 |---------- mapeo
 #vector
@@ -206,16 +182,14 @@
 
 :testline | x1 y1 x2 y2 -- x2 y2
 	2swap
-	pick2 yt - over yt - xor +? ( 3drop ; ) drop  	 | yt entre y1..y2
-	pick3 pick2 - yt pick2 - pick4 pick3 - 0? ( nip 4drop ; ) */
-	nip + xt >=? ( 1 'inside +! ) drop ;
-
-:testini | x y --
-	'yt ! 'xt ! 0 'inside ! ;
+	pick2 yt - over yt -
+	xor +? ( 3drop ; ) drop  	 | yt entre y1..y2
+	pick3 pick2 - yt pick2 - pick4 pick3 - 
+	0? ( nip 4drop ; )
+	*/ nip + xt >=? ( 1 'inside +! ) drop ;
 
 :top
-	0 'inside !
-	transform 3dproject 2dup ;
+	0 'inside ! transform 3dproject 2dup ;
 :tline
 	transform 3dproject testline ;
 :tinside
@@ -223,110 +197,148 @@
 
 :planexy | z --
 	>r
-	-0.5 -0.5 r top
+	 0.5  0.5 r top
 	 0.5 -0.5 r tline
-	 0.5  0.5 r tline
+	-0.5 -0.5 r tline
 	-0.5  0.5 r> tline
 	tinside ;
 
 :planeyz | x --
 	>r
-	r -0.5 -0.5 top
+	r  0.5  0.5 top
 	r  0.5 -0.5 tline
-	r 0.5  0.5 tline
+	r -0.5 -0.5 tline
 	r> -0.5  0.5 tline
 	tinside ;
 
 :planexz | y --
 	>r
-	-0.5 r -0.5 top
+	 0.5 r  0.5 top
 	 0.5 r -0.5 tline
-	 0.5 r 0.5  tline
+	-0.5 r -0.5  tline
 	-0.5 r> 0.5  tline
 	tinside ;
 
 #:hx0 #:hy0 #:hz0
 #:hx1 #:hy1 #:hz1
 
-#vertex )( 2048
+#vertex )( 480
 #vertex>
 
 :quadinside | -- in
-	vertex> 64 - >r
+|:qin
+	vertex> 48 - >r
 	r@+ r@+ r@+ top
 	r@+ r@+ r@+ tline
-	r@+ r@+ r@+
-	r@+ r@+ r> @
-	tline tline tinside ;
+	12 r+ r@+ r@+ r@+ tline
+	-24 r+ r@+ r@+ r> @ tline
+	tinside ;
+
+:qin | ; test 4 puntos, el borde trae problemas!!
+	quadinside 1? ( ; ) drop
+	1 'xt +!
+	quadinside 1? ( -1 'xt +! ; ) drop
+	1 'yt +!
+	quadinside
+	-1 'xt +! 1? ( -1 'yt +! ; ) drop
+	quadinside
+	-1 'yt +! ;
+
+#ch #dl
+:dis transform 3dproject yt - dup * swap xt - dup * + ;
+
+:lessq
+	vertex> 48 - >r
+	r@+ r@+ r@+ dis 'dl ! 0 'ch !
+	r@+ r@+ r@+ dis dl <? ( 'dl ! 1 'ch ! )( drop )
+	r@+ r@+ r@+ dis dl <? ( 'dl ! 2 'ch ! )( drop )
+	r@+ r@+ r> @ dis dl <? ( 'dl ! 3 'ch ! )( drop )
+	;
 
 :quadchild | id --
-	vertex> dup >r 64 -
+	vertex> dup >r 48 -
 	swap 2 << dup 2* + | 12*
 	over + swap >r >r | prev pivot
 	r@+ r@+ r> @ r> | x y z pri
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
 	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @+ pick2 + 2/ r!+
-	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @ + 2/ r> !+ 'vertex> !
+	@+ pick4 + 2/ r!+ @+ pick3 + 2/ r!+ @ + 2/
+	r> !+ 'vertex> !
 	2drop ;
+
 :remchid
-	-64 'vertex> ! ;
+	-48 'vertex> +! ;
 
 :testchild | -- z
-	0 quadchild quadinside 1? ( drop 0 ; ) drop remchid
-	1 quadchild quadinside 1? ( drop 1 ; ) drop remchid
-	2 quadchild quadinside 1? ( drop 2 ; ) drop remchid
-	3
-|	3 quadchild quadinside 1? ( drop 3 ; ) drop remchid
+	0 quadchild qin 1? ( drop 0 ; ) drop remchid
+	1 quadchild qin 1? ( drop 1 ; ) drop remchid
+	2 quadchild qin 1? ( drop 2 ; ) drop remchid
+	3 quadchild 3 |qin 1? ( drop 3 ; ) drop remchid
 	;
 
 :zsearch | zorder2d
 	0 deepvox ( 1? )( 1-
+|		lessq ch dup quadchild rot 2 << or
 		testchild rot 2 << or
 		swap ) drop ;
 
-:quadinixy | z --
+:quadxy | z -- x y
 	'vertex >r
-	-0.5 r!+ -0.5 r!+ dup r!+
+	 0.5 r!+  0.5 r!+ dup r!+
 	 0.5 r!+ -0.5 r!+ dup r!+
 	-0.5 r!+  0.5 r!+ dup r!+
-	 0.5 r!+  0.5 r!+ r> !+ 'vertex> ! ;
-:quadxy | z -- x y
-	quadinixy zsearch invmorton2d ;
+	-0.5 r!+ -0.5 r!+ r> !+
+	'vertex> !
+	zsearch invmorton2d ;
 
-:quadiniyz | z --
+:quadyz | x -- y z
 	'vertex >r
-	dup r!+ -0.5 r!+ -0.5 r!+
+	dup r!+  0.5 r!+  0.5 r!+
 	dup r!+  0.5 r!+ -0.5 r!+
 	dup r!+ -0.5 r!+  0.5 r!+
-	r!+      0.5 r!+  0.5 r> !+ 'vertex> ! ;
-:quadyz | x -- y z
-	quadiniyz zsearch invmorton2d ;
+	r!+     -0.5 r!+ -0.5 r> !+
+	'vertex> !
+	zsearch invmorton2d ;
 
-:quadinixz | z --
+:quadxz | y -- x z
 	'vertex >r
-	-0.5 r!+ dup r!+ -0.5 r!+
+	 0.5 r!+ dup r!+  0.5 r!+
 	 0.5 r!+ dup r!+ -0.5 r!+
 	-0.5 r!+ dup r!+  0.5 r!+
-	 0.5 r!+ r!+      0.5 r> !+ 'vertex> ! ;
-:quadxz | y -- x z
-	quadiniyz zsearch invmorton2d ;
+	-0.5 r!+ r!+     -0.5 r> !+
+	'vertex> !
+	zsearch invmorton2d ;
 
 :p! | x y z
 	hx0 -? ( drop 'hz0 ! 'hy0 ! 'hx0 ! ; ) drop
 	'hz1 ! 'hy1 ! 'hx1 ! ;
+
+:-rot rot rot ;
+
+:sortvox
+	hz0 qsize 2/ - hy0 qsize 2/ - hx0 qsize 2/ - transform
+	dup * swap dup * + swap dup * +
+	hz1 qsize 2/ - hy1 qsize 2/ - hx1 qsize 2/ - transform
+	dup * swap dup * + swap dup * +
+	>? ( drop ; ) drop
+	hz1 hy1 hx1 hz0 hy0 hx0
+	'hx1 ! 'hy1 ! 'hz1 !
+	'hx0 ! 'hy0 ! 'hz0 !
+	;
 
 #hit
 ::testbox | x y -- 1/0
 	'yt ! 'xt !
 	0 'hit !
 	-1 'hx0 !
-	-0.5 planexy 1? ( 1 'hit +! -0.5 quadxy 0 p! ) drop
-	 0.5 planexy 1? ( 2 'hit +!  0.5 quadxy qsize p! ) drop
-	-0.5 planeyz 1? ( 4 'hit +! -0.5 quadyz 0 rot rot p! ) drop
-	 0.5 planeyz 1? ( 8 'hit +!  0.5 quadyz qsize rot rot p! ) drop
-	-0.5 planexz 1? ( 16 'hit +! -0.5 quadxz 0 swap p! ) drop
-	 0.5 planexz 1? ( 32 'hit +!  0.5 quadxz qsize swap p! ) drop
-	hit ;
+	-0.5 planexy 1? ( 1 'hit +! -0.5 quadxy qsize -rot p! ) drop
+	 0.5 planexy 1? ( 2 'hit +!  0.5 quadxy 0 -rot p! ) drop
+	-0.5 planeyz 1? ( 4 'hit +! -0.5 quadyz qsize p! ) drop
+	 0.5 planeyz 1? ( 8 'hit +!  0.5 quadyz 0 p! ) drop
+	-0.5 planexz 1? ( 16 'hit +! -0.5 quadxz qsize swap p! ) drop
+	 0.5 planexz 1? ( 32 'hit +!  0.5 quadxz 0 swap p! ) drop
+	hit 1? ( sortvox )
+	;
 
 
