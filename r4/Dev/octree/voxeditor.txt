@@ -69,88 +69,7 @@
 	memvox> over - 2 >> move
 	-8 'memvox> +! ;
 
-|---- pick voxel w/cursor
-:inside? | ; adentro del bbox?
-	cx cy or cz or $ffff0000 ;
 
-:outside?
-	cx $20000 + cy $20000 + or cz $20000 + or $fff80000 ;
-
-:setcur! | ; guarda en cursor
-	16 deepvox -
-	cx over >> 'curx !
-	cy over >> 'cury !
-	cz swap >> 'curz ! ;
-
-:stepvox | ; avanza hasta cambiar de voxel
-	qsize 16 deepvox - <<
-	cx cy xor cz xor over and
-	( voxPaso
-		cx cy xor cz xor pick2 and
-		over =? )( drop ) 3drop ;
-
-:ray0hit | --
-	( outside? nand? )( drop
-		stepvox
-		inside? nand? ( drop 1 ; ) drop
-		) drop 0 ;
-
-:ray1hit | --
-	16 deepvox -
-	( inside? nand? )( drop
-		cx over >> cy pick2 >> cz pick3 >>
-		vox@ +? ( 2drop ; ) drop				| voxel lleno
-		setcur!
-		stepvox
-		) 2drop ;
-
-::voxMouse
-	matinv
-	0 0 0 transform 'ox ! 'oy ! 'oz !
-	xymouse swap sw 2/ - swap sh 2/ - 512
-	transform
-	neg ox + 'dx ! neg oy + 'dy ! neg oz + 'dz !	| direccion
-	ox 0.55 - neg dx 3 << - 'ox !						| origen
-	oz 0.5 - neg dz 3 << - 'oz !
-	oy 0.5 - neg dy 3 << - 'oy !
-	ox dx - oy dy - oz dz - voxline
-	ray0hit 0? ( drop ; ) drop
-	setcur!
-	ray1hit ;
-
-:rayhit | --
-	16 deepvox -
-	( inside? nand? )( drop
-		cx over >> cy pick2 >> cz pick3 >>
-		vox@ +? ( 2drop setcur! ; ) drop				| voxel lleno
-		stepvox
-		) 2drop ;
-
-::voxMouseIn
-	matinv
-	0 0 0 transform 'ox ! 'oy ! 'oz !
-	xymouse swap sw 2/ - swap sh 2/ - 512
-	transform
-	neg ox + 'dx ! neg oy + 'dy ! neg oz + 'dz !	| direccion
-	ox 0.55 - neg dx 3 << - 'ox !						| origen
-	oz 0.5 - neg dz 3 << - 'oz !
-	oy 0.5 - neg dy 3 << - 'oy !
-	ox dx - oy dy - oz dz - voxLine
-	ray0hit 0? ( drop ; ) drop
-	rayhit ;
-
-|------------------------------------
-::3dline | x y z --
-	pick3 pick3 pick3
-	voxLine
-	( cx curx - cy cury - or cz curz - or 1? )( drop
-		color cx cy cz vox!
-		voxPaso
-		) drop
-	color cx cy cz vox!
-	'curz ! 'cury ! 'curx !
-	buildoctree
-	;
 
 |------------- generadores
 :3* dup 2* + ;
@@ -166,9 +85,7 @@
 	memini
 	dup 'bitmap1 !
 	over + dup 'bitmap2 !
-	over + dup 'bitmap3 !
-	+ dup 'memvox !
-	'memvox> !
+	+ dup 'bitmap3 !
 	clearbitmap
 	;
 
@@ -393,7 +310,19 @@
 	ym over 'ym ! - 7 << 'rx +!
 	xm over 'xm ! - neg 7 << neg 'ry +! ;
 
-|-------
+|------------------------------------
+:3dline | x y z --
+	pick3 pick3 pick3
+	voxLine
+	( cx curx - cy cury - or cz curz - or 1? )( drop
+		color cx cy cz vox!
+		voxPaso
+		) drop
+	color cx cy cz vox!
+	'curz ! 'cury ! 'curx !
+	buildoctree
+	;
+
 :test3dline
 	64 ( 1? )( 1-
 	rand 5 >> qsize and
@@ -414,13 +343,36 @@
     curx cury curz vox-
 	buildoctree ;
 
-#:hx0 #:hy0 #:hz0
-#:hx1 #:hy1 #:hz1
+:inside? | ; adentro del bbox?
+	cx cy or cz or qsize not and ;
 
+:setcur! | ; guarda en cursor
+	cx 'curx ! cy 'cury ! cz 'curz ! ;
+
+:prevmouse
+	xymouse testbox 0? ( drop ; ) drop
+	hx1 'ox ! hy1 'oy ! hz1 'oz !
+	hx0 hy0 hz0 voxline
+	setcur!
+	( inside? 0? )( drop
+		cx cy cz vox@ +? ( drop ; ) drop	| voxel lleno
+		setcur!
+		voxPaso
+		) drop ;
+
+:inmouse
+	xymouse testbox 0? ( drop ; ) drop
+	hx1 'ox ! hy1 'oy ! hz1 'oz !
+	hx0 hy0 hz0 voxline
+	( inside? 0? )( drop
+		cx cy cz vox@ +? ( drop setcur! ; ) drop	| voxel lleno
+		voxPaso
+		) drop ;
+
+|------- agregar
 :modpencil
 	bmouse 2 =? ( drop 'dnlook 'movelook guiDnMove ; ) drop
-	xymouse testbox 1? ( mpush voxMouse mpop ) drop
-|	xymouse testbox 1? ( hx0 'curx ! hy0 'cury ! hz0 'curz ! ) drop
+	prevmouse
 	'setvox <spc>
 	;
 
@@ -437,24 +389,22 @@
 	'i.cog 'mainmapas botonsimple2 gc>>
 	gcdn gc<<
 |	tpos
-
-
 	;
 
-|------- tinta
+|------- pintar
 :modtint
 	bmouse 2 =? ( drop 'dnlook 'movelook guiDnMove ; ) drop
-	xymouse testbox 1? ( mpush voxMouseIn mpop ) drop
+	inmouse
 	'setvox <spc>
 	;
 
 :tootint
 	;
 
-|------- goma
+|------- borrar
 :modcut
 	bmouse 2 =? ( drop 'dnlook 'movelook guiDnMove ; ) drop
-	xymouse testbox 1? ( mpush voxMouseIn mpop ) drop
+	inmouse
 	'delvox <spc>
 	;
 
