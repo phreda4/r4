@@ -180,13 +180,20 @@
 |------------ point in cuad
 #xt #yt #inside
 
+:testb
+	pick2 yt - 0? ( 1- ; )
+	over yt - 0? ( nip 1- ; )
+	xor ;
+
+:testb
+	pick2 yt - over yt - xor ;
+
 :testline | x1 y1 x2 y2 -- x2 y2
-	2swap
-	pick2 yt - over yt -
-	xor +? ( 3drop ; ) drop  	 | yt entre y1..y2
-	pick3 pick2 - yt pick2 - pick4 pick3 - 
-	0? ( nip 4drop ; )
-	*/ nip + xt >=? ( 1 'inside +! ) drop ;
+	2swap testb
+	+? ( 3drop ; ) drop  	 | yt entre y1..y2
+	pick3 pick2 - yt pick2 - rot neg pick4 +
+	0? ( 4drop ; )
+	*/ + xt >=? ( 1 'inside +! ) drop ;
 
 :top
 	0 'inside ! transform 3dproject 2dup ;
@@ -225,35 +232,13 @@
 #vertex )( 480
 #vertex>
 
-:quadinside | -- in
-|:qin
+:qin | -- in
 	vertex> 48 - >r
 	r@+ r@+ r@+ top
 	r@+ r@+ r@+ tline
 	12 r+ r@+ r@+ r@+ tline
 	-24 r+ r@+ r@+ r> @ tline
 	tinside ;
-
-:qin | ; test 4 puntos, el borde trae problemas!!
-	quadinside 1? ( ; ) drop
-	1 'xt +!
-	quadinside 1? ( -1 'xt +! ; ) drop
-	1 'yt +!
-	quadinside
-	-1 'xt +! 1? ( -1 'yt +! ; ) drop
-	quadinside
-	-1 'yt +! ;
-
-#ch #dl
-:dis transform 3dproject yt - dup * swap xt - dup * + ;
-
-:lessq
-	vertex> 48 - >r
-	r@+ r@+ r@+ dis 'dl ! 0 'ch !
-	r@+ r@+ r@+ dis dl <? ( 'dl ! 1 'ch ! )( drop )
-	r@+ r@+ r@+ dis dl <? ( 'dl ! 2 'ch ! )( drop )
-	r@+ r@+ r> @ dis dl <? ( 'dl ! 3 'ch ! )( drop )
-	;
 
 :quadchild | id --
 	vertex> dup >r 48 -
@@ -274,12 +259,11 @@
 	0 quadchild qin 1? ( drop 0 ; ) drop remchid
 	1 quadchild qin 1? ( drop 1 ; ) drop remchid
 	2 quadchild qin 1? ( drop 2 ; ) drop remchid
-	3 quadchild 3 |qin 1? ( drop 3 ; ) drop remchid
+	3 quadchild qin 1? ( drop 3 ; ) drop remchid
 	;
 
 :zsearch | zorder2d
 	0 deepvox ( 1? )( 1-
-|		lessq ch dup quadchild rot 2 << or
 		testchild rot 2 << or
 		swap ) drop ;
 
