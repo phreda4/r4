@@ -178,53 +178,29 @@
 	$octree 3drec ;
 
 |------------ point in cuad
-#xt #yt #inside
+#xt #yt
+#inside
 
-:testb
-	pick2 yt - 0? ( 1- ; )
-	over yt - 0? ( nip 1- ; )
-	xor ;
+|...x2-x1 * y-y1 - y2-y1 * x-x1
+:cross | x1 y1 x2 y2 -- x2 y2 cr
+	2swap | x2 y2 x1 y1
+	pick3 pick2 - yt pick2 - *   | x2 y2 x1 y1 A
+	pick3 rot - rot neg xt + * - ;
 
-:testb
-	pick2 yt - over yt - xor ;
+:top | x y z --
+	0 'inside ! transform 3dproject 2dup |2dup op
+	;
 
-:testline | x1 y1 x2 y2 -- x2 y2
-	2swap testb
-	+? ( 3drop ; ) drop  	 | yt entre y1..y2
-	pick3 pick2 - yt pick2 - rot neg pick4 +
-	0? ( 4drop ; )
-	*/ + xt >=? ( 1 'inside +! ) drop ;
+:tline | x y z -- 1..fail
+	transform 3dproject |2dup line
+	cross 0? ( ; )
+	inside 0? ( swap 'inside ! ; )
+	xor $80000000 and ;
 
-:top
-	0 'inside ! transform 3dproject 2dup ;
-:tline
-	transform 3dproject testline ;
-:tinside
-	testline 2drop inside 1 and ;
-
-:planexy | z --
-	>r
-	 0.5  0.5 r top
-	 0.5 -0.5 r tline
-	-0.5 -0.5 r tline
-	-0.5  0.5 r> tline
-	tinside ;
-
-:planeyz | x --
-	>r
-	r  0.5  0.5 top
-	r  0.5 -0.5 tline
-	r -0.5 -0.5 tline
-	r> -0.5  0.5 tline
-	tinside ;
-
-:planexz | y --
-	>r
-	 0.5 r  0.5 top
-	 0.5 r -0.5 tline
-	-0.5 r -0.5  tline
-	-0.5 r> 0.5  tline
-	tinside ;
+:tinside | -- 1..fail
+	2swap |2dup line
+	cross nip nip 0? ( ; )
+	inside xor $80000000 and ;
 
 #:hx0 #:hy0 #:hz0
 #:hx1 #:hy1 #:hz1
@@ -232,12 +208,14 @@
 #vertex )( 480
 #vertex>
 
+:4nip nip nip nip nip ;
+
 :qin | -- in
 	vertex> 48 - >r
 	r@+ r@+ r@+ top
-	r@+ r@+ r@+ tline
-	12 r+ r@+ r@+ r@+ tline
-	-24 r+ r@+ r@+ r> @ tline
+	r@+ r@+ r@+ tline drop
+	12 r+ r@+ r@+ r@+ tline 1? ( rdrop 4nip ; ) drop
+	-24 r+ r@+ r@+ r> @ tline 1? ( 4nip ; ) drop
 	tinside ;
 
 :quadchild | id --
@@ -256,49 +234,52 @@
 	-48 'vertex> +! ;
 
 :testchild | -- z
-	0 quadchild qin 1? ( drop 0 ; ) drop remchid
-	1 quadchild qin 1? ( drop 1 ; ) drop remchid
-	2 quadchild qin 1? ( drop 2 ; ) drop remchid
-	3 quadchild qin 1? ( drop 3 ; ) drop remchid
+	0 quadchild qin 0? ( ; ) drop remchid
+	1 quadchild qin 0? ( drop 1 ; ) drop remchid
+	2 quadchild qin 0? ( drop 2 ; ) drop remchid
+	3 quadchild 3 |qin 0? ( drop 3 ; ) drop remchid
 	;
 
 :zsearch | zorder2d
 	0 deepvox ( 1? )( 1-
 		testchild rot 2 << or
-		swap ) drop ;
+		swap ) drop
+	invmorton2d ;
 
-:quadxy | z -- x y
+:p! | x y z
+	hx0 -? ( drop 'hz0 ! 'hy0 ! 'hx0 ! ; ) drop
+	'hz1 ! 'hy1 ! 'hx1 ! ;
+
+:quadxy | q z -- 1/0
 	'vertex >r
 	 0.5 r!+  0.5 r!+ dup r!+
 	 0.5 r!+ -0.5 r!+ dup r!+
 	-0.5 r!+  0.5 r!+ dup r!+
 	-0.5 r!+ -0.5 r!+ r> !+
 	'vertex> !
-	zsearch invmorton2d ;
+	qin 1? ( nip ; ) drop
+	zsearch p! 0 ;
 
-:quadyz | x -- y z
+
+:quadyz | q x -- 1/0
 	'vertex >r
 	dup r!+  0.5 r!+  0.5 r!+
 	dup r!+  0.5 r!+ -0.5 r!+
 	dup r!+ -0.5 r!+  0.5 r!+
 	r!+     -0.5 r!+ -0.5 r> !+
 	'vertex> !
-	zsearch invmorton2d ;
+	qin 1? ( nip ; ) drop
+	zsearch rot p! 0 ;
 
-:quadxz | y -- x z
+:quadxz | q y -- 1/0
 	'vertex >r
 	 0.5 r!+ dup r!+  0.5 r!+
 	 0.5 r!+ dup r!+ -0.5 r!+
 	-0.5 r!+ dup r!+  0.5 r!+
 	-0.5 r!+ r!+     -0.5 r> !+
 	'vertex> !
-	zsearch invmorton2d ;
-
-:p! | x y z
-	hx0 -? ( drop 'hz0 ! 'hy0 ! 'hx0 ! ; ) drop
-	'hz1 ! 'hy1 ! 'hx1 ! ;
-
-:-rot rot rot ;
+	qin 1? ( nip ; ) drop
+	zsearch rot swap p! 0 ;
 
 :sortvox
 	hz0 qsize 2/ - hy0 qsize 2/ - hx0 qsize 2/ - transform
@@ -311,18 +292,20 @@
 	'hx0 ! 'hy0 ! 'hz0 !
 	;
 
-#hit
 ::testbox | x y -- 1/0
 	'yt ! 'xt !
-	0 'hit !
 	-1 'hx0 !
-	-0.5 planexy 1? ( 1 'hit +! -0.5 quadxy qsize -rot p! ) drop
-	 0.5 planexy 1? ( 2 'hit +!  0.5 quadxy 0 -rot p! ) drop
-	-0.5 planeyz 1? ( 4 'hit +! -0.5 quadyz qsize p! ) drop
-	 0.5 planeyz 1? ( 8 'hit +!  0.5 quadyz 0 p! ) drop
-	-0.5 planexz 1? ( 16 'hit +! -0.5 quadxz qsize swap p! ) drop
-	 0.5 planexz 1? ( 32 'hit +!  0.5 quadxz 0 swap p! ) drop
-	hit 1? ( sortvox )
+	0
+|	rojo
+	qsize -0.5 quadxy 0? ( drop 1+ )( drop )
+	0 0.5 quadxy 0? ( drop 1+ )( drop )
+|	verde
+	qsize -0.5 quadyz 0? ( drop 1+ )( drop )
+	0 0.5 quadyz 0? ( drop 1+ )( drop )
+|	azul
+	qsize -0.5 quadxz 0? ( drop 1+ )( drop )
+	0 0.5 quadxz 0? ( drop 1+ )( drop )
+	1? ( sortvox )
 	;
 
 
