@@ -1,0 +1,31 @@
+#How to compile the executable
+
+# Introduction #
+
+The system is built with Dev-Cpp which is Mingw based.
+
+A single other piece is necessary : the FMOD library.
+
+# Details #
+
+Dev-Cpp can be installed from this source ( This process has been tested with Version 4.9.9.2 ) :
+
+http://www.bloodshed.net/dev/devcpp.html
+
+Once the system is installed, the FMOD package can be installed from Dev-Cpp as
+follows :
+
+  * Tools -> Check for Updates/Packages...
+  * Choose the devpaks.org server
+  * Select FMOD-3.72
+  * Install the package
+
+At this points all the necessary elements are in place.
+
+The [r4](https://code.google.com/p/reda4/source/detail?r=4) distribution can be downloaded from this site and unzipped.
+
+To load the [r4](https://code.google.com/p/reda4/source/detail?r=4) project into Dev-Cpp, just open the r4wine.dev file, and then :
+
+Execute -> Compile & Run should build the executable.
+
+Please share your improvements and corrections with us !

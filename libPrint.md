@@ -1,0 +1,45 @@
+# libprint.txt #
+
+Libreria de texto, la fuente de letra inicial es tamaño fijo, 12x8.
+
+# WORDS #
+
+```
+::cr
+::cr2
+::emit | c --
+::gemit | c --
+::emitout? | -- f
+::fontd
+::fonta
+::printcur | adr -- adr
+::printcurw | adr -- adr
+::vidi
+::fixsize | w h --
+::ttext | fil col --
+::home
+::at | x y --
+::wtext | lin --		; texto en ventana de cursor
+::print | "" --
+::printx | "" --
+::printc | "" --	; en centro de la ventana
+::printr | "" --	; en derecha de la ventana
+::fonti
+::sel>>
+::sel<<
+```
+
+# Table of the main specifiers : #
+
+| **Specifier** | **Result** |
+|:--------------|:-----------|
+| %b | Binary |
+| %s | String |
+| %d | Decimal |
+| %% | % |
+| %f | fixed-point |
+| %h | hexadecimal |
+| %i | integer part of fixed-point |
+| %j | decimal part of fixed-point |
+| %k | Character |
+| %o | octal |

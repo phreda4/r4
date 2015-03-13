@@ -1,0 +1,93 @@
+# libgc.txt #
+
+GC es el cursor grafico con centro (xc,yc) ancho (w) alto (h)
+Sobre el cursor grafico se dibujan los sprites o texto.
+Se agregan palabras para el uso de posiciones y dimensiones normalizadas, esto es,
+independientes de la resolucion de pantalla.
+
+# WORDS #
+
+Coordenadas del cursor en pantalla.
+```
+#:xc #:yc #:w #:h
+```
+
+Apilar y desapilar el cursor.
+```
+::gc.push | --
+::gc.pop | --
+```
+
+Posicion del cursor en coordenadas reales (de pantalla)
+```
+::pos	| x y --
+::+pos	| x y --
+```
+
+Dimension del cursor en coordenadas reales (de pantalla)
+```
+::dim | w h --
+::+dim | w h --
+```
+
+Pone el cursor como toda la pantalla
+```
+::scr |  --   
+```
+
+Dimension en coordenadas normalizadas
+```
+::fdim | wh --
+::fpos | xy --
+::fzoom | rzoom -- 
+::fscala | ws hs --
+```
+
+Punto en coordenadas normalizadas
+```
+::fgetpixel | x y -- c
+```
+
+Serializar de pila (mmmm)
+```
+::gc.conv | w h xc yc --
+```
+
+Serializa en memoria (mmmm)
+```
+::@cursor | 'adr -- 'adr+
+::mem>dimpos | adr --
+```
+
+Conversion de coordenadas de GC a normalizado
+```
+::>xy | v -- x y
+::xy> | x y -- v
+```
+
+Test de  adentro y conversion del mouse (mmm)
+```
+::whin | x y -- 1/0
+::xymousef | -- x y
+```
+
+Dibujo sobre cursor, caja, rellena, boton, relleno, circulo
+```
+::gc.box | --	
+::gc.fbox | --	
+::gc.rod | --	
+::gc.frod | --	
+::gc.fcircle
+```
+
+Ajusta mat de colores p/degrade
+```
+::gc.vdeg | col1 col2 --
+::gc.hdeg | col1 col2 --
+```
+
+Dibuja botones con degrade (muy usado)
+```
+::vbtn | col1 col2 --
+::hbtn | col1 col2 --
+```

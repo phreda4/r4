@@ -1,0 +1,16 @@
+:[r4](https://code.google.com/p/reda4/source/detail?r=4) version of the "Hello, World !" program
+
+
+http://reda4.googlecode.com/svn/trunk/screenshot/hello-r4.PNG
+
+This little program simply prints the famous string and gives a first taste of the language.
+
+Line 0 includes a source file : **gui.txt**. Any word exported by this file is then available from this point.
+
+Line 2 defines the word **hello**.
+
+Line 8 contains the program entry point. The word **hello** is called.
+
+For a definition of [R4](https://code.google.com/p/reda4/source/detail?r=4) basic words : https://code.google.com/p/reda4/wiki/BasicWords
+
+For the programming philosophy, this book is a must : http://thinking-forth.sourceforge.net/

@@ -1,0 +1,50 @@
+# libgraf.txt #
+
+Palabras para graficos, lineas gruesas, grillas
+
+# WORDS #
+
+```
+::getpixel | x y -- c
+::setpixel | c x y --
+::pix! | x y --
+```
+|---- bitmap
+```
+::oscurecetodo
+::bmnoise |ancho alto x y --
+```
+|----- figuras geometricas
+```
+::cajau | x2 y2 x1 y1 --
+::cajad | x2 y2 x1 y1 --
+```
+|---------------------------------
+```
+::hline | x y x --
+::vline | x y y --
+
+::box | x y r --
+::cruz | x y r --
+
+::fbox | xc yc r --
+::vfill | ancho alto x y --
+
+::circle | xc yc r --
+::fcircle | xc yc r --
+
+::point
+
+::ellipse | xc yc rx ry --
+::gcursor | x y g --
+::glineg |x y x y g--
+::gg | grosor --
+::gop | x y --
+::gline | x y --
+::gcp | x y --
+::gcurve | xy --
+```
+|------- Grilla
+```
+::rgrilla | escala --
+```

@@ -1,0 +1,11 @@
+#summary Android version of the virtual machine.
+
+A first version of the Android virtual machine was distributed in February 2013. This page documents what is different and what is specific to this version of :[r4](https://code.google.com/p/reda4/source/detail?r=4).
+
+Systems on which :[r4](https://code.google.com/p/reda4/source/detail?r=4) has been tested : Cynus T1 phone, Nexus 7 tablet. We are confident the system should work on most hardware. Please do inform us if you have an issue with your hardware.
+
+Note that as of March 2013, not all programs work in the Android version, mostly due to the lack of keyboard. Solutions are in the work.
+
+For an example of working program, run "memoria". First, click on the "games" carpet in the Home screen, then on the "memoria" icon. "memoria" is "memory" in Spanish, it is a memory game. It also shows advanced 2d graphics and font management.
+
+For any program, a first click on the icon selects the program, the second click runs the program. To view the code ( **all** the code is available), click a first time to select the program, then on the icon at the bottom of the screen that looks like a pencil. This opens a text editor that is usable from an Android phone, which of course is also written in :[r4](https://code.google.com/p/reda4/source/detail?r=4).

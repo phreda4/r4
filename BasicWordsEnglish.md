@@ -1,0 +1,396 @@
+# Introduction #
+
+The only thing the computer does is calculate and move numbers from one memory location to another, all the rest is illusion.
+
+There are many ways to do the same thing, but finding a simple way will benefit us in many aspects. To find this form it is important to deeply understand the problem and get rid of ideas that don't help. avoiding to think again about a problem is our issue here, the apparent comfort of not reinventing the wheel disappears when the smallest modification to the initial problem destroys all that's been done.
+
+:[r4](https://code.google.com/p/reda4/source/detail?r=4) and forth use a different mechanism from the current processor architectures.
+
+There are 2 number stacks : one of Data ( D stack) and the other of adresses ( R stack). They are available when the program is executing.
+
+The Data Stack is used as a short term memory ( what is known as local variables in other languages) and to transmit values between words ( which is known as parameter passing).
+
+The Return Stack stores return addresses as each word is executed. This stack reflects the execution flow and can be modified to alter the flow. It can also be used as an auxiliary data stack provided everything that is added is adequately removed.
+
+The dictionary is an array that contains the definitions of each word. It starts by including the basic words included in the system. The code we program will consist in a list of definitions and then the list of words that will be executed when the program starts, this list starts with a colon and a space.
+
+The stacks only manipulate signed 32 bits integers, furthermore there are no data types. Data types ( such as the holy 'objects') are replaced by a powerful, simple and versatile concept :  ... the **word**
+
+To program in :[R4](https://code.google.com/p/reda4/source/detail?r=4) we will define words as DATA ( with a # as precfix) or words as ACTIONS ( with a : prefix)
+
+These WORDS defined as DATA or ACTIONs in the dictionary will define the algorithm in :[r4](https://code.google.com/p/reda4/source/detail?r=4).
+
+# How it works #
+
+The words are separated by spaces, it is the only syntactic rule.
+
+The code is read word by word
+
+When the word is a number:
+| Decimal | 2 |
+|:--------|:--|
+| hexa | $3f |
+| binary | %110001 |
+| fixed point | 0.23 |
+
+the language pushes the number on the Data Stack
+
+If the current word is not a number then its definition is searched in the dictionary and executed.
+
+If the dictionary does not comprise the word, then it is an error.
+
+The first word in the dictionary is END ";" semi-colon
+
+It is used to end the definition of an ACTION :
+
+:stacker 1 2 3 4 5 ;
+
+here the stacker word is defined, it pushes 5 numbers onto the stack
+";" defines the end of the word
+
+The following 3 words comprise lists of words that are used by control structures : "(", ")(" and ")".
+
+One should always remember to put spaces between words.
+
+The following two words are used to build a list of words that is used only through its address given that it doesn't have a name. They're called lambda functions in lisp languages, but I prefer anonymous : [y ](.md)
+
+Again, one should remember about using spaces between words and here there should be an ending ';' otherwise the execution will continue from where it was defined.
+
+Anonymous definition.
+```
+[
+]
+```
+
+Defines an anonymous word, it has no name but its adress is pushed on the stack.
+
+_Warning_
+
+Must include a ";" to correctly end the execution of the anonymous word. The current compiler does not trigger an error and it is for example ok to write :
+
+```
+[ 1 ] 
+```
+
+when the correct form would be
+
+```
+[ 1 ; ]
+```
+
+
+Then the conditionals, in two forms, simple or doble. The simple ones are 4 questions
+
+| Is null ? | 0? |
+|:----------|:---|
+| Is not null ? | 1? |
+| Is positive ? 0 too | +? |
+| Is negative ? | -? |
+
+They test the top of the data stack (TOS) and execute a block or not according to the result of the test.
+
+The 5 control structures of the language (REPEAT,IF,IF-ELSE,WHILE and UNTIL) are defined by locating the conditionals in different spots in the blocks.
+
+IF
+```
+0? ( ; ) | if the top of the stack is null the word stops
+| the top of the stack will be still be 0
+```
+
+IF-ELSE
+```
+-? ( neg )( ; ) | if it is negative it calculates the opposite otherwise it ends
+```
+
+WHILE
+```
+5         | put 5 on the stack
+( 1? )(   | while it is not 0
+    1-    | substract 1
+    )     | when it is 0 the loop ends
+```
+
+UNTIL
+```
+8         | put 8 on the stack
+( 1-      | substract 1
+    -? )  | repeat the previous block until the top of the stack is negative
+```
+
+The 5 control structures are built without conditionals
+
+REPEAT
+```
+( 1 2 )	  | put 1 then 2 on the stack and then repeat
+```
+
+They test the top of the stack without removing it.
+
+Double conditionals
+```
+=?	| a b -- a		a = b ?
+<?	| a b -- a		a < b ?
+>?	| a b -- a		a > b ?
+<=?	| a b -- a		a <= b ?
+>=?	| a b -- a		a >= b ?
+<>?	| a b -- a		a <> b ?
+AND?	| a b -- a		a and b ?
+NAND?	| a b -- a		a nand b ?
+```
+
+They compare the top of the stack with the second element, they remove the top of the stack value.
+
+eg:
+```
+1 =? ( neg )  
+0 ( 10 <? )( 1+ ) drop
+```
+
+Here it is useful to draw the state of the data stack before and after execution of the said word.
+
+B=2
+A=3   -->   C=5
+
+The dictionary starts with less than 250 words,
+
+Execute the word through its address.
+```
+EXEC  	| vector --  	
+```
+Calls the vector´s code, if it is 0 it removes the top of the stack and does not execute anything.
+
+It can be defined like that :
+
+```
+:EXEC
+    0? ( drop ; ) >r ;
+```
+
+Data stack
+
+```
+DUP 	| a -- a a
+DROP 	| a --
+OVER 	| a b -- a b a
+PICK2 	| a b c -- a b c a
+PICK3 	| a b c d -- a b c d a
+PICK4 	| a b c d e -- a b c d e a
+SWAP 	| a b -- b a
+NIP	| a b -- b
+ROT 	| a b c -- b c a
+2DUP 	| a b -- a b a b
+2DROP   | a b --
+3DROP   | a b c --
+4DROP   | a b c d --
+2OVER	| a b c d -- a b c d a b
+2SWAP	| a b c d -- c d a b
+```
+
+It is a 2kb space of signed integer.
+
+Words that use parameters sent through the stack.
+
+If, in order to connect two words they appear together, in most cases it is better to change the position of the chosen parameters.
+
+Return stack (R stack)
+```
+>R 	| a --      R: -- a
+R> 	| -- a	    R: a --
+R	| -- a      R: a -- a
+R+	| v --	    R: a -- a+v
+R@+	| -- v      R: a -- a+4
+R!+	| v --	    R: a -- a+4
+RDROP	| --	    R: a --
+```
+
+Another 2kb space of addresses (32 bits), also used as an auxiliary data stack.
+One should take into account that using it unbalances the stack.
+
+Logic operations
+```
+AND 	| a b -- c     c = a AND b
+OR 	| a b -- c     c = a OR b
+XOR 	| a b -- c     c = a XOR b
+NOT  	| a -- b       c = NOT b
+```
+
+Boole and friends.
+
+Arithmetic operations
+```
++ 	| a b -- c	c=a+b
+- 	| a b -- c	c=a-b
+* 	| a b -- c	c=a*b
+/ 	| a b -- c	c=a/b
+*/ 	| a b c -- d	d=a*b/c	      intermediate result in 64 bits
+*>>	| a b c -- d	d=(a*b)>>c    intermediate result in 64 bits
+/MOD 	| a b -- c d	c=a/b  d=a remainder b
+MOD 	| a b -- c	c=a remainder b
+ABS	| a -- b	b=|a|
+NEG 	| a -- b	b=-a
+1+ 	| a -- b	b=a+1
+4+	| a -- b	b=a+4
+1- 	| a -- b	b=a-1
+2/ 	| a -- b	b=a/2
+2* 	| a -- b	b=a*2
+<< 	| a b -- c	c=a<<b
+>> 	| a b -- c	b=a>>b (carries the sign)
+```
+
+Only signed 32 bit integer numbers are provided.
+Several words are present for speed reasons.
+The always present words are addition and bits shifting (+,>>,<<).
+
+Direct memory access
+```
+@ 	| a -- b		b=32(a)
+C@ 	| a -- b		b=8 (a)
+W@	| a -- b		b=16(a)
+!	| v d --		32(d) = v
+C!	| v d --		8(d) = v
+W! 	| v d --		16(d) = v
++! 	| v d --		32(d)=32(d)+v
+C+!	| v d --		8(d)=8(d)+v
+W+!  	| v d --		16(d)=16(d)+v
+@+	| d -- d+4	dword
+!+	| v d -- d+4
+C@+	| d -- d+1	byte
+C!+	| v d -- d+1
+W@+	| d -- d+2	word
+W!+	| v d -- d+2
+```
+
+Direct memory access is the most transparent way of using memory, the apparent fragility of this type of memory access is linked to the paranoia that consists in believing that the computer contains programs that attack each other ( more about this in "Thinking Forth" in the chapter where "Information Hiding" is mentioned).
+In any case, imposing limits to accessing a part of the computer is not a good feature to have for a language that's used to program it.
+
+Memory moves
+```
+MOVE	| de sr cnt --		Copies CNT dword from SR to DE
+MOVE>   | de sr cnt --		Copies CNT dword from SR to DE (backwards)
+CMOVE   | de sr cnt --		Copies CNT bytes from SR to DE
+CMOVE>  | de sr cnt --		Copies CNT bytes from SR to DE (backwards)
+MEM	| -- dir 		Free memory start address
+```
+
+In the VM, the running program has the following form :
+
+| CODE | 256KB |
+|:-----|:------|
+| DATA + FREE MEMORY | 16MB |
+
+MEM is a pointer on the first free position in memory.
+The memory chuncks MOVES are used for speed.
+
+Files
+```
+DIR	| "foldername" –	Changes current directory
+FILE	| n -- "filename"	Name of file  n
+FSIZE	| n -- cnt		File size
+VOL	| n -- "foldername"	Name of directory n
+LOAD	| d "filename" -- e	Loads a file into memory
+SAVE	| d n "filename" –	Write memory chunck into a file
+```
+
+Deleteing a file is done by writing 0 bytes in it (not implemented for security reasons :)
+
+Events
+```
+UPDATE	| --	Updates IRQs such as mouse, keyboard, sound, etc ...
+END 	| --	Exit from :r4, closes everything, shuts down the VM
+```
+
+It is possible that UPDATE, END will disappear one day, they are almost never used..
+
+System
+```
+MSEC 	| -- a 		system milliseconds
+TIME 	| -- s m h 	hour, minute, second
+DATE 	| -- a m d 	year, month, day
+```
+
+Time, what would we do without it ?
+
+```
+RUN  	| "main.txt" --	Loads, compiles and executes the file
+```
+
+In the current VM : loads, compiles and executes the 'main.txt' named file.
+
+Graphics screen
+```
+SW 	| -- w		Screen width
+SH 	| -- h		Screen height
+CLS	| --		Clears screen
+REDRAW  | --		Draws new FRAME
+FRAMEV	| -- m		Address of video memory start
+```
+
+Pixel drawing
+```
+SETXY	| x y --    	puts graphics cursor on x,y
+PX+!	| cant --   	adds cant to the graphics cursor
+PX!+	| color --	draws with color and moves to the following pixel
+PX@	| -- color	returns color of pixel under the graphics cursor
+```
+
+Drawing lines and polygons
+```
+PAPER	| a –-		Sets background color
+INK	| a --		Sets drawing color
+INK@	| -- a		Gets drawing color
+ALPHA 	| a --		Sets alpha transparency
+OP 	| x y –-	Origin point
+CP 	| x y –-	Curve point
+LINE 	| x y –-	Draws a line
+CURVE 	| x y –-	Draws a curve
+PLINE 	| x y --	Draws a polygon line
+PCURVE 	| x y --	Draws a polygon curve
+POLI	| --		Draws a polygon
+FCOL	| c1 c2 --	sets 2 colors for a gradient
+FCEN	| x y --	Gradient center
+FMAT	| a b --	Gradient matrix
+SFILL	| --		Solid filled polygon
+LFILL	| --		Linear gradient filled polygon
+RFILL	| --		Radial gradient filled polygon (or something close..)
+```
+
+These words are in the base dictionary for speed, there are versions of these words in the distribution also, there are used for ASM compilation.
+
+Mouse
+```
+IPEN!	| v --  	Mouse IRQ vector ( or pen)
+XYMOUSE | -- x y 	mouse coordinates
+BMOUSE	| -- b		mouse buttons state
+```
+
+Keyboard
+```
+IKEY!	| v --    	Keyboard IRQ vector
+KEY	| -- s		Last pressed key (scancode)
+```
+
+Joystick
+```
+CNTJOY	| -- cnt	number of joysticks detected
+GETJOY	| j -- a	data for joystick j
+```
+
+The address returned by GETJOY points on the current number j joystick state.
+
+The current structure makes it WINE compatible.
+That is good enough for me.
+
+| number DWORD | Value | Meaning |
+|:-------------|:------|:--------|
+| 0 | $3f | ?? |
+| 1| $ff | ?? |
+| 2 | $7fff | PAD 0 |
+| 3 | $7fff | PAD 1 |
+| 4 | $7fff | PAD 2 |
+| 5 | $7fff | PAD 3 |
+| 6 | 0 | ?? |
+| 7 | 0 | ?? |
+| 8 | 0 | BUTTONS |
+| 9 | 0 | ANYBUTTON |
+
+have a look at test-joy.txt to see how to read it

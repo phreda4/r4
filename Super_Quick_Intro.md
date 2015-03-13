@@ -1,0 +1,63 @@
+# Introduction #
+
+Here's a super quick intro to using the system
+
+# Details #
+
+The steps are :
+
+  1. unzip the distribution in a directory
+  1. run [r4](https://code.google.com/p/reda4/source/detail?r=4).exe in that directory :)
+
+That's it, a window should open with a running system.
+
+You can change the resolution :[r4](https://code.google.com/p/reda4/source/detail?r=4) runs in by using some command line parameters :
+
+```
+r4.exe wWIDTH hHEIGHT
+```
+
+where **WIDTH** and **HEIGHT** are the resolution you want. Say for example you want to run in 900x600, you'd execute :
+
+```
+r4.exe w900 h600
+```
+
+here are other switches :
+
+  * `f`  for fullscreen
+  * `cNAMEFILE` to load, compile and run NAMEFILE
+  * `iNAMEIMA` to save an IMG file with the BYTECODES
+  * `xNAMEIMA` to load and run a IMG file
+  * `s` for silent mode (compile only)
+
+the next (small) hurdle would be the keyboard. You need to edit the keyboard.txt file in the main distribution directory, the top of it looks like this :
+```
+| Teclado, Memoria, Conversion, Basicos
+| PHREDA
+| :r4 system library
+|-------------------------
+^key-es1.txt	| Distribucion de teclado - Scancode to Ascii
+```
+
+Three keyboards are taken into account : Spanish, US and French.
+
+If your keyboard is US, you want to have `^`key-us1.txt instead of `^`key-es1.txt
+
+If your keyboard is French, you need `^`key-fr1.txt instead of `^`key-es1.txt
+
+**If all else fails, there´s a crude [r4](https://code.google.com/p/reda4/source/detail?r=4) mode for emacs in the ./doc directory.**
+
+# But I want the very latest code !! #
+
+Well, then you need to checkout the code with subversion as explained here : http://code.google.com/p/reda4/source/checkout
+
+You need to have subversion installed on your box, in ubuntu it's :
+
+sudo apt-get install subversion
+
+then once subversion is installed, type in :
+
+svn checkout http://reda4.googlecode.com/svn/trunk/ reda4-read-only
+
+in the ./reda4-read-only directory that's created by the subversion command line above you'll find the very last code.

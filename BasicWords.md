@@ -1,0 +1,397 @@
+# Introduccion #
+
+Lo unico que hace la camputadora es calcular y mover numeros de un lugar de la memoria a otro, el resto es ilusion.
+
+Hay muchas formas de hacer lo mismo, pero encontrar una forma simple nos beneficiara en muchos aspectos y para encontrar esta forma es necesario entender el problema a fondo y despejar las ideas que no ayudan, no volver a pensar un problema es nuestro enemigo aqui, la comodidad aparente de no reinventar la rueda desaparece cuando una minima modificacion al problema inicial desarma todo lo que hicimos.
+
+:[r4](https://code.google.com/p/reda4/source/detail?r=4) y forth utilizan un mecanismo distinto a la arquitectura actual de procesadores.
+
+existen 2 pilas de numero, una de Datos (PILA D) y otra de Direciones (PILA R) que estan presentes cuando se ejecuta un programa.
+
+La Pila de Datos sirve como memoria temporal de corto alcance (lo que se conoce como variables locales en otros lenguajes) y para pasar valores entre palabras (lo que se conoce como pasaje de parametros).
+
+La Pila de Direcciones almacena las direcciones de retorno cuando se ejecuta cada palabra, esta pila lleva el flujo de ejecucion y puede modificarse para alterar este flujo. Ademas se puede utilizar como pila auxiliar teniendo la precaucion de quitar todo lo que se agrega a dicha pila.
+
+El Diccionario es una tabla que contine las definiciones de cada palabra. Comienza conteniendo las palabras basicas que componen el sistema, el codigo que programemos consistira en una lista de definiciones y por ultimo la lista de palabras que ejecutara al comienzo, esta indicacion esta dada por los dos puntos con espacio.
+
+Las Pilas solo manejan numeros enteros de 32 bits con signo, por lo tanto no hay tipos de datos, los tipos de datos (asi como los benditos objetos) son reemplazado por un concepto para poderoso, versatil y simple.... **la palabra**
+
+Para programar en :[R4](https://code.google.com/p/reda4/source/detail?r=4) vamos a definir palabra como DATOS (con # como prefijo) o definir palabras como ACCIONES (con : como prefijo).
+
+Estas PALABRAS definidas como datos o acciones en el diccionario son las que compondran el algoritmo en :[r4](https://code.google.com/p/reda4/source/detail?r=4).
+
+# Funcionamiento #
+
+Las palabras estan separadas por espacios, esta es la unica regla sintactica.
+
+El codigo es leido palabra por palabra.
+
+Cuando la palabra es un numero:
+| Decimal | 2 |
+|:--------|:--|
+| hexa | $3f |
+| binarios | %110001 |
+| punto fijo | 0.23 |
+
+el lenguaje apila el numero en la PILA DE DATOS
+
+Si la palabra actual no es un numero se busca la definicion en el diccionario y se ejecuta.
+
+Si no se encuentra la palabra en el diccionario es un error
+
+La primera palabra del diccionario es FIN ";" punto y coma
+
+Sirve para terminar una definicion de ACCION :
+
+:apilador 1 2 3 4 5 ;
+
+aqui definimos la palabra apilador que apila 5 numeros
+; marca el fin de la palabra
+
+las siguientes 3 palabras forman listas de palabras que son utilizadas para las estructuras de control, ( , )( y )
+Recordar siempre los espacios entre palabras.
+
+Las siguientes 2 palabras forman lista de palabras que son utilizadas solamente a travez de su direccion ya que no tienen nombre, en list las llaman lambda, pero me gusta mas anonimas, [y ](.md)
+Recordar otra vez los espacios y aqui deberia terminar con ; ya que sino la ejecucion seguiria por quien la definio.
+
+Definicion anonima.
+```
+[
+]
+```
+Definen una palabra anonima, no tiene nombre pero se apila su direccion.
+
+_Cuidado_
+debe tener un fin de palabra ";" para que termine correctamente la ejecucion de la palabra anonima, el compilador actual no emite error y es valido poner por ejemplo
+```
+[ 1 ] 
+```
+sindo lo correcto poner
+```
+[ 1 ; ]
+```
+
+
+Luego estan los condicionales, en dos formas, simples o doble, los simples son 4 preguntas
+
+| Es cero ? | 0? |
+|:----------|:---|
+| No es cero ? | 1? |
+| Es positivo ? 0 tambien | +? |
+| Es negativo ? | -? |
+
+comprueba el Tope de la pila de datos (TOS) y ejecutan un bloque o no
+
+Las 5 estructuras de control que tiene el lenguajes (REPEAT,IF,IF-ELSE,WHILE y UNTIL) se definen ubicando los condicionales en los diferentes lugares de los bloques.
+IF
+```
+0? ( ; ) | si el tope de la pila es 0 termina la palabra
+| el tope segira siendo 0
+```
+IF-ELSE
+```
+-? ( neg )( ; ) | si es negativo lo niega sino termina
+```
+WHILE
+```
+5         | apilo 5
+( 1? )(   | mientras no sea 0 (cero)
+    1-    | resto uno
+    )     | cuando es cero termina el bucle.
+```
+UNTIL
+```
+8         | apilo 8
+( 1-      | resto 1
+    -? )  | hasta que sea negativo el tope de la pila repito el bloque anterior
+```
+
+la 5 estructura de control se construye sin condicional
+REPEAT
+```
+( 1 2 )	  | apila 1 luego 2 y repite
+```
+
+
+Comprueban el tope de la pila pero no la consumen.
+
+como IF
+0? ( ; )
+si el tope de la pila es 0 termina la palabra y el tope segira siendo 0
+
+como WHILE
+5 ( 1? )( 1- )
+apilo 5
+mientras no sea 0 (cero)
+> resto uno
+cuando es cero termina el bucle.
+
+como UNTIL
+8 ( 1- -? )
+apilo 8
+resto 1
+hasta que sea negativo el tope de la pila repito el bloque anterior
+
+Condicionales dobles
+```
+=?	| a b -- a		a = b ?
+<?	| a b -- a		a < b ?
+>?	| a b -- a		a > b ?
+<=?	| a b -- a		a <= b ?
+>=?	| a b -- a		a >= b ?
+<>?	| a b -- a		a <> b ?
+AND?	| a b -- a		a and b ?
+NAND?	| a b -- a		a nand b ?
+```
+
+Comparan el tope de la pila con el segundo, consumen el tope de la pila.
+
+Ej:
+```
+1 =? ( neg )  
+0 ( 10 <? )( 1+ ) drop
+```
+
+Es util aqui dibujar el estado de la PD antes y despues de ejecutar dicha palabra.
+
+B=2
+A=3   -->   C=5
+
+El Diccionario comienza con menos de 250 palabras,
+
+
+Ejecuta palabra por direccion.
+```
+EXEC  	| vector --  	
+```
+Lama al codigo del vector, si es 0 lo consume de la pila y no ejecuta nada.
+
+Se puede definir como
+```
+:EXEC
+    0? ( drop ; ) >r ;
+```
+
+Pila de Datos
+```
+DUP 	| a -- a a
+DROP 	| a --
+OVER 	| a b -- a b a
+PICK2 	| a b c -- a b c a
+PICK3 	| a b c d -- a b c d a
+PICK4 	| a b c d e -- a b c d e a
+SWAP 	| a b -- b a
+NIP	| a b -- b
+ROT 	| a b c -- b c a
+2DUP 	| a b -- a b a b
+2DROP   | a b --
+3DROP   | a b c --
+4DROP   | a b c d --
+2OVER	| a b c d -- a b c d a b
+2SWAP	| a b c d -- c d a b
+```
+
+Es un espacio de 2Kb de numeros entero con signo.
+Palabras que acomodan parametros que se pasan en la pila.
+Si para conectar dos palabras, aparecen juntas, muchas de estas, revisar la posicion de los parametros elegidos
+
+Pila de Direcciones (pila R)
+```
+>R 	| a --      R: -- a
+R> 	| -- a	    R: a --
+R	| -- a      R: a -- a
+R+	| v --	    R: a -- a+v
+R@+	| -- v      R: a -- a+4
+R!+	| v --	    R: a -- a+4
+RDROP	| --	    R: a --
+```
+
+Es otro espacio de 2kb de direcciones (32 bits), tambien usada como pila auxiliar.
+Tener en cuenta que desequilibra la pila utilizarlas.
+
+Operaciones Logicas
+```
+AND 	| a b -- c     c = a AND b
+OR 	| a b -- c     c = a OR b
+XOR 	| a b -- c     c = a XOR b
+NOT  	| a -- b       c = NOT b
+```
+
+Esas, las de boole y sus muchachos.
+
+Operaciones Aritmeticas
+```
++ 	| a b -- c	c=a+b
+- 	| a b -- c	c=a-b
+* 	| a b -- c	c=a*b
+/ 	| a b -- c	c=a/b
+*/ 	| a b c -- d	d=a*b/c	      resultado intermedio en 64 bits
+*>>	| a b c -- d	d=(a*b)>>c    resultado intermedio en 64 bits
+<</	| a b c -- d	d(a<<c)/b  64 bits!
+/MOD 	| a b -- c d	c=a/b  d=a resto b
+MOD 	| a b -- c	c=a resto b
+ABS	| a -- b	b=|a|
+NEG 	| a -- b	b=-a
+1+ 	| a -- b	b=a+1
+4+	| a -- b	b=a+4
+1- 	| a -- b	b=a-1
+2/ 	| a -- b	b=a/2
+2* 	| a -- b	b=a*2
+<< 	| a b -- c	c=a<<b
+>> 	| a b -- c	b=a>>b (arrastra signo)
+```
+
+Solo hay numeros enteros con signo de 32 bits.
+Muchas palabras estan aqui por velocidad.
+las unicas siempre presentes son sumar y girar bits (+,>>,<<).
+
+Acceso directo a Memoria
+```
+@ 	| a -- b		b=32(a)
+C@ 	| a -- b		b=8 (a)
+W@	| a -- b		b=16(a)
+!	| v d --		32(d) = v
+C!	| v d --		8(d) = v
+W! 	| v d --		16(d) = v
++! 	| v d --		32(d)=32(d)+v
+C+!	| v d --		8(d)=8(d)+v
+W+!  	| v d --		16(d)=16(d)+v
+@+	| d -- d+4	dword
+!+	| v d -- d+4
+C@+	| d -- d+1	byte
+C!+	| v d -- d+1
+W@+	| d -- d+2	word
+W!+	| v d -- d+2
+```
+
+El acceso directo a memoria es el mecanismo mas transparente para usar memoria, la aparente fragilidad de esta forma de acceso esta ligada a la paranoia de creer que la computadora contiene programas que se atacan entre si (mas sobre esto en el libro "Thinking Forth" cuando habla de "Information Hiding").
+En todo caso la restriccion de acceso a una parte de la maquina no es una buena idea para un lenguaje que permite programarla.
+
+Movimiento de memoria
+```
+MOVE	| de sr cnt --		Copia CNT dword de SR a DE
+MOVE>   | de sr cnt --		Copia CNT dword de SR a DE (para atras)
+CMOVE   | de sr cnt --		Copia CNT bytes de SR a DE
+CMOVE>  | de sr cnt --		Copia CNT bytes de SR a DE (para atras)
+MEM	| -- dir 		Direccion de inicio de memoria libre
+```
+
+El mapa de memoria del programa corriendo en la MV tiene la siguiente forma.
+
+| CODIGO | 256KB |
+|:-------|:------|
+| DATO + MEMORIA LIBRE | 16MB |
+
+MEM es la primera posicion de la memoria libre.
+los MOVIMIENTOS de framentos de memoria son por velocidad.
+
+Archivos
+```
+DIR	| "foldername" –	Cambia la carpeta actual
+FILE	| n -- "filename"	Nombre del archivo n
+FSIZE	| n -- cnt		Tamanio del archivo
+VOL	| n -- "foldername"	Nombre de la carpeta n
+LOAD	| d "filename" -- e	Carga un archivo en memoria
+SAVE	| d n "filename" –	Graba memoria en un archivo
+```
+
+Borrar un archivo es grabar 0 bytes en si mismo (no implementado por seguridad :)
+
+Eventos
+```
+UPDATE	| --		Actualiza las irq como el raton, el teclado, sonido, etc
+END 	| --		Sale del :r4, finaliza TODO, apaga la maquina virtual
+```
+
+Es posible que desaparezca UPDATE, END casi no se usa..
+
+Sistema
+```
+MSEC 	| -- a 		milisegundos del sistema
+TIME 	| -- s m h 	hora minutos y segundos
+DATE 	| -- a m d	ano, mes y dia
+```
+El tiempo, que hariamos sin el?
+
+```
+RUN  	| "main.txt" --	Carga, compila y ejecuta el archivo nom
+```
+En la MV actual carga, compila y ejecuta el archivo de nombre "main.txt".
+
+Pantalla grafica
+```
+SW 	| -- w		Ancho de pantalla
+SH 	| -- h		Alto de pantalla
+CLS	| --		Limpia pantalla
+REDRAW  | --		Dibuja nuevo FRAME
+FRAMEV	| -- m		Memoria de video
+```
+
+Dibujar por pixel
+```
+SETXY	| x y --    pone cursor grafico en x y
+PX+!	| cant --   suma cant al cursor grafico
+PX!+	| color --	pone color y avanza siguiente pixel
+PX@	| -- color	obtiene color del punto
+```
+
+Dibujo de lineas y poligonos
+```
+PAPER	| a –-		Asigna color de fondo
+INK	| a --		Asigna color de dibujo
+INK@	| -- a		color de dibujo
+ALPHA 	| a --		Transparencia (canal alpha)
+OP 	| x y –-	Punto de origen
+LINE 	| x y –-	Traza línea
+CURVE 	| x y x y –-	Traza curva Bezier cuadratica
+CURVE3 	| x y x y x y –-Traza curva Bezier cubica
+PLINE 	| x y --	Traza línea poligono
+PCURVE 	| x y x y --	Traza curva Bezier cuadratica
+PCURVE3	| x y x y x y --Traza curva Bezier cubica
+POLI	| --		Traza polígono
+FCOL	| c1 c2 --	2colores para degrade
+FCEN	| x y --	centro de degrade
+FMAT	| a b --	matriz de degrade
+SFILL	| --		poligonos con color solido (ink)
+LFILL	| --		poligono con degrade lineal
+RFILL	| --		poligono con degrade radial (algo parecido..)
+```
+
+Estas palabras estan en el diccionario base por velocidad, existe una version de estas palabras en la distribucion, son usadas para compilar a ASM.
+
+Raton
+```
+XYMOUSE | -- x y 	coordenadas de la pantalla del apuntador
+BMOUSE	| -- b		estado del apuntado
+```
+
+Teclado
+```
+KEY	| -- s		ultima tecla pulsada (scancode)
+```
+
+Joystick
+```
+CNTJOY	| -- cnt	cantidad de joysticks
+GETJOY	| j -- a	direccion de los datos de joystick J
+```
+
+La direccion que retorna GETJOY apunta al estado actual del joystick j.
+
+la estructura actual cumple con las ganas que tiene de andar en WINE.
+A mi, me da asi.
+
+| nro DWORD | Valor | Significado |
+|:----------|:------|:------------|
+| 0 | $3f | ?? |
+| 1| $ff | ?? |
+| 2 | $7fff | PAD 0 |
+| 3 | $7fff | PAD 1 |
+| 4 | $7fff | PAD 2 |
+| 5 | $7fff | PAD 3 |
+| 6 | 0 | ?? |
+| 7 | 0 | ?? |
+| 8 | 0 | BUTTONS |
+| 9 | 0 | ANYBUTTON |
+
+buscar en test-joy.txt como hacer para leerlo
