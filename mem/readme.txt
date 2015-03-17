@@ -1,0 +1,1 @@
+This folder store the persistent memory, this is the actual state.
