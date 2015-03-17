@@ -1,0 +1,127 @@
+| ESCENA 3d
+| PHREDA 2014
+|----------------------------------------
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+|----------------------------------------
+:obj.create | size 'fx --
+	here over 4+ !
+	swap 6 << 'here +! | 16 valores
+:obj.clear | 'fx --
+	dup 4+ @ swap ! ;
+
+:obj.cnt | 'fx -- cnt
+	@+ swap @ - 6 >> ;
+
+:obj!+ | 'fx -- adr
+	dup @ 64 rot +! ;
+
+:obj.map | vec 'fx --
+	dup @+ swap @
+	( over <? )( pick3 exec 64 + ) 4drop ;
+
+|----------------------------------------
+
+#xcam #ycam #zcam 20.0
+#objetos 0 0	| finarray iniarray
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:3dop project3d op ;
+:3dline project3d line ;
+
+:drawboxz | z --
+	-0.5 -0.5 pick2 3dop
+	0.5 -0.5 pick2 3dline
+	0.5 0.5 pick2 3dline
+	-0.5 0.5 pick2 3dline
+	-0.5 -0.5 rot 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup -0.5 3dop 0.5 3dline ;
+
+:drawcube |
+	-0.5 drawboxz
+	0.5 drawboxz
+	-0.5 -0.5 drawlinez
+	0.5 -0.5 drawlinez
+	0.5 0.5 drawlinez
+	-0.5 0.5 drawlinez ;
+
+#posx #posy #posz
+#sizx #sizy #sizz
+
+:drawz | z --
+	posx sizx - posy sizy - pick2 3dop
+	posx sizx + posy sizy - pick2 3dline
+	posx sizx + posy sizy + pick2 3dline
+	posx sizx - posy sizy + pick2 3dline
+	posx sizx - posy sizy - rot 3dline ;
+
+:drawl | x1 x2 --
+	2dup posz sizz - 3dop posz sizz + 3dline ;
+
+:box3d | x y z sx sy sz --
+	'sizz ! 'sizy ! 'sizx !
+	'posz ! 'posy ! 'posx !
+	posz sizz - drawz posz sizz + drawz
+	posx sizx - posy sizy - drawl posx sizx + posy sizy - drawl
+	posx sizx + posy sizy + drawl posx sizx - posy sizy + drawl
+	;
+
+|-----------------------------------------
+:r1 rand 1.0 mod ;
+:r10 rand 10.0 mod ;
+
+:addobj
+	'objetos obj!+ >r
+	r10 r10 r10 r!+ r!+ r!+
+	r1 r1 r1 r!+ r!+ r!+
+	rdrop ;
+
+:draw1 | adr -- adr
+	dup >r
+	r@+ r@+ r@+
+	r@+ r@+ r@+
+	box3d
+	rdrop ;
+
+:drawobj |
+	'draw1 'objetos obj.map
+	;
+
+|----------------------------------------
+:mm
+	mark
+	10000 'objetos obj.create
+	;
+
+|----------------------------------------
+#cntobj 10
+
+:main
+	cntobj ( 1? )( addobj 1- ) drop
+	33
+	show clrscr
+		dup "%d " print
+		'objetos obj.cnt "cnt:%d" print cr
+
+		omode
+		freelook
+		xcam ycam zcam mtrans
+        drawcube
+		drawobj
+
+		[ 0.1 'zcam +! ; ] <up>
+		[ -0.1 'zcam +! ; ] <dn>
+		[ addobj ; ] <f1>
+		'exit >esc<
+		cminiflecha ;
+
+: mm main ;

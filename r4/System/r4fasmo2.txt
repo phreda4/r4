@@ -1,0 +1,367 @@
+| r4fasmo2.txt
+| PHREDA 2014
+|---------------------------------------
+| genera codigo en :r4 y lo graba en "plain.txt"
+|------------------------------------------------
+
+^r4/lib/gui.txt
+^r4/system/mem-ed.txt
+^r4/system/r4token.txt
+^r4/system/r4post.txt
+^r4/system/r4asmdat.txt
+
+|^r4/system/r4i86o1.txt	| solo entrebloques
+^r4/system/r4i86o2.txt	| con bloques
+
+#msgOK "OK."
+#mensaje 'msgOk
+
+|-- nombre a nro
+|:nro>dicn   8 >> "w%h" mprint ;		| w<nro palabra>
+:nro>dicn   8 >> 5 << 'indicepal + @ "%w" mprint ; | nombre
+
+|----------------
+:cpycad | adr --
+	( c@+ 1? )( 34 =? ( dup ,c ) ,c ) 2drop ;
+
+:coldefw ":" ,s nro>dicn ,s ;
+:coldefv "#" ,s nro>dicn ,s ;
+:colit	tok>cte -? ( "%d" ,print ; ) "$%h" ,print ;
+:colits	34 ,c tok>str cpycad 34 ,c ;
+
+:colwor
+:colvar
+	nro>dicn ,s ;
+:coldwo
+:coldva
+	"'" ,s nro>dicn ,s ;
+
+#codei 0 coldefw coldefv colit colit colit colit colits colwor colvar coldwo coldva
+
+:,token | a -- a.
+	@+ dup $ff and
+:,tokenp | n t --
+	12 <? ( 2 << 'codei + @ exec ; ) nip
+	nro>macro ,s ;
+
+|--- Variables
+:esvariable | nro --
+	dup nro>info @
+	$1000 nand? ( 2drop ; ) drop | constante
+	dup nro>nom "#%w" ,print
+	nro>tok
+	( @+ dup $ff and
+		1 =? ( 0 nip ) | corta con defc
+		2 =? ( 0 nip ) | corta con defv
+		1? )( 	 | dirv n c
+		,sp
+		12 <? ( 2 << 'codei + @ exec )( nip nro>macro ,s )
+		)
+	3drop ,cr ;
+
+|--- Accion
+#nroanon 0
+
+#totoken
+#niva	| nivel de anonimas
+
+#niv )( 1024
+#niv> 'niv
+:+niv	niv> c!+ 'niv> ! ;
+:-niv   'niv 'niv> ! ;
+
+#anonind )( 256
+#anonind> 'anonind
+:+ind 	anonind> !+ 'anonind> ! ;
+:-ind	'anonind 'anonind> ! ;
+
+#anons )( 128
+#anons> 'anons
+:>aa anons> !+ 'anons> ! ;
+:aa> -4 'anons> +! anons> @ ;
+:-aa 'anons 'anons> ! ;
+:aa# anons> 'anons - 2 >> ;
+
+#buffaux )( 8192
+#buffaux> 'buffaux
+:+buff	buffaux> !+ 'buffaux> ! ;
+:-buff	'buffaux 'buffaux> ! ;
+
+:es[
+	1 'niva +!
+	niv> +ind
+	nroanon dup >aa
+	8 << 16 or pick2 4 - ! | graba en token
+	1 'nroanon +!
+	;
+:es]
+	-1 'niva +!
+	aa> 8 << 17 or pick2 4 - ! | graba en token
+	;
+
+:everyword | adr rtoken -- adr
+	16 =? ( es[ )
+	17 =? ( es] )
+	drop
+	niva +niv
+	;
+
+:marcaniveles | nro --
+	-aa -niv -ind
+	0 'niva !
+	nro>toklen over 'totoken  !
+	( 1? )( 1-
+		swap @+ $ff and
+		everyword
+		swap ) 2drop
+	-1 niv> c! ;
+
+
+|------------------------
+:buscacte
+	drop
+	dup 8 >> nro>info @
+	$1000 and? ( drop +buff ; ) drop
+	8 >> nro>tok @ | token de variable
+
+	dup $ff and
+	2 =? ( 2drop 0 genCTE +buff ; ) | caso #cte #var
+	| 7 =? () | #v "hola"
+	8 =? ( 10 nip ) 10 =? ( drop $fffffff0 and 10 or +buff ; ) | caso #cte 'word
+	9 =? ( 11 nip ) 11 =? ( drop $fffffff0 and 11 or +buff ; ) | caso #cte 'var
+	drop
+
+	tok>cte genCTE	| caso #cte 4
+	+buff ;
+
+:buscainline
+	drop
+	dup 8 >> nro>info @
+	$100 nand? ( drop +buff ; ) drop
+	8 >> nro>toklen 1-
+	( 1? )( 1- swap
+		@+ dup $ff and
+		8 =? ( buscainline )( | es word? inline?
+			9 =? ( buscacte )( drop +buff ) ) | es var? cte?
+|		drop +buff
+		swap ) 2drop
+	;
+
+:+buffer | adr -- adr++
+	@+ dup $ff and
+	3 <? ( 2drop ; )
+	8 =? ( buscainline ; )
+	9 =? ( buscacte ; )
+	drop +buff ;
+
+|--- optimiza
+:aa1@ | adr+ -- adr- a
+	4 - dup dup 4+ buffaux> over - 2 >> move | d s c
+	-4 'buffaux> +!
+	aa> ;
+
+:aa2@ | adr+ -- adr- a b
+	8 - dup dup 8 + buffaux> over - 2 >> move | d s c
+	-8 'buffaux> +!
+	aa> aa> swap ;
+
+:aa3@ | adr+ -- adr- a b c
+	12 - dup dup 12 + buffaux> over - 2 >> move | d s c
+	-12 'buffaux> +!
+	aa> aa> aa> rot rot swap ;
+
+:aa1! | adr- v -- adr-
+	dup >aa genCTE over 4 - ! ;
+
+:aa2@! | adr+ -- adr- a b
+	4 - dup dup 4 + buffaux> over - 2 >> move | d s c
+	-4 'buffaux> +!
+	aa> aa> swap ;
+
+:aa2! | adr- a b -- adr-
+	swap dup >aa genCTE pick2 8 - !
+	dup >aa genCTE over 4 - ! ;
+
+| adr+ val -- adr+
+:oAND	| ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ AND aa1! ;
+:oOR    | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ OR aa1! ;
+:oXOR   | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ XOR aa1! ;
+:oNOT   | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ NOT aa1! ;
+:o+		| ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ + aa1! ;
+:o-     | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ - aa1! ;
+:o*     | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ * aa1! ;
+:o/     | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ / aa1! ;
+:o*/    | abc -- d
+	aa# 3 <? ( 2drop -aa ; ) 2drop aa3@ */ aa1! ;
+:o*>>   | abc -- d
+	aa# 3 <? ( 2drop -aa ; ) 2drop aa3@ *>> aa1! ;
+:o/MOD  | ab -- cd
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@! /MOD aa2! ;
+:oMOD   | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ MOD aa1! ;
+:oABS   | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ ABS aa1! ;
+:oSQRT	| a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ SQRT aa1! ;
+:oCLZ	| a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ CLZ aa1! ;
+:o<</	| abc -- d
+	aa# 3 <? ( 2drop -aa ; ) 2drop aa3@ <</ aa1! ;
+:oNEG   | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ NEG aa1! ;
+:o1+    | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ 1+ aa1! ;
+:o4+    | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ 4+ aa1! ;
+:o1-    | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ 1- aa1! ;
+:o2/    | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ 2/ aa1! ;
+:o2*    | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ 2* aa1! ;
+:o<<    | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ << aa1! ;
+:o>>    | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ >> aa1! ;
+
+#optim oAND	oOR oXOR oNOT o+ o- o* o/ o*/ o*>> o/MOD oMOD oABS oSQRT oCLZ o<</ oNEG o1+ o4+ o1- o2/ o2* o<< o>>
+
+:optN | adr+ val tok -- adr+
+	53 - 2 << 'optim + @ exec ;
+
+:addN | adr+ val tok -- adr+
+	drop tok>cte >aa ;
+
+:untoken | adr+ val tok -- adr+
+	3 >=? ( 6 <=? ( addN ; ) )		| numero
+	53 >=? ( 76 <=? ( optN ; ) )	| operacion
+	2drop -aa
+	;
+
+|--- imprime de buffer
+:buffp
+	@+ dup $ff and
+	3 <? ( 2drop ; )
+	16 =? ( drop 8 >> ":_aa%h" ,print ; )
+	17 =? ( drop 8 >> " '_aa%h" ,print ; )
+	,sp ,tokenp ;
+
+|--- copy y genera
+:copynivl | lugarniv --
+	dup 'niv - 2 << totoken + | niv tok
+	over c@
+:copynivr | lugarniv tok v
+	-buff
+	swap rot | niv@ tok niv
+	( c@+ pick3 >=? )( | mismo nivel o mayor
+		pick3 >? ( drop swap 4+ )( drop swap +buffer )
+		swap ) 4drop
+	|--- optimiza buffer
+	'buffaux ( buffaux> <? )(
+		@+ dup $ff and untoken
+		) drop
+
+	|--- descarga buffer
+	'buffaux ( buffaux> <? )(
+		buffp ) drop
+	,cr
+	;
+
+|-------------------
+:escodigo | nro --
+	dup nro>info @
+	$100 and? ( 2drop ; ) drop | inline
+	dup marcaniveles
+	|-- generar anonimos
+	anonind> ( 'anonind >? )( 4 -
+		dup @ copynivl
+		) drop
+	|-- genera principal
+	nro>nom ":%w" ,print
+	'niv totoken 0 copynivr
+	;
+
+:gencodigo | nro --
+	dup nro>var?
+	1? ( drop esvariable )( drop escodigo )
+	;
+
+|------------------------------------
+:makeplain
+	0 'nroanon !
+	mark
+	"| r4fasmo.txt generator" ,s ,cr
+	"|-----------------------" ,s ,cr
+	0 ( cntw <? )(
+		dup ind2nro gencodigo
+		1+ )
+	ind2nro escodigo
+	"r4asm/plain.txt" savemem
+	empty
+	;
+
+|------------------------------------
+:compiladato
+	mark
+	";---:r4 compiler dat.asm" ,ln
+	,comp.dat.asm
+    0 ,c
+	"r4asm/dat.asm" savemem
+	empty ;
+
+:gencodigo | nro llamadas -- nro
+	drop
+	cntwords =? ( "inicio: " )( dup "w%h: " ) ,print
+	dup 5 << 'indicepal + @ "; ::: %w ::: " ,print
+	dup nro>mov @
+	dup 24 << 24 >> "uso:%d " ,print
+	8 << 24 >> "dD:%d " ,print
+	,cr
+|*** DEBUG
+|	"r4asm/cod.asm" savemem
+
+	dup ,compwordopt
+|	dup nro>mem "; %b" ,print ,cr
+	,cr
+|*** DEBUG
+|	"r4asm/cod.asm" savemem
+	;
+
+:compilacodigo
+	ini.compila
+	mark
+	";---:r4 compiler cod.asm" ,ln
+	'gencodigo wordmap
+	0 ,c
+	"r4asm/cod.asm" savemem
+	empty ;
+
+|------------------------------------
+:main
+	ed.load
+
+	mark
+	'ed.nombre tokenasm
+	tokenpost
+	makeplain
+	empty
+
+	mark
+	"r4asm/plain.txt" tokencomp
+	tokenpost
+	compiladato
+	compilacodigo
+	empty
+
+	"r4fasm.bat" system
+	;
+
+: main ;

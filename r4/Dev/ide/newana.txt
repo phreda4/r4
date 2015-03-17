@@ -1,0 +1,228 @@
+| analisis  por palabra
+|----------------------------
+^r4/lib/r4-token.txt
+
+|--- PILA D
+#dpila )( 1024
+#dpila> 'dpila
+
+|--- PILA R
+#rpila )( 1024
+#rpila> 'rpila
+
+|--- registros
+| tipo
+|	0 cte 			33
+|   1 cteSYS     RESX
+|	2 cpy           dup
+|	3 str           "hola"
+|	4 'cod          'func
+|	5 'dat          'var
+|	6 dat           var
+| 	7 stack			valor en pila
+| modificador
+|   0 cte, no modificado
+|   1 modificado
+|
+
+| par|costo|flags
+|   8    8    16
+| tipos-
+| par: cuando es copia, accede al registro origen
+| costo: cantidad de operaciones(lecturas no se cuentan)
+| flags
+|	$20 | es dir codigo
+|	$40 | temino uso
+|	$80 | es dir dato (indirecciona)
+|  $100 | usa eax,edx (si no son ctes)
+|  $200 | usa ecx (si no es cte)
+| $8000 | es cte optimizable  **
+| $4000 | es reg asignado???
+|-----------
+
+|------ Celda de la pila
+| T Tipo (NUMERO CONSTANTE 'STRING CODIGO DATO REGISTRO COPIA)
+| M Indireccion de memoria
+| ...MTTTT
+|-------- tipos de celdas
+#celln 0
+#cellt )( 1024	| tipo
+#cellv )( 1024	| valor
+#cella )( 1024  | suma
+#cells )( 1024  | shift
+#celli )( 1024 	| info de celda
+
+
+#tokenow>
+
+:newR
+	;
+:newCTE
+	0
+:newSYS
+:newCPY
+:newSTR
+:newDCOD
+:newDDAT
+:newVAR
+:newSTK
+	;
+
+|--------------------------------------------
+:d.pop -4 'dpila> +! dpila> @ ;					| -- TOS
+:d.pop2 -8 'dpila> +! dpila> @+ swap @ ; 		| -- NOS TOS
+:d.pop3 -12 'dpila> +! dpila> @+ swap @+ swap @ ; | -- NOS2 NOS TOS
+:d.push dpila> !+ 'dpila> ! ;                     | REG --
+
+:d.CNT dpila dpila> - 2 >> ;
+:d.TOS dpila> 4 - @ ;
+:d.NOS dpila> 8 - @ ;
+:d.PK2 dpila> 12 - @ ;
+:d.PK3 dpila> 16 - @ ;
+:d.PK4 dpila> 20 - @ ;
+:d.PK5 dpila> 24 - @ ;
+
+:r.pop	-4 'rpila> +! rpila> @ ;
+:r.push rpila> !+ 'rpila> ! ;
+
+:r.CNT	rpila> 'rpila - 2 >> ;
+:r.TOS rpila> 4 - @ ;
+
+| reorden pila
+
+:.swap	dpila> 8 - >r r@+ r@+ r> 8 - !+ ! ;
+:.rot	dpila> 12 - >r r@+ r@+ r@+ swap r> 12 - !+ !+ ! ;
+:.2swap	dpila> 16 - >r r@+ r@+ swap r@+ r@+ swap r> 16 - !+ !+ !+ ! ;
+
+| copia pila
+:.dup	d.TOS pushCPY ;
+:.over	d.NOS pushCPY ;
+:.pick2	d.PK2 pushCPY ; |PICK2  abc -- abca
+:.pick3	d.PK3 pushCPY ; |PICK3  abcd -- abcda
+:.pick4	d.PK4 pushCPY ; |PICK4  abcde -- abcdea
+:.2dup	.over .over ;	|2DUP   ab -- abab
+:.2over	.pick3 dpick3 ; |2OVER  abcd -- abcdab
+
+| elimina pila
+:.drop
+	d.pop
+	drop | limpiar si es registro unico
+	;
+
+:.nip	.swap .drop ;
+:.4DROP	.drop
+:.3DROP	.drop
+:.2DROP	.drop .drop ;
+
+| condicionales
+:.c0 | 0? 1? ..
+	d.TOS read ;
+:.c1 | =? <? ..
+	cellR1 .drop cellR1 ;
+
+:op1a1	cellW1 ; | neg not 1+ 4+ 1- 2/ ..
+:vop1a1 cellW1 ; | abs  clz  ..
+:op2a1	cellR1 .drop cellW1 ; | + - * and or xor ..
+:vop2a1 cellR1 .drop cellW1 ; | / mod
+:xop2a1	cellR1 .drop cellW1 ; | << >>
+:op3a1	cellR1 .drop cellR1 .drop cellW1 ; | */
+:vop3a1	cellR1 .drop cellR1 .drop cellW1 ; | *>> /<<
+:op2a2	cellW1 .swap cellW1 ; | mod/
+
+:1@	| @ c@ w@
+	cellMem cellW1 ;
+:1!	| ! c! w!
+	cellMem cellR1 .drop cellR1 .drop ;
+:2@	| @+ c@+ w@+
+	cellMem cellW1 .tos pushREG  ;
+:2!	| !+ c!+ w!+
+	.swap cellR1 .swap cellMem cellW1 .nip ;
+:2+! | +! c+! w+!
+	cellMem cellR1 .drop cellR1 .drop ;
+
+|-------------------------------
+
+|-------- constantes del sistema
+#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME"
+"XFB" "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY"
+
+#sysregs "eax" "ebx" "ecx" "edx" "edi" "esi" "ebp"
+#sysregw "ax" "bx" "cx" "dx" "di" "si" "bp"
+#sysregb "al" "bl" "cl" "dl" "*" "*" "*"
+#CNTREG  7
+
+|---- imprime celda
+:list2str swap ( 1? )( 1- swap >>0 swap ) drop ;
+
+:mt0 value "$%h" ,print ;			|--	0 nro 	33
+:mt1 value 'syscons list2str ,s ;	|--	1 cte	XRES
+:mt2 value "str%h" ,print ;			|--	2 str   "hola"
+:mt3 value "w%h" ,print ;			|--	3 cod  'func
+:mt4 value "w%h" ,print ;			|--	4 dat  'var
+:mt5 value 'sysregs list2str ,s ;	|-- 8 reg 	eax
+#tiposrm mt0 mt1 mt2 mt3 mt4 mt5 0 0 0
+
+:mt5b value 'sysregb list2str ,s ;
+#tiposrmb mt0 mt1 mt2 mt3 mt4 mt5b 0 0 0
+
+:mt5w value 'sysregw list2str ,s ;
+#tiposrmw mt0 mt1 mt2 mt3 mt4 mt5w 0 0 0
+
+::,REG | nro --
+	'sysregs list2str ,s ;
+
+::,cell | nro --
+	cellinfo
+	swap $10 and? ( "dword [" ,s )
+	swap 2 << 'tiposrm + @  exec
+	shift 1? ( "*" ,s dup ,d ) drop
+	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	$10 and? ( "]" ,s )
+	2drop ;
+
+::,cellb | nro --
+	swap $10 and? ( "byte [" ,s )
+	swap 2 << 'tiposrmb + @ exec
+	shift 1? ( "*" ,s dup ,d ) drop
+	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	$10 and? ( "]" ,s )
+	2drop ;
+
+::,cellw | nro --
+	swap $10 and? ( "word [" ,s )
+	swap 2 << 'tiposrmw + @ exec
+	shift 1? ( "*" ,s dup ,d ) drop
+	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	$10 and? ( "]" ,s )
+	2drop ;
+
+:,cell2REG | cell reg --
+	over cell0?
+	1? ( drop nip "xor " ,s dup ,REG "," ,s ,REG ,cr ; ) drop
+	"mov " ,s ,REG "," ,s ,CELL ,cr ;
+
+| 2			[ebp] ebx 2
+| +         [ebp] ebx      >>> add ebx,2
+| 
+
+| analisis de bloque
+:blIF       0 blockT! ;
+:blELSE  	1 blockT! ;
+:blWHILE	2 blockT! ;
+:blUNTIL  	3 blockT! ;
+:blREPEAT  	4 blockT! ;
+
+| bloques:
+| A ;
+| A ?( B ) C ;
+| A ?( B )( C ) D ;
+| A ( B ?)( C ) D ;
+| A ( B ?) C ;
+| A ( B ) ..
+....
+| A ?( B ; ) C ( D ?)( E ?( F ) G ) H ;
+
+| bloque	pila inicio		pila fin
+| A
+| B
+| C

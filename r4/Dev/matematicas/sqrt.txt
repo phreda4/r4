@@ -1,0 +1,76 @@
+   if sq == 0 { return 0 }
+        | Inline Lg2 manually. The function call overhead would be 1/5 of the total
+        | runtime!
+        lg2 := uint32(0)
+        exp2 := uint32(sq)
+        if (exp2 > 0xFFFF) { lg2 |= 1<<4 exp2 >>= 1<<4        }
+        if (exp2 > 0xFF) { lg2 |= 1<<3   exp2 >>= 1<<3        }
+        if (exp2 > 0xF) { lg2 |= 1<<2    exp2 >>= 1<<2        }
+        if (exp2 > 0x3) { lg2 |= 1<<1    exp2 >>= 1<<1        }
+        lg2 |= exp2>>1
+        | Create IEEE single-precision floating-point representation
+        exponent := uint32(exp_bias+lg2)
+        mantissa := sq
+        if mantissa >= mantissa_top<<1 {  mantissa >>= lg2-exp_pos } else { mantissa <<= exp_pos-lg2 }
+
+        minhalf := mantissa >> (exp_pos - 15) |8
+        einhalf := exponent + (exp_pos - 16)  |7
+
+        fp32 := mantissa & (mantissa_top-1) | exponent << exp_pos
+        | This is the famous algorithm, search the 'net for 0x5f3759df. Using an
+        | improved constant, see http:|www.lomont.org/Math/Papers/2003/InvSqrt.pdf
+        | (Lomont, Chris (February, 2003). "Fast Inverse Square Root".)
+        f := 0x5f375a86 - fp32 >> 1
+        exponent = f >> exp_pos
+        mantissa = (f & (mantissa_top - 1) | mantissa_top)
+
+        | Newtonian approximation via emulated FP math
+        | result = f · (1.5 - sq/2 · f²)
+
+        mless := mantissa >> 8
+        eless := exponent + 8
+        msq := (mless * mless) >> 16
+        esq := eless + eless - exp_bias - exp_pos + 16
+
+        ehalf := esq + einhalf - 150  + 16
+        mhalf := (msq * minhalf) >> 16
+        mfactor := (uint32(3) << (127+23-ehalf-1) - mhalf) >> 2
+        mantissa = mless * mfactor
+
+        exponent = eless + (ehalf + 2) - 127 - 23
+
+        | convert into fixed-point
+| InvSqrtShift is the fixed-point offset of InvSqrt output.
+const InvSqrtShift = 28
+        return int32(mantissa >> (exp_bias+exp_pos-InvSqrtShift - exponent))
+
+
+:InvSqrt | (sq uint32) int32 {  const exp_pos = 23    const exp_bias = 127     const mantissa_top = 1<<exp_pos
+	0? ( ; )
+	dup 0 	| sq lg ex
+	$ffff >? ( swap 8 or swap 8 >> )
+	$ff >? ( swap 4 or swap 4 >> )
+	$f >? ( swap 2 or swap 2 >> )
+	$3 >? ( swap 1 or swap 2/ )
+	2/ or		| sq lg2
+	127 over +	| mantissa lg2 exponent
+	rot			| lg2 exponent mantissa
+	$200000 >=? ( rot 23 - >> )( rot 23 swap - >> ) | exponent mantisa
+	over 23 << over $7fffff and or 	| exponent mantisa fp32
+	$5f375a86 swap 2/ -	| exp man f
+	dup 23 >> swap $7fffff and $800000 or	| ein min exp man
+	2swap 8 >> swap 7 + swap 2swap			| einh minh exp man
+	8 >> swap 8 +							| einh minh mless eless
+	over dup 16 *>>							| einh minh mless eless msq
+	over dup + 130 -				| einh minh mless eless msq esq
+
+
+        ehalf := esq + einhalf - 134
+        mhalf := (msq * minhalf) >> 16
+        mfactor := (3 << (150-ehalf-1) - mhalf) >> 2
+
+        mantissa = mless * mfactor
+        exponent = eless + (ehalf + 2) - 127 - 23
+
+| mantisa exponent
+	 134 swap - >> ;

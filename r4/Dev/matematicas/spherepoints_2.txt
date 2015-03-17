@@ -1,0 +1,274 @@
+| puntos en esfera
+| PHREDA 2012
+|------------------------
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+
+#xmin #ymin #xmax #ymax
+#xsum #ysum
+#xcam 0 #ycam 0 #zcam -10.0
+#xr 0.20 #yr 0.25
+
+:3dop project3d op ;
+:3dline project3d line ;
+:3dpline project3d pline ;
+
+:ejes
+	-5.0 0 0 3dop 5.0 0 0 3dline
+	0 -5.0 0 3dop 0 5.0 0 3dline
+	0 0 -5.0 3dop 0 0 5.0 3dline ;
+
+:marcas
+	-5.0 ( 5.0 <? )(
+		dup 0.01 0 3dop dup -0.01 0 3dline
+		0.01 over 0 3dop -0.01 over 0 3dline
+		0 0.01 pick2 3dop 0 -0.01 pick2 3dline
+		1.0 + ) drop ;
+
+:grillaxy
+	-5.0 ( 5.0 <=? )(
+		dup -5.0 0 3dop dup 5.0 0 3dline
+		-5.0 over 0 3dop 5.0 over 0 3dline
+		1.0 + ) drop ;
+
+:grillayz
+	-5.0 ( 5.0 <=? )(
+		0 over -5.0 3dop 0 over 5.0 3dline
+		0 -5.0 pick2 3dop 0 5.0 pick2 3dline
+		1.0 + ) drop ;
+
+:grillaxz
+	-5.0 ( 5.0 <=? )(
+		dup 0 -5.0 3dop dup 0 5.0 3dline
+		-5.0 0 pick2 3dop 5.0 0 pick2 3dline
+		1.0 + ) drop ;
+
+:teclado
+	'exit >esc<
+	[ 0.1 'ycam +! ; ] <up>
+	[ -0.1 'ycam +! ; ] <dn>
+	[ 0.1 'xcam +! ; ] <le>
+	[ -0.1 'xcam +! ; ] <ri>
+	[ 0.1 'zcam +! ; ] <pgdn>
+	[ -0.1 'zcam +! ; ] <pgup>
+	[ 0.01 'xr +! ; ] <spc>
+	;
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:drawp | x y z ---
+	project3d |2dup op line ;
+	-? ( 2drop ; ) sh >=? ( 2drop ; )
+	swap -? ( 2drop ; ) sw >=? ( 2drop ; ) swap
+	setxy
+	ink@ px!+
+	;
+
+|-----------------
+| rand en box
+:rr
+	rnd $1ffff and $ffff - ;
+
+:drawpointrand
+	2 rndseed
+	0 ( 5000 <? )(
+		rr rr rr drawp
+		1+ ) drop
+	;
+
+|-----------------
+| coordenadas esfericas
+:drawpoints
+	0 ( 1.0 <? )(
+		0 ( 0.5 <? )(
+			over sincos | u v sinu cosu
+			pick2 sincos | u v sinu cosu sinv cosv
+			pick3 *. >r | u v sinu cosu sinv   r:x
+			rot *. r>
+			drawp
+			0.02 + ) drop
+		0.02 + ) drop
+	;
+
+|-----------------
+|    Choose height u uniformly distributed in [-1,1].
+|    Choose angle psi uniformly distributed on [0, 2*pi).
+| r = sqrt(1-u^2).
+| x = r * cos(psi).
+| y = r * sin(psi).
+:drawpointt
+	-1.0 ( 1.0 <? )(
+		0 ( 1.0 <? )(
+			1 pick2 dup *. - sqrt.	| r
+			over sincos				| r s c
+			pick2 *. swap pick2 *.
+			drawp
+			0.05 + ) drop
+		0.05 + ) drop
+	;
+
+
+:calc3d | u v --
+	over sincos | u v sinu cosu
+	pick2 sincos | u v sinu cosu sinv cosv
+	pick3 *. >r | u v sinu cosu sinv   r:x
+	rot *. r>
+	drawp ;
+
+:drawpoints2
+	0 ( 1.0 <? )(
+		0 ( 0.5 <? )(
+			calc3d
+			0.02 + ) drop
+		0.02 + ) drop
+	;
+
+:drawpoints2
+	32 ( 1? )( 1-
+		32 ( 1? )( 1-
+			over 11 <<
+			over 11 <<
+			calc3d 2drop
+		) drop
+	) drop ;
+
+|------ proyeccion
+:proy | r s -- r s
+	over dup *. over dup *. | r s r2 s2
+	1.0 pick2 - over - >r
+	+ 1.0 + >r		| r s r: B A
+	over 2* r /. over 2* r /. r> r> swap /.
+	rojo pick2 pick2 pick2 neg drawp
+	verde pick2 pick2 pick2 swap drawp
+	azul pick2 pick2 pick2 neg swap drawp
+	cyan pick2 pick2 pick2 swap rot drawp
+	violeta pick2 pick2 pick2 neg swap rot drawp
+	amarillo drawp ;
+
+:drawpointnj
+	-0.35 ( 0.35 <? )(
+		-0.35 ( 0.35 <? )(
+			proy
+			0.05 + ) drop
+		0.05 + ) drop ;
+
+
+|---------------------
+
+:calc3d | u v --
+	over sincos | u v sinu cosu
+	pick2 sincos | u v sinu cosu sinv cosv
+	pick3 *. >r | u v sinu cosu sinv   r:x
+	rot *. r>
+	drawp ;
+
+
+:drawpoints3
+	0 ( 0.25 <? )(
+		0 ( over <? )(
+			calc3d
+			0.01 + ) drop
+		0.01 + ) drop
+	;
+
+
+:calc3d | u v --
+	2dup *. 2*
+	rot dup *. rot dup *.
+	2dup + >r
+	- swap r>
+	drawp ;
+
+:drawpoints4
+	0 ( 1.0 <? )(
+		0 ( 1.0 <? )(
+			2dup calc3d
+			0.05 + ) drop
+		0.05 + ) drop
+	;
+
+:drawpoints5
+	0.05
+	0 ( 0.4 <? )(
+		dup sin
+		0 ( 0.7 <? )(
+			pick2 cos
+			over sincos
+			pick4 *. swap pick4 *. swap
+			drawp
+			0.05 + ) 2drop
+		0.02 + ) drop
+	drop
+	;
+
+| NJWILDBERGER youtube lesson
+| stereographics projection
+:calc3d | u v -- u v x y z
+	over dup *. over dup *. | u v u2 v2
+	2dup 1.0 + + >r | u v u2 v2 div
+	1.0 rot - swap - | u v zd
+	pick2 2* r /.
+	pick2 2* r /.
+	rot r> /.
+	;
+
+:drawpoints6
+	-2.0 ( 2.0 <? )(
+		-2.0 ( 2.0 <? )(
+			calc3d
+			drawp
+			0.1 + ) drop
+		0.1 + ) drop
+	;
+
+
+|mat3x3 rotationAlign( const vec3 & d, const vec3 & z )
+|{
+|    const vec3  v = cross( z, d );
+|    const float c = dot( z, d );
+|    const float k = (1.0f - c)/(1.0-c*c);
+|
+|    return mat3x3( v.x*v.x*k + c,     v.y*v.x*k - v.z,    v.z*v.x*k + v.y,
+|                   v.x*v.y*k + v.z,   v.y*v.y*k + c,      v.z*v.y*k - v.x,
+|                   v.x*v.z*K - v.y,   v.y*v.z*k + v.x,    v.z*v.z*k + c    );
+|}
+| d= 1.0 0 0
+|	v.z=-z.y
+|	v.y=z.z
+|	v.x:=0.0;
+|	c=0
+| k= 1.0
+| mat3x3( 0.0,      z.y,     +z.z,
+|        -z.y,  z.z*z.z, -z.y*z.z,
+|        -z.z, z.z*-z.y,  z.y*z.y
+
+:calcra
+	
+
+:main
+	mark
+
+	show clrscr
+     	teclado
+		omode
+		freelook
+		xcam ycam zcam mtrans
+|		gris grillaxy grillayz grillaxz
+		blanco
+|		azul drawpointrand
+|		rojo drawpoints
+|		verde drawpoints3
+|		drawpointnj
+|		blanco drawpoints4
+|		cyan drawpoints5
+		blanco drawpoints6
+
+		cminiflecha ;
+
+: main ;

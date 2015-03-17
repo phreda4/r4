@@ -1,0 +1,108 @@
+| InvSqrt computes a fast integer-only approximation of the inverse square
+| root.  It works like the famous FastInvSqrt floating-point algorithm
+| internally, translated to pure integer arithmetic.  It returns a fixed-point
+| result, you need to shift right by SqrtShift later.
+|
+| It is about three times as fast as a good looping integer sqrt. The relative
+| error is less than 0.180%.
+
+func InvSqrt(sq uint32) int32 {  const exp_pos = 23    const exp_bias = 127     const mantissa_top = 1<<exp_pos
+
+   if sq == 0 { return 0 }
+        | Inline Lg2 manually. The function call overhead would be 1/5 of the total
+        | runtime!
+        lg2 := uint32(0)
+        exp2 := uint32(sq)
+        if (exp2 > 0xFFFF) { lg2 |= 1<<4 exp2 >>= 1<<4        }
+        if (exp2 > 0xFF) { lg2 |= 1<<3   exp2 >>= 1<<3        }
+        if (exp2 > 0xF) { lg2 |= 1<<2    exp2 >>= 1<<2        }
+        if (exp2 > 0x3) { lg2 |= 1<<1    exp2 >>= 1<<1        }
+        lg2 |= exp2>>1
+        | Create IEEE single-precision floating-point representation
+        exponent := uint32(exp_bias+lg2)
+        mantissa := sq
+        if mantissa >= mantissa_top<<1 {  mantissa >>= lg2-exp_pos } else { mantissa <<= exp_pos-lg2 }
+        min := mantissa
+        ein := exponent
+        fp32 := mantissa & (mantissa_top-1) | exponent << exp_pos
+        | This is the famous algorithm, search the 'net for 0x5f3759df. Using an
+        | improved constant, see http:|www.lomont.org/Math/Papers/2003/InvSqrt.pdf
+        | (Lomont, Chris (February, 2003). "Fast Inverse Square Root".)
+        f := 0x5f375a86 - fp32 >> 1
+        exponent = f >> exp_pos
+        mantissa = (f & (mantissa_top - 1) | mantissa_top)
+        | Newtonian approximation via emulated FP math
+        | result = f · (1.5 - sq/2 · f²)
+        mless := mantissa >> (exp_pos - 15)
+        eless := exponent + (exp_pos - 15)
+        msq := (mless * mless) >> 16
+        esq := eless + eless - exp_bias - exp_pos + 16
+        minhalf := min >> (exp_pos - 15)
+        einhalf := ein + (exp_pos - 16)
+        mhalf := (msq * minhalf) >> 16
+        ehalf := esq + einhalf - exp_bias - exp_pos + 16
+        mfactor := (uint32(3) << (exp_bias+exp_pos-ehalf-1) - mhalf) >> 2
+        efactor := ehalf + 2
+        mantissa = mless * mfactor
+        exponent = eless + efactor - exp_bias - exp_pos
+        | convert into fixed-point
+| InvSqrtShift is the fixed-point offset of InvSqrt output.
+const InvSqrtShift = 28
+        return int32(mantissa >> (exp_bias+exp_pos-InvSqrtShift - exponent))
+}
+
+
+| Sqrt computes a fast integer-only approximation of the square root.  It uses
+| the famous FastInvSqrt floating-point algorithm internally, translated to
+| pure integer arithmetic.  It returns a fixed-point result, you need to shift
+| right by SqrtShift later.
+|
+| It is about three times as fast as a good looping integer Sqrt.  The relative
+| error is less than 0.150%.
+|
+| If you need an exact value for integer squares, use Round(Sqrt(sq),
+| SqrtShift). That's 100% exact for natural squares and still faster than a
+| good looping integer sqrt.
+func Sqrt(sq uint32) int32 {        const exp_pos = 23        const exp_bias = 127        const mantissa_top = 1<<exp_pos
+        if sq == 0 { return 0 }
+        | This is the same as above. When Go's inliner improves, it can be moved to
+        | a common function.
+        lg2 := uint32(0)
+        exp2 := uint32(sq)
+        if (exp2 > 0xFFFF) { lg2 |= 1<<4  exp2 >>= 1<<4 }
+        if (exp2 > 0xFF) { lg2 |= 1<<3 exp2 >>= 1<<3 }
+        if (exp2 > 0xF) { lg2 |= 1<<2 exp2 >>= 1<<2 }
+        if (exp2 > 0x3) { lg2 |= 1<<1 exp2 >>= 1<<1 }
+        lg2 |= exp2>>1
+        exponent := uint32(exp_bias+lg2)
+        mantissa := sq
+        if mantissa >= mantissa_top<<1 {                mantissa >>= lg2-exp_pos        } else {                mantissa <<= exp_pos-lg2        }
+        min := mantissa
+        ein := exponent
+        fp32 := mantissa & (mantissa_top-1) | exponent << exp_pos
+        f := 0x5f375a86 - fp32 >> 1
+        exponent = f >> exp_pos
+        mantissa = (f & (mantissa_top - 1) | mantissa_top)
+        mless := mantissa >> (exp_pos - 15)
+        eless := exponent + (exp_pos - 15)
+        msq := (mless * mless) >> 16
+        esq := eless + eless - exp_bias - exp_pos + 16
+        minhalf := min >> (exp_pos - 15)
+        einhalf := ein + (exp_pos - 16)
+        mhalf := (msq * minhalf) >> 16
+        ehalf := esq + einhalf - exp_bias - exp_pos + 16
+        mfactor := (uint32(3) << (exp_bias+exp_pos-ehalf-1) - mhalf) >> 2
+        efactor := ehalf + 2
+
+        mantissa = (mless * mfactor) >> 16
+        exponent = eless + efactor - exp_bias - exp_pos + 16
+        | Now calculate the square root from the inverse:
+        | x · 1/sqrt(x) = sqrt(x)
+        mantissa = mantissa * minhalf
+        exponent = exponent + einhalf - exp_bias - exp_pos + 1
+        | convert into fixed-point
+| SqrtShift is the fixed-point offset of Sqrt output.
+const SqrtShift = 13
+        return int32(mantissa >> (exp_bias+exp_pos-SqrtShift - exponent))
+;
+

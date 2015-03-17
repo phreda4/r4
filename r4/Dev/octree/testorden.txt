@@ -1,0 +1,309 @@
+| prueba de quadtree
+| PHREDA 2014
+|---------------------
+^r4/lib/gui.txt
+^r4/lib/morton.txt
+
+#xcam 0 #ycam 0 #zcam 1.25
+
+#octre
+#pixels
+#octre>
+
+#xyznow )( 8192
+#xyznow> 'xyznow
+
+#x1 #y1 #x2 #y2
+#vx1 #vy1 #vx2 #vy2
+
+#dmask
+
+#sizeq 512
+#xc #yc
+#color
+
+
+|---- v4  loopless
+:c9 | x z -- x'
+	2/ 0 swap over | x 0 z 0
+	pick3 >? ( over - rot )( over + rot 256 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 128 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 64 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 32 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 4+ ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
+	pick3 >? ( 2drop )( 2drop 1+ )
+	nip ;
+
+:c10 | x z -- x'
+	2/ 0 swap over | x 0 z 0
+	pick3 >? ( over - rot )( over + rot 512 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 256 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 128 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 64 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 32 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 4+ ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
+	pick3 >? ( 2drop )( 2drop 1+ )
+	nip ;
+
+:c11 | x z -- x'
+	2/ 0 swap over | x 0 z 0
+	pick3 >? ( over - rot )( over + rot 1024 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 512 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 256 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 128 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 64 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 32 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 4+ ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
+	pick3 >? ( 2drop )( 2drop 1+ )
+	nip ;
+
+:getxyd | x y z -- X Y
+|	rot 4 >> rot 4 >> rot |rot 4 >>
+	swap over c10 >r c10 xc + r> yc + ;
+
+:getxd | x y z -- X
+	nip c9 xc + ;
+
+:getyd | x y z -- Y
+	c9 yc + nip ;
+
+|---------------------------------
+| vectores para rotar puntos
+#level
+
+#zsz #zsy #zsx
+#ysz #ysy #ysx
+#xsz #xsy #xsx
+
+#rotconv )( 96 | 8 dir*3 dim*4 bytes
+
+:fillrotvec | --
+	0 0 0.5 transform 'zsz ! 'zsy ! 'zsx !
+	0 0.5 0 transform 'ysz ! 'ysy ! 'ysx !
+	0.5 0 0 transform 'xsz ! 'xsy ! 'xsx !
+
+	'rotconv >r
+	xsx ysx zsx + + neg r!+	xsy ysy zsy + + neg r!+ xsz ysz zsz + + neg r!+	| 111
+	xsx ysx zsx + - r!+	xsy ysy zsy + - r!+ xsz ysz zsz + - r!+	| 110
+	ysx zsx xsx + - r!+	ysy zsy xsy + - r!+ ysz zsz xsz + - r!+	| 101
+	xsx ysx zsx - + r!+	xsy ysy zsy - + r!+ xsz ysz zsz - + r!+	| 100
+	zsx ysx xsx + - r!+ zsy ysy xsy + - r!+ zsz ysz xsz + - r!+ | 011
+	xsx zsx ysx - + r!+ xsy zsy ysy - + r!+ xsz zsz ysz - + r!+ | 010
+	ysx zsx xsx - + r!+ ysy zsy xsy - + r!+ ysz zsz xsz - + r!+	| 001
+	xsx ysx zsx + + r!+	xsy ysy zsy + + r!+ xsz ysz zsz + + r!+	| 000
+	rdrop ;
+
+:idmovn | x y z id -- x' y' z'
+	$7 and dup 2* + 2 << 'rotconv + >r
+	rot r@+ level >> + rot r@+ level >> + rot r> @ level >> + ;
+
+:idmov | x y z id -- x' y' z'
+	$7 and dup 2* + 2 << 'rotconv + >r
+	rot r@+ + rot r@+ + rot r> @ + ;
+
+:calcbox | x y z --
+	pick2 pick2 pick2 7 idmovn getxyd 2dup 'y1 ! 'x1 ! 'y2 ! 'x2 !
+	7 ( 1? )( 1-
+		pick3 pick3 pick3 pick3 idmovn getxyd
+		y1 <? ( dup 'y1 ! ) y2 >? ( dup 'y2 ! ) drop
+		x1 <? ( dup 'x1 ! ) x2 >? ( dup 'x2 ! ) drop
+		) drop
+	3drop ;
+
+|--- precalcular los minimos y maximos
+
+:precalcvar | x y z --
+	pick2 pick2 pick2 7 idmovn getxyd 2dup 'y1 ! 'x1 ! 'y2 ! 'x2 !
+	7 dup 2dup 'vx1 ! 'vy1 ! 'vx2 ! 'vy2 !
+	7 ( 1? )( 1-
+		pick3 pick3 pick3 pick3 idmovn getxyd
+		y1 <? ( dup 'y1 ! pick2 'vy1 ! ) y2 >? ( dup 'y2 ! pick2 'vy2 ! ) drop
+		x1 <? ( dup 'x1 ! over 'vx1 ! ) x2 >? ( dup 'x2 ! over 'vx2 ! ) drop
+		) drop
+	3drop ;
+
+:precalcbox | x y z --
+	pick2 pick2 pick2 vx1 idmovn getxd 'x1 !
+	pick2 pick2 pick2 vx2 idmovn getxd 'x2 !
+	pick2 pick2 pick2 vy1 idmovn getyd 'y1 !
+	vy2 idmovn getyd 'y2 !
+	;
+
+|----------- graficacion
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx mroty ;
+
+:viewbox | x y z
+	pick2 pick2 pick2 0 idmovn getxyd op
+	pick2 pick2 pick2 1 idmovn getxyd line
+	pick2 pick2 pick2 3 idmovn getxyd line
+	pick2 pick2 pick2 2 idmovn getxyd line
+	pick2 pick2 pick2 0 idmovn getxyd line
+	pick2 pick2 pick2 4 idmovn getxyd op
+	pick2 pick2 pick2 5 idmovn getxyd line
+	pick2 pick2 pick2 7 idmovn getxyd line
+	pick2 pick2 pick2 6 idmovn getxyd line
+	pick2 pick2 pick2 4 idmovn getxyd line
+	pick2 pick2 pick2 1 idmovn getxyd op
+	pick2 pick2 pick2 5 idmovn getxyd line
+	pick2 pick2 pick2 4 idmovn getxyd op
+	pick2 pick2 pick2 0 idmovn getxyd line
+	pick2 pick2 pick2 3 idmovn getxyd op
+	pick2 pick2 pick2 7 idmovn getxyd line
+	pick2 pick2 pick2 6 idmovn getxyd op
+	pick2 pick2 pick2 2 idmovn getxyd line
+	3drop
+	;
+
+|----------------
+| x y
+#noderoot
+#xr #yr
+
+#colo
+:nextcolor
+	colo dup 5 + 'colo !
+	dup $f00 and dup 4 << or 8 <<
+	over $f0 and dup 4 >> or 8 << or
+	swap $f and dup 4 << or or
+	ink ;
+
+|--------------------------------
+#col $ff
+#col2 $ff00
+
+:dumpcube
+	xyznow> 12 - >r
+	r@+ r@+ r@+ rdrop
+	pick2 pick2 pick2
+	precalcvar
+|	vx1 2* vx2 5 << or vy1 2* vy2 5 << or 8 << or 8 <<
+|	dup "%h " allowcr print
+	col
+	col2 $ff0000 xor dup 'col2 !
+	xor dup 'col !
+	ink
+|	vy2 vy1 vx2 vx1 "mx:%d Mx:%d my:%d My:%d" print cr
+	viewbox
+
+	;
+
+:pushch | i --
+	1 'level +!
+	xyznow> 12 - >r
+	r@+ r@+ r@+ pick3 idmovn
+	rot r!+ swap r!+ r!+ r> 'xyznow> !
+	drop
+	;
+
+:popch
+	-1 'level +! -12 'xyznow> +! ;
+
+|---------------------
+:inn
+	8 ( 1? )( 1-
+		dup pushch
+		8 ( 1? )( 1-
+			dup pushch
+			dumpcube
+			popch ) drop
+		popch ) drop
+	;
+
+:m3dto2dt2
+	1 'colo !
+	8 ( 1? )( 1-
+		dup pushch
+		8 ( 1? )( 1-
+			dup pushch
+			dumpcube
+			popch ) drop
+		popch ) drop
+	;
+
+:drawvec
+	'rotconv >r
+	8 ( 1? )( 1-
+		r@+ "%h " print
+		r@+ "%h " print
+		r@+ "%h " print
+		cr ) drop rdrop ;
+
+:calcmed
+
+	0 ( 8 <? )(
+		1 'level !
+		0 0 0 0 idmovn
+		2 'level !
+		0 idmovn
+		pick3 idmovn swap rot "%h %h %h - " print
+		cr
+		1+ ) drop
+	;
+
+|---------------------
+:renderm3d2dtest2 | octree x y z --
+	0 'level !
+
+|	pick2 pick2 pick2 calcbox | calcula caja afuera
+	pick2 pick2 pick2 precalcvar | calcula caja afuera
+
+	'xyznow >r rot r!+ swap r!+ r!+ r> 'xyznow> !
+	'noderoot !
+
+	| dibujar caja
+	0 'level !
+	'xyznow 12 + 'xyznow> !
+	m3dto2dt2
+	;
+
+:main
+	sh 2/ 512 - 'yc !
+	sw 2/ 512 - 'xc !
+	33
+	$0 'color !
+
+	show clrscr
+		verde
+		dup "%d " print cr
+
+		omode
+		freelook
+|		msec 3 << mrotxi
+|		msec 4 << mrotyi
+		fillrotvec
+
+		octre xcam ycam zcam renderm3d2dtest2 | octre x y z
+blanco
+drawvec
+verde
+calcmed
+		rojo
+		sw 2/ 0 over sh op line
+		0 sh 2/ sw over op line
+
+		[ -0.025 'zcam +! ; ] <up>
+		[ 0.025 'zcam +! ; ] <dn>
+		[ -0.025 'xcam +! ; ] <le>
+		[ 0.025 'xcam +! ; ] <ri>
+		[ -0.025 'ycam +! ; ] <pgup>
+		[ 0.025 'ycam +! ; ] <pgdn>
+
+		'exit >esc<
+		cminiflecha
+		;
+
+: mark main ;
+

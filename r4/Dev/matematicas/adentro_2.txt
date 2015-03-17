@@ -1,0 +1,127 @@
+| Test de adentro/afuera
+| PhReda 2007
+|--------------------------
+^r4/lib/gui.txt
+^r4/lib/fontj.txt
+
+#lineas )( 32768
+#lineas> 'lineas
+
+#x1 #y1 #x2 #y2
+
+:clearlin
+	'lineas 'lineas> ! ;
+:addlin | x y --
+	xy>d lineas> !+ 'lineas> ! ;
+
+|---------- punto en poligono
+#inside
+#xt #yt
+
+:entre | p1 p2 -- p1
+	over d>x xt pick2 d>x
+	<=? ( >=? ( 2drop ; ) )( <? ( 2drop ; ) ) | v1 v2  x1
+	over d>x <? ( pick2 d>y rot d>xy 2swap )( pick2 d>y rot d>xy )
+	swap pick3 - yt pick3 - *  >r | p1 'x1 'y1 'y2	 r: a | a= x2 x1 - yt y1 - *
+	rot xt swap - swap rot - * r> | p1 b a | b = xt x1 - y2 y1 - *
+	>?  ( 1 'inside +! ) |inside 1 xor 'inside ! )
+	drop ;
+
+
+:adentro? | x y adr -- 1/0
+	>r 'yt ! 'xt ! 0 'inside !
+	r@+ 0? ( rdrop ; ) dup
+	( r@+ 1? )( swap entre ) drop
+	entre drop rdrop inside 1 and ;
+
+
+:entre | x1 y1 x2 y2 -- x2 y2
+	2swap
+	pick3 xt - pick2 xt - xor +? ( 3drop ; ) drop
+	pick3 pick2 - yt pick2 - * >r	| x2 y2 x1 y1 a
+
+	swap pick3 - yt pick3 - *  >r | p1 'x1 'y1 'y2	 r: a | a= x2 x1 - yt y1 - *
+	rot xt swap - swap rot - * r> | p1 b a | b = xt x1 - y2 y1 - *
+
+	over d>x <? ( pick2 d>y rot d>xy 2swap )( pick2 d>y rot d>xy )
+	swap pick3 - yt pick3 - *  >r | p1 'x1 'y1 'y2	 r: a | a= x2 x1 - yt y1 - *
+	rot xt swap - swap rot - * r> | p1 b a | b = xt x1 - y2 y1 - *
+	>?  ( 1 'inside +! ) |inside 1 xor 'inside ! )
+	drop ;
+
+
+:testi | x y
+	'yt ! 'xt ! 0 'inside ! ;
+
+|x2-x1 * y-y1 - y2-y1 * x-x1
+:cross | x1 y1 x2 y2 -- x2 y2 cr
+	2swap | x2 y2 x1 y1
+	pick3 pick2 - yt pick2 - *   | x2 y2 x1 y1 A
+	pick3 rot - rot neg xt + * - ;
+
+:top | x y z --
+	0 'inside ! 2dup 2dup op ;
+:tline | x y z -- 1..fail
+	2dup line cross dup "%h " print
+	inside 0? ( swap 'inside ! ; )
+	xor $80000000 and ;
+:tinside | -- 1..fail
+	2swap 2dup line cross dup "%h " print
+	nip nip 0? ( ; )
+	inside xor $80000000 and ;
+
+:test2
+	testi
+	150 40 top
+	40 40 tline "%d " print inside "%d" print cr
+	60 180 tline 1? ( "*" print ) "%d " print inside "%d" print cr
+	150 190 tline 1? ( "*" print ) "%d " print inside "%d" print cr
+	tinside 1? ( "*" print )  "%d " print inside "%d" print cr cr
+
+
+	350 290 top
+	160 280 tline "%d " print inside "%d" print cr
+	140 140 tline 1? ( "*" print ) "%d " print inside "%d" print cr
+	250 140 tline 1? ( "*" print ) "%d " print inside "%d" print cr
+	tinside 1? ( "*" print )  "%d " print inside "%d" print cr cr
+
+	yt xt "%d %d " print cr
+	;
+
+|------------------------------------------------------------------
+:mancha | addr --
+	@+ 0? ( 2drop ; )
+	dup d>xy op
+	swap ( @+ 1? )( d>xy line ) 2drop
+	d>xy line ;
+
+:otrocolor
+	rand 4 << 4 + lineas> !+ 'lineas> ! ;
+
+|------------------------------------------------------------------
+:puntos
+	azul
+	0 ( sw <? )( 16 +
+		0 ( sh <? )( 16 +
+			2dup 'lineas adentro? 1? ( rojo )( blanco ) drop
+			2dup 1 fbox
+			) drop ) drop ;
+
+:trazoadentro
+	verde 'lineas mancha
+	[ xymouse addlin ; ] guiMove
+	;
+
+|------------------------------------------------------------------
+
+:main
+	show clrscr
+		trazoadentro
+|		x2 y2 'lineas adentro? 1? ( rojo )( azul ) drop
+		puntos cflecha
+		xymouse test2
+		'exit >esc<
+		;
+
+
+: 0 paper 33 main ;

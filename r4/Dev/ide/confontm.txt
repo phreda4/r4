@@ -1,0 +1,157 @@
+| consola fontm
+| PHREDA 2014
+|-------------------
+^r4/lib/gui.txt
+^r4/lib/fontm.txt
+^inc/fntm/droidsans13.txt
+
+#cmax 2048
+#:pad )( 2048
+#padi>	'pad	| inicio
+#pad>	'pad	| cursor
+#padf>	'pad	| fin
+
+#fontstyle
+#wcon #hcon
+#advcha
+#advlin
+#memcon
+#ccur>
+#clast>
+#ccolor $f0
+
+:setvars
+	sw cch * neg ccw + 'advcha !
+	sw cch * ccw wcon * - 'advlin !
+	here 'memcon !
+	wcon hcon * 2 << + 'here +!
+	here 4 - 'clast> !
+	memcon 'ccur> !
+	;
+
+::fullconsola | 'font --
+	dup 'fontstyle ! fontm
+	sw ccw / 'wcon !
+	sh cch / 'hcon !
+	setvars ;
+
+::iniconsola | w h 'font --
+	dup 'fontstyle ! fontm
+	'hcon ! 'wcon !
+	setvars ;
+
+:cuscroll
+	memcon wcon 2 << over + wcon hcon * move
+	clast> wcon 1- 2 << - wcon ( 1? )( 1- ccolor 8 << rot !+ swap ) 2drop
+	;
+
+:setcur | adr --
+	clast> 1+ >? ( cuscroll clast> wcon 1- 2 << - nip ) 'ccur> ! ;
+:cemit | c --
+	$ff and ccolor 8 << or ccur> !+ setcur ;
+::cat | x y --
+	wcon * + 2 << memcon + setcur ;
+::chome
+	memcon 'ccur> ! ;
+::ccr ccur> memcon - 2 >> wcon / 1+ wcon * 2 << memcon + setcur ;
+:cup ccur> wcon 2 << - memcon <? ( drop ; ) 'ccur> ! ;
+:cdn ccur> wcon 2 << + setcur ;
+:cle ccur> 4 - memcon <? ( memcon nip ) 'ccur> ! ;
+:cri ccur> 4+ setcur ;
+
+::cprint | "" --
+	mprint ( c@+ 1? )( cemit ) 2drop ;
+
+::ccls
+	memcon dup 'ccur> ! >r wcon hcon * ( 1? )( 1- ccolor 8 << r!+ ) drop rdrop ;
+
+::catr | col --
+	'ccolor ! ;
+
+::showconsola | x y -
+	setxy
+	fontstyle fontm
+    blink
+	1? ( ccur> @ $100000 xor ccur> ! )
+	memcon >r
+	hcon ( 1? )( 1-
+		wcon ( 1? )( 1-
+			r@+ dup 8 >> ink12
+			$100000 and? ( charmtn )( charmt )
+			advcha px+!
+			) drop
+		advlin px+!
+		) drop rdrop
+	1? ( ccur> @ $100000 xor ccur> ! )
+	drop ;
+
+
+|--- Edita linea
+
+:refill | pad> --
+	ccur> swap ( c@+ 1? )(
+		$ff and ccolor 8 << or
+		rot !+ swap ) 2drop
+	ccolor 8 << swap ! ;
+
+:lins  | c --
+	padf> padi> - cmax >=? ( 2drop ; ) drop
+	pad> dup 1- padf> over - 1+ cmove> 1 'padf> +!
+:lover | c --
+	pad> c!+ dup 'pad> !
+	padf> >? (
+		dup padi> - cmax >=? ( swap 1- swap -1 'pad> +! ) drop
+		dup 'padf> ! ) drop
+	0 padf> c!
+	pad> 1- refill cri ;
+:kdel
+	pad> padf> >=? ( drop ; ) drop
+	1 'pad> +! cri
+:kback
+	pad> padi> <=? ( drop ; )
+	dup 1- swap padf> over - 1+ cmove -1 'padf> +! -1 'pad> +!
+	cle pad> refill ;
+:kder
+	pad> padf> <? ( 1+ cri ) 'pad> ! ;
+:kizq
+	pad> padi> >? ( 1- cle ) 'pad> ! ;
+
+#modo 'lins
+
+:ininput
+	'pad
+	dup 'padi> !
+	dup ( c@+ 1? )( drop ) drop 1- dup
+	'pad> ! 'padf> !
+	;
+
+::inputpad | --
+	[ key toasc modo exec ; ] <visible>
+	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop ; ] <ins>
+	'kback <back> 'kdel <del> 'kder <ri> 'kizq <le>
+	'ktab <tab>
+	[ pad> ( padi> >? )( 1- cle ) 'pad> ! ; ] <home>
+	[ pad> ( padf> <? )( 1+ cri ) 'pad> ! ; ] <end>
+	;
+
+::clearpad
+	0 'pad ! ininput ;
+
+:main
+	'fontdroidSans13 fullconsola
+	ccls
+	":r4 Ok." cprint ccr
+	clearpad
+	33
+	show clrscr
+|      	dup "%d" print cr
+|		ccur> "%h" print
+		0 0 showconsola
+
+		inputpad
+       	'ccr <enter>
+		[ 'pad cprint ccr clearpad ; ] <f1>
+		'exit >esc<
+		cminiflecha ;
+
+: mark main ;

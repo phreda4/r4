@@ -1,0 +1,68 @@
+    public void findShadows(Grid grid, int gx, int gy, int gz) {
+        if (shadowsUpToDate)
+            return;
+
+        for (int tx = 0; tx < Config.TINY_GRID_SIZE; tx++)
+            for (int ty = 0; ty < Config.TINY_GRID_SIZE; ty++)
+                for (int tz = 0; tz < Config.TINY_GRID_SIZE; tz++) {
+                    findShadow(grid, gx, gy, gz, tx, ty, tz);
+                }
+
+        shadowsUpToDate = true;
+    }
+
+    public void findShadow(Grid grid, int gx, int gy, int gz, int tx, int ty, int tz) {
+        if (data[tx][ty][tz] == 0xffffffff) {
+            return;
+        }
+        boolean closedIn = true;
+
+        notUpToDate = true;
+
+        outerloop:
+        for (int x = -1; x < 2; x++)
+            for (int y = -1; y < 2; y++)
+                for (int z = -1; z < 2; z++) {
+                    if (x == 0 && y == 0 && z == 0)
+                        continue;
+
+                    if (grid.owner.getVoxel(grid, gx, gy, gz, tx, ty, tz, x, y, z) == 0xffffffff){
+                        closedIn = false;
+                        break outerloop;
+                    }
+                }
+
+        if (closedIn) {
+            int shadow = SimpleMath.shadeLookUp(tx,ty,tz);
+            data[tx][ty][tz] = SimpleMath.setShadow(shadow, data[tx][ty][tz]);
+            return;
+        }
+
+        int diff = 1;
+        int diffPlusOne = diff + 1;
+
+        int count = diff * 2 + 1;
+        count = count * count * count;
+        int light = 0;
+        for (int x = -diff; x < diffPlusOne; x++)
+            for (int y = -diff; y < diffPlusOne; y++)
+                for (int z = -diff; z < diffPlusOne; z++) {
+
+                    int rx = x >= 0 ? x + 1 : x;
+                    int ry = y >= 0 ? y + 1 : y;
+                    int rz = z >= 0 ? z + 1 : z;
+
+                    if (grid.owner.getVoxel(grid, gx, gy, gz, tx, ty, tz, rx, ry, rz) == 0xffffffff){
+                        light++;
+                    } else {
+                        light--;
+                    }
+                 }
+
+        float calc = (float)light /(float)count / 2f + .75f;
+        int result = (int)(calc * 255f);
+
+        result = MathUtils.clamp(result, 0, 254);
+        data[tx][ty][tz] = SimpleMath.setShadow(result, data[tx][ty][tz]);
+    }
+}
