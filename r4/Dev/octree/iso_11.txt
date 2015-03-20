@@ -52,29 +52,6 @@
 :octcolor16 | oct -- color
 	$octree - 2/ $pixels + w@ ; |16to32 ;
 
-|-------- octree in octree
-::adjustmem | octree --
-	dup '$base !
-	dup 28 + '$octree !
-	@+ '$magic !
-	@ $octree + '$pixels !
-	;
-
-#opila )( 1024
-#opila> 'opila
-
-:getoct | octree -- octree
-	$base opila> !+ 'opila> !
-	$octree - $pixels + @
-	2 << $base +
-	adjustmem
-	$octree
-	;
-
-:getocti | --
-	-4 'opila> +! opila> @
-	adjustmem
-	;
 
 |-------------------------------
 :drawpoint | x y oct --
@@ -108,9 +85,7 @@
 )
 
 :getn | x y a id -- x y a x y
-	3 << 'ivecpos + >r
-	pick2 r@+ ilevel >> + pick2 r> @ ilevel >> + ;
-|	pick2 r@+ ilevel 1- >> 1+ 2/ + pick2 r> @ ilevel 1- >> 1+ 2/ + ; | level=0!!**
+	3 << 'ivecpos + >r pick2 r@+ ilevel >> + pick2 r> @ ilevel >> + ;
 
 :aclara
     ink@ $f0f0f colavg ink ;
@@ -129,32 +104,53 @@
 	dface aclara dface aclara dface
 	3drop ;
 
+:getf | adr -- adr' x y x y
+	c@+ getn 2dup ;
 
-:dface | adr -- adr'
-	c@+ getn 2dup >r >r maskop
+:dfaces  |  adr' x y -- adr'
+	>r >r
 	c@+ getn maskline
 	c@+ getn maskline
 	c@+ getn maskline
-	r> r> maskline
-	;
-
-:dface2
-	c@+ getn 2dup >r >r maskop2
-	c@+ getn maskline
-	c@+ getn maskline
-	c@+ getn maskline
-	r> r> maskline
-	;
-
+	r> r> maskline ;
 
 :drawboxc | x y oct --
 	octcolor ink
 	nzmin 2 << dup 2* + 'faces +
-	dface dface2 dface2
+	getf maskop dfaces
+	getf maskop2 dfaces
+	getf maskop2 dfaces
 	maskpoly
 	3drop ;
 
+|-------- octree in octree
 #dbox 'drawbox
+
+::adjustmem | octree --
+	dup '$base !
+	dup 28 + '$octree !
+	@+
+	'$magic !
+	@ $octree + '$pixels !
+	;
+
+#opila )( 1024
+#opila> 'opila
+
+:getoct | octree -- octree
+	$base opila> !+ 'opila> !
+	$octree - $pixels + @
+	2 << $base +
+	adjustmem
+	$octree
+	;
+
+:getocti | --
+	-4 'opila> +! opila> @
+	adjustmem
+	;
+
+
 
 ::oct++ | adr -- adr bitmask
 |	@ dup 8 >> 2 << $octree + swap $ff and	| adr bitmask	| absoluto
@@ -165,29 +161,24 @@
 :idsumi | x y id -- x y
 	3 << 'ivecpos + >r
 	r@+ ilevel 1- >> 1+ 2/ rot + r> @ ilevel 1- >> 1+ 2/ rot + ;
-|	r@+ ilevel >> rot + r> @ ilevel >> rot + ;
 
 :idsum
 	3 << 'ivecpos + >r
-	r@+ ilevel 1- >> 1+ 2/ pick4 + r> @ ilevel 1- >> 1+ 2/ pick4 +
-|	r@+ ilevel >> pick4 + r> @ ilevel >> pick4 +
-	;
+	r@+ ilevel 1- >> 1+ 2/ pick4 + r> @ ilevel 1- >> 1+ 2/ pick4 + ;
 
 :childi | x y node bitm nro place -- node bitm
 	1- pick2 and popcnt 2 << pick3 +
 	>r
 	idsum
-|	>r pick3 pick3 r> idsumi
 	r>
-|	ilevel wiso over >> 'wison ! hiso swap >> 'hison !
 	ilevel 1- wiso over >> 1+ 2/ 'wison ! hiso swap >> 1+ 2/ 'hison !
 	;
 
 :viewi | x y node --
 	pick2 pick2 wison pick2 + hison pick2 +
 	maskb.rget 0? ( 4drop ; ) drop
-|	wison 0? ( drop drawpoint1 ; ) drop
-|	hison 0? ( drop drawpoint2 ; ) drop
+	wison 0? ( drop drawpoint1 ; ) drop
+	hison 0? ( drop drawpoint2 ; ) drop
 
 	$pixels >=? ( $magic $100 nand? ( drop dbox exec ; ) drop getoct viewi getocti ; )
 
@@ -204,6 +195,75 @@
 	4drop
 	-1 'ilevel +!
 	;
+
+|.............................................................
+
+:10>32 | xy -- x y
+	dup 10 >> swap $3ff and ;
+
+:idsumi | x y id -- x y
+	3 << 'ivecpos + >r
+	r@+ ilevel 1- >> 1+ 2/ rot + r> @ ilevel 1- >> 1+ 2/ rot + ;
+
+:idsum | x y id -- x y
+	3 << 'ivecpos + >r
+	r@+ ilevel 1- >> 1+ 2/ pick4 + r> @ ilevel 1- >> 1+ 2/ pick4 + ;
+
+
+#ilevelm
+$7fdff
+$3fcff
+$1fc7f
+$0fc3f
+$07c1f
+$03c0f
+$01c07
+$00c03
+$00401
+$00000
+
+#iwhlevel )( 128
+
+:idsum | xy id -- xy
+	2 << 'ivecpos + @
+	ilevel >> ilevel 2 << 'ilevelm + @ and + ;
+
+:whsum | wh xy -- wh
+	nip ilevel 2 << 'iwhlevel + @ swap ;
+
+:ichild | x y node bitm nro place -- node bitm
+	1- pick2 and popcnt 2 << pick3 +
+ 	>r idsum whsum r> ;
+
+:drawpoint | wh xy oct --
+	rot drop
+	octcolor swap 10>32 | wh oct x y
+	maskpxyo ;
+
+:isod | wh xy node --
+	pick2 pick2					| wh xy node wh xy
+	10>32 rot 10>32 			| wh xy node x y w h
+	pick2 + swap pick3 + swap
+	maskb.rget 0? ( 4drop ; ) drop 	| wh xy node
+
+	pick2 10>32 or 1 not and? ( drop drawpoint ; ) drop
+
+	$pixels >=? ( $magic $100 nand? ( drop rot drop swap 10>32 rot dbox exec ; ) drop getoct viewi getocti ; )
+
+	oct++
+	1 'ilevel +!
+	nzmin 1 over << pick2 nand? ( 2drop )( child viewi )
+	nzmin 1 xor 1 over << pick2 nand? ( 2drop )( child viewi )
+	nzmin 2 xor 1 over << pick2 nand? ( 2drop )( child viewi )
+	nzmin 4 xor 1 over << pick2 nand? ( 2drop )( child viewi )
+	nzmin 3 xor 1 over << pick2 nand? ( 2drop )( child viewi )
+	nzmin 5 xor 1 over << pick2 nand? ( 2drop )( child viewi )
+	nzmin 6 xor 1 over << pick2 nand? ( 2drop )( child viewi )
+	nzmin 7 xor 1 over << pick2 nand? ( 2drop )( child viewi )
+	4drop
+	-1 'ilevel +!
+	;
+
 
 |-----------------------
 :id3di | x y z -- xy
@@ -234,8 +294,19 @@
 	r@+ r@+ r@+ id3d rot !+ !+
 	r@+ r@+ r@+ id3d rot !+ !+
 	r@+ r@+ r> @ id3d rot !+ !
+
 	xmin xmax over - dup 'wison ! 'wiso !
 	ymin ymax over - dup 'hison ! 'hiso !
+
+|  xmin w ymin h
+|	10 << rot or | xmin ymin wh
+| 	dup 'iwhlevel >r
+|	10 ( 1? )( 1- swap
+|		dup r!+
+|		1+ 2/ $7fdff and
+|		swap ) 2drop rdrop
+|   rot rot
+
 	'ivecpos
 	dup @ pick3 - swap !+ dup @ pick2 - swap !+
 	dup @ pick3 - swap !+ dup @ pick2 - swap !+
@@ -245,7 +316,27 @@
 	dup @ pick3 - swap !+ dup @ pick2 - swap !+
 	dup @ pick3 - swap !+ dup @ pick2 - swap !+
 	dup @ pick3 - swap !+ dup @ pick2 - swap !
-	r> viewi ;
+
+|   10 << or	| wh xy
+	r>	| octree
+	viewi ;
+
+:aaaaaaaaaaaaaaaaaa
+
+	'ivecpos dup >r     | xmin ymin ad
+	r@+ pick3 -			| xmin ymin ad dx
+	r@+ pick3 -			| xmin ymin ad dx dy
+	10 << or			| xmin ymin ad dxdy
+	swap !+
+	r@+ pick3 - r@+ pick3 -	10 << or swap !+
+	r@+ pick3 - r@+ pick3 -	10 << or swap !+
+	r@+ pick3 - r@+ pick3 -	10 << or swap !+
+	r@+ pick3 - r@+ pick3 -	10 << or swap !+
+	r@+ pick3 - r@+ pick3 -	10 << or swap !+
+	r@+ pick3 - r@+ pick3 -	10 << or swap !+
+	r@+ pick3 - r@+ pick3 -	10 << or swap !
+	rdrop
+	;
 
 |---------------- search iso ratio
 :getz | nro -- Z
