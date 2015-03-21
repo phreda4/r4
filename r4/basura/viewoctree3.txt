@@ -1,0 +1,282 @@
+| genera vista de octree
+| PHREDA 2014
+|-----------------------------
+^r4/lib/gui.txt
+^r4/lib/morton.txt
+
+^r4/lib/trace.txt
+
+#xcam 0 #ycam 0 #zcam 3.0
+
+#lod 8
+
+|-- quadtree
+#sizeq 512
+#xc #yc
+#color
+
+|-- octree
+#octre
+#pixels
+#octre>
+
+#mask
+#dmask
+
+#zsz #zsy #zsx
+#ysz #ysy #ysx
+#xsz #xsy #xsx
+
+|---------------------------
+| tabla de vectores de sumas
+#addvec )( 576 | 16 niveles
+#addv 'addvec
+
+:addv+ 36 'addv +! ;
+:addv- -36 'addv +! ;
+
+:nextl | adr -- adr'
+	xsx dup 2/ 'xsx ! swap !+ xsy dup 2/ 'xsy ! swap !+ xsz dup 2/ 'xsz ! swap !+
+	ysx dup 2/ 'ysx ! swap !+ ysy dup 2/ 'ysy ! swap !+ ysz dup 2/ 'ysz ! swap !+
+	zsx dup 2/ 'zsx ! swap !+ zsy dup 2/ 'zsy ! swap !+ zsz dup 2/ 'zsz ! swap !+
+	;
+
+:dumpvec
+	zsz zsy zsx "%f %f %f " print
+	ysz ysy ysx "%f %f %f " print
+	xsz xsy xsx "%f %f %f " print
+	cr
+	;
+
+:filladdvect
+	'addvec dup 'addv !
+	10 ( 1? )( 1- swap
+|		dumpvec
+		nextl swap ) 2drop ;
+
+
+
+|-------------- orden segun vista
+#maskc
+$4152637	$15043726	$26370415	$37261504	$40516273	$51407362	$62734051	$73625140
+$4216537	$15307426	$26034715	$37152604	$40625173	$51743062	$62470351	$73516240
+$1234567	$10352476	$23016745	$32107654	$45670123	$54761032	$67452301	$76543210
+$1452367	$10534276	$23670145	$32716054	$45016723	$54107632	$67234501	$76325410
+$2461357	$13570246	$20634175	$31725064	$46052713	$57134602	$64207531	$75316420
+$2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
+
+
+|----------- graficacion
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx mroty ;
+
+
+|-----------------------------------------
+
+:idmovn | x y z id -- x' y' z'
+	1 and? ( >r addv >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv >r rot r@+ - rot r@+ - rot r> @ - r> )
+	2 and? ( >r addv 12 + >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv 12 + >r rot r@+ - rot r@+ - rot r> @ - r> )
+	4 and? ( >r addv 24 + >r rot r@+ + rot r@+ + rot r> @ + r> )( >r addv 24 + >r rot r@+ - rot r@+ - rot r> @ - r> )
+	drop ;
+
+
+|---- v1
+| x' negativo-positivo
+:c512 | x z -- x'
+	0 swap dup neg | x xs R L bit
+	$100 ( 1? )( >r
+		2dup + 2/ 	| x xs R L m1
+		pick4 >? ( rot drop swap rot r - )( nip rot r + )
+		rot rot r> 2/ )
+	3drop nip
+	2/ ;
+
+:drawpoint	| x y z nodo
+	>r swap over c512 sh 2/ + >r c512 sw 2/ + r> setxy
+	r> octre - pixels + @ px!+ ;
+
+|---- v2
+| x' simpre positivo
+
+:c512 | x z -- x'
+	2/ 0 swap over | x 0 z 0
+	9 ( 1? )( 1- >r
+		pick3 >? ( over - rot 2*  )( over + rot 2* 1+ )
+		rot 2/ rot
+		r> )
+	3drop nip ;
+
+:drawpoint2	| x y z nodo
+	>r swap over c512
+	>r c512
+	r> setxy
+	r> octre - pixels + @
+	px!+ ;
+
+|---- v3
+:c512 | x z -- x'
+	2/ 0 swap over | x 0 z 0
+	256 ( >r
+		pick3 >? ( over - rot )( over + rot r + )
+		rot 2/ rot
+		r> 2/ 0? )
+	3drop nip ;
+
+:drawpoint3	| x y z nodo
+	>r swap over c512 >r c512 r> setxy
+	r> octre - pixels + @ px!+ ;
+
+|---- v4  loopless
+:c9 | x z -- x'
+	2/ 0 swap over | x 0 z 0
+	pick3 >? ( over - rot )( over + rot 256 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 128 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 64 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 32 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 4 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 1+ )
+	nip nip nip ;
+
+:drawpoint	| x y z nodo
+	>r swap over c9 >r c9 xc + r> yc + setxy
+	r> octre - pixels + @ px!+ ;
+
+
+|-----------------------
+:viewchildm | x y z node bit nro -- x y z node bit
+	$7 xor
+	dup place pick2 nand? ( 2drop ; ) | x y z node bit bitc
+	1- pick2 and popcnt 2 << pick3 +
+	>r >r pick4 pick4 pick4 r> idmovn r>
+	|****** recursion (no poner ; !!)
+:view3do | x y z node --
+
+|	pixels >=? ( drawpoint ; ) | porque no anda??..porque esta opmizado!!
+|	size lod <? ( drop drawpoint ; ) drop
+
+	addv 'addvec 287 +
+	>? ( drop drawpoint ; ) 	drop
+
+	addv+
+	@ dup 8 >> 2 << octre + swap $ff and | x y z adr bitmask
+	dmask >r
+	r $7 and viewchildm
+	r 4 >> $7 and viewchildm
+	r 8 >> $7 and viewchildm
+	r 12 >> $7 and viewchildm
+	r 16 >> $7 and viewchildm
+	r 20 >> $7 and viewchildm
+	r 24 >> $7 and viewchildm
+	r> 28 >> $7 and viewchildm
+
+	nip 4drop
+	addv- ;
+
+|-------------
+:calcmaskn
+	matinv
+	|0 0 3.0
+	xcam ycam zcam
+	transform
+	+? ( 4 )( 0 ) nip
+	swap +? ( drop 2 or )( drop )
+	swap +? ( drop 1 or )( drop )
+	'mask !
+	;
+
+:maskabs | ax ay az -- mask
+	| ax ay az
+	pick2 <? ( over <? ( | x<z && y<z
+			drop <? ( 0 )( 8 )
+			nip ; ) )
+	rot | ay az ax
+	pick2 <? ( over <? ( | y<x && z<x
+			drop <? ( 16 )( 24 )
+			nip ; ) )
+	<? ( 32 )( 40 )
+	nip nip ;
+
+:calcmask
+	matinv
+	0 0 1.0
+|	xcam ycam zcam
+	transform
+	rot +? ( 1 )( 0 ) >r abs
+	rot +? ( 2 r+ ) abs
+	rot +? ( 4 r+ ) abs
+	| ax ay az :r mask0
+	maskabs r> or
+	dup 'mask !
+	2 << 'maskc + @
+	'dmask !
+	;
+
+|-------------
+:fillqtree | size xc yc --
+	setxy
+	dup ( 1? )( 1-
+		over ( 1? )( 1-
+			color px!+
+			) drop
+		sw pick2 - px+!
+		)
+	2drop
+	$f 'color +! ;
+
+:qtree | x y nivel --
+	1 =? ( drop setxy color px!+ 1  'color +! ; )
+	2/
+	pick2 pick2 pick2 qtree
+	pick2 pick2 pick2 + pick2 qtree
+	pick2 over + pick2 pick2 qtree
+	pick2 over + pick2 pick2 + pick2 qtree
+	3drop ;
+
+|--------------------------
+:main
+	here 'octre !
+	"media/3do/mario.3do"
+
+	octre swap load 'octre> !
+	octre> 4 - @ octre + 'pixels !
+
+	sh 2/ 256 - 'yc !
+	sw 2/ 256 - 'xc !
+	4
+	show clrscr verde
+		dup ":r%d " print cr
+		lod "LOD:%d " print cr
+		mask "mask:%h" print cr
+		dmask "dmask:%h" print cr
+
+|		xc yc 512 qtree
+
+		omode
+		freelook
+
+|		xcam ycam zcam mtrans
+
+|		msec 3 << mrotxi
+|		msec 4 << mrotyi
+		0 0 0.5 transform 'zsz ! 'zsy ! 'zsx !
+		0 0.5 0 transform 'ysz ! 'ysy ! 'ysx !
+		0.5 0 0 transform 'xsz ! 'xsy ! 'xsx !
+
+		calcmask
+	    filladdvect
+		xcam ycam zcam octre view3do
+
+		[ -0.2 'xcam +! ; ] <le>
+		[ 0.2 'xcam +! ; ] <ri>
+		[ -0.1 'zcam +! ; ] <up>
+		[ 0.1 'zcam +! ; ] <dn>
+
+		'exit >esc< ;
+
+: mark main ;

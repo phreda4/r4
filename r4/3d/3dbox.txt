@@ -1,0 +1,215 @@
+|	3dbox
+|	PHREDA 2014
+|----------------------------------
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/3d-escena.txt
+
+^r4/dev/octree/iso_9.txt
+
+^r4/lib/trace.txt
+
+|---------------------------------------------
+#xcam #ycam #zcam 1.8
+#iconos 0 0
+
+#Ocaballo
+
+|-----------------------------
+:draw3dnorme
+	0 0 0 3dproject 3 fcircle ;
+
+|-----------------------------
+:3dop transform 3dproject op ;
+:3dline transform 3dproject line ;
+:3dpline transform 3dproject pline ;
+
+:grillaxy
+	-5.0 ( 5.0 <=? )( dup -5.0 0 3dop dup 5.0 0 3dline
+		-5.0 over 0 3dop 5.0 over 0 3dline 1.0 + ) drop ;
+:grillayz
+	-5.0 ( 5.0 <=? )( 0 over -5.0 3dop 0 over 5.0 3dline
+		0 -5.0 pick2 3dop 0 5.0 pick2 3dline 1.0 + ) drop ;
+:grillaxz
+	-5.0 ( 5.0 <=? )( dup 0 -5.0 3dop dup 0 5.0 3dline
+		-5.0 0 pick2 3dop 5.0 0 pick2 3dline 1.0 + ) drop ;
+
+|---- caja en normalizado
+:drawboxz | z --
+	-0.05 -0.05 pick2 3dop
+	0.05 -0.05 pick2 3dline
+	0.05 0.05 pick2 3dline
+	-0.05 0.05 pick2 3dline
+	-0.05 -0.05 rot 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup -0.05 3dop 0.05 3dline ;
+
+:draw3dnorm
+	-0.05 drawboxz
+	0.05 drawboxz
+	-0.05 -0.05 drawlinez
+	0.05 -0.05 drawlinez
+	0.05 0.05 drawlinez
+	-0.05 0.05 drawlinez ;
+
+:dumpmat
+	mat> >r cr
+	r@+ "%f " print r@+ "%f " print r@+ "%f " print r@+ "%f " print cr
+	r@+ "%f " print r@+ "%f " print r@+ "%f " print r@+ "%f " print cr
+	r@+ "%f " print r@+ "%f " print r@+ "%f " print r@+ "%f " print cr
+	r@+ "%f " print r@+ "%f " print r@+ "%f " print r@+ "%f " print cr
+	rdrop ;
+
+:drawboxzp | z --
+	-0.05 -0.05 pick2 3dop
+	0.05 -0.05 pick2 3dpline
+	0.05 0.05 pick2 3dpline
+	-0.05 0.05 pick2 3dpline
+	-0.05 -0.05 rot 3dpline poli ;
+
+:drawboxyp | z --
+	-0.05 over -0.05 3dop
+	0.05 over -0.05 3dpline
+	0.05 over 0.05 3dpline
+	-0.05 over 0.05 3dpline
+	-0.05 swap -0.05 3dpline poli ;
+
+:drawboxxp | z --
+	dup -0.05 -0.05 3dop
+	dup 0.05 -0.05 3dpline
+	dup 0.05 0.05 3dpline
+	dup -0.05 0.05 3dpline
+	-0.05 -0.05 3dpline poli ;
+
+:aclara
+    ink@ $030303 + $fefefe and ink
+	;
+
+:draw3dnormp
+	-0.05 drawboxzp
+	aclara 0.05 drawboxzp
+	aclara 0.05 drawboxyp
+	aclara 0.05 drawboxyp
+	aclara -0.05 drawboxxp
+	aclara 0.05 drawboxxp
+	;
+
+
+|---------------------------------------------
+:sicon.upd
+	esc.z+ ;
+
+:sicon.draw
+	mpush
+	esc.posrot
+
+|	dumpmat
+
+	dup 28 + @ ink
+
+|	draw3dnormp
+|	draw3dnorme
+	oCaballo drawoctree
+
+ 	dup $fff and over 20 + +!
+|	rand $fff and dup pick2 4+ +! drop
+
+	mpop ;
+
+:sicon.add | z y x --
+	'iconos esc. >r
+	'sicon.upd r!+
+	r!+ r!+ r!+ | x y z
+
+|	rand r!+ rand r!+ rand r!+ | rx ry rz
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+
+	rand |$FF00 and $FF or
+	r!+ 0 r!+
+	'sicon.draw r!+
+
+	rdrop ;
+
+
+
+:rebuild
+	'iconos esc.clear
+
+	-2.0 ( 2.0 <=? )(
+		-2.0 ( 2.0 <=? )(
+			-2.0 ( 2.0 <=? )(
+				rand %1000 and? ( drop pick2 pick2 pick2 sicon.add )( drop )
+|			pick2 pick2 pick2 sicon.add
+				1.0 + ) drop
+			1.0 + ) drop
+		1.0 + ) drop
+
+	;
+
+:rebuild1
+	'iconos esc.clear
+	0 0 0 sicon.add
+	0 0.1 0 sicon.add
+;
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+|-----------------------------------------------------
+:escena
+	3dini
+	freelook
+	xcam ycam zcam mtrans
+
+|	gris
+|	dumpmat
+|	grillaxy grillayz grillaxz
+
+	maskb.clear
+	esc.zclear
+	'iconos esc.draw
+	esc.zdraw
+	;
+
+
+#vzcam 0
+
+:teclado
+	[ -0.01 'xcam +! ; ] <le>
+	[ 0.01 'xcam +! ; ] <ri>
+	[ -0.01 'ycam +! ; ] <pgup>
+	[ 0.01 'ycam +! ; ] <pgdn>
+
+	[ 0.05 'vzcam ! ; ] <dn>
+	[ -0.05 'vzcam ! ; ] <up>
+	[ 0 'vzcam ! ; ] dup >up< >dn<
+	vzcam 'zcam +!
+	;
+
+|--------------------------------------------
+:main
+	mark
+    maskb.ini
+	"media/3do/luigi.3do" load3do 'Ocaballo !
+
+	$fffff 'iconos esc.create
+	rebuild
+	33
+	show clrscr
+		verde dup "%d)" print
+		zcam ycam xcam "%f %f %f" print cr
+		teclado
+
+        escena
+
+        'exit >esc<
+		cminimano
+		;
+
+
+: 0 paper main ;

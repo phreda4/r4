@@ -1,0 +1,359 @@
+| traverse voxel
+| PHREDA 2014
+|-----------------------------
+^r4/lib/gui.txt
+^r4/lib/sort.txt
+^r4/lib/morton.txt
+
+^r4/lib/trace.txt
+
+#sidevox 256
+
+#xcam 0 #ycam 0 #zcam 2048
+
+#pixels
+#octre
+#octre>
+
+#pixels2
+#octre2
+#octre2>
+
+|----------- busca masa
+#nodo
+
+:nexto | now value -- newa
+	dup rot 1- and popcnt swap 8 >> + ;
+
+:binhit | x y z -- x y z m
+	pick2 pick2 pick2 mortonlut8 octre
+
+|	over 27 >> $7 and place swap @ over nand? ( 3drop 512 ; ) nexto 2 << octre +
+|	over 24 >> $7 and place swap @ over nand? ( 3drop 256 ; ) nexto 2 << octre +
+
+	over 21 >> $7 and place swap @ over nand? ( 3drop 128 ; ) nexto 2 << octre +
+	over 18 >> $7 and place swap @ over nand? ( 3drop 64 ; ) nexto 2 << octre +
+	over 15 >> $7 and place swap @ over nand? ( 3drop 32 ; ) nexto 2 << octre +
+	over 12 >> $7 and place swap @ over nand? ( 3drop 16 ; ) nexto 2 << octre +
+	over 9 >> $7 and place swap @ over nand? ( 3drop 8 ; ) nexto 2 << octre +
+	over 6 >> $7 and place swap @ over nand? ( 3drop 4 ; ) nexto 2 << octre +
+	over 3 >> $7 and place swap @ over nand? ( 3drop 2 ; ) nexto 2 << octre +
+	swap $7 and place swap @ over nand? ( 2drop 1 ; )
+	nexto 'nodo ! 0  ;
+
+
+|--------- ortho vistas
+:getcolor
+	nodo 2 << pixels + @ ;
+
+:rayx | xi y z -- color
+	rot	| y z x
+	( 256 <? )( rot rot | x y z
+		binhit 0? ( 4drop getcolor ; )
+		>r rot r> + )
+	3drop 0 ;
+
+:tracexplane | x y --
+	0 ( sidevox <? )(
+		pick2 pick2 setxy
+		0 ( sidevox <? )(
+			0 pick2 pick2 rayx px!+
+			1+ ) drop
+		swap 1+ swap 1+ ) 3drop
+	;
+
+
+:rayy | x yi z -- color
+	swap | x z y
+	( sidevox <? )( swap | x y z
+		binhit 0? ( 4drop getcolor ; )
+		rot + )
+	3drop 0 ;
+
+:traceyplane | x y --
+	setxy
+	0 ( sidevox <? )(
+		0 ( sidevox <? )(
+			over 0 pick2 rayy px!+
+			1+ ) drop
+		sw sidevox - px+!
+		1+ ) drop
+	;
+
+
+:rayyn | x yi z -- color
+	swap | x z y
+	( +? )( swap | x y z
+		binhit 0? ( 4drop getcolor ; )
+		rot swap - )
+	3drop 0 ;
+
+:traceyplanen | x y --
+	setxy
+	0 ( sidevox <? )(
+		0 ( sidevox <? )(
+			over 255 pick2 rayyn px!+
+			1+ ) drop
+		sw sidevox - px+!
+		1+ ) drop
+	;
+
+:rayz | x y zi -- color
+	( 256 <? )(
+		binhit 0? ( 4drop getcolor ; )
+		+ )
+	3drop 0 ;
+
+:tracezplane | x y --
+	0 ( sidevox <? )(
+		pick2 pick2 setxy
+		0 ( sidevox <? )(
+			over over 0 rayz px!+
+			1+ ) drop
+		swap 1+ swap 1+ ) 3drop
+	;
+
+
+|------------- load import
+:load3do | "filename" --
+	octre swap load 'octre> !
+	octre> 4 - @ octre + 'pixels !
+	octre> 'octre2 !
+	;
+
+:load3do2 | "filename" --
+	octre2 swap load 'octre2> !
+	octre2> 4 - @ octre2 + 'pixels2 !
+	;
+
+:swapoc
+	octre octre2 'octre ! 'octre2 !
+	octre> octre2> 'octre> ! 'octre2> !
+	pixels pixels2 'pixels ! 'pixels2 !
+	;
+
+
+|---
+#x0 #y0 #z0
+#xd #yd 255 #zd
+
+#ex #ey #ez
+#cx #cy #cz
+#dx #dy #dz
+#sx #sy #sz
+#dmax
+
+|--- test
+:binhit | -- m
+	cx cy cz mortonlut8 octre
+	over 21 >> $7 and place swap @ over nand? ( 3drop 7 ; ) nexto 2 << octre +
+	over 18 >> $7 and place swap @ over nand? ( 3drop 6 ; ) nexto 2 << octre +
+	over 15 >> $7 and place swap @ over nand? ( 3drop 5 ; ) nexto 2 << octre +
+	over 12 >> $7 and place swap @ over nand? ( 3drop 4 ; ) nexto 2 << octre +
+	over 9 >> $7 and place swap @ over nand? ( 3drop 3 ; ) nexto 2 << octre +
+	over 6 >> $7 and place swap @ over nand? ( 3drop 2 ; ) nexto 2 << octre +
+	over 3 >> $7 and place swap @ over nand? ( 3drop 1 ; ) nexto 2 << octre +
+	swap $7 and place swap @ over nand? ( 2drop 0 ; )
+	nexto ;
+
+
+:dda3ini | x y z --
+	'cz ! 'cy ! 'cx !
+	0 dup dup 'ex ! 'ey ! 'ez !
+	xd +? ( 1 )( -1 ) 'sx ! abs 'dx !
+	yd +? ( 1 )( -1 ) 'sy ! abs 'dy !
+	zd +? ( 1 )( -1 ) 'sz ! abs 'dz !
+	dx dy dz max max 'dmax !
+	;
+
+:dda3
+	dmax
+	dx ex + over 2/ >=? ( over - sx 'cx +! ) 'ex !
+	dy ey + over 2/ >=? ( over - sy 'cy +! ) 'ey !
+	dz ez + over 2/ >=? ( over - sz 'cz +! ) 'ez !
+	drop ;
+
+
+|------- paso octree
+| sim 2/ para que no se pase
+:dda3a | sx dx sy dy sz dz dmax --
+	>r
+	ez + r >=? ( r - swap 'cz +! )( nip ) 'ez !
+	ey + r >=? ( r - swap 'cy +! )( nip ) 'ey !
+	ex + r >=? ( r - swap 'cx +! )( nip ) 'ex !
+	rdrop ;
+
+:micro3a | sx sy sz dmax --
+	>r
+	ez r >=? ( r - 'ez ! 'cz +! )( 2drop )
+	ey r >=? ( r - 'ey ! 'cy +! )( 2drop )
+	ex r >=? ( r - 'ex ! 'cx +! )( 2drop )
+	rdrop ;
+
+|  micropaso con 2/ porque es el ultimo
+:micro3b | --
+	dmax
+	ex over 2/ >=? ( sx 'cx +! over - 'ex ! )( drop )
+	ey over 2/ >=? ( sy 'cy +! over - 'ey ! )( drop )
+	ez over 2/ >=? ( sz 'cz +! over - 'ez ! )( drop )
+	drop ;
+
+:adv7
+	sx 7 << dx 7 << sy 7 << dy 7 << sz 7 << dz 7 << dmax 7 << dda3a
+	sx 6 << sy 6 << sz 6 << dmax 6 << micro3a
+	sx 5 << sy 5 << sz 5 << dmax 5 << micro3a
+	sx 4 << sy 4 << sz 4 << dmax 4 << micro3a
+	sx 3 << sy 3 << sz 3 << dmax 3 << micro3a
+	sx 2 << sy 2 << sz 2 << dmax 2 << micro3a
+	sx 2* sy 2* sz 2* dmax 2*  micro3a
+	micro3b ;
+:adv6
+	sx 6 << dx 6 << sy 6 << dy 6 << sz 6 << dz 6 << dmax 6 << dda3a
+	sx 5 << sy 5 << sz 5 << dmax 5 << micro3a
+	sx 4 << sy 4 << sz 4 << dmax 4 << micro3a
+	sx 3 << sy 3 << sz 3 << dmax 3 << micro3a
+	sx 2 << sy 2 << sz 2 << dmax 2 << micro3a
+	sx 2* sy 2* sz 2* dmax 2*  micro3a
+	micro3b ;
+:adv5
+	sx 5 << dx 5 << sy 5 << dy 5 << sz 5 << dz 5 << dmax 5 << dda3a
+	sx 4 << sy 4 << sz 4 << dmax 4 << micro3a
+	sx 3 << sy 3 << sz 3 << dmax 3 << micro3a
+	sx 2 << sy 2 << sz 2 << dmax 2 << micro3a
+	sx 2* sy 2* sz 2* dmax 2*  micro3a
+	micro3b ;
+:adv4
+	sx 4 << dx 4 << sy 4 << dy 4 << sz 4 << dz 4 << dmax 4 << dda3a
+	sx 3 << sy 3 << sz 3 << dmax 3 << micro3a
+	sx 2 << sy 2 << sz 2 << dmax 2 << micro3a
+	sx 2* sy 2* sz 2* dmax 2*  micro3a
+	micro3b ;
+:adv3
+	sx 3 << dx 3 << sy 3 << dy 3 << sz 3 << dz 3 << dmax 3 << dda3a
+	sx 2 << sy 2 << sz 2 << dmax 2 << micro3a
+	sx 2* sy 2* sz 2* dmax 2*  micro3a
+	micro3b ;
+:adv2
+	sx 2 << dx 2 << sy 2 << dy 2 << sz 2 << dz 2 << dmax 2 << dda3a
+	sx 2* sy 2* sz 2* dmax 2*  micro3a
+	micro3b ;
+:adv1
+	sx 2* dx 2* sy 2* dy 2* sz 2* dz 2* dmax 2* dda3a
+	micro3b ;
+
+#tadv 'dda3 'adv1 'adv2 'adv3 'adv4 'adv5 'adv6 'adv7
+
+
+:traverse | x y z --
+	dda3ini
+	( cx cy cz or or $ffffff00 nand? )( drop
+		binhit 8 >? ( 2 << pixels + @ ; )
+		$7 and 2 << 'tadv + @ exec
+		) drop
+	0 ;
+
+|---------- bresenham
+#paso
+
+:pasox
+	ey +? ( sy 'cy +! dx 2* - ) dy 2* + 'ey !
+	ez +? ( sz 'cz +! dx 2* - ) dz 2* + 'ez !
+	sx 'cx +!
+	;
+:pasoy
+	ex +? ( sx 'cx +! dy 2* - ) dx 2* + 'ex !
+	ez +? ( sz 'cz +! dy 2* - ) dz 2* + 'ez !
+	sy 'cy +!
+	;
+:pasoz
+	ey +? ( sy 'cy +! dx 2* - ) dy 2* + 'ey !
+	ex +? ( sx 'cx +! dz 2* - ) dx 2* + 'ex !
+	sz 'cz +!
+	;
+
+:bre3ini | x y z --
+	'cz ! 'cy ! 'cx !
+	xd +? ( 1 )( -1 ) 'sx ! abs 'dx !
+	yd +? ( 1 )( -1 ) 'sy ! abs 'dy !
+	zd +? ( 1 )( -1 ) 'sz ! abs 'dz !
+	dx dy >=? (
+		dz >=? ( drop
+			dy 2* dx - 'ey !
+			dz 2* dx - 'ez !
+			'pasox 'paso ! ; )
+		drop
+		dx 2* dz - 'ex !
+		dy 2* dz - 'ey !
+		'pasoz 'paso ! ; )
+	drop
+	dy dz >=? (
+		drop
+		dx 2* dy - 'ex !
+		dz 2* dy - 'ez !
+		'pasoy 'paso ! ; )
+	drop
+	dx 2* dz - 'ex !
+	dy 2* dz - 'ey !
+	'pasoz 'paso ! ;
+
+:traverse | x y z --
+	bre3ini
+	( cx cy cz or or $ffffff00 nand? )( drop
+		binhit 8 >? ( 2 << pixels + @ ; )
+		drop paso exec
+|		$7 and 2 << 'tadv + @ exec
+		) drop
+	0 ;
+
+|--------------------
+:testhit
+	setxy
+	0 ( sidevox <? )(
+		0 ( sidevox <? )(
+			over 0 pick2
+			traverse
+			px!+
+			1+ ) drop
+		sw sidevox - px+!
+		1+ ) drop ;
+
+|--------------------------
+:memory
+	mark
+	here 'octre ! ;
+
+:main
+
+|	"media/3do/bamboo.3do"
+|	"media/3do/earth.3do"
+	"media/3do/mario.3do"
+	"media/3do/luigi.3do"
+
+|	"media/3do/cesna.3do"
+|	"media/3do/castle.3do"
+|	"media/3do/porche1.3do"
+	load3do
+	load3do2
+
+	4
+	show clrscr verde
+		dup ":r%d " print cr
+|		octre pixels "%h %h " print cr
+
+		0 0 256 or or $ffffff00 nand? ( "dentro" print ) "%h " print cr
+|		10 40 traceyplane
+|		270 40 traceyplanen
+|		270 40 tracexplane
+|		530 40 tracezplane
+
+		270 40 testhit
+
+		[ -1 'xd +! ; ] <up>
+		[ 1 'xd +! ; ] <dn>
+		[ -1 'zd +! ; ] <le>
+		[ 1 'zd +! ; ] <ri>
+		'swapoc <f1>
+
+		'exit >esc< ;
+
+: memory main ;

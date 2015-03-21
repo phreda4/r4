@@ -1,0 +1,627 @@
+| desde morton3d de 10bits por dim
+| metodo de abajo hacia arriba
+| PHREDA 2014
+|-----------------------------
+^r4/lib/gui.txt
+^r4/lib/dlgfile.txt
+
+|^r4/lib/fontj.txt
+^r4/lib/trace.txt
+^r4/lib/sort.txt
+^r4/lib/bsearch.txt
+^r4/lib/morton.txt
+
+#filename )( 1024
+
+#memvox		| inicio de puntos ordenados
+#memvox>
+#vertices	| cantidad de puntos
+#octre
+#octre>
+
+|---- archivo a grabar
+#$inifile
+#$octree
+#$lastlev
+#$pixels
+#$colori
+#$realpixels
+#$end
+
+#bith	| bitmask hijos
+#padre	| de que padre
+#levels )( 1024	| niveles del octree
+#level>
+
+#xmin #ymin #zmin #xmax #ymax #zmax
+
+#qsize $ff	| lado
+#deepvox 8 	| profundidad octree
+
+#xcam 0 #ycam 0 #zcam 0.01
+
+:setdims | --
+	xmax ymax zmax max max
+	1024 <? ( $3ff 'qsize ! 10 'deepvox ! )
+	512 <? ( $1ff 'qsize ! 9 'deepvox ! )
+	256 <? ( $ff 'qsize ! 8 'deepvox ! )
+	128 <? ( $7f 'qsize ! 7 'deepvox ! )
+	64 <? ( $3f 'qsize ! 6 'deepvox ! )
+	drop
+	qsize 1+ 2* 'zcam !
+	;
+
+|----- conversion
+|--- 3D x y z . 10 bits
+:p1x2 | x -- v
+	$3ff and
+	dup 16 << xor $ff0000ff and
+	dup 8 << xor  $0300f00f and
+	dup 4 << xor  $030c30c3 and
+	dup 2 << xor  $09249249 and ;
+
+:morton3d | x y z -- Z
+	p1x2 2* swap p1x2 or 2* swap p1x2 or ;
+
+:c1x2 | x - v
+	$09249249 and
+	dup 2 >> xor $030c30c3 and
+	dup 4 >> xor $0300f00f and
+	dup 8 >> xor $ff0000ff and
+	dup 16 >> xor $3ff and ;
+
+:invmorton3d | Z -- x y z
+ 	dup c1x2 swap 2/ dup c1x2 swap 2/ c1x2 ;
+
+|----------- graficacion
+
+:3dop project3d op ;
+:3dline project3d line ;
+
+|---- dibujos de grillas
+:drawboxz | z --
+	0 0 pick2 3dop
+	qsize 0 pick2 3dline
+	qsize qsize pick2 3dline
+	0 qsize pick2 3dline
+	0 0 rot 3dline ;
+
+:drawboxy | y --
+	0 over 0 3dop
+	qsize over 0 3dline
+	qsize over qsize 3dline
+	0 over qsize 3dline
+	0 swap 0 3dline ;
+
+:drawboxx | x --
+	dup 0 0 3dop
+	dup qsize 0 3dline
+	dup qsize qsize 3dline
+	dup 0 qsize 3dline
+	0 0 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup 0 3dop qsize 3dline ;
+
+:draw3dbox
+	$707070 ink
+	0 drawboxz
+	qsize drawboxz
+	0 0 drawlinez
+	qsize 0 drawlinez
+	qsize qsize drawlinez
+	0 qsize drawlinez ;
+
+
+:drawp | x y z ---
+	project3d |2dup op line ;
+	-? ( 2drop ; ) sh >=? ( 2drop ; )
+	swap -? ( 2drop ; ) sw >=? ( 2drop ; ) swap
+	setxy
+	ink@ px!+
+	;
+
+:drawpcf | --
+	memvox
+	( memvox> <? )(
+		@+ swap @+ ink swap
+		invmorton3d drawp
+		) drop ;
+
+|------------ basicas
+:clearvox
+	memvox 'memvox> ! ;
+
+:vox-cnt-mem | -- cnt mem
+	memvox memvox> over - 3 >> 1+ swap ;
+
+:vox! | c x y z --
+	mortonlut memvox> !+ !+ 'memvox> ! ;
+
+:vox@ | x y z -- c
+	mortonlut vox-cnt-mem binsearch
+	0? ( -1 nip ; ) 4+ @ ;
+
+
+:dumpvox
+	memvox ( memvox> <? )(
+		@+ "%h " print @+ "%h" print cr
+		) drop ;
+
+|------------ construye octree
+:,oc | val --
+	octre> !+ 'octre> ! ;
+
+#colores 0 0 0 0 0 0 0 0 0 0
+#colores )( $ffff
+#colores>
+
+#sumr #sumg #sumb
+:promediocol | -- rgb
+	0 'sumr ! 0 'sumg ! 0 'sumb !
+	'colores ( colores> <? )(
+		@+
+		dup $ff and 16 << 'sumb +!
+		dup $ff00 and 8 << 'sumg +!
+		$ff0000 and 'sumr +!
+		) drop
+	colores> 'colores - 2 >>
+	1.0 swap / | optimizacion
+	sumr over *. $ff0000 and
+	sumg pick2 *. 8 >> $ff00 and or
+	sumb rot *. 16 >> $ff and or
+	;
+
+
+:shotbuild
+	show clrscr
+		pick2 pick2 pick2 "%h %h %h " print cr
+	'levels ( level> <? )(
+		@+ swap @+ rot - 3 >>
+		"%h " print
+|		8 - @+ swap @+ rot ( over <? )( 4+ @+ "%h " allowcr print ) 2drop
+		cr allowchome ) drop
+	cr
+
+	'exit >esc<
+	cflecha ;
+
+:nodecolor+ | node -- node+ color
+	memvox> <? ( @+ ; ) @+ 8 >> ;
+
+:oct2!+
+	padre ,oc
+	promediocol 8 << bith or ,oc
+	;
+
+:level!+
+	octre> level> !+ 'level> ! ;
+
+:ininode | nodo -- nodo+			| inicio de nivel
+	@+ dup 3 >> $1fffffff and 'padre !
+	$7 and place 'bith !
+	nodecolor+ 'colores !+ 'colores> ! ;
+
+:nextnode | nodo -- nodo+
+	@+
+	dup 3 >> $1fffffff and padre =? ( drop $7 and place bith or 'bith ! nodecolor+ colores> !+ 'colores> ! ; )
+	oct2!+
+	'padre ! $7 and place 'bith !
+	nodecolor+ 'colores !+ 'colores> !
+	;
+
+:collectnode | end start --
+	level!+
+	ininode
+	( over <? )( nextnode )
+	2drop
+	oct2!+
+	level!+ ;
+
+:,levelnode |  hasta desde --
+	( over <? )(
+		4+ @+ $ff and ,oc
+		) 2drop ;
+
+:calcdir | suma adr --- suma adr+
+	dup @	 		| suma adr valor
+	dup popcnt >r
+
+	pick2 pick2 4+ $octree - 2 >> - 8 << or swap !+	| relativo
+|	pick2 8 << or swap !+	| absoluto
+
+	swap r> + swap
+	;
+
+:,levelcolor |  hasta desde --
+	( over <? )(
+		4+ @+ 8 >>
+		$ffffff and
+|***		$f8fcf8 and | 16 bits
+		,oc
+		) 2drop ;
+
+|-------------------------------
+:buildoctree | --
+	"octree..." print cr redraw
+	memvox memvox> over - 3 >> 1+ swap shellsort | necesita ordenar
+	memvox>	dup 'octre ! 'octre> !
+	'levels 'level> !
+	|--- calcula hijos
+	memvox> memvox collectnode
+
+	'levels deepvox 1-
+	( 1? )( 1- swap
+		@+ swap @+ rot collectnode
+		swap ) 2drop
+
+	|--- graba octree real
+	octre> '$inifile !
+	$3d000000
+	deepvox or
+	,oc
+	0 ,oc | pixels
+	0 ,oc | p1
+	0 ,oc | p2
+	0 ,oc | xlim
+	0 ,oc | ylim
+	0 ,oc | zlim
+
+    octre> '$octree !
+	level> ( 'levels >? )( 8 -
+		'levels =? ( octre> '$lastlev ! )
+		dup 4+ @ over @
+		,levelnode
+		 ) drop
+
+	1 $octree ( octre> <? )( calcdir ) 2drop
+
+    octre> '$pixels !
+	level> ( 'levels >? )( 8 -
+		dup 4+ @ over @
+		,levelcolor
+		 ) drop
+
+	octre> dup '$realpixels ! '$colori !
+	memvox ( memvox> <? )(
+		4+ @+
+|***		$f8fcf8 and | 16 bits
+|***		$fcfcfc and | 18 bits
+|***		$fefefe and | 21 bits
+		,oc ) drop
+	octre> '$end !
+
+	|... save header
+	$pixels $octree - $inifile 4+ !
+
+	;
+
+|------------ optimiza ultimo nivel
+| No funciona por cambio a relativo!!
+|**********************************
+:todos? | cant dir1 dir2 -- 0/1
+	>r ( swap 1? )( 1- swap
+		@+ r@+ <>? ( rdrop 3drop 0 ; )
+		drop )
+	rdrop 2drop 1 ;
+
+:buscacol | nodo cant direccion -- nodo cant nuevadireccion/0
+	@+ swap >r 			| nodo cant dirpix
+
+	|$pixels 	| nodo cant primerc dirpix r:dirini
+	$colori		| busca desde los colores originales
+	( $realpixels pick3 2 << - <? )(
+		@+ pick2 =? ( drop pick2 1- over r 		| ya comprobo el primero!!
+			todos? 1? ( drop nip rdrop 4 - ; ) )
+		drop )
+	rdrop 2drop 0 ;
+
+:searchcolors | nodo valor -- nodo++
+	dup $ff and popcnt
+	swap 8 >> 2 << $pixels + 	| nodo cant direccion
+	buscacol 1? ( nip $pixels - 2 >> 8 << over @ $ff and or swap !+ ; )
+	drop						| nodo cant
+	swap dup @
+	dup 8 >> 2 << $pixels + >r
+	$ff and $realpixels $pixels - 2 >> 8 << or swap !+
+	swap
+	$realpixels ( swap 1? )( 1-
+		r@+ rot !+ ) drop
+	'$realpixels !
+	rdrop
+	;
+
+|--------------------------------------
+:shot
+	show clrscr
+
+	'levels ( level> <? )(
+		@+ swap @+ rot - 3 >>
+		"%h " print
+|		8 - @+ swap @+ rot ( over <? )( 4+ @+ "%h " allowcr print ) 2drop
+		cr allowchome ) drop
+	cr
+	$octree ( $lastlev <? )(
+		@+ "%h " allowcr print ) cr
+	( $pixels <? )(
+		over <? ( azul )( verde )
+		@+ "%h " allowcr print ) cr
+	( $end <? )(
+		$realpixels <? ( cyan )( amarillo )
+		@+ "%h " allowcr print ) drop
+
+	'exit >esc<
+	cflecha ;
+|--------------------------------------
+
+:optoctree
+	"optimizando..." print cr redraw
+	$lastlev ( $pixels <? )(
+|		shot
+		dup @ searchcolors
+		) drop
+	$pixels $octree - $realpixels !+ '$end !
+	;
+
+|------------ elimina repetidos
+:repetidos
+	memvox memvox> over - 3 >> 1+ swap
+	shellsort
+	memvox >r
+	r@+ 4 r+ memvox 8 +
+	( memvox> <? )(	| prevval nextdir
+		@+			| prevval nextdir+ nextval
+		pick2 =? ( drop 4+ )(
+			rot drop	| nextdir+ nextval
+			dup r!+ swap
+			@+ r!+ )
+		) 2drop
+	r> 'memvox> !
+	;
+
+|----------- ajuste
+:getminmax
+	memvox
+	@+ invmorton3d
+	dup 'zmin ! 'zmax !
+	dup 'ymin ! 'ymax !
+	dup 'xmin ! 'xmax !
+	4+
+	( memvox> <? )(
+		@+ invmorton3d
+		zmin <? ( dup 'zmin ! ) zmax >? ( dup 'zmax ! ) drop
+		ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
+		xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
+		4+ ) drop
+	setdims ;
+
+#ddx #ddy #ddz
+
+:movevox | --
+	memvox
+	( memvox> <? )( >r
+		r @ invmorton3d
+		ddz + rot
+		ddx + rot
+		ddy + rot
+		morton3d r>
+		!+ 4+ ) drop
+	;
+
+:centra
+	qsize 2/ xmax xmin + 2/ - 'ddx !
+	qsize 2/ ymax ymin + 2/ - 'ddy !
+	qsize 2/ zmax zmin + 2/ - 'ddz !
+	movevox
+	;
+
+|----- calcula normales
+#p0 #p0d
+#p1 #p1d
+
+:dist | p p1 -- p p1 dist2 | x^2+y^2+z^2
+	over @ over @ - dup *. >r
+	over 4+ @ over 4+ @ - dup *. r+
+	over 8 + @ over 8 + @ - dup *. r> + ;
+
+:dista | p p1 -- p p1 dist2 | |x|+|y|+|z|
+	over @ over @ - abs  >r
+	over 4+ @ over 4+ @ - abs r+
+	over 8 + @ over 8 + @ - abs r> + ;
+
+:compmax | p pn dist - p
+	0? ( 2drop ; )
+	p0d <? ( p0d 'p1d ! 'p0d ! p0 'p1 ! 'p0 ! ; )
+	p1d <? ( 'p1d ! 'p1 ! ; )
+	2drop ;
+
+:busco2mascerca | p -- p p0 p1
+	memvox >r
+	$7fffffff 'p0d !
+	$7fffffff 'p1d !
+	vertices ( 1? )( 1- swap
+		r dista compmax
+		16 r+ swap ) drop rdrop
+	p0 p1 ;
+
+#v0 0 0 0
+#v1 0 0 0
+
+|------------------------------------------------
+|	Vector3f v0 = (p0-p).Unit();
+|	Vector3f v1 = (p1-p).Unit();
+|	point.normal = v1.Cross(v0);
+|	if(p.Dot(point.normal) < 0) point.normal = -point.normal;
+|------------------------------------------------
+:calculonormal | p p0 p1 -- p zn yn xn
+	'v1 swap v3=
+	'v0 swap v3=
+	'v0 over v3- 'v0 v3nor
+	'v1 over v3- 'v0 v3nor
+	'v1 'v0 v3vec
+	dup 'v1 v3ddot -? ( 'v1 -1.0 v3* ) drop
+
+'v1 v3nor
+
+	'v1 @+ swap @+ swap @ swap rot
+	;
+
+:calcnormales
+	memvox> >r
+	memvox
+	vertices ( 1? )( 1- swap
+		busco2mascerca	| p p0 p1
+		calculonormal	| p xn yn zn
+		r!+ r!+ r!+ 	| guardo normal
+		16 + swap ) 2drop
+	rdrop
+| guarda como color
+	memvox> >r
+	memvox ( memvox> <? )(
+		4+
+		r@+ 9 >> $ff and
+		r@+ 1 >> $ff00 and or
+		r@+ 7 << $ff0000 and or
+		swap !+
+		) drop
+	rdrop
+	;
+
+|--------- cambia coordenada
+:rotacoord
+	memvox ( memvox> <? )(
+		dup @
+		invmorton3d rot morton3d
+		swap !+
+		4+ ) drop
+	;
+
+|--------- espejo coordenada
+:espejo
+	memvox ( memvox> <? )(
+		dup @
+		qsize dup 10 << over 20 << or or
+		xor
+		swap !+
+		4+ ) drop
+
+	;
+
+|---------
+:colorea
+	memvox ( memvox> <? )(
+		@+
+		invmorton3d
+		2 >> $ff and
+		swap 2 >> $ff and 8 << or
+		swap 2 >> $ff and 16 << or
+		swap !+ ) drop
+	;
+
+|--------- archivos
+:memory
+	mark here dup 'memvox ! 'memvox> ! ;
+
+:savetxt
+	$end 'here !
+	mark
+	$octree ( $end <? )(
+		dup $octree - 2 >>  "%h." ,print
+		@+ "%h " ,print ,cr ) drop
+	"octree.txt" savemem
+	empty ;
+
+:saveoctree
+	$inifile $end over -
+	"media/3do/" 'filename strcpy
+	'filename catdlgname
+	".3do" 'filename strcat
+	'filename save ;
+
+|------------- load import
+:load3dm | "filename" --
+	memvox swap
+	load dup 'memvox> ! 'here !
+	repetidos
+	getminmax
+	centra
+	getminmax
+	memvox> memvox - 3 >> 'vertices !
+	;
+
+:loaddisk3dm
+	"media/3dm" dlgfileload 1? ( load3dm ; ) drop ;
+
+:dump
+	"ROctree 32: " print $end $octree - "mem:%d " print 	cr
+	"ROctree 16: " print $pixels $octree - $end $pixels - 2/ + "mem:%d " print cr
+	"ROctree 8:  " print $pixels $octree - $end $pixels - 2 >> + 1024 + "mem:%d " print cr
+	"ROctreelessm 32: "print $pixels $octree - 4 >> $end $pixels - + "mem:%d " print 	cr
+	"ROctreelessm 16: "print $pixels $octree - 4 >> $end $pixels - 2/ + "mem:%d " print 	cr
+	cr
+	;
+
+
+:freelook
+	xymouse
+	sh 2/ - neg 2 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty
+	;
+
+|--------------------------
+:main
+	4 $88 paper
+	show clrscr verde fonti
+		cr2
+		dup ":r%d 3dm->Octree Convert  " print cr
+		vertices "Puntos: %d " print
+|		vertices 3 << "mem:%d " print
+		qsize "qsize:%h " print
+		deepvox "deepvox:%d " print cr
+		xmin xmax "X %d-%d " print
+		ymin ymax "Y %d-%d " print
+		zmin zmax "Z %d-%d " print
+		cr
+		octre> octre - 3 >> "Octree: %d " print
+		octre> octre - 1 >> vertices 2 << + "mem:%d " print
+		cr
+		memvox> memvox "mem %h %h" print cr
+		octre> octre "oct %h %h " print cr
+		$octree "%h " print
+		$lastlev "%h " print
+		$pixels "%h " print
+		$realpixels "%h " print
+		$end "%h " print
+		cr
+
+		1 rows 1-  gotoxy "F1-LOAD F2-BUILD F3-SAVE F4-OPT+SAVE F7-rota F8-espejo F9-colorea" print cr
+
+
+		omode
+		freelook
+		xcam ycam zcam mtrans
+		qsize 2/ neg dup dup mtransi
+
+		draw3dbox
+		drawpcf
+
+		[ -0.01 'zcam +! ; ] <up>
+		[ 0.01 'zcam +! ; ] <dn>
+
+		'loaddisk3dm <f1>
+		'buildoctree <f2>
+		[ saveoctree ; ] <f3>
+		[ buildoctree optoctree saveoctree ; ] <f4>
+		[ getminmax centra ; ] <f5>
+		'calcnormales <f6>
+
+		'rotacoord <f7>
+|		'espejo <f8>
+		'colorea <f9>
+
+
+		'exit >esc< ;
+
+: memory main ;
