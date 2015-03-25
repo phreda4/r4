@@ -79,9 +79,13 @@
 ;
 
 
+:drawpoint | xy oct --
+	octcolor swap 10>32 maskpxyo ;
+
 |---- quad cube
 :drawbox | xy oct --
-	octcolor ink dup 10>32 rot sizexy + 10>32 maskfpxy ;
+	drawpoint ;
+|	octcolor ink dup 10>32 rot sizexy + 10>32 maskfpxy ;
 
 |---- real cube
 #faces (
@@ -170,29 +174,31 @@
 	;
 
 |.............................................................
-:idsum | xy id -- xy
-	2 << 'ivecpos + @
-	ilevel >> ilevel 2 << 'ilevelm + @ and + ;
-
-:ichild | xy node bitm nro place -- xy node bitm
+:ichild | xy node bitm nro place -- xy node bitm chid.xy child.node
 	1- pick2 and popcnt 2 << pick3 +
- 	>r idsum r> ;
+ 	>r pick3
 
-:drawpoint | xy oct --
-	octcolor swap 10>32 maskpxyo ;
+	2 << 'ivecpos + @
+	ilevel >> ilevel 2 << 'ilevelm + @ and +
+
+	r> ;
 
 :isod | xy node --
+|	2drop ;	| 20 ms render
+|	drawpoint ;
+|:a
 	sizexy		| xy node wh
+|	trace
+| trace
 	$401 not nand? ( drop drawpoint ; )
 	pick2 + pick2		| xy node wh xy
 
 	10>32 rot 10>32 	| xy node x y w h
 	maskb.rget 0? ( 3drop ; ) drop 	| xy node
 
-	trace
 	$pixels >=? ( $magic $100 nand? ( drop dbox exec ; ) drop getoct isod getocti ; )
 
-	oct++
+	oct++				| xy node bitmask
 	1 'ilevel +!
 	nzmin 1 over << pick2 nand? ( 2drop )( ichild isod )
 	nzmin 1 xor 1 over << pick2 nand? ( 2drop )( ichild isod )
@@ -224,7 +230,19 @@
 	xmax >? ( dup 'xmax ! )
 	10 << or ;
 
+:showparam
+	show clrscr
+	'iwhlevel >r
+	8 ( 1? )( 1-
+		r@+ dup 10 >> swap $3ff and "%h %h " print cr
+		) drop
+	rdrop
+	'exit >esc<
+	[ end ; ] <f1>
+	;
+
 :isonow | oct --
+|	octvert> 96 - 'octvert> ! drop ; | 10 ms render!!!!!
 	>r
 	octvert> 96 - dup 'octvert> ! >r
 	r@+ r@+ r@+ id3di 'ivecpos !+
@@ -235,16 +253,19 @@
 	r@+ r@+ r@+ id3d swap !+
 	r@+ r@+ r@+ id3d swap !+
 	r@+ r@+ r> @ id3d swap !
-
 	xmin xmax over -
 	ymin ymax over -	|  xmin w ymin h
 	rot 10 << or		| xmin ymin wh
 	'iwhlevel >r
+	dup r!+
 	10 ( 1? )( 1- swap
-		dup r!+
-		1+ 2/ $7fdff and
+		dup $401 + 2/ $7fdff and r!+
+		2/ $7fdff and
 		swap ) 2drop rdrop
     swap 10 << or	| xy
+
+	showparam
+
 	'ivecpos >r
 	r @ over - r!+
 	r @ over - r!+
@@ -254,6 +275,9 @@
 	r @ over - r!+
 	r @ over - r!+
 	r @ over - r> !
+
+|	showparam
+
 	r>	| octree
 	isod
 	;
@@ -411,7 +435,7 @@
 
 
 |-------------
-#xcam 0 #ycam 0 #zcam 1.0
+#xcam 0 #ycam 0 #zcam 2.0
 
 |-------------
 :freelook
