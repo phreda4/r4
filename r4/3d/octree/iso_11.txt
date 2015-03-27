@@ -1,4 +1,4 @@
-| iso test 6_3
+| iso test 11
 | PHREDA 2015
 | bbox correcto en 3d
 |---------------------
@@ -27,7 +27,7 @@
 #ivecpos )( 32
 #iwhlevel )( 64
 
-#ilevelm $7fdff $3fcff $1fc7f $0fc3f $07c1f $03c0f $01c07 $00c03 $00401 $00000
+#ilevelm $fffff $7fdff $3fcff $1fc7f $0fc3f $07c1f $03c0f $01c07 $00c03 $00401 $00000
 
 #x0 #y0 #z0	| centro
 #x1 #y1 #z1	| Nx
@@ -64,28 +64,13 @@
 
 :10>32 | xy -- x y
 	dup 10 >> swap $3ff and ;
+
 :32>10 | x y -- xy
 	swap 10 << or ;
 
-:drawpoint1 | x y oct --
-|	hison 0? ( drop drawpoint ; )
-|	swap octcolor ink	| x y h
-|	over + maskfpy
-;
-
-:drawpoint2 | x y oct --
-|	octcolor ink
-|	wison pick2 + maskfpx
-;
-
-
-:drawpoint | xy oct --
-	octcolor swap 10>32 maskpxyo ;
-
 |---- quad cube
 :drawbox | xy oct --
-	drawpoint ;
-|	octcolor ink dup 10>32 rot sizexy + 10>32 maskfpxy ;
+	octcolor ink dup 10>32 rot sizexy + 10>32 maskfpxy ;
 
 |---- real cube
 #faces (
@@ -135,9 +120,9 @@
 :drawboxc | xy oct --
 	octcolor ink
 	nzmin 2 << dup 2* + 'faces +
-	getf maskop dfaces
-	getf maskop2 dfaces
-	getf maskop2 dfaces
+	getf 10>32 maskop dfaces
+	getf 10>32 maskop2 dfaces
+	getf 10>32 maskop2 dfaces
 	maskpoly
 	2drop ;
 
@@ -147,8 +132,7 @@
 ::adjustmem | octree --
 	dup '$base !
 	dup 28 + '$octree !
-	@+
-	'$magic !
+	@+ '$magic !
 	@ $octree + '$pixels !
 	;
 
@@ -176,21 +160,33 @@
 |.............................................................
 :ichild | xy node bitm nro place -- xy node bitm chid.xy child.node
 	1- pick2 and popcnt 2 << pick3 +
- 	>r pick3
-
-	2 << 'ivecpos + @
-	ilevel >> ilevel 2 << 'ilevelm + @ and +
-
+ 	>r
+	2 << 'ivecpos + @ ilevel >>
+	ilevel 2 << 'ilevelm + @ and
+	pick3 +
 	r> ;
 
+:drawpoint | xy oct --
+	octcolor swap 10>32 maskpxyo ;
+
+:drawpoint1 | xy oct xy2 --
+	0? ( drop drawpoint ; )
+	swap octcolor ink 	| xy xy2
+|	$ff00 ink
+	swap 10>32 rot $3ff and over +
+	maskfpy ;
+
+:drawpoint2 | xy oct xy2 --
+	swap octcolor ink  
+|	$ff ink
+	swap 10>32 rot 10 >> pick2 +
+	maskfpx ;
+
 :isod | xy node --
-|	2drop ;	| 20 ms render
-|	drawpoint ;
-|:a
 	sizexy		| xy node wh
-|	trace
-| trace
-	$401 not nand? ( drop drawpoint ; )
+	$ff800 nand? ( drawpoint1 ; )
+	$3fe nand? ( drawpoint2 ; )
+|	$401 not nand? ( drop drawpoint ; )
 	pick2 + pick2		| xy node wh xy
 
 	10>32 rot 10>32 	| xy node x y w h
@@ -230,19 +226,7 @@
 	xmax >? ( dup 'xmax ! )
 	10 << or ;
 
-:showparam
-	show clrscr
-	'iwhlevel >r
-	8 ( 1? )( 1-
-		r@+ dup 10 >> swap $3ff and "%h %h " print cr
-		) drop
-	rdrop
-	'exit >esc<
-	[ end ; ] <f1>
-	;
-
 :isonow | oct --
-|	octvert> 96 - 'octvert> ! drop ; | 10 ms render!!!!!
 	>r
 	octvert> 96 - dup 'octvert> ! >r
 	r@+ r@+ r@+ id3di 'ivecpos !+
@@ -263,9 +247,6 @@
 		2/ $7fdff and
 		swap ) 2drop rdrop
     swap 10 << or	| xy
-
-	showparam
-
 	'ivecpos >r
 	r @ over - r!+
 	r @ over - r!+
@@ -275,9 +256,6 @@
 	r @ over - r!+
 	r @ over - r!+
 	r @ over - r> !
-
-|	showparam
-
 	r>	| octree
 	isod
 	;
@@ -435,7 +413,7 @@
 
 
 |-------------
-#xcam 0 #ycam 0 #zcam 2.0
+#xcam 0 #ycam 0 #zcam 1.0
 
 |-------------
 :freelook
@@ -472,7 +450,7 @@
 	show clrscr
 
 		3dini
-		freelook
+|		freelook
 		xcam ycam zcam mtrans
 
 		maskb.clear
