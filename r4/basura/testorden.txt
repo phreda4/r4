@@ -4,8 +4,7 @@
 ^r4/lib/gui.txt
 ^r4/lib/morton.txt
 
-
-#xcam 0 #ycam 0 #zcam 0.25
+#xcam 0 #ycam 0 #zcam 1.25
 
 #octre
 #pixels
@@ -22,38 +21,6 @@
 #sizeq 512
 #xc #yc
 #color
-
-|-------------- orden segun vista
-#maskc
-$4152637	$15043726	$26370415	$37261504	$40516273	$51407362	$62734051	$73625140
-$4216537	$15307426	$26034715	$37152604	$40625173	$51743062	$62470351	$73516240
-$1234567	$10352476	$23016745	$32107654	$45670123	$54761032	$67452301	$76543210
-$1452367	$10534276	$23670145	$32716054	$45016723	$54107632	$67234501	$76325410
-$2461357	$13570246	$20634175	$31725064	$46052713	$57134602	$64207531	$75316420
-$2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
-
-|-------
-:maskabs | ax ay az -- mask
-	| ax ay az
-	pick2 <? ( over <? ( | x<z && y<z
-			drop <? ( 0 )( 8 )
-			nip ; ) )
-	rot | ay az ax
-	pick2 <? ( over <? ( | y<x && z<x
-			drop <? ( 16 )( 24 )
-			nip ; ) )
-	<? ( 32 )( 40 )
-	nip nip ;
-
-:calcmask
-	matinv
-	0 0 1.0 transform
-	rot +? ( 1 )( 0 ) >r abs
-	rot +? ( 2 r+ ) abs
-	rot +? ( 4 r+ ) abs
-	maskabs r> or
-	2 << 'maskc + @ 'dmask !
-	;
 
 
 |---- v4  loopless
@@ -100,6 +67,7 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	nip ;
 
 :getxyd | x y z -- X Y
+|	rot 4 >> rot 4 >> rot |rot 4 >>
 	swap over c10 >r c10 xc + r> yc + ;
 
 :getxd | x y z -- X
@@ -119,9 +87,9 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 #rotconv )( 96 | 8 dir*3 dim*4 bytes
 
 :fillrotvec | --
-	0 0 2048 transform 'zsz ! 'zsy ! 'zsx !
-	0 2048 0 transform 'ysz ! 'ysy ! 'ysx !
-	2048 0 0 transform 'xsz ! 'xsy ! 'xsx !
+	0 0 0.5 transform 'zsz ! 'zsy ! 'zsx !
+	0 0.5 0 transform 'ysz ! 'ysy ! 'ysx !
+	0.5 0 0 transform 'xsz ! 'xsy ! 'xsx !
 
 	'rotconv >r
 	xsx ysx zsx + + neg r!+	xsy ysy zsy + + neg r!+ xsz ysz zsz + + neg r!+	| 111
@@ -211,15 +179,21 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	over $f0 and dup 4 >> or 8 << or
 	swap $f and dup 4 << or or
 	ink ;
-|--------------------------------
-:dumpcube
 
+|--------------------------------
+#col $ff
+#col2 $ff00
+
+:dumpcube
 	xyznow> 12 - >r
 	r@+ r@+ r@+ rdrop
 	pick2 pick2 pick2
 	precalcvar
-	vx1 2* vx2 5 << or vy1 2* vy2 5 << or 8 << or 8 <<
-	dup "%h " allowcr print
+|	vx1 2* vx2 5 << or vy1 2* vy2 5 << or 8 << or 8 <<
+|	dup "%h " allowcr print
+	col
+	col2 $ff0000 xor dup 'col2 !
+	xor dup 'col !
 	ink
 |	vy2 vy1 vx2 vx1 "mx:%d Mx:%d my:%d My:%d" print cr
 	viewbox
@@ -238,14 +212,45 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 	-1 'level +! -12 'xyznow> +! ;
 
 |---------------------
+:inn
+	8 ( 1? )( 1-
+		dup pushch
+		8 ( 1? )( 1-
+			dup pushch
+			dumpcube
+			popch ) drop
+		popch ) drop
+	;
+
 :m3dto2dt2
 	1 'colo !
 	8 ( 1? )( 1-
 		dup pushch
 		8 ( 1? )( 1-
-			dup pushch dumpcube
+			dup pushch
+			dumpcube
 			popch ) drop
 		popch ) drop
+	;
+
+:drawvec
+	'rotconv >r
+	8 ( 1? )( 1-
+		r@+ "%h " print
+		r@+ "%h " print
+		r@+ "%h " print
+		cr ) drop rdrop ;
+
+:calcmed
+
+	0 ( 8 <? )(
+		1 'level !
+		0 0 0 0 idmovn
+		2 'level !
+		0 idmovn
+		pick3 idmovn swap rot "%h %h %h - " print
+		cr
+		1+ ) drop
 	;
 
 |---------------------
@@ -274,15 +279,19 @@ $2134657	$13025746	$20316475	$31207564	$46570213	$57461302	$64725031	$75643120
 		verde
 		dup "%d " print cr
 
+		$3 $3ff nand? ( "no" )( "si" ) print drop
+		$c00 $3ff nand? ( "si" )( "no" ) print drop
 		omode
 		freelook
 |		msec 3 << mrotxi
 |		msec 4 << mrotyi
 		fillrotvec
-		calcmask
 
 		octre xcam ycam zcam renderm3d2dtest2 | octre x y z
-
+blanco
+drawvec
+verde
+calcmed
 		rojo
 		sw 2/ 0 over sh op line
 		0 sh 2/ sw over op line
