@@ -462,20 +462,11 @@
 
 :vpcopia2
 	d.cnt 0? ( drop vplast ; ) drop
-|	"; A-" ,s printddvtack
 	fillstackuse
 	printstate
-|	"; B-" ,s printddvtack
-
 	( movereg 1? )( drop ) drop
-|	"; C-" ,s printddvtack
-
 	movecte
-|	"; D-" ,s printddvtack
-
 	movecell
-|	"; E-" ,s printddvtack
-
 	d.tos
 	dup cellREG? 0? ( 2drop ; ) drop	| ya es eax!
 	dup 0 ,cell2REG
@@ -597,6 +588,16 @@
 		pick3 cell=? 1? ( drop pick2 5 rot cell! )( 2drop )
 		) 3drop ;
 
+:cell2newRegW | cell --
+	newREG
+	over cell0? 0? ( drop
+		"mov " ,s dup ,REG "," ,s over ,CELL
+		)( drop
+		"xor " ,s dup ,REG "," ,s dup ,REG
+		)
+	,cr 	| solo reemplaza el unico
+	5 rot cell! ;
+
 #regdup -1
 
 :realmov | cell reg adr cell -- cell reg adr
@@ -614,6 +615,10 @@
 ::cell2REG | cell --
 	dup cellREG? 0 >=? ( removedup ; ) drop
     cell2newReg ;
+
+::cell2REGW | cell --
+	dup cellREG? 0 >=? ( removedup ; ) drop
+    cell2newRegW ;
 
 ::cell2NMEM | cell --
 	dup cellADR? 0? ( 2drop ; ) drop
@@ -749,7 +754,7 @@
 		) drop
 	inivpcnt ,vp
 
-	" ;VPUSH " ,s printddvtack        |*********
+|	" ;VPUSH " ,s printddvtack        |*********
 	;
 
 ::vpPop | --
@@ -767,7 +772,7 @@
 		) drop
 	vp@ 'inivpcnt !
 
-	" ;VPOP " ,s  printddvtack        |*********
+|	" ;VPOP " ,s  printddvtack        |*********
 	;
 
 ::vpPick | -- ; pop del segundo
@@ -793,7 +798,7 @@
 	r@+ 'inivpcnt !
     rdrop
 
-	" ;VPICK " ,s	printddvtack        |*********
+|	" ;VPICK " ,s	printddvtack        |*********
 	;
 
 ::vpDrop | --
@@ -803,6 +808,7 @@
 ::vpNip | --
 	-4  'vpst> +!
 	vpst> dup @ swap 4 - ! ;
+
 
 |---- transforma pila actual en copia apilada
 :cell=? | a b -- a b 1/0
@@ -852,11 +858,15 @@
 	"; vFitall " ,print d.cnt "d.cnt:%d " ,print
 	celln makemap 'celln !
 	,cr
+
+	";;;" ,s printddvtack        |*********
 	regused> dpila> d.cnt
 	( 1? )( 1-
 		rot 4 - rot 4 -
 		over @ over @ copycellcell
-		rot ) 3drop ;
+		rot ) 3drop 
+	";;;" ,s printddvtack        |*********
+	;
 
 |-----------------
 :esvari | cell var adr c0 -- cell var adr
