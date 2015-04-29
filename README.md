@@ -24,7 +24,7 @@ example
 #y 3
 
 :cuad | a -- a^2 
-  dup * 2 ;  
+  dup * ;  
   
 :dist | -- d^2   distance to x y
   x cuad y cuad + ;
@@ -33,7 +33,7 @@ example
 ```  
 
 The conditionals are fixes:
-0?, 1?, +?, -? are simple conditional, test but not destroy the top of stack (TOS), 0? are TOS=0.. and so on.
+0?, 1?, +?, -? are simple conditional, test but not destroy the top of stack (TOS), 0? are TOS=0.. and so on.<br/>
 =?, <? .. and? .. are conditional with two values to compare, destroy the TOS.
 
 Flow control is diferent from other forth, there are build in, with block of code construction.
