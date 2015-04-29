@@ -32,7 +32,7 @@ example
 : dist ;
 ```  
 
-The conditionals are fixes:
+The conditionals:<br/>
 0?, 1?, +?, -? are simple conditional, test but not destroy the top of stack (TOS), 0? are TOS=0.. and so on.<br/>
 =?, <? .. and? .. are conditional with two values to compare, destroy the TOS.
 
