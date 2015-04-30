@@ -144,6 +144,8 @@
 ::pushVAR	4 $10 or newcell d.push ;
 ::pushREG	5 newcell d.push ;
 
+::pushANN	6 newcell d.push ;
+
 |---- tokenrum
 ::d.pushDec pushNRO ;
 ::d.pushHex pushNRO ;
@@ -200,13 +202,15 @@
 :mt3 value "w%h" ,print ;			|--	3 cod  'func
 :mt4 value "w%h" ,print ;			|--	4 dat  'var
 :mt5 value 'sysregs list2str ,s ;	|-- 8 reg 	eax
-#tiposrm mt0 mt1 mt2 mt3 mt4 mt5 0 0 0
+:mt6 value "_aa%h" ,print ;			|--	6 ANONIMA  'func
+
+#tiposrm mt0 mt1 mt2 mt3 mt4 mt5 mt6 0 0
 
 :mt5b value 'sysregb list2str ,s ;
-#tiposrmb mt0 mt1 mt2 mt3 mt4 mt5b 0 0 0
+#tiposrmb mt0 mt1 mt2 mt3 mt4 mt5b mt6 0 0
 
 :mt5w value 'sysregw list2str ,s ;
-#tiposrmw mt0 mt1 mt2 mt3 mt4 mt5w 0 0 0
+#tiposrmw mt0 mt1 mt2 mt3 mt4 mt5w mt6 0 0
 
 ::,REG | nro --
 	'sysregs list2str ,s ;
@@ -219,8 +223,8 @@
 	2 << 'tiposrm + @ exec
 	shift 1? ( "*" ,s dup ,d ) drop
 	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	dup $f and 1 =? ( ")" ,s ) drop
 	$10 and? ( "]" ,s )
-	$f and 1 =? ( ")" ,s )
 	2drop ;
 
 :,cellb | nro --
@@ -373,10 +377,12 @@
 |---------------------------
 :printstate
 	";* " ,s
-	'regused 0 ( 8 <? )( swap
+	'regused 0 ( d.cnt <? )( swap
      	c@+ 1? ( pick2 2 << "[esi+%d] " ,print )
 		drop swap 1+ ) 2drop
-	,cr ;
+	,cr
+|	"r4asm/cod.asm" savemem
+	;
 
 |--- cambia registros en pila
 :inchange | reg dest cnt 'dpila cell sum
@@ -389,17 +395,28 @@
 		-? ( 2drop )( pick3 2 << <>? ( pick4 2 << =? ( inchange ) ) 2drop )
 		) 4drop ;
 
+:noregchg | dest cell -- ; celda no es reg!!
+ 	newReg
+	"mov " ,s dup ,REG ",dword [esi" ,s pick2 2 << 1? ( +? ( "+" ,s ) ,d )( drop ) "]" ,s ,cr
+	"mov dword [esi" ,s pick2 2 << 1? ( +? ( "+" ,s ) ,d )( drop ) "]," ,s over ,CELL ,cr
+	changeReg
+	5 $15 pick2 cell! swap 2 << swap cell+!
+
+|	";;" ,s printddvtack
+|	"r4asm/cod.asm" savemem
+|	trace
+	;
+
 :chg2stack | dest cell --
+	dup cellREG? -? ( drop noregchg ; ) drop
 	"xchg dword [esi" ,s
 	over 2 << 1? ( +? ( "+" ,s ) ,d )( drop )
 	"]," ,s dup ,CELL ,cr
 	dup cellREG? changeREG | dest cell reg
-
 	5 $15 pick2 cell! swap 2 << swap cell+! ;
 
 :mov2stack | dest cell --
-	over ";(%d )" ,print
-	"; " ,s printddvtack
+|	over ";(%d )" ,print "; " ,s printddvtack
 
 	over 'regused + c@ 1? ( drop chg2stack ; ) drop
 	"mov dword [esi" ,s
@@ -432,6 +449,8 @@
 	;
 
 :realmove | cnt adr cell -- cnt adr x x
+|	";Da" ,ln "r4asm/cod.asm" savemem
+
 	dup cellADR? 1? ( resolveADR ) drop
 	| cnt adr cell
 	pick2 swap mov2stack | dest cell
@@ -465,10 +484,13 @@
 :vpcopia2
 	d.cnt 0? ( drop vplast ; ) drop
 	fillstackuse
-	printstate
+|	printstate
 	( movereg 1? )( drop ) drop
+|	";C" ,ln "r4asm/cod.asm" savemem
 	movecte
+|	";D" ,ln "r4asm/cod.asm" savemem
 	movecell
+|	";E" ,ln "r4asm/cod.asm" savemem
 	d.tos
 	dup cellREG? 0? ( 2drop ; ) drop	| ya es eax!
 	dup 0 ,cell2REG
@@ -479,7 +501,9 @@
 ::vpila2normal | --
 	inivpcnt d.cnt -
 	correESI			| corre esi a nuevo lugar
+|	";B" ,ln "r4asm/cod.asm" savemem
 	vpcopia2			| copia los registros/ctes en pila
+|	";I" ,ln "r4asm/cod.asm" savemem
 	d.cnt 'inivpcnt !	| ahora vpila tiene...
 	;
 
@@ -822,8 +846,14 @@
 	3drop 1
 	;
 
-:xchgcellcell | dest src
-	cellREG? swap cellREG?
+:srcnotreg | dest src -- ; src no reg, dest ocupado
+|	over cellREG?
+	2dup ,cell2REG 5 rot cell!
+	;
+
+:xchgcellcell | dest src --
+|	dup cellREG? -? ( drop srcnotreg ; ) nip
+	swap cellREG?
 	2dup "xchg " ,s ,REG "," ,s ,REG ,cr
 	| src dst
 	'dpila ( dpila> <? )(
@@ -832,8 +862,9 @@
 	2drop ;
 
 :copycellcell | dest src --
-	cell=?
-	1? ( 3drop ; ) drop
+|	2dup "; %d %d " ,print over ,cell ,sp dup ,cell ,sp printddvtack    |*********
+|	"r4asm/cod.asm" savemem
+	cell=?  1? ( 3drop ; ) drop
 	over cellREG? REGcell +? ( drop xchgcellcell ; ) drop
 	swap cellREG?
 	2dup ,cell2REG 5 rot cell!
@@ -849,7 +880,7 @@
 		r@+ over cell+
 		r@+ over cell<<
 
-|		dup ,cell ,sp	| **DEBUG
+		dup ,cell ,sp	| **DEBUG
 
 		regused> !+ 'regused> !
 		) drop
@@ -866,17 +897,23 @@
 	"; vFitall " ,print d.cnt "d.cnt:%d " ,print ,cr
 	"r4asm/cod.asm" savemem
 
-	celln makemap 'celln !
+	celln makemap 'celln ! | usa celdas pero no las ocupa, restaura celln!
 	,cr
 
 	";;;" ,s printddvtack        |*********
 	"r4asm/cod.asm" savemem
 
-	regused> dpila> d.cnt
+|	regused> dpila> d.cnt	| de arriba hasta abajo
+|	( 1? )( 1-
+|		rot 4 - rot 4 -
+|		over @ over @ copycellcell
+|		rot ) 3drop
+
+	'regused 'dpila d.cnt	| de abajo hasta arriba
 	( 1? )( 1-
-		rot 4 - rot 4 -
-		over @ over @ copycellcell
-		rot ) 3drop
+		pick2 @ pick2 @ copycellcell
+		rot 4+ rot 4+ rot ) 3drop
+
 	";;;" ,s printddvtack        |*********
 	"r4asm/cod.asm" savemem
 
