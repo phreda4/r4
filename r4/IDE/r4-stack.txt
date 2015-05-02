@@ -351,20 +351,12 @@
 	;
 
 ::newRegX | -- reg ; no ecx ni edx ni eax
+	(
 	1 regcell -1 =? ( drop 1 ; ) drop | ebx
 	2 regcell -1 =? ( drop 2 ; ) drop | ecx
 	4 regcell -1 =? ( drop 4 ; ) drop | edi
 	freelastreg
-	1 regcell -1 =? ( drop 1 ; ) drop | ebx
-	2 regcell -1 =? ( drop 2 ; ) drop | ecx
-	4 regcell -1 =? ( drop 4 ; ) drop | edi
-	freelastreg
-	1 regcell -1 =? ( drop 1 ; ) drop | ebx
-	2 regcell -1 =? ( drop 2 ; ) drop | ecx
-	4 regcell -1 =? ( drop 4 ; ) drop | edi
-	7
-|	7 ( dup REGcell -1 <>? )( drop 1+ ) drop
-	;
+	) ;
 
 |---- corre esi
 :cellESI | cell deltasi --
@@ -850,18 +842,48 @@
 	3drop 1
 	;
 
+|------------------
+:estareg | val reg dir cell -- val reg dir
+	cellREG? pick2 <>? ( drop ; ) drop
+	rot drop
+	dup 4 - @
+	rot rot ;
+
+:searchused | dest src rr -- dest src rr userr
+	'regused 'dpila
+	( @+ cellReg? pick3 <>? )(	| rr used dpila rd
+		drop swap 4+ swap )
+	2drop @ ;
+
+:chageregreg | regs regd -- regs
+	'dpila ( dpila> <? )(
+		@+ cellReg? pick3 =? ( pick2 5 pick3 4 - @ cell! )
+		drop
+		) 2drop
+	;
+
 :srcnotreg | dest src -- ; src no reg, dest ocupado
-|	over cellREG?
+	over cellREG?	| dest src regdes
+	searchused		| dest src regdes userr
+	"mov " ,s dup ,cell "," ,s over ,REG ,cr
+	cellREG? chageregreg
+	";;;" ,s printddvtack        |*********
+	rot drop
 	2dup ,cell2REG 5 rot cell!
+	";;;" ,s printddvtack        |*********
+
+	"r4asm/cod.asm" savemem
+|	trace
+
 	;
 
 :xchgcellcell | dest src --
-|	dup cellREG? -? ( drop trace srcnotreg ; ) nip
-	cellREG? swap cellREG?
+	dup cellREG? -? ( drop srcnotreg ; ) nip
+	swap cellREG?
 	2dup "xchg " ,s ,REG "," ,s ,REG ,cr
 	| src dst
 	'dpila ( dpila> <? )(
-		@+ dup cellREG? +? ( pick3 =? ( pick4 5 pick3 cell! ) ) 2drop
+		@+ dup cellREG? pick3 =? ( pick4 5 pick3 cell! ) 2drop
 		) drop
 	2drop ;
 
@@ -869,7 +891,7 @@
 |	2dup "; %d %d " ,print over ,cell ,sp dup ,cell ,sp printddvtack    |*********
 |	"r4asm/cod.asm" savemem
 	cell=? 1? ( 3drop ; ) drop
-	over cellREG? REGcell +? ( drop xchgcellcell ; ) drop
+	over cellREG? REGcell 0 >=? ( drop xchgcellcell ; ) drop
 	swap cellREG?
 	2dup ,cell2REG 5 rot cell!
 	;
@@ -899,9 +921,10 @@
 
 ::vpFitAll | --
 	"; vFitall " ,print d.cnt "d.cnt:%d " ,print ,cr
-	"r4asm/cod.asm" savemem
 
 	celln makemap 'celln ! | usa celdas pero no las ocupa, restaura celln!
+
+	"r4asm/cod.asm" savemem
 
 |	";;;" ,s printddvtack        |*********
 |	"r4asm/cod.asm" savemem
