@@ -14,7 +14,7 @@
 
 |-------- Registros del CPU
 #sysregs "eax" "ebx" "ecx" "edx" "edi" "esi" "ebp"
-#sysregx "xmm1" "xmm2" "xmm3" "xmm4" "xmm5" "xmm6" "xmm7" "xmm8"
+|#sysregx "xmm1" "xmm2" "xmm3" "xmm4" "xmm5" "xmm6" "xmm7" "xmm8"
 #sysregw "ax" "bx" "cx" "dx" "di" "si" "bp" "
 #sysregb "al" "bl" "cl" "dl" "*" "*" "*"
 
@@ -322,12 +322,22 @@
 	;
 
 |------------------------------------------------
+
+:sinuse | n -- 0/1
+	0 nip
+;
+:a
+	'dpila ( dpila> <? )(
+		@+ cellSTACK -? ( drop )(
+			over 'dpila - inivpcnt 1- 2 << swap -
+			=? ( 2drop 1 ; ) drop
+			)
+		) drop 0 ;
+
 :freelreg | adr cell reg --
 
 	pick2 'dpila - inivpcnt 1- 2 << swap -
-	"mov [esi" ,s
-	1? ( +? ( "+" ,s ) ,d )( drop )
-	"]," ,s ,REG ,cr
+	"mov [esi" ,s 1? ( +? ( "+" ,s ) ,d )( drop ) "]," ,s ,REG ,cr
 	5 $15 pick2 cell!
 	swap
 	'dpila - inivpcnt 1- 2 << swap -
@@ -339,24 +349,26 @@
 ::freelastreg | --
 	"; libera !!!" ,s printddvtack
 	'dpila ( dpila> 4 - <? )(
-		@+ dup cellREG? 0 >=? ( freelreg ; )
-		2drop ) drop
+		dup 'dpila - inivpcnt 2 << swap -
+		sinuse 0? ( drop
+			@+ dup cellREG? 0 >=? ( freelreg ; )
+			2drop
+			)( drop 4+ )
+		) drop
 	 ;
 
 ::newreg | -- reg
 	0 ( dup REGcell -1 <>? )( drop 1+ ) drop
 	7 <? ( ; ) drop
-	freelastreg
-	0 ( dup REGcell -1 <>? )( drop 1+ ) drop
-	;
+	freelastreg 
+	newreg ;
 
 ::newRegX | -- reg ; no ecx ni edx ni eax
-	(
 	1 regcell -1 =? ( drop 1 ; ) drop | ebx
 	2 regcell -1 =? ( drop 2 ; ) drop | ecx
 	4 regcell -1 =? ( drop 4 ; ) drop | edi
 	freelastreg
-	) ;
+	newRegX ;
 
 |---- corre esi
 :cellESI | cell deltasi --
@@ -397,10 +409,6 @@
 	"mov dword [esi" ,s pick2 2 << 1? ( +? ( "+" ,s ) ,d )( drop ) "]," ,s over ,CELL ,cr
 	changeReg
 	5 $15 pick2 cell! swap 2 << swap cell+!
-
-|	";;" ,s printddvtack
-|	"r4asm/cod.asm" savemem
-|	trace
 	;
 
 :chg2stack | dest cell --
@@ -425,7 +433,7 @@
 :movereg
 	d.cnt 1- 'dpila
 	( dpila> 4 - <? )( swap 1- swap @+
-		dup cellREG? +? ( drop nip mov2stack 1 ; ) 2drop
+		dup cellREG? 0 >=? ( drop nip mov2stack 1 ; ) 2drop
 		) 2drop 0 ;
 
 |--- mueve constantes iguales !!!! optimizacion !!!!
@@ -445,8 +453,6 @@
 	;
 
 :realmove | cnt adr cell -- cnt adr x x
-|	";Da" ,ln "r4asm/cod.asm" savemem
-
 	dup cellADR? 1? ( resolveADR ) drop
 	| cnt adr cell
 	pick2 swap mov2stack | dest cell
@@ -482,11 +488,8 @@
 	fillstackuse
 |	printstate
 	( movereg 1? )( drop ) drop
-|	";C" ,ln "r4asm/cod.asm" savemem
 	movecte
-|	";D" ,ln "r4asm/cod.asm" savemem
 	movecell
-|	";E" ,ln "r4asm/cod.asm" savemem
 	d.tos
 	dup cellREG? 0? ( 2drop ; ) drop	| ya es eax!
 	dup 0 ,cell2REG
@@ -497,9 +500,7 @@
 ::vpila2normal | --
 	inivpcnt d.cnt -
 	correESI			| corre esi a nuevo lugar
-|	";B" ,ln "r4asm/cod.asm" savemem
 	vpcopia2			| copia los registros/ctes en pila
-|	";I" ,ln "r4asm/cod.asm" savemem
 	d.cnt 'inivpcnt !	| ahora vpila tiene...
 	;
 
@@ -673,7 +674,7 @@
 		@+ cellREG? 0? ( rot 1+ rot rot ) drop ) drop
 	0? ( drop ; ) drop | no hay eax abajo de pk2
 	newRegX
-	"mov " ,s dup ,REG ",eax ;...." ,s ,nl
+	"mov " ,s dup ,REG ",eax" ,s ,nl
 	'dpila ( dpila> 12 - <? )(
 		@+ dup cellREG? 0? ( drop pick2 5 rot cell! )( 2drop ) ) 2drop
 |	"; " ,s printddvtack
@@ -712,7 +713,7 @@
 	;
 
 ::nosEAXtosREGMEMfreeEDX
-	d.tos cellREG? 0? ( d.nos cellREG? +? ( 2drop inverteaxreg ; ) drop ) drop
+	d.tos cellREG? 0? ( d.nos cellREG? 0 >=? ( 2drop inverteaxreg ; ) drop ) drop
 	nosEAX
 	d.tos needREGorMEM
 	;
@@ -728,15 +729,15 @@
 	cell2cell! ;
 
 ::pk2EAXtosnosREGMEMfreeEDX
-	d.nos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv1eaxreg ; ) drop ) drop
-	d.tos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv2eaxreg ; ) drop ) drop
+	d.nos cellREG? 0? ( d.pk2 cellREG? 0 >=? ( 2drop inv1eaxreg ; ) drop ) drop
+	d.tos cellREG? 0? ( d.pk2 cellREG? 0 >=? ( 2drop inv2eaxreg ; ) drop ) drop
 	d.nos needREGorMEM
 	d.tos needREGorMEM
 	pk2EAX ;
 
 ::pk2EAXnosREGMEMtosECXfreeEDX
-	d.nos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv1eaxreg ; ) drop ) drop
-	d.tos cellREG? 0? ( d.pk2 cellREG? +? ( 2drop inv2eaxreg ; ) drop ) drop
+	d.nos cellREG? 0? ( d.pk2 cellREG? 0 >=? ( 2drop inv1eaxreg ; ) drop ) drop
+	d.tos cellREG? 0? ( d.pk2 cellREG? 0 >=? ( 2drop inv2eaxreg ; ) drop ) drop
 	d.nos needREGorMEM
 	d.tos cteorECX
 	pk2EAX ;
@@ -776,7 +777,7 @@
 		) drop
 	inivpcnt ,vp
 
-	" ;VPUSH " ,s printddvtack        |*********
+|	" ;VPUSH " ,s printddvtack        |*********
 	;
 
 ::vpPop | --
@@ -794,7 +795,7 @@
 		) drop
 	vp@ 'inivpcnt !
 
-	" ;VPOP " ,s  printddvtack        |*********
+|	" ;VPOP " ,s  printddvtack        |*********
 	;
 
 ::vpPick | -- ; pop del segundo
@@ -820,7 +821,7 @@
 	r@+ 'inivpcnt !
     rdrop
 
-	" ;VPICK " ,s	printddvtack        |*********
+|	" ;VPICK " ,s	printddvtack        |*********
 	;
 
 ::vpDrop | --
@@ -867,14 +868,10 @@
 	searchused		| dest src regdes userr
 	"mov " ,s dup ,cell "," ,s over ,REG ,cr
 	cellREG? chageregreg
-	";;;" ,s printddvtack        |*********
+|	";;;" ,s printddvtack        |*********
 	rot drop
 	2dup ,cell2REG 5 rot cell!
-	";;;" ,s printddvtack        |*********
-
-	"r4asm/cod.asm" savemem
-|	trace
-
+|	";;;" ,s printddvtack        |*********
 	;
 
 :xchgcellcell | dest src --
@@ -888,8 +885,6 @@
 	2drop ;
 
 :copycellcell | dest src --
-|	2dup "; %d %d " ,print over ,cell ,sp dup ,cell ,sp printddvtack    |*********
-|	"r4asm/cod.asm" savemem
 	cell=? 1? ( 3drop ; ) drop
 	over cellREG? REGcell 0 >=? ( drop xchgcellcell ; ) drop
 	swap cellREG?
@@ -924,16 +919,10 @@
 
 	celln makemap 'celln ! | usa celdas pero no las ocupa, restaura celln!
 
-	"r4asm/cod.asm" savemem
+|	"r4asm/cod.asm" savemem
 
 |	";;;" ,s printddvtack        |*********
 |	"r4asm/cod.asm" savemem
-
-|	regused> dpila> d.cnt	| de arriba hasta abajo
-|	( 1? )( 1-
-|		rot 4 - rot 4 -
-|		over @ over @ copycellcell
-|		rot ) 3drop
 
 	'regused 'dpila d.cnt	| de abajo hasta arriba
 	( 1? )( 1-
