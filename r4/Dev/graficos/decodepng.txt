@@ -1,0 +1,129 @@
+| PNG decoder
+| from picopng (Lode Vandevenne)
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+#LENBASE |[29] =  {
+	3 4 5 6 7 8 9 10 11 13 15 17 19 23 27 31 35 43 51 59 67 83 99 115 131 163 195 227 258
+#LENEXTRA |[29] = {
+	0 0 0 0 0 0 0  0  1  1  1  1  2  2  2  2  3  3  3  3  4  4  4   4   5   5   5   5   0
+#DISTBASE |[30] =  {
+	1 2 3 4 5 7 9 13 17 25 33 49 65 97 129 193 257 385 513 769 1025 1537 2049 3073 4097 6145 8193 12289 16385 24577
+#DISTEXTRA |[30] = {
+	0 0 0 0 1 1 2  2  3  3  4  4  5  5   6   6   7   7   8   8    9    9   10   10   11   11   12    12    13    13
+#CLCL |[19] = { |code length code lengths
+	16  17  18  0  8  7  9  6  10  5  11  4  12  3  13  2  14  1  15
+
+#wpng
+#hpng
+#dpng	| deph
+#cpng	| color
+#opng	| compression
+#fpng	| filter
+#ipng	| interlace
+
+#ipaleta
+#idat
+#idat>
+
+:read32 | mem -- mem c
+	@+
+	dup $ff and 24 << over $ff00 and 8 << or
+	over $ff0000 and 8 >> or swap 24 >> $ff and or ;
+
+:pngheader | 'mem size -- 'mem size 0/mem
+	over
+	@+ $474e5089 <>? ( 2drop 0 ; ) drop
+	@+ $0a1a0a0d <>? ( 2drop 0 ; ) drop
+	4+ @+ $52444849 <>? ( 2drop 0 ; ) drop | IHDR
+	read32 'wpng !
+	read32 'hpng !
+	c@+ 'dpng !
+	c@+ 3 =? ( here 'ipaleta ! $3ff 'here +! ) | con paleta
+	'cpng !
+	c@+ 1? ( 2drop 0 ; )	| error: only compression method 0 is allowed in the specification
+	'opng !
+	c@+ 1? ( 2drop 0 ; )	| error: only filter method 0 is allowed in the specification
+	'fpng !
+	c@+	1 >? ( 2drop 0 ; )	| error: only interlace methods 0 and 1 exist in the specification
+	'ipng !
+	here dup 'idat ! 'idat> !
+	;
+|-----------------------------------------
+:readlen | adr -- adr len
+	dup 8 - @
+	dup $ff and 24 << over $ff00 and 8 << or
+	over $ff0000 and 8 >> or swap 24 >> $ff and or ;
+
+:didat | adr -- adr'
+	readlen | adr len
+	idat> pick2 pick2 cmove | des scr cnt
+	dup 'idat> +!
+	+ 4+ ;
+
+:dplte
+	readlen | adr len
+	ipaleta >r
+	2dup ( +? )( 3 - swap
+		c@+ swap c@+ swap c@+
+		$ff and rot $ff and 8 << or rot $ff and 16 << or $ff000000 or
+		r!+
+		swap ) 2drop
+	rdrop
+	+ 4+ ;
+
+:dtrns
+	readlen | adr len
+	+ 4+ ;
+
+:readchunk | adr code -- adr'
+	$54414449 =? ( drop didat ; ) | IDAT
+	$45544c50 =? ( drop dplte ; ) | PLTE
+	$534e5274 =? ( drop dtrns ; ) | tRNS
+	drop readlen + 4+ ; | desconocido, saltea
+
+|-----------------------------------------
+::decodePNG | 'mem size -- 'memfb / 0 error
+	29 <? ( 2drop 0 ; )			| no size
+|	over + swap 				| mf mm
+	pngheader 0? ( nip nip ; )  | header error
+	4+ ( 4+ @+ $444e4549 <>? )(  | IEND
+		readchunk
+		| over >? ( 2drop 0 ; ) | se paso del tamaño!!
+		) drop
+	2drop
+
+	;
+
+|------
+#imagen
+:main
+	mark
+	here dup "r4/dev/graficos/test2.png" load
+	dup 'imagen !
+	dup 'here !
+	over - decodePNG
+	0? ( drop ; ) drop
+	show clrscr
+		0 0 setxy
+		imagen >r
+		hpng ( 1? )( 1-
+			wpng ( 1? )( 1- r@+ px!+  ) drop
+			sw wpng - px+! ) drop
+			rdrop
+
+		ipaleta 256 ( 1? )( 1- swap
+			@+ ink
+			400 pick2 op
+			500 pick2 line
+			swap ) 2drop
+
+		blanco
+		hpng wpng "%dx%d " print
+		cpng dpng " deph:%d color:%d" print
+
+		'exit >esc<
+		cminiflecha ;
+
+
+: main ;
