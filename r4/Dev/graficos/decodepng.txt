@@ -21,16 +21,48 @@
 #opng	| compression
 #fpng	| filter
 #ipng	| interlace
+#bpppng
 
 #ipaleta
 #idat
 #idat>
+#imgpng
 
 :read32 | mem -- mem c
 	@+
 	dup $ff and 24 << over $ff00 and 8 << or
 	over $ff0000 and 8 >> or swap 24 >> $ff and or ;
 
+#bbit
+#bitnow 0
+
+:read1bit | adr -- adr bit
+	bitnow 0? ( drop c@+ 'bbit ! 8 )
+	1- 'bitnow !
+	bbit dup 2/ 'bbit !
+	1 and ;
+
+:readNbit | adr len -- adr nro
+	bitnow 0? ( drop swap c@+ 'bbit ! swap 8 ) | adr len bitnow
+	0 rot rot 	| adr 0 len bitnow
+	( over <? )(
+
+		swap bitnow <<
+		bbit bitnow 1+ << 1- and or
+		swap bitnow -
+
+		rot c@+ 'bbit ! rot rot 8 )
+	dup neg 'bitnow +!
+	bbit dup pick2 >> 'bbit !
+	1 rot 1+ << 1- and + ;
+
+|-----------------------------------------
+
+:ZlibDec | out in --
+	;
+
+
+|-----------------------------------------
 :pngheader | 'mem size -- 'mem size 0/mem
 	over
 	@+ $474e5089 <>? ( 2drop 0 ; ) drop
@@ -48,7 +80,14 @@
 	c@+	1 >? ( 2drop 0 ; )	| error: only interlace methods 0 and 1 exist in the specification
 	'ipng !
 	here dup 'idat ! 'idat> !
+	cpng	| get bpp
+	2 <? ( dpng 'bpppng ! )
+	2 =? ( dpng dup 2* + 'bpppng ! )
+	3 =? ( dpng 'bpppng ! )
+	3 >? ( dup 2 - dpng * 'bpppng ! )
+	drop
 	;
+
 |-----------------------------------------
 :readlen | adr -- adr len
 	dup 8 - @
@@ -92,11 +131,22 @@
 		| over >? ( 2drop 0 ; ) | se paso del tamaño!!
 		) drop
 	2drop
-
+	idat> dup 'imgpng !
+	idat ZlibDec | out in --
 	;
 
 |------
 #imagen
+:testpal
+	ipaleta 256 ( 1? )( 1- swap
+		@+ ink
+		400 pick2 op
+		500 pick2 line
+		swap ) 2drop ;
+
+:teszlib
+	;
+
 :main
 	mark
 	here dup "r4/dev/graficos/test2.png" load
@@ -111,12 +161,6 @@
 			wpng ( 1? )( 1- r@+ px!+  ) drop
 			sw wpng - px+! ) drop
 			rdrop
-
-		ipaleta 256 ( 1? )( 1- swap
-			@+ ink
-			400 pick2 op
-			500 pick2 line
-			swap ) 2drop
 
 		blanco
 		hpng wpng "%dx%d " print
