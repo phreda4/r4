@@ -1,5 +1,6 @@
-| PNG decoder
-| from picopng (Lode Vandevenne)
+| PNG decoder from picopng (Lode Vandevenne)
+| PHREDA 2015
+|------------------------------------
 ^r4/lib/gui.txt
 ^r4/lib/trace.txt
 
@@ -34,33 +35,64 @@
 	over $ff0000 and 8 >> or swap 24 >> $ff and or ;
 
 #bbit
-#bitnow 0
+#bitl
 
 :read1bit | adr -- adr bit
-	bitnow 0? ( drop c@+ 'bbit ! 8 )
-	1- 'bitnow !
+	bitl 0? ( drop c@+ 'bbit ! 8 )
+	1- 'bitl !
 	bbit dup 2/ 'bbit !
 	1 and ;
 
-:readNbit | adr len -- adr nro
-	bitnow 0? ( drop swap c@+ 'bbit ! swap 8 ) | adr len bitnow
-	0 rot rot 	| adr 0 len bitnow
-	( over <? )(
+:readnbit | adr n -- adr nro
+	swap 0 >r
+	bbit bitl 0 | a bb bn len
+	( pick4 <? )( swap	| a bb len bn
+    	0? ( drop nip swap c@+ rot 8 )
+		1- pick2 1 and
+		pick2 << r+
+		rot 2/ swap rot 1+ ) drop
+	'bitl ! 'bbit !
+	nip r> ;
 
-		swap bitnow <<
-		bbit bitnow 1+ << 1- and or
-		swap bitnow -
+:readbyte | adr -- adr byte
+	0 'bitl ! c@+ ;
 
-		rot c@+ 'bbit ! rot rot 8 )
-	dup neg 'bitnow +!
-	bbit dup pick2 >> 'bbit !
-	1 rot 1+ << 1- and + ;
+|------
+:paeth2 | a b pa pb -- p
+	over >=? ( 3drop ; ) 2drop nip ;
+
+:paeth | a b c -- p
+	pick2 pick2 + over - 	| a b c p
+	pick3 over - abs swap	| a b c pa p
+	pick3 over - abs swap	| a b c pa pb p
+	pick3 - abs				| a b c pa pb pc
+	pick2 >=? ( drop rot drop paeth2 ; ) | a b pa pb
+	>r >r drop rot drop r> r> | b c pb pc
+	paeth2 ;
 
 |-----------------------------------------
-
-:ZlibDec | out in --
+:nocompress | adr -- adr
+	readbyte swap readbyte 8 << rot or
+	swap 2 + swap
+	( 1? )( swap c@+ ,c swap ) drop
 	;
 
+:fixhuff | adr -- adr
+	;
+
+:dynhuff | adr -- adr
+	;
+
+:typeinflate | adr BTYPE -- adr
+	0? ( drop nocompress ; )
+	1- 0? ( drop fixhuff ; )
+	drop dynhuff ;
+
+:inflate | in --
+	dup ( drop read1bit swap | bfinal adr
+		2 readnbit			| bfinal adr BTYPE
+		typeinflate
+		swap 1? ) 2drop ;
 
 |-----------------------------------------
 :pngheader | 'mem size -- 'mem size 0/mem
@@ -98,7 +130,7 @@
 	readlen | adr len
 	idat> pick2 pick2 cmove | des scr cnt
 	dup 'idat> +!
-	+ 4+ ;
+	+ ;
 
 :dplte
 	readlen | adr len
@@ -109,11 +141,11 @@
 		r!+
 		swap ) 2drop
 	rdrop
-	+ 4+ ;
+	+ ;
 
 :dtrns
 	readlen | adr len
-	+ 4+ ;
+	+ ;
 
 :readchunk | adr code -- adr'
 	$54414449 =? ( drop didat ; ) | IDAT
@@ -126,13 +158,13 @@
 	29 <? ( 2drop 0 ; )			| no size
 |	over + swap 				| mf mm
 	pngheader 0? ( nip nip ; )  | header error
-	4+ ( 4+ @+ $444e4549 <>? )(  | IEND
+	( 8 + @+ $444e4549 <>? )(  | IEND
 		readchunk
 		| over >? ( 2drop 0 ; ) | se paso del tamaño!!
 		) drop
 	2drop
-	idat> dup 'imgpng !
-	idat ZlibDec | out in --
+	idat> dup 'imgpng ! 'here !
+	idat inflate | in --
 	;
 
 |------
@@ -144,7 +176,33 @@
 		500 pick2 line
 		swap ) 2drop ;
 
+:drawimg
+	0 0 setxy
+	imagen >r
+	hpng ( 1? )( 1-
+		wpng ( 1? )( 1- r@+ px!+  ) drop
+		sw wpng - px+! ) drop
+		rdrop ;
+
+
+#l2 ( $55 $af $ff $f1 )
+#l1 ( $21 $43 $65 $87 )
+
 :teszlib
+	cr
+	'l2 32 ( 1? )( 1- swap
+		read1bit "%d" print
+		swap ) 2drop
+	cr
+	'l2 16 ( 1? )( 1- swap
+		2 readnbit " %d" print
+		swap ) 2drop
+	cr
+	'l2 8 ( 1? )( 1- swap
+		4 readnbit "   %h" print
+		swap ) 2drop
+	cr
+
 	;
 
 :main
@@ -155,16 +213,12 @@
 	over - decodePNG
 	0? ( drop ; ) drop
 	show clrscr
-		0 0 setxy
-		imagen >r
-		hpng ( 1? )( 1-
-			wpng ( 1? )( 1- r@+ px!+  ) drop
-			sw wpng - px+! ) drop
-			rdrop
-
+		drawimg
 		blanco
 		hpng wpng "%dx%d " print
-		cpng dpng " deph:%d color:%d" print
+		cpng dpng " deph:%d color:%d" print cr
+
+|		teszlib
 
 		'exit >esc<
 		cminiflecha ;
