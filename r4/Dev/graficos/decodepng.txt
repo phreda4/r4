@@ -13,7 +13,6 @@
 #opng	| compression
 #fpng	| filter
 #ipng	| interlace
-#bpppng
 
 #ipaleta
 #idat
@@ -46,7 +45,7 @@
 	nip r> ;
 
 :readbyte | adr -- adr byte
-	0 'bitl ! c@+ ;
+	0 'bitl ! c@+ $ff and ;
 
 |------
 :paeth2 | a b pa pb -- p
@@ -112,7 +111,7 @@
 	0 0	( 		| dt a sum cur
 		r@+ rot over +		| dy a cur l sum+
 		rot 2* rot -		| dy a sum+ cur*-
-		rot read1bin rot + | dy sum+ a b+cur*-
+		rot read1bit rot + | dy sum+ a b+cur*-
 		rot swap
 		-? ) rdrop
 	+ 2 << rot 64 + + @ ;
@@ -125,11 +124,40 @@
 #codetr )( 64	| 16x4
 #codetr )( 1152	| 288x4
 
-#off )( 16
+#off )( 64
 
-:buildtree | a -- a
-	0 0 0 0 !+ !+ !+ !
-|....
+:buildtree | cnt len table --
+	dup >r
+	16 ( 1? )( 1- 0 r!+ ) drop rdrop
+	>r
+	2dup swap | len cnt
+	( 1? )( 1- 1 rot c@+ 2 << r + +! swap ) 2drop
+	0 r !	| len cnt
+	0 r 'off ( 'off 64 + <? )(
+		pick2 swap !+ | 0 r 'off
+		>r @+ rot + swap r>
+		) 3drop
+	0 ( over <? )( rot c@+
+		1? ( 2 << 'off + dup @
+			1 rot +!
+			64 + r +
+			pick3 swap !
+			)( drop )
+		rot rot ) 3drop rdrop ;
+
+:decodeloop | lenf len a sym -- a lenf len
+	16 <? ( rot c!+ rot swap ; )
+	16 =? ( drop over 1- c@ swap 2 readnbit 3 + | lenf len prev a n
+			>r rot r> | lenf prev a len n
+			( 1? )( 1- >r
+				pick2 swap c!+	| lenf prev a len+
+				r> ) drop
+			rot drop swap ; )
+	17 =? ( drop 3 readnbit 3 + )( drop 7 readnbit 11 + )
+	rot swap | lenf a len n
+	( 1? )( 1-
+		0 rot c!+ swap
+		) drop
 	;
 
 :decodetree | a -- a
@@ -138,10 +166,17 @@
 	4 readnbit 4+ 'hclen !
 	0 0 0 0 'lens !+ !+ !+ ! | 20 zeros in lens
 	'clcidx ( 'fixsta <? )( swap
-		3 readnbits rot c@+
+		3 readnbit rot @+
 		'lens + rot swap ! ) drop
-	buldtree
-|....
+
+	'codetr 'lens 19 buildtree
+	'lens dup hlit hdist + swap	| a lenf len
+	( over <? )(
+		rot 'codetr decodesym	| lenf len a sym
+		decodeloop
+		) 2drop
+	'dynsta 'lens hlit buildtree
+	'dyndta 'lens hlit + hdist buildtree
 	;
 
 :inflatesym | dt dl a sym -- dt dl a
@@ -173,7 +208,7 @@
 :nocompress | adr -- adr
 	readbyte swap readbyte 8 << rot or
 	swap 2 + swap
-	( 1? )( swap c@+ ,c swap ) drop
+	( 1? )( 1- swap c@+ ,c swap ) drop
 	;
 
 :typeinflate | adr BTYPE -- adr
@@ -185,11 +220,11 @@
 	dup ( drop read1bit swap | bfinal adr
 		2 readnbit			| bfinal adr BTYPE
 		typeinflate
-		swap 1? ) 2drop ;
+		swap 0? ) 2drop ;
+
 
 |-----------------------------------------
-:pngheader | 'mem size -- 'mem size 0/mem
-	over
+:pngheader | 'mem s-- 0/mem
 	@+ $474e5089 <>? ( 2drop 0 ; ) drop
 	@+ $0a1a0a0d <>? ( 2drop 0 ; ) drop
 	4+ @+ $52444849 <>? ( 2drop 0 ; ) drop | IHDR
@@ -205,12 +240,6 @@
 	c@+	1 >? ( 2drop 0 ; )	| error: only interlace methods 0 and 1 exist in the specification
 	'ipng !
 	here dup 'idat ! 'idat> !
-	cpng	| get bpp
-	2 <? ( dpng 'bpppng ! )
-	2 =? ( dpng dup 2* + 'bpppng ! )
-	3 =? ( dpng 'bpppng ! )
-	3 >? ( dup 2 - dpng * 'bpppng ! )
-	drop
 	;
 
 |-----------------------------------------
@@ -244,24 +273,20 @@
 	$54414449 =? ( drop didat ; ) | IDAT
 	$45544c50 =? ( drop dplte ; ) | PLTE
 	$534e5274 =? ( drop dtrns ; ) | tRNS
-	drop readlen + 4+ ; | desconocido, saltea
+	drop readlen + ; | desconocido, saltea
 
 |-----------------------------------------
-::decodePNG | 'mem size -- 'memfb / 0 error
-	29 <? ( 2drop 0 ; )			| no size
-|	over + swap 				| mf mm
-	pngheader 0? ( nip nip ; )  | header error
+::decodePNG | 'mem -- 'memfb / 0 error
+	pngheader 0? ( ; )  | header error
 	( 8 + @+ $444e4549 <>? )(  | IEND
-		readchunk
-		| over >? ( 2drop 0 ; ) | se paso del tamaño!!
-		) drop
-	2drop
+		readchunk ) drop
 	idat> dup 'imgpng ! 'here !
 	idat inflate | in --
+
+
 	;
 
 |------
-#imagen
 :testpal
 	ipaleta 256 ( 1? )( 1- swap
 		@+ ink
@@ -270,48 +295,29 @@
 		swap ) 2drop ;
 
 :drawimg
-	0 0 setxy
-	imagen >r
+	10 10 setxy
+	imgpng
+	>r
 	hpng ( 1? )( 1-
 		wpng ( 1? )( 1- r@+ px!+  ) drop
 		sw wpng - px+! ) drop
 		rdrop ;
 
 
-#l2 ( $55 $af $ff $f1 )
-#l1 ( $21 $43 $65 $87 )
-
-:teszlib
-	cr
-	'l2 32 ( 1? )( 1- swap
-		read1bit "%d" print
-		swap ) 2drop
-	cr
-	'l2 16 ( 1? )( 1- swap
-		2 readnbit " %d" print
-		swap ) 2drop
-	cr
-	'l2 8 ( 1? )( 1- swap
-		4 readnbit "   %h" print
-		swap ) 2drop
-	cr
-
-	;
-
 :main
 	mark
-	here dup "r4/dev/graficos/test2.png" load
-	dup 'imagen !
-	dup 'here !
-	over - decodePNG
+	here dup
+|	"r4/dev/graficos/test2.png" load
+	"r4/dev/graficos/basi0g01.png" load
+	over =? ( 2drop ; ) drop
+	decodePNG
 	0? ( drop ; ) drop
 	show clrscr
 		drawimg
 		blanco
 		hpng wpng "%dx%d " print
-		cpng dpng " deph:%d color:%d" print cr
+		fpng ipng cpng dpng " deph:%d color:%d interlace:%d filter:%d" print cr
 
-|		teszlib
 
 		'exit >esc<
 		cminiflecha ;
