@@ -14,18 +14,23 @@
 #fpng	| filter
 #ipng	| interlace
 
+#key.rgb
+
+#bytewidth
+#bbit
+#bitl
+
 #ipaleta
 #idat
 #idat>
-#imgpng
+#databyte
+#img
+
 
 :read32 | mem -- mem c
 	@+
 	dup $ff and 24 << over $ff00 and 8 << or
 	over $ff0000 and 8 >> or swap 24 >> $ff and or ;
-
-#bbit
-#bitl
 
 :read1bit | adr -- adr bit
 	bitl 0? ( drop c@+ 'bbit ! 8 )
@@ -46,19 +51,6 @@
 
 :readbyte | adr -- adr byte
 	0 'bitl ! c@+ $ff and ;
-
-|------
-:paeth2 | a b pa pb -- p
-	over >=? ( 3drop ; ) 2drop nip ;
-
-:paeth | a b c -- p
-	pick2 pick2 + over - 	| a b c p
-	pick3 over - abs swap	| a b c pa p
-	pick3 over - abs swap	| a b c pa pb p
-	pick3 - abs				| a b c pa pb pc
-	pick2 >=? ( drop rot drop paeth2 ; ) | a b pa pb
-	>r >r drop rot drop r> r> | b c pb pc
-	paeth2 ;
 
 |-------
 #len_bits
@@ -160,16 +152,28 @@
 		) drop
 	;
 
+:dump
+	cr cr cr cr cr
+	hlit "%d " print
+	hdist "%d " print
+	hclen "%d " print cr
+
+	'lens 19 ( 1? )( 1-
+		swap c@+ "%d " print swap ) 2drop
+ 	trace ;
+
 :decodetree | a -- a
 	5 readnbit 257 + 'hlit !
 	5 readnbit 1+ 'hdist !
 	4 readnbit 4+ 'hclen !
-	0 0 0 0 'lens !+ !+ !+ ! | 20 zeros in lens
-	'clcidx ( 'fixsta <? )( swap
-		3 readnbit rot @+
-		'lens + rot swap ! ) drop
+	0 0 0 0 0 'lens !+ !+ !+ !+ ! | 20 zeros in lens
+	'clcidx >r
+	hclen ( 1? )( 1- swap
+		3 readnbit r@+	| cnt a 3b inx
+		'lens + c! swap ) drop rdrop
 
 	'codetr 'lens 19 buildtree
+
 	'lens dup hlit hdist + swap	| a lenf len
 	( over <? )(
 		rot 'codetr decodesym	| lenf len a sym
@@ -221,7 +225,6 @@
 		2 readnbit			| bfinal adr BTYPE
 		typeinflate
 		swap 0? ) 2drop ;
-
 
 |-----------------------------------------
 :pngheader | 'mem s-- 0/mem
@@ -275,16 +278,121 @@
 	$534e5274 =? ( drop dtrns ; ) | tRNS
 	drop readlen + ; | desconocido, saltea
 
+
+|------ convert
+|//greyscale
+:mode01 | b -- b pixel ;modo 0 ; modo 0 1bits
+:mode02 | b -- b pixel ;modo 0 ; modo 2 1bits
+:mode04 | b -- b pixel ;modo 0 ; modo 4 1bits
+	;
+:mode08 | b -- b pixel ; modo 0 8bits
+	c@+ $ff and
+	key.rgb =? ( 0 )( $ff000000 )
+	over 8 << dup 8 << or or or ;
+
+|//RGB color
+:mode28
+	c@+ $ff and  16 << swap c@+ $ff and 8 <<  swap c@+ $ff and rot or rot or
+	key.rgb <>? ( $ff000000 or ) ;
+
+|//indexed color (palette)
+:mode38
+	c@+ $ff and 2 << ipaleta + @ ;
+
+:mode34
+:mode32
+:mode31
+	;
+|//greyscale with alpha
+:mode48
+	c@+ $ff and
+	dup 8 << dup 8 << or or
+	swap c@+ 24 << rot or ;
+|//RGB with alpha
+:mode68
+	@+ ;
+
+|------ filter
+:fnone
+	;
+:fsub
+	;
+:fup
+	;
+:favg
+	;
+
+:paeth2 | a b pa pb -- p
+	over >=? ( 3drop ; ) 2drop nip ;
+
+:paeth | a b c -- p
+	pick2 pick2 + over - 	| a b c p
+	pick3 over - abs swap	| a b c pa p
+	pick3 over - abs swap	| a b c pa pb p
+	pick3 - abs				| a b c pa pb pc
+	pick2 >=? ( drop rot drop paeth2 ; ) | a b pa pb
+	>r >r drop rot drop r> r> | b c pb pc
+	paeth2 ;
+
+:fpaeth
+	;
+
+#atfilter fnone fsub fup favg fpaeth
+#xfilter 
+
+:xfilter! | filter --
+	$7 and 2 << 'atfilter + @ 'xfilter ! ;
+
+|------ interlace
+:ppixel! | y x c -- y x
+	pick2 wpng * pick2 + 2 << img + ! ;
+
+:progre
+	;
+
+| sx sy x y
+#arrayadam7
+8 8 0 0
+8 8 4 0
+4 8 0 4
+4 4 2 0
+2 4 0 2
+2 2 1 0
+1 2 0 1
+
+:adam7step | sx sy x y --
+	( hpng <? )(
+		databyte c@+ dup "%d " print cr
+		xfilter! 'databyte !
+
+		over ( wpng <? )(
+			databyte mode08 ppixel! 'databyte !
+
+			pick4 + ) drop
+		 pick2 + ) 4drop ;
+
+:adam7
+    'arrayadam7 >r
+	7 ( 1? )( 1-
+		r@+ r@+ r@+ r@+ | sx sy x y
+		adam7step
+		) drop rdrop ;
+
 |-----------------------------------------
 ::decodePNG | 'mem -- 'memfb / 0 error
 	pngheader 0? ( ; )  | header error
+	$ff000000 'key.rgb !
 	( 8 + @+ $444e4549 <>? )(  | IEND
-		readchunk ) drop
-	idat> dup 'imgpng ! 'here !
-	idat inflate | in --
+		readchunk ) 2drop
+	idat> dup 'databyte ! 'here !
+	idat 2 + inflate
+	here 'img !
 
+|	bbp 7 + 3 >> 'bytewidth !
+|	hpng wpng * bpp * 7 + 3 >> 'outlength !
 
-	;
+	ipng 0? ( drop progre img ; ) drop
+	adam7 img ;
 
 |------
 :testpal
@@ -296,7 +404,7 @@
 
 :drawimg
 	10 10 setxy
-	imgpng
+	img
 	>r
 	hpng ( 1? )( 1-
 		wpng ( 1? )( 1- r@+ px!+  ) drop
@@ -308,15 +416,23 @@
 	mark
 	here dup
 |	"r4/dev/graficos/test2.png" load
-	"r4/dev/graficos/basi0g01.png" load
+	"r4/dev/graficos/basi0g08.png" load
 	over =? ( 2drop ; ) drop
+	clrscr blanco
 	decodePNG
 	0? ( drop ; ) drop
+|	waitkey waitkey
 	show clrscr
-		drawimg
 		blanco
+|		drawimg
 		hpng wpng "%dx%d " print
 		fpng ipng cpng dpng " deph:%d color:%d interlace:%d filter:%d" print cr
+
+		idat ( idat> <? )(
+			c@+ $ff and "%h" allowcr print ) drop cr cr
+		idat> ( img <? )(
+			c@+ $ff and "%h" allowcr print ) drop cr cr
+
 
 
 		'exit >esc<
