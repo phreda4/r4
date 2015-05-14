@@ -289,6 +289,106 @@
 	drop readlen + ; | desconocido, saltea
 
 
+|------ filter
+#wf
+
+:paeth2 | a b pa pb -- p
+	over >=? ( 3drop ; ) 2drop nip ;
+
+:paeth | a b c -- p
+	pick2 pick2 + over - 	| a b c p
+	pick3 over - abs swap	| a b c pa p
+	pick3 over - abs swap	| a b c pa pb p
+	pick3 - abs				| a b c pa pb pc
+	pick2 >=? ( drop rot drop paeth2 ; ) | a b pa pb
+	>r >r drop rot drop r> r> | b c pb pc
+	paeth2 ;
+
+:fpaeth | adr -- adr pixel
+	1- c@+
+	over wf - c@
+	over wf 1+ - c@
+	paeth
+	swap c@+ rot + ;
+
+:fnoneline | x y data x -- x y data
+	+ ;
+
+:fsubline | x y data x -- x y data
+	1- swap 1+ swap
+	( 1? )( 1- swap
+		dup 1- c@ over c+! 1+
+		swap ) drop ;
+
+:fupline | x y data x -- x y data
+	( 1? )( 1- swap
+		dup wf - c@ over c+! 1+
+		swap ) drop ;
+
+:favgline | x y data x -- x y data
+	1- swap
+	dup wf - c@ 2/ over c+! 1+ swap
+	( 1? )( 1- swap
+		dup 1- c@ over wf - c@ + 2/ over c+! 1+
+		swap ) drop ;
+
+:fpaeline | x y data x -- x y data
+	1- swap
+	0 over wf - c@ 0 paeth
+	over c+! 1+ swap
+	( 1? )( 1- swap
+		dup 1- c@
+		over wf - c@
+		over wf - 1- c@
+		paeth over c+! 1+
+		swap ) drop ;
+
+
+:favgline0 | x y data x -- x y data
+	1- swap 1+ swap
+	( 1? )( 1- swap
+		dup 1- c@ 2/ over c+! 1+
+		swap ) drop ;
+
+:fpaeline0 | x y data x -- x y data
+	1- swap 1+ swap
+	( 1? )( 1- swap
+		dup 1- c@ 0 0
+		paeth over c+! 1+
+		swap ) drop ;
+
+#linefilter fnoneline fsubline fupline favgline fpaeline
+#linefilter0 fnoneline fsubline fnoneline favgline0 fpaeline0
+
+:unfilter | w h --
+	over 1+ 'wf !
+	1- databyte c@+ | x y data filte
+	pick3 swap
+	$7 and 2 << 'linefilter0 + @ exec | x y data
+	swap
+	( 1? )( 1- swap
+		c@+   | x y data filter
+		pick3 swap
+		$7 and 2 << 'linefilter + @ exec | x y data
+		swap ) 3drop ;
+
+#adambox
+3 3	3 3 2 3 2 2 1 2 1 1 0 1
+
+:unfilteradam | --
+	'adambox >r
+	7 ( 1? )( 1-
+		wpng r@+ >>
+		hpng r@+ >>
+		trace
+		unfilter
+		) drop rdrop ;
+
+
+|------ interlace
+:ppixel! | y x c -- y x
+	pick2 wpng * pick2 + 2 << img + ! ;
+
 |------ convert
 |//greyscale
 :mode01 | b -- pixel ;modo 0 ; modo 0 1bits
@@ -302,8 +402,8 @@
 
 |//RGB color
 :mode28
-	c@+ $ff and 16 << swap 
-	c@+ $ff and 8 <<  swap 
+	c@+ $ff and 16 << swap
+	c@+ $ff and 8 <<  swap
 	c@+ $ff and rot or rot or
 	key.rgb <>? ( $ff000000 or ) ;
 
@@ -324,52 +424,6 @@
 :mode68
 	@+ ;
 
-|------ filter
-#wadam
-
-:fnone | adr -- adr pixel
-	c@+ ;
-:fsub | adr -- adr pixel
-	c@+ over 2 - c@ + ;
-:fup | adr -- adr pixel
-	c@+ over wadam 1+ - c@ + ;
-:favg | adr -- adr pixel
-	1- c@+ over wadam - c@ + 2/ swap c@+ rot + ;
-
-:paeth2 | a b pa pb -- p
-	over >=? ( 3drop ; ) 2drop nip ;
-
-:paeth | a b c -- p
-	pick2 pick2 + over - 	| a b c p
-	pick3 over - abs swap	| a b c pa p
-	pick3 over - abs swap	| a b c pa pb p
-	pick3 - abs				| a b c pa pb pc
-	pick2 >=? ( drop rot drop paeth2 ; ) | a b pa pb
-	>r >r drop rot drop r> r> | b c pb pc
-	paeth2 ;
-
-:fpaeth | adr -- adr pixel
-	1- c@+
-	over wadam - c@
-	over wadam 1+ - c@
-	paeth
-	swap c@+ rot + ;
-
-#atfilter fnone fsub fup favg fpaeth
-#xfilter
-
-:xfilter! | filter --
-	$7 and 2 << 'atfilter + @ 'xfilter ! ;
-
-|------ interlace
-:ppixel! | y x c -- y x
-	pick2 wpng * pick2 +
-	|2 <<
-	img + ! ;
-
-:progre
-	;
-
 | sx sy x y
 #arrayadam7
 8 8 0 0
@@ -382,20 +436,22 @@
 
 
 :adam7step | sx sy x y --
-	databyte >r
-	wpng pick4 / 'wadam ! | speed with <<
+    databyte >r
+	wpng pick4 / 'wf ! | speed with <<
 	( hpng <? )(
 		r> c@+
 
 		dup "%d " print
-		wadam "%d " print
+		wf "%d " print
 
-		xfilter! >r
+|		xfilter!
+	>r
 		over ( wpng <? )(
 			r>
-			xfilter exec
-			swap >r
-			ppixel!
+			c@+ $ff and  "%h" print
+|			xfilter exec
+			>r
+|			ppixel!
 
 			pick4 + ) drop
 		cr
@@ -409,6 +465,7 @@
 		adam7step
 		) drop rdrop ;
 
+
 |-----------------------------------------
 ::decodePNG | 'mem -- 'memfb / 0 error
 	pngheader 0? ( ; )  | header error
@@ -417,14 +474,17 @@
 		readchunk ) 2drop
 	idat> dup 'databyte ! 'here !
 	idat 2 + inflate
+
 	here 'img !
 
 |	bbp 7 + 3 >> 'bytewidth !
 |	hpng wpng * bpp * 7 + 3 >> 'outlength !
 
-	ipng 0? ( drop progre )( drop adam7 )
+	clrscr cr cr cr cr
+	ipng 0? ( drop wpng hpng unfilter )( drop unfilteradam )
 	| convert
 	img
+	trace
 	;
 
 
