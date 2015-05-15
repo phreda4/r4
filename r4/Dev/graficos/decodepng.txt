@@ -1,10 +1,9 @@
-| PNG decoder from
-| picopng (Lode Vandevenne) and tinflate (Joergen Ibsen)
+| PNG decoder
+| traslate from  picopng (Lode Vandevenne) and tinflate (Joergen Ibsen)
 | PHREDA 2015
 |------------------------------------
 ^r4/lib/gui.txt
 ^r4/lib/trace.txt
-
 
 #wpng
 #hpng
@@ -25,7 +24,6 @@
 #idat>
 #databyte
 #img
-
 
 :read32 | mem -- mem c
 	@+
@@ -65,32 +63,6 @@
 #clcidx
 16  17  18  0  8  7  9  6  10  5  11  4  12  3  13  2  14  1  15
 
-#fixsta
-0 0 0 0 0 0 0 24 152 112 0 0 0 0 0 0
-#fixstr
-256 257 258 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 279 0 1 2 3 4 5 6 7
-8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39
-40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71
-72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103
-104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135
-136 137 138 139 140 141 142 143 280 281 282 283 284 285 286 287 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159
-160 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191
-192 193 194 195 196 197 198 199 200 201 202 203 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 222 223
-224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239 240 241 242 243 244 245 246 247 248 249 250 251 252 253 254 255
-
-#fixdta
-0 0 0 0 0 32 0 0 0 0 0 0 0 0 0 0
-#fixdtr
-0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
-0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-
 #dynsta )( 64		| 16x4
 #dynstr )( 1152	| 288x4
 
@@ -105,7 +77,7 @@
 		rot + rot r@+		| dt a cur sum l
 		rot over -			| dt a sum l cur-l
 		rot rot + swap
-		0 <? ) rdrop
+		-? ) rdrop
 	+ 2 << rot 64 + + @ ;
 
 #hlit
@@ -194,31 +166,36 @@
 	hdist 'lens hlit + 'dyndta buildtree
 	;
 
-:inflatesym | dt dl a sym -- dt dl a
+:fixtree
+	'dynsta >r
+	7 ( 1? )( 1- 0 r!+ ) drop
+	24 r!+ 152 r!+ 112 r!+ 24 r+
+	0
+	( 24 <? )( dup 256 + r!+ 1+ )
+	( 168 <? )( dup 24 - r!+ 1+ )
+	( 176 <? )( dup 112 + r!+ 1+ )
+	( 288 <? )( dup 32 - r!+ 1+ )
+	drop rdrop
+	'dyndta >r
+	5 ( 1? )( 1- 0 r!+ ) drop
+	32 r!+ 40 r+
+	0 ( 32 <? )( dup r!+ 1+ )
+	drop rdrop
+	;
+
+:inflatesym | a sym -- a
 	256 <? ( ,c ; )
-	257 - 2 << swap 	| dt dl sym a
+	257 - 2 << swap 	| sym a
 	over 'len_bits + @
-	readnbit			| dt dl sym a length
-	rot 'len_base + @ +	| dt dl a length
-	swap pick3 decodesym | dt dl length a dist
-	2 << swap			| dt dl length dist a
+	readnbit			| sym a length
+	rot 'len_base + @ +	| a length
+	swap 'dyndta decodesym | length a dist
+	2 << swap			| length dist a
 	over 'dist_bits + @
-	readnbit			| dt dl length dist a off
-	rot 'dist_base + @ + | dt dl length a offs
-	here swap - rot 	| dt dl a here length
+	readnbit			| length dist a off
+	rot 'dist_base + @ + | length a offs
+	here swap - rot 	| a here length
 	( 1? )( 1- swap c@+ ,c swap ) 2drop ;
-
-:inflate | a dt st -- a
-	rot
-	( over decodesym 256 <>? )(
-		inflatesym ) drop nip nip ;
-
-:fixhuff | adr -- adr
-	'fixdta 'fixsta inflate ;
-
-:dynhuff | adr -- adr
-	decodetree
-	'dyndta 'dynsta inflate ;
 
 :nocompress | adr -- adr
 	readbyte swap readbyte 8 << rot or
@@ -227,8 +204,9 @@
 
 :typeinflate | adr BTYPE -- adr
 	0? ( drop nocompress ; )
-	1- 0? ( drop fixhuff ; )
-	drop dynhuff ;
+	1- 0? ( drop fixtree )( drop decodetree )
+	( 'dynsta decodesym 256 <>? )(
+		inflatesym ) drop ;
 
 :inflate | in --
 	dup ( drop read1bit swap | bfinal adr
@@ -236,24 +214,6 @@
 		typeinflate
 		swap 0? ) 2drop ;
 
-|-----------------------------------------
-:pngheader | 'mem s-- 0/mem
-	@+ $474e5089 <>? ( 2drop 0 ; ) drop
-	@+ $0a1a0a0d <>? ( 2drop 0 ; ) drop
-	4+ @+ $52444849 <>? ( 2drop 0 ; ) drop | IHDR
-	read32 'wpng !
-	read32 'hpng !
-	c@+ 'dpng !
-	c@+ 3 =? ( here 'ipaleta ! $3ff 'here +! ) | con paleta
-	'cpng !
-	c@+ 1? ( 2drop 0 ; )	| error: only compression method 0 is allowed in the specification
-	'opng !
-	c@+ 1? ( 2drop 0 ; )	| error: only filter method 0 is allowed in the specification
-	'fpng !
-	c@+	1 >? ( 2drop 0 ; )	| error: only interlace methods 0 and 1 exist in the specification
-	'ipng !
-	here dup 'idat ! 'idat> !
-	;
 
 |-----------------------------------------
 :readlen | adr -- adr len
@@ -304,12 +264,6 @@
 	>r >r drop rot drop r> r> | b c pb pc
 	paeth2 ;
 
-:fpaeth | adr -- adr pixel
-	1- c@+
-	over wf - c@
-	over wf 1+ - c@
-	paeth
-	swap c@+ rot + ;
 
 :fnoneline | x y data x -- x y data
 	+ ;
@@ -332,58 +286,76 @@
 		dup 1- c@ over wf - c@ + 2/ over c+! 1+
 		swap ) drop ;
 
-:fpaeline | x y data x -- x y data
-	1- swap
-	0 over wf - c@ 0 paeth
-	over c+! 1+ swap
-	( 1? )( 1- swap
-		dup 1- c@
-		over wf - c@
-		over wf - 1- c@
-		paeth over c+! 1+
-		swap ) drop ;
-
-
 :favgline0 | x y data x -- x y data
 	1- swap 1+ swap
 	( 1? )( 1- swap
 		dup 1- c@ 2/ over c+! 1+
 		swap ) drop ;
 
+:fpaeline | x y data x -- x y data
+	1- swap
+	0 over wf - c@ $ff and 0 paeth
+	over c+! 1+ swap
+	( 1? )( 1- swap
+		dup 1- c@ $ff and
+		over wf - c@ $ff and
+		pick2 wf - 1- c@ $ff and
+		paeth over c+! 1+
+		swap ) drop ;
+
 :fpaeline0 | x y data x -- x y data
 	1- swap 1+ swap
 	( 1? )( 1- swap
-		dup 1- c@ 0 0
+		dup 1- c@ $ff and 0 0
 		paeth over c+! 1+
 		swap ) drop ;
 
 #linefilter fnoneline fsubline fupline favgline fpaeline
 #linefilter0 fnoneline fsubline fnoneline favgline0 fpaeline0
 
-:unfilter | w h --
-	over 1+ 'wf !
-	1- databyte c@+ | x y data filte
+:predump
+	dup c@+ "%h " print
+	pick3 ( 1? )( >r c@+ $ff and "%h" print  r> 1- ) 2drop
+	;
+
+:postdump
+	sp
+	dup pick3 -
+	pick3 ( 1? )( >r c@+ $ff and "%h" print  r> 1- ) 2drop
+	cr ;
+
+:unfilter | w h data -- data
+	pick2 1+ 'wf !
+	swap 1- swap
+| predump
+	c@+ | x y data filte
 	pick3 swap
 	$7 and 2 << 'linefilter0 + @ exec | x y data
+| postdump
 	swap
 	( 1? )( 1- swap
+| predump
 		c@+   | x y data filter
 		pick3 swap
 		$7 and 2 << 'linefilter + @ exec | x y data
-		swap ) 3drop ;
+| postdump
+		swap ) drop nip ;
 
 #adambox
-3 3	3 3 2 3 2 2 1 2 1 1 0 1
+$33	$33 $23 $22 $12 $11 $01 -1
 
-:unfilteradam | --
+:unfilteradam |
+	databyte
 	'adambox >r
-	7 ( 1? )( 1-
-		wpng r@+ >>
-		hpng r@+ >>
-		trace
-		unfilter
-		) drop rdrop ;
+	( r@+ +? )(
+|		clrscr cr cr cr cr cr
 
+		wpng over 4 >> >>
+		hpng rot $f and >>
+		rot unfilter
+
+|		trace
+		) 2drop rdrop ;
 
 |------ interlace
 :ppixel! | y x c -- y x
@@ -437,24 +409,12 @@
 
 :adam7step | sx sy x y --
     databyte >r
-	wpng pick4 / 'wf ! | speed with <<
 	( hpng <? )(
-		r> c@+
-
-		dup "%d " print
-		wf "%d " print
-
-|		xfilter!
-	>r
+		r> 1+ >r
 		over ( wpng <? )(
-			r>
-			c@+ $ff and  "%h" print
-|			xfilter exec
-			>r
-|			ppixel!
-
+			r> mode28 swap >r
+			ppixel!
 			pick4 + ) drop
-		cr
 		 pick2 + ) 4drop
 	r> 'databyte ! ;
 
@@ -465,6 +425,32 @@
 		adam7step
 		) drop rdrop ;
 
+|-----------------------------------------
+#colchan ( 1 0 3 1 2 0 4 0 0 )
+| case 0: return 1; /*grey*/
+| case 2: return 3; /*RGB*/
+| case 3: return 1; /*palette*/
+| case 4: return 2; /*grey + alpha*/
+| case 6: return 4; /*RGBA*/
+
+#chanpng
+
+:pngheader | 'mem s-- 0/mem
+	@+ $474e5089 <>? ( 2drop 0 ; ) drop
+	@+ $0a1a0a0d <>? ( 2drop 0 ; ) drop
+	4+ @+ $52444849 <>? ( 2drop 0 ; ) drop | IHDR
+	read32 'wpng !
+	read32 'hpng !
+	c@+ 'dpng !
+	c@+
+	3 =? ( here 'ipaleta ! $3ff 'here +! ) | con paleta
+	dup 'colchan + c@ dpng * 'chanpng !
+	'cpng !
+	c@+ 'opng !
+	c@+ 'fpng !
+	c@+	'ipng !
+	here dup 'idat ! 'idat> !
+	;
 
 |-----------------------------------------
 ::decodePNG | 'mem -- 'memfb / 0 error
@@ -474,17 +460,17 @@
 		readchunk ) 2drop
 	idat> dup 'databyte ! 'here !
 	idat 2 + inflate
-
 	here 'img !
 
 |	bbp 7 + 3 >> 'bytewidth !
 |	hpng wpng * bpp * 7 + 3 >> 'outlength !
 
-	clrscr cr cr cr cr
+|	clrscr cr cr cr cr
 	ipng 0? ( drop wpng hpng unfilter )( drop unfilteradam )
 	| convert
+	adam7
 	img
-	trace
+|	trace
 	;
 
 
@@ -498,7 +484,7 @@
 
 :drawimg
 	10 10 setxy
-	img
+	img 0? ( drop ; )
 	>r
 	hpng ( 1? )( 1-
 		wpng ( 1? )( 1- r@+ px!+  ) drop
@@ -510,7 +496,8 @@
 	mark
 	here dup
 |	"r4/dev/graficos/test2.png" load
-	"r4/dev/graficos/basi0g08.png" load
+|	"r4/dev/graficos/basi0g08.png" load
+	"r4/dev/graficos/basi2c08.png" load
 	over =? ( 2drop ; ) drop
 	decodePNG
 	0? ( drop ; ) drop
@@ -524,8 +511,6 @@
 |			c@+ $ff and "%h" allowcr print ) drop cr cr
 |		idat> ( img <? )(
 |			c@+ $ff and "%h" allowcr print ) drop cr cr
-
-
 
 		'exit >esc<
 		cminiflecha ;
