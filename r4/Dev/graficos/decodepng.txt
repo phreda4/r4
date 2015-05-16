@@ -15,9 +15,10 @@
 
 #key.rgb
 
-#bytewidth
 #bbit
 #bitl
+
+#pxsize
 
 #ipaleta
 #idat
@@ -90,27 +91,6 @@
 
 #off )( 64
 
-:dump
-	cr cr cr cr cr
-	hlit "%d " print
-	hdist "%d " print
-	hclen "%d " print cr
-
-	'lens 19 ( 1? )( 1-
-		swap c@+ "%d " print swap ) 2drop
- 	trace ;
-
-:dumptree | 'tr --
-	clrscr cr cr cr cr cr
-	>r
-	16 ( 1? )( 1-
-		r@+ "%d " allowcr print ) drop
-	cr cr
-	288 ( 1? )( 1-
-		r@+ "%d " allowcr print ) drop
-	cr cr
-	trace ;
-
 :buildtree | cnt len table --
 	dup >r
 	16 ( 1? )( 1- 0 r!+ ) drop rdrop
@@ -146,7 +126,6 @@
 		) drop
 	rot swap ;
 
-
 :decodetree | a -- a
 	5 readnbit 257 + 'hlit !
 	5 readnbit 1+ 'hdist !
@@ -163,8 +142,7 @@
 		decodeloop
 		) 2drop
 	hlit 'lens 'dynsta buildtree
-	hdist 'lens hlit + 'dyndta buildtree
-	;
+	hdist 'lens hlit + 'dyndta buildtree ;
 
 :fixtree
 	'dynsta >r
@@ -180,8 +158,7 @@
 	5 ( 1? )( 1- 0 r!+ ) drop
 	32 r!+ 40 r+
 	0 ( 32 <? )( dup r!+ 1+ )
-	drop rdrop
-	;
+	drop rdrop ;
 
 :inflatesym | a sym -- a
 	256 <? ( ,c ; )
@@ -202,18 +179,213 @@
 	swap 2 + swap
 	( 1? )( 1- swap c@+ ,c swap ) drop ;
 
-:typeinflate | adr BTYPE -- adr
+:typeinflate | adr -- adr
+	2 readnbit
 	0? ( drop nocompress ; )
 	1- 0? ( drop fixtree )( drop decodetree )
 	( 'dynsta decodesym 256 <>? )(
 		inflatesym ) drop ;
 
 :inflate | in --
-	dup ( drop read1bit swap | bfinal adr
-		2 readnbit			| bfinal adr BTYPE
-		typeinflate
-		swap 0? ) 2drop ;
+	( read1bit 0? )( drop
+		typeinflate ) drop
+	typeinflate ;
 
+|------ filter
+#wf
+
+:paeth2 | a b pa pb -- p
+	over >=? ( 3drop ; ) 2drop nip ;
+
+:paeth | a b c -- p
+	pick2 pick2 + over - 	| a b c p
+	pick3 over - abs swap	| a b c pa p
+	pick3 over - abs swap	| a b c pa pb p
+	pick3 - abs				| a b c pa pb pc
+	pick2 >=? ( drop rot drop paeth2 ; ) | a b pa pb
+	>r >r drop rot drop r> r> | b c pb pc
+	paeth2 ;
+
+
+:fnoneline | x y data x -- x y data
+	+ ;
+
+:fsubline | x y data x -- x y data
+	pxsize - swap pxsize + swap
+	( 1? )( 1- swap
+		dup pxsize - c@ over c+! 1+
+		swap ) drop ;
+
+:fupline | x y data x -- x y data
+	( 1? )( 1- swap
+		dup wf - c@ over c+! 1+
+		swap ) drop ;
+
+:favgline | x y data x -- x y data
+	pxsize ( 1? )( >r
+		1- swap
+		dup wf - c@ $ff and 2/ over c+! 1+ swap
+		r> 1- ) drop
+	( 1? )( 1- swap
+		dup pxsize - c@ $ff and over wf - c@ $ff and + 2/ over c+! 1+
+		swap ) drop ;
+
+:favgline0 | x y data x -- x y data
+	pxsize - swap pxsize + swap
+	( 1? )( 1- swap
+		dup pxsize - c@ $ff and 2/ over c+! 1+
+		swap ) drop ;
+
+:fpaeline | x y data x -- x y data
+	pxsize ( 1? )( >r
+		1- swap
+		0 over wf - c@ $ff and 0 paeth
+		over c+! 1+ swap
+		r> 1- ) drop
+	( 1? )( 1- swap
+		dup pxsize - c@ $ff and
+		over wf - c@ $ff and
+		pick2 wf - pxsize - c@ $ff and
+		paeth over c+! 1+
+		swap ) drop ;
+
+:fpaeline0 | x y data x -- x y data
+	pxsize - swap pxsize + swap
+	( 1? )( 1- swap
+		dup pxsize - c@ $ff and 0 0
+		paeth over c+! 1+
+		swap ) drop ;
+
+#linefilter fnoneline fsubline fupline favgline fpaeline
+#linefilter0 fnoneline fsubline fnoneline favgline0 fpaeline0
+
+|........................
+:predump
+	dup c@+ "%h " print
+	pick3 ( 1? )( >r c@+ $ff and "%h" print  r> 1- ) 2drop
+	;
+
+:postdump
+	sp
+	dup pick3 -
+	pick3 ( 1? )( >r c@+ $ff and "%h" print  r> 1- ) 2drop
+	cr ;
+|........................
+
+:unfilter | w h data -- data
+	pick2 1+ 'wf !
+	swap 1- swap
+| predump
+	c@+ | x y data filte
+	pick3 swap
+	$7 and 2 << 'linefilter0 + @ exec | x y data
+| postdump
+	swap
+	( 1? )( 1- swap
+| predump
+		c@+   | x y data filter
+		pick3 swap
+		$7 and 2 << 'linefilter + @ exec | x y data
+| postdump
+		swap ) drop nip ;
+
+#adambox
+$33	$33 $23 $22 $12 $11 $01 -1
+
+:unfilteradam | --
+	databyte
+	'adambox >r
+	( r@+ +? )(
+|		clrscr cr cr cr cr cr
+
+		wpng over 4 >> >> pxsize *
+		hpng rot $f and >>
+		rot unfilter
+
+|		trace
+		) 2drop rdrop ;
+
+|------ convert
+|//greyscale
+:mode01 | b -- pixel ;modo 0 ; modo 0 1bits
+:mode02 | b -- pixel ;modo 0 ; modo 2 1bits
+:mode04 | b -- pixel ;modo 0 ; modo 4 1bits
+	;
+:mode08 | b -- b pixel ; modo 0 8bits
+	c@+ $ff and
+	key.rgb =? ( 0 )( $ff000000 )
+	over 8 << dup 8 << or or or ;
+
+|//RGB color
+:mode28
+	c@+ $ff and 16 << swap
+	c@+ $ff and 8 <<  swap
+	c@+ $ff and rot or rot or
+	key.rgb <>? ( $ff000000 or ) ;
+
+|//indexed color (palette)
+:mode38
+	c@+ $ff and 2 << ipaleta + @ ;
+
+:mode34
+:mode32
+:mode31
+	;
+|//greyscale with alpha
+:mode48
+	c@+ $ff and
+	dup 8 << dup 8 << or or
+	swap c@+ 24 << rot or ;
+
+|//RGB with alpha
+:mode68
+	@+ 8 >> ;
+
+#modec
+
+|------ interlace
+| sx sy x y
+#arrayadam7
+8 8 0 0
+8 8 4 0
+4 8 0 4
+4 4 2 0
+2 4 0 2
+2 2 1 0
+1 2 0 1
+
+:ppixel! | y x c -- y x
+	pick2 wpng * pick2 + 2 << img + ! ;
+
+:adam7step | sx sy x y --
+    databyte >r
+	( hpng <? )(
+		r> 1+ >r
+		over ( wpng <? )(
+			r> modec exec swap >r
+			ppixel!
+			pick4 + ) drop
+		 pick2 + ) 4drop
+	r> 'databyte ! ;
+
+:convertadam7
+    'arrayadam7 >r
+	7 ( 1? )( 1-
+		r@+ r@+ r@+ r@+ | sx sy x y
+		adam7step
+		) drop rdrop ;
+
+:convert
+	img >r
+	databyte
+	hpng ( 1? )(
+		swap 1+ swap
+		wpng ( 1? )(
+			rot modec exec r!+
+			rot rot 1- ) drop
+		1- ) 2drop
+	rdrop
+	;
 
 |-----------------------------------------
 :readlen | adr -- adr len
@@ -248,192 +420,8 @@
 	$534e5274 =? ( drop dtrns ; ) | tRNS
 	drop readlen + ; | desconocido, saltea
 
-
-|------ filter
-#wf
-
-:paeth2 | a b pa pb -- p
-	over >=? ( 3drop ; ) 2drop nip ;
-
-:paeth | a b c -- p
-	pick2 pick2 + over - 	| a b c p
-	pick3 over - abs swap	| a b c pa p
-	pick3 over - abs swap	| a b c pa pb p
-	pick3 - abs				| a b c pa pb pc
-	pick2 >=? ( drop rot drop paeth2 ; ) | a b pa pb
-	>r >r drop rot drop r> r> | b c pb pc
-	paeth2 ;
-
-
-:fnoneline | x y data x -- x y data
-	+ ;
-
-:fsubline | x y data x -- x y data
-	1- swap 1+ swap
-	( 1? )( 1- swap
-		dup 1- c@ over c+! 1+
-		swap ) drop ;
-
-:fupline | x y data x -- x y data
-	( 1? )( 1- swap
-		dup wf - c@ over c+! 1+
-		swap ) drop ;
-
-:favgline | x y data x -- x y data
-	1- swap
-	dup wf - c@ 2/ over c+! 1+ swap
-	( 1? )( 1- swap
-		dup 1- c@ over wf - c@ + 2/ over c+! 1+
-		swap ) drop ;
-
-:favgline0 | x y data x -- x y data
-	1- swap 1+ swap
-	( 1? )( 1- swap
-		dup 1- c@ 2/ over c+! 1+
-		swap ) drop ;
-
-:fpaeline | x y data x -- x y data
-	1- swap
-	0 over wf - c@ $ff and 0 paeth
-	over c+! 1+ swap
-	( 1? )( 1- swap
-		dup 1- c@ $ff and
-		over wf - c@ $ff and
-		pick2 wf - 1- c@ $ff and
-		paeth over c+! 1+
-		swap ) drop ;
-
-:fpaeline0 | x y data x -- x y data
-	1- swap 1+ swap
-	( 1? )( 1- swap
-		dup 1- c@ $ff and 0 0
-		paeth over c+! 1+
-		swap ) drop ;
-
-#linefilter fnoneline fsubline fupline favgline fpaeline
-#linefilter0 fnoneline fsubline fnoneline favgline0 fpaeline0
-
-:predump
-	dup c@+ "%h " print
-	pick3 ( 1? )( >r c@+ $ff and "%h" print  r> 1- ) 2drop
-	;
-
-:postdump
-	sp
-	dup pick3 -
-	pick3 ( 1? )( >r c@+ $ff and "%h" print  r> 1- ) 2drop
-	cr ;
-
-:unfilter | w h data -- data
-	pick2 1+ 'wf !
-	swap 1- swap
-| predump
-	c@+ | x y data filte
-	pick3 swap
-	$7 and 2 << 'linefilter0 + @ exec | x y data
-| postdump
-	swap
-	( 1? )( 1- swap
-| predump
-		c@+   | x y data filter
-		pick3 swap
-		$7 and 2 << 'linefilter + @ exec | x y data
-| postdump
-		swap ) drop nip ;
-
-#adambox
-$33	$33 $23 $22 $12 $11 $01 -1
-
-:unfilteradam |
-	databyte
-	'adambox >r
-	( r@+ +? )(
-|		clrscr cr cr cr cr cr
-
-		wpng over 4 >> >>
-		hpng rot $f and >>
-		rot unfilter
-
-|		trace
-		) 2drop rdrop ;
-
-|------ interlace
-:ppixel! | y x c -- y x
-	pick2 wpng * pick2 + 2 << img + ! ;
-
-|------ convert
-|//greyscale
-:mode01 | b -- pixel ;modo 0 ; modo 0 1bits
-:mode02 | b -- pixel ;modo 0 ; modo 2 1bits
-:mode04 | b -- pixel ;modo 0 ; modo 4 1bits
-	;
-:mode08 | b -- b pixel ; modo 0 8bits
-	c@+ $ff and
-	key.rgb =? ( 0 )( $ff000000 )
-	over 8 << dup 8 << or or or ;
-
-|//RGB color
-:mode28
-	c@+ $ff and 16 << swap
-	c@+ $ff and 8 <<  swap
-	c@+ $ff and rot or rot or
-	key.rgb <>? ( $ff000000 or ) ;
-
-|//indexed color (palette)
-:mode38
-	c@+ $ff and 2 << ipaleta + @ ;
-
-:mode34
-:mode32
-:mode31
-	;
-|//greyscale with alpha
-:mode48
-	c@+ $ff and
-	dup 8 << dup 8 << or or
-	swap c@+ 24 << rot or ;
-|//RGB with alpha
-:mode68
-	@+ ;
-
-| sx sy x y
-#arrayadam7
-8 8 0 0
-8 8 4 0
-4 8 0 4
-4 4 2 0
-2 4 0 2
-2 2 1 0
-1 2 0 1
-
-
-:adam7step | sx sy x y --
-    databyte >r
-	( hpng <? )(
-		r> 1+ >r
-		over ( wpng <? )(
-			r> mode28 swap >r
-			ppixel!
-			pick4 + ) drop
-		 pick2 + ) 4drop
-	r> 'databyte ! ;
-
-:adam7
-    'arrayadam7 >r
-	7 ( 1? )( 1-
-		r@+ r@+ r@+ r@+ | sx sy x y
-		adam7step
-		) drop rdrop ;
-
-|-----------------------------------------
 #colchan ( 1 0 3 1 2 0 4 0 0 )
-| case 0: return 1; /*grey*/
-| case 2: return 3; /*RGB*/
-| case 3: return 1; /*palette*/
-| case 4: return 2; /*grey + alpha*/
-| case 6: return 4; /*RGBA*/
-
-#chanpng
+#colmode mode08 0 mode28 mode38 mode48 0 mode68
 
 :pngheader | 'mem s-- 0/mem
 	@+ $474e5089 <>? ( 2drop 0 ; ) drop
@@ -444,7 +432,8 @@ $33	$33 $23 $22 $12 $11 $01 -1
 	c@+ 'dpng !
 	c@+
 	3 =? ( here 'ipaleta ! $3ff 'here +! ) | con paleta
-	dup 'colchan + c@ dpng * 'chanpng !
+	dup 'colchan + c@ dpng * 7 + 3 >> 'pxsize !
+	dup 2 << 'colmode + @ 'modec !
 	'cpng !
 	c@+ 'opng !
 	c@+ 'fpng !
@@ -458,19 +447,15 @@ $33	$33 $23 $22 $12 $11 $01 -1
 	$ff000000 'key.rgb !
 	( 8 + @+ $444e4549 <>? )(  | IEND
 		readchunk ) 2drop
+
 	idat> dup 'databyte ! 'here !
 	idat 2 + inflate
 	here 'img !
-
-|	bbp 7 + 3 >> 'bytewidth !
-|	hpng wpng * bpp * 7 + 3 >> 'outlength !
-
-|	clrscr cr cr cr cr
-	ipng 0? ( drop wpng hpng unfilter )( drop unfilteradam )
-	| convert
-	adam7
+	clrscr cr cr cr cr
+	ipng 0? ( drop wpng pxsize * hpng databyte unfilter convert img ; ) drop
+	unfilteradam
+	convertadam7
 	img
-|	trace
 	;
 
 
@@ -483,7 +468,7 @@ $33	$33 $23 $22 $12 $11 $01 -1
 		swap ) 2drop ;
 
 :drawimg
-	10 10 setxy
+	0 0 setxy
 	img 0? ( drop ; )
 	>r
 	hpng ( 1? )( 1-
@@ -495,10 +480,12 @@ $33	$33 $23 $22 $12 $11 $01 -1
 :main
 	mark
 	here dup
-|	"r4/dev/graficos/test2.png" load
+	"r4/dev/graficos/test2.png" load
 |	"r4/dev/graficos/basi0g08.png" load
-	"r4/dev/graficos/basi2c08.png" load
-	over =? ( 2drop ; ) drop
+|	"r4/dev/graficos/basi2c08.png" load
+|	"r4/dev/graficos/basi3p08.png" load
+|	"r4/dev/graficos/basi4a08.png" load
+	over =? ( 2drop ; ) 'here !
 	decodePNG
 	0? ( drop ; ) drop
 	show clrscr
