@@ -1,0 +1,161 @@
+| Inflate algo
+| PHREDA 2015
+|-------
+
+#len_bits 0 0 0 0 0 0 0  0  1  1  1  1  2  2  2  2  3  3  3  3  4  4  4   4   5   5   5   5   0   6
+#len_base 3 4 5 6 7 8 9 10 11 13 15 17 19 23 27 31 35 43 51 59 67 83 99 115 131 163 195 227 258 323
+#dist_bits 0 0 0 0 1 1 2  2  3  3  4  4  5  5   6   6   7   7   8   8    9    9   10   10   11   11   12    12    13    13
+#dist_base 1 2 3 4 5 7 9 13 17 25 33 49 65 97 129 193 257 385 513 769 1025 1537 2049 3073 4097 6145 8193 12289 16385 24577
+#clcidx 16  17  18  0  8  7  9  6  10  5  11  4  12  3  13  2  14  1  15
+
+#dynsta )( 1216 | (16+288)x4
+#dyndta )( 1216
+#codetr )( 1216
+#lens )( 320
+#off )( 64
+
+#hlit
+#hdist
+#hclen
+
+#bbit
+#bitl
+
+|---- bitstream
+::read32 | mem -- mem c
+	@+
+	dup $ff and 24 << over $ff00 and 8 << or
+	over $ff0000 and 8 >> or swap 24 >> $ff and or ;
+
+::read1bit | adr -- adr bit
+	bitl 0? ( drop c@+ 'bbit ! 8 )
+	1- 'bitl !
+	bbit dup 2/ 'bbit !
+	1 and ;
+
+::readnbit | adr n -- adr nro
+	swap 0 >r
+	bbit bitl 0 | a bb bn len
+	( pick4 <? )( swap	| a bb len bn
+    	0? ( drop nip swap c@+ rot 8 )
+		1- pick2 1 and
+		pick2 << r+
+		rot 2/ swap rot 1+ ) drop
+	'bitl ! 'bbit !
+	nip r> ;
+
+::readbyte | adr -- adr byte
+	0 'bitl ! c@+ $ff and ;
+
+|-----------------------------------------
+:decodesym | adr dt -- adr sym
+	dup 4+ >r swap
+	0 0	( 					| dt a sum cur
+		2* rot read1bit		| dt sum cur a 1
+		rot + rot r@+		| dt a cur sum l
+		rot over -			| dt a sum l cur-l
+		rot rot + swap
+		-? ) rdrop
+	+ 2 << rot 64 + + @ ;
+
+:buildtree | cnt len table --
+	dup >r
+	16 ( 1? )( 1- 0 r!+ ) drop rdrop
+	>r 2dup swap	| cnt len len cnt
+	( 1? )( 1- swap
+		c@+ $ff and 2 << r + 1 swap +! swap ) 2drop
+	0 r !			| cnt len
+	0 r 'off ( 'off 64 + <? )(
+		pick2 swap !+ | 0 r 'off
+		>r @+ rot + swap r>
+		) 3drop
+	0 ( pick2 <? )( swap c@+	| cnt n len  length
+		$ff and
+		1? ( 2 << 'off + dup @  | cnt n len  off valo
+			1 rot +!			| cnt n len  valo
+			2 << 64 + r +
+			pick2 swap !
+			)( drop )
+		swap 1+ ) 3drop rdrop ;
+
+:decodeloop | lenf len a sym -- a lenf len
+	16 <? ( rot c!+ rot swap ; )
+	16 =? ( drop over 1- c@ swap 2 readnbit 3 + | lenf len prev a n
+			>r rot r> | lenf prev a len n
+			( 1? )( 1- >r
+				pick2 swap c!+	| lenf prev a len+
+				r> ) drop
+			rot drop rot swap ; )
+	17 =? ( drop 3 readnbit 3 + )( drop 7 readnbit 11 + )
+	rot swap | lenf a len n
+	( 1? )( 1-
+		0 rot c!+ swap
+		) drop
+	rot swap ;
+
+:decodetree | a -- a
+	5 readnbit 257 + 'hlit !
+	5 readnbit 1+ 'hdist !
+	4 readnbit 4+ 'hclen !
+	0 0 0 0 0 'lens !+ !+ !+ !+ ! | 20 zeros in lens
+	'clcidx >r
+	hclen ( 1? )( 1- swap
+		3 readnbit r@+	| cnt a 3b inx
+		'lens + c! swap ) drop rdrop
+	19 'lens 'codetr  buildtree
+	'lens dup hlit hdist + + swap	| a lenf len
+	( over <? )(
+		rot 'codetr decodesym	| lenf len a sym
+		decodeloop
+		) 2drop
+	hlit 'lens 'dynsta buildtree
+	hdist 'lens hlit + 'dyndta buildtree ;
+
+:fixtree
+	'dynsta >r
+	7 ( 1? )( 1- 0 r!+ ) drop
+	24 r!+ 152 r!+ 112 r!+ 24 r+
+	0
+	( 24 <? )( dup 256 + r!+ 1+ )
+	( 168 <? )( dup 24 - r!+ 1+ )
+	( 176 <? )( dup 112 + r!+ 1+ )
+	( 288 <? )( dup 32 - r!+ 1+ )
+	drop rdrop
+	'dyndta >r
+	5 ( 1? )( 1- 0 r!+ ) drop
+	32 r!+ 40 r+
+	0 ( 32 <? )( dup r!+ 1+ )
+	drop rdrop ;
+
+:inflatesym | a sym -- a
+	256 <? ( ,c ; )
+	257 - 2 << swap 	| sym a
+	over 'len_bits + @
+	readnbit			| sym a length
+	rot 'len_base + @ +	| a length
+	swap 'dyndta decodesym | length a dist
+	2 << swap			| length dist a
+	over 'dist_bits + @
+	readnbit			| length dist a off
+	rot 'dist_base + @ + | length a offs
+	here swap - rot 	| a here length
+	( 1? )( 1- swap c@+ ,c swap ) 2drop ;
+
+:nocompress | adr -- adr
+	readbyte swap readbyte 8 << rot or
+	swap 2 + swap
+	( 1? )( 1- swap c@+ ,c swap ) drop ;
+
+:typeinflate | adr -- adr
+	2 readnbit
+	0? ( drop nocompress ; )
+	1- 0? ( drop fixtree )( drop decodetree )
+	( 'dynsta decodesym 256 <>? )(
+		inflatesym ) drop ;
+
+|-----------
+::inflate | in --
+	0 'bitl !
+	( read1bit 0? )( drop
+		typeinflate ) drop
+	typeinflate drop ;

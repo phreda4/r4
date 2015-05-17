@@ -1,0 +1,192 @@
+| IMG lib
+| PHREDA 2015
+|------------------------
+| format
+| xy|type|img..
+
+#wb #hb		| ancho alto
+#paleta
+
+|-- internas para clip
+#xi #yi
+#wi #hi
+
+|-- internas para scale
+#wr #hr
+#sx #sy
+#xa #ya
+
+|---- load/info
+|::img.load | "filename" -- 'img
+|	here dup 'img !
+|	swap load img =? ( drop 0 ; ) drop
+|	dup @
+|	$474e5089 =? ( drop decodePNG ; )
+|	2drop 0
+|	;
+
+::img.wh | 'img -- w h
+	@ dup $ffff and swap 16 >> $ffff and ;
+
+|----- 1:1
+:clip | x y adr -- adr x y
+	rot | y adr x
+	wb over + sw >? ( sw pick2 - )( wb ) 'wi ! drop
+	-? ( dup 'wi +! neg 2 << 'xi ! 0 )( 0 'xi ! )
+	rot | adr x y
+	hb over + sh >? ( sh pick2 - )( hb ) 'hi ! drop
+	-? ( dup 'hi +! neg wb * 2 << 'xi +! 0 )
+	;
+
+|---- opaque
+:draw0 | adr -- ;32 bit/pixel
+	xi + >r
+	wb wi - 2 <<
+   	sw wi -
+	hi ( 1? )(
+		wi ( 1? )( r@+ px!+ 1- ) drop
+		over px+!
+		pick2 r+
+		1- ) 3drop
+	rdrop ;
+
+#odraw draw0 0 0 0 0 0 0 0
+
+::img.draw | x y 'img  --
+	0? ( 3drop ; )
+	@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
+	clip | adr x y
+	wi hi or -? ( 4drop ; ) drop
+	setxy
+	@+ $10 and? ( over 'paleta ! dup 8 >> $ff and 2 << rot + swap )
+	$7 and 2 << 'odraw + @ exec ;
+
+
+|----- N:N
+:clipsc | x y adr -- adr x y
+	rot | y adr x
+	wr over + sw >? ( sw pick2 - )( wr ) 'wi ! drop
+	-? ( dup 'wi +! neg 'xi ! 0 )( 0 'xi ! )
+	rot | adr x y
+	hr over + sh >? ( sh pick2 - )( hr ) 'hi ! drop
+	-? ( dup 'hi +! neg 'yi ! 0 )( 0 'yi ! )
+	wb wr 16 <</ dup 'sx ! xi * 'xi !
+	hb hr 16 <</ dup 'sy ! yi * 'yi !
+	;
+
+:sdraw0 | x y adr --
+	yi 'ya !
+	sw wi - | columna
+	hi ( 1? )(
+		xi 'xa !
+	 	pick2 ya 16 >> wb * 2 << +
+		wi ( 1? )(
+			over xa 16 >> 2 << + @ px!+
+			sx 'xa +!
+			1- ) 2drop
+		over px+!
+		sy 'ya +!
+		1- )
+	3drop ;
+
+#sdraw sdraw0 0 0 0 0 0 0 0
+
+::img.drawsize | x y w h 'img --
+	0? ( 4drop drop ; ) >r
+	r@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
+	0? ( 4drop rdrop ; ) 'hr !
+	0? ( 3drop rdrop ; ) 'wr !
+	r> clipsc
+	wi hi or -? ( 4drop ; ) drop
+	setxy
+	@+ $10 and? ( over 'paleta ! dup 8 >> $ff and 2 << rot + swap )
+	$7 and 2 << 'sdraw + @ exec ;
+
+::img.drawscale | x y scale 'img --
+	0? ( 4drop ; ) >r
+	r@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
+	dup hb *. 0? ( 4drop rdrop ; ) 'hr !
+	wb *. 0? ( 3drop rdrop ; ) 'wr !
+	r> clipsc
+	wi hi or -? ( 4drop ; ) drop
+	setxy
+	@+ $10 and? ( over 'paleta ! dup 8 >> $ff and 2 << rot + swap )
+	$7 and 2 << 'sdraw + @ exec ;
+
+|---- w/alpha
+:acpx!+ | col --
+|	$ff000000 nand? ( drop 1 px+! ; )
+	$ff over 24 >> $ff and -
+	0? ( drop px!+ ; )
+	$ff =? ( 2drop 1 px+! ; )
+	swap
+	dup $ff00ff and				| alpha color colorand
+	px@ dup $ff00ff and 		| alpha color colorand inkc inkcand
+	pick2 - pick4 8 *>> rot +	| alpha color inkc inkcandl
+	$ff00ff and >r				| alpha color inkc
+	swap $ff00 and 				| alpha px colorand
+	swap $ff00 and 				| alpha colorand pxa
+	over - rot 8 *>> + $ff00 and
+	r> or px!+  ;
+
+:adraw0 | adr -- ;32 bit/pixel
+	xi + >r
+	wb wi - 2 <<
+   	sw wi -
+	hi ( 1? )(
+		wi ( 1? )( r@+ acpx!+ 1- ) drop
+		over px+!
+		pick2 r+
+		1- ) 3drop
+	rdrop ;
+
+#aodraw adraw0 0 0 0 0 0 0 0
+
+::img.adraw | x y 'img --
+	0? ( 3drop ; )
+	@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
+	clip | adr x y
+	wi hi or -? ( 4drop ; ) drop
+	setxy
+	@+ $10 and? ( over 'paleta ! dup 8 >> $ff and 2 << rot + swap )
+	$7 and 2 << 'aodraw + @ exec ;
+
+
+:asdraw0
+	yi 'ya !
+	sw wi - | columna
+	hi ( 1? )(
+		xi 'xa !
+	 	pick2 ya 16 >> wb * 2 << +
+		wi ( 1? )(
+			over xa 16 >> 2 << + @ acpx!+
+			sx 'xa +!
+			1- ) 2drop
+		over px+!
+		sy 'ya +!
+		1- )
+	3drop ;
+
+#asdraw asdraw0 0 0 0 0 0 0 0
+
+::img.adrawsize | x y w h 'img --
+	0? ( 4drop drop ; ) >r
+	r@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
+	0? ( 4drop rdrop ; ) 'hr !
+	0? ( 3drop rdrop ; ) 'wr !
+	r> clipsc
+	wi hi or -? ( 4drop ; ) drop
+	setxy
+	@+ $10 and? ( over 'paleta ! dup 8 >> $ff and 2 << rot + swap )
+	$7 and 2 << 'asdraw + @ exec ;
+
+::img.adrawscale | x y scale 'img --
+	0? ( 4drop ; ) >r
+	r@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
+	dup hb *. 0? ( 4drop rdrop ; ) 'hr !
+	wb *. 0? ( 3drop rdrop ; ) 'wr !
+	r> clipsc
+	wi hi or -? ( 4drop ; ) drop
+	setxy
+	@+ $10 and? ( over 'paleta ! dup 8 >> $ff and 2 << rot + swap )
+	$7 and 2 << 'asdraw + @ exec ;
