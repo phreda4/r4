@@ -1,0 +1,111 @@
+| genera codigo con profiler
+| PHREDA 2015
+|------------
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/parse.txt
+^r4/lib/codecolor.txt
+
+^r4/lib/fontm.txt
+^inc/fntm/droidsans13.txt
+
+^r4/system/mem-ed.txt
+^r4/ide/r4-token.txt
+^r4/ide/r4-info.txt
+
+#fuente
+#cntprofile 0
+#tablaprofile
+
+:dumppro
+	tablaprofile >r
+	cntprofile ( 1? )(
+		r@+ drop |"%s " print
+		r@+ "%d msec " print
+		r@+ "%d call " print
+		cr
+		1- ) drop
+	rdrop
+	;
+
+:wordcntok | adr -- adr token cnt
+	dup 4+ @ over 12 + @ 20 >> $fff and ;
+
+:printtokenlin | tok cnt --
+	( 1? )( 1- swap @+
+			" " ,s tokenstr ,print swap
+			$1f nand? ( ,nl ) ) 2drop ;
+
+:espal | es recursiva..
+	@ " _%w_" ,print ;
+
+:ptoken
+	dup $ff and $c =? ( drop dup 8 >> 4 << 'indicepal + pick4 =? ( nip espal ; ) ) drop
+	" " ,s tokenstr ,print ;
+
+:printtokenlinX | adr -- adr
+	wordcntok 1- swap 4+ swap
+	( 1? )( 1- swap @+ ptoken
+			swap $1f nand? ( ,nl ) ) 2drop ;
+
+:printword | nro adr -- nro adr
+	dup 8 + @ | info
+	%1 and? ( drop wordcntok printtokenlin ; ) | variable
+	drop
+	dup @ ":_%s_ " ,print
+	printtokenlinX
+	2dup @ 2dup ":%s %d profile_start _%s_ %d profile_end ;" ,print ,nl
+	swap 1+ swap ;
+
+:loadtxt | -- cargar texto
+	here dup 'fuente !
+	'ed.nombre load 0 swap c!+ 'here !
+	;
+
+:profile
+	loadtxt
+	mark
+	fuente tokeniza
+	empty 1? ( empty ; ) drop
+	mark
+	"^r4/lib/r4-incprofile.txt" ,print ,nl
+	'indiceinc ( indiceinc< <? )(
+		@+ "^%w" ,print ,nl
+		4+ ) drop
+	0 indicepal< ( indicepal> 16 - <? )(
+		printword
+		16 + ) 					| cnt adr
+	":_run_ " ,print
+	wordcntok 1- swap 4+ swap printtokenlin drop
+	'ed.nombre swap ": %d ""%s"" profile_mem _run_ profile_save ;" ,print ,nl
+	"mem/profrun.txt" savemem
+	empty empty
+	"mem/profrun.txt" run
+	;
+
+:cargaprofile
+	here dup "mem/profile.mem" load
+	over 4+ <? ( 2drop ; )
+	'here !
+	@+ 'cntprofile !
+	'ed.nombre over =s
+	0? ( nip dup "mem/profile.mem" save ; ) drop
+	>>0 'tablaprofile !
+	;
+
+
+:screenprofile
+	show clrscr
+		'exit >esc<
+		cminiflecha ;
+
+
+:main
+	mark
+	ed.load
+	cargaprofile
+	cntprofile 0? ( profile ) drop
+	screenprofile
+	;
+
+: main ;

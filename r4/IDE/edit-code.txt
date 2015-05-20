@@ -45,7 +45,6 @@
 |---- debug.err
 #nrolin )( 32
 #error )( 256
-#errorlin
 #mensaje )( 1024
 
 :cursor>carlin | --
@@ -58,7 +57,6 @@
 :lins  | c --
 	fuente> dup 1- $fuente over - 1+ cmove>
 	1 '$fuente +!
-
 :lover | c --
 	fuente> c!+ dup 'fuente> !
 	$fuente >? ( dup '$fuente ! ) drop
@@ -182,8 +180,8 @@
 	mark
 	here 'ed.nombre load 0 swap c!
 
-	|-- quesa solo cr al fin de linea
-	fuente dup 'pantaini> ! dup 'fuente> !
+	|-- queda solo cr al fin de linea
+	fuente dup 'pantaini> !
 	here ( c@+ 1? )(
 		13 =? ( over c@ 10 =? ( drop swap 1+ swap )( drop ) )
 		10 =? ( drop c@+ 13 <>? ( drop 1- 13 ) )
@@ -191,9 +189,12 @@
 	0lin
 
 	|-- ubicar el cursor
-	ed.nlin 0 >? ( ( 1? )( 1- fuente> >>13 2 + 'fuente> ! ) ) drop
-	ed.ncar +? ( dup 'fuente> +! ) drop
-	0 'prilinea !
+	ed.nlin
+	+? ( fuente ( swap 1? )( 1- swap >>13 2 + ) swap )( fuente ) |$fuente <<13 1+ )
+	'fuente> ! drop
+	ed.ncar
+	+? ( dup 'fuente> +! )
+	drop
 	empty
 	;
 
@@ -346,7 +347,7 @@
 	( 1? )( swap
 		sp @+ tokenstr print
 		sp
-		
+
 		cr
 		allowchome
 		swap 1- ) 2drop
@@ -434,7 +435,7 @@
 	;
 
 :clearti
-	textinfo cntlinea 1+ ( 1? )( 0 rot !+ swap 1- ) 2drop ;
+	textinfo 1024 ( 1? )( 0 rot !+ swap 1- ) 2drop ;
 
 |------------ recompilar
 :recompilar
@@ -497,6 +498,7 @@
 
 	'controln 49 ?key " N-New" print
 |	'controlm 50 ?key " M-Mode" print
+|	'controlm 50 ?key " F-Find" print
 
 	'controla <up>
 	'controls <dn>
@@ -511,74 +513,6 @@
 		) drop
 	;
 
-|----------------------------
-:directrun	savetxt 'ed.nombre run  ;
-:compilai86	savetxt "r4/dev/ide/r4-i86opt.txt" run ;
-
-|------------ profile
-#cntprofile 0
-#tablaprofile
-
-:dumppro
-	tablaprofile >r
-	cntprofile ( 1? )(
-		r@+ drop |"%s " print
-		r@+ "%d msec " print
-		r@+ "%d call " print
-		cr
-		1- ) drop
-	rdrop
-	;
-
-:wordcntok | adr -- adr token cnt
-	dup 4+ @ over 12 + @ 20 >> $fff and ;
-
-:printtokenlin | tok cnt --
-	( 1? )( 1- swap @+
-			" " ,s tokenstr ,print swap
-			$1f nand? ( ,nl ) ) 2drop ;
-
-:espal | es recursiva..
-	@ " _%w_" ,print ;
-
-:ptoken
-	dup $ff and $c =? ( drop dup 8 >> 4 << 'indicepal + pick4 =? ( nip espal ; ) ) drop
-	" " ,s tokenstr ,print ;
-
-:printtokenlinX | adr -- adr
-	wordcntok 1- swap 4+ swap
-	( 1? )( 1- swap @+ ptoken
-			swap $1f nand? ( ,nl ) ) 2drop ;
-
-:printword | nro adr -- nro adr
-	dup 8 + @ | info
-	%1 and? ( drop wordcntok printtokenlin ; ) | variable
-	drop
-	dup @ ":_%s_ " ,print
-	printtokenlinX
-	2dup @ 2dup ":%s %d profile_start _%s_ %d profile_end ;" ,print ,nl
-	swap 1+ swap ;
-
-:profile
-	savetxt
-	mark
-	fuente tokeniza
-	empty 1? ( tokerror empty ; ) drop
-	mark
-	"^r4/lib/r4-incprofile.txt" ,print ,nl
-	'indiceinc ( indiceinc< <? )(
-		@+ "^%w" ,print ,nl
-		4+ ) drop
-	0 indicepal< ( indicepal> 16 - <? )(
-		printword
-		16 + ) 					| cnt adr
-	":_run_ " ,print
-	wordcntok 1- swap 4+ swap printtokenlin drop
-	'ed.nombre swap ": %d ""%s"" profile_mem _run_ profile_save ;" ,print ,nl
-	"mem/profrun.txt" savemem
-	empty empty
-	"mem/profrun.txt" run
-	;
 
 |--- sobre pantalla
 :mmemit | adr x xa -- adr x xa
@@ -610,6 +544,17 @@
 	fuente> 1sel over <? ( swap )
 	'finsel ! 'inisel ! ;
 
+|----------------------------
+:directrun	savetxt 'ed.nombre run  ;
+:profiler	savetxt	"r4/IDE/r4-profiler.txt" run ;
+:debugrun	savetxt	"r4/IDE/r4-debug.txt" run ;
+:mkplain	savetxt	"r4/system/r4plain.txt" run ;
+:mkasm		savetxt
+|	"r4/system/r4fasm.txt" run
+	"r4/system/r4fasmo.txt" run
+|	"r4/system/r4fasmo2.txt" run
+	;
+
 |---------- manejo de teclado
 :teclado
 	keypad
@@ -625,12 +570,15 @@
 	[ 13 modo exec ; ] <enter>
 	[ 9 modo exec ; ] <tab>
 
-	'directrun <f1>
-	'recompilar <f2>
-	'profile <f3>
-	'compilai86 <f10>
 
-	'exit  >esc<
+	'recompilar <f1>
+	'directrun <f2>
+	'debugrun <f3>
+	'profiler <f4>
+	'mkplain <f5>
+	'mkasm <f6>
+
+	'exit >esc<
 	'controlon <ctrl>
 	;
 
@@ -648,10 +596,8 @@
 
 		blanco "dEBUG " printx
         'ed.nombre "[%s] " print
-		cntprofile "%d" print
 
-|		cyan "  |F1-RUN|F2-DEBUG|F3-PROFILE|F9-PLAIN|F10-COMP|F11-OCOMP|" printx
-		"|F1-RUN|F2-ANALISIS|F3-PROFILE " printr
+		"|F1-ANALISIS|F2-RUN|F3-DEBUG|F4-PROFILE|F5-PLAIN|F6-COMPILE " printr
 
 |------------------------------
 		cr chome!
@@ -691,7 +637,7 @@
 
 :cargaestado
 	mark
-	-1 dup 'errorlin ! 'ed.nlin ! 0 'ed.ncar !
+	-1 'ed.nlin ! 0 'ed.ncar !
 
 	here dup "debug.err" load
 	empty
@@ -700,29 +646,17 @@
 	| -- here  ...vacia antes de usarla
 	'ed.nombre cpy|
 	'nrolin cpy|
-	'nrolin ?numero 1? ( drop nip ) -1 =? ( drop ; ) dup 'errorlin ! 'ed.nlin !
+	'nrolin ?numero 1? ( drop nip ) -1 =? ( drop ; ) 'ed.nlin !
 	'nrolin cpy|
 	'nrolin ?numero 1? ( drop nip )  'ed.ncar !
 	'error swap ( c@+ 1? )( rot c!+ swap ) rot c! drop
 	'error 'mensaje strcpy
 	;
 
-:cargaprofile
-	mark
-	here dup "mem/profile.mem" load
-	over 4+ <? ( 2drop ; )
-	'here !
-	@+ 'cntprofile !
-	'ed.nombre over =s
-	0? ( nip dup "mem/profile.mem" save ; ) drop
-	>>0 'tablaprofile !
-	;
-
 |----------- principal
 :main
 	ram
 	cargaestado
-	cargaprofile
 	loadtxt
 	editor
 	savetxt ;
