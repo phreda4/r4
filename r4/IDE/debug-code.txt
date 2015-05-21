@@ -1,178 +1,209 @@
-| debug-code.txt
-| PHREDA 2010
-|---------------------------------------
+| debug code
+| PHREDA 2015
+|--------------------
 ^r4/lib/gui.txt
-^r4/lib/input.txt
+^r4/lib/btn.txt
+^r4/lib/parse.txt
 ^r4/lib/codecolor.txt
 
+^r4/lib/fontm.txt
+^inc/fntm/droidsans13.txt
 
+^r4/system/mem-ed.txt
+^r4/ide/r4-token.txt
+^r4/ide/r4-info.txt
+
+^r4/ide/r4-tokenprint.txt
 
 ^r4/lib/trace.txt
 
-#mensaje )( 64
-#consola )( 1024
-#pagina
-#actual
+#pantaini>	| comienzo de pantalla
+#pantafin>	| fin de pantalla
+#prilinea	| primera linea visible
+#cntlinea
 
-:mensaje! 'mensaje strcpy ;
+#fuente  	| fuente editable
+#fuente> 	| cursor
+#$fuente	| fin de texto
 
-|----------------------------------
-:helpmodo
+:loadtxt | -- cargar texto
+	here dup 'fuente !
+	'ed.nombre load dup '$fuente !
+	0 swap c!+ 'here !
 	;
 
-:memmapv
-	d.TOS memmap
+
+|------- show debug word
+#diccw
+
+:printstackw
+	diccw 4+ @	| >token
+	diccw 12 + @ 20 >> $fff and	| >len
+	( 1? )( swap
+		sp @+ tokenstr print
+		sp
+
+		cr
+		allowchome
+		swap 1- ) 2drop
 	;
 
-#voc-system
-"BYE" "HELP" "RESETVM" "MEMMAP"
-( 0 )
+:debugword
+	dup 'diccw !
+	show clrscr
+		$6600 ink 1 linesfill
+		verde ":R4" print blanco "sTACK " printx
+        'ed.nombre "[%s] " print
+		diccw @ print | nombre
+		cr chome! blanco
+        printstackw
 
-#exe-system
-'exit 'helpmodo 'resetvm 'memmapv
-0
+		'exit >esc<
+		;
 
-:nextw
-    ( c@+ 32 >? )( drop )
-	0? ( drop 1- )( drop )
+|------ info code
+:moreword | c -- c
+	mark over 12 + @ ,printinfowor empty
+	here amarillo oscuro
+	'exit swap link |fillp blanco print
 	;
 
-:pushnro | val --
-	basen
-	10 =? ( drop d.pushDec ; )
-	2 =? ( drop d.pushBin ; )
+:idef
+	$f not and 'indicepal +
+	sp
+		|	dup @ print sp	| !!!nombre
+	mark
+	dup 12 + @ ,printmovword
+	empty
+	here azul
+	'debugword swap link |fillp blanco print
+	8 + @ $a0 and 1? ( moreword )
+	drop ;
+
+:ivar
+	$f not and 'indicepal +
+	sp
+	8 + @
+	6 >> vtype " %s "
+	azul fillp blanco print ;
+
+:ierr
+	4 >> errormsg sp "!! %s "
+	rojo fillp blanco print ;
+
+:iwar
+	amarillo " ! " print
 	drop
-	d.pushHex ;
 	;
 
-:palabraconsola | str -- str'
-	( dup c@ 33 <? )( 0? ( nip ; ) drop 1+ )		| quitar espacios
-|	$5e =? ( drop esinclude ; )			| $5e ^  Include
-|	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
-|	$3A =? ( drop esdefinicion ; )		| $3a :  Definicion
-|	$23 =? ( drop esvariable ; )		| $23 #  Variable
+#tipoinfo 0 'idef 'ivar 'ierr 'iwar 0 0 0 0 0 0 0 0 0 0 0 0
 
-|	$22 =? ( drop escadena ; )			| $22 "	 Cadena
+:infoline
+|	over prilinea + 2 << textinfo + @ | infolinea
+	0? ( drop ; )
+	dup $f and 2 << 'tipoinfo + @ exec ;
 
-	$27 =? ( drop 1+ dup 				| $27 ' Direccion
-		dup ?macro 1? ( 3drop "mACROnOTdIR" mensaje! 0 ; ) drop
-		?palabra 1? ( nip stepadr nextw ; ) 2drop
-		"NOTdIR" seterror 3 - 0 ; )
-	drop
-	dup ?numero 1? ( drop pushnro nip ; ) drop
-	dup ?fnumero 1? ( drop d.pushFix nip ; ) drop
-	dup 'voc-system inupp? 1? ( 1- 2 << 'exe-system + @ exec nextw ; ) drop
-	dup ?macro 1? ( stepmacro nextw ; ) drop
-	dup ?palabra 1? ( stepword nextw ; ) drop
-	2drop 0
-	"NOTfOUND" mensaje! ;
+|------- show debug word
+#diccw
 
-:correconsola
-	'consola ( palabraconsola 0? ) drop
-	0 'consola !
+:printstackw
+	diccw 4+ @	| >token
+	diccw 12 + @ 20 >> $fff and	| >len
+	( 1? )( swap
+		sp @+ tokenstr print
+		sp
+
+		cr
+		allowchome
+		swap 1- ) 2drop
 	;
 
-|-----------------------------------
-:clickvar
-	dup 'actual !
-	dup makeanaword ;
+:debugword
+	dup 'diccw !
+	show clrscr
+		$6600 ink 1 linesfill
+		verde ":R4" print blanco "sTACK " printx
+        'ed.nombre "[%s] " print
+		diccw @ print | nombre
+		cr chome! blanco
+        printstackw
 
-:cadavariable
-	drop allowchome
-	violeta actual <>? ( oscuro )
-	'clickvar over 5 << 'indicepal + @ "#%w " link cr
-	;
-
-:clickpalabra
-	dup 'actual !
-	dup makeanaword ;
-
-:cadapalabra
-	drop allowchome
-	actual <>? ( rojo oscuro oscuro )( rojo )
-	'clickpalabra over 5 << 'indicepal + @ ":%w " link cr
-	;
-
-:listofwords
-	'cadavariable varmap | 'vector --
-	'cadapalabra wordmap | 'vector --
-	chome
-	actual printname cr verde
-	printanaword
-|	printcursoranaword
-	;
-|---------
-:fullrun
-	scr cls home "RUN" print home
-	show
-|		scr
-		stepvm
-
-	|	home
-	|	cr amarillo
-	|	dumpvstack
-	|	vm.dumpcode
 		'exit >esc<
 		;
 
 
-|----------------------------------
-:maindebug
-	cntw 'actual !
-|	refrescaind
-	show xfb>scr
-		'exit >esc<
-		'correconsola <enter>
+:tokerror
+	4 << $03 or
+|	errornrolinea 2 << textinfo + !
+	;
 
-		60 gc.top $77700f gc.hfill
-		home
-		verde dup " :R%d" print
-		blanco "dEBUG" print
-		verde
-		'ed.nombre "%s " printr
+:clearti
+|	textinfo 1024 ( 1? )( 0 rot !+ swap 1- ) 2drop ;
+
+|------------ recompilar
+:recompilar
+	home
+	$6600 ink 1 linesfill
+	verde dup ":R%d" print
+	rojo "cOMPILANDO " printx
+   'ed.nombre "[%s] " print
+	redraw
+	clearti
+	mark
+	fuente tokeniza
+	empty
+	1? ( tokerror ; )
+	drop
+	tokenpostall | analisis de palabras
+|---- arma array info
+|	fuente textinfo arrayinfo
+|	1 'infomode !
+	;
 
 
-		cr 
-		rojo sp 'exit "esc-Exit" btnt
-		cyan
-		sp 'fullrun dup <f1> "f1-Run" btnt
-		sp 'stepvm dup <f2> "f2-Step" btnt
-		sp 'stepvmn dup <f3> "f3-StepN" btnt
+|------------ panel info
+#panelinfo
 
+:panelinfos
+	panelinfo 1? ( drop 0 'panelinfo ! ; ) drop
+	1 'panelinfo !
+	|...........REHACER DEBUG
+	recompilar
+	;
 
-		60 0 gc.vbetween home
+:drawpanelinfo
+	panelinfo 0? ( drop ; ) drop
+	sw 2/ gc.right
+	$3f alpha azul gc.fbox $ff alpha
+	home cr blanco
 
-		cte> cte - "%d bytes ctes / " print
-		prog> prog - 2 >> "%d tokens / " print
-		cntwords "%d words / " print
-		cntw "%d used / " print
-		cntwords newwords - "%d words main " print
+|	codeprint cr
+|	infodic cr
+	;
+
+:debugcode
+	0 paper
+	'fontdroidsans13 fontm
+	clrscr
+	rows 3 - 'cntlinea !
+	4
+	show clrscr
+		$6600 ink 1 linesfill
+		verde dup ":R%d" print
+		blanco "dEBUG " printx
+        'ed.nombre "[%s] " print
 		cr
-		rojo 'mensaje printx cr
 
-		blanco "> " print
-		'consola 32 input cr
-		cr amarillo
-		dumpvstack
-		vm.dumpcode
-
-		cmano ;
+		'exit >esc<
+		cminiflecha ;
 
 
 :main
+	mark
 	ed.load
-	'ed.nombre tokencomp
-	msg 1? ( drop saverror ; ) drop
-	tokenpost
-	msg 1? ( drop saverror ; ) drop
-	startvm
-	maindebug
+	loadtxt
+	fuente tokeniza 1? ( drop ; ) drop
+	debugcode
 	;
 
-: 0 paper
-	mark
-
-|	4 main
-	startvm
-	maindebug
-	empty ;
+: main ;

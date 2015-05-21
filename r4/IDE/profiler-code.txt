@@ -1,10 +1,9 @@
-| genera codigo con profiler
+| profiler code
 | PHREDA 2015
 |------------
 ^r4/lib/gui.txt
 ^r4/lib/btn.txt
-^r4/lib/parse.txt
-^r4/lib/codecolor.txt
+^r4/lib/sort.txt
 
 ^r4/lib/fontm.txt
 ^inc/fntm/droidsans13.txt
@@ -16,17 +15,11 @@
 #fuente
 #cntprofile 0
 #tablaprofile
+#cntlinea
 
-:dumppro
-	tablaprofile >r
-	cntprofile ( 1? )(
-		r@+ drop |"%s " print
-		r@+ "%d msec " print
-		r@+ "%d call " print
-		cr
-		1- ) drop
-	rdrop
-	;
+#lista
+#clista
+#itable 0
 
 :wordcntok | adr -- adr token cnt
 	dup 4+ @ over 12 + @ 20 >> $fff and ;
@@ -59,14 +52,13 @@
 
 :loadtxt | -- cargar texto
 	here dup 'fuente !
-	'ed.nombre load 0 swap c!+ 'here !
+	'ed.nombre
+	load 0 swap c!+ 'here !
 	;
 
 :profile
 	loadtxt
-	mark
-	fuente tokeniza
-	empty 1? ( empty ; ) drop
+	fuente tokeniza 1? ( drop ; ) drop
 	mark
 	"^r4/lib/r4-incprofile.txt" ,print ,nl
 	'indiceinc ( indiceinc< <? )(
@@ -79,7 +71,7 @@
 	wordcntok 1- swap 4+ swap printtokenlin drop
 	'ed.nombre swap ": %d ""%s"" profile_mem _run_ profile_save ;" ,print ,nl
 	"mem/profrun.txt" savemem
-	empty empty
+	empty
 	"mem/profrun.txt" run
 	;
 
@@ -89,14 +81,69 @@
 	'here !
 	@+ 'cntprofile !
 	'ed.nombre over =s
-	0? ( nip dup "mem/profile.mem" save ; ) drop
+	0? ( nip dup dup "mem/profile.mem" save 'cntprofile ! ; ) drop
 	>>0 'tablaprofile !
 	;
 
+|----
+:+lista | adr --
+	dup 4+ @+ 16 << swap @ 0? ( 1+ ) / neg
+	, , ;
+
+:calclist
+	here 'lista !
+	tablaprofile >r
+	indicepal< ( indicepal> 16 - <? )(
+		dup 8 + @ %1 nand? ( r +lista over r!+ 8 r+ ) drop
+		16 + )
+	drop rdrop
+	here lista - 3 >> 1+ 'clista !
+	clista lista shellsort
+	;
+
+
+:printline
+	@+ @ " %w" print
+	20 col @+ "%d" 8 cntprintr
+	30 col @ "%d" 8 cntprintr
+	40 col neg "%f" 14 cntprintr
+	cr ;
+
+:drawtable
+	verde
+	" Word" print
+	20 col "  Msec" print
+	30 col "  Calls" print
+	40 col "  MS/Calls" print
+	cr
+	blanco
+	lista >r
+	0 ( cntlinea <? )( 1+
+		clista <? ( r@+ r@+ printline )
+		) drop
+	rdrop ;
 
 :screenprofile
+	loadtxt
+	fuente tokeniza 1? ( drop ; ) drop
+	calclist
+	0 paper
+	'fontdroidsans13 fontm
+	clrscr
+	rows 3 - 'cntlinea !
+	4
 	show clrscr
+		$6600 ink 1 linesfill
+		verde dup ":R%d" print
+		blanco "pROFILER " printx
+        'ed.nombre "[%s] " print
+		"|F1-RERUN " printr cr
+
+        drawtable
+
+		'profile <f1>
 		'exit >esc<
+
 		cminiflecha ;
 
 
@@ -104,7 +151,8 @@
 	mark
 	ed.load
 	cargaprofile
-	cntprofile 0? ( profile ) drop
+	cntprofile
+	0? ( profile ) drop
 	screenprofile
 	;
 

@@ -6,14 +6,10 @@
 ^r4/lib/parse.txt
 ^r4/lib/codecolor.txt
 
+^r4/system/mem-ed.txt
+
 ^r4/lib/fontm.txt
 ^inc/fntm/droidsans13.txt
-
-^r4/system/mem-ed.txt
-^r4/ide/r4-token.txt
-^r4/ide/r4-info.txt
-
-^r4/ide/r4-tokenprint.txt
 
 ^r4/lib/trace.txt
 
@@ -36,16 +32,12 @@
 #undobuffer>
 
 |---- arreglo de info
-#infomode 0
-#textinfo 0
+#errorlin
+#errormsg )( 256
+#nrolin )( 32
 
 |---- palabra actual
 #wordact
-
-|---- debug.err
-#nrolin )( 32
-#error )( 256
-#mensaje )( 1024
 
 :cursor>carlin | --
 	1 fuente ( fuente> <? )( c@+ 13 =? ( rot 1+ rot rot ) drop ) | cuenta lineas
@@ -338,76 +330,6 @@
 	( finsel <? )( c@+ 13 =? ( 2drop sel<< ; ) gemit )
 	drop sel<< ;
 
-|------- show debug word
-#diccw
-
-:printstackw
-	diccw 4+ @	| >token
-	diccw 12 + @ 20 >> $fff and	| >len
-	( 1? )( swap
-		sp @+ tokenstr print
-		sp
-
-		cr
-		allowchome
-		swap 1- ) 2drop
-	;
-
-:debugword
-	dup 'diccw !
-	show clrscr
-		$6600 ink 1 linesfill
-		verde ":R4" print blanco "sTACK " printx
-        'ed.nombre "[%s] " print
-		diccw @ print | nombre
-		cr chome! blanco
-        printstackw
-
-		'exit >esc<
-		;
-
-|------ info code
-:moreword | c -- c
-	mark over 12 + @ ,printinfowor empty
-	here amarillo oscuro
-	'exit swap link |fillp blanco print
-	;
-
-:idef
-	$f not and 'indicepal +
-	sp
-		|	dup @ print sp	| !!!nombre
-	mark
-	dup 12 + @ ,printmovword
-	empty
-	here azul
-	'debugword swap link |fillp blanco print
-	8 + @ $a0 and 1? ( moreword )
-	drop ;
-
-:ivar
-	$f not and 'indicepal +
-	sp
-	8 + @
-	6 >> vtype " %s "
-	azul fillp blanco print ;
-
-:ierr
-	4 >> errormsg sp "!! %s "
-	rojo fillp blanco print ;
-
-:iwar
-	amarillo " ! " print
-	drop
-	;
-
-#tipoinfo 0 'idef 'ivar 'ierr 'iwar 0 0 0 0 0 0 0 0 0 0 0 0
-
-:infoline
-	infomode 0? ( drop ; ) drop
-	over prilinea + 2 << textinfo + @ | infolinea
-	0? ( drop ; )
-	dup $f and 2 << 'tipoinfo + @ exec ;
 
 :drawcode
 	pantaini>
@@ -417,7 +339,6 @@
        	ccw 2 << dup 'tx1 ! 'ccx !
 		swap
 		drawsel lf drawcur lf >>lineacolor0
-		infoline
 		0 'tx1 !
 		0? ( 2drop cntlinea $fuente )( cr )
 		swap 1+ ) drop
@@ -426,56 +347,15 @@
 	( pantafin> >? )( scrolldw )
 	( pantaini> <? )( scrollup )
 	drop
+	|----------------- mensaje de error!!
+	errorlin -? ( drop ; )
+	prilinea <? ( drop ; )
+	prilinea - cntlinea >=? ( drop ; )
+	3 swap gotoxy
+	errormsg " !! %s "
+	rojo fillp blanco print
 	;
 
-:tokerror
-	4 << $03 or
-	errornrolinea 2 << textinfo + !
-	1 'infomode !
-	;
-
-:clearti
-	textinfo 1024 ( 1? )( 0 rot !+ swap 1- ) 2drop ;
-
-|------------ recompilar
-:recompilar
-	home
-	$6600 ink 1 linesfill
-	verde dup ":R%d" print
-	rojo "cOMPILANDO " printx
-   'ed.nombre "[%s] " print
-	redraw
-	clearti
-	mark
-	fuente tokeniza
-	empty
-	1? ( tokerror ; )
-	drop
-	tokenpostall | analisis de palabras
-|---- arma array info
-	fuente textinfo arrayinfo
-	1 'infomode !
-	;
-
-|------------ panel info
-#panelinfo
-
-:panelinfos
-	panelinfo 1? ( drop 0 'panelinfo ! ; ) drop
-	1 'panelinfo !
-	|...........REHACER DEBUG
-	recompilar
-	;
-
-:drawpanelinfo
-	panelinfo 0? ( drop ; ) drop
-	sw 2/ gc.right
-	$3f alpha azul gc.fbox $ff alpha
-	home cr blanco
-
-|	codeprint cr
-|	infodic cr
-	;
 
 |-------------- panel control
 #panelcontrol
@@ -546,8 +426,9 @@
 
 |----------------------------
 :directrun	savetxt 'ed.nombre run  ;
-:profiler	savetxt	"r4/IDE/r4-profiler.txt" run ;
-:debugrun	savetxt	"r4/IDE/r4-debug.txt" run ;
+:profiler	savetxt	"r4/IDE/profiler-code.txt" run ;
+:debugrun	savetxt	"r4/IDE/debug-code.txt" run ;
+
 :mkplain	savetxt	"r4/system/r4plain.txt" run ;
 :mkasm		savetxt
 |	"r4/system/r4fasm.txt" run
@@ -571,12 +452,11 @@
 	[ 9 modo exec ; ] <tab>
 
 
-	'recompilar <f1>
-	'directrun <f2>
-	'debugrun <f3>
-	'profiler <f4>
-	'mkplain <f5>
-	'mkasm <f6>
+	'directrun <f1>
+	'debugrun <f2>
+	'profiler <f3>
+	'mkplain <f4>
+	'mkasm <f5>
 
 	'exit >esc<
 	'controlon <ctrl>
@@ -597,7 +477,7 @@
 		blanco "dEBUG " printx
         'ed.nombre "[%s] " print
 
-		"|F1-ANALISIS|F2-RUN|F3-DEBUG|F4-PROFILE|F5-PLAIN|F6-COMPILE " printr
+		"|F1-RUN|F2-DEBUG|F3-PROFILE|F4-PLAIN|F5-COMPILE " printr
 
 |------------------------------
 		cr chome!
@@ -606,7 +486,6 @@
 		0 cntlinea gotoxy
 		$6600 ink 1 linesfill | linea abajo
 		drawpanelcontrol
-		drawpanelinfo
 |------------------------------
 		teclado
 		cminiflecha ;
@@ -628,16 +507,13 @@
 	dup 'undobuffer !
 	dup 'undobuffer> !
 	$ffff +         	| 64kb
-	dup 'textinfo !
-	$fff +
 	'here  ! | -- FREE
-	0 'infomode !
 	mark
 	;
 
 :cargaestado
 	mark
-	-1 'ed.nlin ! 0 'ed.ncar !
+	-1 dup 'errorlin ! 'ed.nlin ! 0 'ed.ncar !
 
 	here dup "debug.err" load
 	empty
@@ -646,11 +522,10 @@
 	| -- here  ...vacia antes de usarla
 	'ed.nombre cpy|
 	'nrolin cpy|
-	'nrolin ?numero 1? ( drop nip ) -1 =? ( drop ; ) 'ed.nlin !
+	'nrolin ?numero 1? ( drop nip ) -1 =? ( drop ; ) dup 'errorlin ! 'ed.nlin !
 	'nrolin cpy|
 	'nrolin ?numero 1? ( drop nip )  'ed.ncar !
-	'error swap ( c@+ 1? )( rot c!+ swap ) rot c! drop
-	'error 'mensaje strcpy
+	'errormsg swap ( c@+ 1? )( rot c!+ swap ) rot c! drop
 	;
 
 |----------- principal
