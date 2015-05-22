@@ -3,6 +3,7 @@
 |---------------------------------------
 ^r4/lib/gui.txt
 ^r4/lib/btn.txt
+^r4/lib/input.txt
 ^r4/lib/parse.txt
 ^r4/lib/codecolor.txt
 
@@ -304,6 +305,14 @@
 		dup c@ toupp pick2 =? ( exactw 1? ( setcur ; ) )
 		drop 1+ ) 3drop ;
 
+#findpad )( 32
+#findmode
+:controlf | -- ;find
+	findmode 1 xor 'findmode !
+	0 'findpad !
+	refreshfoco
+	;
+
 |-------------
 :controld | buscar definicion
 	;
@@ -330,7 +339,6 @@
 	( finsel <? )( c@+ 13 =? ( 2drop sel<< ; ) gemit )
 	drop sel<< ;
 
-
 :drawcode
 	pantaini>
 	0 ( cntlinea <? )(
@@ -352,9 +360,9 @@
 	prilinea <? ( drop ; )
 	prilinea - cntlinea >=? ( drop ; )
 	3 swap gotoxy
-	errormsg " !! %s "
-	rojo fillp blanco print
-	;
+	">" rojo  fillp blanco print
+	'errormsg "< %s " rojo fillpr
+	blanco printr ;
 
 
 |-------------- panel control
@@ -378,7 +386,7 @@
 
 	'controln 49 ?key " N-New" print
 |	'controlm 50 ?key " M-Mode" print
-|	'controlm 50 ?key " F-Find" print
+	'controlf 33 ?key " F-Find" print
 
 	'controla <up>
 	'controls <dn>
@@ -437,7 +445,24 @@
 	;
 
 |---------- manejo de teclado
+:buscapad	
+	fuente 'findpad findstri
+	0? ( drop ; )
+	'fuente> !
+	;
+
+:findmodekey
+	0 'panelcontrol !
+	blanco
+	"?" print
+    'controlf <enter>
+	'exit >esc<
+	'buscapad 'findpad 31 inputexec
+	;
+
 :teclado
+	findmode 1? ( drop findmodekey ; ) drop
+	drawpanelcontrol
 	keypad
 	panelcontrol 1? ( drop 'controloff >ctrl< ; ) drop
 
@@ -451,7 +476,6 @@
 	[ 13 modo exec ; ] <enter>
 	[ 9 modo exec ; ] <tab>
 
-
 	'directrun <f1>
 	'debugrun <f2>
 	'profiler <f3>
@@ -464,8 +488,7 @@
 
 :editor
 	0 paper
-	'fontdroidsans13 fontm
-|	fonti
+	'fontdroidsans13 fontm	
 	clrscr
 	rows 2 - 'cntlinea !
 	show clrscr
@@ -474,7 +497,7 @@
 		$6600 ink 1 linesfill
 		verde dup ":R%d" print
 
-		blanco "dEBUG " printx
+		blanco "eDIT " printx
         'ed.nombre "[%s] " print
 
 		"|F1-RUN|F2-DEBUG|F3-PROFILE|F4-PLAIN|F5-COMPILE " printr
@@ -485,16 +508,11 @@
 
 		0 cntlinea gotoxy
 		$6600 ink 1 linesfill | linea abajo
-		drawpanelcontrol
 |------------------------------
 		teclado
 		cminiflecha ;
 
 |---- Mantiene estado del editor
-:cpy|
-    swap ( c@+ $7c <>? )( rot c!+ swap ) drop 0 rot c! ;
-
-|----
 :ram
 	here	| --- RAM
 	dup 'fuente !
@@ -511,6 +529,9 @@
 	mark
 	;
 
+:cpy|
+    swap ( c@+ $7c <>? )( rot c!+ swap ) drop 0 rot c! ;
+
 :cargaestado
 	mark
 	-1 dup 'errorlin ! 'ed.nlin ! 0 'ed.ncar !
@@ -519,14 +540,10 @@
 	empty
 	over 4+ <? ( 2drop ed.load ; )
 	0 swap !
-	| -- here  ...vacia antes de usarla
 	'ed.nombre cpy|
-	'nrolin cpy|
-	'nrolin ?numero 1? ( drop nip ) -1 =? ( drop ; ) dup 'errorlin ! 'ed.nlin !
-	'nrolin cpy|
-	'nrolin ?numero 1? ( drop nip )  'ed.ncar !
-	'errormsg swap ( c@+ 1? )( rot c!+ swap ) rot c! drop
-	;
+	?sint dup 'errorlin ! 'ed.nlin !
+	1+ ?sint 'ed.ncar !
+	'errormsg strcpy ;
 
 |----------- principal
 :main
