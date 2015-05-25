@@ -3,6 +3,8 @@
 |--------------------
 ^r4/lib/gui.txt
 ^r4/lib/btn.txt
+^r4/lib/input.txt
+
 ^r4/lib/parse.txt
 ^r4/lib/codecolor.txt
 
@@ -10,9 +12,9 @@
 ^inc/fntm/droidsans13.txt
 
 ^r4/system/mem-ed.txt
+
 ^r4/ide/r4-token.txt
 ^r4/ide/r4-info.txt
-
 ^r4/ide/r4-tokenprint.txt
 
 ^r4/lib/trace.txt
@@ -26,182 +28,135 @@
 #fuente> 	| cursor
 #$fuente	| fin de texto
 
+#ypad
+#error
+#tokencursor>
+#tokenrun>
+
+#pad )( 2048	| texto
+#pad> 'pad
+
+#hist )( $ffff	| historia
+#hist> 'hist
+
 :loadtxt | -- cargar texto
-	here dup 'fuente !
-	'ed.nombre load dup '$fuente !
-	0 swap c!+ 'here !
-	;
-
-
-|------- show debug word
-#diccw
-
-:printstackw
-	diccw 4+ @	| >token
-	diccw 12 + @ 20 >> $fff and	| >len
-	( 1? )( swap
-		sp @+ tokenstr print
-		sp
-
-		cr
-		allowchome
-		swap 1- ) 2drop
-	;
-
-:debugword
-	dup 'diccw !
-	show clrscr
-		$6600 ink 1 linesfill
-		verde ":R4" print blanco "sTACK " printx
-        'ed.nombre "[%s] " print
-		diccw @ print | nombre
-		cr chome! blanco
-        printstackw
-
-		'exit >esc<
-		;
-
-|------ info code
-:moreword | c -- c
-	mark over 12 + @ ,printinfowor empty
-	here amarillo oscuro
-	'exit swap link |fillp blanco print
-	;
-
-:idef
-	$f not and 'indicepal +
-	sp
-		|	dup @ print sp	| !!!nombre
+	ed.load
 	mark
-	dup 12 + @ ,printmovword
-	empty
-	here azul
-	'debugword swap link |fillp blanco print
-	8 + @ $a0 and 1? ( moreword )
+	here 'ed.nombre load 0 swap c!
+
+	|-- queda solo cr al fin de linea
+	fuente dup 'pantaini> !
+	here ( c@+ 1? )(
+		13 =? ( over c@ 10 =? ( drop swap 1+ swap )( drop ) )
+		10 =? ( drop c@+ 13 <>? ( drop 1- 13 ) )
+		rot c!+ swap ) 2drop
+	0 swap c!+ '$fuente ! ;
+
+|-----------------------------------------------
+:clearpad
+	0 'pad ! refreshfoco ;
+
+:seterror
+	errormsg 'error ! 2
+	poserror >>sp inwordset!
+	;
+
+:compila&run
+|	'pad str2token
+|	1? ( seterror ; ) drop
+
+	0 'error !
+	clearpad
+	"hola" 'error !
+
+|	stackreset
+|	'tokencod exectoken
+|	padreset
+|	stacktotoken
+	;
+
+|------- show debug pad
+:showpad
+	error 0? ( $5500 )( $550000 ) ink
+	1 linesfill blanco
+	0? ( "Ok." nip ) printx cr
+	sp 'pad 2048 inword
+	'compila&run <enter>
+	;
+
+|---------------------------------
+:<<13 | a -- a
+	( fuente >=? )( dup c@
+		13 =? ( drop ; )
+		drop 1- ) ;
+
+:>>13 | a -- a
+	( $fuente <? )( dup c@
+		13 =? ( drop 1- ; ) | quitar el 1-
+		drop 1+ )
+	drop $fuente 2 - ;
+
+:scrollup | 'fuente -- 'fuente
+	pantaini> 1- <<13 1- <<13  1+ 'pantaini> !
+	prilinea 1? ( 1- ) 'prilinea !
+	;
+
+:scrolldw
+	pantaini> >>13 2 + 'pantaini> !
+	pantafin> >>13 2 + 'pantafin> !
+	1 'prilinea +! ;
+
+:drawcode
+	pantaini>
+	0 ( cntlinea <? )(
+        gris
+		dup prilinea + "%d" print
+       	ccw 2 << dup 'tx1 ! 'ccx !
+		swap
+		>>lineacolor0
+		0 'tx1 !
+		0? ( 2drop cntlinea $fuente )( cr )
+		swap 1+ ) drop
+	$fuente <? ( 1- ) 'pantafin> !
+	fuente>
+	( pantafin> >? )( scrolldw )
+	( pantaini> <? )( scrollup )
 	drop ;
-
-:ivar
-	$f not and 'indicepal +
-	sp
-	8 + @
-	6 >> vtype " %s "
-	azul fillp blanco print ;
-
-:ierr
-	4 >> errormsg sp "!! %s "
-	rojo fillp blanco print ;
-
-:iwar
-	amarillo " ! " print
-	drop
-	;
-
-#tipoinfo 0 'idef 'ivar 'ierr 'iwar 0 0 0 0 0 0 0 0 0 0 0 0
-
-:infoline
-|	over prilinea + 2 << textinfo + @ | infolinea
-	0? ( drop ; )
-	dup $f and 2 << 'tipoinfo + @ exec ;
-
-|------- show debug word
-#diccw
-
-:printstackw
-	diccw 4+ @	| >token
-	diccw 12 + @ 20 >> $fff and	| >len
-	( 1? )( swap
-		sp @+ tokenstr print
-		sp
-
-		cr
-		allowchome
-		swap 1- ) 2drop
-	;
-
-:debugword
-	dup 'diccw !
-	show clrscr
-		$6600 ink 1 linesfill
-		verde ":R4" print blanco "sTACK " printx
-        'ed.nombre "[%s] " print
-		diccw @ print | nombre
-		cr chome! blanco
-        printstackw
-
-		'exit >esc<
-		;
-
-
-:tokerror
-	4 << $03 or
-|	errornrolinea 2 << textinfo + !
-	;
-
-:clearti
-|	textinfo 1024 ( 1? )( 0 rot !+ swap 1- ) 2drop ;
-
-|------------ recompilar
-:recompilar
-	home
-	$6600 ink 1 linesfill
-	verde dup ":R%d" print
-	rojo "cOMPILANDO " printx
-   'ed.nombre "[%s] " print
-	redraw
-	clearti
-	mark
-	fuente tokeniza
-	empty
-	1? ( tokerror ; )
-	drop
-	tokenpostall | analisis de palabras
-|---- arma array info
-|	fuente textinfo arrayinfo
-|	1 'infomode !
-	;
-
-
-|------------ panel info
-#panelinfo
-
-:panelinfos
-	panelinfo 1? ( drop 0 'panelinfo ! ; ) drop
-	1 'panelinfo !
-	|...........REHACER DEBUG
-	recompilar
-	;
-
-:drawpanelinfo
-	panelinfo 0? ( drop ; ) drop
-	sw 2/ gc.right
-	$3f alpha azul gc.fbox $ff alpha
-	home cr blanco
-
-|	codeprint cr
-|	infodic cr
-	;
 
 :debugcode
 	0 paper
 	'fontdroidsans13 fontm
 	clrscr
-	rows 3 - 'cntlinea !
+	rows 8 - 'cntlinea !
 	4
 	show clrscr
 		$6600 ink 1 linesfill
 		verde dup ":R%d" print
 		blanco "dEBUG " printx
         'ed.nombre "[%s] " print
-		cr
+		cr chome!
+
+		drawcode
+		showpad
 
 		'exit >esc<
 		cminiflecha ;
 
 
-:main
+:ram
 	mark
-	ed.load
+	here	| --- RAM
+	dup 'fuente !
+	dup 'fuente> !
+	dup '$fuente !
+	$3ffff +			| 256kb texto
+	'here  ! | -- FREE
+	;
+
+:main
+	ram
 	loadtxt
+
 	fuente tokeniza 1? ( drop ; ) drop
 	debugcode
 	;

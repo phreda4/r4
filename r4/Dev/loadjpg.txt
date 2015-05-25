@@ -1,30 +1,41 @@
 | JPG decoder
 | PHREDA 2015
 |-----------------------
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
 #imem
 #emem
 
+#restart
+
 #imgrows
 #imgcols
-
-#restart
-#DCTables
-#ACTables
-#QTables
+#Image.NumComp
+#Image.HuffACTableY
+#Image.HuffDCTableY
+#Image.HuffACTableCbCr
+#Image.HuffDCTableCbCr
 #Image.SamplesY
 #Image.QuantTableY
 #Image.SamplesCbCr
 #Image.QuantTableCbCr
 
-#JPGZig1 (
-   0 0 1 2 1 0 0 1 2 3 4 3 2 1 0 0 1 2 3 4 5 6 5 4 3 2 1 0 0 1 2 3
-   4 5 6 7 7 6 5 4 3 2 1 2 3 4 5 6 7 7 6 5 4 3 4 5 6 7 7 6 5 6 7 7 )
+| index(16)-length(8)-code(8)
+#HuffmanDC0 )( 1024
+#HuffmanDC1 )( 1024
+#HuffmanAC0 )( 1024
+#HuffmanAC1 )( 1024
 
-#JPGZig2 (
-   0 1 0 0 1 2 3 2 1 0 0 1 2 3 4 5 4 3 2 1 0 0 1 2 3 4 5 6 7 6 5 4
-   3 2 1 0 1 2 3 4 5 6 7 7 6 5 4 3 2 3 4 5 6 7 7 6 5 4 5 6 7 7 6 7 )
+#QuantTable )( 512 | 2x8x8
 
-#aanscales | /* precomputed values scaled up by 14 bits */
+#JPGzz (
+ 0  1  8 16  9  2  3 10 17 24 32 25 18 11  4  5
+12 19 26 33 40 48 41 34 27 20 13  6  7 14 21 28
+35 42 49 56 57 50 43 36 29 22 15 23 30 37 44 51
+58 59 52 45 38 31 39 46 53 60 61 54 47 55 62 63 -1 )
+
+#aanscales | precomputed values scaled up by 14 bits
    16384  22725  21407  19266  16384  12873   8867   4520
    22725  31521  29692  26722  22725  17855  12299   6270
    21407  29692  27969  25172  21407  16819  11585   5906
@@ -39,10 +50,31 @@
 :get16 | adr -- adr+ 16b
 	c@+ $ff and 8 << swap c@+ $ff and rot or ;
 :readNumber | adr -- adr+ 16b
-	2+ get16 ;
+	2 + get16 ;
 :readComm | adr -- adr+
 	get16 2 - ( 1? )( 1- swap 1+ swap ) drop ;
 
+#bbit
+#bitl
+
+:read1bit | adr -- adr bit
+	bitl 0? ( drop c@+ 'bbit ! 8 )
+	1- 'bitl !
+	bbit dup 2/ 'bbit !
+	1 and ;
+
+:readnbit | adr n -- adr nro
+	swap 0 >r
+	bbit bitl 0 | a bb bn len
+	( pick4 <? )( swap	| a bb len bn
+    	0? ( drop nip swap c@+ rot 8 )
+		1- pick2 1 and
+		pick2 << r+
+		rot 2/ swap rot 1+ ) drop
+	'bitl ! 'bbit !
+	nip r> ;
+
+|--------------------------
 :getcase1
 	swap
 	get8 dup 15 and swap 4 >> * 'Image.SamplesY !
@@ -56,8 +88,7 @@
 	swap ;
 
 :JPGGetImageAttr | adr -- adr+
-	2+	| Length of segment
-	1+	| Data precision
+	3 +	| Length of segment
 	get16 'imgrows !
 	get16 'imgcols !
 	get8	| Number of components
@@ -67,56 +98,138 @@
 		drop swap 1- ) drop ;
 
 |----------------------------------
-#HuffAmount )( 68
+#curnum
 
-:gethuff | t a -- t a total
-	'HuffAmout 4+ >r
-	16 0 ( swap 1? )( 1- swap rot	| cnt sum ad
-		get8 dup r!+
-		rot +		| cnt a sum
-		rot swap ) drop
+:getHuffTable | a table -- a total
+	>r
+	emem >r
+	16 ( 1? )( 1- swap
+		get8 r!+ swap ) drop
+	rdrop
+	0 'curnum !
+	emem 0 ( 16 <? )( 1+	| adr ht i
+		rot rot 			| i adr ht
+		@+ ( 1? )( 1- rot 	| i ht cnt adr
+	        get8 pick4 8 << or curnum 16 << or r!+
+			1 'curnum +!
+			rot rot ) drop
+		curnum 2* 'curnum !
+		rot ) 2drop			| adr ht
 	rdrop ;
 
-:getDCtable | a t -- a
-	swap
-	gethuff
-	;
-:getAtable | a t -- a
-	swap
-	gethuff
-	;
+:tableHuff | a -- a
+	get8
+	$00 =? ( drop 'HuffmanDC0 getHuffTable ; )
+	$01 =? ( drop 'HuffmanDC1 getHuffTable ; )
+	$10 =? ( drop 'HuffmanAC0 getHuffTable ; )
+	$11 =? ( drop 'HuffmanAC1 getHuffTable ; )
+	drop ;
 
-:JPGGetHuffTables
-	get16 ( 1? )( swap
-		get8
-		$10 nand? ( getDCtable )( getAtable )
-		drop
-		swap 1- ) drop ;
+:JPGGetHuffTables | a -- a
+	get16 2 - over + swap
+	( over <? )( tableHuff ) nip ;
 
 |-----------------
-:buildimg
+:PGGetQuantTables | a -- a
+	get16 2 - over + swap
+	( over <? )(
+		get8
+		1 and 8 << 'QuantTable + >r
+		'jpgzz ( c@+ 0 >=? )(	| a zz index
+			2 << rot get8		| zz index a byte
+			pick2 'aanscales + @ * 12 >> | zz index a value
+			rot r + !			| zz a
+			swap ) 2drop
+		rdrop
+		) nip ;
+
+|-----------------
+:SOSline
+	get8
+	1 =? ( drop get8 dup 15 and 'Image.HuffACTableY ! 4 >> 'Image.HuffDCTableY ! ; )
+	drop get8 dup 15 and 'Image.HuffACTableCbCr ! 4 >> 'Image.HuffDCTableCbCr ! ;
+
+:JPGGetSOS | a --
+	2 + get8 dup 'Image.NumComp !
+	( 1? )(	1- swap SOSline swap ) drop
+	3 + ;
+
+|-----------------
+#YVector1 )( 256 |[8][8];              // 4 vectors for Y attribute
+#YVector2 )( 256 |[8][8];              // (not all may be needed)
+#YVector3 )( 256 |[8][8];
+#YVector4 )( 256 |[8][8];
+#CbVector )( 256 |[8][8];              // 1 vector for Cb attribute
+#CrVector )( 256 |[8][8];
+#yindex
+
+
+:JPGDecode | a list -- a nro
 	;
 
+:GetBlock |
+	;
+
+|---------------
+:build34 | a -- a ;3 components (Y-Cb-Cr) 4 samplesY
+	;
+
+:buildimg
+	0 'bitl !
+	0 'yindex !
+	Image.NumComp 4 << Image.SamplesY or
+	$34 =? ( drop build34 ; ) 
+	drop ;
+
 :decodetype | adr v -- adr
+|	trace
 	$ffc0 =? ( drop JPGGetImageAttr ; )
 	$ffc1 =? ( drop JPGGetImageAttr ; )
-|	$ffc2 =? ( drop FH.get FH.YX setout ; )
 	$ffc4 =? ( drop JPGGetHuffTables ; )
 	$ffdb =? ( drop PGGetQuantTables ; )
 	$ffdd =? ( drop readNumber 'Restart ! ; )
 	$ffda =? ( drop JPGGetSOS 0 ; )
 	$fffe =? ( drop readComm ; )
 	$ffe0 >=? ( $ffef <=? ( drop readComm ; ) )
+|	trace
 	2drop 0 0 ;
 
 :loadjpg | "" -- adr/0
 	here swap load
-	here =? ( drop 0 ; ) drop
+	here =? ( drop 0 ; ) 'emem !
 	here dup 'imem !
 	get16 $ffd8 <>? ( 2drop 0 ; ) drop
-	0 'DCTables !
-	0 'ACTables !
-	0 'QTables !
 	( get16 decodetype 0? ) drop
 	0? ( ; )
 	buildimg ;
+
+|---------------------------------
+
+:dumptable
+	>r
+	256 ( 1? )( 1-
+		r@+ "%h " allowcr print ) drop
+	cr
+	rdrop
+	;
+:dumpquad
+	'QuantTable >r
+	16 ( 1? )( 1-
+		8 ( 1? )( 1- r@+ "%d " print ) drop cr
+		) drop rdrop ;
+
+#test
+
+:main
+	mark
+	"r4\dev\smiley.jpg" loadjpg 'test !
+|	trace
+	show clrscr
+| 		dumpquad
+
+		'HuffmanDC0 dumptable 'HuffmanDC1 dumptable
+		'HuffmanAC0 dumptable 'HuffmanAC1 dumptable
+		'exit >esc<
+		cminiflecha ;
+
+: main ;
