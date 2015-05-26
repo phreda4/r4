@@ -22,10 +22,10 @@
 #Image.QuantTableCbCr
 
 | index(16)-length(8)-code(8)
-#HuffmanDC0 )( 1024
-#HuffmanDC1 )( 1024
-#HuffmanAC0 )( 1024
-#HuffmanAC1 )( 1024
+#HuffmanDC0 )( 1028
+#HuffmanDC1 )( 1028
+#HuffmanAC0 )( 1028
+#HuffmanAC1 )( 1028
 
 #QuantTable )( 512 | 2x8x8
 
@@ -110,7 +110,7 @@
 	emem 0 ( 16 <? )( 1+	| adr ht i
 		rot rot 			| i adr ht
 		@+ ( 1? )( 1- rot 	| i ht cnt adr
-	        get8 pick4 8 << or curnum 16 << or r!+
+	        get8 8 << pick4 or curnum 16 << or r!+
 			1 'curnum +!
 			rot rot ) drop
 		curnum 2* 'curnum !
@@ -163,22 +163,46 @@
 #CrVector )( 256 |[8][8];
 #yindex
 
+| index(16)-length(8)-code(8)
+|------------------------------
+:searchcode | code len list -- code len -1/code
+	>r
+	over 16 << over 8 << or
+	( r@+ 1? )(
+		$ffffff00 and over =? ( 2drop r 4 - @ 8 >> $ff and rdrop ; ) drop
+		) 2drop rdrop
+	-1 ;
 
 :JPGDecode | a list -- a nro
-	;
+	>r
+	read1bit
+	0 ( 16 <? )( 1+ | bit len --
+		r searchcode 0 >=? ( nip nip rdrop ; ) drop
+		swap 2* rot  | len bit a
+		read1bit rot or	 | len a bit
+		rot ) 2drop
+	rdrop -1 ;
 
-:GetBlock |
+|---------------
+:JPGGetBlock | out --
 	;
 
 |---------------
 :build34 | a -- a ;3 components (Y-Cb-Cr) 4 samplesY
+	'YVector1 JPGGetBlock |(, Image.HuffDCTableY,    Image.HuffACTableY,    Image.QuantTableY,    &dcY);
+	'YVector2 JPGGetBlock |(, Image.HuffDCTableY,    Image.HuffACTableY,    Image.QuantTableY,    &dcY);
+	'YVector3 JPGGetBlock |(, Image.HuffDCTableY,    Image.HuffACTableY,    Image.QuantTableY,    &dcY);
+	'YVector4 JPGGetBlock |(, Image.HuffDCTableY,    Image.HuffACTableY,    Image.QuantTableY,    &dcY);
+	'CbVector JPGGetBlock |(, Image.HuffDCTableCbCr, Image.HuffACTableCbCr, Image.QuantTableCbCr, &dcCb);
+	'CrVector JPGGetBlock |(, Image.HuffDCTableCbCr, Image.HuffACTableCbCr, Image.QuantTableCbCr, &dcCr);
+
 	;
 
 :buildimg
 	0 'bitl !
 	0 'yindex !
 	Image.NumComp 4 << Image.SamplesY or
-	$34 =? ( drop build34 ; ) 
+	$34 =? ( drop build34 ; )
 	drop ;
 
 :decodetype | adr v -- adr
@@ -207,28 +231,74 @@
 
 :dumptable
 	>r
-	256 ( 1? )( 1-
-		r@+ "%h " allowcr print ) drop
-	cr
-	rdrop
-	;
+	256 ( 1? )( 1- r@+ "%h " allowcr print ) drop
+	cr rdrop ;
+
 :dumpquad
 	'QuantTable >r
 	16 ( 1? )( 1-
 		8 ( 1? )( 1- r@+ "%d " print ) drop cr
 		) drop rdrop ;
 
-#test
+| 		dumpquad
+|		'HuffmanDC0 dumptable 'HuffmanDC1 dumptable
+|		'HuffmanAC0 dumptable 'HuffmanAC1 dumptable
+
+#test ( $57 $5a $a5 $8d $99 $22 $7b $98 $d1 $87 $f0 $e7 $2d $f9 $e $69 $4a $4a $2a $ed $8d $26 )
+|4  0 0
+|4 4 0 10
+|5 5 0 20
+|4 4 0 -14
+|4 4 0 -12
+|1 1 0 1
+|1 1 0 1
+|1 1 0 -1
+|3 3 0 7
+|4 4 0 9 
+|3 3 0 -4
+|2 2 0 -3
+|2 2 0 2
+|1 1 0 -1
+|66 2 4 -2
+|17 1 1 1
+|17 1 1 1
+|2 2 0 2
+|145 1 9 -1
+|1 1 0 -1
+|33 1 2 1
+|0 0 0 0
+:testhuff
+	0 'bitl !
+	'test 'HuffmanDC0 jpgdecode
+	"%d " print cr | 1
+	'HuffmanAC0 jpgdecode
+	"%d " print
+	cr
+	'HuffmanAC0 jpgdecode
+	"%d " print
+	cr
+	'HuffmanAC0 jpgdecode
+	"%d " print
+	cr
+	'HuffmanAC0 jpgdecode
+	"%d " print
+	cr
+	'HuffmanAC0 jpgdecode
+	"%d " print
+	cr
+	drop
+	trace
+
+	;
 
 :main
 	mark
 	"r4\dev\smiley.jpg" loadjpg 'test !
-|	trace
-	show clrscr
-| 		dumpquad
 
-		'HuffmanDC0 dumptable 'HuffmanDC1 dumptable
-		'HuffmanAC0 dumptable 'HuffmanAC1 dumptable
+	show clrscr
+		cr cr cr cr
+|		'HuffmanAc1 dumptable
+		testhuff
 		'exit >esc<
 		cminiflecha ;
 

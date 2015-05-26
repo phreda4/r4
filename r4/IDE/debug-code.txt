@@ -14,6 +14,7 @@
 ^r4/system/mem-ed.txt
 
 ^r4/ide/r4-token.txt
+^r4/ide/r4-tokenrun.txt
 ^r4/ide/r4-info.txt
 ^r4/ide/r4-tokenprint.txt
 
@@ -39,19 +40,6 @@
 #hist )( $ffff	| historia
 #hist> 'hist
 
-:loadtxt | -- cargar texto
-	ed.load
-	mark
-	here 'ed.nombre load 0 swap c!
-
-	|-- queda solo cr al fin de linea
-	fuente dup 'pantaini> !
-	here ( c@+ 1? )(
-		13 =? ( over c@ 10 =? ( drop swap 1+ swap )( drop ) )
-		10 =? ( drop c@+ 13 <>? ( drop 1- 13 ) )
-		rot c!+ swap ) 2drop
-	0 swap c!+ '$fuente ! ;
-
 |-----------------------------------------------
 :clearpad
 	0 'pad ! refreshfoco ;
@@ -62,20 +50,28 @@
 	;
 
 :compila&run
-|	'pad str2token
-|	1? ( seterror ; ) drop
-
+	'pad immtokeniza 1? ( seterror ; ) drop
 	0 'error !
 	clearpad
-	"hola" 'error !
 
-|	stackreset
-|	'tokencod exectoken
-|	padreset
-|	stacktotoken
+	code> 
+	( @+ 1? )( tokenexec ) 
+	2drop
 	;
 
 |------- show debug pad
+:showstack
+	dpila> 'dpila - 3 >> 8 min 3 <<
+	dpila> swap -
+	( dpila> <? )(
+
+		) drop
+	rpila> 'rpila - 3 >> 8 min 3 <<
+	rpila> swap -
+	( rpila> <? )(
+		) drop
+	;
+
 :showpad
 	error 0? ( $5500 )( $550000 ) ink
 	1 linesfill blanco
@@ -113,6 +109,7 @@
 		dup prilinea + "%d" print
        	ccw 2 << dup 'tx1 ! 'ccx !
 		swap
+		| marcar palabra actual
 		>>lineacolor0
 		0 'tx1 !
 		0? ( 2drop cntlinea $fuente )( cr )
@@ -142,7 +139,7 @@
 		'exit >esc<
 		cminiflecha ;
 
-
+|-----------------------------
 :ram
 	mark
 	here	| --- RAM
@@ -152,6 +149,19 @@
 	$3ffff +			| 256kb texto
 	'here  ! | -- FREE
 	;
+
+:loadtxt | -- cargar texto
+	ed.load
+	mark
+	here 'ed.nombre load 0 swap c!
+
+	|-- queda solo cr al fin de linea
+	fuente dup 'pantaini> !
+	here ( c@+ 1? )(
+		13 =? ( over c@ 10 =? ( drop swap 1+ swap )( drop ) )
+		10 =? ( drop c@+ 13 <>? ( drop 1- 13 ) )
+		rot c!+ swap ) 2drop
+	0 swap c!+ '$fuente ! ;
 
 :main
 	ram
