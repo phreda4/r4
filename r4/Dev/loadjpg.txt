@@ -192,6 +192,12 @@
 :]inarray | n n -- d
 	swap 3 << + 2 << 'tempa + ;
 
+:]warray | n n -- d
+	swap 3 << + 2 << 'tempw + ;
+
+:]qarray | n n -- d
+	swap 3 << + 2 << QuantNum + ;
+
 :dumpa
 	clrscr cr cr cr
 	'tempa >r
@@ -204,24 +210,98 @@
 	trace
 	;
 
-|FIX_1_082392200  277
-|FIX_1_414213562  362
-|FIX_1_847759065  473
-|FIX_2_613125930  669
+:dumpo | v
+	clrscr cr cr cr
+	>r
+	8 ( 1? )( 1-
+		8 ( 1? )( 1-
+		r@+ "%d " print
+		) drop
+		cr
+	) drop rdrop
+	trace
+	;
+
+|----------------------------------------
+:1.082392200*  277 * 8 >> ;
+:1.414213562*  362 * 8 >> ;
+:1.847759065*  473 * 8 >> ;
+:2.613125930*  669 * 8 >> ;
+
+#t0 #t1 #t2 #t3 #t4 #t5 #t6 #t7
+#a0 #a1 #a2 #a3
 
 :pass1 | col -- col
+    0 over ]inarray @ 0 pick2 ]qarray @ * 't0 !
+    2 over ]inarray @ 2 pick2 ]qarray @ * 't1 !
+    4 over ]inarray @ 4 pick2 ]qarray @ * 't2 !
+    6 over ]inarray @ 6 pick2 ]qarray @ * 't3 !
+	t0 t2 + 'a0 !
+	t0 t2 - 'a1 !
+	t1 t3 + 'a3 !
+	t1 t3 - 362 * 8 >> a2 - 'a2 !
+	a0 a3 + 't0 !
+	a0 a3 - 't3 !
+	a1 a2 + 't1 !
+	a1 a2 - 't2 !
+    1 over ]inarray @ 1 pick2 ]qarray @ * 't4 !
+    3 over ]inarray @ 3 pick2 ]qarray @ * 't5 !
+    5 over ]inarray @ 5 pick2 ]qarray @ * 't6 !
+    7 over ]inarray @ 7 pick2 ]qarray @ * 't7 !
+	t6 t5 + 'a3 !
+	t6 t5 - 'a0 !
+	t4 t7 + 'a1 !
+	t4 t7 - 'a2 !
+	a1 a3 + 't7 !
+	a0 a2 + 473 * 8 >>
+	a0 -669 * 8 >> over + t7 - 't6 !
+	a1 a3 - 362 * 8 >> t6 - 't5 !
+	a2 227 * 8 >> swap - t5 + 't4 !
+	t0 t7 + 0 pick2 ]warray !
+	t0 t7 - 7 pick2 ]warray !
+	t1 t6 + 1 pick2 ]warray !
+	t1 t6 - 6 pick2 ]warray !
+	t2 t5 + 2 pick2 ]warray !
+	t2 t5 - 5 pick2 ]warray !
+	t3 t4 + 4 pick2 ]warray !
+	t3 t4 - 3 pick2 ]warray !
 	;
 
-:pass2 | col -- col
+:]out | out col val x y
+	swap 3 << + 2 << pick3 + ;
+
+:pass2 | out col -- out col
+	dup 0 ]warray @ over 4 ]warray @ + 'a0 !
+	dup 0 ]warray @ over 4 ]warray @ - 'a1 !
+	dup 2 ]warray @ over 6 ]warray @ + 'a3 !
+	dup 2 ]warray @ over 6 ]warray @ - 362 * 8 >> a3 - 'a2 !
+	a0 a3 + 't0 !
+	a0 a3 - 't3 !
+	a1 a2 + 't1 !
+	a1 a2 - 't2 !
+	dup 5 ]warray @ over 3 ]warray @ + 'a3 !
+	dup 5 ]warray @ over 3 ]warray @ - 'a0 !
+	dup 1 ]warray @ over 7 ]warray @ + 'a1 !
+	dup 1 ]warray @ over 7 ]warray @ - 'a2 !
+	a1 a3 + 't7 !
+	a0 a2 + 473 * 8 >>
+	a0 -669 * 8 >> over + t7 - 't6 !
+	a0 a3 - 362 * 8 >> t6 - 't5 !
+	a2 277 * 8 >> swap - t5 + 't4 !
+	t0 t7 + 5 >> 128 + 255 clamp0max over 0 ]out !
+	t0 t7 - 5 >> 128 + 255 clamp0max over 7 ]out !
+	t1 t6 + 5 >> 128 + 255 clamp0max over 1 ]out !
+	t1 t6 - 5 >> 128 + 255 clamp0max over 6 ]out !
+	t2 t5 + 5 >> 128 + 255 clamp0max over 2 ]out !
+	t2 t5 - 5 >> 128 + 255 clamp0max over 5 ]out !
+	t3 t4 + 5 >> 128 + 255 clamp0max over 4 ]out !
+	t3 t4 - 5 >> 128 + 255 clamp0max over 3 ]out !
 	;
 
-:passfinal | out col -- out col
-	;
-
-:jpeg_idct_ifast | out --
+:JPGidct | out --
 	0 ( 8 <? )( pass1 1+ )
 	drop
-	0 ( 8 <? )( pass2 passfinal 1+ )
+	0 ( 8 <? )( pass2 1+ )
 	2drop ;
 
 |---------------
@@ -240,11 +320,7 @@
 			1 r+ )
 	r> 63 >? ) drop
 	rdrop
-
-	dumpa
-
-	jpeg_idct_ifast
-	;
+	JPGidct ;
 
 |---------------
 :QuantNum! | nro --
