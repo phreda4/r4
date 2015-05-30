@@ -2,6 +2,8 @@
 | PHREDA 2015
 |-----------------------
 ^r4/lib/gui.txt
+^r4/lib/img.txt
+
 ^r4/lib/trace.txt
 
 #imem
@@ -172,11 +174,6 @@
 #YVector4 )( 256 |[8][8];
 #CbVector )( 256 |[8][8];              // 1 vector for Cb attribute
 #CrVector )( 256 |[8][8];
-#yindex
-
-#dcY
-#dcCb
-#dcCr
 
 #dcCoef
 #huffAC
@@ -210,8 +207,13 @@
 	trace
 	;
 
-:dumpo | v
+:dumpp
 	clrscr cr cr cr
+	dup 20 ( 1? )( 1- swap c@+ $ff and "%h " print swap ) 2drop
+	cr
+	;
+
+:dumpo | v
 	>r
 	8 ( 1? )( 1-
 		8 ( 1? )( 1-
@@ -299,10 +301,13 @@
 	;
 
 :JPGidct | out --
+|	dumpp
 	0 ( 8 <? )( pass1 1+ )
 	drop
 	0 ( 8 <? )( pass2 1+ )
-	2drop ;
+	drop
+|	dumpo ;
+	drop ;
 
 |---------------
 :JPGGetBlock | a out -- a
@@ -310,7 +315,7 @@
 	cleartempa
 	huffDC decodehuf recbits
 	dcCoef + dup 'dcCoef ! 'tempa !
-	1 ( >r 	| a
+	1 ( >r 	| out a i
 		huffAC decodehuf		| a v
 		dup 4 >> swap 15 and	| a zeros bit
 		0? ( drop 15 <>? ( 63 + ) r+ )(
@@ -318,11 +323,15 @@
 			recbits			| a bitVal
 			r 'jpgzz + c@ 2 << 'tempa + !
 			1 r+ )
-	r> 63 >? ) drop
-	rdrop
-	JPGidct ;
+		r> 63 >? ) drop
+	swap JPGidct
+	;
 
 |---------------
+#dcY
+#dcCb
+#dcCr
+
 :QuantNum! | nro --
 	1 and 8 << 'QuantTable + 'QuantNum ! ;
 
@@ -334,12 +343,26 @@
 	0? ( 'HuffmanDC0 )( 'HuffmanDC1 ) nip
 	'huffDC ! ;
 
-:build34 | a -- a ;3 components (Y-Cb-Cr) 4 samplesY
-	0 'dcY ! 0 'dcCb ! 0 'dcCr !
+| Do color space conversion from YCbCr to RGB
+:2rgb | y cb cr -- rgb32
+	pick2 over 128 - 45 * 5 >> + 255 clamp0max 16 << >r
+	pick2 pick2 128 - 11 * 5 >> - swap 128 - 23 * 5 >> - 255 clamp0max 8 << r> or
+	rot rot 128 - 57 * 5 >> + 255 clamp0max or ;
+
+:xyimg | x y -- adr
+	imgcols * + 2 << emem + ;
+
+:dorest | y a -- y a
+	2 + 0 'bitl !
+	0 'dcY ! 0 'dcCb ! 0 'dcCr ! ;
+
+|----------------------
+:buildtables34 | a -- a ;3 components (Y-Cb-Cr) 4 samplesY
 	dcY 'dcCoef !
 	Image.QuantTableY QuantNum!
 	Image.HuffACTableY huffAC!
 	Image.HuffDCTableY huffDC!
+
 	'YVector1 JPGGetBlock
 	'YVector2 JPGGetBlock
 	'YVector3 JPGGetBlock
@@ -357,11 +380,101 @@
 	dcCoef 'dcCr !
 	;
 
+:n2cbcr | nro -- cb cr
+	2 << dup 'CbVector + @ swap 'CrVector + @ ;
+
+:fill34 | x y a -- x y a
+	0 ( 8 <? )(
+		0 ( 8 <? )(
+			pick4 pick2 + imgcols >=? ( 3drop ; )
+			pick4 pick2 + imgrows >=? ( 4drop ; )
+			xyimg >r
+			2dup 3 << + 2 << 'YVector1 + @
+			pick2 2/ pick2 2 << +
+			n2cbcr 2rgb r> !
+			1+ ) drop
+		1+ ) drop
+	0 ( 8 <? )(
+		0 ( 8 <? )(
+			pick4 pick2 + 8 + imgcols >=? ( 3drop ; )
+			pick4 pick2 + imgrows >=? ( 4drop ; )
+			xyimg >r
+			2dup 3 << + 2 << 'YVector2 + @
+			pick2 2/ 4+ pick2 2 << +
+			n2cbcr 2rgb r> !
+			1+ ) drop
+		1+ ) drop
+	0 ( 8 <? )(
+		0 ( 8 <? )(
+			pick4 pick2 + imgcols >=? ( 3drop ; )
+			pick4 pick2 + 8 + imgrows >=? ( 4drop ; )
+			xyimg >r
+			2dup 3 << + 2 << 'YVector3 + @
+			pick2 2/ pick2 2 << 4+ +
+			n2cbcr 2rgb r> !
+			1+ ) drop
+		1+ ) drop
+	0 ( 8 <? )(
+		0 ( 8 <? )(
+			pick4 pick2 + 8 + imgcols >=? ( 3drop ; )
+			pick4 pick2 + 8 + imgrows >=? ( 4drop ; )
+			xyimg >r
+			2dup 3 << + 2 << 'YVector4 + @
+			pick2 2/ 4+ pick2 2 << 4+ +
+			n2cbcr 2rgb r> !
+			1+ ) drop
+		1+ ) drop
+
+	;
+
+:build34 | a -- a
+	0 'dcY ! 0 'dcCb ! 0 'dcCr !
+	0 0 ( imgrows <? )(		| a x y
+		rot
+		buildtables34	| x y a
+		fill34 rot			| y a x
+		16 + imgcols >=? ( drop
+			restart 1? ( drop dorest 0 ) | y a xx
+			rot 16 + )( rot )
+		) 2drop ;
+
+|----------------------
+:buildtables32 | a -- a
+	;
+
+:fill32 | x y a -- x y a
+	;
+
+:build32  | a -- a
+	;
+|----------------------
+:buildtables31 | a -- a
+	;
+
+:fill31 | x y a -- x y a
+	;
+
+:build31  | a -- a
+	;
+
+|----------------------
+:buildtables10 | a -- a
+	;
+
+:fill10 | x y a -- x y a
+	;
+
+:build10  | a -- a
+	;
+
+|----------------------
 :buildimg
 	0 'bitl !
-	0 'yindex !
 	Image.NumComp 4 << Image.SamplesY or
 	$34 =? ( drop build34 ; )
+	$32 =? ( drop build32 ; )
+	$31 =? ( drop build31 ; )
+	$10 =? ( drop build10 ; )
 	drop ;
 
 :decodetype | adr v -- adr
@@ -379,12 +492,17 @@
 
 :loadjpg | "" -- adr/0
 	here swap load
-	here =? ( drop 0 ; ) 'emem !
+	here =? ( drop 0 ; )
+	8 + 'emem !
 	here dup 'imem !
 	get16 $ffd8 <>? ( 2drop 0 ; ) drop
 	( get16 decodetype 0? ) drop
 	0? ( ; )
-	buildimg ;
+	buildimg drop
+	0					| type
+	imgcols imgrows 16 << or	| size
+	emem 8 - !+ !
+	emem 8 - ;
 
 |---------------------------------
 
@@ -406,10 +524,11 @@
 	"r4\dev\smiley.jpg" loadjpg 'img !
 	show clrscr
 		cr cr cr cr
- 		dumpquad
+| 		dumpquad
 |		'HuffmanDC0 dumptable 'HuffmanDC1 dumptable
 |		'HuffmanAC0 dumptable 'HuffmanAC1 dumptable
 
+		0 0 img img.draw
 		'exit >esc<
 		cminiflecha ;
 
