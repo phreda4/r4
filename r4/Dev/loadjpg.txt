@@ -61,7 +61,9 @@
 
 |------------------------------
 :readbit | adr -- adr bit
-	bitl 0? ( drop c@+ 'bbit ! 8 )
+	bitl 0? ( drop c@+
+		-1 =? ( over c@ 0? ( 2drop 1+ 0 dup ) drop )
+		'bbit ! 8 )
 	1- 'bitl !
 	bbit dup 2* 'bbit !
 	7 >> 1 and ;
@@ -209,7 +211,7 @@
 
 :dumpp
 	clrscr cr cr cr
-	dup 20 ( 1? )( 1- swap c@+ $ff and "%h " print swap ) 2drop
+	over 20 ( 1? )( 1- swap c@+ $ff and "%h " print swap ) 2drop
 	cr
 	;
 
@@ -221,6 +223,7 @@
 		) drop
 		cr
 	) drop rdrop
+	sw 2/ 32 emem 8 - img.draw
 	trace
 	;
 
@@ -288,7 +291,7 @@
 	a1 a3 + 't7 !
 	a0 a2 + 473 * 8 >>
 	a0 -669 * 8 >> over + t7 - 't6 !
-	a0 a3 - 362 * 8 >> t6 - 't5 !
+	a1 a3 - 362 * 8 >> t6 - 't5 !
 	a2 277 * 8 >> swap - t5 + 't4 !
 	t0 t7 + 5 >> 128 + 255 clamp0max over 0 ]out !
 	t0 t7 - 5 >> 128 + 255 clamp0max over 7 ]out !
@@ -301,19 +304,21 @@
 	;
 
 :JPGidct | out --
-|	dumpp
+	dumpp
 	0 ( 8 <? )( pass1 1+ )
 	drop
 	0 ( 8 <? )( pass2 1+ )
 	drop
-|	dumpo ;
+	dumpo
+	;
 	drop ;
 
 |---------------
 :JPGGetBlock | a out -- a
 	swap
 	cleartempa
-	huffDC decodehuf recbits
+	huffDC decodehuf -? ( ; )
+	recbits
 	dcCoef + dup 'dcCoef ! 'tempa !
 	1 ( >r 	| out a i
 		huffAC decodehuf		| a v
@@ -363,7 +368,7 @@
 	Image.HuffACTableY huffAC!
 	Image.HuffDCTableY huffDC!
 
-	'YVector1 JPGGetBlock
+	'YVector1 JPGGetBlock -? ( drop ; ) | $ffd9
 	'YVector2 JPGGetBlock
 	'YVector3 JPGGetBlock
 	'YVector4 JPGGetBlock
@@ -383,48 +388,51 @@
 :n2cbcr | nro -- cb cr
 	2 << dup 'CbVector + @ swap 'CrVector + @ ;
 
+:q134
+	pick4 pick2 + imgcols >=? ( drop ; )
+	pick4 pick2 + imgrows >=? ( 2drop ; )
+	xyimg >r
+	2dup 3 << + 2 << 'YVector1 + @
+	pick2 2/ pick2 2 << +
+	n2cbcr 2rgb r> ! ;
+
+:q234
+	pick4 pick2 + 8 + imgcols >=? ( drop ; )
+	pick4 pick2 + imgrows >=? ( 2drop ; )
+	xyimg >r
+	2dup 3 << + 2 << 'YVector2 + @
+	pick2 2/ 4+ pick2 2 << +
+	n2cbcr 2rgb r> ! ;
+
+:q334
+	pick4 pick2 + imgcols >=? ( drop ; )
+	pick4 pick2 + 8 + imgrows >=? ( 2drop ; )
+	xyimg >r
+	2dup 3 << + 2 << 'YVector3 + @
+	pick2 2/ pick2 2 << 4+ +
+	n2cbcr 2rgb r> ! ;
+
+:q434
+	pick4 pick2 + 8 + imgcols >=? ( drop ; )
+	pick4 pick2 + 8 + imgrows >=? ( 2drop ; )
+	xyimg >r
+	2dup 3 << + 2 << 'YVector4 + @
+	pick2 2/ 4+ pick2 2 << 4+ +
+	n2cbcr 2rgb r> ! ;
+
 :fill34 | x y a -- x y a
 	0 ( 8 <? )(
-		0 ( 8 <? )(
-			pick4 pick2 + imgcols >=? ( 3drop ; )
-			pick4 pick2 + imgrows >=? ( 4drop ; )
-			xyimg >r
-			2dup 3 << + 2 << 'YVector1 + @
-			pick2 2/ pick2 2 << +
-			n2cbcr 2rgb r> !
-			1+ ) drop
+		0 ( 8 <? )( q134 1+ ) drop
 		1+ ) drop
 	0 ( 8 <? )(
-		0 ( 8 <? )(
-			pick4 pick2 + 8 + imgcols >=? ( 3drop ; )
-			pick4 pick2 + imgrows >=? ( 4drop ; )
-			xyimg >r
-			2dup 3 << + 2 << 'YVector2 + @
-			pick2 2/ 4+ pick2 2 << +
-			n2cbcr 2rgb r> !
-			1+ ) drop
+		0 ( 8 <? )( q234 1+ ) drop
 		1+ ) drop
 	0 ( 8 <? )(
-		0 ( 8 <? )(
-			pick4 pick2 + imgcols >=? ( 3drop ; )
-			pick4 pick2 + 8 + imgrows >=? ( 4drop ; )
-			xyimg >r
-			2dup 3 << + 2 << 'YVector3 + @
-			pick2 2/ pick2 2 << 4+ +
-			n2cbcr 2rgb r> !
-			1+ ) drop
+		0 ( 8 <? )( q334 1+ ) drop
 		1+ ) drop
 	0 ( 8 <? )(
-		0 ( 8 <? )(
-			pick4 pick2 + 8 + imgcols >=? ( 3drop ; )
-			pick4 pick2 + 8 + imgrows >=? ( 4drop ; )
-			xyimg >r
-			2dup 3 << + 2 << 'YVector4 + @
-			pick2 2/ 4+ pick2 2 << 4+ +
-			n2cbcr 2rgb r> !
-			1+ ) drop
+		0 ( 8 <? )( q434 1+ ) drop
 		1+ ) drop
-
 	;
 
 :build34 | a -- a
@@ -498,10 +506,13 @@
 	get16 $ffd8 <>? ( 2drop 0 ; ) drop
 	( get16 decodetype 0? ) drop
 	0? ( ; )
-	buildimg drop
+
 	0					| type
 	imgcols imgrows 16 << or	| size
 	emem 8 - !+ !
+
+	buildimg drop
+
 	emem 8 - ;
 
 |---------------------------------
