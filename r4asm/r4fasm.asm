@@ -404,6 +404,52 @@ SYSAPPEND: ; ( 'from cnt "filename" -- )
 	lodsd
 	ret
 
+;===============================================
+SYSYSTEM:
+	or eax,eax
+	jnz .no0
+	mov eax,[ProcessInfo.hProcess]
+	or eax,eax
+	jz .termp
+	invoke TerminateProcess,eax,0
+	invoke CloseHandle,[ProcessInfo.hThread]
+	invoke CloseHandle,[ProcessInfo.hProcess]
+	xor eax,eax
+    mov [ProcessInfo.hProcess],eax
+.termp:
+	mov eax,-1
+	ret
+.no0:
+	cmp eax,-1
+	jne .non
+	mov eax,[ProcessInfo.hProcess]
+	or eax,eax
+	jz .end
+	invoke WaitForSingleObject,[ProcessInfo.hProcess],0
+	cmp eax,WAIT_TIMEOUT
+	je .ze
+	mov eax,-1
+	ret
+.ze:
+	xor eax,eax
+	ret
+.non:
+	push eax
+	push edi
+	push ecx
+	xor eax,eax
+	mov edi,StartupInfo
+	mov ecx,17*4
+	rep stosb
+;	invoke ZeroMemory,StartupInfo,StartupInfo.size
+	mov eax,17*4
+	mov [StartupInfo.cb],eax
+	pop ecx
+	pop edi
+	pop eax
+	invoke CreateProcess,0,eax,0,0,FALSE, 0x08000000,0,0,StartupInfo,ProcessInfo
+.end:
+	ret
 
 ;----- DATA -----
 section '.idata' import data readable
@@ -418,6 +464,9 @@ import kernel,\
 	 CloseHandle,'CloseHandle',\
 	 GetTickCount,'GetTickCount',\
 	 ExitProcess,'ExitProcess',\
+	CreateProcess, "CreateProcessA",\
+	TerminateProcess ,  'TerminateProcess' , \
+	WaitForSingleObject, 'WaitForSingleObject',\
 	 GetLocalTime,'GetLocalTime',\
 	 SetCurrentDirectory,'SetCurrentDirectoryA',\
 	 FindFirstFile,'FindFirstFileA',\
@@ -485,9 +534,12 @@ align 4
 	wc		WNDCLASS ;EX?
 	msg		MSG
 	rec		RECT
-	bmi		BITMAPINFOHEADER
+	bmi			BITMAPINFOHEADER
 	SysTime 	SYSTEMTIME
-	fdd		WIN32_FIND_DATAA
+	fdd			WIN32_FIND_DATAA
+
+	ProcessInfo	PROCESS_INFORMATION
+	StartupInfo STARTUPINFO
 
 ;*** optimizable
 ;       SYSW    dd XRES
