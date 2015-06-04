@@ -1,26 +1,79 @@
 ^r4/lib/gui.txt
 ^r4/lib/img.txt
-^r4/lib/loadpng.txt
 ^r4/lib/loadjpg.txt
+^r4/lib/loadpng.txt
+^r4/lib/trace.txt
 
 ^r4/lib/rfont.txt
+^../r4/inc/rft/droidsansbold.rft
 
-^inc/rft/robotothin.rft
-^inc/rft/robotoregular.rft
-^inc/rft/robotolight.rft
-^inc/rft/robotobold.rft
-^inc/rft/droidsansbold.rft
-^inc/rft/comfortaa_bold.rft
-^inc/rft/opensansregular.rft
-^inc/rft/opensanslight.rft
-^inc/rft/dejavusans.rft
-^inc/rft/archivoblackregular.rft
-^inc/rft/gooddog.rft
 
-#ifondo
-#if2
-#if3
+#recarga 0
+#videos
+#placas
+
+#videonow
+#placasnow
+
+#marquesina
 #tshadow $ffffff
+#img1
+#img2
+
+:eventocheck
+	;
+
+|------------------- OS DEp ---------------------
+:FNAME | adr -- adrname
+|WIN|	44 +
+|AND|	19 +
+	;
+
+:FDIR? | adr -- 1/0
+|WIN|	@ $10
+|AND|	18 + c@ 4
+	=? ( 1 )( 0 ) nip ;
+
+|------------------------------------------------
+:addfile | adr --
+	dup FDIR? 1? ( 2drop ; ) drop
+	FNAME here strcpyl 'here !
+	;
+
+:getfilenames | path -- files
+	here swap
+	ffirst drop fnext drop | quita . y ..
+	( fnext 1? )( addfile ) drop
+	0 ,c
+	;
+
+|------------------------------------------------
+:playffm | "" --
+	"ffplay -fs -autoexit -loglevel quiet ""%s""" mprint system drop ;
+
+:waitvideo
+	( -1 system -1 <>? )( drop
+		eventocheck
+		100 update drop ) drop ;
+
+:waitvideo
+	show
+		'exit >esc<
+		-1 system -1 =? ( exit 0 system drop ) drop ;
+
+:playvideo
+	videonow playffm
+	videonow >>0 dup c@ 0? ( 2drop videos ) drop 'videonow !
+	;
+
+:player
+	-1 system -1 <>? ( drop ; ) drop
+	playvideo ;
+
+|------------------------------------------------
+:playcartel
+
+	;
 
 |----------------------------------------
 :sprint | "" --
@@ -31,53 +84,82 @@
 	ink atxy
 	printx ;
 
-|----------------------------------------
-:renderimg
-	clrscr
-	0 0 sw sh ifondo img.drawtile
-|	0 0 sw sh ifondo img.drawsize
-|	0 0  ifondo img.draw
-	droidsansbold 64 rfont!
-	verde
-	"Hola mundo !" print cr
-	"¿ Como cuidarse con las esdrújulas?" print cr
+#xm 0
+:frente
+	xm sh 90 - atxy
 	rojo
-	"¿que esta pasando...?" sprint
-    >XFB
-	cls
+	marquesina sprint
+	-3 'xm +!
 	;
 
-#xm 0
-:marquesina
-	xm sh 90 - atxy
-	"esto es un texto mas largo que la pantalla para que pueda leerse a medida que va pasando etexto que es" sprint
-	-2 'xm +!
+:placa1
+	sw 'xm !
+	0 0 sw sh img1 img.drawsize >xfb
+	.restart
+	show xfb>scr
+		frente
+		'exit >esc<
+		8000 .mseg exit
+		;
+
+:seq
+	"videos/Spot Vacunación Antigripal 2015 ¿Quiénes deben vacunarse contra la gripe.mp4" playvideo
+	waitvideo
+	placa1
 	;
-|----------------------------------------
-:init
+
+|---------------
+:info
+	-1 system nip
+	-1 =? ( "cartel" )( "video" )
+	print cr
+	;
+
+
+:reread
+	recarga 1? ( empty ) drop
+	1 'recarga !
 	mark
-	"media/bmp/smiley.jpg" loadjpg 'if3 !
-	"media/bmp/bismuto.jpg" loadjpg 'ifondo !
-	"media/bmp/pasto.png" loadpng 'if2 !
+	"atv/videos/" getfilenames 'videos !
+	"atv/placas/" getfilenames 'placas !
+
+	videos 'videonow !
+	placas 'placasnow !
+	;
+
+:dump	
+		"videos" print cr
+	videos ( dup c@ 1? )( drop
+		dup print cr
+		>>0 ) 2drop
+	cr
+	"placas" print cr
+	placas ( dup c@ 1? )( drop
+		dup print cr
+		>>0 ) 2drop
 	;
 
 :main
-	renderimg
-	33
-	sw 'xm !
-	show xfb>scr
-		verde
-		dup "%d" sprint
-		rojo
-		sw 2/ 200 + sh 2/
-		msec 3 << 300 xy+polar
-		atxy
-		msec "%d" sprint
-		xymouse if3 img.draw
+	show clrscr
 
-		marquesina
+		"SYSteMA de video" print cr
+|		info
+|		playvideo
+
+		player
 
 		'exit >esc<
-		;
+		cminiflecha ;
 
-: init main ;
+:ini
+	mark
+	reread
+|	"placas/Calendario_de_vacunas_2014_web_1.jpg" loadjpg 'img1 !
+|	"placas/Calendario_de_vacunas_2014_web_1.png" loadpng 'img1 !
+|	"placas/Campana Vacunacion Antigripal 2015.png" loadpng 'img2 !
+|	here dup 'marquesina !
+|	"marquesina.txt" load 'here !
+|	droidsansbold 32 rfont!
+	;
+
+: ini main ;
