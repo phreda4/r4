@@ -4,19 +4,42 @@
 | 1XX DD XX.cpy from HERE-DD
 |------------------
 ^r4/lib/gui.txt
+^r4/lib/trace.txt
 
+#menor
+#lugar
 
-:search | a1 a2 -- cnt
-	( c@+ rot c@+ rot | a2 a1 c1 c2
-	xor 1? ) nip nip ;
-
-:
-
-:compress | src -- src+ value
-	( 1? )( swap
-|		searchw 1? (
-		swap 1- ) drop
+:found | act actf v0 b -- act actf v0 b
+	pick3 4+ over 4+
+	( c@+ rot c@+ rot - 0? )( drop ) 2drop
+	pick4 - | act actf v0 b cnt
+	menor >? ( 'menor ! dup 'lugar ! ; )
+	drop
 	;
+
+:searchbyte | ini cnt act -- ini cnt act
+	pick2 =? ( c@+ ,c  ; )
+	0 'menor !
+	dup 128 - pick3 max	| ini cnt act actf
+	over @ pick2 1-		| ini cnt act actf v0 b
+	( pick2 >? )(
+		dup @ pick2 =? ( drop found )( drop )
+		1- ) 3drop
+	menor 0? ( drop c@+ ,c ; )
+	rot over 1- - rot rot
+	( 257 >? )(
+		lugar over - ,c $ff ,c
+		258 'lugar +! 258 - )
+	lugar over - ,c ,c
+	;
+
+:compress | src cnt -- src+ value
+	here >r
+	over swap 		| ini act cnt
+	( 1? )( swap	| ini cnt act
+		searchbyte
+		swap 1- ) 3drop
+	r> ;
 
 |---------------- decompress
 :cpy | dd xx --
@@ -43,17 +66,25 @@
 :dumpl |
 	( over <? )( c@+ emit ) 2drop ;
 
+:testcomp
+	m1 1000 compress
+	'm2 !
+	;
+
 :main
 	mark
 	here dup 'm1 !
-	$ffff + dup 'm2 !
-	$ffff + 'here !
+	$ffff +
+	dup 'm2 !
+	'here !
 	filla
 	show clrscr
 		m1> m1 - "%d bytes" print cr
-		 m1> m1 dumpl
+		m1> m1 dumpl cr
+		here m2 - "%d bytes" print cr
+		here m2 dumpl cr
 
-		<f1>
+		'testcomp <f1>
 		'exit >esc<
 		cminiflecha ;
 
