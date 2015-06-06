@@ -1,26 +1,33 @@
+|
+|
+|-----------------------------
 ^r4/lib/gui.txt
 ^r4/lib/img.txt
+
 ^r4/lib/loadjpg.txt
 ^r4/lib/loadpng.txt
+^r4/lib/loadbmp.txt
+
 ^r4/lib/trace.txt
 
 ^r4/lib/rfont.txt
 ^../r4/inc/rft/droidsansbold.rft
 
-
 #recarga 0
-#videos
-#placas
 
+#videos
 #videonow
+#placas
 #placasnow
 
 #marquesina
 #tshadow $ffffff
-#img1
-#img2
 
+#img1
+
+|------------------------------------------------
 :eventocheck
+
 	;
 
 |------------------- OS DEp ---------------------
@@ -37,15 +44,13 @@
 |------------------------------------------------
 :addfile | adr --
 	dup FDIR? 1? ( 2drop ; ) drop
-	FNAME here strcpyl 'here !
-	;
+	FNAME here strcpyl 'here ! ;
 
 :getfilenames | path -- files
 	here swap
 	ffirst drop fnext drop | quita . y ..
 	( fnext 1? )( addfile ) drop
-	0 ,c
-	;
+	0 ,c ;
 
 |-----------------------------------------------
 :playffm | "" --
@@ -72,11 +77,6 @@
 	playvideo ;
 
 |------------------------------------------------
-:playcartel
-
-	;
-
-|----------------------------------------
 :sprint | "" --
 	mprint
 	ccx ccy ink@
@@ -84,6 +84,63 @@
 	tshadow ink printx
 	ink atxy
 	printx ;
+
+|------------------------------------------------
+:loadimg | filename -- img
+	placasnow
+	dup ".jpg" =pos 1? ( drop "atv/placas/%s" mprint loadjpg ; ) drop
+	dup ".png" =pos 1? ( drop "atv/placas/%s" mprint loadpng ; ) drop
+	dup ".bmp" =pos 1? ( drop "atv/placas/%s" mprint loadbmp ; )
+	2drop 0 ;
+
+:nextplaca
+	placasnow >>0 dup c@ 0? ( 2drop placas )( drop ) 'placasnow ! ;
+
+#placaimg
+
+:playcartelpre
+	( loadimg 0? )( drop nextplaca ) 'placaimg !
+	nextplaca ;
+
+:playcartel
+	0 0 sw sh placaimg img.drawsize
+|	0 0 placaimg img.draw
+	>xfb
+	;
+
+|----------------------------------------
+:fadeout1
+	framev >r
+	sw sh * ( 1? )( 1-
+		r @ 2/ $7f7f7f and r!+ ) drop
+	rdrop ;
+
+:fadeout
+	8 ( 1? )( 1-
+		fadeout1
+		30 update drop
+		redraw
+		) drop ;
+
+|----------------------------------------
+:fadein1 | nro -- nro
+	xfb
+	framev >r
+	sw sh * ( 1? )( 1- swap
+		@+ pick3 >> $10101 and
+		r @ 2* or r!+
+		swap ) 2drop
+	rdrop ;
+
+:fadein
+	cls
+	8 ( 1? )( 1-
+		fadein1
+		30 update drop
+		redraw
+		) drop ;
+
+|----------------------------------------
 
 #xm 0
 :frente
@@ -103,12 +160,6 @@
 		8000 .mseg exit
 		;
 
-:seq
-	"videos/Spot Vacunación Antigripal 2015 ¿Quiénes deben vacunarse contra la gripe.mp4" playvideo
-	waitvideo
-	placa1
-	;
-
 |---------------
 :info
 	-1 system nip
@@ -126,10 +177,11 @@
 
 	videos 'videonow !
 	placas 'placasnow !
+
 	;
 
-:dump	
-		"videos" print cr
+:dump
+	"videos" print cr
 	videos ( dup c@ 1? )( drop
 		dup print cr
 		>>0 ) 2drop
@@ -140,27 +192,52 @@
 		>>0 ) 2drop
 	;
 
-:main
-	show clrscr
+|--------------------------------------
+#timestr )( 16
 
-		"SYSteMA de video" print cr
+:hms
+	10 <? ( "0" ,s ) ,d ":" ,s
+	10 <? ( "0" ,s ) ,d ":" ,s
+	10 <? ( "0" ,s ) ,d ;
+
+:hmss
+	10 <? ( "0" ,s ) ,d
+	swap 1 and? ( ":" )( " " ) nip ,s
+	10 <? ( "0" ,s ) ,d ;
+
+:reloj
+	mark 'timestr 'here !
+	time | s m h
+	hmss
+	0 ,c empty
+
+	'timestr sizeprint 8 +
+	sw swap - sh cch - 4 - atxy
+	negro print
+	;
+
+|--------------------------------------
+
+:main
+	playcartelpre playcartel fadein
+	33
+	show xfb>scr
+|		dup "%d" sprint
+		reloj
 |		info
 |		playvideo
+|		player
 
-		player
-
+		[ playcartelpre fadeout playcartel fadein ; ] <f1>
 		'exit >esc<
 		cminiflecha ;
 
 :ini
 	mark
 	reread
-|	"placas/Calendario_de_vacunas_2014_web_1.jpg" loadjpg 'img1 !
-|	"placas/Calendario_de_vacunas_2014_web_1.png" loadpng 'img1 !
-|	"placas/Campana Vacunacion Antigripal 2015.png" loadpng 'img2 !
 |	here dup 'marquesina !
 |	"marquesina.txt" load 'here !
-|	droidsansbold 32 rfont!
+	droidsansbold 80 rfont!
 	;
 
 : ini main ;
