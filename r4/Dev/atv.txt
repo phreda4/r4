@@ -20,8 +20,13 @@
 #placas
 #placasnow
 
-#marquesina
+
 #tshadow $ffffff
+
+
+#frases
+#frasescnt
+#marquesina
 
 #img1
 
@@ -85,6 +90,37 @@
 	ink atxy
 	printx ;
 
+:semit | char --
+	ccx ccy ink@
+	2 2 +atxy pick3
+	tshadow ink emit
+	ink atxy emit ;
+
+|--------------------------------------
+#timestr )( 16
+
+:hms
+	10 <? ( "0" ,s ) ,d ":" ,s
+	10 <? ( "0" ,s ) ,d ":" ,s
+	10 <? ( "0" ,s ) ,d ;
+
+:hmss
+	10 <? ( "0" ,s ) ,d
+	swap 1 and? ( ":" )( " " ) nip ,s
+	10 <? ( "0" ,s ) ,d ;
+
+:reloj
+	mark 'timestr 'here !
+	time | s m h
+	hms
+	0 ,c empty
+	'timestr sizeprint 8 +
+	sw over - 4 - sh cch - 8 -
+	sw 4 - sh 4 - gris cajaf
+	sw swap - sh cch - 4 - atxy
+	negro sprint
+	;
+
 |------------------------------------------------
 :loadimg | filename -- img
 	placasnow
@@ -140,8 +176,8 @@
 		redraw
 		) drop ;
 
-|----------------------------------------
 
+|----------------------------------------
 #xm 0
 :frente
 	xm sh 90 - atxy
@@ -192,48 +228,118 @@
 		>>0 ) 2drop
 	;
 
-|--------------------------------------
-#timestr )( 16
+|------------- frases
+#frasenow
 
-:hms
-	10 <? ( "0" ,s ) ,d ":" ,s
-	10 <? ( "0" ,s ) ,d ":" ,s
-	10 <? ( "0" ,s ) ,d ;
+:>>cr | adr -- adr'	; proximo espacio
+	( c@+ 1? )(
+		13 =? ( drop ; )
+		drop ) drop ;
 
-:hmss
-	10 <? ( "0" ,s ) ,d
-	swap 1 and? ( ":" )( " " ) nip ,s
-	10 <? ( "0" ,s ) ,d ;
-
-:reloj
-	mark 'timestr 'here !
-	time | s m h
-	hmss
-	0 ,c empty
-
-	'timestr sizeprint 8 +
-	sw swap - sh cch - 4 - atxy
-	negro print
+:loadfrases
+	here dup "atv/frases.txt" load 0 swap !+ dup 'frases ! 'here !
+	( trim dup c@ 1? )( drop
+		dup , >>cr 0 over 1- c!
+		) 2drop
+	here frases - 2 >> 'frasescnt !
 	;
+
+#place )( 8192
+#place>
+#time>
+#autor>
+
+:place!
+	$ff and ccx 12 << ccy or 8 << or place> !+ 'place> ! ;
+
+:place2xy | v -- v x y
+	dup 8 >> dup 12 >> swap $fff and ;
+
+:emitplace | str car -- str car
+	32 <>? ( gemit ; ) gemit
+	sizeword ccx + tx2 >? ( cch 'ccy +! tx1 'ccx ! ) drop ;
+
+:placefrase
+	0 0 fpos
+	0.8 dup fdim
+	gc2win
+	tx1 'ccx !
+	ty1 'ccy !
+	'place dup 'place> ! 'time> !
+	0 'autor> !
+	cr
+	frasenow ( c@+ 1? )(
+		$28 =? ( cr place> 'autor> ! )
+		dup place!
+		emitplace
+		) 2drop
+	autor> 0? ( drop ; )
+	tx2 ccx - >r
+	( place> <? )(
+		dup @ place2xy
+		swap r + 12 << or 8 <<
+		swap $ff and or
+		swap !+ ) drop
+	rdrop ;
+
+:runfrase
+	'place ( time> <? )(
+		@+ place2xy atxy
+		$ff and semit
+		) drop
+	time> place> <? ( 4 'time> +! ) drop
+	;
+
+:shuffle
+	'place ( place> <? )(
+		dup @ place2xy
+		swap rand 16 >> $3 and 1- + 12 <<
+		swap rand 13 >> $3 and 1- + or 8 <<
+		swap $ff and or
+		swap !+
+		) drop ;
+
+:printfrase
+	rojo |frasenow sprint
+	runfrase
+|	shuffle
+	;
+
+:elijefrase
+	rand
+	$7fffffff frasescnt clz 1- >>
+	and
+	( frasescnt >=? )( frasescnt - )
+	2 << frases + @ 'frasenow !
+	placefrase ;
+
 
 |--------------------------------------
 
 :main
-	playcartelpre playcartel fadein
+	playcartelpre playcartel fadein elijefrase
 	33
 	show xfb>scr
 |		dup "%d" sprint
+|		frasescnt "%d" print
+		cr
+		cr
+		printfrase
+		cr
 		reloj
 |		info
 |		playvideo
 |		player
 
-		[ playcartelpre fadeout playcartel fadein ; ] <f1>
+		[ playcartelpre fadeout playcartel fadein elijefrase ; ] <f1>
 		'exit >esc<
 		cminiflecha ;
 
+
 :ini
 	mark
+	rerand
+	loadfrases
 	reread
 |	here dup 'marquesina !
 |	"marquesina.txt" load 'here !
