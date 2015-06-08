@@ -10,38 +10,7 @@ entry start
 MAXMEM		equ 536870912	; 512MB
 
 DWEXSTYLE	equ WS_EX_APPWINDOW
-DWSTYLE 	equ WS_VISIBLE|WS_POPUP ;WS_VISIBLE+WS_CAPTION+WS_SYSMENU
-
-;               "if XRES=640" ,ln
-;       "mov ebx,eax" ,ln
-;       "shl eax,7" ,ln
-;       "shl ebx,9" ,ln
-;       "add eax,[esi]" ,ln
-;       "lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
-;               "else if XRES=800" ,ln
-;       "mov ebx,eax" ,ln
-;       "shl eax,5" ,ln
-;       "shl ebx,8" ,ln
-;       "add eax,ebx" ,ln
-;       "shl ebx,1" ,ln
-;       "add eax,[esi]" ,ln
-;       "lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
-;               "else if XRES=1024" ,ln
-;       "shl eax,10" ,ln
-;       "add eax,[esi]" ,ln
-;       "lea ebp,[SYSFRAME+eax*4]" ,ln
-;               "else if XRES=1280" ,ln
-;;      "mov ebx,eax" ,ln
-;       "shl eax,8" ,ln
-;       "shl ebx,10" ,ln
-;       "add eax,[esi]" ,ln
-;;      "lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
-;               "else" ,ln
-;       "cdq" ,ln
-;       "imul dword [SYSW]" ,ln
-;       "add eax,[esi]" ,ln
-;       "lea ebp,[SYSFRAME+eax*4]" ,ln
-;               "end if" ,ln
+DWSTYLE 	equ WS_VISIBLE+WS_POPUP ;WS_VISIBLE+WS_CAPTION+WS_SYSMENU
 
 include 'include\win32a.inc'
 
@@ -65,33 +34,39 @@ start:
 	invoke ShowCursor,0
 
     invoke GetSystemMetrics,SM_CXSCREEN
-    mov [SW],eax
+    mov [XRES],eax
     invoke GetSystemMetrics,SM_CYSCREEN
-    mov [SH],eax
-    imul eax,[SW]
+    mov [YRES],eax
+    imul eax,[XRES]
 	mov [SCREENS],eax
 
 	xor eax,eax
 	mov [rec.left],eax
 	mov [rec.top],eax
-	mov eax,[SW]
+	mov eax,[XRES]
 	mov [rec.right],eax
-	mov eax,[SH]
+	mov eax,[YRES]
 	mov [rec.bottom],eax
 
 	invoke AdjustWindowRect,rec,DWSTYLE,0
-	mov eax,[rec.left]
-	sub [rec.right],eax
-	mov eax,[rec.top]
-	sub [rec.bottom],eax
-	xor eax,eax
-	mov [rec.left],eax
-	mov [rec.top],eax
 
 	;hWnd=CreateWindowEx( dwExStyle,wc.lpszClassName, wc.lpszClassName,dwStyle,
     ; (GetSystemMetrics(SM_CXSCREEN)-rec.right+rec.left)>>1,(GetSystemMetrics(SM_CYSCREEN)-rec.bottom+rec.top)>>1,
     ; rec.right-rec.left, rec.bottom-rec.top,0,0,wc.hInstance,0);
 
+;mov ebx,[XRES]
+;sub ebx,[rec.right]
+;add ebx,[rec.left]
+;shr ebx,1
+;mov ecx,[YRES]
+;sub ecx,[rec.bottom]
+;add ebx,[rec.top]
+;shr ecx,1
+;mov edx,[rec.right]
+;sub edx,[rec.left]
+;mov eax,[rec.bottom]
+;sub eax,[rec.top]
+;	invoke	CreateWindowEx,DWEXSTYLE,_title,_title,DWSTYLE,ebx,ecx,edx,eax,0,0,[hinstance],0
 
 	invoke	CreateWindowEx,DWEXSTYLE,_title,_title,DWSTYLE,0,0,[rec.right],[rec.bottom],0,0,[hinstance],0
 
@@ -99,9 +74,9 @@ start:
 	invoke GetDC,[hwnd]
 	mov [hDC],eax
 	mov [bmi.biSize],sizeof.BITMAPINFOHEADER
-	mov eax,[SW]
+	mov eax,[XRES]
 	mov [bmi.biWidth],eax
-	mov eax,[SH]
+	mov eax,[YRES]
 	neg eax
 	mov [bmi.biHeight],eax
 	mov [bmi.biPlanes],1
@@ -238,7 +213,7 @@ align 16
 SYSREDRAW: ; ( -- )
 	pusha
 	xor eax,eax
-	invoke SetDIBitsToDevice,[hDC],eax,eax,[SW],[SH],eax,eax,eax,[SH],SYSFRAME,bmi,eax
+	invoke SetDIBitsToDevice,[hDC],eax,eax,[XRES],[YRES],eax,eax,eax,[YRES],SYSFRAME,bmi,eax
 	popa
 	ret
 
@@ -248,7 +223,7 @@ SYSCLS: 	; ( -- )
 	push eax edi ecx
 	mov eax,[SYSPAPER]
 	lea edi,[SYSFRAME]
-	mov ecx,SCREENS
+	mov ecx,[SCREENS]
 	rep stosd
 	pop ecx edi eax
 	ret
@@ -332,7 +307,7 @@ SYSTOXFB:
 	push eax edi esi ecx
 	lea esi,[SYSFRAME]
 	lea edi,[XFB]
-	mov ecx,SCREENS
+	mov ecx,[SCREENS]
 	rep movsd
 	pop ecx esi edi eax
 	ret
@@ -342,7 +317,7 @@ SYSXFBTO:
 	push eax edi esi ecx
 	lea esi,[XFB]
 	lea edi,[SYSFRAME]
-	mov ecx,SCREENS
+	mov ecx,[SCREENS]
 	rep movsd
 	pop ecx esi edi eax
 	ret
@@ -500,6 +475,7 @@ import user,\
 	 GetDC,'GetDC',\
 	 ReleaseDC,'ReleaseDC',\
 	 AdjustWindowRect,'AdjustWindowRect',\
+	GetSystemMetrics, 'GetSystemMetrics',\
 	 ShowCursor,'ShowCursor'
 
 import gdi,\
@@ -521,8 +497,8 @@ section '.data' data readable writeable
 	_dir	rb 1024
 
 align 4
-	SYSW    dd 0
-	SYSH    dd 0
+	XRES    dd 0
+	YRES    dd 0
 	SCREENS	dd 0
 	SYSXYM	dd 0
 	SYSBM	dd 0
