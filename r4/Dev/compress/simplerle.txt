@@ -6,56 +6,84 @@
 ^r4/lib/gui.txt
 ^r4/lib/trace.txt
 
+#lit>
+#nlit
 #menor
-#lugar
+#cpy>
+
+:newlit | adr -- adr'
+	here 'lit> ! 1 'nlit ! 1 'here +!
+	c@+ ,c ;
+
+:addlit | adr -- adr'
+	nlit 0? ( drop newlit ; )
+	1+
+	128 =? ( 1- lit> c! 0 'nlit ! ; )
+	'nlit !
+	c@+ ,c ;
+
+:endlit
+	nlit 0? ( drop ; )
+	1- lit> c!
+	0 'nlit ! ;
 
 :found | act actf v0 b -- act actf v0 b
-	pick3 4+ over 4+
-	( c@+ rot c@+ rot - 0? )( drop ) 2drop
+	pick3 4+ over 4+	| v0 b nowa nowb
+	( c@+ rot c@+ rot - 0? )( 	| nowb nowa d
+		drop swap ) drop nip
 	pick4 - | act actf v0 b cnt
-	menor >? ( 'menor ! dup 'lugar ! ; )
-	drop
-	;
+ 	menor <=? ( drop ; )
+	'menor ! dup 'cpy> ! ;
 
 :searchbyte | ini cnt act -- ini cnt act
-	pick2 =? ( c@+ ,c  ; )
 	0 'menor !
 	dup 128 - pick3 max	| ini cnt act actf
 	over @ pick2 1-		| ini cnt act actf v0 b
-	( pick2 >? )(
-		dup @ pick2 =? ( drop found )( drop )
+	( pick2 >=? )(
+		dup @ pick2
+		=? ( drop found )( drop )
 		1- ) 3drop
-	menor 0? ( drop c@+ ,c ; )
-	rot over 1- - rot rot
-	( 257 >? )(
-		lugar over - ,c $ff ,c
-		258 'lugar +! 258 - )
-	lugar over - ,c ,c
+
+	menor 0? ( drop addlit ; ) endlit
+	| ini cnt act menor
+	( 259 >? )(
+		cpy> pick2 - ,c $ff ,c
+		259 'cpy> +! 259 - )
+	cpy> pick2 - ,c 5 - ,c
+	| ini cnt act
+	menor + swap
+	menor - -? ( 1 nip )
+	swap
+
 	;
 
-:compress | src cnt -- src+ value
+:compress | src cnt -- from/0
+	0? ( nip ; )
 	here >r
-	over swap 		| ini act cnt
-	( 1? )( swap	| ini cnt act
+	swap newlit	| cnt act
+	1- dup 1+ rot	| ini act cnt
+	( 1- 1? )( swap	| ini cnt act
 		searchbyte
-		swap 1- ) 3drop
+		swap ) 3drop
+	endlit
 	r> ;
 
 |---------------- decompress
 :cpy | dd xx --
-	$7f and 2 +
-	here rot -
-	( swap 1? )( 1- swap c@+ ,c )
+	here + swap $ff and 4+
+	( 1? )( 1- swap c@+ ,c swap )
 	2drop ;
 
 :decompress | end ini --
 	( over <? )(
-		c@+ -? ( swap c@+ rot cpy )( 1+ ( 1? )( 1- swap c@+ ,c ) drop )
+		c@+
+		-? ( swap c@+ rot cpy )( 1+ ( 1? )( 1- swap c@+ ,c swap ) drop )
 		) 2drop ;
 
 |------------------
 #m1 #m1>
 #m2	#m2>
+#m3 #m3>
 
 :filla
 	m1 1000 ( 1? )( 1- 65 rot c!+ swap ) drop 'm1> ! ;
@@ -63,28 +91,49 @@
 :fillr
 	m1 1000 ( 1? )( 1- rand 6 >> rot c!+ swap ) drop 'm1> ! ;
 
+:fillt
+	m1
+|	10 ( 1? )( 1- rand 6 >> rot c!+ swap ) drop
+	10 ( 1? )( 1- 65 rot c!+ 63 swap c!+ swap ) drop
+	0 over !
+	'm1> ! ;
+
 :dumpl |
 	( over <? )( c@+ emit ) 2drop ;
+:dumph
+	( over <? )( c@+ $ff and "%h " print ) 2drop ;
 
 :testcomp
-	m1 1000 compress
-	'm2 !
-	;
+	mark
+	m2 'here !
+	m1 m1> over - compress drop
+	here 'm2> !
+	empty ;
+
+:testdecomp
+	mark
+	m3 'here !
+	m2> m2 decompress
+	here 'm3> !
+	empty ;
 
 :main
 	mark
 	here dup 'm1 !
-	$ffff +
-	dup 'm2 !
+	$ffff + dup dup 'm2> ! 'm2 !
+	$ffff + dup dup 'm3> ! 'm3 !
 	'here !
-	filla
+	fillt
 	show clrscr
 		m1> m1 - "%d bytes" print cr
-		m1> m1 dumpl cr
-		here m2 - "%d bytes" print cr
-		here m2 dumpl cr
+		m1> m1 dumph cr
+		m3> m3 - "%d bytes" print cr
+        m3> m3 dumph cr
+		m2> m2 - "%d bytes" print cr
+		m2> m2 dumph cr
 
 		'testcomp <f1>
+		'testdecomp <f2>
 		'exit >esc<
 		cminiflecha ;
 
