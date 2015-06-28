@@ -2,38 +2,59 @@
 | PHREDA 2015
 |------------------------------------
 
-#stacknow )( 256
-#stacknow> 'stacknow
+#dstack )( 256
+#dstack> 'dstack
+#rstack )( 128
+#rstack> 'rstack
+
 #nreg
 #memstack )( 8192
 
-:dpush
-        nreg stacknow> !+ 'stacknow> !
-        1 'nreg +! ;
+:newreg | -- nr
+        nreg 1 'nreg +! ;
 
-:dpop
-        -4 'stacknow> +! ;
+:dpush  | reg --
+        dstack> !+ 'dstack> ! ;
 
+:dpop   | -- reg
+        -4 'dstack> +! dstack> @ ;
 
-:ddump
-        9 ,c
-        'stacknow ( stacknow> <? )(
+:rpush  | reg --
+        rstack> !+ 'rstack> ! ;
+
+:rpop   | -- reg
+        -4 'rstack> +! rstack> @ ;
+
+|----------------------------------------
+
+:sdump
+        'dstack ( dstack> <? )(
+                @+ "%h " ,print ) drop
+        " . " ,s
+        'rstack ( rstack> <? )(
                 @+ "%h " ,print ) drop ;
 
-
-:stackini | delph --
+|----------------------------------------
+:stackini | deep --
         0 'nreg !
-        'stacknow 'stacknow> !
-        ( 1? )( 1- dpush ) drop
+        'dstack 'dstack> !
+        'rstack 'rstack> !
+        ( 1? )( 1- newreg dpush ) drop
+        ;
+
+:fixtokenstr | ; fix width op print
+        tokenstr
+        mprint count swap ,print
+        neg 16 + ( 1? )( 1- ,sp ) drop
         ;
 
 ::stackanalisis | end ini --
         2dup getusedstack neg dup maxdepth ": mD:%d uD:%d :" ,print ,cr
         stackini
         ( over <? )(
-                @+ " ; " ,s tokenstr ,print
-                ddump
-                ,cr
+                @+ " ; " ,s
+                fixtokenstr
+                sdump ,cr
                 ) 2drop
       	"r4asm/cod.asm" savemem
         ;
