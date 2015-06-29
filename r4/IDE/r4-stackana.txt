@@ -19,20 +19,213 @@
 :dpop   | -- reg
         -4 'dstack> +! dstack> @ ;
 
+:d.TOS   dstack> 4 - @ ;
+:d.NOS   dstack> 8 - @ ;
+:d.PK2   dstack> 12 - @ ;
+:d.PK3   dstack> 16 - @ ;
+:d.PK4   dstack> 20 - @ ;
+
 :rpush  | reg --
         rstack> !+ 'rstack> ! ;
 
 :rpop   | -- reg
         -4 'rstack> +! rstack> @ ;
 
-|----------------------------------------
+:r.TOS  rstack> 4 - @ ;
 
+|----------------------------------------
 :sdump
         'dstack ( dstack> <? )(
                 @+ "%h " ,print ) drop
-        " . " ,s
+        " : " ,s
         'rstack ( rstack> <? )(
                 @+ "%h " ,print ) drop ;
+
+:regM
+:regR
+:regW
+        ;
+|----------------------------------------
+
+:,drop	-4 'dstack> +! ;
+:,4drop ,drop
+:,3drop ,drop
+:,2drop ,drop ,drop ;
+:,swap	dstack> 8 - >r r@+ r@+ r> 8 - !+ ! ;
+:,nip	,swap ,drop ;
+:,rot	dstack> 12 - >r r@+ r@+ r@+ swap r> 12 - !+ !+ ! ;
+:,2swap	dstack> 16 - >r r@+ r@+ swap r@+ r@+ swap r> 32 - !+ !+ !+ ! ;
+:,dup	d.TOS dpush ;
+:,over	d.NOS dpush ;
+:,pk2	d.PK2 dpush ; |PICK2  abc -- abca
+:,pk3	d.PK3 dpush ; |PICK3  abcd -- abcda
+:,pk4	d.PK4 dpush ; |PICK4  abcde -- abcdea
+:,2dup	,over ,over ; |2DUP   ab -- abab
+:,2over	,pk3 ,pk3 ; |2OVER  abcd -- abcdab
+
+:,uso6 regR ,drop regR ,drop
+:,uso4 regR ,drop
+:,uso3 regR ,drop
+:,uso2 regR ,drop
+:,uso1 regR ,drop ;
+
+:,uso11 regR ;
+:,uso21 regR ,drop regR ;
+
+:,1cte newreg dpush ;
+:,3v newreg dpush
+:,2v newreg dpush
+:,1v newreg dpush ;
+
+:,lit   newreg dpush ;
+:,str   newreg dpush ;
+
+:,var	| vv
+	newreg dpush ;
+:,dvar	| 'v
+	newreg dpush ;
+
+:,dwor	| 'w
+	newreg dpush  ;
+:,wor	| ww
+|	dup 4 - @ 8 >> nro>mov @
+|	dup 24 << 24 >> |duso
+|	dup ( 1? )( 1+ ,drop ) drop
+|	swap 8 << 24 >>
+|	- abs ( 1? )( 1- newreg dpush ) drop
+	;
+
+:,(
+:,)(
+:,)
+        ;
+
+:,; :,[ :,] ;
+
+:,c0 | 0? 1? ..
+	;
+:,c1 | =? <? ..
+	,drop ;
+
+:,exec ;
+
+:,>r	dpop rpush ;
+:,r>	rpop dpush ;
+:,r	r.tos dpush ; |R      -- a R: a -- a
+:,r+	; |R+    a -- R: b -- c
+:,r@+	; |R@+    -- a R: b -- c
+:,r!+	; |R!+   a -- R: b -- c
+:,rdrop	rpop drop ;
+
+|--- aritmeticas y logicas
+:op1a1	; | neg not 1+ 4+ 1- 2/ ..
+:vop1a1 ; | abs  clz  ..
+:op2a1	,drop ; | + - * and or xor ..
+:vop2a1 ,drop ; | / mod
+:xop2a1	,drop ; | << >>
+:op3a1	,drop ,drop ; | */
+:vop3a1	,drop ,drop ; | *>> /<<
+
+:op2a2	; | mod/
+
+:1@	| @ c@ w@
+	regM regW ;
+:1!	| ! c! w!
+	regM regR ,drop regR ,drop ;
+:2@	| @+ c@+ w@+
+	regM regW d.tos dpush ;
+:2!     | !+ c!+ w!+
+        ,swap regR ,drop regM regW ;
+:2+!    | +! c+! w+!
+	regM regR ,drop regR ,drop ;
+
+|----------------------------------------
+#usostack 0
+0 0 0 0 0 0 |,: ,:: ,# ,#: ,| ,^
+,lit ,lit ,lit ,lit ,str
+,wor ,var ,dwor ,dvar
+,; ,( ,)( ,) ,[ ,] ,exec
+,c0 ,c0 ,c0 ,c0 |,0? ,+? ,-? ,1?
+,c1 ,c1 ,c1 ,c1 ,c1 ,c1 ,c1 ,c1 |,=? ,<? ,>? ,<=? ,>=? ,<>? ,and? ,nand?
+,dup ,drop ,over ,pk2 ,pk3 ,pk4
+,swap ,nip ,rot ,2dup ,2drop ,3drop ,4drop
+,2over ,2swap
+,>r ,r> ,r ,r+ ,r@+ ,r!+ ,rdrop
+op2a1 op2a1 op2a1 op1a1 |,and ,or ,xor ,not
+op2a1 op2a1 op2a1 op2a1 |,+ ,- ,* ,/
+op3a1 vop3a1 op2a2 vop2a1 |,*/ ,*>> ,/mod ,mod
+vop1a1 op1a1 vop1a1 vop3a1 |,abs ,sqrt ,clz ,<</
+op1a1 op1a1 op1a1 op1a1 op1a1 op1a1 |,neg ,1+ ,4+ ,1- ,2/ ,2*
+xop2a1 xop2a1 |,<< ,>>
+1@ 1@ 1@        |,@ ,c@ ,w@
+1! 1! 1!	|,! ,c! ,w!
+2+! 2+!	2+!	|,+! ,c+! ,w+!
+2@ 2! 2@ 2! 2@ 2!       |,@+ ,!+ ,c@+ ,c!+ ,w@+ ,w!+
+,uso3	|MOVE  abc --       a,b es ddat
+,uso3	|MOVE> abc --		a,b es ddat
+,uso3	|CMOVE abc --		a,b es ddat
+,uso3	|CMOVE> abc --		a,b es ddat
+,1cte |MEM	-- a		a es ddat
+,uso11	|FFIRST    a -- b
+,1v		|FNEXT  -- a
+,uso21	|LOAD   ab -- c
+,uso3	|SAVE   abc --
+,uso3	|APPEND   abc --
+,uso11	|UPDATE  a -- a
+,2v	|XYMOUSE -- ab
+,1v	|BMOUSE  -- a
+,uso1	|IKEY!  a --
+,1v	|KEY     -- a
+,1v	|CNTJOY  -- a
+,1v	|GETJOY  -- a
+
+,1v	|MSEC    -- a
+,3v	|TIME    -- abc
+,3v	|DATE    -- abc
+0	|END     --
+,uso1	|RUN    a --
+,1cte	|SW      -- a
+,1cte	|SH      -- a
+0	|CLS     --
+0	|REDRAW  --
+,1v	|FRAMEV  -- a
+,uso2	|SETXY  ab --
+,uso1	|PX+!   a --
+,uso1	|PX!+   a --
+,1v	|PX@     -- a
+
+,1cte	|XFB     -- a
+0	|>XFB    --
+0	|XFB>    --
+
+,uso1	|PAPER  a --
+,uso1	|INK    a --
+,1v		|INK@    -- a
+,uso1	|ALPHA  a --
+,uso2	|OP     ab --
+,uso2	|LINE   ab --
+,uso4	|CURVE  abcd --
+,uso6	|CURVE3  abcdef --
+,uso2	|PLINE  ab --
+,uso4	|PCURVE abcd --
+,uso6	|PCURVE3 abcdef --
+0		|POLI    --
+,uso2	|FCOL   ab --
+,uso2	|FCEN   ab --
+,uso2	|FMAT   ab --
+0	|SFILL   --
+0	|LFILL   --
+0	|RFILL   --
+,uso1	|TFILL  a --
+
+,uso11	|SLOAD   a -- a
+,uso1	|SPLAY  a --
+,uso11	|SINFO   a -- a
+,uso4	|SISET  a a a a --
+0
+0 0 0 0
+0 0 0 0 0
+,uso11 | SYSTEM a -- a
 
 |----------------------------------------
 :stackini | deep --
@@ -42,18 +235,24 @@
         ( 1? )( 1- newreg dpush ) drop
         ;
 
-:fixtokenstr | ; fix width op print
+:fixtokenstr | cod -- ; fix width op print
         tokenstr
         mprint count swap ,print
         neg 16 + ( 1? )( 1- ,sp ) drop
         ;
+
+:calcstack | cod --
+	$ff and 2 << 'usostack + @
+	0? ( drop ; )
+        exec ;
 
 ::stackanalisis | end ini --
         2dup getusedstack neg dup maxdepth ": mD:%d uD:%d :" ,print ,cr
         stackini
         ( over <? )(
                 @+ " ; " ,s
-                fixtokenstr
+                dup fixtokenstr
+                calcstack
                 sdump ,cr
                 ) 2drop
       	"r4asm/cod.asm" savemem
