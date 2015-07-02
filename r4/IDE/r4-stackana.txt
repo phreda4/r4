@@ -8,7 +8,13 @@
 #rstack> 'rstack
 
 #nreg
-#memstack )( 8192
+
+|----- pila para condicionales
+#sst )( 1024 | pila de pilas
+#sst> 'sst
+#ssc )( 8192
+#ssc> 'ssc
+
 
 :newreg | -- nr
         nreg 1 'nreg +! ;
@@ -96,51 +102,21 @@
 	;
 
 |------- condicionales
-#pilaint )( 8192
-#pilaint> 'pilaint
-
-|-------------------------------
-::mappila | exe --
-	'dpila ( dpila> <? )( @+ pick2 exec ) 2drop ;
-
-::mappilar | exe --
-	'rpila ( rpila> <? )( @+ pick2 exec ) 2drop ;
-
-:stacks>str | --
-	memp> tostr> !+ 'tostr> ! | suma a los buffer
-	[ +memp ; ] mappila 0 +memp
-	[ +memp ; ] mappilar 0 +memp
-	;
-
-:str>stacks | "" --
-	'dstack 'dstack> !
-	( @+ 1? )( dpush ) drop
-	'rstack 'rstack> !
-	( @+ 1? )( rpush ) 2drop
-	;
-
-:stacknow | -- now
-	tostr> 4 - @ ; | stack actual
-
-
-|----- pila para condicionales
-#sst )( 1024 | pila de pilas
-#sst> 'sst
 
 :sst!   sst> !+ 'sst> ! ;
 :sst@   -4 'sst> +! sst> @ ;
 
 :pushvar
-	memp> tostr> !+ 'tostr> ! | suma a los buffer
-
+        ssc> dup sst!
+        >r
 	'dstack ( dstack> <? )( @+ r!+ ) drop
 	0 r!+
 	'rstack ( rstack> <? )( @+ r!+ ) drop
-	0 r> !+
+	0 r> !+ 'ssc> !
         ;
 
 :popvar
-        sst@
+        sst@ dup 'ssc> !
 	'dstack 'dstack> !
 	( @+ 1? )( dpush ) drop
 	'rstack 'rstack> !
@@ -148,7 +124,8 @@
         ;
 
 :dropvar
-	-8 'pilaint> +! ;
+        sst@ 'ssc> ! ;
+
 
 :salto? | adr -- adr 1/0
 	dup 8 - @ $ff and $16 >? ( $23 <? ( drop 1 ; ) ) drop 0 ;
@@ -305,6 +282,8 @@ xop2a1 xop2a1 |,<< ,>>
         1 'nreg !
         'dstack 'dstack> !
         'rstack 'rstack> !
+        'ssc 'ssc> !
+        'sst 'sst> !
         ( 1? )( 1- newreg dpush ) drop
         ;
 
