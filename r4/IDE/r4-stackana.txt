@@ -91,7 +91,6 @@
 	newreg dpush ;
 :,dvar	| 'v
 	newreg dpush ;
-
 :,dwor	| 'w
 	newreg dpush  ;
 :,wor	| ww
@@ -128,6 +127,16 @@
 :dropvar
         sst@ 'ssc> ! ;
 
+:convar | conver to var
+        sst@ dup 'ssc> !
+        'dstack ( dstack> <? )( @+ "%h " ,print ) drop " : " ,s
+        'rstack ( rstack> <? )( @+ "%h " ,print ) drop " -> " ,s
+	'dstack 'dstack> !
+	( @+ 1? )( dpush ) drop
+	'rstack 'rstack> !
+	( @+ 1? )( rpush ) 2drop
+        ;
+
 
 :salto? | adr -- adr 1/0
 	dup 8 - @ $ff and $16 >? ( $23 <? ( drop 1 ; ) ) drop 0 ;
@@ -140,16 +149,16 @@
 
 :,)(
 	sst@ drop
-	salto? 1? ( drop dropvar pushvar 3 sst! ; ) | while
-	drop popvar pushvar 2 sst!
+	salto? 1? ( drop dropvar pushvar 3 sst! ; )  | while
+	drop popvar pushvar 2 sst!                   | else
 	;
 
 :,)
 	sst@
-	0? ( dropvar )
-	1 =? ( ;? 1? ( popvar )( dropvar ) drop )
-	2 =? ( dropvar )
-	3 =? ( popvar )
+	0? ( dropvar )         | until/repeat
+	1 =? ( ;? 1? ( popvar )( convar ) drop )      | if
+	2 =? ( convar )       | else
+	3 =? ( popvar )        | while
 	drop ;
 
 :,; :,[ :,] ;
