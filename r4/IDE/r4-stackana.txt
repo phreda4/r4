@@ -16,6 +16,16 @@
 #ssc )( 8192
 #ssc> 'ssc
 
+|---- BLOQUES
+#blockn 0
+#block )( 1024	| tipo+info
+#blocks )( 1024 | celda comienzo
+#blocke )( 1024 | celda fin
+#blocki )( 1024 | celda medio
+
+|----- pila para bloques
+#pilab )( 256	#pilab> 'pilab
+
 
 :newreg | -- nr
         nreg 1 'nreg +! ;
@@ -138,6 +148,19 @@
         ;
 
 
+:block.new blockn pilab> !+ 'pilab> ! 1 'blockn +! ;
+:block.end -4 'pilab> +! ;
+:block.now pilab> 4 - @ ; | -- nblo
+
+:blocka		block.now 2 << 'block + ;
+
+:blCLEAR        0 blocka ! ;
+:blIF           blocka dup @ 0 or swap ! ;
+:blELSE  	blocka dup @ 1 or swap ! ;
+:blWHILE	blocka dup @ 2 or swap ! ;
+:blUNTIL  	blocka dup @ 3 or swap ! ;
+:blREPEAT  	blocka dup @ 4 or swap ! ;
+
 :salto? | adr -- adr 1/0
 	dup 8 - @ $ff and $16 >? ( $23 <? ( drop 1 ; ) ) drop 0 ;
 
@@ -145,21 +168,25 @@
 	over 8 - @ $ff and $10 =? ( drop 1 ; ) drop 0 ;
 
 :,(
+        block.new blCLEAR |blINI
         pushvar salto? sst! ;
 
 :,)(
+        |blMED
 	sst@ drop
 	salto? 1? ( drop dropvar pushvar 3 sst! ; )  | while
 	drop popvar pushvar 2 sst!                   | else
 	;
 
 :,)
+|	blEND
 	sst@
-	0? ( dropvar )         | until/repeat
-	1 =? ( ;? 1? ( popvar )( convar ) drop )      | if
-	2 =? ( convar )       | else
-	3 =? ( popvar )        | while
-	drop ;
+	0? ( dropvar swap salto? 1? ( blUNTIL )( blREPEAT ) drop swap )        | until/repeat
+	1 =? ( ;? 1? ( popvar )( convar ) drop blIF )      | if
+	2 =? ( convar blELSE )         | else
+	3 =? ( popvar blWHILE )        | while
+	drop
+        block.end ;
 
 :,;
         ;
