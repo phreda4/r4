@@ -39,7 +39,7 @@
 
 :rpush	rstack> !+ 'rstack> ! ;
 :rpop	-4 'rstack> +! rstack> @ ;
-
+:rcnt	rstack> 'rstack - ;
 :r.TOS  rstack> 4 - @ ;
 
 |----------------------------------------
@@ -49,6 +49,10 @@
 :regX	regnow dup @ $2000 or swap ! ;
 :regR	regnow dup @ $10000 + swap ! ;
 :regW	regnow dup @ $1000000 + swap ! ;
+
+:rregM	rstack> 4 - dup @ $1000 or swap ! ;
+:rregR	rstack> 4 - dup @ $10000 + swap ! ;
+:rregW	rstack> 4 - dup @ $1000000 + swap ! ;
 
 |----------------------------------------
 
@@ -188,24 +192,26 @@
 :,c1 | =? <? ..
 	,drop ;
 
-:,exec regX ,drop ;
+:,exec	regX ,drop ;
 
 :,>r	dpop rpush ;
 :,r>	rpop dpush ;
-:,r		r.tos dpush ;	|R      -- a R: a -- a
-:,r+	;			|R+    a -- R: b -- c
-:,r@+	;			|R@+    -- a R: b -- c
-:,r!+	;			|R!+   a -- R: b -- c
+:,r		rcnt 0? ( drop newreg dpush ; ) drop	| show consume R, no dR for now!
+	rregR r.tos dpush ;			|R		-- a R: a -- a
+:,r+	rregW ,drop ;				|R+		a -- R: b -- c
+:,r@+	rregM rregW newreg dpush ;	|R@+	-- a R: b -- c
+:,r!+	rregM rregW ,drop ;			|R!+	a -- R: b -- c
 :,rdrop	rpop drop ;
 
+
 |--- aritmeticas y logicas
-:op1a1	; | neg not 1+ 4+ 1- 2/ ..
-:vop1a1 ; | abs  clz  ..
-:op2a1	,drop ; | + - * and or xor ..
-:vop2a1 ,drop ; | / mod
-:xop2a1	,drop ; | << >>
-:op3a1	,drop ,drop ; | */
-:vop3a1	,drop ,drop ; | *>> /<<
+:op1a1	regW ; | neg not 1+ 4+ 1- 2/ ..
+:vop1a1 regW ; | abs  clz  ..
+:op2a1	,drop regW ; | + - * and or xor ..
+:vop2a1 ,drop regW ; | / mod
+:xop2a1	,drop regW ; | << >>
+:op3a1	,drop ,drop regW ; | */
+:vop3a1	,drop ,drop regW ; | *>> /<<
 
 :op2a2	; | mod/
 
@@ -214,7 +220,7 @@
 :1!	| ! c! w!
 	regM regR ,drop regR ,drop ;
 :2@	| @+ c@+ w@+
-	regM regW d.tos dpush ;
+	regM regW newreg dpush ;
 :2!	| !+ c!+ w!+
 	,swap regR ,drop regM regW ;
 :2+!	| +! c+! w+!
@@ -347,6 +353,7 @@ xop2a1 xop2a1 |,<< ,>>
 		dup fixtokenstr
 		calcstack
 		sdump ,cr
+	"r4asm/cod.asm" savemem
 		) 2drop
 	"r4asm/cod.asm" savemem
 	;
