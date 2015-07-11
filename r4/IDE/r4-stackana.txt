@@ -26,15 +26,10 @@
 |----- pila para bloques
 #pilab )( 256	#pilab> 'pilab
 
+:newreg	nreg 1 'nreg +! ;
 
-:newreg | -- nr
-        nreg 1 'nreg +! ;
-
-:dpush  | reg --
-        dstack> !+ 'dstack> ! ;
-
-:dpop   | -- reg
-        -4 'dstack> +! dstack> @ ;
+:dpush	dstack> !+ 'dstack> ! ;
+:dpop	-4 'dstack> +! dstack> @ ;
 
 :d.TOS   dstack> 4 - @ ;
 :d.NOS   dstack> 8 - @ ;
@@ -42,23 +37,18 @@
 :d.PK3   dstack> 16 - @ ;
 :d.PK4   dstack> 20 - @ ;
 
-:rpush  | reg --
-        rstack> !+ 'rstack> ! ;
-
-:rpop   | -- reg
-        -4 'rstack> +! rstack> @ ;
+:rpush	rstack> !+ 'rstack> ! ;
+:rpop	-4 'rstack> +! rstack> @ ;
 
 :r.TOS  rstack> 4 - @ ;
 
 |----------------------------------------
 :regnow dstack> 4 - ;
 
-:regM
-        regnow dup @ $1000 or swap ! ;
-:regR
-        regnow dup @ $10000 + swap ! ;
-:regW
-        regnow dup @ $1000000 + swap ! ;
+:regM	regnow dup @ $1000 or swap ! ;
+:regX	regnow dup @ $2000 or swap ! ;
+:regR	regnow dup @ $10000 + swap ! ;
+:regW	regnow dup @ $1000000 + swap ! ;
 
 |----------------------------------------
 
@@ -87,20 +77,20 @@
 :,uso11 regR ;
 :,uso21 regR ,drop regR ;
 
-:,1cte newreg dpush ;
-:,3v newreg dpush
-:,2v newreg dpush
-:,1v newreg dpush ;
+:,1cte	newreg dpush ;
+:,3v	newreg dpush
+:,2v	newreg dpush
+:,1v	newreg dpush ;
 
 :,lit   newreg dpush ;
 :,str   newreg dpush ;
 
 :,var	| vv
-	newreg dpush ;
+	newreg dpush regM ;
 :,dvar	| 'v
 	newreg dpush ;
 :,dwor	| 'w
-	newreg dpush  ;
+	newreg dpush regX ;
 :,wor	| ww
 	dup 4 - @ 8 >> dic>mov @
 	dup 16 << 24 >> | ud
@@ -152,8 +142,8 @@
 
 :blocka		block.now 2 << 'block + ;
 
-:blCLEAR        0 blocka ! ;
-:blIF           blocka dup @ 0 or swap ! ;
+:blCLEAR	0 blocka ! ;
+:blIF		blocka dup @ 0 or swap ! ;
 :blELSE  	blocka dup @ 1 or swap ! ;
 :blWHILE	blocka dup @ 2 or swap ! ;
 :blUNTIL  	blocka dup @ 3 or swap ! ;
@@ -198,7 +188,7 @@
 :,c1 | =? <? ..
 	,drop ;
 
-:,exec ;
+:,exec regX ,drop ;
 
 :,>r	dpop rpush ;
 :,r>	rpop dpush ;
@@ -320,19 +310,19 @@ xop2a1 xop2a1 |,<< ,>>
 
 |----------------------------------------
 :stackini | deep --
-        1 'nreg !
-        'dstack 'dstack> !
-        'rstack 'rstack> !
-        'ssc 'ssc> !
-        'sst 'sst> !
-        ( 1? )( 1- newreg dpush ) drop
-        ;
+	1 'nreg !
+	'dstack 'dstack> !
+	'rstack 'rstack> !
+	'ssc 'ssc> !
+	'sst 'sst> !
+	( 1? )( 1- newreg dpush ) drop
+	;
 
 :fixtokenstr | cod -- ; fix width op print
-        tokenstr
-        mprint count swap ,print
-        neg 16 + ( 1? )( 1- ,sp ) drop
-        ;
+	tokenstr
+	mprint count swap ,print
+	neg 16 + ( 1? )( 1- ,sp ) drop
+	;
 
 :calcstack | cod --
 	$ff and 2 << 'usostack + @
@@ -340,22 +330,23 @@ xop2a1 xop2a1 |,<< ,>>
         exec ;
 
 :sdump
-        block.cnt ( 1? )( 1- "|" ,s ) drop
-        'dstack ( dstack> <? )(
-                @+ "%h " ,print ) drop
-        " : " ,s
-        'rstack ( rstack> <? )(
-                @+ "%h " ,print ) drop ;
+	block.cnt ( 1? )( 1- "|" ,s ) drop
+    " " ,s
+	'dstack ( dstack> <? )(
+		@+ "%h " ,print ) drop
+	" : " ,s
+	'rstack ( rstack> <? )(
+		@+ "%h " ,print ) drop ;
 
 
 ::stackanalisis | end ini --
-        2dup getusedstack neg dup maxdepth ": mD:%d uD:%d :" ,print ,cr
-        stackini
-        ( over <? )(
-                @+ " ; " ,s
-                dup fixtokenstr
-                calcstack
-                sdump ,cr
-                ) 2drop
-      	"r4asm/cod.asm" savemem
-        ;
+	2dup getusedstack neg dup maxdepth ": mD:%d uD:%d :" ,print ,cr
+	stackini
+	( over <? )(
+		@+ " ; " ,s
+		dup fixtokenstr
+		calcstack
+		sdump ,cr
+		) 2drop
+	"r4asm/cod.asm" savemem
+	;
