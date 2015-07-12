@@ -9,6 +9,7 @@
 #rstack> 'rstack
 
 #nreg
+#reg )( 1024 | 256 registros
 
 |----- pila para condicionales
 #sst )( 1024 | pila de pilas
@@ -43,16 +44,12 @@
 :r.TOS  rstack> 4 - @ ;
 
 |----------------------------------------
-:regnow dstack> 4 - ;
 
-:regM	regnow dup @ $1000 or swap ! ;
-:regX	regnow dup @ $2000 or swap ! ;
-:regR	regnow dup @ $10000 + swap ! ;
-:regW	regnow dup @ $1000000 + swap ! ;
-
-:rregM	rstack> 4 - dup @ $1000 or swap ! ;
-:rregR	rstack> 4 - dup @ $10000 + swap ! ;
-:rregW	rstack> 4 - dup @ $1000000 + swap ! ;
+:regR	2 << 'reg + dup @ $1 + swap ! ;
+:regW	2 << 'reg + dup @ $100 + swap ! ;
+:regM	2 << 'reg + dup @ $10000 or swap ! ;	| direccion de memoria dato
+:regX	2 << 'reg + dup @ $20000 or swap ! ;	| direccion de memoria codigo
+:regP	2 << 'reg + dup @ $40000 or swap ! ;	| parametro en pila
 
 |----------------------------------------
 
@@ -64,22 +61,22 @@
 :,nip	,swap ,drop ;
 :,rot	dstack> 12 - >r r@+ r@+ r@+ swap r> 12 - !+ !+ ! ;
 :,2swap	dstack> 16 - >r r@+ r@+ swap r@+ r@+ swap r> 32 - !+ !+ !+ ! ;
-:,dup	d.TOS dpush ;
-:,over	d.NOS dpush ;
-:,pk2	d.PK2 dpush ; |PICK2  abc -- abca
-:,pk3	d.PK3 dpush ; |PICK3  abcd -- abcda
-:,pk4	d.PK4 dpush ; |PICK4  abcde -- abcdea
+:,dup	newreg dpush ;
+:,over	newreg dpush ;
+:,pk2	newreg dpush ; |PICK2  abc -- abca
+:,pk3	newreg dpush ; |PICK3  abcd -- abcda
+:,pk4	newreg dpush ; |PICK4  abcde -- abcdea
 :,2dup	,over ,over ; |2DUP   ab -- abab
 :,2over	,pk3 ,pk3 ; |2OVER  abcd -- abcdab
 
-:,uso6 regR ,drop regR ,drop
-:,uso4 regR ,drop
-:,uso3 regR ,drop
-:,uso2 regR ,drop
-:,uso1 regR ,drop ;
+:,uso6 d.TOS regR ,drop d.TOS regR ,drop
+:,uso4 d.TOS regR ,drop
+:,uso3 d.TOS regR ,drop
+:,uso2 d.TOS regR ,drop
+:,uso1 d.TOS regR ,drop ;
 
-:,uso11 regR ;
-:,uso21 regR ,drop regR ;
+:,uso11 d.TOS regR ;
+:,uso21 d.TOS regR ,drop d.TOS regR ;
 
 :,1cte	newreg dpush ;
 :,3v	newreg dpush
@@ -90,11 +87,11 @@
 :,str   newreg dpush ;
 
 :,var	| vv
-	newreg dpush regM ;
+	newreg dpush d.TOS regM ;
 :,dvar	| 'v
 	newreg dpush ;
 :,dwor	| 'w
-	newreg dpush regX ;
+	newreg dpush d.TOS regX ;
 :,wor	| ww
 	dup 4 - @ 8 >> dic>mov @
 	dup 16 << 24 >> | ud
@@ -192,39 +189,39 @@
 :,c1 | =? <? ..
 	,drop ;
 
-:,exec	regX ,drop ;
+:,exec	d.TOS regX ,drop ;
 
 :,>r	dpop rpush ;
 :,r>	rpop dpush ;
 :,r		rcnt 0? ( drop newreg dpush ; ) drop	| show consume R, no dR for now!
-	rregR r.tos dpush ;			|R		-- a R: a -- a
-:,r+	rregW ,drop ;				|R+		a -- R: b -- c
-:,r@+	rregM rregW newreg dpush ;	|R@+	-- a R: b -- c
-:,r!+	rregM rregW ,drop ;			|R!+	a -- R: b -- c
+		r.TOS regR newreg dpush ;			|R		-- a R: a -- a
+:,r+	r.TOS regW ,drop ;				|R+		a -- R: b -- c
+:,r@+	r.TOS dup regM regW newreg dpush ;	|R@+	-- a R: b -- c
+:,r!+	r.TOS dup regM regW ,drop ;			|R!+	a -- R: b -- c
 :,rdrop	rpop drop ;
 
 
 |--- aritmeticas y logicas
-:op1a1	regW ; | neg not 1+ 4+ 1- 2/ ..
-:vop1a1 regW ; | abs  clz  ..
-:op2a1	,drop regW ; | + - * and or xor ..
-:vop2a1 ,drop regW ; | / mod
-:xop2a1	,drop regW ; | << >>
-:op3a1	,drop ,drop regW ; | */
-:vop3a1	,drop ,drop regW ; | *>> /<<
+:op1a1	d.TOS regW ; | neg not 1+ 4+ 1- 2/ ..
+:vop1a1 d.TOS regW ; | abs  clz  ..
+:op2a1	,drop d.TOS regW ; | + - * and or xor ..
+:vop2a1 ,drop d.TOS regW ; | / mod
+:xop2a1	,drop d.TOS regW ; | << >>
+:op3a1	,drop ,drop d.TOS regW ; | */
+:vop3a1	,drop ,drop d.TOS regW ; | *>> /<<
 
 :op2a2	; | mod/
 
 :1@	| @ c@ w@
-	regM regW ;
+	d.TOS dup regM regW ;
 :1!	| ! c! w!
-	regM regR ,drop regR ,drop ;
+	d.TOS dup regM regR ,drop d.TOS regR ,drop ;
 :2@	| @+ c@+ w@+
-	regM regW newreg dpush ;
+	d.TOS dup regM regW newreg dpush ;
 :2!	| !+ c!+ w!+
-	,swap regR ,drop regM regW ;
+	,swap d.TOS regR ,drop d.TOS dup regM regW ;
 :2+!	| +! c+! w+!
-	regM regR ,drop regR ,drop ;
+	d.TOS dup regM regR ,drop d.TOS regR ,drop ;
 
 |----------------------------------------
 #usostack 0
@@ -353,7 +350,11 @@ xop2a1 xop2a1 |,<< ,>>
 		dup fixtokenstr
 		calcstack
 		sdump ,cr
-	"r4asm/cod.asm" savemem
+|	"r4asm/cod.asm" savemem	| DEBUG
 		) 2drop
+	'reg >r
+	0 ( nreg <? )( 1+
+		dup ,h " : " ,s r@+ ,h ,cr
+		) drop rdrop
 	"r4asm/cod.asm" savemem
 	;
