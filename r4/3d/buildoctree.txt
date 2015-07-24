@@ -13,11 +13,11 @@
 
 |---- archivo a grabar
 #:$inifile
-#$octree
-#$lastlev
-#$pixels
-#$colori
-#$realpixels
+#:$octree
+#:$lastlev
+#:$pixels
+#:$colori
+#:$realpixels
 #:$end
 
 #bith	| bitmask hijos
@@ -141,10 +141,9 @@
 		) 2drop ;
 
 |------------ elimina repetidos
-:repetidos
+::repetidos
 	memvox memvox> over - 3 >> 1+ swap
 	shellsort
-
 	memvox >r
 	r@+ 4 r+ memvox 8 +
 	( memvox> <? )(	| prevval nextdir
@@ -156,6 +155,7 @@
 		) 2drop
 	r> 'memvox> !
 	;
+
 
 |-------------------------------
 ::buildoctree | --
@@ -217,7 +217,7 @@
 
 
 |----------- ajuste
-:getminmax
+::getminmax
 	memvox
 	@+ invmorton3d
 	dup 'zmin ! 'zmax !
@@ -258,7 +258,7 @@
 |----- calcula normales
 #p0 #p0d
 #p1 #p1d
-    
+
 :dist | p p1 -- p p1 dist2 | x^2+y^2+z^2
 	over @ over @ - dup *. >r
 	over 4+ @ over 4+ @ - dup *. r+
@@ -306,7 +306,7 @@
 	'v1 @+ swap @+ swap @ swap rot
 	;
 
-:calcnormales
+::calcnormales
 	memvox> >r
 	memvox
 	vertices ( 1? )( 1- swap
@@ -340,9 +340,9 @@
 ::espejovoxel
 	memvox ( memvox> <? )(
 		dup @ invmorton3d
-		neg qsize and rot
-		neg qsize and rot
-		neg qsize and rot
+		qsize xor rot
+		qsize xor rot
+		qsize xor rot
 		morton3d
 		swap !+
 		4+ ) drop ;
@@ -359,3 +359,48 @@
 	;
 
 
+
+|------------ optimiza ultimo nivel
+| No funciona por cambio a relativo!!
+|**********************************
+:todos? | cant dir1 dir2 -- 0/1
+	>r ( swap 1? )( 1- swap
+		@+ r@+ <>? ( rdrop 3drop 0 ; )
+		drop )
+	rdrop 2drop 1 ;
+
+:buscacol | nodo cant direccion -- nodo cant nuevadireccion/0
+	@+ swap >r 			| nodo cant dirpix
+
+	|$pixels 	| nodo cant primerc dirpix r:dirini
+|	$colori		| busca desde los colores originales
+|	( $realpixels pick3 2 << - <? )(
+		@+ pick2 =? ( drop pick2 1- over r 		| ya comprobo el primero!!
+			todos? 1? ( drop nip rdrop 4 - ; ) )
+|		drop )
+	rdrop 2drop 0 ;
+
+:searchcolors | nodo valor -- nodo++
+	dup $ff and popcnt
+	swap 8 >> 2 << $pixels + 	| nodo cant direccion
+	buscacol 1? ( nip $pixels - 2 >> 8 << over @ $ff and or swap !+ ; )
+	drop						| nodo cant
+	swap dup @
+	dup 8 >> 2 << $pixels + >r
+|	$ff and $realpixels $pixels - 2 >> 8 << or swap !+
+	swap
+|	$realpixels ( swap 1? )( 1-
+|		r@+ rot !+ ) drop
+|	'$realpixels !
+	rdrop
+	;
+
+|--------------------------------------
+
+::optoctree
+	"optimizando..." print cr redraw
+|	$lastlev ( $pixels <? )(
+		dup @ searchcolors
+|	) drop
+|	$pixels $octree - $realpixels !+ '$end !
+	;

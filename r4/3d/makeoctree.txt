@@ -1,0 +1,185 @@
+| desde morton3d de 10bits por dim
+| metodo de abajo hacia arriba
+| PHREDA 2014
+|-----------------------------
+^r4/lib/gui.txt
+^r4/lib/dlgfile.txt
+^r4/lib/trace.txt
+^r4/lib/sort.txt
+^r4/lib/bsearch.txt
+^r4/lib/morton.txt
+
+^r4/3d/buildoctree.txt
+^r4/3d/wirelib.txt
+
+#filename )( 1024
+#vertices
+
+|----------- graficacion
+
+:3dop project3d op ;
+:3dline project3d line ;
+
+|---- dibujos de grillas
+:drawboxz | z --
+	0 0 pick2 3dop
+	qsize 0 pick2 3dline
+	qsize qsize pick2 3dline
+	0 qsize pick2 3dline
+	0 0 rot 3dline ;
+
+:drawboxy | y --
+	0 over 0 3dop
+	qsize over 0 3dline
+	qsize over qsize 3dline
+	0 over qsize 3dline
+	0 swap 0 3dline ;
+
+:drawboxx | x --
+	dup 0 0 3dop
+	dup qsize 0 3dline
+	dup qsize qsize 3dline
+	dup 0 qsize 3dline
+	0 0 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup 0 3dop qsize 3dline ;
+
+:draw3dbox
+	$707070 ink
+	0 drawboxz
+	qsize drawboxz
+	0 0 drawlinez
+	qsize 0 drawlinez
+	qsize qsize drawlinez
+	0 qsize drawlinez ;
+
+
+:drawp | x y z ---
+	project3d |2dup op line ;
+	-? ( 2drop ; ) sh >=? ( 2drop ; )
+	swap -? ( 2drop ; ) sw >=? ( 2drop ; ) swap
+	setxy
+	ink@ px!+
+	;
+
+:drawpcf | --
+	memvox
+	( memvox> <? )(
+		@+ swap @+ ink swap
+		invmorton3d drawp
+		) drop ;
+
+|--------- archivos
+:memory
+	mark
+	here
+	dup 'memvox !
+	dup 'memvox> !
+	$ffffff +
+	'here !
+	;
+
+:savetxt
+	$end 'here !
+	mark
+	$octree ( $end <? )(
+		dup $octree - 2 >>  "%h." ,print
+		@+ "%h " ,print ,cr ) drop
+	"octree.txt" savemem
+	empty ;
+
+:saveoctree
+	$inifile $end over -
+	"media/3do/" 'filename strcpy
+	'filename catdlgname
+	".3do" 'filename strcat
+	'filename save ;
+
+|------------- load import
+:load3dm | "filename" --
+	memvox swap
+	load dup 'memvox> ! 'here !
+
+	|..quta 0 del final
+	memvox> 8 - ( dup @ 0? )( drop
+		8 - ) drop 8 + 'memvox> !
+
+	repetidos
+	getminmax
+	centravoxel
+	getminmax
+
+	memvox> memvox - 3 >> 'vertices !
+
+	;
+
+:loaddisk3dm
+	"media/3dm" dlgfileload 1? ( load3dm ; ) drop ;
+
+:dump
+	"ROctree 32: " print $end $octree - "mem:%d " print 	cr
+	"ROctree 16: " print $pixels $octree - $end $pixels - 2/ + "mem:%d " print cr
+	"ROctree 8:  " print $pixels $octree - $end $pixels - 2 >> + 1024 + "mem:%d " print cr
+	"ROctreelessm 32: "print $pixels $octree - 4 >> $end $pixels - + "mem:%d " print 	cr
+	"ROctreelessm 16: "print $pixels $octree - 4 >> $end $pixels - 2/ + "mem:%d " print 	cr
+	cr
+	;
+
+
+:freelook
+	xymouse
+	sh 2/ - neg 2 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty
+	;
+
+#xcam 0 #ycam 0 #zcam 0.01
+|--------------------------
+:main
+	4 $88 paper
+	show clrscr verde fonti
+		cr2
+		dup ":r%d 3dm->Octree Convert  " print cr
+		vertices "Puntos: %d " print
+|		vertices 3 << "mem:%d " print
+		qsize "qsize:%h " print
+		deepvox "deepvox:%d " print cr
+		cr
+		octre> octre - 3 >> "Octree: %d " print
+		octre> octre - 1 >> vertices 2 << + "mem:%d " print
+		cr
+		memvox> memvox "mem %h %h" print cr
+		octre> octre "oct %h %h " print cr
+		$octree "%h " print
+		cr
+
+		1 rows 1-  gotoxy "F1-LOAD F2-BUILD F3-SAVE F4-OPT+SAVE F7-rota F8-espejo F9-colorea" print cr
+
+
+		omode
+		freelook
+		xcam ycam zcam mtrans
+		qsize 2/ neg dup dup mtransi
+
+		draw3dbox
+		drawpcf
+
+		[ -0.01 'zcam +! ; ] <up>
+		[ 0.01 'zcam +! ; ] <dn>
+
+		'loaddisk3dm <f1>
+		'buildoctree <f2>
+		[ saveoctree ; ] <f3>
+		[ buildoctree optoctree saveoctree ; ] <f4>
+		[ getminmax centravoxel ; ] <f5>
+		'calcnormales <f6>
+
+		'rotacoordvoxel <f7>
+		'espejovoxel <f8>
+		'coloreavoxel <f9>
+
+		'exit >esc< ;
+
+: memory main ;

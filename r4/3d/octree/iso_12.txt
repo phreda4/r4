@@ -47,7 +47,7 @@
 	r> ;
 
 |-------------------------------
-::octcolor | oct -- color
+:octcolor | oct -- color
     $octree - $pixels + @ ;
 
 :octcolor3 | oct -- color
@@ -59,7 +59,6 @@
 :octcolor16 | oct -- color
 	$octree - 2/ $pixels + w@ ; |16to32 ;
 
-|-------------------------------
 |-------------------------------
 :drawpoint | x y oct --
 	octcolor rot rot maskpxyo ;
@@ -167,39 +166,30 @@
 	;
 
 ::oct++ | adr -- adr bitmask
-|	@ dup 8 >> 2 << $octree + swap $ff and	| adr bitmask	| absoluto
-	@+ dup 8 >> 2 << rot + swap $ff and 	| adr bitmask	| relativo
-	;
+	@+ dup 8 >> 2 << rot + swap $ff and ;
 
 |.............................................................
-:idsumi | x y id -- x y
-	3 << 'ivecpos + >r
-	r@+ ilevel 1- >> 1+ 2/ rot + r> @ ilevel 1- >> 1+ 2/ rot + ;
-
-|	r@+ ilevel >> rot + r> @ ilevel >> rot + ;
-
 :childi | x y node bitm nro place -- node bitm
-	1- pick2 and popcnt 2 << pick3 +
-	>r >r pick3 pick3 r> idsumi r>
-
-|	ilevel wiso over >> 'wison ! hiso swap >> 'hison !	| ++++impreciso
-
-	ilevel 1- wiso over >> 1+ 2/ 'wison ! hiso swap >> 1+ 2/ 'hison !
-
-|	ilevel 2 << 'sizelevel + @ dup $ffff and 'wison ! 16 >> $7fff and 'hison !
+	1- pick2 and popcnt 2 << pick3 +	| x y node bitm nro cntchild+node
+	>r 3 << 'ivecpos + >r 				| x y node bitm r: ivec newnode
+	ilevel 1-                           | x y node bitm il
+    wiso over >> 1+ 2/ 'wison !
+    hiso over >> 1+ 2/ 'hison !
+	pick4 r@+ pick2 >> 1+ 2/ +			| x y node bitm il x
+	r> @ rot >> 1+ 2/ pick4 +           |               x  y
+	r>                                  | x y node bitm xn yn nnode
 	;
 
-
-| ilevel 2 << 'sizelevel + @+ 'wison ! @ 'hison !
 
 :viewi | x y node --
 	1 'nodosi +!
+
+	$pixels >=? ( $magic $100 nand? ( drop dbox exec ; ) drop getoct viewi getocti ; )
+
    	pick2 pick2
 	wison 0? ( 3drop drawpoint1 ; ) pick2 +
 	hison 0? ( 4drop drawpoint2 ; ) pick2 +
 	maskb.rget 0? ( 4drop ; ) drop
-
-	$pixels >=? ( $magic $100 nand? ( drop dbox exec ; ) drop getoct viewi getocti ; )
 
 	1 'ilevel +!
 	oct++
@@ -366,7 +356,7 @@
 	1- over and popcnt 2 << pick2 +    | node bitm node'
 	;
 
-:viewo | node --   	
+:viewo | node --
 	1 'nodoso +!
 	cullingcalc
 	0? ( drop viewr ; )
@@ -453,6 +443,7 @@
 
 :main
 	mark
+	3dini
     maskb.ini
 	"media/3do/horse.3do" load3do 'Ocaballo !
 	"media/3do/earth.3do" load3do 'Omario !
@@ -464,9 +455,8 @@
 	33
 	$8800 paper
 	show clrscr
-
 		3dini
-|		freelook
+		freelook
 		xcam ycam zcam mtrans
 
 		maskb.clear
