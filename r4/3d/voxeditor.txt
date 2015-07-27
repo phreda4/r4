@@ -309,29 +309,6 @@
 	ym over 'ym ! - 7 << 'rx +!
 	xm over 'xm ! - neg 7 << neg 'ry +! ;
 
-|------------------------------------
-:3dline | x y z --
-	pick3 pick3 pick3
-	voxLine
-	( cx curx - cy cury - or cz curz - or 1? )( drop
-		color cx cy cz vox!
-		voxPaso
-		) drop
-	color cx cy cz vox!
-	'curz ! 'cury ! 'curx !
-	buildoctree
-	;
-
-:test3dline
-	64 ( 1? )( 1-
-	rand 5 >> qsize and
-	rand 7 >> qsize and
-	rand 9 >> qsize and
-	3dline
-	rand 3 >> 'color !
-	) drop
-	;
-
 |------- pencil
 :setvox
     curx cury curz vox-
@@ -372,15 +349,11 @@
 		ready? 0? ( drop ; ) drop
 		) drop ;
 
-|------- agregar
-:modpencil
-	xymouse testbox 0? ( drop 'dnlook 'movelook guiDnMove ; ) drop
+|------- vista
+:modview
+	'dnlook 'movelook guiDnMove ;
 
-	prevmouse
-	'setvox <spc>
-	;
-
-:toopencil
+:tooview
 	cyan oscuro
 	'i.download_alt 'saveoctree botonsimple2 gc>>
 	cyan oscuro
@@ -389,6 +362,34 @@
 |	'i.zoom_in [ -0.01 'zcam +! ; ] botonsimple2 gc>>
 |	cyan oscuro
 |	'i.zoom_out [ 0.01 'zcam +! ; ] botonsimple2 gc<< gcdn
+
+	;
+
+:movecursor |*************
+	[ curx 1+ qsize >? ( 0 nip ) 'curx ! ; ] <up>
+	[ curx 1- -? ( qsize nip ) 'curx ! ; ] <dn>
+	[ cury 1+ qsize >? ( 0 nip ) 'cury ! ; ] <le>
+	[ cury 1- -? ( qsize nip ) 'cury ! ; ] <ri>
+	[ curz 1+ qsize >? ( 0 nip ) 'curz ! ; ] <pgup>
+	[ curz 1- -? ( qsize nip ) 'curz ! ; ] <pgdn>
+	;
+
+:movemodel
+	[ 1 0 0 movevoxel buildoctree ; ] <f1>
+	[ 0 1 0 movevoxel buildoctree ; ] <f2>
+	[ 0 0 1 movevoxel buildoctree ; ] <f3>
+	;
+
+|------- agregar
+:modpencil
+	xymouse testbox 0? ( drop 'dnlook 'movelook guiDnMove ; ) drop
+
+	prevmouse
+	'setvox guiBtn | 1 vox
+	'setvox <spc>
+	;
+
+:toopencil
 	verde oscuro
 	'i.cog 'mainmapas botonsimple2 gc>>
 	gcdn gc<<
@@ -400,6 +401,7 @@
 	xymouse testbox 0? ( drop 'dnlook 'movelook guiDnMove ; ) drop
 	inmouse
 	'setvox <spc>
+	'setvox guiBtn | 1 vox
 	;
 
 :tootint
@@ -410,6 +412,7 @@
 	xymouse testbox 0? ( drop 'dnlook 'movelook guiDnMove ; ) drop
 	inmouse
 	'delvox <spc>
+	'delvox guiBtn | 1 vox
 	;
 
 :toocut
@@ -418,12 +421,12 @@
 	;
 
 |----- botonera
-#modos 'modpencil 'modtint 'modcut
-#tools 'toopencil 'tootint 'toocut
+#modos 'modview 'modpencil 'modtint 'modcut
+#tools 'tooview 'toopencil 'tootint 'toocut
 
 #modo 0
-#modogui 'modpencil
-#modotoo 'toopencil
+#modogui 'modview
+#modotoo 'tooview
 
 :setmodo
 	dup 'modo !
@@ -448,9 +451,10 @@
 	rojo 'exit dup >esc< btne blanco 'i.off drawric
 
 	24 48 pos
-	'i.pencil 0 botonmodo
-	'i.tint 1 botonmodo
-	'i.cut 2 botonmodo
+	'i.eye_open 0 botonmodo [ 0 setmodo drop ; ] <f1>
+	'i.pencil 1 botonmodo [ 1 setmodo drop ; ] <f2>
+	'i.tint 2 botonmodo [ 2 setmodo drop ; ] <f3>
+	'i.cut 3 botonmodo [ 3 setmodo drop ; ] <f4>
     24 qdim
 	-10 -10 +pos
 	modotoo exec
@@ -512,17 +516,11 @@
 		'voxelbox "L"  sp btnt
 		'voxelboxc "B"  sp btnt
 
-		[ curx 1+ qsize >? ( 0 nip ) 'curx ! ; ] <up>
-		[ curx 1- -? ( qsize nip ) 'curx ! ; ] <dn>
-		[ cury 1+ qsize >? ( 0 nip ) 'cury ! ; ] <le>
-		[ cury 1- -? ( qsize nip ) 'cury ! ; ] <ri>
-		[ curz 1+ qsize >? ( 0 nip ) 'curz ! ; ] <pgup>
-		[ curz 1- -? ( qsize nip ) 'curz ! ; ] <pgdn>
-
-		[ 1 0 0 movevoxel buildoctree ; ] <f1>
-		[ 0 1 0 movevoxel buildoctree ; ] <f2>
-		[ 0 0 1 movevoxel buildoctree ; ] <f3>
-		'test3dline  <f4>
+		|------ key vista
+		[ zcam 0.1 >? ( 0.1 - ) 'zcam ! ; ] <up>
+		[ zcam 1.8 <? ( 0.1 + ) 'zcam ! ; ] <dn>
+		[ 0.01 'ry +! ; ] <le>
+		[ -0.01 'ry +! ; ] <ri>
 
 		botonera
 		'exit >esc<
