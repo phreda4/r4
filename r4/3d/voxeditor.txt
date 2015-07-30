@@ -62,6 +62,11 @@
 	mortonlut vox-cnt-mem binsearch
 	0? ( -1 nip ; ) 4+ @ ;
 
+:vox@a | x y z -- a
+	memvox> memvox - 0? ( 4drop -1 ; ) drop
+	mortonlut vox-cnt-mem binsearch
+	0? ( -1 nip ; ) 4+ ;
+
 :vox- | x y z --
 	memvox> memvox - 0? ( 4drop ; ) drop
 	mortonlut vox-cnt-mem binsearch
@@ -69,7 +74,6 @@
 	dup 8 +   | dest src
 	memvox> over - 2 >> move
 	-8 'memvox> +! ;
-
 
 |------------- generadores
 :3* dup 2* + ;
@@ -309,16 +313,7 @@
 	ym over 'ym ! - 7 << 'rx +!
 	xm over 'xm ! - neg 7 << neg 'ry +! ;
 
-|------- pencil
-:setvox
-    curx cury curz vox-
-	color curx cury curz vox!
-	buildoctree ;
-
-:delvox
-    curx cury curz vox-
-	buildoctree ;
-
+|------- cursor
 :setcur! | ; guarda en cursor
 	cx 'curx ! cy 'cury ! cz 'curz ! ;
 
@@ -341,12 +336,14 @@
 		) drop ;
 
 :inmouse
+	hx1 hx0 - hy1 hy0 - or hz1 hz0 - or
+	0? ( drop hx0 'curx ! hy0 'cury ! hz0 'curz ! ; ) drop
 	hx1 hy1 hz1 voxOp
 	hx0 hy0 hz0 voxline
 	( inside? 0? )( drop
 		cx cy cz vox@ +? ( drop setcur! ; ) drop	| voxel lleno
 		voxPaso
-		ready? 0? ( drop ; ) drop
+		ready? 0? ( drop setcur! ; ) drop
 		) drop ;
 
 |------- vista
@@ -381,12 +378,32 @@
 	;
 
 |------- agregar
+:setvox
+    curx cury curz vox-
+	color curx cury curz vox!
+	buildoctree ;
+
 :modpencil
 	xymouse testbox 0? ( drop 'dnlook 'movelook guiDnMove ; ) drop
 
 	prevmouse
 	'setvox guiBtn | 1 vox
 	'setvox <spc>
+	;
+
+:vox-set | x y z --
+	pick2 pick2 pick2 vox-
+	mortonlut color swap
+	memvox> !+ !+ 'memvox> ! ;
+
+:modpencil
+	xymouse testbox 0? ( drop ; ) drop
+	prevmouse
+	[ curx cury curz voxelc1! ; ]
+	[ curx cury curz voxelc2! ; ]
+	[ 'vox-set mapvoxcursorx buildoctree ; ] guiMap | 'dn 'move 'up --
+	blink 1? ( blanco )( gris ) drop
+	voxcursorx
 	;
 
 :toopencil
@@ -404,15 +421,46 @@
 	'setvox guiBtn | 1 vox
 	;
 
+:vox-tint
+	vox@a -1 =? ( drop ; )
+	color swap ! ;
+
+:modtint
+	xymouse testbox 0? ( drop ; ) drop
+	inmouse
+	[ curx cury curz voxelc1! ; ]
+	[ curx cury curz voxelc2! ; ]
+	[ 'vox-tint mapvoxcursorx buildoctree ; ] guiMap | 'dn 'move 'up --
+	blink 1? ( blanco )( gris ) drop
+	voxcursorx
+	;
+
 :tootint
 	;
 
 |------- borrar
+:delvox
+    curx cury curz vox-
+	buildoctree ;
+
 :modcut
 	xymouse testbox 0? ( drop 'dnlook 'movelook guiDnMove ; ) drop
 	inmouse
 	'delvox <spc>
 	'delvox guiBtn | 1 vox
+
+	blink 1? ( blanco )( gris ) drop
+	curx cury curz voxcursorx
+	;
+
+:modcut
+	xymouse testbox 0? ( drop ; ) drop
+	inmouse
+	[ curx cury curz voxelc1! ; ]
+	[ curx cury curz voxelc2! ; ]
+	[ 'vox- mapvoxcursorx buildoctree ; ] guiMap | 'dn 'move 'up --
+	blink 1? ( blanco )( gris ) drop
+	voxcursorx
 	;
 
 :toocut
@@ -501,11 +549,8 @@
 		xcam ycam zcam mtrans
 		draw3dgrid
 
-		modogui exec
-
 		drawvoxel
-		blink 1? ( blanco )( gris ) drop
-		curx cury curz voxcursor
+		modogui exec
 
 		|------
 		1 rows 4 - gotoxy azul

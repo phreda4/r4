@@ -41,14 +41,21 @@
 #csize
 #vert )( 64
 
-:to3d
+:to3d | z y x -- x y
 	transform 3dproject swap ;
 
-:nver
+:nver | n -- x y
 	3 << 'vert + @+ swap @ ;
 
-::xyzcubo | x y z size --
-	'csize !
+:drawcursor
+	0 nver 2dup op 1 nver line 3 nver line 2 nver line line
+	4 nver 2dup op 5 nver line 7 nver line 6 nver line line
+	0 nver op 4 nver line
+	1 nver op 5 nver line
+	2 nver op 6 nver line
+	3 nver op 7 nver line ;
+
+::xyzcubo | z y x --
 	'vert >r
 	pick2 pick2 pick2 to3d r!+ r!+
 	pick2 csize + pick2 pick2 to3d r!+ r!+
@@ -60,32 +67,79 @@
 	pick2 pick2 csize + pick2 to3d r!+ r!+
 	pick2 csize + pick2 csize + pick2 to3d r!+ r> !
 	3drop
-	0 nver 2dup op 1 nver line 3 nver line 2 nver line line
-	4 nver 2dup op 5 nver line 7 nver line 6 nver line line
-	0 nver op 4 nver line
-	1 nver op 5 nver line
-	2 nver op 6 nver line
-	3 nver op 7 nver line
-	;
+	drawcursor ;
 
-::voxcursor | x y z --
+:adjust | x y z -- z y x
 	1 deepvox 1- << >r
 	r swap - 1- 16 deepvox - <<
 	r rot - 1- 16 deepvox - <<
-	rot r> swap - 1- 16 deepvox - <<
-	1.0 deepvox >> | size
+	rot r> swap - 1- 16 deepvox - << ;
+
+::voxcursor | x y z --
+	1.0 deepvox >> 'csize !
+	adjust
 	xyzcubo ;
 
-#:voxelc1 0 0 0
-#:voxelc2 0 0 0
+|------------------
+#voxelc1 0 0 0	| coordenanas reales
+#voxelc2 0 0 0
+
+#maxx #minx
+#maxy #miny
+#maxz #minz
 
 ::voxelc1! | x y z --
-	'voxelc1 >r rot r!+ swap r> !+ ! ;
-::voxelc2! | x y z --
-	'voxelc2 >r rot r!+ swap r> !+ ! ;
+	'voxelc1 !+ !+ ! ;
 
-::drawvoxelc
-	;
+::voxelc2! | x y z --
+	'voxelc2 !+ !+ ! ;
+
+:adjust
+	1 deepvox 1- << >r
+	r voxelc1 - 1- 16 deepvox - <<
+	r voxelc2 - 1- 16 deepvox - <<
+	over <? ( swap ) | min max
+	csize + 'maxx ! 'minx !
+	r 'voxelc1 4+ @ - 1- 16 deepvox - <<
+	r 'voxelc2 4+ @ - 1- 16 deepvox - <<
+	over <? ( swap ) | min max
+	csize + 'maxy ! 'miny !
+	r 'voxelc1 8 + @ - 1- 16 deepvox - <<
+	r> 'voxelc2 8 + @ - 1- 16 deepvox - <<
+	over <? ( swap ) | min max
+	csize + 'maxz ! 'minz ! ;
+
+::voxcursorx | --
+	1.0 deepvox >> 'csize !
+	adjust
+	'vert >r
+	minx miny minz to3d r!+ r!+
+	maxx miny minz to3d r!+ r!+
+	minx maxy minz to3d r!+ r!+
+   	maxx maxy minz to3d r!+ r!+
+	minx miny maxz to3d r!+ r!+
+	maxx miny maxz to3d r!+ r!+
+	minx maxy maxz to3d r!+ r!+
+   	maxx maxy maxz to3d r!+ r> !
+	drawcursor ;
+
+:voxcx
+	voxelc1 voxelc2 over >? ( swap ) ;
+:voxcy
+	'voxelc1 4+ @ 'voxelc2 4+ @ over >? ( swap ) ;
+:voxcz
+	'voxelc1 8 + @ 'voxelc2 8 + @ over >? ( swap ) ;
+
+::mapvoxcursorx | vector --
+	>r
+	voxcz ( over <=? )(
+		voxcy ( over <=? )(
+			voxcx ( over <=? )(
+				pick4 pick3 pick2 r exec
+				1+ ) 2drop
+			1+ ) 2drop
+		1+ ) 2drop
+	rdrop ;
 
 |--------- Grilla
 #nx #ny #nz
