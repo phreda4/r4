@@ -40,12 +40,14 @@
 :nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
 :toknow		dup 4 - @ ;
 
+
 :,defw
-	| normalizar para palabras con multiple entradas
-	vpila2normal
 	dup 4 - @ 8 >> dup
-	dic>inf dup @ $100 or swap !          	| marcar falso inline
-	"w%h: ; <-- entrada" ,print ,nl
+	dic>inf dup @ $fff000 nand? ( 3drop ; ) | no tiene llamadas
+	$100 or swap !          | marcar falso inline
+	vpila2normal			| normalizar por multiple entradas
+	dup 4 << 'indicepal + @ swap
+	"w%h: ; --- %s --- ;" ,print ,nl
 	;
 
 :,defv ;
@@ -93,7 +95,8 @@
 
 :,;
 	dup 8 - @ $ff and
-	$c =? ( drop ; ) drop | word ;
+	$c =? ( drop ; )  		| word ;
+	$16 =? ( drop ; ) drop	| exec ;
 	vpila2normal
 	"ret" ,ln ;
 
@@ -270,21 +273,30 @@
 	,s ,cr
 	lastdircode vpila2callV ;
 
-:,EXECPP | v --
-	"push " ,s ,TOS ,cr
-	d.drop
-
-|	vpilanormal?
-|	"; normal? %d " ,print ,cr
-
+:,EXECTOS
 	vpila2normal
+	over @ $ff and 			| word ;
+	$10 =? ( "jmp " )( "call " ) nip
+	,s ,CELL ,cr
+	lastdircode vpila2callV ;
 
+:,EXECPP | v --
+	d.tos d.drop
+	vpila2normal? 1? ( drop ,EXECTOS ; ) drop
+
+	"push " ,s ,CELL ,cr
+|	d.drop
+|	vpila2normal? "; normal? %d " ,print ,cr
+	vpila2normal
 	"pop ecx" ,ln
 	,execr ;
 
+
 :,EXEC | v --
 	d.tos cellVAR -? ( 2drop ,EXECPP ; ) 2drop
-	d.tos d.drop vpila2normal
+	d.tos d.drop
+|	vpila2normal? 1? ( drop ,EXECTOS ; ) drop
+	vpila2normal
 	"mov ecx," ,s ,CELL ,cr
 	,execr ;
 
@@ -778,6 +790,6 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 45
 	0 'strpending !
 	( over <? )(
 		@+
-|		imprimedebug
+		imprimedebug
 		$ff and 2 << 'acompila + @ exec
 		) 2drop ;
