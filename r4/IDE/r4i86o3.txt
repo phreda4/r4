@@ -268,38 +268,32 @@
 	block.end ;
 
 |------- EXEC
-:,execr
+:,EXECREG | reg --
+	"mov " ,s dup ,REG ",eax" ,s ,cr
+	d.drop vpila2normal
+	over @ $ff and 			| word ;
+	$10 =? ( "jmp " )( "call " ) nip
+	,s ,REG ,cr
+	lastdircode vpila2callV ;
+
+:,EXECEAX
+	newreg? +? ( ,EXECREG ; ) drop
+	"push eax" ,ln
+	d.drop vpila2normal
+	"pop ecx" ,ln
 	dup @ $ff and 			| word ;
 	$10 =? ( "jmp ecx" )( "call ecx" ) nip
 	,s ,cr
 	lastdircode vpila2callV ;
 
-:,EXECTOS
-	vpila2normal
+:,EXEC | v --
+	d.tos
+	dup cellREG? 0? ( 2drop ,EXECEAX ; ) drop
+	d.drop vpila2normal
 	over @ $ff and 			| word ;
 	$10 =? ( "jmp " )( "call " ) nip
 	,s ,CELL ,cr
 	lastdircode vpila2callV ;
-
-:,EXECPP | v --
-	d.tos d.drop
-	vpila2normal? 1? ( drop ,EXECTOS ; ) drop
-
-	"push " ,s ,CELL ,cr
-|	d.drop
-|	vpila2normal? "; normal? %d " ,print ,cr
-	vpila2normal
-	"pop ecx" ,ln
-	,execr ;
-
-
-:,EXEC | v --
-	d.tos cellVAR -? ( 2drop ,EXECPP ; ) 2drop
-	d.tos d.drop
-|	vpila2normal? 1? ( drop ,EXECTOS ; ) drop
-	vpila2normal
-	"mov ecx," ,s ,CELL ,cr
-	,execr ;
 
 |------- PILAR
 :,>R
@@ -313,12 +307,15 @@
 
 :,R
 	toknow 8 >> 1? ( drop r.tos d.push ; ) drop
-	newReg pushREG
-	"mov " ,s ,TOS ",dword [esp]" ,ln ;
+	7 pushREG d.tos cellMEM! | [esp]
+	;
+|	newReg pushREG
+|	"mov " ,s ,TOS ",dword [esp]" ,ln ;
 
 :,RDROP
 	toknow 8 >> 1? ( drop r.drop ; ) drop
 	"lea esp,[esp+4]" ,ln ;
+|	"add esp,4" ,ln ;
 
 :,R+a
 	r.tos cellREG? -? ( r.tos cell2REGW ) drop
@@ -672,7 +669,7 @@
 		d.nos cellNRO? 1? ( drop
 			"lea ebp,[SYSFRAME+(" ,s ,TOS "*XRES+" ,s ,NOS ")*4]" ,ln
 			d.2drop ; ) drop ) drop
-
+	d.tos cell2NMEM
 |	"imul " ,s ,TOS ",XRES" ,ln	| cualquier ancho
 	"shl " ,s ,TOS ",10" ,ln	| 1024 de ancho
 
@@ -682,6 +679,7 @@
 
 :,SETXY | x y --
 	fullscreen 0? ( drop ,SETXYf ; ) drop
+	d.tos cell2NMEM
 	"imul " ,s ,TOS ",[XRES]" ,ln	| cualquier ancho
 	d.nos cell0? 0? ( "add " ,s ,TOS "," ,s ,NOS ,cr ) drop
 	"lea ebp,[SYSFRAME+" ,s ,TOS "*4]" ,ln
