@@ -16,7 +16,6 @@
 #:$octree
 #:$lastlev
 #:$pixels
-#:$colori
 #:$realpixels
 #:$end
 
@@ -201,7 +200,7 @@
 		,levelcolor
 		 ) drop
 
-	octre> dup '$realpixels ! '$colori !
+	octre> '$realpixels !
 	memvox ( memvox> <? )(
 		4+ @+
 |***		$f8fcf8 and | 16 bits
@@ -214,7 +213,54 @@
 	$pixels $octree - $inifile 4+ !
 	;
 
+|------------ optimiza ultimo nivel
+:todos? | cant dir1 dir2 -- 0/1
+	>r ( swap 1? )( 1- swap
+		@+ r@+ <>? ( rdrop 3drop 0 ; )
+		drop )
+	rdrop 2drop 1 ;
 
+:buscacol | nodo cnt direccion -- nodo cnt nuevadireccion/0
+	@+ swap >r 		| nodo cant col1  r: dirpix
+	$realpixels  		| nodo cant col1 dpix  r:dirpix
+	( $end <? )(
+		@+ pick2 =? ( drop pick2 1- over r 		| ya comprobo el primero!!
+			todos? 1? ( drop nip rdrop 4 - ; ) )
+		drop )
+	rdrop 2drop 0 ;
+
+:searchcolors | nodo valor -- nodo++
+	dup $ff and popcnt					| nodo valor cnt
+	swap 8 >> 2 << pick2 + $octree - $pixels +	| nodo cnt direccion
+	buscacol 1? ( nip $pixels - $octree + over - 2 >> 8 << over @ $ff and or swap !+ ; ) drop
+	swap dup @ 		| cnt nodo valor
+	dup 8 >> 2 << pick2 +
+	$octree - $pixels + >r | cnt nodo valor  r: destino
+	$ff and $end $pixels - $octree + pick2 - 4 -
+	2 >> 8 << or swap !+
+	swap $end				| nodo+ cnt dirdes
+	( swap 1? )( 1-
+		r@+ rot !+ ) drop
+	'$end !
+	rdrop
+	;
+
+|--------------------------------------
+::optoctree
+	clrscr fonti verde
+	$octree $inifile - "%h " print cr
+	$lastlev $inifile - "%h " print cr
+	$pixels $inifile - "%h " print cr
+	$realpixels $inifile - "%h " print cr
+	$end $inifile - "%h " print cr
+
+	$realpixels '$end !
+	$lastlev ( $pixels <? )(
+		dup @ searchcolors
+		) drop
+	$end $inifile - "%h " print cr
+	waitkey
+	;
 
 |----------- ajuste
 ::getminmax
@@ -360,47 +406,3 @@
 
 
 
-|------------ optimiza ultimo nivel
-| No funciona por cambio a relativo!!
-|**********************************
-:todos? | cant dir1 dir2 -- 0/1
-	>r ( swap 1? )( 1- swap
-		@+ r@+ <>? ( rdrop 3drop 0 ; )
-		drop )
-	rdrop 2drop 1 ;
-
-:buscacol | nodo cant direccion -- nodo cant nuevadireccion/0
-	@+ swap >r 			| nodo cant dirpix
-
-	|$pixels 	| nodo cant primerc dirpix r:dirini
-|	$colori		| busca desde los colores originales
-|	( $realpixels pick3 2 << - <? )(
-		@+ pick2 =? ( drop pick2 1- over r 		| ya comprobo el primero!!
-			todos? 1? ( drop nip rdrop 4 - ; ) )
-|		drop )
-	rdrop 2drop 0 ;
-
-:searchcolors | nodo valor -- nodo++
-	dup $ff and popcnt
-	swap 8 >> 2 << $pixels + 	| nodo cant direccion
-	buscacol 1? ( nip $pixels - 2 >> 8 << over @ $ff and or swap !+ ; )
-	drop						| nodo cant
-	swap dup @
-	dup 8 >> 2 << $pixels + >r
-|	$ff and $realpixels $pixels - 2 >> 8 << or swap !+
-	swap
-|	$realpixels ( swap 1? )( 1-
-|		r@+ rot !+ ) drop
-|	'$realpixels !
-	rdrop
-	;
-
-|--------------------------------------
-
-::optoctree
-	"optimizando..." print cr redraw
-|	$lastlev ( $pixels <? )(
-		dup @ searchcolors
-|	) drop
-|	$pixels $octree - $realpixels !+ '$end !
-	;
