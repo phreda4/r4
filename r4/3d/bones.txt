@@ -1,0 +1,113 @@
+| Animacion por esqueleto
+| PHREDA 2015
+|--------------------------
+^r4/lib/gui.txt
+^r4/lib/3dmat.txt
+^r4/lib/trace.txt
+
+#xcam 0 #ycam 0 #zcam 0.2
+#xr 0 #yr 0
+
+dsjfh
+#testbone
+1 $0 $00000000 0
+2 $0 $000001ff 0
+2
+#rott
+$0 $0007fc00 0
+2 $0 $1ff00000 0
+0
+
+:3dop project3d op ;
+:3dline project3d line ;
+
+:drawboxz | z --
+	-$1ff -$1ff pick2 3dop
+	$1ff -$1ff pick2 3dline
+	$1ff $1ff pick2 3dline
+	-$1ff $1ff pick2 3dline
+	-$1ff -$1ff rot 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup -$1ff 3dop $1ff 3dline ;
+
+:drawcube |
+	-$1ff drawboxz
+	$1ff drawboxz
+	-$1ff -$1ff drawlinez
+	$1ff -$1ff drawlinez
+	$1ff $1ff drawlinez
+	-$1ff $1ff drawlinez ;
+
+:bonerot
+	0? ( drop ; )
+	dup $3ff and 6 << mrotxi
+	dup 4 >> $ffc0 and mrotyi
+	14 >> $ffc0 and mrotzi
+	;
+
+:bonemov
+	0? ( drop ; )
+	dup 22 << 22 >>
+	swap dup 12 << 22 >>
+	swap 2 << 22 >>
+	mtransi ;
+
+:bonedraw | adr -- adr+
+	@+ bonerot
+	@+ bonemov
+	4+
+	drawcube
+	;
+
+:drawbones | bones --
+	mpush
+	0 swap
+	( @+ 1? )(
+		rot over - 1+ | anterior-actual+1
+		clamp0
+		( 1? )( 1- mpop ) drop
+		swap
+		mpush
+		bonedraw
+		) 2drop
+	( 1? )( 1- mpop ) drop
+	mpop ;
+
+|--------------------------------------------------
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:3dscreen
+	omode
+	freelook
+	xcam ycam zcam mtrans
+
+	'testbone drawbones
+	;
+
+|--------------------------------------------------
+:start:mem
+	mark
+	;
+
+:main
+	start:mem
+	show clrscr
+		dup "%d" print
+		3dscreen
+		'exit >esc<
+
+		msec 
+		dup $3ff and 10 <<
+		'rott !
+		cminiflecha
+		;
+
+
+: main ;
