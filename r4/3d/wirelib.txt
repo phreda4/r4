@@ -167,49 +167,38 @@
 	0.25 0.5 rot grillayz
 	;
 
-|---------- bresenham
+|---------- dda3
 #:cx #:cy #:cz	| actual
 #ox #oy #oz	| origen
 #dx #dy #dz	| direccion
 #ex #ey #ez
 #sx #sy #sz
-
-#paso
-
-:pasox
-	ey +? ( sy 'cy +! dx 2* - ) dy 2* + 'ey !
-	ez +? ( sz 'cz +! dx 2* - ) dz 2* + 'ez !
-	sx 'cx +! ;
-:pasoy
-	ex +? ( sx 'cx +! dy 2* - ) dx 2* + 'ex !
-	ez +? ( sz 'cz +! dy 2* - ) dz 2* + 'ez !
-	sy 'cy +! ;
-:pasoz
-	ey +? ( sy 'cy +! dz 2* - ) dy 2* + 'ey !
-	ex +? ( sx 'cx +! dz 2* - ) dx 2* + 'ex !
-	sz 'cz +! ;
+#n
 
 ::voxOp | xi yi zi --
 	'oz ! 'oy ! 'ox ! ;
 
-::voxLine | xf yf zf --
-	rot ox over - sign 'sx ! abs 'dx ! 'cx !
-	swap oy over - sign 'sy ! abs 'dy ! 'cy !
+::voxLine | x y z --
+	0 dup 'ex ! dup 'ey ! 'ez !
 	oz over - sign 'sz ! abs 'dz ! 'cz !
-	dx dy >=? (
-		dz >=? ( drop
-			dy 2* dx - 'ey ! dz 2* dx - 'ez ! 'pasox 'paso ! ; )
-		drop
-		dx 2* dz - 'ex ! dy 2* dz - 'ey ! 'pasoz 'paso ! ; )
-	drop
-	dy dz >=? (
-		drop
-		dx 2* dy - 'ex ! dz 2* dy - 'ez ! 'pasoy 'paso ! ; )
-	drop
-	dx 2* dz - 'ex ! dy 2* dz - 'ey ! 'pasoz 'paso ! ;
+	oy over - sign 'sy ! abs 'dy ! 'cy !
+	ox over - sign 'sx ! abs 'dx ! 'cx !
+	dx dy max dz max 'n !
+	;
 
 ::voxPaso
-	paso exec ;
+	dx 'ex +!
+	dy 'ey +!
+	dz 'ez +!
+	n
+	ex 2* <? ( sx 'cx +! dup neg 'ex +! )
+	ey 2* <? ( sy 'cy +! dup neg 'ey +! )
+	ez 2* <? ( sz 'cz +! dup neg 'ez +! )
+	drop
+	;
+
+::voxEnd? | -- 0/n
+	cx ox - cy oy - or cz oz - or ;
 
 |---------- mapeo
 #vector

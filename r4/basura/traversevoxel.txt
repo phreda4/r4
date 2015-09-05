@@ -3,61 +3,66 @@
 |-----------------------------
 ^r4/lib/gui.txt
 ^r4/lib/trace.txt
+^r4/lib/morton.txt
 
-^r4/dev/octree/wirelib.txt
+#:qsize 15
+#:deepvox 4
+
+^r4/3d/wirelib.txt
 
 |------ vista
 #xcam 0 #ycam 0 #zcam 3.0
 
-#tx0	#tx1
-#ty0    #ty1
-#tz0	#tz1
+#tx0 5	#tx1  0
+#ty0 6   #ty1  0
+#tz0 7	#tz1   0
 
 #ox #oy #oz
 
-:getval | x y -- x y c
-	2dup 512 normInt2Fix
-	transform
-	neg oz + 1? ( 1.0 swap /. )
-	-0.5 oz - over *. 0.5 oz - rot *.
-	over <? ( swap )
-	'tz1 ! 'tz0 !
-
-	neg oy + 1? ( 1.0 swap /. )
-	-0.5 oy - over *. 0.5 oy - rot *.
-	over <? ( swap )
-	'ty1 ! 'ty0 !
-
-	neg ox + 1? ( 1.0 swap /. )
-	-0.5 ox - over *. 0.5 ox - rot *.
-	over <? ( swap )
-	'tx1 ! 'tx0 !
-
-	tx0 ty0 tz0 max max
-	tx1 ty1 tz1 min min
-|	-
-	>? ( $ff )( $ff00 ) nip
-	;
-
-:tracetest
-	matinv
-	0 0 0 transform 'oz ! 'oy ! 'ox !
-	-256 ( 256 <? )(
-		-256 ( 256 <? )(
-|			sw 2/ pick2 - sh 2/ pick2 - setxy
-			over sw 2/ + over sh 2/ + setxy
-			getval px!+
-			4+ ) drop
-		4+ ) drop
-	;
-
 |---------- bresenham
+#:cx #:cy #:cz	| actual
+#ox #oy #oz	| origen
+#dx #dy #dz	| direccion
 #ex #ey #ez
-#cx #cy #cz
-#dx #dy #dz
 #sx #sy #sz
 
 #paso
+
+|------------ funciona
+:stepx1 | ey ez --
+	dz - abs swap dy - abs
+	<? ( drop sy 'cy +! ey dx 2* - 'ey ! ; )
+	drop sz 'cz +! ez dx 2* - 'ez ! ;
+
+:pasox1
+	ey dy >? ( ez dz >? ( stepx1 ; ) drop sy 'cy +! dx 2* - 'ey ! ; ) dy 2* + 'ey !
+	ez dz >? ( sz 'cz +! dx 2* - 'ez ! ; ) dz 2* + 'ez !
+ 	sx 'cx +! ;
+
+:stepy1 | ex ez --
+	dz - abs swap dx - abs
+	<? ( drop sx 'cx +! ex dy 2* - 'ex ! ; )
+	drop sz 'cz +! ez dy 2* - 'ez ! ;
+
+:pasoy1
+	ex dx >? ( ez dz >? ( stepy1 ; ) drop sx 'cx +! dy 2* - 'ex ! ; ) dx 2* + 'ex !
+	ez dz >? ( sz 'cz +! dy 2* - 'ez ! ; ) dz 2* + 'ez !
+ 	sy 'cy +! ;
+
+:stepz1 | ex ey --
+	-
+|	0? ( drop ex dz 2* - 'ex ! ey dz 2* - 'ey ! sz 'cz +! ; )
+	0 >? ( drop sx 'cx +! ex dz 2* - 'ex ! ; )
+	drop sy 'cy +! ey dz 2* - 'ey ! ;
+
+:pasoz1
+	ex dx >? ( ey dy >? ( stepz1 ; ) drop sx 'cx +! dz 2* - 'ex ! ; ) dx 2* + 'ex !
+	ey dy >? ( sy 'cy +! dz 2* - 'ey ! ; ) dy 2* + 'ey !
+ 	sz 'cz +! ;
+
+::dumpstep
+	ex ey ez dz - "z:%d y:%d x:%d " print ;
+|------------
 
 :pasox
 	ey +? ( sy 'cy +! dx 2* - ) dy 2* + 'ey !
@@ -72,24 +77,13 @@
 	ex +? ( sx 'cx +! dz 2* - ) dx 2* + 'ex !
 	sz 'cz +! ;
 
-|-- recorrido completo
-:pasox1
-	ey dy >? ( sy 'cy +! dx 2* - 'ey ! ; ) dy 2* + 'ey !
-	ez dz >? ( sz 'cz +! dx 2* - 'ez ! ; ) dz 2* + 'ez !
-	sx 'cx +! ;
-:pasoy1
-	ex dx >? ( sx 'cx +! dy 2* - 'ex ! ; ) dx 2* + 'ex !
-	ez dz >? ( sz 'cz +! dy 2* - 'ez ! ; ) dz 2* + 'ez !
-	sy 'cy +! ;
-:pasoz1
-	ex dx >? ( sx 'cx +! dz 2* - 'ex ! ; ) dx 2* + 'ex !
-	ey dy >? ( sy 'cy +! dz 2* - 'ey ! ; ) dy 2* + 'ey !
-	sz 'cz +! ;
+::voxOp | xi yi zi --
+	'oz ! 'oy ! 'ox ! ;
 
-:3dbreline | xf yf zf --
-	pick2 ox over - +? ( 1 )( -1 ) 'sx ! abs 'dx ! 'cx !
-	over oy over - +? ( 1 )( -1 ) 'sy ! abs 'dy ! 'cy !
-	dup oz over - +? ( 1 )( -1 ) 'sz ! abs 'dz ! 'cz !
+::voxLine | xf yf zf --
+	rot ox over - sign 'sx ! abs 'dx ! 'cx !
+	swap oy over - sign 'sy ! abs 'dy ! 'cy !
+	oz over - sign 'sz ! abs 'dz ! 'cz !
 	dx dy >=? (
 		dz >=? ( drop
 			dy 2* dx - 'ey ! dz 2* dx - 'ez ! 'pasox 'paso ! ; )
@@ -102,164 +96,108 @@
 	drop
 	dx 2* dz - 'ex ! dy 2* dz - 'ey ! 'pasoz 'paso ! ;
 
+::voxLinef | xf yf zf --
+	rot ox over - sign 'sx ! abs 'dx ! 'cx !
+	swap oy over - sign 'sy ! abs 'dy ! 'cy !
+	oz over - sign 'sz ! abs 'dz ! 'cz !
+	dx dy >=? (
+		dz >=? ( drop
+			dy 2* dx - 'ey ! dz 2* dx - 'ez ! 'pasox1 'paso ! ; )
+		drop
+		dx 2* dz - 'ex ! dy 2* dz - 'ey ! 'pasoz1 'paso ! ; )
+	drop
+	dy dz >=? (
+		drop
+		dx 2* dy - 'ex ! dz 2* dy - 'ez ! 'pasoy1 'paso ! ; )
+	drop
+	dx 2* dz - 'ex ! dy 2* dz - 'ey ! 'pasoz1 'paso ! ;
 
-:mousetest
-	0 0 0 transform 'oz ! 'oy ! 'ox !
+::voxPaso
+	paso exec ;
 
-	xymouse swap sw 2/ - swap sh 2/ -
-	2dup "%d %d" print cr
-	512
-	normInt2Fix transform
 
-	neg oz + 1? ( 1.0 swap /. )
-	-0.5 oz - over *. 0.5 oz - rot *.
-	over <? ( swap )
-	'tz1 ! 'tz0 !
 
-	neg oy + 1? ( 1.0 swap /. )
-	-0.5 oy - over *. 0.5 oy - rot *.
-	over <? ( swap )
-	'ty1 ! 'ty0 !
+:ready? | ; ultimo
+	cx tx0 - cy ty0 - or cz tz0 - or ;
 
-	neg ox + 1? ( 1.0 swap /. )
-	-0.5 ox - over *. 0.5 ox - rot *.
-	over <? ( swap )
-	'tx1 ! 'tx0 !
+:inside? | ; adentro del bbox
+	cx cy or cz or qsize not and ;
 
-	tx0 ty0 tz0 max max
-	tx1 ty1 tz1 min min
-	>? ( drop ; ) drop
-	" * " print cr
+:tracetest
+	tx0 ty0 tz0 voxOp
+	tx1 ty1 tz1 voxLine
+	( inside? 0? )( drop
+		cx cy cz "%d %d %d  " print cr
+		voxPaso
+		ready? 0? ( drop cx cy cz "%d %d %d  " print cr ; ) drop
+		) drop ;
+
+:tracetest2
+	tx0 ty0 tz0 voxOp
+	tx1 ty1 tz1 voxLinef
+	( inside? 0? )( drop
+		cx cy cz
+|		trace
+		"%d %d %d  " print dumpstep
+		cr
+		voxPaso
+		ready? 0? ( drop cx cy cz "%d %d %d  " print cr ; ) drop
+		) drop ;
+
+
+
+#:cx #:cy #:cz	| actual
+#ox #oy #oz	| origen
+#dx #dy #dz	| direccion
+#ex #ey #ez
+#sx #sy #sz
+#n
+
+:ddapaso
+	dx 'ex +!
+	dy 'ey +!
+	dz 'ez +!
+
+	ex ey >=? ( ez >=? ( 2* n >=? ( sx 'cx +! n neg 'ex +! ) drop ; ) ) drop
+	ey ez >=? ( 2* n >=? ( sy 'cy +! n neg 'ey +! ) drop ; ) drop
+|	ex 2* n >=? ( sx 'cx +! n neg 'ex +! ) drop
+|	ey 2* n >=? ( sy 'cy +! n neg 'ey +! ) drop
+	ez 2* n >=? ( sz 'cz +! n neg 'ez +! ) drop
+
 	;
 
+:dda3
+	0 'ex ! 0 'ey ! 0 'ez !
+	'oz ! 'oy ! 'ox !
+	oz over - sign 'sz ! abs 'dz ! 'cz !
+	oy over - sign 'sy ! abs 'dy ! 'cy !
+	ox over - sign 'sx ! abs 'dx ! 'cx !
+	dx dy max dz max 'n !
 
-|------------------------------------
-|-----------
-::mouseInVox | -- 1/0
-	0 0 0 transform 'oz ! 'oy ! 'ox !
-	xymouse swap sw 2/ - swap sh 2/ - 512
-	normInt2Fix transform
+	( cx ox - cy oy - or cz oz - or 1? )( drop
+		cx cy cz trace "%d %d %d " print cr
+		ddapaso
+	) drop
+	;
 
-	neg oz + 1? ( 1.0 swap /. )
-	-0.5 oz - over *. 0.5 oz - rot *.
-	over <? ( swap )
-	'ez ! 'sz !
-
-	neg oy + 1? ( 1.0 swap /. )
-	-0.5 oy - over *. 0.5 oy - rot *.
-	over <? ( swap )
-	'ey ! 'sy !
-
-	neg ox + 1? ( 1.0 swap /. )
-	-0.5 ox - over *. 0.5 ox - rot *.
-	over <? ( swap )
-	'ex ! 'sx !
-
-	sx sy max sz max
-	ex ey min ez min
-	>? ( 0 )( 1 ) nip ;
-
-|---- pick voxel w/cursor
-:inside? | ; adentro del bbox?
-	cx cy or cz or $ffff0000 ;
-
-:outside?
-	cx $20000 + cy $20000 + or cz $20000 + or $fff80000 ;
-
-:setcur! | ; guarda en cursor
-	16 deepvox -
-	cx over >> 'curx !
-	cy over >> 'cury !
-	cz swap >> 'curz ! ;
-
-:stepvox | ; avanza hasta cambiar de voxel
-	qsize 16 deepvox - <<
-	cx cy xor cz xor over and
-	( voxPaso
-		cx cy xor cz xor pick2 and
-		over =? )( drop ) 3drop ;
-
-:ray0hit | --
-	( outside? nand? )( drop
-		stepvox
-		inside? nand? ( drop 1 ; ) drop
-		) drop 0 ;
-
-:ray1hit | --
-	16 deepvox -
-	( inside? nand? )( drop
-		cx over >> cy pick2 >> cz pick3 >>
-		vox@ +? ( 2drop ; ) drop				| voxel lleno
-		setcur!
-		stepvox
-		) 2drop ;
-
-::voxMouse
-	matinv
-	0 0 0 transform 'ox ! 'oy ! 'oz !
-	xymouse swap sw 2/ - swap sh 2/ - 512
-	transform
-	neg ox + 'dx ! neg oy + 'dy ! neg oz + 'dz !	| direccion
-	ox 0.55 - neg dx 3 << - 'ox !						| origen
-	oz 0.5 - neg dz 3 << - 'oz !
-	oy 0.5 - neg dy 3 << - 'oy !
-	ox dx - oy dy - oz dz - voxline
-	ray0hit 0? ( drop ; ) drop
-	setcur!
-	ray1hit ;
-
-:rayhit | --
-	16 deepvox -
-	( inside? nand? )( drop
-		cx over >> cy pick2 >> cz pick3 >>
-		vox@ +? ( 2drop setcur! ; ) drop				| voxel lleno
-		stepvox
-		) 2drop ;
-
-::voxMouseIn
-	matinv
-	0 0 0 transform 'ox ! 'oy ! 'oz !
-	xymouse swap sw 2/ - swap sh 2/ - 512
-	transform
-	neg ox + 'dx ! neg oy + 'dy ! neg oz + 'dz !	| direccion
-	ox 0.55 - neg dx 3 << - 'ox !						| origen
-	oz 0.5 - neg dz 3 << - 'oz !
-	oy 0.5 - neg dy 3 << - 'oy !
-	ox dx - oy dy - oz dz - voxLine
-	ray0hit 0? ( drop ; ) drop
-	rayhit ;
-
-
-|-------------------------------------
-:freelook
-	xymouse
-	sh 2/ - 7 << swap
-	sw 2/ - neg 7 << swap
-	neg mrotx
-	mroty ;
+:tracetest3
+	tz1 ty1 tx1
+	tz0 ty0 tx0
+	dda3
+	;
 
 :main
 	4 show clrscr
-		3dini
-|		freelook
-		xcam ycam zcam mtrans
-
-		draw3dgrid
-		tracetest
-
-		mousetest
 
 		verde
-		tz0 ty0 tx0 "%f %f %f " print cr
-		tz1 ty1 tx1 "%f %f %f " print cr
-
-		[ 0.1 'zcam +! ; ] <dn>
-		[ -0.1 'zcam +! ; ] <up>
-		[ 0.1 'xcam +! ; ] <le>
-		[ -0.1 'xcam +! ; ] <ri>
-		[ 0.1 'ycam +! ; ] <pgup>
-		[ -0.1 'ycam +! ; ] <pgdn>
-
+		tz0 ty0 tx0 "%d %d %d --> " print
+		tz1 ty1 tx1 "%d %d %d " print
+		cr cr chome!
+		tracetest
+		chome
+		tracetest2
+		chome
+		tracetest3
 
 		'exit >esc<
 		cminiflecha ;
