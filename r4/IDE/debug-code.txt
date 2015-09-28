@@ -105,7 +105,7 @@
 	@ ink ;
 
 :drawline | l -- l
-	32 emit 
+|	32 emit
 	( c@+ 1? )(
 		13 =? ( drop ; )
 		27 =? ( drop escape ; )
@@ -132,8 +132,47 @@
 	( pantaini> <? )( scrollup )
 	drop ;
 
+|--------------------------------------------------------------------
+:wordcntok | adr -- adr token cnt
+	dup 4+ @ over 12 + @ 20 >> $fff and ;
+
+:drawword | nro --
+	4 << 'indicepal +
+	wordcntok
+	( 1? )( 1- swap @+
+			" " print 
+			tokenstr print 
+			cr allowchome 
+			swap 
+			) 3drop ;
+
+|---------------------------------------------------------------------------------
+#inipal
+#inipal>
+#curpal
+
+:drawcode
+	'indicepal inipal 4 << +
+	0 ( cntlinea <? )(
+		curpal inipal - =? ( "> %s <" )( "  %s  " )
+		rot @+ rot print
+		12 +
+|		@+ "%s " print 	@+ "%h " print 	@+ "%h " print 	@+ "%h " print
+		cr
+		swap 1+ ) 2drop
+	[ curpal 1? ( 1- ) 'curpal ! ; ] <up>
+	[ curpal 1+ 'curpal ! ; ] <dn>
+	[ curpal cntlinea - 0 max 'curpal ! ; ] <pgup>
+	[ curpal cntlinea + 'curpal ! ; ] <pgdn>
+	curpal
+	inipal <? ( dup 'inipal ! )
+	inipal cntlinea + >=? ( dup cntlinea - 1+ 'inipal ! )
+	drop
+	chome
+	curpal drawword
+	;
+
 :debugcode
-	0 paper
 	'fontdroidsans13 fontm
 	clrscr
 	rows 2 - 'cntlinea !
@@ -141,14 +180,15 @@
 	show clrscr
 		$6600 ink 1 linesfill blanco
 		'ed.nombre " %s " print
-		cr chome!
-
-		drawcode
-|		showpad
-		0 rows 2 - gotoxy
+		0 rows 1- gotoxy
 		$6600 ink 1 linesfill blanco
 		verde dup ":R%d" print
 		blanco "dEBUG " printx
+		0 1 gotoxy
+
+		chome!
+		drawcode
+|		showpad
 
 		'exit >esc<
 		cminiflecha ;
@@ -178,6 +218,7 @@
 	0 swap c!+ '$fuente ! ;
 
 :main
+	0 paper
 	ram
 	loadtxt
 
