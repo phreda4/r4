@@ -3,8 +3,13 @@
 |--------------------------------------------------
 ^r4/lib/gui.txt
 ^r4/lib/input.txt
+
 ^r4/lib/dlg.txt
 ^r4/lib/dlgfile.txt
+^r4/lib/dlgcol.txt
+
+^r4/lib/ricons.txt
+^inc/ric/fontawesomewebfont.ric
 ^r4/lib/fonta.txt
 
 ^r4/lib/trazo.txt
@@ -14,7 +19,7 @@
 ^r4/lib/trace.txt
 
 #bmrm #bmrw #bmrh
-
+#bmrww #bmrhh
 #orden 0
 #nrormt 0
 #nomrmt )( 32
@@ -29,8 +34,8 @@
 
 :refreshbmr
 	bmr.wh@
-	zoom << 'bmrh !
-	zoom << 'bmrw !
+	dup 'bmrhh ! zoom << 'bmrh !
+	dup 'bmrww ! zoom << 'bmrw !
 	bmr.res@ 'bmrm !
 	;
 
@@ -48,29 +53,44 @@
 	swap xi - zoom >> -? ( 3drop ; )
 	swap bmr! ;
 
+|------ floodfill
 #cf
-:fillcolor | c x y
-	swap -? ( swap ; ) bmrw >=? ( swap ; )
-	swap -? ( ; ) bmrh >=? ( ; )
-	2dup bmr@ cf <>? ( drop ; ) drop
-	pick2 pick2 pick2 bmr!
-	1+ fillcolor
-	2 - fillcolor
-	1+ swap 1+ swap fillcolor
-	swap 2 - swap fillcolor
-	swap 1+ swap
-	;
+#cc
 
-:bmrfill! | c x y -
+:filltoh | x y -- x y y2
+	2dup 
+	( 1+ bmrhh <? )( | x y x yn
+		2dup bmr@ cf <>? ( drop nip ; ) drop
+		cc pick2 pick2 bmr!						
+		) nip ;
+
+:fillto0 | x y -- x y y1
+	2dup 
+	( 1- 0 >=? )( | x y x yn
+		2dup bmr@ cf <>? ( drop nip ; ) drop
+		cc pick2 pick2 bmr!						
+		) nip ;
+
+:fillcolorline | x y --
+	2dup bmr@ cf <>? ( 3drop ; ) cc =? ( 3drop ; ) drop
+	cc pick2 pick2 bmr!
+	fillto0 1+ rot rot | y1 x y 
+	filltoh 1- nip rot | x y2 y1 
+	( over <? )( | x y2 yn
+		pick2 1+ over fillcolorline
+		pick2 1- over fillcolorline
+		1+ ) 3drop ;
+   
+
+:bmrfill! | c x y --
 	2dup whin 0? ( 4drop ; ) drop | no dibuja afuera
 	yi - zoom >> -? ( 3drop ; )
 	swap xi - zoom >> -? ( 3drop ; )
-	swap | c x y
-	2dup bmr@ pick3 =? ( 4drop ; )
-	'cf ! | c x y
-	fillcolor
-	3drop ;
+	swap 2dup bmr@ pick3 =? ( 4drop ; )
+	'cf ! rot 'cc ! 
+	fillcolorline ;
 
+ 
 |*******************************
 :ajusta
 	bmr.wh@
@@ -161,15 +181,8 @@
 :modofill
 	drawbmr
 	[ color xymouse bmrfill! ; ] guiBtn
-	cr2
-	verde oscuro
-	[ 0 'modo ! ; ] "DRAW" sp btnt
-	[ 1 'modo ! ; ] "EDIT" sp btnt
-	[ 2 'modo ! ; ] "VISTA" sp btnt
-	verde
-	0 "FILL" sp btnt
-	sp
-
+	;
+:toofill
 	;
 
 |------------------------------
@@ -180,14 +193,9 @@
 :mododraw
 	drawbmr
 	[ 'bmr!m32 vop! ; ] [ xymouse vline! ; ]  guiDnMove
+	;
 
-	cr2 verde
-	0 "DRAW" sp btnt
-	verde oscuro
-	[ 1 'modo ! ; ] "EDIT" sp btnt
-	[ 2 'modo ! ; ] "VISTA" sp btnt
-	[ 3 'modo ! ; ] "FILL" sp btnt
-	sp
+:toodraw
 	violeta
 	cyan
 	'bmr.scrl "<" sp link
@@ -208,15 +216,9 @@
 :modoedit
 	drawbmr
 	'pick.dn 'pick.dn guiDnMove
+	; 
 
-	cr2 verde oscuro
-	[ 0 'modo ! ; ] "DRAW" sp btnt
-	verde
-	0 "EDIT" sp btnt
-	verde oscuro
-	[ 2 'modo ! ; ] "VISTA" sp btnt
-	[ 3 'modo ! ; ] "FILL" sp btnt
-	sp
+:tooedit
 	cyan oscuro
 	'cargabmp "BMP" sp btnt
 	rojo oscuro
@@ -233,22 +235,14 @@
 	dup xv - 'xi +! 'xv !
 	;
 
-:bz+ zoom 1+ 6 >? ( 0 nip ) 'zoom ! refreshbmr ;
-:bz- zoom 1- -? ( 6 nip ) 'zoom ! refreshbmr ;
+:bz+ zoom 1+ 6 >? ( 0 nip ) 'zoom ! ajusta refreshbmr ;
+:bz- zoom 1- -? ( 6 nip ) 'zoom ! ajusta refreshbmr ;
 
 :modovista
 	drawbmr
 	'vista.dn 'vista.move guiDnMove
-	cr2
-	verde oscuro
-	[ 0 'modo ! ; ] "DRAW" sp btnt
-	[ 1 'modo ! ; ] "EDIT" sp btnt
-	verde
-	0 "VISTA" sp btnt
-	verde oscuro
-	[ 3 'modo ! ; ] "FILL" sp btnt
-
-	sp
+	;
+:toovista
 	cyan oscuro
 	'ajusta "CENTER" sp btnt
 	'bz- "Z-" sp btnt
@@ -257,9 +251,48 @@
 
 |------- modos
 #modos 'mododraw 'modoedit 'modovista 'modofill
+#tools 'toodraw 'tooedit 'toovista 'toofill
+
+|----- botonera
+
+#modo 0
+#modogui 'mododraw
+#modotoo 'toodraw
+
+:setmodo
+	dup 'modo !
+	dup 2 <<
+	dup 'modos + @ 'modogui !
+	'tools + @ 'modotoo !
+	;
+
+:botonmodo | icon nro --
+	modo =? ( azul )( negro )
+	'setmodo btne
+	modo =? ( blanco )( gris )
+	drop
+	8-gc drawric 8+gc gcdn ;
 
 :modoactual
-	modo 2 << 'modos + @ exec ;
+	modogui exec ;
+
+:botonera
+	48 qdim
+	sw 26 - sh 32 - pos
+	rojo 'exit dup >esc< btne blanco 'i.off drawric
+
+	24 48 pos
+	'i.pencil 0 botonmodo
+	'i.edit 1 botonmodo
+	'i.eye_open 2 botonmodo
+	'i.magic 3 botonmodo
+
+	modotoo exec
+
+	24 qdim
+	sw 26 - 48 pos
+	'color btncol
+	;
 
 |---- cambia resolucion
 :changew | dw
@@ -276,12 +309,12 @@
 	bmr.res@ 1 xor bmr.res!
 	refreshbmr ;
 
+|-----------------------------
 :main
 	ajusta fonta-verdana14
 	show clrscr
 		modoactual
 
-		cr cr2 sp 'color dlgcolora sp
 		verde
 		[ 1 changew ; ] "+" link
 		[ -1 changew ; ] "-" link
@@ -294,14 +327,11 @@
 		[ 32 dup bmr.wh! ajusta ; ] "32" link
 		[ 64 dup bmr.wh! ajusta ; ] "64" link
 		amarillo
-		'changea "ALPHA" sp link
+|		'changea "ALPHA" sp link
 		verde dup " - %d -" print
-		rojo
-		'exit dup >esc< "EXIT" sp btnt
 
-		scr 32 gc.bottom home cr2
-		cminiflecha
- 		;
+		botonera
+		cminiflecha ;
 
 
 :   33 mark

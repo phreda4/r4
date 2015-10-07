@@ -121,17 +121,37 @@ $000080 $0000FF $008080 $00FFFF
 	-0.84 -0.4 fpos
 	xc w 2/ - 'x1p !
 	yc h 2/ - 'y1p !
-	0.0 ( 1.0 <? )( collin 0.01 + ) drop
+	0.0 ( 1.0 <? )( collin 0.02 + ) drop
 	gc<< 9 gcdnn
 	xc w 2/ + 'x2p !
 	yc h 2/ + 'y2p !
 	;
 
-
-:btnp2 | var color --
+:btnp | var color --
 	blanco
-	[ dup setvxy ; ] btne
+	[ dup pick2 ! dup 24 >> $ff and 'alp ! ; ] btne
 	ink 2-gc gc.fbox 2+gc ;
+
+:alp! | nro --
+	-? ( 0 nip ) $ff >? ( $ff nip )
+	dup 'alp !
+	24 << coloractual $ffffff and or 'coloractual !
+	;
+
+:alphaline
+	blanco
+	tx1 310 + ty1 TOPLUMA + alp +
+	over 24 + over op line
+	blanco
+	tx1 312 + ty1 TOPLUMA + | ini alp
+	2dup op
+	over 20 + over pline
+	over 10 + over 256 + pline pline poli
+	gc.push
+	tx1 310 + ty1 TOPLUMA + 24 256 gc.xywh | x y w h
+	[ xymouse nip ty1 TOPLUMA + - alp! ; ] guiMove
+	gc.pop
+	;
 
 ::dlgcolora | --
 	oscurecetodo
@@ -146,13 +166,14 @@ $000080 $0000FF $008080 $00FFFF
 		home
 		lumagrid
 		cromaline
+		alphaline
 
 		x1p y1p x2p y2p gcxyxy
 		[ xymouse setxy px@ setvxy ; ] guiBtn
 
 		48 qdim verde
 		tx2 32 - ty1 32 + pos
-        [ coloractual addpaleta exit ; ] dup >esc< btn
+        	[ coloractual addpaleta exit ; ] dup >esc< btn
 		blanco 'i.ok drawric
 
 		tx1 32 + ty1 32 + pos
@@ -163,14 +184,9 @@ $000080 $0000FF $008080 $00FFFF
 
 		tx1 70 + ty1 32 + pos
 		24 qdim
-		'paleta >r
-		16 ( 1? )( 1- r@+ btnp2 gc>> ) drop rdrop
+		'coloractual 'paleta >r
+		16 ( 1? )( 1- swap r@+ btnp gc>> swap ) 2drop rdrop
 		cminimano ;
-
-:btnp | var color --
-	blanco
-	[ dup pick2 ! ; ] btne
-	ink 2-gc gc.fbox 2+gc ;
 
 ::btncol | 'color --
 	48 qdim
