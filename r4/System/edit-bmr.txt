@@ -12,9 +12,13 @@
 ^inc/ric/fontawesomewebfont.ric
 ^r4/lib/fonta.txt
 
-^r4/lib/trazo.txt
-^r4/lib/leebmp.txt
+^r4/lib/img.txt
+^r4/lib/loadjpg.txt
+^r4/lib/loadpng.txt
+^r4/lib/loadbmp.txt
+
 ^r4/lib/bmr.txt
+^r4/lib/trazo.txt
 
 ^r4/lib/trace.txt
 
@@ -39,20 +43,6 @@
 	bmr.res@ 'bmrm !
 	;
 
-|---- dibujo en frame
-::bmr@m | x y -- c
-	2dup whin 0? ( 3drop ; ) drop | no obtiene
-	yi - zoom >> swap xi - zoom >> swap
-	bmr@ ;
-
-:bmr!m32
-	color rot rot
-:bmr!m | c x y --
-	2dup whin 0? ( 3drop ; ) drop | no dibuja afuera
-	yi - zoom >> -? ( 3drop ; )
-	swap xi - zoom >> -? ( 3drop ; )
-	swap bmr! ;
-
 |------ floodfill
 #cf
 #cc
@@ -66,7 +56,7 @@
 
 :fillto0 | x y -- x y y1
 	2dup
-	( 1- 0 >=? )( | x y x yn
+	( 1- +? )( | x y x yn
 		2dup bmr@ cf <>? ( drop nip ; ) drop
 		cc pick2 pick2 bmr!
 		) nip ;
@@ -115,7 +105,7 @@
 	1? ( bmr.clear ) drop
 	;
 
-|---- bmp
+|---- imagen
 #bmp
 #xa #ya #xb #yb
 #wb #hb
@@ -142,7 +132,7 @@
 	ajusta
 	xa ( xb <? )(
 		ya ( yb <? )(
-		2dup bmp.get $ffffff and pick2 xa - pick2 ya - bmr!
+		2dup bmp img.get $ffffff and pick2 xa - pick2 ya - bmr!
 		1+ ) drop
 	1+ ) drop
 	exit
@@ -153,7 +143,7 @@
 	clearsel
 	33
 	show clrscr
-		0 0  bmp.xyreal
+		0 0 bmp img.draw
 		modoseleccion
 		blanco
 		0 rows 3 - gotoxy
@@ -171,13 +161,24 @@
 		[ xa 1- ya keybox ; ] <le>
 		cminiflecha ;
 
+:loadimg | filename -- img
+	dup ".jpg" =pos 1? ( drop loadjpg ; ) drop
+	dup ".png" =pos 1? ( drop loadpng ; ) drop
+	dup ".bmp" =pos 1? ( drop loadbmp ; )
+	2drop 0 ;
+
 :cargabmp
 	mark
 	"media/bmp" dlgfileload 0? ( drop empty ; )
-	bmp.load 'bmp !
+	loadimg 0? ( drop empty ; )
+	'bmp !
 	cargabmps
 	empty
 	;
+
+|---- botones
+:btnric | icon vec --
+	ink@ swap btne blanco 2-gc swap drawric 2+gc ink ;
 
 |------------------------------
 :modofill
@@ -187,10 +188,19 @@
 :toofill
 	;
 
-|------------------------------
-:addtrazo
-	trazo.cnt 2 <? ( drop ; ) drop
-	;
+|---- dibujo en frame
+:bmr@m | x y -- c
+	2dup whin 0? ( 3drop ; ) drop | no obtiene
+	yi - zoom >> swap xi - zoom >> swap
+	bmr@ ;
+
+:bmr!m32
+	color rot rot
+:bmr!m | c x y --
+	2dup whin 0? ( 3drop ; ) drop | no dibuja afuera
+	yi - zoom >> -? ( 3drop ; )
+	swap xi - zoom >> -? ( 3drop ; )
+	swap bmr! ;
 
 :mododraw
 	drawbmr
@@ -198,15 +208,15 @@
 	;
 
 :toodraw
-	violeta
-	cyan
-	'bmr.scrl "<" sp link
-	'bmr.scrr ">" sp link
-	'bmr.scru "^" sp link
-	'bmr.scrd "v" sp link
+	verde
+	'i.arrow_left 'bmr.scrl btnric gc>>
+	'i.arrow_right 'bmr.scrr btnric gcdn gc<<
+	'i.arrow_up 'bmr.scru btnric gc>>
+	'i.arrow_down 'bmr.scrd btnric gcdn gc<<
 
-	'bmr.flipv "-V-" sp link
-	'bmr.fliph "-H-" sp link
+   	'i.resize_vertical 'bmr.flipv btnric gc>>
+	'i.resize_horizontal 'bmr.fliph btnric gcdn gc<<
+
 |	'savebmr "SAVE" sp btnt
 |	'exit "CANCEL" sp btnt
 	;
@@ -218,11 +228,11 @@
 :modoedit
 	drawbmr
 	'pick.dn 'pick.dn guiDnMove
-	; 
+	;
 
 :tooedit
 	cyan oscuro
-	'cargabmp "BMP" sp btnt
+	'cargabmp "IMAGEN" sp btnt
 	rojo oscuro
 	'bmr.clear "CLS" sp btnt
 	;
@@ -256,7 +266,6 @@
 #tools 'toodraw 'tooedit 'toovista 'toofill
 
 |----- botonera
-
 #modo 0
 #modogui 'mododraw
 #modotoo 'toodraw
@@ -289,6 +298,8 @@
 	'i.eye_open 2 botonmodo
 	'i.magic 3 botonmodo
 
+    24 qdim
+	-10 -10 +pos
 	modotoo exec
 
 	24 qdim
