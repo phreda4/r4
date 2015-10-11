@@ -1,0 +1,206 @@
+| :r4/menu
+| PHREDA 2015
+|------------------------
+^r4/IDE/ibar.txt
+
+^r4/lib/fontm.txt
+^inc/fntm/droidsans13.txt
+
+#nfiles
+#files )( 8192
+#files> 'files
+#files< 'files
+
+#filen )( $3fff
+#filen> 'filen
+#nivel 0
+
+#actual 0
+#path )( 1024
+#fileactual )( 32
+
+|------------------- OS DEp ---------------------
+:FNAME | adr -- adrname
+|WIN|	44 +
+|AND|	19 +
+	;
+
+:FDIR? | adr -- 1/0
+|WIN|	@ $10
+|AND|	18 + c@ 4
+	=? ( 1 )( 0 ) nip ;
+|----------------------------------------
+
+:FINFO | adr -- adr info
+	dup FDIR? 1? ( 0 nip ; ) drop
+	dup FNAME
+	".txt" =pos 1? ( 2drop 1 ; ) drop
+	".bmr" =pos 1? ( 2drop 2 ; ) drop
+	".inc" =pos 1? ( 2drop 3 ; ) drop
+	".rmt" =pos 1? ( 2drop 4 ; ) drop
+	".spr" =pos 1? ( 2drop 5 ; ) drop
+	".vsp" =pos 1? ( 2drop 6 ; ) drop
+	7 nip ;
+
+:files.clear
+	0 'nfiles !
+	'filen 'filen> !
+	'files dup 'files> ! 'files< !
+	;
+
+:files!+
+	files> ( files< >? )(
+		dup 4 - @ over !
+		4 - ) drop
+	files< !+ 'files< !
+	4 'files> +!
+	;
+
+#maxm
+:files.free
+	0 'maxm !
+	'files ( files> <? )(
+		@+ maxm >? ( dup 'maxm ! ) drop ) drop
+	maxm 8 >> 'filen +
+	( c@+ 1? )( drop ) drop
+	'filen> !
+	;
+
+:files.getpath
+	'path
+	ffirst drop | quita .
+	fnext drop
+	( fnext 1? )(
+		FINFO nivel 4 << or filen> 'filen - 8 << or
+		files!+
+		FNAME filen> strcpyl 'filen> !
+		) drop
+	files> 'files - 2 >> 'nfiles !
+	;
+
+:getname | nro -- ""
+	2 << 'files + @ 8 >> 'filen + ;
+
+:getinfo | nro -- info
+	2 << 'files + @ $ff and ;
+
+:chginfo | nro --
+	2 << 'files + dup @ $8 xor swap ! ;
+
+:rebuild
+	"r4" 'path strcpy
+	files.clear
+	0 'nivel !
+	files.getpath
+	;
+
+|-----------------------------
+:t0 | nro i --
+	4 >> 2* nsp
+	"+ " print
+	dup getname print "/" printx
+	;
+
+:t8 | nro i --
+	4 >> 2* nsp
+	"- " print
+	dup getname print "/" printx
+	;
+
+:t1 | nro i --
+	4 >> 1+ 2* nsp
+	dup getname print ;
+
+
+#info 't0 't1 't1 't1 't1 't1 't1 't1 't8
+
+:drawl
+	actual =? ( blanco )( gris )
+	dup getinfo
+	dup $f and 2 << 'info + @ exec
+	cr ;
+
+:drawtree
+	0 ( rows 2 - <? )(
+		nfiles <? ( drawl )
+		1+ ) drop
+	;
+
+|-----------------------------
+:makepath | actual nivel --
+	0? ( drop getname "r4/%s" mprint 'path strcpy ; )
+	over 1-
+	( dup getinfo 4 >> $f and pick2 >=? )( drop 1- ) drop
+	over 1- makepath
+	drop
+	"/" 'path strcat
+	getname 'path strcat
+	;
+
+:expande
+	actual dup getinfo 4 >> $f and makepath
+
+   	actual chginfo
+	actual getinfo 4 >> 1+ 'nivel !
+    actual 1+ 2 << 'files + 'files< !
+	files.getpath
+	;
+
+:remfiles
+	actual chginfo
+	actual getinfo $f0 and $10 +
+	actual 1+
+	( dup getinfo $f0 and pick2 =? )( drop 1+ ) drop
+	nip
+	actual 1+
+	( swap nfiles <? )(
+		dup 2 << 'files + @
+		pick2 2 << 'files + !
+		1+ swap 1+ ) drop
+	2 << 'files + 'files> !
+	files> 'files - 2 >> 'nfiles !
+	files.free
+	;
+
+:contrae
+	'path ( c@+ 1? )( drop ) drop 1-
+	( 'path >? )(
+		dup c@ $2f =? ( drop 0 swap ! remfiles ; )
+		drop 1- ) drop
+	remfiles ;
+
+|-------------
+:enter
+	actual getinfo $f and
+	0? ( drop expande ; )
+	8 =? ( drop contrae ; )
+	drop
+|	actual load
+	;
+
+:main
+	4
+	show clrscr
+		'path print
+		filen> 'filen - " %d " print
+		files> 'files - " %d " print cr
+		drawtree
+
+
+		ibar
+
+		[ 1 'actual +! ; ] <dn>
+		[ -1 'actual +! ; ] <up>
+		'enter <enter>
+
+		'exit >esc<
+		cminiflecha ;
+
+:ram
+	mark
+	'fontdroidsans13 fontm
+	ibar.ini
+	rebuild
+	;
+
+: ram main ;
