@@ -10,14 +10,15 @@
 #files )( 8192
 #files> 'files
 #files< 'files
-
 #filen )( $3fff
 #filen> 'filen
+#linesv 20
 #nivel 0
 
+#pagina 0
 #actual 0
 #path )( 1024
-#fileactual )( 32
+#name )( 64
 
 |------------------- OS DEp ---------------------
 :FNAME | adr -- adrname
@@ -90,40 +91,41 @@
 :rebuild
 	"r4" 'path strcpy
 	files.clear
+	0 'pagina !
 	0 'nivel !
 	files.getpath
 	;
 
 |-----------------------------
 :t0 | nro i --
-	4 >> 2* nsp
-	"+ " print
-	dup getname print "/" printx
-	;
+	verde
+	4 >> 2* nsp "+ " print
+	dup getname print "/" printx ;
 
 :t8 | nro i --
-	4 >> 2* nsp
-	"- " print
-	dup getname print "/" printx
-	;
+	verde
+	4 >> 2* nsp "- " print
+	dup getname print "/" printx ;
 
 :t1 | nro i --
+	blanco
 	4 >> 1+ 2* nsp
 	dup getname print ;
-
 
 #info 't0 't1 't1 't1 't1 't1 't1 't1 't8
 
 :drawl
-	actual =? ( blanco )( gris )
+	actual =? ( gris linefill )
 	dup getinfo
 	dup $f and 2 << 'info + @ exec
 	cr ;
 
 :drawtree
-	0 ( rows 2 - <? )(
+	sw 3 / 'tx2 !
+	0 ( linesv <? )( pagina +
 		nfiles <? ( drawl )
-		1+ ) drop
+		pagina - 1+ ) drop
+	sw 'tx2 !
 	;
 
 |-----------------------------
@@ -138,7 +140,9 @@
 	;
 
 :expande
-	actual dup getinfo 4 >> $f and makepath
+	0 'name !
+	actual
+	dup getinfo 4 >> $f and makepath
 
    	actual chginfo
 	actual getinfo 4 >> 1+ 'nivel !
@@ -163,6 +167,7 @@
 	;
 
 :contrae
+	0 'name !
 	'path ( c@+ 1? )( drop ) drop 1-
 	( 'path >? )(
 		dup c@ $2f =? ( drop 0 swap ! remfiles ; )
@@ -170,27 +175,79 @@
 	remfiles ;
 
 |-------------
+#pathaux )( 1024
+#nameaux )( 64
+
+:next/ | adr -- adr'
+	( c@+ 1? )(
+		$2f =? ( drop 0 swap 1- c!+ ; )
+		drop ) nip ;
+
+:getactual | adr actual --
+	( nfiles <? )(
+		dup getname pick2 =s 1? ( drop nip ; )
+		drop 1+ ) nip ;
+
+:reload
+	'path 'pathaux strcpy
+	'name 'nameaux strcpy
+	rebuild
+	'pathaux c@ 0? ( drop ; ) drop
+	0 'actual !
+	'pathaux next/
+	( dup next/ swap | sig act
+		actual getactual 'actual !
+		expande
+		0? ) drop
+	'nameaux
+	dup c@ 0? ( 2drop ; ) drop
+	actual getactual 'actual !
+	pagina linesv + 1- >=? ( dup linesv - 1+ 'pagina ! ) drop
+	;
+
+:loadm
+	'path 1024 64 + "mem/menu.mem" load
+	'path =? ( drop ; ) drop
+	reload
+	;
+
+:savem
+	'path 1024 64 + "mem/menu.mem" save ;
+
 :enter
 	actual getinfo $f and
 	0? ( drop expande ; )
 	8 =? ( drop contrae ; )
 	drop
-|	actual load
+	actual getname 'name strcpy
+	;
+
+:fdn
+	actual nfiles 1- >=? ( drop ; )
+	1+ pagina linesv + 1- >=? ( dup linesv - 1+ 'pagina ! )
+	'actual !
+	;
+
+:fup
+	actual 0? ( drop ; )
+	1- pagina <? ( dup 'pagina ! )
+	'actual !
 	;
 
 :main
 	4
 	show clrscr
-		'path print
-		filen> 'filen - " %d " print
-		files> 'files - " %d " print cr
+		gris linefill
+		blanco
+		'path print sp
+		'name print	cr
+
 		drawtree
-
-
 		ibar
 
-		[ 1 'actual +! ; ] <dn>
-		[ -1 'actual +! ; ] <up>
+        'reload <f1>
+		'fdn <dn>
+		'fup <up>
 		'enter <enter>
 
 		'exit >esc<
@@ -199,8 +256,10 @@
 :ram
 	mark
 	'fontdroidsans13 fontm
-	ibar.ini
+	clrscr rows 3 - 'linesv !
 	rebuild
+	loadm
+	ibar.ini
 	;
 
-: ram main ;
+: ram main savem ;
