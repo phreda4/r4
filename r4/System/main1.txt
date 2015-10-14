@@ -1,0 +1,324 @@
+|	MAIN NUEVO
+|	PHREDA 2013
+|----------------------------------
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/input.txt
+^r4/lib/sort.txt
+
+^r4/system/mem-ed.txt
+
+^r4/lib/rfont.txt
+^r4/lib/ricons.txt
+
+|^r4/lib/dlgfilea.txt
+|^r4/lib/vkeyboard.txt
+
+^r4/lib/trace.txt
+
+^inc/ric/fontawesomewebfont.ric
+^inc/rft/robotoregular.rft
+^inc/rft/robotobold.rft
+
+
+#nfiles
+#files )( 1024
+#files> 'files
+#infos )( 1024
+#infos> 'infos
+#filen )( 8192
+#filen> 'filen
+#xypos )( 8192
+#xypos> 'xypos
+#sortf )( 2048
+
+#pagina
+#actual
+#path )( 1024
+#fileactual )( 32
+
+|------------------- OS DEp ---------------------
+:FNAME | adr -- adrname
+|WIN|	44 +
+|AND|	19 +
+	;
+
+:FDIR? | adr -- 1/0
+|WIN|	@ $10
+|AND|	18 + c@ 4
+	=? ( 1 )( 0 ) nip ;
+|----------------------------------------
+
+:FINFO | adr -- adr info
+	dup FDIR? 1? ( 0 nip ; ) drop
+	dup FNAME
+	".txt" =pos 1? ( 2drop 1 ; ) drop
+	".bmr" =pos 1? ( 2drop 2 ; ) drop
+	".inc" =pos 1? ( 2drop 3 ; ) drop
+	".rmt" =pos 1? ( 2drop 4 ; ) drop
+	".spr" =pos 1? ( 2drop 5 ; ) drop
+	".vsp" =pos 1? ( 2drop 6 ; ) drop
+	7 nip ;
+
+:rebuild
+	0 'pagina !
+	0 'nfiles !
+	'filen 'filen> !
+	'files 'files> !
+	'infos 'infos> !
+	'path ffirst drop fnext drop | quita . y ..
+	( fnext 1? )(
+		filen> files> !+ 'files> !
+		FINFO infos> !+ 'infos> !
+		FNAME filen> strcpyl 'filen> !
+		) drop
+	files> 'files - 2 >> 'nfiles !
+
+
+	'sortf >r
+	0 ( nfiles <? )(
+		dup 2 << 'infos + @ 24 <<
+|		over 2 << 'files +
+|		c@+ swap c@+ swap c@
+|		rot 16 << or swap 8 << or or
+		r!+
+		dup r!+
+		1+ ) drop rdrop
+	nfiles 1+ 'sortf shellsort
+	;
+
+:getname | nro -- ""
+	3 << 'sortf + 4+ @ 2 << 'files + @ ;
+
+:getinfo | nro -- info
+	3 << 'sortf + 4+ @ 2 << 'infos + @ ;
+
+#namesolo )( 64
+:getnamesolo | nro -- ""
+	dup getinfo 0? ( drop getname ; ) drop
+	getname 'namesolo strcpyl
+	0 swap 5 - c! | quita ".txt"
+	'namesolo ;
+
+:addpath | nro -- nro
+	 "/" 'path strcat
+    dup getname 'path  strcat
+	rebuild ;
+
+:clearact
+	-1 'actual ! "" 'fileactual strcpy ;
+
+:rempath
+	'path ( c@+ 1? )( drop ) drop 1-
+	( 'path >? )(
+		dup c@ $2f =? ( drop 0 swap ! rebuild clearact ; )
+		drop 1- ) drop
+	rebuild clearact ;
+
+
+|----------------------------------------
+:clearall
+	0 'pagina !
+	clearact
+	"r4" 'path strcpy ;
+
+:loadm
+	'pagina "mem/main.mem" load
+	'pagina =? ( clearall ) drop
+	rebuild
+	actual -? ( drop ; )
+	getnamesolo 'fileactual strcpy
+	;
+
+:savem
+	'pagina 8 1024 +
+	"mem/main.mem" save ;
+
+:multip
+|WIN| ;
+|AND|	infoin
+	>r
+	r@+ dup "%d " print cr
+	( 1? )( 1-
+		r@+ r@+ swap r@+ "%d %d %d " print cr
+		) drop
+	rdrop ;
+
+:config
+	show clrscr
+		robotoregular 64 rfont!
+		verde dup " :R%d " print
+		blanco "Info" printc cr
+		robotoregular 40 rfont!
+
+		cyan
+|WIN|	"Windows"
+|AND|	"Android"
+		" Version " print print cr
+		sh sw " Res: %dx%d" print cr
+
+		xymouse swap " MOUSE: %d %d" print cr
+		bmouse " BMOUSE: %d" print cr
+		key " KEY: %d" print
+		multip
+		48 qdim sw 32 - sh 32 - pos
+		verde 'exit btn blanco 'i.ok drawric
+
+		'exit >esc<
+		cflecha
+		;
+
+|--------------------------------------
+#iconcolor $7f7f00 $3f00  $7f7f  $7f007f $7f7f00 $7f0000 $7f00  $ff
+#iconinfo 'i.folder_close_alt 'i.cogs 'i.picture 'i.picture 'i.picture 'i.picture 'i.picture 'i.file
+#tipoext "bmr" "inc" "rmt" "spr" "vsp"
+
+:nrun | act tipo --
+	'tipoext swap 2 - ( 1? )( swap >>0 swap 1- ) drop >r
+	mark
+	getname 'path "%s/%s" ,print
+	r "mem/inc-%w.mem" mprint savemem
+	empty
+	r> "r4/system/inc-%w.txt" mprint run ;
+
+:runfile
+    savem
+	dup getinfo 1 >? ( nrun ; ) drop
+	getname 'path "%s/%s" mprint run ;
+
+:editfile
+	savem
+	actual -? ( drop ; )
+	dup getinfo 1 >? ( nrun ; ) drop
+	getname 'path "%s/%s" mprint 'ed.nombre strcpy
+	0 0 'ed.ncar ! 'ed.nlin !
+	ed.save
+|win|	"r4/IDE/edit-code.txt" run
+|and|	"r4/system/edit-codea.txt" run
+	;
+
+#newfile
+
+:remaddtxt | --
+	'fileactual ".txt" =pos 1? ( drop ; ) drop
+	".txt" swap strcat ;
+
+:createfile
+	0 'newfile !
+	'fileactual c@
+	0? ( drop actual -? ( drop ; ) getnamesolo 'fileactual strcpy ; ) drop
+	remaddtxt
+	savem
+	mark
+	"^r4/lib/gui.txt" ,ln ,cr
+	":main" ,ln
+	"  show clrscr" ,ln
+	"  	""Hello Human!"" print " ,ln
+	"	'exit >esc<" ,ln
+	"	cminiflecha ;" ,ln
+	,cr
+	": main ;" ,ln
+	'fileactual 'path "%s/%s" mprint savemem
+	empty
+	'fileactual 'path "%s/%s" mprint 'ed.nombre strcpy
+	0 0 'ed.ncar ! 'ed.nlin !
+	ed.save
+|win|	"r4/IDE/edit-code.txt" run
+|and|	"r4/system/edit-codea.txt" run
+	;
+
+:clickbtn | nro -- nro
+	dup getinfo
+	0? ( drop clearact addpath ; )
+	drop
+	actual =? ( runfile ; )
+	dup 'actual !
+	dup getnamesolo 'fileactual strcpy
+	;
+
+:botonapp | nro -- nro
+	nfiles >=? ( ; )
+	'clickbtn guiBtn
+	dup getinfo
+	2 << dup 'iconcolor + @ ink
+	'iconinfo + @ drawric
+	home blanco
+	dup getnamesolo cr cr printc
+	actual =? ( gc.box )
+|	actual =? ( gris gc.fbox )
+
+	;
+
+#fcnt #fsize
+#ccnt #csize
+
+:prevp
+	pagina fcnt - -? ( fcnt + ) 'pagina ! ;
+:nextp
+	pagina fcnt + nfiles >=? ( fcnt - ) 'pagina ! ;
+
+:menubtn
+	robotobold 24 rfont!
+	80 qdim
+|	fonti
+
+	sw 80 / 2.0 over / 'fsize ! 2 - 'fcnt !
+	sh 80 / 2.0 over / 'csize ! 2 - 'ccnt !
+
+	fcnt 1- fsize * 2/
+	ccnt 1- csize * 2/
+
+	pagina >r
+	0 ( ccnt <? )(
+		0 ( fcnt <? )(
+			dup	fsize * pick4 -
+			pick2 csize * pick4 -
+			neg fpos
+			r> botonapp 1+ >r
+			1+ ) drop
+		1+ ) drop
+	2drop rdrop
+	;
+
+:icono | "ESC" 'i.off 'exit --
+	guiBtn
+	gris 'oscuro guiO
+	2-gc gc.fbox 2+gc
+	negro 4-gc drawric 4+gc
+	blanco home 2 dup +atxy print
+	;
+
+:botonera
+	robotobold 24 rfont!
+	32 qdim 20 sh 17 - pos
+	"Esc" 'i.off 'exit dup >esc< icono gc>>
+	"F1" 'i.bolt [ actual -? ( drop ; ) runfile ; ] dup <f1> icono gc>>
+	"F2" 'i.edit 'editfile dup <f2> icono gc>>
+	"F3" 'i.light_bulb [ 1 'newfile ! 0 'fileactual ! ; ] dup <f3> icono gc>>
+    |	cyan
+	sw 20 - sh 17 - pos
+	cyan 'config guiBtn 'i.info_sign drawric gc<<
+	gc<<
+	'nextp btne 'i.chevron_down drawric gc<<
+	'prevp btne 'i.chevron_up drawric
+	;
+
+:main
+	4
+	0 'newfile !
+	show clrscr
+		robotoregular 48 rfont!
+		home cr2
+		blanco [ rempath rebuild clearact ; ] ".." link
+
+		80 gc.bottom negro gc.fbox | $777111 gc.hfill
+		home
+		'path " %s/" blanco print
+		newfile 0? ( 'fileactual print )( 'fileactual 32 inputcell 'createfile <enter> ) drop
+		menubtn
+		botonera
+		cminimano
+
+		;
+
+: 0 paper mark loadm main savem ;
