@@ -72,14 +72,6 @@
 		) drop
 	;
 
-:showpad
-	0 cntlinea 1+ gotoxy
-	blanco "> " print
-	'pad 255 inputcr
-	'compila&run <enter>
-
-	;
-
 |---------------------------------
 :<<13 | a -- a
 	( fuente >=? )( dup c@
@@ -136,59 +128,88 @@
 :wordcntok | adr -- adr token cnt
 	dup 4+ @ over 12 + @ 20 >> $fff and ;
 
+:drawline
+	tokencolor
+	dup $ff and
+	5 =? ( drop sp tokenstr print cr ; )
+	drop
+	sp
+	tokenstr print allowcr ;
+
 :drawword | nro --
 	4 << 'indicepal +
 	wordcntok
-	( 1? )( 1- swap @+
-			" " print
-			tokenstr print 
-			cr allowchome
-			swap
-			) 3drop ;
+	( 1? )( 1- swap @+ drawline swap ) 3drop ;
 
 |---------------------------------------------------------------------------------
 #inipal
 #inipal>
 #curpal
 
-:drawcode2
+:makelist
+	cntwords cntlinea - 'inipal !
+	cntwords 1- 'curpal !
+	;
+
+:infocode
 	'indicepal inipal 4 << +
 	0 ( cntlinea <? )(
-		curpal inipal - =? ( "> %s <" )( "  %s  " )
-		rot @+ rot print
-		12 +
-|		@+ "%s " print 	@+ "%h " print 	@+ "%h " print 	@+ "%h " print
+		curpal inipal - =? ( "*" print )
+		swap
+		2 col
+		@+ print
+		4+ | @+ "%h " print
+		14 col
+		@+ printinfword |"%h " print
+		20 col
+		@+ printmovword |"%h " print
 		cr
 		swap 1+ ) 2drop
-	[ curpal 1? ( 1- ) 'curpal ! ; ] <up>
-	[ curpal 1+ 'curpal ! ; ] <dn>
+	[ curpal 1- 0 max 'curpal ! ; ] <up>
+	[ curpal 1+ cntwords 1- min 'curpal ! ; ] <dn>
 	[ curpal cntlinea - 0 max 'curpal ! ; ] <pgup>
-	[ curpal cntlinea + 'curpal ! ; ] <pgdn>
+	[ curpal cntlinea +  cntwords 1- min 'curpal ! ; ] <pgdn>
 	curpal
 	inipal <? ( dup 'inipal ! )
 	inipal cntlinea + >=? ( dup cntlinea - 1+ 'inipal ! )
 	drop
-	chome
+
+	25 1 gotoxy chome!
 	curpal drawword
+	;
+
+|------------------------------------------------
+:top
+	$4400 ink 1 linesfill blanco
+	'ed.nombre " %s " print
+	cyan
+	indiceinc> 'indiceinc - 3 >> "| %d Includes | " print
+|	cntwords "%d Words | " print
+	cntuwords "%d Used Words | " print
+	cntuvars  "%d Used Vars" print
+	;
+
+:bottom
+	0 rows 3 - gotoxy
+	$2200 ink 3 linesfill blanco
+	blanco "> " print 'pad 255 inputcr 'compila&run <enter>
+	cr
+	cr
+	verde dup ":R%d" print
+	blanco "dEBUG " printx
 	;
 
 :debugcode
 	'fontdroidsans13 fontm
 	clrscr
 	rows 4 - 'cntlinea !
+	makelist
 	4
 	show clrscr
-		$6600 ink 1 linesfill blanco
-		'ed.nombre " %s " print
-		0 rows 1- gotoxy
-		$6600 ink 1 linesfill blanco
-		verde dup ":R%d" print
-		blanco "dEBUG " printx
-		0 1 gotoxy
-		drawcode
-
-		showpad
-
+    	top
+    	bottom
+    	0 1 gotoxy
+		infocode |drawcode
 		'exit >esc<
 		cminiflecha ;
 
@@ -220,8 +241,8 @@
 	0 paper
 	ram
 	loadtxt
-
 	fuente tokeniza 1? ( drop ; ) drop
+	tokenpostusa
 	debugcode
 	;
 
