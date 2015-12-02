@@ -6,10 +6,11 @@
 ^r4/ide/r4-dicc.txt
 ^r4/ide/r4-vstack.txt
 
-#xo #yo
 #memvar
-#freemem
 #msg
+
+#freemem
+#memdicc
 
 |---- Comprobaciones
 :dstack? | cnt --
@@ -256,42 +257,41 @@ iOPENURL
 :nro>tok
 :nro>mem
 	;
+
 :accpal | val instr --
-	7 <? ( drop tok>cte gmem exec ; ) 	| nro
-	7 =? ( drop tok>mem gstr ; )		| str
-	12 <? ( drop 8 >>
+	11 <? ( drop tok>cte gmem exec ; ) 	| nro
+	11 =? ( drop tok>mem gstr ; )		| str
+	16 <? ( drop 8 >>
 			dup dic>inf @
 			%10 and? ( drop nro>mem )( drop nro>tok )
 			mem0 ; )	| pal
-	13 =? ( 2drop 'mem2 'gmem ! ; ) | (
-	14 =? ( 2drop 'mem3 'gmem ! ; )	| )(
-	16 =? ( 2drop 'mem1 'gmem ! ; ) | [
+	17 =? ( 2drop 'mem2 'gmem ! ; ) | (
+	18 =? ( 2drop 'mem3 'gmem ! ; )	| )(
+	21 =? ( 2drop 'mem1 'gmem ! ; ) | [
 	2drop 'mem0 'gmem ! ;
 
-|idec ihex ibin ifix istr	3 4 5 6 7
-|iwor ivar idwor idvar      8 9 10 11
-|i;							12
-|i(	i)(	i) i[ i]			13 14 15 16 17
+|i0 i: i:: i# i: i| i^ |6
+|idec ihex ibin ifix istr | 11
+|iwor ivar idwor idvar	| 15
+|i; i( i)( i) i[ i]		| 21
 
 :addmem | inifree adr1token -- inifree adr1token
-	dup @  | inicio tokens
 	'mem0 'gmem !
 	( @+ 1? )(
 		dup $ff and
-		3 <? ( 3drop ; ) | # o :
-		17 >? ( 3drop ; ) | o > ]
+		7 <? ( 3drop ; ) 21 >? ( 3drop ; )
 		accpal
-       )
-	2drop
-	;
+       ) 2drop ;
 
-:tokmem | tok --
-	dup $ff and
-|	21 >? ( nip )
-|	2 << 'tablai + @ exec 
-	2drop
-	;
+:cadavar | adr -- adr
+	dup 8 + @ 1 nand? ( drop ; ) drop
+	freemem over 4+ @ 		| nro dirw free tok
+	addmem
+	freemem =? ( 4 'freemem +! ) | si es variable sin nros
+	drop ;
 
 ::tokenmem | --
-	code ( code> <? )( @+ tokmem ) drop
-	;
+	here 'memdicc !
+	'indicepal ( indicepal> <? )(
+		freemem ,
+		cadavar 16 + ) drop ;
