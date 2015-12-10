@@ -17,6 +17,8 @@
 ^r4/ide/r4-info.txt
 ^r4/ide/r4-tokenprint.txt
 
+^r4/lib/codecolor.txt
+
 ^r4/lib/trace.txt
 
 #pantaini>	| comienzo de pantalla
@@ -141,41 +143,71 @@
 	wordcntok
 	( 1? )( 1- swap @+ drawline swap ) 3drop ;
 
-|---------------------------------------------------------------------------------
+|--------------------------------------------------------------------
+#lista )( 8192
+#lista> 'lista
+#cntlista
 #inipal
 #inipal>
 #curpal
 
-:makelist
-	cntwords cntlinea - 'inipal !
-	cntwords 1- 'curpal !
+|--------------------------------------------------------------------
+:showcode | nro
+	curpal 2 << 'lista + @ |4 << 'indicepal +
+|	dup 16 + @ 1- swap @ 1-
+	@ 1-
+	0 ( cntlinea <? )(
+		swap 1? ( >>lineacolor0 ) cr
+		swap 1+ ) 2drop
+|	( over <? )( >>lineacolor0 cr ) 2drop
 	;
 
-:infocode
-	'indicepal inipal 4 << +
+:makelist
+	'lista >r
+	indicepal< ( indicepal> <? )(
+		dup 8 + @ 1 nand? ( drop dup r!+ )( drop ) | solo palabras
+|		dup r!+
+		16 + ) drop
+	r> dup
+	'lista - 2 >> 'cntlista !
+	'lista> !
+
+	cntlista cntlinea - 0 max 'inipal !
+	cntlista 1- 'curpal !
+	;
+
+:drawlista
+	'lista inipal 2 << +
 	0 ( cntlinea <? )(
 		curpal inipal - =? ( "*" print )
+		cntlista >=? ( 2drop ; ) -? ( 2drop ; )
 		swap
 		2 col
+		dup @
 		@+ "%w" print
 		4+ | @+ "%h " print
 		14 col
 		@+ printinfword |"%h " print
 		16 col
-		@+ printmovword |"%h " print
+		@ printmovword |"%h " print
 		cr
-		swap 1+ ) 2drop
+		4+ swap 1+ ) 2drop ;
+
+:infocode
+	drawlista
 	[ curpal 1- 0 max 'curpal ! ; ] <up>
-	[ curpal 1+ cntwords 1- min 'curpal ! ; ] <dn>
+	[ curpal 1+ cntlista 1- min 'curpal ! ; ] <dn>
 	[ curpal cntlinea - 0 max 'curpal ! ; ] <pgup>
-	[ curpal cntlinea +  cntwords 1- min 'curpal ! ; ] <pgdn>
+	[ curpal cntlinea +  cntlista 1- min 'curpal ! ; ] <pgdn>
+
 	curpal
 	inipal <? ( dup 'inipal ! )
 	inipal cntlinea + >=? ( dup cntlinea - 1+ 'inipal ! )
 	drop
 
 	25 1 gotoxy chome!
-	curpal drawword
+|	curpal drawword
+	showcode
 	;
 
 |------------------------------------------------
