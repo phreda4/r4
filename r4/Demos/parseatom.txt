@@ -1,0 +1,75 @@
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+#list "1s" "2s" "2p" "3s" "3p" "3d" "4s" "4p" "4d" "4f" 0 
+#max ( 2 2 6 2 6 10 2 6 10 14 )
+
+:trim | adr -- adr'	; remove spaces
+	( dup c@ 33 <? )(
+		0? ( drop ; )
+		drop 1+ ) drop ;
+ 
+:str>int | str -- str' int ; convert to int 
+	0 swap ( c@+ $2f >? )(	| 0 adr car
+		$39 >? ( drop 1- swap ; )
+		$30 - rot 10 * + swap )
+	drop 1- swap ;
+
+:=pre? | s1 s2 -- s1 1/0 ; 0 if s1 is prefix of s2
+	( swap c@+ 1? )( rot c@+ rot -
+		1? ( nip ; ) 
+		drop ) 
+	rot drop ;
+
+:next0 | s -- s' ; next byte 0 in mem
+	( c@+ 1? )( drop ) drop ;
+
+:inlist? | str list -- str' n/-1 ; str is in list?
+	0 swap
+	( dup c@ 1? )( drop 
+		pick2 =pre? 0? ( 2drop ; ) drop
+		next0 swap 1+ swap ) 
+	2drop -1 ;
+
+#atom )( 12 | 10 places for electrons..2 for align
+
+:clearatom | ; clear mem atom
+	0 0 0 'atom !+ !+ ! ;
+
+:parseshell | str -- str'/0 ; parse a shell 0-error
+	trim 
+	'list inlist? -? ( 2drop 0 ; )	| no shell
+	swap 2 + trim 
+	c@+ $28 <>? ( 3drop 0 ; ) drop	| no (
+	trim str>int  						
+	pick2 'max + c@ >? ( 3drop 0 ; )	| max limit
+	swap trim 
+	c@+ $29 <>? ( 4drop 0 ; ) drop	| no )
+	swap rot 'atom + c!				| store in list
+	;
+	
+:parseatom | str -- 0/-1 (error)
+	clearatom
+	( dup c@ 1? )( drop
+		parseshell 0? ( 1- ; )
+		) nip ;
+	
+:test
+	dup "** %s **" print cr
+	parseatom
+	-? ( drop "invalid" print cr ; )
+	drop
+	'atom 0 ( 10 <? )( swap 
+		c@+ pick2 "level %d - %d " print cr 
+		swap 1+ ) 2drop ;
+	
+:main
+	show clrscr
+		"1s(2) 2s(2) 2p(1)" test
+		"1s(2)2s(1)3p(1)" test
+		"1s(2)2s(2)2d(1)" test
+		"1s(2) 2s(2) 3s(4)" test
+		'exit >esc<
+		;
+		
+: main ;
