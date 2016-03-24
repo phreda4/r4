@@ -12,8 +12,6 @@ STYLEX = WS_EX_APPWINDOW
 
 include 'include/win64w.inc'
 
-
-
 section '' code readable executable
 
 start:
@@ -87,64 +85,18 @@ start:
 	mov [bmi.biBitCount],32
 	mov [bmi.biCompression],BI_RGB
 
-       invoke ShowWindow,[hWnd],SW_NORMAL
-
+	invoke ShowWindow,[hWnd],SW_NORMAL
 	invoke UpdateWindow,[hWnd]
 
 ;---------- INICIO
 restart:
-	mov rsi,Dpila	; inicio de pila
-	xor rax,rax	; tope de pila
-;        call test1
-       call test2
+	mov esi,Dpila
+	xor eax,eax
+	call inicio
 	jmp SYSEND
-
-;--- ejemplo 1 llena la pantalla
-test1:
-	xor ebx, ebx
-
-loopi:
-	inc edx
-	mov [SYSFRAME+ebx*4],edx
-	add ebx,1
-	cmp ebx,XRES*YRES
-	jl loopi
-
-	call SYSREDRAW
-	call SYSUPDATE
-	cmp [SYSKEY],1
-	jne test1
-
-	ret
-;---ejemplo 2 uso de mouse
-test2:
-mouse:	;      call SYSCLS
-
-
-	mov rcx,[SYSKEY]
-	shl rcx,8
-	xor ebx, ebx
-.loopi:
-	mov [SYSFRAME+ebx*4],ecx
-	add ebx,1
-	cmp ebx,XRES*4
-	jl .loopi
-
-
-	mov rax, [SYSXYM]
-       mov ebx, eax
-       shr eax, 16 ;y
-      and ebx, $ffff ;x
-      imul eax, XRES
-      add eax,ebx
-      mov[SYSFRAME+eax*4], $0000ff
-      call SYSREDRAW
-      call SYSUPDATE
-      cmp [SYSKEY],1
-      jne mouse
-      ret
-
-
+;----- CODE -----
+include 'cod.asm'
+;----- CODE -----
 
 ; OS inteface
 ; stack............
@@ -348,6 +300,9 @@ align 16
 	SysTime SYSTEMTIME
 	class	WNDCLASSEX sizeof.WNDCLASSEX,0,win_proc,0,0,hInstance,0,0,0,0,CLASSNAME,0
 	CLASSNAME TCHAR 'FASM64',0
+
+align 16
+	include 'dat.asm'
 
 align 16
 	hdir		dq 0
