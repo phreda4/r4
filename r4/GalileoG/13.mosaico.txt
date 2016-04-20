@@ -1,0 +1,105 @@
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+#tile1 )( 20000
+#tile2 )( 20000
+#acc
+#t>
+
+:ran rnd $0001 and ;
+
+:getpix px@ t> !+ 't> ! ;
+
+:setpix t> @ px!+ 4 't> +! ;
+
+:b1 | x1 x2 y2 y1 x2 x1 --
+  ( over <? )( pick2 2dup setxy 'acc @ exec drop 1+ ) 2drop ;
+
+:b0 | x1 x2 y2 y1 --
+  ( over <? )( 2over swap b1 1+ ) ;
+
+:putbit$ | x y w h --
+  >r rot dup >r + r> swap rot dup r> + swap
+  'setpix 'acc !
+  b0 4drop ;
+
+:getbit$ | x1 y1 x2 y2 -- w h
+  over pick4 - >r pick2 over swap - >r
+  'getpix 'acc !
+  rot b0 4drop r> r> ;
+
+:dibuja | w h --
+  swap
+  0 ( sh pick3 - <? )(
+    0 ( sw pick3 - <? )(
+       2over swap 2over swap 2swap ran 0? ( drop 'tile1 't> ! )( drop 'tile2 't> ! ) putbit$ pick3 + )
+    drop over + )
+  3drop ;
+
+
+:aro | x y r --
+  dup 2over rot blanco fcircle 5 - negro fcircle ;
+
+:forma1 clrscr
+  100 100 15 aro
+  75 75 15 aro
+  200 200 15 aro
+  175 225 15 aro
+  'tile1 't> ! 75 75 100 100 getbit$ 2drop
+  'tile2 't> ! 175 200 200 225 getbit$
+  clrscr
+  dibuja ;
+
+|-------- version 2
+:tile@ | w h x y adr --
+	>r
+	setxy
+   	sw pick2 -
+   	swap		| w dw h
+	( 1? )(
+		pick2 ( 1? )( r@+ px!+ 1- ) drop
+		over px+!
+		1- ) 3drop
+	rdrop ;
+
+:tile! | w h x y adr --
+	>r
+	setxy
+   	sw pick2 -
+   	swap		| w dw h
+	( 1? )(
+		pick2 ( 1? )( px@ r!+ 1 px+! 1- ) drop
+		over px+!
+		1- ) 3drop
+	rdrop ;
+
+
+#tiles 'tile1 'tile2
+
+:dibuja | w h --
+  0 ( sh pick3 - <? )(
+    0 ( sw pick3 - <? )(
+       2over swap 2over swap |2swap
+	   ran 2 << 'tiles + @ tile@
+	   pick3 + )
+    drop over + )
+  3drop ;
+
+:forma2
+	cls
+	100 100 15 aro
+	75 75 15 aro
+	200 200 15 aro
+	175 225 15 aro
+
+	25 25 75 75 'tile1 tile!
+	25 25 175 200 'tile2 tile!
+	cls
+	25 25 dibuja
+  ;
+
+:
+msec rndseed
+|forma1
+forma2
+show 'exit >esc< ;
