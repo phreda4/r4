@@ -96,34 +96,36 @@
 	pantafin> >>13 2 + 'pantafin> !
 	1 'prilinea +! ;
 
-:escape
-	@ ink ;
 
-:drawline | l -- l
-|	32 emit
-	( c@+ 1? )(
-		13 =? ( drop ; )
-		27 =? ( drop escape ; )
-		emit
-		) drop 1- ;
-
-:drawipline
-	$4444 ink linefill
+:drawcur | com -- com
 	blink 1? ( drop ; ) drop
-	dup ( ip.word <? )( c@+ gemit ) drop
-	blanco "_" print
-	lf
-	;
+	fuente> >? ( ; )
+	dup	( fuente> <? )( c@+ 13 =? ( 2drop ; ) gemit )
+	$ffffff ink
+	printcur drop ;
 
+:stepcursor
+	ip.word 0? ( drop ; )
+	'fuente> ! ;
+
+:barv
+	$333333 ink
+	0 0 op 0 sh pline
+	ccw 2 << 0 op ccw 2 << sh pline
+	poli ;
+
+|------------- DRAWCODE
 :drawcode
+	barv
+
+	0 1 gotoxy
 	pantaini>
 	0 ( cntlinea <? )(
 		gris
 		dup prilinea + "%d" print
        	ccw 2 << dup 'tx1 ! 'ccx !
-		swap
-		ip.line =? ( drawipline )
-		|drawcur lf
+		swap 
+		drawcur lf
 		>>lineacolor0
 		0 'tx1 !
 		0? ( 2drop cntlinea $fuente )( cr )
@@ -132,7 +134,13 @@
 	fuente>
 	( pantafin> >? )( scrolldw )
 	( pantaini> <? )( scrollup )
-	drop ;
+	drop
+
+	showvstack
+	[ stepvm stepcursor ; ] <f2>
+|	[ stepvm ; ] <f3>
+	[ resetvm ; ] <f4>
+	;
 
 |--------------------------------------------------------------------
 :wordcntok | adr -- adr token cnt
@@ -201,8 +209,12 @@
 		cr
 		4+ swap 1+ ) 2drop ;
 
+|------------- INFOCODE
 :infocode
+
+	0 1 gotoxy
 	drawlista
+
 	[ curpal 1- 0 max 'curpal ! ; ] <up>
 	[ curpal 1+ cntlista 1- min 'curpal ! ; ] <dn>
 	[ curpal cntlinea - 0 max 'curpal ! ; ] <pgup>
@@ -213,13 +225,14 @@
 	inipal cntlinea + >=? ( dup cntlinea - 1+ 'inipal ! )
 	drop
 
-	25 1 gotoxy chome!
+|	25 1 gotoxy chome!
 |	curpal drawword
-	showcode
+|	showcode
 	;
 
 |------------------------------------------------
-:top
+:drawstatus
+	0 0 gotoxy
 	$6600 ink 1 linesfill blanco
 	'ed.nombre " %s " print
 	cyan
@@ -227,26 +240,23 @@
 |	cntwords "%d Words | " print
 	cntuwords "%d Used Words | " print
 	cntuvars  "%d Used Vars" print
-	;
 
-:bottom
+
 	0 rows 1- gotoxy
 	$2200 ink 1 linesfill blanco
 |	blanco "> " print 'pad 255 inputcr 'compila&run <enter> cr
 |	dumpvstack cr
 	verde dup ":R%d" print
 	blanco "dEBUG " printx
-	<<ip "%h" print
-	" |F1-info|F2-code|F3-step|F4-reset " print
+
+|	<<ip "%h " print
+|	ip.word "%h " print
+
+	" |F1-info|F2-step|F3-code|F4-reset " print
 	amarillo
 	"|PILA D |PILA R  " printr
 	;
 
-:barv
-	$333333 ink
-	0 0 op 0 sh pline
-	ccw 2 << 0 op ccw 2 << sh pline
-	poli ;
 
 #modoscreen 'drawcode
 
@@ -256,23 +266,18 @@
 	'fontdroidsans13 fontm
 	clrscr
 	rows 4 - 'cntlinea !
+
 	makelist
+
 	4
-	show clrscr barv
-    	top
-    	bottom
+	show clrscr
 
-		showvstack
-
-    	0 1 gotoxy
 		modoscreen exec
 
-		'exit >esc<
-		[ 'infocode 'modoscreen ! ; ] <f1>
-		[ 'drawcode 'modoscreen ! ; ] <f2>
-		[ stepvm ; ] <f3>
-		[ resetvm ; ] <f4>
+		[ modoscreen 'infocode =? ( 'drawcode )( 'infocode ) 'modoscreen ! drop ; ] <f1>
 
+    	drawstatus
+		'exit >esc<
 		cminiflecha ;
 
 |-----------------------------
@@ -296,6 +301,7 @@
 	here ( c@+ 1? )(
 		13 =? ( over c@ 10 =? ( drop swap 1+ swap )( drop ) )
 		10 =? ( drop c@+ 13 <>? ( drop 1- 13 ) )
+		$3A =? ( pick2 'fuente> ! )
 		rot c!+ swap ) 2drop
 	0 swap c!+ '$fuente ! ;
 
