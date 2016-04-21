@@ -116,8 +116,8 @@
 :iW!+	d.pop2 w!+ d.pushVar ;
 
 |---- pantalla
-:iSW 		sw 2/ d.pushDec ;
-:iSH  		sh 2/ d.pushDec ;
+:iSW 		sw d.pushDec ;
+:iSH  		sh d.pushDec ;
 :iFRAMEV	framev d.pushVar ;
 :iREDRAW    ; |redraw >xfb ;
 :iUPDATE    ; |1 update drop ;
@@ -301,6 +301,7 @@ iOPENURL
 	drop ;
 
 ::tokenmem
+
 	here dup 'memdicc !
 	cntwords 2 << + dup 'freemem ! 'memvars !
 	0 ( cntwords <? )( cadavar 1+ ) drop
@@ -315,6 +316,7 @@ iOPENURL
 	d.ini	| inicia pilad
 	r.ini	| inicia pilar
 	<<boot '<<ip !
+
 	cntwords 1- dic>str @
 	trim 'ip.word !
 	;
@@ -325,12 +327,29 @@ iOPENURL
 
 ::stepvm | --
 	<<ip 0? ( drop ; )
-	ip.word nextw 'ip.word !
+
+	ip.word nextw 'ip.word !	
+
 	@+ dup $ff and
 	21 >? ( nip )
 	2 << 'tablai + @ exec
 	'<<ip !
 	;
+
+::stepvmn | --
+	<<ip 0? ( drop ; )
+	dup @ $ff and $c <>? ( drop stepvm ; ) drop
+
+	ip.word nextw 'ip.word !
+
+	dup 4+ swap
+	( over <>? )(
+		@+ dup $ff and
+		21 >? ( nip )
+		2 << 'tablai + @ exec
+		0? ( '<<ip ! drop ; )
+		) nip
+	'<<ip ! ;
 
 ::tokenexec | token --
 	dup $ff and
