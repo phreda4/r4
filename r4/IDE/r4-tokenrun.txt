@@ -12,22 +12,11 @@
 #memvars	| memoria de variables
 #freemem	| memoria libre
 
+
+:nro>tok	dic>tok	@ ;
+:nro>mem    2 << memdicc + @ ;
+
 #:<<ip
-#:ip.word
-
-#stackcode )( 2048
-#stackcode> 'stackcode
-
-:>code | new --
-	ip.word stackcode> !+ 'stackcode> !
-	trim 'ip.word !
-	;
-:code> | --
-	-4 'stackcode> +!
-	stackcode> @ 'ip.word ! ;
-
-:pushvmcode | nro --
-	dic>str @ 1- >code ;
 
 |---- Comprobaciones
 :dstack? | cnt --
@@ -59,17 +48,17 @@
 
 |--------- ejecuta palabra
 :iwor	8 >>
-		dup pushvmcode
 		dic>tok @ swap r.pushExe ;
 
-|-------- ejecuta palabra
-
-:ivar	tok>mem @ d.pushVar ;
-:idvar	tok>mem d.pushDVar ;
-:idwor	8 >> dic>tok @ d.pushDCod ;
+:ivar	8 >>
+		nro>mem @ d.pushVar ;
+:idvar	8 >>
+		nro>mem d.pushDVar ;
+:idwor	8 >>
+		dic>tok @ d.pushDCod ;
 
 |--- retorna
-:i;		drop r.cnt 0? ( nip ; ) 2drop r.pop code> ;
+:i;		drop r.cnt 0? ( nip ; ) 2drop r.pop ;
 
 |--- estructuras de control
 :i)(
@@ -262,8 +251,6 @@ iOPENURL
 	( swap c@+ 1? )( rot c!+ ) rot
 	c!+ 'freemem ! drop ;
 
-:nro>tok	dic>tok	@ ;
-:nro>mem    2 << memdicc + @ ;
 
 :accpal | val instr --
 	11 <? ( drop tok>cte gmem exec ; ) 	| nro
@@ -284,6 +271,7 @@ iOPENURL
 
 :addmem | adr1token -- adr1token
 	'mem0 'gmem !
+	4+	| saltea definicion
 	( @+ 1? )(
 		dup $ff and
 		7 <? ( 3drop ; ) 21 >? ( 3drop ; )
@@ -294,18 +282,18 @@ iOPENURL
 	freemem ,	| para esta palabra...
 	dup dic>call@ 0? ( drop ; ) drop 		| sin llamadas
 	dup dic>inf @ 1 nand? ( drop ; ) drop	| es word
-
 	freemem
 	over dic>tok @ addmem
 	freemem =? ( 4 'freemem +! ) | si es variable sin nros
 	drop ;
 
 ::tokenmem
-
 	here dup 'memdicc !
 	cntwords 2 << + dup 'freemem ! 'memvars !
 	0 ( cntwords <? )( cadavar 1+ ) drop
-	freemem 'here !
+	freemem 'here
+	!
+	memdicc memmap
 	;
 
 |-------------------------------
@@ -315,9 +303,6 @@ iOPENURL
 	d.ini	| inicia pilad
 	r.ini	| inicia pilar
 	<<boot '<<ip !
-
-	cntwords 1- dic>str @
-	trim 'ip.word !
 	;
 
 :nextw | adr -- adr'
@@ -326,8 +311,6 @@ iOPENURL
 
 ::stepvm | --
 	<<ip 0? ( drop ; )
-
-	ip.word nextw 'ip.word !
 
 	@+ dup $ff and
 	21 >? ( nip )
@@ -338,8 +321,6 @@ iOPENURL
 ::stepvmn | --
 	<<ip 0? ( drop ; )
 	dup @ $ff and $c <>? ( drop stepvm ; ) drop
-
-	ip.word nextw 'ip.word !
 
 	dup 4+ swap
 	( over <>? )(
