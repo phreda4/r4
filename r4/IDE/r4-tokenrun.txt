@@ -8,10 +8,10 @@
 
 #msg
 
+#memsrc		| memoria token>src
 #memdicc	| memoria del diccionario
 #memvars	| memoria de variables
 #freemem	| memoria libre
-
 
 :nro>tok	dic>tok	@ ;
 :nro>mem    2 << memdicc + @ ;
@@ -286,14 +286,45 @@ iOPENURL
 	over dic>tok @ addmem
 	freemem =? ( 4 'freemem +! ) | si es variable sin nros
 	drop ;
+|------------------------------------------
+#:code<
+
+:escom
+	"|WIN|" =pre 1? ( drop 5 + ; ) drop | Compila para WINDOWS
+	( c@+ 1? )( 10 =? ( drop 1- ; ) 13 =? ( drop 1- ; ) drop ) drop 1- ;
+
+:escad
+	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( drop 1- ; ) ) drop ) drop 1- ;
+
+:pasapal
+	( c@+ 1? )( $ff and 33 <? ( drop 1- ; ) drop ) drop 1- ;
+
+:essp | quitar espacios
+    ( c@+ $ff and 33 <? )( 0? ( drop 1- ; ) drop )
+	$7c =? ( drop escom essp ; )		| $7c |	 Comentario
+	drop 1-	;
+
+:nexttoken | src -- src
+	dup c@ 0? ( drop ; )
+|	$7c =? ( drop escom essp nexttoken ; )		| $7c |	 Comentario
+|	$5e =? ( drop esinc essp ; )		| $5e ^  Include
+	$22 =? ( drop escad essp ; )		| $22 "	 Cadena
+	drop
+	pasapal essp ;
+
+::tok>src | tok -- src
+	code< - memsrc + @ ;
 
 ::tokenmem
+	here 'memsrc !
+	indicepal< @+ 1- swap @ dup 'code< !
+	( code> <? )( swap dup , nexttoken swap 4+ ) drop
+|	1- ,
 	here dup 'memdicc !
 	cntwords 2 << + dup 'freemem ! 'memvars !
 	0 ( cntwords <? )( cadavar 1+ ) drop
 	freemem 'here
 	!
-	memdicc memmap
 	;
 
 |-------------------------------
@@ -305,13 +336,8 @@ iOPENURL
 	<<boot '<<ip !
 	;
 
-:nextw | adr -- adr'
-	( c@+ 32 >? )( drop ) drop 1-
-	( c@+ 33 <? )( 0? ( drop 1- ; ) drop ) drop 1- ;
-
 ::stepvm | --
 	<<ip 0? ( drop ; )
-
 	@+ dup $ff and
 	21 >? ( nip )
 	2 << 'tablai + @ exec
