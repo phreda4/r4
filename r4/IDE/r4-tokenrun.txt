@@ -18,6 +18,18 @@
 
 #:<<ip
 
+#sxc #syc
+#sink
+
+:savstat | x y --
+	>xfb
+	ink@ 'sink ! ;
+
+:resstat
+	sink ink
+	sxc syc op
+	xfb> ;
+
 |---- Comprobaciones
 :dstack? | cnt --
 	3 << neg dpila> +
@@ -182,28 +194,11 @@
 
 :iOPENURL	d.pop3 openurl d.pushVar ;
 
-| 0
-| 1 :
-| 2 ::
-| 3 #
-| 4 #:
-| 5 |
-| 6 ^
-| 7 dec
-| 8 hex
-| 9 bin
-| A fix
-| B str
-| C wor
-| D var
-| E dwor
-| F dvar
-| 10.. macro ; ..
 |---------- tabla de saltos
 #tablai	| tabla de saltos de instrucciones
-i0 i: i:: i# i: i| i^
-idec ihex ibin ifix istr
-iwor ivar idwor idvar
+i0 i: i:: i# i: i| i^		| 0 1 2 3 4 5 6
+idec ihex ibin ifix istr    | 7 8 9 a b
+iwor ivar idwor idvar		| c d e f
 i;
 i(		i)(		i)		i[		i]		iEXEC
 i0?		i+?		i-?		i1?		i=?		i<?		i>?		i<=?	i>=?	i<>?	iAND?	iNAND?
@@ -290,7 +285,7 @@ iOPENURL
 #:code<
 
 :escom
-	"|WIN|" =pre 1? ( drop 5 + ; ) drop | Compila para WINDOWS
+	"WIN|" =pre 1? ( drop 5 + ; ) drop | Compila para WINDOWS
 	( c@+ 1? )( 10 =? ( drop 1- ; ) 13 =? ( drop 1- ; ) drop ) drop 1- ;
 
 :escad
@@ -306,7 +301,6 @@ iOPENURL
 
 :nexttoken | src -- src
 	dup c@ 0? ( drop ; )
-|	$7c =? ( drop escom essp nexttoken ; )	| $7c |	 Comentario
 |	$5e =? ( drop esinc essp ; )			| $5e ^  Include
 	34 =? ( drop escad essp ; )		| $22 "	 Cadena
 	drop
@@ -319,7 +313,6 @@ iOPENURL
 	here 'memsrc !
 	indicepal< @+ 1- swap @ dup 'code< !
 	( code> <? )( swap dup , nexttoken swap 4+ ) drop
-|	1- ,
 	here dup 'memdicc !
 	cntwords 2 << + dup 'freemem ! 'memvars !
 	0 ( cntwords <? )( cadavar 1+ ) drop
@@ -336,26 +329,29 @@ iOPENURL
 	;
 
 ::stepvm | --
+	savstat
 	<<ip 0? ( drop ; )
 	(	@+ dup $ff and
 		21 >? ( nip )
 		2 << 'tablai + @ exec
 		code< >? )
 	'<<ip !
+	resstat
 	;
 
 ::stepvmn | --
 	<<ip 0? ( drop ; )
 	dup @ $ff and $c <>? ( drop stepvm ; ) drop
-
+	savstat
 	dup 4+ swap
 	( over <>? )(
 		@+ dup $ff and
 		21 >? ( nip )
 		2 << 'tablai + @ exec
-		0? ( '<<ip ! drop ; )
+		0? ( '<<ip ! drop >xfb ; )
 		) nip
-	'<<ip ! ;
+	'<<ip !
+	resstat ;
 
 ::tokenexec | token --
 	dup $ff and
