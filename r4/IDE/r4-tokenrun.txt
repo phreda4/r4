@@ -18,17 +18,14 @@
 
 #:<<ip
 
-#sxc #syc
-#sink
+#sxc #syc #sink
 
-:savstat | x y --
-	>xfb
-	ink@ 'sink ! ;
-
-:resstat
-	sink ink
-	sxc syc op
-	xfb> ;
+:sxy! | x y --
+	'syc ! 'sxc ! ;
+:emu**
+	>xfb ink@ 'sink ! ;
+:**emu
+	sink ink sxc syc op xfb> ;
 
 |---- Comprobaciones
 :dstack? | cnt --
@@ -120,17 +117,17 @@
 :iSW 		sw d.pushDec ;
 :iSH  		sh d.pushDec ;
 :iFRAMEV	framev d.pushVar ;
-:iREDRAW    ; |redraw >xfb ;
-:iUPDATE    ; |1 update drop ;
+:iREDRAW    redraw ;
+:iUPDATE    1 update drop ;
 
 |---- dibujo
-:iOP    	d.pop2 op ;
-:iLINE  	d.pop2 line ;
-:iCURVE 	d.pop4 curve ;
-:iCURVE3 	d.pop6 curve3 ;
-:iPLINE 	d.pop2 pline ;
-:iPCURVE 	d.pop4 pcurve ;
-:iPCURVE3 	d.pop6 pcurve3 ;
+:iOP    	d.pop2 2dup sxy! op ;
+:iLINE  	d.pop2 2dup sxy! line ;
+:iCURVE 	d.pop4 2over sxy! curve ;
+:iCURVE3 	d.pop6 curve3 ;	| falta
+:iPLINE 	d.pop2 2dup sxy! pline ;
+:iPCURVE 	d.pop4 2over sxy! pcurve ;
+:iPCURVE3 	d.pop6 pcurve3 ; | falta
 :iPOLI   	poli ;
 :iFCOL   	d.pop2 fcol ;
 :iFCEN   	d.pop2 fcen ;
@@ -329,29 +326,30 @@ iOPENURL
 	;
 
 ::stepvm | --
-	savstat
 	<<ip 0? ( drop ; )
+:stepvmi
+	**emu
 	(	@+ dup $ff and
 		21 >? ( nip )
 		2 << 'tablai + @ exec
 		code< >? )
 	'<<ip !
-	resstat
+	emu**
 	;
 
 ::stepvmn | --
 	<<ip 0? ( drop ; )
-	dup @ $ff and $c <>? ( drop stepvm ; ) drop
-	savstat
+	dup @ $ff and $c <>? ( drop stepvmi ; ) drop
+	**emu
 	dup 4+ swap
 	( over <>? )(
 		@+ dup $ff and
 		21 >? ( nip )
 		2 << 'tablai + @ exec
-		0? ( '<<ip ! drop >xfb ; )
+		0? ( '<<ip ! drop emu** ; )
 		) nip
 	'<<ip !
-	resstat ;
+	emu** ;
 
 ::tokenexec | token --
 	dup $ff and
