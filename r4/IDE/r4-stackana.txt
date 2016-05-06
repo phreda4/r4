@@ -56,6 +56,9 @@
 :regA	2 << 'reg + dup @ $80000 or swap ! ;	| transpasa una palabra
 :regB	2 << 'reg + dup @ $100000 or swap ! ;	| transpasa un bloque
 
+:regI	2 << 'reg + dup @ $200000 or swap ! ;	| parametro IN
+:regO	2 << 'reg + dup @ $400000 or swap ! ;	| parametro OUT
+
 :regPALset
 	'dstack ( dstack> <? )( @+ regA ) drop ;
 
@@ -339,19 +342,29 @@ xop2a1 xop2a1 |,<< ,>>
 	'rstack 'rstack> !
 	'ssc 'ssc> !
 	'sst 'sst> !
-	( 1? )( 1- newreg dpush ) drop
+	( 1? )( 1- newreg dup regI dpush ) drop
 	;
 
+:markregout
+	'dstack ( dstack> <? )( @+ regO ) drop ;
+
+:calcstack | cod --
+	$ff and 2 << 'usostack + @
+	0? ( drop ; )
+    exec ;
+
+::stackanalisisa | end ini --
+	2dup getusedstack neg
+	stackini ( over <? )( @+ calcstack ) 2drop
+	markregout
+	;
+
+|------------ print
 :fixtokenstr | cod -- ; fix width op print
 	tokenstr
 	mprint count swap ,print
 	neg 16 + ( 1? )( 1- ,sp ) drop
 	;
-
-:calcstack | cod --
-	$ff and 2 << 'usostack + @
-	0? ( drop ; )
-        exec ;
 
 :sdump
 	block.cnt ( 1? )( 1- "|" ,s ) drop
@@ -370,7 +383,7 @@ xop2a1 xop2a1 |,<< ,>>
 
 :dumpregs
 	'reg >r
-	";--- Nro: R  W  BAPXM" ,s ,cr
+	";--- Nro: R  W  OIBAPXM" ,s ,cr
 	0 ( nreg <? )(
 		"; " ,s dup ,h " : " ,s r@+
 		printstat
@@ -387,11 +400,8 @@ xop2a1 xop2a1 |,<< ,>>
 		sdump ,cr
 |	"r4asm/cod.asm" savemem	| DEBUG
 		) 2drop
+	markregout		
 	dumpregs
 |	"r4asm/cod.asm" savemem
 	;
 
-::stackanalisisa | end ini --
-	2dup getusedstack neg
-	stackini ( over <? )( @+ calcstack ) 2drop
-	;
