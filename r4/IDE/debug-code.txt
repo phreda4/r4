@@ -14,6 +14,7 @@
 
 ^r4/ide/r4-token.txt
 ^r4/ide/r4-tokenrun.txt
+^r4/ide/r4-stackana.txt
 |^r4/ide/r4-info.txt
 ^r4/ide/r4-tokenprint.txt
 
@@ -103,15 +104,21 @@
 	;
 
 |--------------------------------------------------------------------
+#lista )( 8192
+#lista> 'lista
+#cntlista
+#inipal
+#inipal>
+
+#curpal
+#initok
+#initok>
+
 :wordcntok | adr -- adr token cnt
 	dup 4+ @ over 12 + @ 20 >> $fff and ;
 
 :drawline
-	tokencolor
-	dup $ff and
-	5 =? ( drop sp tokenstr print cr ; )
-	drop
-	sp
+	tokencolor sp
 	tokenstr print cr allowchome ;
 
 :drawword | nro --
@@ -119,15 +126,13 @@
 	wordcntok
 	( 1? )( 1- swap @+ drawline swap ) 3drop ;
 
-|--------------------------------------------------------------------
-#lista )( 8192
-#lista> 'lista
-#cntlista
-#inipal
-#inipal>
-#curpal
-#initok
-#initok>
+:curpal! | nro --
+	dup 'curpal !
+	2 << 'lista + @ | nro real
+	dup 4+ @		| token
+	swap 12 + @ 20 >> $fff and over +	| token+len
+	swap stackanalisisa
+	;
 
 |--------------------------------------------------------------------
 :makelist
@@ -146,7 +151,7 @@
 	'lista> !
 
 	cntlista cntlinea - 0 max 'inipal !
-	cntlista 1- 'curpal !
+	cntlista 1- dup curpal!
 	;
 
 :vcode
@@ -158,7 +163,7 @@
 	printinfword
 	20 col
 	@ printinfovar ;
-	
+
 :drawlista
 	'lista inipal 2 << +
 	0 ( cntlinea <? )(
@@ -179,10 +184,10 @@
 	0 1 gotoxy
 	drawlista
 
-	[ curpal 1- 0 max 'curpal ! ; ] <pgup> |<up>
-	[ curpal 1+ cntlista 1- min 'curpal ! ; ] <pgdn> |<dn>
-|	[ curpal cntlinea - 0 max 'curpal ! ; ] <pgup>
-|	[ curpal cntlinea +  cntlista 1- min 'curpal ! ; ] <pgdn>
+	[ curpal 1- 0 max curpal! ; ] <pgup> |<up>
+	[ curpal 1+ cntlista 1- min curpal! ; ] <pgdn> |<dn>
+|	[ curpal cntlinea - 0 max curpal! ; ] <pgup>
+|	[ curpal cntlinea +  cntlista 1- min curpal! ; ] <pgdn>
 
 	curpal
 	inipal <? ( dup 'inipal ! )
@@ -192,6 +197,9 @@
 	chome cr chome!
 	curpal 2 <<  'lista + @
     drawword
+	chome
+	verde
+	stackadump
 	home
 	;
 
