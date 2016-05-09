@@ -11,6 +11,13 @@
 #nreg
 #reg )( 1024 | 256 registros
 
+| cstkR cstkD lugar
+|----------------------
+#stkidx )( 1024
+#stkidx> 'stkidx
+#stkmem )( 2048
+#stkmem> 'stkmem
+
 |----- pila para condicionales
 #sst )( 1024 | pila de pilas
 #sst> 'sst
@@ -341,6 +348,9 @@ xop2a1 xop2a1 |,<< ,>>
 |----------------------------------------
 :stackini | deep --
 	0 'nreg !
+	'stkidx 'stkidx> !
+	'stkmem 'stkmem> !
+
 	'dstack 'dstack> !
 	'rstack 'rstack> !
 	'ssc 'ssc> !
@@ -356,13 +366,28 @@ xop2a1 xop2a1 |,<< ,>>
 	0? ( drop ; )
     exec ;
 
+:smem!+
+	stkmem> c!+ 'stkmem> ! ;
+
+:storestack
+	stkmem> 'stkmem -
+    dstack> 'dstack - 2 >> 10 << or
+	rstack> 'rstack - 2 >> -? ( 0 nip ) | puede ser negativo!! SHOW
+	16 << or
+	stkidx> !+ 'stkidx> !
+	'dstack ( dstack> <? )( @+ smem!+ ) drop
+	'rstack ( rstack> <? )( @+ smem!+ ) drop
+	;
+
 ::stackanalisisa | end ini --
 	2dup getusedstack neg
-	stackini ( over <? )( @+ calcstack ) 2drop
+	stackini ( over <? )( @+ calcstack storestack ) 2drop
 	markregout
 	;
 
-:printstat | val --
+:printstat | nro val --
+	$ff00 nand? ( cyan )( blanco )
+	over 65 + " %k." print
 	dup $ff and "%d " print
 	dup 8 >> $ff and "%d " print
 	16 >> "%b " print
@@ -370,12 +395,28 @@ xop2a1 xop2a1 |,<< ,>>
 
 ::stackadump
 	'reg >r
-	" N:R  W  OIBAPXM" print cr
+	"   R  W  OIBAPXM" print cr
 	0 ( nreg <? )(
-		dup " %h." print r@+ printstat cr
+		r@+ printstat cr
 		1+ ) drop rdrop
 	;
 
+:.reg | nro --
+	dup 2 << 'reg + @
+	$ff00 nand? ( cyan )( blanco )
+	drop
+	65 + emit ;
+
+::printstack | nro --
+	2 << 'stkidx + @
+	dup $3ff and 'stkmem +
+	over 10 >> $3f and
+	( 1? )( 1- swap c@+ .reg swap ) drop
+	swap 16 >> $3f and
+	1? ( ":" print )
+	( 1? )( 1- swap c@+ .reg swap )
+	2drop
+	;
 |------------ print
 :fixtokenstr | cod -- ; fix width op print
 	tokenstr
