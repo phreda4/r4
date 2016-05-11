@@ -100,6 +100,106 @@
 	$d =? ( drop buscacte ; )
 	drop +buff ;
 
+|--- Constant Folding
+:genCTE ,cte 8 << 7 or ;
+
+:aa1@ | adr+ -- adr- a
+	4 - dup dup 4+ buffaux> over - 2 >> move | d s c
+	-4 'buffaux> +!
+	aa> ;
+
+:aa2@ | adr+ -- adr- a b
+	8 - dup dup 8 + buffaux> over - 2 >> move | d s c
+	-8 'buffaux> +!
+	aa> aa> swap ;
+
+:aa3@ | adr+ -- adr- a b c
+	12 - dup dup 12 + buffaux> over - 2 >> move | d s c
+	-12 'buffaux> +!
+	aa> aa> aa> rot rot swap ;
+
+:aa1! | adr- v -- adr-
+	dup >aa genCTE over 4 - ! ;
+
+:aa2@! | adr+ -- adr- a b
+	4 - dup dup 4 + buffaux> over - 2 >> move | d s c
+	-4 'buffaux> +!
+	aa> aa> swap ;
+
+:aa2! | adr- a b -- adr-
+	swap dup >aa genCTE pick2 8 - !
+	dup >aa genCTE over 4 - ! ;
+
+| adr+ val -- adr+
+:oAND	| ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ AND aa1! ;
+:oOR    | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ OR aa1! ;
+:oXOR   | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ XOR aa1! ;
+:oNOT   | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ NOT aa1! ;
+:o+		| ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ + aa1! ;
+:o-     | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ - aa1! ;
+:o*     | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ * aa1! ;
+:o/     | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ / aa1! ;
+:o*/    | abc -- d
+	aa# 3 <? ( 2drop -aa ; ) 2drop aa3@ */ aa1! ;
+:o*>>   | abc -- d
+	aa# 3 <? ( 2drop -aa ; ) 2drop aa3@ *>> aa1! ;
+:o/MOD  | ab -- cd
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@! /MOD aa2! ;
+:oMOD   | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ MOD aa1! ;
+:oABS   | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ ABS aa1! ;
+:oSQRT	| a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ SQRT aa1! ;
+:oCLZ	| a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ CLZ aa1! ;
+:o<</	| abc -- d
+	aa# 3 <? ( 2drop -aa ; ) 2drop aa3@ <</ aa1! ;
+:oNEG   | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ NEG aa1! ;
+:o1+    | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ 1+ aa1! ;
+:o4+    | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ 4+ aa1! ;
+:o1-    | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ 1- aa1! ;
+:o2/    | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ 2/ aa1! ;
+:o2*    | a -- b
+	aa# 1 <? ( 2drop -aa ; ) 2drop aa1@ 2* aa1! ;
+:o<<    | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ << aa1! ;
+:o>>    | ab -- c
+	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ >> aa1! ;
+
+#optim oAND	oOR oXOR oNOT o+ o- o* o/ o*/ o*>> o/MOD oMOD oABS oSQRT oCLZ o<</ oNEG o1+ o4+ o1- o2/ o2* o<< o>>
+
+:optN | adr+ val tok -- adr+
+	57 - 2 << 'optim + @ exec ;
+
+:addN | adr+ val tok -- adr+
+	drop tok>cte >aa ;
+
+:untoken | adr+ val tok -- adr+
+	7 >=? ( 10 <=? ( addN ; ) )		| numero
+	57 >=? ( 80 <=? ( optN ; ) )	| operacion
+	2drop -aa
+	;
+
+|--- optimiza buffer
+:ctefolding
+	'buffaux ( buffaux> <? )(
+		@+ dup $ff and untoken
+		) drop ;
+
 |--- copia y genera
 :copynivl | lugarniv --
 	dup 'niv - 2 << totoken + | niv tok
@@ -110,6 +210,7 @@
 	( c@+ pick3 >=? )( | mismo nivel o mayor
 		pick3 >? ( drop swap 4+ )( drop swap +buffer )
 		swap ) 4drop
+ 	ctefolding
 
 	buffaux> 'buffaux stackanalisis
 |	buffaux> 'buffaux compilatok
