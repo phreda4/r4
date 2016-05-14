@@ -31,6 +31,36 @@
 #fuente> 	| cursor
 #$fuente	| fin de texto
 
+#debugword 0
+#inihelp
+
+#initok
+#initok>
+#cnttok
+
+:searchw | adr -- pal
+	1+ indicepal<
+	( indicepal> <? )(	| adr ind
+		swap over @ <? ( drop 16 - ; )
+		swap 16 + ) nip
+	16 - ;
+
+:setdword | adr --
+	fuente> searchw
+	debugword =? ( drop ; )
+	dup 'debugword !
+	dup @ 1- 'inihelp !
+	dup 4+ @		| token
+	dup 'initok ! dup 'initok> !
+	swap
+	| no analiza dato!
+	dup 8 + @ 1 and? ( drop 12 + @ 20 >> $fff and 'cnttok ! drop ; ) drop
+	12 + @ 20 >> $fff and dup 'cnttok !
+	2 << over +	| token+len
+	swap stackanalisisa
+
+	;
+
 |---------------------------------
 :<<13 | a -- a
 	( fuente >=? )( dup c@
@@ -74,16 +104,16 @@
 	fuente> fuente =? ( drop ; )
 	dup 1- <<13 swap over - swap
 	dup 1- <<13 swap over - rot min + fuente max
-	'fuente> ! ;
+	'fuente> ! setdword ;
 
 :kabajo
 	fuente> $fuente >=? ( drop ; )
 	dup 1- <<13	over swap - swap >>13 1+
 	dup 1+ >>13 1+ over - rot min +
-	'fuente> ! ;
+	'fuente> ! setdword ;
 
-:kder fuente> $fuente <? ( 1+ 'fuente> ! ; ) drop ;
-:kizq fuente> fuente >? ( 1- 'fuente> ! ; ) drop ;
+:kder fuente> $fuente <? ( 1+ 'fuente> ! setdword ; ) drop ;
+:kizq fuente> fuente >? ( 1- 'fuente> ! setdword ; ) drop ;
 :kpgup  20 ( 1? )( 1- karriba ) drop ;
 :kpgdn	20 ( 1? )( 1- kabajo ) drop	;
 
@@ -91,6 +121,13 @@
 :gotosrc
 	<<ip 0? ( drop ; )
 	tok>src 'fuente> ! ;
+
+:debugline
+	20 col blanco
+	debugword 8 + @+ 1 and? ( printinfovar drop ; )
+|    printinfword
+    drop "| " print
+	@ printmovword ;
 
 :drawcode
 	barv
@@ -102,6 +139,7 @@
 		dup prilinea + "%d" print
        	ccw 2 << dup 'tx1 ! 'ccx !
 		swap
+		inihelp =? ( debugline lf )
 		drawcur lf
 		>>lineacolor0
 		0 'tx1 !
@@ -118,7 +156,7 @@
 	[ stepvmn gotosrc ; ] <f3>
 	[ resetvm gotosrc ; ] <f4>
 	[ viewscreen ; ] <f5>
-	
+
 	'karriba <up>	'kabajo <dn>
 	'kder <ri>		'kizq	<le>
 	'kpgup <pgup>	'kpgdn	<pgdn>
@@ -128,13 +166,10 @@
 #lista )( 8192
 #lista> 'lista
 #cntlista
+
 #inipal
 #inipal>
 #curpal
-
-#initok
-#initok>
-#cnttok
 
 :drawline | nro tok -- nro tok'
 	tokencolor sp
@@ -244,6 +279,7 @@
 |	cntwords "%d Words | " print
 	cntuwords "%d Used Words | " print
 	cntuvars  "%d Used Vars" print
+	debugword 1? ( @ " %w" print )( drop )
 
 
 	0 rows 1- gotoxy
