@@ -31,11 +31,25 @@
 #fuente> 	| cursor
 #$fuente	| fin de texto
 
-#debugword 0
-
 #initok
 #initok>
 #cnttok
+
+|--------------------------------------------------------------------
+:drawline | nro tok -- nro tok'
+	tokencolor sp
+	tokenstr print sp
+	20 col
+	over printstack
+	cr ;
+
+:drawword | --
+	initok
+	0 ( cntlinea <? )(
+		cnttok >=? ( 2drop ; ) -? ( 2drop ; )
+		swap
+		@+ drawline
+		swap 1+ ) 2drop ;
 
 :searchw | adr -- pal
 	1+ indicepal<
@@ -44,11 +58,8 @@
 		swap 16 + ) nip
 	16 - ;
 
-:setdword | adr --
+:setword | --
 	fuente> searchw
-
-	debugword =? ( drop ; )
-	dup 'debugword !
 	dup 4+ @		| token
 	dup 'initok ! dup 'initok> !
 	swap
@@ -57,8 +68,31 @@
 	12 + @ 20 >> $fff and dup 'cnttok !
 	2 << over +	| token+len
 	swap stackanalisisa
-
 	;
+
+|------------- INFOCODE
+:insideword
+	setword
+	show clrscr
+		$6600 ink 1 linesfill blanco
+		'ed.nombre " %s " print
+		cyan
+
+		0 rows 1- gotoxy
+		$2200 ink 1 linesfill blanco
+		verde dup ":R%d" print
+		blanco "dEBUG " printx
+		" |ESC-exit " print
+
+		0 1 gotoxy chome!
+	    drawword
+		30 0 gotoxy chome!
+		verde
+		stackadump
+
+		'exit >esc<
+		cminiflecha
+		;
 
 |---------------------------------
 :<<13 | a -- a
@@ -102,16 +136,16 @@
 	fuente> fuente =? ( drop ; )
 	dup 1- <<13 swap over - swap
 	dup 1- <<13 swap over - rot min + fuente max
-	'fuente> ! setdword ;
+	'fuente> ! ;
 
 :kabajo
 	fuente> $fuente >=? ( drop ; )
 	dup 1- <<13	over swap - swap >>13 1+
 	dup 1+ >>13 1+ over - rot min +
-	'fuente> ! setdword ;
+	'fuente> ! ;
 
-:kder fuente> $fuente <? ( 1+ 'fuente> ! setdword ; ) drop ;
-:kizq fuente> fuente >? ( 1- 'fuente> ! setdword ; ) drop ;
+:kder fuente> $fuente <? ( 1+ 'fuente> ! ; ) drop ;
+:kizq fuente> fuente >? ( 1- 'fuente> ! ; ) drop ;
 :kpgup  20 ( 1? )( 1- karriba ) drop ;
 :kpgdn	20 ( 1? )( 1- kabajo ) drop	;
 
@@ -137,8 +171,7 @@
 :debugline | adr
 	"  | " blanco print
 	winfo
-	( dup printw 16 + swap
-		over @ >? )( swap )
+	( dup printw 16 + swap over @ >? )( swap )
 	swap 'winfo !
 	;
 
@@ -147,7 +180,6 @@
 	0 1 gotoxy
 	pantaini>
 	dup searchw 'winfo !
-|	indicepal< 'winfo !
 	0 ( cntlinea <? )(
 		gris
 		dup prilinea + "%d" print
@@ -174,118 +206,12 @@
 	'karriba <up>	'kabajo <dn>
 	'kder <ri>		'kizq	<le>
 	'kpgup <pgup>	'kpgdn	<pgdn>
+
 	;
-
-|--------------------------------------------------------------------
-#lista )( 8192
-#lista> 'lista
-#cntlista
-
-#inipal
-#inipal>
-#curpal
-
-:drawline | nro tok -- nro tok'
-	tokencolor sp
-	tokenstr print sp
-	20 col
-	over printstack
-	cr ;
-
-:drawword | --
-	initok
-	0 ( cntlinea <? )(
-		cnttok >=? ( 2drop ; ) -? ( 2drop ; )
-		swap
-		@+ drawline
-		swap 1+ ) 2drop ;
-
-:curpal! | nro --
-	dup 'curpal !
-	2 << 'lista + @ | nro real
-	dup 4+ @		| token
-	dup 'initok ! dup 'initok> !
-	swap
-	| no analiza dato!
-	dup 8 + @ 1 and? ( drop 12 + @ 20 >> $fff and 'cnttok ! drop ; ) drop
-	12 + @ 20 >> $fff and dup 'cnttok !
-	2 << over +	| token+len
-	swap stackanalisisa
-	;
-
-|--------------------------------------------------------------------
-:makelist
-	'lista >r
-	indicepal< | solo las actuales
-|	'indicepal | todas las palabras
-	 ( indicepal> <? )(
-
-|		dup 8 + @ 1 nand? ( drop dup r!+ )( drop ) | solo palabras
-|		dup 8 + @ 1 nand? ( 12 >> $fff and 1? ( drop dup r!+ )( drop ) )( drop ) | solo llamadas code
-		dup 8 + @ 12 >> $fff and 1? ( drop dup r!+ )( drop ) | solo llamadas
-|		dup r!+	|todas
-
-		16 + ) drop
-	r> dup
-	'lista - 2 >> 'cntlista !
-	'lista> !
-
-	cntlista cntlinea - 0 max 'inipal !
-	cntlista 1- dup curpal!
-	;
-
-:vcode
-	printinfword 20 col @ printmovword ;
-
-:vdata
-	printinfovar drop ;
-
-:drawlista
-	'lista inipal 2 << +
-	0 ( cntlinea <? )(
-		curpal inipal - =? ( "*" print )
-		cntlista >=? ( 2drop ; ) -? ( 2drop ; )
-		swap
-		2 col
-		dup @
-		@+ "%w" print
-		4+ | @+ "%h " print
-		14 col
-		@+ 1 and? ( vdata )( vcode )
-		cr
-		4+ swap 1+ ) 2drop ;
-
-|------------- INFOCODE
-:infocode
-	0 1 gotoxy
-	drawlista
-
-	28 1 gotoxy chome!
-    drawword
-
-	30 0 gotoxy chome!
-	verde
-	stackadump
-	home
-
-	[ curpal 1- 0 max curpal! ; ] <le>
-	[ curpal 1+ cntlista 1- min curpal! ; ] <ri>
-	[ curpal cntlinea - 0 max curpal! ; ] <pgup>
-	[ curpal cntlinea +  cntlista 1- min curpal! ; ] <pgdn>
-
-	curpal
-	inipal <? ( dup 'inipal ! )
-	inipal cntlinea + >=? ( dup cntlinea - 1+ 'inipal ! )
-	drop
-
-	[ ; ] <up>
-	[ ; ] <dn>
-	;
-
 
 |------------------------------------------------
 :drawstatus
-	0 0 gotoxy
+	home
 	$6600 ink 1 linesfill blanco
 	'ed.nombre " %s " print
 	cyan
@@ -293,8 +219,6 @@
 |	cntwords "%d Words | " print
 	cntuwords "%d Used Words | " print
 	cntuvars  "%d Used Vars" print
-	debugword 1? ( @ " %w" print )( drop )
-
 
 	0 rows 1- gotoxy
 	$2200 ink 1 linesfill blanco
@@ -310,25 +234,18 @@
 	"|PILA D |PILA R  " printr
 	;
 
-
-#modoscreen 'drawcode
-
 :debugcode
 	resetvm
 	'fontdroidsans13 fontm
 |	fonti
 	clrscr
 	rows 2 - 'cntlinea !
-	makelist
 	4
 	show xfb>scr
-
-		modoscreen exec
-
-		[ modoscreen 'infocode =? ( 'drawcode )( 'infocode ) 'modoscreen ! drop ; ] <f1>
-
+		drawcode
     	drawstatus
 		'exit >esc<
+		'insideword <enter>
 		cminiflecha ;
 
 |-----------------------------
@@ -366,7 +283,6 @@
 	"debug.err" savemem
 	empty
 	;
-
 
 :main
 	0 paper
