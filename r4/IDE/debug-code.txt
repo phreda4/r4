@@ -31,8 +31,12 @@
 #fuente> 	| cursor
 #$fuente	| fin de texto
 
+#wlist
+#wnow
+
 #initok
 #initok>
+#nowtok>
 #cnttok
 
 |--------------------------------------------------------------------
@@ -40,14 +44,15 @@
 	tokencolor sp
 	tokenstr print sp
 	20 col
-	over printstack
+	over initok> initok - 2 >> + printstack
 	cr ;
 
 :drawword | --
-	initok
+	initok>
 	0 ( cntlinea <? )(
 		cnttok >=? ( 2drop ; ) -? ( 2drop ; )
 		swap
+		nowtok> =? ( blanco ">>" )( "  " ) print
 		@+ drawline
 		swap 1+ ) 2drop ;
 
@@ -61,13 +66,26 @@
 :setword | --
 	fuente> searchw
 	dup 4+ @		| token
-	dup 'initok ! dup 'initok> !
+	dup 'initok ! dup 'initok> ! dup 'nowtok> !
 	swap
 	| no analiza dato!
 	dup 8 + @ 1 and? ( drop 12 + @ 20 >> $fff and 'cnttok ! drop ; ) drop
 	12 + @ 20 >> $fff and dup 'cnttok !
 	2 << over +	| token+len
 	swap stackanalisisa
+	;
+
+:nowtok>+!
+	nowtok> +
+	initok <? ( 4+ )
+	dup initok - 2 >> cnttok >=? ( drop 4 - )( drop )
+	'nowtok> !
+
+	nowtok>
+	( initok> <? )( -4 'initok> +! )
+	cntlinea 1- 2 << -
+	( initok> >? )( 4 'initok> +! )
+	drop
 	;
 
 |------------- INFOCODE
@@ -89,6 +107,9 @@
 		30 0 gotoxy chome!
 		verde
 		stackadump
+
+		[ -4 nowtok>+! ; ] <up>
+		[ 4 nowtok>+! ; ] <dn>
 
 		'exit >esc<
 		cminiflecha
@@ -154,29 +175,6 @@
 	<<ip 0? ( drop ; )
 	tok>src 'fuente> ! ;
 
-#wlist
-#wnow
-#winfo
-
-:searchw | adr -- pal
-	indicepal<
-	( indicepal> <? )(	| adr ind
-		swap over @ <? ( drop ; )
-		swap 16 + ) nip
-	16 - ;
-
-:printw | adr --
-	8 + @+ 1 and? ( printinfovar drop ; )
-	printinfword " > " print
-    @ printmovword  ;
-
-:debugline | adr
-	"  | " blanco print
-	winfo
-	( dup printw 16 + swap over @ >? )( swap )
-	swap 'winfo !
-	;
-
 |------------ +info
 :nocr | adr adr· -- 1/0
 	over @ ( over <?  )(
@@ -185,7 +183,7 @@
 
 :cadalinea
 	( " " ,s dup ,printinfoword " " ,s
-	dup 16 + @ nocr 1? )( drop 16 + ) drop
+		dup 16 + @ nocr 1? )( drop 16 + ) drop
 	0 ,c
 	;
 
@@ -194,8 +192,8 @@
 	indicepal<
 	( indicepal> <? )(	| adr ind
 		dup
-		@ ,					| graba posicion de palabra
-		cadalinea |	" " ,s dup ,printinfoword " " ,s 0 ,c
+		@ ,				| graba posicion de palabra
+		cadalinea
 		16 + ) drop
 	0 ,
 	;
@@ -217,7 +215,6 @@
 	barv
 	0 1 gotoxy
 	pantaini>
-|	dup searchw 'winfo !
 	inwlist
 	0 ( cntlinea <? )(
 		gris
@@ -226,7 +223,6 @@
 		swap
 		drawcur lf
 		>>lineacolor0
-|		winfo @ >? ( debugline )
 		wnow @ >? ( wline )
 		0 'tx1 !
 		0? ( 2drop cntlinea $fuente )( cr )
