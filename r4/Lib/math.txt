@@ -1,5 +1,6 @@
 | :r4 base - bangle
 | 0--360
+| 0--2*pi
 | 0.0--1.0
 | resultado = [0..1.0) [0..$ffff]
 |---------------------------------
@@ -13,31 +14,26 @@
 
 ::sign | v -- v s
 	dup 31 >> 1 or ;
-	
+
 :sinp
 	$7fff and $3fff -
-	6.2831 *. | radianes->bangle
-	dup dup *. | f sqr
-	dup 498 *. | f sqr resul
-	10882 - *.
-	1.0 +
-	*. ;
+   	dup dup *.
+	dup 4876210 *.
+	2699161 - *.
+	411769 + *. ;
 
 ::cos | v -- r
 	$7fff + $8000 nand? ( sinp ; ) sinp neg ;
 ::sin | v -- r
 	$3fff + $8000 nand? ( sinp ; ) sinp neg ;
 
-| tan en radianes
 ::tan | v -- f
 	$3fff +
 	$7fff and $3fff -
-	6.2831 *. | radianes->bangle
 	dup dup *.
-	dup 13323 *.
-	20810 + *.
-	1.0 +
-	*. ;
+	dup 130457939 *.
+	5161701 + *.
+	411769 + *. ;
 
 ::sincos | bangle -- sin cos
 	dup sin swap cos ;
@@ -54,22 +50,14 @@
 ::polar2 | largo bangle  -- dx dy
 	sincos pick2 16 *>> >r 16 *>> r> ;
 
-::atan2 | x y -- bangle
-	swap
-	-? ( [ neg ; ] >r neg )
-	swap
-	+? (		| absy x
-		swap 2dup + >r - >r
-		0.125
-        dup
-	)(
-		2dup - >r + >r
-		0.375
-		0.125
-	)
-	r> r>
-	0? ( nip nip nip ; )
+:iatan2 | |x| y -- bangle
+	+? ( 2dup + >r swap - >r 0.125 )( 2dup - >r + >r 0.375 )
+	0.125 r> r> 0? ( nip nip nip ; )
 	*/ - ;
+
+::atan2 | x y -- bangle
+	swap -? ( neg swap iatan2 neg ; )
+	swap iatan2 ;
 
 ::distfast | dx dy -- dis
 	abs swap abs over <? ( swap ) | min max
