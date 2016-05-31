@@ -3,13 +3,24 @@
 |------------------------------------
 ^r4/ide/r4-dicc.txt
 
+#:dstackini
+
 #dstack )( 256
 #dstack> 'dstack
 #rstack )( 128
 #rstack> 'rstack
 
+|------ Celda de la pila
+| T Tipo (NUMERO CONSTANTE 'STRING CODIGO DATO REGISTRO)
+| M Indireccion de memoria
+| S tiene suma + ..
+| >> shift 00-1 01-2 10-4 11-8
+| >>SMTTTT
+
 #nreg
 #reg )( 1024 | 256 registros
+#rego )( 1024 | origen tipo
+#regv )( 1024 | valor
 
 | cstkR cstkD lugar
 |----------------------
@@ -37,6 +48,8 @@
 :newreg
 	nreg
 	0 over 2 << 'reg + !
+	0 over 2 << 'rego + !
+	0 over 2 << 'regv + !
 	1 'nreg +! ;
 
 :dpush	dstack> !+ 'dstack> ! ;
@@ -57,7 +70,6 @@
 :r.TOS  rstack> 4 - @ ;
 
 |----------------------------------------
-
 :regR	2 << 'reg + dup @ $1 + swap ! ;
 :regW	2 << 'reg + dup @ $100 + swap ! ;
 :regM	2 << 'reg + dup @ $10000 or swap ! ;	| direccion de memoria dato
@@ -65,7 +77,6 @@
 :regP	2 << 'reg + dup @ $40000 or swap ! ;	| parametro en pila
 :regA	2 << 'reg + dup @ $80000 or swap ! ;	| transpasa una palabra
 :regB	2 << 'reg + dup @ $100000 or swap ! ;	| transpasa un bloque
-
 :regI	2 << 'reg + dup @ $200000 or swap ! ;	| parametro IN
 :regO	2 << 'reg + dup @ $400000 or swap ! ;	| parametro OUT
 
@@ -75,8 +86,76 @@
 :regBLOset
 	'dstack ( dstack> <? )( @+ regB ) drop ;
 
-|----------------------------------------
+|-------- constantes del sistema
+#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
+"SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY" | []
+|-------- Registros del CPU
+#sysregs "eax" "ebx" "ecx" "edx" "edi" "esi" "ebp" "esp"
+#sysregw "ax" "bx" "cx" "dx" "di" "si" "bp"
+#sysregb "al" "bl" "cl" "dl" "*" "*" "*"
+|#sysregx "xmm1" "xmm2" "xmm3" "xmm4" "xmm5" "xmm6" "xmm7" "xmm8"
 
+:list2str swap ( 1? )( 1- swap >>0 swap ) drop ;
+
+|---- imprime celda
+:value	over 2 << 'regv + @ ;
+
+:mt0 value -? ( "(%d)" ,print ; ) "$%h" ,print ;	|--	0 nro 	33
+:mt1 value 'syscons list2str "(" ,s ,s ")" ,s ;		|--	1 cte	XRES
+:mt2 value "str%h" ,print ;			|--	2 str   "hola"
+:mt3 value "w%h" ,print ;			|--	3 cod  'func
+:mt4 value "w%h" ,print ;			|--	4 dat  'var
+:mt5 value 'sysregs list2str ,s ;	|-- 5 reg 	eax
+:mt6 value "_aa%h" ,print ;			|--	6 ANONIMA  'func
+#tiposrm mt0 mt1 mt2 mt3 mt4 mt5 mt6 0 0
+
+:mt5b value 'sysregb list2str ,s ;
+#tiposrmb mt0 mt1 mt2 mt3 mt4 mt5b mt6 0 0
+
+:mt5w value 'sysregw list2str ,s ;
+#tiposrmw mt0 mt1 mt2 mt3 mt4 mt5w mt6 0 0
+
+::,REG | nro --
+	'sysregs list2str ,s ;
+
+::,cell | nro --
+	dup 2 << 'rego + @
+	$10 and? ( "dword [" ,s )
+	dup $f and 2 << 'tiposrm + @ 1? ( exec ) | nro tipo .. nro tipo
+|	shift 1? ( "*" ,s dup ,d ) drop
+|	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	$10 and? ( "]" ,s )
+	2drop ;
+
+::,cellb | nro --
+	dup 2 << 'rego + @
+	$10 and? ( "dword [" ,s )
+	dup $f and 2 << 'tiposrmb + @ exec | nro tipo .. nro tipo
+|	shift 1? ( "*" ,s dup ,d ) drop
+|	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	$10 and? ( "]" ,s )
+	2drop ;
+
+::,cellw | nro --
+	dup 2 << 'rego + @
+	$10 and? ( "dword [" ,s )
+	dup $f and 2 << 'tiposrmw + @ exec | nro tipo .. nro tipo
+|	shift 1? ( "*" ,s dup ,d ) drop
+|	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	$10 and? ( "]" ,s )
+	2drop ;
+
+| nro -- nro
+:pushNRO	0 over 2 << 'rego ! ;
+:pushCTE	1 over 2 << 'rego ! ;
+:pushSTR	2 over 2 << 'rego ! ;
+:pushCOD	3 over 2 << 'rego ! ;
+:pushDAT	4 over 2 << 'rego ! ;
+:pushVAR	4 $10 or over 2 << 'rego ! ;
+:pushREG	5 over 2 << 'rego ! ;
+:pushANN	6 over 2 << 'rego ! ;
+
+|----------------------------------------
 :,drop	-4 'dstack> +! ;
 :,4drop ,drop
 :,3drop ,drop
@@ -163,8 +242,10 @@
 
 :convar | conver to var
 	sst@ dup 'ssc> !
-	'dstack ( dstack> <? )( @+ "%h " ,print ) drop " : " ,s
-	'rstack ( rstack> <? )( @+ "%h " ,print ) drop " -> " ,s
+
+|	'dstack ( dstack> <? )( @+ "%h " ,print ) drop " : " ,s
+|	'rstack ( rstack> <? )( @+ "%h " ,print ) drop " -> " ,s
+
 	'dstack 'dstack> !
 	( @+ -1 >? )( dpush ) drop
 	'rstack 'rstack> !
@@ -391,6 +472,7 @@ xop2a1 xop2a1 |,<< ,>>
 	dup $ff and "%d " print
 	dup 8 >> $ff and "%d " print
 	16 >> "%b " print
+	mark dup ,cell here printx empty
 	;
 
 ::stackadump
@@ -417,6 +499,21 @@ xop2a1 xop2a1 |,<< ,>>
 	( 1? )( 1- swap c@+ .reg swap )
 	2drop
 	;
+
+:,reg | nro --
+	65 + ,c ;
+
+::,printstack | nro --
+	2 << 'stkidx + @
+	dup $3ff and 'stkmem +
+	over 10 >> $3f and
+	( 1? )( 1- swap c@+ ,reg swap ) drop
+	swap 16 >> $3f and
+	1? ( ":" ,s )
+	( 1? )( 1- swap c@+ ,reg swap )
+	2drop
+	;
+
 |------------ print
 :fixtokenstr | cod -- ; fix width op print
 	tokenstr
@@ -445,17 +542,18 @@ xop2a1 xop2a1 |,<< ,>>
 	0 ( nreg <? )(
 		"; " ,s dup ,h " : " ,s r@+
 		printstat
+		" | " ,s
+		dup ,cell |2 << 'rego + @ "%h " ,print
 		,cr
 		1+ ) drop rdrop ;
 
 ::stackanalisis | end ini --
-	2dup getusedstack neg |dup maxdepth ";--- mD:%d uD:%d :" ,print ,cr
+	2dup getusedstack neg dup 'dstackini !
 	stackini
 	( over <? )(
 		@+ " ; " ,s dup fixtokenstr
 		calcstack
 		storestack
-
 		sdump ,cr
 |	"r4asm/cod.asm" savemem	| DEBUG
 		) 2drop
