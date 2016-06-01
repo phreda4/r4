@@ -19,8 +19,9 @@
 
 #nreg
 #reg )( 1024 | 256 registros
-#rego )( 1024 | origen tipo
+#regt )( 1024 | origen tipo
 #regv )( 1024 | valor
+
 
 | cstkR cstkD lugar
 |----------------------
@@ -48,15 +49,13 @@
 :newreg
 	nreg
 	0 over 2 << 'reg + !
-	0 over 2 << 'rego + !
+	0 over 2 << 'regt + !
 	0 over 2 << 'regv + !
-	1 'nreg +! ;
+	1 'nreg +!
+	;
 
 :dpush	dstack> !+ 'dstack> ! ;
 :dpop	-4 'dstack> +! dstack> @ ;
-
-:checkDtack
-	dstack> 'dstack <? ( trace ) drop ;
 
 :d.TOS   dstack> 4 - @ ;
 :d.NOS   dstack> 8 - @ ;
@@ -100,7 +99,7 @@
 |---- imprime celda
 :value	over 2 << 'regv + @ ;
 
-:mt0 value -? ( "(%d)" ,print ; ) "$%h" ,print ;	|--	0 nro 	33
+:mt0 value -? ( "(%d)" )( "$%h" ) ,print ;	|--	0 nro 	33
 :mt1 value 'syscons list2str "(" ,s ,s ")" ,s ;		|--	1 cte	XRES
 :mt2 value "str%h" ,print ;			|--	2 str   "hola"
 :mt3 value "w%h" ,print ;			|--	3 cod  'func
@@ -115,45 +114,65 @@
 :mt5w value 'sysregw list2str ,s ;
 #tiposrmw mt0 mt1 mt2 mt3 mt4 mt5w mt6 0 0
 
+:mtv0 value "%d" ,print ;	|--	0 nro 	33
+:mtv1 value 'syscons list2str ,s ;		|--	1 cte	XRES
+:mtv2 value "str%h" ,print ;			|--	2 str   "hola"
+:mtv3 value tok>name "'%w" ,print ;			|--	3 cod  'func
+:mtv4 value tok>name "%w" ,print ;			|--	4 dat  'var
+:mtv5 value 'sysregs list2str ,s ;	|-- 5 reg 	eax
+#tiposrmv mtv0 mtv1 mtv2 mtv3 mtv4 mtv5 0 0 0
+
 ::,REG | nro --
 	'sysregs list2str ,s ;
 
-::,cell | nro --
-	dup 2 << 'rego + @
+::,cellv | nro --
+	dup 2 << 'regt + @
 	$10 and? ( "dword [" ,s )
-	dup $f and 2 << 'tiposrm + @ 1? ( exec ) | nro tipo .. nro tipo
+	dup $f and 2 << 'tiposrmv + @ 1? ( exec )( drop )
+|	shift 1? ( "*" ,s dup ,d ) drop
+|	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	$10 and? ( "]" ,s )
+	2drop ;
+
+::,cell | nro --
+	dup 2 << 'regt + @
+	$10 and? ( "dword [" ,s )
+	dup $f and 2 << 'tiposrm + @ 1? ( exec )( drop )
 |	shift 1? ( "*" ,s dup ,d ) drop
 |	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
 	$10 and? ( "]" ,s )
 	2drop ;
 
 ::,cellb | nro --
-	dup 2 << 'rego + @
+	dup 2 << 'regt + @
 	$10 and? ( "dword [" ,s )
-	dup $f and 2 << 'tiposrmb + @ exec | nro tipo .. nro tipo
+	dup $f and 2 << 'tiposrmb + @ 1? ( exec )( drop )
 |	shift 1? ( "*" ,s dup ,d ) drop
 |	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
 	$10 and? ( "]" ,s )
 	2drop ;
 
 ::,cellw | nro --
-	dup 2 << 'rego + @
+	dup 2 << 'regt + @
 	$10 and? ( "dword [" ,s )
-	dup $f and 2 << 'tiposrmw + @ exec | nro tipo .. nro tipo
+	dup $f and 2 << 'tiposrmw + @ 1? ( exec )( drop )
 |	shift 1? ( "*" ,s dup ,d ) drop
 |	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
 	$10 and? ( "]" ,s )
 	2drop ;
 
-| nro -- nro
-:pushNRO	0 over 2 << 'rego ! ;
-:pushCTE	1 over 2 << 'rego ! ;
-:pushSTR	2 over 2 << 'rego ! ;
-:pushCOD	3 over 2 << 'rego ! ;
-:pushDAT	4 over 2 << 'rego ! ;
-:pushVAR	4 $10 or over 2 << 'rego ! ;
-:pushREG	5 over 2 << 'rego ! ;
-:pushANN	6 over 2 << 'rego ! ;
+:t! over 2 << 'regt + ! ;
+:v! over 2 << 'regv + ! ;
+
+| t nro -- t nro
+:rNRO	0 t! over 4 - @ tok>cte v! ;
+:rCTE	1 t! over 4 - @ tok>cte v! ;
+:rSTR	2 t! over 4 - @ v! ;
+:rCOD	3 t! over 4 - @ v! ;
+:rDAT	4 t! over 4 - @ v! ;
+:rVAR	$14 t! over 4 - @ v! ;
+:rREG	5 t! ;
+:rANN	6 t! ;
 
 |----------------------------------------
 :,drop	-4 'dstack> +! ;
@@ -187,15 +206,15 @@
 :,2v	newreg dpush
 :,1v	newreg dpush ;
 
-:,lit   newreg dpush ;
-:,str   newreg dpush ;
+:,lit   newreg rNRO dpush ;
+:,str   newreg rSTR dpush ;
 
 :,var	| vv
-	newreg dpush d.TOS regM ;
+	newreg rVAR dpush d.TOS regM ;
 :,dvar	| 'v
-	newreg dpush ;
+	newreg rDAT dpush ;
 :,dwor	| 'w
-	newreg dpush d.TOS regX ;
+	newreg rCOD dpush d.TOS regX ;
 
 :,wor	| ww
 	dup 4 - @ 8 >> dic>mov @
@@ -472,7 +491,9 @@ xop2a1 xop2a1 |,<< ,>>
 	dup $ff and "%d " print
 	dup 8 >> $ff and "%d " print
 	16 >> "%b " print
-	mark dup ,cell here printx empty
+|	dup 2 << 'regt + @  " %h " print
+|	dup 2 << 'regv + @  "%h " print
+	mark here over ,cellv 0 ,c printx empty
 	;
 
 ::stackadump
@@ -543,7 +564,9 @@ xop2a1 xop2a1 |,<< ,>>
 		"; " ,s dup ,h " : " ,s r@+
 		printstat
 		" | " ,s
-		dup ,cell |2 << 'rego + @ "%h " ,print
+		dup ,cell |
+|		dup 2 << 'regt + @ "%h " ,print
+|		dup 2 << 'regv + @ "%h " ,print
 		,cr
 		1+ ) drop rdrop ;
 
