@@ -81,6 +81,36 @@
 	$10 and? ( "]" ,s )
 	2drop ;
 
+:,TOS
+	;
+:,TOSb
+:,TOSw
+	;
+:,NOS
+	;
+:,NOSb
+	;
+:,NOSw
+	;
+:,RTOS
+	;
+
+|---- asigna celda
+
+:t! over 2 << 'regt + ! ;
+:v! over 2 << 'regv + ! ;
+
+| t nro -- t nro
+:rNRO	0 t! over 4 - @ tok>cte v! ;
+:rCTE	1 t! over 4 - @ tok>cte v! ;
+:rSTR	2 t! over 4 - @ v! ;
+:rCOD	3 t! over 4 - @ v! ;
+:rDAT	4 t! over 4 - @ v! ;
+:rVAR	$14 t! over 4 - @ v! ;
+
+:rREG	5 t! ;
+:rANN	6 t! ;
+
 
 |------------ compila CODIGO
 #strpending
@@ -173,8 +203,11 @@
 #contype
 
 :consimple
-	rd.tos cell2REG
-	rd.tos cellADR? 1? ( drop
+
+|	rd.tos cell2REG
+|	rd.tos cellADR?
+
+	1? ( drop
 		"cmp " ,s ,TOS ",0" ,ln ;
 			) drop
 	"or " ,s ,TOS "," ,s ,TOS ,cr
@@ -189,9 +222,10 @@
 :,-? 7 ,simple? ;
 
 :condoble
-	d.nos cell2REG
+|	d.nos cell2REG
     "cmp " ,s ,NOS "," ,s ,TOS ,cr
-	d.drop ;
+|	d.drop 
+	;
 
 :,doble?
 	'jmpstr ! 'condoble 'contype ! ;
@@ -204,9 +238,10 @@
 :,<? 5 ,doble?	;
 
 :conbit
-	d.nos cell2REG
+|	d.nos cell2REG
     "test " ,s ,NOS "," ,s ,TOS ,cr
-	d.drop ;
+|	d.drop 
+;
 
 :,bit?
 	'jmpstr ! 'conbit 'contype ! ;
@@ -232,13 +267,14 @@
 
 |----- BLOQUES
 :vpilad | ; ajusta pila para bloque
-	blINFO 16 >> neg vpila2fixdeep ;
+	blINFO 16 >> neg |vpila2fixdeep
+ ;
 
 :,cond | ; arma condicional
 |	d.cnt "; IC cnt:%d " ,print
 |	inivpcnt " inivpcnt:%d " ,print
 |	printddvtack
-	d.cnt inivpcnt - "; %d vpilafixdeep " ,print ,cr
+|	d.cnt inivpcnt - "; %d vpilafixdeep " ,print ,cr
 	contype
 |	'consimple =? ( d.cnt inivpcnt - vpila2fixdeep )( d.cnt inivpcnt - vpila2fixdeepTOS )
 	exec
@@ -249,8 +285,8 @@
 	;
 
 :,bloqueELSE
-	d.cnt inivpcnt - "; %d vpilafixdeep ELSE " ,print ,cr
-	d.cnt inivpcnt - vpila2fixdeep
+|	d.cnt inivpcnt - "; %d vpilafixdeep ELSE " ,print ,cr
+|	d.cnt inivpcnt - vpila2fixdeep
 	;
 
 :IFWORD | ; ?( word ; )
@@ -265,7 +301,7 @@
 |** No funciona cuando dentro del condicional tiene la pila distinta a la entrada!!
 :WHILE( | optimiza while
 	vpilad
-	vppush
+|	vppush
 	+etiqueta +etiqueta
 	,jmp ,etiqueta
 	drop bl)(
@@ -275,7 +311,7 @@
 	<pilac
 	,cond
 	,jmpinv ,label ,cr
-	vpdrop
+|	vpdrop
 	drop bl))
 	;
 
@@ -293,9 +329,11 @@
 	| *1 resolver aca si tiene que acomodar pila
 	$30 =? ( blSIZE 3 =? ( 2drop IFWORD ; ) drop )
 	$f and
-	1 <=? ( ,cond vppush +etiqueta ,jmpcond )	| IF/ELSE
+	1 <=? ( ,cond |vppush
+ +etiqueta ,jmpcond )	| IF/ELSE
 |	2 =? ( drop WHILE( ; )  |**
-	2 >=? ( vpilad vppush +etiqueta ,etiqueta )	| UNTIL/REPEAT
+	2 >=? ( vpilad |vppush 
++etiqueta ,etiqueta )	| UNTIL/REPEAT
 	drop
 ;
 
@@ -303,9 +341,11 @@
 |	blINFO ";BLK %h )( " ,print ,nl
 
 	blINFO $f and
-	1 =? ( ,bloqueELSE <pilac +etiqueta ,jmp ,etiqueta vppush vppick vpnip )	| ELSE
+	1 =? ( ,bloqueELSE <pilac +etiqueta ,jmp ,etiqueta |vppush vppick vpnip 
+)	| ELSE
 	2 =? ( |drop WHILE)( ; ) |**
-			,cond <pilac +etiqueta ,jmpcond >pilac vpdrop vppush )	| WHILE
+			,cond <pilac +etiqueta ,jmpcond >pilac |vpdrop vppush 
+)	| WHILE
 	drop
 	;
 
@@ -314,287 +354,304 @@
 	blINFO $f and
 	1 <=? (
 			over 8 - @ $ff and
-			$10 <>? ( vpFitAll ) drop
+|			$10 <>? ( vpFitAll ) 
+drop
 			<pilac ,etiqueta				| IF ELSE
 			)
 	2 =? ( |drop WHILE) ; ) |**
-			vpFitAll
+|			vpFitAll
 			<pilac ,jmp <pilac ,etiqueta )	| WHILE
 	3 =? ( ,cond <pilac ,jmpcond )			| UNTIL
 	4 =? ( <pilac ,jmp )					| REPEAT
 	drop
-	vpPop
+|	vpPop
 	block.end ;
 
 |------- EXEC
 :,EXECREG | reg --
 	"mov " ,s dup ,REG ",eax" ,s ,cr
-	d.drop vpila2normal
+|	d.drop
+ vpila2normal
 	over @ $ff and 			| word ;
 	$10 =? ( "jmp " )( "call " ) nip
 	,s ,REG ,cr
-	lastdircode vpila2callV ;
+|	lastdircode vpila2callV
+ ;
 
 :,EXECEAX
-	newreg? +? ( ,EXECREG ; ) drop
+|	newreg? +? ( ,EXECREG ; ) drop
 	"push eax" ,ln
-	d.drop vpila2normal
+|	d.drop vpila2normal
 	dup @ $ff and 			| word ;
 	$10 =? ( "ret" )( "pop ecx" ,ln "call ecx" ) nip
 	,s ,cr
-	lastdircode vpila2callV ;
+|	lastdircode vpila2callV
+ ;
 
 :,EXECall
-	"push " ,s d.tos ,CELL ,cr
-	d.drop vpila2normal
+	"push " ,s |d.tos ,CELL ,cr
+|	d.drop vpila2normal
 	dup @ $ff and 			| word ;
 	$10 =? ( "ret" )( "pop ecx" ,ln "call ecx" ) nip
 	,s ,cr
-	lastdircode vpila2callV ;
+|	lastdircode vpila2callV
+ ;
 
 :,EXEC | v --
-	d.tos
-	dup cellREG?
+|	d.tos
+|	dup cellREG?
 	-? ( 2drop ,EXECALL ; )	| no esta en registro
 	0? ( 2drop ,EXECEAX ; ) drop
-	d.drop vpila2normal
+|	d.drop vpila2normal
 	over @ $ff and 			| word ;
 	$10 =? ( "jmp " )( "call " ) nip
 	,s ,CELL ,cr
-	lastdircode vpila2callV ;
+|	lastdircode vpila2callV 
+;
 
 |------- PILAR
 :,>R
-	toknow 8 >> 1? ( drop d.pop r.push ; ) drop
-	"push " ,s ,TOS ,cr d.drop ;
+	toknow 8 >> 1? ( drop |d.pop r.push 
+; ) drop
+	"push " ,s ,TOS ,cr |d.drop 
+;
 
 :,R>
-	toknow 8 >> 1? ( drop r.pop d.push ; ) drop
-	newReg pushREG
+	toknow 8 >> 1? ( drop |r.pop d.push 
+; ) drop
+|	newReg pushREG
 	"pop " ,s ,TOS ,cr ;
 
 :,R
-	toknow 8 >> 1? ( drop r.tos d.push ; ) drop
-	7 pushREG d.tos cellMEM! | [esp]
+|	toknow 8 >> 1? ( drop r.tos d.push ; ) drop
+|	7 pushREG d.tos cellMEM! | [esp]
 	;
 |	newReg pushREG
 |	"mov " ,s ,TOS ",dword [esp]" ,ln ;
 
 :,RDROP
-	toknow 8 >> 1? ( drop r.drop ; ) drop
+|	toknow 8 >> 1? ( drop r.drop ; ) drop
 	"lea esp,[esp+4]" ,ln ;
 |	"add esp,4" ,ln ;
 
 :,R+a
-	r.tos cellREG? -? ( r.tos cell2REGW ) drop
+|	r.tos cellREG? -? ( r.tos cell2REGW ) drop
 	"add " ,s ,RTOS "," ,s ,TOS ,cr
-	d.drop ;
+|	d.drop 
+;
 
 :,R+
 	toknow 8 >> 1? ( drop ,R+a ; ) drop
-	d.tos cell2NMEM "add dword [esp]," ,s ,TOS ,cr d.drop ;
+|	d.tos cell2NMEM "add dword [esp]," ,s ,TOS ,cr d.drop 
+;
 
 :,R!+a
-	r.tos cellREG? -? ( r.tos cell2REGW ) drop
+|	r.tos cellREG? -? ( r.tos cell2REGW ) drop
 	"mov dword [" ,s ,RTOS "]," ,s ,TOS ,cr
 	"add " ,s ,RTOS ",4" ,ln
-	d.drop ;
+|	d.drop 
+;
 
 :,R!+
-	toknow 8 >> 1? ( drop ,R!+a ; ) drop
-	d.tos cell2NMEM
-	newReg |6 >? ( drop freelastreg newReg )
+|	toknow 8 >> 1? ( drop ,R!+a ; ) drop
+|	d.tos cell2NMEM
+|	newReg |6 >? ( drop freelastreg newReg )
 	"mov " ,s dup ,REG ",dword [esp]" ,ln
 	"mov dword [" ,s ,REG "]," ,s ,TOS ,cr
 	"add dword [esp],4" ,ln
-	d.drop ;
+|	d.drop 
+;
 
 :,R@+a
-	newReg pushREG
-	r.tos cell2NMEM
+|	newReg pushREG
+|	r.tos cell2NMEM
 	"mov " ,s ,TOS ",dword [" ,s ,RTOS "]" ,ln
 	"add " ,s ,RTOS ",4" ,ln
 |	4 r.tos Cell+ | add 4
 	;
 
 :,R@+
-	toknow 8 >> 1? ( drop ,R@+a ; ) drop
-	newReg pushREG
+|	toknow 8 >> 1? ( drop ,R@+a ; ) drop
+|	newReg pushREG
 	"mov " ,s ,TOS ",[esp]" ,ln
 	"mov " ,s ,TOS ",[" ,s ,TOS "]" ,ln
 	"add dword [esp],4" ,ln ;
 
 |------- optimizar celdas
 :oper21con
-	d.nos cellREG? 0 >=? ( d.nos swap removedup ; ) drop
-	d.tos cellREG? 0 >=? ( drop d.swap ; ) drop
-	d.nos cell2REGW ;
+|	d.nos cellREG? 0 >=? ( d.nos swap removedup ; ) drop
+|	d.tos cellREG? 0 >=? ( drop d.swap ; ) drop
+|	d.nos cell2REGW 
+;
 
 :directo1
-	d.tos cellNRO? 0? ( ; ) drop 1 ;
+|	d.tos cellNRO? 0? ( ; ) drop 1 
+;
 
 :directo2
-	d.nos cellNRO? 0? ( ; ) drop
-	d.tos cellNRO? 0? ( ; ) drop
+|	d.nos cellNRO? 0? ( ; ) drop
+|	d.tos cellNRO? 0? ( ; ) drop
 	1 ;
 
 :directo3
-	d.pk2 cellNRO? 0? ( ; ) drop
-	d.nos cellNRO? 0? ( ; ) drop
-	d.tos cellNRO? 0? ( ; ) drop
+|	d.pk2 cellNRO? 0? ( ; ) drop
+|	d.nos cellNRO? 0? ( ; ) drop
+|	d.tos cellNRO? 0? ( ; ) drop
 	1 ;
 
 
 |------- ARITMETICAS LOGICAS
 :,AND
-	directo2 1? ( drop d.pop cellVal d.pop cellVal and pushNRO ; ) drop
+|	directo2 1? ( drop d.pop cellVal d.pop cellVal and pushNRO ; ) drop
 	oper21con
 	"and " ,s ,NOS "," ,s ,TOS ,cr
-	d.drop ;
+|	d.drop ;
 :,OR
-	directo2 1? ( drop d.pop cellVal d.pop cellVal or pushNRO ; ) drop
+|	directo2 1? ( drop d.pop cellVal d.pop cellVal or pushNRO ; ) drop
 	oper21con
 	"or " ,s ,NOS "," ,s ,TOS ,cr
-	d.drop ;
+|	d.drop ;
 :,XOR
-	directo2 1? ( drop d.pop cellVal d.pop cellVal xor pushNRO ; ) drop
+|	directo2 1? ( drop d.pop cellVal d.pop cellVal xor pushNRO ; ) drop
 	oper21con
 	"xor " ,s ,NOS "," ,s ,TOS ,cr
-	d.drop ;
+|	d.drop ;
 
 :,+cte
-	d.tos cellVAL d.nos cell+! d.drop ;
+|	d.tos cellVAL d.nos cell+! d.drop ;
 
 :,+
-	directo2 1? ( drop d.pop cellVal d.pop cellVal + pushNRO ; ) drop
-	d.nos cellCTE? 1? ( drop d.tos cellNRO? 1? ( drop ,+cte ; ) ) drop
+|	directo2 1? ( drop d.pop cellVal d.pop cellVal + pushNRO ; ) drop
+|	d.nos cellCTE? 1? ( drop d.tos cellNRO? 1? ( drop ,+cte ; ) ) drop
 	oper21con
 	"add " ,s ,NOS "," ,s ,TOS ,cr
-	d.drop ;
+|	d.drop ;
 :,1+
-	directo1 1? ( drop d.pop cellVal 1+ pushNRO ; ) drop
-	d.tos cellCTE? 1? ( drop 1 d.tos cell+! ; ) drop
-	d.tos cell2REGW
+|	directo1 1? ( drop d.pop cellVal 1+ pushNRO ; ) drop
+|	d.tos cellCTE? 1? ( drop 1 d.tos cell+! ; ) drop
+|	d.tos cell2REGW
 	"add " ,s ,TOS ",1" ,ln ;
 :,4+
-	directo1 1? ( drop d.pop cellVal 4+ pushNRO ; ) drop
-	d.tos cellCTE? 1? ( drop 4 d.tos cell+! ; ) drop
-	d.tos cell2REGW
+|	directo1 1? ( drop d.pop cellVal 4+ pushNRO ; ) drop
+|	d.tos cellCTE? 1? ( drop 4 d.tos cell+! ; ) drop
+|	d.tos cell2REGW
 	"add " ,s ,TOS ",4" ,ln ;
 
 :,-cte
-	d.tos cellVAL neg d.nos cell+! d.drop ;
+|	d.tos cellVAL neg d.nos cell+! d.drop ;
 
 :,-
-	directo2 1? ( drop d.pop cellVal d.pop cellVal swap - pushNRO ; ) drop
-	d.nos cellCTE? 1? ( drop d.tos cellNRO? 1? ( drop ,-cte ; ) ) drop
-	d.nos cell2REGW
+|	directo2 1? ( drop d.pop cellVal d.pop cellVal swap - pushNRO ; ) drop
+|	d.nos cellCTE? 1? ( drop d.tos cellNRO? 1? ( drop ,-cte ; ) ) drop
+|	d.nos cell2REGW
 	"sub " ,s ,NOS "," ,s ,TOS ,cr
-	d.drop ;
+|	d.drop ;
 :,1-
-	directo1 1? ( drop d.pop cellVal 1- pushNRO ; ) drop
-	d.tos cellCTE? 1? ( drop -1 d.tos cell+! ; ) drop
-	d.tos cell2REGW
+|	directo1 1? ( drop d.pop cellVal 1- pushNRO ; ) drop
+|	d.tos cellCTE? 1? ( drop -1 d.tos cell+! ; ) drop
+|	d.tos cell2REGW
 	"sub " ,s ,TOS ",1" ,ln ;
 
 |--------------------------
 :,2*
-	directo1 1? ( drop d.pop cellVal 2* pushNRO ; ) drop
-	d.tos cell2REGW
+|	directo1 1? ( drop d.pop cellVal 2* pushNRO ; ) drop
+|	d.tos cell2REGW
 	"sal " ,s ,TOS ",1" ,ln ;
 
 :,<<
-	directo2 1? ( drop d.pop cellVal d.pop cellVal swap << pushNRO ; ) drop
-	d.tos cteorECX
-	d.nos cell2REGW
+|	directo2 1? ( drop d.pop cellVal d.pop cellVal swap << pushNRO ; ) drop
+|	d.tos cteorECX
+|	d.nos cell2REGW
 	"sal " ,s ,NOS "," ,s ,TOSb ,cr
-	d.drop ;
+|	d.drop ;
 
 :,*
-	directo2 1? ( drop d.pop cellVal d.pop cellVal * pushNRO ; ) drop
+|	directo2 1? ( drop d.pop cellVal d.pop cellVal * pushNRO ; ) drop
 	oper21con
 
 	| si d.tos es pow2..
 |	d.tos cellNRO? 1? ( drop d.tos cellVAL dup 1- and 0? ( drop d.tos cellVAL ) ) drop
 
 	"imul " ,s ,NOS "," ,s ,TOS ,cr
-	d.drop ;
+|	d.drop
+	;
 
 |--------------------------
 :,2/
-	directo1 1? ( drop d.pop cellVal 2/ pushNRO ; ) drop
-	d.tos cell2REGW
+|	directo1 1? ( drop d.pop cellVal 2/ pushNRO ; ) drop
+|	d.tos cell2REGW
 	"sar " ,s ,TOS ",1" ,ln ;
 
 :,>>
-	directo2 1? ( drop d.pop cellVal d.pop cellVal swap >> pushNRO ; ) drop
-	d.tos cteorECX
-	d.nos cell2REGW
+|	directo2 1? ( drop d.pop cellVal d.pop cellVal swap >> pushNRO ; ) drop
+|	d.tos cteorECX
+|	d.nos cell2REGW
 	"sar " ,s ,NOS "," ,s ,TOSb ,cr
-	d.drop ;
+|	d.drop ;
 
 :,/
-	directo2 1? ( drop d.pop cellVal d.pop cellVal swap / pushNRO ; ) drop
+|	directo2 1? ( drop d.pop cellVal d.pop cellVal swap / pushNRO ; ) drop
 	| si d.tos es pow2..
-	nosEAXtosREGMEMfreeEDX
+|	nosEAXtosREGMEMfreeEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-	d.drop ;
+|	d.drop ;
 
 :,/MOD
-	directo2 1? ( drop d.pop cellVal d.pop cellVal swap /mod swap pushNRO pushNRO ; ) drop
+|	directo2 1? ( drop d.pop cellVal d.pop cellVal swap /mod swap pushNRO pushNRO ; ) drop
 	| si d.tos es pow2..
-	nosEAXtosREGMEMfreeEDX
+|	nosEAXtosREGMEMfreeEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-	d.nos setEAX
-	d.tos setEDX ;
+|	d.nos setEAX
+|	d.tos setEDX ;
 
 :,MOD
-	directo2 1? ( drop d.pop cellVal d.pop cellVal swap mod pushNRO ; ) drop
+|	directo2 1? ( drop d.pop cellVal d.pop cellVal swap mod pushNRO ; ) drop
 	| si d.tos es pow2..
-	nosEAXtosREGMEMfreeEDX
+|	nosEAXtosREGMEMfreeEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-	d.drop
-	d.tos setEDX ;
+|	d.drop
+|	d.tos setEDX ;
 
 :,*/
-	directo3 1? ( drop d.pop cellVal d.pop cellVal d.pop cellVal swap rot */ pushNRO ; ) drop
-	pk2EAXtosnosREGMEMfreeEDX
+|	directo3 1? ( drop d.pop cellVal d.pop cellVal d.pop cellVal swap rot */ pushNRO ; ) drop
+|	pk2EAXtosnosREGMEMfreeEDX
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
-	d.2drop
-	d.tos setEAX ;
+|	d.2drop
+|	d.tos setEAX ;
 
 :,*>>
-	directo3 1? ( drop d.pop cellVal d.pop cellVal d.pop cellVal swap rot *>> pushNRO ; ) drop
+|	directo3 1? ( drop d.pop cellVal d.pop cellVal d.pop cellVal swap rot *>> pushNRO ; ) drop
 	| si d.nos es pow2..
-	d.nos cellREG? 0? ( d.pop d.swap d.push ) drop
-	pk2EAXnosREGMEMtosECXfreeEDX
+|	d.nos cellREG? 0? ( d.pop d.swap d.push ) drop
+|	pk2EAXnosREGMEMtosECXfreeEDX
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
-	d.2DROP
-	d.tos setEAX
+|	d.2DROP
+|	d.tos setEAX
 	;
 
 :,<</
-	directo3 1? ( drop d.pop cellVal d.pop cellVal d.pop cellVal swap rot <</ pushNRO ; ) drop
+|	directo3 1? ( drop d.pop cellVal d.pop cellVal d.pop cellVal swap rot <</ pushNRO ; ) drop
 	| si d.nos es pow2..
-	pk2EAXnosREGMEMtosECXfreeEDX
+|	pk2EAXnosREGMEMtosECXfreeEDX
 	"cdq" ,ln
 	"shld edx,eax," ,s ,TOSb ,cr
 	"shl eax," ,s ,TOSb ,cr
 	"idiv " ,s ,NOS ,cr
-	d.2DROP
-	d.tos setEAX ;
+|	d.2DROP
+|	d.tos setEAX ;
 
 :,ABS
-	directo1 1? ( drop d.pop cellVal abs pushNRO ; ) drop
-	d.tos cell2REGW
-	d.tos cellREG? 0? ( | EAX
+|	directo1 1? ( drop d.pop cellVal abs pushNRO ; ) drop
+|	d.tos cell2REGW
+|	d.tos cellREG? 
+0? ( | EAX
 		"cdq" ,ln
 		)(
 		"mov edx," ,s ,TOS ,cr
@@ -604,172 +661,172 @@
 	"xor " ,s ,TOS ",edx" ,ln ;
 
 :,CLZ
-	directo1 1? ( drop d.pop cellVal clz pushNRO ; ) drop
-	d.tos cell2REGW
+|	directo1 1? ( drop d.pop cellVal clz pushNRO ; ) drop
+|	d.tos cell2REGW
 	"bsr " ,s ,TOS  "," ,s ,TOS ,cr
 	"xor " ,s ,TOS ",31" ,ln ;
 :,NOT
-	directo1 1? ( drop d.pop cellVal not pushNRO ; ) drop
-	d.tos cell2REGW
+|	directo1 1? ( drop d.pop cellVal not pushNRO ; ) drop
+|	d.tos cell2REGW
 	"not " ,s ,TOS ,cr ;
 :,NEG
-	directo1 1? ( drop d.pop cellVal neg pushNRO ; ) drop
-	d.tos cell2REGW
+|	directo1 1? ( drop d.pop cellVal neg pushNRO ; ) drop
+|	d.tos cell2REGW
 	"neg " ,s ,TOS ,cr ;
 
 |------ MEMORIA
 :,@
-	d.tos cell2REGW
+|	d.tos cell2REGW
 	"mov " ,s ,TOS ",dword [" ,s ,TOS "]" ,ln ;
 :,C@
-	d.tos cell2REGW
+|	d.tos cell2REGW
 	"movsx " ,s ,TOS ",byte [" ,s ,TOS "]" ,ln ;
 :,W@
-	d.tos cell2REGW
+|	d.tos cell2REGW
 	"movsx " ,s ,TOS ",word [" ,s ,TOS "]" ,ln ;
 
 :,!
-	d.tos resguardavar
-	d.tos cell2NMEM
-	d.nos cell2NMEM
+|	d.tos resguardavar
+|	d.tos cell2NMEM
+|	d.nos cell2NMEM
 	"mov dword [" ,s ,TOS "]," ,s ,NOS ,cr
-	d.2DROP ;
+|	d.2DROP ;
 :,C!
-	d.tos resguardavar
-	d.tos cell2NMEM
-	d.nos cell2NMEM
+|	d.tos resguardavar
+|	d.tos cell2NMEM
+|	d.nos cell2NMEM
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
-	d.2DROP ;
+|	d.2DROP ;
 :,W!
-	d.tos resguardavar
-	d.tos cell2NMEM
-	d.nos cell2NMEM
+|	d.tos resguardavar
+|	d.tos cell2NMEM
+|	d.nos cell2NMEM
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
-	d.2DROP ;
+|	d.2DROP ;
 
 :,+!
-	d.tos resguardavar
-	d.nos cell2NMEM
-	d.tos cell2NMEM
+|	d.tos resguardavar
+|	d.nos cell2NMEM
+|	d.tos cell2NMEM
 	"add dword [" ,s ,TOS "]," ,s ,NOS ,cr
-	d.2DROP ;
+|	d.2DROP ;
 :,W+!
-	d.tos resguardavar
-	d.nos cell2NMEM
-	d.tos cell2NMEM
+|	d.tos resguardavar
+|	d.nos cell2NMEM
+|	d.tos cell2NMEM
 	"add word [" ,s ,TOS "]," ,s ,NOSw ,cr
-	d.2DROP ;
+|	d.2DROP ;
 :,C+!
-	d.tos resguardavar
-	d.nos cell2NMEM
-	d.tos cell2NMEM
+|	d.tos resguardavar
+|	d.nos cell2NMEM
+|	d.tos cell2NMEM
 	"add byte [" ,s ,TOS "]," ,s ,NOSb ,cr
-	d.2DROP ;
+|	d.2DROP ;
 
 :,!+
-	d.tos resguardavar
-    d.nos cell2NMEM
-	d.tos cell2REGW
+|	d.tos resguardavar
+|	d.nos cell2NMEM
+|	d.tos cell2REGW
 	"mov dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	"add " ,s ,TOS ",4" ,ln
-	d.NIP ;
+|	d.NIP ;
 :,W!+
-	d.tos resguardavar
-    d.nos cell2NMEM
-	d.tos cell2REGW
+|	d.tos resguardavar
+|	d.nos cell2NMEM
+|	d.tos cell2REGW
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	"add " ,s ,TOS ",2" ,ln
-	d.NIP ;
+|	d.NIP ;
 :,C!+
-	d.tos resguardavar
-    d.nos cell2NMEM
-	d.tos cell2REGW
+|	d.tos resguardavar
+|	d.nos cell2NMEM
+|	d.tos cell2REGW
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	"add " ,s ,TOS ",1" ,ln
-	d.NIP ;
+|	d.NIP ;
 
 :,@+
-	d.tos cell2REGW
-	newReg pushREG
+|	d.tos cell2REGW
+|	newReg pushREG
 	"mov " ,s ,TOS ",dword [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",4" ,ln ;
 :,W@+
-	d.tos cell2REGW
-	newReg pushREG
+|	d.tos cell2REGW
+|	newReg pushREG
 	"movsx " ,s ,TOS ",word [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",2" ,ln ;
 :,C@+
-	d.tos cell2REGW
-	newReg pushREG
+|	d.tos cell2REGW
+|	newReg pushREG
 	"movsx " ,s ,TOS ",byte [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",1" ,ln ;
 
 |--------- Sistema
 |#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB" | [] | "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY"
 
-:,SW 	0 pushCTE fullscreen 1? ( d.tos cellMEM! ) drop ;
-:,SH	1 pushCTE fullscreen 1? ( d.tos cellMEM! ) drop ;
+:,SW |	0 pushCTE fullscreen 1? ( d.tos cellMEM! ) drop ;
+:,SH	|1 pushCTE fullscreen 1? ( d.tos cellMEM! ) drop ;
 
-:,MEM	2 pushCTE d.tos cellMEM! ;
+:,MEM |	2 pushCTE d.tos cellMEM! ;
 
-:,FRAMEV	3 pushCTE ;
-:,XFB		4 pushCTE ;
+:,FRAMEV	|3 pushCTE ;
+:,XFB		|4 pushCTE ;
 
 :,BMOUSE | -- c
-	7 pushCTE d.tos cellMEM! ;
+|	7 pushCTE d.tos cellMEM! ;
 
 :,KEY	| -- c
-	8 pushCTE d.tos cellMEM! ;
+|	8 pushCTE d.tos cellMEM! ;
 
 :,PAPER | n --
-	d.tos cell2NMEM | no memoria []
+|	d.tos cell2NMEM | no memoria []
 	"mov [SYSPAPER]," ,s ,TOS ,cr
-	d.drop ;
+|	d.drop ;
 
 :,KEY! | v --
-	d.tos cell2NMEM | no memoria []
+|	d.tos cell2NMEM | no memoria []
 	"mov [SYSKEY]," ,s ,TOS ,cr
-	d.drop ;
+|	d.drop ;
 
 :,SETXYf | x y --
-	d.tos cellNRO? 1? ( drop
-		d.nos cellNRO? 1? ( drop
+|	d.tos cellNRO? 1? ( drop
+|		d.nos cellNRO? 1? ( drop
 			"lea ebp,[SYSFRAME+(" ,s ,TOS "*XRES+" ,s ,NOS ")*4]" ,ln
-			d.2drop ; ) drop ) drop
-	d.tos cell2NMEM
+|			d.2drop ; ) drop ) drop
+|	d.tos cell2NMEM
 |	"imul " ,s ,TOS ",XRES" ,ln	| cualquier ancho
 	"shl " ,s ,TOS ",10" ,ln	| 1024 de ancho
 
-	d.nos cell0? 0? ( "add " ,s ,TOS "," ,s ,NOS ,cr ) drop
+|	d.nos cell0? 0? ( "add " ,s ,TOS "," ,s ,NOS ,cr ) drop
 	"lea ebp,[SYSFRAME+" ,s ,TOS "*4]" ,ln
-	d.2DROP ;
+|	d.2DROP ;
 
 :,SETXY | x y --
 	fullscreen 0? ( drop ,SETXYf ; ) drop
-	d.tos cell2NMEM
+|	d.tos cell2NMEM
 	"imul " ,s ,TOS ",[XRES]" ,ln	| cualquier ancho
-	d.nos cell0? 0? ( "add " ,s ,TOS "," ,s ,NOS ,cr ) drop
+|	d.nos cell0? 0? ( "add " ,s ,TOS "," ,s ,NOS ,cr ) drop
 	"lea ebp,[SYSFRAME+" ,s ,TOS "*4]" ,ln
-	d.2DROP ;
+|	d.2DROP ;
 
 :,PX+!	| s --
-	d.tos cell2NMEM
+|	d.tos cell2NMEM
 	"lea ebp,[ebp+" ,s ,TOS "*4]" ,ln
-	d.drop ;
+|	d.drop ;
 
 :,PX!+	| rgb --
-	d.tos cell2NMEM
+|	d.tos cell2NMEM
 	"mov dword [ebp]," ,s ,TOS ,cr
 	"add ebp,4" ,ln
-	d.drop ;
+|	d.drop ;
 
 :,PX@	| -- rgb
-	newReg pushREG
+|	newReg pushREG
 	"mov " ,s ,TOS ",dword [ebp]" ,ln ;
 
 :,XYMOUSE | -- x y
-	newReg pushREG
-	newReg pushREG
+|	newReg pushREG
+|	newReg pushREG
 	"mov " ,s ,TOS ",[SYSXYM]" ,ln
 	"mov " ,s ,NOS "," ,s ,TOS ,cr
 	"and " ,s ,NOS ",$ffff" ,ln
@@ -778,33 +835,33 @@
 
 |---------- no implementadas
 :,CNTJOY
-	d.DUP "xor eax,eax" ,ln ;
+|	d.DUP "xor eax,eax" ,ln ;
 :,GETJOY ;
 :,SLOAD ;
-:,SPLAY  d.DROP ;
+:,SPLAY  |d.DROP ;
 :,SINFO ;
-:,SSET  d.DROP d.DROP d.DROP d.DROP ;
+:,SSET  |d.DROP d.DROP d.DROP d.DROP ;
 
 :,DOCINI :,DOCEND
 	;
 :,OPENURL	| url header buff -- buff/0
-	d.2drop ;
+|	d.2drop ;
 :,DOCAT     | x y --
-	d.2drop ;
+|	d.2drop ;
 :,DOCLINE	| x y --
-	d.2drop ;
+|	d.2drop ;
 :,DOCTEXT	| "tt" --
-	d.drop ;
+|	d.drop ;
 :,DOCFONT	| size angle "font" --
-	d.3drop ;
+|	d.3drop ;
 :,DOCBIT	| bitmap x y --
-	d.3drop ;
+|	d.3drop ;
 :,DOCRES	| -- xmax ymax
-	d.2dup ;
+|	d.2dup ;
 :,DOCSIZE	| "tt" -- w h
-	d.dup ;
+|	d.dup ;
 :,SYSTEM	| "sys" --
-	d.drop ;
+|	d.drop ;
 
 |----------- en asmbase.txt
 :,SQRT
@@ -815,14 +872,19 @@
 
 :,0 ;
 
+:,DUP :,DROP :,OVER :,PICK2 :,PICK3 :,PICK4 :,SWAP :,NIP
+:,ROT :,2DUP :,2DROP :,3DROP :,4DROP :,2OVER :,2SWAP
+;
+
+
 #acompila ,0
 ,defw ,defw ,defv ,defv ,0 ,0
 ,lit ,lit ,lit ,lit ,lits ,wor ,var ,dwo ,dva | 15
 ,; ,( ,)( ,) ,[ ,] ,EXEC	| 22
 ,0? ,+? ,-? ,1? ,=? ,<? ,>? ,<=? ,>=? ,<>? ,AND? ,NAND? | 34
 
-d.DUP d.DROP d.OVER d.PICK2 d.PICK3 d.PICK4 d.SWAP d.NIP	|--- pila 42
-d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 49
+,DUP ,DROP ,OVER ,PICK2 ,PICK3 ,PICK4 ,SWAP ,NIP	|--- pila 42
+,ROT ,2DUP ,2DROP ,3DROP ,4DROP ,2OVER ,2SWAP	| 49
 
 ,>R ,R> ,R ,R+ ,R@+ ,R!+ ,RDROP					|--- pila direcciones 56
 ,AND ,OR ,XOR ,NOT  							|--- logicas        60
@@ -856,14 +918,15 @@ d.ROT d.2DUP d.2DROP d.3DROP d.4DROP d.2OVER d.2SWAP	| 49
 |	" :" ,s inivpcnt ,d
 |	": " ,s printddvtack
 	" | " ,s
-	nlin stacknow! 1 'nlin +!
+|	nlin stacknow!
+ 1 'nlin +!
 	,printstack
 	,cr
 	"r4asm/cod.asm" savemem
 	;
 
 ::compilatok | bufend bufini --
-	2dup getusedstack neg inivpila
+|	2dup getusedstack neg inivpila
 	0 'strpending !
 	0 'nlin  !
 	( over <? )(
