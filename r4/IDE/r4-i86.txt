@@ -6,9 +6,14 @@
 
 #fullscreen 0
 
-|----- nro de str y label
-#nstr | nro de string
+#nstr 	| nro de string
 #nlabel | nro de etiqueta
+#nlin	| nro token
+
+#strpending		| handle %d.. in string
+#lastdircode	| handle 'code
+
+#stackdeep		| actual stack deep
 
 ::ini.compila
 	0 'nstr ! 0 'nlabel ! ;
@@ -96,25 +101,35 @@
 	;
 
 |---- asigna celda
+:TOSNRO 0 nlin setTOS ;
+:TOSCTE 1 nlin setTOS ;
+:TOSmCTE $11 nlin setTOS ;
+:TOSSTR 2 nlin setTOS ;
+:TOSCOD 3 nlin setTOS ;
+:TOSDAT 4 nlin setTOS ;
+:TOSVAR $14 nlin setTOS ;
+:TOSREG 5 nlin setTOS ;
+:TOSmREG $15 nlin setTOS ;
+:TOSANN 6 nlin setTOS ;
 
-:t! over 2 << 'regt + ! ;
-:v! over 2 << 'regv + ! ;
+|----------------------
+:inivpila
+	nlin gerstkcnt
+	dup 'stackdeep !
+	1- ( 1? )( 1- swap
+		c@+ $ff and | nro adr reg
+		5 $15 pick2 setREG
+		pick2 2 << swap set+	| [esi+..
+		swap ) drop
+	c@ $ff and
+	0 5 rot setREG | eax
+	;
 
-| t nro -- t nro
-:rNRO	0 t! over 4 - @ tok>cte v! ;
-:rCTE	1 t! over 4 - @ tok>cte v! ;
-:rSTR	2 t! over 4 - @ v! ;
-:rCOD	3 t! over 4 - @ v! ;
-:rDAT	4 t! over 4 - @ v! ;
-:rVAR	$14 t! over 4 - @ v! ;
-
-:rREG	5 t! ;
-:rANN	6 t! ;
-
+:vpila2normal
+	"normal " ,ln
+	;
 
 |------------ compila CODIGO
-#strpending
-#lastdircode
 
 :nro>dicname   8 >> 4 << 'indicepal + @ ; | nombre
 :nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
@@ -124,18 +139,14 @@
 	dup 4 - @ 8 >> dup
 	dic>inf dup @ $fff000 nand? ( 3drop ; ) | no tiene llamadas
 	$100 or swap !          | marcar falso inline
-|	vpila2normal			| normalizar por multiple entradas
+	vpila2normal			| normalizar por multiple entradas
 	dup 4 << 'indicepal + @ swap
 	"w%h: ; --- %w --- ;" ,print ,nl
 	;
 
 :,defv ;
-
-:,[
-	toknow 8 >> "_aa%h:" ,print ,nl ;
-:,]
-	toknow 8 >> |dup 'lastdircode !
-	;
+:,[	toknow 8 >> "_aa%h:" ,print ,nl ;
+:,] toknow 8 >> dup 'lastdircode ! ;
 
 :,wor
 |	vpila2normal
@@ -153,12 +164,8 @@
 :vpila2v
 	drop ; | reacomoda vpila
 
-:vpila2normal
-	;
-
 :,callsys | usapila? --
 	1? ( vpila2normal )  drop
-
 	dup @ $ff and | word ;
 	$10 =? ( "jmp " )( "call " ) nip
 	,s ;
@@ -186,15 +193,15 @@
 	vpila2normal
 	"ret" ,ln ;
 
-:,lit	toknow tok>cte ; |pushNRO ;
+:,lit	toknow tok>cte TOSNRO ;
 :,lits
 		toknow tok>mem strusestack
 		'strpending ! drop
-		nstr |pushSTR
+		nstr TOSSTR
 		1 'nstr +! ;
-:,dwo	toknow 8 >> dup 'lastdircode ! ; |pushCOD ;
-:,dva   toknow 8 >> ; |pushDAT ;
-:,var	toknow 8 >> ; |pushVar ;
+:,dwo	toknow 8 >> dup 'lastdircode ! TOSCOD ;
+:,dva   toknow 8 >> TOSDAT ;
+:,var	toknow 8 >> TOSVAR ;
 
 |-------- CONDICIONALES
 |#jmplist "jz" "jnz" "jg" "jle" "jl" "jge" "js" "jns"
@@ -224,7 +231,7 @@
 :condoble
 |	d.nos cell2REG
     "cmp " ,s ,NOS "," ,s ,TOS ,cr
-|	d.drop 
+|	d.drop
 	;
 
 :,doble?
@@ -332,7 +339,7 @@
 	1 <=? ( ,cond |vppush
  +etiqueta ,jmpcond )	| IF/ELSE
 |	2 =? ( drop WHILE( ; )  |**
-	2 >=? ( vpilad |vppush 
+	2 >=? ( vpilad |vppush
 +etiqueta ,etiqueta )	| UNTIL/REPEAT
 	drop
 ;
@@ -650,7 +657,7 @@ drop
 :,ABS
 |	directo1 1? ( drop d.pop cellVal abs pushNRO ; ) drop
 |	d.tos cell2REGW
-|	d.tos cellREG? 
+|	d.tos cellREG?
 0? ( | EAX
 		"cdq" ,ln
 		)(
@@ -764,19 +771,13 @@ drop
 |--------- Sistema
 |#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB" | [] | "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY"
 
-:,SW |	0 pushCTE fullscreen 1? ( d.tos cellMEM! ) drop ;
-:,SH	|1 pushCTE fullscreen 1? ( d.tos cellMEM! ) drop ;
-
-:,MEM |	2 pushCTE d.tos cellMEM! ;
-
-:,FRAMEV	|3 pushCTE ;
-:,XFB		|4 pushCTE ;
-
-:,BMOUSE | -- c
-|	7 pushCTE d.tos cellMEM! ;
-
-:,KEY	| -- c
-|	8 pushCTE d.tos cellMEM! ;
+:,SW 		fullscreen 1? ( 0 TOSmCTE )( 0 TOSCTE ) drop ;
+:,SH 		fullscreen 1? ( 1 TOSmCTE )( 1 TOSCTE ) drop ;
+:,MEM 		2 TOSmCTE ;
+:,FRAMEV	3 TOSCTE ;
+:,XFB		4 TOSCTE ;
+:,BMOUSE	7 TOSmCTE ;
+:,KEY		8 TOSmCTE ;
 
 :,PAPER | n --
 |	d.tos cell2NMEM | no memoria []
@@ -911,29 +912,28 @@ drop
 ,DOCINI ,DOCEND ,DOCAT ,DOCLINE ,DOCTEXT ,DOCFONT ,DOCBIT ,DOCRES ,DOCSIZE  |-- impresora
 ,SYSTEM
 
-#nlin
+
 |------------------------------
 :imprimedebug | token -- token
-	" ; " ,s dup tokenstr ,print
+	" ; " ,s dup $ff and ,h " " ,s dup tokenstr ,print
 |	" :" ,s inivpcnt ,d
 |	": " ,s printddvtack
 	" | " ,s
-|	nlin stacknow!
- 1 'nlin +!
-	,printstack
+	nlin ,printstack
 	,cr
 	"r4asm/cod.asm" savemem
 	;
 
 ::compilatok | bufend bufini --
-|	2dup getusedstack neg inivpila
+	inivpila
 	0 'strpending !
 	0 'nlin  !
 	( over <? )(
 		@+
 		imprimedebug
 		$ff and 2 << 'acompila + @ exec
-		) 2drop ;
+		 1 'nlin +!
+		 ) 2drop ;
 
 ::compilafull
 	1 'fullscreen ! ;
