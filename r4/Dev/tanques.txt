@@ -5,17 +5,6 @@
 ^r4/lib/part16.txt
 ^r4/dev/tanque.spr
 
-|tanque1
-#xt -0.5 #yt #dt 0 #vt #adt
-#xb #yb #db #vxb #vyb #tb
-#danio
-
-|tanque2
-#xt2 0.5 #yt2 #dt2 0.5 #vt2 #adt2
-#xb2 #yb2 #db2 #vxb2 #vyb2 #tb2
-#danio2
-
-
 #tanques 0 0
 #misiles 0 0
 #piedras 0 0
@@ -80,15 +69,32 @@
 	rdrop ;
 
 
+:pmisil
+	dup @ 1- 0? ( nip ; )	| tiempo de vida
+	swap !+ >r
+|	$3 and? ( yb xb +estela )
+	r@+ r@+ fpos
+	48 qdim
+	'misil r@+ rnsprite
+	r@+ r 16 - +!
+	r@+ r 16 - +!
+|	xb yb xt2 yt2 distancia
+|	0.0025 <? ( golpet2 ) drop
+	rdrop
+	;
 
-:disparo
-	tb 1? ( drop ; ) drop
-	dup >r
-	r@+ 'xb ! r@+ 'yb ! r> 4+ @ 'db !
-	db sincos 0.01 *. 'vxb ! 0.01 *. 'vyb !
-	175 'tb ! ;
+:+misil
+	dup >r r@+ r@+ r> 4+ @	| x y d
+	'pmisil 'misiles p!+ >r
+	170 r!+
+	rot r!+ swap r!+
+	dup r!+
+	sincos 0.01 *. r!+ 0.01 *. r!+
+	rdrop ;
 
 
+
+|-------------------------
 :oruga
 	over
 	0? ( drop
@@ -133,16 +139,9 @@
 	r dup @ swap 8 - @ drawtan | vt dt
 	sincos pick2 *. r 20 - +! *. r 16 - +!
 	r> 20 -
-	'disparo <dn>
+	'+misil <dn>
 	drop
 	;
-
-:disparo2
-	tb2 1? ( drop ; ) drop
-	dup >r
-	r@+ 'xb2 ! r@+ 'yb2 ! r> 4+ @ 'db2 !
-	db2 sincos 0.01 *. 'vxb2 ! 0.01 *. 'vyb2 !
-	175 'tb2 ! ;
 
 :t2
 	>r
@@ -163,7 +162,7 @@
 	r dup @ swap 8 - @ drawtan2 | vt dt
 	sincos pick2 *. r 20 - +! *. r 16 - +!
 	r> 20 -
-	'disparo2 31 ?key
+	'+misil 31 ?key
 	drop
 	;
 
@@ -186,7 +185,7 @@
 	r dup @ swap 8 - @ | vt dt
 	sincos pick2 *. r 20 - +! *. r 16 - +!
 	r> 20 -
-	'disparo2 31 ?key
+	'+misil 31 ?key
 	drop
 	;
 
@@ -220,59 +219,26 @@
 		'exit >esc< ;
 
 :golpet1
-	0 'tb2 ! 0 'vt !
-	10 'danio +!
-	danio 100 >=? ( ganotanque2 exit ) drop
-	10 ( 1? )( yt xt +humo 1- ) drop
+|	0 'tb2 ! 0 'vt !
+|	10 'danio +!
+|	danio 100 >=? ( ganotanque2 exit ) drop
+|	10 ( 1? )( yt xt +humo 1- ) drop
 	;
 
 :golpet2
-	0 'tb ! 0 'vt2 !
-	10 'danio2 +!
-	danio2 100 >=? ( ganotanque1 exit ) drop
-	10 ( 1? )( yt2 xt2 +humo 1- ) drop
-	;
-
-
-:bala1
-	tb 0? ( drop ; )
-	$3 and? ( yb xb +estela )
-	drop
-	48 qdim xb yb fpos
-	'misil db rnsprite
-
-	vxb 'xb +! vyb 'yb +! -1 'tb +!
-
-	xb yb xt2 yt2 distancia
-	0.0025 <? ( golpet2 ) drop
-	;
-
-:bala2
-	tb2 0? ( drop ; )
-	$3 and? ( yb2 xb2 +estela )
-	drop
-	48 qdim xb2 yb2 fpos
-	'misil db2 rnsprite
-
-	vxb2 'xb2 +! vyb2 'yb2 +! -1 'tb2 +!
-
-	xb2 yb2 xt yt distancia
-	0.0025 <? ( golpet1 ) drop
+|+	0 'tb ! 0 'vt2 !
+|	10 'danio2 +!
+|	danio2 100 >=? ( ganotanque1 exit ) drop
+|	10 ( 1? )( yt2 xt2 +humo 1- ) drop
 	;
 
 
 :main
 	reset
-	$3f3f paper
 	show clrscr
-		"tanques " print
-		danio "t1: %d " print
-		danio2 "t2: %d" print
-
-		bala1
-		bala2
 
 		'tanques p.draw
+		'misiles p.draw		
 		'fx p.draw
 
 		'exit >esc<
