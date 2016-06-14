@@ -1,0 +1,154 @@
+| vox import
+| PHREDA 2016
+|-------------------
+
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/sort.txt
+^r4/lib/bsearch.txt
+^r4/lib/morton.txt
+^r4/lib/dlg.txt
+^r4/lib/dlgfile.txt
+^r4/lib/dlgcol.txt
+
+^r4/lib/ricons.txt
+^inc/ric/fontawesomewebfont.ric
+
+^r4/3d/octree/iso_12.txt
+^r4/3d/buildoctree.txt
+^r4/3d/wirelib.txt
+
+^r4/3d/loadvox.txt
+
+#filename )( 1024
+
+|------ vista
+#xcam 0 #ycam 0 #zcam 1.6
+#rx #ry
+
+|------ ajustes
+:setvoxsize | level -- level
+	dup 'deepvox !
+	1 over << 1- 'qsize !
+	;
+
+:drawvoxel
+	$inifile dup @ 16 >> $3d00 <>? ( 2drop ; ) drop
+	maskb.clear
+	drawoctree ;
+
+|----------------
+:clearvox
+	memvox 'memvox> ! ;
+
+:vox-cnt-mem | -- cnt mem
+	memvox memvox> over - 3 >> 1+ swap ;
+
+:vox! | c x y z --
+	mortonlut
+:mvox! | c m --
+	memvox> !+ !+ 'memvox> ! ;
+
+:vox@ | x y z -- c
+	memvox> memvox - 0? ( 4drop -1 ; ) drop
+	mortonlut vox-cnt-mem binsearch
+	0? ( -1 nip ; ) 4+ @ ;
+
+:vox@a | x y z -- a
+	memvox> memvox - 0? ( 4drop -1 ; ) drop
+	mortonlut vox-cnt-mem binsearch
+	0? ( -1 nip ; ) 4+ ;
+
+:vox- | x y z --
+	memvox> memvox - 0? ( 4drop ; ) drop
+	mortonlut vox-cnt-mem binsearch
+	0? ( drop ; ) | adr
+	dup 8 +   | dest src
+	memvox> over - 2 >> move
+	-8 'memvox> +! ;
+
+:impvox
+	"media/vox" dlgfileload 0? ( drop ; )
+	mark
+	dup 'filename strcpy
+	loadvox '$inifile !
+	empty
+	voxqsize
+	setvoxsize drop
+	clearvox
+	[ vox! ; ] mapvox32
+	centravoxel
+	buildoctree
+	;
+
+|------ rotar
+#xm #ym
+
+:dnlook
+	xymouse 'ym ! 'xm ! ;
+
+:movelook
+	xymouse
+	ym over 'ym ! - 7 << 'rx +!
+	xm over 'xm ! - neg 7 << neg 'ry +! ;
+
+:main
+	4 setvoxsize drop
+	voxelbox
+	clearvox
+	buildoctree
+	$f0f0f paper
+	4 show clrscr
+		fonti
+		verde oscuro 2 linesfill blanco
+		dup ":r%d VoxelEditor " print
+		octre> octre - 2 >> memvox> memvox - 3 >>
+		"[ %d Pnts %d Nods ]" print cr
+		'filename sp print
+|		curz cury curx "x:%d y:%d z:%d" print
+|		cr
+
+		|------
+		3dini
+		rx mrotx ry mroty
+		xcam ycam zcam mtrans
+		draw3dgrid
+
+		drawvoxel
+		'dnlook 'movelook guiDnMove 
+
+		|------
+		1 rows 4 - gotoxy azul
+		azul
+		qsize 1+ dup dup "%dx%dx%d" print cr cr
+		naranja
+		'voxelcuad "Q"  sp btnt
+		'voxelbox "L"  sp btnt
+		'voxelboxc "B"  sp btnt
+
+		24 qdim
+		sw 12 - 12 pos
+		rojo 'exit dup >esc< btne blanco 'i.off drawric
+
+		|------ key vista
+		[ zcam 0.1 >? ( 0.1 - ) 'zcam ! ; ] <up>
+		[ zcam 1.8 <? ( 0.1 + ) 'zcam ! ; ] <dn>
+		[ 0.01 'ry +! ; ] <le>
+		[ -0.01 'ry +! ; ] <ri>
+		'impvox <f1>
+
+		cminiflecha ;
+
+|--------------------------
+:memory
+	mark
+	3dini
+	maskb.ini
+	here
+	dup 'memvox !
+	dup 'memvox> !
+	$ffffff +
+	'here !
+	;
+
+: memory main ;
