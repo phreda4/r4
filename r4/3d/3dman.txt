@@ -1,0 +1,176 @@
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+
+^r4/lib/part16.txt
+
+^r4/lib/trace.txt
+
+^r4/lib/3d-escena.txt
+^r4/dev/games/actores.spr
+
+#player 0 0
+
+|-----------------------------
+:3dop project3d op ;
+:3dline project3d line ;
+
+#sizx #sizy #sizz
+
+:drawz | z --
+	sizx neg sizy neg pick2 3dop
+	sizx sizy neg pick2 3dline
+	sizx sizy pick2 3dline
+	sizx neg sizy pick2 3dline
+	sizx neg sizy neg rot 3dline ;
+
+:drawl | x1 x2 --
+	2dup sizz neg 3dop sizz 3dline ;
+
+:box3d | sx sy sz --
+	'sizz ! 'sizy ! 'sizx !
+	sizz neg drawz sizz drawz
+	sizx neg sizy neg drawl sizx sizy neg drawl
+	sizx sizy drawl sizx neg sizy drawl
+	;
+
+|---------------------------------------------
+:r0001 rand 0.001 mod ;
+:r001 rand 0.01 mod ;
+:r01 rand 0.1 mod ;
+:r1 rand 1.0 mod ;
+:r10 rand 10.0 mod ;
+:r100 rand 100.0 mod ;
+
+|---------------------------------------------
+#xcam #ycam 2.0 #zcam 8.0
+#cosas 0 0
+
+|---------------------------------------------
+:mesaupd
+	r001 r001 r001 actor+!
+|	dup 12 + @ abs 8.0 >? ( drop 0 ; ) drop
+|	dup 4 + @ abs 8.0 >? ( drop 0 ; ) drop
+	dup 16 + >r
+	r@+ r 16 - +!
+	r@+ r 16 - +!
+	r@+ r 16 - +!
+
+	esc.z+ ;
+
+:mesadraw
+	mpush
+	esc.pos
+	0.5 0.5 0.5 box3d
+|	'arbol 3dnsprite
+	mpop
+	;
+
+
+:cosa+
+	'cosas esc. >r
+	'mesaupd r!+ |'cosas esc!+ >r
+	r100 r!+ r01 r!+ r100 r!+ | x y z
+	0.0 r!+ 0 r!+ 0 r!+ | rx ry rz
+	2.0 r!+ 1.0 r!+ 'mesadraw r!+
+	rdrop ;
+
+:cosa+xy | x y --
+	'cosas esc. >r
+	'mesaupd r!+ |'cosas esc!+ >r
+	r!+ 0 r!+ r!+ | x y z
+	0.01 r!+ 0 r!+ 0 r!+ | rx ry rz
+	2.0 r!+ 1.0 r!+ 'mesadraw r!+
+	rdrop ;
+
+
+:p1
+	dup >r
+	24 +
+	[ 0.005 over ! ; ] <le>
+	[ -0.005 over ! ; ] <ri>
+	[ 0 over ! ; ] >le<
+	[ 0 over ! ; ] >ri<
+	[ 0.01 over 4+ ! ; ] <up>
+	[ 0 over 4+ ! ; ] >up<
+	[ -0.01 over 4+ ! ; ] <dn>
+	>r
+ 	r@+ r 4+ +!
+	r@+ r 4+ !
+	r@+ dup r 20 - !
+	r@+
+	swap sincos pick2 *. r 40 - +! *. r 32 - +!
+	rdrop
+	mpush
+	r@+ r@+ r@+ mtransi
+	r@+ 1? ( mrotxi )( drop )
+	r@+ 1? ( mrotyi )( drop )
+	r@+ 1? ( mrotzi )( drop )
+	0.5 0.5 0.5 box3d
+	mpop
+	rdrop
+	;
+
+:reset
+	'player p.clear
+
+	'p1 'player p!+ >r
+	0 0 0 r!+ r!+ r!+
+	0 0 0 r!+ r!+ r!+
+	0 r!+ | ddir
+	0 r!+ | dav
+	0 r!+ | dir
+	0 r!+ | av
+
+
+	100 r!+	| energia
+	1 r!+ | id
+	rdrop
+	;
+
+|-----------------------------------
+:freelook
+; :Z
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - 7 << swap
+	neg mrotx mroty ;
+
+:grilla
+	-200.0 ( 100.0 <? )(
+		-200.0 ( 100.0 <? )(
+|			2dup
+			over rand 2.5 mod + over rand 2.5 mod +
+			cosa+xy
+			10.0 + ) drop
+		10.0 + ) drop
+	;
+
+#av
+:main
+|	loadescena
+|	5000 ( 1? )( cosa+ 1- ) drop
+	grilla
+	reset
+	show clrscr
+
+		omode
+		freelook
+		xcam ycam zcam mtrans
+
+		'player p.draw
+
+		esc.zclear
+		'cosas esc.draw
+		esc.zdraw
+
+		'exit >esc<
+		cminiflecha  ;
+
+
+:inimem
+	mark
+	$fffff 'cosas esc.create
+	10 'player p.ini
+	;
+
+: inimem main ;
