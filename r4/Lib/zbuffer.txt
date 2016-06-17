@@ -1,195 +1,76 @@
-| mask buffer - convex polyfill
-| PHREDA 2015
+| zbuffer - convex polyfill
+| PHREDA 2016
 |-------------------------
-^r4/lib/3dmat.txt
+#zb
+#zbw #zbh
+#zcnt #zbo
 
-#zb		| mem maskbuffer
 #segs	| mem polys
-
 #py #px
 #ymin 0
 #ymax 1023
 
-|--- maskbuffer | sw*sh
-:mask.adr | x y -- d
-	sw * + 2 << zb + ;
+|--- maskbuffer | zbw*zbh
+:zb.adr | x y -- d
+	zbw * + 2 << zb + ;
 
-::maskb.get | x y -- b
-	mask.adr @ ;
+::zb@ | x y -- b
+	zb.adr @ ;
 
-::maskb.set | z x y --
-	mask.adr ! ;
+::zb! | o z x y --
+	zb.adr dup >r !
+	r> zcnt 2 << + ! ;
 
-:filline | x1 y1 x2 y2 a --
-	2 << pick3 7 << + maskb + >r
-	rot - | x1 x2 cnt
-	rot gmask2 rot gmask1 and not
-	swap 1+
-	( 1? )( 1-
-		r @ pick2 and r !
-		128 r+
-		) 2drop
-	rdrop ;
+::zb.clear
+	zb >r zcnt ( 1? )( 1- $7fffffff r!+ ) drop rdrop ;
 
-::maskb.rset | x1 y1 x2 y2 --
-	pick3 5 >>
-	pick2 5 >> =? ( filline ; )
-	2 << pick3 7 << + maskb + >r
-	rot - 							| x1 x2 cnty
-	over 5 >> pick3 5 >> - 1- swap	| x1 x2 cntx cnty
-	2swap gmask1 not swap gmask2 not
-	2swap 1+						| maska maskb cntx cnty
-	( 1? )( 1- r @
-		pick3 and r !+ 				| maska maskb cntx cnty adr
-		pick2 ( 1? )( 1- 0 rot !+ swap ) drop
-		pick4 over @ and swap !
-		128 r+
-		) 4drop
-	rdrop ;
-
-::maskb.zset | w h x y z --
-	>r
-	2dup 
+::zb.ini | w h --
+	dup * dup 'zcnt !
+	here dup 'zb ! | zbuffer,cbuffer
+	3 << + dup 'segs !
+	1024 3 << + 'here !
+	'zbh ! 'zbw !
+	zcnt 2 << 4 - 'zbo !
 	;
 
-
-:rgetline | x1 y1 x2 y2 a -- b
-	2 << pick3 7 << + maskb + >r
-	rot - | x1 x2 cnt
-	rot gmask2 rot gmask1 and
-	swap 1+	| mask cnt
-	( 1? )( 1-
-		r @ pick2 and? ( 3drop rdrop 1 ; ) drop
-		128 r+
-		) 2drop
+#z
+::zb.occ | w h x y z -- 1/0
+	'z !
+	zb.adr >r
+	zbw pick2 -
+	swap ( 1? )(
+		pick2 ( 1? )( r@+
+			z >? ( 4drop rdrop 1 ; )
+			drop 1- ) drop
+		over r+
+		1- ) 3drop
 	rdrop 0 ;
 
-::maskb.rget | x1 y1 x2 y2 -- b
-	pick3 5 >>
-	pick2 5 >> =? ( rgetline ; )
-	2 << pick3 7 << + maskb + >r
-	rot - 							| x1 x2 cnty
-	over 5 >> pick3 5 >> - 1- swap	| x1 x2 cntx cnty
-	2swap gmask1 swap gmask2
-	2swap 1+						| maska maskb cntx cnty
-	( 1? )( 1- r @+
-		pick4 and? ( 4drop 2drop rdrop 1 ; ) drop	| maska maskb cntx cnty adr
-		pick2 ( 1? )( 1- swap
-			@+ -1 <>? ( 4drop 3drop rdrop 1 ; ) drop
-			swap ) drop
-		@ pick4 and? ( 4drop drop rdrop 1 ; ) drop
-		128 r+
-		) 4drop
-	rdrop 0 ;
+#o
+::zb.set | w h x y z o --
+	'o ! 'z !
+	zb.adr >r
+	zbw pick2 -
+	swap ( 1? )(
+		pick2 ( 1? )( r@+
+			z <? ( z r 4 - ! o r zbo + ! )
+			drop 1- ) drop
+		over r+
+		1- ) 3drop
+	rdrop ;
 
-
-#realmaskb
-::maskb.clear
-	realmaskb sh 5 << ( 1? )( -1 rot !+ swap 1- ) 2drop ;
-
-::maskb.ini
-	here dup 'maskb !
-	>r
-	oy neg 5 << ( 1? )( 0 r!+ 1- ) drop
-	r 'realmaskb !
-	sh 5 << ( 1? )( -1 r!+ 1- ) drop
-	oy neg 5 << ( 1? )( 0 r!+ 1- ) drop
-	r> dup 'segs !
-	1024 3 << +
-	'here ! ;
-
-|------------------------------------
-::maskpxy | color x y --
-	2dup mask.adr swap over @
-	nand? ( nip 4drop ; )
-	not over @ and swap !
-	oy + setxy px!+ ;
-
-::maskpxyo | color x y --
-	2dup maskb.set
-	oy + setxy px!+ ;
-
-:proc8 | mask -- mask
-	$ff nand? ( 8 px+! ; )	| todos 0
-	$01 and? ( ink@ px!+ )( 1 px+! )
-	$02 and? ( ink@ px!+ )( 1 px+! )
-	$04 and? ( ink@ px!+ )( 1 px+! )
-	$08 and? ( ink@ px!+ )( 1 px+! )
-	$10 and? ( ink@ px!+ )( 1 px+! )
-	$20 and? ( ink@ px!+ )( 1 px+! )
-	$40 and? ( ink@ px!+ )( 1 px+! )
-	$80 and? ( ink@ px!+ )( 1 px+! )
-	;
-
-:oneword | nro --
-	0? ( 32 px+! drop ; )
-	-1 =? ( 32 ( 1? )( ink@ px!+ 1- ) 2drop ; )
-	proc8 8 >> proc8 8 >> proc8 8 >> proc8 drop ;
-
-:maskfpxl | x1 y x2 --
-	pick2 $ffffffe0 and pick2 oy + setxy 		| x y x2
-	pick2 5 >> 2 << rot 7 << + maskb + >r	| x x2
-	gmask1 swap gmask2 and
-	r @ 2dup and oneword swap not and r> ! ;
-
-::maskfpx | x y x --
-	dup 5 >> pick3 5 >> -
-	0? ( drop maskfpxl ; ) 1- >r				| x1 y x2 r:cntx
-	pick2 $ffffffe0 and pick2 oy + setxy 		| x y x2   r:cntx
-	pick2 5 >> 2 << rot 7 << + maskb + 		| x1 x2 adr
-	r> swap >r                              | x1 x2 cntx
-	rot gmask2 r @ 2dup and oneword swap not and r!+			| x2 cntx
-	( 1? )( r @ oneword 0 r!+ 1- ) drop
-	gmask1 r @ 2dup and oneword swap not and r> !
-	;
-
-
-::maskfpy | x y1 y2 --
-	pick2 pick2 oy + setxy 		| x y1 y2
-	pick2 5 >> 2 << pick2 7 << + maskb + >r	| x y1 y2
-	swap - 1 rot $1f and << | cnty mask
-	swap 1+
-	( 1? )( 1- | mask cnty
-		r @ pick2 and? ( ink@ px!+ )( 1 px+! )
-		pick2 not and r!+
-		sw 1- px+! 124 r+
-		) 2drop rdrop ;
-
-
-:maskfpxyl | x1 y1 x2 y2 --
-	pick3 $ffffffe0 and pick3 oy + setxy
-	pick3 5 >> 2 << pick3 7 << + maskb + >r
-	rot - 						| x1 x2 cnty
-	rot gmask2 rot gmask1 and	| cntx mask
-	swap 1+ ( 1? )(
-		r @ pick2 over and oneword pick2 not and r!+
-		sw 32 - px+!
-		124 r+
-		1- ) 2drop rdrop ;
-
-::maskfpxy | x1 y1 x2 y2 --
-	over 5 >> pick4 5 >> -
-	0? ( drop maskfpxyl ; ) 1- >r	| x1 y1 x2 y2 r:cntx
-	pick3 $ffffffe0 and pick3 oy + setxy
-	pick3 5 >> 2 << pick3 7 << + maskb +
-	r> swap >r >r					| x1 y1 x2 y2   r:cntx adr
-	rot -							| x1 x2 cnty
-	rot gmask2 rot gmask1 			| cnty m1 m2
-	swap rot
-	r> swap	1+			| m2 m1 cntx cnty
-	( 1? )(
-		pick2 r @ 2dup and oneword swap not and r!+			| x2 cntx
-		over ( 1? )( r @ oneword 0 r!+ 1- ) drop
-		pick3 r @ 2dup and oneword swap not and r!+			| x2 cntx
-		32 pick2 2 + - 2 << r+
-		sw pick2 2 + 5 << - px+!
-		1- ) 4drop rdrop ;
+::zb.line | cnt x y --
+	zb.adr >r
+	( 1? )( r@+
+		z <? ( z r 4 - ! o r zbo + ! )
+		drop 1- ) drop
+	rdrop ;
 
 |--- convex polygon
 #FBASE	16
 #MIDBASE $7fff
 
-::maskop | x y --
+::zop | x y --
 	ymin 3 << segs + >r
 	ymax ymin - 1+ ( 1? )( 1- $7fffffff r!+ -1 r!+ ) drop rdrop
 	dup 'ymin ! dup 'ymax !
@@ -197,7 +78,7 @@
 	'py ! 'px !
 	;
 
-::maskop2 | x y --
+::zop2 | x y --
 	ymin <? ( dup 'ymin ! )
  	ymax >? ( dup 'ymax ! )
 	2dup 3 << segs + >r
@@ -217,7 +98,7 @@
 	'px !
 	rdrop ;
 
-::maskline | x y --
+::zline | x y --
 	py =? ( enlinea ; )
 	px py pick2 >? ( 2swap 2dup )( 2over ) | x2 y2 x1 y1
 	'py ! 'px !
@@ -234,9 +115,11 @@
 		pick2 + swap )
 	3drop rdrop ;
 
-::maskpoly
+::zpoly | z o --
+	'o ! 'z !
 	ymax
 	ymin dup 3 << segs + >r
 	( over <=? )(
-		r@+ FBASE >> over r@+ FBASE >> maskfpx
+		r@+ FBASE >> r@+ FBASE >>
+		over - 1+ swap pick2 zb.line
 		1+ ) 2drop rdrop ;
