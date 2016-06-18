@@ -1,14 +1,15 @@
 | zbuffer - convex polyfill
 | PHREDA 2016
 |-------------------------
-#zb
+#:zb
 #zbw #zbh
 #zcnt #zbo
 
 #segs	| mem polys
-#py #px
-#ymin 0
-#ymax 1023
+#px #py #pz
+#ymin #ymax
+#zs #z #oz
+#o
 
 |--- maskbuffer | zbw*zbh
 :zb.adr | x y -- d
@@ -18,22 +19,20 @@
 	zb.adr @ ;
 
 ::zb! | o z x y --
-	zb.adr dup >r !
-	r> zcnt 2 << + ! ;
+	zb.adr >r r!+ r> zbo + ! ;
 
 ::zb.clear
 	zb >r zcnt ( 1? )( 1- $7fffffff r!+ ) drop rdrop ;
 
 ::zb.ini | w h --
-	dup * dup 'zcnt !
-	here dup 'zb ! | zbuffer,cbuffer
-	3 << + dup 'segs !
-	1024 3 << + 'here !
-	'zbh ! 'zbw !
-	zcnt 2 << 4 - 'zbo !
+	2dup * dup 'zcnt ! dup 2 << 4 - 'zbo !
+	here dup 'zb ! 		| zbuffer,cbuffer
+	swap 3 << + dup 'segs !
+	over 4 << + 'here !
+	dup 'ymax ! 'zbh ! 'zbw !
+	zb.clear
 	;
 
-#z
 ::zb.occ | w h x y z -- 1/0
 	'z !
 	zb.adr >r
@@ -46,7 +45,6 @@
 		1- ) 3drop
 	rdrop 0 ;
 
-#o
 ::zb.set | w h x y z o --
 	'o ! 'z !
 	zb.adr >r
@@ -59,47 +57,45 @@
 		1- ) 3drop
 	rdrop ;
 
-::zb.line | cnt x y --
-	zb.adr >r
-	( 1? )( r@+
-		z <? ( z r 4 - ! o r zbo + ! )
-		drop 1- ) drop
-	rdrop ;
-
 |--- convex polygon
 #FBASE	16
 #MIDBASE $7fff
 
-::zop | x y --
-	ymin 3 << segs + >r
-	ymax ymin - 1+ ( 1? )( 1- $7fffffff r!+ -1 r!+ ) drop rdrop
+::zop | z x y --
+	ymin 4 << segs + >r
+	ymax ymin - 1+ ( 1? )( 1- $7fffffff r!+ -1 r!+ 0 r!+ 0 r!+ ) drop rdrop
 	dup 'ymin ! dup 'ymax !
-	over FBASE << dup pick2 3 << segs + !+ !
+
+	over FBASE << dup pick2 4 << segs + >r r!+ r!+
 	'py ! 'px !
+	dup r!+
+	dup r> !
+	'pz !
 	;
 
-::zop2 | x y --
+::zop2 | z x y --
 	ymin <? ( dup 'ymin ! )
  	ymax >? ( dup 'ymax ! )
-	2dup 3 << segs + >r
-	dup FBASE <<
-	r@+ <? ( dup r 4 - ! )
-	r@+ >? ( dup r 4 - ! )
-	2drop rdrop
-	'py ! 'px !
+	2dup 4 << segs + >r
+	FBASE <<
+	r@+ <? ( dup r 4 - ! pick3 r 4+ ! )
+	r@+ >? ( dup r 4 - ! pick3 r 4+ ! )
+	drop rdrop
+	'py ! 'px ! 'pz !
 	;
 
-:enlinea | x y --
-	3 << segs + >r
+:enlinea | z x y --
+	4 << segs + >r
 	dup FBASE <<
-	r@+ <? ( dup r 4 - ! )
-	r@+ >? ( dup r 4 - ! )
-	drop
-	'px !
-	rdrop ;
+	r@+ <? ( dup r 4 - ! pick2 r 4+ ! )
+	r@+ >? ( dup r 4 - ! pick2 r 4+ ! )
+	drop rdrop
+	'px ! 'pz !
+	;
 
-::zline | x y --
+::zline | z x y --
 	py =? ( enlinea ; )
+	rot 'oz !
 	px py pick2 >? ( 2swap 2dup )( 2over ) | x2 y2 x1 y1
 	'py ! 'px !
 	ymin <? ( dup 'ymin ! )
@@ -107,19 +103,44 @@
 	>r >r FBASE << swap FBASE << 	| x1 x2
 	over - r> r> over -				| x1 (x2-x1) y1 (y2-y1)
 	rot over /						| x1 y1 (y2-y1) t
-	rot 3 << segs + >r				| x1 (y2-y1) t
+	rot 4 << segs + >r				| x1 (y2-y1) t
+	oz pz dup 8 << 'z ! - pick2 8 <</ 'zs !
 	rot rot 1+				| t x1 cnt
 	( 1? )( 1- swap
-		r@+ <? ( dup r 4 - ! )
-		r@+ >? ( dup r 4 - ! )
+		r@+ <? ( dup r 4 - ! pz r 4+ ! )
+		r@+ >? ( dup r 4 - ! pz r 4+ ! )
+		8 r+
+		z zs + dup 'z ! 8 >> 'pz !
 		pick2 + swap )
 	3drop rdrop ;
 
-::zpoly | z o --
-	'o ! 'z !
+
+:zb.line | cnt x y zi zf --
+	over - pick4 8 <</ 'zs ! dup 8 << 'pz ! 'z !
+	zb.adr >r
+	( 1? )( r@+
+		z >? ( z r 4 - ! o r zbo + ! )
+		zs pz + dup 'pz ! 8 >> 'z !
+		drop 1- ) drop
+	rdrop ;
+
+::zpoly | o --
+	'o !
 	ymax
-	ymin dup 3 << segs + >r
+	ymin dup 4 << segs + >r
 	( over <=? )(
 		r@+ FBASE >> r@+ FBASE >>
-		over - 1+ swap pick2 zb.line
+		over - 1+ swap pick2
+		r@+ r@+
+		zb.line
 		1+ ) 2drop rdrop ;
+
+
+::ztest
+	0 0 setxy
+	zb >r
+	sh ( 1? )( 1-
+		sw ( 1? )( 1-
+			r@+ $7fffffff <>? ( r zbo + @ px!+ )( $ff px!+ ) drop
+			) drop
+		) drop ;
