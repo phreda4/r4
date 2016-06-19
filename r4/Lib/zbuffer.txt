@@ -3,7 +3,7 @@
 |-------------------------
 #:zb
 #zbw #zbh
-#zcnt #zbo
+#zcnt #:zbo
 
 #segs	| mem polys
 #px #py #pz
@@ -61,67 +61,67 @@
 #FBASE	16
 #MIDBASE $7fff
 
-::zop | z x y --
+::zop | x y z --
+	'pz !
 	ymin 4 << segs + >r
 	ymax ymin - 1+ ( 1? )( 1- $7fffffff r!+ -1 r!+ 0 r!+ 0 r!+ ) drop rdrop
 	dup 'ymin ! dup 'ymax !
 
 	over FBASE << dup pick2 4 << segs + >r r!+ r!+
 	'py ! 'px !
-	dup r!+
-	dup r> !
-	'pz !
+	pz dup r!+ r> !
 	;
 
-::zop2 | z x y --
+::zop2 | x y z --
+	'pz !
 	ymin <? ( dup 'ymin ! )
  	ymax >? ( dup 'ymax ! )
 	2dup 4 << segs + >r
 	FBASE <<
-	r@+ <? ( dup r 4 - ! pick3 r 4+ ! )
-	r@+ >? ( dup r 4 - ! pick3 r 4+ ! )
+	r@+ <? ( dup r 4 - ! pz r 4+ ! )
+	r@+ >? ( dup r 4 - ! pz r 4+ ! )
 	drop rdrop
-	'py ! 'px ! 'pz !
+	'py ! 'px !
 	;
 
-:enlinea | z x y --
+:enlinea | x y --
 	4 << segs + >r
 	dup FBASE <<
-	r@+ <? ( dup r 4 - ! pick2 r 4+ ! )
-	r@+ >? ( dup r 4 - ! pick2 r 4+ ! )
+	r@+ <? ( dup r 4 - ! oz r 4+ ! )
+	r@+ >? ( dup r 4 - ! oz r 4+ ! )
 	drop rdrop
-	'px ! 'pz !
-	;
+	'px ! oz 'pz ! ;
 
-::zline | z x y --
+::zline | x y z --
+	'oz !
 	py =? ( enlinea ; )
-	rot 'oz !
-	px py pick2 >? ( 2swap 2dup )( 2over ) | x2 y2 x1 y1
+	px py pick2 >? ( 2swap 2dup oz pz 'oz ! 'pz ! )( 2over [ oz 'pz ! ; ] >r ) | x2 y2 x1 y1
 	'py ! 'px !
 	ymin <? ( dup 'ymin ! )
  	rot ymax >? ( dup 'ymax ! )		| comprueba el mayor
 	>r >r FBASE << swap FBASE << 	| x1 x2
 	over - r> r> over -				| x1 (x2-x1) y1 (y2-y1)
-	rot over /						| x1 y1 (y2-y1) t
+	rot over / 						| x1 y1 (y2-y1) t
 	rot 4 << segs + >r				| x1 (y2-y1) t
-	oz pz dup 8 << 'z ! - pick2 8 <</ 'zs !
+	oz pz - pick2 16 <</ 'zs ! 0 'z !
 	rot rot 1+				| t x1 cnt
 	( 1? )( 1- swap
-		r@+ <? ( dup r 4 - ! pz r 4+ ! )
-		r@+ >? ( dup r 4 - ! pz r 4+ ! )
+		r@+ <? ( dup r 4 - ! pz z 16 >> + r 4+ ! )
+		r@+ >? ( dup r 4 - ! pz z 16 >> + r 4+ ! )
 		8 r+
-		z zs + dup 'z ! 8 >> 'pz !
+		zs 'z +!
 		pick2 + swap )
 	3drop rdrop ;
 
 
 :zb.line | cnt x y zi zf --
-	over - pick4 8 <</ 'zs ! dup 8 << 'pz ! 'z !
+	over - pick4 16 <</ 'zs ! 'pz !
 	zb.adr >r
-	( 1? )( r@+
-		z >? ( z r 4 - ! o r zbo + ! )
-		zs pz + dup 'pz ! 8 >> 'z !
-		drop 1- ) drop
+	0 swap | z cnt
+	( 1? )( pz pick2 16 >> +
+		r@+ <? ( r 4 - ! o r zbo + ! )( drop )
+		swap zs + swap
+		1- ) 2drop
 	rdrop ;
 
 ::zpoly | o --
@@ -135,12 +135,13 @@
 		zb.line
 		1+ ) 2drop rdrop ;
 
-
-::ztest
+|--------------
+:ztest
 	0 0 setxy
 	zb >r
 	sh ( 1? )( 1-
 		sw ( 1? )( 1-
-			r@+ $7fffffff <>? ( r zbo + @ px!+ )( $ff px!+ ) drop
+			r@+ $7fffffff <>? ( r zbo + @ )( 0 ) px!+ drop
 			) drop
 		) drop ;
+|-------------
