@@ -67,11 +67,36 @@
 	memvox> over - 2 >> move
 	-8 'memvox> +! ;
 
+|------ remove occluded
+:occ? | x y z -- 1/0
+	pick2 1+ pick2 pick2 vox@a -1 =? ( 4drop 0 ; ) drop
+	pick2 1- pick2 pick2 vox@a -1 =? ( 4drop 0 ; ) drop
+	pick2 pick2 1+ pick2 vox@a -1 =? ( 4drop 0 ; ) drop
+	pick2 pick2 1- pick2 vox@a -1 =? ( 4drop 0 ; ) drop
+	pick2 pick2 pick2 1+ vox@a -1 =? ( 4drop 0 ; ) drop
+	1- vox@a -1 =? ( drop 0 ; ) drop
+	1 ;
+
+#list
+:remocc
+	mark
+	here 'list !
+	memvox ( memvox> <? )(
+		@+
+		invmorton3d | x y z
+		occ? 1? ( over 4 - @ , ) drop
+		) drop
+	list ( here <? )(
+		@+ invmorton3d vox- ) drop
+	empty
+	;
+
+|----- load magicavoxel
 :impvox
 	"media/vox" dlgfileload 0? ( drop ; )
 	mark
 	dup 'filename strcpy
-	loadvox 
+	loadvox
 	here '$inifile !
 	empty
 	voxqsize
@@ -81,6 +106,24 @@
 	centravoxel
 	buildoctree
 	;
+
+|------------- save/load import
+:saveoctree
+	"media/3do" dlgfilesave 0? ( drop ; )
+	'filename strcpy
+	'filename ".3do" =pos
+	0? ( ".3do" pick2 strcat ) drop
+	$inifile $end over - rot save ;
+
+:saveoctreeopt
+	"media/3do" dlgfilesave 0? ( drop ; )
+	'filename strcpy
+	'filename ".3do" =pos
+	0? ( ".3do" pick2 strcat ) drop
+	remocc 
+	buildoctree
+	optoctree
+	$inifile $end over - rot save ;
 
 |------ rotar
 #xm #ym
@@ -106,8 +149,7 @@
 		octre> octre - 2 >> memvox> memvox - 3 >>
 		"[ %d Pnts %d Nods ]" print cr
 		'filename sp print
-|		curz cury curx "x:%d y:%d z:%d" print
-|		cr
+		cr
 
 		|------
 		3dini
@@ -116,7 +158,7 @@
 		draw3dgrid
 
 		drawvoxel
-		'dnlook 'movelook guiDnMove 
+		'dnlook 'movelook guiDnMove
 
 		|------
 		1 rows 4 - gotoxy azul
@@ -126,6 +168,10 @@
 		'voxelcuad "Q"  sp btnt
 		'voxelbox "L"  sp btnt
 		'voxelboxc "B"  sp btnt
+		azul
+		'impvox dup "F1-Load VOX" sp btnt <f1>
+		'saveoctree dup "F2-Save 3DO" sp btnt <f2>
+		'saveoctreeopt dup "F3-Save VOX Opt" sp btnt <f3>
 
 		24 qdim
 		sw 12 - 12 pos
@@ -136,7 +182,6 @@
 		[ zcam 1.8 <? ( 0.1 + ) 'zcam ! ; ] <dn>
 		[ 0.01 'ry +! ; ] <le>
 		[ -0.01 'ry +! ; ] <ri>
-		'impvox <f1>
 
 		cminiflecha ;
 
