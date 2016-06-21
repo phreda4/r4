@@ -2,17 +2,26 @@
 ^r4/lib/btn.txt
 
 ^r4/lib/part16.txt
+^r4/lib/anima.txt
+^r4/3d/octree/iso_12.txt
 
 ^r4/lib/trace.txt
 
 ^r4/lib/3d-escena.txt
 ^r4/dev/games/actores.spr
 
+#xcam #ycam 1.0 #zcam 5.0
+#cosas 0 0
 #player 0 0
 
+#oclon1 #oclon2 #oclon3
+#ocoso
+
+#clonrun 0 0 oclon1 10 oclon2 10 oclon1 10 oclon3 10 0
+
 |-----------------------------
-:3dop project3d op ;
-:3dline project3d line ;
+:3dop transform project3d op ;
+:3dline transform project3d line ;
 
 #sizx #sizy #sizz
 
@@ -41,48 +50,32 @@
 :r10 rand 10.0 mod ;
 :r100 rand 100.0 mod ;
 
-|---------------------------------------------
-#xcam #ycam 2.0 #zcam 8.0
-#cosas 0 0
-
-|---------------------------------------------
-:mesaupd
-	r001 r001 r001 actor+!
-|	dup 12 + @ abs 8.0 >? ( drop 0 ; ) drop
-|	dup 4 + @ abs 8.0 >? ( drop 0 ; ) drop
-	dup 16 + >r
-	r@+ r 16 - +!
-	r@+ r 16 - +!
-	r@+ r 16 - +!
-
-	esc.z+ ;
-
-:mesadraw
+:cosa
+	dup >r
 	mpush
-	esc.pos
-	0.5 0.5 0.5 box3d
-|	'arbol 3dnsprite
+	r@+ r@+ r@+ mtransi
+	r@+ 1? ( mrotxi )( drop )
+	r@+ 1? ( mrotyi )( drop )
+	r@+ 1? ( mrotzi )( drop )
+	ocoso drawoctree
 	mpop
+	rdrop
+	24 + >r
+|	r@+ r 28 - +! r@+ r 28 - +! r@+ r 28 - +!
+|	r@+ r 28 - +! r@+ r 28 - +! r@+ r 28 - +!
+	rdrop
 	;
 
-
-:cosa+
-	'cosas esc. >r
-	'mesaupd r!+ |'cosas esc!+ >r
-	r100 r!+ r01 r!+ r100 r!+ | x y z
-	0.0 r!+ 0 r!+ 0 r!+ | rx ry rz
-	2.0 r!+ 1.0 r!+ 'mesadraw r!+
-	rdrop ;
-
 :cosa+xy | x y --
-	'cosas esc. >r
-	'mesaupd r!+ |'cosas esc!+ >r
+	'cosa 'cosas p!+ >r
 	r!+ 0 r!+ r!+ | x y z
-	0.01 r!+ 0 r!+ 0 r!+ | rx ry rz
-	2.0 r!+ 1.0 r!+ 'mesadraw r!+
+	0 r!+ 0 r!+ 0 r!+ | rx ry rz
+
+	0 r!+ r0001 r!+ 0 r!+
+	r001 r!+ r001 r!+ r001 r!+
 	rdrop ;
 
-
+|------ player
 :p1
 	dup >r
 	24 +
@@ -91,12 +84,13 @@
 	[ 0 over ! ; ] >le<
 	[ 0 over ! ; ] >ri<
 	[ 0.01 over 4+ ! ; ] <up>
-	[ 0 over 4+ ! ; ] >up<
 	[ -0.01 over 4+ ! ; ] <dn>
+	[ 0 over 4+ ! ; ] >up<
+	[ 0 over 4+ ! ; ] >dn<
 	>r
  	r@+ r 4+ +!
 	r@+ r 4+ !
-	r@+ dup r 20 - !
+	r@+ dup r 20 - ! |!!
 	r@+
 	swap sincos pick2 *. r 40 - +! *. r 32 - +!
 	rdrop
@@ -105,7 +99,10 @@
 	r@+ 1? ( mrotxi )( drop )
 	r@+ 1? ( mrotyi )( drop )
 	r@+ 1? ( mrotzi )( drop )
-	0.5 0.5 0.5 box3d
+	blanco
+|	0.5 0.5 0.5 box3d
+	dup 10 2 << + @ 0? ( oclon1 )( 'clonrun seqAnima @ ) nip
+	drawoctree
 	mpop
 	rdrop
 	;
@@ -121,7 +118,6 @@
 	0 r!+ | dir
 	0 r!+ | av
 
-
 	100 r!+	| energia
 	1 r!+ | id
 	rdrop
@@ -136,32 +132,29 @@
 	neg mrotx mroty ;
 
 :grilla
-	-200.0 ( 100.0 <? )(
-		-200.0 ( 100.0 <? )(
-|			2dup
+	-20.0 ( 20.0 <? )(
+		-20.0 ( 200.0 <? )(
 			over rand 2.5 mod + over rand 2.5 mod +
 			cosa+xy
-			10.0 + ) drop
-		10.0 + ) drop
+			5.0 + ) drop
+		5.0 + ) drop
 	;
 
-#av
 :main
-|	loadescena
-|	5000 ( 1? )( cosa+ 1- ) drop
 	grilla
 	reset
+	33
 	show clrscr
+      	dup "%d" print
 
-		omode
+		3dini
 		freelook
 		xcam ycam zcam mtrans
 
-		'player p.draw
+		maskb.clear
 
-		esc.zclear
-		'cosas esc.draw
-		esc.zdraw
+		'player p.draw
+		'cosas p.draw
 
 		'exit >esc<
 		cminiflecha  ;
@@ -169,6 +162,14 @@
 
 :inimem
 	mark
+	3dini
+	voxelboxc
+    maskb.ini
+	"media/3do/clon1.3do" load3do 'Oclon1 !
+	"media/3do/clon2.3do" load3do 'Oclon2 !
+	"media/3do/clon3.3do" load3do 'Oclon3 !
+	"media/3do/tie fighter.3do" load3do 'Ocoso !
+
 	$fffff 'cosas esc.create
 	10 'player p.ini
 	;
