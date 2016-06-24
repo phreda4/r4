@@ -4,6 +4,7 @@
 |---------------------
 ^r4/lib/gui.txt
 ^r4/lib/zbuffer.txt
+^r4/lib/morton.txt
 
 ^r4/lib/trace.txt
 
@@ -13,7 +14,7 @@
 #$paleta
 
 #ymin #xmin
-#ymax #xmax
+#yw #xw
 
 #nzmin
 #zlen
@@ -97,28 +98,40 @@ $5467 $5137 $5104 0
 $6457 $6204 $6237 0
 $7645 $7513 $7326 0
 
-:drawcube | x y z octree --
+:drawcube | x y z oct --
 	octcolor zo!
 	nzmin 4 << 'cara + >r
 	r@+ drcara r@+ drcara r> @ drcara
 	3drop ;
 
+:minmax | adr -- min max
+	>r 0 0 r@+ -? ( rot + swap )( + )
+	8 r+ r@+ -? ( rot + swap )( + )
+	8 r+ r> @ -? ( rot + swap )( + ) ;
+
+:getmm | --
+	isovec> 36 - minmax over - 'xw ! 'xmin !
+	isovec> 32 - minmax over - 'yw ! 'ymin ! ;
+
+|--- rectangulo lleno
+:maxmin | adr -- max min
+	>r 0 0 r@+ -? ( + )( rot + swap )
+	8 r+ r@+ -? ( + )( rot + swap )
+	8 r+ r> @ -? ( + )( rot + swap ) ;
+
 :drawbox | x y z oct --
-	octcolor zb.set ;
+	octcolor zb.set
+	getmm
+	>r
+	isovec> 36 - maxmin	| x
+	pick2 + rot rot +
+	isovec> 32 - maxmin	| y
+	r + swap r> +
+	| xmin xmax ymin
+	rot swap cajaf
+	;
 
 |-------------------------------
-:drawpoint | x y z oct --
-	octcolor zo! zb! ;
-
-:drawpoint1 | x y z oct --
-	hison 0? ( drop drawpoint ; )
-	swap octcolor zo!
-	;
-
-:drawpoint2 | x y z oct --
-	octcolor zo!
-	;
-
 :getcenter | x y z -- x y z xc yc zx	;******
 	isovec> 36 - >r
 	pick2 r@+ 2/ + r 8 + @ 2/ + r 20 + @ 2/ +
@@ -131,11 +144,13 @@ $7645 $7513 $7326 0
 	pick2 x4 * pick2 y4 * + over z4 * + +? ( 4 r+ ) drop
 	r>	;
 
+
 :calco |  x y z -- x y z mask
 	pick2 x1 * pick2 y1 * + over z1 * + +? ( 1 )( 0 ) nip
 	pick3 x2 * pick3 y2 * + pick2 z2 * + +? ( drop 2 + )( drop )
 	pick3 x4 * pick3 y4 * + pick2 z4 * + +? ( drop 4+ )( drop )
 	;
+
 
 |-------------------------------------
 | x y z n m -- x y z n m x2 y2 z2
@@ -230,16 +245,25 @@ $7645 $7513 $7326 0
 :oct++ | adr -- adr bitmask
 	@+ dup 8 >> 2 << rot + swap $ff and ;
 
+:drawpoint1 | x y z oct --
+	octcolor zo!
+	yw 0? ( drop zb! ; )
+	1+ zbh! ;
+
+:drawpoint2 | x y z oct --
+	octcolor zo!
+	xw 1+ zbw! ;
+
 :viewi | x y z node --
 	$pixels >=? ( veci exec ; )
-
-|   pick2 pick2
-|	wison 0? ( 4drop drawpoint1 vec- ; ) pick2 +
-|	hison 0? ( nip 4drop drawpoint2 vec- ; ) pick2 +
-|	maskb.rget 0? ( nip 4drop vec- ; ) drop
-
+	>r
+    getmm
+    xw 0? ( drop r> drawpoint1 vec- ; )	| w
+    yw 0? ( 2drop r> drawpoint2 vec- ; )	| w h
+	pick4 pick4 pick4 zb.occ
+	0? ( rdrop 4drop vec- ; ) drop
+	r>
 	oct++
-
 	nzmin 1 over << pick2 nand? ( 2drop )( child-oct viewi )
 	nzmin 1 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
 	nzmin 2 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
@@ -255,23 +279,20 @@ $7645 $7513 $7326 0
 |-----------------------
 :isonow | x y z oct --
 	>r isovec> >r
-	1 getn p3di r!+ r!+ r!+
-	2 getn p3di r!+ r!+ r!+
-	4 getn p3di r!+ r!+ r!+
+	1 getn pick3 + p3di r!+ r!+ r!+
+	2 getn pick3 + p3di r!+ r!+ r!+
+	4 getn pick3 + p3di r!+ r!+ r!+
 	r> 'isovec> !
-	r> viewi ;
+	p3dz r> viewi ;
 
 |---------------- search iso ratio
-:getz | nro -- Z
-
-	2 << dup 2* + 88 - octvert> + @
-	;
+:getz | x y z node -- Z
+    isovec> 28 - minmax swap - 2/ pick2 + ;
 
 :viewr | x y z node --
-	>r calco dup 'nzmin ! r>
-	swap getz clz zlen <=? ( drop isonow ; ) drop
+	>r calco 'nzmin ! r>
+	getz clz zlen <=? ( drop isonow ; ) drop
 	$pixels >=? ( vecr exec ; )
-
 	oct++
 	1 'zlen +!
 	nzmin >r
@@ -289,7 +310,8 @@ $7645 $7513 $7326 0
 
 |----------- search cube in screen
 :culling | x y z -- cull
-	1 <? ( $10 )( 0 ) nip
+	2/ | achica...
+	1 <? ( $10 )( 0 ) >r
 	swap -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
 	swap -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
 	drop r> ;
@@ -297,27 +319,46 @@ $7645 $7513 $7326 0
 :cull1 | x y z -- cull
 	culling dup 8 << or ;
 
-:culln | xyz -- cull
-	culling dup 8 << $ff or rot and or ;
+:culln | xyz -- culla cullo
+	culling dup 8 << $ff or ; |rot and or ;
 
-:cullingcalc | -- aocull
+:cullingcalc | x y z node -- x y z node aocull
 	>r
-	0 getn cull1
-	1 getn culln
-	2 getn culln
-	3 getn culln
-	4 getn culln
-	5 getn culln
-	6 getn culln
-	7 getn culln
-	r> ;
+	0 getn cull1 >r
+	1 getn culln r> or and >r
+	2 getn culln r> or and >r
+	3 getn culln r> or and >r
+	4 getn culln r> or and >r
+	5 getn culln r> or and >r
+	6 getn culln r> or and >r
+	7 getn culln r> or and
+	r> swap ;
 
+| idea-----------------------------
+:ideacull | x y z node --
 
+	isovec> 28 - minmax	| zmax zmin
+|	pick3 pick2 + 1 >? (
+
+	isovec> 36 - minmax	'xw ! 'xmin !
+	pick3 xmin + pick2 >? ( drop -1 ; )
+	pick3 xw + pick2 neg <? ( drop -1 ; )
+	isovec> 32 - minmax	'yw ! 'ymin !
+	pick2 ymin + pick2 >? ( drop -1 ; )
+	pick2 xw + pick2 neg <? ( drop -1 ; )
+
+	;
+
+|----------------------
 :viewo | x y z node --
+
 	cullingcalc
 	0? ( drop viewr ; )
 	$ff00 and? ( nip 4drop vec- ; )
 	drop
+
+|	boxcull 0? ( drop viewr ; ) -? ( nip 4drop vec- ; ) drop
+
 	$pixels >=? ( veco exec ; )
 
 	>r calco r> swap >r
@@ -369,7 +410,7 @@ $7645 $7513 $7326 0
 
 :vecio 	|getoct viewi getocti ;
 :vecro	|getoct viewr getocti ;
-:vecoo	|getoct viewo getocti 
+:vecoo	|getoct viewo getocti
 	;
 
 #vecsim	'vecis 'vecrs 'vecos 0 'vecio 'vecro 'vecoo 0
@@ -414,7 +455,7 @@ $7645 $7513 $7326 0
 |::voxelboxc 'drawboxc 'dbox ! ;
 
 |-------------
-#xcam 0 #ycam 0 #zcam 1.6
+#xcam 0 #ycam 0 #zcam 2.0
 
 |-------------
 :freelook
@@ -436,6 +477,28 @@ $7645 $7513 $7326 0
 		) drop ;
 
 |-------------
+:3dop transform p3d op ;
+:3dline transform p3d line ;
+
+#sizx #sizy #sizz
+
+:drawz | z --
+	sizx neg sizy neg pick2 3dop
+	sizx sizy neg pick2 3dline
+	sizx sizy pick2 3dline
+	sizx neg sizy pick2 3dline
+	sizx neg sizy neg rot 3dline ;
+
+:drawl | x1 x2 --
+	2dup sizz neg 3dop sizz 3dline ;
+
+:box3d | sx sy sz --
+	'sizz ! 'sizy ! 'sizx !
+	sizz neg drawz sizz drawz
+	sizx neg sizy neg drawl sizx sizy neg drawl
+	sizx sizy drawl sizx neg sizy drawl
+	;
+
 #Ocaballo
 #Omario
 #Oluigi
@@ -453,18 +516,17 @@ $7645 $7513 $7326 0
 	Omode
 	sw sh zb.ini
 
-	"media/3do/horse.3do" load3do 'Ocaballo !
-	"media/3do/earth.3do" load3do 'Omario !
-	"media/3do/map.3do" load3do 'Oluigi !
-	"media/3do/horse1.3do" load3do 'Oearth !
-|	"media/3do/luigi.3do" load3do 'Oearth !
+	"media/3do/xwing.3do" load3do 'Ocaballo !
+|	"media/3do/earth.3do" load3do 'Omario !
+|	"media/3do/luigi.3do" load3do 'Oluigi !
+|	"media/3do/horse1.3do" load3do 'Oearth !
 
 	Ocaballo 'oNow !
-	33
-	$8800 paper
+|	33
 	show clrscr
 
-	    matini
+|	    matini
+		omode
 		freelook
 		xcam ycam zcam mtrans
 
@@ -475,9 +537,11 @@ $7645 $7513 $7326 0
 
 		1 'fpsc +!
 
-		verde fonti
+		negro fonti
 		dup "%d " print cr
 		msec fps over mseca - "%d ms fps:%d" print cr 'mseca !
+
+        0.5 0.5 0.5 box3d
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
@@ -490,10 +554,6 @@ $7645 $7513 $7326 0
 		[ Omario 'Onow ! ; ] <f2>
 		[ Ocaballo 'Onow ! ; ] <f3>
 		[ Oearth 'Onow ! ; ] <f4>
-
-		'voxelcuad <f5>
-		'voxelbox <f6>
-		'voxelboxc <f7>
 
 		'exit >esc< cminiflecha
 		1000 .mseg .restart
