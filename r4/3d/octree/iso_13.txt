@@ -14,7 +14,7 @@
 #$paleta
 
 #ymin #xmin
-#yw #xw
+#ymax #xmax
 
 #nzmin
 #zlen
@@ -86,7 +86,8 @@
 	r 8 >> $f and getn zline
 	r 12 >> $f and getn zline
 	r> $f and getn zline
-	zpoly ;
+	zpoly
+	;
 
 #cara
 $0132 $0264 $0154 0
@@ -110,8 +111,8 @@ $7645 $7513 $7326 0
 	8 r+ r> @ -? ( rot + swap )( + ) ;
 
 :getmm | --
-	isovec> 36 - minmax over - 'xw ! 'xmin !
-	isovec> 32 - minmax over - 'yw ! 'ymin ! ;
+	isovec> 36 - minmax 'xmax ! 'xmin !
+	isovec> 32 - minmax 'ymax ! 'ymin ! ;
 
 |--- rectangulo lleno
 :maxmin | adr -- max min
@@ -122,6 +123,7 @@ $7645 $7513 $7326 0
 :drawbox | x y z oct --
 	octcolor zb.set
 	getmm
+
 	>r
 	isovec> 36 - maxmin	| x
 	pick2 + rot rot +
@@ -141,22 +143,25 @@ $7645 $7513 $7326 0
 :calcmaskc | xc yc zc -- mask 	;******
 	pick2 x1 * pick2 y1 * + over z1 * + +? ( 1 )( 0 ) nip >r
 	pick2 x2 * pick2 y2 * + over z2 * + +? ( 2 r+ ) drop
-	pick2 x4 * pick2 y4 * + over z4 * + +? ( 4 r+ ) drop
-	r>	;
+	rot x4 * rot y4 * + swap z4 * + +? ( 4 r+ ) drop
+	r> ;
 
 
 :calco |  x y z -- x y z mask
+	getcenter calcmaskc ;
+|:a
 	pick2 x1 * pick2 y1 * + over z1 * + +? ( 1 )( 0 ) nip
 	pick3 x2 * pick3 y2 * + pick2 z2 * + +? ( drop 2 + )( drop )
 	pick3 x4 * pick3 y4 * + pick2 z4 * + +? ( drop 4+ )( drop )
 	;
 
 :2/a | a -- b
-	-? ( neg 2/ neg )( 2/ ) ;
-
+|	2/ ;
+	dup 31 >> 1 and swap over neg xor over + 2/ over neg xor + ;
 
 :2/b | a -- b c
-	dup 1? ( -? ( neg 2/ 1+ neg )( 2/ 1+ ) ) |a d
+|	dup 2/ swap over - ;
+	dup dup 31 >> 1 and swap over neg xor over + 2/ 1+ over neg xor +
 	swap over - ;
 
 |-------------------------------------
@@ -230,19 +235,19 @@ $7645 $7513 $7326 0
 
 :drawpoint1 | x y z oct --
 	octcolor zo!
-	yw 0? ( drop zb! ; )
+	ymax ymin - 0? ( drop zb! ; )
 	1+ zbh! ;
 
 :drawpoint2 | x y z oct --
 	octcolor zo!
-	xw 1+ zbw! ;
+	xmax xmin - 1+ zbw! ;
 
 :viewi | x y z node --
 	$pixels >=? ( veci exec ; )
 	>r
     getmm
-    xw 0? ( drop r> drawpoint1 vec- ; )	| w
-    yw 0? ( 2drop r> drawpoint2 vec- ; )	| w h
+    xmax xmin - 0? ( drop r> drawpoint1 vec- ; )	| w
+    ymax ymin - 0? ( 2drop r> drawpoint2 vec- ; ) | w h
 	pick4 pick4 pick4 zb.occ
 	0? ( rdrop 4drop vec- ; ) drop
 	r>
@@ -259,22 +264,51 @@ $7645 $7513 $7326 0
 	vec-
 	;
 
+
+
+:viewi1 | x y z n --
+	drawcube
+	vec- ;
+
+	getmm
+	drop
+	over xmin + over ymin + op
+	over xmax + over ymin + pline
+	over xmax + over ymax + pline
+	over xmin + over ymax + pline
+	over xmin + over ymin + pline poli
+	2drop
+
 |-----------------------
 :isonow | x y z oct --
 	>r isovec> >r
-	1 getn pick3 + p3di r!+ r!+ r!+
-	2 getn pick3 + p3di r!+ r!+ r!+
-	4 getn pick3 + p3di r!+ r!+ r!+
+	1 getn p3di r!+ r!+ r!+
+	2 getn p3di r!+ r!+ r!+
+	4 getn p3di r!+ r!+ r!+
 	r> 'isovec> !
-	p3dz r> viewi ;
+	p3dz
+	isovec> 36 - >r
+	r @ pick3 - r!+	r @ pick2 - r!+ r @ over - r!+
+	r @ pick3 - r!+	r @ pick2 - r!+ r @ over - r!+
+	r @ pick3 - r!+	r @ pick2 - r!+ r @ over - r> !
+	r> viewi vec- ;
 
+:isonow1
+	>r
+	p3dz
+	isovec> 36 - >r
+	r@+ r@+ r@+ p3di -12 r+ r!+ r!+ r!+
+	r@+ r@+ r@+ p3di -12 r+ r!+ r!+ r!+
+	r@+ r@+ r@+ p3di -12 r+ r!+ r!+ r!+
+	rdrop
+	r>	viewi ;
 |---------------- search iso ratio
 :getz | x y z node -- Z
     isovec> 28 - minmax swap - 2/ pick2 + ;
 
 :viewr | x y z node --
 	>r calco 'nzmin ! r>
-	getz clz zlen <=? ( drop isonow ; ) drop
+	getz clz zlen <=? ( drop isonow ; ) drop |***** <=?
 	$pixels >=? ( vecr exec ; )
 	oct++
 	1 'zlen +!
@@ -328,12 +362,12 @@ $7645 $7513 $7326 0
 
 |	pick3 pick2 + 1 >? (
 
-	isovec> 36 - minmax	'xw ! 'xmin !
+	isovec> 36 - minmax	 'xmax ! 'xmin !
 	pick3 xmin + pick2 >? ( drop -1 ; )
-	pick3 xw + pick2 neg <? ( drop -1 ; )
-	isovec> 32 - minmax	'yw ! 'ymin !
+	pick3 xmax + pick2 neg <? ( drop -1 ; )
+	isovec> 32 - minmax	 'ymax ! 'ymin !
 	pick2 ymin + pick2 >? ( drop -1 ; )
-	pick2 xw + pick2 neg <? ( drop -1 ; )
+	pick2 xmax + pick2 neg <? ( drop -1 ; )
 
 	;
 
@@ -459,10 +493,10 @@ $7645 $7513 $7326 0
 	zb >r
 	sh ( 1? )( 1-
 		sw ( 1? )( 1-
-			r@+ $7fffffff <>? ( drop r zbo + @ )
+			r@+ $7fffffff <>? ( drop r zbo + @ )( 0 nip )
 			px!+
 			) drop
-		) drop ;
+		) drop rdrop ;
 
 |-------------
 :3dop transform p3d op ;
@@ -492,8 +526,6 @@ $7645 $7513 $7326 0
 #Oluigi
 #Oearth
 
-#Onow
-
 #fps
 #fpsc
 #mseca
@@ -504,13 +536,12 @@ $7645 $7513 $7326 0
 	Omode
 	sw sh zb.ini
 
-	"media/3do/xwing.3do" load3do 'Ocaballo !
-|	"media/3do/earth.3do" load3do 'Omario !
-|	"media/3do/luigi.3do" load3do 'Oluigi !
+|	"media/3do/luigi.3do" load3do 'Ocaballo !
+	"media/3do/mario.3do" load3do 'Omario !
+	"media/3do/luigi.3do" load3do 'Oluigi !
 |	"media/3do/horse1.3do" load3do 'Oearth !
 
-	Ocaballo 'oNow !
-|	33
+	33
 	show clrscr
 
 |	    matini
@@ -519,17 +550,17 @@ $7645 $7513 $7326 0
 		xcam ycam zcam mtrans
 
 		zb.clear
-|		oNow drawoctree
-
+|		Oluigi drawoctree
+		Omario drawoctree
 		zdraw
+
+        verde 0.5 0.5 0.5 box3d
 
 		1 'fpsc +!
 
 		negro fonti
 		dup "%d " print cr
 		msec fps over mseca - "%d ms fps:%d" print cr 'mseca !
-
-        0.5 0.5 0.5 box3d
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
@@ -538,10 +569,10 @@ $7645 $7513 $7326 0
 		[ -0.01 'ycam +! ; ] <pgup>
 		[ 0.01 'ycam +! ; ] <pgdn>
 
-		[ Oluigi 'Onow ! ; ] <f1>
-		[ Omario 'Onow ! ; ] <f2>
-		[ Ocaballo 'Onow ! ; ] <f3>
-		[ Oearth 'Onow ! ; ] <f4>
+|		[ Oluigi 'Onow ! ; ] <f1>
+|		[ Omario 'Onow ! ; ] <f2>
+|		[ Ocaballo 'Onow ! ; ] <f3>
+|		[ Oearth 'Onow ! ; ] <f4>
 
 		'exit >esc< cminiflecha
 		1000 .mseg .restart
