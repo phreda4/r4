@@ -1,0 +1,183 @@
+| bbuffer - convex polyfill
+| PHREDA 2016
+|-------------------------
+#bb
+#bbw #bbh
+#bcnt
+
+#segs	| mem polys
+#px #py
+#ymin #ymax
+
+::bb.clear
+	bb >r bcnt ( 1? )( 1- -1 r!+ ) drop rdrop ;
+
+::bb.ini | w h --
+	swap dup $1f and 1? ( $20 nip ) + 5 >> | h w/32
+	dup 'bbw !
+	over * dup 'bcnt !	| h
+	here dup 'bb !
+	swap 2 << +
+	dup 'segs !
+	over 3 << + 'here !
+	dup 1- 'ymax ! 'zbh !
+	bb.clear
+	;
+
+:bb.adr | x y -- m d
+	1 pick2 $1f and << rot 5 >> 2 << rot bbw * + bb + ;
+
+::bb.get | x y -- b
+	mask.adr @ and ;
+
+::bb.set | x y --
+	mask.adr dup @ rot not and swap ! ;
+
+:gmask1
+	$1f and -2 swap << not ;
+
+:gmask2
+	$1f and -1 swap << ;
+
+|------------------------------------
+::maskpxy | color x y --
+	2dup mask.adr swap over @
+	nand? ( nip 4drop ; )
+	not over @ and swap !
+	oy + setxy px!+ ;
+
+::maskpxyo | color x y --
+	2dup maskb.set
+	oy + setxy px!+ ;
+
+:proc8 | mask -- mask
+	$ff nand? ( 8 px+! ; )	| todos 0
+	$01 and? ( ink@ px!+ )( 1 px+! )
+	$02 and? ( ink@ px!+ )( 1 px+! )
+	$04 and? ( ink@ px!+ )( 1 px+! )
+	$08 and? ( ink@ px!+ )( 1 px+! )
+	$10 and? ( ink@ px!+ )( 1 px+! )
+	$20 and? ( ink@ px!+ )( 1 px+! )
+	$40 and? ( ink@ px!+ )( 1 px+! )
+	$80 and? ( ink@ px!+ )( 1 px+! )
+	;
+
+:oneword | nro --
+	0? ( 32 px+! drop ; )
+	-1 =? ( 32 ( 1? )( ink@ px!+ 1- ) 2drop ; )
+	proc8 8 >> proc8 8 >> proc8 8 >> proc8 drop ;
+
+:maskfpxl | x1 y x2 --
+	pick2 $ffffffe0 and pick2 oy + setxy 		| x y x2
+	pick2 5 >> 2 << rot bbw * + bb + >r	| x x2
+	gmask1 swap gmask2 and
+	r @ 2dup and oneword swap not and r> ! ;
+
+::maskfpx | x y x --
+	dup 5 >> pick3 5 >> -
+	0? ( drop maskfpxl ; ) 1- >r				| x1 y x2 r:cntx
+	pick2 $ffffffe0 and pick2 oy + setxy 		| x y x2   r:cntx
+	pick2 5 >> 2 << rot bbw + bb + 			| x1 x2 adr
+	r> swap >r                              | x1 x2 cntx
+	rot gmask2 r @ 2dup and oneword swap not and r!+			| x2 cntx
+	( 1? )( r @ oneword 0 r!+ 1- ) drop
+	gmask1 r @ 2dup and oneword swap not and r> !
+	;
+
+::maskfpy | x y1 y2 --
+	pick2 pick2 oy + setxy 		| x y1 y2
+	pick2 5 >> 2 << pick2 bbw * + bb + >r	| x y1 y2
+	swap - 1 rot $1f and << | cnty mask
+	swap 1+
+	( 1? )( 1- | mask cnty
+		r @ pick2 and? ( ink@ px!+ )( 1 px+! )
+		pick2 not and r!+
+		sw 1- px+! 124 r+
+		) 2drop rdrop ;
+
+
+:maskfpxyl | x1 y1 x2 y2 --
+	pick3 $ffffffe0 and pick3 oy + setxy
+	pick3 5 >> 2 << pick3 bbw * + bb + >r
+	rot - 						| x1 x2 cnty
+	rot gmask2 rot gmask1 and	| cntx mask
+	swap 1+ ( 1? )(
+		r @ pick2 over and oneword pick2 not and r!+
+		sw 32 - px+!
+		124 r+
+		1- ) 2drop rdrop ;
+
+::maskfpxy | x1 y1 x2 y2 --
+	over 5 >> pick4 5 >> -
+	0? ( drop maskfpxyl ; ) 1- >r	| x1 y1 x2 y2 r:cntx
+	pick3 $ffffffe0 and pick3 oy + setxy
+	pick3 5 >> 2 << pick3 bbw * + bb +
+	r> swap >r >r					| x1 y1 x2 y2   r:cntx adr
+	rot -							| x1 x2 cnty
+	rot gmask2 rot gmask1 			| cnty m1 m2
+	swap rot
+	r> swap	1+			| m2 m1 cntx cnty
+	( 1? )(
+		pick2 r @ 2dup and oneword swap not and r!+			| x2 cntx
+		over ( 1? )( r @ oneword 0 r!+ 1- ) drop
+		pick3 r @ 2dup and oneword swap not and r!+			| x2 cntx
+		32 pick2 2 + - 2 << r+
+		sw pick2 2 + 5 << - px+!
+		1- ) 4drop rdrop ;
+
+|--- convex polygon
+#FBASE	16
+
+::bbop | x y --
+	ymin 3 << segs + >r
+	ymax ymin - 1+ ( 1? )( 1- $7fffffff r!+ -1 r!+ ) drop rdrop
+	dup 'ymin ! dup 'ymax !
+	over FBASE << dup pick2 3 << segs + !+ !
+	'py ! 'px !
+	;
+
+::bbop2 | x y --
+	ymin <? ( dup 'ymin ! )
+ 	ymax >? ( dup 'ymax ! )
+	2dup 3 << segs + >r
+	dup FBASE <<
+	r@+ <? ( dup r 4 - ! )
+	r@+ >? ( dup r 4 - ! )
+	2drop rdrop
+	'py ! 'px !
+	;
+
+:enlinea | x y --
+	3 << segs + >r
+	dup FBASE <<
+	r@+ <? ( dup r 4 - ! )
+	r@+ >? ( dup r 4 - ! )
+	drop
+	'px !
+	rdrop ;
+
+::bbline | x y --
+	py =? ( enlinea ; )
+	px py pick2 >? ( 2swap 2dup )( 2over ) | x2 y2 x1 y1
+	'py ! 'px !
+	ymin <? ( dup 'ymin ! )
+ 	rot ymax >? ( dup 'ymax ! )		| comprueba el mayor
+	>r >r FBASE << swap FBASE << 	| x1 x2
+	over - r> r> over -				| x1 (x2-x1) y1 (y2-y1)
+	1+ rot over /					| x1 y1 (y2-y1) t
+	rot 3 << segs + >r				| x1 (y2-y1) t
+	rot over 2/ + rot 				| t x1 cnt
+	( 1? )( 1- swap
+		r@+ <? ( dup r 4 - ! )
+		r@+ >? ( dup r 4 - ! )
+		pick2 + swap )
+	3drop rdrop ;
+
+::bbpoly
+	ymax
+	ymin dup 3 << segs + >r
+	( over <=? )(
+		r@+ FBASE >> over r@+ FBASE >> maskfpx
+		1+ ) 2drop rdrop ;
+
+|-------------
