@@ -13,8 +13,9 @@
 #:$pixels
 #$paleta
 
-#ymin #xmin
-#ymax #xmax
+#xmin #xmax
+#ymin #ymax
+#zmin #zmax
 
 #nzmin
 #zlen
@@ -79,7 +80,37 @@
 :getn | x y z n -- x y z x1 y1 z1
 	2 << 'lsuma + @ exec ;
 
-|--------- draw box
+:minmax | adr -- min max
+	>r 0 0 r@+ -? ( rot + swap )( + )
+	8 r+ r@+ -? ( rot + swap )( + )
+	8 r+ r> @ -? ( rot + swap )( + ) ;
+
+:center | adr -- center
+	>r r@+ r 8 + @ + r 20 + @ + 2/ ;
+
+:getmm | --
+	isovec> 36 - minmax 'xmax ! 'xmin !
+	isovec> 32 - minmax 'ymax ! 'ymin ! ;
+
+:getzc isovec> 28 - center ;
+
+:getbbox
+	isovec> 36 - minmax 'xmax ! 'xmin !
+	isovec> 32 - minmax 'ymax ! 'ymin !
+	isovec> 28 - minmax 'zmin ! 'zmax ! ;
+
+|--- draw box
+:drawbox | x y z oct --
+	octcolor zo!
+	|getzc +
+	zz!
+	getmm
+	swap xmin + swap ymin +
+	xmax xmin - 1+ ymax ymin - 1+ 2swap
+	zb.fill
+	;
+
+|--- draw cube
 #bcara | lista de vertices(3 bits) por caras(3)
 %100101001100110010010011001
 %101100000101111011000010011
@@ -111,26 +142,27 @@
 	sx sy sz zline zpoly
 	3drop ;
 
-:minmax | adr -- min max
-	>r 0 0 r@+ -? ( rot + swap )( + )
-	8 r+ r@+ -? ( rot + swap )( + )
-	8 r+ r> @ -? ( rot + swap )( + ) ;
-
-:getmm | --
-	isovec> 36 - minmax 'xmax ! 'xmin !
-	isovec> 32 - minmax 'ymax ! 'ymin ! ;
-:getzc
-    isovec> 28 - minmax + 2/ ;
-
-|--- rectangulo lleno
-:drawbox | x y z oct --
+|--- real cube
+:drawrealcube | x y z oct
 	octcolor zo!
-	getzc + zz!
-	getmm
-	swap xmin + swap ymin +
-	xmax xmin - 1+ ymax ymin - 1+ 2swap
-	zb.fill
-	;
+	nzmin dup 2 << 'bcara + @ >r
+	getn p3dz 'sz ! 'sy ! 'sx !
+	sx sy sz zop
+	r 7 and getn p3dz zline
+	r 3 >> 7 and getn p3dz zline
+	r 6 >> 7 and getn p3dz zline
+	sx sy sz zline zpoly
+	sx sy sz zop
+	r 9 >> 7 and getn p3dz zline
+	r 12 >> 7 and getn p3dz zline
+	r 15 >> 7 and getn p3dz zline
+	sx sy sz zline zpoly
+	sx sy sz zop
+	r 18 >> 7 and getn p3dz zline
+	r 21 >> 7 and getn p3dz zline
+	r> 24 >> 7 and getn p3dz zline
+	sx sy sz zline zpoly
+	3drop ;
 
 |-------------------------------
 :calco |  x y z -- x y z mask
@@ -141,14 +173,10 @@
 
 :2/a | a -- b
 	1+ 1? ( 1- 2/ ) ;
-|	2/ ;
-|	dup 31 >> 1 and swap over neg xor over + 2/ over neg xor + ;
 
 :2/b | a -- b c
-|	dup 2/
-	dup	1+ 1? ( 1- 2/ )
-|	dup dup 31 >> 1 and swap over neg xor over + 2/ 1+ over neg xor +
-	swap over - ;
+	dup 1+ 1? ( 1- 2/ )
+	swap over - swap ;
 
 |-------------------------------------
 | x y z n m -- x y z n m x2 y2 z2
@@ -311,21 +339,14 @@
 	r> swap ;
 
 | idea-----------------------------
-
 :ideacull | x y z node -- x y z node 0(out)/-1(in)/1(cut)
-	isovec> 28 - minmax
-	- pick2 + | zmax
-	1 <? ( 0 nip ; ) drop
-
-|	pick3 pick2 + 1 >? (
-
-	isovec> 36 - minmax	 'xmax ! 'xmin !
-	pick3 xmin + pick2 >? ( drop -1 ; )
-	pick3 xmax + pick2 neg <? ( drop -1 ; )
-	isovec> 32 - minmax	 'ymax ! 'ymin !
-	pick2 ymin + pick2 >? ( drop -1 ; )
-	pick2 xmax + pick2 neg <? ( drop -1 ; )
-
+	getbbox
+	over zmax + 1 <? ( drop 0 ; )
+	pick4 xmax xmin - 2/ swap over + | z xr xc 
+	abs >? ( 0 ; )
+	pick3 ymax ymin - 2/ swap over + | z yr yc
+	abs >? ( 0 ; )
+	
 	;
 
 |----------------------
@@ -353,9 +374,9 @@
 	vec- ;
 
 |-------- octree in octree
-:vecis	drawcube vec- ;
-		|drawbox vec- ;
-:vecrs	4drop vec- ;
+:vecis	|drawcube vec- ;
+		drawbox vec- ;
+:vecrs	drawrealcube vec- ; | no iso
 :vecos	4drop vec- ;
 
 :vecio 	|getoct viewi getocti ;
@@ -395,7 +416,7 @@
 |--------- exportadas
 ::drawoctree | moctree --
 	adjustmem
-	1.0 clz 4 - 'zlen !
+	1.0 clz 6 - 'zlen !
 	-1 'nzmin !
 
 	'isovec >r
@@ -423,8 +444,8 @@
 	sh ( 1? )( 1-
 		sw ( 1? )( 1-
 			r@+
-			$7fffffff <>? ( drop r zbo + @ )( 0 nip )	| cbuffer
-			|$7fffffff =? ( 0 nip )( 1 << $ff00 and )	| zbuffer
+			|$7fffffff <>? ( drop r zbo + @ )( 0 nip )	| cbuffer
+			$7fffffff =? ( 0 nip )( 1 << $ff00 and )	| zbuffer
 			px!+
 			) drop
 		) drop rdrop ;
@@ -479,8 +500,8 @@
 	sw sh zb.ini
 
 |	"media/3do/luigi.3do" load3do 'Ocaballo !
-	"media/3do/clon2.3do" load3do 'Omario !
-	"media/3do/ShockTrooper.3do" load3do 'Oluigi !
+	"media/3do/horse.3do" load3do 'Omario !
+	"media/3do/Truck.3do" load3do 'Oluigi !
 |	"media/3do/horse1.3do" load3do 'Oearth !
 
 	33
@@ -496,17 +517,15 @@
 		Omario drawoctree
 		zdraw
 
-|        verde 0.5 0.5 0.5 box3d
-
 		1 'fpsc +!
 
 		verde fonti
 		dup "%d " print cr
 		msec fps over mseca - "%d ms fps:%d" print cr 'mseca !
 		zcam ycam xcam "%f %f %f" print cr
-		z1 y1 x1 "%f %f %f" print cr
-		z2 y2 x2 "%f %f %f" print cr
-		z4 y4 x4 "%f %f %f" print cr
+|		z1 y1 x1 "%f %f %f" print cr
+|		z2 y2 x2 "%f %f %f" print cr
+|		z4 y4 x4 "%f %f %f" print cr
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
@@ -514,11 +533,6 @@
 		[ 0.01 'xcam +! ; ] <ri>
 		[ -0.01 'ycam +! ; ] <pgup>
 		[ 0.01 'ycam +! ; ] <pgdn>
-
-|		[ Oluigi 'Onow ! ; ] <f1>
-|		[ Omario 'Onow ! ; ] <f2>
-|		[ Ocaballo 'Onow ! ; ] <f3>
-|		[ Oearth 'Onow ! ; ] <f4>
 
 		'exit >esc< cminiflecha
 		1000 .mseg .restart
