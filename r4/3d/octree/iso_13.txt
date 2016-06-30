@@ -92,12 +92,14 @@
 	isovec> 36 - minmax 'xmax ! 'xmin !
 	isovec> 32 - minmax 'ymax ! 'ymin ! ;
 
-:getzc isovec> 28 - center ;
+:getzc | minz
+	isovec> 28 - >r
+	0 r@+ 0 max + 8 r+ r@+ 0 max + 8 r+ r> @ 0 max + ;
 
 :getbbox
 	isovec> 36 - minmax 'xmax ! 'xmin !
 	isovec> 32 - minmax 'ymax ! 'ymin !
-	isovec> 28 - minmax 'zmin ! 'zmax ! ;
+	isovec> 28 - minmax 'zmax ! 'zmin ! ;
 
 |--- draw box
 :drawbox | x y z oct --
@@ -291,7 +293,7 @@
 
 |---------------- search iso ratio
 :getz | x y z node -- Z
-    isovec> 28 - minmax swap - 2/ pick2 + ;
+    getzc pick2 + ;
 
 :viewr | x y z node --
 	>r calco 'nzmin ! r>
@@ -339,22 +341,41 @@
 	r> swap ;
 
 | idea-----------------------------
-:ideacull | x y z node -- x y z node 0(out)/-1(in)/1(cut)
+
+:parcialz | x y z node -- x y z node 0(in)/-1(out)/1(cut)
+	zmax zmin + 2/ + 1.0 swap /.  | zc
+	pick4 xmax xmin + 2/ + | zc xc
+	abs over *.
+	0.4 >? ( 2drop -1 ; )
+	drop
+:parcialzx
+	pick3 ymax ymin + 2/ + | zc yc
+	abs swap *.
+	0.4 >? ( drop -1 ; )
+	drop 1 ;
+
+:ideacull | x y z node -- x y z node 0(in)/-1(out)/1(cut)
 	getbbox
-	over zmax + 1 <? ( drop 0 ; )
-	pick4 xmax xmin - 2/ swap over + | z xr xc 
-	abs >? ( 0 ; )
-	pick3 ymax ymin - 2/ swap over + | z yr yc
-	abs >? ( 0 ; )
-	
-	;
+	over
+	zmax 1+ <? ( drop -1 ; )
+	zmin 1+ <? ( parcialz ; )
+	zmax zmin + 2/ + 1.0 swap /. | zc
+	pick4 xmax xmin + 2/ + | zc xc
+	abs over *.
+	0.4 >? ( 2drop -1 ; )
+	0.3 >? ( drop parcialzx ; )
+	drop
+	pick3 ymax ymin + 2/ + | zc yc
+	abs swap *.
+	0.4 >? ( drop -1 ; )
+	0.3 >? ( drop 1 ; )
+	drop 0 ;
 
 |----------------------
 :viewo | x y z node --
 
 	cullingcalc 0? ( drop viewr ; ) $ff00 and? ( nip 4drop vec- ; ) drop
-
-|	boxcull 0? ( drop viewr ; ) -? ( nip 4drop vec- ; ) drop
+|	ideacull 0? ( drop viewr ; ) -? ( nip 4drop vec- ; ) drop
 
 	$pixels >=? ( veco exec ; )
 
@@ -444,9 +465,8 @@
 	sh ( 1? )( 1-
 		sw ( 1? )( 1-
 			r@+
-			|$7fffffff <>? ( drop r zbo + @ )( 0 nip )	| cbuffer
-			$7fffffff =? ( 0 nip )( 1 << $ff00 and )	| zbuffer
-			px!+
+			|$7fffffff <>? ( drop r zbo + @ px!+ )( drop 1 px+! )	| cbuffer
+			$7fffffff =? ( drop 1 px+! )( 1 << $ff00 and px!+ )	| zbuffer
 			) drop
 		) drop rdrop ;
 
@@ -505,7 +525,8 @@
 |	"media/3do/horse1.3do" load3do 'Oearth !
 
 	33
-	show guistart scr home |clrscr
+	show |guistart scr home |
+		clrscr
 
 |	    matini
 		omode
@@ -513,7 +534,7 @@
 		xcam ycam zcam mtrans
 
 		zb.clear
-|		Oluigi drawoctree
+		Oluigi drawoctree
 		Omario drawoctree
 		zdraw
 
@@ -523,9 +544,6 @@
 		dup "%d " print cr
 		msec fps over mseca - "%d ms fps:%d" print cr 'mseca !
 		zcam ycam xcam "%f %f %f" print cr
-|		z1 y1 x1 "%f %f %f" print cr
-|		z2 y2 x2 "%f %f %f" print cr
-|		z4 y4 x4 "%f %f %f" print cr
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>

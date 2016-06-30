@@ -20,18 +20,18 @@
 	swap 2 << +
 	dup 'segs !
 	over 3 << + 'here !
-	dup 1- 'ymax ! 'zbh !
+	dup 1- 'ymax ! 'bbh !
 	bb.clear
 	;
 
 :bb.adr | x y -- m d
-	1 pick2 $1f and << rot 5 >> 2 << rot bbw * + bb + ;
+	1 pick2 $1f and << rot 5 >> rot bbw * + 2 << bb + ;
 
 ::bb.get | x y -- b
-	mask.adr @ and ;
+	bb.adr @ and ;
 
 ::bb.set | x y --
-	mask.adr dup @ rot not and swap ! ;
+	bb.adr dup @ rot not and swap ! ;
 
 :gmask1
 	$1f and -2 swap << not ;
@@ -41,13 +41,13 @@
 
 |------------------------------------
 ::maskpxy | color x y --
-	2dup mask.adr swap over @
+	2dup bb.adr swap over @
 	nand? ( nip 4drop ; )
 	not over @ and swap !
 	oy + setxy px!+ ;
 
 ::maskpxyo | color x y --
-	2dup maskb.set
+	2dup bb.set
 	oy + setxy px!+ ;
 
 :proc8 | mask -- mask
@@ -69,7 +69,7 @@
 
 :maskfpxl | x1 y x2 --
 	pick2 $ffffffe0 and pick2 oy + setxy 		| x y x2
-	pick2 5 >> 2 << rot bbw * + bb + >r	| x x2
+	pick2 5 >> rot bbw * + 2 << bb + >r	| x x2
 	gmask1 swap gmask2 and
 	r @ 2dup and oneword swap not and r> ! ;
 
@@ -77,7 +77,7 @@
 	dup 5 >> pick3 5 >> -
 	0? ( drop maskfpxl ; ) 1- >r				| x1 y x2 r:cntx
 	pick2 $ffffffe0 and pick2 oy + setxy 		| x y x2   r:cntx
-	pick2 5 >> 2 << rot bbw + bb + 			| x1 x2 adr
+	pick2 5 >> rot bbw * + 2 << bb + 			| x1 x2 adr
 	r> swap >r                              | x1 x2 cntx
 	rot gmask2 r @ 2dup and oneword swap not and r!+			| x2 cntx
 	( 1? )( r @ oneword 0 r!+ 1- ) drop
@@ -86,32 +86,32 @@
 
 ::maskfpy | x y1 y2 --
 	pick2 pick2 oy + setxy 		| x y1 y2
-	pick2 5 >> 2 << pick2 bbw * + bb + >r	| x y1 y2
+	pick2 5 >> pick2 bbw * + 2 << bb + >r	| x y1 y2
 	swap - 1 rot $1f and << | cnty mask
 	swap 1+
 	( 1? )( 1- | mask cnty
 		r @ pick2 and? ( ink@ px!+ )( 1 px+! )
 		pick2 not and r!+
-		sw 1- px+! 124 r+
+		sw 1- px+! bbw 2 << r+
 		) 2drop rdrop ;
 
 
 :maskfpxyl | x1 y1 x2 y2 --
 	pick3 $ffffffe0 and pick3 oy + setxy
-	pick3 5 >> 2 << pick3 bbw * + bb + >r
+	pick3 5 >> pick3 bbw * + 2 << bb + >r
 	rot - 						| x1 x2 cnty
 	rot gmask2 rot gmask1 and	| cntx mask
 	swap 1+ ( 1? )(
 		r @ pick2 over and oneword pick2 not and r!+
 		sw 32 - px+!
-		124 r+
+		bbw 2 << r+
 		1- ) 2drop rdrop ;
 
 ::maskfpxy | x1 y1 x2 y2 --
 	over 5 >> pick4 5 >> -
 	0? ( drop maskfpxyl ; ) 1- >r	| x1 y1 x2 y2 r:cntx
 	pick3 $ffffffe0 and pick3 oy + setxy
-	pick3 5 >> 2 << pick3 bbw * + bb +
+	pick3 5 >> pick3 bbw * + 2 << bb +
 	r> swap >r >r					| x1 y1 x2 y2   r:cntx adr
 	rot -							| x1 x2 cnty
 	rot gmask2 rot gmask1 			| cnty m1 m2
@@ -121,14 +121,14 @@
 		pick2 r @ 2dup and oneword swap not and r!+			| x2 cntx
 		over ( 1? )( r @ oneword 0 r!+ 1- ) drop
 		pick3 r @ 2dup and oneword swap not and r!+			| x2 cntx
-		32 pick2 2 + - 2 << r+
+		bbw pick2 2 + - 2 << r+
 		sw pick2 2 + 5 << - px+!
 		1- ) 4drop rdrop ;
 
 |--- convex polygon
 #FBASE	16
 
-::bbop | x y --
+::bop | x y --
 	ymin 3 << segs + >r
 	ymax ymin - 1+ ( 1? )( 1- $7fffffff r!+ -1 r!+ ) drop rdrop
 	dup 'ymin ! dup 'ymax !
@@ -136,7 +136,7 @@
 	'py ! 'px !
 	;
 
-::bbop2 | x y --
+::bop2 | x y --
 	ymin <? ( dup 'ymin ! )
  	ymax >? ( dup 'ymax ! )
 	2dup 3 << segs + >r
@@ -156,24 +156,24 @@
 	'px !
 	rdrop ;
 
-::bbline | x y --
+::bline | x y --
 	py =? ( enlinea ; )
-	px py pick2 >? ( 2swap 2dup )( 2over ) | x2 y2 x1 y1
-	'py ! 'px !
+	px py 2over 'py ! 'px !
+	pick2 >? ( 2swap ) | x2 y2 x1 y1
 	ymin <? ( dup 'ymin ! )
  	rot ymax >? ( dup 'ymax ! )		| comprueba el mayor
 	>r >r FBASE << swap FBASE << 	| x1 x2
 	over - r> r> over -				| x1 (x2-x1) y1 (y2-y1)
 	1+ rot over /					| x1 y1 (y2-y1) t
 	rot 3 << segs + >r				| x1 (y2-y1) t
-	rot over 2/ + rot 				| t x1 cnt
+	rot over + rot  				| t x1 cnt
 	( 1? )( 1- swap
 		r@+ <? ( dup r 4 - ! )
 		r@+ >? ( dup r 4 - ! )
 		pick2 + swap )
 	3drop rdrop ;
 
-::bbpoly
+::bpoly
 	ymax
 	ymin dup 3 << segs + >r
 	( over <=? )(
