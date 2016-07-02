@@ -1,10 +1,10 @@
+| rasterize ellipse
+| PHREDA 2016
 ^r4/lib/gui.txt
-
 #xm #ym
+#dx #dy
+
 #x #y
-#e2
-#dx
-#dy
 #err
 #2bb
 #2aa
@@ -18,7 +18,7 @@
 	xm x - ym op
 	xm x + ym line ;
 
-:ellipse | a b xm ym
+:ellipse1 | a b xm ym
 	'ym ! 'xm !
 	over neg 'x !
 	0 'y !
@@ -35,9 +35,77 @@
 		dy <=? ( qfill 1 'y +! 2aa 'dy +! dy 'err +! )
 		drop
 		) drop ;
+|---------------------------------------------
+| v2 - remove x y vars
+
+:qfill | x y
+	ym over - xm pick3 - over op
+	xm pick3 + swap line
+	ym over + xm pick3 - over op
+	xm pick3 + swap line ;
+
+:qfill1 | x y
+	xm pick2 - ym op
+	xm pick2 + ym line ;
+
+:ellipse2 | a b xm ym
+	'ym ! 'xm !
+	over dup * dup 2* '2aa ! 'dy !
+	over neg 2* 1+
+	swap dup * dup 2* '2bb ! * 'dx !
+	dx dy + 'err !
+	neg 0			| x y
+	qfill1
+	1+ 2aa 'dy +! dy 'err +!
+	( swap -? )( swap 	| x y
+		err 2*
+		dx >=? ( rot 1+ rot rot 2bb 'dx +! dx 'err +! )
+		dy <=? ( rot rot qfill 1+ rot 2aa 'dy +! dy 'err +! )
+		drop
+		) 2drop ;
+
+|--------------------
+| v3 - remove err
+:ellipse3 | a b xm ym
+	'ym ! 'xm !
+	over dup * dup 2* '2aa ! dup >r 'dy !
+	over neg 2* 1+
+	swap dup * dup 2* '2bb ! * dup r+ 'dx !
+	neg 1			| x y
+	2aa 'dy +! dy r+
+	qfill1
+	( swap -? )( swap 	| x y
+		r 2*
+		dx >=? ( rot 1+ rot rot 2bb 'dx +! dx r+ )
+		dy <=? ( rot rot qfill 1+ rot 2aa 'dy +! dy r+ )
+		drop
+		) 2drop
+	rdrop ;
+
+|--------------------
+| v4 - remove 2aa y 2bb , +x
+:ellipse | a b xm ym
+	'ym ! 'xm !
+	over dup * dup 2*		| a b c 2aa
+	swap dup >r 'dy ! 		| a b 2aa
+	rot rot over neg 2* 1+	| 2aa a b c
+	swap dup * dup 2* 		| 2aa a c b 2bb
+	rot rot * dup r+ 'dx !	| 2aa a 2bb
+	swap 1				| 2aa 2bb x y
+	pick3 'dy +! dy r+
+	qfill1
+	( swap +? )( swap 		| 2aa 2bb x y
+		r 2*
+		dx >=? ( rot 1- rot rot pick3 'dx +! dx r+ )
+		dy <=? ( rot rot qfill 1+ rot pick4 'dy +! dy r+ )
+		drop
+		)
+	4drop rdrop ;
 
 :main
+	33
 	show clrscr
+		dup "%d" print
 		azul
 		180 160 220 140 cajaf
 
