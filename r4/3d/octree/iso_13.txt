@@ -104,8 +104,7 @@
 |--- draw box
 :drawbox | x y z oct --
 	octcolor zo!
-	getzc + zz!
-	getmm
+	getzc + zz! getmm
 	swap xmin + swap ymin +
 	xmax xmin - 1+ ymax ymin - 1+ 2swap
 	zb.fill	;
@@ -172,10 +171,13 @@
 	;
 
 :2/a | a -- b
-	1+ 1? ( 1- 2/ ) ;
+	2/ ; 
+	| 1+ 1? ( 1- 2/ ) ;
 
 :2/b | a -- b c
-	dup 1+ 1? ( 1- 2/ )
+	dup
+	2/
+	| 1+ 1? ( 1- 2/ )
 	swap over - swap ;
 
 |-------------------------------------
@@ -240,7 +242,7 @@
 #lsumac c000 c001 c010 c011 c100 c101 c110 c111
 
 |-------------------------------
-:drawibox | x y z n n --
+:drawibox3 | x y z n n --
 	dup | relleno para 'lsumac
 	2 << 'lsumac + @ exec
 |	getzc +
@@ -252,17 +254,17 @@
 	drop | relleno
 	vec- ;
 
-:drawibox2
+:drawibox1
 	dup | relleno para 'lsumac
 	rot 2 << 'lsumac + @ exec
 	nzmin
-	dup drawibox
-	dup 1 xor drawibox
-	dup 2 xor drawibox
-	dup 4 xor drawibox
-	dup 3 xor drawibox
-	dup 5 xor drawibox
-	dup 6 xor drawibox
+	dup drawibox3
+	dup 1 xor drawibox3
+	dup 2 xor drawibox3
+	dup 4 xor drawibox3
+	dup 3 xor drawibox3
+	dup 5 xor drawibox3
+	dup 6 xor drawibox3
 	nip 4drop
 	vec-
 	;
@@ -291,6 +293,20 @@
 	dup 6 xor drawibox
 	4drop ;
 
+|----- voxel borde
+
+:drawborde
+	4drop
+|	octcolor zo!
+
+|	1 max zz! getmm
+|	swap xmin + 0 max
+|	swap ymin + 0 max
+|	xmax sw min xmin - 1+
+|	ymax sh min ymin - 1+
+|	2swap zb.fill 
+	;
+
 |---------------------------
 :child-oct | x y z node bitm nro place -- x y z node bitm xn yn zn noct
 	1- pick2 and popcnt 2 << pick3 +	| x y z node bitm nro nnode
@@ -309,15 +325,14 @@
 	xmax xmin - 1+ zbw! vec- ;
 
 :viewi | x y z node --
-	$pixels >=? ( veci exec ; )
-	>r
-    getmm
-    xmax xmin - 0? ( drop r> drawpoint1 ; )	1+ | w
+    >r getmm
+    xmax xmin - 0? ( drop r> drawpoint1 ; ) 1+ | w
     ymax ymin - 0? ( 2drop r> drawpoint2 ; ) 1+ | w h
 	pick4 xmin + pick4 ymin + pick4 |getzc +
 	zb.occ
 	0? ( rdrop 4drop vec- ; ) drop
 	r>
+	$pixels >=? ( veci exec ; )
 	oct++
 	nzmin 1 over << pick2 nand? ( 2drop )( child-oct viewi )
 	nzmin 1 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
@@ -392,7 +407,6 @@
 	r> swap ;
 
 | idea-----------------------------
-
 :parcialz | x y z node -- x y z node 0(in)/-1(out)/1(cut)
 	zmax zmin + 2/ + 1.0 swap /.  | zc
 	pick4 xmax xmin + 2/ + | zc xc
@@ -446,18 +460,13 @@
 	vec- ;
 
 |-------- octree in octree
-:vecis	|	drawcube vec- ;
-		|	drawbox vec- ;
-			drawboxi vec- ;
+:vecis	| drawcube vec- ;
+		drawbox vec- ;
+		| drawboxi vec- ;
 :vecrs	drawrealcube vec- ; | no iso
-:vecos	4drop vec- ;
+:vecos	drawborde vec- ;
 
-:vecio 	|getoct viewi getocti ;
-:vecro	|getoct viewr getocti ;
-:vecoo	|getoct viewo getocti
-	;
-
-#vecsim	'vecis 'vecrs 'vecos 0 'vecio 'vecro 'vecoo 0
+#vecsim	'vecis 'vecrs 'vecos 0 0 0 0 0
 
 :setvec | m --
 	$100 and 6 >>
@@ -486,10 +495,14 @@
 	-4 'opila> +! opila> @
 	adjustmem ;
 
+:vecio 	getoct viewi getocti ;
+:vecro	getoct viewr getocti ;
+:vecoo	getoct viewo getocti ;
+
 |--------- exportadas
 ::drawoctree | moctree --
 	adjustmem
-	1.0 clz 6 - 'zlen !
+	1.0 clz 6 - 'zlen ! | -0.5..0.5 = 1.0
 	-1 'nzmin !
 
 	'isovec >r
@@ -508,6 +521,9 @@
 	sx sy sz $octree viewo ;
 
 ::load3do | "" -- moctree
+
+	'vecsim 16 + >r 'vecio r!+ 'vecro r!+ 'vecoo r!+ rdrop
+
 	here dup rot load 'here ! ;
 
 |-------------
