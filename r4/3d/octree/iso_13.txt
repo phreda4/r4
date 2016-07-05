@@ -85,9 +85,6 @@
 	8 r+ r@+ -? ( rot + swap )( + )
 	8 r+ r> @ -? ( rot + swap )( + ) ;
 
-:center | adr -- center
-	>r r@+ r 8 + @ + r 20 + @ + 2/ ;
-
 :getmm | --
 	isovec> 36 - minmax 'xmax ! 'xmin !
 	isovec> 32 - minmax 'ymax ! 'ymin ! ;
@@ -104,9 +101,10 @@
 |--- draw box
 :drawbox | x y z oct --
 	octcolor zo!
-	getzc + zz! getmm
+|	3drop ;
+	getzc + zz! |getmm
 	swap xmin + swap ymin +
-	xmax xmin - 1+ ymax ymin - 1+ 2swap
+	xmax xmin - 2 + ymax ymin - 2 + 2swap
 	zb.fill	;
 
 |--- draw cube
@@ -171,15 +169,10 @@
 	;
 
 :2/a | a -- b
-	|2/ ;
 	1+ 1? ( 1- 2/ ) ;
 
 :2/b | a -- b c
-	dup
-	|2/
-	1+ 1? ( 1- 2/ )
-	swap over - swap
-	;
+	dup 1+ 1? ( 1- 2/ ) swap over - swap ;
 
 |-------------------------------------
 | x y z n m -- x y z n m x2 y2 z2
@@ -331,17 +324,20 @@
 
 :drawpoint1 | x y z oct --
 	octcolor zo!
-	ymax ymin - 0? ( drop zb! vec- ; ) 1+ zbh! vec- ;
+	ymax ymin - 0? ( drop zb! vec- ; ) 1+
+	rot ymin + rot rot
+	zbh! vec- ;
 
 :drawpoint2 | x y z oct --
 	octcolor zo!
-	xmax xmin - 1+ zbw! vec- ;
+	2swap swap xmin + swap 2swap
+	zbw! vec- ;
 
 :viewi | x y z node --
     >r getmm
     xmax xmin - 0? ( drop r> drawpoint1 ; ) 1+ | w
-    ymax ymin - 0? ( 2drop r> drawpoint2 ; ) 1+ | w h
-	pick4 xmin + pick4 ymin + pick4 |getzc +
+    ymax ymin - 0? ( drop r> drawpoint2 ; ) 1+ | w h
+	pick4 xmin + pick4 ymin + pick4 getzc +
 	zb.occ
 	0? ( rdrop 4drop vec- ; ) drop
 	r>
@@ -483,8 +479,8 @@
 
 :setvec | m --
 	$100 and 6 >>
-	2 << 'vecsim + >r
-	r@+ 'veci ! r@+ 'vecr ! r> @ 'veco !
+	2 << 'vecsim +
+	>r r@+ 'veci ! r@+ 'vecr ! r> @ 'veco !
 	;
 
 :adjustmem | octree --
@@ -608,8 +604,7 @@
 	"media/3do/Truck.3do" load3do 'Oluigi !
 
 	33
-	show |guistart scr home |
-		clrscr
+	show clrscr
 
 |	    matini
 		omode
@@ -627,7 +622,7 @@
 		dup "%d " print cr
 		msec fps over mseca - "%d ms fps:%d" print cr 'mseca !
 		zcam ycam xcam "%f %f %f" print cr
-
+		-1 2/a "%d" print
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
 		[ -0.01 'xcam +! ; ] <le>
