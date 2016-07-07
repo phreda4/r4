@@ -80,23 +80,34 @@
 :getn | x y z n -- x y z x1 y1 z1
 	2 << 'lsuma + @ exec ;
 
-:minmax | adr -- min max
-	>r 0 0 r@+ -? ( rot + swap )( + )
-	8 r+ r@+ -? ( rot + swap )( + )
-	8 r+ r> @ -? ( rot + swap )( + ) ;
-
 :getmm | --
-	isovec> 36 - minmax 'xmax ! 'xmin !
-	isovec> 32 - minmax 'ymax ! 'ymin ! ;
+	isovec> 36 - >r
+	r@+ -? ( 0 )( 0 swap ) 'xmax ! 'xmin !
+	r@+ -? ( 0 )( 0 swap ) 'ymax ! 'ymin !
+	4 r+
+	r@+ -? ( 'xmin )( 'xmax ) +!
+	r@+ -? ( 'ymin )( 'ymax ) +!
+	4 r+
+	r@+ -? ( 'xmin )( 'xmax ) +!
+	r@+ -? ( 'ymin )( 'ymax ) +!
+	rdrop ;
 
 :getzc | minz
 	isovec> 28 - >r
-	0 r@+ 0 max + 8 r+ r@+ 0 max + 8 r+ r> @ 0 max + ;
+	r@+ 0 min 8 r+ r@+ 0 min + 8 r+ r> @ 0 min + ;
 
 :getbbox
-	isovec> 36 - minmax 'xmax ! 'xmin !
-	isovec> 32 - minmax 'ymax ! 'ymin !
-	isovec> 28 - minmax 'zmax ! 'zmin ! ;
+	isovec> 36 - >r
+	r@+ -? ( 0 )( 0 swap ) 'xmax ! 'xmin !
+	r@+ -? ( 0 )( 0 swap ) 'ymax ! 'ymin !
+	r@+ -? ( 0 )( 0 swap ) 'zmax ! 'zmin !
+	r@+ -? ( 'xmin )( 'xmax ) +!
+	r@+ -? ( 'ymin )( 'ymax ) +!
+	r@+ -? ( 'zmin )( 'zmax ) +!
+	r@+ -? ( 'xmin )( 'xmax ) +!
+	r@+ -? ( 'ymin )( 'ymax ) +!
+	r@+ -? ( 'zmin )( 'zmax ) +!
+	rdrop ;
 
 |--- draw box
 :drawbox | x y z oct --
@@ -165,16 +176,21 @@
 
 |-------------------------------
 :calco |  x y z -- x y z mask
+	pick2 isovec> 36 - >r r@+ 8 r+ r@+ + 8 r+ r@+ + 2/ +
+	pick2 -24 r+ r@+ 8 r+ r@+ + 8 r+ r@+ + 2/ +
+	pick2 -24 r+ r@+ 8 r+ r@+ + 8 r+ r> @ + 2/ +
 	pick2 x1 * pick2 y1 * + over z1 * + +? ( 1 )( 0 ) nip
-	pick3 x2 * pick3 y2 * + pick2 z2 * + +? ( drop 2 + )( drop )
-	pick3 x4 * pick3 y4 * + pick2 z4 * + +? ( drop 4+ )( drop )
+	pick3 x2 * pick3 y2 * + pick2 z2 * + +? ( drop 2 + )( drop ) >r
+	z4 * swap y4 * + swap x4 * + +? ( 4 )( 0 ) nip r> +
 	;
 
 :2/a | a -- b
-	1+ 1? ( 1- 2/ ) ;
+	dup 31 >> - 2/ ;
 
 :2/b | a -- b c
-	dup 1+ 1? ( 1- 2/ ) swap over - swap ;
+	dup
+	dup 31 >> - 2/
+	swap over - swap ;
 
 |-------------------------------------
 | x y z n m -- x y z n m x2 y2 z2
@@ -238,7 +254,7 @@
 #lsumac c000 c001 c010 c011 c100 c101 c110 c111
 
 |-------------------------------
-:drawibox3 | x y z n n --
+:drawibox | x y z n n --
 	dup | relleno para 'lsumac
 	2 << 'lsumac + @ exec
 |	getzc +
@@ -248,33 +264,6 @@
 	over xmin + over ymin + 2swap
 	swap xmax + swap ymax +
 	maskfpxy
-	drop | relleno
-	vec- ;
-
-:drawibox1
-	dup | relleno para 'lsumac
-	rot 2 << 'lsumac + @ exec
-	nzmin
-	dup drawibox3
-	dup 1 xor drawibox3
-	dup 2 xor drawibox3
-	dup 4 xor drawibox3
-	dup 3 xor drawibox3
-	dup 5 xor drawibox3
-	dup 6 xor drawibox3
-	nip 4drop
-	vec-
-	;
-
-:drawibox | x y z n n --
-	dup | relleno para 'lsumac
-	2 << 'lsumac + @ exec
-	getzc + >r
-	getmm
-    xmax xmin - 1+ ymax ymin - 1+ | w h
-	2swap
-	ymax ymin + 2/ + swap xmax xmin + 2/ + swap | xc yc
-|	r> zellipse
 	drop | relleno
 	vec- ;
 
@@ -312,7 +301,7 @@
 	7 getnminmax
 	3drop
 	xmin ymin
-	xmax ymax 
+	xmax ymax
 	maskfpxy
 	;
 
@@ -327,13 +316,13 @@
 
 :drawpoint1 | x y z oct --
 	nip octcolor bo!
-	ymax ymin - 0? ( drop bb! vec- ; ) over +
-	rot xmin + rot ymin + rot ymin +
+	ymax ymin - 0? ( drop bb! vec- ; ) over + ymin +
+	rot xmin + rot ymin + rot
 	bbh! vec- ;
 
 :drawpoint2 | x y z x2 oct --
 	octcolor bo! nip | x y x2
-	rot xmin + rot ymin + rot 
+	rot xmin + rot ymin + rot
 	bbw! vec- ;
 
 :viewi | x y z node --
@@ -360,14 +349,15 @@
 
 |-----------------------
 :isonow | x y z oct --
-	>r isovec> >r
+	>r isovec> 36 - >r
 	pick2 pick2 pick2 p3di 'sx ! 'sy ! 'sz !
 	1 getn p3di sx - r!+ sy - r!+ sz - r!+
 	2 getn p3di sx - r!+ sy - r!+ sz - r!+
 	4 getn p3di sx - r!+ sy - r!+ sz - r!+
 	r> 'isovec> !
 	3drop sx sy sz
-	r> viewi vec- ;
+	r> viewi
+	;
 
 |---------------- search iso ratio
 :getz | x y z node -- Z
@@ -473,8 +463,8 @@
 	vec- ;
 
 |-------- octree in octree
-:vecis	| drawcube vec- ;
-		drawbox vec- ;
+:vecis	drawcube vec- ;
+		| drawbox vec- ;
 		| drawboxi vec- ;
 :vecrs	drawrealcube vec- ; | no iso
 :vecos	drawborde vec- ;
@@ -590,9 +580,9 @@
 
 	sw sh ini3do
 
-|	"media/3do/horse1.3do" load3do 'Omario !
+	"media/3do/horse.3do" load3do 'Omario !
 |	"media/3do/sibenika.3do" load3do 'Omario !
-	"media/3do/clon1.3do" load3do 'Omario !
+|	"media/3do/clon1.3do" load3do 'Omario !
 	"media/3do/Truck.3do" load3do 'Oluigi !
 
 	33
