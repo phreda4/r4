@@ -8,6 +8,11 @@
 
 ^r4/lib/trace.txt
 
+#w3do
+#h3do
+#hocc
+#wocc
+
 #$base
 #:$octree
 #:$pixels
@@ -280,10 +285,10 @@
 :getnminmax
 	getn p3di
 	xmin <? ( dup 0 max 'xmin ! )
-	xmax >? ( dup sw min 'xmax ! )
+	xmax >? ( dup w3do min 'xmax ! )
 	drop
 	ymin <? ( dup 0 max 'ymin ! )
-	ymax >? ( dup sh min 'ymax ! )
+	ymax >? ( dup h3do min 'ymax ! )
 	2drop ;
 
 :drawborde
@@ -389,11 +394,17 @@
 	swap -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
 	drop r> ;
 
+:culling | x y z -- cull
+	1 <? ( $10 )( 0 ) >r
+	swap hocc *. -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
+	swap wocc *. -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) 	)
+	drop r> ;
+
 :cull1 | x y z -- cull
 	culling dup 8 << or ;
 
-:culln | xyz -- culla cullo
-	culling dup 8 << $ff or ; |rot and or ;
+:culln | xyz -- cullo culla
+	culling dup 8 << $ff or ;
 
 :cullingcalc | x y z node -- x y z node aocull
 	>r
@@ -407,45 +418,14 @@
 	7 getn culln r> and or
 	r> swap ;
 
-| idea-----------------------------
-:parcialz | x y z node -- x y z node 0(in)/-1(out)/1(cut)
-	zmax zmin + 2/ + 1.0 swap /.  | zc
-	pick4 xmax xmin + 2/ + | zc xc
-	abs over *.
-	0.4 >? ( 2drop -1 ; )
-	drop
-:parcialzx
-	pick3 ymax ymin + 2/ + | zc yc
-	abs swap *.
-	0.4 >? ( drop -1 ; )
-	drop 1 ;
-
-:ideacull | x y z node -- x y z node 0(in)/-1(out)/1(cut)
-	getbbox
-	over
-	zmax 1+ <? ( drop -1 ; )
-	zmin 1+ <? ( parcialz ; )
-	zmax zmin + 2/ + 1.0 swap /. | zc
-	pick4 xmax xmin + 2/ + | zc xc
-	abs over *.
-	0.4 >? ( 2drop -1 ; )
-	0.3 >? ( drop parcialzx ; )
-	drop
-	pick3 ymax ymin + 2/ + | zc yc
-	abs swap *.
-	0.4 >? ( drop -1 ; )
-	0.3 >? ( drop 1 ; )
-	drop 0 ;
-
 
 |----------------------
 :viewo | x y z node --
-
-	cullingcalc 0? ( drop viewr ; ) $ff00 and? ( nip 4drop vec- ; ) drop
-|	ideacull 0? ( drop viewr ; ) -? ( nip 4drop vec- ; ) drop
-
+	cullingcalc
+	0? ( drop viewr ; )
+	$ff00 and? ( nip 4drop vec- ; )
+	drop
 	$pixels >=? ( veco exec ; )
-
 	>r calco r> swap >r
 	1 'zlen +!
 	oct++
@@ -466,7 +446,8 @@
 		drawbox vec- ;
 		| drawboxi vec- ;
 :vecrs	drawrealcube vec- ; | no iso
-:vecos	drawborde vec- ;
+:vecos	4drop |drawborde
+vec- ;
 
 #vecsim	'vecis 'vecrs 'vecos 0 0 0 0 0
 
@@ -483,7 +464,7 @@
 	@ $octree + '$pixels !
 	;
 
-#opila )( 64
+#opila )( 32
 #opila> 'opila
 
 :getoct | octree -- octree
@@ -505,7 +486,6 @@
 ::drawoctree | moctree --
 	adjustmem
 	1.0 clz 6 - 'zlen ! | -0.5..0.5 = 1.0
-	-1 'nzmin !
 
 	'isovec >r
 	-0.5 -0.5 -0.5 transform 'sz ! 'sy ! 'sx !
@@ -525,26 +505,38 @@
 ::load3do | "" -- moctree
 	here dup rot load 'here ! ;
 
+
 ::ini3do | w h --
-	Omode
+	2dup o3dmode
+	2dup 'h3do ! 'w3do !
 	zb.ini
+
+    2.1 'hocc ! | calcular los valores!!****** 1024*600
+    1.2 'wocc !
+
     'vecsim 16 + >r 'vecio r!+ 'vecro r!+ 'vecoo r!+ rdrop
     ;
 
 |-------------
-:zdraw
-	0 0 setxy
+::zdraw | x y --
+	setxy
 	zb >r
-	sh ( 1? )( 1-
-		sw ( 1? )( 1-
+	sw w3do -
+	h3do ( 1? )( 1-
+		w3do ( 1? )( 1-
 			r@+
-			|$7fffffff <>? ( drop r zbo + @ px!+ )( drop 1 px+! )	| cbuffer
-			$7fffffff =? ( drop 1 px+! )( 1 << $ff00 and px!+ )	| zbuffer
+			$7fffffff <>? ( drop r zbo + @ px!+ )( drop 1 px+! )	| cbuffer
+			|$7fffffff =? ( drop 1 px+! )( $ff00 and px!+ )	| zbuffer
 			) drop
-		) drop rdrop ;
+		over px+!
+		) 2drop rdrop ;
 
 |-------------
 #xcam 0 #ycam 0 #zcam 2.0
+
+|-------------
+:3dop transform p3d op ;
+:3dline transform p3d line ;
 
 |-------------
 :freelook
@@ -553,10 +545,6 @@
 	sw 2/ - neg 7 << swap
 	neg mrotx mroty
 	;
-
-|-------------
-:3dop transform p3d op ;
-:3dline transform p3d line ;
 
 #sizx #sizy #sizz
 
@@ -577,10 +565,7 @@
 	sizx sizy drawl sizx neg sizy drawl
 	;
 
-#Ocaballo
 #Omario
-#Oluigi
-#Oearth
 
 #fps
 #fpsc
@@ -591,23 +576,21 @@
 
 	sw sh ini3do
 
-	"media/3do/horse.3do" load3do 'Omario !
-|	"media/3do/sibenika.3do" load3do 'Omario !
-|	"media/3do/clon1.3do" load3do 'Omario !
-	"media/3do/Truck.3do" load3do 'Oluigi !
-
+	"media/3do/horse.3do"
+|	"media/3do/sibenika.3do"
+|	"media/3do/clon1.3do"
+|	"media/3do/Truck.3do"
+	load3do 'Omario !
 	33
 	show clrscr
 
-|	    matini
-		omode
+		matini
 		freelook
 		xcam ycam zcam mtrans
 
 		zb.clear
-|		Oluigi drawoctree
 		Omario drawoctree
-		zdraw
+		0 0 zdraw
 
 		1 'fpsc +!
 
@@ -615,6 +598,12 @@
 		dup "%d " print cr
 		msec fps over mseca - "%d ms fps:%d" print cr 'mseca !
 		zcam ycam xcam "%f %f %f" print cr
+		hocc wocc "%f %f" print
+
+		[ 0.01 'wocc +! ; ] <f1>
+		[ -0.01 'wocc +! ; ] <f2>
+		[ 0.01 'hocc +! ; ] <f3>
+		[ -0.01 'hocc +! ; ] <f4>
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>

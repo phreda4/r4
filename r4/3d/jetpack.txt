@@ -1,4 +1,7 @@
-| jetpack
+| jetpack 3d
+| PHREDA 2016
+|
+
 ^r4/lib/gui.txt
 ^r4/lib/btn.txt
 
@@ -8,16 +11,22 @@
 
 ^r4/lib/trace.txt
 
-#v
+#ldisparos 0 0
+#lenemigos 0 0
+#lfx 0 0
+
 #xcam #ycam 1.0 #zcam 10.0
-#cosas 0 0
-#player 0 0
 
 #oclon1 #oclon2 #oclon3
 #oclon4 #oclon5 #oclon6
-#ocoso #obala
+#oov1 #oov2 #oov3
+#ometeoro
+#obala
 
-#clonrun 0 0 oclon1 5 oclon2 5 oclon1 5 oclon3 5 0
+#clonrun 0 0 oclon1 5 oclon5 5 oclon1 5 oclon6 5 0
+#clonfly 0 0 oclon2 3 oclon3 3 oclon4 3 0
+
+#ovnirun 0 0 oov1 8 oov2 8 oov3 8 0
 
 |-----------------------------
 :3dop transform p3d op ;
@@ -58,7 +67,9 @@
 	r@+ 1? ( mrotyi )( drop )
 	r@+ 1? ( mrotzi )( drop )
 |	0.5 0.5 0.5 box3d
-	ocoso drawoctree
+|	ocoso drawoctree
+	'ovnirun seqAnima @ drawoctree
+|	ometeoro drawoctree
 	mpop
 	rdrop
 	24 +
@@ -68,7 +79,7 @@
 	;
 
 :cosa+xy | x y --
-	'cosa 'cosas p!+ >r
+	'cosa 'lenemigos p!+ >r
 	r!+ 0 r!+ r!+ | x y z
 	0 r!+ 0 r!+ 0 r!+ | rx ry rz
 
@@ -79,6 +90,8 @@
 
 |------ disparo
 :bdisparo
+	dup @ 1- 0? ( nip ; )	| tiempo de vida
+	swap !+
 	dup >r
 	mpush
 	r@+ r@+ r@+ mtransi
@@ -86,7 +99,6 @@
 	r@+ 1? ( mrotyi )( drop )
 	r@+ 1? ( mrotzi )( drop )
 	obala drawoctree
-|	0.5 0.5 0.5 box3d
 	mpop
 	rdrop
 	24 +
@@ -94,89 +106,60 @@
 	@+ over 28 - +! @+ over 28 - +! @+ over 28 - +!
 	drop
 	;
-
-:disparo
-	dup 20 -
-	'bdisparo 'cosas p!+ >r
-	@+ r!+ @+ r!+ @+ r!+
-	@+ r!+
-	@+ r!+
-	@+ r!+
-	4+ @+ sincos
-	0.1 *. r!+
-	0 r!+
-	0.1 *. r!+
-	0 r!+ 0 r!+ 0 r!+
-	drop
-	rdrop ;
 
 |------ player
-:p1
-	dup >r
-	24 +
-	[ 0.01 over ! ; ] <le>
-	[ -0.01 over ! ; ] <ri>
-	[ 0 over ! ; ] >le<
-	[ 0 over ! ; ] >ri<
-	[ 0.015 over 4+ ! ; ] <up> 	| avanzar
-	[ 0 over 4+ ! ; ] >up<
-	[ ; ] <dn>					| agacharse
-	[ ; ] >dn<
-	[ ; ] <spc>
-	[ disparo ; ] <ctrl>
-	>r
- 	r@+ r 4+ +!
-	r@+ r 4+ !
-	r@+ dup r 20 - ! |!!
-	r@+
-	swap sincos pick2 *. r 40 - +! *. r 32 - +!
-	rdrop
+#plx #ply #plz
+#plrx #plry #plrz
+
+#pla	| avance
+#plr #pldr	| rotacion
+#pli	| impulso en z
+#pljet
+
+:disparo
+	'bdisparo 'ldisparos p!+ >r
+	150 r!+ | tiempo de vida
+	plx r!+ ply r!+ plz r!+
+	plrx r!+ plry r!+ plrz r!+
+	plr sincos 0.3 *. r!+ 0 r!+ 0.3 *. r!+
+	0 r!+ 0 r!+ 0 r!+
+	rdrop ;
+
+:player
+	[ 0.02 'pldr ! ; ] <le>
+	[ -0.02 'pldr ! ; ] <ri>
+	[ 0 'pldr ! ; ] dup >le< >ri<
+
+	[ 0.02 'pla ! ; ] <up> 	| avanzar
+	[ -0.02 'pla ! ; ] <dn>	| retroceder
+	[ 0 'pla ! ; ] dup >up< >dn<
+	[ 1 'pljet ! ;  ] <spc>
+	[ 0 'pljet ! ; ] >spc<
+	'disparo <ctrl>
+
+	pldr 'plr +!
+
+	pla ply 1? ( drop 2* )( drop )
+	plr dup 'plry !
+	sincos pick2 *. 'plx +! *. 'plz +!
+
+	pljet 1? ( -0.0001 pli + -0.05 min 'pli ! )( 0.005 'pli +! )  drop
+
+	ply pli +
+	0 >? ( 0 nip 0 'pli ! )	| suelo
+	'ply !
+
 	mpush
-	r@+ r@+ r@+ mtransi
-	r@+ 1? ( mrotxi )( drop )
-	r@+ 1? ( mrotyi )( drop )
-	r@+ 1? ( mrotzi )( drop )
-	blanco
-	dup 10 2 << + @ 0? ( oclon1 )( 'clonrun seqAnima @ ) nip
+	plx ply plz mtransi
+	plrx 1? ( mrotxi )( drop )
+	plry 1? ( mrotyi )( drop )
+	plrz 1? ( mrotzi )( drop )
+
+	pljet 1? ( 'clonfly seqAnima @ )( pla 0? ( oclon1 )( 'clonrun seqAnima @ ) nip ) nip
 	drawoctree
+
 	mpop
-	rdrop
 	;
-
-:reset
-	'player p.clear
-
-	'p1 'player p!+ >r
-	0 0 0 r!+ r!+ r!+	| x y z
-	0 0 0 r!+ r!+ r!+	| rx ry rz
-	0 r!+ | ddir
-	0 r!+ | dav
-	0 r!+ | dir
-	0 r!+ | av
-
-	100 r!+	| energia
-	1 r!+ | id
-	rdrop
-	;
-
-|-------------
-:zdraw
-	0 0 setxy
-	zb >r
-	sh ( 1? )( 1-
-		sw ( 1? )( 1-
-			r@+
-			$7fffffff <>? ( drop r zbo + @ px!+ )( drop 1 px+! )	| cbuffer
-			|$7fffffff =? ( drop 1 px+! )( 1 << $ff00 and px!+ )	| zbuffer
-			) drop
-		) drop rdrop ;
-
-|-----------------------------------
-:freelook
-	xymouse
-	sh 2/ - 7 << swap
-	sw 2/ - 7 << swap
-	neg mrotx mroty ;
 
 :grilla
 	-20.0 ( 20.0 <? )(
@@ -187,24 +170,45 @@
 		5.0 + ) drop
 	;
 
-:main
+:reset
+	'ldisparos p.clear
+	'lenemigos p.clear
+	'lfx p.clear
+
+	0 0 0 'plx ! 'ply ! 'plz !
+	0 0 0 'plrx ! 'plry ! 'plrz !
+
 	grilla
+	;
+
+|-----------------------------------
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - 7 << swap
+	neg mrotx mroty ;
+
+
+:main
 	reset
 	33
 	show clrscr
       	dup "%d" print cr
 		zcam "%f" print cr
 
-		omode
+		matini
 |		freelook
 		xcam ycam zcam mtrans
 
 		zb.clear
 
-		'player p.draw
-		'cosas p.draw
+		player
+		'lenemigos p.draw
+		'ldisparos p.draw
 
-		zdraw
+		0 0 zdraw
+
+		'lfx p.draw
 
 		'exit >esc<
 		cminiflecha  ;
@@ -215,18 +219,25 @@
 
 	sw sh ini3do
 
-	"media/3do/clon_conjetpack1c.3do" load3do 'Oclon1 !
-	"media/3do/clon_conjetpack1c.3do" load3do 'Oclon2 !
-	"media/3do/clon_conjetpack1c.3do" load3do 'Oclon3 !
-	"media/3do/clon4.3do" load3do 'Oclon4 !
-	"media/3do/clon5.3do" load3do 'Oclon5 !
-	"media/3do/clon6.3do" load3do 'Oclon6 !
+	"media/3do/clon_conjetpack1.3do" load3do 'Oclon1 !
+	"media/3do/clon_conjetpack2.3do" load3do 'Oclon2 !
+	"media/3do/clon_conjetpack3.3do" load3do 'Oclon3 !
+	"media/3do/clon_conjetpack4.3do" load3do 'Oclon4 !
 
-	"media/3do/ovni31c.3do" load3do 'Ocoso !
+	"media/3do/clon2.3do" load3do 'Oclon5 !
+	"media/3do/clon3.3do" load3do 'Oclon6 !
+
+	"media/3do/ovni31.3do" load3do 'Oov1 !
+	"media/3do/ovni32.3do" load3do 'Oov2 !
+	"media/3do/ovni33.3do" load3do 'Oov3 !
+
+	"media/3do/meteoro.3do" load3do 'Ometeoro !
+
 	"media/3do/bala.3do" load3do 'Obala !
 
-	10 'player p.ini
-	1000 'cosas p.ini
+	50 'ldisparos p.ini
+	100 'lenemigos p.ini
+	1000 'lfx p.ini
 	;
 
 : inimem main ;
