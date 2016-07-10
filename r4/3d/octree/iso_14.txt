@@ -1,14 +1,15 @@
 | iso test 13
 | PHREDA 2016
-| suma de 3 vectores - zbuffer
+| suma de 3 vectores - oozbuffer
 |---------------------
 ^r4/lib/gui.txt
-^r4/lib/zbuffer.txt
+^r4/lib/wbuffer.txt
 ^r4/lib/morton.txt
 
 ^r4/lib/trace.txt
 
-#cnt
+#cnt 
+
 #w3do
 #h3do
 #hocc
@@ -100,7 +101,7 @@
 
 :getzc | minz
 	isovec> 28 - >r
-	r@+ 0 min 8 r+ r@+ 0 min + 8 r+ r> @ 0 min + ;
+	r@+ 0 max 8 r+ r@+ 0 max + 8 r+ r> @ 0 max + ;
 
 :getbbox
 	isovec> 36 - >r
@@ -296,7 +297,7 @@
 	octcolor zo!
 	0 getn p3di dup 'xmin ! 'xmax ! dup 'ymin ! 'ymax ! 1 max zz!
 	1 getnminmax
-	2 getnminmax
+2 getnminmax
 	3 getnminmax
 	4 getnminmax
 	5 getnminmax
@@ -350,14 +351,21 @@
 	vec-
 	;
 
+|::p3dizb | x y z -- z y x
+|	swap over 20 *>> oy +
+|	rot pick2 20 *>> ox + ;
+
+|::p3dcz | z -- 1/z
+|	xf swap 20 <</ ;
+
 |-----------------------
 :isonow | x y z oct --
 	1 'cnt +!
 	>r isovec> 36 - >r
-	pick2 pick2 pick2 p3di 'sx ! 'sy ! 'sz !
-	1 getn p3di sx - r!+ sy - r!+ sz - r!+
-	2 getn p3di sx - r!+ sy - r!+ sz - r!+
-	4 getn p3di sx - r!+ sy - r!+ sz - r!+
+	pick2 pick2 pick2 p3dizb 'sx ! 'sy ! 'sz !
+	1 getn p3dizb sx - r!+ sy - r!+ sz - r!+
+	2 getn p3dizb sx - r!+ sy - r!+ sz - r!+
+	4 getn p3dizb sx - r!+ sy - r!+ sz - r!+
 	r> 'isovec> !
 	3drop sx sy sz
 	r>
@@ -371,7 +379,7 @@
 
 :viewr | x y z node --
 	>r calco 'nzmin ! r>
-	getz clz zlen <=? ( drop isonow ; ) drop
+	getz clz zlen <? ( drop isonow ; ) drop | zlen >?
 	$pixels >=? ( vecr exec ; )
 	oct++
 	1 'zlen +!
@@ -391,8 +399,10 @@
 |----------- search cube in screen
 :culling | x y z -- cull
 	1 <? ( $10 )( 0 ) >r
-	swap hocc *. -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
-	swap wocc *. -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) 	)
+	swap 16 >> |hocc *.
+	-? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
+	swap 16 >> |wocc *.
+	-? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) 	)
 	drop r> ;
 
 :cull1 | x y z -- cull
@@ -481,21 +491,24 @@ vec- ;
 ::drawoctree | moctree --
 	adjustmem
 	1.0 clz 6 - 'zlen ! | -0.5..0.5 = 1.0
+	15 'zlen !
 
 	'isovec >r
-	-0.5 -0.5 -0.5 transform 'sz ! 'sy ! 'sx !
-	-0.5 -0.5  0.5 transform rot sx - r!+ swap sy - r!+ sz - r!+
-	-0.5  0.5 -0.5 transform rot sx - r!+ swap sy - r!+ sz - r!+
-	 0.5 -0.5 -0.5 transform rot sx - r!+ swap sy - r!+ sz - r!+
+	-0.5 -0.5 -0.5 transform p3dcz 'sz ! 'sy ! 'sx !
+	-0.5 -0.5  0.5 transform rot sx - r!+ swap sy - r!+ p3dcz sz - r!+
+	-0.5  0.5 -0.5 transform rot sx - r!+ swap sy - r!+ p3dcz sz - r!+
+	 0.5 -0.5 -0.5 transform rot sx - r!+ swap sy - r!+ p3dcz sz - r!+
 	r> 'isovec> !
 
-	0 0 0 transform	| origen
-	0 0 -255 transform pick3 - 'z1 ! pick3 - 'y1 ! pick3 - 'x1 !
-	0 -255 0 transform pick3 - 'z2 ! pick3 - 'y2 ! pick3 - 'x2 !
-	-255 0 0 transform pick3 - 'z4 ! pick3 - 'y4 ! pick3 - 'x4 !
+	0 0 0 transform	p3dcz | origen
+	0 0 255 transform p3dcz pick3 - 'z1 ! pick3 - 'y1 ! pick3 - 'x1 !
+	0 255 0 transform p3dcz pick3 - 'z2 ! pick3 - 'y2 ! pick3 - 'x2 !
+	255 0 0 transform p3dcz pick3 - 'z4 ! pick3 - 'y4 ! pick3 - 'x4 !
 	3drop
 
-	sx sy sz $octree viewo ;
+	sx sy sz $octree
+	viewo
+	;
 
 ::load3do | "" -- moctree
 	here dup rot load 'here ! ;
@@ -520,8 +533,8 @@ vec- ;
 	h3do ( 1? )( 1-
 		w3do ( 1? )( 1-
 			r@+
-			$7fffffff <>? ( drop r zbo + @ px!+ )( drop 1 px+! )	| cbuffer
-			|$7fffffff =? ( drop 1 px+! )( $ff00 and px!+ )	| zbuffer
+			|1? ( drop r zbo + @ px!+ )( drop 1 px+! )	| cbuffer
+			0? ( drop 1 px+! )( px!+ )	| zbuffer
 			) drop
 		over px+!
 		) 2drop rdrop ;
@@ -580,10 +593,10 @@ vec- ;
 	show clrscr
 
 		matini
-|		freelook
+		freelook
 		xcam ycam zcam mtrans
 
-        0 'cnt !
+		0 'cnt !
 		zb.clear
 		Omario drawoctree
 		0 0 zdraw
