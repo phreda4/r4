@@ -1,0 +1,253 @@
+| PHREDA 2016
+^r4/lib/gui.txt
+
+#v0x #v0y
+#v1x #v1y
+#v2x #v2y
+#minx #maxx
+#miny #maxy
+
+:deftri
+	'v0y ! 'v0x !
+	'v1y ! 'v1x !
+	'v2y ! 'v2x !
+	v0x v1x v2x pick2 pick2 pick2 max max 'maxx ! min min 'minx !
+	v0y v1y v2y pick2 pick2 pick2 max max 'maxy ! min min 'miny !
+	;
+
+#a01 #b01 #a12 #b12 #a20 #b20
+#w0_row #w1_row #w2_row
+#w0 #w1 #w2
+
+|("b.x-a.x)*("miny-a.y) - ("b.y-a.y)*("minx-a.x);
+:o2d | ax ay bx by -- a
+	pick2 - minx pick4 - * >r rot - miny rot - * r> - ;
+
+:inloop
+	maxx
+	( 1? )( 1-
+		w0 w1 or w2 or +? ( ink@ px!+ )( 1 px+! ) drop
+		A12 'w0 +!
+		A20 'w1 +!
+		A01 'w2 +!
+		) drop ;
+
+:inloop2
+	maxx
+	( w0 w1 or w2 or -? )( drop 1-
+		0? ( drop maxx px+! ; ) | siempre dibuja..se puede quitar
+		A12 'w0 +! A20 'w1 +! A01 'w2 +! ) drop
+	maxx over - px+!
+	( 1? )( 1-
+		ink@ px!+ A12 'w0 +! A20 'w1 +! A01 'w2 +!
+		w0 w1 or w2 or -? ( drop px+! ; ) drop
+		) drop ;
+
+:drawtri
+	v0y v1y - 'a01 !
+	v1x v0x - 'b01 !
+	v1y v2y - 'a12 !
+	v2x v1x - 'b12 !
+	v2y v0y - 'a20 !
+	v0x v2x - 'b20 !
+
+	v1x v1y v2x v2y o2d 'w0_row !
+	v2x v2y v0x v0y o2d 'w1_row !
+	v0x v0y v1x v1y o2d 'w2_row !
+
+    minx neg 1+ 'maxx +!
+    miny neg 1+ 'maxy +!
+
+	minx miny setxy
+	sw maxx -
+	maxy
+	( 1? )( 1-
+		w0_row 'w0 !
+		w1_row 'w1 !
+		w2_row 'w2 !
+     	inloop2
+		over px+!
+		B12 'w0_row +!
+		B20 'w1_row +!
+		B01 'w2_row +!
+		) 2drop
+	;
+
+|------------------------------------------
+:inloop3 | w0 w1 w2 --
+	pick2 pick2 pick2
+	maxx
+	( pick3 pick3 pick3 or or -? )( drop 1-
+		0? ( 4drop maxx px+! ; )
+		>r rot a12 + rot a20 + rot a01 + r> ) drop
+	maxx over - px+!
+	( 1? )( 1- >r
+|		ink@ px!+
+		rot a12 + rot a20 + rot a01 + r>
+        pick3 pick3 pick3 or or
+        dup px!+
+		-? ( drop px+! 3drop ; ) drop
+		) 4drop ;
+
+:drawtrio | x0 y0 x1 y1 x2 y2 --
+	dup 'maxy ! dup 'miny ! 'v0y !
+	dup 'maxx ! dup 'minx ! 'v0x !
+	2over 2over o2d +? ( drop 2swap )( drop )
+	maxy >? ( dup 'maxy ! ) miny <? ( dup 'miny ! ) 'v1y !
+	maxx >? ( dup 'maxx ! ) minx <? ( dup 'minx ! ) 'v1x !
+	maxy >? ( dup 'maxy ! ) miny <? ( dup 'miny ! ) 'v2y !
+	maxx >? ( dup 'maxx ! ) minx <? ( dup 'minx ! ) 'v2x !
+
+	v0y v1y - 'a01 !
+	v1x v0x - 'b01 !
+	v1y v2y - 'a12 !
+	v2x v1x - 'b12 !
+	v2y v0y - 'a20 !
+	v0x v2x - 'b20 !
+
+    minx neg 1+ 'maxx +!
+
+	minx miny setxy
+	v1x v1y v2x v2y o2d
+	v2x v2y v0x v0y o2d
+	v0x v0y v1x v1y o2d
+	maxy miny - 1+
+	( 1? )( 1- >r
+		inloop3
+		sw maxx - px+!
+		rot b12 + rot b20 + rot b01 +
+		r> ) 4drop ;
+
+|--------------- quad
+#v3x #v3y
+
+#a23 #b23
+#a30 #b30
+#w3_row
+#w3
+
+:defcua
+	'v0y ! 'v0x !
+	'v1y ! 'v1x !
+	'v2y ! 'v2x !
+	'v3y ! 'v3x !
+	v0x v1x v2x v3x pick3 pick3 pick3 pick3 max max max 'maxx ! min min min 'minx !
+	v0y v1y v2y v3y pick3 pick3 pick3 pick3 max max max 'maxy ! min min min 'miny !
+	;
+
+:inloop4
+	maxx minx - 1+
+	( 1? )( 1-
+|		w0 w1 or w2 or w3 or +? ( ink@ px!+ )( 1 px+! ) drop
+		w0 +? ( $f0 )( 0 ) nip
+		w1 +? ( $f000 )( 0 ) nip or
+		w2 +? ( $f00000 )( 0 ) nip or
+		w3 +? ( $f0f0f )( 0 ) nip or
+		px!+
+		A12 'w0 +!
+		A23 'w1 +!
+		A30 'w2 +!
+		A01 'w3 +!
+		) drop ;
+
+:drawcua
+	v0y v1y - 'a01 !
+	v1x v0x - 'b01 !
+	v1y v2y - 'a12 !
+	v2x v1x - 'b12 !
+	v2y v3y - 'a23 !
+	v3x v2x - 'b23 !
+	v3y v0y - 'a30 !
+	v0x v3x - 'b30 !
+
+	v1x v1y v2x v2y o2d 'w0_row !
+	v2x v2y v3x v3y o2d 'w1_row !
+	v3x v3y v0x v0y o2d 'w2_row !
+	v0x v0y v1x v1y o2d 'w3_row !
+
+	minx miny setxy
+	sw maxx minx - - 1-
+	maxy miny - 1+
+	( 1? )( 1-
+		w0_row 'w0 !
+		w1_row 'w1 !
+		w2_row 'w2 !
+		w3_row 'w3 !
+     	inloop4
+		over px+!
+		B12 'w0_row +!
+		B23 'w1_row +!
+		B30 'w2_row +!
+		B01 'w3_row +!
+		) 2drop
+	;
+
+|--------------- opt quad
+:incA 2swap swap a12 + swap a23 + 2swap swap a30 + swap a01 + ;
+:incB 2swap swap b12 + swap b23 + 2swap swap b30 + swap b01 + ;
+
+:inloop4 | w0 w1 w2 w3 --
+	pick3 pick3 pick3 pick3
+	maxx
+	( pick4 pick4 pick4 pick4 or or or -? )( drop 1-
+		0? ( nip 4drop maxx px+! ; )
+		>r incA r> ) drop
+	maxx over - px+!
+	( 1? )( 1-
+|		ink@ px!+
+		>r incA r>
+        pick4 pick4 pick4 pick4 or or or
+        dup px!+
+		-? ( drop px+! 4drop ; ) drop
+		) nip 4drop ;
+
+:drawquado
+	dup 'maxy ! dup 'miny ! 'v0y !
+	dup 'maxx ! dup 'minx ! 'v0x !
+	maxy >? ( dup 'maxy ! )	miny <? ( dup 'miny ! ) 'v1y !
+	maxx >? ( dup 'maxx ! )	minx <? ( dup 'minx ! ) 'v1x !
+	maxy >? ( dup 'maxy ! )	miny <? ( dup 'miny ! ) 'v2y !
+	maxx >? ( dup 'maxx ! )	minx <? ( dup 'minx ! ) 'v2x !
+	maxy >? ( dup 'maxy ! )	miny <? ( dup 'miny ! ) 'v3y !
+	maxx >? ( dup 'maxx ! )	minx <? ( dup 'minx ! ) 'v3x !
+	v0y v1y - 'a01 !
+	v1x v0x - 'b01 !
+	v1y v2y - 'a12 !
+	v2x v1x - 'b12 !
+	v2y v3y - 'a23 !
+	v3x v2x - 'b23 !
+	v3y v0y - 'a30 !
+	v0x v3x - 'b30 !
+
+    minx neg 1+ 'maxx +!
+	minx miny setxy
+	v1x v1y v2x v2y o2d
+	v2x v2y v3x v3y o2d
+	v3x v3y v0x v0y o2d
+	v0x v0y v1x v1y o2d
+	maxy miny - 1+
+	( 1? )( 1- >r
+		inloop4
+		sw maxx - px+!
+		incB
+		r> ) nip 4drop ;
+
+:main
+	33
+	show clrscr
+		dup "%d" print
+
+|		100 70 30 200 90 300 deftri azul drawtri
+|		50 60 100 380 xymouse deftri verde drawtri
+|		50 60 100 380 xymouse violeta drawtrio
+
+|        200 40 120 160 400 200 xymouse defcua cyan drawcua
+        200 40 120 160 400 200 xymouse drawquado
+
+|		cyan minx miny op maxx miny line maxx maxy line minx maxy line minx miny line
+|		rojo 50 60 op 100 380 line xymouse line 50 60 line
+
+		'exit >esc<
+		cminiflecha
+		;
+: main ;

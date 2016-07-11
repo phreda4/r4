@@ -4,6 +4,73 @@
 ^r4/lib/mfbuffer.txt
 |^r4/lib/zbuffer.txt
 
+
+|--------------- opt quad
+#v0x #v0y
+#v1x #v1y
+#v2x #v2y
+#v3x #v3y
+
+#minx #maxx
+#miny #maxy
+
+#a01 #b01
+#a12 #b12
+#a23 #b23
+#a30 #b30
+
+:o2d | ax ay bx by -- a
+	pick2 - minx pick4 - * >r rot - miny rot - * r> - ;
+
+:incA 2swap swap a12 + swap a23 + 2swap swap a30 + swap a01 + ;
+:incB 2swap swap b12 + swap b23 + 2swap swap b30 + swap b01 + ;
+
+:inloop4 | w0 w1 w2 w3 --
+	pick3 pick3 pick3 pick3
+	maxx
+	( pick4 pick4 pick4 pick4 or or or -? )( drop 1-
+		0? ( nip 4drop maxx px+! ; )
+		>r incA r> ) drop
+	maxx over - px+!
+	( 1? )( 1-
+		ink@ px!+
+		>r incA r>
+        pick4 pick4 pick4 pick4 or or or
+		-? ( drop px+! 4drop ; ) drop
+		) nip 4drop ;
+
+:drawquado
+	dup 'maxy ! dup 'miny ! 'v0y !
+	dup 'maxx ! dup 'minx ! 'v0x !
+	maxy >? ( dup 'maxy ! )	miny <? ( dup 'miny ! ) 'v1y !
+	maxx >? ( dup 'maxx ! )	minx <? ( dup 'minx ! ) 'v1x !
+	maxy >? ( dup 'maxy ! )	miny <? ( dup 'miny ! ) 'v2y !
+	maxx >? ( dup 'maxx ! )	minx <? ( dup 'minx ! ) 'v2x !
+	maxy >? ( dup 'maxy ! )	miny <? ( dup 'miny ! ) 'v3y !
+	maxx >? ( dup 'maxx ! )	minx <? ( dup 'minx ! ) 'v3x !
+	v0y v1y - 'a01 !
+	v1x v0x - 'b01 !
+	v1y v2y - 'a12 !
+	v2x v1x - 'b12 !
+	v2y v3y - 'a23 !
+	v3x v2x - 'b23 !
+	v3y v0y - 'a30 !
+	v0x v3x - 'b30 !
+
+    minx neg 1+ 'maxx +!
+	minx miny setxy
+	v1x v1y v2x v2y o2d
+	v2x v2y v3x v3y o2d
+	v3x v3y v0x v0y o2d
+	v0x v0y v1x v1y o2d
+	maxy miny - 1+
+	( 1? )( 1- >r
+		inloop4
+		sw maxx - px+!
+		incB
+		r> ) nip 4drop ;
+
+|------------------------------
 #xcam 0 #ycam 0 #zcam 0.6
 
 #octvert )( 3072 	| 32 niveles de 3 valores*8 vert
@@ -88,6 +155,9 @@
 :getn | n --
 	3 << 'rotsum + @+ swap @ swap ;
 
+:getn2 | n --
+	3 << 'rotsum + @+ swap @ swap 100 - ;
+
 :drawire
 	azul
 	0 getn op
@@ -121,14 +191,15 @@
 :aclara
     ink@ $f0f0f colavg ink ;
 
+| corregido para ccw
 #cara
-$0132 $0264 $0154 0
-$1320 $1375 $1045 0
-$2310 $2046 $2376 0
-$3102 $3157 $3267 0
-$4576 $4620 $4510 0
-$5467 $5137 $5104 0
-$6457 $6204 $6237 0
+$2310 $4620 $0154 0
+$0231 $1375 $5401 0
+$2310 $2046 $6732 0
+$3102 $7513 $3267 0
+$4576 $4620 $0154 0
+$7645 $5137 $4015 0
+$6457 $6204 $7326 0
 $7645 $7513 $7326 0
 
 :drcara
@@ -157,6 +228,22 @@ $7645 $7513 $7326 0
 	2 << dup 2* + 'faces +
 	dface aclara dface aclara dface
 	drop
+	;
+
+|-------------------------
+:caraq
+	dup $f and getn2 >r >r
+	4 >> dup $f and getn2 >r >r
+	4 >> dup $f and getn2 >r >r
+	4 >> $f and getn2
+	r> r> r> r> r> r>
+	drawquado ;
+
+:drawq
+	4 << 'cara +
+	@+ caraq aclara
+	@+ caraq aclara
+	@ caraq ;
 	;
 
 |----- modo 1
@@ -219,7 +306,10 @@ $7645 $7513 $7326 0
 	|drawboxd
     drawb
 
+	cyan
+	mask2 drawq
 
+	verde
 	z0 y0 x0 "x0 %f %f %f " print cr
 	z7 y7 x7 "x7 %f %f %f " print cr
 	mask "%d " print cr
