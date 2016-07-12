@@ -232,6 +232,83 @@
 		incB
 		r> ) nip 4drop ;
 
+|---------------------------------
+:linopt
+	dup maxx
+	( 1? )( 1- >r
+		+? ( ink@ px!+ )( 1 px+! )
+		a01 +
+		r> ) 2drop
+	;
+
+:linopt1
+	dup maxx
+	( swap -? )( a01 + swap 1-
+		0? ( drop maxx px+! ; ) | siempre dibuja..se puede quitar
+		)
+	maxx pick2 - px+!
+	( swap 1? )( 1-
+		ink@ px!+
+		swap A01 + -? ( drop px+! ; )
+		) 2drop ;
+
+:draw1s | x y x y --
+	pick2 over 2dup max 'maxy ! min 'miny !
+	pick3 pick2 2dup max 'maxx ! min 'minx !
+	pick2 over - 'a01 !
+	over pick4 - 'b01 !
+	o2d
+	minx neg 1+ 'maxx +!
+	minx miny setxy
+	maxy miny - 1+
+	( 1? )( 1- >r
+		linopt b01 +
+		sw maxx - px+!
+		r> ) 2drop ;
+
+
+|-----------------------------------------
+|
+#dx #dy #sx #sy
+
+:dot | x y --
+	setxy ink@ px!+ ;
+
+:lineb | x y x y --
+	pick2 - sign 'sy ! abs 'dy !
+	pick2 - sign 'sx ! abs 'dx !
+	dx dy >? ( dx dup )( dy dup neg ) rot drop
+	2/ swap 1+ | err n
+	( 1? )( 1- >r
+		pick2 pick2 dot
+		dup
+		dx neg >? ( swap dy - swap 2swap swap sx + swap 2swap )
+		dy <? ( swap dx + swap rot sy + rot rot )
+		drop
+		r> ) 4drop ;
+
+|--------------------------
+:lineb2
+	dy dup neg 2/ swap 1+
+	( 1? )( 1- >r
+		pick2 pick2 dot
+		dx + swap sy + swap
+		dx neg >? ( dy - rot sx + rot rot )
+		r> ) 4drop ;
+
+:lineb | x y x y --
+	pick2 - sign 'sy ! abs 'dy !
+	pick2 - sign 'sx ! abs 'dx !
+	dx dy <? ( drop lineb2 ; )
+	dup 2/ swap 1+ | err n
+	( 1? )( 1- >r
+		pick2 pick2 dot
+		dy - rot sx + rot rot
+		dy <? ( dx + swap sy + swap )
+		r> ) 4drop ;
+
+|-------------------------
+
 :main
 	33
 	show clrscr
@@ -246,6 +323,11 @@
 
 |		cyan minx miny op maxx miny line maxx maxy line minx maxy line minx miny line
 |		rojo 50 60 op 100 380 line xymouse line 50 60 line
+
+|		azul xymouse 400 200 draw1s
+|		violeta 500 200 xymouse draw1s
+|		cyan xymouse op 400 200 line
+		rojo xymouse 400 400 lineb
 
 		'exit >esc<
 		cminiflecha

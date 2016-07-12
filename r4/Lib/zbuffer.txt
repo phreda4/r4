@@ -10,7 +10,8 @@
 #segs	| mem polys
 #px #py #pz
 #ymin #ymax
-#zs #zbase
+#zstep
+#zbase
 
 #o #z
 
@@ -104,7 +105,6 @@
 	ymin 4 << segs + >r
 	ymax ymin - 1+ ( 1? )( 1- $7fffffff r!+ -1 r!+ 8 r+ ) drop rdrop
 	dup 'ymin ! dup 'ymax !
-
 	over FBASE << dup pick2 4 << segs + >r r!+ r!+
 	'py ! 'px !
 	0 r!+ 0 r> !
@@ -123,97 +123,45 @@
 	zbase - 11 << 'pz !
 	py =? ( enlinea ; )
 	px py
-	2over 'py ! 'px !
-	pick2 >? ( 2swap z pz dup 'z ! - )( pz z - ) 'zs !
+	2over 'py !	'px !
+	pick2 >? ( 2swap z pz dup 'z ! - )( pz z - ) 'zstep !
 	ymin <? ( dup 'ymin ! )
  	rot ymax >? ( dup 'ymax ! )		| comprueba el mayor
 	>r >r FBASE << swap FBASE << 	| x1 x2
 	over - r> r> over -				| x1 (x2-x1) y1 (y2-y1)
 	1+ rot over / 					| x1 y1 (y2-y1) t
 	rot 4 << segs + >r				| x1 (y2-y1) t
-	zs pick2 / dup 'z +! 'zs !
+	zstep pick2 / dup 'z +! 'zstep !
 	rot over + rot				| t x1 cnt
 	( 1? )( 1- swap
 		r@+ <? ( dup r 4 - ! z r 4+ ! )
 		r@+ >? ( dup r 4 - ! z r 4+ ! )
 		8 r+
-		zs 'z +!
+		zstep 'z +!
 		pick2 + swap )
 	3drop rdrop ;
 
-#adrline
-
-:zbline | cnt x zi zf --
-	over - pick3 /
-	rot 2 << adrline + >r
-	swap over 2/ +
-	rot	| zs zi cnt
-	( 1? )(
+:zbline | cnt x zi --
+	swap 2 << py + >r
+	swap ( 1? )(
 		over 11 >> zbase +
 		r@+ <? ( r 4 - ! o r zbo + ! )( drop )
-		swap pick2 + swap
-		1- ) 3drop
+		swap zstep + swap
+		1- ) 2drop
 	rdrop ;
 
 ::zpoly | --
 	ymax ymin
 	dup 4 << segs + >r
-	dup zbw * 2 << zb + 'adrline !
+	dup zbw * 2 << zb + 'py !
+
+	2dup - 2/ 4 << r + >r
+	r@+ r@+ swap - FBASE >> 1+
+	r@+ r> @ swap - swap / 'zstep !
+
 	( over <=? )(
 		r@+ FBASE >> r@+ FBASE >> over - 1+
-		swap r@+ r@+
+		swap r@+ 4 r+
 		zbline
-		zbw 2 << 'adrline +!
+		zbw 2 << 'py +!
 		1+ ) 2drop rdrop ;
-
-:zblinef | cnt x --
-   	2 << adrline + >r
-	( 1? )(
-		z r@+ <? ( r 4 - ! o r zbo + ! )( drop )
-		1- ) drop
-	rdrop ;
-
-::zpolyf | --
-	ymax ymin
-	dup 4 << segs + >r
-	dup zbw * 2 << zb + 'adrline !
-	( over <=? )(
-		r@+ FBASE >> r@+ FBASE >> over - 1+
-		swap zblinef
-		zbw 2 << 'adrline +!
-		8 r+ 1+ ) 2drop rdrop ;
-
-|------ ellipse
-#dx #dy
-
-:zhor | w x y --
-	zb.adr >r | w
-	( 1? )( r@+ z >? ( z r 4 - ! o r zbo + ! )
-		drop 1- ) drop
-	rdrop ;
-
-:hfill | x y -- x y
-	over 2* px pick3 - py pick3 - zhor
-	over 2* px pick3 - py pick3 + zhor ;
-
-:hfill1 | x y -- x y
-	over 2* px pick3 - py zhor ;
-
-::zellipse | a b x y z --
-	'z ! 'py ! 'px !
-	over dup * dup 2*		| a b c 2aa
-	swap dup >r 'dy ! 		| a b 2aa
-	rot rot over neg 2* 1+	| 2aa a b c
-	swap dup * dup 2* 		| 2aa a c b 2bb
-	rot rot * dup r+ 'dx !	| 2aa a 2bb
-	swap 1					| 2aa 2bb x y
-	pick3 'dy +! dy r+
-	hfill1
-	( swap +? )( swap 		| 2aa 2bb x y
-		r 2*
-		dx >=? ( rot 1- rot rot pick3 'dx +! dx r+ )
-		dy <=? ( rot rot hfill 1+ rot pick4 'dy +! dy r+ )
-		drop
-		)
-	4drop rdrop ;
-

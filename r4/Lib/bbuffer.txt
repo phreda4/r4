@@ -167,58 +167,66 @@
 
 
 |--- convex polygon
-#FBASE	16
-
 ::bop | x y --
 	ymin 3 << segs + >r
 	ymax ymin - 1+ ( 1? )( 1- $7fffffff r!+ -1 r!+ ) drop rdrop
 	dup 'ymin ! dup 'ymax !
-	over FBASE << dup pick2 3 << segs + !+ !
+	over dup pick2 3 << segs + !+ !
 	'py ! 'px !
 	;
 
 ::bop2 | x y --
 	ymin <? ( dup 'ymin ! )
  	ymax >? ( dup 'ymax ! )
-	2dup 3 << segs + >r
-	dup FBASE <<
-	r@+ <? ( dup r 4 - ! )
-	r@+ >? ( dup r 4 - ! )
-	2drop rdrop
-	'py ! 'px !
-	;
-
-:enlinea | x y --
+	dup 'py !
 	3 << segs + >r
-	dup FBASE <<
 	r@+ <? ( dup r 4 - ! )
 	r@+ >? ( dup r 4 - ! )
-	drop
-	'px !
-	rdrop ;
+	rdrop
+	'px ! ;
+
+#dx #dy #sx #sy
+
+:bdot | x y --
+	3 << segs + >r
+	r@+ <? ( dup r 4 - ! )
+	r@+ >? ( dup r 4 - ! )
+	drop rdrop ;
+
+:bline2
+	dy dup neg 2/ swap
+	( 1? )( 1- >r
+		pick2 pick2 bdot
+		dx + swap sy + swap
+		dx neg >? ( dy - rot sx + rot rot )
+		r> ) 2drop
+	bdot ;
 
 ::bline | x y --
-	py =? ( enlinea ; )
-	px py 2over 'py ! 'px !
-	pick2 >? ( 2swap ) | x2 y2 x1 y1
+	py over - 0? ( drop over 'px ! bdot ; )
+	sign 'sy ! abs 'dy !
+	px pick2 -
+	sign 'sx ! abs 'dx !
 	ymin <? ( dup 'ymin ! )
- 	rot ymax >? ( dup 'ymax ! )		| comprueba el mayor
-	>r >r FBASE << swap FBASE << 	| x1 x2
-	over - r> r> over -				| x1 (x2-x1) y1 (y2-y1)
-	1+ rot over /					| x1 y1 (y2-y1) t
-	rot 3 << segs + >r				| x1 (y2-y1) t
-	rot over + rot  				| t x1 cnt
-	( 1? )( 1- swap
-		r@+ <? ( dup r 4 - ! )
-		r@+ >? ( dup r 4 - ! )
-		pick2 + swap )
-	3drop rdrop ;
+ 	ymax >? ( dup 'ymax ! )
+	2dup 'py ! 'px !
+	dx dy <? ( drop bline2 ; )
+	dup 2/ swap | err n
+	2over bdot
+	( 1? )( 1- >r
+		dy - rot sx + rot rot
+		dy <? ( dx +
+				pick2 sx - pick2 bdot
+				swap sy + swap
+				pick2 pick2 bdot )
+		r> ) 2drop
+	bdot ;
 
 ::bpoly
 	ymax
 	ymin dup 3 << segs + >r
 	( over <=? )(
-		r@+ FBASE >> over r@+ FBASE >> maskfpx
+		r@+ over r@+ maskfpx
 		1+ ) 2drop rdrop ;
 
 |-------------

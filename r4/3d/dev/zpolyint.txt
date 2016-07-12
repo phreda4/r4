@@ -1,0 +1,80 @@
+|--- convex polygon
+
+#dx #dy #sx #sy
+
+::zop | x y z --
+	'zbase ! 0 'pz !
+	ymin 4 << segs + >r
+	ymax ymin - 1+ ( 1? )( 1- $7fffffff r!+ -1 r!+ 8 r+ ) drop rdrop
+	dup 'ymin ! dup 'ymax !
+	over dup pick2 4 << segs + >r
+	r!+ r!+ 0 r!+ 0 r> !
+	'py ! 'px !
+	;
+
+:bdot | x y --
+	4 << segs + >r
+	r@+ <? ( dup r 4 - ! zt r 4+ ! )
+	r@+ >? ( dup r 4 - ! zt r 4+ ! )
+	drop rdrop ;
+
+:blineh
+	over 'px ! bdot ;
+
+:bline2
+	dy
+	z pz - over 1+ / 'zstep !
+	dup neg 2/ swap
+	( 1? )( 1- >r
+		pick2 pick2 bdot
+		dx + swap sy + swap
+		dx neg >? ( dy - rot sx + rot rot )
+		zstep 'zt +!
+		r> ) 2drop
+	bdot ;
+
+::zline | x y z --
+	pz 'z ! zbase - 11 << dup 'zt ! 'pz !
+	py over - 0? ( drop blineh ; )
+	sign 'sy ! abs 'dy !
+	px pick2 -
+	sign 'sx ! abs 'dx !
+	ymin <? ( dup 'ymin ! )
+ 	ymax >? ( dup 'ymax ! )
+	2dup 'py ! 'px !
+	dx dy <? ( drop bline2 ; )
+	z pz - over 1+ / 'zstep !
+	dup 2/ swap | err n
+	2over bdot
+	( 1? )( 1- >r
+		dy - rot sx + rot rot
+		dy <? ( dx +
+				pick2 sx - pick2 bdot
+				swap sy + swap
+				pick2 pick2 bdot )
+		zstep 'zt +!
+		r> ) 2drop
+	bdot ;
+
+
+:zbline | x cnt zi --
+	rot 2 << zt + >r
+	swap ( 1? )(
+		over 11 >> zbase +
+		r@+ <? ( r 4 - ! o r zbo + ! )( drop )
+		swap zstep + swap 1- )
+	2drop rdrop ;
+
+::zpoly | --
+	ymax ymin
+	dup 4 << segs + >r
+	dup zbw * 2 << zb + 'zt !
+
+	2dup + 2/ 4 << segs + >r
+	r@+ r@+ swap - 1+ r@+ r> @ swap - swap / 'zstep !
+
+	( over <=? )(
+		r@+ r@+ over - 1+ r@+ 4 r+
+		zbline
+		zbw 2 << 'zt +!
+		1+ ) 2drop rdrop ;
