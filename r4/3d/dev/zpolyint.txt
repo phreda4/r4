@@ -1,15 +1,115 @@
-|--- convex polygon
+^r4/lib/gui.txt
+^r4/lib/trace.txt
 
+#:zb
+#zbw #zbh
+#zcnt #:zbo
+
+#segs	| mem polys
+#px #py #pz
+#zstep
+#zbase
+#ymin #ymax
+#o #z
+
+::zo! 'o ! ;
+::zz! 'z ! ;
+
+|--- maskbuffer | zbw*zbh
+:zb.adr | x y -- d
+	zbw * + 2 << zb + ;
+
+::zb@ | x y -- b
+	zb.adr @ ;
+
+::zbo! | o z x y --
+	zb.adr >r r!+ r> zbo + ! ;
+
+::zb! | x y z --
+	rot rot zb.adr >r r!+ o r> zbo + ! ;
+
+::zbw! | x y z w --
+	swap 'z !
+	rot rot zb.adr >r | w
+	( 1? )(
+		r@+
+		z >? ( z r 4 - ! o r zbo + ! )
+		drop 1- ) drop
+	rdrop ;
+
+::zbh! | x y z h --
+	swap 'z !
+	rot rot zb.adr >r
+	zbw 1- 2 << swap
+	( 1? )(
+		r@+
+		z >? ( z r 4 - ! o r zbo + ! )
+		drop
+		over r+ 1- ) 2drop
+	rdrop ;
+
+::zb.clear
+	zb >r zcnt ( 1? )( 1- $7fffffff r!+ ) drop rdrop ;
+
+::zb.ini | w h --
+	2dup * dup 'zcnt ! dup 2 << 4 - 'zbo !
+	here dup 'zb ! 		| zbuffer,cbuffer
+	swap 3 << + dup 'segs !
+	over 4 << + 'here !
+	dup 1- 'ymax ! 'zbh ! 'zbw !
+	zb.clear ;
+
+::zb.occ | w h x y z -- 1/0
+	'z !
+	zb.adr >r
+	zbw pick2 - 2 <<
+	swap ( 1? )(
+		pick2 ( 1? )( r@+
+			z >? ( nip 4drop rdrop 1 ; )
+			drop 1- ) drop
+		over r+
+		1- ) 3drop
+	rdrop 0 ;
+
+::zb.set | w h x y z o --
+	'o ! 'z !
+	zb.adr >r
+	zbw pick2 - 2 <<
+	swap ( 1? )(
+		pick2 ( 1? )( r@+
+			z >? ( z r 4 - ! o r zbo + ! )
+			drop 1- ) drop
+		over r+
+		1- ) 3drop
+	rdrop ;
+
+::zb.fill | w h x y --
+	zb.adr >r
+	zbw pick2 - 2 <<
+	swap ( 1? )(
+		pick2 ( 1? )( r@+
+			z >? ( z r 4 - ! o r zbo + ! )
+			drop 1- ) drop
+		over r+
+		1- ) 3drop
+	rdrop ;
+
+|--- convex polygon
+#ZPREC 16
+#zt
 #dx #dy #sx #sy
+#vert )( 32
+#vert> 'vert
 
 ::zop | x y z --
 	'zbase ! 0 'pz !
 	ymin 4 << segs + >r
 	ymax ymin - 1+ ( 1? )( 1- $7fffffff r!+ -1 r!+ 8 r+ ) drop rdrop
 	dup 'ymin ! dup 'ymax !
-	over dup pick2 4 << segs + >r
-	r!+ r!+ 0 r!+ 0 r> !
+	over dup pick2 4 << segs + !+ !+
+	0 dup rot !+ !
 	'py ! 'px !
+	'vert 'vert> !
 	;
 
 :bdot | x y --
@@ -18,12 +118,12 @@
 	r@+ >? ( dup r 4 - ! zt r 4+ ! )
 	drop rdrop ;
 
-:blineh
+:blineh | x y --
 	over 'px ! bdot ;
 
 :bline2
 	dy
-	z pz - over 1+ / 'zstep !
+	z pz - over 1+ / dup 'zt +! 'zstep !
 	dup neg 2/ swap
 	( 1? )( 1- >r
 		pick2 pick2 bdot
@@ -34,7 +134,8 @@
 	bdot ;
 
 ::zline | x y z --
-	pz 'z ! zbase - 11 << dup 'zt ! 'pz !
+	pz 'z ! zbase - ZPREC << dup 'zt ! 'pz !
+	dup 4 << segs + vert> !+ 'vert> !
 	py over - 0? ( drop blineh ; )
 	sign 'sy ! abs 'dy !
 	px pick2 -
@@ -43,38 +144,104 @@
  	ymax >? ( dup 'ymax ! )
 	2dup 'py ! 'px !
 	dx dy <? ( drop bline2 ; )
-	z pz - over 1+ / 'zstep !
+	z pz - over / dup 'zt +! 'zstep !
 	dup 2/ swap | err n
 	2over bdot
-	( 1? )( 1- >r
+	1- ( 1? )( 1- >r
 		dy - rot sx + rot rot
 		dy <? ( dx +
 				pick2 sx - pick2 bdot
 				swap sy + swap
-				pick2 pick2 bdot )
+				pick2 pick2 bdot
+				)
 		zstep 'zt +!
 		r> ) 2drop
 	bdot ;
 
 
 :zbline | x cnt zi --
-	rot 2 << zt + >r
+	rot 2 << py + >r
 	swap ( 1? )(
-		over 11 >> zbase +
+		over ZPREC >> zbase +
 		r@+ <? ( r 4 - ! o r zbo + ! )( drop )
 		swap zstep + swap 1- )
 	2drop rdrop ;
 
 ::zpoly | --
+	'vert @+
+	@+ swap @+ rot - 'py ! 'zstep !
+	( vert> <? )( @+
+		@+ swap @+ rot - py >? ( 'py ! 'zstep ! )( 2drop )
+		) drop
+	zstep @+ swap @ swap - py 1+ / 'zstep !
 	ymax ymin
 	dup 4 << segs + >r
-	dup zbw * 2 << zb + 'zt !
+	dup zbw * 2 << zb + 'py !
+	- 1+ ( 1? )(
+		r@+ r@+ over - 1+ r@+ 4 r+ zbline
+		zbw 2 << 'py +!
+		1- ) drop rdrop ;
 
-	2dup + 2/ 4 << segs + >r
-	r@+ r@+ swap - 1+ r@+ r> @ swap - swap / 'zstep !
 
-	( over <=? )(
-		r@+ r@+ over - 1+ r@+ 4 r+
-		zbline
-		zbw 2 << 'zt +!
-		1+ ) 2drop rdrop ;
+:ztest
+	0 0 setxy
+	zb >r
+	sh ( 1? )( 1-
+		sw ( 1? )( 1-
+			r@+
+			|$7fffffff <>? ( drop r zbo + @ )
+			$7fffffff =? ( 0 nip )
+			px!+
+			) drop
+		) drop rdrop ;
+
+#x 500 #y 40
+
+:tz
+	zb.clear
+
+	50 60 $f00 zop
+	100 380 $1ff zline
+	xymouse $007f zline
+	50 60 $f00 zline
+	$ff00 zo! zpoly
+
+	100 70 $fe zop
+	30 200 $fff zline
+	90 300 $fff zline
+	100 70 $fe zline
+	$ff zo! zpoly
+
+	100 70 $fe zop 90 300 $fff zline 300 80 $fff zline 100 70 $fe zline $ff0000 zo! zpoly
+	$ff0000 zo! 400 100 250 200 zbh! 401 100 250 200 zbh!
+	$ff zo! 300 200 150 200 zbw! 300 201 150 200 zbw!
+	$ff00ff zo! $fff zz! 40 40 501 201 zb.fill
+	$ffff zo! $1fff zz! 40 40 521 221 zb.fill
+
+	ztest
+	;
+
+:main
+	mark
+	sw sh zb.ini
+	33 verde
+	show clrscr
+
+    	tz
+    	verde
+
+|		30 30 x y $ffff zb.occ  "%d " print cr
+|		azul x y op x 30 + y line x 30 + y 30 + line x y 30 + line x y line
+		[ 1 'x +! ; ] <ri>
+		[ -1 'x +! ; ] <le>
+		[ -1 'y +! ; ] <up>
+		[ 1 'y +! ; ] <dn>
+		[ -3 'y +! ; ] <pgup>
+		[ 3 'y +! ; ] <pgdn>
+
+		blanco
+		dup "%d " print
+		cr
+		'exit >esc< ;
+
+: main ;

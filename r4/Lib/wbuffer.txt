@@ -98,20 +98,23 @@
 	rdrop ;
 
 |--- convex polygon
-#FBASE	16
+#FBASE	12
+#vert )( 32
+#vert> 'vert
 
 ::zop | x y z --
 	'zbase ! 0 'pz !
 	ymin 4 << segs + >r
 	ymax ymin - 1+ ( 1? )( 1- $7fffffff r!+ -1 r!+ 8 r+ ) drop rdrop
 	dup 'ymin ! dup 'ymax !
-	over FBASE << dup pick2 4 << segs + >r r!+ r!+
+	over FBASE << dup pick2 4 << segs + !+ !+ 0 dup rot !+ !
 	'py ! 'px !
-	0 r!+ 0 r> !
+	'vert 'vert> !
 	;
 
 :enlinea | x y --
-	4 << segs + >r
+	4 << segs + dup >r
+	vert> !+ 'vert> !
 	dup FBASE <<
 	r@+ <? ( dup r 4 - ! pz r 4+ ! )
 	r@+ >? ( dup r 4 - ! pz r 4+ ! )
@@ -130,7 +133,8 @@
 	>r >r FBASE << swap FBASE << 	| x1 x2
 	over - r> r> over -				| x1 (x2-x1) y1 (y2-y1)
 	1+ rot over / 					| x1 y1 (y2-y1) t
-	rot 4 << segs + >r				| x1 (y2-y1) t
+	rot 4 << segs + dup >r
+	vert> !+ 'vert> !				| x1 (y2-y1) t
 	zstep pick2 / dup 'z +! 'zstep !
 	rot over + rot				| t x1 cnt
 	( 1? )( 1- swap
@@ -151,14 +155,15 @@
 	rdrop ;
 
 ::zpoly | --
+	'vert @+
+	@+ swap @+ rot - 'py ! 'zstep !
+	( vert> <? )( @+
+		@+ swap @+ rot - py >? ( 'py ! 'zstep ! )( 2drop )
+		) drop
+	zstep @+ swap @ swap - py FBASE >> 1+ / 'zstep !
 	ymax ymin
 	dup 4 << segs + >r
 	dup zbw * 2 << zb + 'py !
-
-	2dup - 2/ 4 << r + >r
-	r@+ r@+ swap - FBASE >> 1+
-	r@+ r> @ swap - swap / 'zstep !
-
 	( over <=? )(
 		r@+ FBASE >> r@+ FBASE >> over - 1+
 		swap r@+ 4 r+
