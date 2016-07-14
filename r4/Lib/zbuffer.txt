@@ -8,6 +8,7 @@
 #zcnt #:zbo
 
 #segs	| mem polys
+#divt	| tabla de reciproco divisores de 1..xmax
 #px #py #pz
 #ymin #ymax
 #zstep
@@ -55,12 +56,23 @@
 	zb >r zcnt ( 1? )( 1- $7fffffff r!+ ) drop rdrop ;
 
 ::zb.ini | w h --
-	2dup * dup 'zcnt ! dup 2 << 4 - 'zbo !
+	2dup * dup 'zcnt !	| max puntos
+	dup 2 << 4 - 'zbo !	| dif buffer z
 	here dup 'zb ! 		| zbuffer,cbuffer
-	swap 3 << + dup 'segs !
-	over 4 << + 'here !
+	swap 3 << +
+	dup 'segs !			| segmentos zbh
+	over 4 << +
+	dup 'divt !			| reciproco zbw
+	pick2 2 << +
+	'here !
 	dup 1- 'ymax ! 'zbh ! 'zbw !
-	zb.clear ;
+	divt >r 0 r!+	| division por reciproca
+	1 ( zbw <? )( 1.0 over / r!+ 1+ ) drop rdrop
+	zb.clear
+	;
+
+:/r | n d -- r
+	2 << divt + @ 16 *>> ;
 
 ::zb.occ | w h x y z -- 1/0
 	'z !
@@ -114,8 +126,7 @@
 	;
 
 :enlinea | x y --
-	4 << segs + dup >r
-	vert> !+ 'vert> !
+	4 << segs + >r
 	dup FBASE <<
 	r@+ <? ( dup r 4 - ! pz r 4+ ! )
 	r@+ >? ( dup r 4 - ! pz r 4+ ! )
@@ -133,10 +144,10 @@
  	rot ymax >? ( dup 'ymax ! )		| comprueba el mayor
 	>r >r FBASE << swap FBASE << 	| x1 x2
 	over - r> r> over -				| x1 (x2-x1) y1 (y2-y1)
-	1+ rot over / 					| x1 y1 (y2-y1) t
+	1+ rot over /r 					| x1 y1 (y2-y1) t
 	rot 4 << segs + dup >r
 	vert> !+ 'vert> !				| x1 (y2-y1) t
-	zstep pick2 / dup 'z +! 'zstep !
+	zstep pick2 /r dup 'z +! 'zstep !
 	rot over + rot				| t x1 cnt
 	( 1? )( 1- swap
 		r@+ <? ( dup r 4 - ! z r 4+ ! )
@@ -161,7 +172,7 @@
 	( vert> <? )( @+
 		@+ swap @+ rot - py >? ( 'py ! 'zstep ! )( 2drop )
 		) drop
-	zstep @+ swap @ swap - py FBASE >> 1+  / 'zstep !
+	zstep @+ swap @ swap - py FBASE >> 1+ /r 'zstep !
 	ymax ymin
 	dup 4 << segs + >r
    	dup zbw * 2 << zb + 'py !
