@@ -1,0 +1,367 @@
+| test ratio
+
+^r4/lib/gui.txt
+^r4/lib/zbuffer.txt
+
+
+|--------------- opt quad
+#v0x #v0y
+#v1x #v1y
+#v2x #v2y
+#v3x #v3y
+
+#minx #maxx
+#miny #maxy
+
+#a01 #b01
+#a12 #b12
+#a23 #b23
+#a30 #b30
+
+:o2d | ax ay bx by -- a
+	pick2 - minx pick4 - * >r rot - miny rot - * r> - ;
+
+:incA 2swap swap a12 + swap a23 + 2swap swap a30 + swap a01 + ;
+:incB 2swap swap b12 + swap b23 + 2swap swap b30 + swap b01 + ;
+
+:inloop4 | w0 w1 w2 w3 --
+	pick3 pick3 pick3 pick3
+	maxx
+	( pick4 pick4 pick4 pick4 or or or -? )( drop 1-
+		0? ( nip 4drop maxx px+! ; )
+		>r incA r> ) drop
+	maxx over - px+!
+	( 1? )( 1-
+		ink@ px!+
+		>r incA r>
+        pick4 pick4 pick4 pick4 or or or
+		-? ( drop px+! 4drop ; ) drop
+		) nip 4drop ;
+
+:drawquado
+	dup 'maxy ! dup 'miny ! 'v0y !
+	dup 'maxx ! dup 'minx ! 'v0x !
+	maxy >? ( dup 'maxy ! )	miny <? ( dup 'miny ! ) 'v1y !
+	maxx >? ( dup 'maxx ! )	minx <? ( dup 'minx ! ) 'v1x !
+	maxy >? ( dup 'maxy ! )	miny <? ( dup 'miny ! ) 'v2y !
+	maxx >? ( dup 'maxx ! )	minx <? ( dup 'minx ! ) 'v2x !
+	maxy >? ( dup 'maxy ! )	miny <? ( dup 'miny ! ) 'v3y !
+	maxx >? ( dup 'maxx ! )	minx <? ( dup 'minx ! ) 'v3x !
+	v0y v1y - 'a01 !
+	v1x v0x - 'b01 !
+	v1y v2y - 'a12 !
+	v2x v1x - 'b12 !
+	v2y v3y - 'a23 !
+	v3x v2x - 'b23 !
+	v3y v0y - 'a30 !
+	v0x v3x - 'b30 !
+
+    minx neg 1+ 'maxx +!
+	minx miny setxy
+	v1x v1y v2x v2y o2d
+	v2x v2y v3x v3y o2d
+	v3x v3y v0x v0y o2d
+	v0x v0y v1x v1y o2d
+	maxy miny - 1+
+	( 1? )( 1- >r
+		inloop4
+		sw maxx - px+!
+		incB
+		r> ) nip 4drop ;
+
+|------------------------------
+#xcam 0 #ycam 0 #zcam 0.6
+
+#octvert )( 3072 	| 32 niveles de 3 valores*8 vert
+#octvert> 'octvert
+
+#rotsum )( 2048		| 32 niveles de 2 valores*8 vert
+#rotsum> 'rotsum
+
+#ymin #nymin
+#xmin #nxmin
+#zmin #nzmin
+
+#ymax #nymax
+#xmax #nxmax
+#zmax
+
+#ozmin
+#ozmax
+
+#mask
+#mask2
+#mask3
+
+#x0 #y0 #z0
+#x1 #y1 #z1
+#x2 #y2 #z2
+#x4 #y4 #z4
+
+#x7 #y7 #z7	| centro del cubo
+#n1 #n2 #n3
+|---------------
+:dist3d | x y z -- x y z d
+	pick2 dup * pick2 dup * + over dup * + ;
+
+:dist3dc | x y z -- d
+	dup * swap dup * + swap dup * + ;
+
+:id3d3i
+	transform
+	dist3d 'zmin ! 0 'nzmin ! swap rot
+	;
+
+:id3d3 | id --
+	>r transform
+	dist3d zmin <? ( 'zmin ! r> 'nzmin ! swap rot ; )
+	drop rdrop swap rot ;
+
+:fillstart | --
+	'octvert >r
+	0.05 0.05 0.05 id3d3i dup 'x0 ! r!+ dup 'y0 ! r!+ dup 'z0 ! r!+ | 111
+	0.05 0.05 -0.05 1 id3d3 dup 'x1 ! r!+ dup 'y1 ! r!+ dup 'z1 ! r!+ | 110
+	0.05 -0.05 0.05 2 id3d3 dup 'x2 ! r!+ dup 'y2 ! r!+ dup 'z2 ! r!+ | 101
+	0.05 -0.05 -0.05 3 id3d3 r!+ r!+ r!+ | 100
+	-0.05 0.05 0.05 4 id3d3 dup 'x4 ! r!+ dup 'y4 ! r!+ dup 'z4 ! r!+ | 011
+	-0.05 0.05 -0.05 5 id3d3 r!+ r!+ r!+ | 010
+	-0.05 -0.05 0.05 6 id3d3 r!+ r!+ r!+ | 001
+	-0.05 -0.05 -0.05 7 id3d3 dup x0 + 2/ 'x7 ! r!+ dup y0 + 2/ 'y7 ! r!+ dup z0 + 2/ 'z7 ! r!+ | 000
+	r>
+	'octvert> ! ;
+
+:id3di | x y z -- u v
+	3dproject 	| x y
+	;
+
+:id3d | id x y z -- u v
+	3dproject | id x y
+	rot drop ;
+
+:fillveciso | --
+	octvert> 96 - >r
+	'rotsum
+	r@+ r@+ r@+ id3di rot !+ !+
+	1 r@+ r@+ r@+ id3d rot !+ !+
+	2 r@+ r@+ r@+ id3d rot !+ !+
+	3 r@+ r@+ r@+ id3d rot !+ !+
+	4 r@+ r@+ r@+ id3d rot !+ !+
+	5 r@+ r@+ r@+ id3d rot !+ !+
+	6 r@+ r@+ r@+ id3d rot !+ !+
+	7 r@+ r@+ r> @ id3d rot !+ !+
+	'rotsum> ! ;
+
+:getn | n --
+	3 << 'rotsum + @+ swap @ swap ;
+
+:getn2 | n --
+	3 << 'rotsum + @+ swap @ 200 + swap ;
+
+:drawire
+	azul
+	0 getn op
+	1 getn line
+	3 getn line
+	2 getn line
+	0 getn line
+	4 getn op
+	5 getn line
+	7 getn line
+	6 getn line
+	4 getn line
+	0 getn op 4 getn line
+	1 getn op 5 getn line
+	2 getn op 6 getn line
+	3 getn op 7 getn line
+	;
+
+|---- real cube
+#faces (
+0 1 3 2 0 2 6 4 0 1 5 4
+1 3 2 0 1 3 7 5 1 0 4 5
+2 3 1 0 2 0 4 6 2 3 7 6
+3 1 0 2 3 1 5 7 3 2 6 7
+4 5 7 6 4 6 2 0 4 5 1 0
+5 4 6 7 5 1 3 7 5 1 0 4
+6 4 5 7 6 2 0 4 6 2 3 7
+7 6 4 5 7 5 1 3 7 3 2 6
+)
+
+:aclara
+    ink@ $f0f0f colavg ink ;
+
+| corregido para ccw
+#cara
+$2310 $4620 $0154 0
+$0231 $1375 $5401 0
+$2310 $2046 $6732 0
+$3102 $7513 $3267 0
+$4576 $4620 $0154 0
+$7645 $5137 $4015 0
+$6457 $6204 $7326 0
+$7645 $7513 $7326 0
+
+:drcara
+	dup $f and getn 2dup >r >r 2 zop
+	4 >> dup $f and getn 2 zline
+	4 >> dup $f and getn 2 zline
+	4 >> $f and getn 200 zline
+	r> r> 4 zline
+	zpoly ;
+
+:drawb
+	4 << 'cara +
+	@+ drcara aclara
+	@+ drcara aclara
+	@ drcara ;
+
+:dface | adr -- adr'
+	c@+ getn 2dup >r >r 100 zop
+	c@+ getn 400 zline
+	c@+ getn 300 zline
+	c@+ getn 200 zline
+	r> r> 100 zline
+	zpoly ;
+
+:drawboxd | nm --
+	2 << dup 2* + 'faces +
+	dface aclara dface aclara dface
+	drop
+	;
+
+|-------------------------
+:caraq
+	dup $f and getn2 >r >r
+	4 >> dup $f and getn2 >r >r
+	4 >> dup $f and getn2 >r >r
+	4 >> $f and getn2
+	r> r> r> r> r> r>
+	drawquado ;
+
+:drawq
+	4 << 'cara +
+	@+ caraq aclara
+	@+ caraq aclara
+	@ caraq ;
+	;
+
+|----- modo 1
+:forma1
+	x0 x1 - x7 *
+	y0 y1 - y7 * +
+	z0 z1 - z7 * +
+	dup 'n1 !
+	+? ( 1 )( 0 ) >r drop
+	x0 x2 - x7 *
+	y0 y2 - y7 * +
+	z0 z2 - z7 * +
+	dup 'n2 !
+	+? ( 2 r+ ) drop
+	x0 x4 - x7 *
+	y0 y4 - y7 * +
+	z0 z4 - z7 * +
+	dup 'n3 !
+	+? ( 4 r+ ) drop
+	r> 'mask !
+	;
+
+:forma2
+	mpush
+	matinv
+	x7 neg y7 neg z7 neg transform
+	-? ( 1 )( 0 ) >r drop
+	-? ( 2 r+ ) drop
+	-? ( 4 r+ ) drop
+	r> 'mask2 !
+	mpop
+	;
+
+:forma3
+	mpush
+	matinv
+	x0 neg y0 neg z0 neg transform
+	-? ( 1 )( 0 ) >r drop
+	-? ( 2 r+ ) drop
+	-? ( 4 r+ ) drop
+	r> 'mask3 !
+	mpop
+	;
+
+:3dop 3dproject op ;
+:3dline 3dproject line ;
+
+:drawcube
+	fillstart
+	fillveciso
+
+
+	forma1
+    forma2
+    forma3
+
+	verde
+
+	zb.clear
+    mask2 drawb
+
+
+
+	verde
+	z0 y0 x0 "x0 %f %f %f " print cr
+	z7 y7 x7 "x7 %f %f %f " print cr
+	mask "%d " print cr
+	n3 n2 n1 "%d %d %d" print cr
+
+	cyan 0 getn 1 box
+	blanco mask getn 5 box
+	verde mask2 getn 3 box
+	rojo mask3 getn 7 box
+	;
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx mroty ;
+
+:ztest
+	0 0 setxy
+	zb >r
+	sh ( 1? )( 1-
+		sw ( 1? )( 1-
+			r@+
+			|$7fffffff <>? ( drop r zbo + @ )
+			$7fffffff =? ( 0 nip )
+			px!+
+			) drop
+		) drop rdrop ;
+
+:main
+	33
+	mark
+	sw sh zb.ini
+	show clrscr blanco
+		dup "%d" print cr
+
+		3dini
+		freelook
+		xcam ycam zcam mtrans
+
+
+		drawcube
+		ztest
+|		drawire
+
+		cyan
+		mask2 drawq
+
+		[ -0.01 'zcam +! ; ] <up>
+		[ 0.01 'zcam +! ; ] <dn>
+		[ -0.01 'xcam +! ; ] <le>
+		[ 0.01 'xcam +! ; ] <ri>
+		[ -0.01 'ycam +! ; ] <pgup>
+		[ 0.01 'ycam +! ; ] <pgdn>
+
+		'exit >esc< cminiflecha ;
+
+: main ;
