@@ -13,7 +13,7 @@
 | M Indireccion de memoria
 | S tiene suma + ..
 | >> shift 00-1 01-2 10-4 11-8
-| >>SMTTTT
+| >> SMTTTT
 
 #:nreg
 #:reg )( 1024 | 256 registros
@@ -24,9 +24,9 @@
 
 | cstkR cstkD lugar
 |----------------------
-#stkidx )( 1024
+#:stkidx )( 1024
 #stkidx> 'stkidx
-#stkmem )( 2048
+#:stkmem )( 2048
 #stkmem> 'stkmem
 
 |----- pila para condicionales
@@ -77,6 +77,9 @@
 :regB	2 << 'reg + dup @ $100000 or swap ! ;	| transpasa un bloque
 :regI	2 << 'reg + dup @ $200000 or swap ! ;	| parametro IN
 :regO	2 << 'reg + dup @ $400000 or swap ! ;	| parametro OUT
+
+:regAD	2 << 'reg + dup @ $1000000 or swap ! ;	| uso eax,edx
+:regC	2 << 'reg + dup @ $2000000 or swap ! ;	| uso ecx
 
 :regPALset
 	'dstack ( dstack> <? )( @+ regA ) drop ;
@@ -251,8 +254,8 @@
 :op2a1	d.TOS regR ,drop d.TOS regW ; | + - * and or xor ..
 :vop2a1 d.TOS regR ,drop d.TOS regW ; | / mod
 :xop2a1	d.TOS regR ,drop d.TOS regW ; | << >>
-:op3a1	d.TOS regR ,drop d.TOS regR ,drop d.TOS regW ; | */
-:vop3a1	d.TOS regR ,drop d.TOS regR ,drop d.TOS regW ; | *>> /<<
+:op3a1	d.TOS regR ,drop d.TOS regR ,drop d.TOS dup regAD regW ; | */
+:vop3a1	d.TOS regR ,drop d.TOS regR ,drop d.TOS dup regAD regW ; | *>> /<<
 
 :op2a2	d.TOS regW d.NOS regW ; | mod/
 
@@ -280,8 +283,12 @@
 ,2over ,2swap
 ,>r ,r> ,r ,r+ ,r@+ ,r!+ ,rdrop
 op2a1 op2a1 op2a1 op1a1 |,and ,or ,xor ,not
-op2a1 op2a1 op2a1 op2a1 |,+ ,- ,* ,/
-op3a1 vop3a1 op2a2 vop2a1 |,*/ ,*>> ,/mod ,mod
+op2a1 op2a1	|,+ ,-
+op2a1 op2a1 |,* ,/
+
+op3a1 vop3a1 |,*/ ,*>>
+
+op2a2 vop2a1 |,/mod ,mod
 vop1a1 op1a1 vop1a1 vop3a1 |,abs ,sqrt ,clz ,<</
 op1a1 op1a1 op1a1 op1a1 op1a1 op1a1 |,neg ,1+ ,4+ ,1- ,2/ ,2*
 xop2a1 xop2a1 |,<< ,>>
@@ -451,17 +458,70 @@ xop2a1 xop2a1 |,<< ,>>
 	2 << 'stkidx + @ ;
 ::gerstkcnt | lin -- stk cnt
 	getstk dup $3ff and 'stkmem + swap 10 >> $3f and ;
+
 ::gettos | nro -- reg
 	gerstkcnt + 1- c@ $ff and ;
 ::getnos | nro -- reg
 	gerstkcnt + 2 - c@ $ff and ;
+::getpk2 | nro -- reg
+	gerstkcnt + 3 - c@ $ff and ;
 
-::dumpstk | lin --
-	gerstkcnt ( 1? )( 1- swap c@+ 65 + ,c swap ) 2drop ;
+
+::regR?	| nro -- nro/-1
+	2 << dup 'regt + @ $f and 5 <>? ( 2drop -1 ; ) drop
+	'regv + @ ;
+
+::regM? | nro -- 0/1 (es [mem])
+	2 << dup 'regt + @ $10 and ;
+
+::regW? | nro -- 1/0  ?tiene w?
+	2 << 'reg + @ $ff00 and ;
+
+::regAD? | nro -- 1/0  ?tiene w?
+	2 << 'reg + @ $1000000 and ;
+
+
+#mask
+:setreg | reg --
+	2 << dup 'regt + @ $f and 5 <>? ( 2drop ; ) drop
+	'regv + @ 1 swap << 'mask +!
+	;
+
+::getregmask | linea -- mask
+	0 'mask !
+	2 << 'stkidx + @
+	dup $3ff and 'stkmem +
+	over 10 >> $3f and
+	( 1? )( 1- swap c@+ setreg swap ) drop
+	swap 16 >> $3f and
+	( 1? )( 1- swap c@+ setreg swap )
+	2drop
+	mask ;
+
+
+::maskregfree | mask -- nreg
+	0 swap ( 1 pick2 << and? )( swap 1+ swap ) drop ;
+
+::copyregreg | from to --
+	over 2 << 'regt + @ over 2 << 'regt + !
+	over 2 << 'regv + @ over 2 << 'regv + !
+	swap 2 << 'regs + @ swap 2 << 'regs + !
+	;
+
+::swapregreg | from to --
+	over 2 << 'regt + over 2 << 'regt + over @ over @ swap rot ! swap !
+	over 2 << 'regv + over 2 << 'regv + over @ over @ swap rot ! swap !
+	swap 2 << 'regs + swap 2 << 'regs + over @ over @ swap rot ! swap !
+	;
+
 ::setREG | val r reg --
 	2 << dup >r 'regt + ! r 'regv + ! 0 r> 'regs + ! ;
 ::set+	| suma reg --
 	2 << 'regs + ! ;
+
+::dumpstk | lin --
+	gerstkcnt ( 1? )( 1- swap c@+ 65 + ,c swap ) 2drop ;
+
 
 ::setTOS | val t nro --
 	gettos setREG ;
@@ -502,7 +562,7 @@ xop2a1 xop2a1 |,<< ,>>
 		1+ ) drop rdrop ;
 
 ::stackanalisis | end ini --
-	2dup getusedstack neg 
+	2dup getusedstack neg
 	stackini
 	storestack
 	( over <? )(
