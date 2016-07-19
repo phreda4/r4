@@ -59,12 +59,15 @@
 ::,REG | nro --
 	'sysregs list2str ,s ;
 
+:suma	over 2 << 'regs + @ ;
+:shift	dup 5 >> $3 and 1? ( 1 swap << ) ;
+
 ::,cell | nro --
 	dup 2 << 'regt + @
 	$10 and? ( "dword [" ,s )
 	dup $f and 2 << 'tiposrm + @ 1? ( exec )( drop )
-|	shift 1? ( "*" ,s dup ,d ) drop
-|	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	shift 1? ( "*" ,s dup ,d ) drop
+	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
 	$10 and? ( "]" ,s )
 	2drop ;
 
@@ -72,8 +75,8 @@
 	dup 2 << 'regt + @
 	$10 and? ( "dword [" ,s )
 	dup $f and 2 << 'tiposrmb + @ 1? ( exec )( drop )
-|	shift 1? ( "*" ,s dup ,d ) drop
-|	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	shift 1? ( "*" ,s dup ,d ) drop
+	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
 	$10 and? ( "]" ,s )
 	2drop ;
 
@@ -81,8 +84,8 @@
 	dup 2 << 'regt + @
 	$10 and? ( "dword [" ,s )
 	dup $f and 2 << 'tiposrmw + @ 1? ( exec )( drop )
-|	shift 1? ( "*" ,s dup ,d ) drop
-|	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	shift 1? ( "*" ,s dup ,d ) drop
+	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
 	$10 and? ( "]" ,s )
 	2drop ;
 
@@ -92,6 +95,7 @@
 :,pNOS	nlin 1- getnos ,cell ;
 :,pNOSb	nlin 1- getnos ,cellb ;
 :,pNOSw	nlin 1- getnos ,cellw ;
+:,pRTOS	nlin 1- getrtos ,cell ;
 
 :,TOS	nlin gettos ,cell ;
 :,TOSb	nlin gettos ,cellb ;
@@ -99,8 +103,8 @@
 :,NOS	nlin getnos ,cell ;
 :,NOSb	nlin getnos ,cellb ;
 :,NOSw	nlin getnos ,cellw ;
-:,RTOS	;
 
+:,RTOS	nlin getrtos ,cell ;
 
 :regdump
 	,cr
@@ -122,7 +126,7 @@
 
 |--- inicia registros en normal ---|
 :inivpila
-	nlin gerstkcnt
+	nlin getstkcnt
 	dup 'stackdeep !
 	1- ( 1? )( 1- swap
 		c@+ $ff and | nro adr reg
@@ -206,9 +210,6 @@
 	toknow tok>cte
 	nlin gettos regW? 0? ( drop TOSNRO ; )
 	drop
-
-|	trace
-|	drop
 	TOSNRO ;
 
 :,lits
@@ -216,9 +217,9 @@
 	'strpending ! drop
 	nstr TOSSTR
 	1 'nstr +! ;
-:,dwo	
+:,dwo
 	toknow 8 >> dup 'lastdircode ! TOSCOD ;
-:,dva   
+:,dva
 	toknow 8 >> TOSDAT ;
 :,var
 	toknow 8 >> TOSVAR ;
@@ -230,8 +231,8 @@
 #contype
 #conlin
 
-:,cNOS	conlin  getnos ,cell ;
-:,cTOS  conlin  gettos ,cell ;
+:,cNOS	conlin getnos ,cell ; | nlin 2 -
+:,cTOS  conlin gettos ,cell ;
 
 :consimple
 |	rd.tos cell2REG
@@ -290,21 +291,16 @@
 
 |----- BLOQUES
 :vpilad | ; ajusta pila para bloque
-	blINFO 16 >> neg |vpila2fixdeep
+	nlin dumpstk "**" ,ln
+
+
+|	blINFO 16 >> neg |vpila2fixdeep
  ;
 
 :,cond | ; arma condicional
-|	d.cnt "; IC cnt:%d " ,print
-|	inivpcnt " inivpcnt:%d " ,print
-|	printddvtack
-|	d.cnt inivpcnt - "; %d vpilafixdeep " ,print ,cr
 	contype
 |	'consimple =? ( d.cnt inivpcnt - vpila2fixdeep )( d.cnt inivpcnt - vpila2fixdeepTOS )
 	exec
-
-|	d.cnt "; FC cnt:%d " ,print
-|	inivpcnt " inivpcnt:%d " ,print
-|	printddvtack
 	;
 
 :,bloqueELSE
@@ -322,9 +318,9 @@
 	;
 
 |** No funciona cuando dentro del condicional tiene la pila distinta a la entrada!!
+
 :WHILE( | optimiza while
 	vpilad
-|	vppush
 	+etiqueta +etiqueta
 	,jmp ,etiqueta
 	drop bl)(
@@ -334,7 +330,6 @@
 	<pilac
 	,cond
 	,jmpinv ,label ,cr
-|	vpdrop
 	drop bl))
 	;
 
@@ -342,6 +337,7 @@
 	<pilac ,etiqueta
 	drop bl((
 	;
+
 |*********************************
 
 :,(
@@ -352,11 +348,9 @@
 	| *1 resolver aca si tiene que acomodar pila
 	$30 =? ( blSIZE 3 =? ( 2drop IFWORD ; ) drop )
 	$f and
-	1 <=? ( ,cond |vppush
- +etiqueta ,jmpcond )	| IF/ELSE
-|	2 =? ( drop WHILE( ; )  |**
-	2 >=? ( vpilad |vppush
-+etiqueta ,etiqueta )	| UNTIL/REPEAT
+	1 <=? ( ,cond +etiqueta ,jmpcond )	| IF/ELSE
+	2 =? ( drop WHILE( ; )
+	2 >? ( vpilad +etiqueta ,etiqueta )	| UNTIL/REPEAT
 	drop
 ;
 
@@ -364,11 +358,8 @@
 |	blINFO ";BLK %h )( " ,print ,nl
 
 	blINFO $f and
-	1 =? ( ,bloqueELSE <pilac +etiqueta ,jmp ,etiqueta |vppush vppick vpnip
-)	| ELSE
-	2 =? ( |drop WHILE)( ; ) |**
-			,cond <pilac +etiqueta ,jmpcond >pilac |vpdrop vppush
-)	| WHILE
+	1 =? ( ,bloqueELSE <pilac +etiqueta ,jmp ,etiqueta )	| ELSE
+	2 =? ( drop WHILE)( ; )
 	drop
 	;
 
@@ -378,16 +369,13 @@
 	1 <=? (
 			over 8 - @ $ff and
 |			$10 <>? ( vpFitAll )
-drop
+			drop
 			<pilac ,etiqueta				| IF ELSE
 			)
-	2 =? ( |drop WHILE) ; ) |**
-|			vpFitAll
-			<pilac ,jmp <pilac ,etiqueta )	| WHILE
+	2 =? ( drop WHILE) ; ) 					| WHILE
 	3 =? ( ,cond <pilac ,jmpcond )			| UNTIL
 	4 =? ( <pilac ,jmp )					| REPEAT
 	drop
-|	vpPop
 	block.end ;
 
 |------- EXEC
@@ -433,10 +421,6 @@ drop
 ;
 |------ PILAD
 
-:copyreg | reg reg --
-	"mov " ,s ,REG "," ,s ,REG
-	;
-
 :anyreg
 	nlin getregmask maskregfree | freereg
 	dup "mov " ,s ,REG "," ,s ,pTOS ,cr
@@ -445,7 +429,6 @@ drop
 
 :swapreg
 	nlin getregmask $8 or | edx no
-|	dup " %b " ,print
 	maskregfree
 	dup "mov " ,s ,REG "," ,s ,pTOS ,cr
 	5 nlin getnos setREG
@@ -454,7 +437,6 @@ drop
 :,DUP
 	nlin gettos regW? 0? ( drop nlin getnos nlin gettos copyregreg ; ) drop
 	nlin gettos regAD? 0? ( drop anyreg ; ) drop
-
 	nlin getregmask
 	1 and? ( drop swapreg ; )
 	drop
@@ -657,10 +639,10 @@ drop
 |	d.tos setEAX
 	;
 
-:regtomem 
+:regtomem
 	drop
 	;
-	
+
 :,*>>
 | si d.nos es pow2..
 |	pk2EAXnosREGMEMtosECXfreeEDX
@@ -668,10 +650,9 @@ drop
 |	d.nos cellREG? 0? ( d.pop d.swap d.push ) drop
 	nlin 1- getnos regR?
 	0? ( nlin 1- getnos nlin 1- getpk2 swapregreg ) | es eax
-	-? ( nlin 1- getnos regM? 0? ( nlin 1- getnos regtomem ) drop )	| no es registro
+|	-? ( nlin 1- getnos regM? 0? ( nlin 1- getnos regtomem ) drop )	| no es registro
 	drop
 
-	nlin 1- getnos
 
 	"cdq" ,ln
 	"imul " ,s ,pNOS ,cr
