@@ -8,6 +8,11 @@
 
 ^r4/lib/trace.txt
 
+#w3do
+#h3do
+#hocc
+#wocc
+
 #$base
 #:$octree
 #:$pixels
@@ -92,9 +97,13 @@
 	r@+ -? ( 'ymin )( 'ymax ) +!
 	rdrop ;
 
-:getzc | minz
+:getzm | minz
 	isovec> 28 - >r
 	r@+ 0 min 8 r+ r@+ 0 min + 8 r+ r> @ 0 min + ;
+
+:getzc | minz
+	isovec> 28 - >r
+	r@+ 8 r+ r@+ + 8 r+ r> @ + 2/ ;
 
 :getbbox
 	isovec> 36 - >r
@@ -112,8 +121,6 @@
 |--- draw box
 :drawbox | x y z oct --
 	octcolor bo!
-	|getzc +
-|	zz! |getmm
 	drop
 	over xmin + over ymin +
 	2swap
@@ -257,8 +264,6 @@
 :drawibox | x y z n n --
 	dup | relleno para 'lsumac
 	2 << 'lsumac + @ exec
-|	getzc +
-|	zz!
 	drop
 	getmm
 	over xmin + over ymin + 2swap
@@ -283,15 +288,15 @@
 :getnminmax
 	getn p3di
 	xmin <? ( dup 0 max 'xmin ! )
-	xmax >? ( dup sw min 'xmax ! )
+	xmax >? ( dup w3do min 'xmax ! )
 	drop
 	ymin <? ( dup 0 max 'ymin ! )
-	ymax >? ( dup sh min 'ymax ! )
+	ymax >? ( dup h3do min 'ymax ! )
 	2drop ;
 
 :drawborde
 	octcolor bo!
-	0 getn p3di dup 'xmin ! 'xmax ! dup 'ymin ! 'ymax ! drop |1 max zz!
+	0 getn p3di dup 'xmin ! 'xmax ! dup 'ymin ! 'ymax ! drop
 	1 getnminmax
 	2 getnminmax
 	3 getnminmax
@@ -361,7 +366,7 @@
 
 |---------------- search iso ratio
 :getz | x y z node -- Z
-    getzc pick2 + ;
+    getzm pick2 + ;
 
 :viewr | x y z node --
 	>r calco 'nzmin ! r>
@@ -384,17 +389,16 @@
 
 |----------- search cube in screen
 :culling | x y z -- cull
-	2 >> | achica...
 	1 <? ( $10 )( 0 ) >r
-	swap -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
-	swap -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) )
+	swap hocc *. -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
+	swap wocc *. -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) 	)
 	drop r> ;
 
 :cull1 | x y z -- cull
 	culling dup 8 << or ;
 
-:culln | xyz -- culla cullo
-	culling dup 8 << $ff or ; |rot and or ;
+:culln | xyz -- cullo culla
+	culling dup 8 << $ff or ;
 
 :cullingcalc | x y z node -- x y z node aocull
 	>r
@@ -408,45 +412,13 @@
 	7 getn culln r> and or
 	r> swap ;
 
-| idea-----------------------------
-:parcialz | x y z node -- x y z node 0(in)/-1(out)/1(cut)
-	zmax zmin + 2/ + 1.0 swap /.  | zc
-	pick4 xmax xmin + 2/ + | zc xc
-	abs over *.
-	0.4 >? ( 2drop -1 ; )
-	drop
-:parcialzx
-	pick3 ymax ymin + 2/ + | zc yc
-	abs swap *.
-	0.4 >? ( drop -1 ; )
-	drop 1 ;
-
-:ideacull | x y z node -- x y z node 0(in)/-1(out)/1(cut)
-	getbbox
-	over
-	zmax 1+ <? ( drop -1 ; )
-	zmin 1+ <? ( parcialz ; )
-	zmax zmin + 2/ + 1.0 swap /. | zc
-	pick4 xmax xmin + 2/ + | zc xc
-	abs over *.
-	0.4 >? ( 2drop -1 ; )
-	0.3 >? ( drop parcialzx ; )
-	drop
-	pick3 ymax ymin + 2/ + | zc yc
-	abs swap *.
-	0.4 >? ( drop -1 ; )
-	0.3 >? ( drop 1 ; )
-	drop 0 ;
-
-
 |----------------------
 :viewo | x y z node --
-
-	cullingcalc 0? ( drop viewr ; ) $ff00 and? ( nip 4drop vec- ; ) drop
-|	ideacull 0? ( drop viewr ; ) -? ( nip 4drop vec- ; ) drop
-
+	cullingcalc 
+	0? ( drop viewr ; ) 
+	$ff00 and? ( nip 4drop vec- ; )
+	drop
 	$pixels >=? ( veco exec ; )
-
 	>r calco r> swap >r
 	1 'zlen +!
 	oct++
@@ -463,11 +435,12 @@
 	vec- ;
 
 |-------- octree in octree
-:vecis	drawcube vec- ;
-		| drawbox vec- ;
-		| drawboxi vec- ;
+:vecis	|drawcube vec- ;
+		drawbox vec- ;
+		|drawboxi vec- ;
 :vecrs	drawrealcube vec- ; | no iso
-:vecos	drawborde vec- ;
+:vecos	4drop |drawborde
+vec- ;
 
 #vecsim	'vecis 'vecrs 'vecos 0 0 0 0 0
 
@@ -506,7 +479,6 @@
 ::drawoctree | moctree --
 	adjustmem
 	1.0 clz 6 - 'zlen ! | -0.5..0.5 = 1.0
-	-1 'nzmin !
 
 	'isovec >r
 	-0.5 -0.5 -0.5 transform 'sz ! 'sy ! 'sx !
@@ -527,8 +499,13 @@
 	here dup rot load 'here ! ;
 
 ::ini3do | w h --
-	Omode
+	2dup o3dmode
+	2dup 'h3do ! 'w3do !
 	bb.ini
+
+    2.1 'hocc ! | calcular los valores!!****** 1024*600
+    1.2 'wocc !
+
     'vecsim 16 + >r 'vecio r!+ 'vecro r!+ 'vecoo r!+ rdrop
     ;
 
