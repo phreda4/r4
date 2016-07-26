@@ -35,7 +35,7 @@
 #ssc> 'ssc
 
 |---- BLOQUES
-#blockn 0
+#:blockn 0
 #block )( 1024	| tipo+info
 #blocks )( 1024 | celda comienzo
 #blocke )( 1024 | celda fin
@@ -190,11 +190,11 @@
 :block.cnt pilab> 'pilab - 2 >> ;
 
 :block.start!
-	stkidx> 'stkidx - 2 >> blockn 2 << 'blocks + ! ;
+	stkidx> 'stkidx - 2 >> block.now 2 << 'blocks + ! ;
 :block.mid!
-	stkidx> 'stkidx - 2 >> blockn 2 << 'blocki + ! ;
+	stkidx> 'stkidx - 2 >> block.now 2 << 'blocki + ! ;
 :block.end!
-	stkidx> 'stkidx - 2 >> blockn 2 << 'blocke + ! ;
+	stkidx> 'stkidx - 2 >> block.now 2 << 'blocke + ! ;
 
 :blocka		block.now 2 << 'block + ;
 
@@ -205,12 +205,12 @@
 :blUNTIL  	blocka dup @ 3 or swap ! ;
 :blREPEAT  	blocka dup @ 4 or swap ! ;
 
-:blINI
-	blockn 2 << 'blocks + @ ;
-:blMID
-	blockn 2 << 'blocki + @ ;
-:blEND
-	blockn 2 << 'blocke + @ ;
+::blINI
+	block.now 2 << 'blocks + @ ;
+::blMID
+	block.now 2 << 'blocki + @ ;
+::blEND
+	block.now 2 << 'blocke + @ ;
 
 :salto? | adr -- adr 1/0
 	dup 8 - @ $ff and $16 >? ( $23 <? ( drop 1 ; ) ) drop 0 ;
@@ -219,10 +219,12 @@
 	over 8 - @ $ff and $10 =? ( drop 1 ; ) drop 0 ;
 
 :,(
-	block.new blCLEAR |blINI
+	block.new blCLEAR
+	block.start!
 	pushvar salto? sst! ;
 
 :,)(
+	block.mid!
 	sst@ drop
 	salto? 1? ( drop dropvar pushvar 3 sst! ; )	drop	| while
 	pushvar pop2var 2 sst!			| else
@@ -235,7 +237,7 @@
 	2 =? ( convar blELSE )         | else
 	3 =? ( popvar blWHILE )        | while
 	drop
-
+	block.end!
 	block.end ;
 
 :,;
@@ -278,7 +280,7 @@
 :1!	| ! c! w!
 	d.TOS dup regM regR ,drop d.TOS regR ,drop ;
 :2@	| @+ c@+ w@+
-	d.TOS dup regM regW newreg dpush ;
+	d.TOS dup regM regW newreg dup regW dpush ;
 :2!	| !+ c!+ w!+
 	,swap d.TOS regR ,drop d.TOS dup regM regW ;
 :2+!	| +! c+! w+!
@@ -379,6 +381,7 @@ xop2a1 xop2a1 |,<< ,>>
 |----------------------------------------
 :stackini | deep --
 	0 'nreg !
+	0 'blockn !
 	'stkidx 'stkidx> !
 	'stkmem 'stkmem> !
 

@@ -240,50 +240,6 @@
 	popvar
     -1 'pano +! ;
 
-|---- BLOQUES
-#blockn 0
-#block )( 1024	| tipo+info
-#blocks )( 1024 | celda comienzo
-#blocke )( 1024 | celda fin
-#blocki )( 1024 | celda medio
-
-|----- pila para bloques
-#pilab )( 256	#pilab> 'pilab
-
-::block.new blockn pilab> !+ 'pilab> ! 1 'blockn +! ;
-::block.end -4 'pilab> +! ;
-:block.now pilab> 4 - @ ; | -- nblo
-
-:blocka		block.now 2 << 'block + ;
-
-:blCLEAR	0 blocka ! ;
-:blIF       blocka dup @ 0 or swap ! ;
-:blELSE  	blocka dup @ 1 or swap ! ;
-:blWHILE	blocka dup @ 2 or swap ! ;
-:blUNTIL  	blocka dup @ 3 or swap ! ;
-:blREPEAT  	blocka dup @ 4 or swap ! ;
-
-:blNOSPLIT	block.now 2 << 'block + dup @ $10 or swap ! ;
-
-:blWORD		pilab> 'pilab =? ( drop ; )
-			4 - @ 2 << 'block + dup @ $20 or swap ! ;
-:blUSO		pilab> 'pilab =? ( drop ; )
-			4 - @ 2 << 'block + dup @
-			dup 16 >> pick3 min 16 <<
-			swap $ffff and or
-			swap ! ;
-
-:blINI	dup block.now 2 << 'blocks + ! ;
-:blEND	dup block.now 2 << 'blocke + ! ;
-:blMED	dup block.now 2 << 'blocki + ! ;
-
-::blINFO	blocka @ ;
-::blSIZE	block.now 2 << dup 'blocke + @ swap 'blocks + @ - 2 >> ;
-
-::bl((  block.now 2 << 'blocks + @ ;
-::bl)(  block.now 2 << 'blocki + @ ;
-::bl))  block.now 2 << 'blocke + @ ;
-
 |----- CONDICIONALES
 :salto? | adr -- 1/0
 	dup 8 - @ $ff and $16 >? ( $23 <? ( drop 1 ; ) ) drop 0 ;
@@ -292,28 +248,24 @@
 	over 8 - @ $ff and $10 =? ( drop 1 ; ) drop 0 ;
 
 :es(
-	block.new blCLEAR blINI
 	pushvar
 	salto? sst!
 	;
 
 :es)(
-	blMED
-	dup 8 - @ $ff and $10 =? ( blNOSPLIT ) drop
 	sst@ drop
 	salto? 1? ( drop dropvar pushvar 3 sst! ; ) | while
 	drop popvar pushvar 2 sst!
 	;
 
 :es)	|)
-	blEND
 	sst@
-	0? ( dropvar swap salto? 1? ( blUNTIL )( blREPEAT ) drop swap )
-	1 =? ( ;? 1? ( popvar blNOSPLIT )( dropvar ) drop blIF  )
-	2 =? ( dropvar blELSE )
-	3 =? ( popvar blWHILE )
+	0? ( dropvar swap salto? drop swap )
+	1 =? ( ;? 1? ( popvar )( dropvar ) drop )
+	2 =? ( dropvar )
+	3 =? ( popvar )
 	drop
-	block.end ;
+	;
 
 |----------------------
 :esFin
@@ -324,12 +276,10 @@
 |--------------------
 :usoDcalc | u --
 	deltaD swap -
-	blUSO | guardo uso en bloque
 	usoD min 'usoD ! ;
 
 | adr adrt t tabla
 :esPal | palabra
-	blWORD			| marca bloque con palabra
 	dup 4 - @ 8 >>	| obtener palabra
 	pick2 =? ( drop $20 flags or 'flags ! ; ) | es recursiva?
     dup dic>inf @ 24 >> 1+ 'nivel !
@@ -378,8 +328,6 @@
 	dup 'pano ! 'cano !
 	'pilaint 'pilaint> !
 	'sst 'sst> !
-	0 'blockn !
-	'pilab 'pilab> !
 	0 'maxdepth !
 	;
 
@@ -555,24 +503,6 @@
 		) drop
 	;
 
-|------------ DEBUG bloques
-:dumpblock, | n --
-	2 <<
-	dup 'block + @ dup 16 >> swap $ffff and "; BL %h %d (" ,print
-	dup 'blocks + @ "%h-" ,print
-	dup 'blocki + @ "%h-" ,print
-	'blocke + @ "%h)" ,print
-	,cr
-	;
-
-::infoblock
-	blockn 0? ( drop ; ) drop
-	";----------------" ,ln
-	0 ( blockn <? )(
-		dup dumpblock,
-		1+ ) drop
-	";----------------" ,ln
-	;
 
 |---------- Calculo uso de pila d
 ::getusedstack | last ini -- usoD
@@ -580,7 +510,5 @@
 	( over <? )(
 		@+ $ff and prosstoken
 		) 2drop
-|	infoblock
-	0 'blockn ! | em
 	usoD
 	;

@@ -145,6 +145,14 @@
 		pick2 5 rot setREG
 		swap ) 2drop ;
 
+:deepreg | nlin --
+	getstkcnt
+	dup 'stackdeep !
+	( 1? )( 1- swap
+		c@+ $ff and | nro adr reg
+		pick2 5 rot setREG
+		swap ) 2drop ;
+
 |--- transforma pila actual en normal ---| .. [esi] eax
 :vpila2normal
 	"; >>normal " ,ln
@@ -309,8 +317,12 @@
 	"; " ,s nlin dumpstk "**" ,ln
 
 
-|	blINFO 16 >> neg |vpila2fixdeep
- ;
+	"; INI:" ,s blINI dup "%d " ,print dumpstk ,cr
+	"; MID:" ,s blMID dup "%d " ,print dumpstk ,cr
+	"; END:" ,s blEND dup "%d " ,print dumpstk ,cr
+
+	blINI deepreg
+	;
 
 :,cond | ; arma condicional
 	contype
@@ -391,7 +403,7 @@
 			drop
 			<pilac ,etiqueta				| IF ELSE
 			)
-	2 =? ( drop WHILE) ; ) 					| WHILE
+	2 =? ( drop WHILE) block.end ; ) 		| WHILE
 	3 =? ( ,cond <pilac ,jmpcond )			| UNTIL
 	4 =? ( <pilac ,jmp )					| REPEAT
 	drop
@@ -477,69 +489,47 @@
 
 |------- PILAR
 :,>R
-	toknow 8 >> 1? ( drop |d.pop r.push
-; ) drop
-	"push " ,s ,TOS ,cr |d.drop
+|	toknow 8 >> 1? ( drop |d.pop r.push
+|; ) drop
+|	"push " ,s ,TOS ,cr |d.drop
 ;
 
 :,R>
-	toknow 8 >> 1? ( drop |r.pop d.push
-; ) drop
+|	toknow 8 >> 1? ( drop |r.pop d.push
+|; ) drop
 |	newReg pushREG
-	"pop " ,s ,TOS ,cr ;
+|	"pop " ,s ,TOS ,cr
+	;
 
 :,R
 |	toknow 8 >> 1? ( drop r.tos d.push ; ) drop
 |	7 pushREG d.tos cellMEM! | [esp]
 	;
 |	newReg pushREG
-|	"mov " ,s ,TOS ",dword [esp]" ,ln 
+|	"mov " ,s ,TOS ",dword [esp]" ,ln
 
-:,RDROP
-|	toknow 8 >> 1? ( drop r.drop ; ) drop
-	"lea esp,[esp+4]" ,ln ;
-|	"add esp,4" ,ln ;
+:,RDROP ;
 
-:,R+a
+:,R+
 |	r.tos cellREG? -? ( r.tos cell2REGW ) drop
 	"add " ,s ,RTOS "," ,s ,TOS ,cr
 |	d.drop
 ;
 
-:,R+
-	toknow 8 >> 1? ( drop ,R+a ; ) drop
-|	d.tos cell2NMEM "add dword [esp]," ,s ,TOS ,cr d.drop
-;
-
-:,R!+a
-|	r.tos cellREG? -? ( r.tos cell2REGW ) drop
-	"mov dword [" ,s ,RTOS "]," ,s ,TOS ,cr
-	"add " ,s ,RTOS ",4" ,ln
-;
 
 :,R!+
-|	toknow 8 >> 1? ( drop ,R!+a ; ) drop
-|	d.tos cell2NMEM
-|	newReg |6 >? ( drop freelastreg newReg )
-	"mov " ,s dup ,REG ",dword [esp]" ,ln
-	"mov dword [" ,s ,REG "]," ,s ,TOS ,cr
-	"add dword [esp],4" ,ln
+|	r.tos cellREG? -? ( r.tos cell2REGW ) drop
+	"mov dword [" ,s ,RTOS "]," ,s ,pTOS ,cr
+	"add " ,s ,RTOS ",4" ,ln
 	;
 
-:,R@+a
+:,R@+
 |	newReg pushREG
 |	r.tos cell2NMEM
 	"mov " ,s ,TOS ",dword [" ,s ,RTOS "]" ,ln
 	"add " ,s ,RTOS ",4" ,ln
 |	4 r.tos Cell+ | add 4
 	;
-
-:,R@+
-|	toknow 8 >> 1? ( drop ,R@+a ; ) drop
-|	newReg pushREG
-	"mov " ,s ,TOS ",[esp]" ,ln
-	"mov " ,s ,TOS ",[" ,s ,TOS "]" ,ln
-	"add dword [esp],4" ,ln ;
 
 |------- optimizar celdas
 :oper21con
@@ -770,21 +760,21 @@
 |	d.nos cell2NMEM
 |	d.tos cell2REGW
 	"mov dword [" ,s ,pTOS "]," ,s ,pNOS ,cr
-	"add " ,s ,TOS ",4" ,ln ;
+	"add " ,s ,pTOS ",4" ,ln ;
 
 :,W!+
 |	d.tos resguardavar
 |	d.nos cell2NMEM
 |	d.tos cell2REGW
 	"mov word [" ,s ,pTOS "]," ,s ,pNOSw ,cr
-	"add " ,s ,TOS ",2" ,ln ;
+	"add " ,s ,pTOS ",2" ,ln ;
 
 :,C!+
 |	d.tos resguardavar
 |	d.nos cell2NMEM
 |	d.tos cell2REGW
 	"mov byte [" ,s ,pTOS "]," ,s ,pNOSb ,cr
-	"add " ,s ,TOS ",1" ,ln ;
+	"add " ,s ,pTOS ",1" ,ln ;
 
 :,@+
 |	d.tos cell2REGW
@@ -963,6 +953,7 @@
 ::compilatok | bufend bufini --
 	0 'strpending !
 	0 'nlin  !
+	0 'blockn !
 	inivpila
 	( over <? )( 1 'nlin +!
 		@+
