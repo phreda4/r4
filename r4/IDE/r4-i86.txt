@@ -147,15 +147,18 @@
 
 |--- transforma pila actual en normal ---| .. [esi] eax
 :vpila2normal
-	"normal " ,ln
+	"; >>normal " ,ln
 	;
 
 :vpila2normal2
-	"normal2 " ,ln
+	"; >>normal2 " ,ln
 	;
 
-:vpila2v
-	drop ; | reacomoda vpila
+:vpila2v | deep --
+	"; >>2v " ,ln
+	drop
+	inivpila
+	; | reacomoda vpila salida
 
 |------------ compila CODIGO
 :nro>dicname   8 >> 4 << 'indicepal + @ ; | nombre
@@ -303,7 +306,7 @@
 
 |----- BLOQUES
 :vpilad | ; ajusta pila para bloque
-	nlin dumpstk "**" ,ln
+	"; " ,s nlin dumpstk "**" ,ln
 
 
 |	blINFO 16 >> neg |vpila2fixdeep
@@ -354,7 +357,8 @@
 
 :,(
 	block.new
-|	blINFO "; BLK %h ((" ,print blSIZE " SIZE:%d " ,print ,nl
+
+	blINFO "; BLK %h ((" ,print blSIZE " SIZE:%d " ,print ,nl
 
 	blINFO $ff and
 	| *1 resolver aca si tiene que acomodar pila
@@ -367,7 +371,8 @@
 ;
 
 :,)(
-|	blINFO ";BLK %h )( " ,print ,nl
+
+	blINFO ";BLK %h )( " ,print ,nl
 
 	blINFO $f and
 	1 =? ( ,bloqueELSE <pilac +etiqueta ,jmp ,etiqueta )	| ELSE
@@ -376,7 +381,9 @@
 	;
 
 :,)
-|	blINFO ";BLK %h )) " ,print ,nl
+
+	blINFO ";BLK %h )) " ,print ,nl
+
 	blINFO $f and
 	1 <=? (
 			over 8 - @ $ff and
@@ -616,6 +623,7 @@
 :,/
 	| si d.tos es pow2..
 	| pow2, ajustar por negativo dup 31 >> - 2/, asi 2/ es diferente a 2 /
+	| si divide por constante convertir en multiplicacion
 
 |	nosEAXtosREGMEMfreeEDX
 	"cdq" ,ln
@@ -644,6 +652,7 @@
 	;
 
 :,*/
+	| si divide por constante convertir en multiplicacion
 |	pk2EAXtosnosREGMEMfreeEDX
 	"cdq" ,ln
 	"imul " ,s ,pNOS ,cr
@@ -651,8 +660,10 @@
 |	d.tos setEAX
 	;
 
-:regtomem
-	drop
+:cte2mem
+	"mov dword [esp+4]," ,s dup ,cell ,cr
+	7 $15 pick2 setREG
+	4 swap set+
 	;
 
 :,*>>
@@ -662,7 +673,7 @@
 |	d.nos cellREG? 0? ( d.pop d.swap d.push ) drop
 	nlin 1- getnos regR?
 	0? ( nlin 1- getnos nlin 1- getpk2 swapregreg ) | es eax
-|	-? ( nlin 1- getnos regM? 0? ( nlin 1- getnos regtomem ) drop )	| no es registro
+	-? ( nlin 1- getnos regM? 0? ( nlin 1- getnos cte2mem ) drop )	| no es registro
 	drop
 
 
@@ -675,7 +686,7 @@
 :,<</
 	| si d.nos es pow2..
 	| pow2, ajustar por negativo dup 31 >> - 2/, asi 2/ es diferente a 2 /
-
+	| si divide por constante convertir en multiplicacion
 |	pk2EAXnosREGMEMtosECXfreeEDX
 	"cdq" ,ln
 	"shld edx,eax," ,s ,pTOSb ,cr
