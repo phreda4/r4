@@ -15,6 +15,8 @@
 
 #stackdeep		| actual stack deep
 
+#buffini
+
 ::ini.compila
 	0 'nstr ! 0 'nlabel ! ;
 
@@ -105,6 +107,9 @@
 :,NOSw	nlin getnos ,cellw ;
 
 :,RTOS	nlin getrtos ,cell ;
+
+:TOS.	nlin getnos ;
+:NOS.	nlin getnos ;
 
 :regdump
 	,cr
@@ -260,6 +265,7 @@
 :consimple
 |	rd.tos cell2REG
 |	rd.tos cellADR?
+	0
 	1? ( drop
 		"cmp " ,s ,cTOS ",0" ,ln ;
 			) drop
@@ -314,12 +320,11 @@
 
 |----- BLOQUES
 :vpilad | ; ajusta pila para bloque
-	"; " ,s nlin dumpstk "**" ,ln
+|	"; " ,s nlin dumpstk "**" ,ln
 
-
-	"; INI:" ,s blINI dup "%d " ,print dumpstk ,cr
-	"; MID:" ,s blMID dup "%d " ,print dumpstk ,cr
-	"; END:" ,s blEND dup "%d " ,print dumpstk ,cr
+	"; .INI:" ,s blINI dup "%d " ,print dumpstk ,cr
+	"; .MID:" ,s blMID dup "%d " ,print dumpstk ,cr
+	"; .END:" ,s blEND dup "%d " ,print dumpstk ,cr
 
 	blINI deepreg
 	;
@@ -335,7 +340,7 @@
 |	d.cnt inivpcnt - vpila2fixdeep
 	;
 
-:IFWORD | ; ?( word ; )
+:IFWORD; | ; ?( word ; )
 	contype
 |	'consimple =? ( vpila2normal )( vpila2normal2 )
 	exec
@@ -346,23 +351,27 @@
 
 |** No funciona cuando dentro del condicional tiene la pila distinta a la entrada!!
 
+:gotoline
+	dup 'nlin !
+	2 << buffini + ;
+
 :WHILE( | optimiza while
 	vpilad
 	+etiqueta +etiqueta
 	,jmp ,etiqueta
-	drop bl)(
+	drop blMID gotoline |	drop bl)(
 	;
 
 :WHILE)( | optimiza while
 	<pilac
 	,cond
 	,jmpinv ,label ,cr
-	drop bl))
+	drop blEND gotoline |	drop bl))
 	;
 
 :WHILE) | optimiza while
 	<pilac ,etiqueta
-	drop bl((
+	drop blINI gotoline |	drop bl((
 	;
 
 |*********************************
@@ -370,30 +379,35 @@
 :,(
 	block.new
 
-	blINFO "; BLK %h ((" ,print blSIZE " SIZE:%d " ,print ,nl
+|	blINFO "; BLK %h ((" ,print blSIZE " SIZE:%d " ,print ,nl
 
-	blINFO $ff and
+	blSIZE 3 =? ( drop
+
+|		dup @+ $ff and 12 =? ( drop	| es word
+|			@ $ff and 16 =? ( drop ifWORD; ; )	| es ;
+|			)( drop )
+		dup @+ $ff and swap @ 8 << $ff00 and or
+			$100c =? ( drop ifWORD; ; )
+
+		) drop
+
+	blINFO $f and
 	| *1 resolver aca si tiene que acomodar pila
-	$30 =? ( blSIZE 3 =? ( 2drop IFWORD ; ) drop )
 	$f and
 	1 <=? ( ,cond +etiqueta ,jmpcond )	| IF/ELSE
 	2 =? ( drop WHILE( ; )
 	2 >? ( vpilad +etiqueta ,etiqueta )	| UNTIL/REPEAT
-	drop
-;
+	drop ;
 
 :,)(
-
 	blINFO ";BLK %h )( " ,print ,nl
 
 	blINFO $f and
 	1 =? ( ,bloqueELSE <pilac +etiqueta ,jmp ,etiqueta )	| ELSE
 	2 =? ( drop WHILE)( ; )
-	drop
-	;
+	drop ;
 
 :,)
-
 	blINFO ";BLK %h )) " ,print ,nl
 
 	blINFO $f and
@@ -451,6 +465,9 @@
 |	lastdircode vpila2callV
 ;
 |------ PILAD
+:newreg | reg --
+	nlin getregmask maskregfree
+	5 rot setREG ;
 
 :anyreg
 	nlin getregmask maskregfree | freereg
@@ -615,7 +632,6 @@
 	| pow2, ajustar por negativo dup 31 >> - 2/, asi 2/ es diferente a 2 /
 	| si divide por constante convertir en multiplicacion
 
-|	nosEAXtosREGMEMfreeEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 	;
@@ -624,7 +640,6 @@
 	| si d.tos es pow2..
 	| pow2, ajustar por negativo dup 31 >> - 2/, asi 2/ es diferente a 2 /
 
-|	nosEAXtosREGMEMfreeEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 |	d.nos setEAX
@@ -634,7 +649,6 @@
 :,MOD
 	| si d.tos es pow2..
 
-|	nosEAXtosREGMEMfreeEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 |	d.drop
@@ -643,7 +657,7 @@
 
 :,*/
 	| si divide por constante convertir en multiplicacion
-|	pk2EAXtosnosREGMEMfreeEDX
+
 	"cdq" ,ln
 	"imul " ,s ,pNOS ,cr
 	"idiv " ,s ,pTOS ,cr
@@ -651,15 +665,12 @@
 	;
 
 :cte2mem
-	"mov dword [esp+4]," ,s dup ,cell ,cr
-	7 $15 pick2 setREG
-	4 swap set+
-	;
+	| .............si no hay registros usa auxiliar [esp-4]
+	"mov dword [esp-4]," ,s dup ,cell ,cr
+	7 $15 pick2 setREG -4 swap set+ ;
 
 :,*>>
 | si d.nos es pow2..
-|	pk2EAXnosREGMEMtosECXfreeEDX
-
 |	d.nos cellREG? 0? ( d.pop d.swap d.push ) drop
 	nlin 1- getnos regR?
 	0? ( nlin 1- getnos nlin 1- getpk2 swapregreg ) | es eax
@@ -677,7 +688,6 @@
 	| si d.nos es pow2..
 	| pow2, ajustar por negativo dup 31 >> - 2/, asi 2/ es diferente a 2 /
 	| si divide por constante convertir en multiplicacion
-|	pk2EAXnosREGMEMtosECXfreeEDX
 	"cdq" ,ln
 	"shld edx,eax," ,s ,pTOSb ,cr
 	"shl eax," ,s ,pTOSb ,cr
@@ -689,6 +699,7 @@
 :,ABS
 |	d.tos cell2REGW
 |	d.tos cellREG?
+1
 0? ( | EAX
 		"cdq" ,ln
 		)(
@@ -777,10 +788,10 @@
 	"add " ,s ,pTOS ",1" ,ln ;
 
 :,@+
-|	d.tos cell2REGW
-|	newReg pushREG
+    TOS. newreg trace
 	"mov " ,s ,TOS ",dword [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",4" ,ln ;
+
 :,W@+
 |	d.tos cell2REGW
 |	newReg pushREG
@@ -951,6 +962,7 @@
 	;
 
 ::compilatok | bufend bufini --
+	dup 'buffini !
 	0 'strpending !
 	0 'nlin  !
 	0 'blockn !
