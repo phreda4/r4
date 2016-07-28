@@ -108,7 +108,7 @@
 
 :,RTOS	nlin getrtos ,cell ;
 
-:TOS.	nlin getnos ;
+:TOS.	nlin gettos ;
 :NOS.	nlin getnos ;
 
 :regdump
@@ -159,6 +159,32 @@
 		swap ) 2drop ;
 
 |--- transforma pila actual en normal ---| .. [esi] eax
+:reg-new | cell --
+	nlin getregmask maskregfree
+	5 rot setREG ;
+
+:reg-flat | cell --
+	"mov " ,s
+	dup regR? |-? ( drop newreg )
+	,REG "," ,s
+	dup ,cell
+	,cr
+	reg.cl ;
+
+:reg+val | suma cell --
+	dup regM? 1? ( over reg-flat ) drop
+	dup reg*? 1? ( over reg-flat ) drop
+	set+ ;
+
+:reg*val | mul cell --
+	dup regM? 1? ( over reg-flat ) drop
+	dup reg+? 1? ( over reg-flat ) drop
+	swap
+	2 =? ( 1 nip )
+	4 =? ( 2 nip )
+	8 =? ( 3 nip )
+	swap set* ;
+
 :vpila2normal
 	"; >>normal " ,ln
 	;
@@ -263,12 +289,8 @@
 :,cTOS  conlin gettos ,cell ;
 
 :consimple
-|	rd.tos cell2REG
-|	rd.tos cellADR?
-	0
-	1? ( drop
-		"cmp " ,s ,cTOS ",0" ,ln ;
-			) drop
+	conlin gettos regM?
+	1? ( drop "cmp " ,s ,cTOS ",0" ,ln ; ) drop
 	"or " ,s ,cTOS "," ,s ,cTOS ,cr
 	;
 
@@ -349,8 +371,6 @@
 	8 + |.... skip "; )"
 	;
 
-|** No funciona cuando dentro del condicional tiene la pila distinta a la entrada!!
-
 :gotoline
 	dup 'nlin !
 	2 << buffini + ;
@@ -359,22 +379,21 @@
 	vpilad
 	+etiqueta +etiqueta
 	,jmp ,etiqueta
-	drop blMID gotoline |	drop bl)(
+	drop blMID gotoline
 	;
 
 :WHILE)( | optimiza while
 	<pilac
 	,cond
 	,jmpinv ,label ,cr
-	drop blEND gotoline |	drop bl))
+	drop blEND gotoline
 	;
 
 :WHILE) | optimiza while
 	<pilac ,etiqueta
-	drop blINI gotoline |	drop bl((
+	drop blINI gotoline
 	;
 
-|*********************************
 
 :,(
 	block.new
@@ -382,13 +401,8 @@
 |	blINFO "; BLK %h ((" ,print blSIZE " SIZE:%d " ,print ,nl
 
 	blSIZE 3 =? ( drop
-
-|		dup @+ $ff and 12 =? ( drop	| es word
-|			@ $ff and 16 =? ( drop ifWORD; ; )	| es ;
-|			)( drop )
 		dup @+ $ff and swap @ 8 << $ff00 and or
-			$100c =? ( drop ifWORD; ; )
-
+		$100c =? ( drop ifWORD; ; )	| word ;
 		) drop
 
 	blINFO $f and
@@ -465,9 +479,6 @@
 |	lastdircode vpila2callV
 ;
 |------ PILAD
-:newreg | reg --
-	nlin getregmask maskregfree
-	5 rot setREG ;
 
 :anyreg
 	nlin getregmask maskregfree | freereg
@@ -505,33 +516,18 @@
 :,DROP :,2DROP :,3DROP :,4DROP ;
 
 |------- PILAR
-:,>R
-|	toknow 8 >> 1? ( drop |d.pop r.push
-|; ) drop
-|	"push " ,s ,TOS ,cr |d.drop
-;
-
-:,R>
-|	toknow 8 >> 1? ( drop |r.pop d.push
-|; ) drop
-|	newReg pushREG
-|	"pop " ,s ,TOS ,cr
-	;
-
+:,>R	;
+:,R>	;
 :,R
-|	toknow 8 >> 1? ( drop r.tos d.push ; ) drop
-|	7 pushREG d.tos cellMEM! | [esp]
-	;
-|	newReg pushREG
-|	"mov " ,s ,TOS ",dword [esp]" ,ln
+	TOS. reg-new
+	"mov " ,s ,TOS "," ,s ,RTOS ,cr ;
 
 :,RDROP ;
 
 :,R+
 |	r.tos cellREG? -? ( r.tos cell2REGW ) drop
 	"add " ,s ,RTOS "," ,s ,TOS ,cr
-|	d.drop
-;
+	;
 
 
 :,R!+
@@ -541,8 +537,7 @@
 	;
 
 :,R@+
-|	newReg pushREG
-|	r.tos cell2NMEM
+	TOS. reg-new
 	"mov " ,s ,TOS ",dword [" ,s ,RTOS "]" ,ln
 	"add " ,s ,RTOS ",4" ,ln
 |	4 r.tos Cell+ | add 4
@@ -568,10 +563,6 @@
 	"xor " ,s ,pNOS "," ,s ,pTOS ,cr
 	;
 
-:,+cte
-|	d.tos cellVAL d.nos cell+! d.drop
-	;
-
 :,+
 |	d.nos cellCTE? 1? ( drop d.tos cellNRO? 1? ( drop ,+cte ; ) ) drop
 	oper21con
@@ -584,9 +575,6 @@
 |	d.tos cellCTE? 1? ( drop 4 d.tos cell+! ; ) drop
 |	d.tos cell2REGW
 	"add " ,s ,pTOS ",4" ,ln ;
-
-:,-cte
-|	d.tos cellVAL neg d.nos cell+! d.drop ;
 
 :,-
 |	d.nos cellCTE? 1? ( drop d.tos cellNRO? 1? ( drop ,-cte ; ) ) drop
@@ -624,7 +612,7 @@
 :,>>
 |	d.tos cteorECX
 |	d.nos cell2REGW
-	"sar " ,s ,NOS "," ,s ,TOSb ,cr
+	"sar " ,s ,pNOS "," ,s ,pTOSb ,cr
 	;
 
 :,/
@@ -651,7 +639,6 @@
 
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-|	d.drop
 |	d.tos setEDX
 	;
 
@@ -677,7 +664,6 @@
 	-? ( nlin 1- getnos regM? 0? ( nlin 1- getnos cte2mem ) drop )	| no es registro
 	drop
 
-
 	"cdq" ,ln
 	"imul " ,s ,pNOS ,cr
 	"shrd eax,edx," ,s ,pTOSb ,cr
@@ -688,12 +674,13 @@
 	| si d.nos es pow2..
 	| pow2, ajustar por negativo dup 31 >> - 2/, asi 2/ es diferente a 2 /
 	| si divide por constante convertir en multiplicacion
+
 	"cdq" ,ln
 	"shld edx,eax," ,s ,pTOSb ,cr
 	"shl eax," ,s ,pTOSb ,cr
 	"idiv " ,s ,pNOS ,cr
 
-|	d.tos setEAX
+	0 5 nlin gettos setREG
 	;
 
 :,ABS
@@ -788,18 +775,15 @@
 	"add " ,s ,pTOS ",1" ,ln ;
 
 :,@+
-    TOS. newreg trace
+    TOS. reg-new
 	"mov " ,s ,TOS ",dword [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",4" ,ln ;
-
 :,W@+
-|	d.tos cell2REGW
-|	newReg pushREG
+	TOS. reg-new
 	"movsx " ,s ,TOS ",word [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",2" ,ln ;
 :,C@+
-|	d.tos cell2REGW
-|	newReg pushREG
+	TOS. reg-new
 	"movsx " ,s ,TOS ",byte [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",1" ,ln ;
 
@@ -816,53 +800,53 @@
 
 :,PAPER | n --
 |	d.tos cell2NMEM | no memoria []
-	"mov [SYSPAPER]," ,s ,TOS ,cr
+	"mov [SYSPAPER]," ,s ,pTOS ,cr
 	;
 
 :,KEY! | v --
 |	d.tos cell2NMEM | no memoria []
-	"mov [SYSKEY]," ,s ,TOS ,cr
+	"mov [SYSKEY]," ,s ,pTOS ,cr
 	;
 
 :,SETXYf | x y --
 |	d.tos cellNRO? 1? ( drop
 |		d.nos cellNRO? 1? ( drop
-			"lea ebp,[SYSFRAME+(" ,s ,TOS "*XRES+" ,s ,NOS ")*4]" ,ln
+			"lea ebp,[SYSFRAME+(" ,s ,pTOS "*XRES+" ,s ,pNOS ")*4]" ,ln
 |			d.2drop ; ) drop ) drop
 |	d.tos cell2NMEM
-|	"imul " ,s ,TOS ",XRES" ,ln	| cualquier ancho
-	"shl " ,s ,TOS ",10" ,ln	| 1024 de ancho
+|	"imul " ,s ,pTOS ",XRES" ,ln	| cualquier ancho
+	"shl " ,s ,pTOS ",10" ,ln	| 1024 de ancho
 
 |	d.nos cell0? 0? ( "add " ,s ,TOS "," ,s ,NOS ,cr ) drop
-	"lea ebp,[SYSFRAME+" ,s ,TOS "*4]" ,ln
+	"lea ebp,[SYSFRAME+" ,s ,pTOS "*4]" ,ln
 	;
 
 :,SETXY | x y --
 	fullscreen 0? ( drop ,SETXYf ; ) drop
 |	d.tos cell2NMEM
-	"imul " ,s ,TOS ",[XRES]" ,ln	| cualquier ancho
+	"imul " ,s ,pTOS ",[XRES]" ,ln	| cualquier ancho
 |	d.nos cell0? 0? ( "add " ,s ,TOS "," ,s ,NOS ,cr ) drop
-	"lea ebp,[SYSFRAME+" ,s ,TOS "*4]" ,ln
+	"lea ebp,[SYSFRAME+" ,s ,pTOS "*4]" ,ln
 	;
 
 :,PX+!	| s --
 |	d.tos cell2NMEM
-	"lea ebp,[ebp+" ,s ,TOS "*4]" ,ln
+	"lea ebp,[ebp+" ,s ,pTOS "*4]" ,ln
 	;
 
 :,PX!+	| rgb --
 |	d.tos cell2NMEM
-	"mov dword [ebp]," ,s ,TOS ,cr
+	"mov dword [ebp]," ,s ,pTOS ,cr
 	"add ebp,4" ,ln
 	;
 
 :,PX@	| -- rgb
-|	newReg pushREG
+	TOS. reg-new
 	"mov " ,s ,TOS ",dword [ebp]" ,ln ;
 
 :,XYMOUSE | -- x y
-|	newReg pushREG
-|	newReg pushREG
+	TOS. reg-new
+	NOS. reg-new
 	"mov " ,s ,TOS ",[SYSXYM]" ,ln
 	"mov " ,s ,NOS "," ,s ,TOS ,cr
 	"and " ,s ,NOS ",$ffff" ,ln
@@ -874,9 +858,9 @@
 |	d.DUP "xor eax,eax" ,ln ;
 :,GETJOY ;
 :,SLOAD ;
-:,SPLAY  |d.DROP ;
+:,SPLAY ;
 :,SINFO ;
-:,SSET  |d.DROP d.DROP d.DROP d.DROP ;
+:,SSET  ;
 
 :,DOCINI :,DOCEND
 	;
