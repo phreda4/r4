@@ -110,6 +110,7 @@
 
 :TOS.	nlin gettos ;
 :NOS.	nlin getnos ;
+:RTOS.	nlin getrtos ;
 
 :regdump
 	,cr
@@ -502,7 +503,28 @@
 	anyreg
 	;
 
+:anyreg2
+	nlin getregmask maskregfree | freereg
+	dup "mov " ,s ,REG "," ,s ,pNOS ,cr
+	5 nlin gettos setREG | val r reg --
+	;
+
+:swapreg2
+	nlin getregmask $8 or | edx no
+	maskregfree
+	dup "mov " ,s ,REG "," ,s ,pNOS ,cr
+	5 nlin getpk2 setREG
+	0 5 nlin gettos setREG ;
+
 :,OVER
+	nlin gettos regW? 0? ( drop nlin getpk2 nlin gettos copyregreg ; ) drop
+	nlin gettos regAD? 0? ( drop anyreg2 ; ) drop
+	nlin getregmask
+	1 and? ( drop swapreg2 ; )
+	drop
+	anyreg2
+	;
+
 :,PICK2
 :,PICK3
 :,PICK4
@@ -533,14 +555,15 @@
 :,R!+
 |	r.tos cellREG? -? ( r.tos cell2REGW ) drop
 	"mov dword [" ,s ,RTOS "]," ,s ,pTOS ,cr
-	"add " ,s ,RTOS ",4" ,ln
+|	"add " ,s ,RTOS ",4" ,ln
+	4 RTOS. reg+val
 	;
 
 :,R@+
 	TOS. reg-new
 	"mov " ,s ,TOS ",dword [" ,s ,RTOS "]" ,ln
-	"add " ,s ,RTOS ",4" ,ln
-|	4 r.tos Cell+ | add 4
+|	"add " ,s ,RTOS ",4" ,ln
+	4 RTOS. reg+val
 	;
 
 |------- optimizar celdas
@@ -564,26 +587,34 @@
 	;
 
 :,+
-|	d.nos cellCTE? 1? ( drop d.tos cellNRO? 1? ( drop ,+cte ; ) ) drop
 	oper21con
 	"add " ,s ,pNOS "," ,s ,pTOS ,cr ;
+|	N NOS. reg+val ;
+
 :,1+
 |	d.tos cellCTE? 1? ( drop 1 d.tos cell+! ; ) drop
 |	d.tos cell2REGW
-	"add " ,s ,pTOS ",1" ,ln ;
+|	"add " ,s ,pTOS ",1" ,ln ;
+	1 TOS. reg+val ;
+
 :,4+
 |	d.tos cellCTE? 1? ( drop 4 d.tos cell+! ; ) drop
 |	d.tos cell2REGW
-	"add " ,s ,pTOS ",4" ,ln ;
+|	"add " ,s ,pTOS ",4" ,ln ;
+	4 TOS. reg+val ;
 
 :,-
 |	d.nos cellCTE? 1? ( drop d.tos cellNRO? 1? ( drop ,-cte ; ) ) drop
 |	d.nos cell2REGW
 	"sub " ,s ,pNOS "," ,s ,pTOS ,cr ;
+|	N neg NOS. reg+val ;
+
 :,1-
 |	d.tos cellCTE? 1? ( drop -1 d.tos cell+! ; ) drop
 |	d.tos cell2REGW
-	"sub " ,s ,pTOS ",1" ,ln ;
+|	"sub " ,s ,pTOS ",1" ,ln ;
+	-1 TOS. reg+val ;
+
 
 |--------------------------
 :,2*
@@ -622,6 +653,7 @@
 
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
+	0 5 nlin gettos setREG
 	;
 
 :,/MOD
@@ -630,8 +662,8 @@
 
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-|	d.nos setEAX
-|	d.tos setEDX
+	0 5 nlin getnos setREG	| eax
+	3 5 nlin gettos setREG	| edx
 	;
 
 :,MOD
@@ -639,7 +671,7 @@
 
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-|	d.tos setEDX
+	3 5 nlin gettos setREG	| edx
 	;
 
 :,*/
@@ -648,7 +680,7 @@
 	"cdq" ,ln
 	"imul " ,s ,pNOS ,cr
 	"idiv " ,s ,pTOS ,cr
-|	d.tos setEAX
+	0 5 nlin gettos setREG
 	;
 
 :cte2mem
@@ -679,15 +711,12 @@
 	"shld edx,eax," ,s ,pTOSb ,cr
 	"shl eax," ,s ,pTOSb ,cr
 	"idiv " ,s ,pNOS ,cr
-
 	0 5 nlin gettos setREG
 	;
 
 :,ABS
-|	d.tos cell2REGW
-|	d.tos cellREG?
-1
-0? ( | EAX
+	tos. regR?
+	0? ( | EAX
 		"cdq" ,ln
 		)(
 		"mov edx," ,s ,TOS ,cr
@@ -758,34 +787,43 @@
 |	d.nos cell2NMEM
 |	d.tos cell2REGW
 	"mov dword [" ,s ,pTOS "]," ,s ,pNOS ,cr
-	"add " ,s ,pTOS ",4" ,ln ;
+|	"add " ,s ,pTOS ",4" ,ln
+	4 TOS. reg+val ;
 
 :,W!+
 |	d.tos resguardavar
 |	d.nos cell2NMEM
 |	d.tos cell2REGW
 	"mov word [" ,s ,pTOS "]," ,s ,pNOSw ,cr
-	"add " ,s ,pTOS ",2" ,ln ;
+|	"add " ,s ,pTOS ",2" ,ln
+	2 TOS. reg+val ;
 
 :,C!+
 |	d.tos resguardavar
 |	d.nos cell2NMEM
 |	d.tos cell2REGW
 	"mov byte [" ,s ,pTOS "]," ,s ,pNOSb ,cr
-	"add " ,s ,pTOS ",1" ,ln ;
+|	"add " ,s ,pTOS ",1" ,ln
+	1 TOS. reg+val ;
 
 :,@+
     TOS. reg-new
 	"mov " ,s ,TOS ",dword [" ,s ,NOS "]" ,ln
-	"add " ,s ,NOS ",4" ,ln ;
+|	"add " ,s ,NOS ",4" ,ln ;
+	4 NOS. reg+val ;
+
 :,W@+
 	TOS. reg-new
 	"movsx " ,s ,TOS ",word [" ,s ,NOS "]" ,ln
-	"add " ,s ,NOS ",2" ,ln ;
+|	"add " ,s ,NOS ",2" ,ln ;
+	2 NOS. reg+val ;
+
 :,C@+
 	TOS. reg-new
 	"movsx " ,s ,TOS ",byte [" ,s ,NOS "]" ,ln
-	"add " ,s ,NOS ",1" ,ln ;
+|	"add " ,s ,NOS ",1" ,ln ;
+	1 NOS. reg+val ;
+
 
 |--------- Sistema
 |#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB" | [] | "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY"
