@@ -1,0 +1,617 @@
+| iso test 15
+| PHREDA 2016
+| suma de 3 vectores - zbuffer
+|---------------------
+^r4/lib/gui.txt
+^r4/lib/zbuffer.txt
+^r4/lib/morton.txt
+
+^r4/lib/trace.txt
+
+#w3do
+#h3do
+#hocc
+#wocc
+
+#$base
+#:$octree
+#:$pixels
+#$paleta
+
+#xmin #xmax
+#ymin #ymax
+#zmin #zmax
+
+#nzmin
+#zlen
+
+#x1 #y1 #z1	| Nx
+#x2 #y2 #z2	| Ny
+#x4 #y4 #z4	| Nz
+
+#sx #sy #sz	| suma
+
+|---- hoja en iso,ratio y octree
+#veci
+#vecr
+#veco
+
+#isovec )( 1440
+#isovec> 'isovec
+
+:vec-
+	-36 'isovec> +! ;
+
+|-------------------------------
+:octcolor | oct -- color
+    $octree - $pixels + @ ;
+
+:octcolor3 | oct -- color
+	$octree - 2 >> dup 2* + 1- $pixels + @ $ffffff and ;
+
+:octcolor8 | oct -- color
+	$octree - 2 >> $pixels + c@ $ff and 2 << $paleta + @ ;
+
+:octcolor16 | oct -- color
+	$octree - 2/ $pixels + w@ ; |16to32 ;
+
+| x y z -- x y z x2 y2 z2
+:gen1 | x y z -- x y z
+	isovec> 36 - >r
+	pick2 r@+ + r 8 + @ + r 20 + @ +
+	pick2 r@+ + r 8 + @ + r 20 + @ +
+	pick2 r@+ + r 8 + @ + r> 20 + @ + ;
+
+:gen2 | x y z -- x y z
+	isovec> 36 - >r
+	pick2 r@+ - r 8 + @ + r 20 + @ +
+	pick2 r@+ - r 8 + @ + r 20 + @ +
+	pick2 r@+ - r 8 + @ + r> 20 + @ + ;
+
+:gen3 | x y z -- x y z
+	isovec> 36 - >r
+	pick2 r@+ - r 8 + @ - r 20 + @ +
+	pick2 r@+ - r 8 + @ - r 20 + @ +
+	pick2 r@+ - r 8 + @ - r> 20 + @ + ;
+
+:gen4 | x y z -- x y z
+	isovec> 36 - >r
+	pick2 r@+ + r 8 + @ - r 20 + @ +
+	pick2 r@+ + r 8 + @ - r 20 + @ +
+	pick2 r@+ + r 8 + @ - r> 20 + @ + ;
+
+#lsuma t000 t001 t010 t011 t100 t101 t110 t111
+
+:getn | x y z n -- x y z x1 y1 z1
+	2 << 'lsuma + @ exec ;
+
+
+
+:getmm | --
+	isovec> 36 - >r
+	r@+ -? ( 0 )( 0 swap ) 'xmax ! 'xmin !
+	r@+ -? ( 0 )( 0 swap ) 'ymax ! 'ymin !
+	4 r+
+	r@+ -? ( 'xmin )( 'xmax ) +!
+	r@+ -? ( 'ymin )( 'ymax ) +!
+	4 r+
+	r@+ -? ( 'xmin )( 'xmax ) +!
+	r@+ -? ( 'ymin )( 'ymax ) +!
+	rdrop ;
+
+:getzm | minz
+	isovec> 28 - >r
+	r@+ 0 min 8 r+ r@+ 0 min + 8 r+ r> @ 0 min + ;
+
+:getzc | minz
+	isovec> 28 - >r
+	r@+ 8 r+ r@+ + 8 r+ r> @ + 2/ ;
+
+:getbbox
+	isovec> 36 - >r
+	r@+ -? ( 0 )( 0 swap ) 'xmax ! 'xmin !
+	r@+ -? ( 0 )( 0 swap ) 'ymax ! 'ymin !
+	r@+ -? ( 0 )( 0 swap ) 'zmax ! 'zmin !
+	r@+ -? ( 'xmin )( 'xmax ) +!
+	r@+ -? ( 'ymin )( 'ymax ) +!
+	r@+ -? ( 'zmin )( 'zmax ) +!
+	r@+ -? ( 'xmin )( 'xmax ) +!
+	r@+ -? ( 'ymin )( 'ymax ) +!
+	r@+ -? ( 'zmin )( 'zmax ) +!
+	rdrop ;
+
+|--- draw box
+:drawbox | x y z oct --
+	octcolor zo!
+	getzc +
+	zz! |getmm
+	swap xmin + swap ymin +
+	xmax xmin - 1+ ymax ymin - 1+ 2swap
+	zb.fill	;
+
+|--- draw cube
+#bcara | lista de vertices(3 bits) por caras(3)
+%100101001100110010010011001
+%101100000101111011000010011
+%110111011110100000000001011
+%111110010111101001010000001
+%000001101000010110110111101
+%100000001111011001111110100
+%111011010100000010111101100
+%110010011011001101101100110
+
+:drawcube |	x y z oct
+	octcolor zo!
+	nzmin dup 2 << 'bcara + @ >r
+	getn 'sz ! 'sy ! 'sx !
+	sx sy sz zop
+	r 7 and getn zline
+	r 3 >> 7 and getn zline
+	r 6 >> 7 and getn zline
+	sx sy sz zline zpoly
+	sx sy sz zop
+	r 9 >> 7 and getn zline
+	r 12 >> 7 and getn zline
+	r 15 >> 7 and getn zline
+	sx sy sz zline zpoly
+	sx sy sz zop
+	r 18 >> 7 and getn zline
+	r 21 >> 7 and getn zline
+	r> 24 >> 7 and getn zline
+	sx sy sz zline zpoly
+	3drop ;
+
+|--- real cube
+:drawrealcube | x y z oct
+	octcolor zo!
+	nzmin dup 2 << 'bcara + @ >r
+	getn p3dz 'sz ! 'sy ! 'sx !
+	sx sy sz zop
+	r 7 and getn p3dz zline
+	r 3 >> 7 and getn p3dz zline
+	r 6 >> 7 and getn p3dz zline
+	sx sy sz zline zpoly
+	sx sy sz zop
+	r 9 >> 7 and getn p3dz zline
+	r 12 >> 7 and getn p3dz zline
+	r 15 >> 7 and getn p3dz zline
+	sx sy sz zline zpoly
+	sx sy sz zop
+	r 18 >> 7 and getn p3dz zline
+	r 21 >> 7 and getn p3dz zline
+	r> 24 >> 7 and getn p3dz zline
+	sx sy sz zline zpoly
+	3drop ;
+
+|-------------------------------
+:calco |  x y z -- x y z mask
+	pick2 x1 * pick2 y1 * + over z1 * + +? ( 1 )( 0 ) nip
+	pick3 x2 * pick3 y2 * + pick2 z2 * + +? ( drop 2 + )( drop )
+	pick3 x4 * pick3 y4 * + pick2 z4 * + +? ( drop 4+ )( drop )
+	;
+
+:2/a | a -- b
+	dup 31 >> - 2/ ;
+
+:2/b | a -- b c
+	dup
+	dup 31 >> - 2/
+	swap over - swap ;
+
+|-------------------------------------
+| x y z n m -- x y z n m x2 y2 z2
+:c000
+	isovec> dup >r 36 -
+	@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
+	@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
+	@+ 2/a r!+ @+ 2/a r!+ @ 2/a r!+
+	r> 'isovec> !
+	pick4 pick4 pick4 ;
+:c001
+	isovec> dup >r 36 -
+	@+ 2/b 'sx ! r!+ @+ 2/b 'sy ! r!+ @+ 2/b 'sz ! r!+
+	@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
+	@+ 2/a r!+ @+ 2/a r!+ @ 2/a r!+
+	r> 'isovec> !
+	pick4 sx + pick4 sy + pick4 sz + ;
+:c010
+	isovec> dup >r 36 -
+	@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
+	@+ 2/b 'sx ! r!+ @+ 2/b 'sy ! r!+ @+ 2/b 'sz ! r!+
+	@+ 2/a r!+ @+ 2/a r!+ @ 2/a r!+
+	r> 'isovec> !
+	pick4 sx + pick4 sy + pick4 sz + ;
+:c011
+	isovec> dup >r 36 -
+	@+ 2/b 'sx ! r!+ @+ 2/b 'sy ! r!+ @+ 2/b 'sz ! r!+
+	@+ 2/b 'sx +! r!+ @+ 2/b 'sy +! r!+ @+ 2/b 'sz +! r!+
+	@+ 2/a r!+ @+ 2/a r!+ @ 2/a r!+
+	r> 'isovec> !
+	pick4 sx + pick4 sy + pick4 sz + ;
+:c100
+	isovec> dup >r 36 -
+	@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
+	@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
+	@+ 2/b 'sx ! r!+ @+ 2/b 'sy ! r!+ @ 2/b 'sz ! r!+
+	r> 'isovec> !
+	pick4 sx + pick4 sy + pick4 sz + ;
+:c101
+	isovec> dup >r 36 -
+	@+ 2/b 'sx ! r!+ @+ 2/b 'sy ! r!+ @+ 2/b 'sz ! r!+
+	@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
+	@+ 2/b 'sx +! r!+ @+ 2/b 'sy +! r!+ @ 2/b 'sz +! r!+
+	r> 'isovec> !
+	pick4 sx + pick4 sy + pick4 sz + ;
+:c110
+	isovec> dup >r 36 -
+	@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
+	@+ 2/b 'sx ! r!+ @+ 2/b 'sy ! r!+ @+ 2/b 'sz ! r!+
+	@+ 2/b 'sx +! r!+ @+ 2/b 'sy +! r!+ @ 2/b 'sz +! r!+
+	r> 'isovec> !
+	pick4 sx + pick4 sy + pick4 sz + ;
+:c111
+	isovec> dup >r 36 -
+	@+ 2/b 'sx ! r!+ @+ 2/b 'sy ! r!+ @+ 2/b 'sz ! r!+
+	@+ 2/b 'sx +! r!+ @+ 2/b 'sy +! r!+ @+ 2/b 'sz +! r!+
+	@+ 2/b 'sx +! r!+ @+ 2/b 'sy +! r!+ @ 2/b 'sz +! r!+
+	r> 'isovec> !
+	pick4 sx + pick4 sy + pick4 sz + ;
+
+#lsumac c000 c001 c010 c011 c100 c101 c110 c111
+
+|-------------------------------
+:drawibox | x y z n n --
+	dup | relleno para 'lsumac
+	2 << 'lsumac + @ exec
+	getzc +
+	zz!
+	getmm
+	swap xmin + swap ymin +
+	xmax xmin - 1+ ymax ymin - 1+ 2swap
+	zb.fill
+	drop | relleno
+	vec- ;
+
+:drawboxi | x y z octre --
+	octcolor zo!
+	nzmin
+	dup drawibox
+	dup 1 xor drawibox
+	dup 2 xor drawibox
+	dup 4 xor drawibox
+	dup 3 xor drawibox
+	dup 5 xor drawibox
+	dup 6 xor drawibox
+	4drop ;
+
+|----- voxel borde
+:getnminmax
+	getn p3di
+	xmin <? ( dup 0 max 'xmin ! )
+	xmax >? ( dup w3do min 'xmax ! )
+	drop
+	ymin <? ( dup 0 max 'ymin ! )
+	ymax >? ( dup h3do min 'ymax ! )
+	2drop ;
+
+:drawborde
+	octcolor zo!
+	0 getn p3di dup 'xmin ! 'xmax ! dup 'ymin ! 'ymax ! 1 max zz!
+	1 getnminmax
+	2 getnminmax
+	3 getnminmax
+	4 getnminmax
+	5 getnminmax
+	6 getnminmax
+	7 getnminmax
+	3drop
+	xmin ymin
+	xmax pick2 - 1+ ymax pick2 - 1+
+	2swap zb.fill
+	;
+
+|---------------------------
+:child-oct | x y z node bitm nro place -- x y z node bitm xn yn zn noct
+	1- pick2 and popcnt 2 << pick3 +	| x y z node bitm nro nnode
+	>r 2 << 'lsumac + @ exec r>			| x y z node bitm xn yn zn nnode
+	;
+
+:oct++ | adr -- adr bitmask
+	@+ dup 8 >> 2 << rot + swap $ff and ;
+
+:drawpoint1 | x y z oct --
+	octcolor zo!
+	ymax ymin - 0? ( drop zb! vec- ; ) 1+
+	rot ymin + rot rot
+	zbh! vec- ;
+
+:drawpoint2 | x y z oct --
+	octcolor zo!
+	2swap swap xmin + swap 2swap
+	zbw! vec- ;
+
+:viewi | x y z node --
+    >r getmm
+    xmax xmin - 0? ( drop r> drawpoint1 ; ) 1+ | w
+    ymax ymin - 0? ( drop r> drawpoint2 ; ) 1+ | w h
+	pick4 xmin + pick4 ymin + pick4 getzc +
+	zb.occ
+	0? ( rdrop 4drop vec- ; ) drop
+	r>
+	$pixels >=? ( veci exec ; )
+	oct++
+	nzmin 1 over << pick2 nand? ( 2drop )( child-oct viewi )
+	nzmin 1 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
+	nzmin 2 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
+	nzmin 4 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
+	nzmin 3 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
+	nzmin 5 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
+	nzmin 6 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
+	nzmin 7 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
+	nip 4drop
+	vec-
+	;
+
+|-----------------------
+:isonow | x y z oct --
+	>r isovec> 36 - >r
+	pick2 pick2 pick2 p3di 'sx ! 'sy ! 'sz !
+	1 getn p3di sx - r!+ sy - r!+ sz - r!+
+	2 getn p3di sx - r!+ sy - r!+ sz - r!+
+	4 getn p3di sx - r!+ sy - r!+ sz - r!+
+	r> 'isovec> !
+	3drop sx sy sz
+	r>
+	viewi
+	|getmm veci exec
+	;
+
+|---------------- search iso ratio
+:getz | x y z node -- Z
+    getzm pick2 + ;
+
+:viewr | x y z node --
+	>r calco 'nzmin ! r>
+	getz clz zlen <=? ( drop isonow ; ) drop
+	$pixels >=? ( vecr exec ; )
+	oct++
+	1 'zlen +!
+	nzmin >r
+	r 1 over << pick2 nand? ( 2drop )( child-oct viewr )
+	r 1 xor 1 over << pick2 nand? ( 2drop )( child-oct viewr )
+	r 2 xor 1 over << pick2 nand? ( 2drop )( child-oct viewr )
+	r 4 xor 1 over << pick2 nand? ( 2drop )( child-oct viewr )
+	r 3 xor 1 over << pick2 nand? ( 2drop )( child-oct viewr )
+	r 5 xor 1 over << pick2 nand? ( 2drop )( child-oct viewr )
+	r 6 xor 1 over << pick2 nand? ( 2drop )( child-oct viewr )
+	r> 7 xor 1 over << pick2 nand? ( 2drop )( child-oct viewr )
+	nip 4drop
+	-1 'zlen +!
+	vec- ;
+
+|----------- search cube in screen
+:culling | x y z -- cull
+	1 <? ( $10 )( 0 ) >r
+	swap hocc *. -? ( neg <? ( $1 r+ ) )( <? ( $2 r+ ) )
+	swap wocc *. -? ( neg <? ( $4 r+ ) )( <? ( $8 r+ ) 	)
+	drop r> ;
+
+:cull1 | x y z -- cull
+	culling dup 8 << or ;
+
+:culln | xyz -- cullo culla
+	culling dup 8 << $ff or ;
+
+:cullingcalc | x y z node -- x y z node aocull
+	>r
+	0 getn cull1 >r
+	1 getn culln r> and or >r
+	2 getn culln r> and or >r
+	3 getn culln r> and or >r
+	4 getn culln r> and or >r
+	5 getn culln r> and or >r
+	6 getn culln r> and or >r
+	7 getn culln r> and or
+	r> swap ;
+
+
+|----------------------
+:viewo | x y z node --
+	cullingcalc
+	0? ( drop viewr ; )
+	$ff00 and? ( nip 4drop vec- ; )
+	drop
+	$pixels >=? ( veco exec ; )
+	>r calco r> swap >r
+	1 'zlen +!
+	oct++
+	r 1 over << pick2 nand? ( 2drop )( child-oct viewo )
+	r 1 xor 1 over << pick2 nand? ( 2drop )( child-oct viewo )
+	r 2 xor 1 over << pick2 nand? ( 2drop )( child-oct viewo )
+	r 4 xor 1 over << pick2 nand? ( 2drop )( child-oct viewo )
+	r 3 xor 1 over << pick2 nand? ( 2drop )( child-oct viewo )
+	r 5 xor 1 over << pick2 nand? ( 2drop )( child-oct viewo )
+	r 6 xor 1 over << pick2 nand? ( 2drop )( child-oct viewo )
+	r> 7 xor 1 over << pick2 nand? ( 2drop )( child-oct viewo )
+	nip 4drop
+	-1 'zlen +!
+	vec- ;
+
+|-------- octree in octree
+:vecis	|drawcube vec- ;
+		drawbox vec- ;
+		|drawboxi vec- ;
+:vecrs	drawrealcube vec- ; | no iso
+:vecos	4drop |drawborde
+vec- ;
+
+#vecsim	'vecis 'vecrs 'vecos 0 0 0 0 0
+
+:setvec | m --
+	$100 and 6 >>
+	2 << 'vecsim +
+	>r r@+ 'veci ! r@+ 'vecr ! r> @ 'veco !
+	;
+
+:adjustmem | octree --
+	dup '$base !
+	dup 28 + '$octree !
+	@+ setvec
+	@ $octree + '$pixels !
+	;
+
+#opila )( 32
+#opila> 'opila
+
+:getoct | octree -- octree
+	$base opila> !+ 'opila> !
+	$octree - $pixels + @
+	2 << $base +
+	adjustmem
+	$octree ;
+
+:getocti | --
+	-4 'opila> +! opila> @
+	adjustmem ;
+
+:vecio 	getoct viewi getocti ;
+:vecro	getoct viewr getocti ;
+:vecoo	getoct viewo getocti ;
+
+|--------- exportadas
+#s
+
+::drawsoctree | size moctree --
+	adjustmem
+	dup 's ! 2* clz 6 - 'zlen !
+   	0 0 0 transform	| origen
+	0 0 -255 transform pick3 - 'z1 ! pick3 - 'y1 ! pick3 - 'x1 !
+	0 -255 0 transform pick3 - 'z2 ! pick3 - 'y2 ! pick3 - 'x2 !
+	-255 0 0 transform pick3 - 'z4 ! pick3 - 'y4 ! pick3 - 'x4 !
+	'isovec >r
+	0 0 s transform pick3 - r!+ pick3 - r!+ pick3 - r!+
+	0 s 0 transform pick3 - r!+ pick3 - r!+ pick3 - r!+
+	s 0 0 transform pick3 - r!+ pick3 - r!+ pick3 - r!+
+	r> 'isovec> !
+	$octree viewo ;
+
+::drawoctree | moctree --
+	0.5 drawsoctree ;
+
+::load3do | "" -- moctree
+	here dup rot load 'here ! ;
+
+::ini3do | w h --
+	2dup o3dmode
+	2dup 'h3do ! 'w3do !
+	zb.ini
+
+    2.1 'hocc ! | calcular los valores!!****** 1024*600
+    1.2 'wocc !
+
+    'vecsim 16 + >r 'vecio r!+ 'vecro r!+ 'vecoo r!+ rdrop
+    ;
+
+|-------------
+::zdraw | x y --
+	setxy
+	zb >r
+	sw w3do -
+	h3do ( 1? )( 1-
+		w3do ( 1? )( 1-
+			r@+
+			$7fffffff <>? ( drop r zbo + @ px!+ )( drop 1 px+! )	| cbuffer
+			|$7fffffff =? ( drop 1 px+! )( $ff and px!+ )	| zbuffer
+			) drop
+		over px+!
+		) 2drop rdrop ;
+
+|-------------
+#xcam 0 #ycam 0 #zcam 2.0
+
+|-------------
+:3dop transform p3d op ;
+:3dline transform p3d line ;
+
+|-------------
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx mroty
+	;
+
+#sizx #sizy #sizz
+
+:drawz | z --
+	sizx neg sizy neg pick2 3dop
+	sizx sizy neg pick2 3dline
+	sizx sizy pick2 3dline
+	sizx neg sizy pick2 3dline
+	sizx neg sizy neg rot 3dline ;
+
+:drawl | x1 x2 --
+	2dup sizz neg 3dop sizz 3dline ;
+
+:box3d | sx sy sz --
+	'sizz ! 'sizy ! 'sizx !
+	sizz neg drawz sizz drawz
+	sizx neg sizy neg drawl sizx sizy neg drawl
+	sizx sizy drawl sizx neg sizy drawl
+	;
+
+#Omario
+
+#fps
+#fpsc
+#mseca
+
+:main
+	mark
+
+	sw sh ini3do
+
+|	"media/3do/horse.3do"
+|	"media/3do/sibenika.3do"
+	"media/3do/clon2.3do"
+|	"media/3do/Truck.3do"
+	load3do 'Omario !
+	33
+	show clrscr
+
+		matini
+		freelook
+		xcam ycam zcam mtrans
+
+		zb.clear
+		Omario drawoctree
+		0 0 zdraw
+
+		1 'fpsc +!
+
+		verde fonti
+		dup "%d " print cr
+		msec fps over mseca - "%d ms fps:%d" print cr 'mseca !
+		zcam ycam xcam "%f %f %f" print cr
+		hocc wocc "%f %f" print cr
+		h3do w3do 16 <</ 2* "%f" print cr
+
+		[ 0.01 'wocc +! ; ] <f1>
+		[ -0.01 'wocc +! ; ] <f2>
+		[ 0.01 'hocc +! ; ] <f3>
+		[ -0.01 'hocc +! ; ] <f4>
+
+		[ -0.01 'zcam +! ; ] <up>
+		[ 0.01 'zcam +! ; ] <dn>
+		[ -0.01 'xcam +! ; ] <le>
+		[ 0.01 'xcam +! ; ] <ri>
+		[ -0.01 'ycam +! ; ] <pgup>
+		[ 0.01 'ycam +! ; ] <pgdn>
+
+		'exit >esc< cminiflecha
+		1000 .mseg .restart
+		fpsc 'fps ! 0 'fpsc !
+		;
+
+: main ;
+
