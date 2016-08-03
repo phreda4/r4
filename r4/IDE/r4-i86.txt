@@ -165,8 +165,8 @@
 	5 rot setREG ;
 
 :reg-flat | cell --
+	dup regR? -? ( 2drop ; )
 	"mov " ,s
-	dup regR? |-? ( drop newreg )
 	,REG "," ,s
 	dup ,cell
 	,cr
@@ -199,6 +199,26 @@
 	drop
 	inivpila
 	; | reacomoda vpila salida
+
+:vpilaflat | --
+	"; >> FLAT <<" ,ln
+	nlin 2 << 'stkidx + @
+	dup $3ff and 'stkmem +
+	over 10 >> $3f and
+	( 1? )( 1- swap c@+ reg-flat swap ) drop
+	swap 16 >> $3f and
+	( 1? )( 1- swap c@+ reg-flat swap )
+	2drop ;
+
+:vpilabloque | ; ajusta pila para bloque
+	"; >> BLOQUE <<" ,ln
+|	"; " ,s nlin dumpstk "**" ,ln
+|	"; .INI:" ,s blINI dup "%d " ,print dumpstk ,cr
+|	"; .MID:" ,s blMID dup "%d " ,print dumpstk ,cr
+|	"; .END:" ,s blEND dup "%d " ,print dumpstk ,cr
+
+	blINI deepreg
+	;
 
 |------------ compila CODIGO
 :nro>dicname   8 >> 4 << 'indicepal + @ ; | nombre
@@ -342,15 +362,6 @@
 	nlabel 1+ dup 'nlabel ! dup >pilac ;
 
 |----- BLOQUES
-:vpilad | ; ajusta pila para bloque
-|	"; " ,s nlin dumpstk "**" ,ln
-
-	"; .INI:" ,s blINI dup "%d " ,print dumpstk ,cr
-	"; .MID:" ,s blMID dup "%d " ,print dumpstk ,cr
-	"; .END:" ,s blEND dup "%d " ,print dumpstk ,cr
-
-	blINI deepreg
-	;
 
 :,cond | ; arma condicional
 	contype
@@ -377,7 +388,7 @@
 	2 << buffini + ;
 
 :WHILE( | optimiza while
-	vpilad
+	vpilabloque
 	+etiqueta +etiqueta
 	,jmp ,etiqueta
 	drop blMID gotoline
@@ -391,6 +402,7 @@
 	;
 
 :WHILE) | optimiza while
+	vpilaflat
 	<pilac ,etiqueta
 	drop blINI gotoline
 	;
@@ -411,7 +423,7 @@
 	$f and
 	1 <=? ( ,cond +etiqueta ,jmpcond )	| IF/ELSE
 	2 =? ( drop WHILE( ; )
-	2 >? ( vpilad +etiqueta ,etiqueta )	| UNTIL/REPEAT
+	2 >? ( vpilabloque +etiqueta ,etiqueta )	| UNTIL/REPEAT
 	drop ;
 
 :,)(
@@ -502,6 +514,7 @@
 	drop
 	anyreg
 	;
+
 
 :anyreg2
 	nlin getregmask maskregfree | freereg
