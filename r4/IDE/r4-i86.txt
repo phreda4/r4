@@ -97,24 +97,24 @@
 :,pNOS	nlin 1- getnos ,cell ;
 :,pNOSb	nlin 1- getnos ,cellb ;
 :,pNOSw	nlin 1- getnos ,cellw ;
-:,pRTOS	nlin 1- getrtos ,cell ;
 
-:,TOS	nlin gettos ,cell ;
-:,TOSb	nlin gettos ,cellb ;
-:,TOSw	nlin gettos ,cellw ;
-:,NOS	nlin getnos ,cell ;
-:,NOSb	nlin getnos ,cellb ;
-:,NOSw	nlin getnos ,cellw ;
-
-:,RTOS	nlin getrtos ,cell ;
-
+:pTOS.	nlin gettos ;
 :TOS.	nlin gettos ;
 :NOS.	nlin getnos ;
 :PK2.	nlin getpk2 ;
 :PK3.	nlin getpk3 ;
 :PK4.	nlin getpk4 ;
-
+:PK5.	nlin getpk5 ;
 :RTOS.	nlin getrtos ;
+
+:,TOS	TOS. ,cell ;
+:,TOSb	TOS. ,cellb ;
+:,TOSw	TOS. ,cellw ;
+:,NOS	NOS. ,cell ;
+:,NOSb	NOS. ,cellb ;
+:,NOSw	NOS. ,cellw ;
+:,RTOS	RTOS. ,cell ;
+
 
 :regdump
 	,cr
@@ -496,63 +496,38 @@
 |	lastdircode vpila2callV
 ;
 |------ PILAD
-
-
-:anyreg
-	nlin getregmask maskregfree | freereg
-	dup "mov " ,s ,REG "," ,s ,pTOS ,cr
-	5 TOS. setREG | val r reg --
+:copyanyreg | src des --
+	nlin getregmask maskregfree | src des freereg
+	"mov " ,s dup ,REG
+	"," ,s rot ,cell ,cr		| des free
+	5 rot setREG 				| val r reg
 	;
 
-:swapreg
-	nlin getregmask $8 or | edx no
-	maskregfree
-	dup "mov " ,s ,REG "," ,s ,pTOS ,cr
-	5 NOS. setREG
-	0 5 TOS. setREG ;
+:swapreg | src des --
+	nlin getregmask $8 or 	| edx no
+	maskregfree				| src des reg
+	"mov " ,s dup ,REG "," ,s pick2 ,cell ,cr
+	rot 5 swap setREG
+	0 5 rot setREG ;
 
-:,DUP
-	TOS. regW? 0? ( drop NOS. TOS. copyregreg ; ) drop
-	TOS. regAD? 0? ( drop anyreg ; ) drop
+:cellcopy | src des --
+|	over reg-flat	| src flat?
+	dup regW? 0? ( drop copyregreg ; ) drop	| solo copia
+	dup regAD? 0? ( drop copyanyreg ; ) drop 	| cualquier registro
 	nlin getregmask
-	1 and? ( drop swapreg ; )
+	1 and? ( drop swapreg ; ) | eax ocupado
 	drop
-	anyreg
-	;
+	copyanyreg ;
 
+:,DUP	NOS. TOS. cellcopy ;
+:,OVER	PK2. TOS. cellcopy ;
+:,PICK2	PK3. TOS. cellcopy ;
+:,PICK3	PK4. TOS. cellcopy ;
+:,PICK4	PK5. TOS. cellcopy ;
+:,2DUP	PK3. NOS. cellcopy PK2. TOS. cellcopy ;
+:,2OVER PK5. NOS. cellcopy PK4. TOS. cellcopy ;
 
-:anyreg2
-	nlin getregmask maskregfree | freereg
-	dup "mov " ,s ,REG "," ,s ,pNOS ,cr
-	5 TOS. setREG | val r reg --
-	;
-
-:swapreg2
-	nlin getregmask $8 or | edx no
-	maskregfree
-	dup "mov " ,s ,REG "," ,s ,pNOS ,cr
-	5 PK2. setREG
-	0 5 TOS. setREG ;
-
-:,OVER
-	TOS. regW? 0? ( drop PK2. TOS. copyregreg ; ) drop
-	TOS. regAD? 0? ( drop anyreg2 ; ) drop
-	nlin getregmask
-	1 and? ( drop swapreg2 ; )
-	drop
-	anyreg2
-	;
-
-:,PICK2
-:,PICK3
-:,PICK4
-:,SWAP
-:,NIP
-:,ROT
-:,2DUP
-:,2OVER
-:,2SWAP
-;
+:,SWAP :,NIP :,ROT :,2SWAP
 :,DROP :,2DROP :,3DROP :,4DROP ;
 
 |------- PILAR
@@ -605,32 +580,26 @@
 	;
 
 :,+
-	oper21con
+|	oper21con
+	pTOS. regC? 1? ( drop toknow tok>cte NOS. reg+val ; ) drop
 	"add " ,s ,pNOS "," ,s ,pTOS ,cr ;
-|	N NOS. reg+val 
-	;
 
 :,1+
-|	d.tos cellCTE? 1? ( drop 1 d.tos cell+! ; ) drop
 |	d.tos cell2REGW
 |	"add " ,s ,pTOS ",1" ,ln ;
 	1 TOS. reg+val ;
 
 :,4+
-|	d.tos cellCTE? 1? ( drop 4 d.tos cell+! ; ) drop
 |	d.tos cell2REGW
 |	"add " ,s ,pTOS ",4" ,ln ;
 	4 TOS. reg+val ;
 
 :,-
-|	d.nos cellCTE? 1? ( drop d.tos cellNRO? 1? ( drop ,-cte ; ) ) drop
-|	d.nos cell2REGW
+|	oper21con
+	pTOS. regC? 1? ( drop toknow tok>cte neg NOS. reg+val ; ) drop
 	"sub " ,s ,pNOS "," ,s ,pTOS ,cr ;
-	N neg NOS. reg+val 
-	;
 
 :,1-
-|	d.tos cellCTE? 1? ( drop -1 d.tos cell+! ; ) drop
 |	d.tos cell2REGW
 |	"sub " ,s ,pTOS ",1" ,ln ;
 	-1 TOS. reg+val ;
@@ -648,7 +617,6 @@
 
 :,*
 	oper21con
-
 	| si d.tos es pow2..
 |	d.tos cellNRO? 1? ( drop d.tos cellVAL dup 1- and 0? ( drop d.tos cellVAL ) ) drop
 
