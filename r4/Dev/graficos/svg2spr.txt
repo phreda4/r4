@@ -4,7 +4,7 @@
 ^r4/lib/gui.txt
 ^r4/lib/parse.txt
 ^r4/lib/trace.txt
-^r4/lib/dlgfilea.txt
+^r4/lib/dlgfile.txt
 
 #$start
 #$end
@@ -62,6 +62,7 @@
 	*/ $ffff and or
 	;
 
+
 |-------------------------
 #colsvg
 #svgx #svgy
@@ -76,35 +77,88 @@
 	str$>nro 'colsvg !
 	;
 
-:xy>oo | x y -- d
-	4 >> $3fff0 and swap 10 << $fffc0000 and or ;
+|--------buffer----------
+#yend #xend
+#buffer )( $ffff
+#buffer> 'buffer
 
-#last
+:buff.ini
+	'buffer 'buffer> ! ;
+
+:,buff | x y t --
+	>r swap r> buffer> !+ !+ !+ 'buffer> ! ;
 
 :,line | x y --
-	xy>oo 3 or ,spr ;
+	3 ,buff ;
 
 :,op | x y --
-	xy>oo dup 'last ! 1 or ,spr ;
+	2dup 'yend ! 'xend !
+	1 ,buff ;
 
 :,cp | x y --
-	xy>oo 2 or ,spr ;
+	2 ,buff ;
 
 :,curve | x y --
-	xy>oo 4 or ,spr ;
+	4 ,buff ;
 
 :,cp2 | x y --
-	xy>oo 9 or ,spr ;
+	9 ,buff ;
 
 :,curve2 | x y --
-	xy>oo 10 or ,spr ;
+	10 ,buff ;
 
 :,last | --
-	last 3 or ,spr ;
+	xend yend 3 ,buff ;
 
 :,poly
-	colsvg 4 << $d or ,spr ;
+	colsvg 4 << 0 $d ,buff ;
 
+#xmax #ymax #xmin #ymin
+
+#scale
+#sx #sy
+
+| a 14 bits
+:buff.redim
+	'buffer
+	4+
+	@+ dup 'xmax ! 'xmin !
+	@+ dup 'ymax ! 'ymin !
+	( buffer> <? )(
+		@+ $a <=? ( drop
+			@+ xmax >? ( dup 'xmax ! ) xmin <? ( dup 'xmin ! ) drop
+			@+ ymax >? ( dup 'ymax ! ) ymin <? ( dup 'ymin ! ) drop
+			)( drop 8 + )
+		) drop
+
+	xmax xmin - ymax ymin - max 1.0 swap /. 'scale !
+	xmin xmax + 2/ neg 'sx !
+	ymin ymax + 2/ neg 'sy !
+
+	'buffer
+	( buffer> <? )(
+		@+ $a <=? ( drop
+			dup @ sx + scale *. swap !+
+			dup @ sy + scale *. swap !+
+			)( drop 8 + )
+		) drop
+	;
+
+:xy>o | x y -- d
+	2* $3fff0 and swap
+	15 << $fffc0000 and or ;
+
+:buff.emit
+	'buffer ( buffer> <? )( >r
+		r@+
+		$a <=? (
+			r@+ r@+ xy>o swap or ,spr
+		)(
+			r@+ r@+ or or ,spr )
+		r> ) drop
+	0 ,spr ;
+
+|----------
 :getpoly | adr --
 	$22 swap findc 0? ( drop ; ) | "
 	getfnro 'svgx ! 1+ getfnro 'svgy ! trim
@@ -116,6 +170,7 @@
 	,last
 	,poly
 	;
+
 
 |------------------------
 #x1 #y1 #x2 #y2
@@ -275,7 +330,6 @@
 
 :getpath | adr --
 	3 +
-|	dup memmap
 	( trim
 		c@+ 0? ( drop 1- ; )
 		$22 <>? )( resolve ) drop  ;
@@ -306,68 +360,24 @@
 	;
 
 :convertsvg | adr --
+	buff.ini
+
 	$end '$spr !
-	( 1? )( |dup memmap
+	( 1? )(
 		findline
-|		dup memmap
 		nextline
-|		dup memmap
 		) drop
-	0 ,spr ;
 
-|----------- stat & convert
-#xmin #ymin #xmax #ymax
-
-:movevert | adr val -- adr
-	dup $f and $a >? ( 2drop ; ) drop	| no es color!!
-	dup d>xy
-	ymin + swap
-	xmin + swap
-	xy>d
-	swap $f and or over 4 - !
+	buff.redim
+	buff.emit
+|	0 ,spr
 	;
-
-:inistat
-	d>xy dup 'ymin ! 'ymax ! dup 'xmin ! 'xmax ! ;
-
-:addstat
-	dup $f and $a >? ( 2drop ; ) drop	| no es color!!
-	d>xy
-	ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
-	xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
-	;
-
-:centersvg
-	$end @+ inistat ( @+ 1? )( addstat ) 2drop
-	xmin xmax + 2/ neg 'xmin !
-	ymin ymax + 2/ neg 'ymin !
-	$end ( @+ 1? )( movevert ) 2drop
-	;
-
-#yw #xw
-:zoomvert
-	dup $f and $a >? ( 2drop ; ) drop	| no es color!!
-	dup d>xy
-	$1fff yw */ swap
-	$1fff xw */ swap
-	xy>d
-	swap $f and or over 4 - !
-	;
-
-:zoomsvg
-	$end @+ inistat ( @+ 1? )( addstat ) 2drop
-	xmax xmin - 'xw !
-	ymax ymin - 'yw !
-	$end ( @+ 1? )( zoomvert ) 2drop
-	;
-
 
 |------------- carga
 :cargasvg
-	"r4" dlgfileload 0? ( drop ; )
+	"media/svg/" dlgfileload 0? ( drop ; )
 	$start swap load 0 swap !+ '$end !
 	$start convertsvg
-	centersvg
 	;
 
 |------------- muestra
@@ -387,7 +397,6 @@
 
 		muestraspr
 
-		'zoomsvg <f1>
 		'exit >esc<
 		cminiflecha ;
 
