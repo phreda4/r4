@@ -24,9 +24,13 @@
 	pad> padi> <=? ( drop ; )
 	dup 1- swap padf> over - 1+ cmove -1 'padf> +! -1 'pad> +! ;
 :kder
-	pad> padf> <? ( 1+ )  'pad> ! ;
+	pad> padf> <? ( 1+ ) 'pad> ! ;
 :kizq
-	pad> padi> >? ( 1- ) 'pad> !  ;
+	pad> padi> >? ( 1- ) 'pad> ! ;
+:kup
+	pad> ( padi> >? )( dup c@ $ff and 32 <? ( drop 'pad> ! ; ) drop 1- ) drop 'pad> ! ;
+:kdn
+	pad> ( c@+ 1? )( $ff and 32 <? ( drop 1- 'pad> ! ; ) drop ) drop 1- 'pad> ! ;
 
 #modo 'lins
 
@@ -414,6 +418,7 @@
 ::inwordset! | 'cursor --
 	'pad> ! ;
 
+|------------------------------
 #saux )( 32
 
 :vecinih
@@ -424,10 +429,12 @@
 	'pad> ! 'padf> !
 	'lins 'modo ! ;
 
+:savev 'saux str$>nro pick2 ! drop ;
+
 :vecinh
-	[ key toasc modo exec 'saux str$>nro pick2 ! drop ; ] <visible>
+	[ key toasc modo exec savev ; ] <visible>
 	[ modo 'lins =? ( 'lover )( 'lins ) colorc 'modo ! drop ; ] <ins>
-	'kback <back> 'kdel <del> 'kder <ri> 'kizq <le>
+	[ kback savev ; ] <back> [ kdel savev ; ] <del> 'kder <ri> 'kizq <le>
 	'ktab <tab> 'nextfoco <dn> 'prevfoco <up>
 	[ padi> 'pad> ! ; ] <home>
 	[ padf> 'pad> ! ; ] <end>
@@ -437,6 +444,7 @@
 	gc.push
 	8 makesizew
 	'vecinh 'vecinih w/foco
+	'clickfoco guiBtn	
 	esfoco? 1? ( 2drop 'saux showord )( drop @ "%h" print )
 	gc.pop
 	;
@@ -449,10 +457,12 @@
 	'pad> ! 'padf> !
 	'lins 'modo ! ;
 
+:savev 'saux str>nro pick2 ! drop ;
+
 :vecind
-	[ key toasc modo exec 'saux str>nro pick2 ! drop ; ] <visible>
+	[ key toasc modo exec savev ; ] <visible>
 	[ modo 'lins =? ( 'lover )( 'lins ) colorc 'modo ! drop ; ] <ins>
-	'kback <back> 'kdel <del> 'kder <ri> 'kizq <le>
+	[ kback savev ; ] <back> [ kdel savev ; ] <del> 'kder <ri> 'kizq <le>
 	'ktab <tab> 'nextfoco <dn> 'prevfoco <up>
 	[ padi> 'pad> ! ; ] <home>
 	[ padf> 'pad> ! ; ] <end>
@@ -465,4 +475,30 @@
 	'clickfoco guiBtn
 	esfoco? 1? ( 2drop 'saux showord )( drop @ "%d" print )
 	gc.pop
+	;
+
+
+:vecinv
+	[ key toasc modo exec ; ] <visible>
+	[ 10 modo exec ; ] <enter>
+	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
+	'kback <back> 'kdel <del>
+	'kder <ri> 'kizq <le> 'kup <up> 'kdn <dn>
+	[ padi> 'pad> ! ; ] <home>
+	[ padf> 'pad> ! ; ] <end>
+	'nextfoco <tab>
+	;
+
+:veciniv
+	1024 'cmax !
+	pick2 dup 'padi> !
+	( c@+ 1? )( drop ) drop 1- dup
+	'pad> ! 'padf> !
+	'lins 'modo ! ;
+
+::inputvoid | "" 'var --
+	'vecinv 'veciniv w/foco
+	esfoco? 1? ( verde )( negro ) drop
+	'clickfoco rot link
+	drop
 	;
