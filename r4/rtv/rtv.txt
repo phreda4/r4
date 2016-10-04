@@ -1,0 +1,394 @@
+| rTV
+| 2016 PHREDA
+|-----------------------------------------
+^r4/lib/gui.txt
+^r4/lib/img.txt
+
+^r4/lib/loadjpg.txt
+^r4/lib/loadpng.txt
+^r4/lib/loadbmp.txt
+
+^r4/lib/trace.txt
+
+^r4/lib/rfont.txt
+^inc/rft/architectsdaughter.rft
+^inc/rft/archivoblackregular.rft
+^inc/rft/comfortaa_bold.rft
+^inc/rft/comfortaa_thin.rft
+^inc/rft/dejavusans.rft
+^inc/rft/dejavuserif.rft
+^inc/rft/dejavuserifbold.rft
+^inc/rft/droidsansbold.rft
+^inc/rft/gooddog.rft
+^inc/rft/opensanslight.rft
+^inc/rft/opensansregular.rft
+^inc/rft/robotobold.rft
+^inc/rft/robotolight.rft
+^inc/rft/robotoregular.rft
+^inc/rft/robotothin.rft
+
+#fontlist
+architectsdaughter
+archivoblackregular
+comfortaa_bold
+comfortaa_thin
+dejavusans
+dejavuserif
+dejavuserifbold
+droidsansbold
+gooddog
+opensanslight
+opensansregular
+robotobold
+robotolight
+robotoregular
+robotothin
+robotothin
+
+:setfont | nro size --
+	>r $f and 2 << 'fontlist + @ exec r> rfont! ;
+
+|------------------------------------------------
+#amem
+#alerta
+
+:alertamem
+	here dup 'amem !
+	$fff + 'here !
+	0 'alerta !
+	;
+
+:eventocheck
+	amem "abeltv/alerta.mem" load
+	amem =? ( 0 swap ! ; ) 0 swap !
+	1 'alerta !
+
+|    0 0 "abeltv/alerta.mem" save
+	;
+
+|-----------------------------------------------
+#videos
+#videonow
+
+:playffm | "" --
+	"abeltv/ffplay -fs -autoexit -loglevel quiet ""abeltv/videos/%s""" mprint
+	system drop ;
+
+:waitvideo
+	( -1 system -1 <>? )( drop
+		eventocheck
+		100 update drop ) drop ;
+
+:waitvideo
+	show
+		'exit >esc<
+		-1 system -1 =? ( exit 0 system drop ) drop ;
+
+:playvideo
+	videonow playffm
+	videonow >>0 dup c@ 0? ( 2drop videos )( drop ) 'videonow !
+ 	;
+
+:player
+	-1 system -1 <>? ( drop ; ) drop
+	playvideo ;
+
+|------------------------------------------------
+#placaimg
+
+:loadimg | filename -- img
+	".jpg" =pos 1? ( drop "abeltv/img/%s" mprint loadjpg ; ) drop
+	".png" =pos 1? ( drop "abeltv/img/%s" mprint loadpng ; ) drop
+	".bmp" =pos 1? ( drop "abeltv/img/%s" mprint loadbmp ; )
+	2drop 0 ;
+
+
+:renderplaca
+	0 0 sw sh placaimg img.drawsize
+|	0 0 placaimg img.draw
+	>xfb
+	;
+
+|------------------------------------------------
+#tshadow $ffffff
+
+:sprint | "" --
+	mprint
+	ccx ccy ink@
+	2 2 +atxy pick3
+	tshadow ink printx
+	ink atxy
+	printx ;
+
+#timestr )( 16
+
+:hms
+	10 <? ( "0" ,s ) ,d ":" ,s
+	10 <? ( "0" ,s ) ,d ":" ,s
+	10 <? ( "0" ,s ) ,d ;
+
+:hmss
+	10 <? ( "0" ,s ) ,d
+	swap 1 and? ( ":" )( " " ) nip ,s
+	10 <? ( "0" ,s ) ,d
+	" Hs." ,s ;
+
+:reloj
+	4 64 setfont
+	mark 'timestr 'here !
+	time | s m h
+	hmss
+	0 ,c empty
+
+	'timestr sizeprint 16 +
+
+|	sw over - 4 - sh cch - 8 -
+|	sw 4 - sh 4 - gris cajaf
+
+	sw swap - sh cch - 8 - atxy
+	blanco print
+	;
+
+|----- pagina
+| 0 -- fin
+| 1 -- color
+| 2 -- posicion
+| 3 -- caja
+| 4 -- elipse
+| 5 -- fuente/size
+| 6 -- texto
+| 7 -- imagen
+|----- transicion
+|
+|
+|-----
+
+#place )( 8192
+#place>
+
+:place!
+	$ff and ccx 12 << ccy or 8 << or place> !+ 'place> ! ;
+
+:place2xy | v -- v x y
+	dup 8 >> dup 12 >> swap $fff and ;
+
+:emitplace | str car -- str car
+	32 <>? ( gemit ; ) gemit
+	sizeword ccx + tx2 >? ( cch 'ccy +! tx1 'ccx ! ) drop ;
+
+
+#there "Consultorio {}_{}_Llamando a {}"
+#cntl
+
+#dhere "4|Ofotalmologo Yamil Alfaro|Marcelo Bielsa"
+
+:cntlineas | adr -- c
+	1 swap ( c@+ 1? )(
+		10 =? ( rot 1+ rot rot ) | <enter>
+		$5F =? ( rot 1+ rot rot ) | $5f _
+| $2a *
+| $23 #
+| $27 '
+| $7b {
+| $7c |
+| $7d }
+| $5b [
+| $5c \
+| $5d ]
+		drop ) 2drop ;
+
+#tplace )( 1024
+#tplace> 'tplace
+
+:,place
+	tplace> !+ 'tplace> ! ;
+
+:>>{ | adr -- 'adr / 'adr 0
+	( c@+ $7b <>? )( 0? ( drop 1- 0 ; ) drop ) drop 1- ;
+
+:>>| | adr -- 'adr / 'adr 0
+	( c@+ $7c <>? )( 0? ( drop 1- 0 ; ) drop ) drop 1- ;
+
+:templatetv
+	'dhere
+	'there
+|		( c@+ 1? )(
+	2drop
+	;
+
+:prebuidtv
+	'place 'place> !
+	tx1 'ccx !
+	ty1 'ccy !
+	'there cntlineas 'cntl !
+
+	| alinear horizontal
+	| alinear veritcal
+	;
+
+|----------------------------------
+|
+| screen
+|
+:b0
+	cajaf
+	;
+:b1
+:b2
+:b3
+:b4
+:b5
+:b6
+:b7
+	caja
+	;
+
+#tbox b0 b1 b2 b3 b4 b5 b6 b7
+
+| 00 box -- xxx yyy - tt xxx yyy
+:ebox
+	dup 8 << 20 >> swap 20 << 20 >>
+	pick2 @
+	dup 8 << 20 >> over 20 << 20 >>
+	rot 24 >> $7 and
+	'tbox + @ exec
+	4+ ;
+
+| 01 char -- x y char (11)xx (11)yy (8)cc
+:echar
+	dup 2 << 19 >> 'ccx !
+	dup 13 << 19 >> 'ccy !
+	$ff and emit
+	;
+
+| 10 font -- font,size,tipo
+:efont
+	dup 12 >> $f and
+	swap $fff and setfont
+	;
+
+| 11 color -- alpha,color
+:ecolor
+	$ffffff and ink ;
+
+#eruntv 'ebox 'echar 'efont 'ecolor
+
+:runtv | adr --
+	( @+ 1? )(
+		dup 28 >> $c and 'eruntv + @ exec
+		) 2drop ;
+
+|----------- interpolacion -----------
+
+#ct
+
+:vlerp | vel xi xf -- xn
+	over - pick2 msec 10 *>> $1ffff and $10000 and? ( $1ffff xor )
+	*. + ;
+
+:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - ct 16 *>> + ;
+
+:clerp | a b -- c
+	over $ff and over $ff and lerp >r
+	over 8 >> $ff and over 8 >> $ff and lerp 8 << r+
+	swap 16 >> $ff and swap 16 >> $ff and lerp 16 << r> + ;
+
+|--------------
+
+|	rot 24 >> $7 and
+|	'tbox + @ exec
+
+:ebox
+	over @
+	over 8 << 20 >> over 8 << 20 >> lerp
+	rot 20 << 20 >> rot 20 << 20 >> lerp
+	rot 4+ @+ over @
+	over 8 << 20 >> over 8 << 20 >> lerp
+	rot 20 << 20 >> rot 20 << 20 >> lerp
+	rot >r
+	cajaf
+	r> 4+ ;
+
+:echar
+	over @
+	over 2 << 19 >> over 2 << 19 >> lerp 'ccx !
+	over 13 << 19 >> over 13 << 19 >> lerp 'ccy !
+	swap $ff and swap $ff and lerp emit
+	4+ ;
+
+:efont
+	over @
+	over 12 >> $f and over 12 >> $f and lerp
+	rot $fff and rot $fff and lerp setfont
+	4+ ;
+
+:ecolor
+	over @ over =? ( nip )( clerp ) ink 4+ ;
+
+#lvaltv 'ebox 'echar 'efont 'ecolor
+
+:animtv | adr --
+	( @+ 1? )(
+		dup 28 >> $c and 'lvaltv + @ exec
+		) 2drop ;
+
+|----------------------------------
+#testtv  $c0ff0000 $00008008 $00120120 $c00000ff $800013ff $4000005a $c000ff00 $4000406f 0
+#testtv2 $c00f0000 $00108108 $00180180 $c00000ff $800010ff $4020005a $c000ff00 $4030806f 0
+
+#testta $c0ff0000 $c00f0000
+$00008008 $00108108
+$00120120 $00180180
+$c00000ff $c00000ff
+$800013ff $800010ff
+$4000005a $4020002a
+$c000ff00 $c000ff00
+$4000406f $4030806f
+0
+:buildtv
+|	cyan
+|	7 120 setfont
+|	200 100 atxy
+|	"Consultorio N.4" printc cr
+|	"Oculista" printc cr
+|	"Dr. Yamil Alfaro" printc cr
+|	"Llamando a Brad Pit" printc
+|	'testtv2 runtv
+
+	ct "%f" print cr
+    'testta animtv
+    ct 0.002 + 1.0 mod abs 'ct !
+	;
+
+:transicion
+	;
+
+|------------------------------------------------
+#size 20
+#font 0
+
+:main
+	33
+	show clrscr
+		blanco
+|		font size setfont
+|		size font "%d %d " print cr
+|		dup "%d" print
+
+        buildtv
+
+		'exit >esc<
+|		[ 10 'size +! font size setfont ; ] <up>
+
+        reloj
+
+		cminiflecha ;
+
+:ini
+	rerand
+	mark
+	alertamem
+	;
+
+: ini main ;

@@ -1,0 +1,598 @@
+| Abel TV
+| 2016 PHREDA
+|-----------------------------------------
+^r4/lib/gui.txt
+^r4/lib/img.txt
+
+^r4/lib/dlgfile.txt
+^r4/lib/dlgcol.txt
+
+^r4/lib/loadjpg.txt
+^r4/lib/loadpng.txt
+^r4/lib/loadbmp.txt
+
+^r4/lib/trace.txt
+
+^r4/lib/rfont.txt
+^inc/rft/architectsdaughter.rft
+^inc/rft/archivoblackregular.rft
+^inc/rft/comfortaa_bold.rft
+^inc/rft/comfortaa_thin.rft
+^inc/rft/dejavusans.rft
+^inc/rft/dejavuserif.rft
+^inc/rft/dejavuserifbold.rft
+^inc/rft/droidsansbold.rft
+^inc/rft/gooddog.rft
+^inc/rft/opensanslight.rft
+^inc/rft/opensansregular.rft
+^inc/rft/robotobold.rft
+^inc/rft/robotolight.rft
+^inc/rft/robotoregular.rft
+^inc/rft/robotothin.rft
+
+#fontlist
+architectsdaughter
+archivoblackregular
+comfortaa_bold
+comfortaa_thin
+dejavusans
+dejavuserif
+dejavuserifbold
+droidsansbold
+gooddog
+opensanslight
+opensansregular
+robotobold
+robotolight
+robotoregular
+robotothin
+robotothin
+
+:setfont | nro size --
+	>r $f and 2 << 'fontlist + @ exec r> rfont! ;
+
+|------------------------------------------------
+#placaimg
+
+:loadimg | filename -- img
+	".jpg" =pos 1? ( drop loadjpg ; ) drop
+	".png" =pos 1? ( drop loadpng ; ) drop
+	".bmp" =pos 1? ( drop loadbmp ; )
+	2drop 0 ;
+
+:getimg | nro -- img
+	;
+
+:drawnimg | nro --
+	drop ;
+	getimg >r tx1 ty1 tx2 ty2 r> img.drawsize ;
+
+:renderplaca
+	0 0 sw sh placaimg img.drawsize
+|	0 0 placaimg img.draw
+	>xfb
+	;
+
+|------------------------------------------------
+#tshadow $ffffff
+
+:sprint | "" --
+	mprint
+	ccx ccy ink@
+	2 2 +atxy pick3
+	tshadow ink printx
+	ink atxy
+	printx ;
+
+#timestr )( 16
+
+:hms
+	10 <? ( "0" ,s ) ,d ":" ,s
+	10 <? ( "0" ,s ) ,d ":" ,s
+	10 <? ( "0" ,s ) ,d ;
+
+:hmss
+	10 <? ( "0" ,s ) ,d
+	swap 1 and? ( ":" )( " " ) nip ,s
+	10 <? ( "0" ,s ) ,d
+	" Hs." ,s ;
+
+:reloj
+	4 64 setfont
+	mark 'timestr 'here !
+	time | s m h
+	hmss
+	0 ,c empty
+
+	'timestr sizeprint 16 +
+
+|	sw over - 4 - sh cch - 8 -
+|	sw 4 - sh 4 - gris cajaf
+
+	sw swap - sh cch - 8 - atxy
+	blanco print
+	;
+
+|------------------------------------------------
+#tiempo
+
+:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - tiempo 16 *>> + ;
+
+#gsx #gsy
+#gsw #gsh
+
+:boxgrid | w h x y
+	'gsy ! 'gsx ! 'gsh ! 'gsw ! ;
+
+:fullgrid
+	sw sh 0 0 boxgrid ;
+
+:xy2grid | x y -- xg yg
+	gsy - $ff gsh */ $ff clamp0max swap
+	gsx - $ff gsw */ $ff clamp0max swap
+	;
+
+:grid2xy | xg yg -- x y
+	gsh 8 *>> gsy + swap
+	gsw 8 *>> gsx + swap
+	;
+
+:grid2po | int --
+	dup 24 >> $ff and over 16 >> $ff and grid2xy 'ty1 ! 'tx1 !
+	dup 8 >> $ff and swap $ff and grid2xy 'ty2 ! 'tx2 !
+	;
+
+:grid2i | int -- x1 y1 x2 y2
+	dup 24 >> $ff and over 16 >> $ff and
+	rot dup 8 >> $ff and swap $ff and
+	;
+
+
+|----- pagina
+#bmodo
+#bfilename )( 256
+#bcolor $ffffff
+#bimagen 0
+#box )( $ffff
+#box> 'box
+#box< 0
+#boxfn )( $fff
+#boxfn> 'boxfn
+#mbox )( $ffff
+#mbox> 'mbox
+
+
+:box.ini
+	box 'box> ! mbox 'mbox> ! 0 'box> ! ;
+
+:,box | v --
+	box> !+ 0 over ! 'box> ! ;
+
+
+:loadframe | "" --
+	here swap load here =? ( drop ; ) drop
+	here
+	@+
+	( over <? )(
+		)
+	;
+	
+:loadplq
+	"atv" dlgfileload 0? ( drop ; ) drop
+	;
+
+:saveframe | "" --
+	mark
+
+	savemem
+	empty
+	;
+
+:saveplq
+	"atv" dlgfilesave 0? ( drop ; ) drop
+	;
+
+|-------------------------------
+:cntlin | adr -- c
+	1 swap ( c@+ 1? )(
+		10 =? ( rot 1+ rot rot ) | <enter>
+		$5F =? ( rot 1+ rot rot ) | $5f _
+		drop ) 2drop ;
+
+:sizeline | adr -- cc
+	0 swap
+	( c@+ 1? )( 10 =? ( 2drop ; ) emitsize rot + swap )
+	2drop ;
+
+:lineemit
+	( pcursor c@+ 1? )( 10 =? ( drop ; ) emit ) drop ;
+
+#padx #pady
+
+:boxprintl | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		tx1 padx + 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+:boxprintc | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		over sizeline
+		tx1 tx2 + 2/ swap 2/ - padx + 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+:boxprintr | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		over sizeline
+		tx2 swap - padx - 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+#lboxp boxprintl boxprintl boxprintc boxprintr
+
+:vce
+	ty2 ty1 - 2/ pick3 cntlin cch * 2/ - 'pady +! ;
+:vdn
+	ty2 ty1 - pick3 cntlin cch * - pady - 'pady ! ;
+
+:boxprintn | str n --
+	dup 2 >> $3 and | 0 up 1 center 2 dn
+	1 =? ( vce )
+	2 =? ( vdn )
+	drop
+	$3 and 2 << 'lboxp + @ exec 
+	poli ; | cursor ultimo
+
+|--------------------------
+
+:2color dup $f0f0f0 and dup 4 >> or swap $f0f0f and dup 4 << or ;
+:bfill tx1 ty1 tx2 ty2 cajaf ;
+#pad
+
+:f0	dup 28 >> $f and 0? ( 2drop ; ) 'pad ! ink
+	tx1 ty1 2dup op tx2 ty1 pline tx2 ty2 pline tx1 ty2 pline pline
+	tx1 pad + ty1 pad + 2dup op tx2 pad - ty1 pad + pline tx2 pad - ty2 pad - pline tx1 pad + ty2 pad - pline pline
+	poli ;
+:f1	ink bfill ;			| solido
+:f2	$ff and drawnimg ;
+:f3 2color fcol tx1 ty2 fcen 1.0 tx2 tx1 - 1 max / 0 fmat lfill bfill sfill ;
+:f4 2color fcol tx1 ty2 fcen 0 1.0 ty2 ty1 - 1 max / fmat lfill bfill sfill ;
+:f5 2color fcol tx1 ty1 fcen 0.5 tx2 tx1 - 1 max / 0.5 ty2 ty1 - 1 max / neg fmat lfill bfill sfill ;
+:f6 2color fcol tx1 ty2 fcen 0.5 tx2 tx1 - 1 max / 0.5 ty2 ty1 - 1 max / fmat lfill bfill sfill ;
+:f7 drop ;	| auxiliar
+
+#lbfill f0 f1 f2 f3 f4 f5 f6 f7
+
+:fillbox | nro --
+	dup 28 >> 7 and 2 << 'lbfill + @ exec ;
+
+|------------------------------------------------
+:buildtv
+	cyan
+	7 120 setfont
+	200 100 atxy
+	"Consultorio N.4" printc cr
+	"Oculista" printc cr
+	"Dr. Yamil Alfaro" printc cr
+	"Llamando a Brad Pit" printc
+	;
+
+|------------------------------------------------
+#e.bmodo $1
+#e.color $00ff00
+#e.img 0
+
+#e.fcolor $ffffff
+#e.font 0 #e.size 40 #e.align 0
+#e.padx 8 #e.pady 8
+#e.x1 #e.y1 #e.x2 #e.y2
+#e.text	)( 1024
+
+#x1 #y1 #x2 #y2
+
+:e.ini
+	0 dup 2dup 'x1 ! 'y1 ! 'x2 ! 'y2 ! ;
+
+:editor.ini
+	1 'e.bmodo !
+	$00ff00 'e.color !
+	$ffffff 'e.fcolor !
+	0 'e.font ! 40 'e.size ! 0 'e.align !
+	8 'e.padx ! 8 'e.pady !
+	0 'e.text !
+	0 'e.img !
+	e.ini ;
+
+:editor.set | adr --
+	dup 'box< !
+	@+ grid2i 'e.y2 ! 'e.x2 ! 'e.y1 ! 'e.x1 !
+	@+ dup 28 >> $f and 'e.bmodo ! $ffffff and 'e.color !
+	@+ dup $ff and 'e.size !
+		8 >> dup $f and 'e.font !
+		4 >> dup $f and 'e.align !
+		4 >> dup $ff and 'e.padx !
+		8 >> $ff and 'e.pady !
+	@+ 'e.fcolor !
+	@ 'mbox + 'e.text strcpy
+	refreshfoco
+	;
+
+|-------------------
+:box.edit | --
+	e.x1 e.y1 grid2xy 'ty1 ! 'tx1 !
+	e.x2 e.y2 grid2xy 'ty2 ! 'tx2 !
+	e.bmodo 28 << e.color or fillbox
+	e.fcolor ink
+	e.font e.size 1+ setfont
+	e.padx 'padx ! e.pady 'pady !
+	'e.text e.align boxprintn
+	;
+
+:box.draw | adr --
+	box< =? ( 20 + box.edit ; )
+	@+ grid2po
+	@+ fillbox
+    @+
+	dup 8 >> $f and over $ff and 1+ setfont
+	dup 16 >> $ff and 'padx ! dup 24 >> $ff and 'pady !
+	12 >> $f and	| align
+	swap @+ ink
+	@+ 'mbox + rot boxprintn
+	;
+
+:box.show
+	'box ( box> <? )( box.draw ) drop ;
+
+|------------------------
+
+:dot
+	setxy $1f00 px!+ ;
+
+:grid.show
+	0 ( 256 <? )(
+		0 ( 256 <? )(
+			2dup grid2xy dot
+			1+ ) drop
+		1+ ) drop ;
+
+:grid.frame
+|	blanco 0 0 grid2xy $ff $ff grid2xy caja
+	bmodo 0? ( drop bcolor ink 0 0 grid2xy $ff $ff grid2xy cajaf ; ) drop
+	bimagen 0? ( drop ; ) >r
+	0 0 grid2xy $ff $ff grid2xy pick2 - swap pick3 - swap r> img.drawsize ;
+
+:addbox
+	x1 x2 =? ( drop ; ) drop
+	x1 x2 over <? ( swap ) 8 << swap 24 << or
+	y1 y2 over <? ( swap ) swap 16 << or or
+				,box	| x1 y1 x2 y2
+	$10f0f0f	,box	| fondo
+	$02021120	,box	| yp(8) xp(8) align(4) font(4) size(8)
+	$ff			,box	| color fuente
+	mbox> 'mbox - ,box	| string
+	e.ini
+	box> 20 - editor.set
+	;
+
+:strajuste | dif adr -- dif
+	20 +
+	box> <? ( dup @ 'mbox + dup pick3 + swap mbox> over - cmove> ) | Hace lugar
+	( box> <? )( over over +! 20 + ) drop	| corre punteros
+	dup 1+ 'mbox> +! ;	| 1+ por 0 final
+
+:setbox
+	box< 0? ( drop ; ) >r
+	e.x1 e.x2 over <? ( swap ) 8 << swap 24 << or
+	e.y1 e.y2 over <? ( swap ) swap 16 << or or
+	r!+								| x1 y1 x2 y2
+	e.bmodo 28 << e.color or r!+	| fondo
+	e.size $ff and
+	e.font $f and 8 << or
+	e.align $f and 12 << or
+	e.padx $ff and 16 << or
+	e.pady $ff and 24 << or r!+		| yp(8) xp(8) align(4) font(4) size(8)
+	e.fcolor r!+					| tipo-color fuente
+
+	'e.text count nip r @ 'mbox + count nip - 1? ( r strajuste ) drop
+	'e.text r @ 'mbox + strcpy
+
+	rdrop
+	;
+
+|--------------------------------
+#mode 0
+
+:bal | "n" n
+	e.align =? ( verde )( negro )
+	[ dup 'e.align ! ; ] rot btnt
+	drop ;
+
+:dfont e.font 1- $7 and 'e.font ! ;
+:ufont e.font 1+ $7 and 'e.font ! ;
+
+
+:edmove
+	xymouse xy2grid pick2 ! pick2 !
+	e.x1 e.x2 >? ( e.x2 'e.x1 ! 'e.x2 ! )( drop )
+	e.y1 e.y2 >? ( e.y2 'e.y1 ! 'e.y2 ! )( drop )
+	;
+
+:edver | 'varx 'vary --
+	6 dup 'w ! 'h !
+	over @ over @ grid2xy
+	2dup 3 fbox
+	'yc ! 'xc !
+    [ ; ] 'edmove guiDnMoveA
+	2drop ;
+
+#xa #ya
+
+:movebox
+	xymouse
+	ya - swap xa - swap
+	x1 pick2 + y1 pick2 + xy2grid 'e.y1 ! 'e.x1 !
+	x2 rot + y2 rot + xy2grid 'e.y2 ! 'e.x2 !
+	;
+
+:choobox
+	setbox dup 4 - editor.set
+	xymouse 'ya ! 'xa !
+	tx1 'x1 ! ty1 'y1 !
+	tx2 'x2 ! ty2 'y2 !
+	;
+
+:boxsel1 | adr --
+	box< =? ( 4+ e.x1 e.y1 grid2xy 'ty1 ! 'tx1 ! e.x2 e.y2 grid2xy 'ty2 ! 'tx2 ! )( @+ grid2po )
+	win2gc
+	'choobox 'movebox guiDnMoveA
+	16 + ;
+
+:boxsel
+	'box ( box> <? )( boxsel1 ) drop ;
+
+:modesel
+	home 1 8 gotoxy chome!
+
+	"* Texto *" 'e.text inputvoid cr cr2
+	blanco
+    "Color:" print cr cr2
+	'e.fcolor inputhex cr cr
+	blanco "Fuente:" print e.font "%d" print cr cr2
+	cyan 'dfont "<" btnt sp 'ufont ">" btnt cr cr
+	blanco "Tamaño:" print 'e.size inputdec cr cr2
+	blanco "Alineacion:" print cr cr2
+	"1" 1 bal sp "2" 2 bal sp "3" 3 bal cr cr
+	"4" 5 bal sp "5" 6 bal sp "6" 7 bal cr cr
+	"7" 9 bal sp "8" 10 bal sp "9" 11 bal cr cr
+	blanco
+	"Pading:" print cr cr2
+	"x:" print 'e.padx inputdec sp
+	"y:" print 'e.pady inputdec cr cr2
+
+|	"Lugar:" print cr cr2
+|	e.y2 e.x2 e.y1 e.x1 "%d:%d %d:%d" print cr cr
+	"Fondo:" print cr cr2
+	" VACIO _SOLIDO _IMAGEN _DEG.HOR_DEG.VER_DEG.D1 _DEG.D2 " 'e.bmodo rbtn cr cr2
+	'e.color inputhex cr cr
+
+   	boxsel
+	blink 1? ( blanco )( negro ) drop
+	'e.x1 'e.y1 edver
+	'e.x1 'e.y2 edver
+	'e.x2 'e.y2 edver
+	'e.x2 'e.y1 edver
+
+	;
+
+:modebox
+	[ xymouse xy2grid 2dup 'y2 ! 'x2 ! 'y1 ! 'x1 ! ; ]
+	[ xymouse xy2grid 'y2 ! 'x2 ! ; ]
+	[ xymouse xy2grid 'y2 ! 'x2 ! addbox 'modesel 'mode ! ; ]
+	guiMap
+	verde
+	x1 y1 grid2xy x2 y2 grid2xy caja
+	;
+
+
+:dlgimg
+	"atv/placas" dlgfileload 0? ( drop ; )
+	'bfilename strcpy
+	'bfilename loadimg 'bimagen !
+	;
+
+
+
+:modebac
+	home 1 8 gotoxy chome!
+	blanco
+	"Fondo:" print cr cr2
+	" Solido _ Imagen " 'bmodo rbtn cr cr
+	bmodo 0? ( 'bcolor inputhex  )( 'dlgimg " I " link  ) drop
+	;
+
+:btnmodo |
+	mode =? ( azul )( negro )
+	[ dup 'mode ! refreshfoco setbox ; ] rot btnt
+	drop ;
+
+:setlayer
+	setbox dup editor.set
+	'modesel 'mode !
+	;
+
+:showlayers
+	home
+	cols 10 - 3 gotoxy chome!
+	1 'box ( box> <? )(
+		box< =? ( verde )( negro )
+|		cyan dup 16 + @ "%h " print
+		'setlayer pick2 " #%d " sp btnt cr cr2
+		20 + swap 1+ swap
+		) 2drop ;
+
+
+:playscript
+	;
+
+:modefil
+	home 1 8 gotoxy chome!
+	cyan
+	'loadplq " LOAD " btnt cr cr
+	'saveplq " SAVE " btnt cr cr
+	verde
+	'playscript " PLAY " btnt cr cr
+	;
+
+
+:showtools
+	scr home
+	1 3 gotoxy chome!
+	"Back" 'modebac btnmodo sp
+	"File" 'modefil btnmodo
+	cr cr
+	" Ed " 'modesel btnmodo sp
+	" ++ " 'modebox btnmodo
+
+	;
+
+:main
+	'modebac 'mode !
+	4
+|	fullgrid
+	768 512 sw 2/ 768 2/ - 16 + sh 2/ 256 - boxgrid
+	show fonti clrscr
+		verde oscuro 2 linesfill
+		blanco
+		dup ":r%d EditorTV " print
+|		y2 x2 y1 x1 "[ %d %d : %d %d ]" print cr
+		cr
+		mbox> 'mbox -  "%d" print
+
+		grid.frame	| grid.show
+
+		box.show
+
+		scr fonti
+		showtools
+        showlayers
+
+		mode exec
+
+		'exit >esc<
+
+		cminiflecha ;
+
+:ini
+	rerand
+	mark
+	;
+
+: ini main ;
