@@ -51,27 +51,6 @@ robotothin
 :setfont | nro size --
 	>r $f and 2 << 'fontlist + @ exec r> rfont! ;
 
-|------------------------------------------------
-#placaimg
-
-:loadimg | filename -- img
-	".jpg" =pos 1? ( drop loadjpg ; ) drop
-	".png" =pos 1? ( drop loadpng ; ) drop
-	".bmp" =pos 1? ( drop loadbmp ; )
-	2drop 0 ;
-
-:getimg | nro -- img
-	;
-
-:drawnimg | nro --
-	drop ;
-	getimg >r tx1 ty1 tx2 ty2 r> img.drawsize ;
-
-:renderplaca
-	0 0 sw sh placaimg img.drawsize
-|	0 0 placaimg img.draw
-	>xfb
-	;
 
 |------------------------------------------------
 #tshadow $ffffff
@@ -148,20 +127,16 @@ robotothin
 	rot dup 8 >> $ff and swap $ff and
 	;
 
-
 |----- pagina
 #bmodo
-#bfilename )( 256
 #bcolor $ffffff
 #bimagen 0
+
 #box )( $ffff
 #box> 'box
 #box< 0
-#boxfn )( $fff
-#boxfn> 'boxfn
 #mbox )( $ffff
 #mbox> 'mbox
-
 
 :box.ini
 	box 'box> ! mbox 'mbox> ! 0 'box> ! ;
@@ -169,21 +144,72 @@ robotothin
 :,box | v --
 	box> !+ 0 over ! 'box> ! ;
 
+|------------------------------------------------
+#palcnt 0
+#palimg )( $1ff
+#boxfn )( $fff
+#boxfn> 'boxfn
 
+#filename )( 256
+
+:loadimg | filename -- img
+	".jpg" =pos 1? ( drop loadjpg ; ) drop
+	".png" =pos 1? ( drop loadpng ; ) drop
+	".bmp" =pos 1? ( drop loadbmp ; )
+	2drop 0 ;
+
+:getimg | nro -- img
+	3 << 'palimg + 4+ @ ;
+
+:setimg | str nro --
+	3 << 'palimg + >r
+	boxfn> 'boxfn - r!+
+	dup boxfn> strcpyl 'boxfn> !
+	loadimg r> ! ;
+
+:drawnimg | nro --
+	getimg >r tx1 ty1 tx2 ty2 r> img.drawsize ;
+
+:palexist? | str -- nro/-1
+	'palimg >r
+	0 ( palcnt <? )(
+		r@+ pick2 = 1? ( drop nip rdrop ; ) drop
+		4 r+
+		1+ ) 2drop
+	rdrop -1 ;
+
+:chooseimg | -- nro
+	"atv/placas" dlgfileload 0? ( drop -1 ; )
+	'filename strcpy
+	'filename palexist? 0 >=? ( ; ) drop
+	'filename palcnt setimg
+	palcnt dup 1+ 'palcnt !
+	;
+
+|------------------------------------------------
 :loadframe | "" --
 	here swap load here =? ( drop ; ) drop
-	here
-	@+
-	( over <? )(
-		)
+	here >r
+	r@+ dup
+	24 >> $ff and 'bmodo !
+	$ffffff and 'bcolor !
+	'box r@+ ( 1? )( r@+ rot !+ swap 1- ) drop 'box> !
+	0 'box< !
+	'mbox r@+ ( 1? )( r@+ rot !+ swap 1- ) drop 'mbox> !
+
 	;
-	
+
 :loadplq
 	"atv" dlgfileload 0? ( drop ; ) drop
 	;
 
 :saveframe | "" --
 	mark
+	bmodo 24 << bcolor or ,
+	box> 'box - 2 >> dup ,
+	'box >r ( 1? )( r@+ , 1- ) rdrop drop
+	mbox> 'mbox - 2 >> 1+ dup ,
+	'mbox >r ( 1? )( r@+ , 1- ) rdrop drop
 
 	savemem
 	empty
@@ -248,7 +274,7 @@ robotothin
 	1 =? ( vce )
 	2 =? ( vdn )
 	drop
-	$3 and 2 << 'lboxp + @ exec 
+	$3 and 2 << 'lboxp + @ exec
 	poli ; | cursor ultimo
 
 |--------------------------
@@ -367,13 +393,14 @@ robotothin
 
 :grid.frame
 	0 0 grid2xy 'ty1 ! 'tx1 !
-	$ff $ff grid2xy  'ty1 ! 'tx1 !
+	$ff $ff grid2xy  'ty2 ! 'tx2 !
 
-	bmodo 0? ( drop bcolor ink 0 0 grid2xy $ff $ff grid2xy cajaf ; ) drop
+	bmodo 0? ( drop bcolor ink tx1 ty1 tx2 ty2 cajaf ; ) drop
 
-	bimagen 0? ( drop ; ) >r
 	tx1 ty1 tx2 ty2
-	pick2 - swap pick3 - swap r> img.drawsize ;
+	pick2 - swap pick3 - swap
+	bimagen getimg
+	img.drawsize ;
 
 :addbox
 	x1 x2 =? ( drop ; ) drop
@@ -518,10 +545,7 @@ robotothin
 
 
 :dlgimg
-	"atv/placas" dlgfileload 0? ( drop ; )
-	'bfilename strcpy
-	'bfilename loadimg 'bimagen !
-	;
+	chooseimg 'bimagen ! ;
 
 
 :modebac
