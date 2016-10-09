@@ -1,4 +1,4 @@
-| Abel TV
+| rTV
 | 2016 PHREDA
 |-----------------------------------------
 ^r4/lib/gui.txt
@@ -167,13 +167,10 @@ robotothin
 	dup boxfn> strcpyl 'boxfn> !
 	loadimg r> ! ;
 
-:drawnimg | nro --
-	getimg >r tx1 ty1 tx2 ty2 r> img.drawsize ;
-
 :palexist? | str -- nro/-1
 	'palimg >r
 	0 ( palcnt <? )(
-		r@+ pick2 = 1? ( drop nip rdrop ; ) drop
+		r@+ 'boxfn + pick2 = 1? ( drop nip rdrop ; ) drop
 		4 r+
 		1+ ) 2drop
 	rdrop -1 ;
@@ -186,6 +183,15 @@ robotothin
 	palcnt dup 1+ 'palcnt !
 	;
 
+:clickimg
+	;
+
+:imgpal
+	0 ( palcnt <? )(
+		dup getimg >r ccx ccy 64 40 r> img.drawsize
+		34 'ccy +!
+		1+ ) drop
+	;
 |------------------------------------------------
 :loadframe | "" --
 	here swap load here =? ( drop ; ) drop
@@ -288,7 +294,12 @@ robotothin
 	tx1 pad + ty1 pad + 2dup op tx2 pad - ty1 pad + pline tx2 pad - ty2 pad - pline tx1 pad + ty2 pad - pline pline
 	poli ;
 :f1	ink bfill ;			| solido
-:f2	$ff and drawnimg ;
+
+:f2	$ff and getimg >r
+	tx1 ty1 tx2 ty2
+	pick2 - swap pick3 - swap
+	r> img.drawsize ;
+
 :f3 2color fcol tx1 ty2 fcen 1.0 tx2 tx1 - 1 max / 0 fmat lfill bfill sfill ;
 :f4 2color fcol tx1 ty2 fcen 0 1.0 ty2 ty1 - 1 max / fmat lfill bfill sfill ;
 :f5 2color fcol tx1 ty1 fcen 0.5 tx2 tx1 - 1 max / 0.5 ty2 ty1 - 1 max / neg fmat lfill bfill sfill ;
@@ -299,17 +310,6 @@ robotothin
 
 :fillbox | nro --
 	dup 28 >> 7 and 2 << 'lbfill + @ exec ;
-
-|------------------------------------------------
-:buildtv
-	cyan
-	7 120 setfont
-	200 100 atxy
-	"Consultorio N.4" printc cr
-	"Oculista" printc cr
-	"Dr. Yamil Alfaro" printc cr
-	"Llamando a Brad Pit" printc
-	;
 
 |------------------------------------------------
 #e.bmodo $1
@@ -521,7 +521,7 @@ robotothin
 	"Fondo:" print cr cr2
 	" VACIO _SOLIDO _IMAGEN _DEG.HOR_DEG.VER_DEG.D1 _DEG.D2 " 'e.bmodo rbtn cr cr2
 	e.bmodo 2 =?
-	( amarillo 'boximg " I " link
+	( imgpal amarillo 'boximg " I " link
 	)( 'e.color inputhex
 	) drop cr cr
 
@@ -545,15 +545,14 @@ robotothin
 
 
 :dlgimg
-	chooseimg 'bimagen ! ;
-
+	chooseimg 'bcolor ! ; |'bimagen ! ;
 
 :modebac
 	home 1 8 gotoxy chome!
 	blanco
 	"Fondo:" print cr cr2
 	" Solido _ Imagen " 'bmodo rbtn cr cr
-	bmodo 0? ( 'bcolor inputhex  )( 'dlgimg " I " link  ) drop
+	bmodo 0? ( 'bcolor inputhex  )( imgpal 'dlgimg " I " link  ) drop
 	;
 
 :btnmodo |
