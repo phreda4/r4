@@ -30,6 +30,50 @@
 ^inc/rft/robotoregular.rft
 ^inc/rft/robotothin.rft
 
+#remem
+
+|------------------------------------------------
+#tiempo
+
+:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - tiempo 16 *>> + ;
+
+#gsx #gsy
+#gsw #gsh
+
+:boxgrid | w h x y
+	'gsy ! 'gsx ! 'gsh ! 'gsw ! ;
+
+:fullgrid
+	sw sh 0 0 boxgrid ;
+
+:xy2grid | x y -- xg yg
+	gsy - $ff gsh */ $ff clamp0max swap
+	gsx - $ff gsw */ $ff clamp0max swap
+	;
+
+:grid2xy | xg yg -- x y
+	gsh 8 *>> gsy + swap
+	gsw 8 *>> gsx + swap
+	;
+	
+:w2grid | w -- wg
+	gsw 8 *>> ;
+
+:h2grid | h -- hg
+	gsh 8 *>> ;
+
+:grid2po | int --
+	dup 24 >> $ff and over 16 >> $ff and grid2xy 'ty1 ! 'tx1 !
+	dup 8 >> $ff and swap $ff and grid2xy 'ty2 ! 'tx2 !
+	;
+
+:grid2i | int -- x1 y1 x2 y2
+	dup 24 >> $ff and over 16 >> $ff and
+	rot dup 8 >> $ff and swap $ff and
+	;
+
+|---- font
 #fontlist
 architectsdaughter
 archivoblackregular
@@ -49,8 +93,7 @@ robotothin
 robotothin
 
 :setfont | nro size --
-	>r $f and 2 << 'fontlist + @ exec r> rfont! ;
-
+	h2grid >r $f and 2 << 'fontlist + @ exec r> rfont! ;
 
 |------------------------------------------------
 #tshadow $ffffff
@@ -92,45 +135,9 @@ robotothin
 	blanco print
 	;
 
-|------------------------------------------------
-#tiempo
-
-:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
-	over - tiempo 16 *>> + ;
-
-#gsx #gsy
-#gsw #gsh
-
-:boxgrid | w h x y
-	'gsy ! 'gsx ! 'gsh ! 'gsw ! ;
-
-:fullgrid
-	sw sh 0 0 boxgrid ;
-
-:xy2grid | x y -- xg yg
-	gsy - $ff gsh */ $ff clamp0max swap
-	gsx - $ff gsw */ $ff clamp0max swap
-	;
-
-:grid2xy | xg yg -- x y
-	gsh 8 *>> gsy + swap
-	gsw 8 *>> gsx + swap
-	;
-
-:grid2po | int --
-	dup 24 >> $ff and over 16 >> $ff and grid2xy 'ty1 ! 'tx1 !
-	dup 8 >> $ff and swap $ff and grid2xy 'ty2 ! 'tx2 !
-	;
-
-:grid2i | int -- x1 y1 x2 y2
-	dup 24 >> $ff and over 16 >> $ff and
-	rot dup 8 >> $ff and swap $ff and
-	;
-
 |----- pagina
-#bmodo
+#bmodo 1
 #bcolor $ffffff
-#bimagen 0
 
 #box )( $ffff
 #box> 'box
@@ -138,19 +145,19 @@ robotothin
 #mbox )( $ffff
 #mbox> 'mbox
 
-:box.ini
-	box 'box> ! mbox 'mbox> ! 0 'box> ! ;
-
-:,box | v --
-	box> !+ 0 over ! 'box> ! ;
-
-|------------------------------------------------
 #palcnt 0
 #palimg )( $1ff
 #boxfn )( $fff
 #boxfn> 'boxfn
 
 #filename )( 256
+
+:box.ini
+	box 'box> ! mbox 'mbox> ! 0 'box> ! ;
+
+:,box | v --
+	box> !+ 0 over ! 'box> ! ;
+
 
 :loadimg | filename -- img
 	".jpg" =pos 1? ( drop loadjpg ; ) drop
@@ -175,7 +182,7 @@ robotothin
 		1+ ) 2drop
 	rdrop -1 ;
 
-:chooseimg | -- nro
+:elijeimg | -- nro
 	"atv/placas" dlgfileload 0? ( drop -1 ; )
 	'filename strcpy
 	'filename palexist? 0 >=? ( ; ) drop
@@ -184,17 +191,21 @@ robotothin
 	;
 
 :clickimg
-	;
+	elijeimg over ! ;
 
-:imgpal
+:imgpal | 'var --
 	0 ( palcnt <? )(
 		dup getimg >r ccx ccy 64 40 r> img.drawsize
-		34 'ccy +!
+		42 'ccy +!
 		1+ ) drop
-	;
+	amarillo
+	'clickimg "NEW IMG" link
+	drop ;
+
 |------------------------------------------------
+#last
 :loadframe | "" --
-	here swap load here =? ( drop ; ) drop
+	here swap load here =? ( drop ; ) 'last !
 	here >r
 	r@+ dup
 	24 >> $ff and 'bmodo !
@@ -203,10 +214,21 @@ robotothin
 	0 'box< !
 	'mbox r@+ ( 1? )( r@+ rot !+ swap 1- ) drop 'mbox> !
 
+	r@+ 'palcnt !
+	r> 'boxfn swap last over - cmove
+    remem 'here !
+    'palimg >r 
+	'boxfn dup 'boxfn> !
+	0 ( palcnt <? )( swap
+		dup 'boxfn - r!+
+		dup >>0 swap loadimg r!+
+    	swap 1+ ) 2drop
+    rdrop
 	;
 
 :loadplq
-	"atv" dlgfileload 0? ( drop ; ) drop
+	"atv" dlgfileload 0? ( drop ; )
+	loadframe
 	;
 
 :saveframe | "" --
@@ -217,12 +239,19 @@ robotothin
 	mbox> 'mbox - 2 >> 1+ dup ,
 	'mbox >r ( 1? )( r@+ , 1- ) rdrop drop
 
+    palcnt dup ,
+    'palimg >r
+    ( 1? )(
+		r@+ 'boxfn + ,s 0 ,c
+		4 r+
+    	1- ) drop rdrop
 	savemem
 	empty
 	;
 
 :saveplq
-	"atv" dlgfilesave 0? ( drop ; ) drop
+	"atv" dlgfilesave 0? ( drop ; )
+	saveframe
 	;
 
 |-------------------------------
@@ -360,7 +389,7 @@ robotothin
 	e.bmodo 28 << e.color or fillbox
 	e.fcolor ink
 	e.font e.size 1+ setfont
-	e.padx 'padx ! e.pady 'pady !
+	e.padx w2grid 'padx ! e.pady h2grid 'pady !
 	'e.text e.align boxprintn
 	;
 
@@ -370,7 +399,7 @@ robotothin
 	@+ fillbox
     @+
 	dup 8 >> $f and over $ff and 1+ setfont
-	dup 16 >> $ff and 'padx ! dup 24 >> $ff and 'pady !
+	dup 16 >> $ff and w2grid 'padx ! dup 24 >> $ff and h2grid 'pady !
 	12 >> $f and	| align
 	swap @+ ink
 	@+ 'mbox + rot boxprintn
@@ -394,13 +423,8 @@ robotothin
 :grid.frame
 	0 0 grid2xy 'ty1 ! 'tx1 !
 	$ff $ff grid2xy  'ty2 ! 'tx2 !
-
-	bmodo 0? ( drop bcolor ink tx1 ty1 tx2 ty2 cajaf ; ) drop
-
-	tx1 ty1 tx2 ty2
-	pick2 - swap pick3 - swap
-	bimagen getimg
-	img.drawsize ;
+	bmodo 28 << bcolor or fillbox
+	;
 
 :addbox
 	x1 x2 =? ( drop ; ) drop
@@ -408,7 +432,7 @@ robotothin
 	y1 y2 over <? ( swap ) swap 16 << or or
 				,box	| x1 y1 x2 y2
 	$10f0f0f	,box	| fondo
-	$02021120	,box	| yp(8) xp(8) align(4) font(4) size(8)
+	$00001120	,box	| yp(8) xp(8) align(4) font(4) size(8)
 	$ff			,box	| color fuente
 	mbox> 'mbox - ,box	| string
 	e.ini
@@ -438,12 +462,6 @@ robotothin
 	'e.text r @ 'mbox + strcpy
 
 	rdrop
-	;
-
-:boximg
-	"atv/placas" dlgfileload 0? ( drop ; )
-	'e.img strcpy
-	'e.img loadimg 'e.rimg !
 	;
 
 |--------------------------------
@@ -521,9 +539,8 @@ robotothin
 	"Fondo:" print cr cr2
 	" VACIO _SOLIDO _IMAGEN _DEG.HOR_DEG.VER_DEG.D1 _DEG.D2 " 'e.bmodo rbtn cr cr2
 	e.bmodo 2 =?
-	( imgpal amarillo 'boximg " I " link
-	)( 'e.color inputhex
-	) drop cr cr
+	( 'e.color imgpal )( 'e.color inputhex )
+	drop cr cr
 
    	boxsel
 	blink 1? ( blanco )( negro ) drop
@@ -544,15 +561,15 @@ robotothin
 	;
 
 
-:dlgimg
-	chooseimg 'bcolor ! ; |'bimagen ! ;
-
 :modebac
 	home 1 8 gotoxy chome!
 	blanco
 	"Fondo:" print cr cr2
-	" Solido _ Imagen " 'bmodo rbtn cr cr
-	bmodo 0? ( 'bcolor inputhex  )( imgpal 'dlgimg " I " link  ) drop
+
+	" VACIO _SOLIDO _IMAGEN _DEG.HOR_DEG.VER_DEG.D1 _DEG.D2 " 'bmodo rbtn cr cr2
+	bmodo 2 =?
+	( 'bcolor imgpal )( 'bcolor inputhex )
+	drop
 	;
 
 :btnmodo |
@@ -610,8 +627,8 @@ robotothin
 		blanco
 		dup ":r%d EditorTV " print
 		cr
-		grid.frame	| grid.show
 
+		grid.frame
 		box.show
 
 		scr fonti
@@ -627,6 +644,7 @@ robotothin
 :ini
 	rerand
 	mark
+	here 'remem !
 	;
 
 : ini main ;
