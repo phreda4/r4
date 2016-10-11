@@ -47,6 +47,9 @@
 :fullgrid
 	sw sh 0 0 boxgrid ;
 
+:editgrid
+	768 512 sw 2/ 768 2/ - 16 + sh 2/ 256 - boxgrid ;
+
 :xy2grid | x y -- xg yg
 	gsy - $ff gsh */ $ff clamp0max swap
 	gsx - $ff gsw */ $ff clamp0max swap
@@ -56,7 +59,7 @@
 	gsh 8 *>> gsy + swap
 	gsw 8 *>> gsx + swap
 	;
-	
+
 :w2grid | w -- wg
 	gsw 8 *>> ;
 
@@ -592,10 +595,219 @@ robotothin
 		20 + swap 1+ swap
 		) 2drop ;
 
+|------------------------------------
+#place )( $3fff
+#place> 'place
 
-:playscript
+:placeini
+	'place 'place> ! ;
+:place,
+	place> !+ 'place> ! ;
+:xyplace, | x y --
+	swap 12 << or place, ;
+:chplace, | char --
+	$ff and ccx 11 << ccy or 8 << or $10000000 or place, ;
+
+
+:place2xy | v -- v x y
+	dup 8 >> dup 11 >> swap $7ff and ;
+
+:emitplace | char --
+	dup chplace,
+	emitsize 'ccx +!
 	;
 
+|-------------------------------
+:cntlin | adr -- c
+	1 swap ( c@+ 1? )(
+		10 =? ( rot 1+ rot rot ) | <enter>
+		$5F =? ( rot 1+ rot rot ) | $5f _
+		drop ) 2drop ;
+
+:sizeline | adr -- cc
+	0 swap
+	( c@+ 1? )( 10 =? ( 2drop ; ) emitsize rot + swap )
+	2drop ;
+
+:lineemit
+	( c@+ 1? )( 10 =? ( drop ; ) emitplace ) drop ;
+
+#padx #pady
+
+:boxprintl | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		tx1 padx + 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+:boxprintc | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		over sizeline
+		tx1 tx2 + 2/ swap 2/ - padx + 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+:boxprintr | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		over sizeline
+		tx2 swap - padx - 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+#lboxp boxprintl boxprintl boxprintc boxprintr
+
+:vce
+	ty2 ty1 - 2/ pick3 cntlin cch * 2/ - 'pady +! ;
+:vdn
+	ty2 ty1 - pick3 cntlin cch * - pady - 'pady ! ;
+
+:convboxprintn | str n --
+	dup 2 >> $3 and | 0 up 1 center 2 dn
+	1 =? ( vce )
+	2 =? ( vdn )
+	drop
+	$3 and 2 << 'lboxp + @ exec ;
+
+|---------------
+:convbox | adr --
+	@+ grid2po
+	@+ tx1 ty1 xyplace, tx2 ty2 xyplace, place,
+    @+
+	dup 8 >> $f and over $ff and 1+
+	over 12 << over or $20000000 or place,	| font
+	setfont | dup 2 12 << or place,
+	dup 16 >> $ff and w2grid 'padx ! dup 24 >> $ff and h2grid 'pady !
+	12 >> $f and	| align
+	swap @+ $ffffff and $30000000 or place,	| color
+	@+ 'mbox + rot
+	convboxprintn
+	;
+
+:convert2place
+	scr home
+	placeini
+	'box ( box> <? )( convbox ) drop
+	;
+
+|---------------
+
+| 00 box -- xxx yyy , xxx yyy , fillbox
+:ebox
+	dup 8 << 20 >> swap 20 << 20 >> 'ty1 ! 'tx1 !
+	@+
+	dup 8 << 20 >> swap 20 << 20 >> 'ty2 ! 'tx2 !
+	@+ fillbox ;
+
+| 01 char -- x y char (11)xx (11)yy (8)cc
+:echar
+	dup 2 << 19 >> 'ccx !
+	dup 13 << 19 >> 'ccy !
+	$ff and emit
+	;
+
+| 10 font -- font,size,tipo
+:efont
+	dup 12 >> $f and
+	swap $fff and setfont
+	;
+
+| 11 color -- tipo,color
+:ecolor
+	$ffffff and ink ;
+
+| 111 -- back
+:eback
+	0 0 'tx1 ! 'ty1 !
+	sw 'tx2 ! sh 'ty2 !
+	fillbox ;
+
+#eruntv 'ebox 'echar 'efont 'ecolor
+
+:runtv | adr --
+	( @+ 1? )(
+		dup 28 >> $c and 'eruntv + @ exec
+		) 2drop ;
+
+|----------- interpolacion -----------
+#ct
+
+:vlerp | vel xi xf -- xn
+	over - pick2 msec 10 *>> $1ffff and $10000 and? ( $1ffff xor )
+	*. + ;
+
+:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - ct 16 *>> + ;
+
+:clerp | a b -- c
+	over $ff and over $ff and lerp >r
+	over 8 >> $ff and over 8 >> $ff and lerp 8 << r+
+	swap 16 >> $ff and swap 16 >> $ff and lerp 16 << r> + ;
+
+:ebox
+	over @
+	over 8 << 20 >> over 8 << 20 >> lerp
+	rot 20 << 20 >> rot 20 << 20 >> lerp
+	rot 4+ @+ over @
+	over 8 << 20 >> over 8 << 20 >> lerp
+	rot 20 << 20 >> rot 20 << 20 >> lerp
+	rot >r
+	cajaf
+	r> 4+ ;
+
+:echar
+	over @
+	over 2 << 19 >> over 2 << 19 >> lerp 'ccx !
+	over 13 << 19 >> over 13 << 19 >> lerp 'ccy !
+	swap $ff and swap $ff and lerp emit
+	4+ ;
+
+:efont
+	over @
+	over 12 >> $f and over 12 >> $f and lerp
+	rot $fff and rot $fff and lerp setfont
+	4+ ;
+
+:ecolor
+	over @ over =? ( nip )( clerp ) ink 4+ ;
+
+#lvaltv 'ebox 'echar 'efont 'ecolor
+
+:animtv | adr --
+	( @+ 1? )(
+		dup 28 >> $c and 'lvaltv + @ exec
+		) 2drop ;
+
+|------------------------------------
+:debug
+	verde
+	'place ( place> <? )(
+		@+ dup 28 >> 
+		%100 and? ( $ff )( 0 ) >r
+		%10 and? ( $ff00 r+ )
+		%1 and? ( $ff0000 r+ ) drop
+		r> ink
+		"%h " print cr allowchome
+		) drop
+	;
+
+:playscript
+	fullgrid
+	convert2place
+	fonti
+	show clrscr
+		debug
+		'place runtv
+
+		[ exit editgrid ; ] >esc<
+		;
+
+|------------------------------------
 :modefil
 	home 1 8 gotoxy chome!
 	cyan
@@ -620,8 +832,7 @@ robotothin
 :main
 	'modebac 'mode !
 	4
-|	fullgrid
-	768 512 sw 2/ 768 2/ - 16 + sh 2/ 256 - boxgrid
+	editgrid
 	show fonti clrscr
 		verde oscuro 2 linesfill
 		blanco

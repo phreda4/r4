@@ -27,6 +27,49 @@
 ^inc/rft/robotoregular.rft
 ^inc/rft/robotothin.rft
 
+#remem
+|------------------------------------------------
+#tiempo
+
+:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - tiempo 16 *>> + ;
+
+#gsx #gsy
+#gsw #gsh
+
+:boxgrid | w h x y
+	'gsy ! 'gsx ! 'gsh ! 'gsw ! ;
+
+:fullgrid
+	sw sh 0 0 boxgrid ;
+
+:xy2grid | x y -- xg yg
+	gsy - $ff gsh */ $ff clamp0max swap
+	gsx - $ff gsw */ $ff clamp0max swap
+	;
+
+:grid2xy | xg yg -- x y
+	gsh 8 *>> gsy + swap
+	gsw 8 *>> gsx + swap
+	;
+	
+:w2grid | w -- wg
+	gsw 8 *>> ;
+
+:h2grid | h -- hg
+	gsh 8 *>> ;
+
+:grid2po | int --
+	dup 24 >> $ff and over 16 >> $ff and grid2xy 'ty1 ! 'tx1 !
+	dup 8 >> $ff and swap $ff and grid2xy 'ty2 ! 'tx2 !
+	;
+
+:grid2i | int -- x1 y1 x2 y2
+	dup 24 >> $ff and over 16 >> $ff and
+	rot dup 8 >> $ff and swap $ff and
+	;
+
+|---- font
 #fontlist
 architectsdaughter
 archivoblackregular
@@ -46,7 +89,34 @@ robotothin
 robotothin
 
 :setfont | nro size --
-	>r $f and 2 << 'fontlist + @ exec r> rfont! ;
+	h2grid >r $f and 2 << 'fontlist + @ exec r> rfont! ;
+
+|---------------------------- scr
+#bmodo 1
+#bcolor $ffffff
+
+#box )( $ffff
+#box> 'box
+#box< 0
+#mbox )( $ffff
+#mbox> 'mbox
+
+#palcnt 0
+#palimg )( $1ff
+#boxfn )( $fff
+#boxfn> 'boxfn
+
+|---------------------------- img
+
+:loadimg | filename -- img
+	".jpg" =pos 1? ( drop loadjpg ; ) drop
+	".png" =pos 1? ( drop loadpng ; ) drop
+	".bmp" =pos 1? ( drop loadbmp ; )
+	2drop 0 ;
+
+:getimg | nro -- img
+	3 << 'palimg + 4+ @ ;
+
 
 |------------------------------------------------
 #amem
@@ -94,8 +164,6 @@ robotothin
 	playvideo ;
 
 |------------------------------------------------
-#placaimg
-
 :loadimg | filename -- img
 	".jpg" =pos 1? ( drop "abeltv/img/%s" mprint loadjpg ; ) drop
 	".png" =pos 1? ( drop "abeltv/img/%s" mprint loadpng ; ) drop
@@ -103,10 +171,28 @@ robotothin
 	2drop 0 ;
 
 
-:renderplaca
-	0 0 sw sh placaimg img.drawsize
-|	0 0 placaimg img.draw
-	>xfb
+|------------------------------------------------
+#last
+:loadframe | "" --
+	here swap load here =? ( drop ; ) 'last !
+	here >r
+	r@+ dup
+	24 >> $ff and 'bmodo !
+	$ffffff and 'bcolor !
+	'box r@+ ( 1? )( r@+ rot !+ swap 1- ) drop 'box> !
+	0 'box< !
+	'mbox r@+ ( 1? )( r@+ rot !+ swap 1- ) drop 'mbox> !
+
+	r@+ 'palcnt !
+	r> 'boxfn swap last over - cmove
+    remem 'here !
+    'palimg >r 
+	'boxfn dup 'boxfn> !
+	0 ( palcnt <? )( swap
+		dup 'boxfn - r!+
+		dup >>0 swap loadimg r!+
+    	swap 1+ ) 2drop
+    rdrop
 	;
 
 |------------------------------------------------
@@ -163,7 +249,7 @@ robotothin
 |
 |-----
 
-#place )( 8192
+#place )( $3fff
 #place>
 
 :place!
@@ -346,16 +432,8 @@ $4000005a $4020002a
 $c000ff00 $c000ff00
 $4000406f $4030806f
 0
-:buildtv
-|	cyan
-|	7 120 setfont
-|	200 100 atxy
-|	"Consultorio N.4" printc cr
-|	"Oculista" printc cr
-|	"Dr. Yamil Alfaro" printc cr
-|	"Llamando a Brad Pit" printc
-|	'testtv2 runtv
 
+:buildtv
 	ct "%f" print cr
     'testta animtv
     ct 0.002 + 1.0 mod abs 'ct !
@@ -365,30 +443,20 @@ $4000406f $4030806f
 	;
 
 |------------------------------------------------
-#size 20
-#font 0
 
 :main
 	33
 	show clrscr
-		blanco
-|		font size setfont
-|		size font "%d %d " print cr
-|		dup "%d" print
-
         buildtv
-
+		reloj
 		'exit >esc<
-|		[ 10 'size +! font size setfont ; ] <up>
-
-        reloj
-
 		cminiflecha ;
 
 :ini
 	rerand
 	mark
 	alertamem
+	here 'remem !
 	;
 
 : ini main ;
