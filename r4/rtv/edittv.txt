@@ -2,7 +2,6 @@
 | 2016 PHREDA
 |-----------------------------------------
 ^r4/lib/gui.txt
-^r4/lib/img.txt
 
 ^r4/lib/dlgfile.txt
 ^r4/lib/dlgcol.txt
@@ -13,22 +12,7 @@
 
 ^r4/lib/trace.txt
 
-^r4/lib/rfont.txt
-^inc/rft/architectsdaughter.rft
-^inc/rft/archivoblackregular.rft
-^inc/rft/comfortaa_bold.rft
-^inc/rft/comfortaa_thin.rft
-^inc/rft/dejavusans.rft
-^inc/rft/dejavuserif.rft
-^inc/rft/dejavuserifbold.rft
-^inc/rft/droidsansbold.rft
-^inc/rft/gooddog.rft
-^inc/rft/opensanslight.rft
-^inc/rft/opensansregular.rft
-^inc/rft/robotobold.rft
-^inc/rft/robotolight.rft
-^inc/rft/robotoregular.rft
-^inc/rft/robotothin.rft
+^r4/rtv/plqlib.txt
 
 #remem
 
@@ -76,68 +60,6 @@
 	rot dup 8 >> $ff and swap $ff and
 	;
 
-|---- font
-#fontlist
-architectsdaughter
-archivoblackregular
-comfortaa_bold
-comfortaa_thin
-dejavusans
-dejavuserif
-dejavuserifbold
-droidsansbold
-gooddog
-opensanslight
-opensansregular
-robotobold
-robotolight
-robotoregular
-robotothin
-robotothin
-
-:setfont | nro size --
-	h2grid >r $f and 2 << 'fontlist + @ exec r> rfont! ;
-
-|------------------------------------------------
-#tshadow $ffffff
-
-:sprint | "" --
-	mprint
-	ccx ccy ink@
-	2 2 +atxy pick3
-	tshadow ink printx
-	ink atxy
-	printx ;
-
-#timestr )( 16
-
-:hms
-	10 <? ( "0" ,s ) ,d ":" ,s
-	10 <? ( "0" ,s ) ,d ":" ,s
-	10 <? ( "0" ,s ) ,d ;
-
-:hmss
-	10 <? ( "0" ,s ) ,d
-	swap 1 and? ( ":" )( " " ) nip ,s
-	10 <? ( "0" ,s ) ,d
-	" Hs." ,s ;
-
-:reloj
-	4 64 setfont
-	mark 'timestr 'here !
-	time | s m h
-	hmss
-	0 ,c empty
-
-	'timestr sizeprint 16 +
-
-|	sw over - 4 - sh cch - 8 -
-|	sw 4 - sh 4 - gris cajaf
-
-	sw swap - sh cch - 8 - atxy
-	blanco print
-	;
-
 |----- pagina
 #bmodo 1
 #bcolor $ffffff
@@ -149,18 +71,18 @@ robotothin
 #mbox> 'mbox
 
 #palcnt 0
-#palimg )( $1ff
+#palimg )( $ff
 #boxfn )( $fff
 #boxfn> 'boxfn
 
 #filename )( 256
+#fileaux )( 256
 
 :box.ini
-	box 'box> ! mbox 'mbox> ! 0 'box> ! ;
+	box 'box> ! mbox 'mbox> ! 0 'box> ! 0 'palcnt ! 'boxfn 'boxfn> ! 1 'bmodo ! $ffffff 'bcolor ! ;
 
 :,box | v --
 	box> !+ 0 over ! 'box> ! ;
-
 
 :loadimg | filename -- img
 	".jpg" =pos 1? ( drop loadjpg ; ) drop
@@ -187,9 +109,9 @@ robotothin
 
 :elijeimg | -- nro
 	"atv/placas" dlgfileload 0? ( drop -1 ; )
-	'filename strcpy
-	'filename palexist? 0 >=? ( ; ) drop
-	'filename palcnt setimg
+	'fileaux strcpy
+	'fileaux palexist? 0 >=? ( ; ) drop
+	'fileaux palcnt setimg
 	palcnt dup 1+ 'palcnt !
 	;
 
@@ -207,7 +129,7 @@ robotothin
 
 |------------------------------------------------
 #last
-:loadframe | "" --
+:plqload | "" --
 	here swap load here =? ( drop ; ) 'last !
 	here >r
 	r@+ dup
@@ -220,7 +142,7 @@ robotothin
 	r@+ 'palcnt !
 	r> 'boxfn swap last over - cmove
     remem 'here !
-    'palimg >r 
+    'palimg >r
 	'boxfn dup 'boxfn> !
 	0 ( palcnt <? )( swap
 		dup 'boxfn - r!+
@@ -229,19 +151,13 @@ robotothin
     rdrop
 	;
 
-:loadplq
-	"atv" dlgfileload 0? ( drop ; )
-	loadframe
-	;
-
-:saveframe | "" --
+:plqsave | "" --
 	mark
 	bmodo 24 << bcolor or ,
 	box> 'box - 2 >> dup ,
 	'box >r ( 1? )( r@+ , 1- ) rdrop drop
 	mbox> 'mbox - 2 >> 1+ dup ,
 	'mbox >r ( 1? )( r@+ , 1- ) rdrop drop
-
     palcnt dup ,
     'palimg >r
     ( 1? )(
@@ -252,73 +168,22 @@ robotothin
 	empty
 	;
 
-:saveplq
-	"atv" dlgfilesave 0? ( drop ; )
-	saveframe
+:loadplq
+	"atv" dlgfileload 0? ( drop ; )
+	dup 'filename strcpy
+	plqload
 	;
 
-|-------------------------------
-:cntlin | adr -- c
-	1 swap ( c@+ 1? )(
-		10 =? ( rot 1+ rot rot ) | <enter>
-		$5F =? ( rot 1+ rot rot ) | $5f _
-		drop ) 2drop ;
-
-:sizeline | adr -- cc
-	0 swap
-	( c@+ 1? )( 10 =? ( 2drop ; ) emitsize rot + swap )
-	2drop ;
-
-:lineemit
-	( pcursor c@+ 1? )( 10 =? ( drop ; ) emit ) drop ;
-
-#padx #pady
-
-:boxprintl | adr --
-	dup cntlin
-	ty1 pady + 'ccy !
-	( 1? )( 1-
-		tx1 padx + 'ccx !
-		swap lineemit swap cr
-		) 2drop ;
-
-:boxprintc | adr --
-	dup cntlin
-	ty1 pady + 'ccy !
-	( 1? )( 1-
-		over sizeline
-		tx1 tx2 + 2/ swap 2/ - padx + 'ccx !
-		swap lineemit swap cr
-		) 2drop ;
-
-:boxprintr | adr --
-	dup cntlin
-	ty1 pady + 'ccy !
-	( 1? )( 1-
-		over sizeline
-		tx2 swap - padx - 'ccx !
-		swap lineemit swap cr
-		) 2drop ;
-
-#lboxp boxprintl boxprintl boxprintc boxprintr
-
-:vce
-	ty2 ty1 - 2/ pick3 cntlin cch * 2/ - 'pady +! ;
-:vdn
-	ty2 ty1 - pick3 cntlin cch * - pady - 'pady ! ;
-
-:boxprintn | str n --
-	dup 2 >> $3 and | 0 up 1 center 2 dn
-	1 =? ( vce )
-	2 =? ( vdn )
-	drop
-	$3 and 2 << 'lboxp + @ exec
-	poli ; | cursor ultimo
+:saveplq
+	"atv" dlgfilesave 0? ( drop ; )
+	dup 'filename strcpy
+	plqsave
+	;
 
 |--------------------------
-
 :2color dup $f0f0f0 and dup 4 >> or swap $f0f0f and dup 4 << or ;
 :bfill tx1 ty1 tx2 ty2 cajaf ;
+
 #pad
 
 :f0	dup 28 >> $f and 0? ( 2drop ; ) 'pad ! ink
@@ -340,8 +205,9 @@ robotothin
 
 #lbfill f0 f1 f2 f3 f4 f5 f6 f7
 
-:fillbox | nro --
+::fillbox | nro --
 	dup 28 >> 7 and 2 << 'lbfill + @ exec ;
+
 
 |------------------------------------------------
 #e.bmodo $1
@@ -391,7 +257,7 @@ robotothin
 	e.x2 e.y2 grid2xy 'ty2 ! 'tx2 !
 	e.bmodo 28 << e.color or fillbox
 	e.fcolor ink
-	e.font e.size 1+ setfont
+	e.font e.size 1+ h2grid setfont
 	e.padx w2grid 'padx ! e.pady h2grid 'pady !
 	'e.text e.align boxprintn
 	;
@@ -401,7 +267,7 @@ robotothin
 	@+ grid2po
 	@+ fillbox
     @+
-	dup 8 >> $f and over $ff and 1+ setfont
+	dup 8 >> $f and over $ff and 1+ h2grid setfont
 	dup 16 >> $ff and w2grid 'padx ! dup 24 >> $ff and h2grid 'pady !
 	12 >> $f and	| align
 	swap @+ ink
@@ -427,6 +293,12 @@ robotothin
 	0 0 grid2xy 'ty1 ! 'tx1 !
 	$ff $ff grid2xy  'ty2 ! 'tx2 !
 	bmodo 28 << bcolor or fillbox
+	cyan
+	tx1 1- ty1 1- 2dup op
+	tx2 over line
+	tx2 ty2 line
+	over ty2 line
+	line
 	;
 
 :addbox
@@ -462,8 +334,8 @@ robotothin
 	e.fcolor r!+					| tipo-color fuente
 
 	'e.text count nip r @ 'mbox + count nip - 1? ( r strajuste ) drop
-	'e.text r @ 'mbox + strcpy
-
+	'e.text	r @ 'mbox + strcpy
+	'e.text count nip 0? ( r @ 'mbox + mbox> =? ( 1 'mbox> +! ) drop ) drop | vacio-agrega 0
 	rdrop
 	;
 
@@ -517,12 +389,12 @@ robotothin
 
 :boxsel
 	'box ( box> <? )( boxsel1 ) drop
+	box< 0? ( drop ; ) drop
 	blink 1? ( blanco )( negro ) drop
 	'e.x1 'e.y1 edver
 	'e.x1 'e.y2 edver
 	'e.x2 'e.y2 edver
 	'e.x2 'e.y1 edver
-
 	;
 
 :modesel
@@ -586,13 +458,21 @@ robotothin
 	'modesel 'mode !
 	;
 
+:dellayer
+	'box >? ( dup 20 - over box> over - 2 >> move )
+	-20 'box> +!
+	0 'box< ! ;
+
 :showlayers
 	home
 	cols 10 - 3 gotoxy chome!
 	1 'box ( box> <? )(
 		box< =? ( verde )( negro )
 |		cyan dup 16 + @ "%h " print
-		'setlayer pick2 " #%d " sp btnt cr cr2
+		'setlayer pick2 " #%d " sp btnt
+		rojo 'dellayer "x" link
+		cr cr2
+
 		20 + swap 1+ swap
 		) 2drop ;
 
@@ -607,7 +487,8 @@ robotothin
 :xyplace, | x y --
 	swap 12 << or place, ;
 :chplace, | char --
-	$ff and ccx 11 << ccy or 8 << or $10000000 or place, ;
+	ccx $3fff and 14 << ccy $3fff and or $10000000 or place,
+	$ff and place, ;
 
 
 :place2xy | v -- v x y
@@ -677,10 +558,10 @@ robotothin
 
 |---------------
 :convbox | adr --
-	@+ grid2po
-	@+ tx1 ty1 xyplace, tx2 ty2 xyplace, place,
+	@+ grid2po tx1 ty1 xyplace, tx2 ty2 xyplace,
+	@+ place,
     @+
-	dup 8 >> $f and over $ff and 1+
+	dup 8 >> $f and over $ff and 1+ h2grid
 	over 12 << over or $20000000 or place,	| font
 	setfont | dup 2 12 << or place,
 	dup 16 >> $ff and w2grid 'padx ! dup 24 >> $ff and h2grid 'pady !
@@ -693,6 +574,7 @@ robotothin
 :convert2place
 	scr home
 	placeini
+	bmodo 28 << bcolor or place,
 	'box ( box> <? )( convbox ) drop
 	;
 
@@ -700,16 +582,15 @@ robotothin
 
 | 00 box -- xxx yyy , xxx yyy , fillbox
 :ebox
-	dup 8 << 20 >> swap 20 << 20 >> 'ty1 ! 'tx1 !
+	dup 8 << 20 >> 'tx1 ! 20 << 20 >> 'ty1 !
 	@+
-	dup 8 << 20 >> swap 20 << 20 >> 'ty2 ! 'tx2 !
+	dup 8 << 20 >> 'tx2 ! 20 << 20 >> 'ty2 !
 	@+ fillbox ;
 
-| 01 char -- x y char (11)xx (11)yy (8)cc
+| 01 char -- x y char (14)xx (14)yy  , (8)cc
 :echar
-	dup 2 << 19 >> 'ccx !
-	dup 13 << 19 >> 'ccy !
-	$ff and emit
+	dup 18 << 18 >> 'ccy ! 4 << 18 >> 'ccx !
+	@+ $ff and emit
 	;
 
 | 10 font -- font,size,tipo
@@ -722,74 +603,25 @@ robotothin
 :ecolor
 	$ffffff and ink ;
 
-| 111 -- back
-:eback
-	0 0 'tx1 ! 'ty1 !
-	sw 'tx2 ! sh 'ty2 !
-	fillbox ;
-
 #eruntv 'ebox 'echar 'efont 'ecolor
 
+:preruntv | adr --
+	0 'tx1 ! 0 'ty1 !
+	sw 'tx2 ! sh 'ty2 !
+	@ fillbox
+	;
+
 :runtv | adr --
-	( @+ 1? )(
-		dup 28 >> $c and 'eruntv + @ exec
-		) 2drop ;
-
-|----------- interpolacion -----------
-#ct
-
-:vlerp | vel xi xf -- xn
-	over - pick2 msec 10 *>> $1ffff and $10000 and? ( $1ffff xor )
-	*. + ;
-
-:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
-	over - ct 16 *>> + ;
-
-:clerp | a b -- c
-	over $ff and over $ff and lerp >r
-	over 8 >> $ff and over 8 >> $ff and lerp 8 << r+
-	swap 16 >> $ff and swap 16 >> $ff and lerp 16 << r> + ;
-
-:ebox
-	over @
-	over 8 << 20 >> over 8 << 20 >> lerp
-	rot 20 << 20 >> rot 20 << 20 >> lerp
-	rot 4+ @+ over @
-	over 8 << 20 >> over 8 << 20 >> lerp
-	rot 20 << 20 >> rot 20 << 20 >> lerp
-	rot >r
-	cajaf
-	r> 4+ ;
-
-:echar
-	over @
-	over 2 << 19 >> over 2 << 19 >> lerp 'ccx !
-	over 13 << 19 >> over 13 << 19 >> lerp 'ccy !
-	swap $ff and swap $ff and lerp emit
-	4+ ;
-
-:efont
-	over @
-	over 12 >> $f and over 12 >> $f and lerp
-	rot $fff and rot $fff and lerp setfont
-	4+ ;
-
-:ecolor
-	over @ over =? ( nip )( clerp ) ink 4+ ;
-
-#lvaltv 'ebox 'echar 'efont 'ecolor
-
-:animtv | adr --
-	( @+ 1? )(
-		dup 28 >> $c and 'lvaltv + @ exec
+	4+ ( @+ 1? )(
+		dup 26 >> $c and 'eruntv + @ exec
 		) 2drop ;
 
 |------------------------------------
 :debug
 	verde
 	'place ( place> <? )(
-		@+ dup 28 >> 
-		%100 and? ( $ff )( 0 ) >r
+		@+ dup 28 >>
+		%100 and? ( $ff )( $7f00 ) >r
 		%10 and? ( $ff00 r+ )
 		%1 and? ( $ff0000 r+ ) drop
 		r> ink
@@ -802,18 +634,27 @@ robotothin
 	convert2place
 	fonti
 	show clrscr
-		debug
+|		debug
+		'place preruntv
 		'place runtv
 
 		[ exit editgrid ; ] >esc<
 		;
 
 |------------------------------------
+:newplq
+	'modebac 'mode !
+	remem 'here !
+	editor.ini
+	box.ini
+	;
+
 :modefil
 	home 1 8 gotoxy chome!
 	cyan
-	'loadplq " LOAD " btnt cr cr
-	'saveplq " SAVE " btnt cr cr
+	'newplq  " NUEVO " btnt cr cr
+	'loadplq " CARGA " btnt cr cr
+	'saveplq " GRABA " btnt cr cr
 	verde
 	'playscript " PLAY " btnt cr cr
 	;
@@ -822,11 +663,11 @@ robotothin
 :showtools
 	scr home
 	1 3 gotoxy chome!
-	"Back" 'modebac btnmodo sp
-	"File" 'modefil btnmodo
+	"Fondo " 'modebac btnmodo sp
+	"Placa " 'modefil btnmodo
 	cr cr
-	" Ed " 'modesel btnmodo sp
-	" ++ " 'modebox btnmodo
+	"Editar" 'modesel btnmodo sp
+	"Agrega" 'modebox btnmodo
 
 	;
 
@@ -838,6 +679,7 @@ robotothin
 		verde oscuro 2 linesfill
 		blanco
 		dup ":r%d EditorTV " print
+		'filename "%s" print
 		cr
 
 		grid.frame
