@@ -1,0 +1,229 @@
+| rTV
+| 2016 PHREDA
+|-----------------------------------------
+^r4/lib/gui.txt
+^r4/lib/dlgfile.txt
+^r4/lib/dlgcol.txt
+^r4/lib/loadjpg.txt
+^r4/lib/loadpng.txt
+^r4/lib/loadbmp.txt
+
+^r4/lib/trace.txt
+
+^r4/rtv/plqlib.txt
+
+#remem
+
+|------------------------------------------------
+#tiempo
+
+:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - tiempo 16 *>> + ;
+
+|----- pagina
+#bmodo 1
+#bcolor $ffffff
+
+#box )( $ffff
+#box> 'box
+#box< 0
+#mbox )( $ffff
+#mbox> 'mbox
+
+#palcnt 0
+#palimg )( $ff
+#boxfn )( $fff
+#boxfn> 'boxfn
+
+#filename )( 256
+#fileaux )( 256
+
+:box.ini
+	'box 'box> ! 0 'box< !
+	'mbox 'mbox> !
+	0 'palcnt !
+	'boxfn 'boxfn> !
+	1 'bmodo ! $ffffff 'bcolor ! ;
+
+:,box | v --
+	box> !+ 0 over ! 'box> ! ;
+
+:loadimg | filename -- img
+	".jpg" =pos 1? ( drop loadjpg ; ) drop
+	".png" =pos 1? ( drop loadpng ; ) drop
+	".bmp" =pos 1? ( drop loadbmp ; )
+	2drop 0 ;
+
+:getimg | nro -- img
+	3 << 'palimg + 4+ @ ;
+
+:setimg | str nro --
+	3 << 'palimg + >r
+	boxfn> 'boxfn - r!+
+	dup boxfn> strcpyl 'boxfn> !
+	loadimg r> ! ;
+
+:palexist? | str -- nro/-1
+	'palimg >r
+	0 ( palcnt <? )(
+		r@+ 'boxfn + pick2 = 1? ( drop nip rdrop ; ) drop
+		4 r+
+		1+ ) 2drop
+	rdrop -1 ;
+
+:elijeimg | -- nro
+	"atv/placas" dlgfileload 0? ( drop -1 ; )
+	'fileaux strcpy
+	'fileaux palexist? 0 >=? ( ; ) drop
+	'fileaux palcnt setimg
+	palcnt dup 1+ 'palcnt !
+	;
+
+:clickimg
+	elijeimg over ! ;
+
+:imgpal | 'var --
+
+|	0 ( palcnt <? )(
+|		dup getimg >r ccx ccy 64 40 r> img.drawsize
+|		42 'ccy +!
+|		1+ ) drop
+	amarillo
+	'clickimg "NEW IMG" link
+	drop ;
+
+|------------------------------------------------
+#last
+:plqload | "" --
+	here swap load here =? ( drop ; ) 'last !
+	here >r
+	r@+ dup
+	24 >> $ff and 'bmodo !
+	$ffffff and 'bcolor !
+	'box r@+ ( 1? )( r@+ rot !+ swap 1- ) drop 'box> !
+	0 'box< !
+	'mbox r@+ ( 1? )( r@+ rot !+ swap 1- ) drop 'mbox> !
+
+	r@+ 'palcnt !
+	r> 'boxfn swap last over - cmove
+    remem 'here !
+    'palimg >r
+	'boxfn dup 'boxfn> !
+	0 ( palcnt <? )( swap
+		dup 'boxfn - r!+
+		dup >>0 swap loadimg r!+
+    	swap 1+ ) 2drop
+    rdrop
+	;
+
+:loadplq
+	"atv" dlgfileload 0? ( drop ; )
+	dup 'filename strcpy
+	plqload
+	;
+
+|--------------------------
+:2color dup $f0f0f0 and dup 4 >> or swap $f0f0f and dup 4 << or ;
+:bfill tx1 ty1 tx2 ty2 cajaf ;
+
+#pad
+
+:f0	dup 28 >> $f and 0? ( 2drop ; ) 'pad ! ink
+	tx1 ty1 2dup op tx2 ty1 pline tx2 ty2 pline tx1 ty2 pline pline
+	tx1 pad + ty1 pad + 2dup op tx2 pad - ty1 pad + pline tx2 pad - ty2 pad - pline tx1 pad + ty2 pad - pline pline
+	poli ;
+:f1	ink bfill ;			| solido
+
+:f2	$ff and getimg >r
+	tx1 ty1 tx2 ty2
+	pick2 - swap pick3 - swap
+	r> img.adrawsize ;
+
+:f3 2color fcol tx1 ty2 fcen 1.0 tx2 tx1 - 1 max / 0 fmat lfill bfill sfill ;
+:f4 2color fcol tx1 ty2 fcen 0 1.0 ty2 ty1 - 1 max / fmat lfill bfill sfill ;
+:f5 2color fcol tx1 ty1 fcen 0.5 tx2 tx1 - 1 max / 0.5 ty2 ty1 - 1 max / neg fmat lfill bfill sfill ;
+:f6 2color fcol tx1 ty2 fcen 0.5 tx2 tx1 - 1 max / 0.5 ty2 ty1 - 1 max / fmat lfill bfill sfill ;
+:f7 drop ;	| auxiliar
+
+#lbfill f0 f1 f2 f3 f4 f5 f6 f7
+
+::fillbox | nro --
+	dup 28 >> 7 and 2 << 'lbfill + @ exec ;
+
+
+:grid.frame
+	0 0 grid2xy 'ty1 ! 'tx1 !
+	$ff $ff grid2xy  'ty2 ! 'tx2 !
+	bmodo 28 << bcolor or fillbox
+	cyan
+	tx1 1- ty1 1- 2dup op
+	tx2 over line
+	tx2 ty2 line
+	over ty2 line
+	line
+	;
+
+
+#mode
+
+:btnmodo |
+	mode =? ( azul )( negro )
+	[ dup 'mode ! refreshfoco ; ] rot btnt
+	drop ;
+
+
+|------------------------------------
+
+:modefil
+	home 1 8 gotoxy chome!
+	cyan
+	'newseq  " NUEVO " btnt cr cr
+	'loadplq " CARGA " btnt cr cr
+	'saveplq " GRABA " btnt cr cr
+	verde
+	'playscript " PLAY " btnt cr cr
+	;
+
+
+:showtools
+	scr home
+	1 3 gotoxy chome!
+	"Fondo " 'modebac btnmodo sp
+	"Placa " 'modefil btnmodo
+	cr cr
+	"Editar" 'modesel btnmodo sp
+	"Agrega" 'modebox btnmodo
+
+	;
+
+:main
+	'modebac 'mode !
+	4
+	editgrid
+	show fonti clrscr
+		verde oscuro 2 linesfill
+		blanco
+		dup ":r%d EditorTV " print
+		'filename "%s" print
+		cr
+
+		grid.frame
+		box.show
+
+		scr fonti
+		showtools
+        showlayers
+
+		mode exec
+
+		'exit >esc<
+
+		cminiflecha ;
+
+:ini
+	rerand
+	mark
+	here 'remem !
+	;
+
+: ini main ;
