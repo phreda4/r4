@@ -144,6 +144,8 @@
 |------------------------------------
 #place )( $3fff
 #place> 'place
+#mplace )( $3fff
+#mplace> 'mplace
 
 :placeini
 	'place 'place> ! ;
@@ -158,11 +160,12 @@
 
 :place2xy | v -- v x y
 	dup 8 >> dup 11 >> swap $7ff and ;
+:xy2place | x y -- v
+	21 << 10 >> $3ff800 and 
+	swap 21 << 21 >> $7ff and or ;
 
 :emitplace | char --
-	dup chplace,
-	emitsize 'ccx +!
-	;
+	dup chplace, emitsize 'ccx +! ;
 
 |-------------------------------
 :cntlin | adr -- c
@@ -244,40 +247,26 @@
 	;
 
 |---------------
-
 | 00 box -- xxx yyy , xxx yyy , fillbox
 :ebox
-	dup 8 << 20 >> 'tx1 ! 20 << 20 >> 'ty1 !
-	@+
-	dup 8 << 20 >> 'tx2 ! 20 << 20 >> 'ty2 !
-	@+ fillbox ;
+	dup 8 << 20 >> 'tx1 ! 20 << 20 >> 'ty1 ! @+
+	dup 8 << 20 >> 'tx2 ! 20 << 20 >> 'ty2 ! @+
+	fillbox ;
 
 | 01 char -- x y char (14)xx (14)yy  , (8)cc
-:echar
-	dup 18 << 18 >> 'ccy ! 4 << 18 >> 'ccx !
-	@+ $ff and emit
-	;
+:echar  dup 18 << 18 >> 'ccy ! 4 << 18 >> 'ccx ! @+ $ff and emit ;
 
 | 10 font -- font,size,tipo
-:efont
-	dup 12 >> $f and
-	swap $fff and setfont
-	;
+:efont	dup 12 >> $f and swap $fff and setfont ;
 
 | 11 color -- tipo,color
-:ecolor
-	$ffffff and ink ;
+:ecolor	$ffffff and ink ;
 
 #eruntv 'ebox 'echar 'efont 'ecolor
 
-:preruntv | adr --
-	0 'tx1 ! 0 'ty1 !
-	sw 'tx2 ! sh 'ty2 !
-	@ fillbox
-	;
-
-:runtv | adr --
-	4+ ( @+ 1? )(
+:showplace | adr --
+	0 'tx1 ! 0 'ty1 ! sw 'tx2 ! sh 'ty2 ! @+ fillbox
+	( @+ 1? )(
 		dup 26 >> $c and 'eruntv + @ exec
 		) 2drop ;
 
@@ -336,6 +325,39 @@
 		dup 28 >> $c and 'lvaltv + @ exec
 		) 2drop ;
 
+|------------------------------------
+| in	- seg - type
+| wait	- seg - type
+| out	- seg - type
+
+#seq )( $7fff
+#seq> 'seq
+#seqnow
+#seqm )( $fff
+#seqm> 'seqm
+
+:,seq
+	seq> !+ 'seq> ! ;
+:,seqm
+	seqm> strcpyl 'seqm> ! ;
+
+:newseq
+	0 16 << seqm> 'seqm - or ,seq
+	"atv/bb.plq" ,seqm
+	0.5 ,seq
+	0.8 ,seq
+	0.3 ,seq
+
+	1 16 << seqm> 'seqm - or ,seq
+	"atv/aa.plq" ,seqm
+	0.2 ,seq
+	1.8 ,seq
+	0.5 ,seq
+
+	'seq 'seqnow !
+	;
+
+
 |----------------------------------
 #testtv  $c0ff0000 $00008008 $00120120 $c00000ff $800013ff $4000005a $c000ff00 $4000406f 0
 #testtv2 $c00f0000 $00108108 $00180180 $c00000ff $800010ff $4020005a $c000ff00 $4030806f 0
@@ -374,12 +396,111 @@ $4000406f $4030806f
 	convert2place
 	;
 
+#tnow
+#ti
+#tw
+#to
+
+:showseq
+	msec "%d " print
+	ti "%d " print
+	tw "%d " print
+	to "%d " print
+	cr
+	'seq ( seq> <? )(
+		@+ dup $ffff and 'seqm + print
+		20 col
+		16 >> "%h" print
+		@+ "%f " print
+		@+ "%f " print
+		@+ "%f " print
+		cr
+		) drop
+	;
+
+
+
+:mplaceini
+	'mplace 'mplace> ! ;
+:mplace,
+	mplace> !+ 'mplace> ! ;
+:xymplace, | x y --
+	swap 12 << or mplace, ;
+
+|----- tipos de transicion
+#deltax #deltay
+
+| 01 char -- x y char (14)xx (14)yy  , (8)cc
+:echar  dup 18 << 18 >> 'ccy ! 4 << 18 >> 'ccx ! @+ $ff and emit ;
+
+:mbox
+	over 4 - mplace,
+	dup 8 << 20 >> dup mplace, deltax + mplace,
+	20 << 20 >> dup mplace, deltay + mplace,
+	@+
+	over 4 - mplace,
+	dup 8 << 20 >> dup mplace, deltax + mplace,
+	20 << 20 >> dup mplace, deltay + mplace,
+	@+ drop
+	;
+
+:mchar
+	over 4 - mplace,
+	dup 18 << 18 >> dup mplace, deltax + mplace,
+	4 << 18 >> dup mplace, deltay + mplace,
+	@+ drop
+	;
+:mfont
+:mcolor
+	drop ;
+
+#movel 'mbox 'mchar 'mfont 'mcolor
+
+:seqmovexy | x y --
+	'deltay ! 'deltax !
+	mplaceini
+	'place 4+
+	( @+ 1? )(
+		dup 26 >> $c and 'movel + @ exec
+		) 2drop
+	0 mplace, ;
+
+
+:t0	sw 0 seqmovexy ; | <<<
+:t1	sw neg 0 seqmovexy ; | >>>
+:t2	0 sh seqmovexy ; | ^^^
+:t3	0 sh neg seqmovexy ; | vvv
+
+#tlist t0 t1 t2 t3
+
+:preseq
+	seqnow
+	@+ dup $ffff and 'seqm + mprint loadscr
+	16 >> $3 and 2 << 'tlist + @ exec
+
+	@+ 1000 *. msec + 'ti !
+	@+ 1000 *. ti + 'tw !
+	@+ 1000 *. tw + 'to !
+	'seqnow !
+	;
+
+:testbox
+	home
+	0 'tx1 ! 0 'ty1 ! msec 3 >> sw mod 200 + 'tx2 ! sh 'ty2 !
+	0 0 boxpad
+	rojo
+	"esto es una linea" 6 boxprintn
+	;
+
 :main
-	"atv/aa" loadscr
+	newseq
+	preseq
 	fonti
 	show clrscr
-		'place preruntv
-		'place runtv
+		'place showplace
+
+		home fonti negro
+		showseq
 
 		'exit >esc<
 		;
