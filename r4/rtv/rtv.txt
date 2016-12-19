@@ -12,6 +12,9 @@
 
 ^r4/rtv/plqlib.txt
 
+^r4/lib/part16.txt
+^r4/rtv/dib.spr
+
 #remem
 |---------------------------- scr
 #bmodo 1
@@ -28,11 +31,17 @@
 #boxfn )( $fff
 #boxfn> 'boxfn
 
-|------------------------------------------------
-#tiempo
+#tnow
+#tdelta
 
-:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
-	over - tiempo 16 *>> + ;
+#ti
+#tw
+#to
+
+|----------- particulas animadas
+#parts 0 0
+#anims 0 0
+
 |---------------------------- img
 :loadimg | filename -- img
 	".jpg" =pos 1? ( drop loadjpg ; ) drop
@@ -141,189 +150,6 @@
 	;
 
 
-|------------------------------------
-#place )( $3fff
-#place> 'place
-#mplace )( $3fff
-#mplace> 'mplace
-
-:placeini
-	'place 'place> ! ;
-:place,
-	place> !+ 'place> ! ;
-:xyplace, | x y --
-	swap 12 << or place, ;
-:chplace, | char --
-	ccx $3fff and 14 << ccy $3fff and or $10000000 or place,
-	$ff and place, ;
-
-
-:place2xy | v -- v x y
-	dup 8 >> dup 11 >> swap $7ff and ;
-:xy2place | x y -- v
-	21 << 10 >> $3ff800 and 
-	swap 21 << 21 >> $7ff and or ;
-
-:emitplace | char --
-	dup chplace, emitsize 'ccx +! ;
-
-|-------------------------------
-:cntlin | adr -- c
-	1 swap ( c@+ 1? )(
-		10 =? ( rot 1+ rot rot ) | <enter>
-		$5F =? ( rot 1+ rot rot ) | $5f _
-		drop ) 2drop ;
-
-:sizeline | adr -- cc
-	0 swap
-	( c@+ 1? )( 10 =? ( 2drop ; ) emitsize rot + swap )
-	2drop ;
-
-:lineemit
-	( c@+ 1? )( 10 =? ( drop ; ) emitplace ) drop ;
-
-#padx #pady
-
-:boxprintl | adr --
-	dup cntlin
-	ty1 pady + 'ccy !
-	( 1? )( 1-
-		tx1 padx + 'ccx !
-		swap lineemit swap cr
-		) 2drop ;
-
-:boxprintc | adr --
-	dup cntlin
-	ty1 pady + 'ccy !
-	( 1? )( 1-
-		over sizeline
-		tx1 tx2 + 2/ swap 2/ - padx + 'ccx !
-		swap lineemit swap cr
-		) 2drop ;
-
-:boxprintr | adr --
-	dup cntlin
-	ty1 pady + 'ccy !
-	( 1? )( 1-
-		over sizeline
-		tx2 swap - padx - 'ccx !
-		swap lineemit swap cr
-		) 2drop ;
-
-#lboxp boxprintl boxprintl boxprintc boxprintr
-
-:vce
-	ty2 ty1 - 2/ pick3 cntlin cch * 2/ - 'pady +! ;
-:vdn
-	ty2 ty1 - pick3 cntlin cch * - pady - 'pady ! ;
-
-:convboxprintn | str n --
-	dup 2 >> $3 and | 0 up 1 center 2 dn
-	1 =? ( vce )
-	2 =? ( vdn )
-	drop
-	$3 and 2 << 'lboxp + @ exec ;
-
-|---------------
-:convbox | adr --
-	@+ grid2po tx1 ty1 xyplace, tx2 ty2 xyplace,
-	@+ place,
-    @+
-	dup 8 >> $f and over $ff and 1+ h2grid
-	over 12 << over or $20000000 or place,	| font
-	setfont | dup 2 12 << or place,
-	dup 16 >> $ff and w2grid 'padx ! dup 24 >> $ff and h2grid 'pady !
-	12 >> $f and	| align
-	swap @+ $ffffff and $30000000 or place,	| color
-	@+ 'mbox + rot
-	convboxprintn
-	;
-
-:convert2place
-	scr home
-	placeini
-	bmodo 28 << bcolor or place,
-	'box ( box> <? )( convbox ) drop
-	;
-
-|---------------
-| 00 box -- xxx yyy , xxx yyy , fillbox
-:ebox
-	dup 8 << 20 >> 'tx1 ! 20 << 20 >> 'ty1 ! @+
-	dup 8 << 20 >> 'tx2 ! 20 << 20 >> 'ty2 ! @+
-	fillbox ;
-
-| 01 char -- x y char (14)xx (14)yy  , (8)cc
-:echar  dup 18 << 18 >> 'ccy ! 4 << 18 >> 'ccx ! @+ $ff and emit ;
-
-| 10 font -- font,size,tipo
-:efont	dup 12 >> $f and swap $fff and setfont ;
-
-| 11 color -- tipo,color
-:ecolor	$ffffff and ink ;
-
-#eruntv 'ebox 'echar 'efont 'ecolor
-
-:showplace | adr --
-	0 'tx1 ! 0 'ty1 ! sw 'tx2 ! sh 'ty2 ! @+ fillbox
-	( @+ 1? )(
-		dup 26 >> $c and 'eruntv + @ exec
-		) 2drop ;
-
-|----------- interpolacion -----------
-
-#ct
-
-:vlerp | vel xi xf -- xn
-	over - pick2 msec 10 *>> $1ffff and $10000 and? ( $1ffff xor )
-	*. + ;
-
-:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
-	over - ct 16 *>> + ;
-
-:clerp | a b -- c
-	over $ff and over $ff and lerp >r
-	over 8 >> $ff and over 8 >> $ff and lerp 8 << r+
-	swap 16 >> $ff and swap 16 >> $ff and lerp 16 << r> + ;
-
-|--------------
-
-|	rot 24 >> $7 and
-|	'tbox + @ exec
-
-:ebox
-	over @
-	over 8 << 20 >> over 8 << 20 >> lerp
-	rot 20 << 20 >> rot 20 << 20 >> lerp
-	rot 4+ @+ over @
-	over 8 << 20 >> over 8 << 20 >> lerp
-	rot 20 << 20 >> rot 20 << 20 >> lerp
-	rot >r
-	cajaf
-	r> 4+ ;
-
-:echar
-	over @
-	over 2 << 19 >> over 2 << 19 >> lerp 'ccx !
-	over 13 << 19 >> over 13 << 19 >> lerp 'ccy !
-	swap $ff and swap $ff and lerp emit
-	4+ ;
-
-:efont
-	over @
-	over 12 >> $f and over 12 >> $f and lerp
-	rot $fff and rot $fff and lerp setfont
-	4+ ;
-
-:ecolor
-	over @ over =? ( nip )( clerp ) ink 4+ ;
-
-#lvaltv 'ebox 'echar 'efont 'ecolor
-
-:animtv | adr --
-	( @+ 1? )(
-		dup 28 >> $c and 'lvaltv + @ exec
-		) 2drop ;
 
 |------------------------------------
 | in	- seg - type
@@ -344,9 +170,10 @@
 :newseq
 	0 16 << seqm> 'seqm - or ,seq
 	"atv/bb.plq" ,seqm
-	0.5 ,seq
-	0.8 ,seq
-	0.3 ,seq
+|	4.0 ,seq | solo duracion total
+	5.5 ,seq
+	2.8 ,seq
+	5.3 ,seq
 
 	1 16 << seqm> 'seqm - or ,seq
 	"atv/aa.plq" ,seqm
@@ -358,50 +185,12 @@
 	;
 
 
-|----------------------------------
-#testtv  $c0ff0000 $00008008 $00120120 $c00000ff $800013ff $4000005a $c000ff00 $4000406f 0
-#testtv2 $c00f0000 $00108108 $00180180 $c00000ff $800010ff $4020005a $c000ff00 $4030806f 0
 
-#testta $c0ff0000 $c00f0000
-$00008008 $00108108
-$00120120 $00180180
-$c00000ff $c00000ff
-$800013ff $800010ff
-$4000005a $4020002a
-$c000ff00 $c000ff00
-$4000406f $4030806f
-0
 
-:buildtv
-	ct "%f" print cr
-    'testta animtv
-    ct 0.002 + 1.0 mod abs 'ct !
-	;
-
-:transicion
-	;
-
-|------------------------------------------------
-:aaa
-	33
-	show clrscr
-        buildtv
-		reloj
-		'exit >esc<
-		cminiflecha ;
-
-:loadscr | "" --
-	plqload
-	fullgrid
-	convert2place
-	;
-
-#tnow
-#ti
-#tw
-#to
-
-:showseq
+:dumpseq
+	home fonti negro
+	ti msec - "%f" print
+	cr
 	msec "%d " print
 	ti "%d " print
 	tw "%d " print
@@ -420,88 +209,136 @@ $4000406f $4030806f
 
 
 
-:mplaceini
-	'mplace 'mplace> ! ;
-:mplace,
-	mplace> !+ 'mplace> ! ;
-:xymplace, | x y --
-	swap 12 << or mplace, ;
 
-|----- tipos de transicion
-#deltax #deltay
 
-| 01 char -- x y char (14)xx (14)yy  , (8)cc
-:echar  dup 18 << 18 >> 'ccy ! 4 << 18 >> 'ccx ! @+ $ff and emit ;
+:tbox | adr --
+	>r
+	r@+ 'tx1 ! r@+ 'ty1 !
+	r@+ 'tx2 ! r@+ 'ty2 !
+	r@+ fillbox
+	r@+ dup $ffff and swap 16 >> $ffff and boxpad
+	r@+ dup 12 >> $f and swap $fff and setfont
+	r@+ r@+ dup ink 24 >> boxprintn
 
-:mbox
-	over 4 - mplace,
-	dup 8 << 20 >> dup mplace, deltax + mplace,
-	20 << 20 >> dup mplace, deltay + mplace,
+|	-36 r+ r @ 1+ r!+
+|	4 r+ r @ 1+ r!+
+
+	rdrop ;
+
+
+:convboxp | adr --
+	'tbox 'parts p!+ >r
+	@+ grid2po
+	tx1 r!+ ty1 r!+	tx2 r!+ ty2 r!+
+
+	@+ r!+ | fondo
+
 	@+
-	over 4 - mplace,
-	dup 8 << 20 >> dup mplace, deltax + mplace,
-	20 << 20 >> dup mplace, deltay + mplace,
-	@+ drop
+	dup 24 >> $ff and w2grid $ffff and 16 <<
+	over 16 >> $ff and h2grid $ffff and
+	or r!+ | pad
+
+	dup 8 >> $f and 12 <<
+	over $ff and 1+ h2grid $fff and
+	or r!+ | font
+
+	12 >> $f and 24 <<	| align
+	swap @+ $ffffff and	| color
+	rot or
+	swap @+ 'mbox +		| text
+	r!+
+	swap r> !
 	;
 
-:mchar
-	over 4 - mplace,
-	dup 18 << 18 >> dup mplace, deltax + mplace,
-	4 << 18 >> dup mplace, deltay + mplace,
-	@+ drop
+:convert2part
+	'box ( box> <? )( convboxp ) drop ;
+
+
+:loadscr | "" --
+	plqload
+	fullgrid
+	'parts p.clear
+	'anims p.clear
+	convert2part
 	;
-:mfont
-:mcolor
-	drop ;
 
-#movel 'mbox 'mchar 'mfont 'mcolor
-
-:seqmovexy | x y --
-	'deltay ! 'deltax !
-	mplaceini
-	'place 4+
-	( @+ 1? )(
-		dup 26 >> $c and 'movel + @ exec
-		) 2drop
-	0 mplace, ;
-
-
-:t0	sw 0 seqmovexy ; | <<<
-:t1	sw neg 0 seqmovexy ; | >>>
-:t2	0 sh seqmovexy ; | ^^^
-:t3	0 sh neg seqmovexy ; | vvv
-
-#tlist t0 t1 t2 t3
-
-:preseq
+:nextseq
 	seqnow
 	@+ dup $ffff and 'seqm + mprint loadscr
-	16 >> $3 and 2 << 'tlist + @ exec
+	16 >> $3 and 2 << drop |'tlist + @ exec
 
-	@+ 1000 *. msec + 'ti !
+	0 'tnow !
+	@+ 1000 *. 'ti !
 	@+ 1000 *. ti + 'tw !
 	@+ 1000 *. tw + 'to !
+	seq> =? ( 'seq nip ) | inicio otra vez
 	'seqnow !
 	;
 
-:testbox
-	home
-	0 'tx1 ! 0 'ty1 ! msec 3 >> sw mod 200 + 'tx2 ! sh 'ty2 !
-	0 0 boxpad
-	rojo
-	"esto es una linea" 6 boxprintn
+:backsis
+	0 'tx1 ! 0 'ty1 ! sw 'tx2 ! sh 'ty2 !
+	bmodo 28 << bcolor or fillbox
+	| scr>xfb
+	0 'tnow !
+	msec 'tdelta !
+	;
+
+:partsis
+	| xfbscr
+	msec dup tdelta - 'tnow +! 'tdelta !
+	'parts p.draw
+	;
+
+|----------- interpolacion -----------
+
+#sumt
+#deltat
+
+#x1 -0.8
+#x2 0.8
+
+:iline
+	sumt 50.0 *.
+	;
+:llerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	x1 x2 over - sumt 1.0 5000 / * 16 *>> + ;
+:clerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	x1 x2 over - sumt 1.0 5000 / * cos abs 16 *>> + ;
+:slerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	x1 x2 over - sumt 1.0 5000 / * sin abs 16 *>> + ;
+
+:testtime
+	msec dup
+	deltat - 'sumt +!
+	sumt
+	'deltat !
+
+	64 qdim
+	llerp -0.4 fpos 'dib nsprite
+	clerp -0.2 fpos 'dib nsprite
+	slerp 0 fpos 'dib nsprite
+	sumt 0.2 fpos 'dib nsprite
+	sumt 0.4 fpos 'dib nsprite
 	;
 
 :main
 	newseq
-	preseq
-	fonti
+
+	nextseq
+	msec 'deltat !
+	0 'sumt !
+
 	show clrscr
-		'place showplace
 
-		home fonti negro
-		showseq
+		backsis
+		partsis
 
+		dumpseq
+
+		cr
+		testtime
+
+		'nextseq <f1>
 		'exit >esc<
 		;
 
@@ -509,7 +346,9 @@ $4000406f $4030806f
 	rerand
 	mark
 	alertamem
-	here 'remem !
+	512 'parts p.ini
+	512 'anims p.ini
+	here 'remem !	| memoria libre
 	;
 
 : ini main ;

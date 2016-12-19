@@ -1,0 +1,593 @@
+| rTV
+| 2016 PHREDA
+|-----------------------------------------
+^r4/lib/gui.txt
+^r4/lib/img.txt
+
+^r4/lib/loadjpg.txt
+^r4/lib/loadpng.txt
+^r4/lib/loadbmp.txt
+
+^r4/lib/trace.txt
+
+^r4/rtv/plqlib.txt
+
+^r4/lib/part16.txt
+
+#remem
+|---------------------------- scr
+#bmodo 1
+#bcolor $ffffff
+
+#box )( $ffff
+#box> 'box
+#box< 0
+#mbox )( $ffff
+#mbox> 'mbox
+
+#palcnt 0
+#palimg )( $1ff
+#boxfn )( $fff
+#boxfn> 'boxfn
+
+|------------------------------------------------
+#tiempo
+
+:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - tiempo 16 *>> + ;
+|---------------------------- img
+:loadimg | filename -- img
+	".jpg" =pos 1? ( drop loadjpg ; ) drop
+	".png" =pos 1? ( drop loadpng ; ) drop
+	".bmp" =pos 1? ( drop loadbmp ; )
+	2drop 0 ;
+
+:getimg | nro -- img
+	3 << 'palimg + 4+ @ ;
+
+|--------------------------
+:2color dup $f0f0f0 and dup 4 >> or swap $f0f0f and dup 4 << or ;
+:bfill tx1 ty1 tx2 ty2 cajaf ;
+#pad
+
+:f0	dup 28 >> $f and 0? ( 2drop ; ) 'pad ! ink
+	tx1 ty1 2dup op tx2 ty1 pline tx2 ty2 pline tx1 ty2 pline pline
+	tx1 pad + ty1 pad + 2dup op tx2 pad - ty1 pad + pline tx2 pad - ty2 pad - pline tx1 pad + ty2 pad - pline pline
+	poli ;
+:f1	ink bfill ;			| solido
+
+:f2	$ff and getimg >r
+	tx1 ty1 tx2 ty2
+	pick2 - swap pick3 - swap
+	r> img.drawsize ;
+
+:f3 2color fcol tx1 ty2 fcen 1.0 tx2 tx1 - 1 max / 0 fmat lfill bfill sfill ;
+:f4 2color fcol tx1 ty2 fcen 0 1.0 ty2 ty1 - 1 max / fmat lfill bfill sfill ;
+:f5 2color fcol tx1 ty1 fcen 0.5 tx2 tx1 - 1 max / 0.5 ty2 ty1 - 1 max / neg fmat lfill bfill sfill ;
+:f6 2color fcol tx1 ty2 fcen 0.5 tx2 tx1 - 1 max / 0.5 ty2 ty1 - 1 max / fmat lfill bfill sfill ;
+:f7 drop ;	| auxiliar
+
+#lbfill f0 f1 f2 f3 f4 f5 f6 f7
+
+:fillbox | nro --
+	dup 28 >> 7 and 2 << 'lbfill + @ exec ;
+
+|------------------------------------------------
+#amem
+#alerta
+
+:alertamem
+	here dup 'amem !
+	$fff + 'here !
+	0 'alerta !
+	;
+
+:eventocheck
+	amem "abeltv/alerta.mem" load
+	amem =? ( 0 swap ! ; ) 0 swap !
+	1 'alerta !
+
+|    0 0 "abeltv/alerta.mem" save
+	;
+
+|-----------------------------------------------
+#videos
+#videonow
+
+:playffm | "" --
+	"abeltv/ffplay -fs -autoexit -loglevel quiet ""abeltv/videos/%s""" mprint
+	system drop ;
+
+:waitvideo
+	( -1 system -1 <>? )( drop
+		eventocheck
+		100 update drop ) drop ;
+
+:waitvideo
+	show
+		'exit >esc<
+		-1 system -1 =? ( exit 0 system drop ) drop ;
+
+:playvideo
+	videonow playffm
+	videonow >>0 dup c@ 0? ( 2drop videos )( drop ) 'videonow !
+ 	;
+
+:player
+	-1 system -1 <>? ( drop ; ) drop
+	playvideo ;
+
+
+|------------------------------------------------
+#last
+:plqload | "" --
+	here swap load here =? ( drop ; ) 'last !
+	here >r
+	r@+ dup
+	24 >> $ff and 'bmodo !
+	$ffffff and 'bcolor !
+	'box r@+ ( 1? )( r@+ rot !+ swap 1- ) drop 'box> !
+	0 'box< !
+	'mbox r@+ ( 1? )( r@+ rot !+ swap 1- ) drop 'mbox> !
+
+	r@+ 'palcnt !
+	r> 'boxfn swap last over - cmove
+    remem 'here !
+    'palimg >r
+	'boxfn dup 'boxfn> !
+	0 ( palcnt <? )( swap
+		dup 'boxfn - r!+
+		dup >>0 swap loadimg r!+
+    	swap 1+ ) 2drop
+    rdrop
+	;
+
+
+|------------------------------------
+#place )( $3fff
+#place> 'place
+#mplace )( $3fff
+#mplace> 'mplace
+
+:placeini
+	'place 'place> ! ;
+:place,
+	place> !+ 'place> ! ;
+:xyplace, | x y --
+	swap 12 << or place, ;
+:chplace, | char --
+	ccx $3fff and 14 << ccy $3fff and or $10000000 or place,
+	$ff and place, ;
+
+
+:place2xy | v -- v x y
+	dup 8 >> dup 11 >> swap $7ff and ;
+:xy2place | x y -- v
+	21 << 10 >> $3ff800 and
+	swap 21 << 21 >> $7ff and or ;
+
+:emitplace | char --
+	dup chplace, emitsize 'ccx +! ;
+
+|-------------------------------
+:cntlin | adr -- c
+	1 swap ( c@+ 1? )(
+		10 =? ( rot 1+ rot rot ) | <enter>
+		$5F =? ( rot 1+ rot rot ) | $5f _
+		drop ) 2drop ;
+
+:sizeline | adr -- cc
+	0 swap
+	( c@+ 1? )( 10 =? ( 2drop ; ) emitsize rot + swap )
+	2drop ;
+
+:lineemit
+	( c@+ 1? )( 10 =? ( drop ; ) emitplace ) drop ;
+
+#padx #pady
+
+:boxprintl | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		tx1 padx + 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+:boxprintc | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		over sizeline
+		tx1 tx2 + 2/ swap 2/ - padx + 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+:boxprintr | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		over sizeline
+		tx2 swap - padx - 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+#lboxp boxprintl boxprintl boxprintc boxprintr
+
+:vce
+	ty2 ty1 - 2/ pick3 cntlin cch * 2/ - 'pady +! ;
+:vdn
+	ty2 ty1 - pick3 cntlin cch * - pady - 'pady ! ;
+
+:convboxprintn | str n --
+	dup 2 >> $3 and | 0 up 1 center 2 dn
+	1 =? ( vce )
+	2 =? ( vdn )
+	drop
+	$3 and 2 << 'lboxp + @ exec ;
+
+|---------------
+:convbox | adr --
+	@+ grid2po tx1 ty1 xyplace, tx2 ty2 xyplace,
+	@+ place,
+    @+
+	dup 8 >> $f and over $ff and 1+ h2grid
+	over 12 << over or $20000000 or place,	| font
+	setfont | dup 2 12 << or place,
+	dup 16 >> $ff and w2grid 'padx ! dup 24 >> $ff and h2grid 'pady !
+	12 >> $f and	| align
+	swap @+ $ffffff and $30000000 or place,	| color
+	@+ 'mbox + rot
+	convboxprintn
+	;
+
+:convert2place
+	scr home
+	placeini
+	bmodo 28 << bcolor or place,
+	'box ( box> <? )( convbox ) drop
+	;
+
+
+|---------------
+| 00 box -- xxx yyy , xxx yyy , fillbox
+:ebox
+	dup 8 << 20 >> 'tx1 ! 20 << 20 >> 'ty1 ! @+
+	dup 8 << 20 >> 'tx2 ! 20 << 20 >> 'ty2 ! @+
+	fillbox ;
+
+| 01 char -- x y char (14)xx (14)yy  , (8)cc
+:echar  dup 18 << 18 >> 'ccy ! 4 << 18 >> 'ccx ! @+ $ff and emit ;
+
+| 10 font -- font,size,tipo
+:efont	dup 12 >> $f and swap $fff and setfont ;
+
+| 11 color -- tipo,color
+:ecolor	$ffffff and ink ;
+
+#eruntv 'ebox 'echar 'efont 'ecolor
+
+:showplace | adr --
+	0 'tx1 ! 0 'ty1 ! sw 'tx2 ! sh 'ty2 ! @+ fillbox
+	( @+ 1? )(
+		dup 26 >> $c and 'eruntv + @ exec
+		) 2drop ;
+
+|----------- interpolacion -----------
+
+#ct
+
+:vlerp | vel xi xf -- xn
+	over - pick2 msec 10 *>> $1ffff and $10000 and? ( $1ffff xor )
+	*. + ;
+
+:lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - ct 16 *>> + ;
+
+:clerp | a b -- c
+	over $ff and over $ff and lerp >r
+	over 8 >> $ff and over 8 >> $ff and lerp 8 << r+
+	swap 16 >> $ff and swap 16 >> $ff and lerp 16 << r> + ;
+
+|--------------
+
+|	rot 24 >> $7 and
+|	'tbox + @ exec
+
+:ebox
+	over @
+	over 8 << 20 >> over 8 << 20 >> lerp
+	rot 20 << 20 >> rot 20 << 20 >> lerp
+	rot 4+ @+ over @
+	over 8 << 20 >> over 8 << 20 >> lerp
+	rot 20 << 20 >> rot 20 << 20 >> lerp
+	rot >r
+	cajaf
+	r> 4+ ;
+
+:echar
+	over @
+	over 2 << 19 >> over 2 << 19 >> lerp 'ccx !
+	over 13 << 19 >> over 13 << 19 >> lerp 'ccy !
+	swap $ff and swap $ff and lerp emit
+	4+ ;
+
+:efont
+	over @
+	over 12 >> $f and over 12 >> $f and lerp
+	rot $fff and rot $fff and lerp setfont
+	4+ ;
+
+:ecolor
+	over @ over =? ( nip )( clerp ) ink 4+ ;
+
+#lvaltv 'ebox 'echar 'efont 'ecolor
+
+:animtv | adr --
+	( @+ 1? )(
+		dup 28 >> $c and 'lvaltv + @ exec
+		) 2drop ;
+
+|------------------------------------
+| in	- seg - type
+| wait	- seg - type
+| out	- seg - type
+
+#seq )( $7fff
+#seq> 'seq
+#seqnow
+#seqm )( $fff
+#seqm> 'seqm
+
+:,seq
+	seq> !+ 'seq> ! ;
+:,seqm
+	seqm> strcpyl 'seqm> ! ;
+
+:newseq
+	0 16 << seqm> 'seqm - or ,seq
+	"atv/bb.plq" ,seqm
+	5.5 ,seq
+	2.8 ,seq
+	5.3 ,seq
+
+	1 16 << seqm> 'seqm - or ,seq
+	"atv/aa.plq" ,seqm
+	0.2 ,seq
+	1.8 ,seq
+	0.5 ,seq
+
+	'seq 'seqnow !
+	;
+
+
+|----------------------------------
+#testtv  $c0ff0000 $00008008 $00120120 $c00000ff $800013ff $4000005a $c000ff00 $4000406f 0
+#testtv2 $c00f0000 $00108108 $00180180 $c00000ff $800010ff $4020005a $c000ff00 $4030806f 0
+
+#testta $c0ff0000 $c00f0000
+$00008008 $00108108
+$00120120 $00180180
+$c00000ff $c00000ff
+$800013ff $800010ff
+$4000005a $4020002a
+$c000ff00 $c000ff00
+$4000406f $4030806f
+0
+
+:buildtv
+	ct "%f" print cr
+    'testta animtv
+    ct 0.002 + 1.0 mod abs 'ct !
+	;
+
+:transicion
+	;
+
+|------------------------------------------------
+:aaa
+	33
+	show clrscr
+        buildtv
+		reloj
+		'exit >esc<
+		cminiflecha ;
+
+:loadscr | "" --
+	plqload
+	fullgrid
+	convert2place
+	;
+
+#tnow
+#ti
+#tw
+#to
+
+:showseq
+	ti msec - "%f" print
+	cr
+	msec "%d " print
+	ti "%d " print
+	tw "%d " print
+	to "%d " print
+	cr
+	'seq ( seq> <? )(
+		@+ dup $ffff and 'seqm + print
+		20 col
+		16 >> "%h" print
+		@+ "%f " print
+		@+ "%f " print
+		@+ "%f " print
+		cr
+		) drop
+	;
+
+
+
+:mplaceini
+	'mplace 'mplace> ! ;
+:mplace,
+	mplace> !+ 'mplace> ! ;
+:xymplace, | x y --
+	swap 12 << or mplace, ;
+
+|----- tipos de transicion
+#deltax #deltay
+
+| 01 char -- x y char (14)xx (14)yy  , (8)cc
+:echar  dup 18 << 18 >> 'ccy ! 4 << 18 >> 'ccx ! @+ $ff and emit ;
+
+:m1box
+	over 4 - mplace,
+	dup 8 << 20 >> dup mplace, deltax + mplace,
+	20 << 20 >> dup mplace, deltay + mplace,
+	@+
+	over 4 - mplace,
+	dup 8 << 20 >> dup mplace, deltax + mplace,
+	20 << 20 >> dup mplace, deltay + mplace,
+	@+ drop
+	;
+
+:mchar
+	over 4 - mplace,
+	dup 18 << 18 >> dup mplace, deltax + mplace,
+	4 << 18 >> dup mplace, deltay + mplace,
+	@+ drop
+	;
+:mfont
+:mcolor
+	drop ;
+
+#movel 'm1box 'mchar 'mfont 'mcolor
+
+:seqmovexy | x y --
+	'deltay ! 'deltax !
+	mplaceini
+	'place 4+
+	( @+ 1? )(
+		dup 26 >> $c and 'movel + @ exec
+		) 2drop
+	0 mplace, ;
+
+
+:t0	sw 0 seqmovexy ; | <<<
+:t1	sw neg 0 seqmovexy ; | >>>
+:t2	0 sh seqmovexy ; | ^^^
+:t3	0 sh neg seqmovexy ; | vvv
+
+#tlist t0 t1 t2 t3
+
+:preseq
+	seqnow
+	@+ dup $ffff and 'seqm + mprint loadscr
+	16 >> $3 and 2 << 'tlist + @ exec
+
+	@+ 1000 *. msec + 'ti !
+	@+ 1000 *. ti + 'tw !
+	@+ 1000 *. tw + 'to !
+	seq> =? ( 'seq nip ) | inicio otra vez
+	'seqnow !
+	;
+
+:testbox
+	home
+	0 'tx1 ! 0 'ty1 ! msec 3 >> sw mod 200 + 'tx2 ! sh 'ty2 !
+	0 0 boxpad
+	rojo
+	"esto es una linea" 6 boxprintn
+	;
+
+:nextseq
+	preseq
+	;
+
+#parts 0 0
+
+:partsis
+	'parts p.draw ;
+
+:tbox | adr --
+	4+ >r
+	r@+ 'tx1 ! r@+ 'ty1 !
+	r@+ 'tx2 ! r@+ 'ty2 !
+	r@+ dup $ffff and swap 16 >> $ffff and boxpad
+	r@+ dup 12 >> $f and swap $fff and setfont
+	r@+ r@+ dup ink 24 >> boxprintn
+
+	-28 r+
+	r @ 1+ r!+
+	4 r+
+|	r @ 1+ r!+
+
+	rdrop
+	;
+
+:addpart
+	'tbox 'parts p!+ >r
+	1 r!+ | vida
+	50 r!+ 50 r!+
+	400 r!+ 300 r!+
+	0 r!+
+	$203f r!+
+	"Esto es ñprueba" r!+
+	$06ff00ff r!+
+	rdrop ;
+
+:convboxp | adr --
+	'tbox 'parts p!+ >r
+	1 r!+
+	@+ grid2po
+	tx1 r!+ ty1 r!+
+	tx2 r!+ ty2 r!+
+	@+ drop | fondo
+	@+
+	dup 24 >> $ff and w2grid $ffff and
+	over 16 >> $ff and h2grid $ffff and 16 <<
+	or r!+ | pad
+
+	dup 8 >> $f and 12 <<
+	over $ff and 1+ h2grid $fff and
+	or r!+ | font
+
+	12 >> $f and	24 <<	| align
+	swap @+ $ffffff and	| color
+	rot or
+	swap @+ 'mbox +			| text
+	r!+
+	swap r> !
+	;
+
+
+:convert2part
+|	bmodo 28 << bcolor or place,
+	'box ( box> <? )( convboxp ) drop
+	;
+
+:main
+	newseq
+	preseq
+	fonti
+	show clrscr
+		'place showplace
+
+		home fonti negro
+		showseq
+
+		partsis
+
+		'nextseq <f1>
+		'addpart <f2>
+		'convert2part <f3>
+		'exit >esc<
+		;
+
+:ini
+	rerand
+	mark
+	alertamem
+	here 'remem !
+	1000 'parts p.ini
+	;
+
+: ini main ;

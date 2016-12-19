@@ -225,7 +225,7 @@
 	e.bmodo 28 << e.color or fillbox
 	e.fcolor ink
 	e.font e.size 1+ h2grid setfont
-	e.padx w2grid e.pady h2grid boxpad
+	e.padx w2grid 'padx ! e.pady h2grid 'pady !
 	'e.text e.align boxprintn
 	;
 
@@ -235,7 +235,7 @@
 	@+ fillbox
     @+
 	dup 8 >> $f and over $ff and 1+ h2grid setfont
-	dup 16 >> $ff and w2grid over 24 >> $ff and h2grid boxpad
+	dup 16 >> $ff and w2grid 'padx ! dup 24 >> $ff and h2grid 'pady !
 	12 >> $f and	| align
 	swap @+ ink
 	@+ 'mbox + rot boxprintn
@@ -451,8 +451,168 @@
 		) 2drop ;
 
 |------------------------------------
+#place )( $3fff
+#place> 'place
+
+:placeini
+	'place 'place> ! ;
+:place,
+	place> !+ 'place> ! ;
+:xyplace, | x y --
+	swap 12 << or place, ;
+:chplace, | char --
+	ccx $3fff and 14 << ccy $3fff and or $10000000 or place,
+	$ff and place, ;
+
+
+:place2xy | v -- v x y
+	dup 8 >> dup 11 >> swap $7ff and ;
+
+:emitplace | char --
+	dup chplace,
+	emitsize 'ccx +!
+	;
+
+|-------------------------------
+:cntlin | adr -- c
+	1 swap ( c@+ 1? )(
+		10 =? ( rot 1+ rot rot ) | <enter>
+		$5F =? ( rot 1+ rot rot ) | $5f _
+		drop ) 2drop ;
+
+:sizeline | adr -- cc
+	0 swap
+	( c@+ 1? )( 10 =? ( 2drop ; ) emitsize rot + swap )
+	2drop ;
+
+:lineemit
+	( c@+ 1? )( 10 =? ( drop ; ) emitplace ) drop ;
+
+#padx #pady
+
+:boxprintl | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		tx1 padx + 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+:boxprintc | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		over sizeline
+		tx1 tx2 + 2/ swap 2/ - padx + 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+:boxprintr | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		over sizeline
+		tx2 swap - padx - 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+#lboxp boxprintl boxprintl boxprintc boxprintr
+
+:vce
+	ty2 ty1 - 2/ pick3 cntlin cch * 2/ - 'pady +! ;
+:vdn
+	ty2 ty1 - pick3 cntlin cch * - pady - 'pady ! ;
+
+:convboxprintn | str n --
+	dup 2 >> $3 and | 0 up 1 center 2 dn
+	1 =? ( vce )
+	2 =? ( vdn )
+	drop
+	$3 and 2 << 'lboxp + @ exec ;
+
+|---------------
+:convbox | adr --
+	@+ grid2po tx1 ty1 xyplace, tx2 ty2 xyplace,
+	@+ place,
+    @+
+	dup 8 >> $f and over $ff and 1+ h2grid
+	over 12 << over or $20000000 or place,	| font
+	setfont | dup 2 12 << or place,
+	dup 16 >> $ff and w2grid 'padx ! dup 24 >> $ff and h2grid 'pady !
+	12 >> $f and	| align
+	swap @+ $ffffff and $30000000 or place,	| color
+	@+ 'mbox + rot
+	convboxprintn
+	;
+
+:convert2place
+	scr home
+	placeini
+	bmodo 28 << bcolor or place,
+	'box ( box> <? )( convbox ) drop
+	;
+
+|---------------
+
+| 00 box -- xxx yyy , xxx yyy , fillbox
+:ebox
+	dup 8 << 20 >> 'tx1 ! 20 << 20 >> 'ty1 !
+	@+
+	dup 8 << 20 >> 'tx2 ! 20 << 20 >> 'ty2 !
+	@+ fillbox ;
+
+| 01 char -- x y char (14)xx (14)yy  , (8)cc
+:echar
+	dup 18 << 18 >> 'ccy ! 4 << 18 >> 'ccx !
+	@+ $ff and emit
+	;
+
+| 10 font -- font,size,tipo
+:efont
+	dup 12 >> $f and
+	swap $fff and setfont
+	;
+
+| 11 color -- tipo,color
+:ecolor
+	$ffffff and ink ;
+
+#eruntv 'ebox 'echar 'efont 'ecolor
+
+:preruntv | adr --
+	0 'tx1 ! 0 'ty1 !
+	sw 'tx2 ! sh 'ty2 !
+	@ fillbox
+	;
+
+:runtv | adr --
+	4+ ( @+ 1? )(
+		dup 26 >> $c and 'eruntv + @ exec
+		) 2drop ;
+
+|------------------------------------
+:debug
+	verde
+	'place ( place> <? )(
+		@+ dup 28 >>
+		%100 and? ( $ff )( $7f00 ) >r
+		%10 and? ( $ff00 r+ )
+		%1 and? ( $ff0000 r+ ) drop
+		r> ink
+		"%h " print cr allowchome
+		) drop
+	;
 
 :playscript
+	fullgrid
+	convert2place
+	fonti
+	show clrscr
+|		debug
+		'place preruntv
+		'place runtv
+
+		[ exit editgrid ; ] >esc<
 		;
 
 |------------------------------------
