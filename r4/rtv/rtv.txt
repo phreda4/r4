@@ -207,22 +207,48 @@
 		) drop
 	;
 
+|----------- interpolacion -----------
+#dx #dy
+#t0
 
+:posdelta | nro --
+	0 dup 'dx ! 'dy !
+	%1 and? ( sw 'dx +! )
+	%10 and? ( sw neg 'dx +! )
+	%100 and? ( sh 'dy +! )
+	%1000 and? ( sh neg 'dy +! )
+	drop ;
 
+:posmov | adr --
+	@+ posdelta
+	@+ msec swap -
+	1.0 8.0 1000 *. /.
+	*. 't0 !
+	drop
+	;
 
+:llerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 16 *>> + ;
+:clerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 cos abs 16 *>> + ;
+:slerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 sin abs 16 *>> + ;
+
+:dx+ | x -- dx
+	dup dx + llerp ;
+
+:dy+ | y -- ny
+	dup dy + llerp ;
 
 :tbox | adr --
 	>r
-	r@+ 'tx1 ! r@+ 'ty1 !
-	r@+ 'tx2 ! r@+ 'ty2 !
+	r 9 2 << + posmov
+	r@+ dx+ 'tx1 ! r@+ dy+ 'ty1 !
+	r@+ dx+ 'tx2 ! r@+ dy+ 'ty2 !
 	r@+ fillbox
 	r@+ dup $ffff and swap 16 >> $ffff and boxpad
 	r@+ dup 12 >> $f and swap $fff and setfont
 	r@+ r@+ dup ink 24 >> boxprintn
-
-|	-36 r+ r @ 1+ r!+
-|	4 r+ r @ 1+ r!+
-
 	rdrop ;
 
 
@@ -245,10 +271,12 @@
 	12 >> $f and 24 <<	| align
 	swap @+ $ffffff and	| color
 	rot or
-	swap @+ 'mbox +		| text
-	r!+
-	swap r> !
-	;
+	swap @+ 'mbox +	r!+	| text
+	swap r!+
+
+	%0010 r!+	| delta x y
+	msec r!+
+	rdrop	;
 
 :convert2part
 	'box ( box> <? )( convboxp ) drop ;
@@ -289,54 +317,16 @@
 	'parts p.draw
 	;
 
-|----------- interpolacion -----------
-
-#sumt
-#deltat
-
-#x1 -0.8
-#x2 0.8
-
-:iline
-	sumt 50.0 *.
-	;
-:llerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
-	x1 x2 over - sumt 1.0 5000 / * 16 *>> + ;
-:clerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
-	x1 x2 over - sumt 1.0 5000 / * cos abs 16 *>> + ;
-:slerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
-	x1 x2 over - sumt 1.0 5000 / * sin abs 16 *>> + ;
-
-:testtime
-	msec dup
-	deltat - 'sumt +!
-	sumt
-	'deltat !
-
-	64 qdim
-	llerp -0.4 fpos 'dib nsprite
-	clerp -0.2 fpos 'dib nsprite
-	slerp 0 fpos 'dib nsprite
-	sumt 0.2 fpos 'dib nsprite
-	sumt 0.4 fpos 'dib nsprite
-	;
 
 :main
 	newseq
-
 	nextseq
-	msec 'deltat !
-	0 'sumt !
-
 	show clrscr
 
 		backsis
 		partsis
 
 		dumpseq
-
-		cr
-		testtime
 
 		'nextseq <f1>
 		'exit >esc<
