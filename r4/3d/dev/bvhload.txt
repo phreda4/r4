@@ -1,0 +1,241 @@
+| bvh load
+| PHREDA 2016
+|----------------
+^r4/lib/gui.txt
+^r4/lib/parse.txt
+^r4/lib/3dmat.txt
+
+^r4/lib/trace.txt
+
+
+#bvhfile
+#$bvhfile
+
+#nombres )( 1024
+#nombres> 'nombres
+
+#level
+#ox #oy #oz
+#chcnt
+#chsum
+#chpos
+#offend
+
+#model
+#frames
+#frametime
+#animation
+
+
+#xcam 0 #ycam 0 #zcam 200.0
+#xr 0 #yr 0
+
+
+:,off+cha
+	level chpos 8 << or , ox , oy , oz , ;
+:,off
+	level , ox , oy , oz ,  ;
+
+:parsechp
+	trim
+	dup "Xposition" scanp 1? ( nip 1 ; ) drop
+	dup "Yposition" scanp 1? ( nip 2 ; ) drop
+	dup "Zposition" scanp 1? ( nip 3 ; ) drop
+	dup "Xrotation" scanp 1? ( nip 4 ; ) drop
+	dup "Yrotation" scanp 1? ( nip 5 ; ) drop
+	dup "Zrotation" scanp 1? ( nip 6 ; ) drop
+	0 ;
+
+:parsecha
+	trim
+	getnro dup 'chcnt ! dup 'chsum +!
+	0 swap ( 1? )( 1-
+		swap rot
+		parsechp pick3 2 << <<
+		rot or rot ) drop 'chpos !
+	,off+cha ;
+
+:parseoff
+	trim
+	getfnro 'ox !
+	getfnro 'oy !
+	getfnro 'oz !
+	offend 1? ( ,off 0 'offend ! ) drop
+	;
+
+:parsejoi
+	trim
+	dup nombres> scanstr 'nombres> !
+	>>sp
+	;
+
+:atom
+	trim
+	dup "{" scanp 1? ( nip 1 'level +! ; ) drop
+	dup "}" scanp 1? ( nip -1 'level +! ; ) drop
+	dup "OFFSET" scanp 1? ( nip parseoff ; ) drop
+	dup "CHANNELS" scanp 1? ( nip parsecha ; ) drop
+	dup "JOINT" scanp 1? ( nip parsejoi ; ) drop
+	dup "End Site" scanp 1? ( nip 1 'offend ! ; ) drop
+	trace
+	;
+
+:parseroo
+	trim
+	dup nombres> scanstr 'nombres> !
+	>>sp
+	0 'level !
+	0 'chsum !
+	0 'offend !
+	( atom level 1? )( drop ) drop
+	;
+
+:parsehie
+	trim
+	dup "ROOT" scanp 1? ( nip parseroo ; ) drop
+	>>sp
+	;
+
+:parsemot
+	0 , 0 , 0 , 0 ,
+	here 'animation !
+	trim dup "Frames:" scanp 0? ( drop ; )
+	trim getnro 'frames !
+	trim dup "Frame Time:" scanp 0? ( drop ; )
+	trim getfnro 'frametime !
+	frames ( 1? )( 1-
+		chsum ( 1? )( 1-
+			rot trim getfnro , rot rot
+			) drop
+		) drop ;
+
+:nextword
+	trim
+	dup "HIERARCHY" scanp 1? ( nip parsehie ; ) drop
+	dup "MOTION" scanp 1? ( nip parsemot ; ) drop
+	;
+
+:parsebvh | --
+	bvhfile ( $bvhfile <? )( nextword >>sp ) drop ;
+
+|------------------------------------------
+:dumpmod | adr
+	( @+ 1? )(
+		"%h " print
+		@+ "%f " print
+		@+ "%f " print
+		@+ "%f " print
+			cr
+		) 2drop
+	;
+
+:3dop project3d op ;
+:3dline project3d line ;
+
+:drawboxz | z --
+	-0.5 -0.5 pick2 3dop
+	0.5 -0.5 pick2 3dline
+	0.5 0.5 pick2 3dline
+	-0.5 0.5 pick2 3dline
+	-0.5 -0.5 rot 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup -0.5 3dop 0.5 3dline ;
+
+:drawcube |
+	-0.5 drawboxz
+	0.5 drawboxz
+	-0.5 -0.5 drawlinez
+	0.5 -0.5 drawlinez
+	0.5 0.5 drawlinez
+	-0.5 0.5 drawlinez ;
+
+:value
+	0 ;
+
+:xpos value 0 0 mtransi ;
+:ypos 0 value 0 mtransi ;
+:zpos 0 0 value mtransi ;
+:xrot value mrotxi ;
+:yrot value mrotyi ;
+:zrot value mrotzi ;
+#lani xpos ypos zpos xrot yrot zrot
+
+:mani | flags --
+	( 1? )( dup $f and 1- 2 << 'lani + @ exec 4 >> ) drop ;
+
+:bonedraw | adr -- adr+
+	>r
+	r@+ r@+ r@+	mtransi
+	drawcube
+	r> ;
+
+:drawbones | bones --
+	mpush
+	0 swap
+	( @+ 1? )( $ff and
+		rot over - 1+ | anterior-actual+1
+		clamp0
+		( 1? )( 1- mpop ) drop
+		swap
+		mpush
+		bonedraw
+		) 2drop
+	( 1? )( 1- mpop ) drop
+	mpop ;
+
+:drawbones | bones --
+	>r
+	mpush
+	0 ( r@+ 1? )( $ff and
+		swap over - 1+ clamp0 | anterior-actual+1
+		( 1? )( 1- mpop ) drop
+		mpush
+		r@+ r@+ r@+	mtransi
+		drawcube
+		) drop
+	rdrop
+	( 1? )( 1- mpop ) drop
+	mpop
+	;
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:3dscreen
+	omode
+	freelook
+	xcam ycam zcam mtrans
+
+	model drawbones
+	;
+
+:main
+	33
+	show clrscr
+		dup "%d" print cr
+		chsum "chsum:%d " print
+		frames "frames:%d " print
+		frametime " frame time:%f " print
+		here model - "%d bytes" print cr
+
+		model dumpmod  cr
+
+		3dscreen
+
+		'exit >esc<
+		;
+:ini
+	mark
+	here dup 'bvhfile !
+	"media/bvh/Example1.bvh" load
+|	"media/bvh/0008_ChaCha001.bvh" load
+	dup '$bvhfile ! dup 'model ! 'here !
+	parsebvh
+	;
+
+: ini main ;
