@@ -17,19 +17,19 @@
 #level
 #ox #oy #oz
 #chcnt
-#chsum
 #chpos
 #offend
 
+#chsum
 #model
 #frames
 #frametime
 #animation
 
+#framenow
 
 #xcam 0 #ycam 0 #zcam 200.0
 #xr 0 #yr 0
-
 
 :,off+cha
 	level chpos 8 << or , ox , oy , oz , ;
@@ -48,11 +48,12 @@
 
 :parsecha
 	trim
-	getnro dup 'chcnt ! dup 'chsum +!
-	0 swap ( 1? )( 1-
+	getnro dup 'chcnt ! 'chsum +!
+	0 0 ( chcnt <? )(
 		swap rot
 		parsechp pick3 2 << <<
-		rot or rot ) drop 'chpos !
+		rot or rot 1+ ) drop
+	'chpos !
 	,off+cha ;
 
 :parseoff
@@ -65,7 +66,7 @@
 
 :parsejoi
 	trim
-	dup nombres> scanstr 'nombres> !
+|	dup nombres> scanstr 'nombres> !
 	>>sp
 	;
 
@@ -82,7 +83,7 @@
 
 :parseroo
 	trim
-	dup nombres> scanstr 'nombres> !
+|	dup nombres> scanstr 'nombres> !
 	>>sp
 	0 'level !
 	0 'chsum !
@@ -99,13 +100,15 @@
 :parsemot
 	0 , 0 , 0 , 0 ,
 	here 'animation !
-	trim dup "Frames:" scanp 0? ( drop ; )
+	trim dup "Frames:" scanp 0? ( drop ; ) nip
 	trim getnro 'frames !
-	trim dup "Frame Time:" scanp 0? ( drop ; )
+	trim dup "Frame Time:" scanp 0? ( drop ; ) nip
 	trim getfnro 'frametime !
 	frames ( 1? )( 1-
 		chsum ( 1? )( 1-
-			rot trim getfnro , rot rot
+			rot trim getfnro 
+			360.0 /.	| angulo
+			, rot rot
 			) drop
 		) drop ;
 
@@ -149,54 +152,38 @@
 	0.5 -0.5 drawlinez
 	0.5 0.5 drawlinez
 	-0.5 0.5 drawlinez ;
+#anip
+:val
+	anip @+ swap 'anip ! ;
 
-:value
-	0 ;
-
-:xpos value 0 0 mtransi ;
-:ypos 0 value 0 mtransi ;
-:zpos 0 0 value mtransi ;
-:xrot value mrotxi ;
-:yrot value mrotyi ;
-:zrot value mrotzi ;
+:xpos val 0 0 mtransi ;
+:ypos val 0 swap 0 mtransi ;
+:zpos val 0 0 rot mtransi ;
+:xrot val mrotxi ;
+:yrot val mrotyi ;
+:zrot val mrotzi ;
 #lani xpos ypos zpos xrot yrot zrot
 
-:mani | flags --
-	( 1? )( dup $f and 1- 2 << 'lani + @ exec 4 >> ) drop ;
-
-:bonedraw | adr -- adr+
-	>r
-	r@+ r@+ r@+	mtransi
-	drawcube
-	r> ;
-
-:drawbones | bones --
-	mpush
-	0 swap
-	( @+ 1? )( $ff and
-		rot over - 1+ | anterior-actual+1
-		clamp0
-		( 1? )( 1- mpop ) drop
-		swap
-		mpush
-		bonedraw
-		) 2drop
-	( 1? )( 1- mpop ) drop
-	mpop ;
+:anibones | flags --
+	8 >> $ffffff and
+	( 1? )( dup $f and 1- 2 << 'lani + @ exec 4 >> )
+	drop ;
 
 :drawbones | bones --
 	>r
-	mpush
-	0 ( r@+ 1? )( $ff and
-		swap over - 1+ clamp0 | anterior-actual+1
+	framenow chsum * 2 << animation + 'anip !
+|	mpush
+	0 ( r@+ 1? )( dup $ff and
+		rot over - 1+ clamp0 | anterior-actual+1
 		( 1? )( 1- mpop ) drop
 		mpush
-		r@+ r@+ r@+	mtransi
+		r@+ r@+ r@+ mtransi
+		swap anibones
 		drawcube
 		) drop
 	rdrop
 	( 1? )( 1- mpop ) drop
-	mpop
+|	mpop
 	;
 
 :freelook
@@ -212,9 +199,11 @@
 	xcam ycam zcam mtrans
 
 	model drawbones
+	framenow 1+ frames >=? ( 0 nip ) 'framenow !
 	;
 
 :main
+	0 'framenow !
 	33
 	show clrscr
 		dup "%d" print cr
@@ -222,7 +211,7 @@
 		frames "frames:%d " print
 		frametime " frame time:%f " print
 		here model - "%d bytes" print cr
-
+		framenow "%d " print cr
 		model dumpmod  cr
 
 		3dscreen
@@ -232,9 +221,10 @@
 :ini
 	mark
 	here dup 'bvhfile !
-	"media/bvh/Example1.bvh" load
-|	"media/bvh/0008_ChaCha001.bvh" load
-	dup '$bvhfile ! dup 'model ! 'here !
+|	"media/bvh/Example1.bvh"
+	"media/bvh/0008_ChaCha001.bvh"
+|	"media/bvh/Male1_B3_Walk.bvh"
+	load dup '$bvhfile ! dup 'model ! 'here !
 	parsebvh
 	;
 
