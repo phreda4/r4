@@ -7,7 +7,6 @@
 
 ^r4/lib/trace.txt
 
-
 #bvhfile
 #$bvhfile
 
@@ -18,6 +17,7 @@
 #ox #oy #oz
 #chcnt
 #chpos
+#chtype )( 1024
 #offend
 
 #chsum
@@ -28,7 +28,7 @@
 
 #framenow
 
-#xcam 0 #ycam 0 #zcam 200.0
+#xcam 0 #ycam 0 #zcam 400.0
 #xr 0 #yr 0
 
 :,off+cha
@@ -46,12 +46,19 @@
 	dup "Zrotation" scanp 1? ( nip 6 ; ) drop
 	0 ;
 
+:savetype | nro mask adr type
+	4 <? ( 0 )( 1 )	| pos o ang
+	pick4 chsum + chcnt - 'chtype + c!
+	;
+
 :parsecha
 	trim
 	getnro dup 'chcnt ! 'chsum +!
-	0 0 ( chcnt <? )(
+	0 0 ( chcnt <? )( | mask nro
 		swap rot
-		parsechp pick3 2 << <<
+		parsechp
+		savetype
+		pick3 2 << <<
 		rot or rot 1+ ) drop
 	'chpos !
 	,off+cha ;
@@ -67,7 +74,7 @@
 :parsejoi
 	trim
 |	dup nombres> scanstr 'nombres> !
-	>>sp
+	>>cr
 	;
 
 :atom
@@ -78,7 +85,7 @@
 	dup "CHANNELS" scanp 1? ( nip parsecha ; ) drop
 	dup "JOINT" scanp 1? ( nip parsejoi ; ) drop
 	dup "End Site" scanp 1? ( nip 1 'offend ! ; ) drop
-	trace
+	dup memmap
 	;
 
 :parseroo
@@ -97,6 +104,12 @@
 	>>sp
 	;
 
+:typech | fram chsum adr nro
+	chsum pick3 - 'chtype + c@
+	0? ( drop ; ) drop
+	360.0 /.	| angulo
+	;
+
 :parsemot
 	0 , 0 , 0 , 0 ,
 	here 'animation !
@@ -104,13 +117,14 @@
 	trim getnro 'frames !
 	trim dup "Frame Time:" scanp 0? ( drop ; ) nip
 	trim getfnro 'frametime !
-	frames ( 1? )( 1-
-		chsum ( 1? )( 1-
-			rot trim getfnro 
-			360.0 /.	| angulo
+	frames ( 1? )(
+		chsum ( 1? )(
+			rot trim getfnro
+			typech
+|			360.0 /.	| angulo
 			, rot rot
-			) drop
-		) drop ;
+			1- ) drop
+		1- ) drop ;
 
 :nextword
 	trim
@@ -172,7 +186,6 @@
 :drawbones | bones --
 	>r
 	framenow chsum * 2 << animation + 'anip !
-|	mpush
 	0 ( r@+ 1? )( dup $ff and
 		rot over - 1+ clamp0 | anterior-actual+1
 		nmpop
@@ -182,8 +195,19 @@
 		drawcube
 		) drop
 	rdrop
-	( 1? )( 1- mpop ) drop
-|	mpop
+	nmpop
+	;
+
+:drawbones0 | bones --
+	>r
+	0 ( r@+ 1? )( $ff and
+		swap over - 1+ clamp0 nmpop
+		mpush
+		r@+ r@+ r@+ mtransi
+		drawcube
+		) drop
+	rdrop
+	nmpop
 	;
 
 :freelook
@@ -198,7 +222,10 @@
 	freelook
 	xcam ycam zcam mtrans
 
+	verde
 	model drawbones
+	blanco
+	model drawbones0
 	framenow 1+ frames >=? ( 0 nip ) 'framenow !
 	;
 
@@ -212,8 +239,7 @@
 		frametime " frame time:%f " print
 		here model - "%d bytes" print cr
 		framenow "%d " print cr
-		model dumpmod  cr
-
+|		model dumpmod  cr
 		3dscreen
 
 		'exit >esc<
@@ -222,8 +248,8 @@
 	mark
 	here dup 'bvhfile !
 |	"media/bvh/Example1.bvh"
-	"media/bvh/0008_ChaCha001.bvh"
-|	"media/bvh/Male1_B3_Walk.bvh"
+|	"media/bvh/0008_ChaCha001.bvh"
+	"media/bvh/Bunny Girl/serv_drink2.bvh"
 	load dup '$bvhfile ! dup 'model ! 'here !
 	parsebvh
 	;
