@@ -10,8 +10,8 @@
 #bvhfile
 #$bvhfile
 
-#nombres )( 1024
-#nombres> 'nombres
+|#nombres )( 1024
+|#nombres> 'nombres
 
 #level
 #ox #oy #oz
@@ -91,7 +91,7 @@
 :parseroo
 	trim
 |	dup nombres> scanstr 'nombres> !
-	>>sp
+	>>cr
 	0 'level !
 	0 'chsum !
 	0 'offend !
@@ -101,13 +101,12 @@
 :parsehie
 	trim
 	dup "ROOT" scanp 1? ( nip parseroo ; ) drop
-	>>sp
-	;
+	>>cr ;
 
 :typech | fram chsum adr nro
 	chsum pick3 - 'chtype + c@
 	0? ( drop ; ) drop
-	360.0 /.	| angulo
+	-360.0 /.	| angulo
 	;
 
 :parsemot
@@ -119,12 +118,12 @@
 	trim getfnro 'frametime !
 	frames ( 1? )(
 		chsum ( 1? )(
-			rot trim getfnro
+			rot trim getfenro
 			typech
-|			360.0 /.	| angulo
 			, rot rot
 			1- ) drop
-		1- ) drop ;
+		1- ) drop
+	;
 
 :nextword
 	trim
@@ -142,7 +141,7 @@
 		@+ "%f " print
 		@+ "%f " print
 		@+ "%f " print
-			cr
+		cr allowchome
 		) 2drop
 	;
 
@@ -159,16 +158,34 @@
 :drawlinez | x1 x2 --
 	2dup -0.5 3dop 0.5 3dline ;
 
+#boneslevel )( 1024
+
+:stick | level
+	dup 5 << 'boneslevel + >r
+	0 0 0 project3d
+	2dup op
+	swap r!+ r!+ rdrop
+	dup 2 <? ( drop ; )
+	1- 5 << 'boneslevel + >r
+	r@+ r@+ line
+	rdrop
+	;
+
 :drawcube |
+	azul
+	stick
+	verde
 	-0.5 drawboxz
 	0.5 drawboxz
 	-0.5 -0.5 drawlinez
 	0.5 -0.5 drawlinez
 	0.5 0.5 drawlinez
 	-0.5 0.5 drawlinez ;
+
+
+|-------------------------------
 #anip
-:val
-	anip @+ swap 'anip ! ;
+:val anip @+ swap 'anip ! ;
 
 :xpos val 0 0 mtransi ;
 :ypos val 0 swap 0 mtransi ;
@@ -217,15 +234,25 @@
 	neg mrotx
 	mroty ;
 
+:people
+	-200.0 ( 200.0 <? )( 50.0 +
+		-200.0 ( 200.0 <? )( 50.0 +
+			mpush
+			2dup 0.0 swap mtransi
+			model drawbones
+			mpop ) drop
+		) drop
+	;
+
 :3dscreen
 	omode
 	freelook
 	xcam ycam zcam mtrans
 
-	verde
 	model drawbones
-	blanco
-	model drawbones0
+|	people
+|	model drawbones0
+
 	framenow 1+ frames >=? ( 0 nip ) 'framenow !
 	;
 
@@ -239,7 +266,8 @@
 		frametime " frame time:%f " print
 		here model - "%d bytes" print cr
 		framenow "%d " print cr
-|		model dumpmod  cr
+
+|		model dumpmod cr
 		3dscreen
 
 		'exit >esc<
@@ -248,8 +276,8 @@
 	mark
 	here dup 'bvhfile !
 |	"media/bvh/Example1.bvh"
-|	"media/bvh/0008_ChaCha001.bvh"
-	"media/bvh/Bunny Girl/serv_drink2.bvh"
+	"media/bvh/0008_ChaCha001.bvh"
+|	"media/bvh/14_02.bvh"
 	load dup '$bvhfile ! dup 'model ! 'here !
 	parsebvh
 	;
