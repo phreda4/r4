@@ -1,0 +1,394 @@
+| :r4/menu
+| PHREDA 2015
+|------------------------
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/input.txt
+
+^r4/system/mem-ed.txt
+
+^r4/lib/fontm.txt
+^inc/fntm/droidsans13.txt
+
+#nfiles
+#files )( 8192
+#files> 'files
+#files< 'files
+#filen )( $3fff
+#filen> 'filen
+#linesv 20
+#nivel 0
+
+#pagina 0
+#actual 0
+#path )( 1024
+#name )( 64
+#source 0
+
+|------------------- OS DEp ---------------------
+:FNAME | adr -- adrname
+|WIN|	44 +
+|AND|	19 +
+	;
+
+:FDIR? | adr -- 1/0
+|WIN|	@ $10
+|AND|	18 + c@ 4
+	=? ( 1 )( 0 ) nip ;
+|----------------------------------------
+
+:FINFO | adr -- adr info
+	dup FDIR? 1? ( 0 nip ; ) drop
+	dup FNAME
+	".txt" =pos 1? ( 2drop 1 ; ) drop
+	".bmr" =pos 1? ( 2drop 2 ; ) drop
+	".inc" =pos 1? ( 2drop 3 ; ) drop
+	".rmt" =pos 1? ( 2drop 4 ; ) drop
+	".spr" =pos 1? ( 2drop 5 ; ) drop
+	".vsp" =pos 1? ( 2drop 6 ; ) drop
+	7 nip ;
+
+:files.clear
+	0 'nfiles !
+	'filen 'filen> !
+	'files dup 'files> ! 'files< !
+	;
+
+:files!+
+	files> ( files< >? )(
+		4 - dup @+ swap !
+		) drop
+	files< !+ 'files< !
+	4 'files> +!
+	;
+
+:files.free
+	0 'files ( files> <? )(
+		@+ pick2 >? ( swap rot )
+		drop ) drop
+	8 >> 'filen +
+	( c@+ 1? )( drop ) drop
+	'filen> !
+	;
+
+:files.getpath
+	'path
+	ffirst drop | quita .
+	fnext drop
+	( fnext 1? )(
+		FINFO nivel 4 << or filen> 'filen - 8 << or
+		files!+
+		FNAME filen> strcpyl 'filen> !
+		) drop
+	files> 'files - 2 >> 'nfiles !
+	;
+
+:getname | nro -- ""
+	2 << 'files + @ 8 >> 'filen + ;
+
+:getinfo | nro -- info
+	2 << 'files + @ $ff and ;
+
+:getlvl | nro -- info
+	2 << 'files + @ 4 >> $f and ;
+
+:chginfo | nro --
+	2 << 'files + dup @ $8 xor swap ! ;
+
+:rebuild
+	"r4" 'path strcpy
+	files.clear
+	0 'pagina !
+	0 'nivel !
+	files.getpath
+	;
+
+|-----------------------------
+:makepath | actual nivel --
+	0? ( drop getname "r4/%s" mprint 'path strcpy ; )
+	over 1-
+	( dup getlvl pick2 >=? )( drop 1- ) drop
+	over 1- makepath drop
+	"/" 'path strcat
+	getname 'path strcat
+	;
+
+:expande
+	0 'name !
+	actual
+	dup getlvl makepath
+
+   	actual chginfo
+	actual getlvl 1+ 'nivel !
+    actual 1+ 2 << 'files + 'files< !
+	files.getpath
+	;
+
+:remfiles
+	actual chginfo
+	actual getlvl 1+
+	actual 1+
+	( dup getlvl pick2 >=? )( drop 1+ ) drop
+	nip
+	actual 1+
+	( swap nfiles <? )(
+		dup 2 << 'files + @
+		pick2 2 << 'files + !
+		1+ swap 1+ ) drop
+	2 << 'files + 'files> !
+	files> 'files - 2 >> 'nfiles !
+	files.free
+	;
+
+:contrae
+	0 'name !
+	'path ( c@+ 1? )( drop ) drop 1-
+	( 'path >? )(
+		dup c@ $2f =? ( drop 0 swap c! remfiles ; )
+		drop 1- ) drop
+	remfiles ;
+
+|-------------
+#pathaux )( 1024
+#nameaux )( 64
+
+:next/ | adr -- adr'
+	( c@+ 1? )(
+		$2f =? ( drop 0 swap 1- c!+ ; )
+		drop ) nip ;
+
+:getactual | adr actual --
+	( nfiles <? )(
+		dup getname pick2 =s 1? ( drop nip ; )
+		drop 1+ ) nip ;
+
+|---------------------
+:loadm
+	'path "mem/menu.mem" load 'path =? ( drop ; ) drop
+	'path dup c@ 0? ( 2drop ; ) drop
+	'pathaux strcpy
+	'name 'nameaux strcpy
+	0 'actual !
+	'pathaux next/ 0? ( drop ; )
+	( dup next/ swap | sig act
+		actual getactual 'actual !
+		expande
+		0? ) drop
+	'nameaux
+	dup c@ 0? ( 2drop ; ) drop
+	actual getactual
+	pagina linesv + 1- >=? ( dup linesv - 1+ 'pagina ! )
+	'actual !
+	'nameaux 'name strcpy
+	;
+
+:savem
+	'path 1024 64 + "mem/menu.mem" save ;
+
+|--------------------------
+:remlastpath
+	'path ( c@+ 1? )( drop ) drop 1-
+	( dup c@ $2f <>? )( drop 1- ) drop
+	0 swap c! ;
+
+:setactual
+	actual dup getlvl makepath
+	actual getinfo $7 and 1? ( remlastpath ) drop
+	actual getname 'name strcpy
+	;
+
+|--------------------------------------
+#iconcolor $7f7f00 $3f00  $7f7f  $7f007f $7f7f00 $7f0000 $7f00  $ff
+#tipoext "bmr" "inc" "rmt" "spr" "vsp"
+
+:enter
+	0 source !
+	actual getinfo $f and
+	0? ( drop expande ; )
+	8 =? ( drop contrae ; )
+	drop
+	setactual
+	source 'name 'path "%s/%s" mprint load 0 swap !
+	;
+
+:nrun | tipo --
+	'tipoext swap 2 - ( 1? )( swap >>0 swap 1- ) drop >r
+	mark
+	'name 'path "%s/%s" ,print
+	r "mem/inc-%w.mem" mprint savemem
+	empty
+	r> "r4/system/inc-%w.txt" mprint run ;
+
+:runfile
+	actual -? ( drop ; )
+	getinfo $7 and
+	0? ( drop ; )
+	setactual savem
+	1 >? ( nrun ; )
+	drop
+	'name 'path "%s/%s" mprint run
+	;
+
+:runedit
+	'name 'path "%s/%s" mprint 'ed.nombre strcpy
+|	0 'ed.ncar ! 0 'ed.nlin !
+	ed.save
+|win|	"r4/IDE/edit-code.txt" run
+|and|	"r4/system/edit-codea.txt" run
+	;
+
+:editfile
+	actual -? ( drop ; )
+	getinfo $7 and
+	0? ( drop ; )
+	setactual savem
+	1 >? ( nrun ; )
+	drop
+	runedit
+	;
+
+#nfile
+
+:newfile
+	setactual
+	1 'nfile !
+	0 'name !
+	;
+
+:remaddtxt | --
+	'name ".txt" =pos 1? ( drop ; ) drop
+	".txt" swap strcat ;
+
+:createfile
+	0 'nfile !
+	remaddtxt
+	savem
+	mark
+	"^r4/lib/gui.txt" ,ln ,cr
+	":main" ,ln
+	"	show clrscr" ,ln
+	"	""Hello Human!"" print " ,ln
+	"	'exit >esc<" ,ln
+	"	cminiflecha ;" ,ln ,cr
+	": main ;" ,ln
+	'name 'path "%s/%s" mprint savemem
+	empty
+	runedit
+	;
+
+:fdn
+	actual nfiles 1- >=? ( drop ; )
+	1+ pagina linesv + 1- >=? ( dup linesv - 1+ 'pagina ! )
+	'actual !
+	setactual
+	source 'name 'path "%s/%s" mprint load 0 swap !
+	;
+
+:fup
+	actual 0? ( drop ; )
+	1- pagina <? ( dup 'pagina ! )
+	'actual !
+	setactual
+	source 'name 'path "%s/%s" mprint load 0 swap !
+	;
+
+|-----------------------------
+:boton | nrp 'vector nombre --
+	swap  flatbtn
+	;
+:a	0 source !
+	dup getinfo $f and
+	0? ( drop expande ; )
+	8 =? ( drop contrae ; )
+	drop
+	setactual
+	source 'name 'path "%s/%s" mprint load 0 swap !
+	;
+
+
+:inka
+	over actual =? ( 2drop $ffffff ink ; ) drop ink ;
+
+:ta | nro -- nro
+	$9FA5B5 inka
+	dup getlvl 2* 1+ nsp
+	dup getname print
+	;
+
+:t0 | nro -- nro
+	$9FA5B5 inka
+	dup getlvl 2* nsp " + " print
+	dup getname print "/" print
+|	verde [ dup 'actual ! enter ; ] boton
+	;
+
+:t8 | nro -- nro
+	$E4C189 inka
+	dup getlvl 2* nsp " - " print
+	dup getname print "/" print
+|	cyan [ dup 'actual ! enter ; ] boton
+	;
+
+#info 't0 'ta 'ta 'ta 'ta 'ta 'ta 'ta 't8
+
+:drawl
+	actual =? ( $32363F )( $21252B ) nip ink linefill
+	dup getinfo $f and 2 << 'info + @ exec ;
+
+:drawtree
+	ccw 5 << 'tx2 !
+	0 ( linesv <? )(
+		dup pagina +
+		nfiles >=? ( 2drop ; )
+    	drawl
+		cr 1+ ) drop ;
+
+:drawsource
+	ccw 5 << 'tx1 !
+	sw 'tx2 !
+	0 1 gotoxy
+|	source 0? ( drop ; ) amarillo text cr
+	":R4>" print
+	;
+
+:main
+	$282828 paper
+	4
+	show clrscr
+		$111111 ink linefill
+		blanco
+		sp 'path print "/" printx
+		nfile 0? ( 'name printx )( 'name 32 inputcell 'createfile <enter> ) drop
+		cr
+
+		drawtree
+		drawsource
+		0 'tx1 !
+		0 rows 1- gotoxy
+		$111111 ink linefill | linea abajo
+		verde dup ":R%d" print
+		blanco "mENU " printx
+		actual pagina "P:%d A:%d" print
+		"|F1-Run|F2-Edit|F3-New " printr
+
+		'fdn <dn>
+		'fup <up>
+		'runfile <f1>
+		'editfile <f2>
+		'newfile <f3>
+		'enter <enter>
+
+		'exit >esc<
+		cminiflecha ;
+
+:ram
+	mark
+|	fonti
+	'fontdroidsans13 fontm
+	clrscr rows 2 - 'linesv !
+	rebuild
+	loadm
+	here 'source !
+	;
+
+: ram main savem ;
