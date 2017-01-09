@@ -1,0 +1,212 @@
+| plqlib
+| PHREDA 2016
+|-------------------------
+^r4/lib/input.txt
+^r4/lib/img.txt
+
+^r4/lib/rfont.txt
+^inc/rft/architectsdaughter.rft
+^inc/rft/archivoblackregular.rft
+^inc/rft/comfortaa_bold.rft
+^inc/rft/comfortaa_thin.rft
+^inc/rft/dejavusans.rft
+^inc/rft/dejavuserif.rft
+^inc/rft/dejavuserifbold.rft
+^inc/rft/droidsansbold.rft
+^inc/rft/gooddog.rft
+^inc/rft/opensanslight.rft
+^inc/rft/opensansregular.rft
+^inc/rft/robotobold.rft
+^inc/rft/robotolight.rft
+^inc/rft/robotoregular.rft
+^inc/rft/robotothin.rft
+
+|---- font
+#fontlist
+architectsdaughter
+archivoblackregular
+comfortaa_bold
+comfortaa_thin
+dejavusans
+dejavuserif
+dejavuserifbold
+droidsansbold
+gooddog
+opensanslight
+opensansregular
+robotobold
+robotolight
+robotoregular
+robotothin
+robotothin
+
+::setfont | nro size --
+	>r $f and 2 << 'fontlist + @ exec r> rfont! ;
+
+|-------------------------------
+:cntlin | adr -- c
+	1 swap ( c@+ 1? )(
+		10 =? ( rot 1+ rot rot ) | <enter>
+		$5F =? ( rot 1+ rot rot ) | $5f _
+		drop ) 2drop ;
+
+:sizeline | adr -- cc
+	0 swap
+	( c@+ 1? )( 10 =? ( 2drop ; ) emitsize rot + swap )
+	2drop ;
+
+:lineemit
+	( pcursor c@+ 1? )( 10 =? ( drop ; ) emit ) drop ;
+
+#padx #pady
+
+:boxprintl | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		tx1 padx + 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+:boxprintc | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		over sizeline
+		tx1 tx2 + 2/ swap 2/ - padx + 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+:boxprintr | adr --
+	dup cntlin
+	ty1 pady + 'ccy !
+	( 1? )( 1-
+		over sizeline
+		tx2 swap - padx - 'ccx !
+		swap lineemit swap cr
+		) 2drop ;
+
+#lboxp boxprintl boxprintl boxprintc boxprintr
+
+:vce
+	ty2 ty1 - 2/ pick3 cntlin cch * 2/ - 'pady +! ;
+:vdn
+	ty2 ty1 - pick3 cntlin cch * - pady - 'pady ! ;
+
+::boxprintn | str n --
+	dup 2 >> $3 and | 0 up 1 center 2 dn
+	1 =? ( vce )
+	2 =? ( vdn )
+	drop
+	$3 and 2 << 'lboxp + @ exec
+	poli ; | cursor ultimo
+
+::boxpad | x y --
+	'pady ! 'padx ! ;
+
+|------------------------------------------------
+#tshadow $ffffff
+
+:sprint | "" --
+	mprint
+	ccx ccy ink@
+	2 2 +atxy pick3
+	tshadow ink printx
+	ink atxy
+	printx ;
+
+#timestr )( 16
+
+:hms
+	10 <? ( "0" ,s ) ,d ":" ,s
+	10 <? ( "0" ,s ) ,d ":" ,s
+	10 <? ( "0" ,s ) ,d ;
+
+:hmss
+	10 <? ( "0" ,s ) ,d
+	swap 1 and? ( ":" )( " " ) nip ,s
+	10 <? ( "0" ,s ) ,d
+	" Hs." ,s ;
+
+::reloj
+	4 64 setfont
+	mark 'timestr 'here !
+	time | s m h
+	hmss
+	0 ,c empty
+
+	'timestr sizeprint 16 +
+
+|	sw over - 4 - sh cch - 8 -
+|	sw 4 - sh 4 - gris cajaf
+
+	sw swap - sh cch - 8 - atxy
+	blanco print
+	;
+
+|--- posicion en 8 bits
+#gsx #gsy
+#gsw #gsh
+
+::boxgrid | w h x y
+	'gsy ! 'gsx ! 'gsh ! 'gsw ! ;
+
+::fullgrid
+	sw sh 0 0 boxgrid ;
+
+::editgrid
+	768 512 sw 2/ 768 2/ - 16 + sh 2/ 256 - boxgrid ;
+
+::xy2grid | x y -- xg yg
+	gsy - $100 gsh */ $ff clamp0max swap
+	gsx - $100 gsw */ $ff clamp0max swap
+	;
+
+::grid2xy | xg yg -- x y
+	gsh 8 *>> gsy + swap
+	gsw 8 *>> gsx + swap
+	;
+
+::w2grid | w -- wg
+	gsw 8 *>> ;
+
+::h2grid | h -- hg
+	gsh 8 *>> ;
+
+::grid2po | int --
+	dup 24 >> $ff and over 16 >> $ff and grid2xy 'ty1 ! 'tx1 !
+	dup 8 >> $ff and swap $ff and grid2xy 'ty2 ! 'tx2 !
+	;
+
+::grid2i | int -- x1 y1 x2 y2
+	dup 24 >> $ff and over 16 >> $ff and
+	rot dup 8 >> $ff and swap $ff and
+	;
+
+|-------------------------------------------
+:2color dup $f0f0f0 and dup 4 >> or swap $f0f0f and dup 4 << or ;
+:bfill tx1 ty1 tx2 ty2 cajaf ;
+#pad
+
+:f0	dup 28 >> $f and 0? ( 2drop ; ) 'pad ! ink
+	tx1 ty1 2dup op tx2 ty1 pline tx2 ty2 pline tx1 ty2 pline pline
+	tx1 pad + ty1 pad + 2dup op tx2 pad - ty1 pad + pline tx2 pad - ty2 pad - pline tx1 pad + ty2 pad - pline pline
+	poli ;
+:f1	ink bfill ;			| solido
+
+:f2	|$ff and getimg >r
+	tx1 ty1 tx2 ty2
+	pick2 - swap pick3 - swap
+|	r> img.drawsize
+	;
+
+:f3 2color fcol tx1 ty2 fcen 1.0 tx2 tx1 - 1 max / 0 fmat lfill bfill sfill ;
+:f4 2color fcol tx1 ty2 fcen 0 1.0 ty2 ty1 - 1 max / fmat lfill bfill sfill ;
+:f5 2color fcol tx1 ty1 fcen 0.5 tx2 tx1 - 1 max / 0.5 ty2 ty1 - 1 max / neg fmat lfill bfill sfill ;
+:f6 2color fcol tx1 ty2 fcen 0.5 tx2 tx1 - 1 max / 0.5 ty2 ty1 - 1 max / fmat lfill bfill sfill ;
+:f7 drop ;	| auxiliar
+
+#lbfill f0 f1 f2 f3 f4 f5 f6 f7
+
+:fillbox | nro --
+	dup 28 >> 7 and 2 << 'lbfill + @ exec ;
