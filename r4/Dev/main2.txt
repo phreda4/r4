@@ -4,6 +4,7 @@
 ^r4/lib/gui.txt
 ^r4/lib/btn.txt
 ^r4/lib/input.txt
+^r4/lib/codecolor.txt
 
 ^r4/system/mem-ed.txt
 
@@ -159,6 +160,22 @@
 		dup getname pick2 =s 1? ( drop nip ; )
 		drop 1+ ) nip ;
 
+
+|--------------------------
+:remlastpath
+	'path ( c@+ 1? )( drop ) drop 1-
+	( dup c@ $2f <>? )( drop 1- ) drop
+	0 swap c! ;
+
+:setactual
+	actual dup getlvl makepath
+	actual getinfo $7 and 1? ( remlastpath ) drop
+	actual getname 'name strcpy
+	;
+
+:loadfile
+	source 'name 'path "%s/%s" mprint load 0 swap ! ;
+
 |---------------------
 :loadm
 	'path "mem/menu.mem" load 'path =? ( drop ; ) drop
@@ -177,35 +194,23 @@
 	pagina linesv + 1- >=? ( dup linesv - 1+ 'pagina ! )
 	'actual !
 	'nameaux 'name strcpy
+	loadfile
 	;
 
 :savem
 	'path 1024 64 + "mem/menu.mem" save ;
-
-|--------------------------
-:remlastpath
-	'path ( c@+ 1? )( drop ) drop 1-
-	( dup c@ $2f <>? )( drop 1- ) drop
-	0 swap c! ;
-
-:setactual
-	actual dup getlvl makepath
-	actual getinfo $7 and 1? ( remlastpath ) drop
-	actual getname 'name strcpy
-	;
 
 |--------------------------------------
 #iconcolor $7f7f00 $3f00  $7f7f  $7f007f $7f7f00 $7f0000 $7f00  $ff
 #tipoext "bmr" "inc" "rmt" "spr" "vsp"
 
 :enter
-	0 source !
 	actual getinfo $f and
 	0? ( drop expande ; )
 	8 =? ( drop contrae ; )
 	drop
 	setactual
-	source 'name 'path "%s/%s" mprint load 0 swap !
+	loadfile
 	;
 
 :nrun | tipo --
@@ -278,7 +283,7 @@
 	1+ pagina linesv + 1- >=? ( dup linesv - 1+ 'pagina ! )
 	'actual !
 	setactual
-	source 'name 'path "%s/%s" mprint load 0 swap !
+	loadfile
 	;
 
 :fup
@@ -286,7 +291,7 @@
 	1- pagina <? ( dup 'pagina ! )
 	'actual !
 	setactual
-	source 'name 'path "%s/%s" mprint load 0 swap !
+	loadfile
 	;
 
 |-----------------------------
@@ -299,7 +304,7 @@
 	8 =? ( drop contrae ; )
 	drop
 	setactual
-	source 'name 'path "%s/%s" mprint load 0 swap !
+	loadfile
 	;
 
 
@@ -314,7 +319,7 @@
 
 :t0 | nro -- nro
 	$9FA5B5 inka
-	dup getlvl 2* nsp " + " print
+	dup getlvl 2* nsp " + " print 
 	dup getname print "/" print
 |	verde [ dup 'actual ! enter ; ] boton
 	;
@@ -345,8 +350,10 @@
 	ccw 5 << 'tx1 !
 	sw 'tx2 !
 	0 1 gotoxy
-|	source 0? ( drop ; ) amarillo text cr
-	":R4 > " print
+	source 0? ( drop ; ) amarillo
+	linesv code.nlines drop
+
+|	":R4 > " print
 |	blanco 'padin 64 input
 	;
 
@@ -354,6 +361,7 @@
 	$111111 paper
 	4
 	show clrscr
+		$222222 ink linefill | linea abajo
 		blanco
 		sp 'path print "/" printx
 		nfile 0? ( 'name printx )( 'name 32 inputcell 'createfile <enter> ) drop
@@ -383,8 +391,8 @@
 	fonti
 	clrscr rows 2 - 'linesv !
 	rebuild
+	here 'source ! 0 source !
 	loadm
-	here 'source !
 	;
 
 : ram main savem ;
