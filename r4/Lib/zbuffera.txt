@@ -1,0 +1,185 @@
+| zbuffer - convex polyfill
+| z-color
+| PHREDA 2017
+|-------------------------
+^r4/lib/trace.txt
+
+#:zb
+#zbw #zbh
+#zcnt
+
+#segs	| mem polys
+#divt	| tabla de reciproco divisores de 1..xmax
+#px #py #pz
+#ymin #ymax
+#zstep
+#zbase
+
+#o #z
+
+::zo! 'o ! ;
+::zz! 'z ! ;
+
+|--- maskbuffer | zbw*zbh
+:zb.adr | x y -- d
+	zbw * + 3 << zb + ;
+
+::zb@ | x y -- b
+	zb.adr @ ;
+
+::zbo! | o z x y --
+	zb.adr r!+ r> ! ;
+
+::zb! | x y z --
+	rot rot zb.adr !+ o swap ! ;
+
+::zbw! | x y z w --
+	swap 'z !
+	rot rot zb.adr >r | w
+	( 1? )(
+		r@+
+		z >? ( z r 4 - ! o r!+ )( 4 r+ )
+		drop 1- ) drop
+	rdrop ;
+
+::zbh! | x y z h --
+	swap 'z !
+	rot rot zb.adr >r
+	zbw 1- 3 << swap
+	( 1? )(
+		r@+
+		z >? ( z r 4 - ! o r!+ )( 4 r+ )
+		drop
+		over r+ 1- ) 2drop
+	rdrop ;
+
+::zb.clear
+	zb >r zcnt ( 1? )( 1- $7fffffff r!+ 4 r+ ) drop rdrop ;
+
+::zb.ini | w h --
+	2dup * dup 'zcnt !	| max puntos
+	here dup 'zb ! 		| zbuffer+cbuffer
+	swap 3 << +
+	dup 'segs !			| segmentos zbh
+	over 4 << +
+	dup 'divt !			| reciproco zbw
+	pick2 2 << +
+	'here !
+	dup 1- 'ymax ! 'zbh ! 'zbw !
+	divt >r 0 r!+	| division por reciproca
+	1 ( zbw <? )( 1.0 over / r!+ 1+ ) drop rdrop
+	zb.clear
+	;
+
+:/r | n d -- r
+	2 << divt + @ 16 *>> ;
+
+::zb.occ | w h x y z -- 1/0
+	'z !
+	zb.adr >r
+	zbw pick2 - 3 <<
+	swap ( 1? )(
+		pick2 ( 1? )( r@+
+			z >? ( nip 4drop rdrop 1 ; )
+			drop 4 r+ 1- ) drop
+		over r+
+		1- ) 3drop
+	rdrop 0 ;
+
+::zb.set | w h x y z o --
+	'o ! 'z !
+	zb.adr >r
+	zbw pick2 - 3 <<
+	swap ( 1? )(
+		pick2 ( 1? )( r@+
+			z >? ( z r 4 - ! o r!+ )( 4 r+ )
+			drop 1- ) drop
+		over r+
+		1- ) 3drop
+	rdrop ;
+
+::zb.fill | w h x y --
+	zb.adr >r
+	zbw pick2 - 3 <<
+	swap ( 1? )(
+		pick2 ( 1? )( r@+
+			z >? ( z r 4 - ! o r!+ )( 4 r+ )
+			drop 1- ) drop
+		over r+
+		1- ) 3drop
+	rdrop ;
+
+|--- convex polygon
+#FBASE	16
+#vert )( 32
+#vert> 'vert
+
+::zop | x y z --
+	'zbase ! 0 'pz !
+	ymin 4 << segs + >r
+	ymax ymin - 1+ ( 1? )( 1- $7fffffff r!+ -1 r!+ 8 r+ ) drop rdrop
+	dup 'ymin ! dup 'ymax !
+	over FBASE << dup pick2 4 << segs +
+	!+ !+ 0 dup rot !+ !
+	'py ! 'px !
+	'vert 'vert> !
+	;
+
+:enlinea | x y --
+	4 << segs + >r
+	dup FBASE <<
+	r@+ <? ( dup r 4 - ! pz r 4+ ! )
+	r@+ >? ( dup r 4 - ! pz r 4+ ! )
+	drop rdrop
+	'px ! ;
+
+::zline | x y z --
+	pz 'z !
+	zbase - 11 << 'pz !
+	py =? ( enlinea ; )
+	px py
+	2over 'py !	'px !
+	pick2 >? ( 2swap z pz dup 'z ! - )( pz z - ) 'zstep !
+	ymin <? ( dup 'ymin ! )
+ 	rot ymax >? ( dup 'ymax ! )		| comprueba el mayor
+	>r >r FBASE << swap FBASE << 	| x1 x2
+	over - r> r> over -				| x1 (x2-x1) y1 (y2-y1)
+	rot over /r 					| x1 y1 (y2-y1) t
+	rot 4 << segs + dup >r
+	vert> !+ 'vert> !				| x1 (y2-y1) t
+	zstep pick2 /r 'zstep !
+	rot $7fff + rot				| t x1 cnt
+	1+ ( 1? )( 1- swap
+		r@+ <? ( dup r 4 - ! z r 4+ ! )
+		r@+ >? ( dup r 4 - ! z r 4+ ! )
+		8 r+
+		zstep 'z +!
+		pick2 + swap )
+	3drop rdrop ;
+
+:zbline | cnt x zi --
+	swap 3 << py + >r
+	swap ( 1? )(
+		over 11 >> zbase +
+		r@+ <? ( r 4 - ! o r!+ )( drop 4 r+ )
+		swap zstep + swap
+		1- ) 2drop
+	rdrop ;
+
+::zpoly | --
+	'vert @+
+	@+ swap @+ rot - 'px ! 'zstep !
+	( vert> <? )( @+
+		@+ swap @+ rot - px >? ( 'px ! 'zstep ! )( 2drop )
+		) drop
+	zstep @+ swap @ swap - px FBASE >> 1+ /r 'zstep !
+	ymax ymin
+	dup 4 << segs + >r
+   	dup zbw * 3 << zb + 'py !
+	( over <=? )(
+		r@+ FBASE >> r@+ FBASE >> over - 1+
+		swap r@+ 4 r+
+		zbline
+		zbw 3 << 'py +!
+		1+ ) 2drop rdrop ;
+
