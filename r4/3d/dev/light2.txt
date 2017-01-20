@@ -35,18 +35,34 @@
 	dup 4 >> or
 	px!+ r> ;
 
+
 #sum 7
+| version 4 (x-1+x+1)/2
 :shader | version 4
-	@+ $7fffffff =? ( drop 1 px+! 4+ ; )
-	swap >r
-	r@+ 4 >> $f0f0f and
-	swap | color z
-	drop
-	r @ r 16 - @ -
-	6 >> sum + 15 clamp0max 1+
+	@+ $7fffffff =? ( drop 1 px+! 4+ ; ) drop
+	@+ 4 >> $f0f0f and | adr color
+	over @ pick2 16 - @ -
+	6 >> sum + 16 clamp0max
 	* $f0f0f0 and
 	dup 4 >> or
-	px!+ r> ;
+	px!+ ;
+
+#sum 127
+| version 5 - full 8 bits channel
+:lum | color int --
+	over $ff00ff and
+	over * 8 >> $ff00ff and
+	rot $ff00 and
+	rot * 8 >> $ff00 and
+	or
+	;
+
+:shader
+	@+ $7fffffff =? ( drop 1 px+! 4+ ; ) drop
+	@+ | adr color
+	over @ pick2 16 - @ - 2 >>
+	sum + 256 clamp0max
+	lum	px!+ ;
 
 ::zdraw | x y --
 	setxy
@@ -138,9 +154,10 @@
 	mark
 	0 paper
 	sw sh ini3do
+|	"media/3do/horse.3do"
 |	"media/3do/earth.3do"
-	"media/3do/mario.3do"
-|	"media/3do/jp1.3do"
+|	"media/3do/mario.3do"
+	"media/3do/jp1.3do"
 	load3do 'Otierra !
 	33
 	show clrscr
@@ -164,7 +181,7 @@
 		msec fps over mseca - "%d ms fps:%d" print cr 'mseca !
 		zcam ycam xcam "%f %f %f" print cr
 
-|        dumpline
+        dumpline
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
@@ -172,9 +189,9 @@
 		[ 0.01 'xcam +! ; ] <ri>
 		[ -0.01 'ycam +! ; ] <pgup>
 		[ 0.01 'ycam +! ; ] <pgdn>
-		
-        [ -1 'sum +! ; ] <f1>
-        [ 1 'sum +! ; ] <f2>
+
+        [ -10 'sum +! ; ] <f1>
+        [ 10 'sum +! ; ] <f2>
 		'exit >esc< cminiflecha
 		;
 
