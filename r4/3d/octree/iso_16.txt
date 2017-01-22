@@ -22,6 +22,9 @@
 #ymin #ymax
 #zmin #zmax
 
+#minx #miny #minz
+#lenx #leny
+
 #nzmin
 #zlen
 
@@ -38,6 +41,9 @@
 
 #isovec )( 1440
 #isovec> 'isovec
+
+#isoiso )( 960
+#isoiso> 'isoiso
 
 :vec-
 	-48 'isovec> +! ;
@@ -76,19 +82,6 @@
 	4 r+
 	r@+ -? ( 'xmin )( 'xmax ) +!
 	r@+ -? ( 'ymin )( 'ymax ) +!
-	rdrop ;
-
-:getbbox
-	isovec> 48 - >r
-	r@+ -? ( 0 )( 0 swap ) 'xmax ! 'xmin !
-	r@+ -? ( 0 )( 0 swap ) 'ymax ! 'ymin !
-	r@+ -? ( 0 )( 0 swap ) 'zmax ! 'zmin !
-	r@+ -? ( 'xmin )( 'xmax ) +!
-	r@+ -? ( 'ymin )( 'ymax ) +!
-	r@+ -? ( 'zmin )( 'zmax ) +!
-	r@+ -? ( 'xmin )( 'xmax ) +!
-	r@+ -? ( 'ymin )( 'ymax ) +!
-	r@+ -? ( 'zmin )( 'zmax ) +!
 	rdrop ;
 
 |--- draw box
@@ -164,9 +157,7 @@
 	dup 31 >> - 2/ ;
 
 :2/b | a -- b c
-	dup
-	dup 31 >> - 2/
-	swap over - swap ;
+	dup dup 31 >> - 2/ - ;
 
 :reduce
 	isovec> dup >r 48 -
@@ -179,7 +170,7 @@
 :restac
 	%111 xor
 	2 << dup 2* + 48 - isovec> + >r | 12*
-	pick4 r@+ 2/a - pick4 r@+ 2/a - pick4 r> @ 2/a -
+	pick4 r@+ 2/b - pick4 r@+ 2/b - pick4 r> @ 2/ -
 	reduce
 |	48 'isovec> +!
 	;
@@ -239,41 +230,71 @@
 	zbw! vec- ;
 
 :viewi | x y z node --
-    >r getmm
-    xmax xmin - 0? ( drop r> drawpoint1 ; ) 1+ | w
-    ymax ymin - 0? ( drop r> drawpoint2 ; ) 1+ | w h
-	pick4 xmin + pick4 ymin + pick4
-	zb.occ
-	0? ( rdrop 4drop vec- ; ) drop
-	r>
+	lenx 0? ( pointx0 ; ) 1+
+	leny 0? ( pointy0 ; ) 1+
+	pick4 pick4 pick4 zb.occ
+	0? ( 4drop drop vec- ; ) drop
+
 	$pixels >=? ( veci exec ; )
 	oct++
-	nzmin 1 over << pick2 nand? ( 2drop )( child-oct viewi )
-	nzmin 1 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
-	nzmin 2 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
-	nzmin 4 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
-	nzmin 3 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
-	nzmin 5 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
-	nzmin 6 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
-	nzmin 7 xor 1 over << pick2 nand? ( 2drop )( child-oct viewi )
+	nzmin 1 over << pick2 nand? ( 2drop )( child-iso viewi )
+	nzmin 1 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
+	nzmin 2 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
+	nzmin 4 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
+	nzmin 3 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
+	nzmin 5 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
+	nzmin 6 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
+	nzmin 7 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
 	nip 4drop
 	vec-
 	;
 
 |-----------------------
+
+:ver0 | x y z n -- z y x
+	getn p3di
+	dup 'xmin ! dup 'xmax !
+	rot
+	dup 'ymin ! dup 'ymax !
+	rot
+	dup 'zmin ! dup 'zmax !
+	rot ;
+
+:vern | x y z n -- z y x
+	getn p3di
+	xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! )
+	rot
+	ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! )
+	rot
+	zmin <? ( dup 'zmin ! ) zmax >? ( dup 'zmax ! )
+	rot ;
+
 :isonow | x y z oct --
-	>r isovec> 48 - >r
-	pick2 pick2 pick2 p3di 'sx ! 'sy ! 'sz !
-	1 getn p3di sx - r!+ sy - r!+ sz - r!+
-	2 getn p3di sx - r!+ sy - r!+ sz - r!+
-	3 getn p3di sx - r!+ sy - r!+ sz - r!+
-	4 getn p3di sx - r!+ sy - r!+ sz - r!+
-	r> 'isovec> !
-	3drop sx sy sz
-	r>
-	viewi
-	|getmm veci exec
-	;
+	>r 'isoiso >r
+	nzmin 1 ver0 r!+ r!+ r!+
+	nzmin 1 xor vern r!+ r!+ r!+
+	nzmin 2 xor vern r!+ r!+ r!+
+	nzmin 4 xor vern r!+ r!+ r!+
+	nzmin 3 xor vern r!+ r!+ r!+
+	nzmin 5 xor vern r!+ r!+ r!+
+	nzmin 6 xor vern r!+ r!+ r!+
+	nzmin 7 xor vern r!+ r!+ r!+
+	maxx minx - 'lenx !
+	maxy miny - 'leny !
+	-96 r+
+	minx miny minz
+	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
+	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
+	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
+	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
+	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
+	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
+	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
+	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
+	r> 'isoiso> !
+	r> viewi ;
+
+
 
 |---------------- search iso ratio
 :viewr | x y z node --
