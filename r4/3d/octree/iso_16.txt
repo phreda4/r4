@@ -13,17 +13,19 @@
 #hocc
 #wocc
 
+#maxv
+#maxi
+
 #$base
 #:$octree
 #:$pixels
 #$paleta
 
-#xmin #xmax
-#ymin #ymax
-#zmin #zmax
-
 #minx #miny #minz
+#maxx #maxy #maxz
 #lenx #leny
+
+#ilevel
 
 #nzmin
 #zlen
@@ -47,6 +49,9 @@
 
 :vec-
 	-48 'isovec> +! ;
+
+:veci-
+	-96 'isoiso> +! ;
 
 |-------------------------------
 :octcolor | oct -- color
@@ -72,25 +77,11 @@
 	2 << dup 2* + 48 - isovec> + >r | 12*
 	pick2 r@+ + pick2 r@+ + pick2 r> @ + ;
 
-:getmm | x y z -- x y z
-	isovec> 48 - >r
-	pick2 r@+ + -? ( 0 )( 0 swap ) 'xmax ! 'xmin !
-	r@+ -? ( 0 )( 0 swap ) 'ymax ! 'ymin !
-	4 r+
-	r@+ -? ( 'xmin )( 'xmax ) +!
-	r@+ -? ( 'ymin )( 'ymax ) +!
-	4 r+
-	r@+ -? ( 'xmin )( 'xmax ) +!
-	r@+ -? ( 'ymin )( 'ymax ) +!
-	rdrop ;
-
 |--- draw box
 :drawbox | x y z oct --
-	octcolor zo!
-	dup zz! |getmm
-	swap xmin + swap ymin +
-	xmax xmin - 1+ ymax ymin - 1+ 2swap
-	zb.fill	;
+	octcolor zo! zz!
+	lenx ilevel >> 1+ leny ilevel >> 1+
+	2swap zb.fill ;
 
 |--- draw cube
 #bcara | lista de vertices(3 bits) por caras(3)
@@ -103,7 +94,7 @@
 %111011010100000010111101100
 %110010011011001101101100110
 
-:drawcube |	x y z oct
+:drawcube |	x y z oct --
 	octcolor zo!
 	nzmin dup 2 << 'bcara + @ >r
 	getn 'sz ! 'sy ! 'sx !
@@ -165,37 +156,76 @@
 	@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
 	@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
 	@+ 2/a r!+ @+ 2/a r!+ @ 2/a r!+
-	r> 'isovec> ! ;
+	r> 'isovec> !
+	isovec> 'isovec - 48 / maxv max 'maxv !
+	;
+
+:precalcvec
+	isovec> dup >r 48 -
+	8 2 <<
+	( 1? )( 1- swap
+		@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
+		swap ) 2drop rdrop ;
 
 :restac
 	%111 xor
 	2 << dup 2* + 48 - isovec> + >r | 12*
 	pick4 r@+ 2/b - pick4 r@+ 2/b - pick4 r> @ 2/ -
-	reduce
-|	48 'isovec> +!
+|	reduce
+	48 'isovec> +!
 	;
 
 :sumac | x y z node bitm nro -- x y z node bitm xn yn zn
 	%100 and? ( restac ; )
 	2 << dup 2* + 48 - isovec> + >r | 12*
-	pick4 r@+ 2/a + pick4 r@+ 2/a + pick4 r> @ 2/a +
-	reduce
-|	48 'isovec> +!
+	pick4 r@+ 2/b + pick4 r@+ 2/b + pick4 r> @ 2/b +
+|	reduce
+	48 'isovec> +!
+	;
+
+:reducei
+	isoiso> dup >r 96 -
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ 2/ r!+ @+ 2/ r!+ @ 2/ r!+
+	r> 'isoiso> !
+|	isoiso> 'isoiso - 96 / maxi max 'maxi !
+	;
+
+:precalciso
+	isoiso> dup >r 96 -
+	6 3 << ( 1? )( 1- swap
+		@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+		swap ) 2drop rdrop ;
+
+:2/c
+	dup 2/ - ;
+
+:sumaci | x y z node bitm nro -- x y z node bitm xn yn zn
+	2 << dup 2* + 96 - isoiso> + >r
+	pick4 r@+ 2/c + pick4 r@+ 2/c + pick4 r> @ 2/c +
+|	reducei
+	96 'isoiso> +!
 	;
 
 |----- voxel borde
 :getnminmax
 	getn p3di
-	xmin <? ( dup 0 max 'xmin ! )
-	xmax >? ( dup w3do min 'xmax ! )
+	minx <? ( dup 0 max 'minx ! )
+	maxx >? ( dup w3do min 'maxx ! )
 	drop
-	ymin <? ( dup 0 max 'ymin ! )
-	ymax >? ( dup h3do min 'ymax ! )
+	miny <? ( dup 0 max 'miny ! )
+	maxy >? ( dup h3do min 'maxy ! )
 	2drop ;
 
 :drawborde
 	octcolor zo!
-	0 getn p3di dup 'xmin ! 'xmax ! dup 'ymin ! 'ymax ! 1 max zz!
+	0 getn p3di dup 'minx ! 'maxx ! dup 'miny ! 'maxy ! 1 max zz!
 	1 getnminmax
 	2 getnminmax
 	3 getnminmax
@@ -204,39 +234,44 @@
 	6 getnminmax
 	7 getnminmax
 	3drop
-	xmin ymin
-	xmax pick2 - 1+ ymax pick2 - 1+
+	minx miny
+	maxx pick2 - 1+ maxy pick2 - 1+
 	2swap zb.fill
 	;
 
 |---------------------------
+:oct++ | adr -- adr bitmask
+	@+ dup 8 >> 2 << rot + swap $ff and ;
+
 :child-oct | x y z node bitm nro place -- x y z node bitm xn yn zn noct
 	1- pick2 and popcnt 2 << pick3 +	| x y z node bitm nro nnode
 	>r sumac r>			| x y z node bitm xn yn zn nnode
 	;
 
-:oct++ | adr -- adr bitmask
-	@+ dup 8 >> 2 << rot + swap $ff and ;
+:child-iso | x y z node bitm nro place -- x y z node bitm xn yn zn noct
+	1- pick2 and popcnt 2 << pick3 +	| x y z node bitm nro nnode
+	>r sumaci r>			| x y z node bitm xn yn zn nnode
+	;
 
-:drawpoint1 | x y z oct --
+:pointx0 | x y z oct --
 	octcolor zo!
-	ymax ymin - 0? ( drop zb! vec- ; ) 1+
-	rot ymin + rot rot
-	zbh! vec- ;
+	leny ilevel >> 0? ( drop zb! veci- ; ) 1+
+	zbh! veci- ;
 
-:drawpoint2 | x y z oct --
+:pointy0  | x y z w oct --
 	octcolor zo!
-	2swap swap xmin + swap 2swap
-	zbw! vec- ;
+	zbw! veci- ;
 
 :viewi | x y z node --
-	lenx 0? ( pointx0 ; ) 1+
-	leny 0? ( pointy0 ; ) 1+
+	>r
+	lenx ilevel >> 0? ( drop r> pointx0 ; ) 1+
+	leny ilevel >> 0? ( drop r> pointy0 ; ) 1+
 	pick4 pick4 pick4 zb.occ
-	0? ( 4drop drop vec- ; ) drop
-
+	0? ( 4drop rdrop veci- ; ) drop
+	r>
 	$pixels >=? ( veci exec ; )
 	oct++
+	1 'ilevel +!
 	nzmin 1 over << pick2 nand? ( 2drop )( child-iso viewi )
 	nzmin 1 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
 	nzmin 2 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
@@ -246,39 +281,34 @@
 	nzmin 6 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
 	nzmin 7 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
 	nip 4drop
-	vec-
+	-1 'ilevel +!
+	veci-
 	;
 
 |-----------------------
-
 :ver0 | x y z n -- z y x
 	getn p3di
-	dup 'xmin ! dup 'xmax !
-	rot
-	dup 'ymin ! dup 'ymax !
-	rot
-	dup 'zmin ! dup 'zmax !
-	rot ;
+	dup 'minx ! dup 'maxx ! rot
+	dup 'minz ! dup 'maxz ! rot
+	dup 'miny ! dup 'maxy ! rot ;
 
 :vern | x y z n -- z y x
 	getn p3di
-	xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! )
-	rot
-	ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! )
-	rot
-	zmin <? ( dup 'zmin ! ) zmax >? ( dup 'zmax ! )
-	rot ;
+	minx <? ( dup 'minx ! ) maxx >? ( dup 'maxx ! ) rot
+	minz <? ( dup 'minz ! ) maxz >? ( dup 'maxz ! ) rot
+	miny <? ( dup 'miny ! ) maxy >? ( dup 'maxy ! ) rot ;
 
 :isonow | x y z oct --
 	>r 'isoiso >r
-	nzmin 1 ver0 r!+ r!+ r!+
-	nzmin 1 xor vern r!+ r!+ r!+
-	nzmin 2 xor vern r!+ r!+ r!+
-	nzmin 4 xor vern r!+ r!+ r!+
-	nzmin 3 xor vern r!+ r!+ r!+
-	nzmin 5 xor vern r!+ r!+ r!+
-	nzmin 6 xor vern r!+ r!+ r!+
-	nzmin 7 xor vern r!+ r!+ r!+
+	0 ver0 r!+ r!+ r!+
+	1 vern r!+ r!+ r!+
+	2 vern r!+ r!+ r!+
+	3 vern r!+ r!+ r!+
+	4 vern r!+ r!+ r!+
+	5 vern r!+ r!+ r!+
+	6 vern r!+ r!+ r!+
+	7 vern r!+ r!+ r!+
+	3drop
 	maxx minx - 'lenx !
 	maxy miny - 'leny !
 	-96 r+
@@ -292,14 +322,15 @@
 	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
 	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
 	r> 'isoiso> !
-	r> viewi ;
+	precalciso
 
-
+	0 'ilevel !
+	r> viewi vec- ;
 
 |---------------- search iso ratio
 :viewr | x y z node --
 	>r calco 'nzmin ! r>
-	dup clz zlen <=? ( drop isonow ; ) drop
+	over clz zlen <=? ( drop isonow ; ) drop
 	$pixels >=? ( vecr exec ; )
 	oct++
 	1 'zlen +!
@@ -365,12 +396,12 @@
 	vec- ;
 
 |-------- octree in octree
-:vecis	drawcube vec- ;
-		|drawbox vec- ;
-		|drawboxi vec- ;
+:vecis	|drawcube veci- ;
+		drawbox veci- ;
+		|drawboxi veci- ;
 :vecrs	drawrealcube vec- ; | no iso
 :vecos	4drop |drawborde
-vec- ;
+	vec- ;
 
 #vecsim	'vecis 'vecrs 'vecos 0 0 0 0 0
 
@@ -408,6 +439,7 @@ vec- ;
 |--------- exportadas
 #s
 ::drawsoctree | size moctree --
+	0 'maxv ! 0 'maxi !
 	adjustmem
 	dup 's !
 	2* clz 6 - 'zlen !
@@ -424,6 +456,8 @@ vec- ;
 	0 0 -255 transform pick3 - 'z1 ! pick3 - 'y1 ! pick3 - 'x1 !
 	0 -255 0 transform pick3 - 'z2 ! pick3 - 'y2 ! pick3 - 'x2 !
 	-255 0 0 transform pick3 - 'z4 ! pick3 - 'y4 ! pick3 - 'x4 !
+	
+	precalcvec
 	$octree viewo ;
 
 ::drawoctree | moctree --
@@ -502,10 +536,10 @@ vec- ;
 
 	sw sh ini3do
 
-	"media/3do/mario.3do"
+|	"media/3do/horse.3do"
 |	"media/3do/sibenika.3do"
 |	"media/3do/clon2.3do"
-|	"media/3do/Truck.3do"
+	"media/3do/Truck.3do"
 	load3do 'Omario !
 	33
 	show clrscr
@@ -526,6 +560,8 @@ vec- ;
 		zcam ycam xcam "%f %f %f" print cr
 		hocc wocc "%f %f" print cr
 		h3do w3do 16 <</ 2* "%f" print cr
+		maxv "maxv:%d " print
+		maxi "maxi:%d " print cr
 
 		[ 0.01 'wocc +! ; ] <f1>
 		[ -0.01 'wocc +! ; ] <f2>
