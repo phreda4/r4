@@ -13,9 +13,6 @@
 #hocc
 #wocc
 
-#maxv
-#maxi
-
 #$base
 #:$octree
 #:$pixels
@@ -41,17 +38,14 @@
 #vecr
 #veco
 
-#isovec )( 1440
+#isovec )( 960
 #isovec> 'isovec
 
 #isoiso )( 960
 #isoiso> 'isoiso
 
-:vec-
-	-48 'isovec> +! ;
-
-:veci-
-	-96 'isoiso> +! ;
+:vec-	-48 'isovec> +! ;
+:veci-	-96 'isoiso> +! ;
 
 |-------------------------------
 :octcolor | oct -- color
@@ -77,6 +71,10 @@
 	2 << dup 2* + 48 - isovec> + >r | 12*
 	pick2 r@+ + pick2 r@+ + pick2 r> @ + ;
 
+:getni  | x y z n -- x y z x1 y1 z1
+	2 << dup 2* + 96 - isoiso> + >r | 12*
+	pick2 r@+ + pick2 r@+ + pick2 r> @ + ;
+
 |--- draw box
 :drawbox | x y z oct --
 	octcolor zo! zz!
@@ -97,21 +95,21 @@
 :drawcube |	x y z oct --
 	octcolor zo!
 	nzmin dup 2 << 'bcara + @ >r
-	getn 'sz ! 'sy ! 'sx !
+	getni 'sz ! 'sy ! 'sx !
 	sx sy sz zop
-	r 7 and getn zline
-	r 3 >> 7 and getn zline
-	r 6 >> 7 and getn zline
+	r 7 and getni zline
+	r 3 >> 7 and getni zline
+	r 6 >> 7 and getni zline
 	sx sy sz zline zpoly
 	sx sy sz zop
-	r 9 >> 7 and getn zline
-	r 12 >> 7 and getn zline
-	r 15 >> 7 and getn zline
+	r 9 >> 7 and getni zline
+	r 12 >> 7 and getni zline
+	r 15 >> 7 and getni zline
 	sx sy sz zline zpoly
 	sx sy sz zop
-	r 18 >> 7 and getn zline
-	r 21 >> 7 and getn zline
-	r> 24 >> 7 and getn zline
+	r 18 >> 7 and getni zline
+	r 21 >> 7 and getni zline
+	r> 24 >> 7 and getni zline
 	sx sy sz zline zpoly
 	3drop ;
 
@@ -140,8 +138,8 @@
 |-------------------------------
 :calco |  x y z -- x y z mask
 	pick2 x1 * pick2 y1 * + over z1 * + +? ( 1 )( 0 ) nip
-	pick3 x2 * pick3 y2 * + pick2 z2 * + +? ( drop 2 + )( drop ) >r
-	pick3 x4 * pick3 y4 * + pick2 z4 * + +? ( 4 )( 0 ) nip r> +
+	pick3 x2 * pick3 y2 * + pick2 z2 * + +? ( 2 )( 0 ) nip +
+	pick3 x4 * pick3 y4 * + pick2 z4 * + +? ( 4 )( 0 ) nip +
 	;
 
 :2/a | a -- b
@@ -157,7 +155,6 @@
 	@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
 	@+ 2/a r!+ @+ 2/a r!+ @ 2/a r!+
 	r> 'isovec> !
-	isovec> 'isovec - 48 / maxv max 'maxv !
 	;
 
 :precalcvec
@@ -194,7 +191,6 @@
 	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
 	@+ 2/ r!+ @+ 2/ r!+ @ 2/ r!+
 	r> 'isoiso> !
-|	isoiso> 'isoiso - 96 / maxi max 'maxi !
 	;
 
 :precalciso
@@ -396,8 +392,8 @@
 	vec- ;
 
 |-------- octree in octree
-:vecis	|drawcube veci- ;
-		drawbox veci- ;
+:vecis	drawcube veci- ;
+		|drawbox veci- ;
 		|drawboxi veci- ;
 :vecrs	drawrealcube vec- ; | no iso
 :vecos	4drop |drawborde
@@ -439,7 +435,6 @@
 |--------- exportadas
 #s
 ::drawsoctree | size moctree --
-	0 'maxv ! 0 'maxi !
 	adjustmem
 	dup 's !
 	2* clz 6 - 'zlen !
@@ -448,7 +443,7 @@
 	'isovec >r
 	s dup dup  transform rot sx - r!+ swap sy - r!+ sz - r!+
 	s dup dup neg transform rot sx - r!+ swap sy - r!+ sz - r!+
-	s dup neg s transform rot sx - r!+ swap sy - r!+ sz - r!+
+	s dup neg over transform rot sx - r!+ swap sy - r!+ sz - r!+
 	s dup neg dup transform rot sx - r!+ swap sy - r!+ sz - r!+
 	r> 'isovec> !
 
@@ -456,7 +451,7 @@
 	0 0 -255 transform pick3 - 'z1 ! pick3 - 'y1 ! pick3 - 'x1 !
 	0 -255 0 transform pick3 - 'z2 ! pick3 - 'y2 ! pick3 - 'x2 !
 	-255 0 0 transform pick3 - 'z4 ! pick3 - 'y4 ! pick3 - 'x4 !
-	
+
 	precalcvec
 	$octree viewo ;
 
@@ -536,10 +531,10 @@
 
 	sw sh ini3do
 
-|	"media/3do/horse.3do"
+	"media/3do/horse.3do"
 |	"media/3do/sibenika.3do"
 |	"media/3do/clon2.3do"
-	"media/3do/Truck.3do"
+|	"media/3do/Truck.3do"
 	load3do 'Omario !
 	33
 	show clrscr
@@ -560,8 +555,6 @@
 		zcam ycam xcam "%f %f %f" print cr
 		hocc wocc "%f %f" print cr
 		h3do w3do 16 <</ 2* "%f" print cr
-		maxv "maxv:%d " print
-		maxi "maxi:%d " print cr
 
 		[ 0.01 'wocc +! ; ] <f1>
 		[ -0.01 'wocc +! ; ] <f2>
