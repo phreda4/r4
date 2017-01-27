@@ -1,0 +1,378 @@
+| PHREDA 2017
+| Solo ISO, ray casting test
+|--------------------
+^r4/lib/gui.txt
+^r4/lib/morton.txt
+^r4/lib/zbuffer.txt
+
+^r4/lib/trace.txt
+
+#oclon
+#oclon2
+
+#x0 120 #y0 100 #z0 100
+#x1 400 #y1 80	#z1 200
+#x2 400 #y2 180 #z2 400
+#x3 120 #y3 400 #z3 500
+
+#$base
+#$magic
+#$octree
+#$pixels
+#$paleta
+
+
+#nzmin 2
+#szm
+
+:drawaxis
+	azul x0 y0 op x1 y1 line
+	rojo x0 y0 op x2 y2 line
+	verde x0 y0 op x3 y3 line
+	;
+
+|--------------------------------------
+:3do! | octree --
+	dup '$base !
+	dup 28 + '$octree !
+	@+ '$magic !
+	@ $octree + '$pixels !
+	;
+
+:octcolor | oct -- color
+    $octree - $pixels + @ ;
+
+::oct++ | adr -- adr bitmask
+	@+ dup 8 >> 2 << rot + swap $ff and ;
+
+#isovec )( 720
+#isovec> 'isovec
+
+:inivec
+	'isovec >r
+	x1 x0 - r!+ y1 y0 - r!+ z1 z0 - r!+
+	x2 x0 - r!+ y2 y0 - r!+ z2 z0 - r!+
+	x3 x0 - r!+ y3 y0 - r!+ z3 z0 - r!+
+	r> 'isovec> !
+
+	szm 'nzmin !
+	;
+
+:vec-
+	-36 'isovec> +! ;
+
+| x y z -- x y z x2 y2 z2
+:t000
+	pick2 pick2 pick2 ;
+:t001
+	isovec> 36 - >r
+	pick2 r@+ + pick2 r@+ + pick2 r> @ + ;
+:t010
+	isovec> 24 - >r
+	pick2 r@+ + pick2 r@+ + pick2 r> @ + ;
+:t011
+	isovec> 36 - >r
+	pick2 r@+ + r 8 + @ +
+	pick2 r@+ + r 8 + @ +
+	pick2 r@+ + r> 8 + @ + ;
+:t100
+	isovec> 12 - >r
+	pick2 r@+ + pick2 r@+ + pick2 r> @ + ;
+:t101
+	isovec> 36 - >r
+	pick2 r@+ + r 20 + @ +
+	pick2 r@+ + r 20 + @ +
+	pick2 r@+ + r> 20 + @ + ;
+:t110
+	isovec> 24 - >r
+	pick2 r@+ + r 8 + @ +
+	pick2 r@+ + r 8 + @ +
+	pick2 r@+ + r> 8 + @ + ;
+:t111
+	isovec> 36 - >r
+	pick2 r@+ + r 8 + @ + r 20 + @ +
+	pick2 r@+ + r 8 + @ + r 20 + @ +
+	pick2 r@+ + r 8 + @ + r> 20 + @ + ;
+
+#lsuma t000 t001 t010 t011 t100 t101 t110 t111
+
+:getn | x y z n -- x y z x1 y1 z1
+	2 << 'lsuma + @ exec ;
+
+|--------- draw box
+:drcara | x y z cara -- x y z
+	dup >r $f and getn zop
+	r 4 >> $f and getn zline
+	r 8 >> $f and getn zline
+	r 12 >> $f and getn zline
+	r> $f and getn zline
+	zpoly ;
+
+#cara
+$0132 $0264 $0154 0
+$1320 $1375 $1045 0
+$2310 $2046 $2376 0
+$3102 $3157 $3267 0
+$4576 $4620 $4510 0
+$5467 $5137 $5104 0
+$6457 $6204 $6237 0
+$7645 $7513 $7326 0
+
+:dbox | x y z octree --
+	octcolor zo!
+	nzmin 4 << 'cara + >r
+	r@+ drcara
+	r@+ drcara
+	r> @ drcara
+	3drop ;
+
+|------------------
+#vert )( 128
+
+:getn2
+	6 << 'vert + >r r@+ r@+ r> @ ;
+
+:drcara2
+	dup >r $f and getn2 zop
+	r 4 >> $f and getn2 zline
+	r 8 >> $f and getn2 zline
+	r 12 >> $f and getn2 zline
+	r> $f and getn2 zline
+	zpoly ;
+
+:dbox2 | x y z octree
+	octcolor zo!
+	'vert >r
+	0 getn r!+ r!+ r!+ 4 r+
+	1 getn r!+ r!+ r!+ 4 r+
+	2 getn r!+ r!+ r!+ 4 r+
+	3 getn r!+ r!+ r!+ 4 r+
+	4 getn r!+ r!+ r!+ 4 r+
+	5 getn r!+ r!+ r!+ 4 r+
+	6 getn r!+ r!+ r!+ 4 r+
+	7 getn r!+ r!+ r> !
+	nzmin 4 << 'cara + >r
+	r@+ drcara2
+	r@+ drcara2
+	r> @ drcara2
+	3drop ;
+
+
+|-------------------------------------
+| x y z n m -- x y z n m x2 y2 z2
+#sx #sy #sz
+:c000
+	isovec> dup >r 36 -
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ 2/ r!+ @+ 2/ r!+ @ 2/ r!+
+	r> 'isovec> !
+	pick4 pick4 pick4 ;
+:c001
+	isovec> dup >r 36 -
+	@+ dup 2/ dup 'sx ! - r!+
+	@+ dup 2/ dup 'sy ! - r!+
+	@+ dup 2/ dup 'sz ! - r!+
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ 2/ r!+ @+ 2/ r!+ @ 2/ r!+
+	r> 'isovec> !
+	pick4 sx + pick4 sy + pick4 sz + ;
+:c010
+	isovec> dup >r 36 -
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ dup 2/ dup 'sx ! - r!+
+	@+ dup 2/ dup 'sy ! - r!+
+	@+ dup 2/ dup 'sz ! - r!+
+	@+ 2/ r!+ @+ 2/ r!+ @ 2/ r!+
+	r> 'isovec> !
+	pick4 sx + pick4 sy + pick4 sz + ;
+:c011
+	isovec> dup >r 36 -
+	@+ dup 2/ dup 'sx ! - r!+
+	@+ dup 2/ dup 'sy ! - r!+
+	@+ dup 2/ dup 'sz ! - r!+
+	@+ dup 2/ dup 'sx +! - r!+
+	@+ dup 2/ dup 'sy +! - r!+
+	@+ dup 2/ dup 'sz +! - r!+
+	@+ 2/ r!+ @+ 2/ r!+ @ 2/ r!+
+	r> 'isovec> !
+	pick4 sx + pick4 sy + pick4 sz + ;
+:c100
+	isovec> dup >r 36 -
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ dup 2/ dup 'sx ! - r!+
+	@+ dup 2/ dup 'sy ! - r!+
+	@ dup 2/ dup 'sz ! - r!+
+	r> 'isovec> !
+	pick4 sx + pick4 sy + pick4 sz + ;
+:c101
+	isovec> dup >r 36 -
+	@+ dup 2/ dup 'sx ! - r!+
+	@+ dup 2/ dup 'sy ! - r!+
+	@+ dup 2/ dup 'sz ! - r!+
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ dup 2/ dup 'sx +! - r!+
+	@+ dup 2/ dup 'sy +! - r!+
+	@ dup 2/ dup 'sz +! - r!+
+	r> 'isovec> !
+	pick4 sx + pick4 sy + pick4 sz + ;
+:c110
+	isovec> dup >r 36 -
+	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	@+ dup 2/ dup 'sx ! - r!+
+	@+ dup 2/ dup 'sy ! - r!+
+	@+ dup 2/ dup 'sz ! - r!+
+	@+ dup 2/ dup 'sx +! - r!+
+	@+ dup 2/ dup 'sy +! - r!+
+	@ dup 2/ dup 'sz +! - r!+
+	r> 'isovec> !
+	pick4 sx + pick4 sy + pick4 sz + ;
+:c111
+	isovec> dup >r 36 -
+	@+ dup 2/ dup 'sx ! - r!+
+	@+ dup 2/ dup 'sy ! - r!+
+	@+ dup 2/ dup 'sz ! - r!+
+	@+ dup 2/ dup 'sx +! - r!+
+	@+ dup 2/ dup 'sy +! - r!+
+	@+ dup 2/ dup 'sz +! - r!+
+	@+ dup 2/ dup 'sx +! - r!+
+	@+ dup 2/ dup 'sy +! - r!+
+	@ dup 2/ dup 'sz +! - r!+
+	r> 'isovec> !
+	pick4 sx + pick4 sy + pick4 sz + ;
+
+#lsumac c000 c001 c010 c011 c100 c101 c110 c111
+
+:childi | x y z node bitm nro place -- x y z node bitm xn yn zn noct
+	1- pick2 and popcnt 2 << pick3 +	| x y node bitm nro nnode
+	>r 2 << 'lsumac + @ exec r>			| x y node bitm xn yn nnode
+	;
+
+|--------------------------------------
+:drawiso | x y z node --
+	$pixels >=? ( dbox vec- ; )
+
+|   pick2 pick2
+|	wison 0? ( 3drop drawpoint1 ; ) pick2 +
+|	hison 0? ( 4drop drawpoint2 ; ) pick2 +
+|	maskb.rget 0? ( 4drop ; ) drop
+
+	oct++
+	nzmin 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nzmin 1 xor 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nzmin 2 xor 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nzmin 4 xor 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nzmin 3 xor 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nzmin 5 xor 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nzmin 6 xor 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nzmin 7 xor 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nip 4drop
+	vec-
+	;
+
+:drawioct | octree --
+	3do!
+	inivec
+	x0 y0 z0 $octree drawiso
+	;
+
+|--------------------------------
+#xmin #xmax
+#ymin #ymax
+#zmin #zmax
+
+:testmm | x y z
+	zmin <? ( dup 'zmin ! ) zmax >? ( dup 'zmax ! ) drop
+	ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
+	xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
+	;
+:getlim
+	0 getn dup 'zmin ! zmax ! dup 'ymin ! ymax ! dup 'xmin ! xmax !
+	1 getn testmm
+	1 getn testmm
+	1 getn testmm
+	1 getn testmm			
+	;
+:drawiso2
+	>r getlim
+	r>
+	3drop
+	drop
+	;
+
+:drawioct2 | octree --
+	3do!
+	inivec
+	x0 y0 z0 $octree drawiso2
+	;
+
+
+|--------------------------------
+:load3do | "" -- moctree
+	here dup rot load 'here ! ;
+
+#ac
+
+:in? | x y xx yy -- x y 1/0
+	pick2 - dup * swap
+	pick3 - dup * swap +
+	32 >? ( 0 nip ) ;
+
+:dn
+	xymouse
+	x0 y0 in? 1? ( 'x0 'ac ! 3drop ; ) drop
+	x1 y1 in? 1? ( 'x1 'ac ! 3drop ; ) drop
+	x2 y2 in? 1? ( 'x2 'ac ! 3drop ; ) drop
+	x3 y3 in? 1? ( 'x3 'ac ! 3drop ; ) drop
+	2drop
+	0 'ac ! ;
+
+:movem
+	ac 0? ( drop ; )
+	xymouse pick2 4+ ! swap ! ;
+
+:zdraw
+	0 0 setxy
+	zb >r
+	sh ( 1? )( 1-
+		sw ( 1? )( 1-
+			r@+ $7fffffff <>? ( drop r zbo + @ )
+			px!+
+			) drop
+		) drop ;
+
+#xcam 0 #ycam 0 #zcam 1.6
+
+:main
+	mark
+|	"media/3do/xwing.3do" load3do 'Oclon2 !
+	"media/3do/tie fighter.3do" load3do 'Oclon !
+|	"media/3do/mario.3do" load3do 'Oclon !
+	sw sh zb.ini
+	Omode
+	33
+	show clrscr
+
+		matini
+		xcam ycam zcam mtrans
+
+		zb.clear
+|		Oclon drawioct
+|		Oclon2 drawioct
+		Oclon drawioct2
+
+		zdraw
+
+		azul
+		dup "%d" print cr
+
+        drawaxis
+		'dn 'movem guiDnMove
+
+		[ szm 1+ 7 and 'szm ! ; ] <f1>
+		'exit >esc< cminiflecha
+		;
+
+: main ;
+

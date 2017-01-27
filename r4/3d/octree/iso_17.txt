@@ -1,6 +1,7 @@
-| iso test 16
+| iso test 17
 | PHREDA 2017
 | 4 vertices - zbuffer
+| 4 vertices en iso
 |---------------------
 ^r4/lib/gui.txt
 ^r4/lib/zbuffer.txt
@@ -17,12 +18,6 @@
 #:$octree
 #:$pixels
 #$paleta
-
-#minx #miny #minz
-#maxx #maxy #maxz
-#lenx #leny
-
-#ilevel
 
 #nzmin
 #zlen
@@ -45,7 +40,16 @@
 #isoiso> 'isoiso
 
 :vec-	-48 'isovec> +! ;
-:veci-	-96 'isoiso> +! ;
+:veci-	-48 'isoiso> +! ;
+
+#minx #miny
+#vx #vxa
+#vy #vya
+
+:getminx isoiso> vx + @ ;
+:getminy isoiso> vy + @ ;
+:getlenx isoiso> vx + @ 2* neg ;
+:getleny isoiso> vy + @ 2* neg ;
 
 |-------------------------------
 :octcolor | oct -- color
@@ -71,14 +75,11 @@
 	2 << dup 2* + 48 - isovec> + >r | 12*
 	pick2 r@+ + pick2 r@+ + pick2 r> @ + ;
 
-:getni  | x y z n -- x y z x1 y1 z1
-	2 << dup 2* + 96 - isoiso> + >r | 12*
-	pick2 r@+ + pick2 r@+ + pick2 r> @ + ;
 
 |--- draw box
 :drawbox | x y z oct --
 	octcolor zo! zz!
-	lenx ilevel >> 1+ leny ilevel >> 1+
+	getlenx 1+ getleny 1+
 	2swap zb.fill ;
 
 |--- draw cube
@@ -95,21 +96,21 @@
 :drawcube |	x y z oct --
 	octcolor zo!
 	nzmin dup 2 << 'bcara + @ >r
-	getni 'sz ! 'sy ! 'sx !
+	getn 'sz ! 'sy ! 'sx !
 	sx sy sz zop
-	r 7 and getni zline
-	r 3 >> 7 and getni zline
-	r 6 >> 7 and getni zline
+	r 7 and getn zline
+	r 3 >> 7 and getn zline
+	r 6 >> 7 and getn zline
 	sx sy sz zline zpoly
 	sx sy sz zop
-	r 9 >> 7 and getni zline
-	r 12 >> 7 and getni zline
-	r 15 >> 7 and getni zline
+	r 9 >> 7 and getn zline
+	r 12 >> 7 and getn zline
+	r 15 >> 7 and getn zline
 	sx sy sz zline zpoly
 	sx sy sz zop
-	r 18 >> 7 and getni zline
-	r 21 >> 7 and getni zline
-	r> 24 >> 7 and getni zline
+	r 18 >> 7 and getn zline
+	r 21 >> 7 and getn zline
+	r> 24 >> 7 and getn zline
 	sx sy sz zline zpoly
 	3drop ;
 
@@ -167,7 +168,7 @@
 :restac
 	%111 xor
 	2 << dup 2* + 48 - isovec> + >r | 12*
-	pick4 r@+ 2/b - pick4 r@+ 2/b - pick4 r> @ 2/ -
+	pick4 r@+ 2/b - pick4 r@+ 2/b - pick4 r> @ 2/b -
 |	reduce
 	48 'isovec> +!
 	;
@@ -180,60 +181,28 @@
 	48 'isovec> +!
 	;
 
-:reducei
-	isoiso> dup >r 96 -
-	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
-	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
-	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
-	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
-	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
-	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
-	@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
-	@+ 2/ r!+ @+ 2/ r!+ @ 2/ r!+
-	r> 'isoiso> !
-	;
-
+|------------------------------------
 :precalciso
-	isoiso> dup >r 96 -
-	6 3 << ( 1? )( 1- swap
-		@+ 2/ r!+ @+ 2/ r!+ @+ 2/ r!+
+	isoiso> dup >r 48 -
+	8 2 <<
+	( 1? )( 1- swap
+		@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
 		swap ) 2drop rdrop ;
 
-:2/c
-	dup 2/ - ;
+:restaci
+	%111 xor
+	2 << dup 2* + 48 - isoiso> + >r | 12*
+	pick4 r@+ 2/b - pick4 r@+ 2/b - pick4 r> @ 2/ -
+|	reducei
+	48 'isoiso> +!
+	;
 
 :sumaci | x y z node bitm nro -- x y z node bitm xn yn zn
-	2 << dup 2* + 96 - isoiso> + >r
-	pick4 r@+ 2/c + pick4 r@+ 2/c + pick4 r> @ 2/c +
+	%100 and? ( restaci ; )
+	2 << dup 2* + 48 - isoiso> + >r | 12*
+	pick4 r@+ 2/b + pick4 r@+ 2/b + pick4 r> @ 2/b +
 |	reducei
-	96 'isoiso> +!
-	;
-
-|----- voxel borde
-:getnminmax
-	getn p3di
-	minx <? ( dup 0 max 'minx ! )
-	maxx >? ( dup w3do min 'maxx ! )
-	drop
-	miny <? ( dup 0 max 'miny ! )
-	maxy >? ( dup h3do min 'maxy ! )
-	2drop ;
-
-:drawborde
-	octcolor zo!
-	0 getn p3di dup 'minx ! 'maxx ! dup 'miny ! 'maxy ! 1 max zz!
-	1 getnminmax
-	2 getnminmax
-	3 getnminmax
-	4 getnminmax
-	5 getnminmax
-	6 getnminmax
-	7 getnminmax
-	3drop
-	minx miny
-	maxx pick2 - 1+ maxy pick2 - 1+
-	2swap zb.fill
-	;
+	48 'isoiso> +!
 
 |---------------------------
 :oct++ | adr -- adr bitmask
@@ -249,9 +218,10 @@
 	>r sumaci r>			| x y z node bitm xn yn zn nnode
 	;
 
+|-----------------------
 :pointx0 | x y z oct --
 	octcolor zo!
-	leny ilevel >> 0? ( drop zb! veci- ; ) 1+
+	getleny 0? ( drop zb! veci- ; ) 1+
 	zbh! veci- ;
 
 :pointy0  | x y z w oct --
@@ -260,14 +230,13 @@
 
 :viewi | x y z node --
 	>r
-	lenx ilevel >> 0? ( drop r> pointx0 ; ) 1+
-	leny ilevel >> 0? ( drop r> pointy0 ; ) 1+
-	pick4 pick4 pick4 zb.occ
+	getlenx 0? ( drop r> pointx0 ; ) 1+
+	getleny 0? ( drop r> pointy0 ; ) 1+
+	pick4 getminx + pick4 getminy + pick4 zb.occ
 	0? ( 4drop rdrop veci- ; ) drop
 	r>
 	$pixels >=? ( veci exec ; )
 	oct++
-	1 'ilevel +!
 	nzmin 1 over << pick2 nand? ( 2drop )( child-iso viewi )
 	nzmin 1 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
 	nzmin 2 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
@@ -277,50 +246,47 @@
 	nzmin 6 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
 	nzmin 7 xor 1 over << pick2 nand? ( 2drop )( child-iso viewi )
 	nip 4drop
-	-1 'ilevel +!
 	veci-
 	;
 
-|-----------------------
-:ver0 | x y z n -- z y x
-	getn p3di
-	dup 'minx ! dup 'maxx ! rot
-	dup 'minz ! dup 'maxz ! rot
-	dup 'miny ! dup 'maxy ! rot ;
 
-:vern | x y z n -- z y x
-	getn p3di
-	minx <? ( dup 'minx ! ) maxx >? ( dup 'maxx ! ) rot
-	minz <? ( dup 'minz ! ) maxz >? ( dup 'maxz ! ) rot
-	miny <? ( dup 'miny ! ) maxy >? ( dup 'maxy ! ) rot ;
+:cminx | adr value -- adr
+	+? ( neg )
+	minx >=? ( drop ; )
+	'minx ! dup 'vx ! ;
+
+:cminy | adr value -- adr
+	+? ( neg )
+	miny >=? ( drop ; )
+	'miny ! dup 'vy ! ;
+
+:precalcv
+	isoiso> 48 -
+	@+ -? ( 'minx ! )( neg 'minx ! ) dup 'vx !
+	@+ -? ( 'miny ! )( neg 'miny ! ) dup 'vy !
+	4+
+	@+ cminx @+ cminy 4+
+	@+ cminx @+ cminy 4+
+	@+ cminx @+ cminy drop
+	vx isoiso> - 4 - 'vx !
+	vy isoiso> - 4 - 'vy !
+	;
 
 :isonow | x y z oct --
 	>r 'isoiso >r
-	0 ver0 r!+ r!+ r!+
-	1 vern r!+ r!+ r!+
-	2 vern r!+ r!+ r!+
-	3 vern r!+ r!+ r!+
-	4 vern r!+ r!+ r!+
-	5 vern r!+ r!+ r!+
-	6 vern r!+ r!+ r!+
-	7 vern r!+ r!+ r!+
-	3drop
-	maxx minx - 'lenx !
-	maxy miny - 'leny !
-	-96 r+
-	minx miny minz
-	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
-	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
-	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
-	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
+	0 getn p3di r!+ r!+ r!+
+	1 getn p3di r!+ r!+ r!+
+	2 getn p3di r!+ r!+ r!+
+	3 getn p3di r!+ r!+ r!+
+	p3dz | xc yc zc
+	-48 r+
 	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
 	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
 	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
 	r @ pick3 - r!+ r @ pick2 - r!+ r @ over - r!+
 	r> 'isoiso> !
+	precalcv
 	precalciso
-
-	0 'ilevel !
 	r> viewi vec- ;
 
 |---------------- search iso ratio
@@ -439,7 +405,7 @@
 
 	0 0 0 transform 'sz ! 'sy ! 'sx !
 	'isovec >r
-	dup neg dup dup  transform rot sx - r!+ swap sy - r!+ sz - r!+
+	dup neg dup dup transform rot sx - r!+ swap sy - r!+ sz - r!+
 	dup neg dup dup neg transform rot sx - r!+ swap sy - r!+ sz - r!+
 	dup neg dup neg over transform rot sx - r!+ swap sy - r!+ sz - r!+
 	neg dup neg dup transform rot sx - r!+ swap sy - r!+ sz - r!+
