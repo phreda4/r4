@@ -46,10 +46,10 @@
 #vx #vxa
 #vy #vya
 
-:getminx isoiso> vx + @ ;
-:getminy isoiso> vy + @ ;
-:getlenx isoiso> vx + @ 2* neg ;
-:getleny isoiso> vy + @ 2* neg ;
+:getminx isoiso> vx + @ abs ;
+:getminy isoiso> vy + @ abs ;
+:getlenx isoiso> vx + @ abs 2* ;
+:getleny isoiso> vy + @ abs 2* ;
 
 |-------------------------------
 :octcolor | oct -- color
@@ -76,11 +76,24 @@
 	pick2 r@+ + pick2 r@+ + pick2 r> @ + ;
 
 
+:getnni
+	%111 xor
+	2 << dup 2* + 48 - isoiso> + >r | 12*
+	pick2 r@+ - pick2 r@+ - pick2 r> @ - ;
+
+:getni  | x y z n -- x y z x1 y1 z1
+	%100 and? ( getnni ; )
+	2 << dup 2* + 48 - isoiso> + >r | 12*
+	pick2 r@+ + pick2 r@+ + pick2 r> @ + ;
+
+
 |--- draw box
 :drawbox | x y z oct --
 	octcolor zo! zz!
 	getlenx 1+ getleny 1+
-	2swap zb.fill ;
+	2swap
+	getminy - swap getminx - swap
+	zb.fill ;
 
 |--- draw cube
 #bcara | lista de vertices(3 bits) por caras(3)
@@ -96,21 +109,21 @@
 :drawcube |	x y z oct --
 	octcolor zo!
 	nzmin dup 2 << 'bcara + @ >r
-	getn 'sz ! 'sy ! 'sx !
+	getni 'sz ! 'sy ! 'sx !
 	sx sy sz zop
-	r 7 and getn zline
-	r 3 >> 7 and getn zline
-	r 6 >> 7 and getn zline
+	r 7 and getni zline
+	r 3 >> 7 and getni zline
+	r 6 >> 7 and getni zline
 	sx sy sz zline zpoly
 	sx sy sz zop
-	r 9 >> 7 and getn zline
-	r 12 >> 7 and getn zline
-	r 15 >> 7 and getn zline
+	r 9 >> 7 and getni zline
+	r 12 >> 7 and getni zline
+	r 15 >> 7 and getni zline
 	sx sy sz zline zpoly
 	sx sy sz zop
-	r 18 >> 7 and getn zline
-	r 21 >> 7 and getn zline
-	r> 24 >> 7 and getn zline
+	r 18 >> 7 and getni zline
+	r 21 >> 7 and getni zline
+	r> 24 >> 7 and getni zline
 	sx sy sz zline zpoly
 	3drop ;
 
@@ -146,7 +159,7 @@
 :2/a | a -- b
 	dup 31 >> - 2/ ;
 
-:2/b | a -- b c
+:2/b | a -- c
 	dup dup 31 >> - 2/ - ;
 
 :reduce
@@ -165,6 +178,19 @@
 		@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
 		swap ) 2drop rdrop ;
 
+|------------------------------------
+:precalciso
+	isoiso> dup >r 48 -
+	8 2 <<
+	( 1? )( 1- swap
+		@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
+		swap ) 2drop rdrop ;
+
+|---------------------------
+:oct++ | adr -- adr bitmask
+	@+ dup 8 >> 2 << rot + swap $ff and ;
+
+|---------------------------
 :restac
 	%111 xor
 	2 << dup 2* + 48 - isovec> + >r | 12*
@@ -181,18 +207,16 @@
 	48 'isovec> +!
 	;
 
-|------------------------------------
-:precalciso
-	isoiso> dup >r 48 -
-	8 2 <<
-	( 1? )( 1- swap
-		@+ 2/a r!+ @+ 2/a r!+ @+ 2/a r!+
-		swap ) 2drop rdrop ;
+:child-oct | x y z node bitm nro place -- x y z node bitm xn yn zn noct
+	1- pick2 and popcnt 2 << pick3 +	| x y z node bitm nro nnode
+	>r sumac r>			| x y z node bitm xn yn zn nnode
+	;
 
+|---------------------------
 :restaci
 	%111 xor
 	2 << dup 2* + 48 - isoiso> + >r | 12*
-	pick4 r@+ 2/b - pick4 r@+ 2/b - pick4 r> @ 2/ -
+	pick4 r@+ 2/b - pick4 r@+ 2/b - pick4 r> @ 2/b -
 |	reducei
 	48 'isoiso> +!
 	;
@@ -203,14 +227,6 @@
 	pick4 r@+ 2/b + pick4 r@+ 2/b + pick4 r> @ 2/b +
 |	reducei
 	48 'isoiso> +!
-
-|---------------------------
-:oct++ | adr -- adr bitmask
-	@+ dup 8 >> 2 << rot + swap $ff and ;
-
-:child-oct | x y z node bitm nro place -- x y z node bitm xn yn zn noct
-	1- pick2 and popcnt 2 << pick3 +	| x y z node bitm nro nnode
-	>r sumac r>			| x y z node bitm xn yn zn nnode
 	;
 
 :child-iso | x y z node bitm nro place -- x y z node bitm xn yn zn noct
@@ -221,18 +237,21 @@
 |-----------------------
 :pointx0 | x y z oct --
 	octcolor zo!
+	$ffffff zo!
 	getleny 0? ( drop zb! veci- ; ) 1+
+	rot over 2/ - rot rot
 	zbh! veci- ;
 
 :pointy0  | x y z w oct --
 	octcolor zo!
+	$ffffff zo!	
 	zbw! veci- ;
 
 :viewi | x y z node --
 	>r
 	getlenx 0? ( drop r> pointx0 ; ) 1+
 	getleny 0? ( drop r> pointy0 ; ) 1+
-	pick4 getminx + pick4 getminy + pick4 zb.occ
+	pick4 getminx - pick4 getminy - pick4 zb.occ
 	0? ( 4drop rdrop veci- ; ) drop
 	r>
 	$pixels >=? ( veci exec ; )
@@ -249,21 +268,28 @@
 	veci-
 	;
 
+|------------------------------
+:testiso
+	drawcube ;
+:a	octcolor zo! zz!
+	swap getminx - swap getminy -
+	getlenx 1+ getleny 1+
+	2swap zb.fill ;
+	;
 
+|--------------------------------
 :cminx | adr value -- adr
-	+? ( neg )
-	minx >=? ( drop ; )
+	abs	minx <? ( drop ; )
 	'minx ! dup 'vx ! ;
 
 :cminy | adr value -- adr
-	+? ( neg )
-	miny >=? ( drop ; )
+	abs miny <? ( drop ; )
 	'miny ! dup 'vy ! ;
 
 :precalcv
 	isoiso> 48 -
-	@+ -? ( 'minx ! )( neg 'minx ! ) dup 'vx !
-	@+ -? ( 'miny ! )( neg 'miny ! ) dup 'vy !
+	@+ abs 'minx ! dup 'vx !
+	@+ abs 'miny ! dup 'vy !
 	4+
 	@+ cminx @+ cminy 4+
 	@+ cminx @+ cminy 4+
@@ -287,7 +313,10 @@
 	r> 'isoiso> !
 	precalcv
 	precalciso
-	r> viewi vec- ;
+	r>
+	viewi
+|	testiso
+	vec- ;
 
 |---------------- search iso ratio
 :viewr | x y z node --
@@ -358,8 +387,8 @@
 	vec- ;
 
 |-------- octree in octree
-:vecis	drawcube veci- ;
-		|drawbox veci- ;
+:vecis	|drawcube veci- ;
+		drawbox veci- ;
 		|drawboxi veci- ;
 :vecrs	drawrealcube vec- ; | no iso
 :vecos	4drop |drawborde
@@ -405,10 +434,11 @@
 
 	0 0 0 transform 'sz ! 'sy ! 'sx !
 	'isovec >r
-	dup neg dup dup transform rot sx - r!+ swap sy - r!+ sz - r!+
-	dup neg dup dup neg transform rot sx - r!+ swap sy - r!+ sz - r!+
-	dup neg dup neg over transform rot sx - r!+ swap sy - r!+ sz - r!+
-	neg dup neg dup transform rot sx - r!+ swap sy - r!+ sz - r!+
+	neg
+	dup dup dup transform rot sx - r!+ swap sy - r!+ sz - r!+
+	dup dup dup neg transform rot sx - r!+ swap sy - r!+ sz - r!+
+	dup dup neg over transform rot sx - r!+ swap sy - r!+ sz - r!+
+	dup neg dup transform rot sx - r!+ swap sy - r!+ sz - r!+
 	r> 'isovec> !
 
 	sx sy sz
@@ -464,7 +494,7 @@
 	sw 2/ - neg 7 << swap
 	neg mrotx mroty
 	;
-
+1
 #sizx #sizy #sizz
 
 :drawz | z --
