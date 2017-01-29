@@ -277,16 +277,18 @@ $7645 $7513 $7326 0
 	x0 y0 z0 $octree drawiso
 	;
 
-|--------------------------------
+|----------------------------- rasterize
 #xmin #xmax
 #ymin #ymax
 #zmin #zmax
 
+|----------------------------- v1
 :testmm | x y z
 	zmin <? ( dup 'zmin ! ) zmax >? ( dup 'zmax ! ) drop
 	ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
 	xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
 	;
+
 :getlim
 	0 getn dup 'zmin ! 'zmax ! dup 'ymin ! 'ymax ! dup 'xmin ! 'xmax !
 	1 getn testmm
@@ -297,41 +299,142 @@ $7645 $7513 $7326 0
 	6 getn testmm
 	7 getn testmm
 	;
+|----------------------------- v2
+:getmm | --
+	isovec> 36 - >r
+	r@+ -? ( 0 )( 0 swap ) 'xmax ! 'xmin !
+	r@+ -? ( 0 )( 0 swap ) 'ymax ! 'ymin !
+	r@+ -? ( 0 )( 0 swap ) 'zmax ! 'zmin !
+	r@+ -? ( 'xmin )( 'xmax ) +!
+	r@+ -? ( 'ymin )( 'ymax ) +!
+	r@+ -? ( 'zmin )( 'zmax ) +!
+	r@+ -? ( 'xmin )( 'xmax ) +!
+	r@+ -? ( 'ymin )( 'ymax ) +!
+	r> @ -? ( 'zmin )( 'zmax ) +!
+	;
+
+
+#nowz
+#nowzbuf
+#advzbuf
+
+#stacko )( 1024
+#stacko> 'stacko
+
+:stack@ | -- top
+	-4 'stacko> +! stacko> @ ;
+
+:stack! | top --
+	stacko> !+ 'stacko> ! ;
+
+#norden
+
+:drawiso | x y z node --
+|	inxy 0? ( drop ; )
+	$pixels >=? (  ; )
+
+	oct++
+	nzmin 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nzmin 1 xor 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nzmin 2 xor 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nzmin 4 xor 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nzmin 3 xor 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nzmin 5 xor 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nzmin 6 xor 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nzmin 7 xor 1 over << pick2 nand? ( 2drop )( childi drawiso )
+	nip 4drop
+	vec-
+	;
 
 :rasterize | w h x y octree
 	>r
+	2dup zb.adr dup 'nowzbuf ! @ 'nowz !
 	setxy
 	( 1? )( 1-
 		over ( 1? )( 1-
-			rand px!+
+			rand
+			px!+
 			) drop
 		sw pick2 - px+!
 		) 2drop
 	rdrop
 	;
 
-:drawiso2
+:stack.. | x0 y0 z0 octree bitmask norden  --
+	( -1 <>? )(
+		swap 1 pick2 $7 and << and? ( swap stack! stack! oct+ norden stack! stack! ; ) |***
+		swap 4 >> ) 3drop
+	;
+
+:setcolor
+	octcolor ink
+	drop setxy
+	ink@ px!+ ;
+
+:raycast | x0 y0 z0 octree x y --
+	oct++ | x y z nadr bitmask
+	norden
+   	0 'stacko !+ !+ !+ 'stacko> !
+	(
+	$pixels >=? ( setcolor ; )
+	stack@ 1? )( stack@ | bitmask norden
+		stack..
+		) 4drop
+|	4 'nowzbuf +! | no dibuja
+	1 px+!
+	;
+
+:rasterize2 | w h x y octree
 	>r
-	getlim
-	negro
-	xmin ymin op
-	xmin ymax line
-	xmax ymax line
-	xmax ymin line
-	xmin ymin line
+|	2dup zb.adr dup 'nowzbuf ! @ 'nowz !
+	setxy
+	( 1? )( 1-
+		over ( 1? )( 1-
+			raycast
+			) drop
+		sw pick2 - px+!
+		) 2drop
+	rdrop
+	;
 
-	xmax xmin - ymax ymin - xmin ymin
-	r> rasterize
+:drawiso2 | x0 y0 z0 octree --
+	>r
 
+|	getlim xmax xmin - ymax ymin - xmin ymin r> rasterize
+	getmm xmax xmin - ymax ymin - pick4 xmin + pick4 ymin + r> rasterize
 	3drop
+	;
+
+:calco |  x y z -- x y z mask
+	pick2 x1 * pick2 y1 * + over z1 * + +? ( 1 )( 0 ) nip
+	pick3 x2 * pick3 y2 * + pick2 z2 * + +? ( 2 )( 0 ) nip +
+	pick3 x3 * pick3 y3 * + pick2 z3 * + +? ( 4 )( 0 ) nip +
 	;
 
 :drawioct2 | octree --
 	3do!
-	inivec
-	x0 y0 z0 $octree drawiso2
-	;
 
+	'isovec >r
+	x0 y0 z0
+	x1 pick3 - r!+ y1 pick2 - r!+ z1 over - r!+
+	x2 pick3 - r!+ y2 pick2 - r!+ z2 over - r!+
+	x3 pick3 - r!+ y3 pick2 - r!+ z3 over - r!+
+	r> 'isovec> !
+
+	calco szm xor 'nzmin !
+	nzmin 0
+	over %1000 or or
+	over 1 xor %1000 or 4 << or
+	over 2 xor %1000 or 8 << or
+	over 4 xor %1000 or 12 << or
+	over 3 xor %1000 or 16 << or
+	over 5 xor %1000 or 20 << or
+	over 6 xor %1000 or 24 << or
+	swap 7 xor %1000 or 28 << or
+	'norden !
+
+	$octree drawiso2
+	;
 
 |--------------------------------
 :load3do | "" -- moctree
@@ -383,7 +486,7 @@ $7645 $7513 $7326 0
 		xcam ycam zcam mtrans
 
 		zb.clear
-|		Oclon drawioct
+		Oclon drawioct
 |		Oclon2 drawioct
 
 
