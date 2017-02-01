@@ -324,8 +324,15 @@ $7645 $7513 $7326 0
 :stack@ | -- top
 	-4 'stacko> +! stacko> @ ;
 
+:stack2@ | -- a b
+	stacko> 8 - dup 'stacko> !
+	@+ swap @ swap ;
+
 :stack! | top --
 	stacko> !+ 'stacko> ! ;
+
+:stack!3 | a b c --
+	stacko> !+ !+ !+ 'stacko> ! ;
 
 #norden
 
@@ -352,53 +359,71 @@ $7645 $7513 $7326 0
 	setxy
 	( 1? )( 1-
 		over ( 1? )( 1-
-			rand
-			px!+
+|			rand px!+
+			1 px+!
 			) drop
 		sw pick2 - px+!
 		) 2drop
 	rdrop
 	;
 
-:childexist
-	
+|------------------------------------------
+#lenx #leny
+
+:colordot	octcolor px!+ ;
+:skipdot    1 px+! ;
+
+:colordotr 	octcolor z0 'nowzbuf !+ zbo + ! ;
+:skipdotr	4 'nowzbuf +! ;
+
+|------------------------------------------------------
+:sumavec | nchild
+
 	;
 
+:hitray | y x nadr bitmask norden mask -- y x
+	1- pick2 and popcnt 2 <<
+	pick3 + 			| y x nadr bitmask norden nnadr
+	over $7 and >r >r	| y x nadr bitmask norden R:nnadr nchild
+	stack!3 			| y x nnadr nchild
 
-:stack.. | x0 y0 z0 octree bitmask norden  --
+	sumavec				| y x nnadr
+
+|	getmm
+|	pick2 yymin yymax between -? ( 2drop ; ) drop
+|	over xxmin xxmax between -? ( 2drop ; ) drop
+|	xlen 0? ( drop colordot ; ) drop
+|	ylen 0? ( drop colordot ; ) drop
+	$pixels >=? ( colordot ; )
+
+	oct++ norden stack!3
+	;
+
+:ray | y x oct -- y x
+	stack2@				| nadr bitmask norden
 	( -1 <>? )(
-		swap 1 pick2 $7 and << and? ( swap stack! stack! oct++ norden stack! stack! ; ) |***
-		swap 4 >> ) 3drop
-	;
+		1 over $7 and <<	| nadr bitmask norden mAsk
+		pick2 and? ( hitray ; )
+		drop 4 >>
+		) 3drop ;
 
-:setcolor
-	octcolor ink
-	drop setxy
-	ink@ px!+ ;
+:raycast | y x octree -- y x
+	oct++ norden | x y nadr bitmask norden
+   	0 'stacko !+ !+ !+ !+ 'stacko> !
+	( stack@ 1? )( ray ) drop
+	skipdot ;
 
-:raycast | x0 y0 z0 octree x y --
-	oct++ | x y z nadr bitmask
-	norden
-   	0 'stacko !+ !+ !+ 'stacko> !
-	(
-	$pixels >=? ( setcolor ; )
-	stack@ 1? )( stack@ | bitmask norden
-		stack..
-		) 4drop
-|	4 'nowzbuf +! | no dibuja
-	1 px+!
-	;
-
-:rasterize2 | w h x y octree
+:rasterize3 | x0 y0 z0 octree --
 	>r
-|	2dup zb.adr dup 'nowzbuf ! @ 'nowz !
-	setxy
-	( 1? )( 1-
-		over ( 1? )( 1-
-			raycast
-			) drop
-		sw pick2 - px+!
-		) 2drop
+
+|	pick2 xmin + pick2 ymin + zb.adr dup 'nowzbuf ! @ 'nowz !
+
+	pick2 xmin + pick2 ymin + setxy
+	ymin ( ymax <? )(
+		xmin ( xmax <? )(
+			r raycast
+			1+ ) drop
+		1+ ) drop
 	rdrop
 	;
 
@@ -407,9 +432,13 @@ $7645 $7513 $7326 0
 
 |	getlim xmax xmin - ymax ymin - xmin ymin r> rasterize
 	getmm xmax xmin - ymax ymin - pick4 xmin + pick4 ymin + r> rasterize
+
+|	getmm r> rasterize3
 	3drop
 	;
 
+
+| no tiene sentido xn yn zn no son normales
 :calco |  x y z -- x y z mask
 	pick2 x1 * pick2 y1 * + over z1 * + +? ( 1 )( 0 ) nip
 	pick3 x2 * pick3 y2 * + pick2 z2 * + +? ( 2 )( 0 ) nip +
@@ -476,6 +505,7 @@ $7645 $7513 $7326 0
 		) drop rdrop ;
 
 #xcam 0 #ycam 0 #zcam 1.6
+
 
 :main
 	mark
