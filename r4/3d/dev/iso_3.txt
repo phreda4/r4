@@ -15,6 +15,8 @@
 #x2 400 #y2 180 #z2 400
 #x3 120 #y3 400 #z3 500
 
+#ivecpos )( 96
+
 #$base
 #$magic
 #$octree
@@ -23,7 +25,7 @@
 
 
 #nzmin 2
-#szm
+#szm 5
 
 :drawaxis
 	azul x0 y0 op x1 y1 line
@@ -368,7 +370,32 @@ $7645 $7513 $7326 0
 	;
 
 |------------------------------------------
+#xnow #ynow #znow
 #lenx #leny
+#ilev
+#blev )( 40
+
+:getnn | n - x y
+	2 << dup 2* + 'ivecpos + >r
+	r@+ ilev >> xnow + r> @ ilev >> ynow +
+	;
+
+:uplevel | ch --
+	ilev 2 << dup 2* + 'blev + >r
+	xnow r!+ ynow r!+ znow r> !
+
+	2 << dup 2* + 'ivecpos + >r
+	r@+ ilev >> dup 2/ - 'xnow +!
+	r@+ ilev >> dup 2/ - 'ynow +!
+	r> @ ilev >> dup 2/ - 'znow +!
+	1 'ilev +! ;
+
+:dnlevel | --
+	-1 'ilev +!
+	ilev 2 << dup 2* + 'blev + >r
+	r@+ 'xnow ! r@+ 'ynow ! r> @ 'znow !
+	;
+
 
 :colordot	octcolor px!+ ;
 :skipdot    1 px+! ;
@@ -377,24 +404,22 @@ $7645 $7513 $7326 0
 :skipdotr	4 'nowzbuf +! ;
 
 |------------------------------------------------------
-:sumavec | nchild
-
-	;
-
 :hitray | y x nadr bitmask norden mask -- y x
 	1- pick2 and popcnt 2 <<
 	pick3 + 			| y x nadr bitmask norden nnadr
 	over $7 and >r >r	| y x nadr bitmask norden R:nnadr nchild
 	stack!3 			| y x nnadr nchild
+	r> r>	
+	uplevel				| y x nnadr
 
-	sumavec				| y x nnadr
-
-|	getmm
-|	pick2 yymin yymax between -? ( 2drop ; ) drop
-|	over xxmin xxmax between -? ( 2drop ; ) drop
-|	xlen 0? ( drop colordot ; ) drop
-|	ylen 0? ( drop colordot ; ) drop
-	$pixels >=? ( colordot ; )
+	lenx ilev >> 0? ( 2drop colordot ; )
+	leny ilev >> 0? ( 3drop colordot ; ) | y x adr lenx leny
+	pick4 ynow <? ( 4drop dnlevel ; )
+ 	swap - ynow >? ( 3drop dnlevel ; )
+ 	pick2 xnow <? ( 3drop dnlevel ; )
+ 	swap - xnow >? ( 2drop dnlevel ; )
+	drop
+    $pixels >=? ( colordot ; )
 
 	oct++ norden stack!3
 	;
@@ -408,54 +433,64 @@ $7645 $7513 $7326 0
 		) 3drop ;
 
 :raycast | y x octree -- y x
+	xmin 'xnow !
+	ymin 'ynow !
+	zmin 'znow !
+	0 'ilev !
+
 	oct++ norden | x y nadr bitmask norden
    	0 'stacko !+ !+ !+ !+ 'stacko> !
+
 	( stack@ 1? )( ray ) drop
 	skipdot ;
 
-:rasterize3 | x0 y0 z0 octree --
+:drawiso2 | octree --
+|	xmin ymin zb.adr dup 'nowzbuf ! @ 'nowz !
+	xmin ymin setxy
+
 	>r
-
-|	pick2 xmin + pick2 ymin + zb.adr dup 'nowzbuf ! @ 'nowz !
-
-	pick2 xmin + pick2 ymin + setxy
-	ymin ( ymax <? )(
-		xmin ( xmax <? )(
+	lenx
+	ymin ( ymax <=? )(
+		xmin ( xmax <=? )(
 			r raycast
 			1+ ) drop
-		1+ ) drop
-	rdrop
-	;
 
-:drawiso2 | x0 y0 z0 octree --
-	>r
+		sw pick2 - px+!
+|		sw0 pick2 - 2 << 'nowzbuf +!
 
-|	getlim xmax xmin - ymax ymin - xmin ymin r> rasterize
-	getmm xmax xmin - ymax ymin - pick4 xmin + pick4 ymin + r> rasterize
+		1+ ) 2drop
+	rdrop ;
 
-|	getmm r> rasterize3
-	3drop
-	;
-
-
-| no tiene sentido xn yn zn no son normales
-:calco |  x y z -- x y z mask
-	pick2 x1 * pick2 y1 * + over z1 * + +? ( 1 )( 0 ) nip
-	pick3 x2 * pick3 y2 * + pick2 z2 * + +? ( 2 )( 0 ) nip +
-	pick3 x3 * pick3 y3 * + pick2 z3 * + +? ( 4 )( 0 ) nip +
-	;
 
 :drawioct2 | octree --
 	3do!
 
-	'isovec >r
-	x0 y0 z0
-	x1 pick3 - r!+ y1 pick2 - r!+ z1 over - r!+
-	x2 pick3 - r!+ y2 pick2 - r!+ z2 over - r!+
-	x3 pick3 - r!+ y3 pick2 - r!+ z3 over - r!+
-	r> 'isovec> !
+    x0 x1 min x2 min x3 min 'xmin !
+    x0 x1 max x2 max x3 max 'xmax !
+    y0 y1 min y2 min y3 min 'ymin !
+    y0 y1 max y2 max y3 max 'ymax !
+    z0 z1 min z2 min z3 min 'zmin !
 
-	calco szm xor 'nzmin !
+	'ivecpos >r
+	x0 xmin - r!+ y0 ymin - r!+ z0 zmin - r!+
+	x1 xmin - r!+ y1 ymin - r!+ z1 zmin - r!+
+	x2 xmin - r!+ y2 ymin - r!+ z2 zmin - r!+
+	x1 x2 + x0 - xmin - r!+
+	y1 y2 + y0 - ymin - r!+
+	z1 z2 + z0 - zmin - r!+
+	x3 xmin - r!+ y3 ymin - r!+ z3 zmin - r!+
+	x3 x1 + x0 - xmin - r!+
+	y3 y1 + y0 - ymin - r!+
+	z3 z1 + z0 - zmin - r!+
+	x3 x2 + x0 - xmin - r!+
+	y3 y2 + y0 - ymin - r!+
+	z3 z2 + z0 - zmin - r!+
+	x3 x1 + x0 - x2 + x0 - xmin - r!+
+	y3 y1 + y0 - y2 + y0 - ymin - r!+
+	z3 z1 + z0 - z2 + z0 - zmin - r!+
+	rdrop
+
+	szm 'nzmin !
 	nzmin 0
 	over %1000 or or
 	over 1 xor %1000 or 4 << or
@@ -466,6 +501,9 @@ $7645 $7513 $7326 0
 	over 6 xor %1000 or 24 << or
 	swap 7 xor %1000 or 28 << or
 	'norden !
+
+	xmax xmin - 'lenx !
+	ymax ymin - 'leny !
 
 	$octree drawiso2
 	;
@@ -515,6 +553,8 @@ $7645 $7513 $7326 0
 	sw sh zb.ini
 	Omode
 	33
+
+
 	show clrscr
 
 		matini
@@ -529,7 +569,7 @@ $7645 $7513 $7326 0
 		Oclon drawioct2
 		azul
 		dup "%d" print cr
-
+		ynow xnow "x:%d y:%d " print
         drawaxis
 		'dn 'movem guiDnMove
 
