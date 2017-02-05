@@ -287,7 +287,7 @@ $7645 $7513 $7326 0
 
 #norden
 #xnow #ynow #znow
-#lenx #leny
+#lenx #leny #lenz
 #ilev
 #blev )( 120
 
@@ -343,7 +343,7 @@ $7645 $7513 $7326 0
 
 
 :colordot	octcolor px!+ ;
-:skipdot    $ff px!+ ;
+:skipdot    1 px+! ;
 
 :colordotr 	octcolor z0 'nowzbuf !+ zbo + ! ;
 :skipdotr	4 'nowzbuf +! ;
@@ -456,43 +456,40 @@ $7645 $7513 $7326 0
 
 |---------------------------------------------
 | v2
-#ymin0 #leny0
-#xmin0 #lenx0
+#leny0
+#lenx0
 #xyznow
+#xyznow0
 #sprev )( 1024
 
-:getmm | child --
-	2 << ilev 1+ 5 << + 'ivecpos + @ xyznow +
-	dup $3ff and xmin + 'xmin0 !
-	10 >> $3ff and ymin + 'ymin0 !
-	ilev 1+
+:preup | child --
+	ilev 1+ swap
+	2 << over 5 << + 'ivecpos + @
+	xyznow + 'xyznow0 !
 	lenx over >> 'lenx0 !
 	leny swap >> 'leny0 !
 	;
 
-:uplevel | child --
+:uplevel | --
 	xyznow ilev 2 << 'sprev + !
-	1 'ilev +!
-	2 << ilev 5 << + 'ivecpos + @ 'xyznow +!
-	;
+	xyznow0 'xyznow !
+	1 'ilev +! ;
 
 :dnlevel
 	-1 'ilev +!
 	ilev 2 << 'sprev + @ 'xyznow ! ;
 
-:hitray2 | y x octree norden bit -- y x octree norden / y x 0
-	over $7 and getmm
-	pick4 ymin0 dup leny0 + between -? ( 2drop 4 >> ; ) drop
-	pick3 xmin0 dup lenx0 + between -? ( 2drop 4 >> ; ) drop
-	| y x octr norden bit
-|	1- pick2 @+ dup 8 >> 2 << rot + rot rot and popcnt 2 << +
-	1- pick2 @ and popcnt pick2 @+ 8 >> rot + 2 << + | y x octr norden noct
-	over 7 and
-	2swap 4 >> stack2!
+:hitray2 | y x octree norden bit -- y x octree norden / y x octree 0
+	over $7 and preup
+	pick3 xyznow0 $3ff and dup lenx0 + between -? ( 2drop 4 >> ; ) drop
+	pick4 xyznow0 10 >> $3ff and dup leny0 + between -? ( 2drop 4 >> ; ) drop
+	1- pick2 @+ dup 8 >> 2 << rot + rot rot and popcnt 2 << +
+|	1- pick2 @ and popcnt pick2 @+ 8 >> rot + 2 << + | y x octr norden noct
+	rot rot 4 >> stack2!
 	uplevel
-    $pixels >=? ( colordot 0 ; )
-	lenx0 0? ( drop colordot 0 ; ) drop
-	leny0 0? ( drop colordot 0 ; ) drop
+    $pixels >=? ( 0 ; )
+	lenx0 0? ( ; ) drop
+	leny0 0? ( ; ) drop
 	norden ;
 
 :raycast2 | y x octree -- y x
@@ -503,69 +500,69 @@ $7645 $7513 $7326 0
 	( 1? )( | adr norden
 		( -1 <>? )(	| nadr orden
 			1 over $7 and <<
-			pick2 @ and? ( hitray2 0? ( drop ; ) )( drop 4 >> )
+			pick2 @ and? ( hitray2 0? ( drop colordot ; ) )( drop 4 >> )
 			) 2drop
 		dnlevel stack2@ ) 2drop
-	1 px+! ;
+	skipdot ;
 
 
 :drawiso2 | octree --
-|	xmin ymin zb.adr dup 'nowzbuf ! @ 'nowz !
 	xmin ymin setxy
-
-	>r
+|	xmin ymin zb.adr dup 'nowzbuf ! @ 'nowz !
 
 	sw lenx -
 |	swo lenx - 2 <<
 
-	ymin ( ymax <? )(
-		xmin ( xmax <? )(
-			r raycast2
+	0 ( leny <? )(
+		0 ( lenx <? )(
+			pick3 raycast2
 			1+ ) drop
 
 		over px+!
 |		pick2 'nowzbuf +!
 
-		1+ ) 2drop
-	rdrop ;
+		1+ ) 3drop ;
+
+:packxyz | x y z -- zyx
+	zmin - 20 <<
+	swap ymin - 10 << or
+	swap xmin - or ;
 
 :drawioct3 | octree --
 	3do!
 
-	0 0 x1 x0 - -? ( rot + swap )( + ) x2 x0 - -? ( rot + swap )( + ) x3 x0 - -? ( rot + swap )( + )
-	x0 + 'xmax ! x0 + 'xmin !
-	0 0 y1 y0 - -? ( rot + swap )( + ) y2 y0 - -? ( rot + swap )( + ) y3 y0 - -? ( rot + swap )( + )
-	y0 + 'ymax ! y0 + 'ymin !
-	0 0 z1 z0 - -? ( rot + swap )( + ) z2 z0 - -? ( rot + swap )( + ) z3 z0 - -? ( rot + swap )( + )
-	z0 + 'zmax ! z0 + 'zmin !
+	0 0 x1 x0 - -? ( rot + swap )( + )
+	x2 x0 - -? ( rot + swap )( + )
+	x3 x0 - -? ( rot + swap )( + )
+	over - 'lenx ! x0 + 'xmin !
+	0 0 y1 y0 - -? ( rot + swap )( + )
+	y2 y0 - -? ( rot + swap )( + )
+	y3 y0 - -? ( rot + swap )( + )
+	over - 'leny ! y0 + 'ymin !
+	0 0 z1 z0 - -? ( rot + swap )( + )
+	z2 z0 - -? ( rot + swap )( + )
+	z3 z0 - -? ( rot + swap )( + )
+	over - 'lenz ! z0 + 'zmin !
 
 	'ivecpos >r
-	x0 xmin -
-	y0 ymin - 10 << or
-	z0 zmin - 20 << or r!+
-	x1 xmin -
-	y1 ymin - 10 << or
-	z1 zmin - 20 << or r!+
-	x2 xmin -
-	y2 ymin - 10 << or
-	z2 zmin - 20 << or r!+
-	x1 x2 + x0 - xmin -
-	y1 y2 + y0 - ymin - 10 << or
-	z1 z2 + z0 - zmin - 20 << or r!+
-	x3 xmin -
-	y3 ymin - 10 << or
-	z3 zmin - 20 << or r!+
-	x3 x1 + x0 - xmin -
-	y3 y1 + y0 - ymin - 10 << or
-	z3 z1 + z0 - zmin - 20 << or r!+
-	x3 x2 + x0 - xmin -
-	y3 y2 + y0 - ymin - 10 << or
-	z3 z2 + z0 - zmin - 20 << or r!+
-	x3 x1 + x0 - x2 + x0 - xmin -
-	y3 y1 + y0 - y2 + y0 - ymin - 10 << or
-	z3 z1 + z0 - z2 + z0 - zmin - 20 << or r!+
+	x0 y0 z0 packxyz r!+
+	x1 y1 z1 packxyz r!+
+	x2 y2 z2 packxyz r!+
+	x1 x2 + x0 -
+	y1 y2 + y0 -
+	z1 z2 + z0 - packxyz r!+
+	x3 y3 z3 packxyz r!+
+	x3 x1 + x0 -
+	y3 y1 + y0 -
+	z3 z1 + z0 - packxyz r!+
+	x3 x2 + x0 -
+	y3 y2 + y0 -
+	z3 z2 + z0 - packxyz r!+
+	x3 x1 + x0 - x2 + x0 -
+	y3 y1 + y0 - y2 + y0 -
+	z3 z1 + z0 - z2 + z0 - packxyz r!+
 
-	10 3 << ( 1? )( 1-
+	8 3 << ( 1? )( 1-
 		r 32 - @
 		dup $3ff and dup 2/ -
 		over 10 >> $3ff and dup 2/ - 10 << or
@@ -573,9 +570,6 @@ $7645 $7513 $7326 0
 		r!+
 		) drop
 	rdrop
-
-	xmax xmin - 'lenx !
-	ymax ymin - 'leny !
 
 	szm 'nzmin !
 	nzmin 0
@@ -692,8 +686,8 @@ $7645 $7513 $7326 0
 :main
 	mark
 |	"media/3do/xwing.3do"
-	"media/3do/tie fighter.3do"
-|	"media/3do/mario.3do"
+|	"media/3do/tie fighter.3do"
+	"media/3do/mario.3do"
 	load3do 'Oclon !
 	sw sh zb.ini
 	Omode
@@ -702,8 +696,8 @@ $7645 $7513 $7326 0
 
 	show clrscr
 
-		matini
-		xcam ycam zcam mtrans
+|		matini
+|		xcam ycam zcam mtrans
 
 |		zb.clear
 |		Oclon drawioct
@@ -714,8 +708,8 @@ $7645 $7513 $7326 0
 		Oclon drawioct3
 		azul
 
-		dump2
-		cr dup "%d" print cr
+|		dump2
+|		cr dup "%d" print cr
 
         drawaxis
 		'dn 'movem guiDnMove

@@ -1,0 +1,326 @@
+| PHREDA 2017
+| Solo ISO, ray casting test
+|--------------------
+^r4/lib/gui.txt
+^r4/lib/morton.txt
+^r4/lib/zbuffer.txt
+
+^r4/lib/trace.txt
+
+#oclon
+#oclon2
+
+#x0 120 #y0 100 #z0 100
+#x1 300 #y1 80	#z1 150
+#x2 280 #y2 120 #z2 200
+#x3 140 #y3 300 #z3 200
+
+| 32*niveles
+#ivecpos )( 320
+
+#$base
+#$magic
+#$octree
+#$pixels
+#$paleta
+
+#nzmin 2
+#szm 5
+
+:drawaxis
+	violeta x0 y0 4 box
+	azul x0 y0 op x1 y1 2dup line 4 box
+	rojo x0 y0 op x2 y2 2dup line 4 box
+	verde x0 y0 op x3 y3 2dup line 4 box
+	;
+
+|--------------------------------------
+:3do! | octree --
+	dup '$base !
+	dup 28 + '$octree !
+	@+ '$magic !
+	@ $octree + '$pixels !
+	;
+
+:octcolor | oct -- color
+    $octree - $pixels + @ ;
+
+::oct++ | adr -- adr bitmask
+	@+ dup 8 >> 2 << rot + swap $ff and ;
+
+|----------------------------- rasterize
+#xmin
+#ymin
+#zmin
+
+#norden
+#lenx #leny #lenz
+#ilev
+#blev )( 120
+
+#nowz
+#nowzbuf
+#advzbuf
+
+#stacko )( 1024
+#stacko> 'stacko
+
+:stack@ | -- top
+	-4 'stacko> +! stacko> @ ;
+
+:stack2@ | -- a b
+	stacko> 8 - dup 'stacko> !
+	@+ swap @ swap ;
+
+:stack! | top --
+	stacko> !+ 'stacko> ! ;
+
+:stack2! | a b --
+	stacko> !+ !+ 'stacko> ! ;
+
+:colordot	octcolor px!+ ;
+:skipdot    1 px+! ;
+
+:colordotr 	octcolor z0 'nowzbuf !+ zbo + ! ;
+:skipdotr	4 'nowzbuf +! ;
+
+
+:raylast
+|---------------------------------------------
+| v2
+#leny0
+#lenx0
+#xyznow
+#xyznow0
+#sprev )( 1024
+
+#imask $7ff7fdff $3ff3fcff $1ff1fc7f $0ff0fc3f $07f07c1f $03f03c0f $01f01c07 $00f00c03 $00700401
+
+:preup | child --
+	ilev swap
+	2 << 'ivecpos + @
+	over >> dup $00100401 and swap 2/
+	pick2 2 << 'imask + @ and +
+	xyznow + 'xyznow0 !
+	1+
+	lenx over >> 'lenx0 !
+	leny swap >> 'leny0 !
+	;
+
+:preup | child --
+	ilev 1+ swap
+	2 << over 5 << + 'ivecpos + @
+	xyznow + 'xyznow0 !
+	lenx over >> 'lenx0 !
+	leny swap >> 'leny0 !
+	;
+
+:uplevel | --
+	xyznow ilev 2 << 'sprev + !
+	xyznow0 'xyznow !
+	1 'ilev +! ;
+
+:dnlevel
+	-1 'ilev +!
+	ilev 2 << 'sprev + @ 'xyznow ! ;
+
+:hitray | y x octree norden bit -- y x octree norden / y x octree 0
+	over $7 and preup
+	pick3 xyznow0 $3ff and dup lenx0 + between -? ( 2drop 4 >> ; ) drop
+	pick4 xyznow0 10 >> $3ff and dup leny0 + between -? ( 2drop 4 >> ; ) drop
+	1- pick2 @+ dup 8 >> 2 << rot + rot rot and popcnt 2 << +
+|	1- pick2 @ and popcnt pick2 @+ 8 >> rot + 2 << + | y x octr norden noct
+	rot rot 4 >> stack2!
+	uplevel
+    $pixels >=? ( 0 ; )
+	lenx0 0? ( ; ) drop
+	leny0 0? ( ; ) drop
+	norden ;
+
+:raycast | y x octree -- y x
+	0 'xyznow !
+	0 'ilev !
+	0 dup 'stacko !+ !+ 'stacko> !
+	norden
+	( 1? )( | adr norden
+		( -1 <>? )(	| nadr orden
+			1 over $7 and <<
+			pick2 @ and? ( hitray 0? ( drop colordot ; ) )( drop 4 >> )
+			) 2drop
+		dnlevel stack2@ ) 2drop
+	skipdot ;
+
+
+:drawiso2 | octree --
+	xmin ymin setxy
+|	xmin ymin zb.adr dup 'nowzbuf ! @ 'nowz !
+
+	sw lenx -
+|	swo lenx - 2 <<
+
+	0 ( leny <? )(
+		0 ( lenx <? )(
+			pick3 raycast
+			1+ ) drop
+
+		over px+!
+|		pick2 'nowzbuf +!
+
+		1+ ) 3drop ;
+
+:packxyz | x y z -- zyx
+	zmin - 20 <<
+	swap ymin - 10 << or
+	swap xmin - or ;
+
+:calpaso | nro vec val -- nro vec nval
+	dup $3ff and pick3 >> dup 2/ -
+	over 10 >> $3ff and pick4 >> dup 2/ - 10 << or
+	swap 20 >> $fff and pick3 >> dup 2/ - 20 << or ;
+
+:calpaso | nro vec val -- nro vec nval
+	pick2 >> dup $00100401 and swap 2/
+	pick3 2 << 'imask + @ and + ;
+
+#bytes
+:drawioct3 | octree --
+	3do!
+
+	0 0 x1 x0 - -? ( rot + swap )( + )
+	x2 x0 - -? ( rot + swap )( + )
+	x3 x0 - -? ( rot + swap )( + )
+	over - 'lenx ! x0 + 'xmin !
+	0 0 y1 y0 - -? ( rot + swap )( + )
+	y2 y0 - -? ( rot + swap )( + )
+	y3 y0 - -? ( rot + swap )( + )
+	over - 'leny ! y0 + 'ymin !
+	0 0 z1 z0 - -? ( rot + swap )( + )
+	z2 z0 - -? ( rot + swap )( + )
+	z3 z0 - -? ( rot + swap )( + )
+	over - 'lenz ! z0 + 'zmin !
+
+	'ivecpos >r
+	x0 y0 z0 packxyz r!+
+	x1 y1 z1 packxyz r!+
+	x2 y2 z2 packxyz r!+
+	x1 x2 + x0 -
+	y1 y2 + y0 -
+	z1 z2 + z0 - packxyz r!+
+	x3 y3 z3 packxyz r!+
+	x3 x1 + x0 -
+	y3 y1 + y0 -
+	z3 z1 + z0 - packxyz r!+
+	x3 x2 + x0 -
+	y3 y2 + y0 -
+	z3 z2 + z0 - packxyz r!+
+	x3 x1 + x0 - x2 + x0 -
+	y3 y1 + y0 - y2 + y0 -
+	z3 z1 + z0 - z2 + z0 - packxyz r!+
+
+	0 ( 8 <? )(
+		'ivecpos
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		drop
+		1+ ) drop
+|	r 'ivecpos - 'bytes !
+	rdrop
+
+	szm 'nzmin !
+	nzmin 0
+	over %1000 or or
+	over 1 xor %1000 or 4 << or
+	over 2 xor %1000 or 8 << or
+	over 4 xor %1000 or 12 << or
+	over 3 xor %1000 or 16 << or
+	over 5 xor %1000 or 20 << or
+	over 6 xor %1000 or 24 << or
+	swap 7 xor %1000 or 28 << or
+	'norden !
+
+	$octree drawiso2
+	;
+
+|--------------------------------
+:load3do | "" -- moctree
+	here dup rot load 'here ! ;
+
+#ac
+
+:in? | x y xx yy -- x y 1/0
+	pick2 - dup * swap
+	pick3 - dup * swap +
+	32 >? ( 0 nip ) ;
+
+:dn
+	xymouse
+	x0 y0 in? 1? ( 'x0 'ac ! 3drop ; ) drop
+	x1 y1 in? 1? ( 'x1 'ac ! 3drop ; ) drop
+	x2 y2 in? 1? ( 'x2 'ac ! 3drop ; ) drop
+	x3 y3 in? 1? ( 'x3 'ac ! 3drop ; ) drop
+	2drop
+	0 'ac ! ;
+
+:movem
+	ac 0? ( drop ; )
+	xymouse pick2 4+ ! swap ! ;
+
+:zdraw
+	0 0 setxy
+	zb >r
+	sh ( 1? )( 1-
+		sw ( 1? )( 1-
+			r@+ $7fffffff <>? ( drop r zbo + @ )
+			px!+
+			) drop
+		) drop rdrop ;
+
+#xcam 0 #ycam 0 #zcam 1.6
+
+#mseca
+
+:main
+	mark
+|	"media/3do/xwing.3do"
+	"media/3do/tie fighter.3do"
+|	"media/3do/mario.3do"
+	load3do 'Oclon !
+	sw sh zb.ini
+	Omode
+	33
+
+
+	show0 clrscr
+
+|		matini
+|		xcam ycam zcam mtrans
+
+|		zb.clear
+|		Oclon drawioct
+|		Oclon2 drawioct
+|		zdraw
+
+		msec 'mseca !
+|		Oclon drawioct2
+		Oclon drawioct3
+		azul
+
+|		dump2
+		dup "%d" print cr
+		msec mseca - "%d" print cr
+
+        drawaxis
+		'dn 'movem guiDnMove
+
+		[ szm 1+ 7 and 'szm ! ; ] <f1>
+		'exit >esc< cminiflecha
+		;
+
+: main ;
+
