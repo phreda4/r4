@@ -9,6 +9,7 @@
 ^r4/lib/morton.txt
 ^r4/lib/dlg.txt
 ^r4/lib/dlgfile.txt
+
 ^r4/lib/dlgcol.txt
 
 ^r4/lib/ricons.txt
@@ -17,7 +18,7 @@
 ^r4/3d/octree/iso_13.txt
 
 ^r4/3d/buildoctree.txt
-^r4/3d/wirelib.txt
+|^r4/3d/wirelib.txt
 
 ^r4/3d/loadvox.txt
 ^r4/3d/loadkvx.txt
@@ -29,10 +30,6 @@
 #rx #ry
 
 |------ ajustes
-:setvoxsize | level -- level
-	dup 'deepvox !
-	1 over << 1- 'qsize !
-	;
 
 :drawvoxel
 	$inifile dup @ 16 >> $3d00 <>? ( 2drop ; ) drop
@@ -98,17 +95,15 @@
 |----- load voxel
 :voxkvx | "" --
 	loadkvx
-	here '$inifile !
-	empty
-	kvxqsize setvoxsize drop
+	here 'memvox !
+	kvxqsize octreedeep
 	clearvox
 	[ vox! ; ] mapkvx32 ;
 
 :voxvox | "" --
 	loadvox
-	here '$inifile !
-	empty
-	voxqsize setvoxsize drop
+	here 'memvox !
+	voxqsize octreedeep
 	clearvox
 	[ vox! ; ] mapvox32 ;
 
@@ -122,25 +117,35 @@
 	mark
 	dup 'filename strcpy
 	lovox
+	memvox> 'here !
+	scr home fonti verde
+	"centrando..." print cr redraw
 	centravoxel
+	"repetidos..." print cr redraw
 	repetidos
+	"ocultos..." print cr redraw
 	remocc
+	"octree..." print cr redraw
 	buildoctree
 	;
 
 |------------- load import
 :imp3dm | "filename" --
 	"media/3dm" dlgfileload 0? ( drop ; )
-	memvox swap
+	here dup 'memvox ! swap
 	load dup 'memvox> ! 'here !
 
 	|..quta 0 del final
 	memvox> 8 - ( dup @ 0? )( drop
 		8 - ) drop 8 + 'memvox> !
 
+	scr home fonti verde
+	"repetidos..." print cr redraw
 	repetidos
 	getminmax
+	"centrar..." print cr redraw
 	centravoxel
+	"octree..." print cr redraw
 	buildoctree
 	;
 
@@ -172,7 +177,7 @@
 	xm over 'xm ! - neg 7 << neg 'ry +! ;
 
 :main
-	4 setvoxsize drop
+	4 octreedeep
 	clearvox
 	buildoctree
 	$f0f0f paper
@@ -200,7 +205,9 @@
 		0 3 gotoxy
 		azul
 		'impvox dup "F1-Load VOX" sp btnt <f1>
-		'imp3dm dup "F2-Load 3dm" sp btnt <f2> cr cr
+		'imp3dm dup "F2-Load 3dm" sp btnt <f2>
+		[ coloreavoxel buildoctree ; ] dup "F3-color" sp btnt <f3>
+		cr cr
 		'saveoctree dup "F5-Save 3DO" sp btnt <f5>
 		'saveoctreeopt dup "F6-Save 3DO Opt" sp btnt <f6>
 
@@ -220,11 +227,7 @@
 :memory
 	mark
 	sw sh ini3do
-	here
-	dup 'memvox !
-	dup 'memvox> !
-	$ffffff +
-	'here !
+	here dup 'memvox ! '$inifile !
 	;
 
 : memory main ;
