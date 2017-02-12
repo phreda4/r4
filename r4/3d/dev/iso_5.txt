@@ -4,21 +4,22 @@
 ^r4/lib/gui.txt
 ^r4/lib/morton.txt
 ^r4/lib/zbuffer.txt
+^r4/lib/zoom.txt
 
 ^r4/lib/trace.txt
 
 #oclon
 #oclon2
 
-#x0 120 #y0 100 #z0 100
-#x1 300 #y1 80	#z1 150
-#x2 280 #y2 120 #z2 200
-#x3 140 #y3 300 #z3 200
+|#x0 220 #y0 200 #z0 100
+|#x1 400 #y1 180	#z1 150
+|#x2 380 #y2 220 #z2 200
+|#x3 240 #y3 400 #z3 200
 
-|#x0 120 #y0 100 #z0 100
-|#x1 124 #y1 104	#z1 150
-|#x2 124 #y2 96 #z2 200
-|#x3 120 #y3 104 #z3 200
+#x0 220 #y0 200 #z0 100
+#x1 224 #y1 204	#z1 150
+#x2 224 #y2 196 #z2 200
+#x3 220 #y3 204 #z3 200
 
 | 32*niveles
 #ivecpos )( 320
@@ -90,7 +91,6 @@
 :skipdotr	4 'nowzbuf +! ;
 
 |---------------------------------------------
-| v2
 #leny0
 #lenx0
 #xyznow
@@ -98,6 +98,15 @@
 #sprev )( 1024
 
 #imask $7ff7fdff $3ff3fcff $1ff1fc7f $0ff0fc3f $07f07c1f $03f03c0f $01f01c07 $00f00c03 $00700401
+
+:packxyz | x y z -- zyx
+	zmin - 20 <<
+	swap ymin - 10 << or
+	swap xmin - or ;
+
+:calpaso | nro vec val -- nro vec nval
+	pick2 >> dup $00100401 and swap 2/
+	pick3 2 << 'imask + @ and + ;
 
 :preup | child --
 	ilev swap
@@ -127,59 +136,141 @@
 	-1 'ilev +!
 	ilev 2 << 'sprev + @ 'xyznow ! ;
 
-:hitray | y x octree norden bit -- y x octree norden / y x octree 0
-	over $7 and preup
-	pick3 xyznow0 $3ff and dup lenx0 + between -? ( 2drop 4 >> ; ) drop
-	pick4 xyznow0 10 >> $3ff and dup leny0 + between -? ( 2drop 4 >> ; ) drop
-	1- pick2 @+ dup 8 >> 2 << rot + rot rot and popcnt 2 << +
-|	1- pick2 @ and popcnt pick2 @+ 8 >> rot + 2 << + | y x octr norden noct
-	rot rot 4 >> stack2!
-	uplevel
-    $pixels >=? ( 0 ; )
-	lenx0 0? ( ; ) drop
-	leny0 0? ( ; ) drop
-	norden ;
+|-----------------------------------------
+#maxlev
+#xmask )( 2048
+#ymask )( 2048
+#xmvec 0 0 0 0 0 0 0 0 0 0 0 0
+#ymvec 0 0 0 0 0 0 0 0 0 0 0 0
 
-:raycast | y x octree -- y x
-	0 'xyznow !
-	0 'ilev !
-	0 dup 'stacko !+ !+ 'stacko> !
-	norden
-	( 1? )( | adr norden
-		( -1 <>? )(	| nadr orden
-			1 over $7 and <<
-			pick2 @ and? ( hitray 0? ( drop colordot ; ) )( drop 4 >> )
-			) 2drop
-		dnlevel stack2@ ) 2drop
-	skipdot ;
+|---- full
+:childxy | nro -- sx sy
+	2 << 'ivecpos + @
+	dup $3ff and 2/
+	swap 10 >> $3ff and 2/ ;
+
+:buscarhijo | mask -- hijo/-1
+	norden (
+		1 over $7 and << | hijo
+		pick2 and? ( drop $7 and nip ; ) drop
+		4 >> -1 =? ) nip ;
+
+:rayfull
+	2dup maxlev  | yn xn
+	( rot rot
+		over 'ymask + c@
+		over 'xmask + c@ and
+		0? ( 4drop 1 px+! ; ) | optimiza
+		buscarhijo -? ( 4drop 1 px+! ; ) | y x c
+		childxy							| y x xs ys
+		rot rot -
+		rot rot -
+		swap 		| y x
+		rot 1- 0? ) 3drop
+	ink@ px!+
+	;
 
 
-:drawiso2 | octree --
+:childxy | lev y x nro -- lev y x sx sy
+	2 << pick3 1+ 5 << + 'ivecpos + @
+	dup $3ff and swap 10 >> $3ff and ;
+
+|	2 << 'ivecpos + @
+|	dup $3ff and pick4 1+ >> swap 10 >> $3ff and pick4 1+ >> ;
+
+:getyxmask | lev y x --
+	pick2 2 << 'ymvec + @ pick2 + c@
+	pick3 2 << 'xmvec + @ pick2 + c@ and ;
+
+|	pick2 2 << 'yxmvec + @+ pick3 + c@ swap @ pick3 + c@ and ;
+
+:rayfull
+	2dup 0  | yn xn level
+	( rot rot
+		getyxmask
+		0? ( 4drop 1 px+! ; ) | optimiza
+		buscarhijo -? ( 4drop 1 px+! ; ) | y x c
+		childxy							| y x xs ys
+		rot rot -
+		rot rot -
+		swap 		| y x
+		rot 1+ maxlev =? ) 3drop
+	ink@ px!+
+	;
+
+:drawf | x y z --
 	xmin ymin setxy
 	sw lenx -
 	0 ( leny <? )(
 		0 ( lenx <? )(
-			pick3 raycast
+			rayfull
 			1+ ) drop
 		over px+!
-		1+ ) 3drop ;
+		1+ ) 2drop ;
 
-:packxyz | x y z -- zyx
-	zmin - 20 <<
-	swap ymin - 10 << or
-	swap xmin - or ;
+|-------------------------------
+:.h
+	$ff and $10 <? ( "0%h" )( "%h" ) print ;
 
-:calpaso | nro vec val -- nro vec nval
-	dup $3ff and pick3 >> dup 2/ -
-	over 10 >> $3ff and pick4 >> dup 2/ - 10 << or
-	swap 20 >> $fff and pick3 >> dup 2/ - 20 << or ;
+:dm
+	( @+ 1? )(
+		over @ swap
+		( over <? )( c@+ .h "." print ) 2drop
+		cr ) 2drop ;
 
-:calpaso | nro vec val -- nro vec nval
-	pick2 >> dup $00100401 and swap 2/
-	pick3 2 << 'imask + @ and + ;
+:dumpmask
+|	'xmask lenx ( 1? )( 1- swap c@+ .h swap ) 2drop cr
+	'xmvec dm cr
+|	'ymask leny ( 1? )( 1- swap c@+ .h swap ) 2drop cr
+	'ymvec dm cr
+	;
 
-:drawioct3 | octree --
-	3do!
+|-------------------------------
+:fillx | child v x -- child
+	'xmask +
+	lenx 2/ ( 1? )( 1- | child v xmin len
+		pick3 pick2 c+!
+		swap 1+ swap ) 2drop ;
+
+:filly | child y -- child
+	'ymask +
+	leny 2/ ( 1? )( 1- | child ymin len
+		pick2 pick2 c+!
+		swap 1+ swap ) 2drop ;
+
+:calclevels | cnt mask vec --
+	>r dup	| c xo xo
+	pick2 2 << +	| c xo xd r:vv
+	(	over r!+	| c xo xd r:vv
+		pick2 ( 1? )( 1- >r			| c xo xd c
+			swap @+
+			dup $ff00ff and swap 8 >> or $ff00ff and dup 8 >> or
+			rot	w!+					| c xo xd
+			r> ) drop				| c xo xd
+		nip dup pick2 2* - swap		| calcula origen otra vez
+		rot 2/ 1? )( rot rot )      | xo xd c
+	over r!+
+|	pick2 @ dup $ff00ff and swap 8 >> or $ff00ff and dup 8 >> or
+|	rot w!+
+ 	r!+
+	2drop rdrop ;
+
+:calcmask
+	'xmask lenx 2 >> 1+ ( 1? )( 1- 0 rot !+ swap ) 2drop
+	'ymask leny 2 >> 1+ ( 1? )( 1- 0 rot !+ swap ) 2drop
+
+	'ivecpos >r
+	$1 ( $100 <? )( r@+
+		dup $3ff and 2/ fillx | child xmin
+		10 >> $3ff and 2/ filly
+		2* ) drop rdrop
+
+	lenx 3 + 2 >> 'xmask 'xmvec calclevels
+	leny 3 + 2 >> 'ymask 'ymvec calclevels
+	;
+
+:drawfull | color --
+	ink |zo!
 
 	0 0 x1 x0 - -? ( rot + swap )( + )
 	x2 x0 - -? ( rot + swap )( + )
@@ -224,8 +315,11 @@
 		@+ calpaso r!+
 		drop
 		1+ ) drop
+
 	rdrop
 
+	30 lenx leny min clz - 'maxlev ! | -2
+	calcmask
 	szm 'nzmin !
 	nzmin 0
 	over %1000 or or
@@ -237,20 +331,12 @@
 	over 6 xor %1000 or 24 << or
 	swap 7 xor %1000 or 28 << or
 	'norden !
-
-	$octree drawiso2
+	drawf
 	;
-|-----------------------------------------
-#maxlev
-#xmask )( 1024
-#ymask )( 1024
 
-
-|---- full
+|---------------
 :childxy | nro -- sx sy
-	2 << 'ivecpos + @
-	dup $3ff and 2/
-	swap 10 >> $3ff and 2/ ;
+	2 << 'ivecpos + @ dup $3ff and 2/ swap 10 >> $3ff and 2/ ;
 
 :buscarhijo | mask -- hijo/-1
 	norden (
@@ -258,7 +344,14 @@
 		pick2 and? ( drop $7 and nip ; ) drop
 		4 >> -1 =? ) nip ;
 
-:rayfull
+:raycast | y x octree --
+	pick2 'ymask + c@
+	pick2 'xmask + c@ and
+	0? ( 2drop 1 px+! ; ) drop
+
+	@+ | dir nodo
+
+
 	2dup maxlev  | yn xn
 	( rot rot
 		over 'ymask + c@
@@ -273,31 +366,18 @@
 	ink@ px!+
 	;
 
-:drawf | x y z --
+:drawi2
 	xmin ymin setxy
 	sw lenx -
 	0 ( leny <? )(
 		0 ( lenx <? )(
-			rayfull
+			pick3 raycast
 			1+ ) drop
 		over px+!
-		1+ ) 2drop ;
+		1+ ) 3drop ;
 
-|-------------------------------
-:fillx | child x -- child
-	'xmask +
-	lenx 2/ ( 1? )( 1- | child xmin len
-		pick3 pick2 c+!
-		swap 1+ swap ) 2drop ;
-
-:filly | child y -- child
-	'ymask +
-	leny 2/ ( 1? )( 1- | child xmin len
-		pick2 pick2 c+!
-		swap 1+ swap ) 2drop ;
-
-:drawfull | color --
-	ink |zo!
+:drawiso5 | color --
+	3do!
 
 	0 0 x1 x0 - -? ( rot + swap )( + )
 	x2 x0 - -? ( rot + swap )( + )
@@ -331,17 +411,9 @@
 	z3 z1 + z0 - z2 + z0 - packxyz r!+
 	rdrop
 
-	32 lenx leny min clz - 2 - 'maxlev !
+	32 lenx leny min clz - 1- 'maxlev !
 
-	'xmask >r lenx 3 + 2 >> ( 1? )( 1- 0 r!+ ) drop rdrop
-	'ymask >r leny 3 + 2 >> ( 1? )( 1- 0 r!+ ) drop rdrop
-
-	'ivecpos >r
-	$1 ( $100 <? )(
-		r@+
-		dup $3ff and 2/ fillx | child xmin
-		10 >> $3ff and 2/ filly
-		2* ) drop rdrop
+	calcmask
 
 	szm 'nzmin !
 	nzmin 0
@@ -354,9 +426,8 @@
 	over 6 xor %1000 or 24 << or
 	swap 7 xor %1000 or 28 << or
 	'norden !
-	drawf
+	$octree drawi2
 	;
-
 
 |--------------------------------
 :drawxm
@@ -404,6 +475,7 @@
 	4 getnn line
 	;
 
+
 |--------------------------------
 :load3do | "" -- moctree
 	here dup rot load 'here ! ;
@@ -438,6 +510,7 @@
 			) drop
 		) drop rdrop ;
 
+|----------------------------------
 #xcam 0 #ycam 0 #zcam 1.6
 
 #mseca
@@ -452,8 +525,6 @@
 	sw sh zb.ini
 	Omode
 	33
-
-
 	show0 clrscr
 
 |		matini
@@ -467,26 +538,30 @@
 		msec 'mseca !
 |		Oclon drawioct2
 |		Oclon drawioct3
-		$ffffff drawfull
+		$ff00 drawfull
+
+
 
         drawrules
-		azul
+		blanco
 
 |		dump2
 
 		dup "%d" print cr
 		maxlev "%d" print cr
-|		msec mseca - "%d" print cr
-|		lenx leny "%d %d" print cr
+		msec mseca - "%d" print cr
+		lenx leny "%d %d" print cr
+
+        30 sw 128 - 0 xmin 10 - ymin 10 - zoomx4
 
 |		'ivecpos >r 8 ( 1? )( 1- r@+ dup 10 >> $3ff and swap $3ff and "%d %d " print cr ) drop rdrop
-		cr
-		'xmask lenx ( 1? )( 1- swap c@+ "%h" print swap ) 2drop cr
-		'ymask leny ( 1? )( 1- swap c@+ "%h" print swap ) 2drop cr
-        drawaxis
+		dumpmask
+|        drawaxis
 |        drawaxisfull
 		'dn 'movem guiDnMove
 
+        [ 1 'x1 +! ; ] <ri>
+        [ -1 'x1 +! ; ] <le>
 		[ szm 1+ 7 and 'szm ! ; ] <f1>
 		'exit >esc< cminiflecha
 		;
