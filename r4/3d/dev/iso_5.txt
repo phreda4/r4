@@ -162,7 +162,7 @@
 	dup 'ymvec + @ pick3 + c@
 	swap 'xmvec + @ pick2 + c@ and ;
 
-|	pick2 2 << 'yxmvec + @+ pick3 + c@ swap @ pick3 + c@ and ;
+|	pick2 3 << 'yxmvec + @+ pick3 + c@ swap @ pick3 + c@ and ;
 
 :rayfull
 	2dup 0  | yn xn level
@@ -302,38 +302,61 @@
 	;
 
 |---------------
-:childxy | nro -- sx sy
-	2 << 'ivecpos + @ dup $3ff and 2/ swap 10 >> $3ff and 2/ ;
 
-:buscarhijo | mask -- hijo/-1
-	norden (
-		1 over $7 and << | hijo
-		pick2 and? ( drop $7 and nip ; ) drop
-		4 >> -1 =? ) nip ;
+:childxy | lev yx nro -- lev yx sxsy
+	ilev swap
+	2 << 'ivecpos + @
+	over >> dup $00100401 and swap 2/
+	pick2 2 << 'imask + @ and + ;
 
-:raycast | y x octree --
-	pick2 'ymask + c@
-	pick2 'xmask + c@ and
-	0? ( 2drop 1 px+! ; ) drop
+|	2 << 'ivecpos + @ ilev 1+ >>
+|	ilev 2 << 'imask + @ and ;
 
-	@+ | dir nodo
+|	2 << 'ivecpos + @
+|	dup $3ff and pick4 1+ >> swap 10 >> $3ff and pick4 1+ >> ;
 
+|	2 << pick3 1+ 5 << + 'ivecpos + @
+|	dup $3ff and swap 10 >> $3ff and ;
 
-	2dup maxlev  | yn xn
-	( rot rot
-		over 'ymask + c@
-		over 'xmask + c@ and
-		0? ( 4drop 1 px+! ; ) | optimiza
-		buscarhijo -? ( 4drop 1 px+! ; ) | y x c
-		childxy							| y x xs ys
-		rot rot - 2*
-		rot rot - 2*
-		swap 		| y x
-		rot 1- 0? ) 3drop
-	ink@ px!+
+:getyxmask | lev no yx oc -- lev no yx oc yxmask
+	pick3 2 << 'ymvec + @ pick2 10 >> $ff and + c@
+	pick4 2 << 'xmvec + @ pick3 $ff and + c@ and ;
+
+:nextchild | mask norden -- mask hijo/-1
+	( 1 over $7 and << | hijo
+		pick2 and? ( drop $7 and ; ) drop
+		4 >> -1 =? ) ;
+
+:search | lev norden xy oc -- yx ox norden lev
+    getyxmask			| lev norden xy oc yxmask
+	over @ and			| lev norden xy oc bitmask
+	pick3 nextchild		| lev norden xy oc bitmask hijo/-1
+	-? ( drop del, stack@ levl-1 xy- ; )
+	|upchild ( stack! levl+1 xy+ )
 	;
 
-:drawi2
+:raycast | y x octree -- y x
+	'stacko 8 + 'stacko> !
+	pick2 10 << pick2 or	| oc yx
+	swap norden 0			| yx oc norden lev
+	( maxlev <? )( swap 2swap	| lev norden xy oc
+	    $pixels >=? ( colordot 3drop ; )
+	    search					| yx ox norden lev
+		-? ( 4drop skipdot ; )
+		) 2drop nip
+	colordot ;
+
+| sube nivel
+	lev 1+			| lev
+	xy c childxy+	| xy
+	stack! 			| norden,octree
+
+| baja nivel
+	lev 1-			| lev
+	xy c xhildxy-	| xy
+	stack@			| norden,octree
+
+:drawiso
 	xmin ymin setxy
 	sw lenx -
 	0 ( leny <? )(
@@ -343,7 +366,7 @@
 		over px+!
 		1+ ) 3drop ;
 
-:drawiso5 | color --
+:drawiso | color --
 	3do!
 
 	0 0 x1 x0 - -? ( rot + swap )( + )
@@ -381,7 +404,6 @@
 	32 lenx leny min clz - 1- 'maxlev !
 
 	calcmask
-
 	szm 'nzmin !
 	nzmin 0
 	over %1000 or or
@@ -393,7 +415,7 @@
 	over 6 xor %1000 or 24 << or
 	swap 7 xor %1000 or 28 << or
 	'norden !
-	$octree drawi2
+	$octree drawiso
 	;
 
 |--------------------------------
@@ -507,7 +529,7 @@
 |		Oclon drawioct3
 		$ff00 drawfull
 
-
+		$8008 $3001 - "%h" print
 
         drawrules
 		blanco
