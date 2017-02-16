@@ -303,11 +303,9 @@
 
 |---------------
 
-:childxy | lev yx nro -- lev yx sxsy
-	ilev swap
-	2 << 'ivecpos + @
-	over >> dup $00100401 and swap 2/
-	pick2 2 << 'imask + @ and + ;
+|	pick4 swap 2 << 'ivecpos + @		| lev vec
+|	over >> dup $00100401 and swap 2/	| lev vec>> vec2/
+|	rot 2 << 'imask + @ and + ;			| syx
 
 |	2 << 'ivecpos + @ ilev 1+ >>
 |	ilev 2 << 'imask + @ and ;
@@ -318,21 +316,52 @@
 |	2 << pick3 1+ 5 << + 'ivecpos + @
 |	dup $3ff and swap 10 >> $3ff and ;
 
+:childxy | lev xy noc hijo -- lev xy noc sxsy
+	2 << 'ivecpos + @ pick3 1+ >>
+	pick3 2 << 'imask + @ and ;
+
+:childxy- | lev norden oc xy hijo --  lev norden noc sxsy
+	2 << 'ivecpos + @ pick4 >>
+	pick4 1- 2 << 'imask + @ and - ;
+
 :getyxmask | lev no yx oc -- lev no yx oc yxmask
 	pick3 2 << 'ymvec + @ pick2 10 >> $ff and + c@
 	pick4 2 << 'xmvec + @ pick3 $ff and + c@ and ;
 
-:nextchild | mask norden -- mask hijo/-1
+:nextchild | mask norden -- hijo/-1
 	( 1 over $7 and << | hijo
-		pick2 and? ( drop $7 and ; ) drop
-		4 >> -1 =? ) ;
+		pick2 and? ( drop $7 and nip ; ) drop
+		4 >> -1 =? ) nip ;
 
-:search | lev norden xy oc -- yx ox norden lev
+| baja nivel
+|	lev 1-			| lev
+|	xy c xhildxy-	| xy
+|	stack@			| norden,octree
+
+:dnlevel | lev xy  -- yx oc norden lev
+	stack2@ rot	| lev norden oc yx
+	pick2 $7 and childxy- 	| lev norden oc yxo
+	swap 2swap				| yxo oc lev norden
+	4 >> swap 1- ;
+
+:search | lev norden xy oc -- yx oc norden lev
     getyxmask			| lev norden xy oc yxmask
 	over @ and			| lev norden xy oc bitmask
-	pick3 nextchild		| lev norden xy oc bitmask hijo/-1
-	-? ( drop del, stack@ levl-1 xy- ; )
-	|upchild ( stack! levl+1 xy+ )
+|	0? ( 2drop nip dnlevel ; )
+	pick3 nextchild		| lev norden xy oc hijo/-1
+	-? ( 2drop nip dnlevel ; )
+
+| sube nivel
+|	lev 1+			| lev
+|	xy c childxy+	| xy
+|	stack! 			| norden,octree
+
+	>r rot over			| lev xy oc norden oc r: hijo
+	stack2!				| lev xy oc  r: hijo
+	@+ dup 1 r << 1- and popcnt 2 << swap 8 >> 2 << + +		| lev xy noc
+	r> childxy			| lev xy noc sxy
+	rot + swap rot 		| yxn noc lev
+	1+ norden swap		| yxn noc norden lev
 	;
 
 :raycast | y x octree -- y x
@@ -340,28 +369,27 @@
 	pick2 10 << pick2 or	| oc yx
 	swap norden 0			| yx oc norden lev
 	( maxlev <? )( swap 2swap	| lev norden xy oc
+		pick3 pick3 pick3 pick3 "%h %h %h %d." ,print
 	    $pixels >=? ( colordot 3drop ; )
 	    search					| yx ox norden lev
 		-? ( 4drop skipdot ; )
 		) 2drop nip
 	colordot ;
 
-| sube nivel
-	lev 1+			| lev
-	xy c childxy+	| xy
-	stack! 			| norden,octree
-
-| baja nivel
-	lev 1-			| lev
-	xy c xhildxy-	| xy
-	stack@			| norden,octree
-
-:drawiso
+:drawi
+	mark
 	xmin ymin setxy
 	sw lenx -
 	0 ( leny <? )(
 		0 ( lenx <? )(
+
+			2dup "(%d %d)" ,print ,cr
+
 			pick3 raycast
+
+			,cr
+			"log.txt" savemem
+
 			1+ ) drop
 		over px+!
 		1+ ) 3drop ;
@@ -401,7 +429,7 @@
 	z3 z1 + z0 - z2 + z0 - packxyz r!+
 	rdrop
 
-	32 lenx leny min clz - 1- 'maxlev !
+	32 lenx leny min clz - 2 - 'maxlev !
 
 	calcmask
 	szm 'nzmin !
@@ -415,7 +443,7 @@
 	over 6 xor %1000 or 24 << or
 	swap 7 xor %1000 or 28 << or
 	'norden !
-	$octree drawiso
+	$octree drawi
 	;
 
 |--------------------------------
@@ -506,10 +534,10 @@
 
 :main
 	mark
-|	"media/3do/xwing.3do"
+	"media/3do/xwing.3do"
 |	"media/3do/tie fighter.3do"
 |	"media/3do/mario.3do"
-	"media/3do/8x8x8.3do"
+|	"media/3do/8x8x8.3do"
 	load3do 'Oclon !
 	sw sh zb.ini
 	Omode
@@ -525,15 +553,13 @@
 |		zdraw
 
 		msec 'mseca !
-|		Oclon drawioct2
-|		Oclon drawioct3
-		$ff00 drawfull
 
-		$8008 $3001 - "%h" print
+		Oclon drawiso
+|		$ff00 drawfull
 
-        drawrules
+|        drawrules
+
 		blanco
-
 |		dump2
 
 		dup "%d" print cr
@@ -543,8 +569,8 @@
 
         30 sw 128 - 0 xmin 10 - ymin 10 - zoomx4
 
-		'ivecpos >r 8 ( 1? )( 1- r@+ dup 10 >> $3ff and swap $3ff and "%d %d " print cr ) drop rdrop
-		dumpmask
+|		'ivecpos >r 8 ( 1? )( 1- r@+ dup 10 >> $3ff and swap $3ff and "%d %d " print cr ) drop rdrop
+|		dumpmask
         drawaxis
 |        drawaxisfull
 		'dn 'movem guiDnMove
