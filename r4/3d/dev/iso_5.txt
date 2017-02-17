@@ -317,48 +317,46 @@
 |	dup $3ff and swap 10 >> $3ff and ;
 
 :childxy | lev xy noc hijo -- lev xy noc sxsy
+	pick3 pick3 pick3 pick3 "up {%d} (%h) %h [%d]" ,print
 	2 << 'ivecpos + @ pick3 1+ >>
 	pick3 2 << 'imask + @ and ;
 
+
 :childxy- | lev norden oc xy hijo --  lev norden noc sxsy
-	2 << 'ivecpos + @ pick4 >>
-	pick4 1- 2 << 'imask + @ and - ;
+	pick4 pick4 $7777777 and pick4 pick4 pick4 "dn {%d} %h (%h) o%h [%d]" ,print
+	2 << 'ivecpos + @ pick4 1+ >>
+	pick4 2 << 'imask + @ and
 
-:getyxmask | lev no yx oc -- lev no yx oc yxmask
-	pick3 2 << 'ymvec + @ pick2 10 >> $ff and + c@
-	pick4 2 << 'xmvec + @ pick3 $ff and + c@ and ;
+	2dup " %h-%h " ,print ,cr
 
-:nextchild | mask norden -- hijo/-1
-	( 1 over $7 and << | hijo
-		pick2 and? ( drop $7 and nip ; ) drop
-		4 >> -1 =? ) nip ;
+	 - ;
 
-| baja nivel
-|	lev 1-			| lev
-|	xy c xhildxy-	| xy
-|	stack@			| norden,octree
+:getyxmask | lev yx oc no -- lev yx oc no yxmask
+	pick3 2 << 'ymvec + @ pick3 10 >> $ff and + c@
+	pick4 2 << 'xmvec + @ pick4 $ff and + c@ and ;
 
 :dnlevel | lev xy  -- yx oc norden lev
 	stack2@ rot	| lev norden oc yx
+|	pick3 pick3 pick3 $7777777 and pick3 "xy:%h (%h) o:%h [%d]; " ,print
 	pick2 $7 and childxy- 	| lev norden oc yxo
+|	dup "-> nxy:%h " ,print ,cr
 	swap 2swap				| yxo oc lev norden
 	4 >> swap 1- ;
 
+:nextchild | norden mask -- norden / -1
+	( 1 pick2 $7 and << | hijo
+		and? ( drop ; )
+		swap 4 >> -1 <>? )( swap ) nip ;
+
 :search | lev norden xy oc -- yx oc norden lev
-    getyxmask			| lev norden xy oc yxmask
-	over @ and			| lev norden xy oc bitmask
+	rot getyxmask | lev xy oc norden yxmask
+	pick2 @ and			| lev xy oc norden bitmask
 |	0? ( 2drop nip dnlevel ; )
-	pick3 nextchild		| lev norden xy oc hijo/-1
-	-? ( 2drop nip dnlevel ; )
-
-| sube nivel
-|	lev 1+			| lev
-|	xy c childxy+	| xy
-|	stack! 			| norden,octree
-
-	>r rot over			| lev xy oc norden oc r: hijo
-	stack2!				| lev xy oc  r: hijo
-	@+ dup 1 r << 1- and popcnt 2 << swap 8 >> 2 << + +		| lev xy noc
+	nextchild					| lev xy oc norden/-1
+	-1 =? ( 2drop dnlevel ; )	| lev xy oc norden
+	dup $7 and >r	| lev xy oc norden  r:hijo
+	over stack2!	| lev xy oc  r:hijo
+    @+ dup 1 r << 1- and popcnt 2 << swap 8 >> 2 << + +		| lev xy noc
 	r> childxy			| lev xy noc sxy
 	rot + swap rot 		| yxn noc lev
 	1+ norden swap		| yxn noc norden lev
@@ -369,7 +367,7 @@
 	pick2 10 << pick2 or	| oc yx
 	swap norden 0			| yx oc norden lev
 	( maxlev <? )( swap 2swap	| lev norden xy oc
-		pick3 pick3 pick3 pick3 "%h %h %h %d." ,print
+|		pick3 pick3 $7777777 and pick3 pick3 "(%h) xy:%h o:%h [%d] : " ,print ,cr
 	    $pixels >=? ( colordot 3drop ; )
 	    search					| yx ox norden lev
 		-? ( 4drop skipdot ; )
@@ -378,6 +376,7 @@
 
 :drawi
 	mark
+
 	xmin ymin setxy
 	sw lenx -
 	0 ( leny <? )(
@@ -388,11 +387,16 @@
 			pick3 raycast
 
 			,cr
-			"log.txt" savemem
 
 			1+ ) drop
+
+
+
 		over px+!
-		1+ ) 3drop ;
+		1+ ) 3drop
+		"log.txt" savemem
+			end
+		;
 
 :drawiso | color --
 	3do!
