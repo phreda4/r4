@@ -17,9 +17,9 @@
 #x3 240 #y3 300 #z3 200
 
 |#x0 220 #y0 200 #z0 100
-|#x1 224 #y1 204	#z1 150
-|#x2 224 #y2 196 #z2 200
-|#x3 220 #y3 204 #z3 200
+|#x1 225 #y1 205	#z1 150
+|#x2 225 #y2 195 #z2 200
+|#x3 220 #y3 205 #z3 200
 
 | 32*niveles
 #ivecpos )( 320
@@ -145,14 +145,14 @@
 
 |---- full
 :childxy- | lev norden yx child -- lev norden yx+
-	2 << 'ivecpos + @ pick3 >>
-	pick3 1- 2 << 'imask + @ and
+	2 << pick3 5 << + 'ivecpos + @
+|	2 << 'ivecpos + @ pick3 >> pick3 1- 2 << 'imask + @ and
 	+
 	;
 
 :childxy+ |  lev yx child -- lev yx-
-	2 << 'ivecpos + @ pick2 1+ >>
-	pick2 2 << 'imask + @ and
+	2 << pick2 1+ 5 << + 'ivecpos + @
+|	2 << 'ivecpos + @ pick2 1+ >> pick2 2 << 'imask + @ and
 	-
 	;
 
@@ -175,7 +175,7 @@
 
 :search | xy lev norden -- yx norden lev
 	getyxmask 					| xy lev norden yxmask
-	0? ( 2drop dnlevel ; )
+|	0? ( 2drop dnlevel ; )
 	nextchild					| xy lev norden/-1
 	-1 =? ( drop dnlevel ; )	| xy lev norden
 	dup stack!					| xy lev norden
@@ -194,12 +194,20 @@
 		) 3drop
 	ink@ px!+ ;
 
+:raytest
+	over 10 << over or	| yx
+	0 0 getyxmask
+	0? ( $ff0000 or )
+	px!+
+	3drop ;
+
 :drawf | x y z --
 	xmin ymin setxy
 	sw lenx -
 	0 ( leny <? )(
 		0 ( lenx <? )(
 			rayfull
+|			raytest
 			1+ ) drop
 		over px+!
 		1+ ) 2drop
@@ -244,11 +252,12 @@
 			dup $ff00ff and swap 8 >> or $ff00ff and dup 8 >> or
 			rot	w!+					| c xo xd
 			r> ) drop				| c xo xd
-		nip dup pick2 2* - swap		| calcula origen otra vez
+		0 swap w!+	| *****
+		nip dup pick2 1+ 2* - swap		| calcula origen otra vez
 		rot 2/ 1? )( rot rot )      | xo xd c
 	over r!+
-|	pick2 @ dup $ff00ff and swap 8 >> or $ff00ff and dup 8 >> or
-|	rot w!+
+	pick2 @ dup $ff00ff and swap 8 >> or $ff00ff and dup 8 >> or
+	rot w!+
  	r!+
 	2drop rdrop ;
 
@@ -258,8 +267,11 @@
 
 	'ivecpos >r
 	$1 ( $100 <? )( r@+
-		dup $3ff and dup 2/ - fillx | child xmin
-		10 >> $3ff and dup 2/ - filly
+|		dup $3ff and dup 2/ - fillx | child xmin
+|		10 >> $3ff and dup 2/ - filly
+		dup $3ff and 2/ fillx | child xmin
+		10 >> $3ff and 2/ filly
+
 		2* ) drop rdrop
 
 	lenx 3 + 2 >> 'xmask 'xmvec calclevels
@@ -282,6 +294,8 @@
 	z3 z0 - -? ( rot + swap )( + )
 	over - 'lenz ! z0 + 'zmin !
 
+	30 lenx leny min clz - 'maxlev ! | -2
+
 	'ivecpos >r
 	x0 y0 z0 packxyz r!+
 	x1 y1 z1 packxyz r!+
@@ -299,9 +313,20 @@
 	x3 x1 + x0 - x2 + x0 -
 	y3 y1 + y0 - y2 + y0 -
 	z3 z1 + z0 - z2 + z0 - packxyz r!+
+	0 ( maxlev <=? )(
+		'ivecpos
+		@+ calpaso r!+
+		@+ calpaso r!+
+ 		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		drop
+		1+ ) drop
 	rdrop
 
-	30 lenx leny min clz - 'maxlev ! | -2
 
 	calcmask
 	szm 'nzmin !
@@ -482,12 +507,12 @@
 
 :drawrules
 |	'xmask
-	'xmvec @
+	'xmvec 4+ @
 	0 ( lenx <? )( swap
     	over xmin + ymin 10 - setxy drawxm
 		swap 1+ ) 2drop
 |	'ymask
-	'ymvec @
+	'ymvec 4+ @
 	0 ( leny <? )( swap
 		xmin 10 - pick2 ymin + setxy drawym
 		swap 1+ ) 2drop
