@@ -91,12 +91,6 @@
 :colordotr 	octcolor z0 'nowzbuf !+ zbo + ! ;
 :skipdotr	4 'nowzbuf +! ;
 
-|---------------------------------------------
-#leny0
-#lenx0
-#xyznow
-#xyznow0
-
 #imask $7ff7fdff $3ff3fcff $1ff1fc7f $0ff0fc3f $07f07c1f $03f03c0f $01f01c07 $00f00c03 $00700401
 
 :packxyz | x y z -- zyx
@@ -108,53 +102,22 @@
 	pick2 >> dup $00100401 and swap 2/
 	pick3 2 << 'imask + @ and + ;
 
-:preup | child --
-	ilev swap
-	2 << 'ivecpos + @
-	over >> dup $00100401 and swap 2/
-	pick2 2 << 'imask + @ and +
-	xyznow + 'xyznow0 !
-	1+
-	lenx over >> 'lenx0 !
-	leny swap >> 'leny0 !
-	;
-
-:preup | child --
-	ilev 1+ swap
-	2 << over 5 << + 'ivecpos + @
-	xyznow + 'xyznow0 !
-	lenx over >> 'lenx0 !
-	leny swap >> 'leny0 !
-	;
-
-:uplevel | --
-|	xyznow ilev 2 << 'sprev + !
-	xyznow0 'xyznow !
-	1 'ilev +! ;
-
-:dnlevel
-	-1 'ilev +!
-|	ilev 2 << 'sprev + @ 'xyznow ! ;
-
 |-----------------------------------------
 #maxlev
-#xmask )( 2048
+#xmask )( 2048	| 512 max
 #ymask )( 2048
-#xmvec 0 0 0 0 0 0 0 0 0 0 0 0
-#ymvec 0 0 0 0 0 0 0 0 0 0 0 0
+#yxvec )( 64
 
 |---- full
 :childxy- | lev norden yx child -- lev norden yx+
 	2 << pick3 5 << + 'ivecpos + @
 |	2 << 'ivecpos + @ pick3 >> pick3 1- 2 << 'imask + @ and
-	+
-	;
+	+ ;
 
 :childxy+ |  lev yx child -- lev yx-
 	2 << pick2 1+ 5 << + 'ivecpos + @
 |	2 << 'ivecpos + @ pick2 1+ >> pick2 2 << 'imask + @ and
-	-
-	;
+	- ;
 
 :dnlevel | xy lev -- yx norden lev
 	stack@ rot	| lev norden yx
@@ -168,10 +131,9 @@
 		swap 4 >> -1 <>? )( swap ) nip ;
 
 :getyxmask | xy lev norden -- xy lev norden yxmask
-	over 2 << 'ymvec + @ pick3 10 >> $3ff and + c@
-	pick2 2 << 'xmvec + @ pick4 $3ff and + c@
-	and
-	;
+	over 3 << 'yxvec +
+	@+ pick4 10 >> $3ff and + c@
+	swap @ pick4 $3ff and + c@ and ;
 
 :search | xy lev norden -- yx norden lev
 	getyxmask 					| xy lev norden yxmask
@@ -185,7 +147,7 @@
 	;
 
 :rayfull | y x --
-	'stacko 4+ 'stacko> !
+	'stacko 'stacko> !
 	over 10 << over or	| yx
 	norden 0			| yx norden lev
 	( maxlev <? )( swap	| yx lev norden
@@ -210,8 +172,7 @@
 |			raytest
 			1+ ) drop
 		over px+!
-		1+ ) 2drop
-	;
+		1+ ) 2drop ;
 
 |-------------------------------
 :.h
@@ -225,9 +186,9 @@
 
 :dumpmask
 |	'xmask lenx ( 1? )( 1- swap c@+ .h swap ) 2drop cr
-	'xmvec dm cr
+|	'xmvec dm cr
 |	'ymask leny ( 1? )( 1- swap c@+ .h swap ) 2drop cr
-	'ymvec dm cr
+|	'ymvec dm cr
 	;
 
 |-------------------------------
@@ -247,19 +208,20 @@
 	>r dup	| c xo xo
 	pick2 2 << +	| c xo xd r:vv
 	(	over r!+	| c xo xd r:vv
+		4 r+
 		pick2 ( 1? )( 1- >r			| c xo xd c
 			swap @+
 			dup $ff00ff and swap 8 >> or $ff00ff and dup 8 >> or
 			rot	w!+					| c xo xd
 			r> ) drop				| c xo xd
-		0 swap w!+	| *****
+		0 swap w!+	| clear out of limits
 		nip dup pick2 1+ 2* - swap		| calcula origen otra vez
 		rot 2/ 1? )( rot rot )      | xo xd c
-	over r!+
-	pick2 @ dup $ff00ff and swap 8 >> or $ff00ff and dup 8 >> or
-	rot w!+
- 	r!+
-	2drop rdrop ;
+	over r!+ |4 r+
+|	pick2 @ dup $ff00ff and swap 8 >> or $ff00ff and dup 8 >> or
+|	rot w!+
+| 	r!+
+	3drop rdrop ;
 
 :calcmask
 	'xmask lenx 2 >> 1+ ( 1? )( 1- 0 rot !+ swap ) 2drop
@@ -267,15 +229,14 @@
 
 	'ivecpos >r
 	$1 ( $100 <? )( r@+
-|		dup $3ff and dup 2/ - fillx | child xmin
-|		10 >> $3ff and dup 2/ - filly
-		dup $3ff and 2/ fillx | child xmin
-		10 >> $3ff and 2/ filly
-
+		dup $3ff and dup 2/ - fillx | child xmin
+		10 >> $3ff and dup 2/ - filly
+|		dup $3ff and 2/ fillx | child xmin
+|		10 >> $3ff and 2/ filly
 		2* ) drop rdrop
 
-	lenx 3 + 2 >> 'xmask 'xmvec calclevels
-	leny 3 + 2 >> 'ymask 'ymvec calclevels
+	lenx 3 + 2 >> 'xmask 'yxvec 4+ calclevels
+	leny 3 + 2 >> 'ymask 'yxvec calclevels
 	;
 
 :drawfull | color --
@@ -284,15 +245,15 @@
 	0 0 x1 x0 - -? ( rot + swap )( + )
 	x2 x0 - -? ( rot + swap )( + )
 	x3 x0 - -? ( rot + swap )( + )
-	over - 'lenx ! x0 + 'xmin !
+	over - 1+ 'lenx ! x0 + 'xmin !
 	0 0 y1 y0 - -? ( rot + swap )( + )
 	y2 y0 - -? ( rot + swap )( + )
 	y3 y0 - -? ( rot + swap )( + )
-	over - 'leny ! y0 + 'ymin !
+	over - 1+ 'leny ! y0 + 'ymin !
 	0 0 z1 z0 - -? ( rot + swap )( + )
 	z2 z0 - -? ( rot + swap )( + )
 	z3 z0 - -? ( rot + swap )( + )
-	over - 'lenz ! z0 + 'zmin !
+	over - 1+ 'lenz ! z0 + 'zmin !
 
 	30 lenx leny min clz - 'maxlev ! | -2
 
@@ -313,7 +274,7 @@
 	x3 x1 + x0 - x2 + x0 -
 	y3 y1 + y0 - y2 + y0 -
 	z3 z1 + z0 - z2 + z0 - packxyz r!+
-	0 ( maxlev <=? )(
+	0 ( maxlev <? )(
 		'ivecpos
 		@+ calpaso r!+
 		@+ calpaso r!+
@@ -326,7 +287,6 @@
 		drop
 		1+ ) drop
 	rdrop
-
 
 	calcmask
 	szm 'nzmin !
@@ -345,44 +305,18 @@
 	;
 
 |---------------
-
-|	pick4 swap 2 << 'ivecpos + @		| lev vec
-|	over >> dup $00100401 and swap 2/	| lev vec>> vec2/
-|	rot 2 << 'imask + @ and + ;			| syx
-
-|	2 << 'ivecpos + @ ilev 1+ >>
-|	ilev 2 << 'imask + @ and ;
-
-|	2 << 'ivecpos + @
-|	dup $3ff and pick4 1+ >> swap 10 >> $3ff and pick4 1+ >> ;
-
-|	2 << pick3 1+ 5 << + 'ivecpos + @
-|	dup $3ff and swap 10 >> $3ff and ;
-
 :childxy | lev xy noc hijo -- lev xy noc sxsy
- |	pick3 pick3 pick3 pick3 "up {%d} (%h) %h [%d]" ,print ,cr
 	2 << 'ivecpos + @ pick3 1+ >>
 	pick3 2 << 'imask + @ and ;
 
-
 :childxy- | lev norden oc xy hijo --  lev norden noc sxsy
-|	pick4 pick4 $77777777 and pick4 pick4 pick4 "dn {%d} %h (%h) o%h [%d]" ,print
 	2 << 'ivecpos + @ pick4 1+ >>
 	pick4 2 << 'imask + @ and
-
-|	2dup " %h-%h " ,print ,cr
-
 	 + ;
-
-:getyxmask | lev yx oc no -- lev yx oc no yxmask
-	pick3 2 << 'ymvec + @ pick3 10 >> $ff and + c@
-	pick4 2 << 'xmvec + @ pick4 $ff and + c@ and ;
 
 :dnlevel | lev xy  -- yx oc norden lev
 	stack2@ rot	| lev norden oc yx
-|	pick3 pick3 pick3 $77777777 and pick3 "xy:%h (%h) o:%h [%d]; " ,print
 	pick2 $7 and childxy- 	| lev norden oc yxo
-|	dup "-> nxy:%h " ,print ,cr
 	swap 2swap				| yxo oc lev norden
 	4 >> swap 1- ;
 
@@ -406,11 +340,10 @@
 	;
 
 :raycast | y x octree -- y x
-	'stacko 8 + 'stacko> !
+	'stacko 'stacko> !
 	pick2 10 << pick2 or	| oc yx
 	swap norden 0			| yx oc norden lev
 	( maxlev <? )( swap 2swap	| lev norden xy oc
-|		pick3 pick3 $77777777 and pick3 pick3 "(%h) xy:%h o:%h [%d] : " ,print ,cr
 	    $pixels >=? ( colordot 3drop ; )
 	    search					| yx ox norden lev
 		-? ( 4drop skipdot ; )
@@ -418,43 +351,31 @@
 	colordot ;
 
 :drawi
-|	mark
-
 	xmin ymin setxy
 	sw lenx -
 	0 ( leny <? )(
 		0 ( lenx <? )(
-
-|			2dup "(%d %d)" print ,cr
-
 			pick3 raycast
-
-|			,cr
-
 			1+ ) drop
-
 		over px+!
-		1+ ) 3drop
-|		"log.txt" savemem
-|			end
-		;
+		1+ ) 3drop ;
 
-:drawiso | color --
+:drawiso | octree --
 	3do!
 
 	0 0 x1 x0 - -? ( rot + swap )( + )
 	x2 x0 - -? ( rot + swap )( + )
 	x3 x0 - -? ( rot + swap )( + )
-	over - 'lenx ! x0 + 'xmin !
+	over - 1+ 'lenx ! x0 + 'xmin !
 	0 0 y1 y0 - -? ( rot + swap )( + )
 	y2 y0 - -? ( rot + swap )( + )
 	y3 y0 - -? ( rot + swap )( + )
-	over - 'leny ! y0 + 'ymin !
+	over - 1+ 'leny ! y0 + 'ymin !
 	0 0 z1 z0 - -? ( rot + swap )( + )
 	z2 z0 - -? ( rot + swap )( + )
 	z3 z0 - -? ( rot + swap )( + )
-	over - 'lenz ! z0 + 'zmin !
-
+	over - 1+ 'lenz ! z0 + 'zmin !
+	30 lenx leny min clz - 'maxlev ! | -2
 	'ivecpos >r
 	x0 y0 z0 packxyz r!+
 	x1 y1 z1 packxyz r!+
@@ -472,10 +393,19 @@
 	x3 x1 + x0 - x2 + x0 -
 	y3 y1 + y0 - y2 + y0 -
 	z3 z1 + z0 - z2 + z0 - packxyz r!+
+	0 ( maxlev <? )(
+		'ivecpos
+		@+ calpaso r!+
+		@+ calpaso r!+
+ 		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		drop
+		1+ ) drop
 	rdrop
-
-	32 lenx leny min clz - 2 - 'maxlev !
-
 	calcmask
 	szm 'nzmin !
 	nzmin 0
@@ -507,12 +437,12 @@
 
 :drawrules
 |	'xmask
-	'xmvec 4+ @
+	'yxvec 4+ @
 	0 ( lenx <? )( swap
     	over xmin + ymin 10 - setxy drawxm
 		swap 1+ ) 2drop
 |	'ymask
-	'ymvec 4+ @
+	'yxvec 4+ @
 	0 ( leny <? )( swap
 		xmin 10 - pick2 ymin + setxy drawym
 		swap 1+ ) 2drop
@@ -604,7 +534,7 @@
 |		Oclon drawiso
 		$ff00 drawfull
 
-        drawrules
+|        drawrules
 
 		blanco
 |		dump2
@@ -614,7 +544,7 @@
 		msec mseca - "%d" print cr
 		lenx leny "leny %d lenx %d" print cr
 
-        30 sw 128 - 0 xmin 10 - ymin 10 - zoomx4
+|        30 sw 128 - 0 xmin 10 - ymin 10 - zoomx4
 
 |		'ivecpos >r 8 ( 1? )( 1- r@+ dup 10 >> $3ff and swap $3ff and "%d %d " print cr ) drop rdrop
 |		dumpmask
