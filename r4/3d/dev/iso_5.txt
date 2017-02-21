@@ -305,38 +305,37 @@
 	;
 
 |---------------
-:childxy | lev xy noc hijo -- lev xy noc sxsy
-	2 << 'ivecpos + @ pick3 1+ >>
-	pick3 2 << 'imask + @ and ;
+:childxy- | lev norden oc yx child -- lev norden oc yx+
+	2 << pick4 5 << + 'ivecpos + @ + ;
 
-:childxy- | lev norden oc xy hijo --  lev norden noc sxsy
-	2 << 'ivecpos + @ pick4 1+ >>
-	pick4 2 << 'imask + @ and
-	 + ;
+:childxy+ |  lev yx oc child -- lev oc yx-
+	2 << pick3 1+ 5 << + 'ivecpos + @
+	rot swap - ;
 
 :dnlevel | lev xy  -- yx oc norden lev
-	stack2@ rot	| lev norden oc yx
-	pick2 $7 and childxy- 	| lev norden oc yxo
-	swap 2swap				| yxo oc lev norden
-	4 >> swap 1- ;
+	swap stack2@ rot 		| lev norden oc yx
+	pick2 $7 and childxy- 	| lev norden oc yx
+	swap 2swap				| yx oc lev norden
+	4 >> swap 1-			| yx norden lev
+	;
 
-:nextchild | norden mask -- norden / -1
-	( 1 pick2 $7 and << | hijo
-		and? ( drop ; )
-		swap 4 >> -1 <>? )( swap ) nip ;
+:getyxmask | lev norden xy oc -- lev norden xy oc yxmask
+	pick3 3 << 'yxvec +
+	@+ pick3 10 >> $3ff and + c@
+	swap @ pick3 $3ff and + c@ and ;
 
 :search | lev norden xy oc -- yx oc norden lev
-	rot getyxmask | lev xy oc norden yxmask
-	pick2 @ and			| lev xy oc norden bitmask
+	rot getyxmask		| lev norden xy oc yxmask
+	over @ and			| lev xy oc norden bitmask
 |	0? ( 2drop nip dnlevel ; )
 	nextchild					| lev xy oc norden/-1
 	-1 =? ( 2drop dnlevel ; )	| lev xy oc norden
 	dup $7 and >r	| lev xy oc norden  r:hijo
 	over stack2!	| lev xy oc  r:hijo
     @+ dup 1 r << 1- and popcnt 2 << swap 8 >> 2 << + +		| lev xy noc
-	r> childxy			| lev xy noc sxy
-	rot - swap rot 		| yxn noc lev
-	1+ norden swap		| yxn noc norden lev
+	r> childxy+			| lev noc xy
+	swap rot 1+
+	norden swap			| yxn noc norden lev
 	;
 
 :raycast | y x octree -- y x
@@ -349,6 +348,7 @@
 		-? ( 4drop skipdot ; )
 		) 2drop nip
 	colordot ;
+
 
 :drawi
 	xmin ymin setxy
@@ -531,8 +531,8 @@
 
 		msec 'mseca !
 
-|		Oclon drawiso
-		$ff00 drawfull
+		Oclon drawiso
+|		$ff00 drawfull
 
 |        drawrules
 
