@@ -11,10 +11,10 @@
 #oclon
 #oclon2
 
-#x0 220 #y0 200 #z0 100
-#x1 300 #y1 180 #z1 150
-#x2 280 #y2 220 #z2 200
-#x3 240 #y3 300 #z3 200
+#x0 120 #y0 100 #z0 100
+#x1 300 #y1 80	#z1 150
+#x2 280 #y2 120 #z2 200
+#x3 140 #y3 300 #z3 200
 
 |#x0 220 #y0 200 #z0 100
 |#x1 225 #y1 205	#z1 150
@@ -135,7 +135,7 @@
 	@+ pick4 10 >> $3ff and + c@
 	swap @ pick4 $3ff and + c@ and ;
 
-:search | xy lev norden -- yx norden lev
+:searchf | xy lev norden -- yx norden lev
 	getyxmask 					| xy lev norden yxmask
 |	0? ( 2drop dnlevel ; )
 	nextchild					| xy lev norden/-1
@@ -151,7 +151,7 @@
 	over 10 << over or	| yx
 	norden 0			| yx norden lev
 	( maxlev <? )( swap	| yx lev norden
-	    search			| yx norden lev
+	    searchf			| yx norden lev
 		-? ( 3drop 1 px+! ; )
 		) 3drop
 	ink@ px!+ ;
@@ -313,7 +313,7 @@
 	rot swap - ;
 
 :dnlevel | lev xy  -- yx oc norden lev
-	swap stack2@ rot 		| lev norden oc yx
+	stack2@ rot 			| lev norden oc yx
 	pick2 $7 and childxy- 	| lev norden oc yx
 	swap 2swap				| yx oc lev norden
 	4 >> swap 1-			| yx norden lev
@@ -321,13 +321,13 @@
 
 :getyxmask | lev norden xy oc -- lev norden xy oc yxmask
 	pick3 3 << 'yxvec +
-	@+ pick3 10 >> $3ff and + c@
-	swap @ pick3 $3ff and + c@ and ;
+	@+ pick4 10 >> $3ff and + c@
+	swap @ pick4 $3ff and + c@ and ;
 
 :search | lev norden xy oc -- yx oc norden lev
 	rot getyxmask		| lev norden xy oc yxmask
-	over @ and			| lev xy oc norden bitmask
-|	0? ( 2drop nip dnlevel ; )
+	pick2 @ and			| lev xy oc norden bitmask
+|	0? ( 3drop dnlevel ; )
 	nextchild					| lev xy oc norden/-1
 	-1 =? ( 2drop dnlevel ; )	| lev xy oc norden
 	dup $7 and >r	| lev xy oc norden  r:hijo
@@ -338,12 +338,24 @@
 	norden swap			| yxn noc norden lev
 	;
 
+:rayfull | lev norden xy oc --
+	octcolor ink	| lev norden xy
+	rot rot swap	| xy lev  no
+	( maxlev <? )( swap	| yx lev no
+	    searchf			| yx norden lev
+		-? ( 3drop skipdot ; )
+		) 3drop
+	ink@ px!+ ;
+
 :raycast | y x octree -- y x
 	'stacko 'stacko> !
 	pick2 10 << pick2 or	| oc yx
 	swap norden 0			| yx oc norden lev
 	( maxlev <? )( swap 2swap	| lev norden xy oc
-	    $pixels >=? ( colordot 3drop ; )
+	    $pixels >=? (
+|	    	rayfull
+			colordot 3drop
+			; )
 	    search					| yx ox norden lev
 		-? ( 4drop skipdot ; )
 		) 2drop nip
@@ -511,8 +523,8 @@
 
 :main
 	mark
-	"media/3do/xwing.3do"
-|	"media/3do/tie fighter.3do"
+|	"media/3do/xwing.3do"
+	"media/3do/tie fighter.3do"
 |	"media/3do/mario.3do"
 |	"media/3do/8x8x8.3do"
 	load3do 'Oclon !
