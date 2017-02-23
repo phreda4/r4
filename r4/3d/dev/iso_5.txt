@@ -183,12 +183,12 @@
 	pick2 2 << +	| c xo xd r:vv
 	(	over r!+	| c xo xd r:vv
 		4 r+
-		pick2 ( 1? )( 1- >r			| c xo xd c
+		pick2 1+ ( 1? )( 1- >r			| c xo xd c
 			swap @+
 			dup $ff00ff and swap 8 >> or $ff00ff and dup 8 >> or
 			rot	w!+					| c xo xd
 			r> ) drop				| c xo xd
-		0 swap w!+	| clear out of limits
+|		0 swap w!+	| clear out of limits
 		nip dup pick2 1+ 2* - swap		| calcula origen otra vez
 		rot 2/ 1? )( rot rot )      | xo xd c
 	over r!+ |4 r+
@@ -214,6 +214,8 @@
 	lenx 3 + 2 >> 'xmask 'yxvec 4+ calclevels
 	leny 3 + 2 >> 'ymask 'yxvec calclevels
 	;
+
+
 
 :drawfull | color --
 	ink |zo!
@@ -278,6 +280,164 @@
 	'norden !
 	drawf
 	;
+
+#xcc 2 #ycc 42
+
+:childxyt- | lev norden yx child -- lev norden yx+
+	dup pick4 "lv:%d ch:%d " ,print
+	2 << pick3 5 << + 'ivecpos + @
+	dup "(+%h) " ,print
+	+ ;
+
+:childxyt+ |  lev yx child -- lev yx-
+	dup pick3 "lv:%d ch:%d " ,print
+	2 << pick2 1+ 5 << + 'ivecpos + @
+	dup "(-%h) " ,print
+	- ;
+
+:dnlevelt | xy lev -- yx norden lev
+	stack@ rot	| lev norden yx
+	over $7 and childxyt- 	| lev norden yxo
+	swap 4 >> rot 1-		| yxo norden lev
+	;
+
+:searcht | xy lev norden -- yx norden lev
+	over "lev:%d " ,print
+	pick2 "xy:%h " ,print
+	getyxmask 					| xy lev norden yxmask
+	dup "mask:%h" ,print
+|	0? ( 2drop dnlevelt ; )
+	nextchild					| xy lev norden/-1
+	-1 =? ( drop " << " ,print dnlevelt ; )	| xy lev norden
+	" >> " ,print
+	dup stack!					| xy lev norden
+	rot swap $7 and				| lev xy hijo
+	childxyt+					| lev xy-
+	norden rot 1+
+	;
+
+:rayt
+	'stacko 'stacko> !
+	over 10 << over or	| yx
+	norden 0			| yx norden lev
+	( maxlev <? )( swap	| yx lev norden
+	    searcht			| yx norden lev
+		-? ( 3drop "vacio" ,print ; )
+		,cr
+		) 3drop
+	"lleno" ,print ;
+
+:.h
+	$ff and $10 <? ( "0%h" )( "%h" ) ,print ;
+
+:dm |
+	lenx pick2 >>
+	( 1? )( swap
+		c@+ .h "." ,print
+		swap 1- ) 2drop
+	;
+
+:traceray
+	mark
+	'ivecpos >r
+	0 ( maxlev <=? )(
+		dup "lvl:%d" ,print ,cr
+		0 ( 8 <? )(
+			r@+ "%h " ,print
+			1+ ) drop
+		,cr
+		1+ ) drop
+	rdrop
+
+	'yxvec >r
+	0 ( maxlev <? )(
+		r@+ dm ,cr
+		r@+ dm ,cr
+		1+ ) drop
+	rdrop
+
+	ycc xcc
+	2dup "y:%d x:%d" ,print ,cr
+	rayt
+	"log.txt" savemem
+	empty
+	;
+
+:gettrace
+	ink |zo!
+
+	0 0 x1 x0 - -? ( rot + swap )( + )
+	x2 x0 - -? ( rot + swap )( + )
+	x3 x0 - -? ( rot + swap )( + )
+	over - 1+ 'lenx ! x0 + 'xmin !
+	0 0 y1 y0 - -? ( rot + swap )( + )
+	y2 y0 - -? ( rot + swap )( + )
+	y3 y0 - -? ( rot + swap )( + )
+	over - 1+ 'leny ! y0 + 'ymin !
+	0 0 z1 z0 - -? ( rot + swap )( + )
+	z2 z0 - -? ( rot + swap )( + )
+	z3 z0 - -? ( rot + swap )( + )
+	over - 1+ 'lenz ! z0 + 'zmin !
+
+	30 lenx leny min clz - 'maxlev ! | -2
+
+	'ivecpos >r
+	x0 y0 z0 packxyz r!+
+	x1 y1 z1 packxyz r!+
+	x2 y2 z2 packxyz r!+
+	x1 x2 + x0 -
+	y1 y2 + y0 -
+	z1 z2 + z0 - packxyz r!+
+	x3 y3 z3 packxyz r!+
+	x3 x1 + x0 -
+	y3 y1 + y0 -
+	z3 z1 + z0 - packxyz r!+
+	x3 x2 + x0 -
+	y3 y2 + y0 -
+	z3 z2 + z0 - packxyz r!+
+	x3 x1 + x0 - x2 + x0 -
+	y3 y1 + y0 - y2 + y0 -
+	z3 z1 + z0 - z2 + z0 - packxyz r!+
+	0 ( maxlev <? )(
+		'ivecpos
+		@+ calpaso r!+
+		@+ calpaso r!+
+ 		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		@+ calpaso r!+
+		drop
+		1+ ) drop
+	rdrop
+
+	calcmask
+	szm 'nzmin !
+	nzmin 0
+	over %1000 or or
+	over 1 xor %1000 or 4 << or
+	over 2 xor %1000 or 8 << or
+	over 4 xor %1000 or 12 << or
+	over 3 xor %1000 or 16 << or
+	over 5 xor %1000 or 20 << or
+	over 6 xor %1000 or 24 << or
+	swap 7 xor %1000 or 28 << or
+	'norden !
+	traceray
+	;
+
+:dumptraceray
+ 	[ 1 'xcc +! ; ] <ri>
+	[ -1 'xcc +! ; ] <le>
+	[ -1 'ycc +! ; ] <up>
+	[ 1 'ycc +! ; ] <dn>
+	[ gettrace ; ] <f2>
+
+	violeta
+   	xmin xcc + dup ymin 8 - op ymin leny 8 + + line
+	ymin ycc + xmin 8 - over op xmin lenx + 8 + swap line
+    ;
 
 |---------------
 :childxy- | lev norden oc yx child -- lev norden oc yx+
@@ -496,8 +656,8 @@
 :main
 	mark
 |	"media/3do/xwing.3do"
-|	"media/3do/tie fighter.3do"
-	"media/3do/mario.3do"
+	"media/3do/tie fighter.3do"
+|	"media/3do/mario.3do"
 |	"media/3do/8x8x8.3do"
 	load3do 'Oclon !
 	sw sh zb.ini
@@ -526,14 +686,15 @@
 		msec mseca - "%d" print cr
 		lenx leny "leny %d lenx %d" print cr
 
-|        30 sw 128 - 0 xymouse zoomx4
+|        24 sw 128 - 0 xymouse zoomx4
 
         drawaxis
 |        drawaxisfull
 		'dn 'movem guiDnMove
 
-        [ 1 'x1 +! ; ] <ri>
-        [ -1 'x1 +! ; ] <le>
+|		dumptraceray
+
+
 		[ szm 1+ 7 and 'szm ! ; ] <f1>
 		'exit >esc< cminiflecha
 		;
