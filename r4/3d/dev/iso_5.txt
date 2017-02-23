@@ -55,18 +55,9 @@
 	@+ dup 8 >> 2 << rot + swap $ff and ;
 
 |----------------------------- rasterize
-#xmin
-#ymin
-#zmin
-
 #norden
+#xmin #ymin #zmin
 #lenx #leny #lenz
-#ilev
-#blev )( 120
-
-#nowz
-#nowzbuf
-#advzbuf
 
 #stacko )( 1024
 #stacko> 'stacko
@@ -88,9 +79,6 @@
 :colordot	octcolor px!+ ;
 :skipdot    1 px+! ;
 
-:colordotr 	octcolor z0 'nowzbuf !+ zbo + ! ;
-:skipdotr	4 'nowzbuf +! ;
-
 #imask $7ff7fdff $3ff3fcff $1ff1fc7f $0ff0fc3f $07f07c1f $03f03c0f $01f01c07 $00f00c03 $00700401
 
 :packxyz | x y z -- zyx
@@ -101,6 +89,9 @@
 :calpaso | nro vec val -- nro vec nval
 	pick2 >> dup $00100401 and swap 2/
 	pick3 2 << 'imask + @ and + ;
+
+:calpaso | nro vec val -- nro vec nval
+	pick2 1+ >> pick2 2 << 'imask + @ and ;
 
 |-----------------------------------------
 #maxlev
@@ -175,23 +166,6 @@
 		1+ ) 2drop ;
 
 |-------------------------------
-:.h
-	$ff and $10 <? ( "0%h" )( "%h" ) print ;
-
-:dm
-	( @+ 1? )(
-		over @ swap
-		( over <? )( c@+ .h "." print ) 2drop
-		cr ) 2drop ;
-
-:dumpmask
-|	'xmask lenx ( 1? )( 1- swap c@+ .h swap ) 2drop cr
-|	'xmvec dm cr
-|	'ymask leny ( 1? )( 1- swap c@+ .h swap ) 2drop cr
-|	'ymvec dm cr
-	;
-
-|-------------------------------
 :fillx | child v x -- child
 	'xmask +
 	lenx 2/ ( 1? )( 1- | child v xmin len
@@ -218,9 +192,11 @@
 		nip dup pick2 1+ 2* - swap		| calcula origen otra vez
 		rot 2/ 1? )( rot rot )      | xo xd c
 	over r!+ |4 r+
+
 |	pick2 @ dup $ff00ff and swap 8 >> or $ff00ff and dup 8 >> or
 |	rot w!+
 | 	r!+
+
 	3drop rdrop ;
 
 :calcmask
@@ -299,7 +275,6 @@
 	over 5 xor %1000 or 20 << or
 	over 6 xor %1000 or 24 << or
 	swap 7 xor %1000 or 28 << or
-|	dup $77777777 and "%h" print
 	'norden !
 	drawf
 	;
@@ -308,9 +283,8 @@
 :childxy- | lev norden oc yx child -- lev norden oc yx+
 	2 << pick4 5 << + 'ivecpos + @ + ;
 
-:childxy+ |  lev yx oc child -- lev oc yx-
-	2 << pick3 1+ 5 << + 'ivecpos + @
-	rot swap - ;
+:childxy+ |  lev oc yx child -- lev oc yx-
+	2 << pick3 1+ 5 << + 'ivecpos + @ - ;
 
 :dnlevel | lev xy  -- yx oc norden lev
 	stack2@ rot 			| lev norden oc yx
@@ -332,8 +306,8 @@
 	-1 =? ( 2drop dnlevel ; )	| lev xy oc norden
 	dup $7 and >r	| lev xy oc norden  r:hijo
 	over stack2!	| lev xy oc  r:hijo
-    @+ dup 1 r << 1- and popcnt 2 << swap 8 >> 2 << + +		| lev xy noc
-	r> childxy+			| lev noc xy
+    @+ dup 1 r << 1- and popcnt swap 8 >> + 2 << +		| lev xy noc
+	swap r> childxy+			| lev noc xy
 	swap rot 1+
 	norden swap			| yxn noc norden lev
 	;
@@ -448,13 +422,11 @@
 		2* ) 2drop ;
 
 :drawrules
-|	'xmask
 	'yxvec 4+ @
 	0 ( lenx <? )( swap
     	over xmin + ymin 10 - setxy drawxm
 		swap 1+ ) 2drop
-|	'ymask
-	'yxvec 4+ @
+	'yxvec @
 	0 ( leny <? )( swap
 		xmin 10 - pick2 ymin + setxy drawym
 		swap 1+ ) 2drop
@@ -524,8 +496,8 @@
 :main
 	mark
 |	"media/3do/xwing.3do"
-	"media/3do/tie fighter.3do"
-|	"media/3do/mario.3do"
+|	"media/3do/tie fighter.3do"
+	"media/3do/mario.3do"
 |	"media/3do/8x8x8.3do"
 	load3do 'Oclon !
 	sw sh zb.ini
@@ -546,20 +518,16 @@
 		Oclon drawiso
 |		$ff00 drawfull
 
-|        drawrules
+        drawrules
 
 		blanco
-|		dump2
-
 		dup "%d" print cr
 		maxlev "maxlev %d" print cr
 		msec mseca - "%d" print cr
 		lenx leny "leny %d lenx %d" print cr
 
-|        30 sw 128 - 0 xmin 10 - ymin 10 - zoomx4
+|        30 sw 128 - 0 xymouse zoomx4
 
-|		'ivecpos >r 8 ( 1? )( 1- r@+ dup 10 >> $3ff and swap $3ff and "%d %d " print cr ) drop rdrop
-|		dumpmask
         drawaxis
 |        drawaxisfull
 		'dn 'movem guiDnMove

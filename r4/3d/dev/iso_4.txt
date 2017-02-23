@@ -240,148 +240,6 @@
 
 	$octree drawiso2
 	;
-|-----------------------------------------
-#maxlev
-#xmask )( 1024
-#ymask )( 1024
-
-
-|---- full
-:childxy | nro -- sx sy
-	2 << 'ivecpos + @
-	dup $3ff and 2/
-	swap 10 >> $3ff and 2/ ;
-
-:buscarhijo | mask -- hijo/-1
-	norden (
-		1 over $7 and << | hijo
-		pick2 and? ( drop $7 and nip ; ) drop
-		4 >> -1 =? ) nip ;
-
-:rayfull
-	2dup maxlev  | yn xn
-	( rot rot
-		over 'ymask + c@
-		over 'xmask + c@ and
-		0? ( 4drop 1 px+! ; ) | optimiza
-		buscarhijo -? ( 4drop 1 px+! ; ) | y x c
-		childxy							| y x xs ys
-		rot rot - 2*
-		rot rot - 2*
-		swap 		| y x
-		rot 1- 0? ) 3drop
-	ink@ px!+
-	;
-
-:drawf | x y z --
-	xmin ymin setxy
-	sw lenx -
-	0 ( leny <? )(
-		0 ( lenx <? )(
-			rayfull
-			1+ ) drop
-		over px+!
-		1+ ) 2drop ;
-
-|-------------------------------
-:fillx | child x -- child
-	'xmask +
-	lenx 2/ ( 1? )( 1- | child xmin len
-		pick3 pick2 c+!
-		swap 1+ swap ) 2drop ;
-
-:filly | child y -- child
-	'ymask +
-	leny 2/ ( 1? )( 1- | child xmin len
-		pick2 pick2 c+!
-		swap 1+ swap ) 2drop ;
-
-:drawfull | color --
-	ink |zo!
-
-	0 0 x1 x0 - -? ( rot + swap )( + )
-	x2 x0 - -? ( rot + swap )( + )
-	x3 x0 - -? ( rot + swap )( + )
-	over - 'lenx ! x0 + 'xmin !
-	0 0 y1 y0 - -? ( rot + swap )( + )
-	y2 y0 - -? ( rot + swap )( + )
-	y3 y0 - -? ( rot + swap )( + )
-	over - 'leny ! y0 + 'ymin !
-	0 0 z1 z0 - -? ( rot + swap )( + )
-	z2 z0 - -? ( rot + swap )( + )
-	z3 z0 - -? ( rot + swap )( + )
-	over - 'lenz ! z0 + 'zmin !
-
-	'ivecpos >r
-	x0 y0 z0 packxyz r!+
-	x1 y1 z1 packxyz r!+
-	x2 y2 z2 packxyz r!+
-	x1 x2 + x0 -
-	y1 y2 + y0 -
-	z1 z2 + z0 - packxyz r!+
-	x3 y3 z3 packxyz r!+
-	x3 x1 + x0 -
-	y3 y1 + y0 -
-	z3 z1 + z0 - packxyz r!+
-	x3 x2 + x0 -
-	y3 y2 + y0 -
-	z3 z2 + z0 - packxyz r!+
-	x3 x1 + x0 - x2 + x0 -
-	y3 y1 + y0 - y2 + y0 -
-	z3 z1 + z0 - z2 + z0 - packxyz r!+
-	rdrop
-
-	32 lenx leny min clz - 2 - 'maxlev !
-
-	'xmask >r lenx 3 + 2 >> ( 1? )( 1- 0 r!+ ) drop rdrop
-	'ymask >r leny 3 + 2 >> ( 1? )( 1- 0 r!+ ) drop rdrop
-
-	'ivecpos >r
-	$1 ( $100 <? )(
-		r@+
-		dup $3ff and 2/ fillx | child xmin
-		10 >> $3ff and 2/ filly
-		2* ) drop rdrop
-
-	szm 'nzmin !
-	nzmin 0
-	over %1000 or or
-	over 1 xor %1000 or 4 << or
-	over 2 xor %1000 or 8 << or
-	over 4 xor %1000 or 12 << or
-	over 3 xor %1000 or 16 << or
-	over 5 xor %1000 or 20 << or
-	over 6 xor %1000 or 24 << or
-	swap 7 xor %1000 or 28 << or
-	'norden !
-	drawf
-	;
-
-
-|--------------------------------
-:drawxm
-	c@+
-	$1 ( $100 <? )(
-		over and? ( $ff0000 )( 0 ) px!+
-		sw 1- px+!
-		2* ) 2drop ;
-
-:drawym
-	c@+
-	$1 ( $100 <? )(
-		over and? ( $ff0000 )( 0 ) px!+
-		2* ) 2drop ;
-
-:drawrules
-	'xmask
-	0 ( lenx <? )( swap
-    	over xmin + ymin 10 - setxy drawxm
-		swap 1+ ) 2drop
-	'ymask
-	0 ( leny <? )( swap
-		xmin 10 - pick2 ymin + setxy drawym
-		swap 1+ ) 2drop
-	;
 
 :getnn | child -- x y
 	2 << 'ivecpos + @
@@ -445,15 +303,13 @@
 :main
 	mark
 |	"media/3do/xwing.3do"
-	"media/3do/tie fighter.3do"
-|	"media/3do/mario.3do"
+|	"media/3do/tie fighter.3do"
+	"media/3do/mario.3do"
 |	"media/3do/8x8x8.3do"
 	load3do 'Oclon !
 	sw sh zb.ini
 	Omode
 	33
-
-
 	show0 clrscr
 
 |		matini
@@ -467,22 +323,14 @@
 		msec 'mseca !
 |		Oclon drawioct2
 		Oclon drawioct3
-|		$ffffff drawfull
 
-        drawrules
 		azul
-
 |		dump2
-
 		dup "%d" print cr
-		maxlev "%d" print cr
 		msec mseca - "%d" print cr
 |		lenx leny "%d %d" print cr
 
-|		'ivecpos >r 8 ( 1? )( 1- r@+ dup 10 >> $3ff and swap $3ff and "%d %d " print cr ) drop rdrop
 		cr
-|		'xmask lenx ( 1? )( 1- swap c@+ "%h" print swap ) 2drop cr
-|		'ymask leny ( 1? )( 1- swap c@+ "%h" print swap ) 2drop cr
         drawaxis
 |        drawaxisfull
 		'dn 'movem guiDnMove
