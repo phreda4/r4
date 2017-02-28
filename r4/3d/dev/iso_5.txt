@@ -17,7 +17,7 @@
 #x3 140 #y3 300 #z3 200
 
 |#x0 220 #y0 200 #z0 100
-|#x1 225 #y1 205	#z1 150
+|#x1 225 #y1 205 #z1 150
 |#x2 225 #y2 195 #z2 200
 |#x3 220 #y3 205 #z3 200
 
@@ -90,8 +90,8 @@
 	pick2 >> dup $00100401 and swap 2/
 	pick3 2 << 'imask + @ and + ;
 
-:calpaso | nro vec val -- nro vec nval
-	pick2 1+ >> pick2 2 << 'imask + @ and ;
+|:calpaso | nro vec val -- nro vec nval
+|	pick2 1+ >> pick2 2 << 'imask + @ and ;
 
 |-----------------------------------------
 #maxlev
@@ -113,13 +113,13 @@
 :dnlevel | xy lev -- yx norden lev
 	stack@ rot	| lev norden yx
 	over $7 and childxy- 	| lev norden yxo
-	swap 4 >> rot 1-		| yxo norden lev
+	swap 4 >> $fffffff and rot 1-		| yxo norden lev
 	;
 
 :nextchild | norden mask -- norden / -1
 	( 1 pick2 $7 and << | hijo
 		and? ( drop ; )
-		swap 4 >> -1 <>? )( swap ) nip ;
+		swap 4 >> $fffffff and 1? )( swap ) nip ;
 
 :getyxmask | xy lev norden -- xy lev norden yxmask
 	over 3 << 'yxvec +
@@ -130,7 +130,7 @@
 	getyxmask 					| xy lev norden yxmask
 |	0? ( 2drop dnlevel ; )
 	nextchild					| xy lev norden/-1
-	-1 =? ( drop dnlevel ; )	| xy lev norden
+	0? ( drop dnlevel ; )	| xy lev norden
 	dup stack!					| xy lev norden
 	rot swap $7 and				| lev xy hijo
 	childxy+					| lev xy-
@@ -168,13 +168,13 @@
 |-------------------------------
 :fillx | child v x -- child
 	'xmask +
-	lenx 2/ ( 1? )( 1- | child v xmin len
+	lenx 1+ 2/ ( 1? )( 1- | child v xmin len
 		pick3 pick2 c+!
 		swap 1+ swap ) 2drop ;
 
 :filly | child y -- child
 	'ymask +
-	leny 2/ ( 1? )( 1- | child ymin len
+	leny 1+ 2/ ( 1? )( 1- | child ymin len
 		pick2 pick2 c+!
 		swap 1+ swap ) 2drop ;
 
@@ -214,8 +214,6 @@
 	lenx 3 + 2 >> 'xmask 'yxvec 4+ calclevels
 	leny 3 + 2 >> 'ymask 'yxvec calclevels
 	;
-
-
 
 :drawfull | color --
 	ink |zo!
@@ -298,7 +296,7 @@
 :dnlevelt | xy lev -- yx norden lev
 	stack@ rot	| lev norden yx
 	over $7 and childxyt- 	| lev norden yxo
-	swap 4 >> rot 1-		| yxo norden lev
+	swap 4 >> $fffffff and rot 1-		| yxo norden lev
 	;
 
 :searcht | xy lev norden -- yx norden lev
@@ -308,7 +306,7 @@
 	dup "mask:%h" ,print
 |	0? ( 2drop dnlevelt ; )
 	nextchild					| xy lev norden/-1
-	-1 =? ( drop " << " ,print dnlevelt ; )	| xy lev norden
+	0? ( drop " << " ,print dnlevelt ; )	| xy lev norden
 	" >> " ,print
 	dup stack!					| xy lev norden
 	rot swap $7 and				| lev xy hijo
@@ -414,15 +412,15 @@
 
 	calcmask
 	szm 'nzmin !
-	nzmin 0
-	over %1000 or or
-	over 1 xor %1000 or 4 << or
-	over 2 xor %1000 or 8 << or
-	over 4 xor %1000 or 12 << or
-	over 3 xor %1000 or 16 << or
-	over 5 xor %1000 or 20 << or
-	over 6 xor %1000 or 24 << or
-	swap 7 xor %1000 or 28 << or
+	nzmin dup
+	over 1 xor 4 << or
+	over 2 xor 8 << or
+	over 4 xor 12 << or
+	over 3 xor 16 << or
+	over 5 xor 20 << or
+	over 6 xor 24 << or
+	swap 7 xor 28 << or
+	$88888888 or
 	'norden !
 	traceray
 	;
@@ -450,7 +448,7 @@
 	stack2@ rot 			| lev norden oc yx
 	pick2 $7 and childxy- 	| lev norden oc yx
 	swap 2swap				| yx oc lev norden
-	4 >> swap 1-			| yx norden lev
+	4 >> $fffffff and swap 1-			| yx norden lev
 	;
 
 :getyxmask | lev norden xy oc -- lev norden xy oc yxmask
@@ -463,7 +461,7 @@
 	pick2 @ and			| lev xy oc norden bitmask
 |	0? ( 3drop dnlevel ; )
 	nextchild					| lev xy oc norden/-1
-	-1 =? ( 2drop dnlevel ; )	| lev xy oc norden
+	0? ( 2drop dnlevel ; )	| lev xy oc norden
 	dup $7 and >r	| lev xy oc norden  r:hijo
 	over stack2!	| lev xy oc  r:hijo
     @+ dup 1 r << 1- and popcnt swap 8 >> + 2 << +		| lev xy noc
@@ -554,15 +552,15 @@
 	rdrop
 	calcmask
 	szm 'nzmin !
-	nzmin 0
-	over %1000 or or
-	over 1 xor %1000 or 4 << or
-	over 2 xor %1000 or 8 << or
-	over 4 xor %1000 or 12 << or
-	over 3 xor %1000 or 16 << or
-	over 5 xor %1000 or 20 << or
-	over 6 xor %1000 or 24 << or
-	swap 7 xor %1000 or 28 << or
+	nzmin dup
+	over 1 xor 4 << or
+	over 2 xor 8 << or
+	over 4 xor 12 << or
+	over 3 xor 16 << or
+	over 5 xor 20 << or
+	over 6 xor 24 << or
+	swap 7 xor 28 << or
+	$88888888 or
 	'norden !
 	$octree drawi
 	;
@@ -600,7 +598,7 @@
 	;
 
 :drawaxisfull
-	verde
+	rojo
 	0 getnn op
 	1 getnn line
 	3 getnn line
@@ -686,12 +684,11 @@
 		msec mseca - "%d" print cr
 		lenx leny "leny %d lenx %d" print cr
 
-|        24 sw 128 - 0 xymouse zoomx4
-
         drawaxis
-|        drawaxisfull
-		'dn 'movem guiDnMove
+|		128 alpha drawaxisfull 255 alpha
 
+		'dn 'movem guiDnMove
+        24 sw 128 - 0 xymouse zoomx4
 |		dumptraceray
 
 

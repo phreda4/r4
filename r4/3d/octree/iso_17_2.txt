@@ -218,7 +218,7 @@
 	stack2@ rot 			| lev norden oc yx
 	pick2 $7 and childxy- 	| lev norden oc yx
 	swap 2swap				| yx oc lev norden
-	4 >> swap 1-			| yx norden lev
+	4 >> $fffffff and swap 1-			| yx norden lev
 	;
 
 :getyxmask | lev norden xy oc -- lev norden xy oc yxmask
@@ -226,10 +226,10 @@
 	@+ pick4 8 >> $ff and + c@
 	swap @ pick4 $ff and + c@ and ;
 
-:nextchild | norden mask -- norden / -1
+:nextchild | norden mask -- norden / 0
 	( 1 pick2 $7 and << | hijo
 		and? ( drop ; )
-		swap 4 >> -1 <>? )( swap ) nip ;
+		swap 4 >> $fffffff and 1? )( swap ) nip ;
 
 :search | lev norden xy oc -- yx oc norden lev
 	over 16 >> neg nowz >? ( 2drop nip dnlevel ; ) drop
@@ -238,7 +238,7 @@
 	pick2 @ and			| lev xy oc norden bitmask
 |	0? ( 3drop dnlevel ; )
 	nextchild					| lev xy oc norden/-1
-	-1 =? ( 2drop dnlevel ; )	| lev xy oc norden
+	0? ( 2drop dnlevel ; )	| lev xy oc norden
 	dup $7 and >r	| lev xy oc norden  r:hijo
 	over stack2!	| lev xy oc  r:hijo
     @+ dup 1 r << 1- and popcnt swap 8 >> + 2 << +		| lev xy noc
@@ -289,13 +289,13 @@
 |-------------------------------
 :fillx | child v x -- child
 	'xmask +
-	lenx 2/ ( 1? )( 1- | child v xmin len
+	lenx 1+ 2/ ( 1? )( 1- | child v xmin len
 		pick3 pick2 c+!
 		swap 1+ swap ) 2drop ;
 
 :filly | child y -- child
 	'ymask +
-	leny 2/ ( 1? )( 1- | child ymin len
+	leny 1+ 2/ ( 1? )( 1- | child ymin len
 		pick2 pick2 c+!
 		swap 1+ swap ) 2drop ;
 
@@ -309,7 +309,7 @@
 			dup $ff00ff and swap 8 >> or $ff00ff and dup 8 >> or
 			rot	w!+					| c xo xd
 			r> ) drop				| c xo xd
-		0 swap w!+					| ..limpia por exeso
+		0 swap w!+					| ..si se pasa
 		nip dup pick2 2 + 2* - swap	| ..calc origen
 		rot 2/ 1? )( rot rot )      | xo xd c
 	over r> !
@@ -384,15 +384,15 @@
 		1+ ) drop
 	rdrop
 	calcmask
-	nminz 0
-	over %1000 or or
-	over 1 xor %1000 or 4 << or
-	over 2 xor %1000 or 8 << or
-	over 4 xor %1000 or 12 << or
-	over 3 xor %1000 or 16 << or
-	over 5 xor %1000 or 20 << or
-	over 6 xor %1000 or 24 << or
-	swap 7 xor %1000 or 28 << or
+	nminz dup
+	over 1 xor 4 << or
+	over 2 xor 8 << or
+	over 4 xor 12 << or
+	over 3 xor 16 << or
+	over 5 xor 20 << or
+	over 6 xor 24 << or
+	swap 7 xor 28 << or
+	$88888888 or
 	'norden !
 
 	r> drawiso vec- ;
@@ -639,7 +639,7 @@
 	show clrscr
 
 		matini
-|		freelook
+		freelook
 		xcam ycam zcam mtrans
 
 		zb.clear
