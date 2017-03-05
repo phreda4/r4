@@ -3,6 +3,8 @@
 |------------------------------------
 ^r4/ide/r4-dicc.txt
 
+#lastdircode
+
 #dstack )( 256
 #dstack> 'dstack
 #rstack )( 128
@@ -122,10 +124,13 @@
 :,str   newreg dpush ;
 
 :,var	| vv
+	dup 4 - @ 8 >> 'lastdircode !
 	newreg dpush d.TOS regM ;
 :,dvar	| 'v
+	dup 4 - @ 8 >> 'lastdircode !
 	newreg dpush ;
 :,dwor	| 'w
+	dup 4 - @ 8 >> 'lastdircode !
 	newreg dpush d.TOS regX ;
 
 :,wor	| ww
@@ -137,7 +142,9 @@
 	- abs ( 1? )( 1- newreg dup regW dpush ) drop	| marcar como escritas
 	;
 
+
 |------- condicionales
+
 
 :sst!   sst> !+ 'sst> ! ;
 :sst@   -4 'sst> +! sst> @ ;
@@ -250,7 +257,15 @@
 :,c1 | =? <? ..
 	d.TOS regR ,drop d.TOS regR ;
 
-:,exec	regPALset d.TOS regX ,drop ;
+:,exec	regPALset d.TOS regX ,drop
+
+	lastdircode dic>mov @
+	dup 16 << 24 >> | ud
+	swap 24 << 24 >> | dd
+	2dup "exec D:%d U:%d*" ,print "r4asm/cod.asm" savemem	| DEBUG
+	over ( 1? )( 1+ d.TOS regR ,drop ) drop			| marcar como leidas
+	- abs ( 1? )( 1- newreg dup regW dpush ) drop	| marcar como escritas
+	;
 
 :,>r	dpop rpush ;
 :,r>	rpop dpush ;
@@ -616,7 +631,7 @@ xop2a1 xop2a1 |,<< ,>>
 		calcstack
 		storestack
 		sdump ,cr
-|		"r4asm/cod.asm" savemem	| DEBUG
+		"r4asm/cod.asm" savemem	| DEBUG
 		) 2drop
 	markregout
 	dumpregs
