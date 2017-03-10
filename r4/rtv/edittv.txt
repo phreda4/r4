@@ -22,14 +22,15 @@
 :lerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
 	over - tiempo 16 *>> + ;
 
+
 |----- pagina
 #bmodo 1
 #bcolor $ffffff
 
-#box )( $ffff
+#box )( $fff
 #box> 'box
 #box< 0
-#mbox )( $ffff
+#mbox )( $fff
 #mbox> 'mbox
 
 #palcnt 0
@@ -39,6 +40,7 @@
 
 #filename )( 256
 #fileaux )( 256
+
 
 :box.ini
 	'box 'box> ! 0 'box< !
@@ -145,6 +147,58 @@
 	"atv" dlgfilesave 0? ( drop ; )
 	dup 'filename strcpy
 	plqsave
+	;
+
+|------------------------------------------------
+:preload | "" --
+	here swap load here =? ( drop ; ) 'last !
+	here >r
+	r@+ dup
+	24 >> $ff and 'bmodo !
+	$ffffff and 'bcolor !
+	'box r@+ ( 1? )( r@+ rot !+ swap 1- ) drop 'box> !
+	0 'box< !
+	'mbox r@+ ( 1? )( r@+ rot !+ swap 1- ) drop 'mbox> !
+
+	r@+ 'palcnt !
+	r> 'boxfn swap last over - cmove
+    remem 'here !
+    'palimg >r
+	'boxfn dup 'boxfn> !
+	0 ( palcnt <? )( swap
+		dup 'boxfn - r!+
+		dup >>0 swap loadimg r!+
+    	swap 1+ ) 2drop
+    rdrop
+	;
+
+:presave | "" --
+	mark
+	bmodo 24 << bcolor or ,
+	box> 'box - 2 >> dup ,
+	'box >r ( 1? )( r@+ , 1- ) rdrop drop
+	mbox> 'mbox - 2 >> 1+ dup ,
+	'mbox >r ( 1? )( r@+ , 1- ) rdrop drop
+    palcnt dup ,
+    'palimg >r
+    ( 1? )(
+		r@+ 'boxfn + ,s 0 ,c
+		4 r+
+    	1- ) drop rdrop
+	savemem
+	empty
+	;
+
+:loadpre
+	"atv" dlgfileload 0? ( drop ; )
+	dup 'filename strcpy
+	preload
+	;
+
+:savepre
+	"atv" dlgfilesave 0? ( drop ; )
+	dup 'filename strcpy
+	presave
 	;
 
 |--------------------------
@@ -485,14 +539,14 @@
 
 	;
 
-:main
+:mainp
 	'modebac 'mode !
 	4
 	editgrid
 	show fonti clrscr
 		verde oscuro 2 linesfill
 		blanco
-		dup ":r%d EditorTV " print
+		dup ":r%d EditorTV - Placa" print
 		'filename "%s" print
 		cr
 
@@ -507,6 +561,59 @@
 
 		'exit >esc<
 
+		cminiflecha ;
+
+
+|------ presentacion
+#pres )( $ffff
+#pres> 'pres
+
+#pag )( $fff
+#npag 0
+#cpag 0
+#ipag 0
+#np
+
+:drawbox | w h x y
+	azul
+	2over 2over rect
+	boxgrid ;
+
+:cursorbox
+	np cpag <>? ( drop ; ) drop
+	pick3 2 + pick3 2 + pick3 1- pick3 1-
+	blanco rect ;
+
+:showframes
+	fonti
+	ipag 'np !
+	sw 3 >> sh over - 8 - swap
+	8 ( sw pick2 - <? )(
+    	dup 2 + pick3 2 + atxy
+
+    	verde np "%d" print
+        dup pick3 pick3 dup 2swap
+		cursorbox
+		drawbox
+		over + 16 +
+		1 'np +!
+		) 3drop ;
+
+:main
+	show fonti clrscr
+		verde oscuro 2 linesfill
+		blanco
+		dup ":r%d EditorTV - Presentacion " print
+		'filename "%s" print
+		cr
+		ipag "%d" print
+
+		showframes
+
+		'mainp <enter>
+		[ 1 'cpag +! ;  ] <ri>
+		[ -1 'cpag +! ;  ] <le>		
+		'exit >esc<
 		cminiflecha ;
 
 :ini
