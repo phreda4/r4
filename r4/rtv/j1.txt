@@ -1,0 +1,147 @@
+| 2017 PHEDA
+|-----------------
+^r4/lib/gui.txt
+^r4/lib/part16.txt
+^r4/lib/plqlib.txt
+^r4/rtv/fx.spr
+
+#fx 0 0
+#objs 0 0
+#movs 0 0
+
+:reset
+	'objs p.clear
+	'fx p.clear
+
+	'movs p.clear
+	;
+
+|-------------------------------------------
+:2color dup $f0f0f0 and dup 4 >> or swap $f0f0f and dup 4 << or ;
+:to3d 0 project3d ;
+:bfill
+	tx1 ty1 to3d 2dup op
+	tx2 ty1 to3d pline
+	tx2 ty2 to3d pline
+	tx1 ty2 to3d pline pline
+	poli
+	;
+
+:f0	ink bfill ;
+:f1	ink bfill ;			| solido
+
+:f2	|$ff and getimg >r
+	tx1 ty1 tx2 ty2
+	pick2 - swap pick3 - swap
+|	r> img.drawsize
+	;
+
+:f3 2color fcol tx1 ty2 to3d fcen 1.0 tx2 tx1 to3d - 1 max / 0 fmat lfill bfill sfill ;
+:f4 2color fcol tx1 ty2 to3d fcen 0 1.0 ty2 ty1 to3d - 1 max / fmat lfill bfill sfill ;
+:f5 2color fcol tx1 ty1 to3d fcen 0.5 tx2 tx1 to3d - 1 max / 0.5 ty2 ty1 to3d - 1 max / neg fmat lfill bfill sfill ;
+:f6 2color fcol tx1 ty2 to3d fcen 0.5 tx2 tx1 to3d - 1 max / 0.5 ty2 ty1 to3d - 1 max / fmat lfill bfill sfill ;
+:f7 drop ;	| auxiliar
+
+#lbfill f0 f1 f2 f3 f4 f5 f6 f7
+
+:3dfillbox | nro --
+	dup 28 >> 7 and 2 << 'lbfill + @ exec ;
+
+:tcar | adr --
+	dup @ 1- 0? ( nip ; )
+	|dup 2* alpha
+	swap !+ >r
+	r@+ r@+ pos
+	r@+ r@+ dim home
+	r@+ 3dfillbox
+	r@+ dup 16 << 16 >> swap 16 >> boxpad
+	r@+ r@+ setfont3d
+	r@+ r@+ dup ink 24 >> boxprintn
+	rdrop ;
+
+
+:+cartel | "" w h x y  --
+	'tcar 'fx p!+ >r
+	128 r!+ | vida
+	swap r!+ r!+ swap r!+ r!+
+
+	0 r!+ | fondo
+	0 r!+ | pad
+	9 r!+ | font
+	0.4 r!+ | size
+	r!+
+	$600ff00 r!+
+	rdrop	;
+
+|-----------------------------
+:stsprite
+	>r
+	mpush
+	r@+ r@+ 0 mtransi
+	r@+ dup dup mscalei
+	r@+ 3dnsprite
+	rdrop
+	mpop
+	;
+
+:+sprite | 'spr size x y --
+	'stsprite 'objs p!+ >r
+	swap r!+ r!+
+	r!+ r!+
+	rdrop
+	;
+
+|--------------
+#xcam #ycam #zcam 2.0
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:main
+	reset
+	33
+	'bola 0.2 0 0 +sprite
+	'vaso 0.4 -0.5 -0.3 +sprite
+	'vaso 0.4 0.0 -0.2 +sprite
+	'vaso 0.4 0.5 -0.3 +sprite
+
+	show clrscr
+		fonti
+		dup "%d" print
+
+		omode
+|		freelook
+|		msec 4 << mroty
+		xcam ycam zcam mtrans
+
+		7 0.5 setfont3d
+		0 0 pos 3.0 2.0 dim home
+		violeta
+		"Sigue la bola" print cr
+|		tx1 ty1 tx2 ty2 rect
+
+|        0 0 boxpad msec "%d" mprint msec 7 >> boxprintn
+
+
+		'objs p.draw
+		'fx p.draw
+
+		[ "Cartel f1" 1.0 0.5 -0.5 0 +cartel ; ] <f1>
+		[ "Cartel f2" 1.0 0.5 0 0 +cartel ; ] <f2>
+
+
+		'exit >esc<
+		cminiflecha ;
+
+:memoria
+	mark
+	256 'objs p.ini
+	256 'movs p.ini
+	1024 'fx p.ini
+	;
+
+: memoria main ;
