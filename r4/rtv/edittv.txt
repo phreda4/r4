@@ -423,7 +423,6 @@
 
 :modesel
 	home 1 8 gotoxy chome!
-
 	"* Texto *" 'e.text inputvoid cr cr2
 	blanco
     "Color:" print cr cr2
@@ -462,10 +461,10 @@
 
 
 :modebac
+	modebox
 	home 1 8 gotoxy chome!
 	blanco
 	"Fondo:" print cr cr2
-
 	" VACIO _SOLIDO _IMAGEN _DEG.HOR_DEG.VER_DEG.D1 _DEG.D2 " 'bmodo rbtn cr cr2
 	bmodo 2 =?
 	( 'bcolor imgpal )( 'bcolor inputhex )
@@ -504,10 +503,6 @@
 		20 + swap 1+ swap
 		) 2drop ;
 
-|------------------------------------
-
-:playscript
-		;
 
 |------------------------------------
 :newplq
@@ -523,8 +518,6 @@
 	'newplq  " NUEVO " btnt cr cr
 	'loadplq " CARGA " btnt cr cr
 	'saveplq " GRABA " btnt cr cr
-	verde
-	'playscript " PLAY " btnt cr cr
 	;
 
 
@@ -532,10 +525,10 @@
 	scr home
 	1 3 gotoxy chome!
 	"Fondo " 'modebac btnmodo sp
-	"Placa " 'modefil btnmodo
+|	"Placa " 'modefil btnmodo
 	cr cr
 	"Editar" 'modesel btnmodo sp
-	"Agrega" 'modebox btnmodo
+|	"Agrega" 'modebox btnmodo
 
 	;
 
@@ -575,6 +568,16 @@
 #ipag 0
 #np
 
+
+|------------------------------------
+:playscript
+		;
+
+:menupr
+	verde
+	'playscript " PLAY " btnt cr cr
+	;
+
 :,p
 	pres> !+ 'pres> ! ;
 
@@ -583,12 +586,19 @@
 	1 'npag +!
 	1 'cpag +!
 
+	setbox
 	bmodo 24 << bcolor or ,p
 	box> 'box - 2 >> dup ,p
 	'box >r ( 1? )( r@+ ,p 1- ) rdrop drop
 	mbox> 'mbox - 2 >> 1+ dup ,p
 	'mbox >r ( 1? )( r@+ ,p 1- ) rdrop drop
-|    palcnt dup ,
+|    palcnt dup ,p
+|    'palimg >r
+|    ( 1? )(
+|		r@+ 'boxfn + ,s 0 ,c
+|		4 r+
+|    	1- ) drop rdrop
+	box.ini
 	;
 
 #vmbox
@@ -604,32 +614,30 @@
 	@+ 'mbox + rot boxprintn
 	;
 
-:drawbox | w h x y
-	azul
-|	2over 2over rect
-	np cpag >=? ( drop rect ; )
+:cursorbox
+	np cpag <>? ( drop ; ) drop
+	dup 1- pick3 1- pick3 2 + dup 2swap
+	blanco rect ;
+
+:drawbox | w h x y  --
+	np cpag >=? ( drop azul rect ; )
 	2 << 'pag + @ >r
 	boxgrid
 	r@+ fillbox
-	r@+ r over 2 << + 'vmbox !
-	r> ( vmbox <? )( 
-		draw1b ) drop ;
-
-:cursorbox
-	np cpag <>? ( drop ; ) drop
-	pick3 2 + pick3 2 + pick3 1- pick3 1-
-	blanco rect ;
+	r@+ r swap 2 << + 'vmbox !
+	r> ( vmbox <? )( draw1b ) drop
+	scr
+	;
 
 :showframes
-	fonti
 	ipag 'np !
 	sw 3 >> sh over - 8 - swap
 	8 ( sw pick2 - <? )(
     	dup 2 + pick3 2 + atxy
+    	fonti verde np "%d" print
 
-    	verde np "%d" print
-        dup pick3 pick3 dup 2swap
 		cursorbox
+        dup pick3 pick3 dup 2swap
 		drawbox
 
 		over + 16 +
@@ -637,19 +645,21 @@
 		) 3drop ;
 
 :main
+	4
 	show fonti clrscr
 		verde oscuro 2 linesfill
 		blanco
 		dup ":r%d EditorTV - Presentacion " print
-		'filename "%s" print
-		cr
-		ipag "%d" print
+		'filename "%s" print cr
+		ipag "%d" print cr cr2
+		menupr
 
 		showframes
 
 		[ mainp insertplq ; ] <enter>
-		[ 1 'cpag +! ;  ] <ri>
-		[ -1 'cpag +! ;  ] <le>		
+		[ cpag 1+ npag min 'cpag ! ;  ] <ri>
+		[ cpag 1- 0 max 'cpag ! ;  ] <le>
+
 		'exit >esc<
 		cminiflecha ;
 
