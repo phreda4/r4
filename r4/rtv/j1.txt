@@ -24,28 +24,21 @@
 	tx2 ty1 to3d pline
 	tx2 ty2 to3d pline
 	tx1 ty2 to3d pline pline
-	poli
-	;
+	poli ;
 
-:f0	ink bfill ;
 :f1	ink bfill ;			| solido
-
-:f2	|$ff and getimg >r
-	tx1 ty1 tx2 ty2
-	pick2 - swap pick3 - swap
-|	r> img.drawsize
-	;
-
+:f2	ink bfill ;			| imagen?
 :f3 2color fcol tx1 ty2 to3d fcen 1.0 tx2 tx1 to3d - 1 max / 0 fmat lfill bfill sfill ;
 :f4 2color fcol tx1 ty2 to3d fcen 0 1.0 ty2 ty1 to3d - 1 max / fmat lfill bfill sfill ;
 :f5 2color fcol tx1 ty1 to3d fcen 0.5 tx2 tx1 to3d - 1 max / 0.5 ty2 ty1 to3d - 1 max / neg fmat lfill bfill sfill ;
 :f6 2color fcol tx1 ty2 to3d fcen 0.5 tx2 tx1 to3d - 1 max / 0.5 ty2 ty1 to3d - 1 max / fmat lfill bfill sfill ;
-:f7 drop ;	| auxiliar
+:f0 drop ;	| auxiliar
 
-#lbfill f0 f1 f2 f3 f4 f5 f6 f7
+#lbfill f0 f1 f2 f3 f4 f5 f6 f0
 
 :3dfillbox | nro --
 	dup 28 >> 7 and 2 << 'lbfill + @ exec ;
+
 
 :tcar | adr --
 	dup @ 1- 0? ( nip ; )
@@ -74,10 +67,31 @@
 	rdrop	;
 
 |-----------------------------
+:tletra
+	>r
+	r@+ r@+ pos 0.8 qdim home
+	0 0.05 boxpad
+	1 0.5 setfont3d
+	blanco
+	r@+ 64 + "%k" mprint 6 boxprintn
+	rdrop
+	;
+
+:+letra | nro x y --
+	'tletra 'fx p!+ >r
+	swap r!+ r!+
+	r!+
+	rdrop
+	;
+
+|-----------------------------
 :stsprite
 	>r
 	mpush
 	r@+ r@+ 0 mtransi
+	r@+ 1? ( mrotxi )( drop )
+	r@+ 1? ( mrotyi )( drop )
+	r@+ 1? ( mrotzi )( drop )
 	r@+ dup dup mscalei
 	r@+ 3dnsprite
 	rdrop
@@ -86,10 +100,89 @@
 
 :+sprite | 'spr size x y --
 	'stsprite 'objs p!+ >r
-	swap r!+ r!+
-	r!+ r!+
+	swap r!+ r!+		| x y
+	0 0 0 r!+ r!+ r!+	| rx ry rz
+	r!+					| s
+	r!+					| sprite
+	rdrop ;
+
+:sprite.n | nro -- spr
+	6 << 'objs 4+ @ + ;
+
+:nxy.sprite | x y nro --
+	sprite.n 4+ >r swap r!+ r!+ rdrop ;
+
+:xy.sprite | x y obj --
+	4+ >r swap r!+ r!+ rdrop ;
+
+
+|---------- animadores
+#deltat
+#prevt
+#t0
+
+:itime
+	msec 'prevt ! 0 'deltat ! ;
+
+:dtime
+	msec dup prevt - 'deltat ! 'prevt ! ;
+
+:llerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 16 *>> + ;
+:clerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 cos abs 16 *>> + ;
+:slerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 sin abs 16 *>> + ;
+
+
+:movlinea
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ / 1.0 min 't0 !
+	r@+
+	4+ r@+ r@+ llerp over !	| x
+	4+ r@+ r@+ llerp swap !	| y
+	rdrop
+	t0 1.0 - 1? ( drop ; )
+	;
+
+:+linea | xf yf obj time --
+	'movlinea 'movs p!+ >r
+	0 r!+ r!+	| 0 tmax
+	dup r!+		| obj
+	| xf yf obj
+	4+ dup @ r!+ rot r!+
+	4+ @ r!+ r!+
 	rdrop
 	;
+
+:movcircle
+	>r
+	r@+ deltat + dup r 4 - !
+	2* 16 << r@+ / 0.5 min 't0 !
+
+	r@+ t0 + sincos
+	r@+ rot over *. >r *. r> swap
+	r@+ rot + r@+ rot + | x y
+	r@+ xy.sprite
+
+	rdrop
+	t0 0.5 - 1? ( drop ; )
+	;
+
+:+swap	| v1 v2 suma tiempo --
+	'movcircle 'movs p!+ >r
+	0 r!+ r!+	| 0 tmax
+	r!+			| suma
+
+	over 4+ @ over 4+ @
+	2dup - abs 2/ r!+	| ancho
+	+ 2/ r!+ 		| centro x
+	over 8 + @ over 8 + @
+	+ 2/ r!+ 		| centro y
+	r!+			| v1
+	r!+			| v2
+	rdrop ;
 
 |--------------
 #xcam #ycam #zcam 2.0
@@ -101,14 +194,66 @@
 	neg mrotx
 	mroty ;
 
+#nivel
+#lugar
+
+#levx1 -0.7 0.0 0.7
+#levx2 -0.8 -2.0 2.0 0.8
+#levx3 -0.8 -4.0 0.0 4.0 0.8
+
+#levell levx1 levx2 levx3
+
+:randv | -- v
+	( rand 14 >> $3 and 0? )( drop )
+	1- ;
+
+:setv
+	'levx1
+	0 ( 3 <? )( 1+ swap
+		@+ 0.0 pick3 nxy.sprite
+		swap ) 2drop ;
+
+:showv
+	'levx1
+	0 ( 3 <? )( 1+ swap
+		@+ pick2 swap 0.0 +letra
+		swap ) 2drop ;
+
+:startlevel
+	1 'nivel !
+	setv
+	randv 'lugar !
+:ss
+	lugar 2 << 'levx1 + @ 0.0 0 nxy.sprite
+	;
+
+:swapv
+	setv
+	randv ( randv over =? )( drop ) | v1 v2
+	over 1+ sprite.n
+	over 1+ sprite.n
+	2dup 0.25 2000 +swap
+	swap 0.75 2000 +swap
+
+	lugar =? ( drop 'lugar ! ss ; )
+	swap lugar =? ( drop 'lugar ! ss ; )
+	2drop
+	ss
+	;
+
+:tapav
+	;
+
 :main
 	reset
 	33
 	'bola 0.2 0 0 +sprite
-	'vaso 0.4 -0.5 -0.3 +sprite
-	'vaso 0.4 0.0 -0.2 +sprite
-	'vaso 0.4 0.5 -0.3 +sprite
 
+	'vaso 0.4 -1.2 -0.1 +sprite
+	'vaso 0.4 -1.2 -0.2 +sprite
+	'vaso 0.4 -1.2 -0.3 +sprite
+
+	itime
 	show clrscr
 		fonti
 		dup "%d" print
@@ -122,17 +267,26 @@
 		0 0 pos 3.0 2.0 dim home
 		violeta
 		"Sigue la bola" print cr
+		lugar " %d " print
 |		tx1 ty1 tx2 ty2 rect
 
 |        0 0 boxpad msec "%d" mprint msec 7 >> boxprintn
 
+|		msec 4 << $7fff and $3fff + sincos 0 nxy.sprite
+
+		dtime
+		'movs p.draw
 
 		'objs p.draw
 		'fx p.draw
 
-		[ "Cartel f1" 1.0 0.5 -0.5 0 +cartel ; ] <f1>
-		[ "Cartel f2" 1.0 0.5 0 0 +cartel ; ] <f2>
+		[ swapv ; ] <f1>
+		'showv <f2>
+|		[ "Cartel f2" 1.0 0.5 0 0 +cartel ; ] <f2>
 
+		[ 0.5 -0.8 0 sprite.n 1000 +linea ; ] <f3>
+		[ 0.5 -0.9 1 sprite.n 3000 +linea ; ] <f4>
+		'startlevel <f5>
 
 		'exit >esc<
 		cminiflecha ;
