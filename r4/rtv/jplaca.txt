@@ -3,11 +3,13 @@
 ^r4/lib/gui.txt
 ^r4/lib/part16.txt
 ^r4/lib/plqlib.txt
-^r4/rtv/fx.spr
 
 #fx 0 0
 #objs 0 0
 #movs 0 0
+
+#archivo
+#placa
 
 :reset
 	'objs p.clear
@@ -195,6 +197,77 @@
 	'timex 'fx p!+ >r
 	0 r!+ r!+ r!+
 	rdrop ;
+
+|---------------------------------------
+
+:>>l | adr -- adr'/0
+	( c@+ 31 >? )( drop )
+	0? ( nip ; ) drop ;
+
+
+:espag	|@@
+	>>l ;
+:eslin 	|--
+	>>l ;
+:eshead	|#..
+	>>l ;
+:esbold |*
+:escuadro |<
+:eslista |>
+:simg |[
+:eimg |]
+:escolumna |_
+:stemp |{
+:establa ||
+:etemp |}
+:endmark |}
+	;
+
+|----------------------------
+| @@ cambio de pantalla
+| -- linea separadora
+| #.. header hasta cr
+| *		bold
+| | 	tabla
+| < 	cuadro
+| >  	lista
+| _ 	columna
+| []	imagen
+| {}	template
+|----------------------------
+:parsec | adr c -- adr
+	$40 =? ( drop dup c@ $40 =? ( drop espag ; ) ) |@@
+	$2d =? ( drop dup c@ $2d =? ( drop eslin ; ) ) |--
+	$23 =? ( drop eshead ; )	|#..
+
+	$2a =? ( drop esbold ; )	|*
+	$3c =? ( drop escuadro ; )	|<
+	$3e =? ( drop eslista ; )	|>
+	$5b =? ( drop simg ; )		|[
+	$5d =? ( drop eimg ; )		|]
+	$5f =? ( drop escolumna ; ) |_
+	$7b =? ( drop stemp ; )		|{
+	$7c =? ( drop establa ; )	||
+	$7d =? ( drop etemp ; ) 	|}
+	13 =? ( drop endmark ; )
+	drop
+	;
+
+:quita10 | mem -- endmem
+	dup
+	( c@+ 1? )(
+		13 =? ( over c@ 10 =? ( drop swap 1+ swap )( drop ) )
+		10 =? ( drop c@+ 13 <>? ( drop 1- 13 ) )
+		rot c!+ swap )
+	drop swap c!+ ;
+
+:loadparse | "" --
+	here dup 'archivo !
+	swap load 0 swap !
+	archivo quita10 'here !
+	archivo ( c@+ 1? )( parsec ) 2drop
+	;
+
 |--------------
 #xcam #ycam #zcam 2.0
 
@@ -205,68 +278,9 @@
 	neg mrotx
 	mroty ;
 
-#nivel
-#lugar
-
-#levx1 -0.7 0.0 0.7
-#levx2 -0.8 -2.0 2.0 0.8
-#levx3 -0.8 -4.0 0.0 4.0 0.8
-
-#levell levx1 levx2 levx3
-
-:randv | -- v
-	( rand 14 >> $3 and 0? )( drop )
-	1- ;
-
-:setv
-	'levx1
-	0 ( 3 <? )( 1+ swap
-		@+ 0.0 pick3 nxy.sprite
-		swap ) 2drop ;
-
-:showv
-	'levx1
-	0 ( 3 <? )( 1+ swap
-		@+ pick2 swap 0.0 +letra
-		swap ) 2drop ;
-
-:startlevel
-	1 'nivel !
-	setv
-	randv 'lugar !
-:ss
-	lugar 2 << 'levx1 + @ 0.0 0 nxy.sprite
-	;
-
-:swapv
-	setv
-	randv ( randv over =? )( drop ) | v1 v2
-	over 1+ sprite.n
-	over 1+ sprite.n
-	rand $1000 and? ( drop
-		2dup 0.25 1000 +swap swap 0.75 1000 +swap
-		)( drop
-		2dup -0.25 1000 +swap swap -0.75 1000 +swap
-		)
-
-	lugar =? ( drop 'lugar ! ss ; )
-	swap lugar =? ( drop 'lugar ! ss ; )
-	2drop
-	ss
-	;
-
-:tapav
-	;
 
 :main
-	reset
 	33
-	'bola 0.2 0 0 +sprite
-
-	'vaso 0.4 -1.2 -0.1 +sprite
-	'vaso 0.4 -1.2 -0.2 +sprite
-	'vaso 0.4 -1.2 -0.3 +sprite
-
 	itime
 	show clrscr
 		fonti
@@ -277,30 +291,18 @@
 |		msec 4 << mroty
 		xcam ycam zcam mtrans
 
-		7 0.5 setfont3d
+		7 0.2 setfont3d
 		0 0 pos 3.0 2.0 dim home
-		violeta
-		"Sigue la bola" print cr
-		lugar " %d " print
-|		tx1 ty1 tx2 ty2 rect
+		blanco
 
-|        0 0 boxpad msec "%d" mprint msec 7 >> boxprintn
+        0 0 boxpad archivo 5 boxprintn
 
-|		msec 4 << $7fff and $3fff + sincos 0 nxy.sprite
 
 		dtime
 		'movs p.draw
 
-		'objs p.draw
-		'fx p.draw
+		[ "Cartel f2" 1.0 0.5 0 0 +cartel ; ] <f2>
 
-		[ swapv 'swapv 1000 +time ; ] <f1>
-		'showv <f2>
-|		[ "Cartel f2" 1.0 0.5 0 0 +cartel ; ] <f2>
-
-		[ 0.5 -0.8 0 sprite.n 1000 +linea ; ] <f3>
-		[ 0.5 -0.9 1 sprite.n 3000 +linea ; ] <f4>
-		'startlevel <f5>
 
 		'exit >esc<
 		cminiflecha ;
@@ -310,6 +312,8 @@
 	256 'objs p.ini
 	256 'movs p.ini
 	1024 'fx p.ini
+
+	"atv/consultorios.txt" loadparse
 	;
 
 : memoria main ;
