@@ -15,6 +15,11 @@
 #pantalla )( $fff
 #pantalla> 'pantalla
 
+:,placa | adr --
+	pantalla> placas> !+ 'placas> ! ;
+
+:,p | val --
+	pantalla> !+ 'pantalla> ! ;
 
 :reset
 	'objs p.clear
@@ -22,7 +27,6 @@
 
 	'movs p.clear
 	;
-
 
 |-------------------------------------------
 :2color dup $f0f0f0 and dup 4 >> or swap $f0f0f and dup 4 << or ;
@@ -47,37 +51,13 @@
 :3dfillbox | nro --
 	dup 28 >> 7 and 2 << 'lbfill + @ exec ;
 
-
-|-------------------------------------------
-| pantalla
-| texto x y w h "texto" tipo fuente color
-| linea/caja  x y w h
-| imagen
-| sprite
-| video
-| fx
-|
-
-:t0
-:t1
-:t2
-:t3
-:t4
-:t5
-:t6
-:t7
-:t8 2drop ;
-
-#ldraw t0 t1 t2 t3 t4 t5 t6 t7 t8 t8 t8 t8 t8 t8 t8 t8
-:drawbox
-	@+ dup $f and 2 << 'ldraw + @ exec ;
-
-:drawpant | adr --
-	@+ swap @ swap
-	( over <? )(
-		dup drawbox
-		32 + ) 2drop
-	;
+:fillbox3d | x y x2 y2 --
+	2over to3d op
+	pick3 over to3d pline
+	2dup to3d pline
+	drop over to3d pline
+	to3d pline
+	poli ;
 
 |-------------------------------------------
 :tcar | adr --
@@ -236,63 +216,138 @@
 	0 r!+ r!+ r!+
 	rdrop ;
 
-|---------------------------------------
-:,placa | adr --
-	pantalla> placas> !+ 'placas> ! ;
-
-
 #sizefnt
 #typefnt
 #xxc #yyc
 #xxm #yym
 
-:,ele |
-	;
+|-------------------------------------------
+| pantalla
+| imagen
+| sprite
+| video
+| fx
+|
+
+| texto -- color x y fnt size "texto"
+:t0	8 >> ink
+	>r
+	r@+ r@+ atxy
+	r@+ r@+ setfont3d
+	r> @ print ;
+
+| caja -- color x y x y
+:t1 8 >> ink
+	>r
+	r@+ r@+ r@+ r@+ fillbox3d
+	rdrop ;
+
+:t2
+:t3
+:t4
+:t5
+:t6
+:t7
+:t8 2drop ;
+
+#ldraw t0 t1 t2 t3 t4 t5 t6 t7 t8 t8 t8 t8 t8 t8 t8 t8
+
+:drawbox
+	@+ dup $f and 2 << 'ldraw + @ exec ;
+
+:drawpant | adr --
+	0 0 pos 4.0 2.0 dim home
+|	$40058000 3dfillbox
+	@+ swap @ swap
+	( over <? )(
+		dup drawbox
+		32 + ) 2drop ;
+
+|---------------------------------------
 
 
 :startpant
-	0 dup 'xxc ! 'xxm !
-	0 dup 'yyc ! 'yym !
-
+	-1.6 dup 'xxc ! 'xxm !
+	-1.0 dup 'yyc ! 'yym !
 	;
 
 :endpant
 	startpant
 	;
+:endbox
+
+	;
 
 :>>l | adr -- adr'/0
-	( c@+ 31 >? )( drop )
-	0? ( nip ; ) drop ;
+	( c@+ $ff and 31 >? )( drop )
+	0? ( nip ; ) drop
+	0 over 1- c!
+	;
 
 :espag	|@@
 	>>l
 	,placa
 	endpant ;
+
 :eslin 	|--
+	$ff01 ,p
+	xxc ,p yyc 0.1 + ,p
+	0.1 'yyc +!
+	xxc 3.2 + ,p yyc 0.01 + ,p
+	0 ,p 0 ,p 0 ,p
 	>>l ;
+
 :eshead	|#..
+	0 swap ( dup c@ $23 =? )( drop 1+ swap 1+ swap ) drop
+	swap 0.4 swap 0.1 * -
+	$00000000 ,p
+	xxc ,p yyc ,p
+	dup 2/ 'yyc +!
+	13 ,p ,p
+	dup ,p
+	0 ,p
+	0 ,p
 	>>l ;
-:esbold |*
+
 :escuadro |<
 :eslista |>
+	$00 ,p
+	xxc ,p yyc ,p
+	11 ,p 0.15 ,p
+	dup ,p
+	0 ,p
+	0 ,p
+	0.1 'yyc +!
+	>>l
+	;
+
+:esbold |*
+	;
+:escolumna |_
+	;
+
 :simg |[
 :eimg |]
-:escolumna |_
 :stemp |{
 :establa ||
 :etemp |}
-:endmark |}
+	;
+:endmark | cr
+	0 over 1- c!
+	0.1 'yyc +!
 	;
 
 |----------------------------
 | @@ cambio de pantalla
 | -- linea separadora
 | #.. header hasta cr
-| *		bold
 | | 	tabla
 | < 	cuadro
 | >  	lista
+
+| *		bold
 | _ 	columna
+
 | []	imagen
 | {}	template
 |----------------------------
@@ -347,13 +402,14 @@
 :main
 	33
 	itime
+	$ffffff paper
 	show clrscr
-		fonti
-		dup "%d" print
+|		fonti
+|		dup "%d" print
 
 		omode
 |		freelook
-|		msec 4 << mroty
+|		msec 4 << mrotx
 		xcam ycam zcam mtrans
 
 		7 0.2 setfont3d
@@ -361,6 +417,7 @@
 		blanco
 
 |        0 0 boxpad 'placas nplaca 2 << + @ 5 boxprintn
+		1 0.4 setfont3d
 		'placas nplaca 2 << + drawpant
 
 		dtime
@@ -368,7 +425,7 @@
 
 		[ "Cartel f2" 1.0 0.5 0 0 +cartel ; ] <f2>
   		[ 1 'nplaca +! ; ] <f1>
-
+		[ 1 'typefnt +! ; ] <f2>
 
 		'exit >esc<
 		cminiflecha ;
@@ -379,7 +436,8 @@
 	256 'movs p.ini
 	1024 'fx p.ini
 
-	"atv/consultorios.txt" loadparse
+|	"atv/consultorios.txt" loadparse
+	"atv/profesionalesmedicos.txt" loadparse
 	;
 
 : memoria main ;
