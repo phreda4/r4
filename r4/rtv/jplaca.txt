@@ -9,7 +9,12 @@
 #movs 0 0
 
 #archivo
-#placa
+#placas )( 64
+#placas> 'placas
+
+#pantalla )( $fff
+#pantalla> 'pantalla
+
 
 :reset
 	'objs p.clear
@@ -17,6 +22,7 @@
 
 	'movs p.clear
 	;
+
 
 |-------------------------------------------
 :2color dup $f0f0f0 and dup 4 >> or swap $f0f0f and dup 4 << or ;
@@ -42,6 +48,38 @@
 	dup 28 >> 7 and 2 << 'lbfill + @ exec ;
 
 
+|-------------------------------------------
+| pantalla
+| texto x y w h "texto" tipo fuente color
+| linea/caja  x y w h
+| imagen
+| sprite
+| video
+| fx
+|
+
+:t0
+:t1
+:t2
+:t3
+:t4
+:t5
+:t6
+:t7
+:t8 2drop ;
+
+#ldraw t0 t1 t2 t3 t4 t5 t6 t7 t8 t8 t8 t8 t8 t8 t8 t8
+:drawbox
+	@+ dup $f and 2 << 'ldraw + @ exec ;
+
+:drawpant | adr --
+	@+ swap @ swap
+	( over <? )(
+		dup drawbox
+		32 + ) 2drop
+	;
+
+|-------------------------------------------
 :tcar | adr --
 	dup @ 1- 0? ( nip ; )
 	|dup 2* alpha
@@ -199,15 +237,37 @@
 	rdrop ;
 
 |---------------------------------------
+:,placa | adr --
+	pantalla> placas> !+ 'placas> ! ;
+
+
+#sizefnt
+#typefnt
+#xxc #yyc
+#xxm #yym
+
+:,ele |
+	;
+
+
+:startpant
+	0 dup 'xxc ! 'xxm !
+	0 dup 'yyc ! 'yym !
+
+	;
+
+:endpant
+	startpant
+	;
 
 :>>l | adr -- adr'/0
 	( c@+ 31 >? )( drop )
 	0? ( nip ; ) drop ;
 
-
 :espag	|@@
-	>>l 
-	dup , ;
+	>>l
+	,placa
+	endpant ;
 :eslin 	|--
 	>>l ;
 :eshead	|#..
@@ -266,12 +326,15 @@
 	here dup 'archivo !
 	swap load 0 swap !
 	archivo quita10
-	dup 'here ! 'placa !
-	archivo ( c@+ 1? )( parsec ) , drop
+	'here !
+	archivo ( c@+ 1? )( parsec )
+	2drop
+	,placa
 	;
 
 |--------------
 #xcam #ycam #zcam 2.0
+#nplaca 0
 
 :freelook
 	xymouse
@@ -297,14 +360,14 @@
 		0 0 pos 3.0 2.0 dim home
 		blanco
 
-        0 0 boxpad placa @ 5 boxprintn
-
+|        0 0 boxpad 'placas nplaca 2 << + @ 5 boxprintn
+		'placas nplaca 2 << + drawpant
 
 		dtime
 		'movs p.draw
 
 		[ "Cartel f2" 1.0 0.5 0 0 +cartel ; ] <f2>
-  		[ 4 'placa +! ; ] <f1>
+  		[ 1 'nplaca +! ; ] <f1>
 
 
 		'exit >esc<
