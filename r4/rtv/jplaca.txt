@@ -3,6 +3,10 @@
 ^r4/lib/gui.txt
 ^r4/lib/part16.txt
 ^r4/lib/plqlib.txt
+^r4/lib/loadjpg.txt
+^r4/lib/loadpng.txt
+^r4/lib/loadbmp.txt
+
 
 #fx 0 0
 #objs 0 0
@@ -14,6 +18,10 @@
 
 #pantalla )( $fff
 #pantalla> 'pantalla
+
+#fondo 0
+#cletra 0
+#cfondo $ffffff
 
 :,placa | adr --
 	pantalla> placas> !+ 'placas> ! ;
@@ -280,7 +288,7 @@
 
 :>>l | adr -- adr'/0
 	( c@+ $ff and 31 >? )( drop )
-	0? ( nip ; ) drop
+	0? ( drop 1- 0 over c! ; ) drop
 	0 over 1- c!
 	;
 
@@ -290,7 +298,7 @@
 	endpant ;
 
 :eslin 	|--
-	$ff01 ,p
+	$01 cletra 8 << or ,p
 	xxc ,p yyc 0.1 + ,p
 	0.1 'yyc +!
 	xxc 3.2 + ,p yyc 0.01 + ,p
@@ -299,8 +307,8 @@
 
 :eshead	|#..
 	0 swap ( dup c@ $23 =? )( drop 1+ swap 1+ swap ) drop
-	swap 0.4 swap 0.1 * -
-	$00000000 ,p
+	swap 0.4 swap 0.05 * -
+	cletra 8 << ,p
 	xxc ,p yyc ,p
 	dup 2/ 'yyc +!
 	13 ,p ,p
@@ -311,7 +319,7 @@
 
 :escuadro |<
 :eslista |>
-	$00 ,p
+	cletra 8 << ,p
 	xxc ,p yyc ,p
 	11 ,p 0.15 ,p
 	dup ,p
@@ -337,6 +345,30 @@
 	0.1 'yyc +!
 	;
 
+:setimg | adr -- adr'
+	dup 'fondo ! >>l ;
+
+:setfon | adr -- adr'
+	str$>nro 'cfondo ! trim ;
+
+:setlet | adr -- adr'
+	str$>nro 'cletra ! trim ;
+
+
+| iatv/coso.p.jpg	| imagen de fondo
+| fff0000			| color de fondo
+| l00ff00			| color de letra
+:parseprev | adr -- adr'
+	0 'fondo !
+	( c@+ 1? )(
+    	$40 =? ( drop 1- ; )
+    	$69 =? ( drop setimg 0 ) | i
+    	$66 =? ( drop setfon 0 ) | f
+    	$6c =? ( drop setlet 0 ) | l
+    	drop
+		)
+	drop 1- ;
+	;
 |----------------------------
 | @@ cambio de pantalla
 | -- linea separadora
@@ -377,14 +409,23 @@
 		rot c!+ swap )
 	drop swap c!+ ;
 
+:loadimg | filename -- img
+	".jpg" =pos 1? ( drop loadjpg ; ) drop
+	".png" =pos 1? ( drop loadpng ; ) drop
+	".bmp" =pos 1? ( drop loadbmp ; )
+	2drop 0 ;
+
 :loadparse | "" --
 	here dup 'archivo !
 	swap load 0 swap !
 	archivo quita10
 	'here !
-	archivo ( c@+ 1? )( parsec )
+	archivo
+	parseprev
+	( c@+ 1? )( parsec )
 	2drop
 	,placa
+	fondo 0? ( drop ; ) loadimg 'fondo !
 	;
 
 |--------------
@@ -402,8 +443,13 @@
 :main
 	33
 	itime
-	$ffffff paper
-	show clrscr
+
+	cfondo paper
+	fondo 1? ( 0 0 sw sh fondo img.drawsize )( cls )
+	drop
+	>XFB
+
+	show xfb>scr
 |		fonti
 |		dup "%d" print
 
@@ -436,7 +482,7 @@
 	256 'movs p.ini
 	1024 'fx p.ini
 
-|	"atv/consultorios.txt" loadparse
+|	"atv/urgente.txt" loadparse
 	"atv/profesionalesmedicos.txt" loadparse
 	;
 
