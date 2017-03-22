@@ -16,12 +16,20 @@
 #placas )( 64
 #placas> 'placas
 
-#pantalla )( $fff
+#pantalla )( $ffff
 #pantalla> 'pantalla
 
+
 #fondo 0
-#cletra 0
 #cfondo $ffffff
+#tabs )( 64
+#ctab )( 64
+
+#sizefnt
+#typefnt
+#colfnt
+#xxc #yyc
+
 
 :,placa | adr --
 	pantalla> placas> !+ 'placas> ! ;
@@ -184,33 +192,6 @@
 	rdrop
 	;
 
-:movcircle
-	>r
-	r@+ deltat + dup r 4 - !
-	16 << r@+ 2* / 0.5 min 't0 !
-
-	t0 r@+ -? ( - neg )( + ) sincos
-	r@+ rot over *. >r *. r> swap
-	r@+ rot + r@+ rot + | x y
-	r@+ xy.sprite
-
-	rdrop
-	t0 0.5 - 1? ( drop ; )
-	;
-
-:+swap	| v1 v2 suma tiempo --
-	'movcircle 'movs p!+ >r
-	0 r!+ r!+	| 0 tmax
-	r!+			| suma
-
-	over 4+ @ over 4+ @
-	2dup - abs 2/ r!+	| ancho
-	+ 2/ r!+ 		| centro x
-	over 8 + @ over 8 + @
-	+ 2/ r!+ 		| centro y
-	r!+			| v1
-	r!+			| v2
-	rdrop ;
 
 :timex
 	>r
@@ -224,10 +205,6 @@
 	0 r!+ r!+ r!+
 	rdrop ;
 
-#sizefnt
-#typefnt
-#xxc #yyc
-#xxm #yym
 
 |-------------------------------------------
 | pantalla
@@ -272,23 +249,22 @@
 		32 + ) 2drop ;
 
 |---------------------------------------
-
-
 :startpant
-	-1.6 dup 'xxc ! 'xxm !
-	-1.0 dup 'yyc ! 'yym !
+	-1.6 'xxc !
+	-1.0 'yyc !
+	11 'typefnt !
+	0.15 'sizefnt !
+	0.15 1 'tabs !+ !
+	typefnt sizefnt setfont3d
 	;
 
 :endpant
 	startpant
 	;
-:endbox
 
-	;
-
-:>>l | adr -- adr'/0
+:>>l | adr -- adr'
 	( c@+ $ff and 31 >? )( drop )
-	0? ( drop 1- 0 over c! ; ) drop
+	0? ( drop 1- ; ) drop
 	0 over 1- c!
 	;
 
@@ -298,108 +274,139 @@
 	endpant ;
 
 :eslin 	|--
-	$01 cletra 8 << or ,p
+	$01 colfnt 8 << or ,p
 	xxc ,p yyc 0.1 + ,p
 	0.1 'yyc +!
 	xxc 3.2 + ,p yyc 0.01 + ,p
 	0 ,p 0 ,p 0 ,p
 	>>l ;
 
-:eshead	|#..
-	0 swap ( dup c@ $23 =? )( drop 1+ swap 1+ swap ) drop
-	swap 0.4 swap 0.05 * -
-	cletra 8 << ,p
-	xxc ,p yyc ,p
-	dup 2/ 'yyc +!
-	13 ,p ,p
-	dup ,p
-	0 ,p
-	0 ,p
-	>>l ;
+:>>| | adr -- adr'
+	( c@+ $ff and 31 >? )(
+		$7c =? ( ; )
+		drop ) ;
 
-:escuadro |<
-:eslista |>
-	cletra 8 << ,p
-	xxc ,p yyc ,p
-	11 ,p 0.15 ,p
-	dup ,p
+| "" tab --
+#sumx
+
+:boxl
+	sumx swap 'sumx +! ;
+:boxc
+	swap sizeprint 2/ rot
+	dup 2/ sumx + swap 'sumx +!
+	swap - ;
+:boxr
+	swap sizeprint rot
+	dup sumx + swap 'sumx +!
+	swap - ;
+
+#llbox boxl boxc boxr
+
+:,tbox | "" tipo tab --
+	pick2 c@ 0? ( 4drop ; ) drop
+
+	colfnt 8 << ,p
+	swap 1- 2 << 'llbox + @ exec
+	,p yyc ,p
+	typefnt ,p sizefnt ,p
+	,p
 	0 ,p
 	0 ,p
-	0.1 'yyc +!
-	>>l
 	;
 
-:esbold |*
-	;
-:escolumna |_
-	;
-
-:simg |[
-:eimg |]
-:stemp |{
-:establa ||
-:etemp |}
-	;
-:endmark | cr
+:esTexto
+	'ctab >r
+	dup r!+
+	( >>| $7c =? )( drop
+		0 over 1- c!
+		dup r!+
+		) drop
 	0 over 1- c!
-	0.1 'yyc +!
+	r> 'ctab
+	'tabs >r
+	xxc 'sumx !
+	( over <? )(
+		@+
+		r@+ r@+ ,tbox
+		) 2drop
+	rdrop
+	sizefnt 2/ 'yyc +!
 	;
 
+
+|-------- configuracion
+:gett | adr -- adr' valor
+	c@+
+	$6c =? ( drop str>nro 1 ; ) | l
+	$63 =? ( drop str>nro 2 ; ) | c
+	$72 =? ( drop str>nro 3 ; ) | r
+	drop 1- 0 ;
+
+:ctabs
+	'tabs >r
+	( gett 1? )(
+		r!+ 3.2 * 100 / r!+	| 3.2 ancho pantalla
+		dup c@ $2c =? ( drop 1+ )( drop ) | ,
+		) drop
+	rdrop
+	1- >>cr
+	;
+
+:cfnts
+	str>nro 'typefnt !
+	1+ getfenro 'sizefnt !
+	1+ str$>nro 'colfnt !
+	typefnt sizefnt setfont3d
+	1- >>cr
+	;
+
+:es;
+	c@+
+	$7c =? ( drop ctabs ; ) | ;|l10,c20,r20
+	$66 =? ( drop cfnts ; )	| ;f11,0.15,ffffff |fuente,size,color
+
+	drop
+	1- >>cr ;
+
+|--------------------
 :setimg | adr -- adr'
 	dup 'fondo ! >>l ;
 
 :setfon | adr -- adr'
-	str$>nro 'cfondo ! trim ;
-
-:setlet | adr -- adr'
-	str$>nro 'cletra ! trim ;
-
+	str$>nro 'cfondo ! >>cr ;
 
 | iatv/coso.p.jpg	| imagen de fondo
 | fff0000			| color de fondo
-| l00ff00			| color de letra
 :parseprev | adr -- adr'
 	0 'fondo !
 	( c@+ 1? )(
     	$40 =? ( drop 1- ; )
     	$69 =? ( drop setimg 0 ) | i
     	$66 =? ( drop setfon 0 ) | f
-    	$6c =? ( drop setlet 0 ) | l
     	drop
 		)
 	drop 1- ;
 	;
 |----------------------------
-| @@ cambio de pantalla
+| @@ cambio de pantalla w1.5,a0
 | -- linea separadora
 | #.. header hasta cr
+| ;		config
 | | 	tabla
 | < 	cuadro
 | >  	lista
-
-| *		bold
-| _ 	columna
 
 | []	imagen
 | {}	template
 |----------------------------
 :parsec | adr c -- adr
+	$3b =? ( drop es; ; ) | ; configura
+
 	$40 =? ( drop dup c@ $40 =? ( drop espag ; ) ) |@@
 	$2d =? ( drop dup c@ $2d =? ( drop eslin ; ) ) |--
-	$23 =? ( drop eshead ; )	|#..
-
-	$2a =? ( drop esbold ; )	|*
-	$3c =? ( drop escuadro ; )	|<
-	$3e =? ( drop eslista ; )	|>
-	$5b =? ( drop simg ; )		|[
-	$5d =? ( drop eimg ; )		|]
-	$5f =? ( drop escolumna ; ) |_
-	$7b =? ( drop stemp ; )		|{
-	$7c =? ( drop establa ; )	||
-	$7d =? ( drop etemp ; ) 	|}
-	13 =? ( drop endmark ; )
-	drop
-	;
+    drop 1-
+	esTexto
+    ;
 
 :quita10 | mem -- endmem
 	dup
@@ -407,7 +414,7 @@
 		13 =? ( over c@ 10 =? ( drop swap 1+ swap )( drop ) )
 		10 =? ( drop c@+ 13 <>? ( drop 1- 13 ) )
 		rot c!+ swap )
-	drop swap c!+ ;
+	nip swap c!+ ;
 
 :loadimg | filename -- img
 	".jpg" =pos 1? ( drop loadjpg ; ) drop
@@ -439,16 +446,16 @@
 	neg mrotx
 	mroty ;
 
-
-:main
-	33
-	itime
-
+:predraw
 	cfondo paper
 	fondo 1? ( 0 0 sw sh fondo img.drawsize )( cls )
 	drop
-	>XFB
+	>xfb ;
 
+:main
+	33
+	predraw
+	itime
 	show xfb>scr
 |		fonti
 |		dup "%d" print
@@ -458,12 +465,6 @@
 |		msec 4 << mrotx
 		xcam ycam zcam mtrans
 
-		7 0.2 setfont3d
-		0 0 pos 3.0 2.0 dim home
-		blanco
-
-|        0 0 boxpad 'placas nplaca 2 << + @ 5 boxprintn
-		1 0.4 setfont3d
 		'placas nplaca 2 << + drawpant
 
 		dtime
