@@ -16,7 +16,8 @@
 
 #placas )( 64
 #placas> 'placas
-#placast )( 32
+#placast )( 64
+#placanow 'placast
 
 #pantalla )( $ffff
 #pantalla> 'pantalla
@@ -34,8 +35,7 @@
 #xxc #yyc
 
 :,placa | tt --
-	placas> 'placas - 2/
-	'placast + !
+	placas> 'placas - 'placast + !
 	pantalla> placas> !+ 'placas> !
 	;
 
@@ -197,7 +197,7 @@
 	rdrop
 	;
 
-
+|-------------------------------------------
 :timex
 	>r
 	r@+ deltat + dup r 4 - !
@@ -209,7 +209,6 @@
 	'timex 'fx p!+ >r
 	0 r!+ r!+ r!+
 	rdrop ;
-
 
 |-------------------------------------------
 :xprints | "" --
@@ -470,21 +469,38 @@
 	neg mrotx
 	mroty ;
 
+:nextdraw
+	4 'nplaca +!
+	4 'placanow +!
+	placanow @ 0? ( exit )
+    'nextdraw over $ffffff and
+	+time
+	drop
+	;
+
 :predraw
 	cfondo paper
 	fondo 1? ( 0 0 sw sh fondo img.drawsize )( cls )
 	drop
 	>xfb
-	itime ;
+	itime
+	'placas 'nplaca !
+	'placast 'placanow !
+	placanow @
+    'nextdraw over $ffffff and
+	+time
+	drop
+	;
+
 
 :timedraw
 	omode
 |		freelook
 |		msec 4 << mrotx
 	xcam ycam zcam mtrans
-	'placas nplaca 2 << + drawpant
+	nplaca drawpant
 	dtime
-	'movs p.draw
+	'fx p.draw
 	;
 
 
@@ -493,13 +509,14 @@
 	predraw
 
 	show xfb>scr
-|		fonti
+		fonti azul
 |		dup "%d" print
+		[ dup "%h " print cr ; ] 'fx p.mapv
 
 		timedraw
 
 		[ "Cartel f2" 1.0 0.5 0 0 +cartel ; ] <f2>
-  		[ 1 'nplaca +! ; ] <f1>
+  		'nextdraw <f1>
 
 		'exit >esc<
 		cminiflecha ;
