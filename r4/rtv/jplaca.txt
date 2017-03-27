@@ -8,6 +8,9 @@
 ^r4/lib/loadbmp.txt
 
 
+#xcam #ycam #zcam 2.0
+#rxcam #rycam #rzcam
+
 #fx 0 0
 #objs 0 0
 
@@ -15,6 +18,8 @@
 
 #placas )( 64
 #placas> 'placas
+#nplaca 'placas
+
 #placast )( 64
 #placanow 'placast
 
@@ -104,6 +109,7 @@
 	$600ff00 r!+
 	rdrop	;
 
+
 |-----------------------------
 :tletra
 	>r
@@ -121,6 +127,7 @@
 	r!+
 	rdrop
 	;
+
 
 |-----------------------------
 :stsprite
@@ -235,6 +242,7 @@
 	r> ink
 	( c@+ 1? )( emit ) 2drop ;
 
+|-------- dibuja objetos estaticos
 | texto -- color x y fnt size "texto"
 :t0	8 >> ink
 	>r
@@ -271,6 +279,76 @@
 	@+ swap @ swap
 	( over <? )(
 		dup drawbox
+		32 + ) 2drop ;
+
+|-----------------------------
+:otexto
+	>r r@+
+	r@+ r@+ setfont3d
+	0.01 r 4+ +!
+	r@+ r@+ atxy
+	r@+ ink
+	xprintn
+	rdrop
+	;
+
+:otexto
+	>r r@+
+	mpush
+	r@+ r@+ setfont3d
+	r@+ r@+ r@+ mtransi
+	r@+ 1? ( mrotxi )( drop )
+	r@+ 1? ( mrotyi )( drop )
+	r@+ 1? ( mrotzi )( drop )
+	r@+ ink
+	0 0 atxy
+	xprintn
+	rdrop
+	mpop ;
+
+:+texto | color x y font size "" --
+	'otexto 'objs p!+ >r
+	r!+
+	r!+	r!+
+	r!+ r!+ 0 r!+
+	0 r!+ 0 r!+ 0 r!+
+	r!+
+	rdrop
+	;
+
+|------ inicia objetos de animacion
+| texto -- color x y fnt size "texto"
+:t0	8 >>
+	swap >r
+	r@+ r@+ swap
+	r@+ r@+ swap
+	r> @ +texto ;
+
+| caja -- color x y x y
+:t1 8 >> ink
+	>r
+|	r@+ r@+ r@+ r@+ fillbox3d
+	rdrop ;
+
+:t2
+:t3
+:t4
+:t5
+:t6
+:t7
+:t8 2drop ;
+
+#lidraw t0 t1 t2 t3 t4 t5 t6 t7 t8 t8 t8 t8 t8 t8 t8 t8
+
+:inidrawbox
+	@+ dup $f and 2 << 'lidraw + @ exec ;
+
+:inidrawpant | adr --
+	'objs p.clear
+	0 0 pos 4.0 2.0 dim home
+	@+ swap @ swap
+	( over <? )(
+		dup inidrawbox
 		32 + ) 2drop ;
 
 |---------------------------------------
@@ -456,8 +534,6 @@
 	;
 
 |--------------
-#xcam #ycam #zcam 2.0
-#nplaca 0
 
 :freelook
 	xymouse
@@ -469,6 +545,9 @@
 :nextdraw
 	4 'nplaca +!
 	4 'placanow +!
+
+	nplaca inidrawpant
+
 	placanow @ 0? ( exit )
     'nextdraw over $ffffff and
 	+time
@@ -481,8 +560,12 @@
 	drop
 	>xfb
 	itime
+
 	'placas 'nplaca !
 	'placast 'placanow !
+
+	nplaca inidrawpant
+
 	placanow @
     'nextdraw over $ffffff and
 	+time
@@ -493,11 +576,16 @@
 :timedraw
 	omode
 |		freelook
-|		msec 4 << mrotx
+	rxcam 1? ( mrotxi )( drop )
+	rycam 1? ( mrotyi )( drop )
+	rzcam 1? ( mrotzi )( drop )
 	xcam ycam zcam mtrans
-	nplaca drawpant
+|	nplaca drawpant
 	dtime
 	'fx p.draw
+
+0 0 pos 4.0 2.0 dim home
+	'objs p.draw
 	;
 
 
@@ -508,12 +596,11 @@
 	show xfb>scr
 		fonti azul
 |		dup "%d" print
-		[ dup "%h " print cr ; ] 'fx p.mapv
+		[ dup "%h " print cr ; ] 'objs p.mapv
 
 		timedraw
 
 		[ "Cartel f2" 1.0 0.5 0 0 +cartel ; ] <f2>
-  		'nextdraw <f1>
 
 		'exit >esc<
 		cminiflecha ;
