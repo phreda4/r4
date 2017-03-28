@@ -83,53 +83,6 @@
 	poli ;
 
 |-------------------------------------------
-:tcar | adr --
-	dup @ 1- 0? ( nip ; )
-	|dup 2* alpha
-	swap !+ >r
-	r@+ r@+ pos
-	r@+ r@+ dim home
-	r@+ 3dfillbox
-	r@+ dup 16 << 16 >> swap 16 >> boxpad
-	r@+ r@+ setfont3d
-	r@+ r@+ dup ink 24 >> boxprintn
-	rdrop ;
-
-
-:+cartel | "" w h x y  --
-	'tcar 'fx p!+ >r
-	128 r!+ | vida
-	swap r!+ r!+ swap r!+ r!+
-
-	0 r!+ | fondo
-	0 r!+ | pad
-	9 r!+ | font
-	0.4 r!+ | size
-	r!+
-	$600ff00 r!+
-	rdrop	;
-
-
-|-----------------------------
-:tletra
-	>r
-	r@+ r@+ pos 0.8 qdim home
-	0 0.05 boxpad
-	1 0.5 setfont3d
-	blanco
-	r@+ 64 + "%k" mprint 6 boxprintn
-	rdrop
-	;
-
-:+letra | nro x y --
-	'tletra 'fx p!+ >r
-	swap r!+ r!+
-	r!+
-	rdrop
-	;
-
-
-|-----------------------------
 :stsprite
 	>r
 	mpush
@@ -219,19 +172,19 @@
 	ccx ccy ink@
 	0 ink
 	0.005 dup +atxy
-	pick3 ( c@+ 1? )( emit ) 2drop
+	pick3 ( c@+ 1? )( emitf ) 2drop
 	ink atxy
-	( c@+ 1? )( emit ) 2drop
+	( c@+ 1? )( emitf ) 2drop
 	;
 
 :xprintn | "" --
-	( c@+ 1? )( emit ) 2drop ;
+	( c@+ 1? )( emitf ) 2drop ;
 
 :xbox | x1 y1 x2 y2 --
 	2over to3d 2dup >r >r op
 	pick3 over to3d pline
-	2dup to3d pline
-	drop swap to3d pline drop
+	over swap to3d pline
+	swap to3d pline drop
 	r> r> pline
 	gris poli ;
 
@@ -240,7 +193,7 @@
 	sizeprint
 	ccx ccy rot pick2 + cch pick2 + xbox
 	r> ink
-	( c@+ 1? )( emit ) 2drop ;
+	( c@+ 1? )( emitf ) 2drop ;
 
 |-------- dibuja objetos estaticos
 | texto -- color x y fnt size "texto"
@@ -284,37 +237,45 @@
 |-----------------------------
 :otexto
 	>r r@+
-	r@+ r@+ setfont3d
-	0.01 r 4+ +!
-	r@+ r@+ atxy
-	r@+ ink
-	xprintn
-	rdrop
-	;
-
-:otexto
-	>r r@+
 	mpush
 	r@+ r@+ setfont3d
 	r@+ r@+ r@+ mtransi
+|	0.02 r +!
 	r@+ 1? ( mrotxi )( drop )
 	r@+ 1? ( mrotyi )( drop )
 	r@+ 1? ( mrotzi )( drop )
 	r@+ ink
-	0 0 atxy
+	r@+ r@+ atxy
 	xprintn
 	rdrop
 	mpop ;
 
+#pw
 :+texto | color x y font size "" --
 	'otexto 'objs p!+ >r
-	r!+
-	r!+	r!+
-	r!+ r!+ 0 r!+
-	0 r!+ 0 r!+ 0 r!+
-	r!+
-	rdrop
-	;
+	pick2 pick2 swap setfont3d
+	sizeprint 'pw !
+	r!+				| ""
+	r!+	r!+			| font size
+	pw 2/ + r!+ r!+ 0 r!+	| x y z
+	0 r!+ 0 r!+ 0 r!+		| rx ry rz
+	r!+						| ink
+	pw 2/ neg r!+
+	cch neg 2/ r!+          | atxy
+	rdrop ;
+
+
+|--- caja
+:obox
+	>r r@+ r@+ r@+ r@+
+	r@+ ink
+    fillbox3d
+    rdrop ;
+
+:+box	| color x1 y1 x2 y3 --
+	'obox 'objs p!+ >r
+	r!+ r!+ r!+ r!+ r!+
+	rdrop ;
 
 |------ inicia objetos de animacion
 | texto -- color x y fnt size "texto"
@@ -325,9 +286,11 @@
 	r> @ +texto ;
 
 | caja -- color x y x y
-:t1 8 >> ink
-	>r
-|	r@+ r@+ r@+ r@+ fillbox3d
+:t1 8 >>
+	swap >r
+	r@+ r@+ swap
+	r@+ r@+ swap
+	+box
 	rdrop ;
 
 :t2
@@ -345,7 +308,6 @@
 
 :inidrawpant | adr --
 	'objs p.clear
-	0 0 pos 4.0 2.0 dim home
 	@+ swap @ swap
 	( over <? )(
 		dup inidrawbox
@@ -380,10 +342,10 @@
 
 :eslin 	|--
 	$01 colfnt 8 << or ,p
-	xxc ,p yyc 0.1 + ,p
-	0.1 'yyc +!
+	xxc ,p yyc ,p
 	xxc 3.2 + ,p yyc 0.01 + ,p
 	0 ,p 0 ,p 0 ,p
+	0.1 'yyc +!
 	>>cr ;
 
 :>>| | adr -- adr'
@@ -548,7 +510,7 @@
 
 	nplaca inidrawpant
 
-	placanow @ 0? ( exit )
+	placanow @ 0? ( exit drop ; )
     'nextdraw over $ffffff and
 	+time
 	drop
@@ -583,8 +545,7 @@
 |	nplaca drawpant
 	dtime
 	'fx p.draw
-
-0 0 pos 4.0 2.0 dim home
+|	0 0 pos 4.0 2.0 dim home
 	'objs p.draw
 	;
 
@@ -596,11 +557,10 @@
 	show xfb>scr
 		fonti azul
 |		dup "%d" print
-		[ dup "%h " print cr ; ] 'objs p.mapv
+|		[ dup "%h " print cr ; ] 'objs p.mapv
 
 		timedraw
 
-		[ "Cartel f2" 1.0 0.5 0 0 +cartel ; ] <f2>
 
 		'exit >esc<
 		cminiflecha ;
