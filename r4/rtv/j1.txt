@@ -5,16 +5,10 @@
 ^r4/lib/plqlib.txt
 ^r4/rtv/fx.spr
 
+#ti 0 0
 #fx 0 0
 #objs 0 0
 #movs 0 0
-
-:reset
-	'objs p.clear
-	'fx p.clear
-
-	'movs p.clear
-	;
 
 |-------------------------------------------
 :2color dup $f0f0f0 and dup 4 >> or swap $f0f0f and dup 4 << or ;
@@ -86,6 +80,7 @@
 
 |-----------------------------
 :stsprite
+	dup 7 2 << + @ 0? ( 2drop ; ) drop
 	>r
 	mpush
 	r@+ r@+ 0 mtransi
@@ -104,6 +99,7 @@
 	0 0 0 r!+ r!+ r!+	| rx ry rz
 	r!+					| s
 	r!+					| sprite
+	1 r!+				| estado
 	rdrop ;
 
 :sprite.n | nro -- spr
@@ -113,7 +109,10 @@
 	sprite.n 4+ >r swap r!+ r!+ rdrop ;
 
 :ns.sprite | s nro --
-	sprite.n 24 + >r r!+ rdrop ;
+	sprite.n 24 + ! ;
+
+:e.sprite | e nro --
+	sprite.n 8 2 << + ! ;
 
 :xy.sprite | x y obj --
 	4+ >r swap r!+ r!+ rdrop ;
@@ -137,7 +136,7 @@
 :slerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
 	over - t0 sin abs 16 *>> + ;
 
-
+|-------------------
 :movlinea
 	>r
 	r@+ deltat + dup r 4 - !
@@ -151,7 +150,28 @@
 
 :+linea | xf yf obj time --
 	'movlinea 'movs p!+ >r
-	0 r!+ r!+	| 0 tmax
+	0 r!+ 1000 *. r!+	| 0 tmax
+	dup r!+		| obj
+	| xf yf obj
+	4+ dup @ r!+ rot r!+
+	4+ @ r!+ r!+
+	rdrop
+	;
+
+:movlin
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ / 0.25 min 't0 !
+	r@+
+	4+ r@+ r@+ slerp over !	| x
+	4+ r@+ r@+ slerp swap !	| y
+	rdrop
+	t0 0.25 - 1? ( drop ; )
+	;
+
+:+lin | xf yf obj time --
+	'movlin 'movs p!+ >r
+	0 r!+ 1000 *. r!+	| 0 tmax
 	dup r!+		| obj
 	| xf yf obj
 	4+ dup @ r!+ rot r!+
@@ -195,9 +215,10 @@
 	rdrop ;
 
 :+time | 'exec tiempo --
-	'timex 'fx p!+ >r
+	'timex 'ti p!+ >r
 	0 r!+ r!+ r!+
 	rdrop ;
+
 |--------------
 #xcam #ycam #zcam 2.0
 
@@ -208,8 +229,10 @@
 	neg mrotx
 	mroty ;
 
+#solucion
 #nivel
-#lugar
+#veces
+#velocidad
 
 #levx1 -0.7 0.0 0.7
 #levx2 -0.9 -0.3 0.3 0.9
@@ -222,7 +245,7 @@
 #levx
 #levc
 
-:setlevel
+:setlevel | velocidad veces vasos --
 	dup 'nivel !
 	2 << dup dup
 	'levelc + @ 'levc !
@@ -230,6 +253,8 @@
 	'levels + @
 	0 ( levc <? )( 1+
     	2dup ns.sprite ) 2drop
+    'veces !
+    1000 *. 'velocidad !
 	;
 
 :randv | -- v
@@ -239,20 +264,46 @@
 	levx
 	0 ( levc <? )( 1+ swap
 		@+ 0.0 pick3 nxy.sprite
-		swap ) 2drop ;
+		1 pick2 e.sprite
+		swap ) nip
+	( 5 <? )( 1+
+		0 over e.sprite
+		) drop
+	0 0 e.sprite ;
 
 :showv
 	'fx p.clear
 	levx
 	0 ( levc <? )( 1+ swap
-		@+ pick2 swap 0.0 +letra
+		@+ pick2 swap 0.4 +letra
 		swap ) 2drop ;
+
+:upv
+	setv
+	1 0 e.sprite
+	levx
+	0 ( levc <? )( 1+ swap
+		@+ | nro adr x
+		-0.4 pick3 sprite.n 1.0
+		+lin | xf yf obj time --
+		swap ) 2drop ;
+
+:dnv
+	'fx p.clear
+	levx
+	0 ( levc <? )( 1+ swap
+		@+ | nro adr x
+		0.0 pick3 sprite.n 1.0
+		+lin | xf yf obj time --
+		swap ) 2drop ;
+
 
 :startlevel
 	setv
-	randv 'lugar !
+	upv
+	randv 'solucion !
 :ss
-	lugar 2 << levx + @ 0.0 0 nxy.sprite
+	solucion 2 << levx + @ 0.0 0 nxy.sprite
 	;
 
 :swapv
@@ -261,38 +312,63 @@
 	over 1+ sprite.n
 	over 1+ sprite.n
 	rand $1000 and? ( drop
-		2dup 0.25 1000 +swap swap 0.75 1000 +swap
+		2dup 0.25 velocidad +swap 
+		swap 0.75 velocidad +swap
 		)( drop
-		2dup -0.25 1000 +swap swap -0.75 1000 +swap
+		2dup -0.25 velocidad +swap
+		swap -0.75 velocidad +swap
 		)
 
-	lugar =? ( drop 'lugar ! ss ; )
-	swap lugar =? ( drop 'lugar ! ss ; )
+	solucion =? ( drop 'solucion ! ss ; )
+	swap solucion =? ( drop 'solucion ! ss ; )
 	2drop
 	ss
 	;
 
-:tapav
-	;
+:domovs
+	0 veces ( 1? )( 1-
+		'swapv pick2 +time
+		swap velocidad + 4+
+		swap ) 2drop ;
 
-:main
-	reset
-	33
+:start
+	'ti p.clear
+	'objs p.clear
+	'movs p.clear
+	'fx p.clear
+
 	'bola 0.2 0 0 +sprite
-
 	'vaso 0.4 -1.2 -0.1 +sprite
 	'vaso 0.4 -1.2 -0.2 +sprite
 	'vaso 0.4 -1.2 -0.3 +sprite
 	'vaso 0.4 -1.2 -0.4 +sprite
 	'vaso 0.4 -1.2 -0.5 +sprite
 
-	2 setlevel
+	0.5 6 0 setlevel
+	;
+
+:juego
 	startlevel
+	1000
+	'dnv over +time
+	500 +
+	'domovs over +time
+	velocidad veces * +
+	'showv over +time
+	1500 +
+    'upv over +time
+	1500 +
+	'dnv over +time
+    drop
+	;
+
+:main
+	start
+	33
 	itime
 	show clrscr
 		fonti
 		dup "%d" print
-
 		omode
 |		freelook
 |		msec 4 << mroty
@@ -301,33 +377,32 @@
 		7 0.5 setfont3d
 		0 0 pos 3.0 2.0 dim home
 		violeta
-		"Sigue la bola" print cr
-		lugar " %d " print
-|		tx1 ty1 tx2 ty2 rect
-
-|        0 0 boxpad msec "%d" mprint msec 7 >> boxprintn
-
-|		msec 4 << $7fff and $3fff + sincos 0 nxy.sprite
+		"Recuerda el lugar" printc
+|		solucion " %d " print
 
 		dtime
-		'movs p.draw
+		'ti p.draw
 
+		'movs p.draw
 		'objs p.draw
 		'fx p.draw
 
-		[ swapv 'swapv 1000 +time ; ] <f1>
-		'showv <f2>
-|		[ "Cartel f2" 1.0 0.5 0 0 +cartel ; ] <f2>
+		'juego <f1>
+|		'domovs <f1>
+|		'showv <f2>
+|		'upv <f3>
+|		'dnv <f4>
 
-		[ 0.5 -0.8 0 sprite.n 1000 +linea ; ] <f3>
-		[ 0.5 -0.9 1 sprite.n 3000 +linea ; ] <f4>
-		[ nivel 1+ 3 mod setlevel startlevel ; ] <f5>
+		[ 0.3 8 nivel 1+ 3 mod setlevel startlevel ; ] <f5>
 
 		'exit >esc<
 		cminiflecha ;
 
+
+
 :memoria
 	mark
+	256 'ti p.ini
 	256 'objs p.ini
 	256 'movs p.ini
 	1024 'fx p.ini
