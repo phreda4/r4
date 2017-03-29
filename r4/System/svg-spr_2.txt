@@ -25,10 +25,6 @@
 :nextline | adr -- adr'
 	( c@+ 32 >=? )( drop ) 0? ( nip ; ) drop ;
 
-:>>,
-	trim
-	dup c@ $2c =? ( drop 1+ ; ) drop ;
-
 |-------------------------
 #colsvg
 #svgx #svgy
@@ -48,53 +44,11 @@
 #buffer )( $ffff
 #buffer> 'buffer
 
-#xmax #ymax #xmin #ymin
-
-#scale
-#sx #sy
-
-#x1 #y1
-#x2 #y2
-#x3 #y3
-
-:buff.trace
-	fonti
-	'buffer
-	4+
-	@+ dup 'xmax ! 'xmin !
-	@+ dup 'ymax ! 'ymin !
-	( buffer> <? )(
-		@+ $a <=? ( drop
-			@+ xmax >? ( dup 'xmax ! ) xmin <? ( dup 'xmin ! ) drop
-			@+ ymax >? ( dup 'ymax ! ) ymin <? ( dup 'ymin ! ) drop
-			)( drop 8 + )
-		) drop
-
-	xmax xmin - ymax ymin - max 1.0 swap 0? ( 1+ ) /. 'scale !
-	xmin xmax + 2/ neg 'sx !
-	ymin ymax + 2/ neg 'sy !
-
-	'buffer
-	0 0 op
-	( buffer> <? )(
-		@+ dup "%h " print
-		$a <=? ( drop
-			@+ sx + scale *. 500 *. 250 + >r
-			@+ sy + scale *. 400 *. 200 + r>
-			swap 2dup "%d %d" print cr allowchome
-			line
-			)( drop 8 + )
-		) drop
-	;
-
 :buff.ini
 	'buffer 'buffer> ! ;
 
 :,buff | x y t --
-	>r swap r> buffer> !+ !+ !+ 'buffer> !
-
-|	fonti verde show clrscr buff.trace 'exit >esc< | debug***
-	;
+	>r swap r> buffer> !+ !+ !+ 'buffer> ! ;
 
 :,line | x y --
 	3 ,buff ;
@@ -121,6 +75,10 @@
 :,poly
 	colsvg 4 << 0 $d ,buff ;
 
+#xmax #ymax #xmin #ymin
+
+#scale
+#sx #sy
 
 | a 14 bits
 :buff.redim
@@ -162,14 +120,13 @@
 		r> ) drop
 	0 ,spr ;
 
-
 |----------
 :getpoly | adr --
 	$22 swap findc 0? ( drop ; ) | "
-	getfenro 'svgx ! 1+ getfenro 'svgy ! trim
+	getfnro 'svgx ! 1+ getfnro 'svgy ! trim
 	svgx svgy ,op
 	( dup c@ $22 <>? )( drop
-		getfenro 'svgx ! 1+ getfenro 'svgy ! trim
+		getfnro 'svgx ! 1+ getfnro 'svgy ! trim
 		svgx svgy ,line
 		) drop
 	,last
@@ -178,168 +135,138 @@
 
 
 |------------------------
+#x1 #y1 #x2 #y2
 :getvb | adr --
-	getfenro 'x1 !
-	getfenro 'y1 !
-	getfenro 'x2 !
-	getfenro 'y2 !
+	getfnro 'x1 !
+	getfnro 'y1 !
+	getfnro 'x2 !
+	getfnro 'y2 !
 	x2 x1 - y2 y1 - dim
 	x1 x2 + 2/ y1 y2 + 2/ pos
 	;
 
 |----------------------SVG path-----------------------
-:lineto | adr -- adr' ; XY
-	x1 y1 'y2 ! 'x2 !
-	getfenro 'x1 !
-	>>,
-	getfenro 'y1 !
-	>>,
-	x1 y1 ,line
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop lineto ; ) drop ;
-
-:linetor | adr -- adr' ; xy
-	x1 y1 'y2 ! 'x2 !
-	getfenro 'x1 +!
-	>>,
-	getfenro 'y1 +!
-	>>,
-	x1 y1 ,line
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop linetor ; ) drop ;
+#sx $100 #sy $100
+#x1 #y1
+#x2 #y2
+#x3 #y3
 
 :moveto | adr -- adr' ; XY
-	getfenro 'x1 !
-	>>,
-	getfenro 'y1 !
-	>>,
-	x1 y1 ,op
-   	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop lineto ; ) drop ;
-
+	getfnro 'x1 !
+	getfnro 'y1 !
+	x1 y1 ,op ;
 :movetor | adr -- adr' ; xy
-	getfenro 'x1 +!
-	>>,
-	getfenro 'y1 +!
-	>>,
-	x1 y1 ,op
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop linetor ; ) drop ;
+	getfnro 'x1 +!
+	getfnro 'y1 +!
+	x1 y1 ,op ;
 
+:lineto | adr -- adr' ; XY
+	x1 y1 'y2 ! 'x2 !
+	getfnro 'x1 !
+	getfnro 'y1 !
+	x1 y1 ,line ;
+:linetor | adr -- adr' ; xy
+	x1 y1 'y2 ! 'x2 !
+	getfnro 'x1 +!
+	getfnro 'y1 +!
+	x1 y1 ,line ;
 :hori | adr -- adr' ; X
 	x1 y1 'y2 ! 'x2 !
-	getfenro 'x1 !
+	getfnro 'x1 !
 	x1 y1 ,line ;
 :horir | adr -- adr' ; X
 	x1 y1 'y2 ! 'x2 !
-	getfenro 'x1 +!
+	getfnro 'x1 +!
 	x1 y1 ,line ;
 :vert | adr -- adr' ; Y
 	x1 y1 'y2 ! 'x2 !
-	getfenro 'y1 !
+	getfnro 'y1 !
 	x1 y1 ,line ;
 :vertr | adr -- adr' ; Y
 	x1 y1 'y2 ! 'x2 !
-	getfenro 'y1 +!
+	getfnro 'y1 +!
 	x1 y1 ,line ;
 :ccurve | adr -- adr' ; XYXYXY
-	getfenro 'x3 !
-	>>,
-	getfenro 'y3 !
-	>>,
-	getfenro 'x2 !
-	>>,
-	getfenro 'y2 !
-	>>,
-	getfenro 'x1 !
-	>>,
-	getfenro 'y1 !
-	>>,
+	getfnro 'x3 !
+	getfnro 'y3 !
+	getfnro 'x2 !
+	getfnro 'y2 !
+	getfnro 'x1 !
+	getfnro 'y1 !
 	x3 y3 ,cp
 	x2 y2 ,cp2
-	x1 y1 ,curve2
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop ccurve ; ) drop
-	;
+	x1 y1 ,curve2 ;
 :ccurver | adr -- adr' ; XYXYXY
-	getfenro x1 + 'x3 !
-	>>,
-	getfenro y1 + 'y3 !
-	>>,
-	getfenro x1 + 'x2 !
-	>>,
-	getfenro y1 + 'y2 !
-	>>,
-	getfenro x1 + 'x1 !
-	>>,
-	getfenro y1 + 'y1 !
-	>>,
+	getfnro x1 + 'x3 !
+	getfnro y1 + 'y3 !
+	getfnro x1 + 'x2 !
+	getfnro y1 + 'y2 !
+	getfnro x1 + 'x1 !
+	getfnro y1 + 'y1 !
 	x3 y3 ,cp
 	x2 y2 ,cp2
 	x1 y1 ,curve2
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop ccurver ; ) drop
+	dup c@ $40 <? ( drop ccurver ; ) drop
 	;
 :surve | adr -- adr' ; XYXY
 	x1 2* x2 - 'x3 !
 	y1 2* y2 - 'y3 !
-	getfenro 'x2 !
-	getfenro 'y2 !
-	getfenro 'x1 !
-	getfenro 'y1 !
+	getfnro 'x2 !
+	getfnro 'y2 !
+	getfnro 'x1 !
+	getfnro 'y1 !
 	x3 y3 ,cp
 	x2 y2 ,cp2
 	x1 y1 ,curve2 ;
 :surver | adr -- adr' ; XYXY
 	x1 2* x2 - 'x3 !
 	y1 2* y2 - 'y3 !
-	getfenro x1 + 'x2 !
-	getfenro y1 + 'y2 !
-	getfenro x1 + 'x1 !
-	getfenro y1 + 'y1 !
+	getfnro x1 + 'x2 !
+	getfnro y1 + 'y2 !
+	getfnro x1 + 'x1 !
+	getfnro y1 + 'y1 !
 	x3 y3 ,cp
 	x2 y2 ,cp2
 	x1 y1 ,curve2 ;
 :qurve | adr -- adr' ; XYXY
-	getfenro 'x2 !
-	getfenro 'y2 !
-	getfenro 'x1 !
-	getfenro 'y1 !
+	getfnro 'x2 !
+	getfnro 'y2 !
+	getfnro 'x1 !
+	getfnro 'y1 !
 	x2 y2 ,cp
 	x1 y1 ,curve ;
 :qurver | adr -- adr' ; XYXY
-	getfenro x1 + 'x2 !
-	getfenro y1 + 'y2 !
-	getfenro x1 + 'x1 !
-	getfenro y1 + 'y1 !
+	getfnro x1 + 'x2 !
+	getfnro y1 + 'y2 !
+	getfnro x1 + 'x1 !
+	getfnro y1 + 'y1 !
 	x2 y2 ,cp
 	x1 y1 ,curve ;
 :turve | adr -- adr' ; XY
 	x1 2* x2 - 'x2 !
 	y1 2* y2 - 'y2 !
-	getfenro 'x1 !
-	getfenro 'y1 !
+	getfnro 'x1 !
+	getfnro 'y1 !
 	x2 y2 ,cp
 	x1 y1 ,curve ;
 :turver | adr -- adr' ; XY
 	x1 2* x2 - 'x2 !
 	y1 2* y2 - 'y2 !
-	getfenro x1 + 'x1 !
-	getfenro y1 + 'y1 !
+	getfnro x1 + 'x1 !
+	getfnro y1 + 'y1 !
 	x2 y2 ,cp
 	x1 y1 ,curve ;
 
 :ellip | adr -- adr' ; XY
 :ellipr
-	getfenro 'x1 !
-	getfenro 'y1 !
-	getfenro 'x1 !
-	getfenro 'y1 !
-	getfenro 'x1 !
-	getfenro 'y1 !
+	getfnro 'x1 !
+	getfnro 'y1 !
+	getfnro 'x1 !
+	getfnro 'y1 !
+	getfnro 'x1 !
+	getfnro 'y1 !
 	;
 :close | adr -- adr'
-    ,last
 	,poly ;
 
 :resolve | adr char -- adr'
@@ -365,16 +292,17 @@
 	$7a =? ( drop close ; )		| z
 	drop ;
 
-
 :getpath | adr --
-	0 dup 'x1 ! 'y1 !
-	0 dup 'x2 ! 'y2 !
-	0 dup 'x3 ! 'y3 !
 	3 +
-	( trim c@+ 0? ( drop 1- ; )
-		$22 <>? )( resolve ) drop ;
+	( trim
+		c@+ 0? ( drop 1- ; )
+		$22 <>? )( resolve ) drop  ;
 
 |------------------------
+:decodelimits | adr adrpoly -- adr
+	dup "viewbox=" findl 1? ( getvb ) drop
+	drop
+	;
 
 :decodepoly | adr adrpoly -- adr
 	dup "fill=" findl 1? ( getcolor ) drop
@@ -389,64 +317,21 @@
 	">" find
 	;
 
-
-:next> | adr --
-	( c@+ 1? )(
-		$3e =? ( drop ; )
-		drop ) drop 1- ;
-
-:decode<svg | adr -- adr
-	5 + | <svg
-
-	dup "viewbox=" findl 1? ( getvb ) drop
-	drop
+:findline | adr -- adr
+	dup "<svg" findl 1? ( decodelimits ; ) drop
+	dup "<polygon" findl 1? ( decodepoly ; ) drop
+	dup "<path" findl 1? ( decodepath ; ) drop
 	;
-
-
-:es<svg
-	next> ;
-:es<polygon
-	next> ;
-
-:esPd
-	getpath ;
-:esPi
-	4+ ( c@+ 0? ( drop 1- ; )
-		$22 <>? )( drop ) drop ;
-
-:pathd
-	dup "id=" =p 1? ( drop esPi )( drop )
-	dup "d=" =p 1? ( drop esPd ; ) drop
-|	dup "fill=" =p 1? ( drop esPf )( drop )
-|	dup "style=" =p 1? ( drop esPs )( drop )
-	1+
-	;
-
-:es<path
-	( trim dup c@ 1? )(
-		$3e =? ( drop 1+ ; ) drop | >
-		pathd ) drop ;
-
-:es<
-|	dup "svg" =p 1? ( drop es<svg ; ) drop
-|	dup "polygon" =p 1? ( drop es<polygon ; ) drop
-	dup "path" =p 1? ( drop es<path ; ) drop
-
-|	dup "polyline" =p 1? ( decodepath ; ) drop
-|	dup "rect" =p 1? ( decodepath ; ) drop
-|	dup "circle" =p 1? ( decodepath ; ) drop
-|	dup "ellipse" =p 1? ( decodepath ; ) drop
-|	dup "line" =p 1? ( decodepath ; ) drop
-
-	next> ;
 
 :convertsvg | adr --
 	buff.ini
 
 	$end '$spr !
-	( trim c@+ 1? )(
-		$3c =? ( drop es< )( drop )
-		) 2drop
+	( 1? )(
+		trim
+		findline
+		nextline
+		) drop
 
 	buff.redim
 	buff.emit
@@ -475,10 +360,7 @@
 		cyan cr
 		'cargasvg dup <f1> "F1-Load SVG" sp btnt
 |		'savespr "SAVE" sp btnt
-		cr cr
-|		buffer> 'buffer - 3 / "%d " print cr
-|		xmin ymin "%f %f" print cr
-|		xmax ymax "%f %f" print cr
+
 		muestraspr
 
 		'exit >esc<
