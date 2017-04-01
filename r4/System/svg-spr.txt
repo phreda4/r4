@@ -10,13 +10,33 @@
 
 #$start
 #$end
+#buffer
+#buffer>
+#$spr
+#$spr>
+
+#xmax #ymax #xmin #ymin
+
+#yend #xend
+
+#scale
+#sx #sy
+
+#x1 #y1
+#x2 #y2
+#x3 #y3
+
+#colsvg
+#svgx #svgy
+#dvgx #dvgy
+
 
 |------------------ PARSE
 :=p | s1 s2 -- 1/0
 	( c@+ 1? )( rot c@+ rot - 1? ( 3drop 0 ; ) drop swap ) 3drop 1 ;
 
-:findl | adr "texto" -- adr'/0
-	( 2dup =p 0? )( drop swap 1+ dup c@ 32 <? ( 3drop 0 ; ) drop swap ) 2drop ;
+:findl | adr "texto" -- adr'
+	( 2dup =p 0? )( drop swap 1+ dup c@ 0? ( drop nip ; ) drop swap ) 2drop ;
 
 :findc | 13 adr -- adr'
 	( c@+ 1? )( pick2 =? ( drop nip ; ) drop ) nip nip ;
@@ -28,17 +48,22 @@
 	( c@+ 32 >=? )( drop ) 0? ( nip ; ) drop ;
 
 :>>,
-	trim
-	dup c@ $2c =? ( drop 1+ ; ) drop ;
+	trim dup c@ $2c =? ( drop 1+ trim ; ) drop ;
+
+:next> | adr -- adr'
+	( c@+ 1? )( $3e =? ( drop ; ) drop ) drop 1- ;
+
+:>>" | adr -- adr'
+	( c@+ 1? )( $22 =? ( drop ; ) drop ) drop 1- ;
+:>>(
+	( c@+ 1? )( $28 =? ( drop ; ) drop ) drop 1- ;
+:>>)
+	( c@+ 1? )( $29 =? ( drop ; ) drop ) drop 1- ;
 
 |-------------------------
-#colsvg
-#svgx #svgy
-
-#$spr
 
 :,spr | nro --
-	 $spr !+ '$spr ! ;
+	 $spr> !+ '$spr> ! ;
 
 :getcolor | adr --
 	$23 swap findc 0? ( drop ; ) | #
@@ -46,24 +71,14 @@
 	;
 
 |--------buffer----------
-#yend #xend
-#buffer )( $ffff
-#buffer> 'buffer
-
-#xmax #ymax #xmin #ymin
-
-#scale
-#sx #sy
-
-#x1 #y1
-#x2 #y2
-#x3 #y3
-
 :buff.ini
-	'buffer 'buffer> ! ;
+	$end dup 'buffer ! 'buffer> ! ;
 
 :,buff | x y t --
-	>r swap r> buffer> !+ !+ !+ 'buffer> ! ;
+	>r
+	svgy *. dvgy + swap
+	svgx *. dvgx +
+	r> buffer> !+ !+ !+ 'buffer> ! ;
 
 :,line | x y --
 	3 ,buff ;
@@ -90,13 +105,15 @@
 :,last | --
 	xend yend 3 ,buff ;
 
+
 :,poly
-	colsvg 4 << 0 $d ,buff ;
+	0 colsvg $d
+	buffer> !+ !+ !+ 'buffer> ! ;
 
 
 | a 14 bits
 :buff.redim
-	'buffer
+	buffer
 	4+
 	@+ dup 'xmax ! 'xmin !
 	@+ dup 'ymax ! 'ymin !
@@ -107,11 +124,11 @@
 			)( drop 8 + )
 		) drop
 
-	xmax xmin - ymax ymin - max 1.0 swap /. 'scale !
+	xmax xmin - ymax ymin - max 1.8 swap /. 'scale !
 	xmin xmax + 2/ neg 'sx !
 	ymin ymax + 2/ neg 'sy !
 
-	'buffer
+	buffer
 	( buffer> <? )(
 		@+ $a <=? ( drop
 			dup @ sx + scale *. swap !+
@@ -125,7 +142,7 @@
 	15 << $fffc0000 and or ;
 
 :buff.emit
-	'buffer ( buffer> <? )( >r
+	buffer ( buffer> <? )( >r
 		r@+
 		$a <=? (
 			r@+ r@+ xy>o swap or ,spr
@@ -143,12 +160,12 @@
 :e3 valxy 5 or ,spr ;
 :e2 valxy 6 or ,spr 4+ valxy ,spr ;
 :e8 valxy 7 or ,spr 4+ valxy ,spr 4+ valxy ,spr ;
-:eb	colsvg 8 << $c or ,spr ;
+:eb	@+ 8 << $c or ,spr 4+ ;
 
 #lemit e0 e1 e2 e3 e0 e0 e0 e0 e8 e0 e0 eb eb eb eb eb
 
 :buff.emitv
-	'buffer ( buffer> <? )(
+	buffer ( buffer> <? )(
 		@+ 2 << 'lemit + @ exec
 		) drop
 	0 ,spr ;
@@ -168,6 +185,12 @@
 	;
 
 
+:decodepoly | adr adrpoly -- adr
+	dup "fill=" findl 1? ( getcolor ) drop
+	dup "points=" findl 1? ( getpoly ) drop
+	drop
+	;
+
 |------------------------
 :getvb | adr --
 	getfenro 'x1 ! >>,
@@ -179,152 +202,135 @@
 	;
 
 |----------------------SVG path-----------------------
+:getxy | adr -- adr' x y
+	getfenro swap >>,
+	getfenro swap >>,
+	rot rot ;
+
+:nextnro | adr -- adr 1/0
+	dup c@ $22 =? ( ; ) $40 <? ( drop 0 ; ) ;
+
 :lineto | adr -- adr' ; XY
 	x1 y1 'y2 ! 'x2 !
-	getfenro 'x1 ! >>,
-	getfenro 'y1 ! >>,
+	getxy 'y1 ! 'x1 !
 	x1 y1 ,line
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop lineto ; ) drop ;
+	nextnro 1? ( drop ; ) drop
+	lineto ;
 
 :linetor | adr -- adr' ; xy
 	x1 y1 'y2 ! 'x2 !
-	getfenro 'x1 +! >>,
-	getfenro 'y1 +! >>,
+	getxy 'y1 +! 'x1 +!
 	x1 y1 ,line
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop linetor ; ) drop ;
+	nextnro 1? ( drop ; ) drop
+	linetor ;
 
 :moveto | adr -- adr' ; XY
-	getfenro 'x1 !	>>,
-	getfenro 'y1 !  >>,
+	getxy  'y1 ! 'x1 !
 	x1 y1 ,op
-   	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop lineto ; ) drop ;
+	nextnro 1? ( drop ; ) drop
+	lineto ;
 
 :movetor | adr -- adr' ; xy
-	getfenro 'x1 +! >>,
-	getfenro 'y1 +! >>,
+	getxy  'y1 +! 'x1 +!
 	x1 y1 ,op
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop linetor ; ) drop ;
+	nextnro 1? ( drop ; ) drop
+	linetor ;
 
 :hori | adr -- adr' ; X
 	x1 y1 'y2 ! 'x2 !
 	getfenro 'x1 !
 	x1 y1 ,line ;
+
 :horir | adr -- adr' ; X
 	x1 y1 'y2 ! 'x2 !
 	getfenro 'x1 +!
 	x1 y1 ,line ;
+
 :vert | adr -- adr' ; Y
 	x1 y1 'y2 ! 'x2 !
 	getfenro 'y1 !
 	x1 y1 ,line ;
+
 :vertr | adr -- adr' ; Y
 	x1 y1 'y2 ! 'x2 !
 	getfenro 'y1 +!
 	x1 y1 ,line ;
+
 :ccurve | adr -- adr' ; XYXYXY
-	getfenro 'x3 ! >>,
-	getfenro 'y3 ! >>,
-	getfenro 'x2 ! >>,
-	getfenro 'y2 ! >>,
-	getfenro 'x1 ! >>,
-	getfenro 'y1 ! >>,
+	getxy 'y3 ! 'x3 !
+	getxy 'y2 ! 'x2 !
+	getxy 'y1 ! 'x1 !
 	x1 y1 ,cp2
 	x2 y2 ,cp3
 	x3 y3 ,curve3
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop ccurve ; ) drop
-	;
+	nextnro 1? ( drop ; ) drop
+	ccurve ;
+
 :ccurver | adr -- adr' ; XYXYXY
-	getfenro x1 + 'x3 ! >>,
-	getfenro y1 + 'y3 ! >>,
-	getfenro x1 + 'x2 ! >>,
-	getfenro y1 + 'y2 ! >>,
-	getfenro x1 + 'x1 ! >>,
-	getfenro y1 + 'y1 ! >>,
+	getxy y1 + 'y3 ! x1 + 'x3 !
+	getxy y1 + 'y2 ! x1 + 'x2 !
+	getxy y1 + 'y1 ! x1 + 'x1 !
 	x1 y1 ,cp2
 	x2 y2 ,cp3
 	x3 y3 ,curve3
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop ccurver ; ) drop
-	;
+	nextnro 1? ( drop ; ) drop
+	ccurver ;
+
 :surve | adr -- adr' ; XYXY
-|	x1 2* x2 - 'x3 !
-|	y1 2* y2 - 'y3 !
 	x1 dup x2 - + 'x3 !
 	y1 dup y2 - + 'y3 !
-	getfenro 'x2 ! >>,
-	getfenro 'y2 ! >>,
-	getfenro 'x1 ! >>,
-	getfenro 'y1 ! >>,
+	getxy 'y2 ! 'x2 !
+	getxy 'y1 ! 'x1 !
 	x1 y1 ,cp2
 	x2 y2 ,cp3
 	x3 y3 ,curve3
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop surve ; ) drop
-	;
+	nextnro 1? ( drop ; ) drop
+	surve ;
 
 :surver | adr -- adr' ; XYXY
-|	x1 2* x2 - 'x3 !
-|	y1 2* y2 - 'y3 !
 	x1 dup x2 - + 'x3 !
 	y1 dup y2 - + 'y3 !
-	getfenro x1 + 'x2 ! >>,
-	getfenro y1 + 'y2 ! >>,
-	getfenro x1 + 'x1 ! >>,
-	getfenro y1 + 'y1 ! >>,
+	getxy y1 + 'y2 ! x1 + 'x2 !
+	getxy y1 + 'y1 ! x1 + 'x1 !
 	x1 y1 ,cp2
 	x2 y2 ,cp3
 	x3 y3 ,curve3
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop surver ; ) drop
-	;
+	nextnro 1? ( drop ; ) drop
+	surver ;
+
 :qurve | adr -- adr' ; XYXY
-	getfenro 'x2 ! >>,
-	getfenro 'y2 ! >>,
-	getfenro 'x1 ! >>,
-	getfenro 'y1 ! >>,
+	getxy 'y2 ! 'x2 !
+	getxy 'y1 ! 'x1 !
 	x1 y1 ,cp
 	x2 y2 ,curve
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop qurve ; ) drop
-	;
+	nextnro 1? ( drop ; ) drop
+	qurve ;
 
 :qurver | adr -- adr' ; XYXY
-	getfenro x1 + 'x2 ! >>,
-	getfenro y1 + 'y2 ! >>,
-	getfenro x1 + 'x1 ! >>,
-	getfenro y1 + 'y1 ! >>,
+	getxy y1 + 'y2 ! x1 + 'x2 !
+	getxy y1 + 'y1 ! x1 + 'x1 !
 	x1 y1 ,cp
 	x2 y2 ,curve
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop qurver ; ) drop
-	;
+	nextnro 1? ( drop ; ) drop
+	qurver ;
 
 :turve | adr -- adr' ; XY
 	x1 2* x2 - 'x2 !
 	y1 2* y2 - 'y2 !
-	getfenro 'x1 !
-	getfenro 'y1 !
+	getxy 'y1 ! 'x1 !
 	x1 y1 ,cp
 	x2 y2 ,curve
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop turve ; ) drop
-	;
+	nextnro 1? ( drop ; ) drop
+	turve ;
 
 :turver | adr -- adr' ; XY
 	x1 2* x2 - 'x2 !
 	y1 2* y2 - 'y2 !
-	getfenro x1 + 'x1 ! >>,
-	getfenro y1 + 'y1 ! >>,
+	getxy 'y1 +! 'x1 +!
 	x1 y1 ,cp
 	x2 y2 ,curve
-	dup c@ $22 =? ( drop ; )
-	$40 <? ( drop qurver ; ) drop
-	;
+	nextnro 1? ( drop ; ) drop
+	turver ;
 
 :ellip | adr -- adr' ; XY
 :ellipr
@@ -336,9 +342,7 @@
 	getfenro 'y1 ! >>,
 	;
 :close | adr -- adr'
-    ,last
-	|,poly
-	;
+    ,last ;
 
 :resolve | adr char -- adr'
 	$4d =? ( drop moveto ; )	| M move
@@ -368,31 +372,12 @@
 	0 dup 'x1 ! 'y1 !
 	0 dup 'x2 ! 'y2 !
 	0 dup 'x3 ! 'y3 !
-	3 +
 	( trim c@+ 0? ( drop 1- ; )
-		$22 <>? )( resolve ) drop 
-		,poly ;
+		$22 <>? )( resolve ) drop
+		;
 
 |------------------------
 
-:decodepoly | adr adrpoly -- adr
-	dup "fill=" findl 1? ( getcolor ) drop
-	dup "points=" findl 1? ( getpoly ) drop
-	drop
-	;
-
-:decodepath | adr adrpoly -- adr
-	dup "fill=" findl 1? ( getcolor ) drop
-	dup "d=" findl 1? ( getpath ) drop
-	drop
-	">" find
-	;
-
-
-:next> | adr --
-	( c@+ 1? )(
-		$3e =? ( drop ; )
-		drop ) drop 1- ;
 
 :decode<svg | adr -- adr
 	5 + | <svg
@@ -407,28 +392,76 @@
 :es<polygon
 	next> ;
 
+|---------
 :esPd
-	getpath ;
+	>>" getpath ;
 :esPi
-	4+ ( c@+ 0? ( drop 1- ; )
+	>>" ( c@+ 0? ( drop 1- ; )
 		$22 <>? )( drop ) drop ;
 
+:esfill
+	5 + str$>nro 'colsvg ! ;
+
+:rePs
+	dup 1- "fill:#" =p 1? ( drop esfill ; ) drop
+	;
+:esPs
+	>>"
+	( trim c@+ 0? ( drop 1- ; )
+		$22 <>? )( drop rePs ) drop ;
+
+:reTr
+	dup 1- "scale(" =p 1? ( drop >>( getxy 'svgy ! 'svgx ! >>) ; ) drop
+	dup 1- "translate(" =p 1? ( drop >>( getxy 'dvgy ! 'dvgx ! >>) ; ) drop
+	dup 1- "matrix(" =p 1? ( drop >>( >>) ; ) drop
+	dup 1- "rotate(" =p 1? ( drop >>( >>) ; ) drop
+	;
+
+:esTr
+	>>"
+	( trim c@+ 0? ( drop 1- ; )
+		$22 <>? )( drop reTr ) drop ;
+
 :pathd
-	dup "id=" =p 1? ( drop esPi )( drop )
+	dup "id=" =p 1? ( drop esPi ; ) drop
 	dup "d=" =p 1? ( drop esPd ; ) drop
+	dup "style=" =p 1? ( drop esPs ; ) drop
+	dup "transform=" =p 1? ( drop esTr ; ) drop
+
 |	dup "fill=" =p 1? ( drop esPf )( drop )
-|	dup "style=" =p 1? ( drop esPs )( drop )
+
 	1+
 	;
 
 :es<path
 	( trim dup c@ 1? )(
-		$3e =? ( drop 1+ ; ) drop | >
+		$3e =? ( drop 1+ ,poly ; ) drop | >
 		pathd ) drop ;
+|---------
+
+:esg
+	dup "id=" =p 1? ( drop esPi ; ) drop
+	dup "style=" =p 1? ( drop esPs ; ) drop
+	dup "transform=" =p 1? ( drop esTr ; ) drop
+	1+
+	;
+
+:es<g
+	( trim dup c@ 1? )(
+		$3e =? ( drop 1+ ; ) drop | >
+		esg ) drop ;
+
+:es</g
+	next> ;
+
+
+:clipath
+	"</clipPath>" findl 11 + ;
 
 :es<
 |	dup "svg" =p 1? ( drop es<svg ; ) drop
 |	dup "polygon" =p 1? ( drop es<polygon ; ) drop
+
 	dup "path" =p 1? ( drop es<path ; ) drop
 
 |	dup "polyline" =p 1? ( decodepath ; ) drop
@@ -437,17 +470,23 @@
 |	dup "ellipse" =p 1? ( decodepath ; ) drop
 |	dup "line" =p 1? ( decodepath ; ) drop
 
+	dup "g" =p 1? ( drop es<g ; ) drop
+	dup "/g" =p 1? ( drop es</g ; ) drop
+
+	dup "clipPath" =p 1? ( drop clipath ; ) drop
 	next> ;
 
 :convertsvg | adr --
-	buff.ini
+	1.0 dup 'svgx ! 'svgy !
+	0 dup 'dvgx ! 'dvgy !
 
-	$end '$spr !
+	buff.ini
 	( trim c@+ 1? )(
 		$3c =? ( drop es< )( drop )
 		) 2drop
-
 	buff.redim
+
+   	buffer> dup '$spr ! '$spr> !
 |	buff.emit
 	buff.emitv
 	;
@@ -464,8 +503,8 @@
 	0.8 %s dup dim 0 dup fpos
 	$c0c0c0 ink gc.fbox
 	gris 8 rgrilla
-|	$end nsprite
-	$end vesprite
+|	$spr nsprite
+	$spr vesprite
 	;
 
 :main
@@ -477,7 +516,6 @@
 		'cargasvg dup <f1> "F1-Load SVG" sp btnt
 |		'savespr "SAVE" sp btnt
 		cr cr
-|		buffer> 'buffer - 3 / "%d " print cr
 |		xmin ymin "%f %f" print cr
 |		xmax ymax "%f %f" print cr
 		muestraspr
