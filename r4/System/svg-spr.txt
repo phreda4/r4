@@ -6,6 +6,8 @@
 ^r4/lib/trace.txt
 ^r4/lib/dlgfile.txt
 
+^r4/lib/vesprite.txt
+
 #$start
 #$end
 
@@ -57,44 +59,11 @@
 #x2 #y2
 #x3 #y3
 
-:buff.trace
-	fonti
-	'buffer
-	4+
-	@+ dup 'xmax ! 'xmin !
-	@+ dup 'ymax ! 'ymin !
-	( buffer> <? )(
-		@+ $a <=? ( drop
-			@+ xmax >? ( dup 'xmax ! ) xmin <? ( dup 'xmin ! ) drop
-			@+ ymax >? ( dup 'ymax ! ) ymin <? ( dup 'ymin ! ) drop
-			)( drop 8 + )
-		) drop
-
-	xmax xmin - ymax ymin - max 1.0 swap 0? ( 1+ ) /. 'scale !
-	xmin xmax + 2/ neg 'sx !
-	ymin ymax + 2/ neg 'sy !
-
-	'buffer
-	0 0 op
-	( buffer> <? )(
-		@+ dup "%h " print
-		$a <=? ( drop
-			@+ sx + scale *. 500 *. 250 + >r
-			@+ sy + scale *. 400 *. 200 + r>
-			swap 2dup "%d %d" print cr allowchome
-			line
-			)( drop 8 + )
-		) drop
-	;
-
 :buff.ini
 	'buffer 'buffer> ! ;
 
 :,buff | x y t --
-	>r swap r> buffer> !+ !+ !+ 'buffer> !
-
-|	fonti verde show clrscr buff.trace 'exit >esc< | debug***
-	;
+	>r swap r> buffer> !+ !+ !+ 'buffer> ! ;
 
 :,line | x y --
 	3 ,buff ;
@@ -110,9 +79,12 @@
 	4 ,buff ;
 
 :,cp2 | x y --
+	8 ,buff ;
+
+:,cp3 | x y --
 	9 ,buff ;
 
-:,curve2 | x y --
+:,curve3 | x y --
 	10 ,buff ;
 
 :,last | --
@@ -162,6 +134,25 @@
 		r> ) drop
 	0 ,spr ;
 
+|--vesprite
+:valxy
+	@+ swap @+ rot swap xy>o ;
+
+:e0 8 + ;
+:e1 valxy 4 or ,spr ;
+:e3 valxy 5 or ,spr ;
+:e2 valxy 6 or ,spr 4+ valxy ,spr ;
+:e8 valxy 7 or ,spr 4+ valxy ,spr 4+ valxy ,spr ;
+:eb	colsvg 8 << $c or ,spr ;
+
+#lemit e0 e1 e2 e3 e0 e0 e0 e0 e8 e0 e0 eb eb eb eb eb
+
+:buff.emitv
+	'buffer ( buffer> <? )(
+		@+ 2 << 'lemit + @ exec
+		) drop
+	0 ,spr ;
+
 
 |----------
 :getpoly | adr --
@@ -179,10 +170,10 @@
 
 |------------------------
 :getvb | adr --
-	getfenro 'x1 !
-	getfenro 'y1 !
-	getfenro 'x2 !
-	getfenro 'y2 !
+	getfenro 'x1 ! >>,
+	getfenro 'y1 ! >>,
+	getfenro 'x2 ! >>,
+	getfenro 'y2 ! >>,
 	x2 x1 - y2 y1 - dim
 	x1 x2 + 2/ y1 y2 + 2/ pos
 	;
@@ -241,9 +232,9 @@
 	getfenro 'y2 ! >>,
 	getfenro 'x1 ! >>,
 	getfenro 'y1 ! >>,
-	x3 y3 ,cp
-	x2 y2 ,cp2
-	x1 y1 ,curve2
+	x1 y1 ,cp2
+	x2 y2 ,cp3
+	x3 y3 ,curve3
 	dup c@ $22 =? ( drop ; )
 	$40 <? ( drop ccurve ; ) drop
 	;
@@ -254,9 +245,9 @@
 	getfenro y1 + 'y2 ! >>,
 	getfenro x1 + 'x1 ! >>,
 	getfenro y1 + 'y1 ! >>,
-	x3 y3 ,cp
-	x2 y2 ,cp2
-	x1 y1 ,curve2
+	x1 y1 ,cp2
+	x2 y2 ,cp3
+	x3 y3 ,curve3
 	dup c@ $22 =? ( drop ; )
 	$40 <? ( drop ccurver ; ) drop
 	;
@@ -269,9 +260,13 @@
 	getfenro 'y2 ! >>,
 	getfenro 'x1 ! >>,
 	getfenro 'y1 ! >>,
-	x3 y3 ,cp
-	x2 y2 ,cp2
-	x1 y1 ,curve2 ;
+	x1 y1 ,cp2
+	x2 y2 ,cp3
+	x3 y3 ,curve3
+	dup c@ $22 =? ( drop ; )
+	$40 <? ( drop surve ; ) drop
+	;
+
 :surver | adr -- adr' ; XYXY
 |	x1 2* x2 - 'x3 !
 |	y1 2* y2 - 'y3 !
@@ -281,47 +276,64 @@
 	getfenro y1 + 'y2 ! >>,
 	getfenro x1 + 'x1 ! >>,
 	getfenro y1 + 'y1 ! >>,
-	x3 y3 ,cp
-	x2 y2 ,cp2
-	x1 y1 ,curve2
+	x1 y1 ,cp2
+	x2 y2 ,cp3
+	x3 y3 ,curve3
+	dup c@ $22 =? ( drop ; )
+	$40 <? ( drop surver ; ) drop
 	;
 :qurve | adr -- adr' ; XYXY
 	getfenro 'x2 ! >>,
 	getfenro 'y2 ! >>,
 	getfenro 'x1 ! >>,
 	getfenro 'y1 ! >>,
-	x2 y2 ,cp
-	x1 y1 ,curve ;
+	x1 y1 ,cp
+	x2 y2 ,curve
+	dup c@ $22 =? ( drop ; )
+	$40 <? ( drop qurve ; ) drop
+	;
+
 :qurver | adr -- adr' ; XYXY
 	getfenro x1 + 'x2 ! >>,
 	getfenro y1 + 'y2 ! >>,
 	getfenro x1 + 'x1 ! >>,
 	getfenro y1 + 'y1 ! >>,
-	x2 y2 ,cp
-	x1 y1 ,curve ;
+	x1 y1 ,cp
+	x2 y2 ,curve
+	dup c@ $22 =? ( drop ; )
+	$40 <? ( drop qurver ; ) drop
+	;
+
 :turve | adr -- adr' ; XY
 	x1 2* x2 - 'x2 !
 	y1 2* y2 - 'y2 !
 	getfenro 'x1 !
 	getfenro 'y1 !
-	x2 y2 ,cp
-	x1 y1 ,curve ;
+	x1 y1 ,cp
+	x2 y2 ,curve
+	dup c@ $22 =? ( drop ; )
+	$40 <? ( drop turve ; ) drop
+	;
+
 :turver | adr -- adr' ; XY
 	x1 2* x2 - 'x2 !
 	y1 2* y2 - 'y2 !
-	getfenro x1 + 'x1 !
-	getfenro y1 + 'y1 !
-	x2 y2 ,cp
-	x1 y1 ,curve ;
+	getfenro x1 + 'x1 ! >>,
+	getfenro y1 + 'y1 ! >>,
+	x1 y1 ,cp
+	x2 y2 ,curve
+	dup c@ $22 =? ( drop ; )
+	$40 <? ( drop qurver ; ) drop
+	;
 
 :ellip | adr -- adr' ; XY
 :ellipr
-	getfenro 'x1 !
-	getfenro 'y1 !
-	getfenro 'x1 !
-	getfenro 'y1 !
-	getfenro 'x1 !
-	getfenro 'y1 !
+	getfenro 'x1 ! >>,
+	getfenro 'y1 ! >>,
+	getfenro 'x1 ! >>,
+	getfenro 'y1 ! >>,
+	getfenro 'x1 ! >>,
+	getfenro 'y1 ! >>,
 	;
 :close | adr -- adr'
     ,last
@@ -436,7 +448,8 @@
 		) 2drop
 
 	buff.redim
-	buff.emit
+|	buff.emit
+	buff.emitv
 	;
 
 |------------- carga
@@ -451,7 +464,8 @@
 	0.8 %s dup dim 0 dup fpos
 	$c0c0c0 ink gc.fbox
 	gris 8 rgrilla
-	$end nsprite
+|	$end nsprite
+	$end vesprite
 	;
 
 :main
