@@ -1,0 +1,235 @@
+| 2017 PHEDA
+|-----------------
+^r4/lib/gui.txt
+^r4/lib/part16.txt
+^r4/lib/plqlib.txt
+
+^r4/lib/vesprite.txt
+^r4/rtv/fx.vsp
+
+#ti 0 0
+#fx 0 0
+#objs 0 0
+#movs 0 0
+
+
+|-----------------------------
+:tletra
+	>r
+	r@+ r@+ pos 0.8 qdim home
+	0 0.05 boxpad
+	1 0.5 setfont3d
+	blanco
+	r@+ 64 + "%k" mprint 6 boxprintn
+	rdrop
+	;
+
+:+letra | nro x y --
+	'tletra 'fx p!+ >r
+	swap r!+ r!+
+	r!+
+	rdrop
+	;
+
+|-----------------------------
+:stsprite
+	dup 7 2 << + @ 0? ( 2drop ; ) drop
+	>r
+	mpush
+	r@+ r@+ 0 mtransi
+	r@+ 1? ( mrotxi )( drop )
+	r@+ 1? ( mrotyi )( drop )
+	r@+ 1? ( mrotzi )( drop )
+	r@+ dup dup mscalei
+	r@+ 3dvesprite
+	rdrop
+	mpop
+	;
+
+:+sprite | 'spr size x y --
+	'stsprite 'objs p!+ >r
+	swap r!+ r!+		| x y
+	0 0 0 r!+ r!+ r!+	| rx ry rz
+	r!+					| s
+	r!+					| sprite
+	1 r!+				| estado
+	rdrop ;
+
+:sprite.n | nro -- spr
+	6 << 'objs 4+ @ + ;
+
+:nxy.sprite | x y nro --
+	sprite.n 4+ >r swap r!+ r!+ rdrop ;
+
+:ns.sprite | s nro --
+	sprite.n 24 + ! ;
+
+:e.sprite | e nro --
+	sprite.n 8 2 << + ! ;
+
+:xy.sprite | x y obj --
+	4+ >r swap r!+ r!+ rdrop ;
+
+
+|---------- animadores
+#deltat
+#prevt
+#t0
+
+:itime
+	msec 'prevt ! 0 'deltat ! ;
+
+:dtime
+	msec dup prevt - 'deltat ! 'prevt ! ;
+
+:llerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 16 *>> + ;
+:clerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 cos abs 16 *>> + ;
+:slerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 sin abs 16 *>> + ;
+
+|-------------------
+:movlinea
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ / 1.0 min 't0 !
+	r@+
+	4+ r@+ r@+ llerp over !	| x
+	4+ r@+ r@+ llerp swap !	| y
+	rdrop
+	t0 1.0 - 1? ( drop ; )
+	;
+
+:+linea | xf yf obj time --
+	'movlinea 'movs p!+ >r
+	0 r!+ 1000 *. r!+	| 0 tmax
+	dup r!+		| obj
+	| xf yf obj
+	4+ dup @ r!+ rot r!+
+	4+ @ r!+ r!+
+	rdrop
+	;
+
+:movlin
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ / 0.25 min 't0 !
+	r@+
+	4+ r@+ r@+ slerp over !	| x
+	4+ r@+ r@+ slerp swap !	| y
+	rdrop
+	t0 0.25 - 1? ( drop ; )
+	;
+
+:+lin | xf yf obj time --
+	'movlin 'movs p!+ >r
+	0 r!+ 1000 *. r!+	| 0 tmax
+	dup r!+		| obj
+	| xf yf obj
+	4+ dup @ r!+ rot r!+
+	4+ @ r!+ r!+
+	rdrop
+	;
+
+:movcircle
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ 2* / 0.5 min 't0 !
+
+	t0 r@+ -? ( - neg )( + ) sincos
+	r@+ rot over *. >r *. r> swap
+	r@+ rot + r@+ rot + | x y
+	r@+ xy.sprite
+
+	rdrop
+	t0 0.5 - 1? ( drop ; )
+	;
+
+:+swap	| v1 v2 suma tiempo --
+	'movcircle 'movs p!+ >r
+	0 r!+ r!+	| 0 tmax
+	r!+			| suma
+
+	over 4+ @ over 4+ @
+	2dup - abs 2/ r!+	| ancho
+	+ 2/ r!+ 		| centro x
+	over 8 + @ over 8 + @
+	+ 2/ r!+ 		| centro y
+	r!+			| v1
+	r!+			| v2
+	rdrop ;
+
+:timex
+	>r
+	r@+ deltat + dup r 4 - !
+	r@+ >=? ( drop r> @ exec 0 ; )
+	drop
+	rdrop ;
+
+:+time | 'exec tiempo --
+	'timex 'ti p!+ >r
+	0 r!+ r!+ r!+
+	rdrop ;
+
+|--------------
+#xcam #ycam #zcam 2.0
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:gfondo
+	sw sh max 128 + qdim
+	sw 2/ sh 2/ 64 - pos
+	cls
+	'fondo vesprite
+	>xfb ;
+
+:main
+	33
+	gfondo
+	itime
+	'auto11 0.2 0.4 0.6 +sprite | 'spr size x y --
+	'auto5 0.2 0.4 0.6 +sprite | 'spr size x y --
+
+	show xfb>scr
+		fonti
+		dup "%d" print
+		omode
+|		freelook
+|		msec 4 << mroty
+		xcam ycam zcam mtrans
+
+		7 0.5 setfont3d
+		0 0 pos 3.0 2.0 dim home
+		violeta
+|		"Recuerda el lugar" printc
+|		solucion " %d " print
+
+		dtime
+		'ti p.draw
+
+		'movs p.draw
+		'objs p.draw
+		'fx p.draw
+
+		msec 6 << 2.0 +  4.0 mod 2.0 + 0.5 1 nxy.sprite | x y nro --
+		msec 6 << 4.0 mod 2.0 + 0.6 0 nxy.sprite | x y nro --
+		'exit >esc<
+		cminiflecha ;
+
+
+
+:memoria
+	mark
+	256 'ti p.ini
+	256 'objs p.ini
+	256 'movs p.ini
+	1024 'fx p.ini
+	;
+
+: memoria main ;

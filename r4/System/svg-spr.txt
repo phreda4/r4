@@ -14,10 +14,10 @@
 #buffer>
 #$spr
 #$spr>
+#trazos	| marca de trazo elegido
 
-#xmax #ymax #xmin #ymin
-
-#yend #xend
+#xmax #ymax 
+#xmin #ymin
 
 #scale
 #sx #sy
@@ -59,6 +59,9 @@
 	( c@+ 1? )( $28 =? ( drop ; ) drop ) drop 1- ;
 :>>)
 	( c@+ 1? )( $29 =? ( drop ; ) drop ) drop 1- ;
+:>>:
+	( c@+ 1? )( $3A =? ( drop ; ) drop ) drop 1- ;
+
 
 |-------------------------
 
@@ -84,7 +87,6 @@
 	3 ,buff ;
 
 :,op | x y --
-	2dup 'yend ! 'xend !
 	1 ,buff ;
 
 :,cp | x y --
@@ -101,10 +103,6 @@
 
 :,curve3 | x y --
 	10 ,buff ;
-
-:,last | --
-	xend yend 3 ,buff ;
-
 
 :,poly
 	0 colsvg $d
@@ -127,29 +125,13 @@
 	xmax xmin - ymax ymin - max 1.8 swap /. 'scale !
 	xmin xmax + 2/ neg 'sx !
 	ymin ymax + 2/ neg 'sy !
-
-	buffer
-	( buffer> <? )(
-		@+ $a <=? ( drop
-			dup @ sx + scale *. swap !+
-			dup @ sy + scale *. swap !+
-			)( drop 8 + )
-		) drop
 	;
 
 :xy>o | x y -- d
+	sy + scale *.
 	2* $3fff0 and swap
+	sx + scale *.
 	15 << $fffc0000 and or ;
-
-:buff.emit
-	buffer ( buffer> <? )( >r
-		r@+
-		$a <=? (
-			r@+ r@+ xy>o swap or ,spr
-		)(
-			r@+ r@+ or or ,spr )
-		r> ) drop
-	0 ,spr ;
 
 |--vesprite
 :valxy
@@ -165,11 +147,12 @@
 #lemit e0 e1 e2 e3 e0 e0 e0 e0 e8 e0 e0 eb eb eb eb eb
 
 :buff.emitv
+   	buffer> dup '$spr ! '$spr> !
 	buffer ( buffer> <? )(
 		@+ 2 << 'lemit + @ exec
 		) drop
-	0 ,spr ;
-
+	0 ,spr
+	$spr> 'trazos ! ;
 
 |----------
 :getpoly | adr --
@@ -180,9 +163,7 @@
 		getfenro 'svgx ! 1+ getfenro 'svgy ! trim
 		svgx svgy ,line
 		) drop
-	,last
-	,poly
-	;
+	,poly ;
 
 
 :decodepoly | adr adrpoly -- adr
@@ -342,7 +323,7 @@
 	getfenro 'y1 ! >>,
 	;
 :close | adr -- adr'
-    ,last ;
+	;
 
 :resolve | adr char -- adr'
 	$4d =? ( drop moveto ; )	| M move
@@ -377,8 +358,6 @@
 		;
 
 |------------------------
-
-
 :decode<svg | adr -- adr
 	5 + | <svg
 
@@ -394,14 +373,19 @@
 
 |---------
 :esPd
-	>>" dup 'dpath ! >>"  ;
+	>>" dup 'dpath ! >>" ;
 :esPi
 	>>" >>"  ;
 
 :esfill
-	5 + str$>nro 'colsvg ! ;
+	>>:
+	c@+ 
+	$23 =? ( drop str$>nro 'colsvg ! ; ) | #rrggbb
+	| none
+	drop
+	;
 :rePs
-	dup 1- "fill:#" =p 1? ( drop esfill ; ) drop
+	dup 1- "fill:" =p 1? ( drop esfill ; ) drop
 	;
 :esPs
 	>>"
@@ -485,11 +469,123 @@
 	( trim c@+ 1? )(
 		$3c =? ( drop es< )( drop )
 		) 2drop
-	buff.redim
 
-   	buffer> dup '$spr ! '$spr> !
-|	buff.emit
+	buff.redim
 	buff.emitv
+	;
+
+:resetsvg
+	buff.redim
+	buff.emitv
+	;
+|------------ cursor
+:resetc
+	0 dup 'x1 ! dup 'y1 ! dup 'x2 ! 'y2 ! ;
+
+|---------- seleccion
+#trnow	| marca actual
+
+:adentro? | adr dir
+	over
+	@+ sx + scale *.
+	xmin xmax between -? ( 2drop 0 ; ) drop
+	@ sy + scale *.
+	ymin ymax between -? ( drop 0 ; ) drop
+	1 ;
+
+:sel.mark
+	trazos 'here !
+	0 'trnow !
+	buffer ( buffer> <? )(
+		@+
+		$a <=? ( adentro? 1? ( 1 'trnow ! ) drop )
+		$a >? ( trnow , 0 'trnow ! )
+		drop 8 +
+		) drop ;
+
+:predim
+	trnow 0? ( drop ; ) drop
+	over @+ xmax >? ( dup 'xmax ! ) xmin <? ( dup 'xmin ! ) drop
+	@ ymax >? ( dup 'ymax ! ) ymin <? ( dup 'ymin ! ) drop
+	;
+
+:sel.redim
+	trazos >r
+	$7fffffff dup 'xmin ! 'ymin !
+	-$7fffffff dup 'xmax ! 'ymax !
+	r@+ 'trnow !
+	buffer ( buffer> <? )(
+		@+
+		$a <=? ( predim )
+		$a >? ( r@+ 'trnow ! )
+		drop 8 +
+		) drop
+	rdrop
+	xmax xmin - ymax ymin - max 1.8 swap /. 'scale !
+	xmin xmax + 2/ neg 'sx !
+	ymin ymax + 2/ neg 'sy !
+	;
+
+:premit
+	trnow 0? ( drop ; ) drop
+	2dup 2 << 'lemit + @ exec
+	drop
+	;
+
+:sel.emitv
+	trazos >r
+	buffer> dup '$spr ! '$spr> !
+	r@+ 'trnow !
+	buffer ( buffer> <? )(
+		@+
+        premit
+		$a >? ( r@+ 'trnow ! )
+		drop 8 +
+		) drop rdrop
+	0 ,spr ;
+
+:xfix	xc - 17 << w / ;
+:yfix   yc - 17 << h / ;
+
+:recorta
+	x1 x2 or 0? ( drop ; ) drop
+	0.8 %s dup dim 0 dup fpos
+	x1 x2 over >? ( swap ) xfix 'xmin ! xfix 'xmax !
+	y1 y2 over >? ( swap ) yfix 'ymin ! yfix 'ymax !
+
+	sel.mark
+	sel.redim
+	sel.emitv
+
+	resetc
+	;
+
+:showp
+	pick2
+	@+ sx + scale *. w 17 *>> xc + >r
+	@ sy + scale *. h 17 *>> yc + r>
+	blink 1? ( negro )( blanco ) drop
+	swap 1 box
+	;
+
+:dumpsel
+	x1 x2 or 0? ( drop ; ) drop
+|	0.8 %s dup dim 0 dup fpos
+	x1 x2 over >? ( swap ) xfix 'xmin ! xfix 'xmax !
+	y1 y2 over >? ( swap ) yfix 'ymin ! yfix 'ymax !
+
+	buffer ( buffer> <? )(
+		@+
+		$a <=? ( adentro? 1? ( showp ) drop )
+		drop 8 +
+		) drop ;
+
+:cursor
+	[ xymouse dup 'y1 ! 'y2 ! dup 'x1 ! 'x2 ! ; ]
+	[ xymouse 'y2 ! 'x2 ! ; ] guiDnMove
+	blink 1? ( blanco )( negro ) drop
+	x1 y1 x2 y2 caja
+	dumpsel
 	;
 
 |------------- carga
@@ -497,6 +593,7 @@
 	"media/svg/" dlgfileload 0? ( drop ; )
 	$start swap load 0 swap !+ '$end !
 	$start convertsvg
+	resetc
 	;
 
 |------------- muestra
@@ -508,18 +605,34 @@
 	$spr vesprite
 	;
 
-:main
-|	33
-	show clrscr
-|		dup "%d " print cr cr2
+:debugd
+trazos >r
+buffer ( buffer> <? )(
+	@+ $a >? ( rojo r@+ "%d " print )( verde )
+|	adentro? "%d " print
+	"%h " print @+ "%f," print @+ "%f " print
+	cr
+	allowchome
+	) drop rdrop
+	;
 
-		cyan cr
+:main
+	resetc
+	4 show clrscr
+		fonti
+		verde oscuro 3 linesfill
+		blanco
+		dup ":r%d SVGimport " print cr cr2
+		verde
 		'cargasvg dup <f1> "F1-Load SVG" sp btnt
+		'recorta dup <f2> "F2-Recorta" sp btnt
+		'resetsvg dup <f3> "F3-Todo" sp btnt
+
 |		'savespr "SAVE" sp btnt
 		cr cr
-|		xmin ymin "%f %f" print cr
-|		xmax ymax "%f %f" print cr
+
 		muestraspr
+		cursor
 
 		'exit >esc<
 		cminiflecha ;
