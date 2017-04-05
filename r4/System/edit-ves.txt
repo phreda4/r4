@@ -15,29 +15,183 @@
 #modo
 #color
 #xv #yv #sv
-#ves
+#ves 0
 #ves>
+
+| inicio x1y1 x2y2 color
+#tra 0
+#tra>
+
+#xmin #ymin #xmax #ymax
+#colp
+
+|----------------------------------
+:i.st
+	$7fffffff dup 'xmin ! 'ymin !
+	-$7fffffff dup 'xmax ! 'ymax ! ;
+
+:a.st | adr --
+    d>xy
+    ymax >? ( dup 'ymax ! ) ymin <? ( dup 'ymin ! ) drop
+    xmax >? ( dup 'xmax ! ) xmin <? ( dup 'xmin ! ) drop
+	;
+
+:t0 drop ;
+:t1 8 >> 'colp ! ;
+:t2 a.st @+ a.st ;
+:t3 drop 4+ ; | cen mat
+:t4 a.st ;
+:t7 a.st @+ a.st @+ a.st ;
+:tc 8 >> 'colp ! swap >r xmin ymin xy>d r!+ xmax ymax xy>d r!+ colp r!+ dup r!+ r> swap i.st ;
+
+#lbox t0 t1 t2 t3 t4 t4 t2 t7 t4 t4 t2 t7 tc tc tc tc
+:buildtra
+	ves> 4+ dup 'tra !
+	ves dup rot !+ swap i.st
+	( ves> <? )(
+     	@+ dup $f and 2 << 'lbox + @ exec
+		) drop
+	'tra> !
+	;
+
+:dumptra
+	tra ( tra> <? )( >r
+		r@+
+		r@+ r@+ gc>xy rot gc>xy
+		r@+ ink caja
+		"%h " print
+		r> ) drop ;
+
+#xf #yf
+
+:in? | xm ym xM yM -- 0/1
+	rot yf rot rot between -? ( 3drop 0 ; ) drop
+	xf swap rot between -? ( drop 0 ; ) drop
+	1 ;
+
+:intra | x1 y1 -- tra
+	yfix 3 >> 'yf !
+	xfix 3 >> 'xf !
+	tra ( tra> <? )( 4+ >r
+		r@+ r@+ d>xy rot d>xy
+		in? 1? ( drop r> 12 - tra - 4 >> ; ) drop
+		r> 4+ ) drop
+	-1 ;
+
+:innext | tra -- tra'
+	4 << tra +
+	( tra> <? )( 4+ >r
+		r@+ r@+ d>xy rot d>xy
+		in? 1? ( drop r> 12 - tra - 4 >> ; ) drop
+		r> 4+ ) drop
+	-1 ;
+
+:searchtra
+	intra -? ( ; ) 
+	( dup 1+ innext 0 >? )( nip ) drop ;
+
+|---------------------
+:t0 drop ;
+:t1 drop 4+
+:t2 gc>xy 3 box ;
+:t3 gc>xy 3 box @+ gc>xy 3 diam ;
+:t4 gc>xy 3 box @+ gc>xy 3 diam @+ gc>xy 3 diam ;
+
+#ltra t0 t0 t1 t1 t2 t2 t3 t4 t2 t2 t3 t4
+
+:drawtra
+	( @+ dup $f and $c <? )(
+		2 << 'ltra + @ exec
+		) 3drop ;
+
+:showtra
+	4 << tra + >r
+	r@+
+	r@+ r@+ 2drop
+	r@+ drop |ink
+	drawtra
+	rdrop
+	;
+
+:2sort | x y -- max min
+	over >? ( swap ) ;
+
+:showtrarec
+	4 << tra + 4+ >r
+	r@+ gc>xy
+	r@+ gc>xy
+	rot 2sort 'ymin ! 'ymax !
+	2sort 'xmin ! 'xmax !
+|	caja
+| punto de mover
+	xmax xmin + 2/
+	ymax ymin + 2/
+	5 box
+| pundo de x escala
+| punto de y escala
+| punto de xy escala
+	xmax ymax
+	4 box
+| punto de rotar
+	rdrop ;
+
+|---------------------
+#picktra -1
+
+:vistall
+	sw dup 2/ 'xv !
+	sh dup 2/ 'yv !
+	min 64 - 'sv ! ;
+
+|----------------------------------
 
 
 :mododraw
+	;
+
 :modovista
+	[ xymouse 'yf ! 'xf ! ; ]
+	[ xymouse dup yf - 'yv +! 'yf ! dup xf - 'xv +! 'xf ! ;	] guiDnMove
+	;
+
 :modoeditn
+	[ xymouse searchtra 'picktra ! ; ] guiBtn
+	picktra -? ( drop ; )
+	blink 1? ( blanco )( negro ) drop
+	showtra
+	;
+
 :modoeditp
-;
+	[ xymouse searchtra 'picktra ! ; ] guiBtn
+	picktra -? ( drop ; )
+	blink 1? ( blanco )( negro ) drop
+	showtrarec
+	;
+
+|------------------------------------
+:btnric | icon vec --
+	ink@ >r btne blanco 2-gc drawric 2+gc r> ink ;
+
 :toodraw
+	;
 
 :toovista
+	'i.zoom_in [ sv 2* 'sv ! ; ] btnric gcdn
+	'i.zoom_out [ sv 2/ 'sv ! ; ] btnric gcdn
+	'i.resize_full 'vistall btnric gcdn
+	gcdn
+	;
+
 :tooeditn
+	;
 :tooeditp
-;
+	;
 
 
 |------- modos
 #modos 'mododraw 'modovista 'modoeditp  'modoeditn
 #tools 'toodraw 'toovista 'tooeditp 'tooeditn
 
-:btnric | icon vec --
-	ink@ >r btne blanco 2-gc drawric 2+gc r> ink ;
 
 |----- botonera
 #modogui 'mododraw
@@ -68,28 +222,33 @@
 
 	32 qdim 24 48 pos
 	'i.pencil 0 botonmodo
-	'i.zoom_in 1 botonmodo
+	'i.eye_open 1 botonmodo
 	'i.bookmark 2 botonmodo
 	'i.hand_up 3 botonmodo
 |	'i.magic 4 botonmodo
-	gcdn
+|	gcdn
 	verde oscuro
 |	'i.undo 0 btnric gcdn
 |	'i.repeat 0 btnric gcdn gcdn
+	24 qdim
     modotoo exec
 
 	sw 26 - 48 pos
 	'color btncol
-
 	;
 
 :main
+	buildtra
 	4
 	show clrscr
 		fonti
 		verde oscuro 2 linesfill blanco
 		dup ":r%d VesEditor " print cr
+
 		drawves
+		modogui exec
+
+|       dumptra
 
         botonera
 
@@ -99,9 +258,7 @@
 :vmem
 	mark
 	here dup 'ves ! dup 'ves> ! 0 swap !
-	sw dup 2/ 'xv !
-	sh dup 2/ 'yv !
-	min 64 - 'sv !
+	vistall
 	;
 
 : 	0 paper
