@@ -8,6 +8,8 @@
 
 ^r4/lib/vesprite.txt
 
+#xv #yv #sv
+
 #$start
 #$end
 #buffer
@@ -16,7 +18,7 @@
 #$spr>
 #trazos	| marca de trazo elegido
 
-#xmax #ymax 
+#xmax #ymax
 #xmin #ymin
 
 #scale
@@ -30,6 +32,11 @@
 #svgx #svgy
 #dvgx #dvgy
 #dpath
+
+:vistall
+	sw dup 2/ 'xv !
+	sh dup 2/ 'yv !
+	min 64 - 'sv ! ;
 
 |------------------ PARSE
 :=p | s1 s2 -- 1/0
@@ -477,6 +484,7 @@
 :resetsvg
 	buff.redim
 	buff.emitv
+	vistall
 	;
 |------------ cursor
 :resetc
@@ -547,7 +555,7 @@
 
 :recorta
 	x1 x2 or 0? ( drop ; ) drop
-	0.8 %s dup dim 0 dup fpos
+	xv yv pos sv qdim
 	x1 x2 over >? ( swap ) xfix 'xmin ! xfix 'xmax !
 	y1 y2 over >? ( swap ) yfix 'ymin ! yfix 'ymax !
 
@@ -556,6 +564,7 @@
 	sel.emitv
 
 	resetc
+	vistall
 	;
 
 :showp
@@ -568,7 +577,7 @@
 
 :dumpsel
 	x1 x2 or 0? ( drop ; ) drop
-|	0.8 %s dup dim 0 dup fpos
+
 	x1 x2 over >? ( swap ) xfix 'xmin ! xfix 'xmax !
 	y1 y2 over >? ( swap ) yfix 'ymin ! yfix 'ymax !
 
@@ -596,12 +605,12 @@
 
 |------------- muestra
 :muestraspr
-	0.8 %s dup dim 0 dup fpos
-	$c0c0c0 ink gc.fbox
+	xv yv pos sv qdim
+	blanco gc.fbox
 	gris 8 rgrilla
-|	$spr nsprite
 	$spr vesprite
 	;
+
 
 :debugd
 trazos >r
@@ -614,10 +623,26 @@ buffer ( buffer> <? )(
 	) drop rdrop
 	;
 
+:teclado
+	[ sv 5 >> neg 'yv +! ; ] <up>
+	[ sv 5 >> 'yv +! ; ] <dn>
+	[ sv 5 >> 'xv +! ; ] <ri>
+	[ sv 5 >> neg 'xv +! ; ] <le>
+	[ sv 2* 'sv ! ; ] <pgup>
+	[ sv 2/ 'sv ! ; ] <pgdn>
+	;
+
 :main
+	$aaaaaa paper
+	vistall
 	resetc
 	4 show clrscr
-		fonti
+
+		muestraspr
+		cursor
+		teclado
+
+		scr home fonti
 		verde oscuro 3 linesfill
 		blanco
 		dup ":r%d SVGimport " print cr cr2
@@ -627,10 +652,6 @@ buffer ( buffer> <? )(
 		'resetsvg dup <f3> "F3-Todo" sp btnt
 
 |		'savespr "SAVE" sp btnt
-		cr cr
-
-		muestraspr
-		cursor
 
 		'exit >esc<
 		cminiflecha ;

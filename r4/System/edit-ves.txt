@@ -22,6 +22,9 @@
 #tra 0
 #tra>
 
+#lin
+#lin>
+
 #xmin #ymin #xmax #ymax
 #colp
 
@@ -51,7 +54,19 @@
 	( ves> <? )(
      	@+ dup $f and 2 << 'lbox + @ exec
 		) drop
-	'tra> ! ;
+	dup 'tra> ! 
+	dup 'lin ! 'lin> ! ;
+
+:rebuild1tra | tra --
+	i.st
+	4 << tra +
+	dup @ ( @+ dup $f and $b <? )(
+		2 << 'lbox + @ exec
+		) 3drop
+	xmin ymin xy>d swap !+
+	xmax ymax xy>d swap !
+	;
+
 
 :dumptra
 	tra ( tra> <? )( >r
@@ -109,9 +124,22 @@
 	min 64 - 'sv ! ;
 
 |----------------------------------
+:inid
+	xymouse xy>gc 8 or lin !+ 0 over ! 'lin> !
+	;
+:movd
+	xymouse xy>gc 9 or lin> !+ 0 over ! 'lin> !
+	;
+:upd
+	0 'lin> !
+	;
 :mododraw
+	'inid 'movd 'upd guiMap
+	negro
+	lin vesprite
 	;
 
+|----------------------------------
 :modovista
 	[ xymouse 'yf ! 'xf ! ; ]
 	[ xymouse dup yf - 'yv +! 'yf ! dup xf - 'xv +! 'xf ! ;	] guiDnMove
@@ -160,7 +188,7 @@
 	xymouse
 	yfix 3 >> dup yf - 'yfa ! 'yf !
 	xfix 3 >> dup xf - 'xfa ! 'xf !
-	picktra -? ( drop ; ) 
+	picktra -? ( drop ; )
 	4 << tra + @
 	( dup @ dup $f and $b <? )(
 		swap
@@ -174,6 +202,11 @@
 	@+ gc>xy rot @ gc>xy rot | x1 x2 y2 y1
 	2sort 'ymin ! 'ymax !
 	2sort 'xmin ! 'xmax !
+	;
+
+:escalapoly
+	;
+:rotapoly
 	;
 
 :inpoly
@@ -206,9 +239,15 @@
 | pundo de x escala
 | punto de y escala
 | punto de xy escala
-	xmax ymax 3 box
+	xmax ymax
+	p1
 | punto de rotar
 	;
+
+:delpoly ;
+:cpypoly ;
+:uppoly ;
+:dnpoly ;
 
 |------------------------------------
 :btnric | icon vec --
@@ -221,12 +260,18 @@
 	'i.zoom_in [ sv 2* 'sv ! ; ] btnric gcdn
 	'i.zoom_out [ sv 2/ 'sv ! ; ] btnric gcdn
 	'i.resize_full 'vistall btnric gcdn
-	gcdn
 	;
 
 :tooeditn
+
 	;
+
 :tooeditp
+	picktra -? ( drop ; ) drop
+	'i.zoom_in 'delpoly btnric gcdn
+	'i.zoom_in 'cpypoly btnric gcdn
+	'i.zoom_in 'uppoly btnric gcdn
+	'i.zoom_in 'dnpoly btnric gcdn
 	;
 
 
@@ -234,17 +279,14 @@
 #modos 'mododraw 'modovista 'modoeditp  'modoeditn
 #tools 'toodraw 'toovista 'tooeditp 'tooeditn
 
-
 |----- botonera
 #modogui 'mododraw
 #modotoo 'toodraw
 
 :setmodo
-	dup 'modo !
-	dup 2 <<
+	dup 'modo ! dup 2 <<
 	dup 'modos + @ 'modogui !
-	'tools + @ 'modotoo !
-	;
+	'tools + @ 'modotoo ! ;
 
 :botonmodo | icon nro --
 	modo =? ( azul )( negro )
@@ -281,6 +323,15 @@
 	'color btncol
 	;
 
+:teclado
+	[ sv 5 >> neg 'yv +! ; ] <up>
+	[ sv 5 >> 'yv +! ; ] <dn>
+	[ sv 5 >> 'xv +! ; ] <ri>
+	[ sv 5 >> neg 'xv +! ; ] <le>
+	[ sv 2* 'sv ! ; ] <pgup>
+	[ sv 2/ 'sv ! ; ] <pgdn>
+	;
+
 :main
 	buildtra
 	4
@@ -288,6 +339,7 @@
 		drawves
 		modogui exec
         botonera
+        teclado
 		'exit >esc<
 		cminiflecha ;
 
