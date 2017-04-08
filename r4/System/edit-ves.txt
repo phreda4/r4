@@ -54,8 +54,8 @@
 	( ves> <? )(
      	@+ dup $f and 2 << 'lbox + @ exec
 		) drop
-	dup 'tra> ! 
-	dup 'lin ! 'lin> ! ;
+	dup 'tra> !
+	dup 'lin ! 0 over ! 'lin> ! ;
 
 :rebuild1tra | tra --
 	i.st
@@ -82,6 +82,63 @@
 #cursor
 #picktra -1
 
+|---------- punto en poligono
+#inside
+
+:dline | p1 p2 --
+	2dup gc>xy op gc>xy line ;
+
+:entre | p1 p2 --
+	dline
+|	dup d>xy "%f %f" print cr
+
+	over d>x xf pick2 d>x
+	<=? ( >=? ( 3drop ; ) )( <? ( 3drop ; ) ) | v1 v2  x1
+	over d>x <? ( pick2 d>y rot d>xy 2swap )( pick2 d>y rot d>xy )
+	swap pick3 - yf pick3 - * >r	| p1 'x1 'y1 'y2	 r: a | a= x2 x1 - yf y1 - *
+	rot xf swap - swap rot - * r>	| p1 b a | b = xf x1 - y2 y1 - *
+	>? ( 1 'inside +! )
+	2drop ;
+
+:t0 drop ;
+:t1 drop 4+ ;
+
+#po #pa
+
+:curve1
+	@+
+	;
+:curve2
+	;
+
+:t4 po -1 =? ( drop dup 'pa ! 'po ! ; )
+	over dup 'pa ! 'po ! entre ;
+:t5 pa over 'pa ! entre ;
+
+:t6 pa over 'pa ! entre 4+ ;
+:t7 pa over 'pa ! entre 8 + ;
+
+:t6 swap @+ dup pa entre rot dup 'pa ! entre ;
+:t7 swap @+ swap @+ | n3 n2 adr n1
+	dup pa entre 	| n3 n2 adr n1
+	rot dup rot entre |	n3 a n2
+	rot dup 'pa ! entre ;
+
+#ppo t0 t0 t1 t1 t4 t5 t6 t7 t4 t5 t6 t7
+
+:apolyin? | -- 1/0
+	0 'inside !
+	-1 'po !
+
+	picktra 4 << tra + @
+	( @+ dup $f and $b <? )(
+		2 << 'ppo + @ exec
+		) 3drop
+
+	inside 1 and ;
+
+
+|-------
 :dotf | x1 y1 --
 	yfix 3 >> 'yf ! xfix 3 >> 'xf ! ;
 
@@ -94,21 +151,18 @@
 	xf swap rot between -? ( drop 0 ; ) drop
 	1 ;
 
-:intra | x1 y1 -- tra
-	dotf
-	tra ( tra> <? )( 4+ >r
-		r@+ r@+ d>xy rot d>xy
-		in? 1? ( drop r> 12 - tra - 4 >> ; ) drop
-		r> 4+ ) drop
-	-1 ;
-
-:innext | tra -- tra'
-	4 << tra +
+:intr
 	( tra> <? )( 4+ >r
 		r@+ r@+ d>xy rot d>xy
 		in? 1? ( drop r> 12 - tra - 4 >> ; ) drop
 		r> 4+ ) drop
 	-1 ;
+
+:intra | x1 y1 -- tra
+	dotf tra intr ;
+
+:innext | tra -- tra'
+	4 << tra + intr ;
 
 :searchtra
 	intra -? ( ; )
@@ -230,7 +284,9 @@
 
 :modoeditp
 	picktra -? ( drop 'searchpoly guiBtn ; ) drop
-	'moveini 'movepoly guiDnMove
+	'moveini |'movepoly
+	[ ; ]
+	guiDnMove
 	negro
 	xmin ymin xmax ymax	dotbox
 | punto de mover
@@ -272,6 +328,11 @@
 	'i.zoom_in 'cpypoly btnric gcdn
 	'i.zoom_in 'uppoly btnric gcdn
 	'i.zoom_in 'dnpoly btnric gcdn
+
+	xv yv pos sv qdim
+	xymouse dotf
+	apolyin? 
+	"%d -" print
 	;
 
 
