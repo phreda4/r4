@@ -84,12 +84,13 @@
 
 |---------- punto en poligono
 #inside
+#po #pa
 
 :dline | p1 p2 --
 	2dup gc>xy op gc>xy line ;
 
 :entre | p1 p2 --
-	dline
+|	dline
 |	dup d>xy "%f %f" print cr
 
 	over d>x xf pick2 d>x
@@ -102,23 +103,11 @@
 
 :t0 drop ;
 :t1 drop 4+ ;
-
-#po #pa
-
-:curve1
-	@+
-	;
-:curve2
-	;
-
 :t4 po -1 =? ( drop dup 'pa ! 'po ! ; )
 	over dup 'pa ! 'po ! entre ;
 :t5 pa over 'pa ! entre ;
-
-:t6 pa over 'pa ! entre 4+ ;
-:t7 pa over 'pa ! entre 8 + ;
-
-:t6 swap @+ dup pa entre rot dup 'pa ! entre ;
+:t6 swap @+ dup pa entre
+	rot dup 'pa ! entre ;
 :t7 swap @+ swap @+ | n3 n2 adr n1
 	dup pa entre 	| n3 n2 adr n1
 	rot dup rot entre |	n3 a n2
@@ -126,15 +115,13 @@
 
 #ppo t0 t0 t1 t1 t4 t5 t6 t7 t4 t5 t6 t7
 
-:apolyin? | -- 1/0
+
+:train? | adr -- 1/0
 	0 'inside !
 	-1 'po !
-
-	picktra 4 << tra + @
 	( @+ dup $f and $b <? )(
 		2 << 'ppo + @ exec
 		) 3drop
-
 	inside 1 and ;
 
 
@@ -154,7 +141,8 @@
 :intr
 	( tra> <? )( 4+ >r
 		r@+ r@+ d>xy rot d>xy
-		in? 1? ( drop r> 12 - tra - 4 >> ; ) drop
+|		in? 1? ( drop r> 12 - tra - 4 >> ; ) drop
+		in? 1? ( drop r 12 - @ train? 1? ( drop r> 12 - tra - 4 >> ; ) ) drop
 		r> 4+ ) drop
 	-1 ;
 
@@ -205,9 +193,12 @@
 
 :t0 drop ;
 :t1 drop 4+ ;
-:t2 gc>xy p1 ;
-:t3 gc>xy p1 @+ gc>xy p2 ;
-:t4 gc>xy p1 @+ gc>xy p2 @+ gc>xy p2 ;
+:t2 dup 'pa ! gc>xy p1 ;
+:t3 dup 'pa ! gc>xy p1
+	@+ gc>xy p2 ;
+:t4 >r @+ >r @+
+	gc>xy 2dup op pa gc>xy 2dup line p2 p1
+	r> gc>xy 2dup op r> dup 'pa ! gc>xy 2dup line p2 p1 ;
 
 #ltra t0 t0 t1 t1 t2 t2 t3 t4 t2 t2 t3 t4
 
@@ -263,11 +254,11 @@
 :rotapoly
 	;
 
-:inpoly
+:inpoly | -- 1/0
 	xymouse
 	ymin ymax between -? ( 2drop 0 ; ) drop
 	xmin xmax between -? ( drop 0 ; ) drop
-	1 ;
+	picktra 4 << tra + @ train? ;
 
 :moveini
 	inpoly 0? ( 1- 'picktra ! ; ) drop
@@ -328,11 +319,6 @@
 	'i.zoom_in 'cpypoly btnric gcdn
 	'i.zoom_in 'uppoly btnric gcdn
 	'i.zoom_in 'dnpoly btnric gcdn
-
-	xv yv pos sv qdim
-	xymouse dotf
-	apolyin? 
-	"%d -" print
 	;
 
 
