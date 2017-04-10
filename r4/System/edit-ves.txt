@@ -80,7 +80,11 @@
 #xf #yf
 #xfa #yfa
 #cursor
+#cursorn
 #picktra -1
+
+:lastnode | adr -- adr'
+	( @+ $f and $b <? )( drop ) drop ;
 
 |---------- punto en poligono
 #inside
@@ -188,8 +192,8 @@
 	;
 
 |---------------------------------
-:p1 2dup blanco 3 fbox gris 3 box ;
-:p2 2dup blanco 3 fdiam gris 3 diam ;
+:p1 2dup 3 fbox ink@ >r gris 3 box r> ink ;
+:p2 2dup 3 fdiam ink@ >r gris 3 diam r> ink ;
 
 :t0 drop ;
 :t1 drop 4+ ;
@@ -197,13 +201,15 @@
 :t3 dup 'pa ! gc>xy p1
 	@+ gc>xy p2 ;
 :t4 >r @+ >r @+
-	gc>xy 2dup op pa gc>xy 2dup line p2 p1
-	r> gc>xy 2dup op r> dup 'pa ! gc>xy 2dup line p2 p1 ;
+	gc>xy 2dup op pa gc>xy line p2
+	r> gc>xy 2dup op r> dup 'pa ! gc>xy 2dup line p1 p2 ;
 
 #ltra t0 t0 t1 t1 t2 t2 t3 t4 t2 t2 t3 t4
 
 :drawtra
-	( @+ dup $f and $c <? )(
+	(
+	cursor =? ( rojo )( blanco )
+	@+ dup $f and $c <? )(
 		2 << 'ltra + @ exec
 		) 3drop ;
 
@@ -221,9 +227,13 @@
 :modoeditne
 	[ xymouse searchtra 'picktra ! ; ] guiBtn ;
 
+:cursor!
+	'cursor !
+	;
+
 :modoeditn
 	picktra -? ( drop modoeditne ; )
-	[ tocanodo 0? ( -1 'picktra ! ) 'cursor ! ; ]
+	[ tocanodo 0? ( -1 'picktra ! ) cursor! ; ]
 	[ cursor 1? ( muevenodo ; ) drop ; ]
 	guiDnMove
 	4 << tra + @ drawtra ;
@@ -251,9 +261,34 @@
 
 :escalapoly
 	;
+
 :rotapoly
 	;
 
+:delpoly
+	picktra 4 << tra + @
+	dup lastnode ves>	| ini end last
+	over -
+	over pick3 - neg 'ves> +!
+	2 >> 1+ move 				| des src cnt
+	0 ves> !
+	buildtra -1 'picktra ! ;
+
+:cpypoly
+	ves> picktra 4 << tra + @
+	dup lastnode over -			| last ini cnt
+	dup 'ves> +!
+	2 >> move
+	0 ves> !
+	buildtra -1 'picktra ! ;
+
+:uppoly 
+	;
+
+:dnpoly 
+	;
+
+|----------------------------------
 :inpoly | -- 1/0
 	xymouse
 	ymin ymax between -? ( 2drop 0 ; ) drop
@@ -275,9 +310,10 @@
 
 :modoeditp
 	picktra -? ( drop 'searchpoly guiBtn ; ) drop
-	'moveini |'movepoly
-	[ ; ]
+	'moveini
+	'movepoly
 	guiDnMove
+
 	negro
 	xmin ymin xmax ymax	dotbox
 | punto de mover
@@ -291,15 +327,11 @@
 | punto de rotar
 	;
 
-:delpoly ;
-:cpypoly ;
-:uppoly ;
-:dnpoly ;
-
 |------------------------------------
 :btnric | icon vec --
 	ink@ >r btne blanco 2-gc drawric 2+gc r> ink ;
 
+|------------------------------------
 :toodraw
 	;
 
@@ -310,15 +342,17 @@
 	;
 
 :tooeditn
-
+	picktra -? ( drop ; ) drop
+	'i.trash 'delpoly btnric gcdn
+	'i.copy 'cpypoly btnric gcdn
 	;
 
 :tooeditp
 	picktra -? ( drop ; ) drop
-	'i.zoom_in 'delpoly btnric gcdn
-	'i.zoom_in 'cpypoly btnric gcdn
-	'i.zoom_in 'uppoly btnric gcdn
-	'i.zoom_in 'dnpoly btnric gcdn
+	'i.trash 'delpoly btnric gcdn
+	'i.copy 'cpypoly btnric gcdn
+	'i.circle_arrow_up 'uppoly btnric gcdn
+	'i.circle_arrow_down 'dnpoly btnric gcdn
 	;
 
 
@@ -379,6 +413,23 @@
 	[ sv 2/ 'sv ! ; ] <pgdn>
 	;
 
+|-------- DEBUG
+:tr1
+	picktra -? ( drop ; )
+	4 << tra + @ dup lastnode >r =? ( ">" print ) r> =? ( "<" print )
+	;
+
+:dumptr
+	scr home negro
+	ves ( ves> 4+ <=? )(
+		tr1
+		ves> =? ( "!" print )
+		tra =? ( "*" print )
+		@+ "%h " print cr allowchome
+		) drop
+	;
+|-------- DEBUG
+
 :main
 	buildtra
 	4
@@ -387,9 +438,17 @@
 		modogui exec
         botonera
         teclado
+
+		dumptr |-------- DEBUG
+
 		'exit >esc<
 		cminiflecha ;
 
+:simplify
+	ves dup ( @+ 1? )(
+		drop
+		) 3drop
+	;
 :vmem
 	mark
 	here dup 'ves ! dup 'ves> ! 0 swap !
@@ -398,6 +457,8 @@
 
 : $aaaaaa paper
 	vmem
-	ves "mem/notepad.vsp" load 'ves> !
+	ves "mem/notepad.vsp" load 0 swap !
+	simplify
+	ves ( @+ 1? )( drop ) swap 4 - 'ves> !
 	main
 	ves ves> over - "mem/notepad.vsp" save ;
