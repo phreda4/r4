@@ -243,20 +243,28 @@
 	xymouse
 	yfix 3 >> dup yf - 'yfa ! 'yf !
 	xfix 3 >> dup xf - 'xfa ! 'xf !
-	picktra -? ( drop ; )
-	4 << tra + @
+
+	picktra 4 << tra + 4+	| limites
+	@+ d>xy
+	yfa + -$1fff <? ( 3drop ; ) drop
+	xfa + -$1fff <? ( 2drop ; ) drop
+	@+ d>xy
+	yfa + $1fff >? ( 3drop ; ) drop
+	xfa + $1fff >? ( 2drop ; ) drop
+
+	12 - dup @				| mueve poly
 	( dup @ dup $f and $b <? )(
 		swap
 		d>xy yfa + swap xfa + swap xy>d
 		or swap !+
 		) 3drop
 
-	picktra 4 << tra + 4+ dup
+	4+						| mueve limites
 	dup @ d>xy yfa + swap xfa + swap xy>d swap !+
-	dup @ d>xy yfa + swap xfa + swap xy>d swap !
-	@+ gc>xy rot @ gc>xy rot | x1 x2 y2 y1
-	2sort 'ymin ! 'ymax !
-	2sort 'xmin ! 'xmax !
+	dup @ d>xy yfa + swap xfa + swap xy>d swap !+
+	8 -
+	@+ gc>xy 'ymin ! 'xmin !
+	@ gc>xy 'ymax ! 'xmax !
 	;
 
 :escalapoly
@@ -303,28 +311,59 @@
     xymouse searchtra dup 'picktra !
     -? ( drop ; )
     4 << tra + 4+
-	@+ gc>xy rot @ gc>xy rot | x1 x2 y2 y1
-	2sort 'ymin ! 'ymax !
-	2sort 'xmin ! 'xmax !
+	@+ gc>xy 'ymin ! 'xmin !
+	@ gc>xy 'ymax ! 'xmax !
+	;
+
+:inmouse | x y -- 1/0
+	xymouse rot - dup * rot rot - dup * +
+	32 <=? ( 1 )( 0 ) nip ;
+
+:mvscala
+	xymouse
+	'ymax !
+	'xmax !
+	;
+
+:mvscalax
+	xymouse drop
+	'xmax !
+	;
+:mvscalay
+	xymouse nip
+	'ymax !
+	;
+
+:rotapoly
+	;
+
+#emove
+
+:dnp
+| punto de x escala
+	xmin xmax + 2/ ymax inmouse 1? ( drop 'mvscalay 'emove ! ; ) drop
+| punto de y escala
+	xmax ymin ymax + 2/ inmouse 1? ( drop 'mvscalax 'emove ! ; ) drop
+| punto de xy escala
+	xmax ymax inmouse 1? ( drop 'mvscala 'emove ! ; ) drop
+| punto de rotar
+	xmin ymin inmouse 1? ( drop 'rotapoly 'emove ! ; ) drop
+| mover
+	moveini 'movepoly 'emove !
 	;
 
 :modoeditp
 	picktra -? ( drop 'searchpoly guiBtn ; ) drop
-	'moveini
-	'movepoly
-	guiDnMove
-
-	negro
 	xmin ymin xmax ymax	dotbox
-| punto de mover
-|	xmax xmin + 2/ ymax ymin + 2/ 4 box
-
-| pundo de x escala
-| punto de y escala
-| punto de xy escala
-	xmax ymax
-	p1
-| punto de rotar
+	negro
+	xmin xmax + 2/ ymin ymax + 2/ 5 cruz
+	verde
+	xmin ymin p2
+	blanco
+	xmax ymax p1
+	xmax ymin ymax + 2/ p1
+	xmin xmax + 2/ ymax p1
+	'dnp emove guiDnMove
 	;
 
 |------------------------------------
@@ -440,6 +479,7 @@
         teclado
 
 		dumptr |-------- DEBUG
+
 
 		'exit >esc<
 		cminiflecha ;
