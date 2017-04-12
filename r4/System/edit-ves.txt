@@ -22,6 +22,7 @@
 #tra 0
 #tra>
 
+| scrach pad
 #lin
 #lin>
 
@@ -55,12 +56,13 @@
      	@+ dup $f and 2 << 'lbox + @ exec
 		) drop
 	dup 'tra> !
-	dup 'lin ! 0 over ! 'lin> ! ;
+	dup 'lin ! 0 over ! 'lin> !
+	;
 
 :rebuild1tra | tra --
 	i.st
 	4 << tra +
-	dup @ ( @+ dup $f and $b <? )(
+	@+ ( @+ dup $f and $b <? )(
 		2 << 'lbox + @ exec
 		) 3drop
 	xmin ymin xy>d swap !+
@@ -79,6 +81,10 @@
 
 #xf #yf
 #xfa #yfa
+#xsa #ysa
+#xca #yca
+#wpa #hpa
+#apoly
 #cursor
 #cursorn
 #picktra -1
@@ -239,6 +245,14 @@
 	4 << tra + @ drawtra ;
 
 |---------------------------------
+:rebox
+	picktra rebuild1tra
+	picktra 4 << tra + 4+
+	@+ gc>xy 'ymin ! 'xmin !
+	@ gc>xy 'ymax ! 'xmax !
+	;
+
+
 :movepoly
 	xymouse
 	yfix 3 >> dup yf - 'yfa ! 'yf !
@@ -254,9 +268,9 @@
 
 	12 - dup @				| mueve poly
 	( dup @ dup $f and $b <? )(
-		swap
-		d>xy yfa + swap xfa + swap xy>d
-		or swap !+
+		swap d>xy
+		yfa + swap xfa + swap
+		xy>d or swap !+
 		) 3drop
 
 	4+						| mueve limites
@@ -267,8 +281,15 @@
 	@ gc>xy 'ymax ! 'xmax !
 	;
 
+
 :escalapoly
-	;
+	picktra 4 << tra + @
+	( dup @ dup $f and $b <? )(
+		swap d>xy
+		yca - ysa *. yca + swap
+		xca - xsa *. xca + swap
+		xy>d or swap !+
+		) 3drop ;
 
 :rotapoly
 	;
@@ -290,10 +311,43 @@
 	0 ves> !
 	buildtra -1 'picktra ! ;
 
-:uppoly 
+|--- scratch pad
+:.pad
+	lin 'lin> ! ;
+
+:cpy>pad | adr --
+	lin> >r
+	( @+ dup $f and $b <? )( drop
+		r!+ ) drop
+	r!+ drop
+	r> 'lin> ! ;
+
+:cpypad> | adr --
+	>r lin
+	( lin> <? )( @+ r!+ ) drop
+	rdrop ;
+
+|---
+
+:uppoly
+	picktra tra> tra - 4 >> 1- >=? ( drop ; )
+	.pad
+	4 << tra +
+	dup @ swap 16 + @	| p1 p2
+	cpy>pad
+	dup cpy>pad
+	cpypad>
+	buildtra -1 'picktra !
 	;
 
-:dnpoly 
+:dnpoly
+	picktra 0? ( drop ; )
+	.pad
+	4 << tra +
+	dup @ cpy>pad
+	16 - @ dup cpy>pad
+	cpypad>
+	buildtra -1 'picktra !
 	;
 
 |----------------------------------
@@ -306,6 +360,16 @@
 :moveini
 	inpoly 0? ( 1- 'picktra ! ; ) drop
 	xymouse dotf ;
+
+
+:polyini
+	picktra 4 << tra + @+
+	dup 'apoly !
+	cpy>pad
+	ymax ymin - 'hpa !
+	xmax xmin - 'wpa !
+	xymouse dotf
+	;
 
 :searchpoly
     xymouse searchtra dup 'picktra !
@@ -321,17 +385,47 @@
 
 :mvscala
 	xymouse
-	'ymax !
-	'xmax !
+	yfix 3 >> dup yf - 'yfa ! 'yf !
+	xfix 3 >> dup xf - 'xfa ! 'xf !
+
+	picktra 4 << tra + 4+
+	@+ d>xy 2dup 'yca ! 'xca !
+	rot @ d>xy 		| minx miny maxx maxy
+	rot - dup yfa + 16 << swap / 'ysa !
+	swap - dup xfa + 16 << swap / 'xsa !
+
+	escalapoly
+	rebox
 	;
 
 :mvscalax
-	xymouse drop
-	'xmax !
+	xymouse
+	yfix 3 >> dup yf - 'yfa ! 'yf !
+	xfix 3 >> dup xf - 'xfa ! 'xf !
+
+	picktra 4 << tra + 4+	| limites
+	@+ d>xy 2dup 'yca ! 'xca !
+	rot @ d>xy 		| minx miny maxx maxy
+	rot 2drop 1.0 'ysa !
+	swap - dup xfa + 16 << swap / 'xsa !
+
+	escalapoly
+    rebox
 	;
+
 :mvscalay
-	xymouse nip
-	'ymax !
+	xymouse
+	yfix 3 >> dup yf - 'yfa ! 'yf !
+	xfix 3 >> dup xf - 'xfa ! 'xf !
+
+	picktra 4 << tra + 4+
+	@+ d>xy 2dup 'yca ! 'xca !
+	rot @ d>xy 		| minx miny maxx maxy
+	rot - dup yfa + 16 << swap / 'ysa !
+	swap - 2drop 1.0 'xsa !
+
+	escalapoly
+    rebox
 	;
 
 :rotapoly
@@ -341,13 +435,13 @@
 
 :dnp
 | punto de x escala
-	xmin xmax + 2/ ymax inmouse 1? ( drop 'mvscalay 'emove ! ; ) drop
+	xmin xmax + 2/ ymax inmouse 1? ( drop polyini 'mvscalay 'emove ! ; ) drop
 | punto de y escala
-	xmax ymin ymax + 2/ inmouse 1? ( drop 'mvscalax 'emove ! ; ) drop
+	xmax ymin ymax + 2/ inmouse 1? ( drop polyini 'mvscalax 'emove ! ; ) drop
 | punto de xy escala
-	xmax ymax inmouse 1? ( drop 'mvscala 'emove ! ; ) drop
+	xmax ymax inmouse 1? ( drop polyini 'mvscala 'emove ! ; ) drop
 | punto de rotar
-	xmin ymin inmouse 1? ( drop 'rotapoly 'emove ! ; ) drop
+	xmin ymin inmouse 1? ( drop polyini 'rotapoly 'emove ! ; ) drop
 | mover
 	moveini 'movepoly 'emove !
 	;
@@ -466,6 +560,9 @@
 		tra =? ( "*" print )
 		@+ "%h " print cr allowchome
 		) drop
+	lin ( lin> <? )(
+		@+ "%h " print cr allowchome
+		) drop
 	;
 |-------- DEBUG
 
@@ -478,8 +575,7 @@
         botonera
         teclado
 
-		dumptr |-------- DEBUG
-
+|		dumptr |-------- DEBUG
 
 		'exit >esc<
 		cminiflecha ;
