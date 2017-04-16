@@ -207,34 +207,6 @@
 	0 'lin> !
 	;
 
-|----
-#pnow
-#ddmodo
-
-:inip
-	xymouse 2dup 'yca ! 'xca !
-	xy>gc lin> lin =? ( 8 )( 9 )
-	rot or swap !+ 'lin> !
-	0 'pnow ! ;
-
-:movp1
-	xymouse
-	over xca - abs over yca - abs or 4 <? ( 3drop ; ) drop
-	2dup 'yca ! 'xca !
-	xy>gc 9 or lin> dup 'pnow ! !+ 'lin> !
-	;
-
-:movp
-	pnow 0? ( drop movp1 ; )
-	xymouse 2dup 'yca ! 'xca !
-	xy>gc 9 or swap !
-	;
-
-:upp
-	pnow 0? ( drop ; )
-	dup 4 - @ $fffffff0 and 10 or swap !
-	;
-
 |--------
 :t0 drop ;
 :t1 drop 4+ ;
@@ -245,21 +217,102 @@
 
 #ltra t0 t0 t1 t1 to t2 t3 t4 to t2 t3 t4
 
+:cursor0
+	xymouse p1 ;
+
+:cursor1
+	xymouse 2dup line 3 box ;
+
+:cursor2
+	xymouse xca yca curve
+	xca yca 3 diam
+	;
+
+:cursor3
+	lin> 4 - @ gc>xy op
+	xymouse  xca yca curve
+
+|	xymouse
+|	lin> 4 - @ gc>xy
+|	xymouse xca yca
+
+|	curve
+	xca yca 3 diam
+	;
+:a
+	xymouse
+	xca yca 2dup >r >r
+	pick3 dup pick3 - +
+	pick3 dup pick3 - +
+	2dup >r >r
+	curve3
+	r> r> 3 box
+	r> r> 3 box
+	;
+
+#ecursor 'cursor0
+#pnow
+
 :drawdraw
+	lin lin> =? ( drop ; )
 	gris
 	( lin> <? )(
 		@+ dup $f and 2 << 'ltra + @ exec
 		) drop
+
 	rojo
-	pnow 0? ( drop xymouse line ; ) drop
-	xymouse xca yca curve ;
+	ecursor exec ; :a
+	| cursor
+
+	pnow 0? ( xymouse line )( xymouse xca yca curve ) drop
+	verde
+	lin @ gc>xy 4 fbox
+	;
 
 |--------
 
+|----
+
+:inip1
+	drop
+	pnow @
+	xymouse 2dup 'yca ! 'xca !
+	xy>gc 10 or
+	lin> 4 - !+ !+ 'lin> !
+	0 'pnow !
+	;
+
+:inip
+	pnow 1? ( inip1 ; ) drop
+	xymouse 2dup 'yca ! 'xca !
+	xy>gc lin> lin =? ( 8 )( 9 )
+	rot or swap !+ 'lin> !
+	'cursor1 'ecursor !
+	;
+
+:movp1
+	xymouse
+	over xca - abs over yca - abs or 4 <? ( 3drop ; ) drop
+	'yca ! 'xca !
+	lin> 'pnow !
+	lin> 4 - lin =? ( 'cursor2 )( 'cursor3 )
+	'ecursor ! drop
+	;
+
+:movp
+	pnow 0? ( drop movp1 ; ) drop
+	xymouse 'yca ! 'xca !
+	;
+
+:upp
+	pnow 0? ( drop ; ) drop
+	xca yca xy>gc lin> !+ 'lin> !
+	;
+
+
 :mododraw
-|	'inid 'movd 'upd guiMap
+|	'inid 'movd 'upd guiMap		| dibujo directo
 	'inip 'movp 'upp guiMap
-	lin lin> =? ( drop ; )
 	drawdraw
 	;
 
@@ -605,14 +658,13 @@
 
 :dumptr
 	scr home negro
-	ddmodo "%d" print
-; :a
-	ves ( ves> 4+ <=? )(
-		tr1
-		ves> =? ( "!" print )
-		tra =? ( "*" print )
-		@+ "%h " print cr allowchome
-		) drop
+
+|	ves ( ves> 4+ <=? )(
+|		tr1
+|		ves> =? ( "!" print )
+|		tra =? ( "*" print )
+|		@+ "%h " print cr allowchome
+|		) drop
 	lin ( lin> <? )(
 		@+ "%h " print cr allowchome
 		) drop
