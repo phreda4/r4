@@ -221,7 +221,7 @@
 	xymouse p1 ;
 
 :cursor1
-	xymouse 2dup line 3 box ;
+	xymouse line ;
 
 :cursor2
 	xymouse xca yca curve
@@ -229,8 +229,16 @@
 	;
 
 :cursor3
-	lin> 4 - @ gc>xy op
-	xymouse  xca yca curve
+	xca yca
+	xymouse
+	pick3 dup pick3 - +
+	pick3 dup pick3 - +
+	2dup p1
+	2over p1
+	op line line
+
+|	lin> 4 - @ gc>xy op
+|	xymouse  xca yca curve
 
 |	xymouse
 |	lin> 4 - @ gc>xy
@@ -241,10 +249,11 @@
 	;
 :a
 	xymouse
-	xca yca 2dup >r >r
+	xca yca
 	pick3 dup pick3 - +
 	pick3 dup pick3 - +
-	2dup >r >r
+	2dup p1
+
 	curve3
 	r> r> 3 box
 	r> r> 3 box
@@ -293,7 +302,8 @@
 :movp1
 	xymouse
 	over xca - abs over yca - abs or 4 <? ( 3drop ; ) drop
-	'yca ! 'xca !
+|	'yca ! 'xca !
+	2drop
 	lin> 'pnow !
 	lin> 4 - lin =? ( 'cursor2 )( 'cursor3 )
 	'ecursor ! drop
@@ -301,12 +311,15 @@
 
 :movp
 	pnow 0? ( drop movp1 ; ) drop
-	xymouse 'yca ! 'xca !
+
+|	xymouse 'yca ! 'xca !
 	;
 
 :upp
+	'cursor1 'ecursor !
 	pnow 0? ( drop ; ) drop
 	xca yca xy>gc lin> !+ 'lin> !
+	0 'pnow !
 	;
 
 
@@ -685,11 +698,44 @@
 		'exit >esc<
 		cminiflecha ;
 
-:simplify
-	ves dup ( @+ 1? )(
-		drop
-		) 3drop
+|--- symplify poly
+:lef	| last equal first
 	;
+:cef	| control point equal first
+	;
+:cel	| control point equal last
+	;
+:pil	| point in line
+	;
+
+:t0 ;
+
+:t4	| OP
+	po pick2 'po !
+	-1 =? ( drop  ; )
+	|lef
+	;
+:t5 | LINE
+	| pil
+	;
+:t6 | CURVE
+	| cef
+	;
+
+:t7	| CURVE3
+	| cef cel
+	;
+:tc ;
+
+#ts t0 t0 t0 t0 t4 t5 t6 t7 t4 t5 t6 t7 tc tc tc tc
+
+
+:simplify
+	-1 'po !
+	ves dup ( @+ 1? )(
+		dup $f and 2 << 'ts + @ exec
+		rot !+ swap ) 3drop ;
+
 :vmem
 	mark
 	here dup 'ves ! dup 'ves> ! 0 swap !
@@ -699,7 +745,7 @@
 : $aaaaaa paper
 	vmem
 	ves "mem/notepad.vsp" load 0 swap !
-	simplify
+|	simplify
 	ves ( @+ 1? )( drop ) swap 4 - 'ves> !
 	main
 	ves ves> over - "mem/notepad.vsp" save ;
