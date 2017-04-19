@@ -215,12 +215,20 @@
 :cursor0
 	xca -? ( drop ; ) yca op xymouse line ;
 
+:cursor0c
+	gris
+	xca yca op xymouse line ;
+
 :cursor1
 	xymouse line ;
 
+
 :cursor2
-	xymouse xca yca curve
-	xca yca 3 diam
+	xymouse lin> 4 - @ gc>xy curve
+	gris
+	xca yca op
+	lin> 4 - @ gc>xy 2dup line
+	3 fdiam
 	;
 
 :cursor3
@@ -230,35 +238,64 @@
 	pick3 dup pick3 - +
 	xca yca 2over curve
 	gris
-	2dup p1 2over p1
+	2dup 3 fdiam 2over 3 fdiam
 	op line line
 	;
 
 :cursor4
 	xymouse
 	lin> 4 - @ gc>xy curve
-	lin> 12 - >r
 	gris
+	lin> 12 - >r
 	r@+ gc>xy 2dup op
-	r@+ gc>xy 2dup line p1
-	op r> @ gc>xy 2dup line p1
+	r@+ gc>xy 2dup line 3 fdiam
+	op r> @ gc>xy 2dup line 3 fdiam
+	;
+
+:cursor4c
+	xymouse
+	lin> 4 - @ gc>xy curve
+	gris
+	lin> 12 - >r
+	r@+ gc>xy 2dup op
+	r> 4+ @ gc>xy 2dup line 3 fdiam 3 fdiam
+	;
+
+:cursor5
+	xca yca
+	xymouse
+	pick3 dup pick3 - +
+	pick3 dup pick3 - +
+	xca yca 2over lin> 4 - @ gc>xy curve3
+	gris
+	2dup 3 fdiam 2over 3 fdiam
+	op line line
 	;
 
 #ecursor 'cursor0
+#emodo 0
 
 :ins0
-	xymouse xy>gc 8 or lin> !+ 'lin> !
+	xymouse xy>gc 4 or lin> !+ 'lin> !
 	'cursor1 'ecursor ! ;
+
+:ins0c
+	xymouse xy>gc
+	xca yca xy>gc 4 or
+	lin> !+ !+ 'lin> !
+	'cursor2 'ecursor ! ;
 
 :ins1
-	xymouse xy>gc 9 or lin> !+ 'lin> !
+	xymouse xy>gc 5 or lin> !+ 'lin> !
 	'cursor1 'ecursor ! ;
 
+:conv2c
+	lin> 4 - dup @
+	xymouse xy>gc 6 or
+	rot !+ !+ 'lin> ! ;
+
 :ins2
-	xca yca xy>gc
-	xymouse xy>gc 10 or
-	lin> !+ !+ 'lin> !
-	'cursor1 'ecursor ! ;
+	conv2c 'cursor1 'ecursor ! ;
 
 :ins3
 	xca yca
@@ -266,7 +303,7 @@
 	pick3 dup pick3 - +
 	pick3 dup pick3 - +
 	xy>gc rot rot xy>gc
-	2swap xy>gc 10 or
+	2swap xy>gc 6 or
 	lin> >r r!+
 	swap r!+ r!+ r> 'lin> !
 	'cursor4 'ecursor !
@@ -274,10 +311,34 @@
 
 :ins4
     lin> 4 - >r
-	r @ $fffffff0 and
-	xymouse xy>gc 10 or r!+
+	r @ |$fffffff0 and
+	xymouse xy>gc 6 or r!+
 	r!+ r> 'lin> !
 	'cursor1 'ecursor !
+	;
+
+:ins4c
+    lin> 4 - >r
+	r @ |$fffffff0 and
+	xymouse xy>gc 6 or r!+
+	r!+ r> 'lin> !
+	'cursor1 'ecursor !
+	;
+
+:ins5
+	lin> 4 - >r
+	r @ |$fffffff0 and
+
+	xca yca
+	xymouse
+	pick3 dup pick3 - +
+	pick3 dup pick3 - +
+	xy>gc rot rot xy>gc		| nc mou
+	2swap xy>gc 7 or		| nc mou ca
+	r!+ swap r!+ swap r!+
+	r!+ r> 'lin> !
+
+    'cursor4c 'ecursor !
 	;
 
 :t0 drop ;
@@ -290,13 +351,19 @@
 #ltra t0 t0 t1 t1 to t2 t3 t4 to t2 t3 t4
 
 :closep
+	| la ultima curva(curda?)
+	ecursor
+	'cursor4 =? ( ins4 )
+	'cursor4c =? ( ins4c )
+	drop
    	ves> >r
-	lin ( lin> <? )( @+ 4 - r!+ ) drop
+	lin ( lin> <? )( @+ r!+ ) drop
 	color 8 << $c or r!+
 	0 r ! r> 'ves> !
 	buildtra
 	-1 'picktra !
 	'cursor0 'ecursor !
+	-1 'xca !
 	;
 
 :drawdraw
@@ -316,27 +383,37 @@
 
 |----
 :inip
-	xymouse 'yca ! 'xca ! ;
+	xymouse 'yca ! 'xca !
+	0 'emodo ! ;
 
-:movp
+:movp1
 	xymouse yca - abs swap xca - abs or
 	4 <? ( drop ; ) drop
+	1 'emodo !
 	ecursor
-	'cursor0 =? ( drop 'cursor0 'ecursor ! ; )
-	'cursor1 =? ( drop 'cursor2 'ecursor ! ; )
-	'cursor2 =? ( drop 'cursor3 'ecursor ! ; )
-	'cursor3 =? ( drop 'cursor3 'ecursor ! ; )
-	'cursor4 =? ( drop 'cursor3 'ecursor ! ; )
+	'cursor0 =? ( drop 'cursor0c 'ecursor ! ; )
+	'cursor1 =? ( drop 'cursor3 'ecursor ! ; )
+	'cursor2 =? ( drop conv2c 'cursor1 'ecursor ! ; )
+
+	'cursor3 =? ( drop 'cursor4 'ecursor ! ; )
+	'cursor4 =? ( drop 'cursor5 'ecursor ! ; )
+	'cursor4c =? ( drop 'cursor5 'ecursor ! ; )
 	drop
 	;
+
+:movp
+	emodo 0? ( drop movp1 ; ) drop ;
 
 :upp
 	ecursor
 	'cursor0 =? ( drop ins0 ; )
+	'cursor0c =? ( drop ins0c ; )
 	'cursor1 =? ( drop ins1 ; )
 	'cursor2 =? ( drop ins2 ; )
 	'cursor3 =? ( drop ins3 ; )
 	'cursor4 =? ( drop ins4 ; )
+	'cursor4c =? ( drop ins4c ; )
+	'cursor5 =? ( drop ins5 ; )
 	drop
 	;
 
@@ -694,6 +771,17 @@
 	lin ( lin> <? )(
 		@+ "%h " print cr allowchome
 		) drop
+verde fonti2
+	ecursor
+	'cursor0 =? ( "0" print )
+	'cursor0c =? ( "0c" print )
+	'cursor1 =? ( "1" print )
+	'cursor2 =? ( "2" print )
+	'cursor3 =? ( "3" print )
+	'cursor4 =? ( "4" print )
+	'cursor4c =? ( "4c" print )
+	'cursor5 =? ( "5" print )
+	drop
 	;
 |-------- DEBUG
 
