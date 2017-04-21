@@ -73,7 +73,7 @@
 :rebuild1tra | tra --
 	i.st
 	4 << tra +
-	@+ ( @+ dup $f and $b <? )(
+	@+ ( @+ dup $f and $c <? )(
 		2 << 'lbox + @ exec
 		) 3drop
 	xmin ymin xy>d swap !+
@@ -92,7 +92,7 @@
 
 
 :lastnode | adr -- adr'
-	( @+ $f and $b <? )( drop ) drop ;
+	( @+ $f and $c <? )( drop ) drop ;
 
 |---------------------------------
 :p1 2dup 3 fbox ink@ >r gris 3 box r> ink ;
@@ -131,7 +131,7 @@
 :train? | adr -- 1/0
 	0 'inside !
 	-1 'po !
-	( @+ dup $f and $b <? )(
+	( @+ dup $f and $c <? )(
 		2 << 'ppo + @ exec
 		) 3drop
 	inside 1 and ;
@@ -420,7 +420,7 @@
 :tocanodo | x y -- nro/0
 	xymouse 'yf ! 'xf !
 	picktra 4 << tra + @
-	( @+ dup $f and $b <? )( drop
+	( @+ dup $f and $c <? )( drop
 		gc>xy indot 1? ( drop 4 - ; )
 		drop ) 3drop 0 ;
 
@@ -463,8 +463,6 @@
 	4 << tra + @ drawtra ;
 
 |---------------------------------
-
-
 :movepoly
 	xymouse
 	yfix 3 >> dup yf - 'yfa ! 'yf !
@@ -479,7 +477,7 @@
 	xfa + $1fff >? ( 2drop ; ) drop
 
 	12 - dup @				| mueve poly
-	( dup @ dup $f and $b <? )(
+	( dup @ dup $f and $c <? )(
 		swap d>xy
 		yfa + swap xfa + swap
 		xy>d or swap !+
@@ -493,18 +491,36 @@
 	@ gc>xy 'ymax ! 'xmax !
 	;
 
+:escalanodo
+	swap d>xy	| x y
+	yca - ysa *. yca + swap
+	xca - xsa *. xca + swap
+	xy>d ;
 
 :escalapoly
-	picktra 4 << tra + @
-	( dup @ dup $f and $b <? )(
-		swap d>xy
-		yca - ysa *. yca + swap
-		xca - xsa *. xca + swap
-		xy>d or swap !+
-		) 3drop ;
+	picktra 4 << tra + @ >r
+	lin ( lin> <? )(
+		@+ dup $f and
+		$c <? ( escalanodo )
+	 	or r!+ ) drop
+	rdrop ;
+
+
+:rotanodo
+	swap d>xy	| x y
+	yca - swap xca - swap
+	over xsa *. over ysa *. + yca + >r
+	swap ysa *. swap xsa *. - xca + r>
+	xy>d ;
 
 :rotapoly
-	;
+	picktra 4 << tra + @ >r
+	lin ( lin> <? )(
+		@+ dup $f and
+		$c <? ( rotanodo )
+	 	or r!+ ) drop
+	rdrop ;
+
 
 :delpoly
 	picktra 4 << tra + @
@@ -531,7 +547,7 @@
 
 :cpy>pad | adr --
 	lin> >r
-	( @+ dup $f and $b <? )( drop
+	( @+ dup $f and $c <? )( drop
 		r!+ ) drop
 	r!+ drop
 	r> 'lin> ! ;
@@ -579,62 +595,55 @@
 	inpoly 0? ( 1- 'picktra ! ; ) drop
 	xymouse dotf ;
 
-
 :polyini
+	lin 'lin> !
 	picktra 4 << tra + @+
 	cpy>pad
-	ymax ymin - 'hpa !
-	xmax xmin - 'wpa !
-	xymouse dotf
-	;
-
+	@+ d>xy rot @ d>xy rot
+	2dup + 2/ 'yca ! - abs 'hpa !
+	2dup + 2/ 'xca ! - abs 'wpa !
+	xymouse dotf ;
 
 :mvscala
 	xymouse
-	yfix 3 >> dup yf - 'yfa ! 'yf !
-	xfix 3 >> dup xf - 'xfa ! 'xf !
+	yfix 3 >> yf - 'yfa !
+	xfix 3 >> xf - 'xfa !
 
-	picktra 4 << tra + 4+
-	@+ d>xy 2dup 'yca ! 'xca !
-	rot @ d>xy 		| minx miny maxx maxy
-	rot - dup yfa + 16 << swap / 'ysa !
-	swap - dup xfa + 16 << swap / 'xsa !
-
+	hpa dup yfa - 16 <</ 'ysa !
+	wpa dup xfa - 16 <</ 'xsa !
 	escalapoly
-	rebox
-	;
+	rebox ;
 
 :mvscalax
 	xymouse
-	yfix 3 >> dup yf - 'yfa ! 'yf !
-	xfix 3 >> dup xf - 'xfa ! 'xf !
+	yfix 3 >> yf - 'yfa !
+	xfix 3 >> xf - 'xfa !
 
-	picktra 4 << tra + 4+	| limites
-	@+ d>xy 2dup 'yca ! 'xca !
-	rot @ d>xy 		| minx miny maxx maxy
-	rot 2drop 1.0 'ysa !
-	swap - dup xfa + 16 << swap / 'xsa !
-
+	1.0 'ysa !
+	wpa dup xfa - 16 <</ 'xsa !
 	escalapoly
-    rebox
-	;
+	rebox ;
 
 :mvscalay
 	xymouse
-	yfix 3 >> dup yf - 'yfa ! 'yf !
-	xfix 3 >> dup xf - 'xfa ! 'xf !
+	yfix 3 >> yf - 'yfa !
+	xfix 3 >> xf - 'xfa !
 
-	picktra 4 << tra + 4+
-	@+ d>xy 2dup 'yca ! 'xca !
-	rot @ d>xy 		| minx miny maxx maxy
-	rot - dup yfa + 16 << swap / 'ysa !
-	swap - 2drop 1.0 'xsa !
-
+	hpa dup yfa - 16 <</ 'ysa !
+	1.0 'xsa !
 	escalapoly
-    rebox
-	;
+	rebox ;
 
-:rotapoly
+:rotapolya
+	xymouse
+	swap xfix 3 >> xca -
+	swap yfix 3 >> yca -
+	atan2
+	xf xca - yf yca -
+	atan2
+	- 0.25 + sincos 'xsa ! 'ysa !
+	rotapoly
+	rebox
 	;
 
 #emove
@@ -647,7 +656,7 @@
 	xmax ymax | punto de xy escala
 	inmouse 1? ( drop polyini 'mvscala 'emove ! ; ) drop
 	xmin ymin | punto de rotar
-	inmouse 1? ( drop polyini 'rotapoly 'emove ! ; ) drop
+	inmouse 1? ( drop polyini 'rotapolya 'emove ! ; ) drop
 	moveini 'movepoly 'emove ! | mover
 	;
 
@@ -797,7 +806,7 @@ verde fonti2
         botonera
         teclado
 
-		dumptr |-------- DEBUG
+|		dumptr |-------- DEBUG
 
 		'exit >esc<
 		cminiflecha ;
