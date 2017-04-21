@@ -30,7 +30,7 @@
 #xf #yf
 #xfa #yfa
 #xsa #ysa
-#xca -1 #yca
+#xca #yca
 #wpa #hpa
 
 #cursor
@@ -97,25 +97,6 @@
 |---------------------------------
 :p1 2dup 3 fbox ink@ >r gris 3 box r> ink ;
 :p2 2dup 3 fdiam ink@ >r gris 3 diam r> ink ;
-
-:t0 drop ;
-:t1 drop 4+ ;
-:t2 dup 'pa ! gc>xy p1 ;
-:t3 dup 'pa ! gc>xy p1
-	@+ gc>xy p2 ;
-:t4 >r @+ >r @+
-	gc>xy 2dup op pa gc>xy line p2
-	r> gc>xy 2dup op r> dup 'pa ! gc>xy 2dup line p1 p2 ;
-
-#ltra t0 t0 t1 t1 t2 t2 t3 t4 t2 t2 t3 t4
-
-:drawtra
-	(
-	cursor =? ( rojo )( blanco )
-	@+ dup $f and $c <? )(
-		2 << 'ltra + @ exec
-		) 3drop ;
-
 
 |---------- punto en poligono
 #inside
@@ -187,12 +168,17 @@
 :innext | tra -- tra'
 	4 << tra + intr ;
 
-:searchtra
+:searchtra | x y -- tra
 	intra -? ( ; )
 	( dup 1+ innext 0 >? )( nip ) drop ;
 
-:2sort | x y -- max min
-	over >? ( swap ) ;
+:setpicktra
+	xymouse searchtra -? ( 'picktra ! ; )
+	dup 'picktra !
+    4 << tra + 4+
+	@+ gc>xy 'ymin ! 'xmin !
+	@ gc>xy 'ymax ! 'xmax !
+	;
 
 |---------------------
 :vistall
@@ -212,11 +198,10 @@
 	;
 
 |--------
-:cursor0
-	xca -? ( drop ; ) yca op xymouse line
-	verde xca yca 4 fbox ;
+:cursor0 ;
 
 :cursor0c
+	gris
 	xca yca 2dup op xymouse line
 	verde 3 fbox ;
 
@@ -352,9 +337,7 @@
 	color 8 << $c or r!+
 	0 r ! r> 'ves> !
 	buildtra
-	-1 'picktra !
 	'cursor0 'ecursor !
-	-1 'xca !
 	;
 
 :drawdraw
@@ -420,7 +403,20 @@
 	[ xymouse dup yf - 'yv +! 'yf ! dup xf - 'xv +! 'xf ! ;	] guiDnMove
 	;
 
-|---------------------------------
+|----------------------------------
+:rebox
+	picktra -? ( drop ; ) rebuild1tra
+:reboxl
+	picktra 4 << tra + 4+
+	xv yv pos sv qdim
+	@+ gc>xy 'ymin ! 'xmin !
+	@ gc>xy 'ymax ! 'xmax !
+	;
+
+:insnodo
+:delnodo
+	;
+
 :tocanodo | x y -- nro/0
 	xymouse 'yf ! 'xf !
 	picktra 4 << tra + @
@@ -432,26 +428,41 @@
 	xymouse xy>gc over @ $f and or swap ! ;
 
 :modoeditne
-	[ xymouse searchtra 'picktra ! ; ] guiBtn ;
+	'setpicktra guiBtn ;
 
 :cursor!
 	'cursor !
 	;
 
+|---
+:t0 drop ;
+:t1 drop 4+ ;
+:t2 dup 'pa ! gc>xy p1 ;
+:t3 dup 'pa ! gc>xy p1
+	@+ gc>xy p2 ;
+:t4 >r @+ >r @+
+	gc>xy 2dup op pa gc>xy line p2
+	r> gc>xy 2dup op r> dup 'pa ! gc>xy 2dup line p1 p2 ;
+
+#ltra t0 t0 t1 t1 t2 t2 t3 t4 t2 t2 t3 t4
+
+:drawtra
+	blanco
+	(
+|	cursor =? ( rojo )( blanco )
+	@+ dup $f and $c <? )(
+		2 << 'ltra + @ exec
+		) 3drop ;
+|---
 :modoeditn
 	picktra -? ( drop modoeditne ; )
 	[ tocanodo 0? ( -1 'picktra ! ) cursor! ; ]
 	[ cursor 1? ( muevenodo ; ) drop ; ]
-	guiDnMove
+	'rebox
+	guiMap
 	4 << tra + @ drawtra ;
 
 |---------------------------------
-:rebox
-	picktra rebuild1tra
-	picktra 4 << tra + 4+
-	@+ gc>xy 'ymin ! 'xmin !
-	@ gc>xy 'ymax ! 'xmax !
-	;
 
 
 :movepoly
@@ -502,7 +513,8 @@
 	over pick3 - neg 'ves> +!
 	2 >> 1+ move 				| des src cnt
 	0 ves> !
-	buildtra -1 'picktra ! ;
+	buildtra
+	-1 'picktra ! ;
 
 :cpypoly
 	ves> picktra 4 << tra + @
@@ -510,7 +522,8 @@
 	dup 'ves> +!
 	2 >> move
 	0 ves> !
-	buildtra -1 'picktra ! ;
+	buildtra
+	reboxl ;
 
 |--- scratch pad
 :.pad
@@ -538,7 +551,9 @@
 	cpy>pad
 	dup cpy>pad
 	cpypad>
-	buildtra -1 'picktra !
+	buildtra
+	1 'picktra +!
+	reboxl
 	;
 
 :dnpoly
@@ -548,7 +563,9 @@
 	dup @ cpy>pad
 	16 - @ dup cpy>pad
 	cpypad>
-	buildtra -1 'picktra !
+	buildtra
+	-1 'picktra +!
+	reboxl
 	;
 
 |----------------------------------
@@ -571,13 +588,6 @@
 	xymouse dotf
 	;
 
-:searchpoly
-    xymouse searchtra dup 'picktra !
-    -? ( drop ; )
-    4 << tra + 4+
-	@+ gc>xy 'ymin ! 'xmin !
-	@ gc>xy 'ymax ! 'xmax !
-	;
 
 :mvscala
 	xymouse
@@ -642,7 +652,7 @@
 	;
 
 :modoeditp
-	picktra -? ( drop 'searchpoly guiBtn ; ) drop
+	picktra -? ( drop 'setpicktra guiBtn ; ) drop
 	xmin ymin xmax ymax	dotbox
 	negro
 	xmin xmax + 2/ ymin ymax + 2/ 5 cruz
@@ -673,8 +683,8 @@
 
 :tooeditn
 	picktra -? ( drop ; ) drop
-	'i.trash 'delpoly btnric gcdn
-	'i.copy 'cpypoly btnric gcdn
+	'i.trash 'delnodo btnric gcdn
+	'i.copy 'insnodo btnric gcdn
 	;
 
 :tooeditp
@@ -761,6 +771,7 @@
 	lin ( lin> <? )(
 		@+ "%h " print cr allowchome
 		) drop
+
 verde fonti2
 	ecursor
 	'cursor0 =? ( "0" print )
@@ -772,6 +783,8 @@ verde fonti2
 	'cursor4c =? ( "4c" print )
 	'cursor5 =? ( "5" print )
 	drop
+	picktra " pk: %d" cr print
+	ymax ymin xmax xmin "%d %d %d %d" print
 	;
 |-------- DEBUG
 
