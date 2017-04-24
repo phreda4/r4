@@ -1,0 +1,258 @@
+| Adivina la palabra
+| 2017 PHEDA
+|-----------------
+^r4/lib/gui.txt
+^r4/lib/part16.txt
+^r4/lib/plqlib.txt
+
+^r4/lib/vesprite.txt
+^r4/rtv/fx.vsp
+
+#ti 0 0
+#fx 0 0
+#objs 0 0
+#movs 0 0
+
+#palok )( 32
+#palmx )( 32
+
+
+|-----------------------------
+:tletra
+	>r
+	r@+ r@+ atxy
+	r@+ ink r@+ emitf
+	rdrop
+	;
+
+:+letra | char x y --
+	'tletra 'fx p!+ >r
+	swap r!+ r!+
+	r!+ r!+
+	rdrop
+	;
+
+|-----------------------------
+:stsprite
+	dup 7 2 << + @ 0? ( 2drop ; ) drop
+	>r
+	mpush
+	r@+ r@+ 0 mtransi
+	r@+ 1? ( mrotxi )( drop )
+	r@+ 1? ( mrotyi )( drop )
+	r@+ 1? ( mrotzi )( drop )
+	r@+ dup dup mscalei
+	r@+ 3dvesprite
+	rdrop
+	mpop
+	;
+
+:+sprite | 'spr size x y --
+	'stsprite 'objs p!+ >r
+	swap r!+ r!+		| x y
+	0 0 0 r!+ r!+ r!+	| rx ry rz
+	r!+					| s
+	r!+					| sprite
+	1 r!+				| estado
+	rdrop ;
+
+:sprite.n | nro -- spr
+	6 << 'objs 4+ @ + ;
+
+:nxy.sprite | x y nro --
+	sprite.n 4+ >r swap r!+ r!+ rdrop ;
+
+:ns.sprite | s nro --
+	sprite.n 24 + ! ;
+
+:e.sprite | e nro --
+	sprite.n 8 2 << + ! ;
+
+:xy.sprite | x y obj --
+	4+ >r swap r!+ r!+ rdrop ;
+
+
+|---------- animadores
+#deltat
+#prevt
+#t0
+
+:itime
+	msec 'prevt ! 0 'deltat ! ;
+
+:dtime
+	msec dup prevt - 'deltat ! 'prevt ! ;
+
+:llerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 16 *>> + ;
+:clerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 cos abs 16 *>> + ;
+:slerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 sin abs 16 *>> + ;
+
+|-------------------
+:movlinea
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ / 1.0 min 't0 !
+	r@+
+	4+ r@+ r@+ llerp over !	| x
+	4+ r@+ r@+ llerp swap !	| y
+	rdrop
+	t0 1.0 - 1? ( drop ; )
+	;
+
+:+linea | xf yf obj time --
+	'movlinea 'movs p!+ >r
+	0 r!+ 1000 *. r!+	| 0 tmax
+	dup r!+		| obj
+	| xf yf obj
+	4+ dup @ r!+ rot r!+
+	4+ @ r!+ r!+
+	rdrop
+	;
+
+:movlin
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ / 0.25 min 't0 !
+	r@+
+	4+ r@+ r@+ slerp over !	| x
+	4+ r@+ r@+ slerp swap !	| y
+	rdrop
+	t0 0.25 - 1? ( drop ; )
+	;
+
+:+lin | xf yf obj time --
+	'movlin 'movs p!+ >r
+	0 r!+ 1000 *. r!+	| 0 tmax
+	dup r!+		| obj
+	| xf yf obj
+	4+ dup @ r!+ rot r!+
+	4+ @ r!+ r!+
+	rdrop
+	;
+
+:movcircle
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ 2* / 0.5 min 't0 !
+
+	t0 r@+ -? ( - neg )( + ) sincos
+	r@+ rot over *. >r *. r> swap
+	r@+ rot + r@+ rot + | x y
+	r@+ xy.sprite
+
+	rdrop
+	t0 0.5 - 1? ( drop ; )
+	;
+
+:+swap	| v1 v2 suma tiempo --
+	'movcircle 'movs p!+ >r
+	0 r!+ r!+	| 0 tmax
+	r!+			| suma
+
+	over 4+ @ over 4+ @
+	2dup - abs 2/ r!+	| ancho
+	+ 2/ r!+ 		| centro x
+	over 8 + @ over 8 + @
+	+ 2/ r!+ 		| centro y
+	r!+			| v1
+	r!+			| v2
+	rdrop ;
+
+:timex
+	>r
+	r@+ deltat + dup r 4 - !
+	r@+ >=? ( drop r> @ exec 0 ; )
+	drop
+	rdrop ;
+
+:+time | 'exec tiempo --
+	'timex 'ti p!+ >r
+	0 r!+ r!+ r!+
+	rdrop ;
+
+|--------------
+:buildt | ypos "" --
+	1 0.5 setfont3d
+	sizeprint 2/ neg	| y str xini
+	rot rot
+	( c@+ 1? )(
+		dup emitsize >r
+		$ff pick4 pick4 +letra
+		rot r> + rot rot )
+	4drop
+	;
+
+
+
+:swapc | adr1 adr2
+	dup c@ pick2 c@ rot c! swap c! ;
+
+:prepal | "" --
+	dup 'palok strcpy
+	dup 'palmx strcpy
+	count nip
+	1- 'palmx swap
+	( 1? )(
+		rand over mod abs 1+
+		pick2 + pick2 swapc
+		swap 1+ swap 1- ) 2drop
+	-0.3 'palmx buildt
+	;
+
+
+
+|--------------
+#xcam #ycam #zcam 2.0
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:main
+	33
+	itime
+	show0 clrscr
+		fonti
+		dup "%d" print
+		omode
+|		freelook
+|		msec 4 << mroty
+		xcam ycam zcam mtrans
+
+		7 0.5 setfont3d
+		0 0 pos 3.0 2.0 dim home
+		violeta
+		"Adivina la Palabra" printc
+
+		dtime
+		'ti p.draw
+
+		'movs p.draw
+		'objs p.draw
+
+		1 0.5 setfont3d
+		azul
+		'fx p.draw
+
+		[ "Silicon Valley" prepal ; ] <f1>
+		[ 0.3 'palok buildt ; ] <f2>
+		'exit >esc<
+		cminiflecha ;
+
+
+
+:memoria
+	mark
+	256 'ti p.ini
+	256 'objs p.ini
+	256 'movs p.ini
+	1024 'fx p.ini
+	;
+
+: memoria main ;
