@@ -10,7 +10,7 @@
 ^r4/lib/dlgcol.txt
 
 ^r4/lib/ricons.txt
-^inc/ric/fontawesomewebfont.ric
+^inc/ric/fontawesome.ric
 
 #modo
 #color
@@ -80,19 +80,11 @@
 	xmax ymax xy>d swap !
 	;
 
-
-:dumptra
-	tra ( tra> <? )( >r
-		r@+
-		r@+ r@+ gc>xy rot gc>xy
-		r@+ ink caja
-		"%h " print
-		r> ) drop ;
-
-
-
 :lastnode | adr -- adr'
 	( @+ $f and $c <? )( drop ) drop ;
+
+:getcolor | adr -- color
+	lastnode 4 - @ 8 >> ;
 
 |---------------------------------
 :p1 2dup 3 fbox ink@ >r gris 3 box r> ink ;
@@ -136,7 +128,6 @@
 		) 3drop
 	inside 1 and ;
 
-
 |-------
 :inmouse | x y -- 1/0
 	xymouse rot - dup * rot rot - dup * +
@@ -175,7 +166,8 @@
 :setpicktra
 	xymouse searchtra -? ( 'picktra ! ; )
 	dup 'picktra !
-    4 << tra + 4+
+    4 << tra +
+    4+ |@+ getcolor 'color !
 	@+ gc>xy 'ymin ! 'xmin !
 	@ gc>xy 'ymax ! 'xmax !
 	;
@@ -414,6 +406,8 @@
 	;
 
 :insnodo
+	;
+
 :delnodo
 	;
 
@@ -558,7 +552,6 @@
 	rdrop ;
 
 |---
-
 :uppoly
 	picktra tra> tra - 4 >> 1- >=? ( drop ; )
 	.pad
@@ -643,8 +636,7 @@
 	atan2
 	- 0.25 + sincos 'xsa ! 'ysa !
 	rotapoly
-	rebox
-	;
+	rebox ;
 
 #emove
 
@@ -675,13 +667,104 @@
 	;
 
 |------------------------------------
+:t0 drop ;
+:t1 drop 4+ ;
+:to gc>xy op ;
+:t2 gc>xy line ;
+:t3 swap >r gc>xy r@+ gc>xy curve r> ;
+:t4 swap >r gc>xy r@+ gc>xy r@+ gc>xy curve3 r> ;
+
+#ltra t0 t0 t1 t1 to t2 t3 t4 to t2 t3 t4
+
+:drawtr
+	dup @
+	( @+ dup $f and $c <? )(
+		2 << 'ltra + @ exec ) 3drop ;
+
+:drawsel
+	blink 1? ( blanco )( negro ) drop
+	lin >r
+	tra ( tra> <? )(
+		r@+ 0? ( drop )( drop drawtr )
+		16 + ) drop rdrop ;
+
+
+:relim
+	dup 4+
+	@+ gc>xy
+	ymin <? ( dup 'ymin ! ) drop
+	xmin <? ( dup 'xmin ! ) drop
+	@ gc>xy
+	ymax >? ( dup 'ymax ! ) drop
+	xmax >? ( dup 'xmax ! ) drop
+	;
+
+:sumlim
+	$7fffffff dup 'xmin ! 'ymin !
+	-$7fffffff dup 'xmax ! 'ymax !
+	lin >r
+	tra ( tra> <? )(
+		r@+ 0? ( drop )( drop relim )
+		16 + ) drop rdrop ;
+
+:dnsel
+	xymouse dup 'ymin ! 'ymax ! dup 'xmin ! 'xmax ! ;
+:movsel
+	xymouse 'ymax ! 'xmax ! ;
+
+:dentro?
+	d>xy
+	yf yfa between -? ( 2drop 0 ; ) drop
+	xf xfa between -? ( drop 0 ; ) drop
+	1 ;
+
+:upsel
+	lin >r
+	xmin xfix 3 >> xmax xfix 3 >>
+	over <? ( swap ) 'xfa ! 'xf !
+	ymin yfix 3 >> ymax yfix 3 >>
+	over <? ( swap ) 'yfa ! 'yf !
+	0
+	ves ( ves> <? )(
+    	@+ dup $f and $c <? ( drop dentro? 1? ( rot 1+ rot rot ) drop )( 2drop swap r!+ 0 swap )
+    	) 2drop
+    r> 'lin> !
+	sumlim
+	;
+
+
+:selecttr
+|	drawsel
+	xmin ymin xmax ymax	dotbox
+	negro
+	xmin xmax + 2/ ymin ymax + 2/ 5 cruz
+	verde
+	xmin ymin p2
+	blanco
+	xmax ymax p1
+	xmax ymin ymax + 2/ p1
+	xmin xmax + 2/ ymax p1
+|	fonti xmin ymin atxy "2" print
+	;
+
+:modosel
+	lin lin> <? ( drop selecttr ; ) drop
+	'dnsel 'movsel 'upsel guiMap
+	xmin ymin xmax ymax
+	pick3 1+ pick3 1+ pick3 1+ pick3 1+
+	blanco caja negro caja
+	;
+
+|------------------------------------
 :btnric | icon vec --
 	ink@ >r btne blanco 2-gc drawric 2+gc r> ink ;
 
 |------------------------------------
 :toodraw
+	'i.paint_brush 0 btnric gcdn
 	'i.pencil 0 btnric gcdn
-	'i.link 0 btnric
+	'i.stop 0 btnric gcdn
+	'i.circle 0 btnric
 	;
 
 :toovista
@@ -692,9 +775,19 @@
 
 :tooeditn
 	picktra -? ( drop ; ) drop
-	'i.trash 'delnodo btnric gcdn
-	'i.copy 'insnodo btnric gcdn
+	'i.remove_sign 'delnodo btnric gcdn
+	'i.plus_sign 'insnodo btnric gcdn
 	;
+
+:colpoly
+	picktra -? ( drop ; )
+    4 << tra + @ lastnode 4 -
+	@ 8 >> 'color ! ;
+
+:polycol
+	picktra -? ( drop ; )
+    4 << tra + @ lastnode 4 -
+    dup @ $f and color 8 << or swap ! ;
 
 :tooeditp
 	picktra -? ( drop ; ) drop
@@ -702,12 +795,25 @@
 	'i.copy 'cpypoly btnric gcdn
 	'i.circle_arrow_up 'uppoly btnric gcdn
 	'i.circle_arrow_down 'dnpoly btnric gcdn
+	'i.eyedropper 'colpoly btnric gcdn
+	'i.tint 'polycol btnric gcdn
 	;
 
 
+:toolsel
+	'i.object_group 0 btnric gcdn
+	'i.object_ungroup 0 btnric gcdn
+
+| group
+| ungroup
+| move
+| rota
+| escale
+	;
+
 |------- modos
-#modos 'mododraw 'modovista 'modoeditp  'modoeditn
-#tools 'toodraw 'toovista 'tooeditp 'tooeditn
+#modos 'mododraw 'modovista 'modoeditp  'modoeditn 'modosel
+#tools 'toodraw 'toovista 'tooeditp 'tooeditn 'toolsel
 
 |----- botonera
 #modogui 'mododraw
@@ -721,8 +827,11 @@
 :botonmodo | icon nro --
 	modo =? ( azul )( negro )
 	'setmodo btne
-	modo =? ( blanco )( gris )
-	drop 8-gc drawric 8+gc gcdn ;
+	modo =? ( 8+gc blanco )( gris )
+	swap 8-gc drawric 8+gc
+	modo =? ( 8-gc  )
+	drop
+	gcdn ;
 
 :drawves
 	xv yv pos sv qdim
@@ -740,6 +849,7 @@
 	'i.eye_open 1 botonmodo
 	'i.star 2 botonmodo
 	'i.star_empty 3 botonmodo
+	'i.check_empty 4 botonmodo
 
 |	'i.magic 4 botonmodo
 |	gcdn
