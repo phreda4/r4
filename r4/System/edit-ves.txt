@@ -178,18 +178,7 @@
 	sh dup 2/ 'yv !
 	min 64 - 'sv ! ;
 
-|----------------------------------
-:inid
-	xymouse xy>gc 8 or lin !+ 0 over ! 'lin> !
-	;
-:movd
-	xymouse xy>gc 9 or lin> !+ 0 over ! 'lin> !
-	;
-:upd
-	0 'lin> !
-	;
-
-|--------
+|----- curvas
 :cursor0 ;
 
 :cursor0c
@@ -309,14 +298,6 @@
     'cursor4c 'ecursor !
 	;
 
-:t0 drop ;
-:t1 drop 4+ ;
-:to gc>xy op ;
-:t2 gc>xy line ;
-:t3 swap >r gc>xy r@+ gc>xy curve r> ;
-:t4 swap >r gc>xy r@+ gc>xy r@+ gc>xy curve3 r> ;
-
-#ltra t0 t0 t1 t1 to t2 t3 t4 to t2 t3 t4
 
 :closep
 	| la ultima curva(curda?)
@@ -332,6 +313,15 @@
 	'cursor0 'ecursor !
 	;
 
+:t0 drop ;
+:t1 drop 4+ ;
+:to gc>xy op ;
+:t2 gc>xy line ;
+:t3 swap >r gc>xy r@+ gc>xy curve r> ;
+:t4 swap >r gc>xy r@+ gc>xy r@+ gc>xy curve3 r> ;
+
+#ltra t0 t0 t1 t1 to t2 t3 t4 to t2 t3 t4
+
 :drawdraw
 	lin lin> =? ( drop ecursor exec ; )
 	gris
@@ -346,6 +336,13 @@
 	2dup inmouse 1? ( rojo 'closep guiBtn )( verde ) drop
 	3 fbox
 	;
+
+:drawlines
+	lin lin> =? ( drop ; )
+	gris
+	( lin> <? )(
+		@+ dup $f and 2 << 'ltra + @ exec
+		) drop ;
 
 |----
 :inip
@@ -369,7 +366,7 @@
 :movp
 	emodo 0? ( drop movp1 ; ) drop ;
 
-:upp
+:uppp
 	ecursor
 	'cursor0 =? ( drop ins0 ; )
 	'cursor0c =? ( drop ins0c ; )
@@ -382,12 +379,89 @@
 	drop
 	;
 
+|---- lineas
+:inid
+	xymouse xy>gc 8 or lin !+ 0 over ! 'lin> ! ;
+:movd
+	xymouse xy>gc 9 or lin> !+ 0 over ! 'lin> ! ;
+:updd
+   	ves> >r
+   	color 8 << 1 or r!+
+	lin ( lin> <? )( @+ r!+ ) drop
+|	color 8 << $c or r!+
+	0 r ! r> 'ves> !
+	buildtra
+	;
+
+|---- caja
+:inic
+	xymouse dup 'ymin ! 'ymax ! dup 'xmin ! 'xmax ! ;
+
+:movc
+	xymouse 'ymax ! 'xmax ! ;
+
+:updc
+	ves> >r
+	xmin ymin xmax ymax
+	2over xy>gc 4 or r!+
+	pick3 over xy>gc 5 or r!+
+	2dup xy>gc 5 or r!+
+	drop swap xy>gc 5 or r!+
+	drop
+	color 8 << $c or r!+
+	0 r ! r> 'ves> !
+	buildtra
+	;
+
+|---- elipse
+:iniel
+	xymouse dup 'ymin ! 'ymax ! dup 'xmin ! 'xmax ! ;
+
+:movel
+	xymouse 'ymax ! 'xmax ! ;
+
+:updel
+	ves> >r
+	xmin xmax 2dup + 2/ rot rot - abs 2/    | xm rx
+	ymin ymax 2dup + 2/ rot rot - abs 2/	| xm rx ym ry
+	pick3 pick2 pick2 - xy>gc 4 or r!+
+	pick3 pick3 + pick2 xy>gc 6 or r!+
+	pick3 pick3 + pick2 pick2 - xy>gc r!+
+	pick3 pick2 pick2 + xy>gc 6 or r!+
+	pick3 pick3 + pick2 pick2 + xy>gc r!+
+	pick3 pick3 - pick2 xy>gc 6 or r!+
+	pick3 pick3 - pick2 pick2 + xy>gc r!+
+	pick3 pick2 pick2 - xy>gc 6 or r!+
+	pick3 pick3 - pick2 pick2 - xy>gc r!+
+	4drop
+	color 8 << $c or r!+
+	0 r ! r> 'ves> !
+	buildtra ;
+
+|----
+:drawhand
+	'inid 'movd 'updd guiMap	| lineas
+	drawlines ;
+
+:drawpoint
+	'inip 'movp 'uppp guiMap
+	drawdraw ;
+
+:drawbox
+	'inic 'movc 'updc guiMap
+	color ink xmin ymin xmax ymax cajaf ;
+
+:drawcir
+	'iniel 'movel 'updel guiMap
+	color ink
+	xmin xmax 2dup + 2/ rot rot - abs 2/
+	ymin ymax 2dup + 2/ rot rot - abs 2/
+	rot swap fellipse ;
+
+#mdraw 'drawpoint
 
 :mododraw
-|	'inid 'movd 'upd guiMap		| dibujo directo
-	'inip 'movp 'upp guiMap
-	drawdraw
-	;
+	mdraw exec ;
 
 |----------------------------------
 :modovista
@@ -667,28 +741,6 @@
 	;
 
 |------------------------------------
-:t0 drop ;
-:t1 drop 4+ ;
-:to gc>xy op ;
-:t2 gc>xy line ;
-:t3 swap >r gc>xy r@+ gc>xy curve r> ;
-:t4 swap >r gc>xy r@+ gc>xy r@+ gc>xy curve3 r> ;
-
-#ltra t0 t0 t1 t1 to t2 t3 t4 to t2 t3 t4
-
-:drawtr
-	dup @
-	( @+ dup $f and $c <? )(
-		2 << 'ltra + @ exec ) 3drop ;
-
-:drawsel
-	blink 1? ( blanco )( negro ) drop
-	lin >r
-	tra ( tra> <? )(
-		r@+ 0? ( drop )( drop drawtr )
-		16 + ) drop rdrop ;
-
-
 :relim
 	dup 4+
 	@+ gc>xy
@@ -734,7 +786,6 @@
 
 
 :selecttr
-|	drawsel
 	xmin ymin xmax ymax	dotbox
 	negro
 	xmin xmax + 2/ ymin ymax + 2/ 5 cruz
@@ -760,11 +811,12 @@
 	ink@ >r btne blanco 2-gc drawric 2+gc r> ink ;
 
 |------------------------------------
+
 :toodraw
-	'i.paint_brush 0 btnric gcdn
-	'i.pencil 0 btnric gcdn
-	'i.stop 0 btnric gcdn
-	'i.circle 0 btnric
+	'i.pencil [ 'drawpoint 'mdraw ! ; ] btnric gcdn
+	'i.paint_brush [ 'drawhand 'mdraw ! ; ] btnric gcdn
+	'i.stop [ 'drawbox  'mdraw ! ; ] btnric gcdn
+	'i.circle [ 'drawcir  'mdraw ! ; ] btnric
 	;
 
 :toovista
