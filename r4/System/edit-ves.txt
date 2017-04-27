@@ -34,7 +34,7 @@
 #wpa #hpa
 
 #cursor
-#tcursor
+|#tcursor
 #picktra -1
 
 #xmin #ymin #xmax #ymax
@@ -85,6 +85,14 @@
 
 :getcolor | adr -- color
 	lastnode 4 - @ 8 >> ;
+
+|----------------------------------
+:resetves
+	ves 0 over ! 'ves> !
+	buildtra
+	-1 'picktra !
+	0 'cursor !
+	;
 
 |---------------------------------
 :p1 2dup 3 fbox ink@ >r gris 3 box r> ink ;
@@ -478,11 +486,9 @@
 	@ gc>xy 'ymax ! 'xmax !
 	;
 
-
-:insnodo
-	cursor 0? ( drop ; ) drop
-
-	;
+|------
+:+nodo | adr --
+	dup 4+ swap ves> over - 2 >> move> ;
 
 :-nodo | adr --
 	dup 4+ ves> over - 2 >> move ;
@@ -490,21 +496,34 @@
 :renodo
 	buildtra rebox 0 'cursor ! ;
 
-:0del   tcursor | op
+|------
+:0ins ;
+:1ins cursor +nodo renodo ;
+:2ins ;
+:3ins ;
+#tins 0ins 1ins 2ins 3ins
+
+:insnodo
+	cursor 0? ( drop ; ) drop
+	cursor @ $3 and 2 << 'tins + @ exec ;
+
+|------
+:0del   cursor | op
 		dup 4+ @ $3 and
-		1 =? ( drop -nodo tcursor dup @ $fffffff0 and 4 or swap ! renodo ; )
-		2drop 
+		1 =? ( drop -nodo cursor dup @ $fffffff0 and 4 or swap ! renodo ; )
+		2drop
 		;
-:1del	tcursor -nodo renodo ;	| line
-:2del   tcursor dup -nodo -nodo renodo ;	| curve
-:3del   tcursor dup dup -nodo -nodo -nodo renodo ;	| curve3
+:1del	cursor -nodo renodo ;	| line
+:2del   cursor dup -nodo -nodo renodo ;	| curve
+:3del   cursor dup dup -nodo -nodo -nodo renodo ;	| curve3
 
 #tdel 0del 1del 2del 3del
 
 :delnodo
 	cursor 0? ( drop ; ) drop
-	tcursor @ $3 and 2 << 'tdel + @ exec ;
+	cursor @ $3 and 2 << 'tdel + @ exec ;
 
+|------
 :tocanodo | x y -- nro/0
 	xymouse 'yf ! 'xf !
 	picktra 4 << tra + @
@@ -518,10 +537,9 @@
 :modoeditne
 	'setpicktra guiBtn ;
 
-:cursor!
-	dup
-	( dup @ $f and 0? )( drop 4 - ) drop
-	'tcursor !
+:cursor! | nodo --
+|	dup ( dup @ $f and 0? )( drop 4 - ) drop
+|	'tcursor !
 	'cursor !
 	;
 
@@ -542,7 +560,7 @@
 	( @+ dup $f and $c <? )(
 		2 << 'ltra + @ exec
 		) 3drop
-	cursor 0? ( drop ; ) 
+	cursor 0? ( drop ; )
 	rojo @ gc>xy 3 fbox ;
 
 |---
@@ -871,12 +889,13 @@
 
 :tooeditp
 	picktra -? ( drop ; ) drop
-	'i.trash 'delpoly btnric gcdn
 	'i.copy 'cpypoly btnric gcdn
 	'i.circle_arrow_up 'uppoly btnric gcdn
 	'i.circle_arrow_down 'dnpoly btnric gcdn
-	'i.eyedropper 'colpoly btnric gcdn
 	'i.tint 'polycol btnric gcdn
+	'i.eyedropper 'colpoly btnric gcdn
+	'i.remove_sign 'delpoly btnric gcdn
+
 	;
 
 
@@ -924,7 +943,11 @@
 	dup ":r%d VesEditor " printc
 
    	32 qdim 18 18 pos
-	rojo 'exit dup >esc< btne blanco 'i.off drawric gcdn
+	rojo
+|	'exit dup >esc< btne blanco 'i.off drawric gcdn
+	'i.off 'exit dup >esc< btnric gcdn
+	'i.trash 'resetves btnric gcdn
+	gcdn
 	'i.pencil 0 botonmodo
 	'i.eye_open 1 botonmodo
 	'i.star 2 botonmodo
@@ -932,11 +955,11 @@
 	'i.check_empty 4 botonmodo
 
 |	'i.magic 4 botonmodo
-|	gcdn
-	verde oscuro
+|	verde oscuro
 |	'i.undo 0 btnric gcdn
 |	'i.repeat 0 btnric gcdn gcdn
-
+	gcdn
+	cyan oscuro
     modotoo exec
 
 	sw 26 - 26 pos
@@ -958,31 +981,22 @@
 	4 << tra + @ dup lastnode >r =? ( ">" print ) r> =? ( "<" print )
 	;
 
+|-------- DEBUG
 :dumptr
 	scr home negro
 
-|	ves ( ves> 4+ <=? )(
-|		tr1
-|		ves> =? ( "!" print )
-|		tra =? ( "*" print )
-|		@+ "%h " print cr allowchome
-|		) drop
+	ves ( ves> 4+ <=? )(
+		tr1
+		ves> =? ( "!" print )
+		tra =? ( "*" print )
+		@+ "%h " print cr allowchome
+		) drop
 	lin ( lin> <? )(
 		@+ "%h " print cr allowchome
 		) drop
-
-verde fonti2
-	ecursor
-	'cursor0 =? ( "0" print )
-	'cursor0c =? ( "0c" print )
-	'cursor1 =? ( "1" print )
-	'cursor2 =? ( "2" print )
-	'cursor3 =? ( "3" print )
-	'cursor4 =? ( "4" print )
-	'cursor4c =? ( "4c" print )
-	'cursor5 =? ( "5" print )
-	drop
-	picktra " pk: %d" cr print
+	cr
+	picktra " pk: %d" print cr
+	cursor " cu: %h" print cr
 	ymax ymin xmax xmin "%d %d %d %d" print
 	;
 |-------- DEBUG
