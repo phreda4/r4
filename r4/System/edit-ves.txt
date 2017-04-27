@@ -34,7 +34,7 @@
 #wpa #hpa
 
 #cursor
-#cursorn
+#tcursor
 #picktra -1
 
 #xmin #ymin #xmax #ymax
@@ -258,7 +258,7 @@
 	'cursor1 'ecursor ! ;
 
 :ins2
-	lin> 4 - dup @
+	lin> 4 - dup @ $fffffff0 and
 	xymouse xy>gc 6 or
 	rot !+ !+ 'lin> !
 	'cursor1 'ecursor ! ;
@@ -277,7 +277,7 @@
 
 :ins4
     lin> 4 - >r
-	r @ |$fffffff0 and
+	r @ $fffffff0 and
 	xymouse xy>gc 6 or r!+
 	r!+ r> 'lin> !
 	'cursor1 'ecursor !
@@ -286,7 +286,7 @@
 
 :ins5
 	lin> 4 - >r
-	r @ |$fffffff0 and
+	r @ $fffffff0 and
 	xca yca
 	xymouse
 	pick3 dup pick3 - +
@@ -297,7 +297,6 @@
 	r!+ r> 'lin> !
     'cursor4c 'ecursor !
 	;
-
 
 :closep
 	| la ultima curva(curda?)
@@ -479,11 +478,32 @@
 	@ gc>xy 'ymax ! 'xmax !
 	;
 
+
 :insnodo
+	cursor 0? ( drop ; ) drop
+
 	;
 
+:-nodo | adr --
+	dup 4+ ves> over - 2 >> move ;
+
+:renodo
+	buildtra rebox 0 'cursor ! ;
+
+:0del   tcursor | op
+		dup 4+ @ $3 and
+		1 =? ( drop -nodo tcursor dup @ $fffffff0 and 4 or swap ! renodo ; )
+		2drop 
+		;
+:1del	tcursor -nodo renodo ;	| line
+:2del   tcursor dup -nodo -nodo renodo ;	| curve
+:3del   tcursor dup dup -nodo -nodo -nodo renodo ;	| curve3
+
+#tdel 0del 1del 2del 3del
+
 :delnodo
-	;
+	cursor 0? ( drop ; ) drop
+	tcursor @ $3 and 2 << 'tdel + @ exec ;
 
 :tocanodo | x y -- nro/0
 	xymouse 'yf ! 'xf !
@@ -499,6 +519,9 @@
 	'setpicktra guiBtn ;
 
 :cursor!
+	dup
+	( dup @ $f and 0? )( drop 4 - ) drop
+	'tcursor !
 	'cursor !
 	;
 
@@ -516,11 +539,12 @@
 
 :drawtra
 	blanco
-	(
-|	cursor =? ( rojo )( blanco )
-	@+ dup $f and $c <? )(
+	( @+ dup $f and $c <? )(
 		2 << 'ltra + @ exec
-		) 3drop ;
+		) 3drop
+	cursor 0? ( drop ; ) 
+	rojo @ gc>xy 3 fbox ;
+
 |---
 :modoeditn
 	picktra -? ( drop modoeditne ; )
@@ -667,36 +691,40 @@
 	picktra 4 << tra + @+
 	cpy>pad
 	@+ d>xy rot @ d>xy rot
+	dup 'yca ! - 'hpa !
+	over 'xca ! swap - 'wpa !
+	xymouse dotf ;
+
+:polyinir
+	lin 'lin> !
+	picktra 4 << tra + @+
+	cpy>pad
+	@+ d>xy rot @ d>xy rot
 	2dup + 2/ 'yca ! - abs 'hpa !
 	2dup + 2/ 'xca ! - abs 'wpa !
 	xymouse dotf ;
 
 :mvscala
 	xymouse
-	yfix 3 >> yf - 'yfa !
-	xfix 3 >> xf - 'xfa !
-
-	hpa dup yfa - 16 <</ 'ysa !
-	wpa dup xfa - 16 <</ 'xsa !
+	yfix 3 >> yca - 'yfa !
+	xfix 3 >> xca - 'xfa !
+	yfa hpa 16 <</ 'ysa !
+	xfa wpa 16 <</ 'xsa !
 	escalapoly
 	rebox ;
 
 :mvscalax
-	xymouse
-	yfix 3 >> yf - 'yfa !
-	xfix 3 >> xf - 'xfa !
-
+	xymouse drop
+	xfix 3 >> xca - 'xfa !
 	1.0 'ysa !
-	wpa dup xfa - 16 <</ 'xsa !
+	xfa wpa 16 <</ 'xsa !
 	escalapoly
 	rebox ;
 
 :mvscalay
-	xymouse
-	yfix 3 >> yf - 'yfa !
-	xfix 3 >> xf - 'xfa !
-
-	hpa dup yfa - 16 <</ 'ysa !
+	xymouse nip
+	yfix 3 >> yca - 'yfa !
+	yfa hpa 16 <</ 'ysa !
 	1.0 'xsa !
 	escalapoly
 	rebox ;
@@ -722,7 +750,7 @@
 	xmax ymax | punto de xy escala
 	inmouse 1? ( drop polyini 'mvscala 'emove ! ; ) drop
 	xmin ymin | punto de rotar
-	inmouse 1? ( drop polyini 'rotapolya 'emove ! ; ) drop
+	inmouse 1? ( drop polyinir 'rotapolya 'emove ! ; ) drop
 	moveini 'movepoly 'emove ! | mover
 	;
 
@@ -814,7 +842,7 @@
 
 :toodraw
 	'i.pencil [ 'drawpoint 'mdraw ! ; ] btnric gcdn
-	'i.paint_brush [ 'drawhand 'mdraw ! ; ] btnric gcdn
+|	'i.paint_brush [ 'drawhand 'mdraw ! ; ] btnric gcdn
 	'i.stop [ 'drawbox  'mdraw ! ; ] btnric gcdn
 	'i.circle [ 'drawcir  'mdraw ! ; ] btnric
 	;
