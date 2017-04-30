@@ -1,0 +1,109 @@
+| test 264
+| 2017 PHEDA
+| https://cardinalpeak.com/blog/worlds-smallest-h-264-encoder/
+|-----------------
+^r4/lib/gui.txt
+^r4/lib/vesprite.txt
+
+#sps ( $00 $00 $00 $01 $67 $42 $00 $0a $f8 $41 $a2 )
+#pps ( $00 $00 $00 $01 $68 $ce $38 $80 )
+#slice_header ( $00 $00 $00 $01 $05 $88 $84 $21 $a0 )
+#macro_header ( $0d $00 )
+#slice_stop ( $80 )
+#buffer )( 384 | 16x16+8x8+8x8
+#filename )( 256
+
+#LUMA_WIDTH 128
+#LUMA_HEIGHT 96
+
+|  this.y  = ( .299 * r + .587 * g  +  0.114 * b) + 0
+|  this.cb = ( -.169 * r + -.331 * g +  0.500 * b) + 128
+|  this.cr = ( .500 * r + -.419 * g +  -0.081 * b) + 128
+:getRGB | y x --
+	swap sw * + 2 << framev + @
+	dup 16 >> $ff and over 8 >> $ff and rot $ff and ;
+
+:getY
+	getRGB 0.114 * swap 0.587 * rot 0.299 * + + 16 >> ;
+:getCr
+	getRGB 0.5 * swap -0.311 * rot -0.169 * + + 16 >> 128 + ;
+:getCb
+	getRGB -0.081 * swap -0.419 * rot 0.5 * + + 16 >> 128 + ;
+
+:>>A 'filename APPEND ;
+
+:header
+	'sps 11 'filename SAVE
+	'pps 8 >>A ;
+
+:macroblock |  y x -- y x
+	2dup or 0? ( 'slice_header 9 )( 'macro_header 2 )
+	>>A drop
+	'buffer >r
+	| Y (16x16)
+	0 ( 16 <? )(
+		0 ( 16 <? )(
+			pick3 pick2 + pick3 pick2 + getY
+			r> c!+ >r
+			1+ ) drop
+		1+ ) drop
+	| cb (8x8)
+	0 ( 16 <? )(
+		0 ( 16 <? )(
+			pick3 pick2 + pick3 pick2 + getCb
+			r> c!+ >r
+			2 + ) drop
+		2 + ) drop
+	| cr (8x8)
+	0 ( 16 <? )(
+		0 ( 16 <? )(
+			pick3 pick2 + pick3 pick2 + getCr
+			r> c!+ >r
+			2 + ) drop
+		2 + ) drop
+	rdrop
+	'buffer 384 >>A
+	;
+
+:saveframe
+	0 ( LUMA_HEIGHT <? )(
+		0 ( LUMA_WIDTH <? )(
+			macroblock
+			16 + ) drop
+		16 + ) drop
+	'slice_stop 1 >>A
+	;
+
+:savemp4 | fn --
+	'filename strcpy
+	header
+	;
+
+:test
+	"r4/dev/video/t.nal" savemp4
+
+	cls scr fonti2 blanco
+	"hola" print
+
+	saveframe
+
+	cls scr fonti2 rojo
+	"chau" print
+
+	saveframe
+	;
+
+:main
+	show clrscr fonti2
+		verde
+		"264 " print cr
+		rojo
+		msec "%d" print cr
+
+		'test <f1>
+		'exit >esc<
+		;
+:mm
+	mark ;
+
+: mm main ;
