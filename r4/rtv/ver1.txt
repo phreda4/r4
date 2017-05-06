@@ -1,0 +1,755 @@
+| 2017 PHEDA
+|-----------------
+^r4/lib/gui.txt
+^r4/lib/part16.txt
+^r4/lib/plqlib.txt
+^r4/lib/loadjpg.txt
+^r4/lib/loadpng.txt
+^r4/lib/loadbmp.txt
+^r4/rtv/fx.spr
+
+
+#xcam #ycam #zcam 2.0
+#rxcam #rycam #rzcam
+
+#fx 0 0
+#objs 0 0
+
+#archivo
+
+#placas )( 64
+#placas> 'placas
+#nplaca 'placas
+
+#placast )( 64
+#placanow 'placast
+
+#pantalla )( $ffff
+#pantalla> 'pantalla
+
+#tanim 0
+#ttime 2000
+#fondo 0
+#cfondo $ffffff
+#tabs )( 64
+#ctab )( 64
+
+#sizefnt
+#typefnt
+#colfnt
+#xxc #yyc
+
+:,placa | tt --
+	placas> 'placas - 'placast + !
+	pantalla> placas> !+ 'placas> !
+	;
+
+:,p | val --
+	pantalla> !+ 'pantalla> ! ;
+
+:reset
+	'objs p.clear
+	'fx p.clear
+	;
+
+|------------------- OS DEp ---------------------
+:FNAME | adr -- adrname
+|WIN|	44 +
+|AND|	19 +
+	;
+
+:FDIR? | adr -- 1/0
+|WIN|	@ $10
+|AND|	18 + c@ 4
+	=? ( 1 )( 0 ) nip ;
+
+|------------------------------------------------
+:addfile | adr --
+	dup FDIR? 1? ( 2drop ; ) drop
+	FNAME here strcpyl 'here ! ;
+
+:getfilenames | path -- files
+	here swap
+	ffirst drop fnext drop | quita . y ..
+	( fnext 1? )( addfile ) drop
+	0 ,c ;
+
+|------------------------------------------------
+#checkstr
+
+:atencion
+	mark
+	"C|115484|20170506|ALFARO, YAMIL ADRIAN|ARIAS, NELSON LEOPOLDO|OFTALMOLOGO" ,s
+	,cr
+	0 ,c
+	"c:/rtv/interface/turnero.txt" savemem
+	empty
+	;
+
+:eventocheck | -- 0/dir
+	here dup "c:/rtv/interface/turnero.txt" load
+	over =? ( 2drop 0 ; )
+    0 0 "c:/rtv/interface/turnero.txt" save
+    0 swap ! dup 'checkstr ! ;
+
+:turnocheck
+	eventocheck 0? ( drop ; )
+	'checkstr !
+	;
+
+|-----------------------------------------------
+#fnvideo
+#phvideo
+
+:playvideo
+	fnvideo phvideo
+	"atv/ffplay -fs -autoexit -loglevel quiet ""%s%s""" mprint
+	system drop ;
+
+:waitvideo
+	( -1 system -1 <>? )( drop
+		eventocheck 1? ( 0 system drop ) drop
+		100 update drop ) drop ;
+
+:player
+	-1 system -1 <>? ( drop ; ) drop
+	playvideo ;
+
+
+|-------------------------------------------
+:2color dup $f0f0f0 and dup 4 >> or swap $f0f0f and dup 4 << or ;
+:to3d 0 project3d ;
+:bfill
+	tx1 ty1 to3d 2dup op
+	tx2 ty1 to3d pline
+	tx2 ty2 to3d pline
+	tx1 ty2 to3d pline pline
+	poli ;
+
+:f1	ink bfill ;			| solido
+:f2	ink bfill ;			| imagen?
+:f3 2color fcol tx1 ty2 to3d fcen 1.0 tx2 tx1 to3d - 1 max / 0 fmat lfill bfill sfill ;
+:f4 2color fcol tx1 ty2 to3d fcen 0 1.0 ty2 ty1 to3d - 1 max / fmat lfill bfill sfill ;
+:f5 2color fcol tx1 ty1 to3d fcen 0.5 tx2 tx1 to3d - 1 max / 0.5 ty2 ty1 to3d - 1 max / neg fmat lfill bfill sfill ;
+:f6 2color fcol tx1 ty2 to3d fcen 0.5 tx2 tx1 to3d - 1 max / 0.5 ty2 ty1 to3d - 1 max / fmat lfill bfill sfill ;
+:f0 drop ;	| auxiliar
+
+#lbfill f0 f1 f2 f3 f4 f5 f6 f0
+
+:3dfillbox | nro --
+	dup 28 >> 7 and 2 << 'lbfill + @ exec ;
+
+:fillbox3d | x y x2 y2 --
+	2over to3d op
+	pick3 over to3d pline
+	2dup to3d pline
+	drop over to3d pline
+	to3d pline
+	poli ;
+
+|-------------------------------------------
+:stsprite
+	>r
+	mpush
+	r@+ r@+ 0 mtransi
+	r@+ 1? ( mrotxi )( drop )
+	r@+ 1? ( mrotyi )( drop )
+	r@+ 1? ( mrotzi )( drop )
+	r@+ dup dup mscalei
+	r@+ 3dnsprite
+	rdrop
+	mpop
+	;
+
+:+sprite | 'spr size x y --
+	'stsprite 'objs p!+ >r
+	swap r!+ r!+		| x y
+	0 0 0 r!+ r!+ r!+	| rx ry rz
+	r!+					| s
+	r!+					| sprite
+	rdrop ;
+
+:sprite.n | nro -- spr
+	6 << 'objs 4+ @ + ;
+
+:nxy.sprite | x y nro --
+	sprite.n 4+ >r swap r!+ r!+ rdrop ;
+
+:xy.sprite | x y obj --
+	4+ >r swap r!+ r!+ rdrop ;
+
+|---------- animadores
+#deltat
+#prevt
+#t0
+
+:itime
+	msec 'prevt ! 0 'deltat ! ;
+
+:dtime
+	msec dup prevt - 'deltat ! 'prevt ! ;
+
+:llerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 16 *>> + ;
+:clerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 cos abs 16 *>> + ;
+:slerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 sin abs 16 *>> + ;
+
+
+:movlinea
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ / 1.0 min 't0 !
+	r@+
+	4+ r@+ r@+ llerp over !	| x
+	4+ r@+ r@+ llerp swap !	| y
+	rdrop
+	t0 1.0 - 1? ( drop ; )
+	;
+
+:+linea | xf yf obj time --
+	'movlinea 'objs p!+ >r
+	0 r!+ r!+	| 0 tmax
+	dup r!+		| obj
+	| xf yf obj
+	4+ dup @ r!+ rot r!+
+	4+ @ r!+ r!+
+	rdrop
+	;
+
+|-------------------------------------------
+:stlogo
+	>r
+	mpush
+	r@+ r@+ r@+ mtransi
+|	0.0008 r +!
+	r@+ 1? ( mrotxi )( drop )
+|	0.01 r +!
+	r@+ 1? ( mrotyi )( drop )
+	r@+ 1? ( mrotzi )( drop )
+	'logoatv 3dnsprite
+	rdrop
+	mpop ;
+
+:+logo
+	'stlogo 'objs p!+ >r
+ 	2.8 r!+ -1.5 r!+ 2.8 r!+
+ 	0 0 0 r!+ r!+ r!+
+ 	rdrop
+	;
+
+|-------------------------------------------
+:timex
+	>r
+	r@+ deltat + dup r 4 - !
+	r@+ >=? ( drop r> @ exec 0 ; )
+	drop
+	rdrop ;
+
+:+time | 'exec tiempo --
+	'timex 'fx p!+ >r
+	0 r!+ r!+ r!+
+	rdrop ;
+
+|-------------------------------------------
+:xprints | "" --
+	ccx ccy ink@
+	0 ink
+	0.005 dup +atxy
+	pick3 ( c@+ 1? )( emitf ) 2drop
+	ink atxy
+	( c@+ 1? )( emitf ) 2drop
+	;
+
+:xprintn | "" --
+	( c@+ 1? )( emitf ) 2drop ;
+
+:xbox | x1 y1 x2 y2 --
+	2over to3d 2dup >r >r op
+	pick3 over to3d pline
+	over swap to3d pline
+	swap to3d pline drop
+	r> r> pline
+	gris poli ;
+
+:xprintb | "" --
+	ink@ >r
+	sizeprint
+	ccx ccy rot pick2 + cch pick2 + xbox
+	r> ink
+	( c@+ 1? )( emitf ) 2drop ;
+
+|-------- dibuja objetos estaticos
+| texto -- color x y fnt size "texto"
+:t0	8 >> ink
+	>r
+	r@+ r@+ atxy
+	r@+ r@+ setfont3d
+	r> @ xprintn ;
+
+| caja -- color x y x y
+:t1 8 >> ink
+	>r
+	r@+ r@+ r@+ r@+ fillbox3d
+	rdrop ;
+
+:t2
+:t3
+:t4
+:t5
+:t6
+:t7
+:t8 2drop ;
+
+| imagen
+| sprite
+| video
+| fx
+
+#ldraw t0 t1 t2 t3 t4 t5 t6 t7 t8 t8 t8 t8 t8 t8 t8 t8
+
+:drawbox
+	@+ dup $f and 2 << 'ldraw + @ exec ;
+
+:drawpant | adr --
+	0 0 pos 4.0 2.0 dim home
+	@+ swap @ swap
+	( over <? )(
+		dup drawbox
+		32 + ) 2drop ;
+
+|-----------------------------
+:otexto
+	>r r@+
+	mpush
+	r@+ r@+ setfont3d
+	r@+ r@+ r@+ mtransi
+|	0.02 r +!
+	r@+ 1? ( mrotxi )( drop )
+	r@+ 1? ( mrotyi )( drop )
+	r@+ 1? ( mrotzi )( drop )
+	r@+ ink
+	r@+ r@+ atxy
+	xprintn
+	rdrop
+	mpop ;
+
+#pw
+:+texto | color x y font size "" --
+	'otexto 'objs p!+ >r
+	pick2 pick2 swap setfont3d
+	sizeprint 'pw !
+	r!+				| ""
+	r!+	r!+			| font size
+	pw 2/ + r!+ r!+ 0 r!+	| x y z
+	0 r!+ 0 r!+ 0 r!+		| rx ry rz
+	r!+						| ink
+	pw 2/ neg r!+
+	cch neg 2/ r!+          | atxy
+	rdrop ;
+
+
+|--- caja
+:obox
+	>r r@+ r@+ r@+ r@+
+	r@+ ink
+    fillbox3d
+    rdrop ;
+
+:+box	| color x1 y1 x2 y3 --
+	'obox 'objs p!+ >r
+	r!+ r!+ r!+ r!+ r!+
+	rdrop ;
+
+|------ inicia objetos de animacion
+| texto -- color x y fnt size "texto"
+:t0	8 >>
+	swap >r
+	r@+ r@+ swap
+	r@+ r@+ swap
+	r> @ +texto ;
+
+| caja -- color x y x y
+:t1 8 >>
+	swap >r
+	r@+ r@+ swap
+	r@+ r@+ swap
+	+box
+	rdrop ;
+
+:t2
+:t3
+:t4
+:t5
+:t6
+:t7
+:t8 2drop ;
+
+#lidraw t0 t1 t2 t3 t4 t5 t6 t7 t8 t8 t8 t8 t8 t8 t8 t8
+
+:inidrawbox
+	@+ dup $f and 2 << 'lidraw + @ exec ;
+
+:inidrawpant | adr --
+	'objs p.clear
+	+logo
+	@+ swap @ swap
+	( over <? )(
+		dup inidrawbox
+		32 + ) 2drop ;
+
+|---------------------------------------
+:startpant
+	-1.6 'xxc !
+	-1.0 'yyc !
+	11 'typefnt !
+	0.15 'sizefnt !
+	0.15 1 'tabs !+ !
+	typefnt sizefnt setfont3d
+	;
+
+:>>l | adr -- adr'
+	( c@+ $ff and 31 >? )( drop )
+	0? ( drop 1- ; ) drop
+	0 over 1- c!
+	;
+
+
+:espag	|@@
+	( c@+ $ff and 31 >? )(
+		$61 =? ( swap str>nro 'tanim ! swap ) | a
+		$74 =? ( swap getfenro 1000 *. 'ttime ! swap ) | t
+		drop
+		) drop
+|	>>cr
+    ttime tanim 24 << or ,placa
+	startpant ;
+
+:eslin 	|--
+	$01 colfnt 8 << or ,p
+	xxc ,p yyc ,p
+	xxc 3.2 + ,p yyc 0.01 + ,p
+	0 ,p 0 ,p 0 ,p
+	0.1 'yyc +!
+	>>cr ;
+
+:>>| | adr -- adr'
+	( c@+ $ff and 31 >? )(
+		$7c =? ( ; )
+		drop ) ;
+
+#sumx
+
+:boxl | "" tab -- "" x
+	sumx swap 'sumx +! ;
+:boxc | "" tab -- "" x
+	swap sizeprint 2/ rot
+	dup 2/ sumx + swap 'sumx +!
+	swap - ;
+:boxr | "" tab -- "" x
+	swap sizeprint rot
+	dup sumx + swap 'sumx +!
+	swap - ;
+
+#llbox boxl boxc boxr
+
+:,tbox | "" tipo tab --
+	pick2 c@ 0? ( 4drop ; ) drop
+
+	colfnt 8 << ,p
+	swap 1- 2 << 'llbox + @ exec
+	,p yyc ,p
+	typefnt ,p sizefnt ,p
+	,p
+	0 ,p
+	0 ,p
+	;
+
+:esTexto
+	'ctab >r
+	dup r!+
+	( >>| $7c =? )( drop
+		0 over 1- c!
+		dup r!+
+		) drop
+	0 over 1- c!
+	r> 'ctab
+	'tabs >r
+	xxc 'sumx !
+	( over <? )(
+		@+
+		r@+ r@+ ,tbox
+		) 2drop
+	rdrop
+	sizefnt 2/ 'yyc +!
+	;
+
+
+|-------- configuracion
+:gett | adr -- adr' valor
+	c@+
+	$6c =? ( drop str>nro 1 ; ) | l
+	$63 =? ( drop str>nro 2 ; ) | c
+	$72 =? ( drop str>nro 3 ; ) | r
+	drop 1- 0 ;
+
+:ctabs
+	'tabs >r
+	( gett 1? )(
+		r!+ 3.2 * 100 / r!+	| 3.2 ancho pantalla
+		dup c@ $2c =? ( drop 1+ )( drop ) | ,
+		) drop
+	rdrop
+	1- >>cr
+	;
+
+:cfnts
+	str>nro 'typefnt !
+	1+ getfenro 'sizefnt !
+	1+ str$>nro 'colfnt !
+	typefnt sizefnt setfont3d
+	1- >>cr
+	;
+
+:es;
+	c@+
+	$7c =? ( drop ctabs ; ) | ;|l10,c20,r20
+	$66 =? ( drop cfnts ; )	| ;f11,0.15,ffffff |fuente,size,color
+
+	drop
+	1- >>cr ;
+
+|--------------------
+:setimg | adr -- adr'
+	dup 'fondo ! >>l ;
+
+:setfon | adr -- adr'
+	str$>nro 'cfondo ! >>cr ;
+
+| iatv/coso.p.jpg	| imagen de fondo
+| fff0000			| color de fondo
+:parseprev | adr -- adr'
+	0 'fondo !
+	( c@+ 1? )(
+    	$40 =? ( drop 1- ; )
+    	$69 =? ( drop setimg 0 ) | i
+    	$66 =? ( drop setfon 0 ) | f
+    	drop
+		)
+	drop 1- ;
+	;
+|----------------------------
+| @@ cambio de pantalla t1.5 a0
+| -- linea separadora 	c00ff00
+| ;		config
+|----------------------------
+:parsec | adr c -- adr
+	$3b =? ( drop es; ; ) | ; configura
+
+	$40 =? ( drop dup c@ $40 =? ( drop espag ; ) ) |@@
+	$2d =? ( drop dup c@ $2d =? ( drop eslin ; ) ) |--
+    drop 1-
+	esTexto
+    ;
+
+:quita10 | mem -- endmem
+	dup
+	( c@+ 1? )(
+		13 =? ( over c@ 10 =? ( drop swap 1+ swap )( drop ) )
+		10 =? ( drop c@+ 13 <>? ( drop 1- 13 ) )
+		rot c!+ swap )
+	nip swap c!+ ;
+
+:loadimg | filename -- img
+	".jpg" =pos 1? ( drop loadjpg ; ) drop
+	".png" =pos 1? ( drop loadpng ; ) drop
+	".bmp" =pos 1? ( drop loadbmp ; )
+	2drop 0 ;
+
+:loadparse | "" --
+	here dup 'archivo !
+	swap load 0 swap !
+	archivo quita10
+	'here !
+	archivo
+	parseprev
+	startpant
+	( c@+ 1? )( parsec )
+	2drop
+	0 ,placa
+	fondo 0? ( drop ; ) loadimg 'fondo !
+	;
+
+|--------------
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:nextdraw
+	4 'nplaca +!
+	4 'placanow +!
+
+	nplaca inidrawpant
+
+	placanow @ 0? ( exit drop ; )
+    'nextdraw over $ffffff and
+	+time
+	drop
+	;
+
+:predraw
+	cfondo paper
+	fondo 1? ( 0 0 sw sh fondo img.drawsize )( cls )
+	drop
+	>xfb
+	itime
+
+	'placas 'nplaca !
+	'placast 'placanow !
+
+	nplaca inidrawpant
+
+	placanow @
+    'nextdraw over $ffffff and
+	+time
+	drop
+	;
+
+
+:timedraw
+	omode
+|		freelook
+	rxcam 1? ( mrotxi )( drop )
+	rycam 1? ( mrotyi )( drop )
+	rzcam 1? ( mrotzi )( drop )
+	xcam ycam zcam mtrans
+|	nplaca drawpant
+	dtime
+	'fx p.draw
+|	0 0 pos 4.0 2.0 dim home
+	'objs p.draw
+	;
+
+|-----------
+#fileini "atv/urgente.txt"
+#foldspo "atv/videos/"
+#fileate "rtv/template/medicos.txt"
+#folppla "atv/placas/"
+#foldcli "atv/videos/clip"
+
+#grilla
+1 'fileini 0 0
+2 'foldspo 0 0
+1 'fileate 0 0
+3 'folppla 0 0
+2 'foldcli 0 0
+0
+
+#grilla> 'grilla
+#ngrilla 0
+#rehere
+
+|----- recarga carpetas
+:m1	;
+:m2 dup @+ getfilenames here rot !+ ! ;
+:m3 dup @+ getfilenames here rot !+ ! ;
+
+#modocarga 0 m1 m2 m3
+
+:cargagrilla
+	rehere 'here !
+	'grilla 'grilla> !
+	0 'ngrilla !
+	'grilla ( @+ 1? )(
+		2 << 'modocarga + @ exec
+		12 + ) 2drop
+	;
+
+|----- prepara clip
+:m1	| template
+	@ loadparse
+	;
+:m2	| videos
+	drop ;
+:m3 | placas
+	drop ;
+
+#modoinic 0 m1 m2 m3
+
+:eligeclip
+	grilla> @+ 2 << 'modoinic + @ exec
+	grilla> 16 +
+	dup @ 0? ( 2drop 'grilla )( drop )
+	'grilla> ! ;
+
+|------------------------------------
+:m1	| adr -- adr
+	"cartel: " print
+	dup @ print cr ;
+
+:m2	| adr -- adr
+	"videos: " print cr
+	dup 4+ @+ 1- swap @
+	( over <? )( "*" print
+		dup print cr
+		>>0 ) 2drop
+	cr ;
+
+:m3
+	"placas: " print cr
+	dup 4+ @+ 1- swap @
+	( over <? )( "*" print
+		dup print cr
+		>>0 ) 2drop
+	cr ;
+
+#modoelige 0 m1 m2 m3
+
+:dumpobj | adr
+	'grilla ( @+ 1? )(
+		2 << 'modoelige + @ exec
+		12 + ) 2drop ;
+
+:reboot
+	cargagrilla
+	show clrscr
+		fonti2 verde
+		"AbelTV" print cr
+		fonti blanco
+		dumpobj
+		'exit >esc<
+		;
+
+
+|------------------------------------
+:main
+	33
+
+	cargagrilla |	reboot
+	eligeclip
+	predraw
+	show xfb>scr
+
+		fonti azul dup "%d" print
+
+		turnocheck
+		timedraw
+
+        'atencion <f1>
+		'exit >esc<
+
+		cminiflecha ;
+
+:memoria
+	mark
+	1024 'objs p.ini
+	1024 'fx p.ini
+	here 'rehere !
+	;
+
+: memoria main ;
