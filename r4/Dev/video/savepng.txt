@@ -8,24 +8,54 @@
 
 :crc | desde --- crc
 	here over - swap crc32 ;
+:adler
+	here over - swap adler32 ;
 
 :,32 dup 24 >> ,c dup 16 >> ,c dup 8 >> ,c ,c ;
 
 :header
-	$89 ,c $50 ,c $4E ,c $47 ,c $0D ,c $0A ,c $1A ,c $0A ,c	| PNG header
-	$00 ,c $00 ,c $00 ,c $0D ,c $49 ,c $48 ,c $44 ,c $52 ,c | IHDR chunk
+	$89504E47 ,32 $0D0A1A0A ,32	| PNG header
+	$0000000D ,32 $49484452 ,32 | IHDR chunk
 	wp ,32
 	hp ,32
-	$08 ,c $02 ,c $00 ,c $00 ,c $00 ,c
+	$08020000 ,32 $00 ,c
 	17 crc ,32		| IHDR CRC-32 to be filled in (starting at offset 29)
-	size ,32 | IDAT chunk
-	$49 ,c $44 ,c $41 ,c $54 ,c
-	$08 ,c $1D ,c 									| DEFLATE data
+	size ,32 		| IDAT chunk
+	$49444154 ,32
+	$08 ,c $1D ,c 	| DEFLATE data
 	;
 
-:savepng | "" w h --
+:,pixel | col --
+	dup 16 >> ,c dup 8 >> ,c ,c ;
+
+:image
+
+	framev >r
+	hp ( 1? )(
+		wp ( 1? )(
+			r@+ ,pixel
+			1- ) drop
+		sw wp - 2 << r+
+		1- ) drop
+	rdrop ;
+
+:finish
+	0 adler ,32
+	0 crc ,32
+	0 ,32	// IEND chunk
+	$49454E44 ,32 $AE426082 ,32
+	;
+
+| save frame from 0,0
+::savepng | "" w h --
+	over 3 * 1+ over *
+
+	'size !
 	'hp ! 'wp !
+
 	mark
 	header
+	image
+	finish
 	savemem
 	empty ;
