@@ -3,6 +3,7 @@
 |---------------
 ^r4/lib/crc32.txt
 
+#DEFLATE_MAX_BLOCK_SIZE 65535
 #wp #hp
 #size
 
@@ -28,16 +29,19 @@
 :,pixel | col --
 	dup 16 >> ,c dup 8 >> ,c ,c ;
 
-:image
-
-	framev >r
-	hp ( 1? )(
-		wp ( 1? )(
-			r@+ ,pixel
-			1- ) drop
-		sw wp - 2 << r+
+:line
+    1 ,c
+	>r wp ( 1? )(
+		r@+ ,pixel
 		1- ) drop
-	rdrop ;
+	r> ;
+
+:image
+	framev
+	hp ( 1? )( swap
+		line
+		sw wp - 2 << +
+		swap 1- ) 2drop ;
 
 :finish
 	0 adler ,32
@@ -49,10 +53,11 @@
 | save frame from 0,0
 ::savepng | "" w h --
 	over 3 * 1+ over *
-
+	dup DEFLATE_MAX_BLOCK_SIZE /
+	dup DEFLATE_MAX_BLOCK_SIZE * pick2 <? ( drop 1+ )( drop )
+	5 * 6 + +
 	'size !
 	'hp ! 'wp !
-
 	mark
 	header
 	image
