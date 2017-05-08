@@ -1,6 +1,9 @@
 | save uncompress png
 | PHREDA 2017
 |---------------
+^r4/lib/loadpng.txt
+^r4/lib/img.txt
+
 ^r4/lib/crc32.txt
 
 #DEFLATE_MAX_BLOCK_SIZE 65535
@@ -29,9 +32,10 @@
 :,pixel | col --
 	dup 16 >> ,c dup 8 >> ,c ,c ;
 
-:line
+:lines
+	>r
     1 ,c
-	>r wp ( 1? )(
+	wp ( 1? )(
 		r@+ ,pixel
 		1- ) drop
 	r> ;
@@ -39,14 +43,14 @@
 :image
 	framev
 	hp ( 1? )( swap
-		line
+		lines
 		sw wp - 2 << +
 		swap 1- ) 2drop ;
 
 :finish
 	0 adler ,32
 	0 crc ,32
-	0 ,32	// IEND chunk
+	0 ,32	| IEND chunk
 	$49454E44 ,32 $AE426082 ,32
 	;
 
@@ -64,3 +68,20 @@
 	finish
 	savemem
 	empty ;
+
+|------------------------------
+#imgp
+
+:testsave
+	"media/bmp/demo-mandelbrot2.png" 512 512 savepng ;
+
+:main
+	"media/bmp/demo-mandelbrot.png" loadpng 'imgp !
+	show clrscr
+		0 0 imgp img.draw
+		'testsave <f1>
+		'exit >esc<
+		;
+
+
+: mark main ;
