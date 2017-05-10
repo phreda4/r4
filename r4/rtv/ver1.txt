@@ -9,6 +9,30 @@
 ^r4/rtv/fx.spr
 
 
+#fileini "atv/urgente.txt"
+#filecon "atv/consultorios.txt"
+#foldspo "atv/videos/"
+#fileate "rtv/template/medicos.txt"
+#folppla "atv/placas/"
+#foldcli "atv/videos/clip"
+
+#grilla
+1 'filecon 0 0
+1 'fileini 0 0
+1 'filecon 0 0
+2 'foldspo 0 0
+1 'fileate 0 0
+3 'folppla 0 0
+2 'foldcli 0 0
+0
+
+#grilla> 'grilla
+#ngrilla 0
+
+#rehere
+#rerehere
+
+|--------------------------
 #xcam #ycam #zcam 2.0
 #rxcam #rycam #rzcam
 
@@ -39,6 +63,8 @@
 #colfnt
 #xxc #yyc
 
+|--------------------------
+
 :,placa | tt --
 	placas> 'placas - 'placast + !
 	pantalla> placas> !+ 'placas> !
@@ -47,9 +73,14 @@
 :,p | val --
 	pantalla> !+ 'pantalla> ! ;
 
-:reset
+:resetplaca
 	'objs p.clear
 	'fx p.clear
+	'placas 'placas> !
+	'pantalla 'pantalla> !
+	0 'fondo !
+	$ffffff 'cfondo !
+	0 'colfnt !
 	;
 
 |------------------- OS DEp ---------------------
@@ -115,6 +146,10 @@
 	-1 system -1 <>? ( drop ; ) drop
 	playvideo ;
 
+:prevideo
+	resetplaca
+	0 paper cls >XFB
+	;
 
 |-------------------------------------------
 :2color dup $f0f0f0 and dup 4 >> or swap $f0f0f and dup 4 << or ;
@@ -596,13 +631,13 @@
 
 	nplaca inidrawpant
 
-	placanow @ 0? ( exit drop ; )
+	placanow @ 0? ( 1 'ngrilla ! drop ; )
     'nextdraw over $ffffff and
 	+time
 	drop
 	;
 
-:predraw
+:preplaca
 	cfondo paper
 	fondo 1? ( 0 0 sw sh fondo img.drawsize )( cls )
 	drop
@@ -621,7 +656,7 @@
 	;
 
 
-:timedraw
+:timeplaca
 	omode
 |		freelook
 	rxcam 1? ( mrotxi )( drop )
@@ -635,24 +670,9 @@
 	'objs p.draw
 	;
 
-|-----------
-#fileini "atv/urgente.txt"
-#foldspo "atv/videos/"
-#fileate "rtv/template/medicos.txt"
-#folppla "atv/placas/"
-#foldcli "atv/videos/clip"
-
-#grilla
-1 'fileini 0 0
-2 'foldspo 0 0
-1 'fileate 0 0
-3 'folppla 0 0
-2 'foldcli 0 0
-0
-
-#grilla> 'grilla
-#ngrilla 0
-#rehere
+:timedraw
+	timeplaca
+	;
 
 |----- recarga carpetas
 :m1	;
@@ -668,16 +688,20 @@
 	'grilla ( @+ 1? )(
 		2 << 'modocarga + @ exec
 		12 + ) 2drop
+	here 'rerehere !
 	;
 
 |----- prepara clip
 :m1	| template
+	resetplaca
 	@ loadparse
+	preplaca
 	;
 :m2	| videos
 	@+ 'fnvideo !
 	@ | aqui proximo video
-	'pnvideo !
+	'phvideo !
+	prevideo
 	;
 :m3 | placas
 	drop ;
@@ -685,6 +709,7 @@
 #modoinic 0 m1 m2 m3
 
 :eligeclip
+	rerehere 'here !
 	grilla> @+ 2 << 'modoinic + @ exec
 	grilla> 16 +
 	dup @ 0? ( 2drop 'grilla )( drop )
@@ -730,19 +755,26 @@
 
 
 |------------------------------------
+
+:proximaplaca
+	0 'ngrilla !
+
+	eligeclip
+	;
+
 :main
 	33
-
 	cargagrilla |	reboot
 	eligeclip
 
-	predraw
 	show xfb>scr
 
-		fonti azul dup "%d" print
+|		fonti azul dup "%d" print
 
 		turnocheck
 		timedraw
+
+		ngrilla 1? ( proximaplaca ) drop
 
         'atencion <f1>
 		'exit >esc<
