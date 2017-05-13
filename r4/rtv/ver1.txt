@@ -17,17 +17,17 @@
 #foldcli "atv/videos/clip"
 
 #grilla
-1 'filecon 0 0
-1 'fileini 0 0
+|1 'fileini 0 0
 1 'filecon 0 0
 2 'foldspo 0 0
-1 'fileate 0 0
-3 'folppla 0 0
-2 'foldcli 0 0
+|1 'fileate 0 0
+|3 'folppla 0 0
+|2 'foldcli 0 0
 0
 
 #grilla> 'grilla
-#ngrilla 0
+#finclip 0	| 1 cuando termina placa
+#timeev		| vector de actualizacion
 
 #rehere
 #rerehere
@@ -121,12 +121,12 @@
 	here dup "c:/rtv/interface/turnero.txt" load
 	over =? ( 2drop 0 ; )
     0 0 "c:/rtv/interface/turnero.txt" save
-    0 swap ! dup 'checkstr ! ;
+    0 swap c! dup 'checkstr ! ;
 
-:turnocheck
-	eventocheck 0? ( drop ; )
-	'checkstr !
-	;
+|:turnocheck
+|	eventocheck 0? ( drop ; )
+|	'checkstr !
+|	;
 
 |-----------------------------------------------
 #fnvideo
@@ -137,18 +137,17 @@
 	"atv/ffplay -fs -autoexit -loglevel quiet ""%s%s""" mprint
 	system drop ;
 
-:waitvideo
-	( -1 system -1 <>? )( drop
-		eventocheck 1? ( 0 system drop ) drop
-		100 update drop ) drop ;
+:timevideo
 
-:player
-	-1 system -1 <>? ( drop ; ) drop
-	playvideo ;
+	-1 system -1 =? ( 1 'finclip ! ) drop
+|	checkstr 1? ( 0 system drop ; ) drop
+	;
 
 :prevideo
 	resetplaca
-	0 paper cls >XFB
+	0 paper cls >XFB redraw
+	playvideo
+	'timevideo 'timeev !
 	;
 
 |-------------------------------------------
@@ -631,10 +630,22 @@
 
 	nplaca inidrawpant
 
-	placanow @ 0? ( 1 'ngrilla ! drop ; )
+	placanow @ 0? ( 1 'finclip ! drop ; )
     'nextdraw over $ffffff and
 	+time
 	drop
+	;
+
+:timeplaca
+	omode
+	rxcam 1? ( mrotxi )( drop )
+	rycam 1? ( mrotyi )( drop )
+	rzcam 1? ( mrotzi )( drop )
+	xcam ycam zcam mtrans
+|	nplaca drawpant
+	dtime
+	'fx p.draw
+	'objs p.draw
 	;
 
 :preplaca
@@ -653,26 +664,9 @@
     'nextdraw over $ffffff and
 	+time
 	drop
+	'timeplaca 'timeev !
 	;
 
-
-:timeplaca
-	omode
-|		freelook
-	rxcam 1? ( mrotxi )( drop )
-	rycam 1? ( mrotyi )( drop )
-	rzcam 1? ( mrotzi )( drop )
-	xcam ycam zcam mtrans
-|	nplaca drawpant
-	dtime
-	'fx p.draw
-|	0 0 pos 4.0 2.0 dim home
-	'objs p.draw
-	;
-
-:timedraw
-	timeplaca
-	;
 
 |----- recarga carpetas
 :m1	;
@@ -684,11 +678,12 @@
 :cargagrilla
 	rehere 'here !
 	'grilla 'grilla> !
-	0 'ngrilla !
+	0 'finclip !
 	'grilla ( @+ 1? )(
-		2 << 'modocarga + @ exec
+		$f and 2 << 'modocarga + @ exec
 		12 + ) 2drop
 	here 'rerehere !
+	0 'checkstr !
 	;
 
 |----- prepara clip
@@ -698,9 +693,12 @@
 	preplaca
 	;
 :m2	| videos
-	@+ 'fnvideo !
-	@ | aqui proximo video
-	'phvideo !
+	dup 4 - >r
+	@+ 'phvideo !
+	@+ swap @ r @ 8 >> n>>0 | last act
+	dup 'fnvideo !
+	>>0 4+ >? ( r @ $100 + )( r @ $ff and ) nip
+	r> !
 	prevideo
 	;
 :m3 | placas
@@ -710,7 +708,7 @@
 
 :eligeclip
 	rerehere 'here !
-	grilla> @+ 2 << 'modoinic + @ exec
+	grilla> @+ $f and 2 << 'modoinic + @ exec
 	grilla> 16 +
 	dup @ 0? ( 2drop 'grilla )( drop )
 	'grilla> ! ;
@@ -740,7 +738,7 @@
 
 :dumpobj | adr
 	'grilla ( @+ 1? )(
-		2 << 'modoelige + @ exec
+		$f and 2 << 'modoelige + @ exec
 		12 + ) 2drop ;
 
 :reboot
@@ -757,25 +755,45 @@
 |------------------------------------
 
 :proximaplaca
-	0 'ngrilla !
-
+	0 'finclip !
 	eligeclip
 	;
+
+:addturno
+	;
+
+:showturno
+	0 system drop
+	0 'checkstr !
+	resetplaca
+	"atv/urgente.txt" loadparse
+	preplaca
+	show xfb>scr
+		timeev exec
+
+		blanco checkstr 1? ( print )( drop )
+
+		eventocheck 1? ( addturno ) drop
+		finclip 1? ( exit proximaplaca ) drop
+
+        'atencion <f1>
+		'exit >esc<
+
+		cminiflecha ;
 
 :main
 	33
 	cargagrilla |	reboot
 	eligeclip
 
-	show xfb>scr
-
+	show30 xfb>scr
 |		fonti azul dup "%d" print
 
-		turnocheck
-		timedraw
+		timeev exec
+		eventocheck 1? ( showturno ) drop
+		finclip 1? ( proximaplaca ) drop
 
-		ngrilla 1? ( proximaplaca ) drop
-
+		[ 0 system drop ; ] <f2>
         'atencion <f1>
 		'exit >esc<
 
