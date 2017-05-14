@@ -1,10 +1,10 @@
 | JPGEncoder
-| 2017
+| 2017 PHREDA
 | from http://www.bytearray.org/?p=90
 |---------------------------------
-#bytenew
-#bytepos
-#sf			| calidad
+#sf		| calidad
+#wi		| ancho
+#hi		| alto
 
 #ZigZag
  0  1  5  6 14 15 27 28
@@ -53,9 +53,22 @@
 :zzYTable! ]ZigZag 2 << 'YTable + ! ;
 :zzUVTable! ]ZigZag 2 << 'UVTable + ! ;
 
-:]zzYTable
+:]zzYTable ]ZigZag 2 << 'YTable + @ ;
+:]zzUVTable ]ZigZag 2 << 'UVTable + @ ;
 
-:initQuantTables |(sf:int):void
+:]aasf
+	2 << 'aasf + @ ;
+
+|(1 / (YTable [ZigZag[i]] * aasf[row] * aasf[col] * 8));
+:aasf* | row col val --
+	pick2 ]aasf pick2 ]aasf *. 8.0 *. *. 1.0 swap /. ;
+
+:fdtbl_Y!
+	2 << 'fdtbl_Y + ! ;
+:fdtbl_UV!
+	2 << 'fdtbl_U + ! ;
+
+:initQuantTables
 	0 ( 64 <? )(
 		dup ]YQT sf * 50 + 16 << 0.01 *. 16 >> | YQT[i]*sf+50)*0.01
 		1 clampmin 255 campmax over zzYTable!
@@ -67,28 +80,22 @@
 	0
 	0 ( 8 <? )(
 		0 ( 8 <? )(
-
+			pick2 ]zzYTable aasf* pick3 fdtbl_Y!
+			pick2 ]zzUVTable aasf* pick3 fdtbl_UV!
+			rot 1+ rot rot
 			1+ ) drop
-		1+ ) 2drop
-
-			i = 0;
-			for (var row:int = 0; row < I8; ++row)
-			{
-				for (var col:int = 0; col < I8; ++col)
-				{
-					fdtbl_Y[i]  = (1 / (YTable [ZigZag[i]] * aasf[row] * aasf[col] * 8));
-					fdtbl_UV[i] = (1 / (UVTable[ZigZag[i]] * aasf[row] * aasf[col] * 8));
-					i++;
-				}
-			}
-	;
+		1+ ) 2drop ;
 
 #YDC_HT |:Vector.<BitString>;
 #UVDC_HT |:Vector.<BitString>;
 #YAC_HT |:Vector.<BitString>;
 #UVAC_HT |:Vector.<BitString>;
 
-:computeHuffmanTbl |(nrcodes:Vector.<int>, std_table:Vector.<int>):Vector.<BitString>
+:computeHuffmanTbl
+| nrcodes:Vector.<int>,
+| std_table:Vector.<int>)
+| :Vector.<BitString>
+
 			var codevalue:int = 0;
 			var pos_in_table:int = 0;
 			var HT:Vector.<BitString> = new Vector.<BitString>(251, true);
@@ -106,7 +113,7 @@
 				codevalue<<=1;
 			}
 			return HT;
-		}
+	;
 
 #std_dc_luminance_nrcodes 0 0 1 5 1 1 1 1 1 1 0 0 0 0 0 0 0
 #std_dc_luminance_values 0 1 2 3 4 5 6 7 8 9 10 11
@@ -140,85 +147,52 @@ $c4 $c5 $c6 $c7 $c8 $c9 $ca $d2 $d3 $d4 $d5 $d6 $d7 $d8 $d9 $da
 $e2 $e3 $e4 $e5 $e6 $e7 $e8 $e9 $ea $f2 $f3 $f4 $f5 $f6 $f7 $f8
 $f9 $fa
 
-
-:initHuffmanTbl
-	YDC_HT = computeHuffmanTbl(std_dc_luminance_nrcodes,std_dc_luminance_values);
-	UVDC_HT = computeHuffmanTbl(std_dc_chrominance_nrcodes,std_dc_chrominance_values);
-	YAC_HT = computeHuffmanTbl(std_ac_luminance_nrcodes,std_ac_luminance_values);
-	UVAC_HT = computeHuffmanTbl(std_ac_chrominance_nrcodes,std_ac_chrominance_values);
-	;
-
-#bitcode:Vector.<BitString> = new Vector.<BitString>(65535, true);
-#category:Vector.<int> = new Vector.<int>(65535, true);
+#bitcode )( $3ffff |:Vector.<BitString> = new Vector.<BitString>(65535, true);
+#category )( $3ffff |:Vector.<int> = new Vector.<int>(65535, true);
 
 :initCategoryNumber
-			var nrlower:int = 1;
-			var nrupper:int = 2;
-			var bitString:BitString;
-			const I15:int = 15;
-			var pos:int;
-			for (var cat:int=1; cat<=I15; ++cat)
-			{
-				|Positive numbers
-				for (var nr:int=nrlower; nr<nrupper; ++nr)
-				{
-					pos = int(32767+nr);
-					category[pos] = cat;
-					bitcode[pos] = bitString = new BitString();
-					bitString.len = cat;
-					bitString.val = nr;
-				}
-				|Negative numbers
-				for (var nrneg:int=-(nrupper-1); nrneg<=-nrlower; ++nrneg)
-				{
-					pos = int(32767+nrneg);
-					category[pos] = cat;
-					bitcode[pos] = bitString = new BitString();
-					bitString.len = cat;
-					bitString.val = nrupper-1+nrneg;
-				}
-				nrlower <<= 1;
-				nrupper <<= 1;
-			}
-	;
+	1 2	| low upp
+	1 ( 16 <? )(
+		|--- Positive numbers
+		pick2 ( pick2 <? )(
+            32767 over + 2 << >r
+			over 'category r + !
+			dup pick2 8 << or
+			'bitcode r> + !
+			1+ ) drop
+		|--- Negative numbers
+		over 1- neg ( pick3 neg <=? )(
+            32767 over + 2 << >r
+			over 'category r + !
+			pick2 1- over + pick2 8 << or
+			'bitcode r> + !
+			1+ ) drop
+		rot 2* rot 2* rot 1+ ) 
+	3drop ;
 
-| IO functions
-
-#byteout:ByteArray;
+|----------- IO functions
+| bitstring
+| len(4)nro(8)
+|-----------
+#bytenew
+#bytepos
 
 :writeBits | (bs:BitString):void
-			var value:int = bs.val;
-			var posval:int = bs.len-1;
-			while ( posval >= 0 )
-			{
-				if (value & uint(1 << posval) )
-					bytenew |= uint(1 << bytepos);
-				posval--;
-				bytepos--;
-				if (bytepos < 0)
-				{
-					if (bytenew == $FF)
-					{
-						byteout.writeByte($FF);
-						byteout.writeByte(0);
-					}
-					else byteout.writeByte(bytenew);
-					bytepos=7;
-					bytenew=0;
-				}
-			}
-	;
+	dup 8 >>
+	( 1? )( swap
+		1 pick2 << and? ( 1 bytepos << 'bytenew +! )
+		bytepos 
+		0? ( drop bytenew $ff =? ( ,c 0 ,c )( ,c ) 0 'bytenew ! 7 )( 1- )
+		'bytepos !
+		swap 1- ) 2drop ;
 
-		| DCT & quantization core
-
-:fDCTQuant(data:Vector.<Number>, fdtbl:Vector.<Number>):Vector.<int>
+| DCT & quantization core
+:fDCTQuant |(data:Vector.<Number>, fdtbl:Vector.<Number>):Vector.<int>
 			/* Pass 1: process rows. */
 			var dataOff:int=0;
 			var d0:Number, d1:Number, d2:Number, d3:Number, d4:Number, d5:Number, d6:Number, d7:Number;
 			var i:int;
-			const I8:int = 8;
-			const I64:int = 64;
-			for (i=0; i<I8; ++i)
+			for (i=0; i<8; ++i)
 			{
                 d0 = data[int(dataOff)];
 				d1 = data[int(dataOff+1)];
@@ -255,27 +229,27 @@ $f9 $fa
 				tmp10 = tmp4 + tmp5; /* phase 2 */
 				tmp11 = tmp5 + tmp6;
 				tmp12 = tmp6 + tmp7;
-	
+
 				/* The rotator is modified from fig 4-8 to avoid extra negations. */
 				var z5:Number = (tmp10 - tmp12) * 0.382683433; /* c6 */
 				var z2:Number = 0.541196100 * tmp10 + z5; /* c2-c6 */
 				var z4:Number = 1.306562965 * tmp12 + z5; /* c2+c6 */
 				var z3:Number = tmp11 * 0.707106781; /* c4 */
-	
+
 				var z11:Number = tmp7 + z3;	/* phase 5 */
 				var z13:Number = tmp7 - z3;
-	
+
 				data[int(dataOff+5)] = z13 + z2;	/* phase 6 */
 				data[int(dataOff+3)] = z13 - z2;
 				data[int(dataOff+1)] = z11 + z4;
 				data[int(dataOff+7)] = z11 - z4;
-	
+
 				dataOff += 8; /* advance pointer to next row */
 			}
 
 			/* Pass 2: process columns. */
 			dataOff = 0;
-			for (i=0; i<I8; ++i)
+			for (i=0; i<8; ++i)
 			{
 				d0 = data[int(dataOff)];
 				d1 = data[int(dataOff + 8)];
@@ -285,7 +259,7 @@ $f9 $fa
 				d5 = data[int(dataOff + 40)];
 				d6 = data[int(dataOff + 48)];
 				d7 = data[int(dataOff + 56)];
-				
+
 				var tmp0p2:Number = d0 + d7;
 				var tmp7p2:Number = d0 - d7;
 				var tmp1p2:Number = d1 + d6;
@@ -294,34 +268,34 @@ $f9 $fa
 				var tmp5p2:Number = d2 - d5;
 				var tmp3p2:Number = d3 + d4;
 				var tmp4p2:Number = d3 - d4;
-	
+
 				/* Even part */
 				var tmp10p2:Number = tmp0p2 + tmp3p2;	/* phase 2 */
 				var tmp13p2:Number = tmp0p2 - tmp3p2;
 				var tmp11p2:Number = tmp1p2 + tmp2p2;
 				var tmp12p2:Number = tmp1p2 - tmp2p2;
-	
+
 				data[int(dataOff)] = tmp10p2 + tmp11p2; /* phase 3 */
 				data[int(dataOff+32)] = tmp10p2 - tmp11p2;
-	
+
 				var z1p2:Number = (tmp12p2 + tmp13p2) * 0.707106781; /* c4 */
 				data[int(dataOff+16)] = tmp13p2 + z1p2; /* phase 5 */
 				data[int(dataOff+48)] = tmp13p2 - z1p2;
-	
+
 				/* Odd part */
 				tmp10p2 = tmp4p2 + tmp5p2; /* phase 2 */
 				tmp11p2 = tmp5p2 + tmp6p2;
 				tmp12p2 = tmp6p2 + tmp7p2;
-	
+
 				/* The rotator is modified from fig 4-8 to avoid extra negations. */
 				var z5p2:Number = (tmp10p2 - tmp12p2) * 0.382683433; /* c6 */
 				var z2p2:Number = 0.541196100 * tmp10p2 + z5p2; /* c2-c6 */
 				var z4p2:Number = 1.306562965 * tmp12p2 + z5p2; /* c2+c6 */
 				var z3p2:Number= tmp11p2 * 0.707106781; /* c4 */
-	
+
 				var z11p2:Number = tmp7p2 + z3p2;	/* phase 5 */
 				var z13p2:Number = tmp7p2 - z3p2;
-	
+
 				data[int(dataOff+40)] = z13p2 + z2p2; /* phase 6 */
 				data[int(dataOff+24)] = z13p2 - z2p2;
 				data[int(dataOff+ 8)] = z11p2 + z4p2;
@@ -332,7 +306,7 @@ $f9 $fa
 
 			| Quantize/descale the coefficients
 			var fDCTQuant:Number;
-			for (i=0; i<I64; ++i)
+			for (i=0; i<64; ++i)
 			{
 				| Apply the quantization and scaling factor & Round to nearest integer
 				fDCTQuant = data[int(i)]*fdtbl[int(i)];
@@ -417,16 +391,16 @@ $f9 $fa
 	;
 
 		| Core processing
-		internal var DU:Vector.<int> = new Vector.<int>(64, true);
+#DU )( 256 |:Vector.<int> = new Vector.<int>(64, true);
 
-:processDU(CDU:Vector.<Number>, fdtbl:Vector.<Number>, DC:Number, HTDC:Vector.<BitString>, HTAC:Vector.<BitString>):Number
+:processDU |(CDU:Vector.<Number>, fdtbl:Vector.<Number>, DC:Number, HTDC:Vector.<BitString>, HTAC:Vector.<BitString>):Number
 			var EOB:BitString = HTAC[$00];
 			var M16zeroes:BitString = HTAC[$F0];
 			var pos:int;
 
 			var DU_DCT:Vector.<int> = fDCTQuant(CDU, fdtbl);
 			| ZigZag reorder
-			for (var j:int=0;j<I64;++j) {
+			for (var j:int=0;j<64;++j) {
 				DU[ZigZag[j]]=DU_DCT[j];
 			}
 			var Diff:int = DU[0] - DC; DC = DU[0];
@@ -467,39 +441,54 @@ $f9 $fa
 			return DC;
 ;
 
-		private var YDU:Vector.<Number> = new Vector.<Number>(64, true);
-		private var UDU:Vector.<Number> = new Vector.<Number>(64, true);
-		private var VDU:Vector.<Number> = new Vector.<Number>(64, true);
+#YDU )( 256 |:Vector.<Number> = new Vector.<Number>(64, true);
+#UDU )( 256 |:Vector.<Number> = new Vector.<Number>(64, true);
+#VDU )( 256 |:Vector.<Number> = new Vector.<Number>(64, true);
 
-:RGB2YUV(img:BitmapData, xpos:int, ypos:int):void
-			var pos:int=0;
-			for (var y:int=0; y<8; ++y) {
-				for (var x:int=0; x<8; ++x) {
-					var P:uint = img.getPixel32(xpos+x,ypos+y);
-					var R:int = (P>>16)&$FF;
-					var G:int = (P>> 8)&$FF;
-					var B:int = (P    )&$FF;
-                    YDU[int(pos)]=((( 0.29900)*R+( 0.58700)*G+( 0.11400)*B))-$80;
-					UDU[int(pos)]=(((-0.16874)*R+(-0.33126)*G+( 0.50000)*B));
-					VDU[int(pos)]=((( 0.50000)*R+(-0.41869)*G+(-0.08131)*B));
-					++pos;
-				}
-			}
+:(rgb2yuv) | col -- yuv
+	dup 16 >> $ff and
+	over 8 >> $ff and
+	rot $ff and | r g b
+	pick2 0.299 * pick2 0.587 * pick2 0.114 * + + 16 >> $80 -
+	pick4 pick4 3 << or 2 << 'YUD + !
+	pick2 -0.16874 * pick2 -0.33126 * pick2 0.5 * + + 16 >>
+	pick4 pick4 3 << or 2 << 'UUD + !
+	pick2 0.5 * pick2 -0.41869 * pick2 -0.08131 * + + 16 >>
+	pick4 pick4 3 << or 2 << 'VUD + !
+	3drop
 	;
 
+:RGB2YUV | y x -- (img:BitmapData, xpos:int, ypos:int):void
+	2dup swap sw * + 2 << >r
+	0 ( 8 <? )(
+		0 ( 8 <? )(
+			r@+ (rgb2yuv)
+			1+ ) drop
+		sw si - 2 << r+
+		1+ ) drop rdrop ;
+
+#DCY
+#DCU
+#DCV
 
 :JPEGEncoder | w h q -- ;(quality:int=50)
 	1 clampmin
 	100 clampmax
 	50 <? ( 5000 swap / )( 2* 200 swap - )
-	'sf !
+	'sf ! 'hi ! 'wi !
+
 	| Create tables
-	initHuffmanTbl
+
+|---	initHuffmanTbl
+	YDC_HT = computeHuffmanTbl(std_dc_luminance_nrcodes,std_dc_luminance_values);
+	UVDC_HT = computeHuffmanTbl(std_dc_chrominance_nrcodes,std_dc_chrominance_values);
+	YAC_HT = computeHuffmanTbl(std_ac_luminance_nrcodes,std_ac_luminance_values);
+	UVAC_HT = computeHuffmanTbl(std_ac_chrominance_nrcodes,std_ac_chrominance_values);
+
 	initCategoryNumber
 	initQuantTables |sf
 
-	0 'bytenew !
-	0 'bytepos !
+	0 'bytenew ! 0 'bytepos !
 
 	| Add JPEG headers
 	$FFD8 ,w | SOI
@@ -509,16 +498,17 @@ $f9 $fa
 	writeDHT
 	writeSOS
 
-			| Encode 8x8 macroblocks
-			var DCY:Number=0;
-			var DCU:Number=0;
-			var DCV:Number=0;
-
-	0 'bytenew !
-	7 'bytepos !
-
-	var width:int = image.width;
-	var height:int = image.height;
+	| Encode 8x8 macroblocks
+	0 'DCY ! 0 'DCU ! 0 'DCV !
+	0 'bytenew ! 7 'bytepos !
+	0 ( hi <? )(
+		0 ( wi <? )(
+			rgb2yuv
+			DCY 'YDU 'fdtbl_Y 'YDC_HT 'YAC_HT processDU 'DCY !
+			DCU processDU 'DCU !
+			DCV processDU 'DCV !
+			8 + ) drop
+		8 + ) drop
 
 			for (var ypos:int=0; ypos<height; ypos+=8)
 			{
@@ -531,19 +521,12 @@ $f9 $fa
 				}
 			}
 
-			| Do the bit alignment of the EOI marker
-			if ( bytepos >= 0 )
-			{
-				var fillbits:BitString = new BitString();
-				fillbits.len = bytepos+1;
-				fillbits.val = (1<<(bytepos+1))-1;
-				writeBits(fillbits);
-			}
-			$FFD9 ,w |EOI
-			return byteout;
-		}
-	}
-;
+	bytepos 1? ( | Do the bit alignment of the EOI marker
+		dup 1+ 1 over << 1-
+		swap 8 << or writeBits
+		) drop
+	$FFD9 ,w |EOI
+	;
 
 |-------------------------------------------------
 :main
