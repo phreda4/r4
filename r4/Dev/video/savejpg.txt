@@ -86,39 +86,27 @@
 			1+ ) drop
 		1+ ) 2drop ;
 
-#YDC_HT |:Vector.<BitString>;
-#UVDC_HT |:Vector.<BitString>;
-#YAC_HT |:Vector.<BitString>;
-#UVAC_HT |:Vector.<BitString>;
+#YDC_HT )( 1024
+#UVDC_HT )( 1024
+#YAC_HT )( 1024
+#UVAC_HT )( 1024
 
-:computeHuffmanTbl
-| nrcodes:Vector.<int>,
-| std_table:Vector.<int>)
-| :Vector.<BitString>
+:computeHuffmanTbl | 'nrocodes 'std_table HT --
+	>r
+	0 0	| codevalue posintable
+	1 ( 16 <=? )(
+		pick4 over 2 << + @ ( 1? )( 1-
+			pick4 pick3 2 << + @
+			pick4 pick3 8 << or
+			swap 2 << r + ! | HT
+			rot 1+ rot 1+ rot )drop
+		rot 2* rot rot 1+ )
+	3drop rdrop ;
 
-			var codevalue:int = 0;
-			var pos_in_table:int = 0;
-			var HT:Vector.<BitString> = new Vector.<BitString>(251, true);
-			var bitString:BitString;
-			for (var k:int=1; k<=16; ++k)
-			{
-				for (var j:int=1; j<=nrcodes[k]; ++j)
-				{
-					HT[std_table[pos_in_table]] = bitString = new BitString();
-					bitString.val = codevalue;
-					bitString.len = k;
-					pos_in_table++;
-					codevalue++;
-				}
-				codevalue<<=1;
-			}
-			return HT;
-	;
-
-#std_dc_luminance_nrcodes 0 0 1 5 1 1 1 1 1 1 0 0 0 0 0 0 0
-#std_dc_luminance_values 0 1 2 3 4 5 6 7 8 9 10 11
-#std_ac_luminance_nrcodes 0 0 2 1 3 3 2 4 3 5 5 4 4 0 0 1 $7d
-#std_ac_luminance_values
+#std_dc_lumi_nrcodes 0 0 1 5 1 1 1 1 1 1 0 0 0 0 0 0 0
+#std_dc_lumi_values 0 1 2 3 4 5 6 7 8 9 10 11
+#std_ac_lumi_nrcodes 0 0 2 1 3 3 2 4 3 5 5 4 4 0 0 1 $7d
+#std_ac_lumi_values
 $01 $02 $03 $00 $04 $11 $05 $12 $21 $31 $41 $06 $13 $51 $61 $07
 $22 $71 $14 $32 $81 $91 $a1 $08 $23 $42 $b1 $c1 $15 $52 $d1 $f0
 $24 $33 $62 $72 $82 $09 $0a $16 $17 $18 $19 $1a $25 $26 $27 $28
@@ -131,10 +119,10 @@ $c6 $c7 $c8 $c9 $ca $d2 $d3 $d4 $d5 $d6 $d7 $d8 $d9 $da $e1 $e2
 $e3 $e4 $e5 $e6 $e7 $e8 $e9 $ea $f1 $f2 $f3 $f4 $f5 $f6 $f7 $f8
 $f9 $fa
 
-#std_dc_chrominance_nrcodes 0 0 3 1 1 1 1 1 1 1 1 1 0 0 0 0 0
-#std_dc_chrominance_values 0 1 2 3 4 5 6 7 8 9 10 11
-#std_ac_chrominance_nrcodes 0 0 2 1 2 4 4 3 4 7 5 4 4 0 1 2 $77
-#std_ac_chrominance_values
+#std_dc_chro_nrcodes 0 0 3 1 1 1 1 1 1 1 1 1 0 0 0 0 0
+#std_dc_chro_values 0 1 2 3 4 5 6 7 8 9 10 11
+#std_ac_chro_nrcodes 0 0 2 1 2 4 4 3 4 7 5 4 4 0 1 2 $77
+#std_ac_chro_values
 $00 $01 $02 $03 $11 $04 $05 $21 $31 $06 $12 $41 $51 $07 $61 $71
 $13 $22 $32 $81 $08 $14 $42 $91 $a1 $b1 $c1 $09 $23 $33 $52 $f0
 $15 $62 $72 $d1 $0a $16 $24 $34 $e1 $25 $f1 $17 $18 $19 $1a $26
@@ -147,8 +135,8 @@ $c4 $c5 $c6 $c7 $c8 $c9 $ca $d2 $d3 $d4 $d5 $d6 $d7 $d8 $d9 $da
 $e2 $e3 $e4 $e5 $e6 $e7 $e8 $e9 $ea $f2 $f3 $f4 $f5 $f6 $f7 $f8
 $f9 $fa
 
-#bitcode )( $3ffff |:Vector.<BitString> = new Vector.<BitString>(65535, true);
-#category )( $3ffff |:Vector.<int> = new Vector.<int>(65535, true);
+#bitcode )( $3ffff
+#category )( $3ffff
 
 :initCategoryNumber
 	1 2	| low upp
@@ -167,7 +155,7 @@ $f9 $fa
 			pick2 1- over + pick2 8 << or
 			'bitcode r> + !
 			1+ ) drop
-		rot 2* rot 2* rot 1+ ) 
+		rot 2* rot 2* rot 1+ )
 	3drop ;
 
 |----------- IO functions
@@ -181,139 +169,97 @@ $f9 $fa
 	dup 8 >>
 	( 1? )( swap
 		1 pick2 << and? ( 1 bytepos << 'bytenew +! )
-		bytepos 
+		bytepos
 		0? ( drop bytenew $ff =? ( ,c 0 ,c )( ,c ) 0 'bytenew ! 7 )( 1- )
 		'bytepos !
 		swap 1- ) 2drop ;
 
+
 | DCT & quantization core
-:fDCTQuant |(data:Vector.<Number>, fdtbl:Vector.<Number>):Vector.<int>
-			/* Pass 1: process rows. */
-			var dataOff:int=0;
-			var d0:Number, d1:Number, d2:Number, d3:Number, d4:Number, d5:Number, d6:Number, d7:Number;
-			var i:int;
-			for (i=0; i<8; ++i)
-			{
-                d0 = data[int(dataOff)];
-				d1 = data[int(dataOff+1)];
-				d2 = data[int(dataOff+2)];
-				d3 = data[int(dataOff+3)];
-				d4 = data[int(dataOff+4)];
-				d5 = data[int(dataOff+5)];
-				d6 = data[int(dataOff+6)];
-				d7 = data[int(dataOff+7)];
+#d0 #d1 #d2 #d3 #d4 #d5 #d6 #d7
+#t0 #t1 #t2 #t3 #t4 #t5 #t6 #t7
+#t10 #t11 #t12 #t13
 
-				var tmp0:Number = d0 + d7;
-				var tmp7:Number = d0 - d7;
-				var tmp1:Number = d1 + d6;
-				var tmp6:Number = d1 - d6;
-				var tmp2:Number = d2 + d5;
-				var tmp5:Number = d2 - d5;
-				var tmp3:Number = d3 + d4;
-				var tmp4:Number = d3 - d4;
-	
-				/* Even part */
-				var tmp10:Number = tmp0 + tmp3;	/* phase 2 */
-				var tmp13:Number = tmp0 - tmp3;
-				var tmp11:Number = tmp1 + tmp2;
-				var tmp12:Number = tmp1 - tmp2;
+:getdatacol | adrdata --
+	'd0 >r
+	@+ r!+ @+ r!+ @+ r!+ @+ r!+ @+ r!+ @+ r!+ @+ r!+ @+ r!+
+	rdrop drop ;
 
-				data[int(dataOff)] = tmp10 + tmp11; /* phase 3 */
-				data[int(dataOff+4)] = tmp10 - tmp11;
-	
-				var z1:Number = (tmp12 + tmp13) * 0.707106781; /* c4 */
-				data[int(dataOff+2)] = tmp13 + z1; /* phase 5 */
-				data[int(dataOff+6)] = tmp13 - z1;
-	
-				/* Odd part */
-				tmp10 = tmp4 + tmp5; /* phase 2 */
-				tmp11 = tmp5 + tmp6;
-				tmp12 = tmp6 + tmp7;
+:pass1 | adrdata -- adrdate
+	dup >r getdatacol
+	d0 d7 2dup + 't0 ! - 't7 !
+	d1 d6 2dup + 't1 ! - 't6 !
+	d2 d5 2dup + 't2 ! - 't5 !
+	d3 d4 2dup + 't3 ! - 't4 !
+	t0 t3 2dup + 't10 ! - 't13 !
+	t1 t2 2dup + 't11 ! - 't12 !
+	t10 t11 2dup + r ! - r 16 + !
+	t13 t12 over + 0.707106781 *.
+	2dup + r 8 + ! - r 24 + !
+    t4 t5 + 't10 !
+	t5 t6 + 't11 !
+    t6 t7 + 't12 !
+	t11 0.707106781 *. | z3
+	t7 over - | z3 z13
+	t10 t12 - 0.382683433 *. |z3 z13 z5
+	t10 0.541196100 *. over + |z3 z13 z5 z2
+	rot swap 2dup + r 20 + ! - r 12 + ! 	|z3 z5
+	t12 1.306562965 *. + | z3 z4
+	swap t7 + | z4 z11
+	swap 2dup + r 4+ ! - r 28 + !
+	r> ;
 
 				/* The rotator is modified from fig 4-8 to avoid extra negations. */
-				var z5:Number = (tmp10 - tmp12) * 0.382683433; /* c6 */
-				var z2:Number = 0.541196100 * tmp10 + z5; /* c2-c6 */
-				var z4:Number = 1.306562965 * tmp12 + z5; /* c2+c6 */
-				var z3:Number = tmp11 * 0.707106781; /* c4 */
+|				var z3:Number = tmp11 * 0.707106781; /* c4 */
+|				var z13:Number = tmp7 - z3;
+|				var z5:Number = (tmp10 - tmp12) * 0.382683433; /* c6 */
+|				var z2:Number = 0.541196100 * tmp10 + z5; /* c2-c6 */
+|				data[int(dataOff+5)] = z13 + z2;	/* phase 6 */
+|				data[int(dataOff+3)] = z13 - z2;
+|				var z4:Number = 1.306562965 * tmp12 + z5; /* c2+c6 */
+|				var z11:Number = tmp7 + z3;	/* phase 5 */
+|				data[int(dataOff+1)] = z11 + z4;
+|				data[int(dataOff+7)] = z11 - z4;
 
-				var z11:Number = tmp7 + z3;	/* phase 5 */
-				var z13:Number = tmp7 - z3;
+:getdatarow | adrdata --
+	'd0 >r
+	@+ r!+ 28 + @+ r!+ 28 + @+ r!+ 28 + @+ r!+ 28 + @+ r!+ 28 + @+ r!+ 28 + @+ r!+ 28 + @+ r!+
+	rdrop drop ;
 
-				data[int(dataOff+5)] = z13 + z2;	/* phase 6 */
-				data[int(dataOff+3)] = z13 - z2;
-				data[int(dataOff+1)] = z11 + z4;
-				data[int(dataOff+7)] = z11 - z4;
+:pass2 | adr --
+	dup >r getdatarow
+	d0 d7 2dup + 't0 ! - 't7 !
+	d1 d6 2dup + 't1 ! - 't6 !
+	d2 d5 2dup + 't2 ! - 't5 !
+	d3 d4 2dup + 't3 ! - 't4 !
+	t0 t3 2dup + 't10 ! - 't13 !
+	t1 t2 2dup + 't11 ! - 't12 !
+	t10 t11 2dup + r ! - r 128 + !
+	t13 t12 over + 0.707106781 *.
+	2dup + r 64 + ! - r 192 + !
+	t4 t5 + 't10 !
+	t5 t6 + 't11 !
+	t6 t7 + 't12 !
+	t11 0.707106781 *. | z3
+	t7 over - | z3 z13
+	t10 t12 - 0.382683433 *. |z3 z13 z5
+	t10 0.541196100 *. over + |z3 z13 z5 z2
+	rot swap 2dup + r 80 + ! - r 96 + ! |z3 z5
+	t12 1.306562965 *. + | z3 z4
+	swap t7 + | z4 z11
+	swap 2dup + r 32 + ! - r 224 + !
+	r> ;
 
-				dataOff += 8; /* advance pointer to next row */
-			}
-
-			/* Pass 2: process columns. */
-			dataOff = 0;
-			for (i=0; i<8; ++i)
-			{
-				d0 = data[int(dataOff)];
-				d1 = data[int(dataOff + 8)];
-				d2 = data[int(dataOff + 16)];
-				d3 = data[int(dataOff + 24)];
-		        d4 = data[int(dataOff + 32)];
-				d5 = data[int(dataOff + 40)];
-				d6 = data[int(dataOff + 48)];
-				d7 = data[int(dataOff + 56)];
-
-				var tmp0p2:Number = d0 + d7;
-				var tmp7p2:Number = d0 - d7;
-				var tmp1p2:Number = d1 + d6;
-				var tmp6p2:Number = d1 - d6;
-				var tmp2p2:Number = d2 + d5;
-				var tmp5p2:Number = d2 - d5;
-				var tmp3p2:Number = d3 + d4;
-				var tmp4p2:Number = d3 - d4;
-
-				/* Even part */
-				var tmp10p2:Number = tmp0p2 + tmp3p2;	/* phase 2 */
-				var tmp13p2:Number = tmp0p2 - tmp3p2;
-				var tmp11p2:Number = tmp1p2 + tmp2p2;
-				var tmp12p2:Number = tmp1p2 - tmp2p2;
-
-				data[int(dataOff)] = tmp10p2 + tmp11p2; /* phase 3 */
-				data[int(dataOff+32)] = tmp10p2 - tmp11p2;
-
-				var z1p2:Number = (tmp12p2 + tmp13p2) * 0.707106781; /* c4 */
-				data[int(dataOff+16)] = tmp13p2 + z1p2; /* phase 5 */
-				data[int(dataOff+48)] = tmp13p2 - z1p2;
-
-				/* Odd part */
-				tmp10p2 = tmp4p2 + tmp5p2; /* phase 2 */
-				tmp11p2 = tmp5p2 + tmp6p2;
-				tmp12p2 = tmp6p2 + tmp7p2;
-
-				/* The rotator is modified from fig 4-8 to avoid extra negations. */
-				var z5p2:Number = (tmp10p2 - tmp12p2) * 0.382683433; /* c6 */
-				var z2p2:Number = 0.541196100 * tmp10p2 + z5p2; /* c2-c6 */
-				var z4p2:Number = 1.306562965 * tmp12p2 + z5p2; /* c2+c6 */
-				var z3p2:Number= tmp11p2 * 0.707106781; /* c4 */
-
-				var z11p2:Number = tmp7p2 + z3p2;	/* phase 5 */
-				var z13p2:Number = tmp7p2 - z3p2;
-
-				data[int(dataOff+40)] = z13p2 + z2p2; /* phase 6 */
-				data[int(dataOff+24)] = z13p2 - z2p2;
-				data[int(dataOff+ 8)] = z11p2 + z4p2;
-				data[int(dataOff+56)] = z11p2 - z4p2;
-
-				dataOff++; /* advance pointer to next column */
-			}
-
-			| Quantize/descale the coefficients
-			var fDCTQuant:Number;
-			for (i=0; i<64; ++i)
-			{
-				| Apply the quantization and scaling factor & Round to nearest integer
-				fDCTQuant = data[int(i)]*fdtbl[int(i)];
-				outputfDCTQuant[int(i)] = (fDCTQuant > 0.0) ? int(fDCTQuant + 0.5) : int(fDCTQuant - 0.5);
-			}
-			return outputfDCTQuant;
-;
+:fDCTQuant | out data dbtbl -- |(data:Vector.<Number>, fdtbl:Vector.<Number>):Vector.<int>
+	| Pass 1: process rows.
+	over 0 ( 8 <? )( swap pass1 32 + swap 1+ ) 2drop
+	| Pass 2: process columns.
+	over 0 ( 8 <? )( swap pass2 4+ swap 1+ ) 2drop
+	| Quantize/descale the coefficients
+	64 ( 1? )( 1- >r >r
+		@+ r@+ *.
+		+? ( 0.5 + )( 0.5 - ) |??
+		rot !+ swap r> r> ) 4drop  ;
 
 | Chunk writing
 :writeAPP0
@@ -337,8 +283,8 @@ $f9 $fa
 	$FFC0 ,w | marker
 	17 ,w | length, truecolor YUV JPG
 	8 ,c  | precision
-	height ,w
-	width ,w
+	hi ,w
+	wi ,w
 	3 ,c    | nrofcomponents
 	1 ,c    | IdY
 	$11 ,c | HVY
@@ -362,17 +308,17 @@ $f9 $fa
 	$FFC4 ,w | marker
 	$01A2 ,w | length
 	0 ,c | HTYDCinfo
-	'std_dc_luminance_nrcodes 4+ 16 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
-	'std_dc_luminance_values 11 ( 1? )( 1- swap @+ ,c swap ) 2drop
+	'std_dc_lumi_nrcodes 4+ 16 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
+	'std_dc_lumi_values 11 ( 1? )( 1- swap @+ ,c swap ) 2drop
 	$10 ,c | HTYACinfo
-	'std_ac_luminance_nrcodes 4+ 16 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
-	'std_ac_luminance_values 161 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
+	'std_ac_lumi_nrcodes 4+ 16 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
+	'std_ac_lumi_values 161 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
 	1 ,c | HTUDCinfo
-	'std_dc_chrominance_nrcodes 4+ 16 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
-	'std_dc_chrominance_values 11 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
+	'std_dc_chro_nrcodes 4+ 16 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
+	'std_dc_chro_values 11 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
 	$11 ,c | HTUACinfo
-	'std_ac_chrominance_nrcodes 4+ 16 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
-	'std_ac_chrominance_values 161 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
+	'std_ac_chro_nrcodes 4+ 16 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
+	'std_ac_chro_values 161 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
 	;
 
 :writeSOS
@@ -390,29 +336,47 @@ $f9 $fa
 	0 ,c | Bf
 	;
 
-		| Core processing
-#DU )( 256 |:Vector.<int> = new Vector.<int>(64, true);
+| Core processing
+|(CDU:Vector.<Number>,
+| fdtbl:Vector.<Number>,
+| DC:Number,
+| HTDC:Vector.<BitString>,
+| HTAC:Vector.<BitString>):Number
 
-:processDU |(CDU:Vector.<Number>, fdtbl:Vector.<Number>, DC:Number, HTDC:Vector.<BitString>, HTAC:Vector.<BitString>):Number
+#DU )( 256
+#DU_DCT )( 256
+
+:preDU | CDU fdtbl --
+	'DU_DCT rot rot fDCTQuant
+	'DU_DCT 'ZigZag >r
+	64 ( 1? )( 1- swap
+		@+ r@+ 2 << 'DU + !
+		swap ) 2drop
+	rdrop ;
+
+:fistDU0 | -- endpos0
+	63 ( 1? )(
+		'DU over 2 << + @
+		0? ( drop ; ) drop
+		1- ) ;
+
+:processDU | DC HTDC HTAC --
+	rot DU over @ - DU rot ! | HTDC HTAC diff
+	| Encode DC
+	0? ( rot @ writeBits )( rot over 32767 + 2 << dup 'category + @ 2 << rot + @ writeBits 'bitcode + @ writeBits ) drop
+	| Encode ACs | HTAC
+	fistDU0		| HTAC endpos0
+	0? ( drop @ writeBit ; ) 
+	1 ( over <? )(
+		)
+	;
+
+
 			var EOB:BitString = HTAC[$00];
 			var M16zeroes:BitString = HTAC[$F0];
 			var pos:int;
 
-			var DU_DCT:Vector.<int> = fDCTQuant(CDU, fdtbl);
-			| ZigZag reorder
-			for (var j:int=0;j<64;++j) {
-				DU[ZigZag[j]]=DU_DCT[j];
-			}
-			var Diff:int = DU[0] - DC; DC = DU[0];
-			| Encode DC
-			if (Diff==0) {
-				writeBits(HTDC[0]); | Diff might be 0
-			} else {
-				pos = int(32767+Diff);
-				writeBits(HTDC[category[pos]]);
-				writeBits(bitcode[pos]);
-			}
-			| Encode ACs
+	| Encode ACs
 			const end0pos:int = 63;
 			for (; (end0pos>0)&&(DU[end0pos]==0); end0pos--) {};
 			| end0pos = first element in reverse order !=0
@@ -480,10 +444,10 @@ $f9 $fa
 	| Create tables
 
 |---	initHuffmanTbl
-	YDC_HT = computeHuffmanTbl(std_dc_luminance_nrcodes,std_dc_luminance_values);
-	UVDC_HT = computeHuffmanTbl(std_dc_chrominance_nrcodes,std_dc_chrominance_values);
-	YAC_HT = computeHuffmanTbl(std_ac_luminance_nrcodes,std_ac_luminance_values);
-	UVAC_HT = computeHuffmanTbl(std_ac_chrominance_nrcodes,std_ac_chrominance_values);
+	'std_dc_lumi_values 'std_dc_lumi_nrcodes 'YDC_HT  computeHuffmanTbl
+	'std_dc_chro_values 'std_dc_chro_nrcodes 'UVDC_HT computeHuffmanTbl
+	'std_ac_lumi_values 'std_ac_lumi_nrcodes 'YAC_HT  computeHuffmanTbl
+	'std_ac_chro_values 'std_ac_chro_nrcodes 'UVAC_HT computeHuffmanTbl
 
 	initCategoryNumber
 	initQuantTables |sf
@@ -504,22 +468,14 @@ $f9 $fa
 	0 ( hi <? )(
 		0 ( wi <? )(
 			rgb2yuv
-			DCY 'YDU 'fdtbl_Y 'YDC_HT 'YAC_HT processDU 'DCY !
-			DCU processDU 'DCU !
-			DCV processDU 'DCV !
+			'YDU 'fdtbl_Y preDU
+			'DCY 'YDC_HT 'YAC_HT processDU
+			'UDU 'fdtbl_UV preDU
+			'DCU 'UVDC_HT 'UVAC_HT processDU
+			'VDU 'fdtbl_UV preDU
+			'DCV 'UVDC_HT 'UVAC_HT processDU
 			8 + ) drop
 		8 + ) drop
-
-			for (var ypos:int=0; ypos<height; ypos+=8)
-			{
-				for (var xpos:int=0; xpos<width; xpos+=8)
-				{
-					RGB2YUV(image, xpos, ypos);
-					DCY = processDU(YDU, fdtbl_Y, DCY, YDC_HT, YAC_HT);
-					DCU = processDU(UDU, fdtbl_UV, DCU, UVDC_HT, UVAC_HT);
-					DCV = processDU(VDU, fdtbl_UV, DCV, UVDC_HT, UVAC_HT);
-				}
-			}
 
 	bytepos 1? ( | Do the bit alignment of the EOI marker
 		dup 1+ 1 over << 1-
