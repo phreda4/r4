@@ -2,9 +2,16 @@
 | 2017 PHREDA
 | from http://www.bytearray.org/?p=90
 |---------------------------------
+^r4/lib/math.txt
+^r4/lib/gui.txt
+^r4/lib/loadjpg.txt
+^r4/lib/img.txt
+
 #sf		| calidad
 #wi		| ancho
 #hi		| alto
+
+:,16 dup 8 >> ,c ,c ;
 
 #ZigZag
  0  1  5  6 14 15 27 28
@@ -45,7 +52,6 @@
 #fdtbl_Y )( 256
 #fdtbl_UV )( 256
 
-
 :]YQT 2 << 'YQT + @ ;
 :]UVQT 2 << 'UVQT + @ ;
 :]ZigZag 2 << 'ZigZag + @ ;
@@ -61,21 +67,21 @@
 
 |(1 / (YTable [ZigZag[i]] * aasf[row] * aasf[col] * 8));
 :aasf* | row col val --
-	pick2 ]aasf pick2 ]aasf *. 8.0 *. *. 1.0 swap /. ;
+	pick2 ]aasf pick2 ]aasf *. 3 << * 1.0 swap /. ;
 
 :fdtbl_Y!
 	2 << 'fdtbl_Y + ! ;
 :fdtbl_UV!
-	2 << 'fdtbl_U + ! ;
+	2 << 'fdtbl_UV + ! ;
 
 :initQuantTables
 	0 ( 64 <? )(
 		dup ]YQT sf * 50 + 16 << 0.01 *. 16 >> | YQT[i]*sf+50)*0.01
-		1 clampmin 255 campmax over zzYTable!
+		1 clampmin 255 clampmax over zzYTable!
 		1+ ) drop
 	0 ( 64 <? )(
     	dup ]UVQT sf * 50 + 16 << 0.01 *. 16 >> | UVQT[i]*sf+50)*0.01
-		1 clampmin 255 campmax over zzUVTable!
+		1 clampmin 255 clampmax over zzUVTable!
 		1+ ) drop
 	0
 	0 ( 8 <? )(
@@ -99,9 +105,9 @@
 			pick4 pick3 2 << + @
 			pick4 pick3 8 << or
 			swap 2 << r + ! | HT
-			rot 1+ rot 1+ rot )drop
+			rot 1+ rot 1+ rot ) drop
 		rot 2* rot rot 1+ )
-	3drop rdrop ;
+	nip 4drop rdrop ;
 
 #std_dc_lumi_nrcodes 0 0 1 5 1 1 1 1 1 1 0 0 0 0 0 0 0
 #std_dc_lumi_values 0 1 2 3 4 5 6 7 8 9 10 11
@@ -209,7 +215,7 @@ $f9 $fa
 	swap 2dup + r 4+ ! - r 28 + !
 	r> ;
 
-				/* The rotator is modified from fig 4-8 to avoid extra negations. */
+|				/* The rotator is modified from fig 4-8 to avoid extra negations. */
 |				var z3:Number = tmp11 * 0.707106781; /* c4 */
 |				var z13:Number = tmp7 - z3;
 |				var z5:Number = (tmp10 - tmp12) * 0.382683433; /* c6 */
@@ -263,8 +269,8 @@ $f9 $fa
 
 | Chunk writing
 :writeAPP0
-	$FFE0 ,w | marker
-	16 ,w | length
+	$FFE0 ,16 | marker
+	16 ,16 | length
 	$4A ,c | J
 	$46 ,c | F
 	$49 ,c | I
@@ -273,18 +279,18 @@ $f9 $fa
 	1 ,c | versionhi
 	1 ,c | versionlo
 	0 ,c | xyunits
-	1 ,w | xdensity
-	1 ,w | ydensity
+	1 ,16 | xdensity
+	1 ,16 | ydensity
 	0 ,c | thumbnwidth
 	0 ,c | thumbnheight
 	;
 
 :writeSOF0 |(width:int, height:int):void
-	$FFC0 ,w | marker
-	17 ,w | length, truecolor YUV JPG
+	$FFC0 ,16 | marker
+	17 ,16 | length, truecolor YUV JPG
 	8 ,c  | precision
-	hi ,w
-	wi ,w
+	hi ,16
+	wi ,16
 	3 ,c    | nrofcomponents
 	1 ,c    | IdY
 	$11 ,c | HVY
@@ -298,15 +304,15 @@ $f9 $fa
 	;
 
 :writeDQT
-	$FFDB ,w | marker
-	132 ,w	   | length
+	$FFDB ,16 | marker
+	132 ,16	   | length
 	0 ,c 'YTable 64 ( 1? )( 1- swap @+ ,c swap ) 2drop
 	1 ,c 'UVTable 64 ( 1? )( 1- swap @+ ,c swap ) 2drop
 	;
 
 :writeDHT
-	$FFC4 ,w | marker
-	$01A2 ,w | length
+	$FFC4 ,16 | marker
+	$01A2 ,16 | length
 	0 ,c | HTYDCinfo
 	'std_dc_lumi_nrcodes 4+ 16 ( 1? )( 1- swap @+ ,c swap ) 2drop | i+1
 	'std_dc_lumi_values 11 ( 1? )( 1- swap @+ ,c swap ) 2drop
@@ -322,8 +328,8 @@ $f9 $fa
 	;
 
 :writeSOS
-	$FFDA ,w | marker
-	12 ,w | length
+	$FFDA ,16 | marker
+	12 ,16 | length
 	3 ,c | nrofcomponents
 	1 ,c | IdY
 	0 ,c | HTY
@@ -337,11 +343,6 @@ $f9 $fa
 	;
 
 | Core processing
-|(CDU:Vector.<Number>,
-| fdtbl:Vector.<Number>,
-| DC:Number,
-| HTDC:Vector.<BitString>,
-| HTAC:Vector.<BitString>):Number
 
 #DU )( 256
 #DU_DCT )( 256
@@ -354,86 +355,76 @@ $f9 $fa
 		swap ) 2drop
 	rdrop ;
 
+:encodeDC | HTDC HTAC diff -- HTAC
+	0? ( drop swap @ writeBits ; )
+	32767 + 2 << dup | HTDC HTAC d2 d2
+	'category + @ 2 << rot + @ writeBits
+	'bitcode + @ writeBits ;
+
 :fistDU0 | -- endpos0
 	63 ( 1? )(
-		'DU over 2 << + @
-		0? ( drop ; ) drop
+		dup 2 << 'DU + @ 1? ( drop ; ) drop
 		1- ) ;
+
+:nextn0 | end0pos s i -- end0pos s i+
+	( pick2 <=? )(
+		dup 2 << 'DU + @ 1? ( drop ; ) drop
+		1+ ) ;
 
 :processDU | DC HTDC HTAC --
 	rot DU over @ - DU rot ! | HTDC HTAC diff
-	| Encode DC
-	0? ( rot @ writeBits )( rot over 32767 + 2 << dup 'category + @ 2 << rot + @ writeBits 'bitcode + @ writeBits ) drop
-	| Encode ACs | HTAC
-	fistDU0		| HTAC endpos0
-	0? ( drop @ writeBit ; ) 
-	1 ( over <? )(
-		)
-	;
-
-
-			var EOB:BitString = HTAC[$00];
-			var M16zeroes:BitString = HTAC[$F0];
-			var pos:int;
-
+	encodeDC	| HTAC
 	| Encode ACs
-			const end0pos:int = 63;
-			for (; (end0pos>0)&&(DU[end0pos]==0); end0pos--) {};
-			| end0pos = first element in reverse order !=0
-			if ( end0pos == 0) {
-				writeBits(EOB);
-				return DC;
-			}
-			var i:int = 1;
-			var lng:int;
-			while ( i <= end0pos ) {
-				var startpos:int = i;
-				for (; (DU[i]==0) && (i<=end0pos); ++i) {}
-				var nrzeroes:int = i-startpos;
-				if ( nrzeroes >= I16 ) {
-					lng = nrzeroes>>4;
-					for (var nrmarker:int=1; nrmarker <= lng; ++nrmarker)
-						writeBits(M16zeroes);
-					nrzeroes = int(nrzeroes&$F);
-				}
-				pos = int(32767+DU[i]);
-				writeBits(HTAC[int((nrzeroes<<4)+category[pos])]);
-				writeBits(bitcode[pos]);
-				i++;
-			}
-			if ( end0pos != 63 ) { writeBits(EOB); }
-			return DC;
-;
+	fistDU0		| HTAC endpos0
+	0? ( drop @ writeBits ; )
+	1 ( over <=? )(
+		dup nextn0	| HTAC startpos i
+		dup rot -	| HTAC i nrzeroes
+		16 >? (
+			dup 4 >> | HTAC i nrzeroes lng
+			( 1? )( 1- pick3 $f0 2 << + @ writeBits ) drop
+			$f and )
+		over 2 << 'DU + @ 32767 + | HTAC i nrzeroes pos
+		2 << swap 4 << over 'category + @ +	| HTAC i pos ()
+		2 << pick4 + @ writeBits
+		'bitcode + @ writeBits
+		1+ ) drop
+	63 =? ( 2drop ; ) drop
+	@ writeBits ;
 
-#YDU )( 256 |:Vector.<Number> = new Vector.<Number>(64, true);
-#UDU )( 256 |:Vector.<Number> = new Vector.<Number>(64, true);
-#VDU )( 256 |:Vector.<Number> = new Vector.<Number>(64, true);
+#DCY
+#YDU )( 256
+#DCU
+#UDU )( 256
+#DCV
+#VDU )( 256
 
-:(rgb2yuv) | col -- yuv
-	dup 16 >> $ff and
-	over 8 >> $ff and
-	rot $ff and | r g b
-	pick2 0.299 * pick2 0.587 * pick2 0.114 * + + 16 >> $80 -
-	pick4 pick4 3 << or 2 << 'YUD + !
-	pick2 -0.16874 * pick2 -0.33126 * pick2 0.5 * + + 16 >>
-	pick4 pick4 3 << or 2 << 'UUD + !
-	pick2 0.5 * pick2 -0.41869 * pick2 -0.08131 * + + 16 >>
-	pick4 pick4 3 << or 2 << 'VUD + !
-	3drop
-	;
+:(rgb2yuv) | y x col -- yuv
+	pick2 4 << pick2 or 2 << >r
+	dup 16 >> $ff and over 8 >> $ff and rot $ff and | r g b
+	pick2 0.299 * pick2 0.587 * pick2 0.114 * + + 16 >> $80 - r 'YDU + !
+	pick2 -0.16874 * pick2 -0.33126 * pick2 0.5 * + + 16 >> r 'UDU + !
+	rot 0.5 * rot -0.41869 * rot -0.08131 * + + 16 >> r> 'VDU + ! ;
 
 :RGB2YUV | y x -- (img:BitmapData, xpos:int, ypos:int):void
-	2dup swap sw * + 2 << >r
+	2dup swap sw * + 2 << framev + >r
 	0 ( 8 <? )(
 		0 ( 8 <? )(
 			r@+ (rgb2yuv)
 			1+ ) drop
-		sw si - 2 << r+
+		sw wi - 2 << r+
 		1+ ) drop rdrop ;
 
-#DCY
-#DCU
-#DCV
+
+:macroblock | x y -- x y
+	rgb2yuv
+	'YDU 'fdtbl_Y preDU
+	'DCY 'YDC_HT 'YAC_HT processDU
+	'UDU 'fdtbl_UV preDU
+	'DCU 'UVDC_HT 'UVAC_HT processDU
+	'VDU 'fdtbl_UV preDU
+	'DCV 'UVDC_HT 'UVAC_HT processDU
+	;
 
 :JPEGEncoder | w h q -- ;(quality:int=50)
 	1 clampmin
@@ -455,10 +446,10 @@ $f9 $fa
 	0 'bytenew ! 0 'bytepos !
 
 	| Add JPEG headers
-	$FFD8 ,w | SOI
+	$FFD8 ,16 | SOI
 	writeAPP0
 	writeDQT
-	writeSOF0 |(image.width,image.height
+	writeSOF0
 	writeDHT
 	writeSOS
 
@@ -467,13 +458,7 @@ $f9 $fa
 	0 'bytenew ! 7 'bytepos !
 	0 ( hi <? )(
 		0 ( wi <? )(
-			rgb2yuv
-			'YDU 'fdtbl_Y preDU
-			'DCY 'YDC_HT 'YAC_HT processDU
-			'UDU 'fdtbl_UV preDU
-			'DCU 'UVDC_HT 'UVAC_HT processDU
-			'VDU 'fdtbl_UV preDU
-			'DCV 'UVDC_HT 'UVAC_HT processDU
+			macroblock
 			8 + ) drop
 		8 + ) drop
 
@@ -481,13 +466,27 @@ $f9 $fa
 		dup 1+ 1 over << 1-
 		swap 8 << or writeBits
 		) drop
-	$FFD9 ,w |EOI
+	$FFD9 ,16 | EOI
 	;
 
+:savejpg
+	mark
+	JPEGEncoder
+	savemem
+	empty
+	;
 |-------------------------------------------------
+#imgp
+
+:testsave
+	"media/bmp/smiley2.jpg" 200 200 100 savejpg ;
+
 :main
 	mark
+	"media/bmp/smiley.jpg" loadjpg 'imgp !
 	show clrscr
+		0 0 imgp img.draw
+		'testsave <f1>
 
 		'exit >esc<
 		;
