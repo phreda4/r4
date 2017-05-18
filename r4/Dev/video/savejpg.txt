@@ -11,6 +11,7 @@
 #wi		| ancho
 #hi		| alto
 
+:,32 dup 24 >> ,c dup 16 >> ,c
 :,16 dup 8 >> ,c ,c ;
 
 #ZigZag
@@ -103,7 +104,7 @@
 	1 ( 16 <=? )(
 		pick4 over 2 << + @ ( 1? )( 1-
 			pick4 pick3 2 << + @
-			pick4 pick3 8 << or
+			pick4 pick3 16 << or
 			swap 2 << r + ! | HT
 			rot 1+ rot 1+ rot ) drop
 		rot 2* rot rot 1+ )
@@ -146,23 +147,23 @@ $f9 $fa
 
 :initCategoryNumber
 	1 2	| low upp
-	1 ( 16 <? )(
+	1 ( 16 <? )(	| lo up cat
 		|--- Positive numbers
 		pick2 ( pick2 <? )(
-            32767 over + 2 << >r
+            32767 over + 2 << >r | lo up cat nr r:pos
 			over 'category r + !
-			dup pick2 8 << or
-			'bitcode r> + !
+			over 16 << over or 'bitcode r> + !
 			1+ ) drop
 		|--- Negative numbers
-		over 1- neg ( pick3 neg <=? )(
-            32767 over + 2 << >r
+		over 1- neg ( pick3 neg <=? )(	| lo up cat nr
+            32767 over + 2 << >r 		| lo up cat nr r:pos
 			over 'category r + !
-			pick2 1- over + pick2 8 << or
+			over 16 << pick3 1- pick2 + or
 			'bitcode r> + !
 			1+ ) drop
 		rot 2* rot 2* rot 1+ )
 	3drop ;
+
 
 |----------- IO functions
 | bitstring
@@ -172,8 +173,8 @@ $f9 $fa
 #bytepos
 
 :writeBits | (bs:BitString):void
-	dup 8 >>
-	( 1? )( swap
+	dup 16 >>
+	( 0 >=? )( swap
 		1 pick2 << and? ( 1 bytepos << 'bytenew +! )
 		bytepos
 		0? ( drop bytenew $ff =? ( ,c 0 ,c )( ,c ) 0 'bytenew ! 7 )( 1- )
@@ -271,10 +272,7 @@ $f9 $fa
 :writeAPP0
 	$FFE0 ,16 | marker
 	16 ,16 | length
-	$4A ,c | J
-	$46 ,c | F
-	$49 ,c | I
-	$46 ,c | F
+	$4A464946 ,32 | JFIF
 	0 ,c | = "JFIF",'\0'
 	1 ,c | versionhi
 	1 ,c | versionlo
@@ -380,17 +378,19 @@ $f9 $fa
 	1 ( over <=? )(
 		dup nextn0	| HTAC startpos i
 		dup rot -	| HTAC i nrzeroes
-		16 >? (
+		16 >=? (
 			dup 4 >> | HTAC i nrzeroes lng
-			( 1? )( 1- pick3 $f0 2 << + @ writeBits ) drop
+			( 1? )( 1- pick4 $f0 2 << + @ writeBits ) drop
 			$f and )
-		over 2 << 'DU + @ 32767 + | HTAC i nrzeroes pos
-		2 << swap 4 << over 'category + @ +	| HTAC i pos ()
+		over 2 << 'DU + @ 32767 + 2 << | HTAC i nrzeroes pos
+
+		swap 4 << over 'category + @ +	| HTAC i pos int
 		2 << pick4 + @ writeBits
 		'bitcode + @ writeBits
 		1+ ) drop
 	63 =? ( 2drop ; ) drop
 	@ writeBits ;
+
 
 #DCY
 #YDU )( 256
@@ -464,7 +464,7 @@ $f9 $fa
 
 	bytepos 1? ( | Do the bit alignment of the EOI marker
 		dup 1+ 1 over << 1-
-		swap 8 << or writeBits
+		swap 16 << or writeBits
 		) drop
 	$FFD9 ,16 | EOI
 	;
@@ -481,13 +481,46 @@ $f9 $fa
 :testsave
 	"media/bmp/smiley2.jpg" 200 200 100 savejpg ;
 
+#cursor
+
+:dumpcat
+	'category
+	cursor 64 64 * * 2 << +
+	>r
+	64 ( 1? )( 1-
+		64  ( 1? )( 1- r@+ "%h " print ) drop
+		cr
+		) drop
+	rdrop
+	;
+
+
+:test
+	200 200 100 'sf ! 'hi ! 'wi !
+
+	'std_dc_lumi_values 'std_dc_lumi_nrcodes 'YDC_HT  computeHuffmanTbl
+	'std_dc_chro_values 'std_dc_chro_nrcodes 'UVDC_HT computeHuffmanTbl
+	'std_ac_lumi_values 'std_ac_lumi_nrcodes 'YAC_HT  computeHuffmanTbl
+	'std_ac_chro_values 'std_ac_chro_nrcodes 'UVAC_HT computeHuffmanTbl
+
+	initCategoryNumber
+|	initQuantTables
+	verde
+
+	show clrscr
+		cursor "%d" print cr
+		dumpcat
+		'exit >esc<
+		[ -1 'cursor +! ; ] <up>
+		[ 1 'cursor +! ; ] <dn>
+		;
 :main
 	mark
 	"media/bmp/smiley.jpg" loadjpg 'imgp !
 	show clrscr
 		0 0 imgp img.draw
 		'testsave <f1>
-
+		'test <f2>
 		'exit >esc<
 		;
 
