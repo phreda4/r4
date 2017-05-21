@@ -1,0 +1,246 @@
+| saveMPEG
+| 2017
+| from http:\\jonolick.com
+|
+
+:,32 dup 24 >> ,c dup 16 >> ,c
+:,16 dup 8 >> ,c ,c ;
+
+| Huffman tables
+#s_HTDC_Y[9][2] = {{4,3}, {0,2}, {1,2}, {5,3}, {6,3}, {14,4}, {30,5}, {62,6}, {126,7}};
+#s_HTDC_C[9][2] = {{0,2}, {1,2}, {2,2}, {6,3}, {14,4}, {30,5}, {62,6}, {126,7}, {254,8}};
+#s_HTAC[32][40][2] = {
+{{6,3},{8,5},{10,6},{12,8},{76,9},{66,9},{20,11},{58,13},{48,13},{38,13},{32,13},{52,14},{50,14},{48,14},{46,14},{62,15},{62,15},{58,15},{56,15},{54,15},{52,15},{50,15},{48,15},{46,15},{44,15},{42,15},{40,15},{38,15},{36,15},{34,15},{32,15},{48,16},{46,16},{44,16},{42,16},{40,16},{38,16},{36,16},{34,16},{32,16},},
+{{6,4},{12,7},{74,9},{24,11},{54,13},{44,14},{42,14},{62,16},{60,16},{58,16},{56,16},{54,16},{52,16},{50,16},{38,17},{36,17},{34,17},{32,17}},
+{{10,5},{8,8},{22,11},{40,13},{40,14}},
+{{14,6},{72,9},{56,13},{38,14}},
+{{12,6},{30,11},{36,13}},  {{14,7},{18,11},{36,14}},  {{10,7},{60,13},{40,17}},
+{{8,7},{42,13}},  {{14,8},{34,13}},  {{10,8},{34,14}},  {{78,9},{32,14}},  {{70,9},{52,17}},  {{68,9},{50,17}},  {{64,9},{48,17}},  {{28,11},{46,17}},  {{26,11},{44,17}},  {{16,11},{42,17}},
+{{62,13}}, {{52,13}}, {{50,13}}, {{46,13}}, {{44,13}}, {{62,14}}, {{60,14}}, {{58,14}}, {{56,14}}, {{54,14}}, {{62,17}}, {{60,17}}, {{58,17}}, {{56,17}}, {{54,17}},
+};
+
+#s_quantTbl
+	0.015625 0.005632 0.005035 0.004832 0.004808 0.005892 0.007964 0.013325
+	0.005632 0.004061 0.003135 0.003193 0.003338 0.003955 0.004898 0.008828
+	0.005035 0.003135 0.002816 0.003013 0.003299 0.003581 0.005199 0.009125
+	0.004832 0.003484 0.003129 0.003348 0.003666 0.003979 0.005309 0.009632
+	0.005682 0.003466 0.003543 0.003666 0.003906 0.004546 0.005774 0.009439
+	0.006119 0.004248 0.004199 0.004228 0.004546 0.005062 0.006124 0.009942
+	0.008883 0.006167 0.006096 0.005777 0.006078 0.006391 0.007621 0.012133
+	0.016780 0.011263 0.009907 0.010139 0.009849 0.010297 0.012133 0.019785
+
+#s_ZigZag  0,1,5,6,14,15,27,28,2,4,7,13,16,26,29,42,3,8,12,17,25,30,41,43,9,11,18,24,31,40,44,53,10,19,23,32,39,45,52,54,20,22,33,38,46,51,55,60,21,34,37,47,50,56,59,61,35,36,48,49,57,58,62,63
+
+#buf
+#cnt
+
+:writeBits |(jo_bits_t *b, int value, int count) {
+	b->cnt += count;
+	b->buf |= value << (24 - b->cnt);
+	while(b->cnt >= 8) {
+		unsigned char c = (b->buf >> 16) & 255;
+		putc(c, b->fp);
+		b->buf <<= 8;
+		b->cnt -= 8;
+	}
+}
+
+
+| DCT & quantization core
+#d0 #d1 #d2 #d3 #d4 #d5 #d6 #d7
+#t0 #t1 #t2 #t3 #t4 #t5 #t6 #t7
+#t10 #t11 #t12 #t13
+
+:DCT |
+	d0 d7 2dup + 't0 ! - 't7 !
+	d1 d6 2dup + 't1 ! - 't6 !
+	d2 d5 2dup + 't2 ! - 't5 !
+	d3 d4 2dup + 't3 ! - 't4 !
+	t0 t3 2dup + 't10 ! - 't13 !
+	t1 t2 2dup + 't11 ! - 't12 !
+	t10 t11 2dup + 'd0 ! - 'd4 !
+	t13 t12 over + 0.7071 *.
+	2dup + 'd2 ! - 'd6 !
+	t5 t6 t7
+	over + 't12 !
+	over + 't11 !
+	t4 + 't10 !
+	t11 0.7071 *. 			| z3
+	t7 over - 				| z3 z13
+	t10 t12 - 0.3827 *.		|z3 z13 z5
+	t10 0.5412 *. over +	|z3 z13 z5 z2
+	rot swap 2dup + 'd5 ! - 'd3 ! 	|z3 z5
+	t12 1.3066 *. +			| z3 z4
+	swap t7 + 				| z4 z11
+	swap 2dup + 'd1 ! - 'd7 !
+	;
+
+:DCT | (float &d0, float &d1, float &d2, float &d3, float &d4, float &d5, float &d6, float &d7) {
+	float tmp0 = d0 + d7;
+	float tmp7 = d0 - d7;
+	float tmp1 = d1 + d6;
+	float tmp6 = d1 - d6;
+	float tmp2 = d2 + d5;
+	float tmp5 = d2 - d5;
+	float tmp3 = d3 + d4;
+	float tmp4 = d3 - d4;
+
+	| Even part
+	float tmp10 = tmp0 + tmp3;	| phase 2
+	float tmp13 = tmp0 - tmp3;
+	float tmp11 = tmp1 + tmp2;
+	float tmp12 = tmp1 - tmp2;
+
+	d0 = tmp10 + tmp11; 		| phase 3
+	d4 = tmp10 - tmp11;
+
+	float z1 = (tmp12 + tmp13) * 0.707106781f; | c4
+	d2 = tmp13 + z1; 		| phase 5
+	d6 = tmp13 - z1;
+
+	| Odd part
+	tmp10 = tmp4 + tmp5; 		| phase 2
+	tmp11 = tmp5 + tmp6;
+	tmp12 = tmp6 + tmp7;
+
+	| The rotator is modified from fig 4-8 to avoid extra negations.
+	float z5 = (tmp10 - tmp12) * 0.382683433f; | c6
+	float z2 = tmp10 * 0.541196100f + z5; | c2-c6
+	float z4 = tmp12 * 1.306562965f + z5; | c2+c6
+	float z3 = tmp11 * 0.707106781f; | c4
+
+	float z11 = tmp7 + z3;		| phase 5
+	float z13 = tmp7 - z3;
+
+	d5 = z13 + z2;			| phase 6
+	d3 = z13 - z2;
+	d1 = z11 + z4;
+	d7 = z11 - z4;
+}
+
+:processDU(jo_bits_t *bits, float A[64], const unsigned char htdc[9][2], int DC) {
+	for(int dataOff=0; dataOff<64; dataOff+=8) {
+		jo_DCT(A[dataOff], A[dataOff+1], A[dataOff+2], A[dataOff+3], A[dataOff+4], A[dataOff+5], A[dataOff+6], A[dataOff+7]);
+	}
+	for(int dataOff=0; dataOff<8; ++dataOff) {
+		jo_DCT(A[dataOff], A[dataOff+8], A[dataOff+16], A[dataOff+24], A[dataOff+32], A[dataOff+40], A[dataOff+48], A[dataOff+56]);
+	}
+	int Q[64];
+	for(int i=0; i<64; ++i) {
+		float v = A[i]*s_jo_quantTbl[i];
+		Q[s_jo_ZigZag[i]] = (int)(v < 0 ? ceilf(v - 0.5f) : floorf(v + 0.5f));
+	}
+
+	DC = Q[0] - DC;
+	int aDC = DC < 0 ? -DC : DC;
+	int size = 0;
+	int tempval = aDC;
+	while(tempval) {
+		size++;
+		tempval >>= 1;
+	}
+	writeBits(bits, htdc[size][0], htdc[size][1]);
+	if(DC < 0) aDC ^= (1 << size) - 1;
+	writeBits(bits, aDC, size);
+
+	int endpos = 63;
+	for(; (endpos>0)&&(Q[endpos]==0); --endpos) { /* do nothing */ }
+	for(int i = 1; i <= endpos;) {
+		int run = 0;
+		while (Q[i]==0 && i<endpos) {
+			++run;
+			++i;
+		}
+		int AC = Q[i++];
+		int aAC = AC < 0 ? -AC : AC;
+		int code = 0, size = 0;
+		if (run<32 && aAC<=40) {
+			code = s_jo_HTAC[run][aAC-1][0];
+			size = s_jo_HTAC[run][aAC-1][1];
+			if (AC < 0) code += 1;
+		}
+		if(!size) {
+			writeBits(bits, 1, 6);
+			writeBits(bits, run, 6);
+			if (AC < -127) {
+				writeBits(bits, 128, 8);
+			} else if(AC > 127) {
+				writeBits(bits, 0, 8);
+			}
+			code = AC&255;
+			size = 8;
+		}
+		writeBits(bits, code, size);
+	}
+	writeBits(bits, 2, 2);
+
+	return Q[0];
+}
+
+:write_mpeg |(FILE *fp, const unsigned char *rgbx, int width, int height, int fps) {
+	int lastDCY = 128, lastDCCR = 128, lastDCCB = 128;
+	jo_bits_t bits = {fp};
+
+	| Sequence Header
+	$000001B3 ,32
+	| 12 bits for width, height
+	putc((width>>4)&0xF  fp);
+	putc(((width&0xF)<<4) | ((height>>8) & 0xF), fp);
+	putc(height & 0xF  fp);
+	| aspect ratio, framerate
+	if(fps <= 24) putc(0x12, fp);
+	else if(fps <= 25) putc(0x13, fp);
+	else if(fps <= 30) putc(0x15, fp);
+	else if(fps <= 50) putc(0x16, fp);
+	else putc(0x18, fp); | 60fps
+
+	$FFFFE0A0 ,32
+	$000001B8 ,32 $80080040 ,32 | GOP header
+	$00000100 ,32 $000C0000 ,32 | PIC header
+	$00000101 ,32 | Slice header
+
+	writeBits(&bits, 0x10, 6);
+
+	for (int vblock=0; vblock<(height+15)/16; vblock++) {
+		for (int hblock=0; hblock<(width+15)/16; hblock++) {
+			writeBits(&bits, 3, 2);
+
+			float Y[256], CBx[256], CRx[256];
+			for (int i=0; i<256; ++i) {
+				int y = vblock*16+(i/16);
+				int x = hblock*16+(i&15);
+				x = x >= width ? width-1 : x;
+				y = y >= height ? height-1 : y;
+				const unsigned char *c = rgbx + y*width*4+x*4;
+				float r = c[0], g = c[1], b = c[2];
+                Y[i] = (0.299f*r + 0.587f*g + 0.114f*b) * (219.f/255) + 16;
+                CBx[i] = (-0.299f*r - 0.587f*g + 0.886f*b) * (224.f/255) + 128;
+                CRx[i] = (0.701f*r - 0.587f*g - 0.114f*b) * (224.f/255) + 128;
+			}
+
+			| Downsample Cb,Cr (420 format)
+			float CB[64], CR[64];
+			for (int i=0; i<64; ++i) {
+				int j =(i&7)*2 + (i&56)*4;
+				CB[i] = (CBx[j] + CBx[j+1] + CBx[j+16] + CBx[j+17]) * 0.25f;
+				CR[i] = (CRx[j] + CRx[j+1] + CRx[j+16] + CRx[j+17]) * 0.25f;
+			}
+
+			for (int k1=0; k1<2; ++k1) {
+				for (int k2=0; k2<2; ++k2) {
+					float block[64];
+					for (int i=0; i<64; i+=8) {
+						int j = (i&7)+(i&56)*2 + k1*8*16 + k2*8;
+						memcpy(block+i, Y+j, 8*sizeof(Y[0]));
+					}
+					lastDCY = jo_processDU(&bits, block, s_jo_HTDC_Y, lastDCY);
+				}
+			}
+			lastDCCB = jo_processDU(&bits, CB, s_jo_HTDC_C, lastDCCB);
+			lastDCCR = jo_processDU(&bits, CR, s_jo_HTDC_C, lastDCCR);
+		}
+	}
+	writeBits(&bits, 0, 7);
+	$000001b7 ,32
+	;
+
