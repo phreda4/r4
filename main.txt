@@ -6,6 +6,12 @@
 ^r4/lib/input.txt
 ^r4/lib/codecolor.txt
 
+|^r4/lib/rfont.txt
+|^inc/rft/robotoregular.rft
+
+^r4/lib/fontm.txt
+^inc/fntm/droidsans13.txt
+
 ^r4/system/mem-ed.txt
 
 #nfiles
@@ -22,6 +28,9 @@
 #path )( 1024
 #name )( 64
 #source 0
+
+#padin )( 1024
+#padout
 
 |------------------- OS DEp ---------------------
 :FNAME | adr -- adrname
@@ -251,6 +260,12 @@
 	runedit
 	;
 
+:enter2
+|	'padin exer:
+	0 'padin !
+	refreshfoco
+	;
+
 #nfile
 
 :newfile
@@ -279,7 +294,17 @@
 	empty
 	runedit
 	;
-
+|--------------------------------------------
+:toolbar
+	blanco
+	sp 'path $FFF444 fprint "/" $FFF444 fprint
+	nfile 0? ( 'name $FFF444 fprint )( 'name 32 inputcell 'createfile <enter> ) drop
+	sp
+	'runfile dup <f1> "1Run" $004777 flink sp
+	'editfile dup <f2> "2Edit" $004777 flink sp
+	cr
+	;
+|--------------------------------------------
 :fdn
 	actual nfiles 1- >=? ( drop ; )
 	1+ pagina linesv + 1- >=? ( dup linesv - 1+ 'pagina ! )
@@ -321,7 +346,7 @@
 
 :t0 | nro -- nro
 	$9FA5B5 inka
-	dup getlvl 2* nsp " + " print 
+	dup getlvl 2* nsp " + " print
 	dup getname print "/" print
 |	verde [ dup 'actual ! enter ; ] boton
 	;
@@ -336,62 +361,81 @@
 #info 't0 'ta 'ta 'ta 'ta 'ta 'ta 'ta 't8
 
 :drawl
-	actual =? ( $32363F ink linefill )
+	actual =? ( ">>" printx )
 	dup getinfo $f and 2 << 'info + @ exec ;
 
+:clicktree |
+	dup 'actual !
+	setactual
+	actual getinfo $f and
+	0? ( drop expande ; )
+	8 =? ( drop contrae ; )
+	drop
+	loadfile
+	;
+
 :drawtree
-	ccw 5 << 'tx2 !
+|	ccw 5 <<
+	sw 2 >> 'tx2 !
+|	$222222 ink
+|	tx1 ccy tx2 ty2 cajaf
 	0 ( linesv <? )(
 		dup pagina +
 		nfiles >=? ( 2drop ; )
+		'clicktree onLineClick
     	drawl drop
 		cr 1+ ) drop ;
 
-#padin )( 256
+:drawfulltree
+|	ccw 5 <<
+|	sw 2 >> 'tx2 !
+|	$222222 ink
+|	tx1 ccy tx2 ty2 cajaf
+	0 ( nfiles <? )(
+		'clicktree onLineClick
+    	drawl cr allowchome
+		1+ ) drop ;
+
+
 :drawsource
-	ccw 5 << 'tx1 !
-	sw 'tx2 !
-	0 1 gotoxy
+|	ccw 5 <<
+	sw 2 >> 'tx1 !
+	sw 8 - 'tx2 !
 	source 0? ( drop ; ) amarillo
 	linesv code.nlines drop
 
-|	":R4 > " print
-|	blanco 'padin 64 input
 	;
 
 :main
 	$111111 paper
 	4
+|	robotoregular 48 rfont!
+	'fontdroidsans13 fontm
+
+	clrscr rows 'linesv !
 	show clrscr
-		$222222 ink linefill | linea abajo
-		blanco
-		sp 'path print "/" printx
-		nfile 0? ( 'name printx )( 'name 32 inputcell 'createfile <enter> ) drop
-		cr
+		'newfile over ":R%d" mprint sp $0f0777 flink sp
+|		">" print blanco 'padin 1024 inputcr cr cr
 
-		drawtree
-		drawsource
+|		'newfile dup <f3> "3New" $004777 flink sp
+		toolbar
+		chome!
+|		$777777 ink linefill | linea abajo
+
+		drawfulltree
+|		drawtree
+
+|		drawsource
+
 		0 'tx1 !
-		0 rows 1- gotoxy
-		$222222 ink linefill | linea abajo
-		verde dup ":R%d" print
-		blanco "mENU " printx
-		"|F1-Run|F2-Edit|F3-New " printr
-
 		'fdn <dn>
 		'fup <up>
-		'runfile <f1>
-		'editfile <f2>
-		'newfile <f3>
 		'enter <enter>
-
 		'exit >esc<
 		cminiflecha ;
 
 :ram
 	mark
-	fonti
-	clrscr rows 2 - 'linesv !
 	rebuild
 	here 'source ! 0 source !
 	loadm
