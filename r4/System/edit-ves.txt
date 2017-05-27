@@ -1,6 +1,6 @@
 | reanimator.txt
-| PHReda Nov2006
-|----------------
+| PHReda Nov2006,May17
+|-----------------------
 ^r4/lib/gui.txt
 ^r4/lib/dlg.txt
 ^r4/lib/vesprite.txt
@@ -550,12 +550,12 @@
 	gc>xy 2dup op pa gc>xy line p2
 	r> gc>xy 2dup op r> dup 'pa ! gc>xy 2dup line p1 p2 ;
 
-#ltra t0 t0 t1 t1 t2 t2 t3 t4 t2 t2 t3 t4
+#ltrap t0 t0 t1 t1 t2 t2 t3 t4 t2 t2 t3 t4
 
 :drawtra
 	blanco
 	( @+ dup $f and $c <? )(
-		2 << 'ltra + @ exec
+		2 << 'ltrap + @ exec
 		) 3drop
 	cursor 0? ( drop ; )
 	rojo @ gc>xy 3 fbox ;
@@ -814,12 +814,12 @@
 	1 ;
 
 :upsel
-	lin >r
 	xmin xfix 3 >> xmax xfix 3 >>
 	over <? ( swap ) 'xfa ! 'xf !
 	ymin yfix 3 >> ymax yfix 3 >>
 	over <? ( swap ) 'yfa ! 'yf !
 	0
+	lin >r
 	ves ( ves> <? )(
     	@+ dup $f and $c <? ( drop dentro? 1? ( rot 1+ rot rot ) drop )( 2drop swap r!+ 0 swap )
     	) 2drop
@@ -827,6 +827,38 @@
 	sumlim
 	;
 
+:no.copia | ves -- ves'
+	 ( @+ dup $f and $c <? )( 2drop ) 3drop ;
+
+:si.copia
+	 ( @+ dup $f and $c <? )( drop , ) 2drop ;
+
+:delsel
+	mark
+	lin >r
+	tra ( tra> <? )(
+       	@+	| tra' inicio
+		r@+ 0? ( drop no.copia )( drop si.copia )
+		12 + ) drop rdrop
+	here empty
+	ves >r
+	here ( over <? )( @+ r!+ ) 2drop
+	r> 'ves> !
+	;
+
+:no.copia | ves -- ves'
+	( @+ dup $f and $c <? )( 2drop ) 3drop ;
+
+:si.copia
+	( @+ dup $f and $c <? )( 2 << 'ltra + @ exec ) 3drop ;
+
+:drawselecc
+	lin >r
+	tra ( tra> <? )(
+       	@+	| tra' inicio
+		r@+ 0? ( drop no.copia )( drop si.copia )
+		12 + )
+	drop rdrop ;
 
 :selecttr
 	xmin ymin xmax ymax	dotbox
@@ -838,12 +870,18 @@
 	xmax ymax p1
 	xmax ymin ymax + 2/ p1
 	xmin xmax + 2/ ymax p1
-|	fonti xmin ymin atxy "2" print
+
+	rojo
+	fonti xmin ymin atxy "2" print
+
+	drawselecc
+
 	;
 
 :modosel
 	lin lin> <? ( drop selecttr ; ) drop
 	'dnsel 'movsel 'upsel guiMap
+
 	xmin ymin xmax ymax
 	pick3 1+ pick3 1+ pick3 1+ pick3 1+
 	blanco caja negro caja
@@ -892,19 +930,16 @@
 	'i.tint 'polycol btnric gcdn
 	'i.eyedropper 'colpoly btnric gcdn
 	'i.remove_sign 'delpoly btnric gcdn
-
 	;
 
 
 :toolsel
-	'i.object_group 0 btnric gcdn
-	'i.object_ungroup 0 btnric gcdn
-
-| group
-| ungroup
+	'i.object_group 0 btnric gcdn | group
+	'i.object_ungroup 0 btnric gcdn	| ungroup
 | move
 | rota
 | escale
+	'i.remove_sign 'delsel btnric gcdn	| del
 	;
 
 |------- modos
@@ -929,9 +964,11 @@
 	drop
 	gcdn ;
 
+#colorfondo $ffffff
+
 :drawves
 	xv yv pos sv qdim
-	blanco gc.fbox
+	colorfondo ink gc.fbox
 	ves vesprite ;
 
 :botonera
@@ -958,6 +995,9 @@
 	gcdn
 	cyan oscuro
     modotoo exec
+	gcdn gcdn
+	naranja oscuro
+	'i.cog [ colorfondo not 'colorfondo ! ; ] btnric gcdn
 
 	sw 26 - 26 pos
 	'color btncol
