@@ -319,6 +319,12 @@
 	'cursor0 'ecursor !
 	;
 
+:remallp
+	lin 'lin> !
+	'cursor0 'ecursor !
+	;
+
+
 :t0 drop ;
 :t1 drop 4+ ;
 :to gc>xy op ;
@@ -399,13 +405,10 @@
 	buildtra
 	;
 
+:inicl	xymouse dup 'ymin ! 'ymax ! dup 'xmin ! 'xmax ! ;
+:movcl  xymouse 'ymax ! 'xmax ! ;
+
 |---- caja
-:inic
-	xymouse dup 'ymin ! 'ymax ! dup 'xmin ! 'xmax ! ;
-
-:movc
-	xymouse 'ymax ! 'xmax ! ;
-
 :updc
 	ves> >r
 	xmin ymin xmax ymax
@@ -420,12 +423,6 @@
 	;
 
 |---- elipse
-:iniel
-	xymouse dup 'ymin ! 'ymax ! dup 'xmin ! 'xmax ! ;
-
-:movel
-	xymouse 'ymax ! 'xmax ! ;
-
 :updel
 	ves> >r
 	xmin xmax 2dup + 2/ rot rot - abs 2/    | xm rx
@@ -447,18 +444,24 @@
 |----
 :drawhand
 	'inid 'movd 'updd guiMap	| lineas
-	drawlines ;
+	drawlines
+|	'remlastline <del>
+	;
 
 :drawpoint
 	'inip 'movp 'uppp guiMap
-	drawdraw ;
+	drawdraw
+|	'removep <del>
+|	'remlastp <del>
+	'remallp <del>
+	;
 
 :drawbox
-	'inic 'movc 'updc guiMap
+	'inicl 'movcl 'updc guiMap
 	color ink xmin ymin xmax ymax cajaf ;
 
 :drawcir
-	'iniel 'movel 'updel guiMap
+	'inicl 'movcl 'updel guiMap
 	color ink
 	xmin xmax 2dup + 2/ rot rot - abs 2/
 	ymin ymax 2dup + 2/ rot rot - abs 2/
@@ -570,6 +573,13 @@
 	4 << tra + @ drawtra ;
 
 |---------------------------------
+:movetr | adr --
+	( dup @ dup $f and $c <? )(
+		swap d>xy
+		yfa + swap xfa + swap
+		xy>d or swap !+
+		) 3drop ;
+
 :movepoly
 	xymouse
 	yfix 3 >> dup yf - 'yfa ! 'yf !
@@ -583,12 +593,8 @@
 	yfa + $1fff >? ( 3drop ; ) drop
 	xfa + $1fff >? ( 2drop ; ) drop
 
-	12 - dup @				| mueve poly
-	( dup @ dup $f and $c <? )(
-		swap d>xy
-		yfa + swap xfa + swap
-		xy>d or swap !+
-		) 3drop
+	12 -
+	dup @ movetr			| mueve poly
 
 	4+						| mueve limites
 	dup @ d>xy yfa + swap xfa + swap xy>d swap !+
@@ -697,9 +703,6 @@
 	xmin xmax between -? ( drop 0 ; ) drop
 	picktra 4 << tra + @ train? ;
 
-:moveini
-	inpoly 0? ( 1- 'picktra ! ; ) drop
-	xymouse dotf ;
 
 :polyini
 	lin 'lin> !
@@ -766,7 +769,11 @@
 	inmouse 1? ( drop polyini 'mvscala 'emove ! ; ) drop
 	xmin ymin | punto de rotar
 	inmouse 1? ( drop polyinir 'rotapolya 'emove ! ; ) drop
-	moveini 'movepoly 'emove ! | mover
+
+	inpoly 0? ( drop 1- 'picktra ! ; ) drop
+	xymouse dotf
+
+	'movepoly 'emove ! | mover
 	;
 
 :modoeditp
@@ -814,6 +821,12 @@
 	1 ;
 
 #cntsel
+
+:nosel
+	lin 'lin> !
+	$7fff dup 'xmin ! dup 'ymin ! dup 'xmax !
+	'ymax ! ;
+
 :upsel
 	xmin xfix 3 >> xmax xfix 3 >>
 	over <? ( swap ) 'xfa ! 'xf !
@@ -823,13 +836,11 @@
 	lin >r
 	0
 	ves ( ves> <? )(
-    	@+ dup $f and $c <? ( drop dentro? 1? ( rot 1+ rot rot ) drop )( 2drop swap r!+ 0 swap )
+    	@+ dup $f and $c <? ( drop dentro? 1? ( rot 1+ rot rot ) drop )( 2drop swap 1? ( 1 'cntsel +! ) r!+ 0 swap )
     	) 2drop
     r> 'lin> !
+    cntsel 0? ( drop nosel ; ) drop
 	sumlim
-
-	lin ( lin> <? )( @+ 1? ( 1 nip ) 'cntsel +! ) drop
-
 	;
 
 :no.copia | ves -- ves'
@@ -865,6 +876,41 @@
 		12 + )
 	drop rdrop ;
 
+:movesel
+	xymouse
+	yfix 3 >> dup yf - 'yfa ! 'yf !
+	xfix 3 >> dup xf - 'xfa ! 'xf !
+
+	xmin ymin
+	yfa + -$1fff <? ( 2drop ; ) drop
+	xfa + -$1fff <? ( drop ; ) drop
+	xmax ymax
+	yfa + $1fff >? ( 2drop ; ) drop
+	xfa + $1fff >? ( drop ; ) drop
+
+	lin >r
+	tra ( tra> <? )(
+       	@+	| tra' inicio
+		r@+ 1? ( drop movetr )( drop )
+		12 + )
+	drop rdrop
+
+	;
+
+:dnps
+|	xmin xmax + 2/ ymax | punto de x escala
+|	inmouse 1? ( drop selini 'smvscalay 'emove ! ; ) drop
+|	xmax ymin ymax + 2/ | punto de y escala
+|	inmouse 1? ( drop selini 'smvscalax 'emove ! ; ) drop
+|	xmax ymax | punto de xy escala
+|	inmouse 1? ( drop selini 'smvscala 'emove ! ; ) drop
+|	xmin ymin | punto de rotar
+|	inmouse 1? ( drop polyinir 'srotapolya 'emove ! ; ) drop
+	inpoly 0? ( drop lin 'lin> ! ; ) drop
+	xymouse dotf
+	'movesel 'emove ! | mover
+	;
+
 :selecttr
 	xmin ymin xmax ymax	dotbox
 	negro
@@ -875,18 +921,15 @@
 	xmax ymax p1
 	xmax ymin ymax + 2/ p1
 	xmin xmax + 2/ ymax p1
-
 	rojo
 	fonti xmin ymin atxy cntsel "%d" print
-
 	drawselecc
-
+	'dnps emove guiDnMove
 	;
 
 :modosel
 	lin lin> <? ( drop selecttr ; ) drop
 	'dnsel 'movsel 'upsel guiMap
-
 	xmin ymin xmax ymax
 	pick3 1+ pick3 1+ pick3 1+ pick3 1+
 	blanco caja negro caja
@@ -958,7 +1001,11 @@
 :setmodo
 	dup 'modo ! dup 2 <<
 	dup 'modos + @ 'modogui !
-	'tools + @ 'modotoo ! ;
+	'tools + @ 'modotoo !
+
+	lin 'lin> !
+	'cursor0 'ecursor !
+	;
 
 :botonmodo | icon nro --
 	modo =? ( azul )( negro )
