@@ -8,6 +8,8 @@
 ^r4/lib/loadbmp.txt
 ^r4/rtv/fx.spr
 
+^r4/rtv/placa.txt
+
 
 #fileini "atv/urgente.txt"
 #filecon "atv/consultorios.txt"
@@ -38,53 +40,6 @@
 |--------------------------
 #xcam #ycam #zcam 2.0
 #rxcam #rycam #rzcam
-
-#fx 0 0
-#objs 0 0
-
-#archivo
-
-#placas )( 64
-#placas> 'placas
-#nplaca 'placas
-
-#placast )( 64
-#placanow 'placast
-
-#pantalla )( $ffff
-#pantalla> 'pantalla
-
-#tanim 0
-#ttime 2000
-#fondo 0
-#cfondo $ffffff
-#tabs )( 64
-#ctab )( 64
-
-#sizefnt
-#typefnt
-#colfnt
-#xxc #yyc
-
-|--------------------------
-
-:,placa | tt --
-	placas> 'placas - 'placast + !
-	pantalla> placas> !+ 'placas> !
-	;
-
-:,p | val --
-	pantalla> !+ 'pantalla> ! ;
-
-:resetplaca
-	'objs p.clear
-	'fx p.clear
-	'placas 'placas> !
-	'pantalla 'pantalla> !
-	0 'fondo !
-	$ffffff 'cfondo !
-	0 'colfnt !
-	;
 
 |------------------- OS DEp ---------------------
 :FNAME | adr -- adrname
@@ -437,189 +392,6 @@
 		32 + ) 2drop ;
 
 |---------------------------------------
-:startpant
-	-1.6 'xxc !
-	-1.0 'yyc !
-	11 'typefnt !
-	0.15 'sizefnt !
-	0.15 1 'tabs !+ !
-	typefnt sizefnt setfont3d
-	;
-
-:>>l | adr -- adr'
-	( c@+ $ff and 31 >? )( drop )
-	0? ( drop 1- ; ) drop
-	0 over 1- c!
-	;
-
-
-:espag	|@@
-	( c@+ $ff and 31 >? )(
-		$61 =? ( swap str>nro 'tanim ! swap ) | a
-		$74 =? ( swap getfenro 1000 *. 'ttime ! swap ) | t
-		drop
-		) drop
-|	>>cr
-    ttime tanim 24 << or ,placa
-	startpant ;
-
-:eslin 	|--
-	$01 colfnt 8 << or ,p
-	xxc ,p yyc ,p
-	xxc 3.2 + ,p yyc 0.01 + ,p
-	0 ,p 0 ,p 0 ,p
-	0.1 'yyc +!
-	>>cr ;
-
-:>>| | adr -- adr'
-	( c@+ $ff and 31 >? )(
-		$7c =? ( ; )
-		drop ) ;
-
-#sumx
-
-:boxl | "" tab -- "" x
-	sumx swap 'sumx +! ;
-:boxc | "" tab -- "" x
-	swap sizeprint 2/ rot
-	dup 2/ sumx + swap 'sumx +!
-	swap - ;
-:boxr | "" tab -- "" x
-	swap sizeprint rot
-	dup sumx + swap 'sumx +!
-	swap - ;
-
-#llbox boxl boxc boxr
-
-:,tbox | "" tipo tab --
-	pick2 c@ 0? ( 4drop ; ) drop
-
-	colfnt 8 << ,p
-	swap 1- 2 << 'llbox + @ exec
-	,p yyc ,p
-	typefnt ,p sizefnt ,p
-	,p
-	0 ,p
-	0 ,p
-	;
-
-:esTexto
-	'ctab >r
-	dup r!+
-	( >>| $7c =? )( drop
-		0 over 1- c!
-		dup r!+
-		) drop
-	0 over 1- c!
-	r> 'ctab
-	'tabs >r
-	xxc 'sumx !
-	( over <? )(
-		@+
-		r@+ r@+ ,tbox
-		) 2drop
-	rdrop
-	sizefnt 2/ 'yyc +!
-	;
-
-
-|-------- configuracion
-:gett | adr -- adr' valor
-	c@+
-	$6c =? ( drop str>nro 1 ; ) | l
-	$63 =? ( drop str>nro 2 ; ) | c
-	$72 =? ( drop str>nro 3 ; ) | r
-	drop 1- 0 ;
-
-:ctabs
-	'tabs >r
-	( gett 1? )(
-		r!+ 3.2 * 100 / r!+	| 3.2 ancho pantalla
-		dup c@ $2c =? ( drop 1+ )( drop ) | ,
-		) drop
-	rdrop
-	1- >>cr
-	;
-
-:cfnts
-	str>nro 'typefnt !
-	1+ getfenro 'sizefnt !
-	1+ str$>nro 'colfnt !
-	typefnt sizefnt setfont3d
-	1- >>cr
-	;
-
-:es;
-	c@+
-	$7c =? ( drop ctabs ; ) | ;|l10,c20,r20
-	$66 =? ( drop cfnts ; )	| ;f11,0.15,ffffff |fuente,size,color
-
-	drop
-	1- >>cr ;
-
-|--------------------
-:setimg | adr -- adr'
-	dup 'fondo ! >>l ;
-
-:setfon | adr -- adr'
-	str$>nro 'cfondo ! >>cr ;
-
-| iatv/coso.p.jpg	| imagen de fondo
-| fff0000			| color de fondo
-:parseprev | adr -- adr'
-	0 'fondo !
-	( c@+ 1? )(
-    	$40 =? ( drop 1- ; )
-    	$69 =? ( drop setimg 0 ) | i
-    	$66 =? ( drop setfon 0 ) | f
-    	drop
-		)
-	drop 1- ;
-	;
-|----------------------------
-| @@ cambio de pantalla t1.5 a0
-| -- linea separadora 	c00ff00
-| ;		config
-|----------------------------
-:parsec | adr c -- adr
-	$3b =? ( drop es; ; ) | ; configura
-
-	$40 =? ( drop dup c@ $40 =? ( drop espag ; ) ) |@@
-	$2d =? ( drop dup c@ $2d =? ( drop eslin ; ) ) |--
-    drop 1-
-	esTexto
-    ;
-
-:quita10 | mem -- endmem
-	dup
-	( c@+ 1? )(
-		13 =? ( over c@ 10 =? ( drop swap 1+ swap )( drop ) )
-		10 =? ( drop c@+ 13 <>? ( drop 1- 13 ) )
-		rot c!+ swap )
-	nip swap c!+ ;
-
-:loadimg | filename -- img
-	".jpg" =pos 1? ( drop loadjpg ; ) drop
-	".png" =pos 1? ( drop loadpng ; ) drop
-	".bmp" =pos 1? ( drop loadbmp ; )
-	2drop 0 ;
-
-:loadparse | "" --
-	here dup 'archivo !
-	swap load 0 swap !
-	archivo quita10
-	'here !
-	archivo
-	parseprev
-	startpant
-	( c@+ 1? )( parsec )
-	2drop
-	0 ,placa
-	fondo 0? ( drop ; ) loadimg 'fondo !
-	;
-
-|--------------
-
 :freelook
 	xymouse
 	sh 2/ - 7 << swap
@@ -756,7 +528,6 @@
 
 
 |------------------------------------
-
 :proximaplaca
 	0 'finclip !
 	eligeclip
@@ -805,8 +576,6 @@
 
 :memoria
 	mark
-	1024 'objs p.ini
-	1024 'fx p.ini
 	here 'rehere !
 	;
 
