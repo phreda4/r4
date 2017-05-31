@@ -6,9 +6,6 @@
 ^r4/lib/loadpng.txt
 ^r4/lib/loadbmp.txt
 
-#objs 0 0 
-#fx 0 0
-
 #archivo
 
 #tanim 0
@@ -32,6 +29,9 @@
 #pantalla )( $ffff
 #pantalla> 'pantalla
 
+#fx 0 0
+#objs 0 0
+
 |--------------------------
 :,placa | tt --
 	placas> 'placas - 'placast + !
@@ -44,6 +44,7 @@
 :resetplaca
 |	'objs p.clear
 |	'fx p.clear
+
 	'placas 'placas> !
 	'pantalla 'pantalla> !
 	0 'fondo !
@@ -218,6 +219,127 @@
 	".bmp" =pos 1? ( drop loadbmp ; )
 	2drop 0 ;
 
+|-------------------------------------------
+:xprints | "" --
+	ccx ccy ink@
+	0 ink
+	0.005 dup +atxy
+	pick3 ( c@+ 1? )( emitf ) 2drop
+	ink atxy
+	( c@+ 1? )( emitf ) 2drop
+	;
+
+:xprintn | "" --
+	( c@+ 1? )( emitf ) 2drop ;
+
+:to3d 0 project3d ;
+
+:fillbox3d | x y x2 y2 --
+	2over to3d op
+	pick3 over to3d pline
+	2dup to3d pline
+	drop over to3d pline
+	to3d pline
+	poli ;
+
+:xbox | x1 y1 x2 y2 --
+	2over to3d 2dup >r >r op
+	pick3 over to3d pline
+	over swap to3d pline
+	swap to3d pline drop
+	r> r> pline
+	gris poli ;
+
+:xprintb | "" --
+	ink@ >r
+	sizeprint
+	ccx ccy rot pick2 + cch pick2 + xbox
+	r> ink
+	( c@+ 1? )( emitf ) 2drop ;
+
+|-----------------------------
+:otexto
+	>r r@+
+	mpush
+	r@+ r@+ setfont3d
+	r@+ r@+ r@+ mtransi
+	r@+ 1? ( mrotxi )( drop )
+	r@+ 1? ( mrotyi )( drop )
+	r@+ 1? ( mrotzi )( drop )
+	r@+ ink
+	r@+ r@+ atxy
+	xprintn
+	rdrop
+	mpop ;
+
+#pw
+:+texto | color x y font size "" --
+	'otexto 'objs p!+ >r
+	pick2 pick2 swap setfont3d
+	sizeprint 'pw !
+	r!+				| ""
+	r!+	r!+			| font size
+	pw 2/ + r!+ r!+ 0 r!+	| x y z
+	0 r!+ 0 r!+ 0 r!+		| rx ry rz
+	r!+						| ink
+	pw 2/ neg r!+
+	cch neg 2/ r!+          | atxy
+	rdrop ;
+
+
+|--- caja
+:obox
+	>r r@+ r@+ r@+ r@+
+	r@+ ink
+    fillbox3d
+    rdrop ;
+
+:+box	| color x1 y1 x2 y3 --
+	'obox 'objs p!+ >r
+	r!+ r!+ r!+ r!+ r!+
+	rdrop ;
+
+|------ inicia objetos de animacion
+| texto -- color x y fnt size "texto"
+:t0	8 >>
+	swap >r
+	r@+ r@+ swap
+	r@+ r@+ swap
+	r> @ +texto ;
+
+| caja -- color x y x y
+:t1 8 >>
+	swap >r
+	r@+ r@+ swap
+	r@+ r@+ swap
+	+box
+	rdrop ;
+
+:t2
+:t3
+:t4
+:t5
+:t6
+:t7
+:t8 2drop ;
+
+#lidraw t0 t1 t2 t3 t4 t5 t6 t7 t8 t8 t8 t8 t8 t8 t8 t8
+
+:inidrawbox
+	@+ dup $f and 2 << 'lidraw + @ exec ;
+
+:inidrawpant | adr --
+	'objs p.clear
+|	+logo
+	@+ swap @ swap
+	( over <? )(
+		dup inidrawbox
+		32 + ) 2drop ;
+
+|------------------------------------------------
+
+
+
 ::loadplaca | "" --
 	here dup 'archivo !
 	swap load 0 swap !
@@ -229,25 +351,44 @@
 	( c@+ 1? )( parsec )
 	2drop
 	0 ,placa
+
+
 	fondo 0? ( drop ; ) loadimg 'fondo !
 	;
 
 ::preplaca
-	1024 'objs p.ini
-	1024 'fx p.ini
 	cfondo paper
 	fondo 1? ( 0 0 sw sh fondo img.drawsize )( cls )
 	drop
 	>xfb
 	'placas 'nplaca !
 	'placast 'placanow !
+
+	nplaca inidrawpant
+	;
+
+:updplaca
+	omode
+	rxcam 1? ( mrotxi )( drop )
+	rycam 1? ( mrotyi )( drop )
+	rzcam 1? ( mrotzi )( drop )
+	xcam ycam zcam mtrans
+|	nplaca drawpant
+	dtime
+	'fx p.draw
+	'objs p.draw
 	;
 
 :main
+	1024 'objs p.ini
+	1024 'fx p.ini
+
    	"atv/urgente.txt" loadplaca
    	preplaca
    	show xfb>scr
 
+    	updplaca
+		reloj
    		'exit >esc<
    		cminiflecha
    	;
