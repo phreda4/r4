@@ -580,6 +580,11 @@
 		xy>d or swap !+
 		) 3drop ;
 
+:movelim | adr -- adr'
+	dup @ d>xy yfa + swap xfa + swap xy>d swap !+
+	dup @ d>xy yfa + swap xfa + swap xy>d swap !+
+	;
+
 :movepoly
 	xymouse
 	yfix 3 >> dup yf - 'yfa ! 'yf !
@@ -595,10 +600,8 @@
 
 	12 -
 	dup @ movetr			| mueve poly
-
 	4+						| mueve limites
-	dup @ d>xy yfa + swap xfa + swap xy>d swap !+
-	dup @ d>xy yfa + swap xfa + swap xy>d swap !+
+	movelim
 	8 -
 	@+ gc>xy 'ymin ! 'xmin !
 	@ gc>xy 'ymax ! 'xmax !
@@ -878,21 +881,27 @@
 	yfix 3 >> dup yf - 'yfa ! 'yf !
 	xfix 3 >> dup xf - 'xfa ! 'xf !
 
-	xmin ymin
-	yfa + -$1fff <? ( 2drop ; ) drop
-	xfa + -$1fff <? ( drop ; ) drop
-	xmax ymax
-	yfa + $1fff >? ( 2drop ; ) drop
-	xfa + $1fff >? ( drop ; ) drop
+|	xmin ymin
+|	yfa + -$1fff <? ( 2drop ; ) drop
+|	xfa + -$1fff <? ( drop ; ) drop
+|	xmax ymax
+|	yfa + $1fff >? ( 2drop ; ) drop
+|	xfa + $1fff >? ( drop ; ) drop
 
 	lin >r
 	tra ( tra> <? )(
        	@+	| tra' inicio
-		r@+ 1? ( drop movetr )( 2drop )
+		r@+ 1? ( drop movetr dup movelim drop )( 2drop )
 		12 + )
 	drop rdrop
+	sumlim
+    ;
 
-	;
+:inbox?
+	xymouse
+	ymin ymax between -? ( 2drop 0 ; ) drop
+	xmin xmax between -? ( drop 0 ; ) drop
+	1 ;
 
 :dnps
 |	xmin xmax + 2/ ymax | punto de x escala
@@ -903,7 +912,7 @@
 |	inmouse 1? ( drop selini 'smvscala 'emove ! ; ) drop
 |	xmin ymin | punto de rotar
 |	inmouse 1? ( drop polyinir 'srotapolya 'emove ! ; ) drop
-	inpoly 0? ( drop lin 'lin> ! ; ) drop
+	inbox? 0? ( drop lin 'lin> ! dnsel ; ) drop
 	xymouse dotf
 	'movesel 'emove ! | mover
 	;
@@ -1096,7 +1105,7 @@
         botonera
         teclado
 
-		dumptr |-------- DEBUG
+|		dumptr |-------- DEBUG
 
 		'exit >esc<
 		cminiflecha ;
