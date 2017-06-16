@@ -1,0 +1,112 @@
+| SHA256
+| from sha256.c, Brad Conte (brad AT bradconte.com)
+| 2017
+|-------------
+
+| need implementation for ROR  R>>
+:ROTR2	dup 2 >> $3fffffff and swap 30 << or ;
+:ROTR6	dup 6 >> $03ffffff and swap 26 << or ;
+:ROTR7	dup 7 >> $01ffffff and swap 25 << or ;
+:ROTR11	dup 11 >> $001fffff and swap 21 << or ;
+:ROTR13 dup 13 >> $0007ffff and swap 19 << or ;
+:ROTR17 dup 17 >> $00001fff and swap 15 << or ;
+:ROTR18 dup 18 >> $00000fff and swap 14 << or ;
+:ROTR19 dup 19 >> $000007ff and swap 13 << or ;
+:ROTR22 dup 22 >> $000000ff and swap 10 << or ;
+:ROTR25 dup 25 >> $0000001f and swap 7 << or ;
+:ROT3	3 >> $1fffffff and ;
+:ROT10	10 >> $003fffff and ;
+
+:CH |(x,y,z) (((x) & (y)) ^ (~(x) & (z)))
+	pick2 not and rot rot and xor ;
+:MAJ |(x,y,z) (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
+	2dup and >r pick2 and rot rot and xor r> xor ;
+:EP0 |(x) (ROTRIGHT(x,2) ^ ROTRIGHT(x,13) ^ ROTRIGHT(x,22))
+	dup ROTR2 over ROTR13 xor swap ROTR22 xor ;
+:EP1 |(x) (ROTRIGHT(x,6) ^ ROTRIGHT(x,11) ^ ROTRIGHT(x,25))
+	dup ROTR6 over ROTR11 xor swap ROTR25 xor ;
+:SIG0 |(x) (ROTRIGHT(x,7) ^ ROTRIGHT(x,18) ^ ((x) >> 3))
+	dup ROTR7 over ROTR18 xor swap ROT3 xor ;
+:SIG1 |(x) (ROTRIGHT(x,17) ^ ROTRIGHT(x,19) ^ ((x) >> 10))
+	dup ROTR17 over ROTR19 xor swap ROT10 xor ;
+
+#k
+$428a2f98 $71374491 $b5c0fbcf $e9b5dba5 $3956c25b $59f111f1 $923f82a4 $ab1c5ed5
+$d807aa98 $12835b01 $243185be $550c7dc3 $72be5d74 $80deb1fe $9bdc06a7 $c19bf174
+$e49b69c1 $efbe4786 $0fc19dc6 $240ca1cc $2de92c6f $4a7484aa $5cb0a9dc $76f988da
+$983e5152 $a831c66d $b00327c8 $bf597fc7 $c6e00bf3 $d5a79147 $06ca6351 $14292967
+$27b70a85 $2e1b2138 $4d2c6dfc $53380d13 $650a7354 $766a0abb $81c2c92e $92722c85
+$a2bfe8a1 $a81a664b $c24b8b70 $c76c51a3 $d192e819 $d6990624 $f40e3585 $106aa070
+$19a4c116 $1e376c08 $2748774c $34b0bcb5 $391c0cb3 $4ed8aa4a $5b9cca4f $682e6ff3
+$748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
+
+#data
+#datalen
+#bitlen
+#state )( 32 |[8];
+
+:sha256_init |(SHA256_CTX *ctx)
+	0 'datalen !
+	0 'bitlen !
+	'state >r
+	$6a09e667 r!+
+	$bb67ae85 r!+
+	$3c6ef372 r!+
+	$a54ff53a r!+
+	$510e527f r!+
+	$9b05688c r!+
+	$1f83d9ab r!+
+	$5be0cd19 r> ! ;
+
+
+:sha256_update | data len --(SHA256_CTX *ctx, const BYTE data[], size_t len)
+	over 'data !
+	( 1? )( 1-
+		datalen 1+
+		64 =? (
+      		sha256_transform
+      		512 'bitlen +!
+      		0 nip
+      		over 'data !
+      		)
+      	'datalen !
+      	) 2drop ;
+
+:sha256_final |(SHA256_CTX *ctx, BYTE hash[])
+	datalen
+	56 <? (
+		data datalen +
+		$80 swap c!+
+		( swap 55 <? )( 0 rot c!+ ) nip
+		)(
+		data datalen +
+		$80 swap c!+
+		( swap 63 <? )( 0 rot c!+ ) drop
+		sha256_transform
+		64 'data +!
+		data 14 ( 1? )( 1- 0 rot !+ swap ) drop
+		)
+	|adr data
+	datalen 3 << bitlen +
+	dup 56 >> rot c!+
+	over 48 >> swap c!+
+	over 40 >> swap c!+
+	over 32 >> swap c!+
+	nip
+	0 swap !+
+	sha256_transform |
+
+	// Since this implementation uses little endian byte ordering and SHA uses big endian,
+	// reverse all the bytes when copying the final state to the output hash.
+	for (i = 0; i < 4; ++i) {
+		hash[i]      = (ctx->state[0] >> (24 - i * 8)) & 0x000000ff;
+		hash[i + 4]  = (ctx->state[1] >> (24 - i * 8)) & 0x000000ff;
+		hash[i + 8]  = (ctx->state[2] >> (24 - i * 8)) & 0x000000ff;
+		hash[i + 12] = (ctx->state[3] >> (24 - i * 8)) & 0x000000ff;
+		hash[i + 16] = (ctx->state[4] >> (24 - i * 8)) & 0x000000ff;
+		hash[i + 20] = (ctx->state[5] >> (24 - i * 8)) & 0x000000ff;
+		hash[i + 24] = (ctx->state[6] >> (24 - i * 8)) & 0x000000ff;
+		hash[i + 28] = (ctx->state[7] >> (24 - i * 8)) & 0x000000ff;
+	}
+	;
+
