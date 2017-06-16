@@ -44,6 +44,7 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 #datalen
 #bitlen
 #state )( 32 |[8];
+#m )( 256
 
 :sha256_init |(SHA256_CTX *ctx)
 	0 'datalen !
@@ -58,6 +59,74 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 	$1f83d9ab r!+
 	$5be0cd19 r> ! ;
 
+:]m 2 << 'm + @ ;
+:]k 2 << 'k + @ ;
+
+:sha256_transform |(SHA256_CTX *ctx, const BYTE data[])
+	'm >r
+	data
+	16 ( 1? )( 1- swap
+		c@+ 24 << >r
+		c@+ 16 << r+
+		c@+ 8 << r+
+		c@+ r> or
+		r!+ swap ) 2drop rdrop
+	'm >r
+	16 ( 64 <? )(
+		dup 2 - ]m SIG1 over 7 - ]m + over 15 - ]m SIG0 + over 16 - ]m +
+		r!+ 1+ ) drop rdrop
+	'state >r
+	r@+ 'a !
+	r@+ 'b !
+	r@+ 'c !
+	r@+ 'd !
+	r@+ 'e !
+	r@+ 'f !
+	r@+ 'g !
+	r@+ 'h !
+	0 ( 64 <? )(
+		dup
+		1+ ) drop
+
+{
+	WORD a, b, c, d, e, f, g, h, i, j, t1, t2, m[64];
+
+	for (i = 0, j = 0; i < 16; ++i, j += 4)
+		m[i] = (data[j] << 24) | (data[j + 1] << 16) | (data[j + 2] << 8) | (data[j + 3]);
+	for ( ; i < 64; ++i)
+		m[i] = SIG1(m[i - 2]) + m[i - 7] + SIG0(m[i - 15]) + m[i - 16];
+
+	a = ctx->state[0];
+	b = ctx->state[1];
+	c = ctx->state[2];
+	d = ctx->state[3];
+	e = ctx->state[4];
+	f = ctx->state[5];
+	g = ctx->state[6];
+	h = ctx->state[7];
+
+	for (i = 0; i < 64; ++i) {
+		t1 = h + EP1(e) + CH(e,f,g) + k[i] + m[i];
+		t2 = EP0(a) + MAJ(a,b,c);
+		h = g;
+		g = f;
+		f = e;
+		e = d + t1;
+		d = c;
+		c = b;
+		b = a;
+		a = t1 + t2;
+	}
+
+	ctx->state[0] += a;
+	ctx->state[1] += b;
+	ctx->state[2] += c;
+	ctx->state[3] += d;
+	ctx->state[4] += e;
+	ctx->state[5] += f;
+	ctx->state[6] += g;
+	ctx->state[7] += h;
+}
 
 :sha256_update | data len --(SHA256_CTX *ctx, const BYTE data[], size_t len)
 	over 'data !
