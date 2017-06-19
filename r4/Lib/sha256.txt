@@ -2,6 +2,7 @@
 | from sha256.c, Brad Conte
 | 2017 PHREDA
 |-------------
+^r4/lib/gui.txt
 
 | need implementation for ROR  R>>
 :ROTR2	dup 2 >> $3fffffff and swap 30 << or ;
@@ -62,7 +63,10 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 :]m 2 << 'm + @ ;
 :]k 2 << 'k + @ ;
 
-#a #b #c #d #e #f #g #h #t1 #t2
+#a #b #c #d #e #f #g #h
+
+:t1	dup ]m over ]k + e f g CH + e EP1 + h + ;
+:t2 a b c MAJ a EP0 + ;
 
 :sha256_transform |(SHA256_CTX *ctx, const BYTE data[])
 	'm >r
@@ -80,16 +84,14 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 	'state >r
 	r@+ 'a ! r@+ 'b ! r@+ 'c ! r@+ 'd ! r@+ 'e ! r@+ 'f ! r@+ 'g ! r> @ 'h !
 	0 ( 64 <? )(
-		dup ]m over ]k + e f g CH + e EP1 + h + 't1 !
-		a b c MAJ a EP0 + 't2 !
 		g 'h !
 		f 'g !
 		e 'f !
-		d t1 + 'e !
+		t1 d over + 'e !
 		c 'd !
 		b 'c !
 		a 'b !
-		t1 t2 + 'a !
+		t2 + 'a !
 		1+ ) drop
 	'state a over +!
 	4+ b over +!
@@ -131,6 +133,7 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 		64 'data +!
 		data 14 ( 1? )( 1- 0 rot !+ swap ) drop
 		)
+	drop
 	|adr data
 	| bitlen 9 << + datalen 3 << $1f8
 	bitlen
@@ -148,3 +151,44 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 	8 ( 1? )( 1- r @ bswap r!+ ) drop rdrop
 	;
 
+:sha256
+	sha256_init
+	count sha256_update
+	sha256_final
+	;
+
+:sha256test | adr -- 0/1
+	>r 'state
+	8 ( 1? )( 1- swap @+ r@+
+		<>? ( 3drop rdrop 0 ; )
+		drop swap )
+	2drop rdrop 1 ;
+
+|---- test
+#r1 $ba $78 $16 $bf $8f $01 $cf $ea $41 $41 $40 $de $5d $ae $22 $23
+	$b0 $03 $61 $a3 $96 $17 $7a $9c $b4 $10 $ff $61 $f2 $00 $15 $ad
+#r2	$24 $8d $6a $61 $d2 $06 $38 $b8 $e5 $c0 $26 $93 $0c $3e $60 $39
+	$a3 $3c $e4 $59 $64 $ff $21 $67 $f6 $ec $ed $d4 $19 $db $06 $c1
+#r3	$cd $c7 $6e $5c $99 $14 $fb $92 $81 $a1 $c7 $e2 $84 $d7 $3e $67
+	$f1 $80 $9a $48 $a4 $97 $20 $0e $04 $6d $39 $cc $c7 $11 $2c $d0
+
+:test | dir str --
+	dup print
+	sha256
+	sha256test
+	" %d " print cr
+	;
+
+:testsha
+	'r1 "abc" test
+	'r2 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq" test
+	'r3 "aaaaaaaaaa" test
+	;
+
+:main
+	show clrscr
+		testsha
+		'exit >esc<
+		;
+
+: main ;
