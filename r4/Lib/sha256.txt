@@ -68,7 +68,7 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 :t1	dup ]m over ]k + e f g CH + e EP1 + h + ;
 :t2 a b c MAJ a EP0 + ;
 
-:sha256_transform |(SHA256_CTX *ctx, const BYTE data[])
+:sha256_transform |
 	'm >r
 	data
 	16 ( 1? )( 1- swap
@@ -103,38 +103,37 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 	4+ h swap +!
 	;
 
-:sha256_update | data len --(SHA256_CTX *ctx, const BYTE data[], size_t len)
-	over 'data !
-	( 1? )( 1-
-		datalen 1+
-		64 =? (
-      		sha256_transform
-      		1 'bitlen +!
-      		0 nip
-      		over 'data !
-      		)
-      	'datalen !
-      	) 2drop ;
+:sha256_update | data len --
+	( 64 >? )(
+		over 'data !
+		64 'datalen !
+		sha256_transform
+		1 'bitlen +!
+		64 - swap 64 + swap )
+	'datalen !
+	'data !
+	;
 
 :bswap
 	dup $ff and 24 << over $ff00 and 8 << or over $ff0000 and 8 >> or swap 24 >> $ff and or ;
 
-:sha256_final |(SHA256_CTX *ctx, BYTE hash[])
+#datae )( 64
+
+:sha256_final
+	'datae data datalen cmove
 	datalen
+	'datae dup 'data !
+	over +
+	$80 swap c!+
+	swap
 	56 <? (
-		data datalen +
-		$80 swap c!+
-		( swap 55 <? )( 0 rot c!+ ) nip
-		)(
-		data datalen +
-		$80 swap c!+
-		( swap 63 <? )( 0 rot c!+ ) drop
+		( 55 <? )( 0 rot c!+ swap 1+ ) drop
+	)(
+		( 63 <? )( 0 rot c!+ swap 1+ ) 2drop
 		sha256_transform
 		64 'data +!
-		data 14 ( 1? )( 1- 0 rot !+ swap ) drop
-		)
-	drop
-	|adr data
+		'datae 14 ( 1? )( 1- 0 rot !+ swap ) drop
+	)
 	| bitlen 9 << + datalen 3 << $1f8
 	bitlen
 	dup 47 >> rot c!+	| 0
