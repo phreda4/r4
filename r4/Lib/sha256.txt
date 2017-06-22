@@ -3,6 +3,7 @@
 | 2017 PHREDA
 |-------------
 ^r4/lib/gui.txt
+^r4/lib/trace.txt
 
 | need implementation for ROR  R>>
 :ROTR2	dup 2 >> $3fffffff and swap 30 << or ;
@@ -10,13 +11,11 @@
 :ROTR7	dup 7 >> $01ffffff and swap 25 << or ;
 :ROTR11	dup 11 >> $001fffff and swap 21 << or ;
 :ROTR13 dup 13 >> $0007ffff and swap 19 << or ;
-:ROTR17 dup 17 >> $00001fff and swap 15 << or ;
-:ROTR18 dup 18 >> $00000fff and swap 14 << or ;
-:ROTR19 dup 19 >> $000007ff and swap 13 << or ;
-:ROTR22 dup 22 >> $000000ff and swap 10 << or ;
-:ROTR25 dup 25 >> $0000001f and swap 7 << or ;
-:ROT3	3 >> $1fffffff and ;
-:ROT10	10 >> $003fffff and ;
+:ROTR17 dup 17 >> $00007fff and swap 15 << or ;
+:ROTR18 dup 18 >> $00003fff and swap 14 << or ;
+:ROTR19 dup 19 >> $00001fff and swap 13 << or ;
+:ROTR22 dup 22 >> $000003ff and swap 10 << or ;
+:ROTR25 dup 25 >> $0000007f and swap 7 << or ;
 
 :CH |(x,y,z) (((x) & (y)) ^ (~(x) & (z)))
 	pick2 not and rot rot and xor ;
@@ -27,9 +26,9 @@
 :EP1 |(x) (ROTRIGHT(x,6) ^ ROTRIGHT(x,11) ^ ROTRIGHT(x,25))
 	dup ROTR6 over ROTR11 xor swap ROTR25 xor ;
 :SIG0 |(x) (ROTRIGHT(x,7) ^ ROTRIGHT(x,18) ^ ((x) >> 3))
-	dup ROTR7 over ROTR18 xor swap ROT3 xor ;
+	dup ROTR7 over ROTR18 xor swap 3 >> xor ;
 :SIG1 |(x) (ROTRIGHT(x,17) ^ ROTRIGHT(x,19) ^ ((x) >> 10))
-	dup ROTR17 over ROTR19 xor swap ROT10 xor ;
+	dup ROTR17 over ROTR19 xor swap 10 >> xor ;
 
 #k
 $428a2f98 $71374491 $b5c0fbcf $e9b5dba5 $3956c25b $59f111f1 $923f82a4 $ab1c5ed5
@@ -41,13 +40,13 @@ $a2bfe8a1 $a81a664b $c24b8b70 $c76c51a3 $d192e819 $d6990624 $f40e3585 $106aa070
 $19a4c116 $1e376c08 $2748774c $34b0bcb5 $391c0cb3 $4ed8aa4a $5b9cca4f $682e6ff3
 $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 
-#data
+#data )( 64
 #datalen
 #bitlen
-#state )( 32 |[8];
+#state )( 32
 #m )( 256
 
-:sha256_init |(SHA256_CTX *ctx)
+:sha256_init
 	0 'datalen !
 	0 'bitlen !
 	'state >r
@@ -63,27 +62,34 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 :]m 2 << 'm + @ ;
 :]k 2 << 'k + @ ;
 
-#a #b #c #d #e #f #g #h
+#a #b #c #d #e #f #g #h #t1 #t2
 
-:t1	dup ]m over ]k + e f g CH + e EP1 + h + ;
-:t2 a b c MAJ a EP0 + ;
+:bswap
+	dup $ff and 24 << over $ff00 and 8 << or over $ff0000 and 8 >> or swap 24 >> $ff and or ;
 
-:sha256_transform |
+:ct
+	dup ]m over ]k + e f g CH + e EP1 + h + 't1 !
+	a b c MAJ a EP0 + 't2 ! ;
+
+:sha256_transform | --
 	'm >r
-	data
-	16 ( 1? )( 1- swap
-		c@+ 24 << >r
-		c@+ 16 << r+
-		c@+ 8 << r+
-		c@+ r> or
-		r!+ swap ) 2drop rdrop
-	'm >r
-	16 ( 64 <? )(
+	'data
+	0 ( 16 <? )( swap
+		@+ bswap
+		r!+ swap 1+ ) nip
+	( 64 <? )(
 		dup 2 - ]m SIG1 over 7 - ]m + over 15 - ]m SIG0 + over 16 - ]m +
-		r!+ 1+ ) drop rdrop
+		r!+ 1+ ) drop
+	rdrop
+
+	'm 64 ( 1? )( swap @+ "%h " allowcr print swap 1- $3 nand? ( cr ) ) 2drop cr
+
 	'state >r
 	r@+ 'a ! r@+ 'b ! r@+ 'c ! r@+ 'd ! r@+ 'e ! r@+ 'f ! r@+ 'g ! r> @ 'h !
+	"e:" print
 	0 ( 64 <? )(
+		ct
+|		e "%x " allowcr print
 		g 'h !
 		f 'g !
 		e 'f !
@@ -93,6 +99,8 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 		a 'b !
 		t2 + 'a !
 		1+ ) drop
+|	h g f e d c b a "a:%h %h %h %h %h %h %h %h" print cr
+	cr
 	'state a over +!
 	4+ b over +!
 	4+ c over +!
@@ -105,25 +113,22 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 
 :sha256_update | data len --
 	( 64 >? )(
-		over 'data !
-		64 'datalen !
+		'data pick2 64 cmove
 		sha256_transform
 		1 'bitlen +!
 		64 - swap 64 + swap )
+	'data rot pick2 cmove
 	'datalen !
-	'data !
 	;
 
-:bswap
-	dup $ff and 24 << over $ff00 and 8 << or over $ff0000 and 8 >> or swap 24 >> $ff and or ;
-
-#datae )( 64
+:printb
+	8 ( 1? )( 1-
+		swap @+ "%h " print
+		swap ) 2drop ;
 
 :sha256_final
-	'datae data datalen cmove
 	datalen
-	'datae dup 'data !
-	over +
+	'data over +
 	$80 swap c!+
 	swap 1+
 	56 <? (
@@ -131,7 +136,7 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 	)(
 		( 64 <? )( 0 rot c!+ swap 1+ ) 2drop
 		sha256_transform
-		'datae 14 ( 1? )( 1- 0 rot !+ swap ) drop
+		'data 14 ( 1? )( 1- 0 rot !+ swap ) drop
 	)
 	| bitlen 9 << + datalen 3 << $1f8
 	bitlen	| adr bitlen
@@ -143,11 +148,15 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 	over 7 >> swap c!+
 	swap 1 << datalen 4 >> 1 and or swap c!+
 	datalen 3 << swap c!
-	sha256_transform
 
+|	'data 64 ( 1? )( 1- swap c@+ "%h " allowcr print swap ) 2drop cr
+
+	sha256_transform
 	'state >r
 	8 ( 1? )( 1- r @ bswap r!+ ) drop rdrop
+	'state printb cr
 	;
+
 
 :sha256
 	sha256_init
@@ -170,10 +179,6 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 #r3	( $cd $c7 $6e $5c $99 $14 $fb $92 $81 $a1 $c7 $e2 $84 $d7 $3e $67
 	$f1 $80 $9a $48 $a4 $97 $20 $0e $04 $6d $39 $cc $c7 $11 $2c $d0 )
 
-:printb
-	8 ( 1? )( 1-
-		swap @+ "%h " print
-		swap ) 2drop ;
 
 :test | dir str --
 	dup print cr
@@ -186,8 +191,8 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 
 :testsha
 	'r1 "abc" test
-	'r2 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq" test
-	'r3 "aaaaaaaaaa" test
+|	'r2 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq" test
+|	'r3 "aaaaaaaaaa" test
 	;
 
 :main
