@@ -26,9 +26,9 @@
 :EP1 |(x) (ROTRIGHT(x,6) ^ ROTRIGHT(x,11) ^ ROTRIGHT(x,25))
 	dup ROTR6 over ROTR11 xor swap ROTR25 xor ;
 :SIG0 |(x) (ROTRIGHT(x,7) ^ ROTRIGHT(x,18) ^ ((x) >> 3))
-	dup ROTR7 over ROTR18 xor swap 3 >> xor ;
+	dup ROTR7 over ROTR18 xor swap 3 >> $1fffffff and xor ;
 :SIG1 |(x) (ROTRIGHT(x,17) ^ ROTRIGHT(x,19) ^ ((x) >> 10))
-	dup ROTR17 over ROTR19 xor swap 10 >> xor ;
+	dup ROTR17 over ROTR19 xor swap 10 >> $003fffff and xor ;
 
 #k
 $428a2f98 $71374491 $b5c0fbcf $e9b5dba5 $3956c25b $59f111f1 $923f82a4 $ab1c5ed5
@@ -82,32 +82,19 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 		r!+ 1+ ) drop
 	rdrop
 
-	'm 64 ( 1? )( swap @+ "%h " allowcr print swap 1- $3 nand? ( cr ) ) 2drop cr
-
 	'state >r
-	r@+ 'a ! r@+ 'b ! r@+ 'c ! r@+ 'd ! r@+ 'e ! r@+ 'f ! r@+ 'g ! r> @ 'h !
-	"e:" print
+	r@+ 'a ! r@+ 'b ! r@+ 'c ! r@+ 'd !
+	r@+ 'e ! r@+ 'f ! r@+ 'g ! r> @ 'h !
 	0 ( 64 <? )(
 		ct
-|		e "%x " allowcr print
-		g 'h !
-		f 'g !
-		e 'f !
+		g 'h ! f 'g ! e 'f !
 		t1 d over + 'e !
-		c 'd !
-		b 'c !
-		a 'b !
+		c 'd ! b 'c ! a 'b !
 		t2 + 'a !
 		1+ ) drop
-|	h g f e d c b a "a:%h %h %h %h %h %h %h %h" print cr
-	cr
 	'state a over +!
-	4+ b over +!
-	4+ c over +!
-	4+ d over +!
-	4+ e over +!
-	4+ f over +!
-	4+ g over +!
+	4+ b over +! 4+ c over +! 4+ d over +!
+	4+ e over +! 4+ f over +! 4+ g over +!
 	4+ h swap +!
 	;
 
@@ -120,11 +107,6 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 	'data rot pick2 cmove
 	'datalen !
 	;
-
-:printb
-	8 ( 1? )( 1-
-		swap @+ "%h " print
-		swap ) 2drop ;
 
 :sha256_final
 	datalen
@@ -149,12 +131,9 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 	swap 1 << datalen 4 >> 1 and or swap c!+
 	datalen 3 << swap c!
 
-|	'data 64 ( 1? )( 1- swap c@+ "%h " allowcr print swap ) 2drop cr
-
 	sha256_transform
 	'state >r
 	8 ( 1? )( 1- r @ bswap r!+ ) drop rdrop
-	'state printb cr
 	;
 
 
@@ -176,23 +155,17 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 	$b0 $03 $61 $a3 $96 $17 $7a $9c $b4 $10 $ff $61 $f2 $00 $15 $ad )
 #r2	( $24 $8d $6a $61 $d2 $06 $38 $b8 $e5 $c0 $26 $93 $0c $3e $60 $39
 	$a3 $3c $e4 $59 $64 $ff $21 $67 $f6 $ec $ed $d4 $19 $db $06 $c1 )
-#r3	( $cd $c7 $6e $5c $99 $14 $fb $92 $81 $a1 $c7 $e2 $84 $d7 $3e $67
-	$f1 $80 $9a $48 $a4 $97 $20 $0e $04 $6d $39 $cc $c7 $11 $2c $d0 )
-
 
 :test | dir str --
 	dup print cr
 	sha256
-	dup printb cr
-	'state printb cr
 	sha256test
 	" %d " print cr
 	;
 
 :testsha
 	'r1 "abc" test
-|	'r2 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq" test
-|	'r3 "aaaaaaaaaa" test
+	'r2 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq" test
 	;
 
 :main
