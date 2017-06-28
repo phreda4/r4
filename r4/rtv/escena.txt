@@ -1,0 +1,191 @@
+| escena
+| PHREDA 2017
+|------------------
+^r4/lib/gui.txt
+^r4/lib/part8.txt
+^r4/lib/vesprite.txt
+
+^r4/rtv/fx1.vsp
+
+
+#fx 0 0		| fx
+#objs 0 0	| objetos
+#tims 0 0	| tiempo
+
+#xcam #ycam #zcam 3.0
+
+| x y z rx ry rz scale dibujo
+:drawsprite
+	dup >r
+	mpush
+	r@+ r@+ r@+ mtransi
+	r@+ 1? ( mrotxi )( drop )
+	r@+ 1? ( mrotyi )( drop )
+	r@+ 1? ( mrotzi )( drop )
+	r@+ 1? ( dup dup mscalei )( drop )
+	r> @ 3dvesprite
+	mpop ;
+
+:sprite.move2d | x y spr --
+	>r swap r!+ r> ! ;
+
+:sprite.move | x y z spr --
+	>r rot r!+ swap r!+ r> ! ;
+
+:objs! | spr sca rz ry rx z y x --
+	'objs p! >r
+	r!+ r!+ r!+
+	r!+ r!+ r!+
+	r!+ r> ! ;
+
+:objs.clear
+	'objs p.clear
+	'tims p.clear
+	'fx p.clear
+	;
+
+:emem
+	mark
+	1024 'objs p.ini
+	1024 'tims p.ini
+	1024 'fx p.ini
+	;
+
+|---------- animadores
+#deltat
+#prevt
+#t0
+
+:time.ini
+	msec 'prevt ! 0 'deltat ! ;
+
+:time.next
+	msec dup prevt - 'deltat ! 'prevt ! ;
+
+:llerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 16 *>> + ;
+:clerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 cos abs 16 *>> + ;
+:slerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 sin abs 16 *>> + ;
+
+
+:lin0
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ / 1.0 min 't0 !
+	rdrop
+	t0 1.0 - 1? ( drop ; ) ;
+
+:lin1
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ / 1.0 min 't0 !
+	r@+
+	r@+ r@+ llerp swap ! | scale
+	rdrop
+	t0 1.0 - 1? ( drop ; ) ;
+
+:lin2
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ / 1.0 min 't0 !
+	r@+
+	r@+ r@+ llerp swap !+
+	r@+ r@+ llerp swap !
+	rdrop
+	t0 1.0 - 1? ( drop ; ) ;
+
+:+move2d | xf yf obj time --
+	'lin2 'tims p!+ >r
+	0 r!+ 1000 *. r!+	| 0 tmax(msec)
+	dup r!+				| xf yf obj
+	dup @ r!+ rot r!+
+	4+ @ r!+ r> ! ;
+
+:+scale | sf obj time --
+	'lin1 'tims p!+ >r
+	0 r!+ 1000 *. r!+	| 0 tmax(msec)
+	24 + dup r!+		| scale obj
+	@ r!+ r> ! ;
+
+:+rot2d | xr obj time --
+	'lin1 'tims p!+ >r
+	0 r!+ 1000 *. r!+	| 0 tmax(msec)
+	20 + dup r!+		| rota obj
+	@ r!+ r> ! ;
+
+|----------------------------------
+:escena
+	time.next
+	'tims p.exec
+
+	omode
+|	freelook
+|	msec 4 << mroty
+
+	xcam ycam zcam mtrans
+	'drawsprite 'objs p.mapv
+	;
+
+|---------------------------------- TEST
+:dump
+	dup >r
+	r@+ r@+ "%d %d " print
+	r@+ r@+ "%f %f " print
+	r@+ r@+ "%f %f " print cr
+	rdrop
+	;
+
+:DUMPS
+	'dump 'tims p.mapv
+	;
+
+:sord
+	'lapiz rand 0.5 mod 0.8 + rand 0 0 0.0 rand 1.0 mod rand 1.0 mod objs! ;
+
+:randobj
+	rand 'objs p.cnt mod abs 'objs p.nro ;
+
+:randtime
+	rand 2.0 mod 3.0 + ;
+
+:movt
+	rand 1.0 mod rand 1.0 mod
+    randobj
+	randtime
+	+move2d
+	;
+
+:scat
+	rand 0.8 mod 1.0 +
+	randobj
+	randtime
+	+scale
+	;
+
+:rot2
+	rand 2.0 mod
+	randobj
+	randtime
+	+rot2d
+	;
+
+:main
+	33
+	time.ini
+	show clrscr
+		fonti
+		dup "%d " print cr
+		DUMPS cr
+		'objs p.cnt "%d" print cr
+
+		escena
+		'sord <f1>
+		'movt <f2>
+		'scat <f3>
+		'rot2 <f4>
+		'exit >esc<
+		;
+
+: emem main ;
