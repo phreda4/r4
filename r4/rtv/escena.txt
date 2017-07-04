@@ -80,105 +80,81 @@
 |---- Penner animation moves
 :Quad_In	dup *. ;
 :Quad_Out	2.0 over - *. ;
-:Quad_InOut	0.5 <? ( Quad_In ; ) Quad_Out ;
+:Quad_InOut	2* 1.0 <? ( Quad_In 2/ ; ) 1.0 - Quad_Out 2/ 0.5 + ;
 
 :Cub_In		dup dup *. *. ;
 :Cub_Out	1.0 - Cub_In 1.0 + ;
-:Cub_InOut	0.5 <? ( Cub_In ; ) Cub_Out ;
+:Cub_InOut	2* 1.0 <? ( Cub_In 2/ ; ) 2.0 - Cub_In 2.0 + 2/ ;
 
 :Quar_In	dup *. dup *. ;
-:Quar_Out	1.0 - Quar_In -1.0 + ;
-:Quar_InOut	0.5 <? ( Quar_In ; ) Quar_Out ;
+:Quar_Out	1.0 - Quar_In -1.0 + neg ;
+:Quar_InOut	2* 1.0 <? ( Quar_In 2/ ; ) 1.0 - Quar_Out 1.0 + 2/ ;
 
 :Quin_In	dup dup *. dup *. *. ;
 :Quin_Out	1.0 - Quin_In 1.0 + ;
-:Quin_InOut	0.5 <? ( Quin_In ; ) Quin_Out ;
+:Quin_InOut	2* 1.0 <? ( Quin_In 2/ ; ) 1.0 - Quin_Out 2/ 0.5 + ;
 
-:Sin_In		2 >> sin ;
-:Sin_Out	|return Math.sin(k * Math.PI / 2);
-:Sin_InOut	|return 0.5 * (1 - Math.cos(Math.PI * k));
+:Sin_In		1.0 swap 2 >> cos - ;
+:Sin_Out	2 >> sin ;
+:Sin_InOut	1.0 swap 2/ cos - 2/ ;
 
-:Exp_In		|return k === 0 ? 0 : Math.pow(1024, k - 1);
-:Exp_Out	|return k === 1 ? 1 : 1 - Math.pow(2, - 10 * k);
-:Exp_InOut
-|	if (k ===
-|	 0) {return 0;	}
-|	if (k === 1) {return 1;	}
-|	if ((k *= 2) < 1) {
-|		return 0.5 * Math.pow(1024, k - 1);
-|		}
-|	return 0.5 * (- Math.pow(2, - 10 * (k - 1)) + 2);
+:Exp_In		0? ( ; ) 1.0 - 1024.0 swap pow. ;
+:Exp_Out    1.0 =? ( ; ) -10.0 *. 2.0 swap pow. 1.0 swap - ;
+:Exp_InOut  2* 1.0 <? ( Exp_In 2/ ; ) 1.0 - Exp_Out 2/ 0.5 + ;
 
-:Cir_In		|return 1 - Math.sqrt(1 - k * k);
-:Cir_Out	|return Math.sqrt(1 - (--k * k));
-:Cir_InOut
-|	if ((k *= 2) < 1) {
-|				return - 0.5 * (Math.sqrt(1 - k * k) - 1);
-|			}
-|	return 0.5 * (Math.sqrt(1 - (k -= 2) * k) + 1);
+:Cir_In		dup *. 1.0 swap - sqrt. 1.0 swap - ;
+:Cir_Out	1.0 - dup *. 1.0 swap - sqrt. ;
+:Cir_InOut	2* 1.0 <? ( Cir_In 2/ ; ) 1.0 - Cir_Out 2/ 0.5 + ;
 
-:Ela_In
-|	if (k === 0) {return 0;}
-|	if (k === 1) {return 1;}
+:Ela_In		0? ( ; ) 1.0 =? ( ; )
+            dup 1.0 - 10 * 2.0 swap pow. neg swap
+            1.1 - 5 * sin *. ;
 |	return -Math.pow(2, 10 * (k - 1)) * Math.sin((k - 1.1) * 5 * Math.PI);
 
-:Ela_Out
-|	if (k === 0) {return 0;}
-|	if (k === 1) {return 1;}
+:Ela_Out	0? ( ; ) 1.0 =? ( ; )
+			dup -10 * 2.0 swap pow. swap
+			0.1 - 5 * sin *. 1.0 + ;
 |	return Math.pow(2, -10 * k) * Math.sin((k - 0.1) * 5 * Math.PI) + 1;
 
-:Ela_InOut
-|	if (k === 0) {return 0;}
-|	if (k === 1) {return 1;}
-|	k *= 2;
-|	if (k < 1) {
-|		return -0.5 * Math.pow(2, 10 * (k - 1)) * Math.sin((k - 1.1) * 5 * Math.PI);
-|	}
-|	return 0.5 * Math.pow(2, -10 * (k - 1)) * Math.sin((k - 1.1) * 5 * Math.PI) + 1;
+:Ela_InOut	2* 1.0 <? ( Ela_In 2/ ; ) 1.0 - Ela_Out 2/ 0.5 + ;
 
 :Bac_In
-|	var s = 1.70158;
-|	return k * k * ((s + 1) * k - s);
+	dup 2.7016 *. 1.7016 - swap dup *. *. ;
+|	var s = 1.70158;return k * k * ((s + 1) * k - s);
 
 :Bac_Out
-|	var s = 1.70158;
-|	return --k * k * ((s + 1) * k + s) + 1;
+	dup 2.7016 *. 1.7016 + swap 1.0 - dup *. *. 1.0 + ;
+|	var s = 1.70158;return --k * k * ((s + 1) * k + s) + 1;
 
-:Bac_InOut
-|	var s = 1.70158 * 1.525;
-|	if ((k *= 2) < 1) {
-|		return 0.5 * (k * k * ((s + 1) * k - s));
-|	}
-|	return 0.5 * ((k -= 2) * k * ((s + 1) * k + s) + 2);
+:Bac_InOut	2* 1.0 <? ( Bac_In 2/ ; ) 1.0 - Bac_Out 2/ 0.5 + ;
 
-:Bou_In
-|	return 1 - TWEEN.Easing.Bounce.Out(1 - k);
 
 :Bou_Out
-|	if (k < (1 / 2.75)) {
-|		return 7.5625 * k * k;
-|	} else if (k < (2 / 2.75)) {
-|		return 7.5625 * (k -= (1.5 / 2.75)) * k + 0.75;
-|	} else if (k < (2.5 / 2.75)) {
-|		return 7.5625 * (k -= (2.25 / 2.75)) * k + 0.9375;
-|	} else {
-|		return 7.5625 * (k -= (2.625 / 2.75)) * k + 0.984375;
-|	}
+	0.3636 <? ( dup *. 7.5625 *. ; )
+	0.7273 <? ( 0.3636 - dup *. 7.5625 *. 0.75 + ; )
+	0.9091 <? ( 0.8182 - dup *. 7.5625 *. 0.9375 + ; )
+	0.9545 - dup *. 7.5625 *. 0.9844 + ;
+:Bou_In
+	1.0 swap - Bou_Out 1.0 swap - ;
+:Bou_InOut	2* 1.0 <? ( Bou_In 2/ ; ) 1.0 - Bou_Out 2/ 0.5 + ;
 
-:Bou_InOut
-|	if (k < 0.5) {
-|		return TWEEN.Easing.Bounce.In(k * 2) * 0.5;
-|	}
-|	return TWEEN.Easing.Bounce.Out(k * 2 - 1) * 0.5 + 0.5;
 
-:%op %s swap %s swap op ;
-:%line %s swap %s swap line ;
+:%%
+	sh 2/ swap over neg 16 *>>  +
+	swap sw 2/ swap over 16 *>> +
+	swap ;
+
+:%op %% op ;
+:%line %% line ;
 
 :drawtween | 'tw --
 	>r
 	0 dup dup r exec %op
-	( 0.01 + 1.0 <? )(
-		dup dup r exec %line
+	( 0.05 + 1.0 <? )(
+		dup dup
+		r exec
+		dup "%f " print cr
+		%line
 		) drop
 	rdrop ;
 
@@ -317,8 +293,14 @@ Quad_In	Quad_Out Quad_InOut
 Cub_In Cub_Out Cub_InOut
 Quar_In Quar_Out Quar_InOut
 Quin_In	Quin_Out Quin_InOut
-		
-#emodo 0
+Sin_In Sin_Out Sin_InOut
+Exp_In Exp_Out Exp_InOut
+Cir_In Cir_Out Cir_InOut
+Ela_In Ela_Out Ela_InOut
+Bac_In Bac_Out Bac_InOut
+Bou_In Bou_Out Bou_InOut
+
+#emodo 18
 
 :main
 	33
@@ -327,9 +309,10 @@ Quin_In	Quin_Out Quin_InOut
 		fonti
 		dup "%d " print cr
 		DUMPS cr
-		'objs p.cnt "%d" print cr
+|		'objs p.cnt "%d" print cr
 
-		emodo 2 << 'modo + @ drawtween
+		emodo dup "%d:" print cr
+		2 << 'modo + @ drawtween cr
 
         [ 1 'emodo +! ; ] <up>
         [ -1 'emodo +! ; ] <dn>
