@@ -1,11 +1,13 @@
 | escena
 | PHREDA 2017
+| ver 0
 |------------------
 ^r4/lib/gui.txt
 ^r4/lib/part8.txt
 ^r4/lib/vesprite.txt
 
 ^r4/rtv/fx1.vsp
+
 
 #fx 0 0		| fx
 #objs 0 0	| objetos
@@ -53,6 +55,7 @@
 |---------- animadores
 #deltat
 #prevt
+#t0
 
 | timeline
 |  duracion|eff pos.final
@@ -67,6 +70,13 @@
 
 :time.next
 	msec dup prevt - 'deltat ! 'prevt ! ;
+
+:llerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 16 *>> + ;
+:clerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 2 >> 0.75 + cos abs 16 *>> + ;
+:slerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 2 >> sin abs 16 *>> + ;
 
 |---- Penner animation moves
 :Quad_In	dup *. ;
@@ -132,49 +142,125 @@ Bac_In Bac_Out Bac_InOut
 Bou_In Bou_Out Bou_InOut
 0
 
+:adv | adr --
+	>r
+	r@+
+	dup $1ffff and 1.0 min
+	swap 22 >> $7c and 'ease + @ 0? ( drop )( exec )
+	r@+ *.
+	r@+ +
+	r> !
+	;
+
+:%%
+	sh 2/ swap over neg 16 *>> + 100 +
+	swap sw 2/ swap over 16 *>> + 200 -
+	swap ;
+
+:%op %% op ;
+:%line %% line ;
+
+:drawtween | 'tw --
+	>r
+	0 dup dup r exec %op
+	( 0.01 + 1.0 <? )(
+		dup dup
+		r 1? ( exec )( drop )
+|		dup "%f " print cr
+		%line
+		) drop
+	rdrop ;
+
+
+|------------------
+
+:lin0
+	>r r@+ deltat + dup r 4 - !
+	16 << r@+ / 1.0 min 't0 !
+	rdrop
+	t0 1.0 - 1? ( drop ; ) ;
+
+:lin1
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ / 1.0 min 't0 !
+	r@+
+	r@+ r@+ llerp swap !
+	rdrop
+	t0 1.0 - 1? ( drop ; ) ;
+:acc1
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ / 1.0 min 't0 !
+	r@+
+	r@+ r@+ clerp swap !
+	rdrop
+	t0 1.0 - 1? ( drop ; ) ;
+:dec1
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ / 1.0 min 't0 !
+	r@+
+	r@+ r@+ slerp swap !
+	rdrop
+	t0 1.0 - 1? ( drop ; ) ;
+
+:lin2
+	>r
+	r@+ deltat + dup r 4 - !
+	16 << r@+ / 1.0 min 't0 !
+	r@+
+	r@+ r@+ llerp swap !+
+	r@+ r@+ llerp swap !
+	rdrop
+	t0 1.0 - 1? ( drop ; ) ;
+
+:+move2d | xf yf obj time --
+	'lin2 'tims p!+ >r
+	0 r!+ 1000 *. r!+	| 0 tmax(msec)
+	dup r!+				| xf yf obj
+	dup @ r!+ rot r!+
+	4+ @ r!+ r> ! ;
+
+:+scale | sf obj time --
+	'lin1 'tims p!+ >r
+	0 r!+ 1000 *. r!+	| 0 tmax(msec)
+	24 + dup r!+		| scale obj
+	@ r!+ r> ! ;
+:scale | sf obj time mov --
+	'tims p!+ >r
+	0 r!+ 1000 *. r!+	| 0 tmax(msec)
+	24 + dup r!+		| scale obj
+	@ r!+ r> ! ;
+
+:+scale | sf obj time --
+	'lin1 'tims p!+ >r
+	0 r!+ 1000 *. r!+	| 0 tmax(msec)
+	24 + dup r!+		| scale obj
+	@ r!+ r> ! ;
+
+:+rot2d | xr obj time --
+	'lin1 'tims p!+ >r
+	0 r!+ 1000 *. r!+	| 0 tmax(msec)
+	20 + dup r!+		| rota obj
+	@ r!+ r> ! ;
+
 |---- tiempo
 :tiempo
 	>r
 	r @ deltat + dup r!+
-	r@+ *. 1.0 min	| t
+	r@+ *. 1.0 min
 	r@+ r@+ pick2 Ela_InOut
 	*. r> @ + swap !
 	1.0 - 1? ( drop ; )
 	;
 
-:tiempo2
-	>r
-	r @ deltat + dup r!+
-	r@+ *. 1.0 min	| t
-
-	r@+	r@+ pick2 Ela_InOut *. r@+ + swap !
-	1.0 - 1? ( drop ; )
-	;
-
-|--- agrega a timeline
-:+rot2d  | fn obj time --
+:+move  | fn obj time --
 	'tiempo 'tims p!+ >r
 	0 r!+ 1000 *. 1.0 swap /. r!+
-	20 +	| rota
-	dup r!+
+	20 + dup r!+
 	@ swap over - r!+	| dB
 	r> ! ;				| A
-
-:+scale  | fn obj time --
-	'tiempo 'tims p!+ >r
-	0 r!+ 1000 *. 1.0 swap /. r!+
-	24 +	| escala
-	dup r!+
-	@ swap over - r!+	| dB
-	r> ! ;				| A
-
-:+move2d | x y obj time --
-	'tiempo2 'tims p!+ >r
-	0 r!+ 1000 *. 1.0 swap /. r!+
-	dup r!+
-|	@ swap over - r!+ r!+ | dB A
-
-	;
 
 
 |----------------------------------
@@ -216,20 +302,38 @@ Bou_In Bou_Out Bou_InOut
 	rand 1.0 mod rand 1.0 mod
     randobj
 	randtime
-	+move2d ;
+	+move2d
+	;
 
 :scat
 	rand 0.8 mod 1.0 +
 	randobj
 	randtime
-	+scale ;
+	+move
+
+|	+scale
+	;
 
 :rot2
 	rand 2.0 mod
 	randobj
 	randtime
-	+rot2d ;
+	+rot2d
+	;
 
+#modo 0
+Quad_In	Quad_Out Quad_InOut
+Cub_In Cub_Out Cub_InOut
+Quar_In Quar_Out Quar_InOut
+Quin_In	Quin_Out Quin_InOut
+Sin_In Sin_Out Sin_InOut
+Exp_In Exp_Out Exp_InOut
+Cir_In Cir_Out Cir_InOut
+Ela_In Ela_Out Ela_InOut
+Bac_In Bac_Out Bac_InOut
+Bou_In Bou_Out Bou_InOut
+
+#emodo 18
 
 :main
 	33
@@ -240,12 +344,17 @@ Bou_In Bou_Out Bou_InOut
 		DUMPS cr
 |		'objs p.cnt "%d" print cr
 
+|		emodo dup "%d:" print cr
+|		2 << 'modo + @ drawtween cr
+|       [ 1 'emodo +! ; ] <up>
+|        [ -1 'emodo +! ; ] <dn>
+
 		escena
 		'sord <f1>
 
-		'movt <f2>
+|		'movt <f2>
 		'scat <f3>
-		'rot2 <f4>
+|		'rot2 <f4>
 
 |		[ rand 0.8 mod 1.0 + randobj 1.0 'dec1 scale ; ] <f5>
 		'exit >esc<
