@@ -1,0 +1,192 @@
+| edit bones
+| PHREDA 2017
+|----------------
+^r4/lib/gui.txt
+^r4/lib/3dmat.txt
+
+^r4/lib/trace.txt
+
+#model
+#model>
+
+#chsum
+
+#xcam 0 #ycam 0 #zcam 50.0
+#xr 0 #yr 0
+
+:model.reset
+	0.0 0.0 0.0 0.0 1	| root node
+	model !+ !+ !+ !+
+	dup 'model> !
+	0 swap ! ;
+
+|------------------------------------------
+:dumpmod | adr
+	( @+ 1? )(
+		"%h " print
+		@+ "%f " print
+		@+ "%f " print
+		@+ "%f " print
+		cr allowchome
+		) 2drop
+	;
+
+:3dop project3d op ;
+:3dline project3d line ;
+
+:drawboxz | z --
+	-0.5 -0.5 pick2 3dop
+	0.5 -0.5 pick2 3dline
+	0.5 0.5 pick2 3dline
+	-0.5 0.5 pick2 3dline
+	-0.5 -0.5 rot 3dline ;
+
+:drawlinez | x1 x2 --
+	2dup -0.5 3dop 0.5 3dline ;
+
+#boneslevel )( 256
+#cachepoint )( 1024
+#cachepoint> 'cachepoint
+
+:drawstick | level
+	dup 5 << 'boneslevel + >r
+	0 0 0 project3d
+	2dup verde 2 box
+	2dup op
+	swap
+	2dup cachepoint> !+ !+ 'cachepoint> !
+	r!+ r!+ rdrop
+	dup 2 <? ( drop ; )
+	1- 5 << 'boneslevel + >r
+	r@+ r@+ azul line
+	rdrop
+	;
+
+:onpoint | x y -- p
+	xymouse rot -
+	abs 3 >? ( 3drop 0 ; ) drop
+	- abs 3 >? ( drop 0 ; ) drop
+	1 ;
+
+:onpoints | -- nodo+1
+	'cachepoint
+	( cachepoint> <? )(
+		@+ swap @+ rot swap
+		onpoint 1? ( drop 'cachepoint - 3 >>  ; ) drop
+		) drop 0 ;
+
+:drawcube |
+	verde
+	-0.5 drawboxz
+	0.5 drawboxz
+	-0.5 -0.5 drawlinez
+	0.5 -0.5 drawlinez
+	0.5 0.5 drawlinez
+	-0.5 0.5 drawlinez ;
+
+:drawbones | bones --
+	>r
+	0 ( r@+ 1? )( dup $ff and
+		rot over - 1+ clamp0 | anterior-actual+1
+		nmpop
+		mpush
+		r@+ r@+ r@+ mtransi
+		drawstick  |drawcube
+		) drop
+	rdrop
+	nmpop
+	;
+
+:drawbones0 | bones --
+	'cachepoint 'cachepoint> !
+	>r
+	0 ( r@+ 1? )( $ff and
+		swap over - 1+ clamp0 nmpop
+		mpush
+		r@+ r@+ r@+ mtransi
+		drawstick |drawcube
+		) drop
+	rdrop
+	nmpop
+	;
+
+#nodob
+
+:addnodemove
+	nodob 0? ( drop ; )
+	1- 3 << 'cachepoint + >r
+	r@+ r@+ op
+	xymouse line
+	rdrop ;
+
+:hacelugar | nro --
+    model> model - 4 >>
+    16 'model> +!
+    >=? ( ; )
+    dup 4 << model + | src
+    dup 16 + swap 	| dst src
+    model> over - 2 >>
+    move>
+	;
+
+#xd #yd
+:addnodeup
+	nodob 0? ( drop ; )
+	xymouse zcam invproject3d 'yd ! 'xd !
+	hacelugar
+	1- 4 << model + dup 16 + >r
+	@+ 1+ r!+
+	@+ xd swap - r!+
+	@+ yd swap - r!+
+	@ 0 + r> !
+	0 model> !
+	;
+
+:editaddnode
+	[ onpoints 'nodob ! ; ]
+	'addnodemove
+	'addnodeup
+	guiMap
+	;
+
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:3dscreen
+	omode
+|	freelook
+	xcam ycam zcam mtrans
+
+|	model drawbones
+	model drawbones0
+	editaddnode
+	;
+
+#smem
+
+
+:main
+	33
+	show clrscr
+		dup "%d" print cr
+        nodob "%d" print cr
+
+		model dumpmod cr
+		3dscreen
+
+		'exit >esc<
+		cminiflecha ;
+
+:ini
+	mark
+	here dup 'model !
+	$fff + 'here !
+	model.reset
+	;
+
+: ini main ;
