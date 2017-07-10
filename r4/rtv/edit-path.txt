@@ -38,7 +38,14 @@
 	guiDraw
 	dibujotrazo ;
 
+:puntoapunto
+	dibujotrazo
+	[ xymouse line  ; ]
+	[ xymouse xy>d ++trazo ; ]
+	guiDraw
+	;
 
+|----- animadores
 #deltat
 #prevt
 
@@ -82,6 +89,9 @@
 	swap r> *. +
 	nip + ;
 
+#x2 #y2
+#x3 #y3
+#x4 #y4
 :catrom | -- x y
 	trazo> 'trazo - 2 >> 1-		| cnt
 	dup tn mt *. *				| cnt f
@@ -90,20 +100,12 @@
 	dup 1- r max		| f i i-1
 	swap dup 1+ r min	| f i-1 i i+1
 	dup 1+ r> min		| f i-1 i i+1 i+2
-	
-|	i-1
-|	i
-|	i+1
-|	i+2
-	catmullRom >r
-	catmullRom
-
-	rot over 1+ min				| f i i+1%cnt
-	]tra swap ]tra swap
-	pick2 pick2 d>y pick2 d>y llerp >r
-	swap d>x swap d>x llerp r>
+	]tra d>xy 'y4 ! 'x4 !
+	]tra d>xy 'y3 ! 'x3 !
+	]tra d>xy 'y2 ! 'x2 !
+	]tra d>xy rot swap y2 y3 y4 pick4 catmullRom >r
+	x2 x3 rot x4 swap catmullRom r>
 	;
-
 
 
 :drawsp
@@ -111,7 +113,7 @@
 	64 qdim
 	'svg6 vesprite ;
 
-:followpath
+:followpathl
 	0 'tn !
 	1.0 tl 1000 *. /. 'mt !
 	itime
@@ -128,6 +130,23 @@
 		'exit >esc<
 		cminiflecha ;
 
+:followpathc
+	0 'tn !
+	1.0 tl 1000 *. /. 'mt !
+	itime
+	show clrscr
+		|--- vista
+		verde
+		dtime
+		deltat 'tn +!
+		tn "%d " print
+		tn mt *.
+		1.0 >? ( 0 'tn ! )
+		"%f " print
+		catrom drawsp
+		'exit >esc<
+		cminiflecha ;
+
 :edpath  | --
 	-trazo
 	33
@@ -135,8 +154,11 @@
 		|--- vista
 		verde
 		dup "%d " print
-		dibujando
-		'followpath <f1>
+|		dibujando
+		puntoapunto
+
+		'followpathl <f2>
+		'followpathc <f3>
 		'exit >esc<
 		cminiflecha ;
 
