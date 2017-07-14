@@ -156,9 +156,43 @@
 	guiMap
 	;
 
-|--------------------- compile 
+:movenodemove
+	nodob 0? ( drop ; )
+	dup 4 << model + >r
+    xymouse zcam invproject3d 'yd ! 'xd !
+   	1- 3 << 'cachereal +
+   	4+ r r+
+	@+ xd swap - r!+
+	@ yd swap - r> !
+	;
+
+:editamovenode
+	[ onpoints 'nodob ! ; ]
+	'movenodemove
+	[ ; ]
+	guiMap
+	;
+
+|--------------------- compile
 | largo|nivel rxyz
 | 24|8 10|10|10
+
+:drawskin | level --
+	dup 5 << 'boneslevel + >r
+	0 0 0 project3d
+	2dup
+	pick4 1 =? ( amarillo )( verde ) drop
+	2 fbox
+	2dup op
+	swap
+	2dup cachepoint> !+ !+ 'cachepoint> !
+	r!+ r!+ rdrop
+	dup 2 <? ( drop ; )
+	1- 5 << 'boneslevel + >r
+	r@+ r@+ gris line
+	rdrop
+	;
+
 :drawbbones | adr --
 	>r
 	0 ( r@+ 1? )( dup $ff and	| nivel largo nnivel
@@ -167,21 +201,49 @@
 		mpush
 		r@+ mrotzi
 		swap 8 >> 0 0 mtransi
-		drawstick  |drawcube
+		drawskin
 		) drop
 	rdrop
 	nmpop
 	;
 
+#bbonetest
+$0000101 $0
+$2101002 0.2
+$2101002 0.4
+0
+)( $fff
+
+#dx #dy
+
+:convert2bb | bones --
+	16 + >r
+|	'bbonetest
+	( r@+ 1? )(
+		$ff and
+		r@+ 'dx ! dup *.
+		r@+ 'dy ! dup *.
+		r@+ dup *.
+		sqrt.
+		8 << or
+		"%h " print
+|		swap !+
+		dx dy atan2
+		"%f " print cr
+|		swap !+
+		) drop
+|		swap !
+	rdrop ;
 
 |---------------------
-
 :freelook
 	xymouse
 	sh 2/ - 7 << swap
 	sw 2/ - neg 7 << swap
 	neg mrotx
 	mroty ;
+
+#modonode	'editaddnode
 
 :3dscreen
 	omode
@@ -190,16 +252,11 @@
 
 |	model drawbones
 	model drawbones0
-	editaddnode
+	modonode exec
 	;
 
 #smem
 
-#BBONESTEST
-$0000101 $0
-$2101002 0.2
-$2101002 0.4
-0
 
 :main
 	33
@@ -210,7 +267,12 @@ $2101002 0.4
 		model dumpmod cr
 		3dscreen
 
-		'bbonestest drawbbones
+        model convert2bb
+|		'bbonetest drawbbones
+
+		[ 'editaddnode 'modonode ! ; ] <f1>
+		[ 'editamovenode 'modonode ! ; ] <f2>
+		[ model convert2bb ; ] <f3>
 		'exit >esc<
 		cminiflecha ;
 
