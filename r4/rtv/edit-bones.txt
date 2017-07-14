@@ -45,14 +45,21 @@
 	2dup -0.5 3dop 0.5 3dline ;
 
 #boneslevel )( 256
+#bonesreal	)( 256
+
 #cachepoint )( 1024
 #cachepoint> 'cachepoint
 #cachereal )( 1024
 #cachereal> 'cachereal
 
 :drawstick | level --
-	dup 5 << 'boneslevel + >r
-	0 0 0 transform drop swap cachereal> !+ !+ 'cachereal> !
+
+	dup 3 << 'bonesreal + >r
+	0 0 0 transform drop swap
+	2dup cachereal> !+ !+ 'cachereal> ! |****
+	r!+ r> !
+
+	dup 3 << 'boneslevel + >r
 	0 0 0 project3d
 	2dup
 	pick4 1 =? ( amarillo 3 )( verde 2 ) nip
@@ -62,7 +69,7 @@
 	2dup cachepoint> !+ !+ 'cachepoint> !
 	r!+ r!+ rdrop
 	dup 2 <? ( drop ; )
-	1- 5 << 'boneslevel + >r
+	1- 3 << 'boneslevel + >r
 	r@+ r@+ azul line
 	rdrop
 	;
@@ -116,7 +123,9 @@
 	nmpop
 	;
 
+|------------
 #nodob
+#xd #yd
 
 :addnodemove
 	nodob 0? ( drop ; )
@@ -135,7 +144,8 @@
     move>
 	;
 
-#xd #yd
+
+|------------
 :addnodeup
 	nodob 0? ( drop ; )
 	xymouse zcam invproject3d 'yd ! 'xd !
@@ -156,12 +166,13 @@
 	guiMap
 	;
 
+|------------
 :movenodemove
 	nodob 0? ( drop ; )
-	dup 4 << model + >r
+	1- dup 4 << model + 4+ >r
     xymouse zcam invproject3d 'yd ! 'xd !
+    0? ( drop xd r!+ yd r> ! ; )	| root!
    	1- 3 << 'cachereal +
-   	4+ r r+
 	@+ xd swap - r!+
 	@ yd swap - r> !
 	;
@@ -178,7 +189,7 @@
 | 24|8 10|10|10
 
 :drawskin | level --
-	dup 5 << 'boneslevel + >r
+	dup 3 << 'boneslevel + >r
 	0 0 0 project3d
 	2dup
 	pick4 1 =? ( amarillo )( verde ) drop
@@ -188,7 +199,7 @@
 	2dup cachepoint> !+ !+ 'cachepoint> !
 	r!+ r!+ rdrop
 	dup 2 <? ( drop ; )
-	1- 5 << 'boneslevel + >r
+	1- 3 << 'boneslevel + >r
 	r@+ r@+ gris line
 	rdrop
 	;
@@ -200,39 +211,32 @@
 		nmpop
 		mpush
 		r@+ mrotzi
-		swap 8 >> 0 0 mtransi
+		swap 8 >> 0 swap 0 mtransi
 		drawskin
 		) drop
 	rdrop
 	nmpop
 	;
 
-#bbonetest
-$0000101 $0
-$2101002 0.2
-$2101002 0.4
-0
-)( $fff
+#bbonetest )( $fff
 
 #dx #dy
 
 :convert2bb | bones --
 	16 + >r
-|	'bbonetest
+	'bbonetest
+	0 $1 rot !+ !+	| root
 	( r@+ 1? )(
 		$ff and
-		r@+ 'dx ! dup *.
-		r@+ 'dy ! dup *.
-		r@+ dup *.
+		r@+ dup 'dx ! dup *.
+		r@+ dup 'dy ! dup *. +
+		r@+ dup *. +
 		sqrt.
 		8 << or
-		"%h " print
-|		swap !+
+		swap !+
 		dx dy atan2
-		"%f " print cr
-|		swap !+
-		) drop
-|		swap !
+		swap !+
+		) swap !
 	rdrop ;
 
 |---------------------
@@ -251,8 +255,13 @@ $2101002 0.4
 	xcam ycam zcam mtrans
 
 |	model drawbones
+
 	model drawbones0
 	modonode exec
+
+	model convert2bb
+	'bbonetest drawbbones
+
 	;
 
 #smem
@@ -266,9 +275,6 @@ $2101002 0.4
 
 		model dumpmod cr
 		3dscreen
-
-        model convert2bb
-|		'bbonetest drawbbones
 
 		[ 'editaddnode 'modonode ! ; ] <f1>
 		[ 'editamovenode 'modonode ! ; ] <f2>
