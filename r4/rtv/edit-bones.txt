@@ -44,34 +44,46 @@
 :drawlinez | x1 x2 --
 	2dup -0.5 3dop 0.5 3dline ;
 
-#boneslevel )( 256
-#bonesreal	)( 256
-
+| coord in screen
 #cachepoint )( 1024
 #cachepoint> 'cachepoint
+
 #cachereal )( 1024
 #cachereal> 'cachereal
 
+#boneslevel )( 256
+
+:xy>xxyy | xy -- x y
+	dup 16 << 16 >> swap 16 >> ;
+
+:xxyy>xy | x y -- xy
+	16 << swap 16 >> $ffff and or ;
+
+:,cachepoint | x y -- nro
+	xxyy>xy 
+	cachepoint> !+ 'cachepoint> !
+	cachepoint> 'cachepoint - 4 - ;
+
 :drawstick | level --
 
-	dup 3 << 'bonesreal + >r
+	1 =? ( amarillo )( verde )
 	0 0 0 transform drop swap
-	2dup cachereal> !+ !+ 'cachereal> ! |****
-	r!+ r> !
+	cachereal> !+ !+ 'cachereal> ! |****
 
-	dup 3 << 'boneslevel + >r
 	0 0 0 project3d
+
 	2dup
 	pick4 1 =? ( amarillo 3 )( verde 2 ) nip
-	box
+	3 box
+
 	2dup op
-	swap
-	2dup cachepoint> !+ !+ 'cachepoint> !
-	r!+ r!+ rdrop
+	swap ,cachepoint
+	dup 2 << 'boneslevel + !
+
 	dup 2 <? ( drop ; )
-	1- 3 << 'boneslevel + >r
-	r@+ r@+ azul line
-	rdrop
+	1- 2 << 'boneslevel + @
+	'cachepoint + @ xy>xxyy 
+	azul line
 	;
 
 :onpoint | x y -- p
@@ -169,10 +181,13 @@
 |------------
 :movenodemove
 	nodob 0? ( drop ; )
-	1- dup 4 << model + 4+ >r
+	1- 4 << model + >r
     xymouse zcam invproject3d 'yd ! 'xd !
-    0? ( drop xd r!+ yd r> ! ; )	| root!
-   	1- 3 << 'cachereal +
+    0? ( drop 4 r+ xd r!+ yd r> ! ; )	| root!
+
+	r@+ $ff and
+   	2 - 1 << 'bonesreal +
+
 	@+ xd swap - r!+
 	@ yd swap - r> !
 	;
