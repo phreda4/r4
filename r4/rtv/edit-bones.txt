@@ -15,7 +15,7 @@
 #xr 0 #yr 0
 
 :model.reset
-	0.0 0.0 0.0 0.0 1	| root node
+	0.0 0.0 0.0 1	| root node
 	model !+ !+ !+ !+
 	dup 'model> !
 	0 swap ! ;
@@ -59,44 +59,30 @@
 :xxyy>xy | x y -- xy
 	16 << swap 16 >> $ffff and or ;
 
-:,cachepoint | x y -- nro
-	xxyy>xy 
-	cachepoint> !+ 'cachepoint> !
-	cachepoint> 'cachepoint - 4 - ;
-
 :drawstick | level --
-
 	1 =? ( amarillo )( verde )
 	0 0 0 transform drop swap
 	cachereal> !+ !+ 'cachereal> ! |****
-
 	0 0 0 project3d
-
-	2dup
-	pick4 1 =? ( amarillo 3 )( verde 2 ) nip
-	3 box
-
+	2dup 2 box
 	2dup op
-	swap ,cachepoint
-	dup 2 << 'boneslevel + !
-
-	dup 2 <? ( drop ; )
-	1- 2 << 'boneslevel + @
-	'cachepoint + @ xy>xxyy 
+	xxyy>xy over 2 << 'boneslevel + !
+	2 <? ( ; )
+	dup 1- 2 << 'boneslevel + @ xy>xxyy
 	azul line
 	;
 
 :onpoint | x y -- p
-	xymouse rot -
-	abs 3 >? ( 3drop 0 ; ) drop
+	xymouse rot
+	- abs 3 >? ( 3drop 0 ; ) drop
 	- abs 3 >? ( drop 0 ; ) drop
 	1 ;
 
 :onpoints | -- nodo+1
 	'cachepoint
 	( cachepoint> <? )(
-		@+ swap @+ rot swap
-		onpoint 1? ( drop 'cachepoint - 3 >>  ; ) drop
+		@+ xy>xxyy
+		onpoint 1? ( drop 'cachepoint - 2 >> ; ) drop
 		) drop 0 ;
 
 :drawcube |
@@ -109,19 +95,6 @@
 	-0.5 0.5 drawlinez ;
 
 :drawbones | bones --
-	>r
-	0 ( r@+ 1? )( dup $ff and
-		rot over - 1+ clamp0 | anterior-actual+1
-		nmpop
-		mpush
-		r@+ r@+ r@+ mtransi
-		drawstick  |drawcube
-		) drop
-	rdrop
-	nmpop
-	;
-
-:drawbones0 | bones --
 	'cachepoint 'cachepoint> !
 	'cachereal 'cachereal> !
 	>r
@@ -129,7 +102,8 @@
 		swap over - 1+ clamp0 nmpop
 		mpush
 		r@+ r@+ r@+ mtransi
-		drawstick |drawcube
+		drawstick |
+		|drawcube
 		) drop
 	rdrop
 	nmpop
@@ -141,8 +115,8 @@
 
 :addnodemove
 	nodob 0? ( drop ; )
-	1- 3 << 'cachepoint + >r
-	r@+ r@+ op
+	1- 2 << 'cachepoint + @
+	xy>xxyy op
 	xymouse line
 	rdrop ;
 
@@ -178,16 +152,22 @@
 	guiMap
 	;
 
+:searchfather | adr nivel -- father
+	swap ( @+ $ff and pick2 >=? )( drop 12 + )
+	drop
+	model - 4 >>
+	3 << 'cachereal +
+	;
+
 |------------
 :movenodemove
 	nodob 0? ( drop ; )
-	1- 4 << model + >r
     xymouse zcam invproject3d 'yd ! 'xd !
-    0? ( drop 4 r+ xd r!+ yd r> ! ; )	| root!
-
-	r@+ $ff and
-   	2 - 1 << 'bonesreal +
-
+	1- dup 4 << model + >r
+    0? ( drop yd xd r> 4+ !+ ! ; )	| root!
+    1- 4 << model +
+    r@+ $ff and
+	searchfather
 	@+ xd swap - r!+
 	@ yd swap - r> !
 	;
@@ -262,20 +242,18 @@
 	neg mrotx
 	mroty ;
 
-#modonode	'editaddnode
+#modonode 'editaddnode
 
 :3dscreen
 	omode
 |	freelook
 	xcam ycam zcam mtrans
 
-|	model drawbones
+	model drawbones
+|	modonode exec
 
-	model drawbones0
-	modonode exec
-
-	model convert2bb
-	'bbonetest drawbbones
+|	model convert2bb
+|	'bbonetest drawbbones
 
 	;
 
@@ -295,6 +273,7 @@
 		[ 'editamovenode 'modonode ! ; ] <f2>
 		[ model convert2bb ; ] <f3>
 		'exit >esc<
+
 		cminiflecha ;
 
 :ini
