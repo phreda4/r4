@@ -9,10 +9,15 @@
 #model
 #model>
 
-#chsum
+#bbonetest )( $fff
 
 #xcam 0 #ycam 0 #zcam 50.0
+
 #xr 0 #yr 0
+
+#nodob
+#xd #yd
+
 
 :model.reset
 	0.0 0.0 0.0 1	| root node
@@ -21,16 +26,24 @@
 	0 swap ! ;
 
 |------------------------------------------
-:dumpmod | adr
+:dumpmod | adr --
 	( @+ 1? )(
 		"%h " print
 		@+ "%f " print
 		@+ "%f " print
 		@+ "%f " print
 		cr allowchome
-		) 2drop
-	;
+		) 2drop ;
 
+:dumpbbc | adr --
+	( @+ 1? )(
+		"%h " print
+		@+ "%f " print
+		cr allowchome
+		) 2drop ;
+
+
+|------------------------------------------
 :3dop project3d op ;
 :3dline project3d line ;
 
@@ -57,20 +70,21 @@
 	dup 16 << 16 >> swap 16 >> ;
 
 :xxyy>xy | x y -- xy
-	16 << swap 16 >> $ffff and or ;
+	16 << swap $ffff and or ;
 
 :drawstick | level --
-	1 =? ( amarillo )( verde )
+	1 =? ( rojo )( naranja )
 	0 0 0 transform drop swap
-	cachereal> !+ !+ 'cachereal> ! |****
+	cachereal> !+ !+ 'cachereal> !
 	0 0 0 project3d
-	2dup 2 box
+	2dup 3 fbox
 	2dup op
-	xxyy>xy over 2 << 'boneslevel + !
+	xxyy>xy dup
+	cachepoint> !+ 'cachepoint> !
+	over 2 << 'boneslevel + !
 	2 <? ( ; )
 	dup 1- 2 << 'boneslevel + @ xy>xxyy
-	azul line
-	;
+	verde line ;
 
 :onpoint | x y -- p
 	xymouse rot
@@ -102,16 +116,13 @@
 		swap over - 1+ clamp0 nmpop
 		mpush
 		r@+ r@+ r@+ mtransi
-		drawstick |
-		|drawcube
+		drawstick |drawcube
 		) drop
 	rdrop
 	nmpop
 	;
 
 |------------
-#nodob
-#xd #yd
 
 :addnodemove
 	nodob 0? ( drop ; )
@@ -134,7 +145,7 @@
 |------------
 :addnodeup
 	nodob 0? ( drop ; )
-	xymouse zcam invproject3d 'yd ! 'xd !
+	 xymouse zcam invproject3d 'yd ! 'xd !
 	hacelugar
 	dup 4 << model + >r
 	1- 3 << 'cachereal +
@@ -146,20 +157,29 @@
 	;
 
 :editaddnode
+	gris "* CREATE NODE " fillp
+	blink 1? ( rojo )( blanco ) drop
+	print cr
+
+	verde model dumpmod cr
+	azul 'bbonetest dumpbbc cr
+
 	[ onpoints 'nodob ! ; ]
 	'addnodemove
 	'addnodeup
 	guiMap
 	;
 
+|------------
 :searchfather | adr nivel -- father
-	swap ( @+ $ff and pick2 >=? )( drop 12 + )
+	swap ( @+ $ff and pick2 >=? )( drop 20 - )
 	drop
 	model - 4 >>
 	3 << 'cachereal +
+	nip
 	;
 
-|------------
+
 :movenodemove
 	nodob 0? ( drop ; )
     xymouse zcam invproject3d 'yd ! 'xd !
@@ -173,6 +193,14 @@
 	;
 
 :editamovenode
+	gris
+	"* MOVE NODE " fillp
+	blink 1? ( verde )( blanco ) drop
+	print cr
+
+	verde model dumpmod cr
+	azul 'bbonetest dumpbbc cr
+
 	[ onpoints 'nodob ! ; ]
 	'movenodemove
 	[ ; ]
@@ -195,7 +223,7 @@
 	r!+ r!+ rdrop
 	dup 2 <? ( drop ; )
 	1- 3 << 'boneslevel + >r
-	r@+ r@+ gris line
+	r@+ r@+ azul line
 	rdrop
 	;
 
@@ -213,23 +241,25 @@
 	nmpop
 	;
 
-#bbonetest )( $fff
-
 #dx #dy
 
 :convert2bb | bones --
 	16 + >r
 	'bbonetest
 	0 $1 rot !+ !+	| root
+	0 'boneslevel 4+ !
 	( r@+ 1? )(
 		$ff and
 		r@+ dup 'dx ! dup *.
 		r@+ dup 'dy ! dup *. +
 		r@+ dup *. +
-		sqrt.
-		8 << or
+		sqrt. 8 <<
+		over >r
+		or
 		swap !+
 		dx dy atan2
+		dup r 2 << 'boneslevel + !
+		r> 1- 2 << 'boneslevel + @ -
 		swap !+
 		) swap !
 	rdrop ;
@@ -242,36 +272,34 @@
 	neg mrotx
 	mroty ;
 
-#modonode 'editaddnode
-
 :3dscreen
+	|--- grafic
 	omode
 |	freelook
 	xcam ycam zcam mtrans
-
 	model drawbones
-|	modonode exec
 
-|	model convert2bb
-|	'bbonetest drawbbones
-
+	|---- debug
+    24.0 0 0 mtransi
+	model convert2bb
+	'bbonetest drawbbones
 	;
 
-#smem
 
+#modonode 'editaddnode
 
 :main
 	33
 	show clrscr
-		dup "%d" print cr
-        nodob "%d" print cr
+|		dup "%d" print cr
+       	modonode exec
 
-		model dumpmod cr
 		3dscreen
 
 		[ 'editaddnode 'modonode ! ; ] <f1>
 		[ 'editamovenode 'modonode ! ; ] <f2>
 		[ model convert2bb ; ] <f3>
+
 		'exit >esc<
 
 		cminiflecha ;
