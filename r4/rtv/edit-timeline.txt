@@ -2,11 +2,20 @@
 | 2017 PHREDA
 |-----------------------------------------
 ^r4/lib/gui.txt
-
 ^r4/lib/dlgfile.txt
 ^r4/lib/dlgcol.txt
+^r4/lib/vesprite.txt
+
+^r4/rtv/testskin.vsp
 
 ^r4/lib/trace.txt
+
+#bon1
+#bon2
+
+#xcam 0 #ycam 0 #zcam 50.0
+
+#xr 0 #yr 0
 
 #time>
 
@@ -15,6 +24,7 @@
 #timeline>
 #timeobjs
 #timeobjs>
+
 
 #fx 0 0		| fx
 #objs 0 0	| objetos
@@ -109,6 +119,39 @@ Bou_In Bou_Out Bou_InOut
 
 	;
 
+|--- bones
+:loadbon | filename -- mem
+	here dup rot
+	load 0 swap !+ 'here !
+	|... fix
+	dup
+	( @+ 1? )( drop
+		'vsbone over 8 + ! | adr of vesprite is incorrect!
+		12 + ) 2drop
+	|...
+	;
+
+:bbone | largo lev ves tipo -- largo xx
+	0? ( 2drop ; ) drop	| sin dibujo
+	mpush
+	1.0 pick3 7 >> 1.0 mscalei
+	3dvesprite
+	mpop
+  	;
+
+:drawbbones | adr --
+	>r
+	0 ( r@+ 1? )( dup $ff and	| nivel largo nnivel
+		rot over - 1+ clamp0 | anterior-actual+1
+		nmpop
+		mpush
+		r@+ mrotzi
+		r@+ r@+ swap bbone
+		swap 8 >> 0 swap 0 mtransi
+		) drop
+	rdrop
+	nmpop
+	;
 
 |---Objs
 | sprite
@@ -136,6 +179,25 @@ Bou_In Bou_Out Bou_InOut
 |	tx1 ty1 tx2 ty1 16 + caja
 	;
 
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+:3dscreen
+	omode
+|	freelook
+	xcam ycam zcam mtrans
+
+    -12.0 0 0 mtransi
+	bon1 drawbbones
+
+    24.0 0 0 mtransi
+	bon2 drawbbones
+	;
+
 :main
 	4
 	show fonti clrscr
@@ -146,6 +208,8 @@ Bou_In Bou_Out Bou_InOut
 		"F3+Tex" print sp
 		"F4+Fig" print sp
 		cr
+
+		3dscreen
 
         sh 200 - 'ty1 !
 		drawtimeline
@@ -160,6 +224,8 @@ Bou_In Bou_Out Bou_InOut
 	dup 'timeline ! $ffff +
 	dup 'timeobjs ! $ffff +
 	'here !
+	"media/bon/test1.bon" loadbon 'bon1 !
+	"media/bon/person.bon" loadbon 'bon2 !
 	;
 
 : ini main ;
