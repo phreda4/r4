@@ -67,9 +67,7 @@ This version is a bytecode interpreter for WINE, WINCE and ANDROID platform.
 # More info
 
 e-mail: pabloreda@gmail.com
-
 download: https://drive.google.com/open?id=0Bz3UnwydnNGhQmlOSGRwaXJmX3c&authuser=0
-
+twitch: https://www.twitch.tv/phreda4
 videos: http://www.youtube.com/user/pablohreda
-
 group: http://groups.google.com/group/reda4
