@@ -1,4 +1,4 @@
-# :r4
+# :r4 
 Computer Programming Language based on ColorForth ideas
 
 Start in 2005 when I study Forth.
@@ -66,9 +66,10 @@ This version is a bytecode interpreter for WINE, WINCE and ANDROID platform.
 
 # More info
 
-* e-mail: pabloreda@gmail.com
-* group: http://groups.google.com/group/reda4
-* twitch: https://www.twitch.tv/phreda4
-* youtube: http://www.youtube.com/user/pablohreda
-* tools for compile r4VM (devcpp+fmod): https://drive.google.com/drive/folders/0Bz3UnwydnNGhRl9RSElYbkZhUU0
-* some versions and test: https://drive.google.com/open?id=0Bz3UnwydnNGhQmlOSGRwaXJmX3c
+e-mail: pabloreda@gmail.com
+
+download: https://drive.google.com/open?id=0Bz3UnwydnNGhQmlOSGRwaXJmX3c&authuser=0
+tool for compile r4VM: https://drive.google.com/drive/folders/0Bz3UnwydnNGhRl9RSElYbkZhUU0
+videos: http://www.youtube.com/user/pablohreda
+
+group: http://groups.google.com/group/reda4
