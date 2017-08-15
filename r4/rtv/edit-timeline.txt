@@ -125,6 +125,35 @@ Bac_In Bac_Out Bac_InOut
 Bou_In Bou_Out Bou_InOut
 0
 
+#cadaobj 0
+#cadapos
+
+:pickbox
+	cadapos
+	-0.5 -0.5 0	project3d
+	xy>d swap !+
+	0.5 0.5 0 project3d
+	xy>d swap !+
+	'cadapos !
+	;
+
+:inipick
+	'pickbox 'cadaobj !
+	here 'cadapos !
+	;
+
+:inp | xy xy -- 1/0
+	d>xy | xmax ymax xmin ymin
+	rot d>xy
+	caja
+	;
+
+:onobjs	| -- onobj
+	cadapos >r
+	'objs p.cnt ( 1? )( 1-
+		r@+ r@+ inp 1? ( drop p.cnt swap - rdrop ; )( drop )
+		) rdrop ;
+
 | x y z rx ry rz scale dibujo
 :drawsprite | adr --adr
 	>r
@@ -135,6 +164,7 @@ Bou_In Bou_Out Bou_InOut
 	r@+ 1? ( mrotzi )( drop )
 	r@+ 1? ( dup dup mscalei )( drop )
 	r> @ 3dvesprite
+	cadaobj 1? ( exec )( drop )
 	mpop ;
 
 :drawtext | adr --adr
@@ -149,6 +179,7 @@ Bou_In Bou_Out Bou_InOut
 	r> @ str.
 	boxplacec
 	swap 24 >> $ff and boxprint
+	cadaobj 1? ( exec )( drop )
 	mpop ;
 
 :play
@@ -235,6 +266,7 @@ Bou_In Bou_Out Bou_InOut
 	;
 
 :addspr
+
 	;
 
 | objeto texto
@@ -265,7 +297,7 @@ Bou_In Bou_Out Bou_InOut
 	time.next
 	'tims p.draw
 	omode
-	freelook
+|	freelook
 	xcam ycam zcam mtrans
 	'objs p.draw
 	;
@@ -291,7 +323,7 @@ Bou_In Bou_Out Bou_InOut
 	'svg6
 	rand 0.5 mod 1.8 +
 
-	randrot
+	randrotz
 	randxyz
 	objs! ;
 
@@ -302,11 +334,23 @@ Bou_In Bou_Out Bou_InOut
 	$7 24 <<			| font
 	rand 1.0 mod 3.0 + or	| size
 
-	randrot
+	randrotz
 	randxyz
 	text! ;
 
 |---------------------------
+#cursorobj
+
+:moveobj
+	;
+
+:modotraslate
+	[ onobjs 'cursorobj ! ; ]
+	'moveobj
+	[ ; ]
+	guiMap
+	;
+
 :main
 	4
 	show fonti clrscr
@@ -318,18 +362,26 @@ Bou_In Bou_Out Bou_InOut
 		"F4+Fig" print sp
 		cr
 
+        inipick
+
 		3dscreen
+
+        modotraslate
 
         sh 200 - 'ty1 !
 		drawtimeline
 
         'play <f1>
-|        'addspr <f2>
+
+|       'addspr <f2>
+        'rand+obj <f2>
+
 |        'addtex <f3>
+        'rand+txt <f3>
+
 |        'addfig <f4>
 
-        'rand+obj <f2>
-        'rand+txt <f3>
+
 
 		'exit >esc<
 		cminiflecha ;
