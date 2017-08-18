@@ -139,8 +139,6 @@ Bou_In Bou_Out Bou_InOut
 		r@+ r@+ inp 1? ( drop 'objs p.cnt swap - rdrop ; )( drop )
 		) rdrop ;
 
-:2sort over <? ( swap ) ;
-
 :generatebox
 	dup 4+ >r
 	mpush
@@ -151,13 +149,12 @@ Bou_In Bou_Out Bou_InOut
 	r@+ 1? ( dup dup mscalei )( drop )
 	rdrop
 
-	-1.0 -1.0 0	project3d
-	1.0 1.0 0 project3d
-	| x y x y
-	rot 2sort >r >r 2sort r>
-	xy>d cadapos !+
-	swap r> xy>d swap !+
-	'cadapos !
+    cadapos >r
+	-1.0 -1.0 0	project3d xy>d r!+
+	-1.0 1.0 0	project3d xy>d r!+
+	1.0 1.0 0 project3d xy>d r!+
+	1.0 -1.0 0	project3d xy>d r!+
+	r> 'cadapos !
 
 	mpop ;
 
@@ -168,13 +165,40 @@ Bou_In Bou_Out Bou_InOut
 	'generatebox 'objs p.mapv
 	;
 
+|------------ point in cuad
+#xt #yt
+#inside
+
+|...x2-x1 * y-y1 - y2-y1 * x-x1
+:cross | x1 y1 x2 y2 -- x2 y2 cr
+	2swap 						| x2 y2 x1 y1
+	pick3 pick2 - yt pick2 - *	| x2 y2 x1 y1 A
+	pick3 rot - rot neg xt + * - ;
+
+:top | x y z --
+	0 'inside ! transform p3d 2dup
+	;
+
+:tline | x y z -- 1..fail
+	transform p3d
+	cross 0? ( ; )
+	inside 0? ( swap 'inside ! ; )
+	xor $80000000 and ;
+
+:tinside | -- 1..fail
+	2swap
+	cross nip nip 0? ( ; )
+	inside xor $80000000 and ;
+
+
 :drawpick
 	verde
 	here >r
 	'objs p.cnt ( 1? )( 1-
-		r@+ d>xy
-		r@+	d>xy
-		caja
+		r@+ d>xy 2dup op
+		r@+	d>xy line
+		r@+	d>xy line
+		r@+	d>xy line line
 		) drop rdrop ;
 
 |--------------------------
