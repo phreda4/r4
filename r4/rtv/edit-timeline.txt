@@ -125,22 +125,7 @@ Bac_In Bac_Out Bac_InOut
 Bou_In Bou_Out Bou_InOut
 0
 
-#cadaobj 0
 #cadapos
-
-:pickbox
-	cadapos
-	-0.5 -0.5 0	project3d
-	xy>d swap !+
-	0.5 0.5 0 project3d
-	xy>d swap !+
-	'cadapos !
-	;
-
-:inipick
-	'pickbox 'cadaobj !
-	here 'cadapos !
-	;
 
 :inp | xy xy -- 1/0
 	d>xy | xmax ymax xmin ymin
@@ -151,11 +136,50 @@ Bou_In Bou_Out Bou_InOut
 :onobjs	| -- onobj
 	cadapos >r
 	'objs p.cnt ( 1? )( 1-
-		r@+ r@+ inp 1? ( drop p.cnt swap - rdrop ; )( drop )
+		r@+ r@+ inp 1? ( drop 'objs p.cnt swap - rdrop ; )( drop )
 		) rdrop ;
 
+:2sort over <? ( swap ) ;
+
+:generatebox
+	dup 4+ >r
+	mpush
+	r@+ r@+ r@+ mtransi
+	r@+ 1? ( mrotxi )( drop )
+	r@+ 1? ( mrotyi )( drop )
+	r@+ 1? ( mrotzi )( drop )
+	r@+ 1? ( dup dup mscalei )( drop )
+	rdrop
+
+	-1.0 -1.0 0	project3d
+	1.0 1.0 0 project3d
+	| x y x y
+	rot 2sort >r >r 2sort r>
+	xy>d cadapos !+
+	swap r> xy>d swap !+
+	'cadapos !
+
+	mpop ;
+
+:generatepick
+	omode
+	xcam ycam zcam mtrans
+	here 'cadapos !
+	'generatebox 'objs p.mapv
+	;
+
+:drawpick
+	verde
+	here >r
+	'objs p.cnt ( 1? )( 1-
+		r@+ d>xy
+		r@+	d>xy
+		caja
+		) drop rdrop ;
+
+|--------------------------
 | x y z rx ry rz scale dibujo
-:drawsprite | adr --adr
+:drawsprite | adr -- adr
 	>r
 	mpush
 	r@+ r@+ r@+ mtransi
@@ -164,10 +188,9 @@ Bou_In Bou_Out Bou_InOut
 	r@+ 1? ( mrotzi )( drop )
 	r@+ 1? ( dup dup mscalei )( drop )
 	r> @ 3dvesprite
-	cadaobj 1? ( exec )( drop )
 	mpop ;
 
-:drawtext | adr --adr
+:drawtext | adr -- adr
 	>r
 	mpush
 	r@+ r@+ r@+ mtransi
@@ -179,8 +202,8 @@ Bou_In Bou_Out Bou_InOut
 	r> @ str.
 	boxplacec
 	swap 24 >> $ff and boxprint
-	cadaobj 1? ( exec )( drop )
 	mpop ;
+
 
 :play
 	time.ini
@@ -300,6 +323,8 @@ Bou_In Bou_Out Bou_InOut
 |	freelook
 	xcam ycam zcam mtrans
 	'objs p.draw
+
+    drawpick
 	;
 :a
     -12.0 0 0 mtransi
@@ -325,7 +350,8 @@ Bou_In Bou_Out Bou_InOut
 
 	randrotz
 	randxyz
-	objs! ;
+	objs! 
+	generatepick ;
 
 :rand+txt
 	"Hola_a_todos"	| texto
@@ -336,7 +362,8 @@ Bou_In Bou_Out Bou_InOut
 
 	randrotz
 	randxyz
-	text! ;
+	text! 
+	generatepick ;
 
 |---------------------------
 #cursorobj
@@ -362,11 +389,7 @@ Bou_In Bou_Out Bou_InOut
 		"F4+Fig" print sp
 		cr
 
-        inipick
-
 		3dscreen
-
-        modotraslate
 
         sh 200 - 'ty1 !
 		drawtimeline
@@ -380,8 +403,6 @@ Bou_In Bou_Out Bou_InOut
         'rand+txt <f3>
 
 |        'addfig <f4>
-
-
 
 		'exit >esc<
 		cminiflecha ;
