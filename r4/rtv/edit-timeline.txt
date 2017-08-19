@@ -127,18 +127,6 @@ Bou_In Bou_Out Bou_InOut
 
 #cadapos
 
-:inp | xy xy -- 1/0
-	d>xy | xmax ymax xmin ymin
-	rot d>xy
-	caja
-	;
-
-:onobjs	| -- onobj
-	cadapos >r
-	'objs p.cnt ( 1? )( 1-
-		r@+ r@+ inp 1? ( drop 'objs p.cnt swap - rdrop ; )( drop )
-		) rdrop ;
-
 :generatebox
 	dup 4+ >r
 	mpush
@@ -175,21 +163,34 @@ Bou_In Bou_Out Bou_InOut
 	pick3 pick2 - yt pick2 - *	| x2 y2 x1 y1 A
 	pick3 rot - rot neg xt + * - ;
 
-:top | x y z --
-	0 'inside ! transform p3d 2dup
-	;
+:top | x y -- x y x y
+	0 'inside ! 2dup ;
 
-:tline | x y z -- 1..fail
-	transform p3d
+:tline | x y x y -- x y 1..fail
 	cross 0? ( ; )
 	inside 0? ( swap 'inside ! ; )
 	xor $80000000 and ;
 
-:tinside | -- 1..fail
-	2swap
-	cross nip nip 0? ( ; )
+:tinside | x y x y -- 1..fail
+	2swap cross nip nip 0? ( ; )
 	inside xor $80000000 and ;
 
+
+:searchin | adr -- 1
+	>r
+	r@+ d>xy top
+	r@+ d>xy tline drop
+	r@+ d>xy tline 1? ( rdrop nip nip nip nip ; ) drop
+	r> @ d>xy tline 1? ( nip nip nip nip ; ) drop
+	tinside
+	;
+
+:pickobj
+	xymouse 'yt ! 'xt !
+	here >r
+	'objs p.cnt ( 1? )(
+		r searchin 0? ( drop rdrop 'objs p.cnt swap - ; )
+		drop 16 r+ 1- ) drop rdrop -1 ;
 
 :drawpick
 	verde
@@ -332,31 +333,6 @@ Bou_In Bou_Out Bou_InOut
 |	tx1 ty1 tx2 ty1 16 + caja
 	;
 
-:freelook
-	xymouse
-	sh 2/ - 7 << swap
-	sw 2/ - neg 7 << swap
-	neg mrotx
-	mroty ;
-
-
-:3dscreen
-	time.next
-	'tims p.draw
-	omode
-|	freelook
-	xcam ycam zcam mtrans
-	'objs p.draw
-
-    drawpick
-	;
-:a
-    -12.0 0 0 mtransi
-	bon1 drawbbones
-
-    24.0 0 0 mtransi
-	bon2 drawbbones
-	;
 
 |---------------------------
 :randrotz	rand 0 0 ;
@@ -374,7 +350,7 @@ Bou_In Bou_Out Bou_InOut
 
 	randrotz
 	randxyz
-	objs! 
+	objs!
 	generatepick ;
 
 :rand+txt
@@ -386,20 +362,67 @@ Bou_In Bou_Out Bou_InOut
 
 	randrotz
 	randxyz
-	text! 
+	text!
 	generatepick ;
 
 |---------------------------
-#cursorobj
+#cursorobj -1
+#xa #ya
 
-:moveobj
+:dnobj
+	pickobj 'cursorobj !
+    xymouse 'ya ! 'xa !
 	;
 
-:modotraslate
-	[ onobjs 'cursorobj ! ; ]
-	'moveobj
-	[ ; ]
-	guiMap
+:moveobj
+	cursorobj -? ( drop ; )
+	6 << 'objs 4+ @ + >r
+	xymouse
+	dup ya - swap 'ya ! swap
+	dup xa - swap 'xa ! swap
+	0 invproject3d
+	4 r+ r +!
+	4 r+ r +!
+	rdrop
+	;
+
+:drawcursor
+	cursorobj -? ( drop ; )
+	verde
+	4 << here + >r
+	r@+ d>xy 2dup op
+	r@+	d>xy line
+	r@+	d>xy line
+	r@+	d>xy line line
+	rdrop ;
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+
+:3dscreen
+	time.next
+	'tims p.draw
+
+	omode
+|	freelook
+	xcam ycam zcam mtrans
+
+	drawcursor
+	'dnobj 'moveobj [ ; ] guiMap
+
+	'objs p.draw
+	;
+:a
+    -12.0 0 0 mtransi
+	bon1 drawbbones
+
+    24.0 0 0 mtransi
+	bon2 drawbbones
 	;
 
 :main
@@ -412,6 +435,7 @@ Bou_In Bou_Out Bou_InOut
 		"F3+Tex" print sp
 		"F4+Fig" print sp
 		cr
+		cursorobj "%d" print
 
 		3dscreen
 
@@ -419,15 +443,11 @@ Bou_In Bou_Out Bou_InOut
 		drawtimeline
 
         'play <f1>
-
 |       'addspr <f2>
         'rand+obj <f2>
-
 |        'addtex <f3>
         'rand+txt <f3>
-
 |        'addfig <f4>
-
 		'exit >esc<
 		cminiflecha ;
 
