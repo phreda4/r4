@@ -1,0 +1,58 @@
+| read voxie files
+| PHREDA 2017
+|-----------------
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+#xsize #ysize #zsize
+#data
+#paleta
+
+::loadvxi | "fn" --
+	here dup rot load 'here !
+	@+ 'xsize ! @+ 'ysize ! @+ 'zsize !
+	12 + | xyz offset
+	dup 'data !
+	xsize ysize * zsize * +
+	'paleta !
+	;
+
+:bswap
+	dup 16 >> $ff and
+	over 16 << $ff0000 and
+	or swap $ff00 and or ;
+
+:getpal dup 2* + paleta + @ bswap ;
+
+::mapvxi32 | 'vector --
+	>r data >r
+	xsize ( 1? )(
+		ysize ( 1? )(
+			zsize ( 1? )(
+				r> c@+
+				$ff and $ff <>? ( getpal pick4 pick4 pick4 r exec )( drop )
+				>r 1- ) drop
+			1- ) drop
+		1- ) drop
+	rdrop rdrop ;
+
+::mapvox8 | 'vector --
+	>r data >r
+	xsize ( 1? )(
+		ysize ( 1? )(
+			zsize ( 1? )(
+				r> c@+
+				$ff and $ff <>? ( pick4 pick4 pick4 r exec )( drop )
+				>r 1- ) drop
+			1- ) drop
+		1- ) drop
+	rdrop rdrop ;
+
+:apow
+	0 swap ( 1? )( 2/ swap 1+ swap ) drop 1- ;
+
+::vxiqsize | -- qsize
+	zsize ysize max xsize max
+	1 ( 1024 <? )(
+		over >=? ( nip apow ; )
+		2* ) nip apow ;
