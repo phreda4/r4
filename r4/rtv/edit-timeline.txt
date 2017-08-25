@@ -7,6 +7,7 @@
 ^r4/lib/btn.txt
 
 ^r4/lib/input.txt
+^r4/lib/win.txt
 ^r4/lib/dlgfile.txt
 ^r4/lib/dlgcol.txt
 ^r4/lib/vesprite.txt
@@ -25,7 +26,7 @@
 #xr 0 #yr 0
 
 #time>
-#ltime 2
+#ltime 0
 
 |--- frameini-frameend-obj-type
 #timeline
@@ -235,19 +236,6 @@ Bou_In Bou_Out Bou_InOut
 	mpop ;
 
 
-:play
-	time.ini
-	show60 clrscr
-		time.next
-		'tims p.draw
-
-		omode
-	|	freelook
-		xcam ycam zcam mtrans
-		'objs p.draw
-
-		'exit >esc<
-	;
 
 |--- bones
 :loadbon | filename -- mem
@@ -376,20 +364,15 @@ Bou_In Bou_Out Bou_InOut
 
 |---------------------------
 #cursorobj -1
-#xa #ya
 
 :dnobj
 	pickobj 'cursorobj !
-    xymouse 0 project3d 'ya ! 'xa !
 	;
 
 :moveobj
 	cursorobj -? ( drop ; )
 	6 << 'objs 4+ @ + >r
 	xymouse zcam invproject3d
-|	dup ya - swap 'ya ! swap
-|	dup xa - swap 'xa ! swap
-|	0 invproject3d
 	swap
 	4 r+ r !
 	4 r+ r !
@@ -398,6 +381,7 @@ Bou_In Bou_Out Bou_InOut
 	;
 
 :drawcursor
+	'dnobj 'moveobj [ ; ] guiMap
 	cursorobj -? ( drop ; )
 	verde
 	4 << here + >r
@@ -424,7 +408,7 @@ Bou_In Bou_Out Bou_InOut
 	xcam ycam zcam mtrans
 
 	drawcursor
-	'dnobj 'moveobj [ ; ] guiMap
+
 
 	'objs p.draw
 	;
@@ -436,10 +420,131 @@ Bou_In Bou_Out Bou_InOut
 	bon2 drawbbones
 	;
 
+
+:afirs
+	0 'time> ! ;
+:aprev
+	time> 1- 0 max 'time> ! ;
+:anext
+	time> 1+ ltime >? ( dup 'ltime ! ) 'time> ! ;
+:alast
+	ltime 'time> ! ;
+
+:aplay
+	time.ini
+	show60 clrscr
+		time.next
+		'tims p.draw
+
+		omode
+	|	freelook
+		xcam ycam zcam mtrans
+		'objs p.draw
+
+		'exit >esc<
+	;
+
+#icopl 16 14
+%0000000000000000
+%0000000000000000
+%0000000000011000
+%0000000001111000
+%0000000111111000
+%0000011111111000
+%0001111111111000
+%0001111111111000
+%0000011111111000
+%0000000111111000
+%0000000001111000
+%0000000000011000
+%0000000000000000
+%0000000000000000
+
+#icone 16 14
+%0000000000000000
+%0000000000000000
+%0000001100001100
+%0000011100011100
+%0000111100111100
+%0001111101111100
+%0011111111111100
+%0011111111111100
+%0001111101111100
+%0000111100111100
+%0000011100011100
+%0000001100001100
+%0000000000000000
+%0000000000000000
+
+#icola 16 14
+%0000000000000000
+%0000000000000000
+%0011000000001100
+%0011000000111100
+%0011000011111100
+%0011001111111100
+%0011111111111100
+%0011111111111100
+%0011001111111100
+%0011000011111100
+%0011000000111100
+%0011000000001100
+%0000000000000000
+%0000000000000000
+
+#icopr 16 14
+%0000000000000000
+%0000000000000000
+%0011000011000000
+%0011100011100000
+%0011110011110000
+%0011111011111000
+%0011111111111100
+%0011111111111100
+%0011111011111000
+%0011110011110000
+%0011100011100000
+%0011000011000000
+%0000000000000000
+%0000000000000000
+
+#icofi 16 14
+%0000000000000000
+%0000000000000000
+%0011000000001100
+%0011110000001100
+%0011111100001100
+%0011111111001100
+%0011111111111100
+%0011111111111100
+%0011111111001100
+%0011111100001100
+%0011110000001100
+%0011000000001100
+%0000000000000000
+%0000000000000000
+
+:dlgPlay
+	sp
+	cyan
+	'afirs 'icofi ilink
+	'aprev 'icopr ilink
+	verde
+	ltime time> " %d/%d " print
+	'aplay 'icopl ilink
+	cyan
+	'anext 'icone ilink
+	'alast 'icola ilink
+	;
+
+#winPlay 0 0 16 180 50 "PlayTool"
+
+
 |#modx
 
 :objwin
 	cursorobj -? ( drop ; )
+	verde
 	6 << 'objs 4+ @ +
 	4+ >r
 |	"x:" print 'modx 8 4 inputreal cr
@@ -453,43 +558,24 @@ Bou_In Bou_Out Bou_InOut
 	r@+ "s:%f " print cr
 	rdrop ;
 
-:afirs
-	0 'time> ! ;
-:aprev
-	time> 1- 0 max 'time> ! ;
-:aplay ;
-:anext
-	time> 1+ ltime min 'time> ! ;
-:alast
-	ltime 'time> ! ;
-
-:playtool
-	verde
-	'afirs "|<" link
-	'aprev "<<" link
-	time> " %d " print
-	'aplay ">" link
-	'anext ">>" link
-	'alast ">|" link
-	;
-
 :main
 	4
 	show fonti clrscr
+		3dscreen
+
+		home
 		gris 1 linesfill
 		blanco dup ":r%d EditTimeline " print
-		verde "F1 Play" print sp
+		verde
 		"F2+Spr" print sp
 		"F3+Tex" print sp
 		"F4+Fig" print sp
-		playtool
+		azul 'dlgplay 'winplay guiWin | play
+
 		cr
 		objwin
 
-		3dscreen
 
-
-        'play <f1>
 |       'addspr <f2>
         'rand+obj <f2>
 |        'addtex <f3>
