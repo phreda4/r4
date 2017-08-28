@@ -1,0 +1,290 @@
+| Editor de includes en vsprite
+| PHREDA 2010
+|--------------------------------------------------
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/input.txt
+^r4/lib/trace.txt
+
+#nombre )( 256
+
+#orden 0
+#nroico 0
+#nomico )( 32
+
+#actual
+#cntvar
+#indexn )( 3200 | 100 nombres de 32
+#index )( 400
+
+|------------------------------
+#icohw $f0f
+#icomem $f55f $abde $beef )( 256
+
+:pl	
+	ink@
+	dup px!+ dup px!+ dup px!+ dup px!+ dup px!+ dup px!+ dup px!+ px!+
+	sw 8 - px+! ;
+:px8
+	pl pl pl pl pl pl pl pl
+	sw 3 << neg 8 + px+! ;
+:px+
+	8 px+! ;
+:pxline
+	3 << sw 3 << swap - px+! ;
+
+::drawzico
+	>r r@+ dup $ff and swap 8 >> $ff and
+	( 1? )( r@+
+		pick2 ( 1? )( 1- swap
+			1 and? ( px8 )( px+ )
+			2/ swap ) 2drop
+		over pxline
+		1- ) 2drop
+	rdrop ;
+
+:invp
+	xymouse 32 - 3 >>
+	2 << 'icomem + >r
+	10 - 3 >>
+	1 swap <<
+	r @ xor r> !
+	;
+:editico
+	show clrscr	fonti
+		verde oscuro 2 linesfill blanco cr2
+		verde dup " :R%d " print
+		blanco "iCO " print
+		verde
+		icohw $ff and "%d " print
+		[ icohw dup $ff and 1+ 32 min swap $ff00 and or 'icohw ! ; ] " + " link
+		[ icohw dup $ff and 1- 0 max swap $ff00 and or 'icohw ! ; ] " - " link
+		icohw 8 >> $ff and " x %d " print
+		[ icohw dup $ff00 and $100 + $2000 min swap $ff and or 'icohw ! ; ] " + " link
+		[ icohw dup $ff00 and $100 - 0 max swap $ff and or 'icohw ! ; ] " - " link
+
+		gris
+		10 32
+		icohw $ff and 3 << pick2 +
+		icohw 8 >> $ff and 3 << pick2 +
+		gcxyxy
+		8 dup 'w +! 'h +! gc.fbox
+
+		32 3 << 20 + 32
+		over icohw $ff and +
+		over icohw 8 >> $ff and +
+		gcxyxy
+		2 dup 'w +! 'h +! gc.fbox
+
+		blanco
+		32 3 << 20 + 'ccx ! 32 'ccy !
+		'icohw drawico
+
+		10 32 32 3 << pick2 + 32 3 << pick2 + gcxyxy
+		'invp guiBtn
+		10 32 setxy
+		'icohw drawzico
+
+		'exit >esc<
+		cminiflecha ;
+
+|--- parse
+:getnro | txt -- txt' 0 / nro
+	( dup c@ 33 <? )( 0? ( ; ) drop 1+ ) drop
+	dup ?numero 0? ( ; )
+	drop rot drop ;
+
+:cpynom | adr en -- adr''
+	swap ( c@+ $ff and 32 >? )(
+		rot c!+ swap )
+	drop 0 rot c! ;
+
+:getsize@ 8 >> $ff and ;
+
+:cadadibujo | adr $23 -- adr'
+	drop c@+ $3a <>? ( drop ; ) drop | #:
+	cntvar 5 << 'indexn + cpynom
+	here cntvar 2 << 'index + !
+	getnro dup , getsize@
+	( 1? )( swap getnro , swap 1- ) drop
+	1 'cntvar +!
+	;
+
+:parsefile | "" --
+	here dup rot load 0 swap !+ 'here !
+	0 'cntvar !
+	( c@+ 1? )(
+		$23 =? ( cadadibujo dup )
+		drop
+		) 2drop
+	;
+
+|--- write
+:,codigo | adr --
+	0 swap
+	( @+ 1? )(
+		" $%h" ,print
+		swap 1+ 16 >? ( 0 nip ,nl ) swap
+		) 3drop
+	" 0" ,s ,nl ;
+
+:writefile | "" --
+	mark
+	"| ICO file" ,s ,nl
+	0 ( cntvar <? )(
+		'indexn over 5 << + "#:%s" ,print ,nl
+		dup 2 << 'index + @ ,codigo
+		1+ ) drop
+	savemem
+	empty ;
+
+
+|--------------------------------------------------
+:editdib
+	1 'orden !
+	actual 'nroico !
+	actual 5 << 'indexn + 'nomico strcpy
+
+|	'orden 40 "mem/inc-icoo.mem" save
+|	mark
+|	actual 2 << 'index + @
+|	( @+ 1? )( , ) , drop
+|	"mem/notepad.ico" savemem
+|	empty
+|	"r4/system/edit-ves.txt" run
+	;
+
+:newdib
+	1 'orden !
+	cntvar dup 'nroico !
+	"new%d" mprint 'nomico strcpy
+
+|	'orden 40 "mem/inc-icoo.mem" save
+|	mark
+|	0 ,
+|	"mem/notepad.ico" savemem
+|	empty
+|	"r4/system/edit-ves.txt" run
+	;
+
+:copydib
+	here cntvar 2 << 'index + !
+	actual 2 << 'index + @
+	( @+ 1? )( , ) , drop
+	cntvar "new%d" mprint cntvar 5 << 'indexn + strcpy
+	1 'cntvar +!
+	'nombre writefile
+	;
+
+:deldib
+	cntvar 0? ( drop ; ) drop
+	actual 2 << 'index +
+	actual 1+ 2 << 'index +
+	cntvar actual - 1+ move
+
+	actual 5 << 'indexn +
+	actual 1+ 5 << 'indexn +
+	cntvar actual - 5 << cmove
+
+	-1 'cntvar +!
+	actual 1? ( -1 'actual +! ) drop
+	'nombre writefile
+	;
+
+:import
+	1 'orden !
+	cntvar dup 'nroico !
+	"svg%d" mprint 'nomico strcpy
+
+|	'orden 40 "mem/inc-icoo.mem" save
+|	mark
+|	"mem/notepad.ico" savemem
+|	empty
+|	"r4/system/svg-spr.txt" run
+	;
+
+#namedraw 0
+
+:editname
+	namedraw 0? ( drop ; )
+	24 input
+	[ 0 'namedraw ! 'nombre writefile ; ] lostfoco
+	;
+
+:rendib
+	actual 5 << 'indexn + 'namedraw ! ;
+
+
+:insertamodificado
+	'orden "mem/inc-icoo.mem" load drop
+	orden 1- 1? ( drop ; ) drop
+
+	here
+	dup nroico 2 << 'index + !
+	"mem/notepad.ico" load 0 swap !+ 'here !
+	'nomico nroico 5 << 'indexn + strcpy
+
+	nroico cntvar =? ( 1 'cntvar +! ) 'actual !
+	'nombre writefile
+
+	0 'orden !
+	'orden 4 "mem/inc-ico.mem" save
+	;
+
+|----------------------------
+:actual! | nro
+	-? ( 0 nip )
+	cntvar >=? ( cntvar 1- nip )
+	'actual !
+	refreshfoco ;
+
+:cadadib | n n -- n n
+	actual =? ( blanco )( gris )
+	[ dup actual! ; ]
+	over 5 << 'indexn + sp link sp
+	dup 2 << 'index + @ 1? ( drawico )( drop )
+	sp
+	cr cr
+	;
+
+:tabladib
+	cr chome!
+	0 ( cntvar <? )( cadadib 1+ ) drop ;
+
+:main
+	'nombre "mem/inc-ico.mem" load drop
+	'nombre parsefile
+	insertamodificado
+	show clrscr
+		fonti
+		verde oscuro 3 linesfill blanco
+		verde dup " :R%d" print
+		blanco "eDIT iCO" print
+		'nombre "%s " printr
+		cr
+		rojo
+		sp 'exit dup >esc< "esc-Exit" link
+		sp verde
+		sp 'newdib dup <f1> "f1-New" link
+		sp 'editdib dup <f2> "f2-Edit" link
+		sp 'copydib dup <f3> "f3-Copy" link
+		sp 'deldib dup <f4> "f4-Del" link
+		sp 'rendib dup <f5> "f5-Rename" link
+		sp 'import dup <f6> "f6-IMG" link
+        sp editname
+		cr
+		cr
+	| acciones
+
+		[ actual 1+ actual! ; ] <ri>
+		[ actual 1- actual! ; ] <le>
+		tabladib
+
+		cmano ;
+
+|--------------------------------------------------
+:	4 0 paper
+	mark
+	main
+	;
+
