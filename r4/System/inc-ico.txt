@@ -19,9 +19,9 @@
 
 |------------------------------
 #icohw $f0f
-#icomem $f55f $abde $beef )( 256
+#icomem )( 256
 
-:pl	
+:pl
 	ink@
 	dup px!+ dup px!+ dup px!+ dup px!+ dup px!+ dup px!+ dup px!+ px!+
 	sw 8 - px+! ;
@@ -44,49 +44,37 @@
 	rdrop ;
 
 :invp
-	xymouse 32 - 3 >>
+	xymouse 48 - 3 >>
 	2 << 'icomem + >r
 	10 - 3 >>
 	1 swap <<
 	r @ xor r> !
 	;
+
 :editico
-	show clrscr	fonti
-		verde oscuro 2 linesfill blanco cr2
-		verde dup " :R%d " print
-		blanco "iCO " print
-		verde
-		icohw $ff and "%d " print
-		[ icohw dup $ff and 1+ 32 min swap $ff00 and or 'icohw ! ; ] " + " link
-		[ icohw dup $ff and 1- 0 max swap $ff00 and or 'icohw ! ; ] " - " link
-		icohw 8 >> $ff and " x %d " print
-		[ icohw dup $ff00 and $100 + $2000 min swap $ff and or 'icohw ! ; ] " + " link
-		[ icohw dup $ff00 and $100 - 0 max swap $ff and or 'icohw ! ; ] " - " link
+	verde
+	2 26 gotoxy
+	[ icohw dup $ff and 1- 0 max swap $ff00 and or 'icohw ! ; ] " - " btnt sp
+	icohw $ff and "w:%d" print
+	[ icohw dup $ff and 1+ 32 min swap $ff00 and or 'icohw ! ; ] " + " sp btnt
 
-		gris
-		10 32
-		icohw $ff and 3 << pick2 +
-		icohw 8 >> $ff and 3 << pick2 +
-		gcxyxy
-		8 dup 'w +! 'h +! gc.fbox
+	2 28 gotoxy
+	[ icohw dup $ff00 and $100 - 0 max swap $ff and or 'icohw ! ; ] " - " btnt sp
+	icohw 8 >> $ff and "h:%d" print
+	[ icohw dup $ff00 and $100 + $2000 min swap $ff and or 'icohw ! ; ] " + " sp btnt
 
-		32 3 << 20 + 32
-		over icohw $ff and +
-		over icohw 8 >> $ff and +
-		gcxyxy
-		2 dup 'w +! 'h +! gc.fbox
+	gris
+	10 48
+	icohw $ff and 3 << pick2 +
+	icohw 8 >> $ff and 3 << pick2 +
+	gcxyxy gc.fbox
 
-		blanco
-		32 3 << 20 + 'ccx ! 32 'ccy !
-		'icohw drawico
+	blanco
+	'invp guiBtn
+	10 48 setxy
+	'icohw drawzico
+	;
 
-		10 32 32 3 << pick2 + 32 3 << pick2 + gcxyxy
-		'invp guiBtn
-		10 32 setxy
-		'icohw drawzico
-
-		'exit >esc<
-		cminiflecha ;
 
 |--- parse
 :getnro | txt -- txt' 0 / nro
@@ -117,6 +105,15 @@
 		$23 =? ( cadadibujo dup )
 		drop
 		) 2drop
+	;
+
+:copyico | adr --
+	'icohw >r
+	@+ dup r!+
+	getsize@
+	( 1? )( swap @+ r!+ swap 1- )
+	2drop
+	rdrop
 	;
 
 |--- write
@@ -235,26 +232,29 @@
 :actual! | nro
 	-? ( 0 nip )
 	cntvar >=? ( cntvar 1- nip )
-	'actual !
+	dup 'actual !
+	2 << 'index + @ copyico
 	refreshfoco ;
 
 :cadadib | n n -- n n
-	actual =? ( blanco )( gris )
+	actual =? ( verde )( negro )
 	[ dup actual! ; ]
-	over 5 << 'indexn + sp link sp
+	over 5 << 'indexn + " %s " mprint link
+	blanco
 	dup 2 << 'index + @ 1? ( drawico )( drop )
 	sp
 	cr cr
 	;
 
 :tabladib
-	cr chome!
+	36 4 gotoxy chome!
 	0 ( cntvar <? )( cadadib 1+ ) drop ;
 
 :main
 	'nombre "mem/inc-ico.mem" load drop
 	'nombre parsefile
 	insertamodificado
+	actual 2 << 'index + @ copyico
 	show clrscr
 		fonti
 		verde oscuro 3 linesfill blanco
@@ -276,11 +276,13 @@
 		cr
 	| acciones
 
-		[ actual 1+ actual! ; ] <ri>
-		[ actual 1- actual! ; ] <le>
+		[ actual 1+ actual! ; ] <dn>
+		[ actual 1- actual! ; ] <up>
+		scr
+        editico
 		tabladib
 
-		cmano ;
+		cminiflecha ;
 
 |--------------------------------------------------
 :	4 0 paper
