@@ -4,6 +4,8 @@
 ^r4/lib/gui.txt
 ^r4/lib/btn.txt
 ^r4/lib/input.txt
+^r4/lib/trazo.txt
+
 ^r4/lib/trace.txt
 
 #nombre )( 256
@@ -15,7 +17,7 @@
 #actual
 #cntvar
 #indexn )( 3200 | 100 nombres de 32
-#index )( 400
+#index )( $ffff
 
 |------------------------------
 #icohw $f0f
@@ -43,13 +45,26 @@
 		1- ) 2drop
 	rdrop ;
 
-:invp
-	xymouse 48 - 3 >>
+:invp | x y --
 	2 << 'icomem + >r
-	10 - 3 >>
 	1 swap <<
 	r @ xor r> !
 	;
+
+#xa #ya
+:dn
+	xymouse 'ya ! 'xa ! ;
+:mv
+	xa ya xymouse op line ;
+:up
+	'invp vop!
+	xymouse 48 - 3 >>
+	swap 10 - 3 >> swap
+	vop
+	xa 10 - 3 >>
+	ya 48 - 3 >>
+	vline! ;
+
 
 :editico
 	verde
@@ -70,7 +85,7 @@
 	gcxyxy gc.fbox
 
 	blanco
-	'invp guiBtn
+	'dn 'mv 'up guiMap
 	10 48 setxy
 	'icohw drawzico
 	;
@@ -92,19 +107,18 @@
 :cadadibujo | adr $23 -- adr'
 	drop c@+ $3a <>? ( drop ; ) drop | #:
 	cntvar 5 << 'indexn + cpynom
-	here cntvar 2 << 'index + !
-	getnro dup , getsize@
-	( 1? )( swap getnro , swap 1- ) drop
-	1 'cntvar +!
-	;
+	cntvar 8 << 'index + >r
+	getnro dup r!+ getsize@
+	( 1? )( swap getnro r!+ swap 1- ) drop
+	rdrop
+	1 'cntvar +! ;
 
 :parsefile | "" --
 	here dup rot load 0 swap !+ 'here !
 	0 'cntvar !
 	( c@+ 1? )(
 		$23 =? ( cadadibujo dup )
-		drop
-		) 2drop
+		drop ) 2drop
 	;
 
 :copyico | adr --
@@ -130,7 +144,7 @@
 	"| ICO file" ,s ,nl
 	0 ( cntvar <? )(
 		'indexn over 5 << + "#:%s" ,print ,nl
-		dup 2 << 'index + @ ,codigo
+		dup 8 << 'index + ,codigo
 		1+ ) drop
 	savemem
 	empty ;
@@ -212,28 +226,12 @@
 	actual 5 << 'indexn + 'namedraw ! ;
 
 
-:insertamodificado
-	'orden "mem/inc-icoo.mem" load drop
-	orden 1- 1? ( drop ; ) drop
-
-	here
-	dup nroico 2 << 'index + !
-	"mem/notepad.ico" load 0 swap !+ 'here !
-	'nomico nroico 5 << 'indexn + strcpy
-
-	nroico cntvar =? ( 1 'cntvar +! ) 'actual !
-	'nombre writefile
-
-	0 'orden !
-	'orden 4 "mem/inc-ico.mem" save
-	;
-
 |----------------------------
 :actual! | nro
 	-? ( 0 nip )
 	cntvar >=? ( cntvar 1- nip )
 	dup 'actual !
-	2 << 'index + @ copyico
+	8 << 'index + copyico
 	refreshfoco ;
 
 :cadadib | n n -- n n
@@ -241,7 +239,7 @@
 	[ dup actual! ; ]
 	over 5 << 'indexn + " %s " mprint link
 	blanco
-	dup 2 << 'index + @ 1? ( drawico )( drop )
+	dup 8 << 'index + drawico 
 	sp
 	cr cr
 	;
@@ -253,8 +251,7 @@
 :main
 	'nombre "mem/inc-ico.mem" load drop
 	'nombre parsefile
-	insertamodificado
-	actual 2 << 'index + @ copyico
+	actual 8 << 'index + copyico
 	show clrscr
 		fonti
 		verde oscuro 3 linesfill blanco
@@ -288,5 +285,6 @@
 :	4 0 paper
 	mark
 	main
+|	saveinc
 	;
 
