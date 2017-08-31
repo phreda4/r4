@@ -65,7 +65,6 @@
 	ya 48 - 3 >>
 	vline! ;
 
-
 :editico
 	verde
 	2 26 gotoxy
@@ -130,6 +129,20 @@
 	rdrop
 	;
 
+:icocopy | adr --
+	>r
+	'icohw @+ dup r!+
+	getsize@
+	( 1? )( swap @+ r!+ swap 1- )
+	2drop rdrop
+	;
+
+:actual! | nro --
+	actual 8 << 'index + icocopy
+	dup 'actual !
+	8 << 'index + copyico
+	refreshfoco ;
+
 |--- write
 :,codigo | adr --
 	0 swap
@@ -151,55 +164,38 @@
 
 
 |--------------------------------------------------
-:editdib
-	1 'orden !
-	actual 'nroico !
-	actual 5 << 'indexn + 'nomico strcpy
-
-|	'orden 40 "mem/inc-icoo.mem" save
-|	mark
-|	actual 2 << 'index + @
-|	( @+ 1? )( , ) , drop
-|	"mem/notepad.ico" savemem
-|	empty
-|	"r4/system/edit-ves.txt" run
-	;
-
 :newdib
-	1 'orden !
-	cntvar dup 'nroico !
-	"new%d" mprint 'nomico strcpy
-
-|	'orden 40 "mem/inc-icoo.mem" save
-|	mark
-|	0 ,
-|	"mem/notepad.ico" savemem
-|	empty
-|	"r4/system/edit-ves.txt" run
+	cntvar "new%d" mprint
+	cntvar 5 << 'indexn + strcpy
+	cntvar 8 << 'index + >r
+	$f0f r!+
+	16 ( 1? )( 1- 0 r!+ ) drop rdrop
+	1 'cntvar +!
+	cntvar 1- actual!
 	;
 
 :copydib
-	here cntvar 2 << 'index + !
-	actual 2 << 'index + @
-	( @+ 1? )( , ) , drop
-	cntvar "new%d" mprint cntvar 5 << 'indexn + strcpy
+	cntvar "new%d" mprint
+	cntvar 5 << 'indexn + strcpy
+	cntvar 8 << 'index + >r
+	actual 8 << 'index + @+ r!+
+	32 ( 1? )( 1- swap @+ r!+ swap ) 2drop rdrop
 	1 'cntvar +!
-	'nombre writefile
+	cntvar 1- actual!
 	;
 
 :deldib
 	cntvar 0? ( drop ; ) drop
-	actual 2 << 'index +
-	actual 1+ 2 << 'index +
-	cntvar actual - 1+ move
+	actual 8 << 'index +
+	actual 1+ 8 << 'index +
+	cntvar actual - 8 << 1+ move
 
 	actual 5 << 'indexn +
 	actual 1+ 5 << 'indexn +
 	cntvar actual - 5 << cmove
 
 	-1 'cntvar +!
-	actual 1? ( -1 'actual +! ) drop
-	'nombre writefile
+	actual 1? ( -1 'actual +! actual 8 << 'index + copyico ) drop
 	;
 
 :import
@@ -227,19 +223,13 @@
 
 
 |----------------------------
-:actual! | nro
-	-? ( 0 nip )
-	cntvar >=? ( cntvar 1- nip )
-	dup 'actual !
-	8 << 'index + copyico
-	refreshfoco ;
 
 :cadadib | n n -- n n
 	actual =? ( verde )( negro )
 	[ dup actual! ; ]
 	over 5 << 'indexn + " %s " mprint link
 	blanco
-	dup 8 << 'index + drawico 
+	dup 8 << 'index + drawico
 	sp
 	cr cr
 	;
@@ -263,11 +253,10 @@
 		sp 'exit dup >esc< "esc-Exit" link
 		sp verde
 		sp 'newdib dup <f1> "f1-New" link
-		sp 'editdib dup <f2> "f2-Edit" link
-		sp 'copydib dup <f3> "f3-Copy" link
-		sp 'deldib dup <f4> "f4-Del" link
-		sp 'rendib dup <f5> "f5-Rename" link
-		sp 'import dup <f6> "f6-IMG" link
+		sp 'copydib dup <f2> "f2-Copy" link
+		sp 'deldib dup <f3> "f3-Del" link
+		sp 'rendib dup <f4> "f4-Rename" link
+		sp 'import dup <f5> "f5-IMG" link
         sp editname
 		cr
 		cr
@@ -285,6 +274,6 @@
 :	4 0 paper
 	mark
 	main
-|	saveinc
+||	'nombre writefile
 	;
 
