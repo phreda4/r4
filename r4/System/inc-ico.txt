@@ -6,6 +6,12 @@
 ^r4/lib/input.txt
 ^r4/lib/trazo.txt
 
+^r4/lib/img.txt
+^r4/lib/loadjpg.txt
+^r4/lib/loadpng.txt
+^r4/lib/loadbmp.txt
+
+^r4/lib/dlgfile.txt
 ^r4/lib/trace.txt
 
 #nombre )( 256
@@ -145,12 +151,11 @@
 
 |--- write
 :,codigo | adr --
-	0 swap
-	( @+ 1? )(
-		" $%h" ,print
-		swap 1+ 16 >? ( 0 nip ,nl ) swap
-		) 3drop
-	" 0" ,s ,nl ;
+	@+ dup " %h" ,print
+	8 >> $ff and
+	( 1? )( 1- swap
+	   @+ " %h" ,print swap ) 2drop
+	,nl ;
 
 :writefile | "" --
 	mark
@@ -198,17 +203,97 @@
 	actual 1? ( -1 'actual +! actual 8 << 'index + copyico ) drop
 	;
 
-:import
-	1 'orden !
-	cntvar dup 'nroico !
-	"svg%d" mprint 'nomico strcpy
+#imagen
+:loadimg | filename -- img
+	".jpg" =pos 1? ( drop loadjpg ; ) drop
+	".png" =pos 1? ( drop loadpng ; ) drop
+	".bmp" =pos 1? ( drop loadbmp ; )
+	2drop 0 ;
 
-|	'orden 40 "mem/inc-icoo.mem" save
-|	mark
-|	"mem/notepad.ico" savemem
-|	empty
-|	"r4/system/svg-spr.txt" run
+:cargaimg
+	mark
+	"media/bmp" dlgfileload 0? ( drop empty ; )
+	loadimg 0? ( drop empty ; )
+	'imagen !
+	empty
 	;
+
+
+
+#capx 16
+#capy 16
+
+#ox
+#oy
+
+#marca
+
+:marca1
+
+	;
+
+:getpixel
+	2dup setxy
+	px@ 1 and
+	over <<
+	;
+
+:makeico
+	cntvar dup
+	"new%d" mprint
+	swap 5 << 'indexn strcpy
+	cntvar 8 << 'index +
+	>r
+	capy 8 << capx or r!+
+	0 ( capy <? )(
+		0 >r
+		0 ( capx <? )(
+			getpixel r+
+			1+ ) drop
+		r> r!+
+		1+ ) drop
+	rdrop
+	1 'cntvar +!
+	exit ;
+
+:drawimg
+	imagen 0? ( drop ; )
+	0 16 rot img.draw
+
+	'makeico <enter>
+
+	blink 1? ( blanco )( negro ) drop
+	ox oy over capx + over capy +
+	caja
+	;
+
+:import
+	show clrscr
+		fonti
+		verde oscuro 1 linesfill blanco
+		verde dup " :R%d" print
+		blanco "iMPORT iCO " print
+		capy capx "%dx%d " print
+
+		[ xymouse 'oy ! 'ox ! ; ] guiBtn
+
+		azul
+		[ 16 dup 'capx ! 'capy ! ; ] " 16 " link
+		[ 24 dup 'capx ! 'capy ! ; ] " 24 " link
+		[ 32 dup 'capx ! 'capy ! ; ] " 32 " link
+		cyan
+		'cargaimg dup <f1> " Load " link
+		'marca1 dup <f2> " set " link
+		rojo
+		'exit dup >esc< "x" link
+
+        drawimg
+
+		[ -1 'oy +! ; ] <up>
+		[ 1 'oy +! ; ] <dn>
+		[ -1 'ox +! ; ] <le>
+		[ 1 'ox +! ; ] <ri>
+		cminiflecha ;
 
 #namedraw 0
 
