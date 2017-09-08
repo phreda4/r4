@@ -29,6 +29,11 @@
 #time>
 #ltime 0
 
+#timei 0
+#timew 60	| calculado
+#obji 0
+#objw 18    | calculado
+
 
 #fx 0 0		| fx
 #objs 0 0	| objetos
@@ -421,50 +426,20 @@ Bou_In Bou_Out Bou_InOut
 	;
 
 |------------------------------------------
-#timei 0
-#timew 60
-#timecur> 0
-#obji 0
-#objw 15
 
-:drawpoint
-	dup
-	@+
-	timei <? ( 2drop ; ) timei - timew >? ( 2drop ; )
-| "%h " print @ "%h " print cr ; :a
-	swap @
-	obji <? ( 2drop ; ) obji - objw >? ( 2drop ; )
-	30 + gotoxy
-	"*" print
-	;
-
-:drawtimeline
-	0 30 gotoxy "Timeline " print
-	timei "%d " print
-	timew "%d " print
-	obji "%d " print
-	objw "%d " print
-	cr
-	'drawpoint 'timeline p.mapv
-
-	[ timei 1- clamp0 'timei ! ; ] <le>
-	[ 1 'timei +! ; ] <ri>
-	[ obji 1- clamp0 'obji ! ; ] <up>
-	[ 1 'obji +! ; ] <dn>
-	;
-
-#cnttime 0
-:addtime
-	rand 8 >> $f and	| objeto
-|	cnttime				| tiempo
-	rand 9 >> $ff and
+:addkeyframe | obj time --
 	'timeline p!+ ! 	|	!+ >r
-	1 'cnttime +!
-
     0 'timeline p.lastsort
 	;
-|------------------------------------------
 
+:addtime
+	rand 8 >> $f and	| objeto
+	rand 9 >> $ff and
+	'timeline p!+ ! 	|	!+ >r
+    0 'timeline p.lastsort
+	;
+
+|------------------------------------------
 :afirs
 	0 'time> ! ;
 :aprev
@@ -501,11 +476,47 @@ Bou_In Bou_Out Bou_InOut
 	'alast 'icola ibtn
 	;
 
-#winPlay 0 0 16 180 50 "PlayTool"
+#winPlay 0 0 16 180 50 "Play"
 
-|#modx
+|-------------------------------------
+:drawpoint
+	dup
+	@+
+	timei <? ( 2drop ; ) timei - timew >? ( 2drop ; )
+	swap @
+	obji <? ( 2drop ; ) obji - objw >? ( 2drop ; )
+	| x y
+	3 << 32 + ty1 + swap
+	3 << 32 + tx1 + swap
+	3 fbox 
+	;
 
-:objwin
+:dlgTime
+	timei "%d " print
+	timew "%d " print
+	obji "%d " print
+	objw "%d " print
+	cr
+	blanco
+
+ 	time> 3 << 32 + tx1 +  1-
+	ty1 32 +
+	over 2 +
+	ty2 8 - caja
+	negro
+	'drawpoint 'timeline p.mapv
+
+	[ timei 1- clamp0 'timei ! ; ] <le>
+	[ 1 'timei +! ; ] <ri>
+	[ obji 1- clamp0 'obji ! ; ] <up>
+	[ 1 'obji +! ; ] <dn>
+	;
+	;
+
+#winTime 0 0 300 480 200 "Time"
+
+|-------------------------------------
+:dlgobj
 	cursorobj -? ( drop ; )
 	verde
 	6 << 'objs 4+ @ +
@@ -521,7 +532,15 @@ Bou_In Bou_Out Bou_InOut
 	r@+ "s:%f " print cr
 	rdrop ;
 
+#winObj 0 600 16 200 250 "Obj"
+
+|-------------------------------------
 :main
+	sw dup 'wintime 12 + !
+	32 - 3 >> 'timew !
+	sh 204 - 'wintime 8 + !
+
+	sw 204 - 'winobj 4+ !
 	4
 	show fonti clrscr
 		3dscreen
@@ -533,11 +552,11 @@ Bou_In Bou_Out Bou_InOut
 		"F2+Spr" print sp
 		"F3+Tex" print sp
 		"F4+Fig" print sp
-		0 'icotrash ilink
-		azul 'dlgplay 'winplay guiWin | play
-		cr
-		objwin
+		azul 'dlgplay 'winplay guiWin
+		azul 'dlgTime 'wintime guiWin
+		azul 'dlgobj 'winobj guiWin
 
+		cr
 
 |       'addspr <f2>
         'rand+obj <f2>
@@ -545,8 +564,7 @@ Bou_In Bou_Out Bou_InOut
         'rand+txt <f3>
 |        'addfig <f4>
 
-		drawtimeline
-		'addtime <f4> 
+		'addtime <f4>
 
 		'exit >esc<
 		cminiflecha ;
