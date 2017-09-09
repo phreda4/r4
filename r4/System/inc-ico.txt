@@ -30,6 +30,17 @@
 	inilist cntlist + >=? ( dup cntlist - 1+ 'inilist ! )
 	;
 
+:existname? | "" -- "" 1/0
+	'indexn
+	cntvar ( 1? )(
+		pick2 pick2 =s 1? ( nip nip ; )
+		drop swap 32 + swap 1- ) nip ;
+
+:freename | -- ""
+	0
+	( dup "new%d" mprint existname? 1? )( 2drop 1+ )
+	drop nip
+	;
 |------------------------------
 #icohw $f0f
 #icomem )( 256
@@ -195,6 +206,11 @@
 	[ icohw dup $ff00 and $100 - 0 max swap $ff and or 'icohw ! ; ] " -" btnt sp
 	icohw 8 >> $ff and "h:%d" print
 	[ icohw dup $ff00 and $100 + $2000 min swap $ff and or 'icohw ! ; ] "+ " sp btnt
+	cr cr sp
+	[ $1010 'icohw ! ; ] "16" btnt sp
+	[ $1818 'icohw ! ; ] "24" btnt sp
+	[ $2020 'icohw ! ; ] "32" btnt sp
+
 	cyan cr cr sp
 	'upico " U " btnt sp
 	'dnico " D " btnt sp
@@ -209,7 +225,7 @@
 	'uplist " U " btnt sp
 	'dnlist " D " btnt sp
 
-	gris
+	gris oscuro
 	10 48
 	icohw $ff and 3 << pick2 +
 	icohw 8 >> $ff and 3 << pick2 +
@@ -297,7 +313,7 @@
 
 |--------------------------------------------------
 :newdib
-	cntvar "new%d" mprint
+	freename |cntvar "new%d" mprint
 	cntvar 5 << 'indexn + strcpy
 	cntvar 8 << 'index + >r
 	$f0f r!+
@@ -307,7 +323,7 @@
 	;
 
 :copydib
-	cntvar "new%d" mprint
+	freename |cntvar "new%d" mprint
 	cntvar 5 << 'indexn + strcpy
 	cntvar 8 << 'index + >r
 	actual 8 << 'index + @+ r!+
@@ -325,7 +341,8 @@
 	actual 1+ 5 << 'indexn +
 	cntvar actual - 5 << cmove
 	-1 'cntvar +!
-	actual 1? ( -1 'actual +! actual 8 << 'index + copyico ) drop
+	actual 1- clamp0 'actual ! 
+	actual 8 << 'index + copyico
 	;
 
 #imagen
@@ -340,7 +357,7 @@
 
 :cargaimg
 	mark
-	"media/bmp" dlgfileload 0? ( drop empty ; )
+	"media/img" dlgfileload 0? ( drop empty ; )
 	loadimg 0? ( drop empty ; )
 	'imagen !
 	0 'imagenx !
@@ -365,7 +382,7 @@
 
 :makeico
 	cntvar
-	dup "new%d" mprint
+	freename |	dup "new%d" mprint
 	over 5 << 'indexn + strcpy
 	8 << 'index + >r
 	capy 8 << capx or r!+
@@ -392,8 +409,13 @@
 	caja
 	;
 
+#varx 'ox #vary 'oy
+#sumxy 1
 :import
 	show clrscr
+	
+        drawimg
+
 		fonti
 		verde oscuro 1 linesfill blanco
 		verde dup " :R%d" print
@@ -412,12 +434,14 @@
 		rojo
 		'exit dup >esc< "x" link
 
-        drawimg
 
-		[ -1 'oy +! ; ] <up>
-		[ 1 'oy +! ; ] <dn>
-		[ -1 'ox +! ; ] <le>
-		[ 1 'ox +! ; ] <ri>
+		[ 'ox 'varx ! 'oy 'vary ! 1 'sumxy ! ; ] >shift<
+		[ 'imagenx 'varx ! 'imageny 'vary ! 16 'sumxy ! ; ] <shift>
+		[ sumxy neg vary +! ; ] <up>
+		[ sumxy vary +! ; ] <dn>
+		[ sumxy neg varx +! ; ] <le>
+		[ sumxy varx +! ; ] <ri>
+
 		cminiflecha ;
 
 |----------------------------
@@ -434,7 +458,7 @@
 |----------------------------
 :cadadib | n n -- n n
 	dup inilist + cntvar >=? ( drop ; )
-	actual =? ( verde oscuro )( gris )
+	actual =? ( verde oscuro )( gris oscuro )
 	[ dup actual! ; ]
 	200 32 btnfpx
 	blanco
