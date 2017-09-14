@@ -4,6 +4,7 @@
 ^r4/lib/gui.txt
 ^r4/lib/part16.txt
 
+^r4/lib/fontj.txt
 ^r4/lib/btn.txt
 
 ^r4/lib/input.txt
@@ -320,15 +321,6 @@ Bou_In Bou_Out Bou_InOut
 	;
 
 
-:drawtimelayer
-	;
-
-:drawtimeline
-	verde
-|	tx1 ty1 tx2 ty1 16 + caja
-	;
-
-
 |---------------------------
 :randrotz	rand 0 0 ;
 :randrot	rand rand rand ;
@@ -339,6 +331,10 @@ Bou_In Bou_Out Bou_InOut
 	xymouse zcam invproject3d
 	swap
 	;
+
+:mousexyz
+	0 xymouse zcam invproject3d swap ;
+
 
 |---------------------------
 :rand+obj
@@ -424,14 +420,35 @@ Bou_In Bou_Out Bou_InOut
 	bon2 drawbbones
 	;
 
-|------------------------------------------
-
+|---------------
 #txttxt )( 256
 #txtcolor $ff
+#txtaa $c
 #txtfont 7
 #txtsize 32
 #txtpadx 0
 #txtpady 0
+
+:addtxt
+	'txttxt		| texto
+	txtaa 24 <<		| align
+|	txtcolor $ffffff and or	 | color
+|	txtfont 24 <<			| font
+|	txtsize $ffffff and
+|	or	| size
+
+|	"Hola_a_todos"	| texto
+|	$12 24 <<		| align
+	rand $ffffff and or	 | color
+	$7 24 <<			| font
+	rand 1.0 mod 3.0 + $ffffff and
+	or	| size
+
+	0.0 | scale
+	0 0 0 |	randrotz
+	mousexyz
+	text!
+	generatepick exit ;
 
 :edit-txt
 	blanco
@@ -451,19 +468,33 @@ Bou_In Bou_Out Bou_InOut
 	"Pading:" print cr cr2
 	"x:" print 'txtpadx inputdec sp
 	"y:" print 'txtpady inputdec cr cr2
+
+	cr cr verde
+    'addtxt " + " btnt
 	;
+
+|---------------
+:addimg
+	'svg6
+	rand 0.5 mod 1.8 +
+
+	randrotz
+	randxyz
+	objs!
+	generatepick exit ;
 
 :edit-img
 	blanco
 	"Figura: " print
+
+	cr cr verde
+    'addimg " + " btnt
 	;
 
+|---------------
 #modoobjr 'edit-img 'edit-txt
 #modoobjl 'i_img 'i_name 0
 #modoobjv 0
-
-:addobj
-	exit ;
 
 :edit-obj
 	show clrscr
@@ -477,10 +508,6 @@ Bou_In Bou_Out Bou_InOut
         'modoobjv 'modoobjl icomode
         cr cr verde
         modoobjv 2 << 'modoobjr + @ exec
-        cr cr
-        verde
-        'addobj " + " btnt
-
 		cminiflecha ;
 
 |------------------------------------------
@@ -544,29 +571,46 @@ Bou_In Bou_Out Bou_InOut
 	3 fbox
 	;
 
-:dlgTime
-	timei "%d " print
-	timew "%d " print
-	obji "%d " print
-	objw "%d " print
-	cr
-	blanco
+:timelineobjs
+	tx1 ty1 48 + atxy
+	'objs p.cnt
+	0 ( objw <? )(
+		dup obji +
+		pick2 >=? ( 3drop ; )
+		"%d" print cr
+		1+ ) 2drop ;
 
- 	time> 3 << 32 + tx1 +  1-
-	ty1 32 +
+:timelinecursor
+	blanco
+ 	time> timei -
+	3 << 32 + tx1 + 1-
+	ty1 48 +
 	over 2 +
 	ty2 8 - caja
+	;
+
+:dlgTime
+	fontj
+	sp cyan
+	'toolplay icotool
 	negro
+	ltime time> " %d/%d " print
+	cr
+
+	timelineobjs
+	timelinecursor
+	verde
 	'drawpoint 'timeline p.mapv
 
 	[ timei 1- clamp0 'timei ! ; ] <le>
 	[ 1 'timei +! ; ] <ri>
 	[ obji 1- clamp0 'obji ! ; ] <up>
 	[ 1 'obji +! ; ] <dn>
-	;
+
+	fonti
 	;
 
-#winTime 0 1 300 480 200 "Time"
+#winTime 1 1 300 480 200 "Time"
 
 |-------------------------------------
 :dlgobj
@@ -605,7 +649,7 @@ Bou_In Bou_Out Bou_InOut
 		"F2+Spr" print sp
 		"F3+Tex" print sp
 		"F4+Fig" print sp
-		azul 'dlgplay 'winplay guiWin
+|		azul 'dlgplay 'winplay guiWin
 		azul 'dlgTime 'wintime guiWin
 		azul 'dlgobj 'winobj guiWin
 
