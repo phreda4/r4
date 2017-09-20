@@ -1,0 +1,396 @@
+| token r4 v.2
+| PHREDA 2014
+|----------------------------------
+
+^r4/lib/macrosr4.txt
+
+^r4/Compiler/r4-dicc.txt
+^r4/Compiler/r4-post.txt
+^r4/Compiler/r4-tokenprint.txt
+
+#modocomp 	| modo compilador 0-nada 1-def 2-var
+#:poserror 0
+#:nroerror 0
+
+#salto
+#:cnttokens
+
+|----- pila de nombres de includes para saber donde esta el error
+#pinc )( 128
+#pinc> 'pinc
+
+|----- pila de bloques
+#pilac )( 128
+#pilac> 'pilac
+
+:c.ini 'pilac 'pilac> ! ;
+:c.push pilac> !+ 'pilac> ! ;
+:c.pop -4 'pilac> +! pilac> @ ;
+:c.cnt pilac> 'pilac - ;
+
+:escom
+	"|WIN|" =pre 1? ( drop 5 + ; ) drop | Compila para WINDOWS
+	( c@+ 1? )( 10 =? ( drop 1- ; ) 13 =? ( drop 1- ; ) drop ) drop 1- ;
+
+:escad
+	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( drop 1- ; ) ) drop ) drop 1- ;
+
+:pasapal
+	( c@+ 1? )( $ff and 33 <? ( drop 1- ; ) drop ) drop 1- ;
+
+|----------- includes
+:esinc 	| a -- a' ; incluye codigo
+	dup include? 1? ( drop ; ) drop
+    here over "%w" mprint
+	load
+	here =? ( 2 'nroerror ! drop 0 ; )
+	here pick2 indiceinc> !+ !+ 'indiceinc> !
+	0 swap c!+ 'here !
+	pasapal ;
+
+:includepal | str -- str'
+	( c@+ $ff and 33 <? )( 0? ( swap 1- swap ; ) drop ) | quitar espacios
+	$7c =? ( drop escom ; )		| $7c |	 Comentario
+	$5e =? ( drop esinc ; )		| $5e ^  Include
+	1 'cnttokens +!
+	$22 =? ( drop escad ; )		| $22 "	 Cadena
+
+	| ?? es numero
+	| cuenta para constantes
+
+	drop pasapal ;
+
+::loadincludes | str -- err/0
+	0 'cnttokens !
+	( includepal 0? ) drop 'poserror !
+	indiceinc> 'indiceinc< ! | includes iniciales
+	nroerror 1? ( ; )
+	( drop indiceinc>
+		'indiceinc ( indiceinc> <? )(
+			4+ @+
+			( includepal 0? ) drop 'poserror !
+			nroerror 1? ( nip nip ; ) drop
+			) drop
+		indiceinc> =? )
+	drop 0 ;
+
+|----------- genera token
+:calclen
+	indicepal> 4 -
+	'indicepal <? ( drop ; )					| es la primera definicion
+	dup code> over 8 - @ - 2 >> 20 << swap !	| largo
+	4 - @  1 and? ( drop ; ) drop				| solo para accion
+	code> 4 - @ $10 =? ( drop ; ) drop
+	indicepal> 8 - dup @ $80 or swap ! 			| flag sin ;
+	;
+
+:cerrarpalabra | -- guardar info de ultima definicion
+	c.cnt 1? ( 9 'nroerror ! 0 rdrop ; ) drop |	testear el c.pila... debe estar en 0
+	0 'salto !
+	calclen ;
+
+:essistema	| str n -- str
+	8 << ,, ;
+
+:esboot | str -- str
+	3 'modocomp !
+	code> '<<boot !
+	0 word+!
+	,word 8 << 1 or ,,  | agrega :
+	;
+
+:esdefe | str -- str
+	2 + 2 word+!
+	,word 8 << 2 or ,,
+	;
+
+:esdefinicion | str -- str
+	cerrarpalabra 1 'modocomp !
+	dup 1+ c@
+	33 <? ( drop esboot ; )
+	$3A =? ( drop esdefe ; )
+	drop
+	1+ 0 word+!
+	,word 8 << 1 or ,, ;
+
+:esvare | str -- str
+	2 + 3 word+!
+	,word 8 << 4 or ,, ;
+
+:esvariable | str -- str
+	cerrarpalabra 2 'modocomp !
+	dup 1+ c@
+	33 <? ( drop 10 'nroerror ! 0 ; )
+	$3A =? ( drop esvare ; )
+	drop
+	1+ 1 word+!
+	,word 8 << 3 or ,, ;
+
+:escomentario | str -- str
+	escom				| no graba comentarios
+|	,com 8 << 5 or ,,  	| *****graba comentarios
+	;
+
+:esinclude | a -- a' b'
+|	dup ,words 8 << 6 or ,,	drop | si quiere grabar el token.. aqui guardar string!
+
+	1+ dup ( c@+ 32 >? )( drop ) drop 1-
+	swap
+	include? 1? (
+		4+ dup @	| inc+4 cod
+		1? ( |over 4 - dup @ pinc> !+ !+ 'pinc> !	| guarda nombre y dir include
+			0 rot !	; ) drop
+		) drop ;
+
+:tiponro | -- tipon
+	basen
+	2 =? ( drop 9 ; )
+	10 =? ( drop 7 ; )
+	16 =? ( drop 8 ; )
+	-1 =? ( drop 10 ; )
+	drop ;
+
+:esnrod | val --	; nro en dato (resumir arrays****)
+	,cte 8 << tiponro or ,, ;
+
+:esnro | val --
+	modocomp 2 =? ( drop esnrod ; ) drop
+	0 'salto !
+	,cte 8 << tiponro or ,, ;
+
+:escadena | str -- str
+	0 'salto !
+	,str 8 << 11 or ,, ;
+
+:espalabra | dir --
+	0 'salto !
+	dup 8 + @ %1 and? ( 13 )( 12 ) nip
+	swap adr>dic 8 << or ,,
+	pasapal ;
+
+:esdir | dir --
+	0 'salto !
+	dup 8 + @ %1 and? ( 15 )( 14 ) nip
+	swap adr>dic 8 << or ,,
+	pasapal ;
+
+|--- Compila saltos
+
+:hole	     code> 4 - c.push ;
+:label	     code> c.push ;
+:holefix     code> c.pop dup >r 4+ - 8 << r @ or r> ! ;
+:labelfix    c.pop code> 4 - dup @ rot code> - 8 << or swap ! ;
+
+|---  Macros
+:c;     c.cnt 0? ( 0 'modocomp ! ) drop ; | falta si bloque no esta nivelado
+:c(     salto 1? ( hole 1 )( label 2 ) c.push drop ;
+:c)(    c.pop salto 0? ( drop
+				1 =? ( drop hole c.pop holefix c.push 1 c.push ; )
+			)( drop
+				2 =? ( drop c.pop hole c.push 3 c.push ; ) ) drop
+			3 'nroerror ! 0 ;
+:c)     c.pop salto 0? ( drop
+				1 =? ( drop holefix ; )
+				2 =? ( drop labelfix ; )
+				3 =? ( drop labelfix holefix ; ) drop
+				4 'nroerror ! 0 ;
+			)( drop
+				2 =? ( drop labelfix ; ) ) drop
+			5 'nroerror ! 0 ;
+:c[     hole label 4 c.push ;
+:c]    	code> 8 - @ $10 <>? ( 11 'nroerror ! 0 nip ; ) drop	| es ; el anterior token? NO-> error
+    	c.pop 4 <>? ( 6 'nroerror ! 0 nip ; ) drop
+		c.pop code - 8 << $15 or code> 4 - ! | guarda anterior
+		holefix | 	c.pop drop | no agrega lit direccion !!
+		;
+
+#amacro 'c; 'c( 'c)( 'c) 'c[ 'c]
+
+|---- palabras de la memoria
+:m8 | nro8 --
+	data> c!+ 'data> ! ;
+:m16 | nro16 --
+	data> w!+ 'data> ! ;
+:m32 | nro32 --
+	data> !+ 'data> ! ;
+:mcnt | nro --
+	'data> +! ;
+
+#unidad 'm32
+
+:d;		;
+:d(		unidad c.push 'm8 'unidad ! ;
+:d)(	'mcnt 'unidad ! ;
+:d)		c.pop 'unidad ! ;
+:d[ 	unidad c.push 'm16 'unidad ! ;
+:d] 	c.pop 'unidad ! ;
+
+#dmacros 'd; 'd( 'd)( 'd) 'd[ 'd]
+
+:esmacrod
+	7 <? ( 1- 2 << 'dmacros + @ exec pasapal ; )
+	8 'nroerror !
+	pasapal ;
+
+:esmacro
+	dup 15 + ,,
+	modocomp 2 =? ( drop esmacrod ; ) drop
+	7 <? ( dup 1- 2 << 'amacro + @ exec 0? ( nip swap 'poserror ! ; ) )
+	7 >? ( 20 <? ( 1 )( 0 ) )( 0 ) 'salto ! | despues del exec !!!
+	drop
+	pasapal ;
+
+
+|--- busca palabra
+::compilatoken | str -- str'/0
+	( dup c@ $ff and 33 <? )(
+		0? ( nip ; ) drop 1+ )	| quitar espacios
+	$5e =? ( drop esinclude ; )	| $5e ^  Include
+	$7c =? ( drop escomentario ; )		| $7c |	 Comentario
+	$3A =? ( drop esdefinicion ; )		| $3a :  Definicion
+	$23 =? ( drop esvariable ; )		| $23 #  Variable
+	$22 =? ( drop escadena ; )	| $22 "	 Cadena
+	$27 =? ( drop 1+ dup dup	| $27 ' Direccion
+		?macro 1? ( 2drop 'poserror ! drop 7 'nroerror ! 0 ; ) drop
+		?palabra 1? ( nip esdir ; ) 2drop
+		'poserror ! 1 'nroerror ! 0 ; )
+	drop
+	dup ?numero 1? ( drop rot drop esnro ; ) drop				| numero
+	dup ?fnumero 1? ( drop rot drop -1 'basen ! esnro ; ) drop	| numero
+	dup ?macro 1? ( esmacro ; ) drop							| macro
+	?palabra 1? ( espalabra ; ) drop							| palabra
+
+|	dup ?sistema 1? ( nip essistema ; ) 2drop        | sistema solo directo
+|	dup memmap
+ 	'poserror ! 1 'nroerror ! 0 ;
+
+|------------ ERROR ---------------
+
+#errormsgl
+"No existe"					| 1
+"No existe libreria"
+"Bloque mal formado )("
+"Bloque mal formado "
+"Bloque mal formado )"
+"Definicion anonima mal cerrada"
+"Las palabras BASE no tienen direccion"
+"Macro en Dato"
+"Bloque mal cerrado"        			| 9
+"# solo"
+"falta ; en anonima"
+0
+
+::errormsg | nro -- ""
+	nroerror 1- 'errormsgl swap
+	( 1? )( 1- swap >>0 swap ) drop ;
+
+:iniline | pos -- first
+	( inisrc >? )( dup c@ 13 =? ( drop 1+ ; ) drop 1- ) ;
+
+::errorlincar | -- car linea
+	poserror 0 inisrc ( pick2 <? )( c@+ 13 =? ( drop swap 1+ swap )( drop ) ) drop
+	swap dup iniline - swap
+	;
+
+|------- DEBUG
+::codeprint
+	code ( code> <? )(
+		@+ |dup "(%h)" print
+		tokencolor tokenstr allowcr	print sp
+		) drop ;
+
+::stackinc
+	'pinc ( pinc> <? )( @+ "%w <" print @+ 8 ( 1? )( 1- swap c@+ emit swap ) 2drop "> " print ) drop cr ;
+
+::showdump
+	fonti
+	show clrscr
+		code> code - 2 >> "%d tokens (" print
+		pick4 pick4 pick4 pick4  pick4 "%h %h %h %h %h " print cr
+        stackinc
+		dumpinc
+|		dumpdic
+		codeprint cr
+		dup 16 ( 1? )( 1- swap
+			64 ( 1? )( 1- swap c@+ 32 <? ( $2e nip ) emit swap ) drop
+			cr swap ) 2drop
+		'exit dup >esc< <f1>
+
+		cminiflecha ;
+
+:recalclen | nro inf -- nro inf
+	over 1+ dic>len@ 20 << pick2 dic>mov
+	swap over @ + swap !
+	;
+
+
+|------------------------------------------------------------
+| a token
+|------------------------------------------------------------
+::code2token | adr -- error/0
+	'indicepal 'indicepal< !
+	0 swap 					| 0 adr
+	( ( compilatoken 0? ) drop
+		nroerror
+		1? ( ( 1? )( drop ) drop nroerror ; ) drop | corta si hay error
+		1? ( |indicepal> indicepal< pinc> 4 - @ 8 + !+ !	| graba fuente de palabras
+			indicepal> 'indicepal< ! )	| ignorar locales si es un include
+		-8 'pinc> +!					| desapila includes
+		0? ) drop
+
+	calclen		| ultima palabra
+	indicepal> 'indicepal - 4 >> 'cntwords !
+
+	|..... ajusta palabras que continuan
+	1 ( cntwords <? )(
+		dup dic>inf @ $81 and $80 =? ( recalclen ) drop
+		1+ ) drop
+
+	nroerror ;
+
+
+::tokeniza | strcode -- error/0
+	dup 'inisrc !
+	'indicepal 'indicepal> !
+	'indiceinc 'indiceinc> !
+	0 'nroerror !
+	dup loadincludes 1? ( nip ; ) drop
+	here
+	dup 'code ! dup 'code> !
+	dup '<<boot !				| boot para codigo directo
+	cnttokens 2 << +			| token contados en loadincludes
+	dup 'data ! 'data> !
+	code2token	1? ( ; ) drop
+	data> $ff +
+
+	| en plain necesita mas espacio para nuevas constantes!!
+	| podria contar en loadincludes cuanta mem necesita
+
+	'here !
+	tokenpost
+	nroerror
+	;
+
+
+::tokenasm | strcode -- error/0
+	modoasm
+
+	here
+	"^r4/system/asmbase/asmbase.txt" ,ln
+	here pick2 load 0 swap c!+ 'here !
+	tokeniza
+	;
+
+|--------------------
+#code>>
+#data>>
+
+::immtokeniza | strcode -- error/0
+	code> 'code>> !
+	data> 'data>> !
+	( compilatoken 0? ) 2drop
+	0 'code> !
+	code>> 'code> !
+	data>> 'data>> !
+	nroerror
+	;

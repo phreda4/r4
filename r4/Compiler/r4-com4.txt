@@ -1,5 +1,4 @@
-| r4com4.txt
-| Compiler V4
+| r4-com4.txt  Compiler V4
 | PHREDA 2017
 |---------------------------------------
 | 2da idea en compilador..
@@ -12,8 +11,11 @@
 | + Calcula Ctes
 
 ^r4/lib/gui.txt
+^r4/lib/trace.txt
+
 ^r4/system/mem-ed.txt
-^r4/IDE/r4-token.txt
+
+^r4/Compiler/r4-token.txt
 
 |-- nombre a nro
 |:nro>dicn   8 >> "w%h" mprint ;		| w<nro palabra>
@@ -35,29 +37,30 @@
 :coldva
 	"'" ,s nro>dicn ,s ;
 
-#codei 0 coldefw coldefv colit colit colit colit colits colwor colvar coldwo coldva
+#codei 0 coldefw coldefw coldefv coldefv 0 0 colit colit colit colit colits colwor colvar coldwo coldva
 
 ::nro>macro | n -- s
-	12 - macroname ;
+	16 - macroname ;
 
 :,token | a -- a.
 	@+ dup $ff and
 :,tokenp | n t --
-	12 <? ( 2 << 'codei + @ exec ; ) nip
+	16 <? ( 2 << 'codei + @ exec ; ) nip
 	nro>macro ,s ;
 
 |--- Variables
 :esvariable | nro --
 	dup dic>inf @
-	$1000 nand? ( 2drop ; ) drop | constante
-	dup dic>str "#%w" ,print
-	dic>tok @
+	$4 nand? ( drop ; ) drop | constante
+	dup dic>str @ "#%w" ,print
+	dup dic>tok @
 	( @+ dup $ff and
 		1 =? ( 0 nip ) | corta con defc
 		2 =? ( 0 nip ) | corta con defv
 		1? )( 	 | dirv n c
 		,sp
-		12 <? ( 2 << 'codei + @ exec )( nip nro>macro ,s )
+|		tokenstr ,print
+		16 <? ( 2 << 'codei + @ exec )( nip nro>macro ,s )
 		)
 	3drop ,cr ;
 
@@ -111,13 +114,16 @@
 :marcaniveles | nro --
 	-aa -niv -ind
 	0 'niva !
-	dic>len@ over 'totoken  !
+	dup dic>tok @ dup 'totoken  !
+	swap dic>len@
 	( 1? )( 1-
 		swap @+ $ff and
 		everyword
 		swap ) 2drop
 	-1 niv> c! ;
 
+:genCTE
+	,cte 8 << 7 or ;
 
 |------------------------
 :buscacte
@@ -140,11 +146,14 @@
 	drop
 	dup 8 >> dic>inf @
 	$100 nand? ( drop +buff ; ) drop
-	8 >> dic>len@ 1-
+	8 >>
+	dup dic>tok @
+	swap dic>len@ 1-
 	( 1? )( 1- swap
 		@+ dup $ff and
 		8 =? ( buscainline )( | es word? inline?
-			9 =? ( buscacte )( drop +buff ) ) | es var? cte?
+			9 =? ( buscacte )( drop +buff ) | es var? cte?
+			)
 |		drop +buff
 		swap ) 2drop
 	;
@@ -234,7 +243,7 @@
 	53 - 2 << 'optim + @ exec ;
 
 :addN | adr+ val tok -- adr+
-	drop dic>cte >aa ;
+	drop tok>cte >aa ;
 
 :untoken | adr+ val tok -- adr+
 	3 >=? ( 6 <=? ( addN ; ) )		| numero
@@ -287,21 +296,26 @@
 |-------------------
 :escodigo | nro --
 	dup dic>inf @
-	$100 and? ( 2drop ; )
+	$100 and? ( drop ; )
 	drop | inline
+
 	dup marcaniveles
 	|-- generar anonimos
 	anonind> ( 'anonind >? )( 4 -
 		dup @ copynivl
 		) drop
 	|-- genera principal
-	dic>str ":%w" ,print
+	dup dic>str @ ":%w" ,print
 	'niv totoken 0 copynivr
 	;
 
 :gencodigo | nro --
-	dup nro>var?
-	1? ( drop esvariable )( drop escodigo )
+	dup dic>call@ 0? ( drop ; ) drop
+	dup "%d:" ,print
+	dup dic>inf @
+	1 and? ( drop esvariable )( drop escodigo )
+	,cr
+	"r4asm/plain.txt" savemem
 	;
 
 
@@ -309,15 +323,18 @@
 :makeplain
 	0 'nroanon !
 	mark
-	"| r4fasmo.txt generator" ,s ,cr
-	"|-----------------------" ,s ,cr
-	0 ( cntw <? )(
-		dup ind2nro gencodigo
-		1+ )
-	ind2nro escodigo
+	"| r4com4" ,s ,cr
+	"|-------" ,s ,cr
+	0 ( cntwords <? )( gencodigo 1+ ) drop
+|	escodigo
 	"r4asm/plain.txt" savemem
 	empty
 	;
+
+|------------------------------------
+:waitesc
+	show 'exit >esc< ;
+
 
 |------------------------------------
 :main
@@ -325,7 +342,10 @@
 
 	mark
 	'ed.nombre tokenasm
-	tokenpost
+|	1? ( error )
+	drop
+	tokenpostusa
+
 	makeplain
 	empty
 	;
