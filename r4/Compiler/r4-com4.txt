@@ -19,7 +19,7 @@
 
 |-- nombre a nro
 |:nro>dicn   8 >> "w%h" mprint ;		| w<nro palabra>
-:nro>dicn   8 >> 5 << 'indicepal + @ "%w" mprint ; | nombre
+:nro>dicn   8 >> 4 << 'indicepal + @ "%w" mprint ; | nombre
 
 |----------------
 :cpycad | adr --
@@ -53,13 +53,11 @@
 	dup dic>inf @
 	$4 nand? ( drop ; ) drop | constante
 	dup dic>str @ "#%w" ,print
-	dup dic>tok @
+	dup dic>tok @ 4+
 	( @+ dup $ff and
-		1 =? ( 0 nip ) | corta con defc
-		2 =? ( 0 nip ) | corta con defv
+		5 <? ( 0 nip ) | corta con defv
 		1? )( 	 | dirv n c
 		,sp
-|		tokenstr ,print
 		16 <? ( 2 << 'codei + @ exec )( nip nro>macro ,s )
 		)
 	3drop ,cr ;
@@ -96,17 +94,17 @@
 	1 'niva +!
 	niv> +ind
 	nroanon dup >aa
-	8 << 16 or pick2 4 - ! | graba en token
+	8 << 20 or pick2 4 - ! | graba en token
 	1 'nroanon +!
 	;
 :es]
 	-1 'niva +!
-	aa> 8 << 17 or pick2 4 - ! | graba en token
+	aa> 8 << 21 or pick2 4 - ! | graba en token
 	;
 
 :everyword | adr rtoken -- adr
-	16 =? ( es[ )
-	17 =? ( es] )
+	20 =? ( es[ )
+	21 =? ( es] )
 	drop
 	niva +niv
 	;
@@ -127,36 +125,33 @@
 
 |------------------------
 :buscacte
-	drop
 	dup 8 >> dic>inf @
-	$1000 and? ( drop +buff ; ) drop
-	8 >> dic>tok @ | token de variable
+	$4 and? ( drop +buff ; ) drop
+	8 >> dic>tok @  | token de variable
 
-	dup $ff and
-	2 =? ( 2drop 0 genCTE +buff ; ) | caso #cte #var
-	| 7 =? () | #v "hola"
-	8 =? ( 10 nip ) 10 =? ( drop $fffffff0 and 10 or +buff ; ) | caso #cte 'word
-	9 =? ( 11 nip ) 11 =? ( drop $fffffff0 and 11 or +buff ; ) | caso #cte 'var
+	4+ @ dup $ff and
+	5 <? ( 2drop 0 genCTE +buff ; ) | caso #cte #var
+	| 11 =? () | #v "hola"
+	12 =? ( 14 nip ) 14 =? ( drop $fffffff0 and 14 or +buff ; ) | caso #cte 'word
+	13 =? ( 15 nip ) 15 =? ( drop $fffffff0 and 15 or +buff ; ) | caso #cte 'var
 	drop
 
 	tok>cte genCTE	| caso #cte 4
 	+buff ;
 
+|------------------------
 :buscainline
-	drop
 	dup 8 >> dic>inf @
 	$100 nand? ( drop +buff ; ) drop
 	8 >>
 	dup dic>tok @
 	swap dic>len@ 1-
-	( 1? )( 1- swap
-		@+ dup $ff and
-		8 =? ( buscainline )( | es word? inline?
-			9 =? ( buscacte )( drop +buff ) | es var? cte?
-			)
-|		drop +buff
-		swap ) 2drop
-	;
+	( 1? )( 1- swap @+
+		dup $ff and
+		12 =? ( drop buscainline )(
+			13 =? ( drop buscacte )(
+				drop +buff ) )
+		swap ) 2drop ;
 
 
 |--- optimiza
@@ -240,33 +235,32 @@
 #optim oAND	oOR oXOR oNOT o+ o- o* o/ o*/ o*>> o/MOD oMOD oABS oSQRT oCLZ o<</ oNEG o1+ o4+ o1- o2/ o2* o<< o>>
 
 :optN | adr+ val tok -- adr+
-	53 - 2 << 'optim + @ exec ;
+	$39 - 2 << 'optim + @ exec ;
 
 :addN | adr+ val tok -- adr+
 	drop tok>cte >aa ;
 
 :untoken | adr+ val tok -- adr+
-	3 >=? ( 6 <=? ( addN ; ) )		| numero
-	53 >=? ( 76 <=? ( optN ; ) )	| operacion
+	7 >=? ( 10 <=? ( addN ; ) )		| numero
+	$39 >=? ( $50 <=? ( optN ; ) )	| operacion
 	2drop -aa
 	;
 
 |--- imprime de buffer
 :buffp
-	3 <? ( 2drop ; )
-	16 =? ( drop 8 >> ":_aa%h" ,print ; )
-	17 =? ( drop 8 >> " '_aa%h" ,print ; )
+	5 <? ( 2drop ; )
+	20 =? ( drop 8 >> ":_aa%h" ,print ; )
+	21 =? ( drop 8 >> " '_aa%h" ,print ; )
 	,sp ,tokenp
 	;
 
 :+buffer | adr -- adr++
 	@+ dup $ff and
 
-	3 <? ( 2drop ; )	| quita :def
-|	2 =? ( 2drop ; )	| quita #def
+	5 <? ( 2drop ; )	| quita :def
 
-	8 =? ( buscainline ; )
-	9 =? ( buscacte ; )
+	12 =? ( drop buscainline ; )
+	13 =? ( drop buscacte ; )
 	drop +buff ;
 
 |--- copy y genera
@@ -311,11 +305,9 @@
 
 :gencodigo | nro --
 	dup dic>call@ 0? ( drop ; ) drop
-	dup "%d:" ,print
 	dup dic>inf @
 	1 and? ( drop esvariable )( drop escodigo )
-	,cr
-	"r4asm/plain.txt" savemem
+|	"r4/compiler/plain.txt" savemem
 	;
 
 
@@ -326,14 +318,9 @@
 	"| r4com4" ,s ,cr
 	"|-------" ,s ,cr
 	0 ( cntwords <? )( gencodigo 1+ ) drop
-|	escodigo
-	"r4asm/plain.txt" savemem
+	"r4/compiler/plain.txt" savemem
 	empty
 	;
-
-|------------------------------------
-:waitesc
-	show 'exit >esc< ;
 
 
 |------------------------------------
@@ -342,10 +329,10 @@
 
 	mark
 	'ed.nombre tokenasm
+|	'ed.nombre tokeniza
 |	1? ( error )
 	drop
 	tokenpostusa
-
 	makeplain
 	empty
 	;
