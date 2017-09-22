@@ -17,6 +17,8 @@
 
 ^r4/Compiler/r4-token.txt
 
+^r4/Compiler/r4-asmdata.txt
+
 |-- nombre a nro
 |:nro>dicn   8 >> "w%h" mprint ;		| w<nro palabra>
 :nro>dicn   8 >> 4 << 'indicepal + @ "%w" mprint ; | nombre
@@ -306,22 +308,43 @@
 :gencodigo | nro --
 	dup dic>call@ 0? ( drop ; ) drop
 	dup dic>inf @
-	1 and? ( drop esvariable )( drop escodigo )
-|	"r4/compiler/plain.txt" savemem
-	;
-
+	1 and? ( drop esvariable ; )
+	drop escodigo ;
 
 |------------------------------------
 :makeplain
 	0 'nroanon !
 	mark
-	"| r4com4" ,s ,cr
+	"| r4com4 :" ,s 'ed.nombre ,s ,cr
+	cntwords "| all w:%d " ,print
+	cntuwords cntuvars " used v:%d w:%d " ,print ,cr
+	cnttokens "| tokens:%d" ,print ,cr
 	"|-------" ,s ,cr
 	0 ( cntwords <? )( gencodigo 1+ ) drop
 	"r4/compiler/plain.txt" savemem
 	empty
 	;
 
+|------------------------------------
+:compileData
+	mark
+	";---:r4 compiler data.asm" ,ln
+	,generateDATA
+    0 ,c
+|	"r4asm/data.asm"
+	"r4/compiler/data.asm"
+	savemem
+	empty ;
+
+:compileCode
+	mark
+	";---:r4 compiler code.asm" ,ln
+|	'gencodigo wordmap
+	0 ,c
+|	"r4asm/code.asm"
+	"r4/compiler/code.asm"
+	savemem
+	empty ;
 
 |------------------------------------
 :main
@@ -329,11 +352,19 @@
 
 	mark
 	'ed.nombre tokenasm
-|	'ed.nombre tokeniza
+|	'ed.nombre tokenfile
+
 |	1? ( error )
 	drop
 	tokenpostusa
 	makeplain
+	empty
+
+	mark
+	"r4/compiler/plain.txt" tokenfile
+	tokenpost
+	compileData
+	compileCode
 	empty
 	;
 
