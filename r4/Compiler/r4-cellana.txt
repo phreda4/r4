@@ -63,8 +63,8 @@
 :tosCPY | nro --
 	d.TOS 2 << 'cells + dup @ rot $ff and 8 << $80 or or swap ! ;
 
-:tos+1r		$1000000 d.TOS 2 << 'cells + +! ;
-:tos+1w     $10000 d.TOS 2 << 'cells + +! ;
+:tos+1r		$1000000 d.TOS 2 << 'cells + +! " 1+r " ,s ;
+:tos+1w     $10000 d.TOS 2 << 'cells + +! " 1+w " ,s ;
 
 |---------------
 :newcell
@@ -73,15 +73,15 @@
 	dup 1+ 'ncell ! ;
 
 :litn | token --
-	newcell d.push ;
+	newcell d.push " N " ,s ;
 :lits | token --
-	newcell d.push ;
+	newcell d.push " S " ,s ;
 :litv | token --
-	newcell d.push tosVar ;
+	newcell d.push tosVar " V " ,s ;
 :litAW	| -- dw dir word
-	newcell d.push tosAW ;
+	newcell d.push tosAW " AW " ,s ;
 :litAV	| -- dv dir var
-	newcell d.push tosAV ;
+	newcell d.push tosAV " AV " ,s ;
 
 :callW
 	;
@@ -327,13 +327,37 @@ vuso4	|SSET  a --
 0	|DOCSIZE
 0	|SYSTEM
 
+|-- token a string
+
+:c1 tok>name ":%w" ;
+:c2 tok>name "::%w" ;
+:c3 tok>name "#%w" ;
+:c4 tok>name "#:%w" ;
+:c5 tok>mem "|%s" ;
+:c6 tok>mem "^%w" ;
+:c7 tok>cte "%d"  ;
+:c8 tok>cte "$%h" ;
+:c9 tok>cte "%%%b" ; | %% no permite mprint mprint
+:cA tok>cte "%f" ;
+:cB tok>mem """%s""" ;
+:cC tok>name "%w" ;
+:cE tok>name "'%w" ;
+
+#codeis 0 c1 c2 c3 c4 c5 c6 c7 c8 c9 cA cB cC cC cE cE
+
+::tokenstr | a -- mem
+	dup $ff and 16 <? ( 2 << 'codeis + @ exec ; )
+	nip 16 - macroname ;
+
 :cadatoken
+	dup tokenstr ,print
 	$ff and
 	2 << 'cellexec + @
 	0? ( drop ; )
 	exec ;
 
 ::cellana | word --
+	init
 	dup dic>tok @ swap dic>len@
-	( 1? )( 1- swap @+ cadatoken swap ) 2drop
+	( 1? )( 1- swap @+ cadatoken ,cr swap ) 2drop
 	;
