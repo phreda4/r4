@@ -1,0 +1,88 @@
+^r4/lib/gui.txt
+^r4/lib/loadpng.txt
+^r4/lib/img.txt
+
+#x 512.0      | x position on the map
+#y 800.0      | y position on the map
+#angle 0.0    | direction of the camera
+#horizon 100	| horizon position (look up and down)
+#height 78	| height of the camera
+
+#map
+#mapa
+
+:mi
+	clrscr verde "cargando..." print redraw
+	mark
+	"media/img/map1.png" loadpng 'map !
+	"media/img/alt1.png" loadpng 'mapa !
+	cr "listo..." print redraw
+	;
+
+#hidden )( 8192
+
+:inihid
+	'hidden >r 0 ( sw <? )( sh r!+ 1+ ) drop rdrop ;
+
+#sina
+#cosa
+
+:inicam
+	angle sincos 'cosa ! 'sina ! ;
+
+#plx #ply
+#prx #pry
+#dx
+#dy
+#invz
+
+:iniray | z
+	cosa neg over *. sina pick2 *. - 'plx !
+	sina over *. cosa pick2 *. - 'ply !
+	cosa over *. sina pick2 *. - 'prx !
+	sina neg over *. cosa pick2 *. - 'pry !
+	prx plx - sw / 'dx !
+	pry ply - sw / 'dy !
+	x 'plx +!
+	y 'ply +!
+	;
+
+:getmap
+	ply 16 >> $3ff and 10 << plx 16 >> $3ff and or 2 << 4+ ;
+
+:vline	| i 'h he -- i 'h
+	over @ >? ( drop 4+ ; )
+	dup rot dup @ >r !+ swap
+	r> over -	| i 'h he cnt
+	pick3 rot setxy		| i 'h cnt
+	getmap map + @ swap
+	( 1? )( 1- over px!+ sw 1- px+! ) 2drop
+	;
+
+:Render
+	inicam
+	inihid
+	1.0	| dz
+	1.0 ( 800.0 <? )(
+		iniray
+		240.0 over /. 'invz !
+		'hidden
+		0 ( sw <? )( swap
+			height getmap mapa + @ $ff and - invz *. horizon +
+			clamp0
+			vline
+			dx 'plx +! dy 'ply +!
+			swap 1+ ) 2drop
+		swap 0.01 + swap over + ) 2drop ;
+
+:main
+	mi
+	show clrscr
+		render
+		[ 0.01 'angle +! ; ] <le>
+		[ -0.01 'angle +! ; ] <ri>
+		[ angle neg sincos 0.1 *. 'y +!  0.1 *. 'x +! ; ] <up>
+		'exit >esc<
+		cminiflecha
+		;
+: main ;
