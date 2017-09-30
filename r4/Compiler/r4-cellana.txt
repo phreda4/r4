@@ -30,11 +30,6 @@
 #rpila )( 512
 #rpila> 'rpila
 
-:init
-	0 'ncell !
-	'dpila 'dpila> !
-	'rpila 'rpila> !
-	;
 
 :d.pop	-4 'dpila> +! dpila> @ ;
 :d.push	dpila> !+ 'dpila> ! ;
@@ -64,8 +59,8 @@
 :tosCPY | nro --
 	d.TOS 2 << 'cells + dup @ rot $ff and 8 << $80 or or swap ! ;
 
-:tos+1r		$1000000 d.TOS 2 << 'cells + +! " 1+r " ,s ;
-:tos+1w     $10000 d.TOS 2 << 'cells + +! " 1+w " ,s ;
+:tos+1r		$1000000 d.TOS 2 << 'cells + +! ;
+:tos+1w     $10000 d.TOS 2 << 'cells + +! ;
 
 |---------------
 :newcell
@@ -74,15 +69,15 @@
 	dup 1+ 'ncell ! ;
 
 :litn | token --
-	newcell d.push " N " ,s ;
+	newcell d.push ;
 :lits | token --
-	newcell d.push " S " ,s ;
+	newcell d.push ;
 :litv | token --
-	newcell d.push tosVar " V " ,s ;
+	newcell d.push tosVar ;
 :litAW	| -- dw dir word
-	newcell d.push tosAW " AW " ,s ;
+	newcell d.push tosAW ;
 :litAV	| -- dv dir var
-	newcell d.push tosAV " AV " ,s ;
+	newcell d.push tosAV ;
 
 :callW
 	;
@@ -328,15 +323,40 @@ vuso4	|SSET  a --
 0	|DOCSIZE
 0	|SYSTEM
 
+:,stack
+	'dpila
+	( dpila> <? )( @+ "%d " ,print ) drop
+	'rpila
+	rpila> <>? ( " : " ,s )
+	( rpila> <? )( @+ "%d " ,print ) drop
+	;
+
+
+:init | word -- word
+	0 'ncell !
+	'dpila 'dpila> !
+	'rpila 'rpila> !
+
+	dup dic>mov @ 8 >> 24 << 24 >> neg | usados
+	( 1? )( 1-
+		newcell d.push tosinW
+		) drop
+	;
+
 :cadatoken
-	dup tokenstr ,print
-	$ff and
-	2 << 'cellexec + @
+	$ff and 2 << 'cellexec + @
 	0? ( drop ; )
 	exec ;
 
 ::cellana | word --
 	init
 	dup dic>tok @ swap dic>len@
-	( 1? )( 1- swap @+ cadatoken ,cr swap ) 2drop
-	;
+	( 1? )( 1- swap @+
+		"; " ,s dup tokenstr ,print
+		cadatoken
+		9 ,c "; ",s ,stack ,cr
+		swap ) 2drop
+		;
+
+::cellinfo
+	,cr ;
