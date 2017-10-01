@@ -4,11 +4,13 @@
 ^r4/compiler/r4-tokenprint.txt
 
 |-------------------------------------------
-| calcula informacion de celdas
+| Info de celdas
+#ncell 0 | cant
+
 | RR WW AA FF
 | R cnt de lecturas
 | W cnt de escrituras
-| A copia de origen
+| A copia de origen(celda)
 | flags........
 |  $1 in W		| word
 |  $2 out W
@@ -18,9 +20,10 @@
 | $20 dir var
 | $40 dir code
 | $80 copia de A
-|-------------------------------------------
 #cells )( 1024
-#ncell 0
+
+| token de origen
+#cellt )( 1024
 
 |--- PILA DATO
 #dpila )( 1024
@@ -62,22 +65,24 @@
 :tos+1r		$1000000 d.TOS 2 << 'cells + +! ;
 :tos+1w     $10000 d.TOS 2 << 'cells + +! ;
 
+:tosTok		dup 4 - d.TOS 2 << 'cellt + ! ;
+
 |---------------
 :newcell
 	ncell
 	0 over 2 << 'cells + !
 	dup 1+ 'ncell ! ;
 
-:litn | token --
-	newcell d.push ;
-:lits | token --
-	newcell d.push ;
-:litv | token --
-	newcell d.push tosVar ;
-:litAW	| -- dw dir word
-	newcell d.push tosAW ;
-:litAV	| -- dv dir var
-	newcell d.push tosAV ;
+:litn | --
+	newcell d.push tosTok ;
+:lits | --
+	newcell d.push tosTok ;
+:litv | --
+	newcell d.push tosVar tosTok ;
+:litAW	| -- ;dw dir word
+	newcell d.push tosAW tosTok ;
+:litAV	| -- ;dv dir var
+	newcell d.push tosAV tosTok ;
 
 :callW
 	;
@@ -91,7 +96,7 @@
 
 |---- condicionales
 :c0	tos+1r ;
-:c1 d.drop tos+1r ;
+:c1 tos+1r d.drop tos+1r ;
 
 |---- pila
 
@@ -349,18 +354,55 @@ vuso4	|SSET  a --
 	init
 	dup dic>tok @ swap dic>len@
 	( 1? )( 1- swap @+
+
 		"; " ,s dup tokenstr ,print
 		cadatoken
 		9 ,c "; ",s ,stack ,cr
 		swap ) 2drop ;
 
+| flags........
+|  $1 in W		| word
+|  $2 out W
+|  $4 in C		| call
+|  $8 out C
+| $10 var
+| $20 dir var
+| $40 dir code
+| $80 copia de A
+:cflags
+	,sp
+	$ff and
+	$80 and? ( "CPY" ,s )
+	$40 and? ( "'CODE" ,s )
+	$20 and? ( "'DATA" ,s )
+	$10 and? ( "VAR" ,s )
+	$1 and? ( "IN W" ,s )
+	$2 and? ( "OUT W" ,s )
+	drop ;
+
+:cconst
+	" R:" ,s dup 24 >> $ff and ,d
+	cflags
+	" CTE " ,s
+	over 2 << 'cellt + @
+	0? ( drop ; )
+	@ tokenstrA ,print
+	;
+
+
+:celli | nro --
+	dup 16 >> $ff and
+	0? ( drop cconst ; ) drop
+	" R:" ,s dup 24 >> $ff and ,d
+	" W:" ,s dup 16 >> $ff and ,d
+	" A:" ,s dup 8 >> $ff and ,d
+	cflags
+	;
+
 ::cellinfo
 	'cells 0
 	( ncell <? )( swap
 		over ,d
-		@+
-		" R:" ,s dup 24 >> $ff and ,d
-		" W:" ,s dup 16 >> $ff and ,d
-		" A:" ,s dup 8 >> $ff and ,d
-		$ff and ,sp ,h ,cr
+		@+ celli
+		,cr
 		swap 1+ ) 2drop ;
