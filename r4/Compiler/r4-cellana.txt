@@ -33,7 +33,6 @@
 #rpila )( 512
 #rpila> 'rpila
 
-
 :d.pop	-4 'dpila> +! dpila> @ ;
 :d.push	dpila> !+ 'dpila> ! ;
 :d.TOS	dpila> 4 - @ ;
@@ -87,12 +86,53 @@
 :callW
 	;
 
+|------ bloques de codigo
+#nblock 0
+
+| $1 ?(
+| $2 ?)(
+| $4 ?)
+| $8 )(
+#blocki )( 1024	| tipo+info
+#blocks )( 1024 | celda inicio-
+#blockm )( 1024 | celda -medio-
+#blocke )( 1024 | celda -fin
+
+|----- pila para bloques
+#pilab )( 256	#pilab> 'pilab
+
+:bl.new nblock pilab> !+ 'pilab> ! 1 'nblock +! ;
+:bl.end -4 'pilab> +! ;
+:bl.now pilab> 4 - @ ; | -- nblo
+
+:bl.cond? | -- 0/cond
+	dup 8 - @ $ff and
+	23 <? ( drop 0 ; )
+	35 >? ( drop 0 ; )
+	drop 1 ;
+
 |---- bloques
 :w;		| ; | fin de palabra
-:w(
-:w)(
-:w)
 	;
+
+:w(
+	bl.new
+	bl.now 2 << >r
+	dup 4 - r 'blocks + !
+	bl.cond? r> 'blocki + !
+	;
+
+:w)(
+	bl.now 2 << >r
+	dup 4 - r 'blockm + !
+	$2 r> 'blocki + +!
+	;
+
+:w)
+	bl.now 2 << >r
+	dup 4 - r 'blocke + !
+	bl.cond? 2 << r> 'blocki + +!
+	bl.end ;
 
 |---- condicionales
 :c0	tos+1r ;
@@ -176,21 +216,10 @@ w;		| ; | fin de palabra
 w(
 w)(
 w)
-0		| [
-0		| ]
-exexec	|EXEC  x/0 --    TOS es dcod
-c0
-c0
-c0
-c0		| 0? a -- a
-c1
-c1
-c1
-c1
-c1
-c1
-c1
-c1		| =?  ab -- a
+0 0						| [ ]
+exexec					|EXEC  x/0 --    TOS es dcod
+c0 c0 c0 c0				| 0? a -- a
+c1 c1 c1 c1 c1 c1 c1 c1	| =?  ab -- a
 d.dup
 d.drop
 d.over
@@ -339,6 +368,8 @@ vuso4	|SSET  a --
 	0 'ncell !
 	'dpila 'dpila> !
 	'rpila 'rpila> !
+	0 'nblock !
+	'pilab 'pilab> !
 
 	dup dic>mov @ 8 >> 24 << 24 >> neg | usados
 	( 1? )( 1-
@@ -406,3 +437,23 @@ vuso4	|SSET  a --
 		@+ celli
 		,cr
 		swap 1+ ) 2drop ;
+
+#bloq "REP" "IF " "WHI" "IFE" "UNT"
+
+:blinfo | nro --
+	dup "%d." ,print
+	2 <<
+	dup 'blocki + @
+	$7 and 2 << 'bloq + ,s
+
+	drop
+	;
+
+::blockinfo
+	nblock 0? ( drop ; ) drop
+	"block----" ,s ,cr
+	0 ( nblock <? )(
+    	dup blinfo
+    	,cr
+    	1+ ) drop
+	,cr ;
