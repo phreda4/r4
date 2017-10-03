@@ -72,28 +72,46 @@
 	0 over 2 << 'cells + !
 	dup 1+ 'ncell ! ;
 
+#lastdircode 0 | ultima direccion de codigo
+
+:tosCode
+	dup 4 - @ 8 >> 'lastdircode ! ;
+
 :litn | --
 	newcell d.push tosTok ;
 :lits | --
 	newcell d.push tosTok ;
 :litv | --
-	newcell d.push tosVar tosTok ;
+	newcell d.push tosVar tosTok tosCode ;
 :litAW	| -- ;dw dir word
-	newcell d.push tosAW tosTok ;
+	newcell d.push tosAW tosTok tosCode ;
 :litAV	| -- ;dv dir var
-	newcell d.push tosAV tosTok ;
+	newcell d.push tosAV tosTok tosCode ;
 
 :callW
+	dup 4 - @ 8 >>
+	dup dic>DATAU
+	dup ( 1? )( 1- tosoutC d.drop ) drop
+	swap dic>DATAD +
+	( 1? )( 1- newcell d.push tosinC ) drop
+	;
+
+:exexec
+|	tosExe
+    tos+1r d.drop
+	lastdircode
+	dup dic>DATAU
+	dup ( 1? )( 1- tosoutC d.drop ) drop
+	swap dic>DATAD +
+	( 1? )( 1- newcell d.push tosinC ) drop
 	;
 
 |------ bloques de codigo
 #nblock 0
 
-| $1 ?(
-| $2 ?)(
-| $4 ?)
-| $8 )(
+| $1 ?( | $2 ?)( | $4 ?) | $8 )(
 #blocki )( 1024	| tipo+info
+
 #blocks )( 1024 | celda inicio-
 #blockm )( 1024 | celda -medio-
 #blocke )( 1024 | celda -fin
@@ -103,7 +121,8 @@
 
 :bl.new nblock pilab> !+ 'pilab> ! 1 'nblock +! ;
 :bl.end -4 'pilab> +! ;
-:bl.now pilab> 4 - @ ; | -- nblo
+:bl.now pilab> |'pilab =? ( drop 0 ; )
+	4 - @ ; | -- nblo
 
 :bl.cond? | -- 0/cond
 	dup 8 - @ $ff and
@@ -113,6 +132,8 @@
 
 |---- bloques
 :w;		| ; | fin de palabra
+	pilab> 'pilab =? ( drop ; ) drop
+	8 bl.now 2 << 'blocki + +!
 	;
 
 :w(
@@ -125,7 +146,7 @@
 :w)(
 	bl.now 2 << >r
 	dup 4 - r 'blockm + !
-	$2 r> 'blocki + +!
+	$2 r> 'blocki + +!	| no necesita cond? !!
 	;
 
 :w)
@@ -156,9 +177,6 @@
 :r.r+		r.tos d.push tos+1w d.2drop ; |R+    a -- R: b -- c
 :r.r@+		r.tos d.push tos+1w tosVar d.drop ; |R@+    -- a R: b -- c
 :r.r!+		r.tos d.push tos+1w tosVar d.drop tos+1r d.drop ; |R!+   a -- R: b -- c
-
-:exexec
-	;
 
 :op1a1		tos+1w ; | neg not 1+ 4+ 1- 2/ ..
 :vop1a1 	tos+1w ; | abs  clz  ..
@@ -371,7 +389,7 @@ vuso4	|SSET  a --
 	0 'nblock !
 	'pilab 'pilab> !
 
-	dup dic>mov @ 8 >> 24 << 24 >> neg | usados
+	dup dic>DATAU | usados
 	( 1? )( 1-
 		newcell d.push tosinW
 		) drop ;
@@ -401,14 +419,15 @@ vuso4	|SSET  a --
 | $40 dir code
 | $80 copia de A
 :cflags
-	,sp
 	$ff and
-	$80 and? ( "CPY" ,s )
-	$40 and? ( "'CODE" ,s )
-	$20 and? ( "'DATA" ,s )
-	$10 and? ( "VAR" ,s )
-	$1 and? ( "IN W" ,s )
-	$2 and? ( "OUT W" ,s )
+	$1 and? ( " INW" ,s )
+	$2 and? ( " OUTW" ,s )
+	$4 and? ( " INC" ,s )
+	$8 and? ( " OUTC" ,s )
+	$10 and? ( " VAR" ,s )
+	$20 and? ( " 'DATA" ,s )
+	$40 and? ( " 'CODE" ,s )
+	$80 and? ( " CPY" ,s )
 	drop ;
 
 :cconst
@@ -444,8 +463,8 @@ vuso4	|SSET  a --
 	dup "%d." ,print
 	2 <<
 	dup 'blocki + @
+	$8 and? ( ";" ,s )
 	$7 and 2 << 'bloq + ,s
-
 	drop
 	;
 
