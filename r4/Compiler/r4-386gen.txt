@@ -3,6 +3,9 @@
 |----------------------------------
 ^r4/compiler/r4-cellana.txt
 
+#nstr
+#nlabel
+
 |-------- constantes del sistema
 #syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
 "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY" | []
@@ -72,8 +75,7 @@
 	2drop ;
 
 :,cell2REG | cell reg --
-	over cell0?
-	1? ( drop nip "xor " ,s dup ,REG "," ,s ,REG ,cr ; ) drop
+|	over cell0? 1? ( drop nip "xor " ,s dup ,REG "," ,s ,REG ,cr ; ) drop
 	"mov " ,s ,REG "," ,s ,CELL ,cr ;
 
 |------ acceso a celdas
@@ -99,21 +101,23 @@
 #strpending
 #lastdircode
 
+:vpila2v
+;
 :,wor
-	vpila2normal
+|	vpila2normal
 	dup @ $ff and 			| word ;
 	12 =? ( "jmp " )( "call " ) nip ,s
 	toknow nro>dicn ,s ,cr
 
-	toknow 8 >> vpila2callV
+|	toknow 8 >> vpila2callV
 	strpending neg
 |	1? ( "; strpending:" ,s dup ,d ,cr )
-	vpila2v
+|	pila2v
 	0 'strpending !
 	;
 
 :,callsys | usapila? --
-	1? ( vpila2normal ) drop
+|	1? ( vpila2normal ) drop
 	dup @ $ff and | word ;
 	12 =? ( "jmp " )( "call " ) nip
 	,s ;
@@ -138,12 +142,19 @@
 :,;
 	dup 8 - @ $ff and | word ;
 	8 =? ( drop ; ) drop
-	vpila2normal
+|	vpila2normal
 	"ret" ,ln ;
+
+:pushNRO
+:pushCOD
+:pushDAT
+:pushVar
+:pushSTR
+	drop ;
 
 :,lit	toknow tok>cte pushNRO ;
 :,lits
-		toknow 8 >> cte + strusestack
+		toknow tok>mem strusestack
 		'strpending ! drop
 		nstr pushSTR 1 'nstr +! ;
 :,dwo	toknow 8 >> dup 'lastdircode ! pushCOD ;
@@ -155,10 +166,10 @@
 
 :,simple?
 	'jmpstr !
-	d.cnt 0? ( vpila2normal ) drop
-	d.tos needWrite
-	d.tos cellADR? 1? ( drop
-		"cmp " ,s ,TOS ",0" ,ln ; ) drop
+|	d.cnt 0? ( vpila2normal ) drop
+|	d.tos needWrite
+|	d.tos cellADR? 1? ( drop
+|		"cmp " ,s ,TOS ",0" ,ln ; ) drop
 	"or " ,s ,TOS "," ,s ,TOS ,cr
 	;
 
@@ -169,14 +180,14 @@
 
 :,doble?
 	'jmpstr !
-	d.nos needWrite
-	d.tos cellADR? 1? ( drop
-		d.nos cellADR? 1? ( drop
-			newReg 6 >? ( drop freelastreg newReg )
-			"mov " ,s dup ,REG "," ,s ,TOS ,cr
-			"cmp " ,s ,NOS "," ,s ,REG ,cr
-			d.drop ;
-			)( drop ) )( drop )
+|	d.nos needWrite
+|	d.tos cellADR? 1? ( drop
+|		d.nos cellADR? 1? ( drop
+|			newReg 6 >? ( drop freelastreg newReg )
+|			"mov " ,s dup ,REG "," ,s ,TOS ,cr
+|			"cmp " ,s ,NOS "," ,s ,REG ,cr
+|			d.drop ;
+|			)( drop ) )( drop )
     "cmp " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 
@@ -189,14 +200,14 @@
 
 :,bit?
 	'jmpstr !
-	d.nos needWrite
-	d.tos cellADR? 1? ( drop
-		d.nos cellADR? 1? ( drop
-			newReg 6 >? ( drop freelastreg newReg )
-			"mov " ,s dup ,REG "," ,s ,TOS ,cr
-			"test " ,s ,NOS "," ,s ,REG ,cr
-			d.drop ;
-			) )( drop )
+|	d.nos needWrite
+|	d.tos cellADR? 1? ( drop
+|		d.nos cellADR? 1? ( drop
+|			newReg 6 >? ( drop freelastreg newReg )
+|			"mov " ,s dup ,REG "," ,s ,TOS ,cr
+|			"test " ,s ,NOS "," ,s ,REG ,cr
+|			d.drop ;
+|			) )( drop )
     "test " ,s ,NOS "," ,s ,TOS ,cr
 	d.drop ;
 
@@ -210,11 +221,11 @@
 :,jmpcond   jmpstr ,s label ,cr ;
 
 :+etiqueta	| -- nueva   // y agrega a pila
-	nlabel 1+ dup 'nlabel ! dup >pilac ;
+	nlabel 1+ dup 'nlabel ! dup ; |>pilac ;
 
 |----- BLOQUES
 :vpilad
-	vpila2normal
+|	vpila2normal
 	;
 
 :,(
@@ -675,7 +686,7 @@
 :,0 ;
 
 #nivel1 ,0
-,defw ,defv ,lit ,lit ,lit ,lit ,lits ,wor ,var ,dwo ,dva | 11
+,defw ,defw ,defv ,defv 0 0 ,lit ,lit ,lit ,lit ,lits ,wor ,var ,dwo ,dva | 11
 ,; ,( ,)( ,) ,[ ,] ,EXEC	| 18
 ,0? ,+? ,-? ,1? ,=? ,<? ,>? ,<=? ,>=? ,<>? ,AND? ,NAND? | 30
 
