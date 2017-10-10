@@ -4,35 +4,43 @@
 
 ^r4/lib/gui.txt
 
-#start | start of dmms space
-#ptr 
-#tag 
+#start | start of dmm space
+#ptr #tag 
 
-:tag>size | ( tag -- size )
-	  tag 2 >> ;
+| create tag value ( used? last? size -- )
+:settag! 8 - 2 << swap 1 << or or 'tag ! ;
 
-:settag! | ( used? last? size -- )
-	 8 - 2 << swap 1 << or or 'tag ! ;
+:tag>last tag %10 and 1 >> ;
 
-:tags | ( -- )
-      tag ptr 4 - !
-      tag ptr tag>size + ! ;
+:tag>used tag %1 and ;
 
-:dmminit | ( size -- )
-	 0 1 pick2 settag!
-	 mark
-	 here 4 + dup dup 'ptr ! 'start ! + 'here !
-	 tags ;
+:tag>size tag 2 >> ;
 
-:drawmms ;
-	 
-:go clrscr
-    mark here "%x" print cr
-    $100 dmminit
-    here "%x" print cr cr
-    tag "%x" print cr
-    show
-    drawmms
+:wtags tag ptr 4 - ! tag ptr tag>size + ! ;
+
+| init dmm system ( size -- )
+:dmminit 0 1 pick2 settag!
+	 mark here 4 + dup dup 'ptr ! 'start ! + 'here !
+	 wtags ;
+
+:pblock ptr "Mem: %x " print cr
+	tag>last "Last: %d" print cr
+	tag>used "Used: %d" print cr
+	tag>size "Size: %d bytes" print cr cr cr ;
+
+:nextblock tag>size ptr + 8 + 'ptr ! ptr 4 - @ 'tag ! ;
+
+:printdmm 'ptr ! start 4 - @ 'tag !
+
+:printdmmrec |
+	     pblock tag>last 1? ( drop ; )( nextblock printdmmrec ) ;
+
+:debug dup "%d" print cr cr ;
+
+:go $10000 dmminit
+    show clrscr
+    debug    
+    start printdmm
     'exit >esc< ;
 
-: go ;
+: 33 go ;
