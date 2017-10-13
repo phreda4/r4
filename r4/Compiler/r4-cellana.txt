@@ -111,7 +111,12 @@
 |------ bloques de codigo
 #nblock 0
 
-| $1 ?( | $2 ?)( | $4 ?) | $8 )(
+| $1 ?( | $2 ?)( | $2 )( | $4 ?)
+| 0 ( )		REP
+| 1 ?( )	IF
+| 2 ( ?)( ) WHI
+| 3 ?( )( )	IFE
+| 4 ( ?)	UNT
 #blocki )( 1024	| tipo+info
 
 #blocks )( 1024 | celda inicio-
@@ -147,10 +152,33 @@
 	8 bl.now 2 << 'blocki + +!
 	;
 
+|------------------------------------
+#memstk )( $ffff
+#memstk> 'memstk
+#stk )( $ff
+#stk> 'stk
+
 :stackpush
-:stackpop
-:stackdrop
+	memstk> dup >r
+	stk> !+ 'stk> !
+	dpila> 'dpila - 2 >> r!+
+	'dpila ( dpila> <? )( @+ r!+ ) drop
+	rpila> 'rpila - 2 >> r!+
+	'rpila ( rpila> <? )( @+ r!+ ) drop
+	r> 'memstk> !
 	;
+:stackpop
+	stk> 4 - dup 'memstk> ! dup 'stk> ! >r
+	'dpila
+	r@+ ( 1? )( 1- r@+ rot !+ swap ) drop
+	'dpila> !
+	'rpila
+	r@+ ( 1? )( 1- r@+ rot !+ swap ) drop
+	'rpila> !
+	rdrop
+	;
+:stackdrop
+	stk> 4 - dup @ 'memstk> ! 'stk> ! ;
 
 :w(
 	bl.new
@@ -163,16 +191,16 @@
 :w)(
 	bl.now 2 << >r
 	dup 4 - r 'blockm + !
-	$2 r> 'blocki + +!	| no necesita cond? !!
-	bl.cond? 1? ( stackdrop )( stackpop ) drop
+	$2 r> 'blocki + +!
+	bl.cond? 1? ( stackdrop )( stackpop ) drop	| WHILE o ELSE
 	stackpush
 	;
 
 :w)
 	bl.now 2 << >r
 	dup 4 - r 'blocke + !
-	bl.cond? 2 << r> 'blocki + +!
-|	blockELSE 1? ( stackdrop stackpush ) drop
+	bl.cond? 2 << r 'blocki + +!
+	r> 'blocki + @ 3 =? ( stackdrop stackpush ) drop | ELSE?
 	stackpop
 	bl.end ;
 
@@ -430,6 +458,9 @@ vuso4	|SSET  a --
 		cadatoken
 		9 ,c "; ",s ,stack ,cr
 		swap ) 2drop ;
+
+::cell2reg | word --
+	;
 
 | flags........
 |  $1 in W		| word
