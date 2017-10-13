@@ -3,10 +3,10 @@
 |-------------------------
 ^r4/compiler/r4-tokenprint.txt
 
-|-------------------------------------------
-| Info de celdas
+#tokenini | inicion de tokens
 #ncell 0 | cant
 
+| Info de celdas
 | RR WW AA FF
 | R cnt de lecturas
 | W cnt de escrituras
@@ -33,16 +33,16 @@
 #rpila )( 512
 #rpila> 'rpila
 
-:d.pop	-4 'dpila> +! dpila> @ ;
-:d.push	dpila> !+ 'dpila> ! ;
-::d.TOS	dpila> 4 - @ ;
+:d.pop		-4 'dpila> +! dpila> @ ;
+:d.push		dpila> !+ 'dpila> ! ;
+::d.TOS		dpila> 4 - @ ;
 ::d.NOS 	dpila> 8 - @ ;
 ::d.PK2 	dpila> 12 - @ ;
 ::d.PK3 	dpila> 16 - @ ;
 ::d.PK4 	dpila> 20 - @ ;
 
-::d.drop		-4 'dpila> +! ;
-::d.swap		dpila> 8 - >r r@+ r@+ r> 8 - !+ ! ;
+::d.drop	-4 'dpila> +! ;
+::d.swap	dpila> 8 - >r r@+ r@+ r> 8 - !+ ! ;
 ::d.rot		dpila> 12 - >r r@+ r@+ r@+ swap r> 12 - !+ !+ ! ;
 ::d.2swap	dpila> 16 - >r r@+ r@+ swap r@+ r@+ swap r> 16 - !+ !+ !+ ! ;
 
@@ -118,17 +118,20 @@
 | 3 ?( )( )	IFE
 | 4 ( ?)	UNT
 #blocki )( 1024	| tipo+info
-
-#blocks )( 1024 | celda inicio-
-#blockm )( 1024 | celda -medio-
-#blocke )( 1024 | celda -fin
+#blocks )( 1024 | inicio-medio-fin
 
 |----- pila para bloques
 #pilab )( 256	#pilab> 'pilab
 
-:bl.new nblock pilab> !+ 'pilab> ! 1 'nblock +! ;
-:bl.end -4 'pilab> +! ;
-:bl.now pilab> |'pilab =? ( drop 0 ; )
+:bl.new
+	nblock
+	0 over 2 << 'blocks + !
+	pilab> !+ 'pilab> !
+	1 'nblock +! ;
+:bl.end
+	-4 'pilab> +! ;
+:bl.now
+	pilab> |'pilab =? ( drop 0 ; )
 	4 - @ ; | -- nblo
 
 :bl.cond? | -- 0/cond
@@ -167,8 +170,9 @@
 	'rpila ( rpila> <? )( @+ r!+ ) drop
 	r> 'memstk> !
 	;
+
 :stackpop
-	stk> 4 - dup 'memstk> ! dup 'stk> ! >r
+	stk> 4 - dup 'stk> ! @ dup >r 'memstk> !
 	'dpila
 	r@+ ( 1? )( 1- r@+ rot !+ swap ) drop
 	'dpila> !
@@ -177,20 +181,24 @@
 	'rpila> !
 	rdrop
 	;
+
 :stackdrop
 	stk> 4 - dup @ 'memstk> ! 'stk> ! ;
+
+:ntok
+	dup 4 - tokenini - 2 >> ;
 
 :w(
 	bl.new
 	stackpush
 	bl.now 2 << >r
-	dup 4 - r 'blocks + !
+	ntok r 'blocks + !
 	bl.cond? r> 'blocki + !
 	;
 
 :w)(
 	bl.now 2 << >r
-	dup 4 - r 'blockm + !
+	ntok 10 << r 'blocks + +!
 	$2 r> 'blocki + +!
 	bl.cond? 1? ( stackdrop )( stackpop ) drop	| WHILE o ELSE
 	stackpush
@@ -198,7 +206,7 @@
 
 :w)
 	bl.now 2 << >r
-	dup 4 - r 'blocke + !
+	ntok 20 << r 'blocks + +!
 	bl.cond? 2 << r 'blocki + +!
 	r> 'blocki + @ 3 =? ( stackdrop stackpush ) drop | ELSE?
 	stackpop
@@ -285,8 +293,8 @@ w)(
 w)
 0 0						| [ ]
 exexec					|EXEC  x/0 --    TOS es dcod
-c0 c0 c0 c0				| 0? a -- a
-c1 c1 c1 c1 c1 c1 c1 c1	| =?  ab -- a
+c0 c0 c0 c0				| 0?	a -- a
+c1 c1 c1 c1 c1 c1 c1 c1	| =?	ab -- a
 d.dup
 d.drop
 d.over
@@ -303,38 +311,38 @@ d.4drop
 d.2over
 d.2swap
 
-r.push	|>R    a -- R: -- a
-r.pop	|R>    -- a R: a --
-r.r		|R      -- a R: a -- a
-r.r+	|R+    a -- R: b -- c
-r.r@+	|R@+    -- a R: b -- c
-r.r!+	|R!+   a -- R: b -- c
+r.push	|>R		a -- R: -- a
+r.pop	|R>		-- a R: a --
+r.r		|R		-- a R: a -- a
+r.r+	|R+		a -- R: b -- c
+r.r@+	|R@+	-- a R: b -- c
+r.r!+	|R!+	a -- R: b -- c
 r.drop	|RDROP	R: a --
 
 op2a1	|AND	ab -- c
-op2a1	|OR    ab -- c
-op2a1	|XOR   ab -- c
-op1a1	|NOT    a -- b
+op2a1	|OR		ab -- c
+op2a1	|XOR	ab -- c
+op1a1	|NOT	a -- b
 op2a1	|+		ab -- c
-op2a1	|-     ab -- c
-op2a1	|*     ab -- c
-vop2a1	|/     ab -- c		usa eax,edx
-op3a1	|*/    abc -- d     usa eax,edx
-vop3a1	|*>>   abc -- d     usa eax,edx, ecx
-op2a2	|/MOD   ab -- cd    usa eax,edx
-vop2a1	|MOD    ab -- c     usa eax,edx
-vop1a1	|ABS    a -- b      usa eax,edx
+op2a1	|-		ab -- c
+op2a1	|*		ab -- c
+vop2a1	|/		ab -- c
+op3a1	|*/		abc -- d
+vop3a1	|*>>	abc -- d
+op2a2	|/MOD	ab -- cd
+vop2a1	|MOD	ab -- c
+vop1a1	|ABS	a -- b
 op1a1	|SQRT	a -- b
-vop1a1	|CLZ	a -- b     usa eax,edx
-vop3a1	|<</	abc -- d   usa eax,edx, ecx
-op1a1	|NEG    a -- b
-op1a1	|1+     a -- b
-op1a1	|4+     a -- b
-op1a1	|1-     a -- b
-op1a1	|2/     a -- b
-op1a1	|2*     a -- b
-xop2a1	|<<    ab -- c     usa ecx
-xop2a1	|76 >>    ab -- c  usa ecx
+vop1a1	|CLZ	a -- b
+vop3a1	|<</	abc -- d
+op1a1	|NEG	a -- b
+op1a1	|1+		a -- b
+op1a1	|4+		a -- b
+op1a1	|1-		a -- b
+op1a1	|2/		a -- b
+op1a1	|2*		a -- b
+xop2a1	|<<		ab -- c
+xop2a1	|>>		ab -- c
 
 1@	|@      a -- b     tos es ddat
 1@	|C@     a -- b		tos es ddat
@@ -437,7 +445,9 @@ vuso4	|SSET  a --
 	'rpila 'rpila> !
 	0 'nblock !
 	'pilab 'pilab> !
-
+	'memstk 'memstk> !
+	'stk 'stk> !
+	dup dic>tok @ 'tokenini !
 	dup dic>DATAU | usados
 	( 1? )( 1-
 		newcell d.push tosinW
@@ -462,6 +472,7 @@ vuso4	|SSET  a --
 ::cell2reg | word --
 	;
 
+|------------------------ info
 | flags........
 |  $1 in W		| word
 |  $2 out W
@@ -518,6 +529,10 @@ vuso4	|SSET  a --
 	dup 'blocki + @
 	$8 and? ( ";" ,s )
 	$7 and 2 << 'bloq + ,s
+	dup 'blocks + @
+	dup $3ff and " %d" ,print
+	dup 10 >> $3ff and 0? ( drop ":" ,s )( ":%d:" ,print )
+	20 >> $3ff and "%d" ,print
 	drop
 	;
 
