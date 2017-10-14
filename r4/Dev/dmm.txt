@@ -4,42 +4,66 @@
 
 ^r4/lib/gui.txt
 
-#start | start of dmm space
+#dmms | start of dmm space
 #ptr #tag 
 
 | create tag value ( used? last? size -- )
-:settag! 8 - 2 << swap 1 << or or 'tag ! ;
+| 8 bytes are taken from size for two tags
+:settag! 2 << swap 1 << or or 'tag ! ;
 
 :tag>last tag %10 and 1 >> ;
-
 :tag>used tag %1 and ;
-
 :tag>size tag 2 >> ;
 
+| <tag><size bytes><tag>
 :wtags! tag ptr 4 - ! tag ptr tag>size + ! ;
 
 | init dmm system ( size -- )
 :dmminit 0 1 pick2 settag!
-	 mark here 4 + dup dup 'ptr ! 'start ! + 'here !
+	 mark
+	 here 4 +
+	 dup dup
+	 'ptr ! 'dmms ! 4 + + 'here !
 	 wtags! ;
 
-:pblock ptr "Mem: %x " print cr
-	tag>last "Last: %d" print cr
-	tag>used "Used: %d" print cr
+:pblock
+	here "HERE: %x" print cr
+	dmms "DMMS: %x" print cr
+	ptr "Block ptr: %x " print cr
+	ptr 4 - @ "tag1: %x " print cr
+	ptr ptr 4 - @ 2 >> + @ "tag2: %x " print cr
+	tag>last tag>used "Used/Last: %d/%d" print cr
 	tag>size "Size: %d bytes" print cr cr cr ;
 
 :nextblock tag>size ptr + 8 + 'ptr ! ptr 4 - @ 'tag ! ;
 
-:printdmm 'ptr ! start 4 - @ 'tag !
+:printdmm dmms 'ptr ! ptr 4 - @ 'tag !
 
-:printdmmrec pblock tag>last 1? ( drop ; )( drop nextblock printdmmrec ) ;
+:printdmmrec pblock tag>last 1 =? ( drop ; ) drop nextblock printdmmrec ;
+
+#ptr1 #tag1 #sz
+:split 'sz ! ptr 'ptr1 ! tag 'tag1 !
+       ptr sz + 8 + 'ptr ! 0 tag>last tag>size sz - 12 - settag! wtags!
+       ptr1 'ptr ! 1 0 sz settag! wtags!
+       ptr ;
+              
+:full 1 tag>last rot settag! wtags! ptr ;
+:allochere tag>size over - 16 >? ( drop split )( drop full ) ;
+:trynext tag>last 1 =? ( 2drop -1 ; ) drop nextblock
+:allocrec tag>used 1 =? ( drop trynext ; ) drop tag>size >? ( trynext ; ) allochere ;
+:alloc dmms 'ptr ! dmms 4 - @ 'tag ! allocrec ;
 
 :debug dup "%d" print cr cr ;
 
 :go $10000 dmminit
+    $8000 8 - alloc "----> %x" print cr
+    $8000 8 - alloc "----> %x" print cr
+    $600 alloc "----> %x" print cr
+    $800 alloc "----> %x" print cr
+    $1000 alloc "----> %x" print cr
     show clrscr
     debug    
-    start printdmm
+    printdmm
     'exit >esc< ;
 
 : 33 go ;
