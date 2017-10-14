@@ -27,11 +27,11 @@
 	 wtags! ;
 
 :pblock
-	here "HERE: %x" print cr
-	dmms "DMMS: %x" print cr
+|	here "HERE: %x" print cr
+|	dmms "DMMS: %x" print cr
 	ptr "Block ptr: %x " print cr
 	ptr 4 - @ "tag1: %x " print cr
-	ptr ptr 4 - @ 2 >> + @ "tag2: %x " print cr
+|	ptr ptr 4 - @ 2 >> + @ "tag2: %x " print cr
 	tag>last tag>used "Used/Last: %d/%d" print cr
 	tag>size "Size: %d bytes" print cr cr cr ;
 
@@ -41,13 +41,21 @@
 
 :printdmmrec pblock tag>last 1 =? ( drop ; ) drop nextblock printdmmrec ;
 
-#ptr1 #tag1 #sz
-:split 'sz ! ptr 'ptr1 ! tag 'tag1 !
-       ptr sz + 8 + 'ptr ! 0 tag>last tag>size sz - 12 - settag! wtags!
-       ptr1 'ptr ! 1 0 sz settag! wtags!
+| split ( size -- )
+| splits an existing block into two
+| 1st block: ptr=(bptr), tag=(used=1,last=0,size)
+| 2st block: ptr=(bptr+size+8), tag=(0,btaglast,btagsize-size-12)
+:split ptr tag
+       over pick3 8 + + 'ptr !
+       dup 0 swap %10 and 1 >> rot 2 >> pick4 - 12 - settag! wtags!
+       'ptr !
+       1 0 rot settag! wtags!
        ptr ;
-              
+
+| full (size -- )
+| allocates full block
 :full 1 tag>last rot settag! wtags! ptr ;
+
 :allochere tag>size over - 16 >? ( drop split )( drop full ) ;
 :trynext tag>last 1 =? ( 2drop -1 ; ) drop nextblock
 :allocrec tag>used 1 =? ( drop trynext ; ) drop tag>size >? ( trynext ; ) allochere ;
@@ -56,8 +64,9 @@
 :debug dup "%d" print cr cr ;
 
 :go $10000 dmminit
-    $8000 8 - alloc "----> %x" print cr
-    $8000 8 - alloc "----> %x" print cr
+    $4000 alloc "----> %x" print cr
+    $4000 alloc "----> %x" print cr
+    $4000 alloc "----> %x" print cr
     $600 alloc "----> %x" print cr
     $800 alloc "----> %x" print cr
     $1000 alloc "----> %x" print cr
