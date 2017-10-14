@@ -7,10 +7,9 @@
 #ncell 0 | cant
 
 | Info de celdas
-| RR WW AA FF
+| RR WW FFFF
 | R cnt de lecturas
 | W cnt de escrituras
-| A copia de origen(celda)
 | flags........
 |  $1 in W		| word
 |  $2 out W
@@ -19,10 +18,11 @@
 | $10 var
 | $20 dir var
 | $40 dir code
-| $80 copia de A
+| $80 copia de A en cellt
+| $100 celda exec
 #cells )( 1024
 
-| token de origen
+| token de origen o celda
 #cellt )( 1024
 
 |--- PILA DATO
@@ -58,15 +58,16 @@
 :tosVar     d.TOS 2 << 'cells + dup @ $10 or swap ! ;
 :tosAV      d.TOS 2 << 'cells + dup @ $20 or swap ! ;
 :tosAW      d.TOS 2 << 'cells + dup @ $40 or swap ! ;
+:tosExe 	d.TOS 2 << 'cells + dup @ $100 or swap ! ;
+
 :tosCPY | nro --
-	d.TOS 2 << 'cells + dup @ rot $ff and 8 << $80 or or swap ! ;
+			d.TOS 2 << dup >r 'cellt + !
+			r> 'cells + dup @ $80 or swap ! ;
 
 :tos+1r		$1000000 d.TOS 2 << 'cells + +! ;
 :tos+1w     $10000 d.TOS 2 << 'cells + +! ;
 
 :tosTok		dup 4 - d.TOS 2 << 'cellt + ! ;
-
-:tosExe 	d.TOS 2 << 'cells + dup @ $80 or swap ! ; | definir exe
 
 |---------------
 :newcell
@@ -146,7 +147,7 @@
 :exestack
 	rpila> 'rpila =? ( drop ; )
 	4 - @
-	2 << 'cells + dup @ $80 or swap ! | marca exe definir!
+	2 << 'cells + dup @ $100 or swap !
 	;
 
 :w;		| ; | fin de palabra
@@ -439,6 +440,7 @@ vuso4	|SSET  a --
 	( rpila> <? )( @+ "%d " ,print ) drop
 	;
 
+|------------------------------------------
 :init | word -- word
 	0 'ncell !
 	'dpila 'dpila> !
@@ -458,7 +460,7 @@ vuso4	|SSET  a --
 	0? ( drop ; )
 	exec ;
 
-|------------------------------------------
+
 ::cellana | word --
 	init
 	dup dic>tok @ swap dic>len@
@@ -469,7 +471,9 @@ vuso4	|SSET  a --
 		9 ,c "; ",s ,stack ,cr
 		swap ) 2drop ;
 
+
 ::cell2reg | word --
+
 	;
 
 |------------------------ info
@@ -483,7 +487,6 @@ vuso4	|SSET  a --
 | $40 dir code
 | $80 copia de A
 :cflags
-	$ff and
 	$1 and? ( " INW" ,s )
 	$2 and? ( " OUTW" ,s )
 	$4 and? ( " INC" ,s )
@@ -492,15 +495,17 @@ vuso4	|SSET  a --
 	$20 and? ( " 'DATA" ,s )
 	$40 and? ( " 'CODE" ,s )
 	$80 and? ( " CPY" ,s )
+	$100 and? ( " EXE" ,s )
 	drop ;
 
 :cconst
+	" CTE" ,s
 	" R:" ,s dup 24 >> $ff and ,d
 	cflags
-	" CTE " ,s
 	over 2 << 'cellt + @
 	0? ( drop ; )
-	@ tokenstrA ,print
+	256 <? ( ,sp ,d ; )
+	@ tokenstrA ,sp ,print
 	;
 
 
@@ -509,7 +514,6 @@ vuso4	|SSET  a --
 	0? ( drop cconst ; ) drop
 	" R:" ,s dup 24 >> $ff and ,d
 	" W:" ,s dup 16 >> $ff and ,d
-	" A:" ,s dup 8 >> $ff and ,d
 	cflags
 	;
 
@@ -519,6 +523,7 @@ vuso4	|SSET  a --
 		over ,d
 		@+ celli
 		,cr
+
 		swap 1+ ) 2drop ;
 
 #bloq "REP" "IF " "WHI" "IFE" "UNT"
