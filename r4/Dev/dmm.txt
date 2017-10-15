@@ -1,11 +1,13 @@
 | Dynamic Memory Management
 | Based on http://www.bradrodriguez.com/papers/ms/pat4th-c.html
-| tag : 30 bits size + 1 bit last? block + 1 bit used? block 
+| tag : 30 bits size + 1 bit last? block + 1 bit used? block
+| each block is : [4 bytes tag]< size bytes of memory>[4 bytes tag]
 
 ^r4/lib/gui.txt
+^r4/lib/btn.txt
 
 #dmms | start of dmm space
-#ptr #tag 
+#ptr #tag | used to keep information about current block
 
 | create tag value ( used? last? size -- )
 | 8 bytes are taken from size for two tags
@@ -26,28 +28,51 @@
 	 'ptr ! 'dmms ! 4 + + 'here !
 	 wtags! ;
 
+:nextblock tag>size ptr + 8 + 'ptr ! ptr 4 - @ 'tag ! ;
+
+| - PRINT ------------------------
+
 :pblock
-|	here "HERE: %x" print cr
-|	dmms "DMMS: %x" print cr
-	ptr "Block ptr: %x " print cr
-	ptr 4 - @ "tag1: %x " print cr
-|	ptr ptr 4 - @ 2 >> + @ "tag2: %x " print cr
+	here "HERE: %d" print cr
+	dmms "DMMS: %d" print cr
+	ptr "Block ptr: %d " print cr
+	ptr 4 - @ "tag1: %d " print cr
+	ptr ptr 4 - @ 2 >> + @ "tag2: %d " print cr
 	tag>last tag>used "Used/Last: %d/%d" print cr
 	tag>size "Size: %d bytes" print cr cr cr ;
-
-:nextblock tag>size ptr + 8 + 'ptr ! ptr 4 - @ 'tag ! ;
 
 :printdmm dmms 'ptr ! ptr 4 - @ 'tag !
 
 :printdmmrec pblock tag>last 1 =? ( drop ; ) drop nextblock printdmmrec ;
 
+| - DRAW ------------------------
+
+#bx 0 #by 50 #h 10
+
+| ( n -- ) draws a sequence of pixels left to right, top to bottom
+:sequence dup bx + sw <=? ( drop dup h bx by vfill bx + 'bx ! ; )
+	  sw - sw bx - sequence 0 'bx ! by h + 'by !
+	  sequence drop ;
+
+:dtag gris 4 sequence ;
+
+:dmem tag>used 1? ( rojo )( verde ) drop tag>size sequence ;
+
+:dblock dtag dmem dtag blanco ;
+	
+:drawdmm dmms 'ptr ! ptr 4 - @ 'tag !
+
+:drawdmmrec dblock tag>last 1 =? ( drop ; ) drop nextblock drawdmmrec ;
+
+| -------------------------
+
 | split ( size -- )
 | splits an existing block into two
 | 1st block: ptr=(bptr), tag=(used=1,last=0,size)
-| 2st block: ptr=(bptr+size+8), tag=(0,btaglast,btagsize-size-12)
+| 2st block: ptr=(bptr+size+8), tag=(0,btaglast,btagsize-size-8)
 :split ptr tag
        over pick3 8 + + 'ptr !
-       dup 0 swap %10 and 1 >> rot 2 >> pick4 - 12 - settag! wtags!
+       dup 0 swap %10 and 1 >> rot 2 >> pick4 - 8 - settag! wtags!
        'ptr !
        1 0 rot settag! wtags!
        ptr ;
@@ -61,18 +86,40 @@
 :allocrec tag>used 1 =? ( drop trynext ; ) drop tag>size >? ( trynext ; ) allochere ;
 :alloc dmms 'ptr ! dmms 4 - @ 'tag ! allocrec ;
 
+| next block tag
+:nextbtag ptr tag>size + 4 + @ ;
+:prevbtag ptr 8 - @ ;
+| releases block ( pointer -- )
+:release dup 'ptr ! 4 - @ $FFFFFFFE and 'tag !
+	 tag>last 0 =? ( drop nextbtag 1 and 0 =? ( drop 0 nextbtag dup %10 and 1 >> swap 30 >> tag>size + 8 + settag! )( drop ) )( drop )
+	 ptr dmms <>? ( 8 - @ 1 and 0 =? ( drop 0 tag>last tag>size prevbtag 30 >> + 8 + settag! ptr prevbtag 30 >> - 8 - 'ptr ! )( drop ) )( drop )
+	 wtags! ;
+
 :debug dup "%d" print cr cr ;
 
-:go $10000 dmminit
-    $4000 alloc "----> %x" print cr
-    $4000 alloc "----> %x" print cr
-    $4000 alloc "----> %x" print cr
-    $600 alloc "----> %x" print cr
-    $800 alloc "----> %x" print cr
-    $1000 alloc "----> %x" print cr
+#size
+
+:f2i 0.5 + 1024.0 *. 16 >> ;
+
+:newalloc size f2i alloc drop cr ;
+
+:newrelease ;
+
+:*. 16 *>> ;
+
+:go 10000 dmminit
     show clrscr
-    debug    
+    size f2i " %d " print sp
+    rojo 'newalloc "Alloc" btnt sp sp
+    azul 'newrelease "Release" btnt cr cr cr
+    0.25 0.025 fdim
+    -0.75 0.9 fpos
+    azul 'size hslide cr cr cr cr cr cr cr cr cr
+    blanco debug
+    1 'bx ! 50 'by ! drawdmm
     printdmm
+    cminiflecha
     'exit >esc< ;
 
 : 33 go ;
+
