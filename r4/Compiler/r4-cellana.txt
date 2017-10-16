@@ -21,9 +21,7 @@
 | $80 copia de A en cellt
 | $100 celda exec
 #cells )( 1024
-
-| token de origen o celda
-#cellt )( 1024
+#cellt )( 1024 | token de origen o celda
 #cellv )( 1024 | vida de celda
 
 |--- PILA DATO
@@ -77,30 +75,30 @@
 	0 over 2 << 'cellt + !
 	dup 1+ 'ncell ! ;
 
-:ntok
-	dup 4 - tokenini - 2 >> ;
-
-:inic
-	ntok d.tos 2 << 'cellv + ! ;
-
-:endc
-	ntok 10 << d.tos 2 << 'cellv + +! ;
-
 #lastdircode 0 | ultima direccion de codigo
 
 :tosCode
 	dup 4 - @ 8 >> 'lastdircode ! ;
 
+:ntok
+	dup 4 - tokenini - 2 >> ;
+
+:inic | 'tok -- 'tok
+	ntok d.tos 2 << 'cellv + ! ;
+
+:endc | 'tok -- 'tok
+	ntok 10 << d.tos 2 << 'cellv + +! ;
+
 :litn | --
-	newcell d.push tosTok ;
+	newcell d.push tosTok inic ;
 :lits | --
-	newcell d.push tosTok ;
+	newcell d.push tosTok inic ;
 :litv | --
-	newcell d.push tosVar tosTok tosCode ;
+	newcell d.push tosVar tosTok tosCode inic ;
 :litAW	| -- ;dw dir word
-	newcell d.push tosAW tosTok tosCode ;
+	newcell d.push tosAW tosTok tosCode inic ;
 :litAV	| -- ;dv dir var
-	newcell d.push tosAV tosTok tosCode ;
+	newcell d.push tosAV tosTok tosCode inic ;
 
 :callW
 	dup 4 - @ 8 >>
@@ -153,8 +151,6 @@
 	drop 1 ;
 
 |---- bloques
-
-
 :exestack
 	rpila> 'rpila =? ( drop ; )
 	4 - @
@@ -224,21 +220,21 @@
 
 |---- condicionales
 :c0	tos+1r ;
-:c1 tos+1r d.drop tos+1r ;
+:c1 tos+1r endc d.drop tos+1r ;
 
 |---- pila
 
-:d.dup		d.tos newcell d.push tosCpy ;
-:d.over		d.NOS newcell d.push tosCpy ;
-:d.pick2	d.PK2 newcell d.push tosCpy ;
-:d.pick3	d.PK3 newcell d.push tosCpy ;
-:d.pick4	d.PK4 newcell d.push tosCpy ;
+:d.dup		d.tos newcell d.push tosCpy inic ;
+:d.over		d.NOS newcell d.push tosCpy inic ;
+:d.pick2	d.PK2 newcell d.push tosCpy inic ;
+:d.pick3	d.PK3 newcell d.push tosCpy inic ;
+:d.pick4	d.PK4 newcell d.push tosCpy inic ;
 :d.2dup		d.over d.over ;
 :d.2over	d.pick3 d.pick3 ;
-:d.nip		d.swap d.drop ;
-:d.4DROP	d.drop
-:d.3DROP	d.drop
-:d.2DROP	d.drop d.drop ;
+:d.nip		d.swap endc d.drop ;
+:d.4DROP	endc d.drop
+:d.3DROP	endc d.drop
+:d.2DROP	endc d.drop endc d.drop ;
 
 :r.r		r.tos d.push ;
 :r.r+		r.tos d.push tos+1w d.2drop ; |R+    a -- R: b -- c
@@ -247,31 +243,31 @@
 
 :op1a1		tos+1w ; | neg not 1+ 4+ 1- 2/ ..
 :vop1a1 	tos+1w ; | abs  clz  ..
-:op2a1		tos+1r d.drop tos+1w ; | + - * and or xor ..
-:vop2a1 	tos+1r d.drop tos+1w ; | / mod
-:xop2a1		tos+1r d.drop tos+1w ; | << >>
-:op3a1		tos+1r d.drop tos+1r d.drop tos+1w ; | */
-:vop3a1		tos+1r d.drop tos+1r d.drop tos+1w ; | *>> /<<
+:op2a1		tos+1r endc d.drop tos+1w ; | + - * and or xor ..
+:vop2a1 	tos+1r endc d.drop tos+1w ; | / mod
+:xop2a1		tos+1r endc d.drop tos+1w ; | << >>
+:op3a1		tos+1r endc d.drop tos+1r d.drop tos+1w ; | */
+:vop3a1		tos+1r endc d.drop tos+1r d.drop tos+1w ; | *>> /<<
 :op2a2		tos+1w d.swap tos+1w d.swap ; | mod/
 
 | @ c@ w@
 :1@		tosVar tos+1w ;
 | ! c! w!
-:1!		tosVar tos+1r d.drop tos+1r d.drop ;
+:1!		tosVar tos+1r endc d.drop tos+1r endc d.drop ;
 | @+ c@+ w@+
 :2@		tosVar tos+1w ;
 | !+ c!+ w!+
 :2!		d.swap tos+1r d.swap tosVar tos+1w d.nip ;
 | +! c+! w+!
-:2+!	tosVar tos+1r d.drop tos+1r d.drop ;
+:2+!	tosVar tos+1r endc d.drop tos+1r endc d.drop ;
 
-:vuso6	tos+1r d.drop tos+1r d.drop
-:vuso4	tos+1r d.drop
-:vuso3	tos+1r d.drop
-:vuso2	tos+1r d.drop
-:vuso1	tos+1r d.drop ;
+:vuso6	tos+1r endc d.drop tos+1r endc d.drop
+:vuso4	tos+1r endc d.drop
+:vuso3	tos+1r endc d.drop
+:vuso2	tos+1r endc d.drop
+:vuso1	tos+1r endc d.drop ;
 :vuso11	tos+1r ;
-:vuso21	tos+1r d.drop tos+1r ;
+:vuso21	tos+1r endc d.drop tos+1r ;
 
 :v1cte	newcell d.push tosoutC ;
 :v3v	newcell d.push tosoutC
@@ -526,13 +522,18 @@ vuso4	|SSET  a --
 	cflags
 	;
 
+:cellvida | nro
+	2 << 'cellv + @
+	dup 10 >> $3ff and swap $3ff and 
+	" (%d:%d)" ,print ;
+
 ::cellinfo
 	'cells 0
 	( ncell <? )( swap
 		over ,d
 		@+ celli
+		over cellvida
 		,cr
-
 		swap 1+ ) 2drop ;
 
 #bloq "REP" "IF " "WHI" "IFE" "UNT"
