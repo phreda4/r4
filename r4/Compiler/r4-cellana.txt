@@ -4,6 +4,7 @@
 ^r4/compiler/r4-tokenprint.txt
 
 #tokenini | inicion de tokens
+#itok 0
 #ncell 0 | cant
 
 | Info de celdas
@@ -65,6 +66,8 @@
 
 :tos+1r		$1000000 d.TOS 2 << 'cells + +! ;
 :tos+1w     $10000 d.TOS 2 << 'cells + +! ;
+:+1r		2 << 'cells + $1000000 swap +! ;
+
 
 :tosTok		dup 4 - d.TOS 2 << 'cellt + ! ;
 
@@ -80,14 +83,11 @@
 :tosCode
 	dup 4 - @ 8 >> 'lastdircode ! ;
 
-:ntok
-	dup 4 - tokenini - 2 >> ;
-
 :inic | 'tok -- 'tok
-	ntok d.tos 2 << 'cellv + ! ;
+	itok d.tos 2 << 'cellv + ! ;
 
 :endc | 'tok -- 'tok
-	ntok 10 << d.tos 2 << 'cellv + +! ;
+	itok 10 << d.tos 2 << 'cellv + +! ;
 
 :litn | --
 	newcell d.push tosTok inic ;
@@ -164,47 +164,61 @@
 	;
 
 |------------------------------------
-#memstk )( $ffff
-#memstk> 'memstk
 #stk )( $ff
-#stk> 'stk
+#stk> 'stk			| stack for blocks
+#stki )( $fff		| stack of tokens
+#memstk )( $ffff	| stack memory
+#memstk> 'memstk
+
+:stack!
+	memstk>
+	dup itok 2 << 'stki + !
+	dpila> 'dpila - 2 >> swap c!+
+	'dpila ( dpila> <? )( @+ rot c!+ swap ) drop
+	rpila> 'rpila - 2 >> swap c!+
+	'rpila ( rpila> <? )( @+ rot c!+ swap ) drop
+	'memstk> !
+	;
 
 :stackpush
-	memstk> dup >r
+	itok 1- 2 << 'stki + @
 	stk> !+ 'stk> !
-	dpila> 'dpila - 2 >> r!+
-	'dpila ( dpila> <? )( @+ r!+ ) drop
-	rpila> 'rpila - 2 >> r!+
-	'rpila ( rpila> <? )( @+ r!+ ) drop
-	r> 'memstk> !
 	;
 
 :stackpop
-	stk> 4 - dup 'stk> ! @ dup >r 'memstk> !
-	'dpila
-	r@+ ( 1? )( 1- r@+ rot !+ swap ) drop
-	'dpila> !
-	'rpila
-	r@+ ( 1? )( 1- r@+ rot !+ swap ) drop
-	'rpila> !
-	rdrop
+	stk> 4 - dup 'stk> ! @
+	'dpila >r
+	c@+ ( 1? )( 1- swap c@+ r!+ swap ) drop
+	r> 'dpila> !
+	'rpila >r
+	c@+ ( 1? )( 1- swap c@+ r!+ swap ) drop
+	r> 'rpila> !
+	drop
 	;
 
 :stackdrop
-	stk> 4 - dup @ 'memstk> ! 'stk> ! ;
+	-4 'stk> +! ;
 
+:,stackm | adr --
+	c@+
+	( 1? )( 1- swap c@+ ,sp ,d swap ) drop
+	c@+ 0? ( 2drop ; )
+	" r:" ,s
+	( 1? )( 1- swap c@+ ,sp ,d swap ) 2drop ;
+
+|----------------------------
 
 :w(
 	bl.new
 	stackpush
 	bl.now 2 << >r
-	ntok r 'blocks + !
+	itok r 'blocks + !
 	bl.cond? r> 'blocki + !
 	;
 
 :w)(
 	bl.now 2 << >r
-	ntok 10 << r 'blocks + +!
+	itok 10 << r 'blocks + +!
 	$2 r> 'blocki + +!
 	bl.cond? 1? ( stackdrop )( stackpop ) drop	| WHILE o ELSE
 	stackpush
@@ -212,7 +226,7 @@
 
 :w)
 	bl.now 2 << >r
-	ntok 20 << r 'blocks + +!
+	itok 20 << r 'blocks + +!
 	bl.cond? 2 << r 'blocki + +!
 	r> 'blocki + @ 3 =? ( stackdrop stackpush ) drop | ELSE?
 	stackpop
@@ -224,11 +238,11 @@
 
 |---- pila
 
-:d.dup		d.tos newcell d.push tosCpy inic ;
-:d.over		d.NOS newcell d.push tosCpy inic ;
-:d.pick2	d.PK2 newcell d.push tosCpy inic ;
-:d.pick3	d.PK3 newcell d.push tosCpy inic ;
-:d.pick4	d.PK4 newcell d.push tosCpy inic ;
+:d.dup		d.tos dup +1r newcell d.push tosCpy inic ;
+:d.over		d.NOS dup +1r newcell d.push tosCpy inic ;
+:d.pick2	d.PK2 dup +1r newcell d.push tosCpy inic ;
+:d.pick3	d.PK3 dup +1r newcell d.push tosCpy inic ;
+:d.pick4	d.PK4 dup +1r newcell d.push tosCpy inic ;
 :d.2dup		d.over d.over ;
 :d.2over	d.pick3 d.pick3 ;
 :d.nip		d.swap endc d.drop ;
@@ -447,6 +461,7 @@ vuso4	|SSET  a --
 
 |------------------------------------------
 :init | word -- word
+	0 'itok !
 	0 'ncell !
 	'dpila 'dpila> !
 	'rpila 'rpila> !
@@ -465,16 +480,21 @@ vuso4	|SSET  a --
 	0? ( drop ; )
 	exec ;
 
-
 ::cellana | word --
 	init
 	dup dic>tok @ swap dic>len@
-	( 1? )( 1- swap @+
-
+	( 1? )( 1-
+		stack!
+		swap @+
 		"; " ,s dup tokenstr ,print
 		cadatoken
 		9 ,c "; ",s ,stack ,cr
-		swap ) 2drop ;
+
+|	"r4/compiler/code.asm" savemem | DEBUG
+
+		swap
+		1 'itok +!
+		) 2drop ;
 
 
 ::cell2reg | word --
@@ -524,7 +544,7 @@ vuso4	|SSET  a --
 
 :cellvida | nro
 	2 << 'cellv + @
-	dup 10 >> $3ff and swap $3ff and 
+	dup 10 >> $3ff and swap $3ff and
 	" (%d:%d)" ,print ;
 
 ::cellinfo
@@ -558,4 +578,11 @@ vuso4	|SSET  a --
     	dup blinfo
     	,cr
     	1+ ) drop
+	,cr ;
+
+::tokeninfo
+	0 ( itok <? )(
+		dup 2 << 'stki + @ ,stackm
+		,cr
+		1+ ) drop
 	,cr ;
