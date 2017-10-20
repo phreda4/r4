@@ -22,7 +22,6 @@
 :d>l dup t %10 and 1 >> ;
 :d>s dup t 2 >> ;
 :np d>s + 8 + ;
-:pp 8 - ;
 :nextptr dup np ;
 :prevptr dup dup 8 - @ 2 >> - 8 - ;
 
@@ -50,15 +49,32 @@
 
 | Release block ( ptr -- )
 | The R stack keeps size and bits as the next and the prev blocks are visited for possible absorption
-::release d>l 1 << >r
-	  d>s >r
-	  d>l 0 =? ( drop nextptr d>u 0 =? ( drop d>s r> + 8 + rdrop swap d>l 1 << >r swap >r drop )( 2drop ) )( drop ) | next block
-	  dmms <>? ( prevptr d>u 0 =? ( drop d>s r> + 8 + >r nip )( 2drop ) )                                           | prev block
-	  r> swap r> wtags! ;
+| ::release d>l 1 << >r
+| 	  d>s >r
+| 	  d>l 0 =? ( drop nextptr d>u 0 =? ( drop d>s r> + 8 + rdrop swap d>l 1 << >r swap >r drop )( 2drop ) )( drop ) | next block
+| 	  dmms <>? ( prevptr d>u 0 =? ( drop d>s r> + 8 + >r nip )( 2drop ) )                                           | prev block
+| 	  r> swap r> wtags! ;
+
+#rsize #rbits 
+
+:rmergenext d>s rsize + 8 + 'rsize ! d>l 1 << 'rbits !  ;
+:rnextblock nextptr d>u 0 =? ( drop rmergenext drop ; ) 2drop ;
+
+:rmergeprev d>s rsize + 8 + 'rsize ! ;
+:rprevblock prevptr d>u 0 =? ( drop rmergeprev nip ; ) 2drop ;
+
+:checknext d>l 0 =? ( drop rnextblock )( drop ) ;
+:checkprev dmms <>? ( rprevblock ) ;
+
+::release d>l 1 << 'rbits ! d>s 'rsize !
+	  checknext checkprev
+	  rsize swap rbits wtags! ;
 
 
 
 
+
+	  
 	  
 	  
 | --------------------- DEBUG SECTION --------------------------------
@@ -114,7 +130,7 @@
 :nextptr walkptr tag lastbit 1 =? ( drop ; ) drop walkptr dup tag 2 >> + 8 + 'walkptr ! ;
 :prevptr walkptr dmms =? ( drop ; ) dup 8 - @ 2 >> - 8 - 'walkptr ! ;
 
-:newalloc size f2i alloc 'walkptr ! cr ;
+:newalloc size f2i alloc -1 <>? ( 'walkptr ! )( drop ) cr ;
 
 :newrelease walkptr -1 <>? ( release -1 'walkptr ! )( drop ) dmms 'walkptr ! ;
 
@@ -124,7 +140,7 @@
     dmms 'walkptr !
     show clrscr
     blanco debug
-    size f2i "Bytes to allocated: %d" print sp sp rojo 'newalloc "Alloc" btnt 
+    size f2i "Bytes to allocate: %d" print sp sp rojo 'newalloc "Alloc" btnt 
     verde 'nextptr "Next" btnt sp
     amarillo 'prevptr "Prev" btnt sp
     'nextptr >ri<
