@@ -11,7 +11,7 @@ Started in 2005 along with my study of the Forth language.
 The behavior of the language is guided by prefixes :
 
 * : prefix to define code
-* # prefix to define data
+* \# prefix to define data
 * ^ prefix to include definitions from other source files
 * ' prefix to get the adress of code or data
 * | prefix for comments (until the end of the line)
