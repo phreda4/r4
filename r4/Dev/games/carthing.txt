@@ -1,0 +1,105 @@
+| from https://gamedev.stackexchange.com/questions/1796/vehicle-physics-with-skid
+
+^r4/lib/gui.txt
+
+#px #py | positionX, positionY - where the car is
+#vx #vy | velocityX, velocityY - speed on each axis
+#drag   | drag - how fast the car slows down
+#angle  | angle - the rotation of the car, in radians
+#av     | angularVelocity - speed the car is spinning, in radians
+#ad     | angularDrag - how fast the car stops spinning
+#power  | power - how fast car can accelerate
+#ts     | turnSpeed - how fast to turn
+
+:deg2rad 3.1415 *. 180.0 /. ;
+
+:simulate px vx + 'px !
+	  py vy + 'py !
+	  vx drag *. 'vx !
+	  vy drag *. 'vy !
+	  angle av + 'angle !
+	  av ad *. 'av ! ;
+	
+:printstats px "px: %f " print cr
+	   py "py: %f " print cr
+	   vx "vx: %f " print cr
+	   vy "vy: %f " print cr
+	   drag "drag: %f " print cr
+	   angle "angle: %f " print cr
+	   av "angular velocity: %f " print cr
+	   ad "angular drag : %f " print cr
+	   power "power: %f" print cr ;
+
+:drawcar px angle 45.0 - deg2rad cos 16.0 *. - 16 >>
+	 py angle 45.0 - deg2rad sin 16.0 *. - 16 >> op
+	 azul
+	 px angle 45.0 + deg2rad cos 16.0 *. - 16 >>
+	 py angle 45.0 + deg2rad sin 16.0 *. - 16 >> line
+	 amarillo
+	 px angle 135.0 - deg2rad cos 16.0 *. - 16 >>
+	 py angle 135.0 - deg2rad sin 16.0 *. - 16 >> line
+	 verde	 
+	 px angle 135.0 + deg2rad cos 16.0 *. - 16 >>
+	 py angle 135.0 + deg2rad sin 16.0 *. - 16 >> line
+	 naranja
+	 px angle 45.0 - deg2rad cos 16.0 *. - 16 >>
+	 py angle 45.0 - deg2rad sin 16.0 *. - 16 >> line
+	 blanco ;
+
+:draw printstats drawcar ;
+
+:debug dup "%d" print cr ;
+
+| get thenth value from the mth joystick	
+| ( nval numjoy -- # )
+:joyval getjoy swap 4 * + @ ;
+	
+:joy0left 2 0 joyval 0? ( 1 )( 0 ) nip ;
+:joy0right 2 0 joyval $FFFE =? ( 1 )( 0 ) nip ;
+:joy0down 3 0 joyval $FFFE =? ( 1 )( 0 ) nip ;
+:joy0up 3 0 joyval 0? ( 1 )( 0 ) nip ;
+
+:joy0bval 8 0 joyval ;
+
+| ( butn - 0/1 )
+:joy0b? joy0bval 1 rot 1- << and 1? ( 1 )( 0 ) nip ;
+
+:joy0b1 1 joy0b? ;
+:joy0b2 2 joy0b? ;
+:joy0b3 3 joy0b? ;
+:joy0b4 4 joy0b? ;
+
+:updatev angle deg2rad dup cos power *. 'vx ! sin power *. 'vy ! ;
+
+#maxpower 6.0
+
+:speed joy0up 1 =? ( drop power 0.04 + maxpower >? ( drop maxpower 'power ! )( 'power ! ) updatev )(
+       drop |power decreases until 0
+       power 0.04 - +? ( 'power ! updatev )( drop 0.0 'power ! ) ) ;
+
+:adjpower power 2.0 /. *. ;
+
+:goleft -0.02 adjpower 'ts ! av ts + 'av ! 0.0 'ts ! ;
+:tleft  joy0left  1 =? ( drop goleft ; ) drop ;
+
+:goright 0.02 adjpower 'ts ! av ts + 'av ! 0.0 'ts ! ;
+:tright joy0right 1 =? ( drop goright ; ) drop ;
+       
+:inputs speed tleft tright ;
+
+:go show clrscr debug
+    inputs simulate draw
+    'exit >esc< ;
+
+:init 150.0 'px !
+      150.0 'py !
+      2.0 'vx !
+      0.0 'vy !
+      0.95 'drag !
+      0.0 'angle !
+      0.0 'av !
+      0.94 'ad !
+      0.0 'power !
+      0.0 'ts ! ;
+      
+: init 33 go ;
