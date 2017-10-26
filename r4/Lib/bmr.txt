@@ -84,11 +84,11 @@
 	swap
 	dup $ff00ff and				| alpha color colorand
 	px@ dup $ff00ff and 		| alpha color colorand inkc inkcand
-	pick2 - pick4 8 *>> rot +	| alpha color inkc inkcandl
+	pick2 - pick4 * 8 >> rot +	| alpha color inkc inkcandl
 	$ff00ff and >r				| alpha color inkc
 	swap $ff00 and 				| alpha px colorand
 	swap $ff00 and 				| alpha colorand pxa
-	over - rot 8 *>> + $ff00 and
+	over - rot * 8 >> + $ff00 and
 	r> or px!+  ;
 
 
@@ -214,6 +214,55 @@
 	3drop ;
 
 #sdraw s0 s1 t2 t3 t4 t5 t6 t7 t8 t9 tA tB tC tD tE tF
+
+#sina #cosa
+
+:inirot | x y r --
+	sincos
+	dup 'cosa ! wb *
+	swap dup 'sina ! hb *
+	swap over neg
+	2dup +
+	pick2 pick2 pick2
+	min min 0 min neg 'sx !
+	pick2 pick2 pick2
+	max max 0 max sx + 16 >> 'wi !
+	2drop
+	2dup +
+	pick2 pick2 pick2
+	min min 0 min neg 'sy !
+	max max 0 max sy + 16 >> 'hi !
+	setxy ;
+
+:dotrot | xa ya w -- n
+	over -? ( ; )
+	16 >> hb >=? ( drop -1 ; )
+	wb *
+	pick3 -? ( nip ; )
+	16 >> wb >=? ( 2drop -1 ; )
+	+ ;
+
+:r0
+:r1 | x y r adr --
+	>r
+	inirot
+	sx sy
+	hi ( 1? )(
+		pick2 pick2
+		wi ( 1? )(
+			dotrot
+			-? ( drop $ff px!+ )( 2 << r + @ acpx!+ )
+			rot cosa +
+			rot sina +
+			rot 1- ) 3drop
+		sw wi - px+!
+		rot sina -
+		rot cosa +
+		rot 1- )
+	3drop rdrop ;
+
+#rdraw r0 r1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+
 |----------------------------------------
 ::bmr.clear
 	frame wb hb *
@@ -285,6 +334,14 @@
 	0? ( 3drop ; ) 'wr !
 	frame res $f and 2 << 'sdraw + @ exec ;
 
+
+::bmr.drawr | x y r 'bmr --
+	@+
+	dup 12 >> $fff and 'wb !
+	dup $fff and 'hb !
+	24 >>
+	$10 and? ( tienepal )( 'paleta 'mempal ! )
+	$f and 2 << 'rdraw + @ exec ;
 
 |-----
 :savepal
