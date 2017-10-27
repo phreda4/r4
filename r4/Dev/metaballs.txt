@@ -1,0 +1,75 @@
+| TODO: marching squares
+
+^r4/lib/gui.txt
+^r4/lib/dmm.txt
+
+| info about all disks in the scene
+#ndisks #disks | one disk : x y r = 3 words = 6 bytes
+#val #x #y #radius #x0 #y0 
+
+:bounds over -
+:randbtw | ( min max -- v )
+       over - rand abs swap mod + ;
+
+:ranx 50 sw bounds ;
+:rany 50 sh bounds ;
+:ranradius 50 100 randbtw ;
+       
+:new_disks
+      10 'ndisks !
+      disks
+      ranx swap w!+ 250 swap w!+ 80 swap w!+
+      ranx swap w!+ rany swap w!+ ranradius swap w!+
+      ranx swap w!+ rany swap w!+ ranradius swap w!+
+      ranx swap w!+ rany swap w!+ ranradius swap w!+
+      ranx swap w!+ rany swap w!+ ranradius swap w!+
+      ranx swap w!+ rany swap w!+ ranradius swap w!+
+      ranx swap w!+ rany swap w!+ ranradius swap w!+
+      ranx swap w!+ rany swap w!+ ranradius swap w!+
+      ranx swap w!+ rany swap w!+ ranradius swap w!+
+      ranx swap w!+ rany swap w!+ ranradius swap w!+
+      ranx swap w!+ rany swap w!+ ranradius swap w! ;
+
+:debug dup "%d" print cr ;
+
+:updatexy dup sw mod 'x ! sw / 'y ! ;
+
+:disk_adr 6 * disks + ;
+
+:update_curdisk disk_adr w@+ 'x0 ! w@+ 'y0 ! w@ 'radius ! ;
+
+:real10 10 << ;
+:mul10 10 *>> ;
+:div10 10 <</ ;
+:sq10 dup mul10 ;
+
+:proc_disk update_curdisk
+	   x x0 =? ( drop y y0 =? ( drop ; )( drop ) )( drop )
+	   x x0 - radius 10 * >? ( drop ; ) drop
+	   y y0 - radius 10 * >? ( drop ; ) drop
+	   radius real10 sq10
+	   x x0 - real10 sq10
+	   y y0 - real10 sq10 +
+	   div10
+	   val + 'val ! ;
+
+:proc_pt updatexy
+	 0 'val !
+	 ndisks ( 0 >? )( 1- dup proc_disk ) drop
+	 val 1 real10 >=? ( x y op x y line ) drop ;
+
+:all_pts sw sh * 1- ( 0 >=? )( dup proc_pt 1 - ) drop ;
+
+:main show clrscr blanco
+      debug cr
+      all_pts
+      rojo ndisks ( 0 >? )( 1- dup update_curdisk x0 y0 radius circle ) drop
+      new_disks
+      'exit >esc< ;
+      
+:init 10000 dmminit
+      6 100 * alloc 'disks !
+      new_disks ;
+
+: 33 init main ;
+
