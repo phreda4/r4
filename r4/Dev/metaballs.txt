@@ -17,9 +17,10 @@
 :ranradius 50 100 randbtw ;
        
 :new_disks
-      10 'ndisks !
+      12 'ndisks !
       disks
-      ranx swap w!+ 250 swap w!+ 80 swap w!+
+      ranx swap w!+ rany swap w!+ ranradius swap w!+
+      ranx swap w!+ rany swap w!+ ranradius swap w!+
       ranx swap w!+ rany swap w!+ ranradius swap w!+
       ranx swap w!+ rany swap w!+ ranradius swap w!+
       ranx swap w!+ rany swap w!+ ranradius swap w!+
@@ -72,7 +73,10 @@
 
 :drawdisks rojo ndisks ( 0 >? )( 1- dup update_curdisk x0 y0 radius circle ) drop ;
 
-#cb 0
+#cbmb 0
+#cbgrid 1
+#cbms 1
+#cbdisks 1
 #ndiv -0.4
 #cellsize 1
 #ncols 1
@@ -86,25 +90,85 @@
 	    sh cellsize / 'ncols !
 	    sw cellsize / 'nrows ! ;
 
+| drawing for each of the 16 possible configuration	    
+	    
+:drawms0000 ;
+:drawms0001 x                y cellsize 2 / + op
+	    x cellsize 2 / + y cellsize + line ;
+:drawms0010 x cellsize 2 / + y cellsize + op
+	    x cellsize     + y cellsize 2 / + line ;
+:drawms0011 x                y cellsize 2 / + op
+	    x cellsize     + y cellsize 2 / + line ;
+:drawms0100 x cellsize 2 / + y                op
+	    x cellsize     + y cellsize 2 / + line ;
+:drawms1000 x                y cellsize 2 / + op
+	    x cellsize 2 / + y                line ;
+:drawms0101 drawms1000
+	    drawms0010 ;
+:drawms0110 x cellsize 2 / + y                op
+	    x cellsize 2 / + y cellsize +     line ;
+:drawms0111 drawms1000 ;
+:drawms1001 drawms0110 ;
+:drawms1010 drawms0001
+	    drawms0100 ;
+:drawms1011 drawms0100 ;
+:drawms1100 drawms0011 ;
+:drawms1101 drawms0010 ;
+:drawms1110 drawms0001 ;
+:drawms1111 ;
+
+#drawmsvec 'drawms0000 'drawms0001 'drawms0010 'drawms0011 'drawms0100 'drawms0101 'drawms0110 'drawms0111
+	   'drawms1000 'drawms1001 'drawms1010 'drawms1011 'drawms1100 'drawms1101 'drawms1110 'drawms1111
+
+#bits 
+| calculates the bit pattern for a given 4-dot configuration
+| and draws corresponding line pattern
+| ! much is re-calculated at this stage...
+:drawmspt | ( x y -- )
+	cellsize * 'y ! cellsize * 'x !
+	0 'val ! 0 'bits !
+	ndisks ( 0 >? )( 1- dup proc_disk ) drop
+	val 1 real10 >=? ( bits %1000 or 'bits ! ) drop
+
+	x cellsize + 'x ! 0 'val !
+	ndisks ( 0 >? )( 1- dup proc_disk ) drop
+	val 1 real10 >=? ( bits %0100 or 'bits ! ) drop
+
+	y cellsize + 'y ! 0 'val !
+	ndisks ( 0 >? )( 1- dup proc_disk ) drop
+	val 1 real10 >=? ( bits %0010 or 'bits ! ) drop
+
+	x cellsize - 'x ! 0 'val !
+	ndisks ( 0 >? )( 1- dup proc_disk ) drop
+	val 1 real10 >=? ( bits %0001 or 'bits ! ) drop
+
+	naranja 'drawmsvec bits 4 * + @ exec ;
+	
 :drawdot | ( x y -- )
 	 cellsize * 'y ! cellsize * 'x !
 	 0 'val !
 	 ndisks ( 0 >? )( 1- dup proc_disk ) drop
 	 val 1 real10 >=? ( verde )( negro ) drop
 	 x y 2dup op line ;
-
+	 
 :drawgrid nrows ( +? )( ncols ( +? )( 2dup drawdot 1- ) drop 1- ) drop ;
 
-:display 0.25 0.025 fdim -0.65 0.6 fpos
+:drawms nrows ( +? )( ncols ( +? )( 2dup drawmspt 1- ) drop 1- ) drop ;
+
+:display 0.25 0.025 fdim -0.65 0.4 fpos
 	 verde 'ndiv hslide
 	 updategrid
-	 drawgrid
 	 blanco ndiv sval2cs "N divides: %d" print cr cr
 	 cellsize "cell size: %d" print cr cr
 	 ncols nrows "N rows/N cols: %d/%d" print cr cr
-	 'cb "Draw metaballs" btncheck cr cr
-	 cb 1? ( metaballs ) drop
-	 drawdisks ;
+	 'cbdisks "Draw disks" btncheck cr cr
+	 'cbmb "Draw metaballs" btncheck cr cr
+	 'cbgrid "Draw grid" btncheck cr cr
+	 'cbms "Draw marching squares" btncheck cr cr
+	 cbmb 1? ( metaballs ) drop
+	 cbgrid 1? ( drawgrid ) drop
+	 cbms 1? ( drawms ) drop
+	 cbdisks 1? ( drawdisks ) drop ;
 
 :main show clrscr blanco
       debug cr
