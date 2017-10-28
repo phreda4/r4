@@ -1,4 +1,5 @@
-| TODO: marching squares
+| Metaballs
+| http://jamie-wong.com/2014/08/19/metaballs-and-marching-squares/
 
 ^r4/lib/gui.txt
 ^r4/lib/dmm.txt
@@ -32,19 +33,24 @@
 
 :debug dup "%d" print cr ;
 
+| converts current point ptr into x,y
 :updatexy dup sw mod 'x ! sw / 'y ! ;
 
 :disk_adr 6 * disks + ;
 
 :update_curdisk disk_adr w@+ 'x0 ! w@+ 'y0 ! w@ 'radius ! ;
 
+| fixed-point arithmetic
 :real10 10 << ;
 :mul10 10 *>> ;
 :div10 10 <</ ;
 :sq10 dup mul10 ;
 
+| process each disk
+| the value is accumulated in the val variable
+| what is being summed is: (radius^2)/((x-x0)^2+(y-y0)^2)
 :proc_disk update_curdisk
-	   x x0 =? ( drop y y0 =? ( drop ; )( drop ) )( drop )
+	   x x0 =? ( drop y y0 =? ( 1 real10 'val ! drop ; )( drop ) )( drop )
 	   x x0 - radius 10 * >? ( drop ; ) drop
 	   y y0 - radius 10 * >? ( drop ; ) drop
 	   radius real10 sq10
@@ -53,18 +59,59 @@
 	   div10
 	   val + 'val ! ;
 
+| for each point compute influence of all disks
 :proc_pt updatexy
 	 0 'val !
 	 ndisks ( 0 >? )( 1- dup proc_disk ) drop
 	 val 1 real10 >=? ( x y op x y line ) drop ;
 
-:all_pts sw sh * 1- ( 0 >=? )( dup proc_pt 1 - ) drop ;
+| walk the whole screen	 
+:all_pts sw sh * 1- ( 0 >=? )( dup proc_pt 20 - ) drop ;
+
+:metaballs all_pts ;
+
+:drawdisks rojo ndisks ( 0 >? )( 1- dup update_curdisk x0 y0 radius circle ) drop ;
+
+#cb 0
+#ndiv -0.4
+#cellsize 1
+#ncols 1
+#nrows 1
+#pause 0
+
+| Converts slider value to [1,sw-1]
+:sval2cs 0.5 + sw sh min 2 - 16 << *. 16 >> 1 + ;
+
+:updategrid sw sh min 1- ndiv sval2cs / 'cellsize !
+	    sh cellsize / 'ncols !
+	    sw cellsize / 'nrows ! ;
+
+:drawdot | ( x y -- )
+	 cellsize * 'y ! cellsize * 'x !
+	 0 'val !
+	 ndisks ( 0 >? )( 1- dup proc_disk ) drop
+	 val 1 real10 >=? ( verde )( negro ) drop
+	 x y 2dup op line ;
+
+:drawgrid nrows ( +? )( ncols ( +? )( 2dup drawdot 1- ) drop 1- ) drop ;
+
+:display 0.25 0.025 fdim -0.65 0.6 fpos
+	 verde 'ndiv hslide
+	 updategrid
+	 drawgrid
+	 blanco ndiv sval2cs "N divides: %d" print cr cr
+	 cellsize "cell size: %d" print cr cr
+	 ncols nrows "N rows/N cols: %d/%d" print cr cr
+	 'cb "Draw metaballs" btncheck cr cr
+	 cb 1? ( metaballs ) drop
+	 drawdisks ;
 
 :main show clrscr blanco
       debug cr
-      all_pts
-      rojo ndisks ( 0 >? )( 1- dup update_curdisk x0 y0 radius circle ) drop
-      new_disks
+      display
+      'pause "Pause this madness" btncheck cr cr
+      pause 0? ( new_disks ) drop
+      cminiflecha
       'exit >esc< ;
       
 :init 10000 dmminit
