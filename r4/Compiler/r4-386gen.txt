@@ -79,37 +79,41 @@
 |	over cell0? 1? ( drop nip "xor " ,s dup ,REG "," ,s ,REG ,cr ; ) drop
 	"mov " ,s ,REG "," ,s ,CELL ,cr ;
 
-|------ activar los registros virtuales
-:asigcte | nro --
-    dup celltok
-
-	0? ( drop ; )
-	256 <? ( drop ; )
-
-	;
-
-:initctes
-	0 ( ncell <? )(
-        dup cellcte? 1? ( drop asigcte )( drop )
-		1- ) drop
-	;
-
 |------ acceso a celdas
 :stknow	nroi 2 << 'stki + @ ;
+
 :stktos c@+ 1- + c@ $ff and ;
 :stknos c@+ 2 - + c@ $ff and ;
 :stknos2 c@+ 3 - + c@ $ff and ;
 :stkrtos c@+ + c@+ + c@ $ff and ;
 
-:,TOS	stknow stktos ,d ;
-:,TOSb	stknow stktos ,d ;
+|--- token a cte
+:c7 tok>cte "$%h"  ;
+:cB 8 >> "str%h" ;s
+:cC 8 >> "w%h" ;
 
-:,NOS	stknow stknos ,d ;
-:,NOSb	stknow stknos ,d ;
-:,NOSw	stknow stknos ,d ;
+#codeisa 0 0 0 0 0 0 0 c7 c7 c7 c7 cB cC cC cC cC
 
-:,NOS2	stknow stknos2 ,d ;
-:,RTOS	stknow stkrtos ,d ;
+:tokencte | a -- mem
+	dup $ff and 2 << 'codeisa + @ 0? ( trace 2drop ; ) exec ;
+
+:emitcell
+	dup cellcte? 1? ( drop ,sp ,d ; ) drop
+	celltok
+	0? ( drop ; )
+	256 <? ( ,sp ,d ; )
+	@ tokencte ,sp ,print
+	;
+
+:,TOS	stknow stktos emitcell ;
+:,TOSb	stknow stktos emitcell ;
+
+:,NOS	stknow stknos emitcell ;
+:,NOSb	stknow stknos emitcell ;
+:,NOSw	stknow stknos emitcell ;
+
+:,NOS2	stknow stknos2 emitcell ;
+:,RTOS	stknow stkrtos emitcell ;
 
 |------------ compila CODIGO
 |:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
@@ -123,6 +127,7 @@
 
 :vpila2v
 ;
+
 :,wor
 	dup @ $ff and 			| word ;
 	16 =? ( "jmp " )( "call " ) nip ,s
