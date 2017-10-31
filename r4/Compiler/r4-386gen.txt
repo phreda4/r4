@@ -8,6 +8,7 @@
 #strpending
 
 #nroi
+#regIO | dicc de IO 16 bytes
 
 |-------- constantes del sistema
 #syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
@@ -89,7 +90,7 @@
 
 |--- token a cte
 :c7 tok>cte "$%h"  ;
-:cB 8 >> "str%h" ;s
+:cB 8 >> "str%h" ;
 :cC 8 >> "w%h" ;
 
 #codeisa 0 0 0 0 0 0 0 c7 c7 c7 c7 cB cC cC cC cC
@@ -237,48 +238,57 @@
 :,jmpcond   jmpstr ,s label ,cr ;
 
 :+etiqueta	| -- nueva   // y agrega a pila
-	nlabel 1+ dup 'nlabel ! dup ; |>pilac ;
+	nlabel 1+ dup 'nlabel ! dup c.push ;
 
 |----- BLOQUES
 :vpilad
 |	vpila2normal
 	;
 
+|----- pila para bloques
+#nblock 0
+
 :block.new
+	nblock pilab> !+ 'pilab> !
+	1 'nblock +! ;
 :block.end
-	;
+	-4 'pilab> +! ;
+:block.now
+	pilab> |'pilab =? ( drop 0 ; )
+	4 - @ ; | -- nblo
+
+| 0 ( )		REP
+| 1 ?( )	IF
+| 2 ( ?)( ) WHI
+| 3 ?( )( )	IFE
+| 4 ( ?)	UNT
+| or $8 ;
+:block.type | -- type
+	block.now 2 << 'blocki + @ ;
 
 :,(
 	block.new
-|	blockt $10 nand? ( vpilad )
-|	$f and
-|	1 <=? ( +etiqueta ,jmpcond )	| IF/ELSE
-|	2 >=? ( +etiqueta ,etiqueta )	| WHILE | UNTIL | REPEAT
-|	drop
+	block.type
+	%1 and? ( +etiqueta ,jmpcond	| IF ELSE
+		)( +etiqueta ,etiqueta )
+	drop
 	;
 
 :,)(
-
-|	blockt $10 nand? ( vpilad )
-|	$f and
-|	1 =? ( <pilac +etiqueta jmp, ,etiqueta vppop vppush )	| ELSE
-|	2 =? ( <pilac +etiqueta ,jmpcond >pilac vpdrop vppush )	| WHILE
-|	drop
+	block.type
+	%1 and? ( c.pop +etiqueta jmp, ,etiqueta	| ELSE
+		)( c.pop +etiqueta ,jmpcond c.push )	| WHILE
+	drop
 	;
 
 :,)
-|	blockt $10 nand? ( vpilad )
-|	$f and
-|	1 <=? ( <pilac ,etiqueta				| IF ELSE
-|			over 8 - @ $ff and 				| ;)
-|			12 <>? (  )
-|			drop
-||			)
-|	2 =? ( <pilac jmp, <pilac ,etiqueta )	| WHILE
-|	3 =? ( <pilac ,jmpcond )				| UNTIL
-|	4 =? ( <pilac jmp, )					| REPEAT
-|	drop
-
+	block.type 7 and	| FALTA ;)
+	0? ( c.pop jmp, )					| REP
+	1 =? ( c.pop ,etiqueta )			| IF
+	2 =? ( c.pop jmp, c.pop ,etiqueta )	| WHILE
+	3 =? ( c.pop ,etiqueta )			| ELSE
+	4 =? ( c.pop ,jmpcond )				| UNTIL
+	drop
 	block.end ;
 
 |------- EXEC
@@ -719,17 +729,17 @@
 	exec ;
 
 :codeini | w -- w
+	'pilac 'pilac> !
+	'pilab 'pilab> !
+	0 'nblock !
 	0 'strpending !
 	0 'nroi !
-	| asigna registros reales a virtuales
-|	initctes
 	;
 
 ::,code | w --
 	codeini
 	dup dic>tok @ swap dic>len@
 	( 1? )( 1- swap @+
-
 		9 ,c "; " ,s dup tokenstr ,print
 		9 ,c nroi ,stackm ,cr
 
@@ -738,3 +748,8 @@
 		"r4/compiler/code.asm" savemem | DEBUG
 		1 'nroi +!
 		) 2drop ;
+
+::inicodegen
+	here dup 'regIO !
+	cntwords 4 <<	| 16 bytes por word
+	+ 'here ! ;
