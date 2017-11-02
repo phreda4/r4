@@ -8,20 +8,24 @@ Started in 2005 along with my study of the Forth language.
 
 ## some screenshots
 
-![main menu](screenshot/main.png)
+ ![main menu](screenshot/main.png)
+
 The main menu, but all is make in r4, this can be other or start the app.
 
-![debug](screenshot/debug.png)
+ ![debug](screenshot/debug.png)
+
 The editor and the debuger, a compiler can generate a standalone exacutable.
 
-![Memory game](screenshot/memory-game.png)![debug](screenshot/viewlorenz3d.png)
+ ![Memory game](screenshot/memory-game.png)![debug](screenshot/viewlorenz3d.png)
+
 Many game and examples, in continuos growing.
 
-![Bitmap Sprite](screenshot/bitmap-spr-ed.png)
-![Vecotr Sprite](screenshot/vector-spr-ed.png)
-![icon] (screenshot/icon-ed.png)
-![voxel] (screenshot/icon-ed.png)
-Some editor, with original file format, can import from many sources and generate the code inside the exe
+ ![Bitmap Sprite](screenshot/bitmap-spr-ed.png)
+ ![Vector Sprite](screenshot/vector-spr-ed.png)
+ ![Icon](screenshot/icon-ed.png)
+ ![Voxel](screenshot/voxeled.png)
+
+Some editors, with original file format, can import from many sources and generate the code inside the exe
 
 
 ## Quick overview
