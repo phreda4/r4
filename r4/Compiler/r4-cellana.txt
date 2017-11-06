@@ -21,6 +21,8 @@
 | $40 dir code
 | $80 copia de A en cellt
 | $100 celda exec
+| $1000 celda AD	x86
+| $2000 celda C		x86
 #:cells )( 1024
 #:cellt )( 1024 | token de origen o celda
 | ff iii fff
@@ -80,6 +82,9 @@
 :tosAV      d.TOS 2 << 'cells + dup @ $20 or swap ! ;
 :tosAW      d.TOS 2 << 'cells + dup @ $40 or swap ! ;
 :tosExe 	d.TOS 2 << 'cells + dup @ $100 or swap ! ;
+|--- only x86
+:tosAD		d.TOS 2 << 'cells + dup @ $1000 or swap ! ;
+:tosC		d.TOS 2 << 'cells + dup @ $2000 or swap ! ;
 
 :tosCPY | nro --
 			d.TOS 2 << dup >r 'cellt + !
@@ -92,18 +97,10 @@
 
 :tosTok		dup 4 - d.TOS 2 << 'cellt + ! ;
 
-
-|--- only x86
-:regAD
-	;
-:regC
-	;
-
 #lastdircode 0 | ultima direccion de codigo
 
 :tosCode
 	dup 4 - @ 8 >> 'lastdircode ! ;
-
 
 :litn | --
 	newcell d.push tosTok ;
@@ -255,11 +252,11 @@
 :op1a1		tos+1w ; | neg not 1+ 4+ 1- 2/ ..
 :vop1a1 	tos+1w ; | abs  clz  ..
 :op2a1		tos+1r d.drop tos+1w ; | + - * and or xor ..
-:vop2a1 	tos+1r d.drop tos+1w ; | / mod
-:xop2a1		tos+1r d.drop tos+1w ; | << >>
-:op3a1		tos+1r d.drop tos+1r d.drop tos+1w ; | */
-:vop3a1		tos+1r d.drop tos+1r d.drop tos+1w ; | *>> /<<
-:op2a2		tos+1w d.swap tos+1w d.swap ; | mod/
+:vop2a1 	tos+1r d.drop tos+1w tosAD ; | / mod (AD)
+:xop2a1		tos+1r tosC d.drop tos+1w ; | << >> (C)
+:op3a1		tos+1r tosAD d.drop tos+1r d.drop tos+1w ; | */	(AD)
+:vop3a1		tos+1r tosC d.drop tos+1r tosAD d.drop tos+1w ; | *>> /<<	(ADC)
+:op2a2		tos+1w tosAD d.swap tos+1w d.swap ; | mod/	(AD)
 
 | @ c@ w@
 :1@		tosVar tos+1w ;
