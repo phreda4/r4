@@ -21,18 +21,33 @@
 | $40 dir code
 | $80 copia de A en cellt
 | $100 celda exec
+| $800 celda ya asignada (para vreg)
 | $1000 celda AD	x86
 | $2000 celda C		x86
 #:cells )( 1024
 #:cellt )( 1024 | token de origen o celda
-| ff iii fff
-#:cellv )( 1024 | vida de celda
+#:cellv )( 1024 | vida de celda | ff iii fff
 
 ::cellcte? | nro -- 1/0
 	2 << 'cells + @ 16 >> $ff and ;
 
 ::celltok | nro -- token
 	2 << 'cellt + @ ;
+
+::cellreg | nro -- vreg
+	2 << 'cellv + @ 24 >> ;
+
+::cellreg! | vr nro --
+	2 << 'cellv + dup @ $ffffff and rot 24 << or swap ! ;
+
+:cused | nro -- used
+	2 << 'cells + @ $800 and ;
+
+:clivei | nro -- live
+	2 << 'cellv + @ $3ff and ;
+
+:clivee | nro -- live
+	2 << 'cellv + @ 10 >> $3ff and ;
 
 |--- PILA DATO
 #dpila )( 1024
@@ -492,38 +507,37 @@ vuso4	|SSET  a --
 		) 2drop ;
 
 |.......
-#regused> 1
+#cntvreg 1
 
-:inireg
-	1 'regused> ! ;
+:reuse? | ini act -- ini act vreg/0
+	dup cused 1? ( drop 0 ; ) drop
+	dup clivee pick2 >? ( drop 0 ; ) drop
+	dup ;
 
-:addreg | cell --
-	$ff and dup
-	2 << 'cells + @ 16 >> $ff and
-	0? ( 2drop ; ) drop 	| cte!
-	2 << 'cellv + dup
-	@ 24 >> $ff and
-	1? ( 2drop ; ) drop		| ya tiene reg!
-	regused> 24 << swap +!
-	1 'regused> +!
+:searchend | ini desde -- vreg/0
+	( 1? )( 1-
+      	reuse? 1? ( nip nip ; ) drop
+		) 2drop
+	0 ;
+
+:marcau
+	$800 over 2 << 'cells + +! ;
+
+:needreg | n a -- a
+	dup cellcte? 0? ( drop marcau ; ) drop
+	dup clivei over |,sp ,d ,sp ,d ":" ,s |
+					searchend ,sp ,d
+	cntvreg over cellreg!
+	1 'cntvreg +!
 	;
-
-:calcreg | pila --
-	c@+
-	( 1? )( 1- swap c@+ addreg swap ) drop
-	c@+ 0? ( 2drop ; )
-	abs | es -1 en show!!
-	( 1? )( 1- swap c@+ addreg swap )
-	2drop ;
 
 ::cell2reg | --
-	inireg
-    'stki >r
-	0 ( itok <? )(
-		r@+ calcreg
+	1 'cntvreg !
+	ncell ,d ":" ,s
+	0 ( ncell <? )(
+		needreg
 		1+ ) drop
-	rdrop
-	;
+	,cr ;
 
 |------------------------ info
 | flags........
@@ -536,19 +550,22 @@ vuso4	|SSET  a --
 | $40 dir code
 | $80 copia de A
 :cflags
-	$1 and? ( " INW" ,s )
-	$2 and? ( " OUTW" ,s )
-	$4 and? ( " INC" ,s )
-	$8 and? ( " OUTC" ,s )
-	$10 and? ( " VAR" ,s )
-	$20 and? ( " 'DATA" ,s )
-	$40 and? ( " 'CODE" ,s )
+	$1 and? ( " >W" ,s )
+	$2 and? ( " W>" ,s )
+	$4 and? ( " >C" ,s )
+	$8 and? ( " C>" ,s )
+	$10 and? ( " V" ,s )
+	$20 and? ( " 'D" ,s )
+	$40 and? ( " 'C" ,s )
 	$80 and? ( " CPY" ,s )
 	$100 and? ( " EXE" ,s )
+	$800 and? ( " U" ,s )
+	$1000 and? ( " AD" ,s )
+	$2000 and? ( " C" ,s )
 	drop ;
 
 :cconst
-	" CTE" ,s
+	9 ,c " CTE" ,s
 	" R:" ,s dup 24 >> $ff and ,d
 	cflags
 	over 2 << 'cellt + @
