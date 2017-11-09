@@ -19,9 +19,15 @@
 #sysregb "al" "bl" "cl" "dl" "*" "*" "*"
 
 |------ Celda de la pila
-| T Tipo (NUMERO CONSTANTE 'STRING CODIGO DATO REGISTRO COPIA)
-| M Indireccion de memoria
-| ...MTTTT
+| $0 nro
+| $1 cte
+| $2 str
+| $3 cod
+| $4 dat
+| $5 reg
+| $10 mem
+| $20 *
+| $40 +
 |-------- tipos de celdas
 #cellt )( 1024	| tipo
 #cellv )( 1024	| valor
@@ -32,6 +38,14 @@
 :suma	over 2 << 'cella + @ ;
 :shift	over 2 << 'cells + @ ;
 
+:inicelreg
+	2 <<
+	5 over 'cellt + !
+	swap over 'cellv + !
+	0 over 'cella + !
+	0 swap 'cells + !
+	;
+
 |---- imprime celda
 :list2str swap ( 1? )( 1- swap >>0 swap ) drop ;
 
@@ -40,44 +54,54 @@
 :mt2 value "str%h" ,print ;			|--	2 str   "hola"
 :mt3 value "w%h" ,print ;			|--	3 cod  'func		4 dat  'var
 :mt5 value 'sysregs list2str ,s ;	|-- 8 reg 	eax
+
 #tiposrm mt0 mt1 mt2 mt3 mt3 mt5 0 0 0
-
-:mt5b value 'sysregb list2str ,s ;
-#tiposrmb mt0 mt1 mt2 mt3 mt3 mt5b 0 0 0
-
-:mt5w value 'sysregw list2str ,s ;
-#tiposrmw mt0 mt1 mt2 mt3 mt3 mt5w 0 0 0
 
 :,reg | nro --
 	'sysregs list2str ,s ;
 
 :,cell | nro --
-	swap $10 and? ( "dword [" ,s )
-	swap 2 << 'tiposrm + @  exec
-	shift 1? ( "*" ,s dup ,d ) drop
-	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	dup 2 << 'cellt + @
+	$10 and? ( "dword [" ,s )
+	dup $7 and 2 << 'tiposrm + @  exec
+	$20 and? ( "*" ,s dup ,d )
+	$40 and? ( +? ( "+" ,s ) dup ,d )
 	$10 and? ( "]" ,s )
-	2drop ;
+	drop ;
+
+:mt5b value 'sysregb list2str ,s ;
+#tiposrmb mt0 mt1 mt2 mt3 mt3 mt5b 0 0 0
 
 :,cellb | nro --
-	swap $10 and? ( "byte [" ,s )
-	swap 2 << 'tiposrmb + @ exec
-	shift 1? ( "*" ,s dup ,d ) drop
-	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	dup 2 << 'cellt + @
+	$10 and? ( "byte [" ,s )
+	dup $7 and 2 << 'tiposrmb + @  exec
+	$20 and? ( "*" ,s dup ,d )
+	$40 and? ( +? ( "+" ,s ) dup ,d )
 	$10 and? ( "]" ,s )
-	2drop ;
+	drop ;
+
+:mt5w value 'sysregw list2str ,s ;
+#tiposrmw mt0 mt1 mt2 mt3 mt3 mt5w 0 0 0
 
 :,cellw | nro --
-	swap $10 and? ( "word [" ,s )
-	swap 2 << 'tiposrmw + @ exec
-	shift 1? ( "*" ,s dup ,d ) drop
-	suma 1? ( +? ( "+" ,s ) dup ,d ) drop
+	dup 2 << 'cellt + @
+	$10 and? ( "word [" ,s )
+	dup $7 and 2 << 'tiposrmw + @  exec
+	$20 and? ( "*" ,s dup ,d )
+	$40 and? ( +? ( "+" ,s ) dup ,d )
 	$10 and? ( "]" ,s )
-	2drop ;
+	drop ;
+
 
 :,cell2REG | cell reg --
 |	over cell0? 1? ( drop nip "xor " ,s dup ,REG "," ,s ,REG ,cr ; ) drop
 	"mov " ,s ,REG "," ,s ,CELL ,cr ;
+
+:dumpcel
+	0 ( cntvreg 1- <? )(
+		dup ,d ,sp ,cell ,cr
+		1+ ) drop ;
 
 |------ acceso a celdas
 :stknow	nroi 2 << 'stki + @ ;
@@ -98,16 +122,15 @@
 	dup $ff and 2 << 'codeisa + @ 0? ( trace 2drop ; ) exec ;
 
 :registro
-	"*" ,s ,d
-|	cellreg
-|	,cell
-	;
+	cellreg
+	1- ,cell | registro virtual
+	drop ;
 
 :emitcell | cell
 	dup cellcte? 1? ( drop registro ; ) drop
 	celltok
 	0? ( drop ; )
-	256 <? ( ,sp ,d ; ) | copia
+	256 <? ( ,sp "copia" ,s ,d ; ) | copia
 	@ tokencte ,print
 	;
 
@@ -706,8 +729,12 @@
 	$ff and 2 << 'acompila + @ 0? ( drop ; )
 	exec ;
 
-
-
+:iniciaregistros
+	0 ( cntvreg 1- <? )(
+		dup dup inicelreg
+		1+ ) drop
+|	dumpcel
+	;
 
 :codeini | w -- w
 	'pilac 'pilac> !
@@ -718,6 +745,7 @@
 	;
 
 ::,code | w --
+	iniciaregistros
 	codeini
 	dup dic>tok @ swap dic>len@
 	( 1? )( 1- swap @+
@@ -726,7 +754,7 @@
 
 		,cadatoken swap
 
-		"r4/compiler/code.asm" savemem | DEBUG
+|		"r4/compiler/code.asm" savemem | DEBUG
 		1 'nroi +!
 		) 2drop ;
 
