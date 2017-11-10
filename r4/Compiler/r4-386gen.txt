@@ -109,6 +109,9 @@
 :stktos c@+ 1- + c@ $ff and ;
 :stknos c@+ 2 - + c@ $ff and ;
 :stknos2 c@+ 3 - + c@ $ff and ;
+:stknos3 c@+ 4 - + c@ $ff and ;
+:stknos4 c@+ 5 - + c@ $ff and ;
+
 :stkrtos c@+ + c@+ + c@ $ff and ;
 
 |--- token a cte
@@ -127,7 +130,7 @@
 	drop ;
 
 :emitcell | cell
-	dup cellcte? 1? ( drop registro ; ) drop
+	dup cellreg? 1? ( drop registro ; ) drop
 	celltok
 	0? ( drop ; )
 	256 <? ( ,sp "copia" ,s ,d ; ) | copia
@@ -141,8 +144,16 @@
 :,NOSb	stknow stknos emitcell ;
 :,NOSw	stknow stknos emitcell ;
 
-:,NOS2	stknow stknos2 emitcell ;
+:,PK2	stknow stknos2 emitcell ;
+:,PK3	stknow stknos3 emitcell ;
+:,PK4	stknow stknos4 emitcell ;
+
 :,RTOS	stknow stkrtos emitcell ;
+
+:>TOSreg?	stknow 1+ stktos cellreg? ;
+:,>TOS		stknow 1+ stktos emitcell ;
+:>NOSreg?	stknow 1+ stknos cellreg? ;
+:,>NOS		stknow 1+ stknos emitcell ;
 
 |------------ compila CODIGO
 |:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
@@ -333,6 +344,38 @@
 |	d.tos cellVAR -? ( 2drop ,EXECPP ; ) 2drop
 	"mov ecx," ,s ,TOS ,cr
 	,execr ;
+
+|------- PILAD
+:,dup
+    >TOSreg? 0? ( drop ; ) drop
+    "mov " ,s ,>TOS "," ,s ,TOS ,cr
+	;
+:,over
+    >TOSreg? 0? ( drop ; ) drop
+    "mov " ,s ,>TOS "," ,s ,NOS ,cr
+	;
+:,pick2
+    >TOSreg? 0? ( drop ; ) drop
+    "mov " ,s ,>TOS "," ,s ,PK2 ,cr
+	;
+:,pick3
+    >TOSreg? 0? ( drop ; ) drop
+    "mov " ,s ,>TOS "," ,s ,PK3 ,cr
+	;
+:,pick4
+    >TOSreg? 0? ( drop ; ) drop
+    "mov " ,s ,>TOS "," ,s ,PK4 ,cr
+	;
+:,2dup
+	>TOSreg? 1? ( "mov " ,s ,>TOS "," ,s ,TOS ,cr ) drop
+	>NOSreg? 0? ( drop ; ) drop
+	"mov " ,s ,>NOS "," ,s ,NOS ,cr
+	;
+:,2over
+	>TOSreg? 1? ( "mov " ,s ,>TOS "," ,s ,PK2 ,cr ) drop
+	>NOSreg? 0? ( drop ; ) drop
+	"mov " ,s ,>NOS "," ,s ,PK3 ,cr
+	;
 
 |------- PILAR
 :,>R
@@ -697,8 +740,8 @@
 ,; ,( ,)( ,) ,[ ,] ,EXEC
 ,0? ,+? ,-? ,1? ,=? ,<? ,>? ,<=? ,>=? ,<>? ,AND? ,NAND? | 30
 
-0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0
+,dup 0 ,over ,pick2 ,pick3 ,pick4 0 0
+0 ,2dup 0 0 0 ,2over 0
 
 ,>R ,R> ,R ,R+ ,R@+ ,R!+ ,RDROP					|--- pila direcciones 52
 ,AND ,OR ,XOR ,NOT  								|--- logicas        56
