@@ -1,7 +1,12 @@
 | Very simple car physics
 | from https://gamedev.stackexchange.com/questions/1796/vehicle-physics-with-skid
+| Gamepad works in linux (behaves differently in windows..)
+| (!) Crashes when the sprite is outside the screen
 
-^r4/lib/gui.txt
+^r4/lib/gui.txt 
+^r4/lib/bmr.txt 
+^r4/lib/polygr.txt 
+^inc/1492.bmr | contains the car sprite
 
 #px #py | positionX, positionY - where the car is
 #vx #vy | velocityX, velocityY - speed on each axis
@@ -17,7 +22,8 @@
 	  vx drag *. 'vx !
 	  vy drag *. 'vy !
 	  angle av + 'angle !
-	  av ad *. 'av ! ;
+	  av ad *. 'av !
+	  power 0.0 =? ( drop 0.0 'av ! ; ) drop ;
 	
 :printstats px "px: %f " print cr
 	   py "py: %f " print cr
@@ -29,27 +35,23 @@
 	   ad "angular drag : %f " print cr
 	   power "power: %f" print cr ;
 
-:drawcar px angle 0.125 - cos 16.0 *. - 16 >>
-	 py angle 0.125 - sin 16.0 *. - 16 >> op
-	 azul
-	 px angle 0.375 - cos 16.0 *. - 16 >>
-	 py angle 0.375 - sin 16.0 *. - 16 >> line
-	 amarillo
-	 px angle 0.375 + cos 16.0 *. - 16 >>
-	 py angle 0.375 + sin 16.0 *. - 16 >> line
-	 verde	 
-	 px angle 0.125 + cos 16.0 *. - 16 >>
-	 py angle 0.125 + sin 16.0 *. - 16 >> line
-	 naranja
-	 px angle 0.125 - cos 16.0 *. - 16 >>
-	 py angle 0.125 - sin 16.0 *. - 16 >> line
-	 blanco ;
+:drawspeed px 16 >>
+	   py 16 >>
+	   px vx 10.0 *. + 16 >>
+	   py vy 10.0 *. + 16 >>
+	   3 glineg ;
+
+| sprite is 64x104	   
+:drawcar px 16 >> 32 -
+	 py 16 >> 52 -
+	 angle -1.0 *. 0.25 + 'auto bmr.drawr
+	 amarillo drawspeed blanco ;
 
 :draw printstats drawcar ;
 
 :debug dup "%d" print cr ;
 
-| get thenth value from the mth joystick	
+| gets the nth value from the mth joystick	
 | ( nval numjoy -- # )
 :joyval getjoy swap 4 * + @ ;
 	
@@ -70,12 +72,14 @@
 
 :updatev angle dup cos power *. 'vx ! sin power *. 'vy ! ;
 
-#maxpower 6.0
+#maxpower 10.0
 
 :speed joy0up 1 =? ( drop power 0.04 + maxpower >? ( drop maxpower 'power ! )( 'power ! ) updatev )(
        drop |power decreases until 0
        power 0.04 - +? ( 'power ! updatev )( drop 0.0 'power ! ) ) ;
 
+| turn speed is a function of the power
+| cannot turn if speed is zero
 :adjpower power 2.0 /. *. ;
 
 :goleft -0.0002 adjpower 'ts ! av ts + 'av ! 0.0 'ts ! ;
@@ -90,14 +94,12 @@
     inputs simulate draw
     'exit >esc< ;
 
-:init 150.0 'px !
-      150.0 'py !
-      2.0 'vx !
-      0.0 'vy !
-      0.95 'drag !
+:init 150.0 'px ! 150.0 'py !
+      2.0 'vx ! 0.0 'vy !
+      0.92 'drag !
       0.0 'angle !
       0.0 'av !
-      0.94 'ad !
+      0.92 'ad !
       0.0 'power !
       0.0 'ts ! ;
       
