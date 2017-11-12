@@ -1,7 +1,6 @@
 | Very simple car physics
 | from https://gamedev.stackexchange.com/questions/1796/vehicle-physics-with-skid
 | Gamepad works in linux (behaves differently in windows..)
-| (!) Crashes when the sprite is outside the screen
 
 ^r4/lib/gui.txt 
 ^r4/lib/bmr.txt 
@@ -9,7 +8,10 @@
 ^inc/1492.bmr | contains the car sprite
 
 #npos 0       | counter of all car positions
-#hpos )( 800  | each car position is (x,y) = 2 * 4 bytes
+#flpos )( 800 | font-left tyre
+#frpos )( 800 | font-right tyre
+#rlpos )( 800 | rear-left tyre
+#rrpos )( 800 | rear-right tyre
 
 #px #py | positionX, positionY - where the car is
 #vx #vy | velocityX, velocityY - speed on each axis
@@ -20,22 +22,24 @@
 #power  | power - how fast car can accelerate
 #ts     | turnSpeed - how fast to turn
 
-| draws successive car positions
-:drawpos npos 2 <? ( drop ; ) drop
-	 'hpos npos 1- 100 mod 8 * + >r | draw from previous position
-	 r @ r> 4 + @ op
+| draws trail
+:drawpos | ( mem - )
+	 npos 2 <? ( 2drop ; ) drop
+	 dup npos 1- 100 mod 8 * + | draw from previous position
+	 dup @ swap 4 + @ op
 	 2
-:drawrec npos 99 min =? ( drop ; ) dup
-	 npos swap - 100 + 100 mod 8 * 'hpos + >r
+:drawrec | ( mem n - )
+	 npos 99 min =? ( 2drop ; ) dup
+	 npos swap - 100 + 100 mod 8 * pick2 + >r
 	 r @ r> 4 + @ line
 	 1+ drawrec ;
 
-| saves intermediate car positions	 
-:savepos 'hpos npos 100 mod 8 * + >r
-	 px 16 >> r !
-	 py 16 >> r> 4 + !
-	 npos 1+ 'npos ! ;
-	 
+| ( y x adr - ) saves intermediate car positions
+:savepos npos 100 mod 8 * + >r r ! r> 4 + ! ;
+
+:pxi px 16 >> ;
+:pyi py 16 >> ;
+
 :simulate px vx + 'px !
 	  py vy + 'py !
 	  vx drag *. 'vx !
@@ -43,7 +47,20 @@
 	  angle av + 'angle !
 	  av ad *. 'av !
 	  power 0.0 =? ( drop 0.0 'av ! ; ) drop
-	  savepos ;
+	  
+	  angle .4 + sin 40.0 *. py + 16 >>
+	  angle .4 + cos 40.0 *. px + 16 >>
+	  'rlpos savepos
+	  angle .4 - sin 40.0 *. py + 16 >>
+	  angle .4 - cos 40.0 *. px + 16 >>
+	  'rrpos savepos
+	  angle .1 + sin 40.0 *. py + 16 >>
+	  angle .1 + cos 40.0 *. px + 16 >>
+	  'flpos savepos
+	  angle .1 - sin 40.0 *. py + 16 >>
+	  angle .1 - cos 40.0 *. px + 16 >>
+	  'frpos savepos
+	  npos 1+ 'npos ! ;
 	
 :printstats px "px: %f " print cr
 	   py "py: %f " print cr
@@ -68,7 +85,11 @@
 	 angle -1.0 *. 0.25 + 'auto bmr.drawr
 	 amarillo drawspeed blanco ;
 
-:draw printstats drawcar drawpos ;
+:draw printstats drawcar
+      'rlpos drawpos
+      'rrpos drawpos
+      'flpos drawpos
+      'frpos drawpos ;
 
 :debug dup "%d" print cr ;
 
@@ -97,7 +118,7 @@
 
 :accelerate power 0.1 + maxpower >? ( drop maxpower 'power ! )( 'power ! ) updatev ;
 :brake power 0.2 - -? ( drop 0 'power ! )( 'power ! ) updatev ;
-:slowdown power 0.05 - +? ( 'power ! )( drop 0.0 'power ! ) updatev ;
+:slowdown power 0.1 - +? ( 'power ! )( drop 0.0 'power ! ) updatev ;
 
 :speed joy0b1 1 =? ( drop accelerate ; ) drop 
        joy0b2 1 =? ( drop brake ; ) drop
@@ -107,10 +128,10 @@
 | cannot turn if speed is zero
 :adjpower power 2.0 /. *. ;
 
-:goleft -0.0002 adjpower 'ts ! av ts + 'av ! 0.0 'ts ! ;
+:goleft -0.0001 adjpower 'ts ! av ts + 'av ! 0.0 'ts ! ;
 :tleft  joy0left  1 =? ( drop goleft ; ) drop ;
 
-:goright 0.0002 adjpower 'ts ! av ts + 'av ! 0.0 'ts ! ;
+:goright 0.0001 adjpower 'ts ! av ts + 'av ! 0.0 'ts ! ;
 :tright joy0right 1 =? ( drop goright ; ) drop ;
        
 :inputs speed tleft tright ;
@@ -121,10 +142,10 @@
 
 :init 150.0 'px ! 150.0 'py !
       0.0 'vx ! 0.0 'vy !
-      0.94 'drag !
+      0.9 'drag !
       0.0 'angle !
       0.0 'av !
-      0.94 'ad !
+      0.98 'ad !
       4.0 'power !
       0.0 'ts ! ;
       
