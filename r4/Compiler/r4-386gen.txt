@@ -10,6 +10,22 @@
 #nroi
 #regIO | dicc de IO 16 bytes
 
+|-------- guarda registros
+| in out used (16 bytes)
+:rsetI	| ;entrada
+|	4 <<
+|	stki
+|	c@+ ( 1? )( 1- swap c@+
+	 ;
+
+	c@+ 1- + c@ $ff and
+	;
+:rsetO	| ;salida
+	;
+:rsetU	| ;usados
+	;
+
+
 |-------- constantes del sistema
 #syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
 "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY" | []
@@ -105,6 +121,7 @@
 
 |------ acceso a celdas
 :stknow	nroi 2 << 'stki + @ ;
+:stknex nroi 1+ 2 << 'stki + @ ;
 
 :stktos c@+ 1- + c@ $ff and ;
 :stknos c@+ 2 - + c@ $ff and ;
@@ -133,7 +150,7 @@
 	dup cellreg? 1? ( drop registro ; ) drop
 	celltok
 	0? ( drop ; )
-	256 <? ( ,sp "copia" ,s ,d ; ) | copia
+	256 <? ( registro ; ) |,sp "copia" ,s ,d ; ) | copia
 	@ tokencte ,print
 	;
 
@@ -158,10 +175,10 @@
 
 :,RTOS	stknow stkrtos emitcell ;
 
-:>TOSreg?	stknow 1+ stktos cellreg? ;
-:,>TOS		stknow 1+ stktos emitcell ;
-:>NOSreg?	stknow 1+ stknos cellreg? ;
-:,>NOS		stknow 1+ stknos emitcell ;
+:>TOSreg?	stknex stktos cellreg? ;
+:,>TOS		stknex stktos emitcell ;
+:>NOSreg?	stknex stknos cellreg? ;
+:,>NOS		stknex stknos emitcell ;
 
 |------------ compila CODIGO
 |:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
@@ -371,6 +388,7 @@
 |------- PILAD
 :,dup
     >TOSreg? 0? ( drop ; ) drop
+
     "mov " ,s ,>TOS "," ,s ,TOS ,cr
 	;
 :,over
@@ -800,6 +818,14 @@
 		dup dup inicelreg
 		1+ ) drop
 |	dumpcel
+
+	,cr
+	stki c@+
+	( 1? )( 1- swap c@+
+		,cell " %d " ,print
+		swap ) 2drop
+	,cr
+
 	;
 
 :codeini | w -- w
@@ -812,6 +838,7 @@
 
 ::,code | w --
 	iniciaregistros
+
 	codeini
 	dup dic>tok @ swap dic>len@
 	( 1? )( 1- swap @+
