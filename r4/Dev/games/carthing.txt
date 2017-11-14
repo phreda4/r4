@@ -7,7 +7,7 @@
 ^r4/lib/polygr.txt 
 ^inc/1492.bmr | contains the car sprite
 
-#npos 0       | counter of all car positions
+#npos 0       | total number of tracked positions
 #flpos )( 800 | font-left tyre
 #frpos )( 800 | font-right tyre
 #rlpos )( 800 | rear-left tyre
@@ -40,6 +40,15 @@
 :pxi px 16 >> ;
 :pyi py 16 >> ;
 
+:aposx angle swap + cos 40.0 *. px + 16 >> ;
+:aposy angle swap + sin 40.0 *. py + 16 >> ;
+
+:savetracks +0.4 aposy +0.4 aposx 'rlpos savepos
+	    -0.4 aposy -0.4 aposx 'rrpos savepos
+	    +0.1 aposy +0.1 aposx 'flpos savepos
+	    -0.1 aposy -0.1 aposx 'frpos savepos
+	    npos 1+ 'npos ! ;
+
 :simulate px vx + 'px !
 	  py vy + 'py !
 	  vx drag *. 'vx !
@@ -47,20 +56,7 @@
 	  angle av + 'angle !
 	  av ad *. 'av !
 	  power 0.0 =? ( drop 0.0 'av ! ; ) drop
-	  
-	  angle .4 + sin 40.0 *. py + 16 >>
-	  angle .4 + cos 40.0 *. px + 16 >>
-	  'rlpos savepos
-	  angle .4 - sin 40.0 *. py + 16 >>
-	  angle .4 - cos 40.0 *. px + 16 >>
-	  'rrpos savepos
-	  angle .1 + sin 40.0 *. py + 16 >>
-	  angle .1 + cos 40.0 *. px + 16 >>
-	  'flpos savepos
-	  angle .1 - sin 40.0 *. py + 16 >>
-	  angle .1 - cos 40.0 *. px + 16 >>
-	  'frpos savepos
-	  npos 1+ 'npos ! ;
+	  savetracks ;
 	
 :printstats px "px: %f " print cr
 	   py "py: %f " print cr
@@ -70,26 +66,32 @@
 	   angle "angle: %f " print cr
 	   av "angular velocity: %f " print cr
 	   ad "angular drag : %f " print cr
-	   power "power: %f" print cr cr
-	   npos "NPOS: %d" print cr ;
+	   power "power: %f" print cr cr ;
+	   
+:usage amarillo
+       "Button 1: Accelerate" print cr
+       "Button 2: Brake" print cr
+       "left/right: wheel" print cr
+       blanco ;
 
-:drawspeed px 16 >>
-	   py 16 >>
+:drawtrail 'rlpos drawpos
+	   'rrpos drawpos
+	   'flpos drawpos
+	   'frpos drawpos ;
+	   
+:drawspeed pxi
+	   pyi
 	   px vx 10.0 *. + 16 >>
 	   py vy 10.0 *. + 16 >>
 	   3 glineg ;
 
 | sprite is 64x104	   
-:drawcar px 16 >> 32 -
-	 py 16 >> 52 -
+:drawcar pxi 32 -
+	 pyi 52 -
 	 angle -1.0 *. 0.25 + 'auto bmr.drawr
 	 amarillo drawspeed blanco ;
-
-:draw printstats drawcar
-      'rlpos drawpos
-      'rrpos drawpos
-      'flpos drawpos
-      'frpos drawpos ;
+	 
+:draw drawcar drawtrail ;
 
 :debug dup "%d" print cr ;
 
@@ -112,31 +114,40 @@
 :joy0b3 3 joy0b? ;
 :joy0b4 4 joy0b? ;
 
-:updatev angle dup cos power *. 'vx ! sin power *. 'vy ! ;
-
 #maxpower 16.0
 
-:accelerate power 0.1 + maxpower >? ( drop maxpower 'power ! )( 'power ! ) updatev ;
-:brake power 0.2 - -? ( drop 0 'power ! )( 'power ! ) updatev ;
-:slowdown power 0.1 - +? ( 'power ! )( drop 0.0 'power ! ) updatev ;
+:accelerate power 0.1 + maxpower >? ( drop maxpower 'power ! )( 'power ! ) ;
 
-:speed joy0b1 1 =? ( drop accelerate ; ) drop 
-       joy0b2 1 =? ( drop brake ; ) drop
-       slowdown ;
-       
+:slower power swap - +? ( 'power ! )( drop 0.0 'power ! ) ;
+
+:pedals joy0b1 1 =? ( drop accelerate ; ) drop 
+       	joy0b2 1 =? ( drop 0.2 slower ; ) drop
+	0.1 slower ;
+
+:updatev angle dup cos power *. 'vx ! sin power *. 'vy ! ;
+
+:speed pedals updatev ;
+
 | turn speed is a function of the power
 | cannot turn if speed is zero
 :adjpower power 2.0 /. *. ;
 
-:goleft -0.0001 adjpower 'ts ! av ts + 'av ! 0.0 'ts ! ;
-:tleft  joy0left  1 =? ( drop goleft ; ) drop ;
+:turn | ( amount - )
+      adjpower 'ts ! av ts + 'av ! 0.0 'ts ! ;
 
-:goright 0.0001 adjpower 'ts ! av ts + 'av ! 0.0 'ts ! ;
+:goleft -0.0002 turn ;
+:goright 0.0002 turn ;
+
+:tleft  joy0left  1 =? ( drop goleft ; ) drop ;
 :tright joy0right 1 =? ( drop goright ; ) drop ;
-       
-:inputs speed tleft tright ;
+
+:wheel tleft tright ;
+
+:inputs speed wheel ;
 
 :go show clrscr debug
+    printstats
+    usage
     inputs simulate draw
     'exit >esc< ;
 
@@ -145,7 +156,7 @@
       0.9 'drag !
       0.0 'angle !
       0.0 'av !
-      0.98 'ad !
+      0.95 'ad !
       4.0 'power !
       0.0 'ts ! ;
       
