@@ -149,14 +149,12 @@
 :emitcell | cell --
 	dup cellreg? 1? ( drop registro ; ) drop
 	celltok
-	0? ( drop ; )
 	256 <? ( registro ; ) |,sp "copia" ,s ,d ; ) | copia
 	@ tokencte ,print
 	;
 
 :cellvalue? | cell -- token/0
 	celltok
-	0? ( ; )
 	256 <? ( ; ) | copia
 	@ dup $ff and
 	7 10 between 1? ( drop ; )
@@ -179,6 +177,15 @@
 :,>TOS		stknex stktos emitcell ;
 :>NOSreg?	stknex stknos cellreg? ;
 :,>NOS		stknex stknos emitcell ;
+
+|------------
+:buildstack
+	stknow
+	c@+ ( 1? )( 1-
+		swap c@+ ,sp ,d
+		swap ) 2drop
+	,cr
+	;
 
 |------------ compila CODIGO
 |:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
@@ -233,6 +240,7 @@
 :,;
 	dup 8 - @ $ff and | word ;
 	12 =? ( drop ; ) drop
+	buildstack
 	"ret" ,ln ;
 
 :,lit
@@ -735,7 +743,7 @@
 
 :,PX@	| -- rgb
 |	d.dup d.tos needREG
-	"mov " ,s ,TOS ",dword [ebp]" ,ln ;
+	"mov " ,s ,>TOS ",dword [ebp]" ,ln ;
 
 :,XYMOUSE | -- x y
 |	d.dup d.tos needREG

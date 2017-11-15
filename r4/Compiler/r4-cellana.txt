@@ -76,7 +76,7 @@
 ::d.PK3 	dpila> 16 - @ ;
 ::d.PK4 	dpila> 20 - @ ;
 
-::d.drop	d.pop endlive ; | fin de vida
+::d.drop	-4 'dpila> +! ;
 ::d.swap	dpila> 8 - >r r@+ r@+ r> 8 - !+ ! ;
 ::d.rot		dpila> 12 - >r r@+ r@+ r@+ swap r> 12 - !+ !+ ! ;
 ::d.2swap	dpila> 16 - >r r@+ r@+ swap r@+ r@+ swap r> 16 - !+ !+ !+ ! ;
@@ -84,7 +84,10 @@
 ::r.pop		-4 'rpila> +! rpila> @ d.push ;
 ::r.push	d.pop rpila> !+ 'rpila> ! ;
 ::r.tos		rpila> 4 - @ ;
-::r.drop	-4 'rpila> +! rpila> @ endlive ;
+::r.drop	-4 'rpila> +! ;
+
+:d.dropv	d.pop endlive ; | fin de vida
+:r.dropv	-4 'rpila> +! rpila> @ endlive ;
 
 :tosinW		d.TOS 2 << 'cells + dup @ $1 or swap ! ;
 :tosoutW    d.TOS 2 << 'cells + dup @ $2 or swap ! ;
@@ -128,17 +131,17 @@
 :callW
 	dup 4 - @ 8 >>
 	dup dic>DATAU
-	dup ( 1? )( 1- tosoutC d.drop ) drop
+	dup ( 1? )( 1- tosoutC d.dropv ) drop
 	swap dic>DATAD +
 	( 1? )( 1- newcell d.push tosinC ) drop
 	;
 
 :exexec
 	tosExe
-    tos+1r d.drop
+    tos+1r d.dropv
 	lastdircode
 	dup dic>DATAU
-	dup ( 1? )( 1- tosoutC d.drop ) drop
+	dup ( 1? )( 1- tosoutC d.dropv ) drop
 	swap dic>DATAD +
 	( 1? )( 1- newcell d.push tosinC ) drop
 	;
@@ -185,7 +188,7 @@
 :w;		| ; | fin de palabra
 	exestack
 	dpila> 'dpila - 2 >>
-	( 1? )( tosoutW d.drop 1- ) drop
+	( 1? )( tosoutW d.dropv 1- ) drop
 	pilab> 'pilab =? ( drop ; ) drop
 	8 bl.now 2 << 'blocki + +!
 	;
@@ -240,7 +243,7 @@
 
 |---- condicionales
 :c0	tos+1r ;
-:c1 tos+1r d.drop tos+1r ;
+:c1 tos+1r d.dropv tos+1r ;
 
 |---- pila
 
@@ -251,46 +254,46 @@
 :d.pick4	d.PK4 dup +1r newcell d.push tosCpy ;
 :d.2dup		d.over d.over ;
 :d.2over	d.pick3 d.pick3 ;
-:d.nip		d.swap d.drop ;
-:d.4DROP	d.drop
-:d.3DROP	d.drop
-:d.2DROP	d.drop d.drop ;
+:d.nip		d.swap d.dropv ;
+:d.4DROP	d.dropv
+:d.3DROP	d.dropv
+:d.2DROP	d.dropv d.dropv ;
 
 :r.r		|r.tos +1r
 			newcell d.push
 			|r.tos tosCpy
 			;
-:r.r+		r.tos +1w d.drop ;			| R+    a --  R: b -- c
+:r.r+		r.tos +1w d.dropv ;			| R+    a --  R: b -- c
 :r.r@+		r.tos +1w newcell d.push ;	| R@+    -- a R: b -- c
-:r.r!+		r.tos +1w d.drop ;			| R!+   a --  R: b -- c
+:r.r!+		r.tos +1w d.dropv ;			| R!+   a --  R: b -- c
 
 :op1a1		tos+1w ; | neg not 1+ 4+ 1- 2/ ..
 :vop1a1 	tos+1w ; | abs  clz  ..
-:op2a1		tos+1r d.drop tos+1w ; | + - * and or xor ..
-:vop2a1 	tos+1r d.drop tos+1w tosAD ; | / mod (AD)
-:xop2a1		tos+1r tosC d.drop tos+1w ; | << >> (C)
-:op3a1		tos+1r tosAD d.drop tos+1r d.drop tos+1w ; | */	(AD)
-:vop3a1		tos+1r tosC d.drop tos+1r tosAD d.drop tos+1w ; | *>> /<<	(ADC)
+:op2a1		tos+1r d.dropv tos+1w ; | + - * and or xor ..
+:vop2a1 	tos+1r d.dropv tos+1w tosAD ; | / mod (AD)
+:xop2a1		tos+1r tosC d.dropv tos+1w ; | << >> (C)
+:op3a1		tos+1r tosAD d.dropv tos+1r d.dropv tos+1w ; | */	(AD)
+:vop3a1		tos+1r tosC d.dropv tos+1r tosAD d.dropv tos+1w ; | *>> /<<	(ADC)
 :op2a2		tos+1w tosAD d.swap tos+1w d.swap ; | mod/	(AD)
 
 | @ c@ w@
 :1@		tosVar tos+1w ;
 | ! c! w!
-:1!		tosVar tos+1r d.drop tos+1r d.drop ;
+:1!		tosVar tos+1r d.dropv tos+1r d.dropv ;
 | @+ c@+ w@+
 :2@		tosVar tos+1w newcell d.push tos+1w ;
 | !+ c!+ w!+
 :2!		d.swap tos+1r d.swap tosVar tos+1w d.nip ;
 | +! c+! w+!
-:2+!	tosVar tos+1r d.drop tos+1r d.drop ;
+:2+!	tosVar tos+1r d.dropv tos+1r d.dropv ;
 
-:vuso6	tos+1r d.drop tos+1r d.drop
-:vuso4	tos+1r d.drop
-:vuso3	tos+1r d.drop
-:vuso2	tos+1r d.drop
-:vuso1	tos+1r d.drop ;
+:vuso6	tos+1r d.dropv tos+1r d.dropv
+:vuso4	tos+1r d.dropv
+:vuso3	tos+1r d.dropv
+:vuso2	tos+1r d.dropv
+:vuso1	tos+1r d.dropv ;
 :vuso11	tos+1r ;
-:vuso21	tos+1r d.drop tos+1r ;
+:vuso21	tos+1r d.dropv tos+1r ;
 
 :v1cte	newcell d.push tosoutC ;
 :v3v	newcell d.push tosoutC
@@ -325,7 +328,7 @@ exexec					|EXEC  x/0 --    TOS es dcod
 c0 c0 c0 c0				| 0?	a -- a
 c1 c1 c1 c1 c1 c1 c1 c1	| =?	ab -- a
 d.dup
-d.drop
+d.dropv
 d.over
 d.pick2
 d.pick3
@@ -346,7 +349,7 @@ r.r		|R		-- a R: a -- a
 r.r+	|R+		a -- R: b -- c
 r.r@+	|R@+	-- a R: b -- c
 r.r!+	|R!+	a -- R: b -- c
-r.drop	|RDROP	R: a --
+r.dropv	|RDROP	R: a --
 
 op2a1	|AND	ab -- c
 op2a1	|OR		ab -- c

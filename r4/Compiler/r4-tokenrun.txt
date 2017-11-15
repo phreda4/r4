@@ -1,0 +1,231 @@
+| mini interprete r4, sin memoria
+| PHREDA 2017
+|----------------------------------
+^r4/lib/macrosr4.txt
+^r4/compiler/r4-dicc.txt
+^r4/compiler/r4-cellana.txt
+
+:nro>tok	dic>tok	@ ;
+:nro>mem    2 << memdicc + @ ;
+
+#:<<ip
+
+|--- interprete
+:i0 :i: :i:: :i# :i#: :i| :i^ drop ;
+
+:idec	tok>cte d.push ;
+:ihex	tok>cte d.push ;
+:ibin	tok>cte d.push ;
+:ifix	tok>cte d.push ;
+:istr	tok>mem d.push ;
+
+|--------- ejecuta palabra
+:iwor	8 >> dic>tok @ swap r.push ;
+:ivar	8 >> nro>mem @ d.push ;
+:idvar	8 >> nro>mem d.push ;
+:idwor	8 >> dic>tok @ d.push ;
+
+|--- retorna
+:i;		drop r.cnt 0? ( nip ; ) 2drop r.pop ;
+
+|--- estructuras de control
+:i)(
+:i)		8 >> + ;
+:i(     drop ;
+:i[     over d.push 8 >> + ;
+:i]     drop ;
+
+|--ahora sin value desde aca
+:iEXEC
+	d.pop 0? ( drop ; )
+	swap r.push
+	|	progmem?
+	;
+
+:i0?	@+ d.TOS 0? ( 2drop ; ) drop 8 >> + ;
+:i+?	@+ d.TOS +? ( 2drop ; ) drop 8 >> + ;
+:i-?	@+ d.TOS -? ( 2drop ; ) drop 8 >> + ;
+:i1?	@+ d.TOS 1? ( 2drop ; ) drop 8 >> + ;
+:i=?	@+ d.NOS d.pop =? ( 2drop ; ) drop 8 >> + ;
+:i<?	@+ d.NOS d.pop <? ( 2drop ; ) drop 8 >> + ;
+:i>?	@+ d.NOS d.pop >? ( 2drop ; ) drop 8 >> + ;
+:i<=?	@+ d.NOS d.pop <=? ( 2drop ; ) drop 8 >> + ;
+:i>=?   @+ d.NOS d.pop >=? ( 2drop ; ) drop 8 >> + ;
+:i<>?   @+ d.NOS d.pop <>? ( 2drop ; ) drop 8 >> + ;
+:iAND?  @+ d.NOS d.pop AND? ( 2drop ; ) drop 8 >> + ;
+:iNAND? @+ d.NOS d.pop NAND? ( 2drop ; ) drop 8 >> + ;
+
+|--- memoria
+:i@     d.pop @ d.push ;
+:iC@	d.pop c@ d.push ;
+:iW@    d.pop w@ d.push ;
+:i!     d.pop2 ! ;
+:iC!    d.pop2 c! ;
+:iW!    d.pop2 w! ;
+:i+!	d.pop2 +! ;
+:iC+!	d.pop2 c+! ;
+:iW+!	d.pop2 w+! ;
+:i@+	d.pop @+ swap d.push d.push ;
+:iC@+	d.pop c@+ swap d.push d.push ;
+:iW@+	d.pop w@+ swap d.push d.push ;
+:i!+	d.pop2 !+ d.push ;
+:iC!+	d.pop2 c!+ d.push ;
+:iW!+	d.pop2 w!+ d.push ;
+
+|---- pantalla
+:iSW 		sw d.push ;
+:iSH  		sh d.push ;
+:iFRAMEV	framev d.push ;
+:iREDRAW    redraw ;
+:iUPDATE    1 update drop ;
+
+|---- dibujo
+:iOP    	d.pop2 op ;
+:iLINE  	d.pop2 line ;
+:iCURVE 	d.pop4 curve ;
+:iCURVE3 	d.pop6 curve3 ;
+:iPLINE 	d.pop2 pline ;
+:iPCURVE 	d.pop4 pcurve ;
+:iPCURVE3 	d.pop6 pcurve3 ; | falta
+:iPOLI   	poli ;
+:iFCOL   	d.pop2 fcol ;
+:iFCEN   	d.pop2 fcen ;
+:iFMAT   	d.pop2 fmat ;
+:iSFILL  	sfill ;
+:iLFILL  	lfill ;
+:iRFILL  	rfill ;
+:iTFILL  	d.pop tfill ;
+
+:iSETXY  	d.pop2 setxy ;
+:iPX+!   	d.pop px+! ;
+:iPX!+   	d.pop px!+ ;
+:iPX@    	px@ d.push ;
+
+:iXFB		xfb d.push ;
+:i>XFB		|>xfb ;
+:iXFB>		|xfb> ;
+			;
+:iPAPER  	d.pop paper ;
+:iINK    	d.pop ink ;
+:iINKF   	ink@ d.push ;
+:iALPHA  	d.pop ALPHA ;
+:iCLS    	cls ;
+|----- sis
+:iMSEC   	msec d.push ;
+:iTIME   	time rot d.push swap d.push d.push ;
+:iDATE   	date rot d.push swap d.push d.push ;
+:iEND    	drop 0 ;
+:iRUNi   	vDROP ;
+|-----mouse
+|:iTPEN		tpen d.push ;
+:iXYMOUSE	xymouse swap d.push d.push ;
+:iBMOUSE    bmouse d.push ;
+|-----teclado
+:iSKEY  	d.pop key! ;
+:iKEY		key d.push ;
+|-----joystick
+:iCNTJOY    cntjoy d.push ;
+:iGETJOY    d.pop GETJOY d.push ;
+|--- carpetas
+:iFFIRST	d.pop FFIRST d.push ;
+:iFNEXT		FNEXT d.push ;
+|--- archivos
+:iLOAD      d.pop2 load d.push ;  | 'from "filename" -- 'to
+:iSAVE      d.pop3 save ;   |  'from cnt "filename" --
+:iAPPEND	d.pop3 append ;   |  'from cnt "filename" --
+
+:iMEM       freemem d.pushVar ; | mem
+
+|--- mueve mem
+:iMOVE      d.pop3 move ;
+:iMOVE>     d.pop3 move> ;
+:iCMOVE     d.pop3 cmove ;
+:iCMOVE>    d.pop3 cmove> ;
+
+|--- sonido
+:iSLOAD     d.pop SLOAD d.push ;  | "" -- n
+:iSPLAY     d.pop SPLAY ;  | n/0 --
+:iSINFO     d.pop SINFO d.push ;  | "" -- n
+:iSSET		d.pop4 SSET ;  | pan vol freq "" --
+
+:iOPENURL	d.pop3 openurl d.push ;
+
+|---------- tabla de saltos
+#tablai	| tabla de saltos de instrucciones
+i0 i: i:: i# i: i| i^		| 0 1 2 3 4 5 6
+idec ihex ibin ifix istr    | 7 8 9 a b
+iwor ivar idwor idvar		| c d e f
+i;
+i(		i)(		i)		i[		i]		iEXEC
+i0?		i+?		i-?		i1?		i=?		i<?		i>?		i<=?	i>=?	i<>?	iAND?	iNAND?
+vDUP	vDROP	vOVER	vPICK2	vPICK3	vPICK4	vSWAP	vNIP	vROT
+v2DUP	v2DROP	v3DROP	v4DROP	v2OVER	v2SWAP
+v>R		vR>		vR		vR+		vR@+	vR!+	vRDROP
+vAND	vOR		vXOR	vNOT	v+		v-		v*		v/		v*/
+v*>>	v/MOD	vMOD	vABS	vSQRT   vCLZ	v<</
+vNEG	v1+		v4+		v1-		v2/		v2*		v<<		v>>
+i@		iC@		iW@		i!		iC!		iW!		i+!		iC+!	iW+!	i@+		i!+		iC@+	iC!+	iW@+	iW!+
+iMOVE	iMOVE>	iCMOVE	iCMOVE>
+iMEM	iFFIRST	iFNEXT
+iLOAD	iSAVE	iAPPEND
+iUPDATE
+iXYMOUSE iBMOUSE
+iSKEY	iKEY
+iCNTJOY	iGETJOY
+iMSEC	iTIME	iDATE	iEND	iRUNi
+iSW		iSH		iCLS	iREDRAW	iFRAMEV
+iSETXY	iPX+!	iPX!+	iPX@
+iXFB	i>XFB	iXFB>
+iPAPER	iINK	iINKF	iALPHA
+iOP		iLINE	iCURVE	iCURVE3 iPLINE	iPCURVE	iPCURVE3 iPOLI
+iFCOL	iFCEN	iFMAT	iSFILL	iLFILL	iRFILL	iTFILL
+iSLOAD	iSPLAY	iSSET	iSINFO					|--- Sonido
+iOPENURL
+
+|-------------------------------
+| palabras de interaccion
+|-------------------------------
+::resetvm | --
+	d.ini	| inicia pilad
+	r.ini	| inicia pilar
+|	<<boot '<<ip !
+	;
+
+::stepvm | --
+	<<ip 0? ( drop ; )
+:stepvmi
+	(	@+ dup $ff and
+		21 >? ( nip )
+		2 << 'tablai + @ exec
+		code< >? )
+	'<<ip !
+	;
+
+::stepvmn | --
+	<<ip 0? ( drop ; )
+	dup @ $ff and $c <>? ( drop stepvmi ; ) drop
+	dup 4+ swap
+	( over <>? )(
+		@+ dup $ff and
+		21 >? ( nip )
+		2 << 'tablai + @ exec
+		0? ( '<<ip ! drop ; )
+		) nip
+	'<<ip ! ;
+
+::playvm | --
+	<<ip 0? ( drop ; )
+	( <<bp <>? )(
+		@+ dup $ff and
+		21 >? ( nip )
+		2 << 'tablai + @ exec
+		0? ( '<<ip ! ; )
+		)
+	'<<ip ! ;
+
+::tokenexec | token --
+	dup $ff and
+	21 >? ( nip )
+	2 << 'tablai + @ exec ;
+
+
