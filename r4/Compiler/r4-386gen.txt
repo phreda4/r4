@@ -10,22 +10,6 @@
 #nroi
 #regIO | dicc de IO 16 bytes
 
-|-------- guarda registros
-| in out used (16 bytes)
-:rsetI	| ;entrada
-|	4 <<
-|	stki
-|	c@+ ( 1? )( 1- swap c@+
-	 ;
-
-	c@+ 1- + c@ $ff and
-	;
-:rsetO	| ;salida
-	;
-:rsetU	| ;usados
-	;
-
-
 |-------- constantes del sistema
 #syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
 "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY" | []
@@ -54,13 +38,6 @@
 :suma	over 2 << 'cella + @ ;
 :shift	over 2 << 'cells + @ ;
 
-:inicelreg
-	2 <<
-	5 over 'cellt + !
-	swap over 'cellv + !
-	0 over 'cella + !
-	0 swap 'cells + !
-	;
 
 |---- imprime celda
 :list2str swap ( 1? )( 1- swap >>0 swap ) drop ;
@@ -160,6 +137,9 @@
 	7 10 between 1? ( drop ; )
 	2drop 0 ;
 
+
+:,value	nroi 2 << tokenini + @  tokencte ,print ;
+
 :,TOS	stknow stktos emitcell ;
 :,TOSb	stknow stktos emitcell ;
 
@@ -179,6 +159,20 @@
 :,>NOS		stknex stknos emitcell ;
 
 |------------
+| in out used (16 bytes)
+:rsetI	| ;entrada
+|	4 <<
+|	stki
+|	c@+ ( 1? )( 1- swap c@+
+	 ;
+
+	c@+ 1- + c@ $ff and
+	;
+:rsetO	| ;salida
+	;
+:rsetU	| ;usados
+	;
+
 :buildstack
 	stknow
 	c@+ ( 1? )( 1-
@@ -245,26 +239,26 @@
 
 :,lit
     >TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS "," ,s ,TOS ,cr
+    "mov " ,s ,>TOS "," ,s ,VALUE ,cr
 	;
 :,lits
 	toknow tok>mem strusestack
 	'strpending ! drop
 	1 'nstr +!
 	>TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS "," ,s ,TOS ,cr
+    "mov " ,s ,>TOS "," ,s ,VALUE ,cr
 	;
 :,dwo
     >TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS "," ,s ,TOS ,cr
+    "mov " ,s ,>TOS "," ,s ,VALUE ,cr
 	;
 :,dva
     >TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS "," ,s ,TOS ,cr
+    "mov " ,s ,>TOS "," ,s ,VALUE ,cr
 	;
 :,var
     >TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS ",[" ,s ,TOS "]" ,s ,cr
+    "mov " ,s ,>TOS ",[" ,s ,VALUE "]" ,s ,cr
 	;
 
 |-------- CONDICIONALES
@@ -821,7 +815,30 @@
 	$ff and 2 << 'acompila + @ 0? ( drop ; )
 	exec ;
 
+|--------
+
+:inicelreg | --
+	2 <<
+	5 over 'cellt + !
+	swap over 'cellv + !
+	0 over 'cella + !
+	0 swap 'cells + !
+	;
+
+:needreg | nro --
+	dup cellflag
+	$4 and? ( drop ; )	| entrada palabra
+	$8 and? ( drop ; )	| salida palabra
+	$1000 and? ( drop ; )	| eax
+	$2000 and? ( drop ; )	| ecx
+	drop ;
+	;
+
 :iniciaregistros
+	cntvreg ( 1? )( 1-
+		needreg
+		) drop
+
 	0 ( cntvreg 1- <? )(
 		dup dup inicelreg
 		1+ ) drop
