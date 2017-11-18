@@ -1,0 +1,152 @@
+| Car physics - Based on
+| http://www.asawicki.info/Mirror/Car%20Physics%20for%20Games/Car%20Physics%20for%20Games.html
+
+^r4/lib/gui.txt 
+
+| time between integration steps in physics modelling
+| should be a constant ideally
+#delta_t 0.1
+#cur_t
+
+| car inputs
+#throttle 0.0
+#brake 0.0
+#steerangle 0.0
+
+| car params
+#angle 0.0
+#vx #vy 
+#wc_vx 0.0 #wc_vy 0.0 | world coordinates speed
+#wc_px 0.5 #wc_py 0.5 | world coordinates position
+#yawspeed 
+#b 1.0 #c 1.0 #wheelbase 2.0
+#angularvelocity 0.0
+#mass 1500.0
+#inertia 1500.0
+#scale 500000.0
+
+:sgn | ( v -- (-1.0/1.0) )
+     31 >> 1 or 16 << ;
+
+:printstate throttle "Throttle: %f" print cr
+	    brake "Brake: %f" print cr
+	    steerangle "Steer angle: %f" print cr
+	    angle "Angle: %f" print cr
+	    delta_t "Delta t: %f" print cr
+	    wc_vy wc_vx "World Vel.: (%f,%f)" print cr
+	    wc_py wc_px "World Pos.: (%f,%f)" print cr
+	    yawspeed "Yawspeed: %f" print cr
+	    angularvelocity "Angular velocity: %f" print cr ;
+
+:printusage cr cr
+	    amarillo
+	    "left/right: direction" print cr
+	    "up/down: speed" print cr
+	    "ctrl: brake" print cr
+	    blanco ;
+
+:debug dup "%d" print cr ;
+
+#x #y
+:draw wc_px scale *. 16 >> sw 20 * + sw mod 'x !
+      wc_py scale *. 16 >> neg sh 20 * + sh mod 'y !
+      x y op 0 0 line ;
+
+#maxthrottle 100.0
+
+:accel throttle + maxthrottle clamp0max 'throttle ! ;
+
+#iaccel 0.0
+
+:pedals [  10.0 'iaccel ! ; ] <up>
+	[ -10.0 'iaccel ! ; ] <dn>
+	[ 100.0 'brake ! 0.0 'throttle ! ; ] <ctrl>
+	[ 0.0 'brake ! ; ] >ctrl<
+	[  -1.0 'iaccel ! ; ] dup >up< >dn<
+	iaccel accel ;
+
+:goleft  steerangle 0.5 32.0 /. - -0.5 2.0 /. clampmin 'steerangle ! ;
+
+:goright steerangle 0.5 32.0 /. +  0.5 2.0 /. clampmax 'steerangle ! ;
+
+:wheel [ goleft  ; ] <le>
+       [ goright ; ] <ri> ;
+
+:input pedals wheel ;
+
+#sn #cs 
+#breakme 
+#rot_angle 
+#sideslip 
+#slipanglefront
+#slipanglerear
+#DRAG 5.0
+#RESISTANCE 30.0
+#CA_F -5.0
+#CA_R -5.2
+#MAX_GRIP 2.0
+#weight
+#flatfx #flatfy
+#flatrx #flatry
+#ftractionx #ftractiony
+#resistancex #resistancey
+#forcex #forcey
+#torque
+#accelerationx
+#accelerationy
+#angular_acceleration
+#wc_accelerationx
+#wc_accelerationy
+
+:physics msec dup cur_t - 'delta_t ! 'cur_t !
+	 angle sin 'sn !
+	 angle cos 'cs !
+	 cs wc_vy *. sn wc_vx *. + 'vx !
+	 sn neg wc_vy *. cs wc_vx *. + 'vy !
+	 wheelbase 0.5 *. angularvelocity *. 'yawspeed !
+	 vx 0? ( 0.0 )( yawspeed vx atan2 ) 'rot_angle ! drop
+	 vx 0? ( 0.0 )( vy vx atan2 ) 'sideslip ! drop
+	 sideslip rot_angle + steerangle - 'slipanglefront !
+	 sideslip rot_angle - 'slipanglerear !
+	 mass 9.8 *. 0.5 *. 'weight !
+	 0.0 'flatfx !
+	 CA_F slipanglefront *. 'flatfy !
+	 MAX_GRIP flatfy min 'flatfy !
+	 MAX_GRIP neg flatfy max 'flatfy !
+	 flatfy weight *. 'flatfy !
+	 | front_slip not done
+	 0.0 'flatrx !
+	 CA_R slipanglerear *. 'flatry !
+	 MAX_GRIP flatry min 'flatry !
+	 MAX_GRIP neg flatry max 'flatry !
+	 flatry weight *. 'flatry !
+	 | rear_slip not done
+	 throttle brake vx sgn *. - 100.0 *. 'ftractionx !
+	 0.0 'ftractiony !
+	 | rear_slip not done
+	 vx RESISTANCE *. DRAG vx *. vx abs *. + neg 'resistancex !
+	 vy RESISTANCE *. DRAG vy *. vy abs *. + neg 'resistancey !
+	 ftractionx steerangle sin flatfx *. + flatrx + resistancex + 'forcex !
+	 ftractiony steerangle cos flatfy *. + flatry + resistancey + 'forcey !
+	 flatfy b *. flatry c *. - 'torque !
+	 forcex mass /. 'accelerationx !
+	 forcey mass /. 'accelerationy !
+	 torque inertia /. 'angular_acceleration !
+	 cs accelerationy *. sn accelerationx *. + 'wc_accelerationx !
+	 sn neg accelerationy *. cs accelerationx *. + 'wc_accelerationy !
+	 wc_vx delta_t wc_accelerationx *. + 'wc_vx !
+	 wc_vy delta_t wc_accelerationy *. + 'wc_vy !
+	 wc_px delta_t wc_vx *. + 'wc_px !
+	 wc_py delta_t wc_vy *. + 'wc_py !
+	 angularvelocity delta_t angular_acceleration *. + 'angularvelocity !
+	 angle delta_t angularvelocity *. + 'angle ! ;
+	 
+:go show30 clrscr debug
+    draw input physics
+    printstate
+    'exit >esc< ;
+
+:init msec 'cur_t ! ;
+
+: 33 init go ;
+
