@@ -6,7 +6,7 @@
 ;; TODO: extend/improve the regexps...
 (setq r4-keywords
       '((":[a-zA-Z0-9_\.-]+\\b" . 'r4-definition-face)
-	("\\#[a-zA-Z\._]+\\b" . 'r4-data-face)
+	("\\#[a-zA-Z\._]+\\s-" . 'r4-data-face)
 	("\'[a-zA-Z0-9_\.-]+\\b" . 'r4-pointer-face)
 	("|.*$" . 'r4-comment-face)
 	("\\^[a-zA-Z0-9_/\.-]+\\b" . 'r4-include-face)
