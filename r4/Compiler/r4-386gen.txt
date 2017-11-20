@@ -2,6 +2,7 @@
 | PHREDA 2017
 |----------------------------------
 ^r4/compiler/r4-cellana.txt
+^r4/compiler/r4-regx86.txt
 
 #nstr
 #nlabel
@@ -9,89 +10,6 @@
 
 #nroi
 #regIO | dicc de IO 16 bytes
-
-|-------- constantes del sistema
-#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB"
-"SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY" | []
-
-#sysregs "eax" "ebx" "ecx" "edx" "edi" "esi" "ebp"
-#sysregw "ax" "bx" "cx" "dx" "di" "si" "bp"
-#sysregb "al" "bl" "cl" "dl" "*" "*" "*"
-
-|------ Celda de la pila
-| $0 nro
-| $1 cte
-| $2 str
-| $3 cod
-| $4 dat
-| $5 reg
-| $10 mem
-| $20 *
-| $40 +
-|-------- tipos de celdas
-#cellt )( 1024	| tipo
-#cellv )( 1024	| valor
-#cella )( 1024  | suma
-#cells )( 1024  | shift
-
-:value	over 2 << 'cellv + @ ;
-:suma	over 2 << 'cella + @ ;
-:shift	over 2 << 'cells + @ ;
-
-
-|---- imprime celda
-:list2str swap ( 1? )( 1- swap >>0 swap ) drop ;
-
-:mt0 value "$%h" ,print ;			|--	0 nro 	33
-:mt1 value 'syscons list2str ,s ;	|--	1 cte	XRES
-:mt2 value "str%h" ,print ;			|--	2 str   "hola"
-:mt3 value "w%h" ,print ;			|--	3 cod  'func		4 dat  'var
-:mt5 value 'sysregs list2str ,s ;	|-- 8 reg 	eax
-
-#tiposrm mt0 mt1 mt2 mt3 mt3 mt5 0 0 0
-
-:,reg | nro --
-	'sysregs list2str ,s ;
-
-:,cell | nro --
-	dup 2 << 'cellt + @
-	$10 and? ( "dword [" ,s )
-	dup $7 and 2 << 'tiposrm + @  exec
-	$20 and? ( "*" ,s dup ,d )
-	$40 and? ( +? ( "+" ,s ) dup ,d )
-	$10 and? ( "]" ,s )
-	drop ;
-
-:mt5b value 'sysregb list2str ,s ;
-#tiposrmb mt0 mt1 mt2 mt3 mt3 mt5b 0 0 0
-
-:,cellb | nro --
-	dup 2 << 'cellt + @
-	$10 and? ( "byte [" ,s )
-	dup $7 and 2 << 'tiposrmb + @  exec
-	$20 and? ( "*" ,s dup ,d )
-	$40 and? ( +? ( "+" ,s ) dup ,d )
-	$10 and? ( "]" ,s )
-	drop ;
-
-:mt5w value 'sysregw list2str ,s ;
-#tiposrmw mt0 mt1 mt2 mt3 mt3 mt5w 0 0 0
-
-:,cellw | nro --
-	dup 2 << 'cellt + @
-	$10 and? ( "word [" ,s )
-	dup $7 and 2 << 'tiposrmw + @  exec
-	$20 and? ( "*" ,s dup ,d )
-	$40 and? ( +? ( "+" ,s ) dup ,d )
-	$10 and? ( "]" ,s )
-	drop ;
-
-|-------------------------
-
-:dumpcel
-	0 ( cntvreg 1- <? )(
-		dup ,d ,sp ,cell ,cr
-		1+ ) drop ;
 
 |------ acceso a celdas
 :stknow	nroi 2 << 'stki + @ ;
@@ -104,35 +22,6 @@
 :stknos4 c@+ 5 - + c@ $ff and ;
 
 :stkrtos c@+ + c@+ + c@ $ff and ;
-
-|--- token a cte
-:c7 tok>cte "$%h"  ;
-:cB 8 >> "str%h" ;
-:cC 8 >> "w%h" ;
-
-#codeisa 0 0 0 0 0 0 0 c7 c7 c7 c7 cB cC cC cC cC
-
-:tokencte | a -- mem
-	dup $ff and 2 << 'codeisa + @ 0? ( trace 2drop ; ) exec ;
-
-:registro
-	cellreg
-	1- ,cell | registro virtual
-	drop ;
-
-:emitcell | cell --
-	dup cellreg? 1? ( drop registro ; ) drop
-	celltok
-	256 <? ( registro ; ) |,sp "copia" ,s ,d ; ) | copia
-	@ tokencte ,print
-	;
-
-:cellvalue? | cell -- token/0
-	celltok
-	256 <? ( ; ) | copia
-	@ dup $ff and
-	7 10 between 1? ( drop ; )
-	2drop 0 ;
 
 
 :,VALUE	nroi 2 << tokenini + @ tokencte ,print ;
@@ -373,12 +262,6 @@
 	dup @ $ff and 			| word ;
 	16 =? ( "jmp ecx" )( "call ecx" ) nip
 	,s ,cr
-	;
-
-:,EXECPP | v --
-	"push " ,s d.tos ,CELL ,cr
-	dup @ $ff and 			| word ;
-	12 <>? ( "pop ecx" ,ln "call ecx" ,s ,cr ) drop		| en pila y ret.. listo!
 	;
 
 :,EXEC | v --
@@ -832,43 +715,6 @@
 	exec ;
 
 |--------
-
-:inicelreg | --
-	2 <<
-	5 over 'cellt + !
-	swap over 'cellv + !
-	0 over 'cella + !
-	0 swap 'cells + !
-	;
-
-:needreg | nro --
-	dup cellflag
-	$4 and? ( drop ; )	| entrada palabra
-	$8 and? ( drop ; )	| salida palabra
-	$1000 and? ( drop ; )	| eax
-	$2000 and? ( drop ; )	| ecx
-	drop ;
-	;
-
-:iniciaregistros
-	cntvreg ( 1? )( 1-
-		needreg
-		) drop
-
-	0 ( cntvreg 1- <? )(
-		dup dup inicelreg
-		1+ ) drop
-|	dumpcel
-
-	,cr
-	stki c@+
-	( 1? )( 1- swap c@+
-		,cell " %d " ,print
-		swap ) 2drop
-	,cr
-
-	;
-
 :codeini | w -- w
 	'pilac 'pilac> !
 	'pilab 'pilab> !
