@@ -22,9 +22,11 @@
 | $3 cod
 | $4 dat
 | $5 reg
-| $10 mem
-| $20 4*
-| $40 +
+| $10 mem[]
+| $20 2*
+| $40 4*
+| $80 8*
+| $100 +
 |-------- tipos de celdas
 #cellt )( 1024	| tipo
 #cellv )( 1024	| valor
@@ -40,43 +42,47 @@
 :mt1 value 'syscons list2str ,s ;	|--	1 cte	XRES
 :mt2 value "str%h" ,print ;			|--	2 str   "hola"
 :mt3 value "w%h" ,print ;			|--	3 cod  'func		4 dat  'var
-:mt5 value 'sysregs list2str ,s ;	|-- 8 reg 	eax
+:mt5 value 'sysregs list2str ,s ;	|-- 5 reg 	eax
+:mt6 value 2 << "dword[esi+" ,s ,d "]" ,s ; |-- 6 stack
 
-#tiposrm mt0 mt1 mt2 mt3 mt3 mt5 0 0 0
+#tiposrm mt0 mt1 mt2 mt3 mt3 mt5 mt6 0 0
 
 :,reg | nro --
 	'sysregs list2str ,s ;
 
 :,cell | nro -- nro
 	dup 2 << 'cellt + @
-	$10 and? ( "dword [" ,s )
+	$10 and? ( "dword[" ,s )
 	dup $7 and 2 << 'tiposrm + @ exec
-	$20 and? ( "*" ,s dup ,d )
-	$40 and? ( +? ( "+" ,s ) dup ,d )
+	$e0 and? ( "*" ,s dup 4 >> $e and ,d )
+|	$20 and? ( "*2" ,s )
+|	$40 and? ( "*4" ,s )
+|	$80 and? ( "*8" ,s )
+	$100 and? ( suma +? ( "+" ,s ) ,d )
 	$10 and? ( "]" ,s )
 	drop ;
 
 :mt5b value 'sysregb list2str ,s ;
-#tiposrmb mt0 mt1 mt2 mt3 mt3 mt5b 0 0 0
+#tiposrmb mt0 mt1 mt2 mt3 mt3 mt5b mt6 0 0
 
 :,cellb | nro -- nro
 	dup 2 << 'cellt + @
-	$10 and? ( "byte [" ,s )
+	$10 and? ( "byte[" ,s )
 	dup $7 and 2 << 'tiposrmb + @ exec
-	$20 and? ( "*" ,s dup ,d )
-	$40 and? ( suma +? ( "+" ,s )  ,d )
+	$e0 and? ( "*" ,s dup 4 >> $e and ,d )
+	$100 and? ( suma +? ( "+" ,s ) ,d )
 	$10 and? ( "]" ,s )
 	drop ;
 
 :mt5w value 'sysregw list2str ,s ;
-#tiposrmw mt0 mt1 mt2 mt3 mt3 mt5w 0 0 0
+#tiposrmw mt0 mt1 mt2 mt3 mt3 mt5w mt6 0 0
 
 :,cellw | nro -- nro
 	dup 2 << 'cellt + @
-	$10 and? ( "word [" ,s )
+	$10 and? ( "word[" ,s )
 	dup $7 and 2 << 'tiposrmw + @ exec
-	$20 and? ( "*" ,s dup ,d )
-	$40 and? ( +? ( "+" ,s ) dup ,d )
+	$e0 and? ( "*" ,s dup 4 >> $e and ,d )
+	$100 and? ( suma +? ( "+" ,s ) ,d )
 	$10 and? ( "]" ,s )
 	drop ;
 
@@ -99,17 +105,42 @@
 :cell.wor 3 swap cell.t ;
 :cell.reg 5 swap cell.t ;
 
-:cell.ch? | nro -- 1/0
-	2 << 'cellt + @ $f0 and ;
+|-----------------
+:cellt? | nro -- cellt
+	2 << 'cellt + @ ;
 
+:cellreg? | nro -- nro reg/-1
+	dup cellt? 5 <>? ( drop -1 ; ) drop
+	dup 2 << 'cellv + @ ;
+
+:cell0? | nro -- nro 1/0=si
+	dup cellt? 1? ( ; ) drop
+	dup 2 << 'cellv + @ ;
+
+|-----------------
 :cell.add | val nro --
-	2 <<
-	swap over 'cella + +!
-	'cellt + dup @ $40 or swap !
-	;
+	2 << swap over 'cella + +!
+	'cellt + dup @ $100 or swap ! ;
 
+:cell.shf | val nro -- ; 2,4,8
+	2 << 'cellt + dup
+	@ rot 4 << or swap ! ;
 
+:cell.mem | nro --
+	2 << 'cellt + dup
+	@ $10 or swap ! ;
 
+|-----------------
+:cell2reg | reg nro --
+	cellreg? pick2 =? ( 3drop ; ) drop
+	cell0? 0? (
+		drop "xor " ,s over ,reg "," ,s over ,reg
+	)(
+   		drop " mov " ,s over ,reg "," ,s ,cell )
+   	,cr
+	cellreg ;
+
+|-----------------
 :needreg | nro --
 	dup cellflag
 	$4 and? ( drop ; )	| entrada palabra
@@ -175,24 +206,31 @@
 	2drop 0 ;
 
 |---test
+#setv 0
+
 :main
-	1 'cntvreg !
+	5 'cntvreg !
+
+	33 1 cell.val
+	0 0 cell.reg
+	3 2 cell.str
+	3 3 cell.wor
+	3 4 cell.cte
+
 	33
 	show clrscr
 		dup "%d - " print
-		cntvreg "%d cells" print cr
+		cntvreg "%d cells" print
+		setv "<%d " print cr
 
 		dumpcel
 
-		[ 1 'cntvreg +! ; ] <up>
-		[ cntvreg 1- 1 clampmin 'cntvreg ! ; ] <dn>
-		[ cntvreg 1- cell.ini ; ] <f1>
-		[ 0 cntvreg 1- cell.reg ; ] <f2>
-		[ 33 cntvreg 1- cell.val ; ] <f3>
-		[ 3 cntvreg 1- cell.str ; ] <f4>
-		[ 3 cntvreg 1- cell.wor ; ] <f5>
-		[ 3 cntvreg 1- cell.cte ; ] <f6>
- 		[ 1 cntvreg 1- cell.add ; ] <f7>
+		[ 1 'setv +! ; ] <up>
+		[ -1 'setv +! ; ] <dn>
+
+ 		[ 1 setv cell.add ; ] <f1>
+ 		[ 4 setv cell.shf ; ] <f2>
+ 		[ setv cell.mem ; ] <f3>
 
 		'exit >esc<
 		cminiflecha ;
