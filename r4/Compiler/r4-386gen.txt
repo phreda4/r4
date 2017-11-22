@@ -4,12 +4,11 @@
 ^r4/compiler/r4-cellana.txt
 ^r4/compiler/r4-regx86.txt
 
-#nstr
-#nlabel
-#strpending
-
-#nroi
-#regIO | dicc de IO 16 bytes
+#nlabel		| nro label
+#nstr		| nro string
+#strpending	| for str stack
+#nroi		| nro token
+#regIO 		| dicc de IO 16 bytes
 
 |------ acceso a celdas
 :stknow	nroi 2 << 'stki + @ ;
@@ -47,14 +46,13 @@
 
 |------------
 | in out used (16 bytes)
-:rsetI	| ;entrada
-|	4 <<
-|	stki
-|	c@+ ( 1? )( 1- swap c@+
-	 ;
+:rsetI
+	stknow
+	c@+ ( 1? )( 1-
+		swap c@+ 
+		drop |*** asignar
+		swap ) 2drop ;
 
-	c@+ 1- + c@ $ff and
-	;
 :rsetO	| ;salida
 	;
 :rsetU	| ;usados
@@ -95,30 +93,6 @@
 	0 'strpending !
 	;
 
-:,callsys | usapila? --
-|	1? ( vpila2normal )
-	drop
-	dup @ $ff and | word ;
-	16 =? ( "jmp " )( "call " ) nip
-	,s ;
-
-:,END		"jmp SYSEND" ,ln ;
-:,FFIRST 	1 ,callsys "SYSFFIRST" ,ln ;
-:,FNEXT		1 ,callsys "SYSFNEXT" ,ln 1 vpila2v ;
-:,LOAD		1 ,callsys "SYSLOAD" ,ln -1 vpila2v ;
-:,SAVE		1 ,callsys "SYSSAVE" ,ln -3 vpila2v ;
-:,APPEND	1 ,callsys "SYSAPPEND" ,ln -3 vpila2v ;
-:,UPDATE	1 ,callsys "SYSUPDATE" ,ln ;
-:,MSEC		1 ,callsys "SYSMSEC" ,ln 1 vpila2v ;
-:,TIME		1 ,callsys "SYSTIME" ,ln 3 vpila2v ;
-:,DATE		1 ,callsys "SYSDATE" ,ln 3 vpila2v ;
-:,RUN		1 ,callsys "SYSRUN" ,ln ;
-:,CLS		0 ,callsys "SYSCLS" ,ln ;
-:,REDRAW	0 ,callsys "SYSREDRAW" ,ln ;
-:,>XFB  	0 ,callsys "SYSTOXFB" ,ln ;
-:,XFB>  	0 ,callsys "SYSXFBTO" ,ln ;
-:,SYSTEM	1 ,callsys "SYSYSTEM" ,ln ; | "sys" -- ret
-
 :,;
 	dup 8 - @ $ff and | word ;
 	12 =? ( drop ; ) drop
@@ -148,6 +122,7 @@
     >TOSreg? 0? ( drop ; ) drop
     "mov " ,s ,>TOS ",[" ,s ,VALUE "]" ,s ,cr
 	;
+
 
 |-------- CONDICIONALES
 #jmpstr 0
@@ -675,6 +650,30 @@
 :,OP :,LINE :,CURVE :,CURVE3 :,PLINE :,PCURVE :,PCURVE3 :,POLI
 :,FCOL :,FCEN :,FMAT :,SFILL :,LFILL :,RFILL :,TFILL ;
 
+:,callsys | usapila? --
+|	1? ( vpila2normal )
+	drop
+	dup @ $ff and | word ;
+	16 =? ( "jmp " )( "call " ) nip
+	,s ;
+
+:,END		"jmp SYSEND" ,ln ;
+:,FFIRST 	1 ,callsys "SYSFFIRST" ,ln ;
+:,FNEXT		1 ,callsys "SYSFNEXT" ,ln 1 vpila2v ;
+:,LOAD		1 ,callsys "SYSLOAD" ,ln -1 vpila2v ;
+:,SAVE		1 ,callsys "SYSSAVE" ,ln -3 vpila2v ;
+:,APPEND	1 ,callsys "SYSAPPEND" ,ln -3 vpila2v ;
+:,UPDATE	1 ,callsys "SYSUPDATE" ,ln ;
+:,MSEC		1 ,callsys "SYSMSEC" ,ln 1 vpila2v ;
+:,TIME		1 ,callsys "SYSTIME" ,ln 3 vpila2v ;
+:,DATE		1 ,callsys "SYSDATE" ,ln 3 vpila2v ;
+:,RUN		1 ,callsys "SYSRUN" ,ln ;
+:,CLS		0 ,callsys "SYSCLS" ,ln ;
+:,REDRAW	0 ,callsys "SYSREDRAW" ,ln ;
+:,>XFB  	0 ,callsys "SYSTOXFB" ,ln ;
+:,XFB>  	0 ,callsys "SYSXFBTO" ,ln ;
+:,SYSTEM	1 ,callsys "SYSYSTEM" ,ln ; | "sys" -- ret
+
 #acompila 0
 ,defw ,defw ,defv ,defv 0 0
 ,lit ,lit ,lit ,lit ,lits
@@ -682,8 +681,10 @@
 ,; ,( ,)( ,) ,[ ,] ,EXEC
 ,0? ,+? ,-? ,1? ,=? ,<? ,>? ,<=? ,>=? ,<>? ,AND? ,NAND? | 30
 
-,dup 0 ,over ,pick2 ,pick3 ,pick4 0 0
-0 ,2dup 0 0 0 ,2over 0
+0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0
+|,dup 0 ,over ,pick2 ,pick3 ,pick4 0 0
+|0 ,2dup 0 0 0 ,2over 0
 
 ,>R ,R> ,R ,R+ ,R@+ ,R!+ ,RDROP					|--- pila direcciones 52
 ,AND ,OR ,XOR ,NOT  								|--- logicas        56
@@ -724,9 +725,8 @@
 	;
 
 ::,code | w --
-	iniciaregistros
-
 	codeini
+	inputcells
 	dup dic>tok @ swap dic>len@
 	( 1? )( 1- swap @+
 		9 ,c "; " ,s dup tokenstr ,print
@@ -734,7 +734,7 @@
 
 		,cadatoken swap
 
-|		"r4/compiler/code.asm" savemem | DEBUG
+		"r4/compiler/code.asm" savemem | DEBUG
 		1 'nroi +!
 		) 2drop ;
 
