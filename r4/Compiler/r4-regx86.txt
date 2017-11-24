@@ -111,6 +111,10 @@
 	dup cellt? 5 <>? ( drop -1 ; ) drop
 	dup 2 << 'cellv + @ ;
 
+:cellregu? | nro -- nro reg/-1
+	dup cellt? $f and 5 <>? ( drop -1 ; ) drop
+	dup 2 << 'cellv + @ ;
+
 :cell0? | nro -- nro 1/0=si
 	dup cellt? 1? ( ; ) drop
 	dup 2 << 'cellv + @ ;
@@ -137,6 +141,26 @@
 	2 << 'cellt + dup
 	@ $10 or swap ! ;
 
+|--------------------------
+#registros	| registros usados
+
+:emptyReg
+	%1000000 | ebp ocupado
+	'registros ! ;
+
+:reg! | nro --
+	1 swap << registros or 'registros ! ;
+
+:reg!! | nro --
+	1 swap << not registros and 'registros ! ;
+
+:newReg | -- reg | busca un registro libre
+	0 registros
+	( 1? )( 1 nand? ( drop ; ) | libre?
+		2/ $7fffffff and
+		swap 1+ swap )
+	drop ;
+
 |-----------------
 :cell2stkp
 	"mov [ebp" ,s over 2 << +? ( "+" ,s ) ,d "]," ,s ,cell ,cr
@@ -145,13 +169,14 @@
 :cell2stk | nro reg --
 	swap
 	cell.shf? 0? ( drop cell2stkp ; ) drop
+	newReg >r
 	cellm? 1? ( drop
-		"mov edx," ,s ,cell ,cr
+		"mov " ,s r ,reg "," ,s ,cell ,cr
 		)( drop
-		"lea edx,[" ,s ,cell "]" ,s ,cr
+		"lea " ,s r ,reg ",[" ,s ,cell "]" ,s ,cr
 		)
 	"mov [ebp" ,s over 2 << +? ( "+" ,s ) ,d "]," ,s
-	3 ,reg ,cr
+	r> ,reg ,cr
     cell.stk! ;
 
 :cellval0 | reg nro --
@@ -171,8 +196,6 @@
 	cell.reg! ;
 
 
-:cell2plain |
-	;
 |-----------------
 :needreg | nro --
 	dup cellflag
@@ -238,7 +261,9 @@
 
 ::,dumpcel
 	0 ( cntvreg <? )(
-		dup ,d ,sp ,cell ,cr
+		dup ,d ,sp ,cell
+		dup cellregu? " %d" ,print
+		,cr
 		1+ ) drop ;
 
 :dumpm | adr
@@ -252,21 +277,28 @@
 	swap -? ( cell2stk ; ) swap
 	cell2reg ;
 
-:,stk
-	-? ( ,d ; ) ,reg ;
+:cellregmark | cell --
+	-? ( drop ; )
+	cellregu? -? ( 2drop ; )
+	reg!
+	drop
+	;
 
-:doit
+:markregused | mask --
+	emptyReg
+	c@+ ( 1? )( 1- swap c@+
+		cellregmark
+		swap ) 2drop ;
+
+:stackconvert | mask --
+	dup markregused
 	c@+
 	( 1? )( 1- swap
 		c@+ pick2
-
 |		2dup "%d -> %d " ,print
-		,cell " -> " ,s over ,stk
-		,cr
 		cellresolve
-		,cr
-		swap ) 2drop
-	;
+|		,cr
+		swap ) 2drop ;
 
 #testr ( 5 -2 -1 3 2 0 )
 #log
@@ -293,7 +325,10 @@
 
 	,dumpcel ,cr
 
-    'testr doit ,cr
+
+    'testr stackconvert ,cr
+
+	registros "%b" ,print ,cr
 
 	,dumpcel
 
