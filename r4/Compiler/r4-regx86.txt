@@ -43,7 +43,7 @@
 :mt2 value "str%h" ,print ;			|--	2 str   "hola"
 :mt3 value "w%h" ,print ;			|--	3 cod  'func		4 dat  'var
 :mt5 value 'sysregs list2str ,s ;	|-- 5 reg 	eax
-:mt6 value 2 << "dword[esi+" ,s ,d "]" ,s ; |-- 6 stack
+:mt6 value 2 << "dword[ebp" ,s +? ( "+" ,s ) ,d "]" ,s ; |-- 6 stack
 
 #tiposrm mt0 mt1 mt2 mt3 mt3 mt5 mt6 0 0
 
@@ -96,11 +96,12 @@
 	swap over 'cellv + !
 	0 swap 'cella + ! ;
 
-:cell.val 0 swap cell.t ;
-:cell.cte 1 swap cell.t ;
-:cell.str 2 swap cell.t ;
-:cell.wor 3 swap cell.t ;
-:cell.reg 5 swap cell.t ;
+:cell.val! 0 swap cell.t ;
+:cell.cte! 1 swap cell.t ;
+:cell.str! 2 swap cell.t ;
+:cell.wor! 3 swap cell.t ;
+:cell.reg! 5 swap cell.t ;
+:cell.stk! 6 swap cell.t ;
 
 |-----------------
 :cellt? | nro -- cellt
@@ -114,7 +115,16 @@
 	dup cellt? 1? ( ; ) drop
 	dup 2 << 'cellv + @ ;
 
-|-----------------
+:cellm? | nro -- nro 1/0
+	dup cellt? $10 and ;
+
+:cell.add? | nro -- nro 1/0=se puede
+	dup 2 << 'cellt + @ $f0 and ;
+
+:cell.shf? | nro -- nro 1/0=se puede
+	dup 2 << 'cellt + @ $1f0 and ;
+
+
 :cell.add | val nro --
 	2 << swap over 'cella + +!
 	'cellt + dup @ $100 or swap ! ;
@@ -128,22 +138,37 @@
 	@ $10 or swap ! ;
 
 |-----------------
-:cell2stk
-	"mov [ebp+" ,s dup 2 << ,d "]," ,s
+:cell2stkp
+	"mov [ebp" ,s over 2 << +? ( "+" ,s ) ,d "]," ,s ,cell ,cr
+    cell.stk! ;
 
-	2dup "(%d %d)" ,print ,cr
+:cell2stk | nro reg --
 	swap
-	;
+	cell.shf? 0? ( drop cell2stkp ; ) drop
+	cellm? 1? ( drop
+		"mov edx," ,s ,cell ,cr
+		)( drop
+		"lea edx,[" ,s ,cell "]" ,s ,cr
+		)
+	"mov [ebp" ,s over 2 << +? ( "+" ,s ) ,d "]," ,s
+	3 ,reg ,cr
+    cell.stk! ;
+
+:cellval0 | reg nro --
+	"xor " ,s over ,reg "," ,s over ,reg ,cr
+|	"movzs " ,s over ,reg ",0" ,s ,cr | mov usa flags!
+	cell.reg! ;
+
+:cellmem | reg nro --
+	"mov " ,s over ,reg "," ,s ,cell ,cr
+	cell.reg! ;
 
 :cell2reg | reg nro --
 	cellreg? pick2 =? ( 3drop ; ) drop
-	cell0? 0? ( drop
-		"xor " ,s over ,reg "," ,s over ,reg
-	)( drop
-		"mov " ,s over ,reg "," ,s ,cell )
-   	,cr
-	|cellreg
-	;
+	cell0? 0? ( drop cellval0 ; ) drop
+	cellm? 1? ( drop cellmem ; ) drop
+	"lea " ,s over ,reg ",[" ,s ,cell "]" ,s ,cr
+	cell.reg! ;
 
 
 :cell2plain |
@@ -223,25 +248,22 @@
 		swap ) 2drop ;
 
 |---test
-:cell2l
-	swap -? ( "--" ,s swap ; ) swap
+:cellresolve
+	swap -? ( cell2stk ; ) swap
 	cell2reg ;
 
 :,stk
-	-? ( ,d ; )
-	,reg ;
+	-? ( ,d ; ) ,reg ;
 
 :doit
 	c@+
 	( 1? )( 1- swap
 		c@+ pick2
 
-		,cell " -> " ,s
-		over ,stk
+|		2dup "%d -> %d " ,print
+		,cell " -> " ,s over ,stk
 		,cr
-		cell2l
-		,cr
-		"%d -> %d " ,print
+		cellresolve
 		,cr
 		swap ) 2drop
 	;
@@ -255,24 +277,25 @@
 	0 here !
 	5 'cntvreg !
 
-	0 0 cell.reg
+	0 0 cell.reg!
 	15 0 cell.add
 	4 0 cell.shf
 
-	1 1 cell.val
-	2 2 cell.str
+	0 1 cell.val!
+	2 2 cell.str!
 
-	3 3 cell.wor
+	3 3 cell.wor!
 	16 3 cell.add
 	2 3 cell.shf
 
-	4 4 cell.cte
+	4 4 cell.cte!
 	4 cell.mem
 
-	,dumpcel
-	,cr
+	,dumpcel ,cr
 
-    'testr doit
+    'testr doit ,cr
+
+	,dumpcel
 
 	0 ,c
 	33
@@ -282,14 +305,6 @@
 		cntvreg "%d cells" print
 		cr cr verde
 		log print
-
-|		cr amarillo
-|		'testr dumpm
-|		cr cr blanco
-|		'testr doit
-
-
-
 		'exit >esc<
 		cminiflecha ;
 
