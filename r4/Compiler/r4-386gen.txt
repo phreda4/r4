@@ -280,16 +280,17 @@
 |------- PILAR
 :,>R
 |	toknow 8 >> 1? ( drop d.pop r.push ; ) drop
-|	"push " ,s ,TOS ,cr d.drop ;
+|	"push " ,s ,TOS ,cr d.drop 
+	;
 
 :,R>
 |	toknow 8 >> 1? ( drop r.pop d.push ; ) drop
 |	d.dup d.tos needReg "pop " ,s ,TOS ,cr
-;
+	;
 
 :,R
 |    >TOSreg? 0? ( drop ; ) drop
-|    "mov " ,s ,>TOS "," ,s ,RVALUE ,cr
+|    "mov " ,s ,>TOS "," ,s ,RTOS ,cr
 	;
 
 :,RDROP
@@ -338,14 +339,14 @@
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 |	freeEDX
- ;
+	;
 :,/MOD
 	| si d.tos es pow2..
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 |	d.nos setEAX
 |	d.tos setEDX
-;
+	;
 
 :,MOD
 	| si d.tos es pow2..
@@ -353,7 +354,7 @@
 	"idiv " ,s ,TOS ,cr
 |	d.tos setEDX
 |	freeEAX
-;
+	;
 
 :,*/
 	"cdq" ,ln
@@ -391,19 +392,16 @@
 
 :,<<
 |	d.tos cteorECX
-|	d.nos needWrite
 	"sal " ,s ,NOS "," ,s ,TOSb ,cr
-;
+	;
 
 :,>>
 |	d.tos cteorECX
-|	d.nos needWrite
 	"sar " ,s ,NOS "," ,s ,TOSb ,cr
 	;
 
 :,ABS
 |	usoEDX
-|	d.tos needWrite
 |	d.tos cellREG? 0? ( | EAX
 |		"cdq" ,ln
 |		)(
@@ -416,115 +414,71 @@
 	;
 
 :,CLZ
-|	d.tos needWrite
 	"bsr " ,s ,TOS  "," ,s ,TOS ,cr
 	"xor " ,s ,TOS ",31" ,ln ;
 :,NOT
-|	d.tos needWrite
 	"not " ,s ,TOS ,cr ;
 :,NEG
-|	d.tos needWrite
 	"neg " ,s ,TOS ,cr ;
 :,1+
-|	d.tos needWrite
 	"add " ,s ,TOS ",1" ,ln ;
 :,4+
-|	d.tos needWrite
 	"add " ,s ,TOS ",4" ,ln ;
 :,1-
-|	d.tos needWrite
 	"sub " ,s ,TOS ",1" ,ln ;
 :,2/
-|	d.tos needWrite
 	"sar " ,s ,TOS ",1" ,ln ;
 :,2*
-|	d.tos needWrite
 	"sal " ,s ,TOS ",1" ,ln ;
 
     |------ MEMORIA
 :,@
-|	d.tos needWrite
 	"mov " ,s ,TOS ",dword [" ,s ,TOS "]" ,ln ;
 :,C@
-|	d.tos needWrite
 	"movsx " ,s ,TOS ",byte [" ,s ,TOS "]" ,ln ;
 :,W@
-|	d.tos needWrite
 	"movsx " ,s ,TOS ",word [" ,s ,TOS "]" ,ln ;
 
 :,!
-|	d.tos resguardavar
-|	d.tos needReadM
-|	d.nos needReadM
 	"mov dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	;
 :,C!
-|	d.tos resguardavar
-|	d.tos needReadM
-|	d.nos needReadB
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	;
 :,W!
-|	d.tos resguardavar
-|	d.tos needReadM
-|	d.nos needReadW
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	;
 
 :,+!
-|	d.tos resguardavar
-|	d.nos needReadM
-|	d.tos needReadM
 	"add dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	;
 :,W+!
-|	d.tos resguardavar
-|	d.nos needReadM
-|	d.tos needReadM
 	"add word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	;
 :,C+!
-|	d.tos resguardavar
-|	d.nos needReadM
-|	d.tos needReadM
 	"add byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	;
 
 :,!+
-|	d.tos resguardavar
-|    d.nos needReadM
-|	d.tos needWrite
 	"mov dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	"add " ,s ,TOS ",4" ,ln
 	;
 :,W!+
-|	d.tos resguardavar
-|    d.nos needReadM
-|	d.tos needWrite
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	"add " ,s ,TOS ",2" ,ln
-;
+	;
 :,C!+
-|	d.tos resguardavar
-|    d.nos needReadM
-|	d.tos needWrite
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	"add " ,s ,TOS ",1" ,ln
 	;
 
 :,@+
-|	d.tos needWrite
-|	d.dup d.tos needReg
 	"mov " ,s ,TOS ",dword [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",4" ,ln ;
 :,W@+
-|	d.tos needWrite
-|	d.dup d.tos needReg
 	"movsx " ,s ,TOS ",word [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",2" ,ln ;
 :,C@+
-|	d.tos needWrite
-|	d.dup d.tos needReg
 	"movsx " ,s ,TOS ",byte [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",1" ,ln ;
 
@@ -534,26 +488,23 @@
 :,SW 		|0 pushCTE |fullscreen 1? ( d.tos cellMEM! ) drop
     >TOSreg? 0? ( drop ; ) drop
     "mov " ,s ,>TOS "," ,s "" ,s ,cr
-;
+	;
 :,SH		|1 pushCTE |fullscreen 1? ( d.tos cellMEM! ) drop
     >TOSreg? 0? ( drop ; ) drop
     "mov " ,s ,>TOS "," ,s "" ,s ,cr
-
-;
+	;
 :,MEM		|2 pushCTE |d.tos cellMEM!
     >TOSreg? 0? ( drop ; ) drop
     "mov " ,s ,>TOS "," ,s "" ,s ,cr
-
-;
+	;
 :,FRAMEV	|3 pushCTE
     >TOSreg? 0? ( drop ; ) drop
     "mov " ,s ,>TOS "," ,s "" ,s ,cr
-
-;
+	;
 :,XFB		|4 pushCTE
     >TOSreg? 0? ( drop ; ) drop
     "mov " ,s ,>TOS "," ,s "" ,s ,cr
-;
+	;
 
 :,BMOUSE | -- c
 	|7 pushCTE d.tos cellMEM!
@@ -570,52 +521,44 @@
 :,PAPER | n --
 |	d.tos needReadM | no memoria []
 	"mov [SYSPAPER]," ,s ,TOS ,cr
- ;
+	;
 
 :,KEY! | v --
 |	d.tos needReadM | no memoria []
 	"mov [SYSKEY]," ,s ,TOS ,cr
-;
+	;
 
 :,SETXYf | x y --
 |	d.tos cellNRO? 1? ( drop
 |		d.nos cellNRO? 1? ( drop
 |			"lea ebp,[SYSFRAME+(" ,s ,TOS "*XRES+" ,s ,NOS ")*4]" ,ln
 |			; ) drop ) drop
-
-|	d.tos needWrite
 |	"imul " ,s ,TOS ",XRES" ,ln	| cualquier ancho
 	"shl " ,s ,TOS ",10" ,ln	| 1024 de ancho
 |	d.nos cell0? 0? ( "add " ,s ,TOS "," ,s ,NOS ,cr ) drop
 	"lea ebp,[SYSFRAME+" ,s ,TOS "*4]" ,ln
-;
+	;
 
 :,SETXY | x y --
 |	fullscreen 0? ( drop ,SETXYf ; ) drop
-|	d.tos needWrite
 	"imul " ,s ,TOS ",[XRES]" ,ln	| cualquier ancho
 |	d.nos cell0? 0? ( "add " ,s ,TOS "," ,s ,NOS ,cr ) drop
 	"lea ebp,[SYSFRAME+" ,s ,TOS "*4]" ,ln
-;
+	;
 
 :,PX+!	| s --
-|	d.tos needReadM
 	"lea ebp,[ebp+" ,s ,TOS "*4]" ,ln
-;
+	;
 
 :,PX!+	| rgb --
-|	d.tos needReadM
 	"mov dword [ebp]," ,s ,TOS ,cr
 	"add ebp,4" ,ln
-;
+	;
 
 :,PX@	| -- rgb
-|	d.dup d.tos needREG
 	"mov " ,s ,>TOS ",dword [ebp]" ,ln ;
 
 :,XYMOUSE | -- x y
-|	d.dup d.tos needREG
-|	d.dup d.tos needREG
 	"mov " ,s ,>TOS ",[SYSXYM]" ,ln
 	"mov " ,s ,>NOS "," ,s ,>TOS ,cr
 	"and " ,s ,>NOS ",$ffff" ,ln
