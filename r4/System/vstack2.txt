@@ -157,9 +157,9 @@
 	-? ( drop ; )
 	reg!! ;
 
-::d.swap	dpila> 8 - >r r@+ r@+ r> 8 - !+ ! ;
-::d.rot		dpila> 12 - >r r@+ r@+ r@+ swap r> 12 - !+ !+ ! ;
-::d.2swap	dpila> 16 - >r r@+ r@+ swap r@+ r@+ swap r> 16 - !+ !+ !+ ! ;
+::d.swap	dpila> 8 - >a a@+ a@+ a> 8 - !+ ! ;
+::d.rot		dpila> 12 - >a a@+ a@+ a@+ swap a> 12 - !+ !+ ! ;
+::d.2swap	dpila> 16 - >a a@+ a@+ swap a@+ a@+ swap a> 16 - !+ !+ !+ ! ;
 
 :newcell | valor tipo -- nro
 	celln 2 << 'cellt +
@@ -486,19 +486,19 @@
 	vpst> @ 'vpmem> ! ;
 
 ::vpprint
-	vpst> 4 - @ >r
-	r@+ "D: " ,s
-	( 1? )( 1-
-		r@+ "%h " ,print
-		) drop
-	r@+ "R: " ,s
-	( 1? )( 1-
-		r@+ "%h " ,print
-		) drop
-	r@+ "r:%h " ,print
-	r@+ "vpc:%h " ,print
-	r@+ "vrc:%h " ,print
-	rdrop
+	vpst> 4 - @
+	@+ "D: " ,s
+	( 1? )( 1- swap
+		@+ "%h " ,print
+		swap ) drop
+	@+ "R: " ,s
+	( 1? )( 1- swap
+		@+ "%h " ,print
+		swap ) drop
+	@+ "r:%h " ,print
+	@+ "vpc:%h " ,print
+	@+ "vrc:%h " ,print
+	drop
 	;
 
 
@@ -657,6 +657,22 @@
 :2+! | +! c+! w+!
 	cellMem cellR1 d.drop cellR1 d.drop ;
 
+:i>a	cellR1 d.drop ;
+:ia>	d.tos pushREG ;
+:ia@	d.tos pushREG ;
+:ia!	cellR1 d.drop ;
+:ia+	cellR1 d.drop ;
+:ia@+	d.tos pushREG ;
+:ia!+	cellR1 d.drop ;
+
+:i>b	cellR1 d.drop ;
+:ib>	d.tos pushREG ;
+:ib@	d.tos pushREG ;
+:ib!	cellR1 d.drop ;
+:ib+	cellR1 d.drop ;
+:ib@+	d.tos pushREG ;
+:ib!+	cellR1 d.drop ;
+
 :vuso6	cellR1 d.drop cellR1 d.drop
 :vuso4	cellR1 d.drop
 :vuso3	cellR1 d.drop
@@ -674,9 +690,9 @@
 		r.cnt 1? ( r.pop )( 6 5 newcell )
 		nip d.push ;
 :vR		r.tos d.push ;
-:vr+	r.tos d.push cellW1 d.2drop ; |R+    a -- R: b -- c
-:vr@+	r.tos d.push cellW1 cellMem d.drop d.tos pushREG ; |R@+    -- a R: b -- c
-:vr!+	r.tos d.push cellW1 cellMem d.drop cellR1 d.drop ; |R!+   a -- R: b -- c
+|:vr+	r.tos d.push cellW1 d.2drop ; |R+    a -- R: b -- c
+|:vr@+	r.tos d.push cellW1 cellMem d.drop d.tos pushREG ; |R@+    -- a R: b -- c
+|:vr!+	r.tos d.push cellW1 cellMem d.drop cellR1 d.drop ; |R!+   a -- R: b -- c
 
 #usocelda
 0
@@ -728,10 +744,7 @@ d.2swap     | ( 39--45)
 v>R		|>R    a -- R: -- a	(46)
 vR>		|R>    -- a R: a -- (47)
 vr		|R      -- a R: a -- a
-vr+		|R+    a -- R: b -- c
-vr@+	|R@+    -- a R: b -- c
-vr!+	|R!+   a -- R: b -- c
-r.drop	|RDROP	R: a -- (52)
+
 op2a1	|53 AND	ab -- c
 op2a1	|OR    ab -- c
 op2a1	|XOR   ab -- c
@@ -771,10 +784,16 @@ xop2a1	|76 >>    ab -- c  usa ecx
 2!	|C!+   ab -- c      tos es ddat
 2@	|W@+    a -- bc     tos es ddat
 2!	|W!+   ab -- c      tos es ddat
+
+i>a ia> ia@ ia! ia+ ia@+ ia!+
+i>b ib> ib@ ib! ib+ ib@+ ib!+
+
 vuso3	|MOVE  abc --       a,b es ddat
 vuso3	|MOVE> abc --		a,b es ddat
+vuso3	|FILL abc --		a,b es ddat
 vuso3	|CMOVE abc --		a,b es ddat
 vuso3	|CMOVE> abc --		a,b es ddat
+vuso3	|CFILL abc --		a,b es ddat
 v1cte	|MEM	-- a		a es ddat
 vuso11	|FFIRST    a -- b
 v1v		|FNEXT  -- a
@@ -795,17 +814,10 @@ v3v	|DATE    -- abc
 vuso1	|RUN    a --
 v1cte	|SW      -- a
 v1cte	|SH      -- a
-0	|CLS     --
+
 0	|REDRAW  --
 v1v	|FRAMEV  -- a
-vuso2	|SETXY  ab --
-vuso1	|PX+!   a --
-vuso1	|PX!+   a --
-v1v	|PX@     -- a
-v1cte	|XFB     -- a
-0	|>XFB    --
-0	|XFB>    --
-vuso1	|PAPER  a --
+
 vuso1	|INK    a --
 v1v		|INK@    -- a
 vuso1	|ALPHA  a --
@@ -1005,9 +1017,8 @@ vuso4	|SSET  a --
 
 :listacellusados
 	dpila> 'dpila - 2 >>
-	'listausados >r
-	dup ( 1? )( 1- 0 r!+ ) drop
-	rdrop
+	'listausados >a
+	dup ( 1? )( 1- 0 a!+ ) drop
 	'dpila ( dpila> <? )( @+ esesi? saveused ) 2drop
 	;
 

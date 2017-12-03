@@ -27,69 +27,69 @@
 #xa #ya
 
 :palb!+ | pal
-	2 << 'mempal + @ px!+ ;
+	2 << 'mempal + @ a!+ ;
 
 :8bit@b!+ | hb wb val -- hb wb-cb
 	over 4 >? ( 4 nip )
 	( 1? )( 1- swap
-		$ff000000 and? ( dup 22 >> $3fc and palb!+ )( 1 px+! )
+		$ff000000 and? ( dup 22 >> $3fc and palb!+ )( 4 a+ )
 		8 << swap ) 2drop
 	4 >? ( 4 - )( 0 nip )
 	;
 :4bit@b!+ | hb wb val -- hb wb-cb
 	over 8 >? ( 8 nip )
 	( 1? )( 1- swap
-		$f0000000 and? ( dup 26 >> $3c and palb!+ )( 1 px+! )
+		$f0000000 and? ( dup 26 >> $3c and palb!+ )( 4 a+ )
 		4 << swap ) 2drop
 	8 >? ( 8 - )( 0 nip )
 	;
 :3bit@b!+ | hb wb val -- hb wb-cb
 	over 10 >? ( 10 nip )
 	( 1? )( 1- swap
-		$e0000000 and? ( dup 27 >> $1c and palb!+ )( 1 px+! )
+		$e0000000 and? ( dup 27 >> $1c and palb!+ )( 4 a+ )
 		3 << swap ) 2drop
 	10 >? ( 10 - )( 0 nip )
 	;
 :2bit@b!+ | hb wb val -- hb wb-cb
 	over 16 >? ( 16 nip )
 	( 1? )( 1- swap
-		$c0000000 and? ( dup 28 >> $c and palb!+ )( 1 px+! )
+		$c0000000 and? ( dup 28 >> $c and palb!+ )( 4 a+ )
 		2 << swap ) 2drop
 	16 >? ( 16 - )( 0 nip )
 	;
 :1bit@b!+ | hb wb val -- hb wb-cb
 	over 32 >? ( 32 nip )
 	( 1? )( 1- swap
-		$80000000 and? ( paleta )( paleta2 ) px!+
+		$80000000 and? ( paleta )( paleta2 ) a!+
 		2* swap ) 2drop
 	32 >? ( 32 - )( 0 nip )
 	;
 
 :nbitpixel | vector dir --
-	hi + >r sw wb -
+	hi + >b sw wb - 2 <<
 	hb ( 1? )(
 		wb ( 1? )(
-			r@+ pick3 exec
+			b@+ pick3 exec
 			) drop
-		over px+!
-		sy r+
+		over a+
+		sy 2 << b+
 		1- )
-	3drop rdrop ;
+	3drop ;
 
 |----- MIXcolor
 :acpx!+ | col --
 	dup 24 >> $ff and
-	0? ( drop px!+ ; )
-	$ff =? ( 2drop 1 px+! ; )
+	0? ( drop a!+ ; )
+	$ff =? ( 2drop 4 a+ ; )
 	swap
 	dup $ff00ff and				| alpha color colorand
-	px@ dup $ff00ff and 		| alpha color colorand inkc inkcand
+	a@ dup $ff00ff and 		| alpha color colorand inkc inkcand
 	pick2 - pick4 * 8 >> rot +	| alpha color inkc inkcandl
 	$ff00ff and >r				| alpha color inkc
 	swap $ff00 and 				| alpha px colorand
 	swap $ff00 and 				| alpha colorand pxa
 	over - rot * 8 >> + $ff00 and
-	r> or px!+  ;
+	r> or a!+  ;
 
 
 |----- CLIP
@@ -107,29 +107,27 @@
 	clip | adr x y
 	wi hi or -? ( 4drop ; ) drop
 	setxy
-	xi + >r
+	xi + >b
 	wb wi - 2 <<
-   	sw wi -
+   	sw wi - 2 <<
 	hi ( 1? )(
-		wi ( 1? )( r@+ px!+ 1- ) drop
-		over px+!
-		pick2 r+
-		1- ) 3drop
-	rdrop ;
+		wi ( 1? )( b@+ a!+ 1- ) drop
+		over a+
+		pick2 b+
+		1- ) 3drop ;
 
 :t1 | x y adr -- ;32 bit/pixel TRANS
 	clip | adr x y
 	wi hi or -? ( 4drop ; ) drop
 	setxy
-	xi + >r
+	xi + >b
 	wb wi - 2 <<
-   	sw wi -
+   	sw wi - 2 <<
 	hi ( 1? )(
-		wi ( 1? )( r@+ acpx!+ 1- ) drop
-		over px+!
-		pick2 r+
-		1- ) 3drop
-	rdrop ;
+		wi ( 1? )( b@+ acpx!+ 1- ) drop
+		over a+
+		pick2 b+
+		1- ) 3drop ;
 
 :t2  | x y adr -- ;565
 :t3  | x y adr -- ;4444
@@ -182,15 +180,15 @@
 	wi hi or -? ( 4drop ; ) drop
 	setxy
 	yi 'ya !
-	sw wi - | columna
+	sw wi - 2 << | columna
 	hi ( 1? )(
 		xi 'xa !
 	 	pick2 ya 16 >> wb * 2 << +
 		wi ( 1? )(
-			over xa 16 >> 2 << + @ px!+
+			over xa 16 >> 2 << + @ a!+
 			sx 'xa +!
 			1- ) 2drop
-		over px+!
+		over a+
 		sy 'ya +!
 		1- )
 	3drop ;
@@ -200,7 +198,7 @@
 	wi hi or -? ( 4drop ; ) drop
 	setxy
 	yi 'ya !
-	sw wi - | columna
+	sw wi - 2 << | columna
 	hi ( 1? )(
 		xi 'xa !
 	 	pick2 ya 16 >> wb * 2 << +
@@ -208,7 +206,7 @@
 			over xa 16 >> 2 << + @ acpx!+
 			sx 'xa +!
 			1- ) 2drop
-		over px+!
+		over a+
 		sy 'ya +!
 		1- )
 	3drop ;
@@ -248,45 +246,43 @@
 
 :r0
 	>r inirot
-	wi hi or -? ( 3drop rdrop ; ) drop
+	wi hi or -? ( 3drop r> drop ; ) drop
 	setxy
 	sx sy
 	hi ( 1? )(
 		pick2 pick2
 		wi ( 1? )(
 			dotrot
-			-? ( drop 1 px+! )( 2 << r + @ px!+ )
+			-? ( drop 4 a+ )( 2 << r@ + @ a!+ )
 			rot xa + rot ya +
 			rot 1- ) 3drop
-		sw wi - px+!
+		sw wi - 2 << a+
 		rot ya - rot xa +
 		rot 1- )
-	3drop rdrop ;
+	3drop r> drop ;
 
 :r1 | x y r adr --
 	>r inirot
-	wi hi or -? ( 3drop rdrop ; ) drop
+	wi hi or -? ( 3drop r> drop ; ) drop
 	setxy
 	sx sy
 	hi ( 1? )(
 		pick2 pick2
 		wi ( 1? )(
 			dotrot
-			-? ( drop 1 px+! )( 2 << r + @ acpx!+ )
+			-? ( drop 4 a+ )( 2 << r@ + @ acpx!+ )
 			rot xa + rot ya +
 			rot 1- ) 3drop
-		sw wi - px+!
+		sw wi - 2 << a+
 		rot ya - rot xa +
 		rot 1- )
-	3drop rdrop ;
+	3drop r> drop ;
 
 #rdraw r0 r1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 
 |----------------------------------------
 ::bmr.clear
-	frame wb hb *
-	( 1? )( 1- 	$ff000000 rot !+ swap ) 2drop
-	;
+	$ff000000 frame wb hb * fill ;
 
 |----------draw
 ::bmr.size@ | val -- size(dwords)
@@ -389,9 +385,9 @@
 |--- bmrclone
 :bmr.here | --
 	here
-	frame >r wb hb *
-	( 1? )( 1- r@+ rot !+ swap ) 2drop
-	rdrop ;
+	frame >a wb hb *
+	( 1? )( 1- a@+ rot !+ swap ) 2drop
+	;
 
 :bmr.here@ | x y -- c
 	wb * + 2 << here + @ ;

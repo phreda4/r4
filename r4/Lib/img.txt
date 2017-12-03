@@ -32,15 +32,14 @@
 
 |---- opaque
 :draw0 | adr -- ;32 bit/pixel
-	xi + >r
+	xi + >b
 	wb wi - 2 <<
-   	sw wi -
+   	sw wi - 2 <<
 	hi ( 1? )(
-		wi ( 1? )( r@+ px!+ 1- ) drop
-		over px+!
-		pick2 r+
-		1- ) 3drop
-	rdrop ;
+		wi ( 1? )( b@+ a!+ 1- ) drop
+		over a+
+		pick2 b+
+		1- ) 3drop ;
 
 #odraw draw0 0 0 0 0 0 0 0
 
@@ -56,29 +55,27 @@
 |---- tile draw
 :tdrawline0 | adr --
 	wr ( 1? )(
-		over >r
+		over >b
 		wb <? ( dup )( wb )
-		dup ( 1? )( r@+ px!+ 1- ) drop
-		rdrop
+		dup ( 1? )( b@+ a!+ 1- ) drop
 		- ) 2drop ;
 
 :tdraw0 | adr -- ;32 bit/pixel
-   	sw wr -
+   	sw wr - 2 <<
 	hr ( 1? )(
-		pick2 >r
+		pick2 >b
 		hb <? ( dup )( hb )
-		dup ( 1? )( r tdrawline0 1- pick3 px+! wb 2 << r+ ) drop
-		rdrop
+		dup ( 1? )( b> tdrawline0 1- pick3 a+ wb 2 << b+ ) drop
 		- ) 3drop ;
 
 #tdraw tdraw0 0 0 0 0 0 0 0
 
 ::img.drawtile | x y w h 'img --
-	0? ( 4drop drop ; ) >r
-	r@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
+	0? ( 4drop drop ; ) >b
+	b@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
 	'hr ! 'wr !
 	setxy
-	r> @+ $10 and? ( over 'paleta ! dup 8 >> $ff and 2 << rot + swap )
+	b> @+ $10 and? ( over 'paleta ! dup 8 >> $ff and 2 << rot + swap )
 	$7 and 2 << 'tdraw + @ exec ;
 
 
@@ -96,15 +93,15 @@
 
 :sdraw0 | x y adr --
 	yi 'ya !
-	sw wi - | columna
+	sw wi - 2 << | columna
 	hi ( 1? )(
 		xi 'xa !
 	 	pick2 ya 16 >> wb * 2 << +
 		wi ( 1? )(
-			over xa 16 >> 2 << + @ px!+
+			over xa 16 >> 2 << + @ a!+
 			sx 'xa +!
 			1- ) 2drop
-		over px+!
+		over a+
 		sy 'ya +!
 		1- )
 	3drop ;
@@ -112,22 +109,22 @@
 #sdraw sdraw0 0 0 0 0 0 0 0
 
 ::img.drawsize | x y w h 'img --
-	0? ( 4drop drop ; ) >r
-	r@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
-	0? ( 4drop rdrop ; ) 'hr !
-	0? ( 3drop rdrop ; ) 'wr !
-	r> clipsc
+	0? ( 4drop drop ; ) >b
+	b@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
+	0? ( 4drop ; ) 'hr !
+	0? ( 3drop ; ) 'wr !
+	b> clipsc
 	wi hi or -? ( 4drop ; ) drop
 	setxy
 	@+ $10 and? ( over 'paleta ! dup 8 >> $ff and 2 << rot + swap )
 	$7 and 2 << 'sdraw + @ exec ;
 
 ::img.drawscale | x y scale 'img --
-	0? ( 4drop ; ) >r
-	r@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
-	dup hb *. 0? ( 4drop rdrop ; ) 'hr !
-	wb *. 0? ( 3drop rdrop ; ) 'wr !
-	r> clipsc
+	0? ( 4drop ; ) >b
+	b@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
+	dup hb *. 0? ( 4drop ; ) 'hr !
+	wb *. 0? ( 3drop ; ) 'wr !
+	b> clipsc
 	wi hi or -? ( 4drop ; ) drop
 	setxy
 	@+ $10 and? ( over 'paleta ! dup 8 >> $ff and 2 << rot + swap )
@@ -137,28 +134,27 @@
 :acpx!+ | col --
 |	$ff000000 nand? ( drop 1 px+! ; )
 	$ff over 24 >> $ff and -
-	0? ( drop px!+ ; )
-	$ff =? ( 2drop 1 px+! ; )
+	0? ( drop a!+ ; )
+	$ff =? ( 2drop 4 a+ ; )
 	swap
 	dup $ff00ff and				| alpha color colorand
-	px@ dup $ff00ff and 		| alpha color colorand inkc inkcand
+	a@ dup $ff00ff and 		| alpha color colorand inkc inkcand
 	pick2 - pick4 8 *>> rot +	| alpha color inkc inkcandl
 	$ff00ff and >r				| alpha color inkc
 	swap $ff00 and 				| alpha px colorand
 	swap $ff00 and 				| alpha colorand pxa
 	over - rot 8 *>> + $ff00 and
-	r> or px!+  ;
+	r> or a!+  ;
 
 :adraw0 | adr -- ;32 bit/pixel
-	xi + >r
+	xi + >b
 	wb wi - 2 <<
-   	sw wi -
+   	sw wi - 2 <<
 	hi ( 1? )(
-		wi ( 1? )( r@+ acpx!+ 1- ) drop
-		over px+!
-		pick2 r+
-		1- ) 3drop
-	rdrop ;
+		wi ( 1? )( b@+ acpx!+ 1- ) drop
+		over a+
+		pick2 b+
+		1- ) 3drop ;
 
 #aodraw adraw0 0 0 0 0 0 0 0
 
@@ -174,7 +170,7 @@
 
 :asdraw0
 	yi 'ya !
-	sw wi - | columna
+	sw wi - 2 << | columna
 	hi ( 1? )(
 		xi 'xa !
 	 	pick2 ya 16 >> wb * 2 << +
@@ -182,7 +178,7 @@
 			over xa 16 >> 2 << + @ acpx!+
 			sx 'xa +!
 			1- ) 2drop
-		over px+!
+		over a+
 		sy 'ya +!
 		1- )
 	3drop ;
@@ -190,28 +186,28 @@
 #asdraw asdraw0 0 0 0 0 0 0 0
 
 ::img.adrawsize | x y w h 'img --
-	0? ( 4drop drop ; ) >r
-	r@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
-	0? ( 4drop rdrop ; ) 'hr !
-	0? ( 3drop rdrop ; ) 'wr !
-	r> clipsc
+	0? ( 4drop drop ; ) >b
+	b@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
+	0? ( 4drop ; ) 'hr !
+	0? ( 3drop ; ) 'wr !
+	b> clipsc
 	wi hi or -? ( 4drop ; ) drop
 	setxy
 	@+ $10 and? ( over 'paleta ! dup 8 >> $ff and 2 << rot + swap )
 	$7 and 2 << 'asdraw + @ exec ;
 
 ::img.adrawscale | x y scale 'img --
-	0? ( 4drop ; ) >r
-	r@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
-	dup hb *. 0? ( 4drop rdrop ; ) 'hr !
-	wb *. 0? ( 3drop rdrop ; ) 'wr !
-	r> clipsc
+	0? ( 4drop ; ) >b
+	b@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
+	dup hb *. 0? ( 4drop ; ) 'hr !
+	wb *. 0? ( 3drop ; ) 'wr !
+	b> clipsc
 	wi hi or -? ( 4drop ; ) drop
 	setxy
 	@+ $10 and? ( over 'paleta ! dup 8 >> $ff and 2 << rot + swap )
 	$7 and 2 << 'asdraw + @ exec ;
 
 ::img.get | x y 'img -- col
-	0? ( 3drop ; ) >r
-	r@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
-	wb * + 2 << r> + @ ;
+	0? ( 3drop ; ) >b
+	b@+ dup $ffff and 'wb ! 16 >> $ffff and 'hb !
+	wb * + 2 << b> + @ ;

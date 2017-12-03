@@ -6,16 +6,16 @@
 ^r4/lib/trace.txt
 
 | need implementation for ROR  R>>
-:ROTR2	dup 2 >> $3fffffff and swap 30 << or ;
-:ROTR6	dup 6 >> $03ffffff and swap 26 << or ;
-:ROTR7	dup 7 >> $01ffffff and swap 25 << or ;
-:ROTR11	dup 11 >> $001fffff and swap 21 << or ;
-:ROTR13 dup 13 >> $0007ffff and swap 19 << or ;
-:ROTR17 dup 17 >> $00007fff and swap 15 << or ;
-:ROTR18 dup 18 >> $00003fff and swap 14 << or ;
-:ROTR19 dup 19 >> $00001fff and swap 13 << or ;
-:ROTR22 dup 22 >> $000003ff and swap 10 << or ;
-:ROTR25 dup 25 >> $0000007f and swap 7 << or ;
+:ROTR2	dup 2 0>> swap 30 << or ;
+:ROTR6	dup 6 0>> swap 26 << or ;
+:ROTR7	dup 7 0>> swap 25 << or ;
+:ROTR11 dup 11 0>> swap 21 << or ;
+:ROTR13 dup 13 0>> swap 19 << or ;
+:ROTR17 dup 17 0>> swap 15 << or ;
+:ROTR18 dup 18 0>> swap 14 << or ;
+:ROTR19 dup 19 0>> swap 13 << or ;
+:ROTR22 dup 22 0>> swap 10 << or ;
+:ROTR25 dup 25 0>> swap 7 << or ;
 
 :CH |(x,y,z) (((x) & (y)) ^ (~(x) & (z)))
 	pick2 not and rot rot and xor ;
@@ -26,9 +26,9 @@
 :EP1 |(x) (ROTRIGHT(x,6) ^ ROTRIGHT(x,11) ^ ROTRIGHT(x,25))
 	dup ROTR6 over ROTR11 xor swap ROTR25 xor ;
 :SIG0 |(x) (ROTRIGHT(x,7) ^ ROTRIGHT(x,18) ^ ((x) >> 3))
-	dup ROTR7 over ROTR18 xor swap 3 >> $1fffffff and xor ;
+	dup ROTR7 over ROTR18 xor swap 3 0>> xor ;
 :SIG1 |(x) (ROTRIGHT(x,17) ^ ROTRIGHT(x,19) ^ ((x) >> 10))
-	dup ROTR17 over ROTR19 xor swap 10 >> $003fffff and xor ;
+	dup ROTR17 over ROTR19 xor swap 10 0>> xor ;
 
 #k
 $428a2f98 $71374491 $b5c0fbcf $e9b5dba5 $3956c25b $59f111f1 $923f82a4 $ab1c5ed5
@@ -49,15 +49,15 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 :sha256_init
 	0 'datalen !
 	0 'bitlen !
-	'state >r
-	$6a09e667 r!+
-	$bb67ae85 r!+
-	$3c6ef372 r!+
-	$a54ff53a r!+
-	$510e527f r!+
-	$9b05688c r!+
-	$1f83d9ab r!+
-	$5be0cd19 r> ! ;
+	'state >a
+	$6a09e667 a!+
+	$bb67ae85 a!+
+	$3c6ef372 a!+
+	$a54ff53a a!+
+	$510e527f a!+
+	$9b05688c a!+
+	$1f83d9ab a!+
+	$5be0cd19 a! ;
 
 :]m 2 << 'm + @ ;
 :]k 2 << 'k + @ ;
@@ -72,19 +72,18 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 	a b c MAJ a EP0 + 't2 ! ;
 
 :sha256_transform | --
-	'm >r
+	'm >a
 	'data
 	0 ( 16 <? )( swap
 		@+ bswap
-		r!+ swap 1+ ) nip
+		a!+ swap 1+ ) nip
 	( 64 <? )(
 		dup 2 - ]m SIG1 over 7 - ]m + over 15 - ]m SIG0 + over 16 - ]m +
-		r!+ 1+ ) drop
-	rdrop
+		a!+ 1+ ) drop
 
-	'state >r
-	r@+ 'a ! r@+ 'b ! r@+ 'c ! r@+ 'd !
-	r@+ 'e ! r@+ 'f ! r@+ 'g ! r> @ 'h !
+	'state >a
+	a@+ 'a ! a@+ 'b ! a@+ 'c ! a@+ 'd !
+	a@+ 'e ! a@+ 'f ! a@+ 'g ! a@ 'h !
 	0 ( 64 <? )(
 		ct
 		g 'h ! f 'g ! e 'f !
@@ -132,8 +131,8 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 	datalen 3 << swap c!
 
 	sha256_transform
-	'state >r
-	8 ( 1? )( 1- r @ bswap r!+ ) drop rdrop
+	'state >a
+	8 ( 1? )( 1- a@ bswap a!+ ) drop 
 	;
 
 
@@ -144,11 +143,11 @@ $748f82ee $78a5636f $84c87814 $8cc70208 $90befffa $a4506ceb $bef9a3f7 $c67178f2
 	;
 
 :sha256test | adr -- 0/1
-	>r 'state
-	8 ( 1? )( 1- swap @+ r@+
-		<>? ( 3drop rdrop 0 ; )
+	>a 'state
+	8 ( 1? )( 1- swap @+ a@+
+		<>? ( 3drop 0 ; )
 		drop swap )
-	2drop rdrop 1 ;
+	2drop 1 ;
 
 |---- test
 #r1 ( $ba $78 $16 $bf $8f $01 $cf $ea $41 $41 $40 $de $5d $ae $22 $23

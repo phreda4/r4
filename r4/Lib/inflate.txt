@@ -35,38 +35,37 @@
 	1 and ;
 
 ::readnbit | adr n -- adr nro
-	swap 0 >r
+	swap 0 >a
 	bbit bitl 0 | a bb bn len
 	( pick4 <? )( swap	| a bb len bn
     	0? ( drop nip swap c@+ rot 8 )
 		1- pick2 1 and
-		pick2 << r+
+		pick2 << a+
 		rot 2/ swap rot 1+ ) drop
 	'bitl ! 'bbit !
-	nip r> ;
+	nip a> ;
 
 ::readbyte | adr -- adr byte
 	0 'bitl ! c@+ $ff and ;
 
 |-----------------------------------------
 :decodesym | adr dt -- adr sym
-	dup 4+ >r swap
+	dup 4+ >a swap
 	0 0	( 					| dt a sum cur
 		2* rot read1bit		| dt sum cur a 1
-		rot + rot r@+		| dt a cur sum l
+		rot + rot a@+		| dt a cur sum l
 		rot over -			| dt a sum l cur-l
 		rot rot + swap
-		-? ) rdrop
+		-? ) 
 	+ 2 << rot 64 + + @ ;
 
 :buildtree | cnt len table --
-	dup >r
-	16 ( 1? )( 1- 0 r!+ ) drop rdrop
-	>r 2dup swap	| cnt len len cnt
+	0 over 16 fill
+	>a 2dup swap	| cnt len len cnt
 	( 1? )( 1- swap
-		c@+ $ff and 2 << r + 1 swap +! swap ) 2drop
-	0 r !			| cnt len
-	0 r 'off ( 'off 64 + <? )(
+		c@+ $ff and 2 << a> + 1 swap +! swap ) 2drop
+	0 a!			| cnt len
+	0 a> 'off ( 'off 64 + <? )(
 		pick2 swap !+ | 0 r 'off
 		>r @+ rot + swap r>
 		) 3drop
@@ -74,10 +73,10 @@
 		$ff and
 		1? ( 2 << 'off + dup @  | cnt n len  off valo
 			1 rot +!			| cnt n len  valo
-			2 << 64 + r +
+			2 << 64 + a> +
 			pick2 swap !
 			)( drop )
-		swap 1+ ) 3drop rdrop ;
+		swap 1+ ) 3drop ;
 
 :decodeloop | lenf len a sym -- a lenf len
 	16 <? ( rot c!+ rot swap ; )
@@ -99,10 +98,10 @@
 	5 readnbit 1+ 'hdist !
 	4 readnbit 4+ 'hclen !
 	0 0 0 0 0 'lens !+ !+ !+ !+ ! | 20 zeros in lens
-	'clcidx >r
+	'clcidx >b
 	hclen ( 1? )( 1- swap
-		3 readnbit r@+	| cnt a 3b inx
-		'lens + c! swap ) drop rdrop
+		3 readnbit b@+	| cnt a 3b inx
+		'lens + c! swap ) drop 
 	19 'lens 'codetr  buildtree
 	'lens dup hlit hdist + + swap	| a lenf len
 	( over <? )(
@@ -113,20 +112,20 @@
 	hdist 'lens hlit + 'dyndta buildtree ;
 
 :fixtree
-	'dynsta >r
-	7 ( 1? )( 1- 0 r!+ ) drop
-	24 r!+ 152 r!+ 112 r!+ 24 r+
+	'dynsta >a
+	7 ( 1? )( 1- 0 a!+ ) drop
+	24 a!+ 152 a!+ 112 a!+ 24 a+
 	0
-	( 24 <? )( dup 256 + r!+ 1+ )
-	( 168 <? )( dup 24 - r!+ 1+ )
-	( 176 <? )( dup 112 + r!+ 1+ )
-	( 288 <? )( dup 32 - r!+ 1+ )
-	drop rdrop
-	'dyndta >r
-	5 ( 1? )( 1- 0 r!+ ) drop
-	32 r!+ 40 r+
-	0 ( 32 <? )( dup r!+ 1+ )
-	drop rdrop ;
+	( 24 <? )( dup 256 + a!+ 1+ )
+	( 168 <? )( dup 24 - a!+ 1+ )
+	( 176 <? )( dup 112 + a!+ 1+ )
+	( 288 <? )( dup 32 - a!+ 1+ )
+	drop 
+	'dyndta >a
+	5 ( 1? )( 1- 0 a!+ ) drop
+	32 a!+ 40 a+
+	0 ( 32 <? )( dup a!+ 1+ )
+	drop ;
 
 :inflatesym | a sym -- a
 	256 <? ( ,c ; )

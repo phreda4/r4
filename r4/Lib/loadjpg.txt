@@ -81,15 +81,15 @@
 
 | index(16)-code(8)-length(8)
 :decodeHuf | a list -- a nro
-	>r
+	>a
 	readbit 1 | bitfiel cnt
-	( r@+ 1? )(	| bitfield cnt code
+	( a@+ 1? )(	| bitfield cnt code
 		dup $ff and
 		( pick2 >? )( >r >r >r 2* swap readbit rot or r> 1+ r> r> )
 		drop 	| bitfield cnt code
 		16 >> $ffff and pick2 =? ( 3drop r> 4 - @ 8 >> $ff and ; )
 		drop
-		) 3drop rdrop
+		) 3drop 
 	-1 ;
 
 :recbits | a n -- a v
@@ -127,21 +127,21 @@
 #curnum
 
 :getHuffTable | a table -- a total
-	>r
-	emem >r
+	swap
+	emem >a
 	16 ( 1? )( 1- swap
-		get8 r!+ swap ) drop
-	rdrop
+		get8 a!+ swap ) drop
+	>a
 	0 'curnum !
 	emem 0 ( 16 <? )( 1+	| adr ht i
 		rot rot 			| i adr ht
 		@+ ( 1? )( 1- rot 	| i ht cnt adr
-	        get8 8 << pick4 or curnum 16 << or r!+
+	        get8 8 << pick4 or curnum 16 << or a!+
 			1 'curnum +!
 			rot rot ) drop
 		curnum 2* 'curnum !
 		rot ) 2drop			| adr ht
-	0 r> ! ;
+	0 a! ;
 
 :tableHuff | a -- a
 	get8
@@ -160,13 +160,12 @@
 	get16 2 - over + swap
 	( over <? )(
 		get8
-		1 and 8 << 'QuantTable + >r
+		1 and 8 << 'QuantTable + >a
 		'jpgzz ( c@+ +? )(	| a zz index
 			2 << rot get8		| zz index a byte
 			pick2 'aanscales + @ * 12 >> | zz index a value
-			rot r + !			| zz a
+			rot a> + !			| zz a
 			swap ) 2drop
-		rdrop
 		) nip ;
 
 |-----------------
@@ -182,7 +181,7 @@
 
 |-----------------
 :cleartempa
-	'tempa >r 64 ( 1? )( 0 r!+ 1- ) drop rdrop ;
+	0 'tempa 64 fill ;
 
 :]inarray | n n -- d
 	swap 3 << + 2 << 'tempa + ;
@@ -225,15 +224,15 @@
 	a0 -2.613125930* over + t7 - 't6 !
 	a1 a3 - 1.414213562* t6 - 't5 !
 	a2 1.082392200* swap - t5 + 't4 !
-	dup 2 << 'tempw + >r |	0 over ]warray >r
-	t0 t7 + r!+ 28 r+ |0 pick2 ]warray !
-	t1 t6 + r!+ 28 r+ |1 pick2 ]warray !
-	t2 t5 + r!+ 28 r+ |2 pick2 ]warray !
-	t3 t4 - r!+ 28 r+ |3 pick2 ]warray !
-	t3 t4 + r!+ 28 r+ |4 pick2 ]warray !
-	t2 t5 - r!+ 28 r+ |5 pick2 ]warray !
-	t1 t6 - r!+ 28 r+ |6 pick2 ]warray !
-	t0 t7 - r> ! |7 pick2 ]warray !
+	dup 2 << 'tempw + >a |	0 over ]warray >r
+	t0 t7 + a!+ 28 a+ |0 pick2 ]warray !
+	t1 t6 + a!+ 28 a+ |1 pick2 ]warray !
+	t2 t5 + a!+ 28 a+ |2 pick2 ]warray !
+	t3 t4 - a!+ 28 a+ |3 pick2 ]warray !
+	t3 t4 + a!+ 28 a+ |4 pick2 ]warray !
+	t2 t5 - a!+ 28 a+ |5 pick2 ]warray !
+	t1 t6 - a!+ 28 a+ |6 pick2 ]warray !
+	t0 t7 - a! |7 pick2 ]warray !
 	;
 
 :pass1 | col -- col
@@ -245,9 +244,9 @@
 	@+ 1? ( 2drop pass1f ; ) drop
 	@+ 1? ( 2drop pass1f ; ) drop
 	@ 1? ( drop pass1f ; ) drop
-	0 over ]inq@* over 2 << 'tempw + >r
-	dup r!+ 28 r+ dup r!+ 28 r+ dup r!+ 28 r+ dup r!+ 28 r+
-	dup r!+ 28 r+ dup r!+ 28 r+ dup r!+ 28 r+ r> ! ;
+	0 over ]inq@* over 2 << 'tempw + >a
+	dup a!+ 28 a+ dup a!+ 28 a+ dup a!+ 28 a+ dup a!+ 28 a+
+	dup a!+ 28 a+ dup a!+ 28 a+ dup a!+ 28 a+ a! ;
 
 
 :]out | out col val x y
@@ -266,15 +265,15 @@
 	a1 a3 - 1.414213562* t6 - 't5 !
 	a2 1.082392200* swap - t5 + 't4 !
 
-	dup 5 << pick2 + >r | dup 0 ]out
-	t0 t7 + 5 >> 128 + 255 clamp0max r!+ |over 0 ]out !
-	t1 t6 + 5 >> 128 + 255 clamp0max r!+ |over 1 ]out !
-	t2 t5 + 5 >> 128 + 255 clamp0max r!+ |over 2 ]out !
-	t3 t4 - 5 >> 128 + 255 clamp0max r!+ |over 3 ]out !
-	t3 t4 + 5 >> 128 + 255 clamp0max r!+ |over 4 ]out !
-	t2 t5 - 5 >> 128 + 255 clamp0max r!+ |over 5 ]out !
-	t1 t6 - 5 >> 128 + 255 clamp0max r!+ |over 6 ]out !
-	t0 t7 - 5 >> 128 + 255 clamp0max r> ! |over 7 ]out !
+	dup 5 << pick2 + >a | dup 0 ]out
+	t0 t7 + 5 >> 128 + 255 clamp0max a!+ |over 0 ]out !
+	t1 t6 + 5 >> 128 + 255 clamp0max a!+ |over 1 ]out !
+	t2 t5 + 5 >> 128 + 255 clamp0max a!+ |over 2 ]out !
+	t3 t4 - 5 >> 128 + 255 clamp0max a!+ |over 3 ]out !
+	t3 t4 + 5 >> 128 + 255 clamp0max a!+ |over 4 ]out !
+	t2 t5 - 5 >> 128 + 255 clamp0max a!+ |over 5 ]out !
+	t1 t6 - 5 >> 128 + 255 clamp0max a!+ |over 6 ]out !
+	t0 t7 - 5 >> 128 + 255 clamp0max a! |over 7 ]out !
 	;
 
 :JPGidct | out --
@@ -290,15 +289,15 @@
 	huffDC decodehuf -? ( ; )
 	recbits
 	dcCoef + dup 'dcCoef ! 'tempa !
-	1 ( >r 	| out a i
+	1 ( >b 	| out a i
 		huffAC decodehuf		| a v
 		dup 4 >> swap 15 and	| a zeros bit
-		0? ( drop 15 <>? ( 63 + ) r+ )(
-			swap r+			| a bit
+		0? ( drop 15 <>? ( 63 + ) b+ )(
+			swap b+			| a bit
 			recbits			| a bitVal
-			r 'jpgzz + c@ 2 << 'tempa + !
-			1 r+ )
-		r> 63 >? ) drop
+			b> 'jpgzz + c@ 2 << 'tempa + !
+			1 b+ )
+		b> 63 >? ) drop
 	swap JPGidct
 	;
 
@@ -536,10 +535,10 @@
 
 |---------------------------------
 :moveor | de sr cnt --
-	rot >r
+	rot >a
 	( 1? )( 1- swap
-		@+ $ff000000 or r!+
-		swap ) 2drop rdrop ;
+		@+ $ff000000 or a!+
+		swap ) 2drop ;
 
 ::loadjpg | "" -- adr/0
 	here swap load
@@ -549,10 +548,10 @@
 	( get16 decodetype 0? ) drop
 	0? ( ; )
 	buildimg drop
-	here >r
-	imgcols imgrows 16 << or r!+	| size
-	0 r!+ | type
-	r> emem imgcols imgrows * 2 << dup >r moveor
+	here >a
+	imgcols imgrows 16 << or a!+	| size
+	0 a!+ | type
+	a> emem imgcols imgrows * 2 << dup >r moveor
 	here r> 8 + 'here +! ;
 
 |---  profile

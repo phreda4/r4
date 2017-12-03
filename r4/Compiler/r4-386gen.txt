@@ -280,7 +280,7 @@
 |------- PILAR
 :,>R
 |	toknow 8 >> 1? ( drop d.pop r.push ; ) drop
-|	"push " ,s ,TOS ,cr d.drop 
+|	"push " ,s ,TOS ,cr d.drop
 	;
 
 :,R>
@@ -288,30 +288,9 @@
 |	d.dup d.tos needReg "pop " ,s ,TOS ,cr
 	;
 
-:,R
+:,R@
 |    >TOSreg? 0? ( drop ; ) drop
 |    "mov " ,s ,>TOS "," ,s ,RTOS ,cr
-	;
-
-:,RDROP
-|	toknow 8 >> 1? ( drop r.drop ; ) drop
-|	"lea esp,[esp+4]" ,ln
-	;
-
-:,R+
-	"add " ,s ,RTOS "," ,s ,TOS ,cr
-	;
-
-:,R!+
-	"mov dword [" ,s ,RTOS "]," ,s ,TOS ,cr
-	"add " ,s ,RTOS ",4" ,ln
-|	4 r.tos Cell+ | add 4
-	;
-
-:,R@+
-	"mov " ,s ,TOS ",dword [" ,s ,RTOS "]" ,ln
-	"add " ,s ,RTOS ",4" ,ln
-|	4 r.tos Cell+ | add 4
 	;
 
 |----------------------
@@ -400,6 +379,11 @@
 	"sar " ,s ,NOS "," ,s ,TOSb ,cr
 	;
 
+:,0>>
+|	d.tos cteorECX
+	"shr " ,s ,NOS "," ,s ,TOSb ,cr
+	;
+
 :,ABS
 |	usoEDX
 |	d.tos cellREG? 0? ( | EAX
@@ -481,6 +465,21 @@
 :,C@+
 	"movsx " ,s ,TOS ",byte [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",1" ,ln ;
+:,>A	
+:,A> 
+:,A@ 
+:,A! 
+:,A+ 
+:,A@+ 
+:,A!+
+:,>B	
+:,B> 
+:,B@ 
+:,B! 
+:,B+ 
+;,B@+ 
+;,B!+	
+	;
 
 |--------- Sistema
 |#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB" | [] | "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY"
@@ -501,10 +500,6 @@
     >TOSreg? 0? ( drop ; ) drop
     "mov " ,s ,>TOS "," ,s "" ,s ,cr
 	;
-:,XFB		|4 pushCTE
-    >TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS "," ,s "" ,s ,cr
-	;
 
 :,BMOUSE | -- c
 	|7 pushCTE d.tos cellMEM!
@@ -518,45 +513,11 @@
     "mov " ,s ,>TOS "," ,s "[SYSKEY]" ,s ,cr
 	;
 
-:,PAPER | n --
-|	d.tos needReadM | no memoria []
-	"mov [SYSPAPER]," ,s ,TOS ,cr
-	;
-
 :,KEY! | v --
 |	d.tos needReadM | no memoria []
 	"mov [SYSKEY]," ,s ,TOS ,cr
 	;
 
-:,SETXYf | x y --
-|	d.tos cellNRO? 1? ( drop
-|		d.nos cellNRO? 1? ( drop
-|			"lea ebp,[SYSFRAME+(" ,s ,TOS "*XRES+" ,s ,NOS ")*4]" ,ln
-|			; ) drop ) drop
-|	"imul " ,s ,TOS ",XRES" ,ln	| cualquier ancho
-	"shl " ,s ,TOS ",10" ,ln	| 1024 de ancho
-|	d.nos cell0? 0? ( "add " ,s ,TOS "," ,s ,NOS ,cr ) drop
-	"lea ebp,[SYSFRAME+" ,s ,TOS "*4]" ,ln
-	;
-
-:,SETXY | x y --
-|	fullscreen 0? ( drop ,SETXYf ; ) drop
-	"imul " ,s ,TOS ",[XRES]" ,ln	| cualquier ancho
-|	d.nos cell0? 0? ( "add " ,s ,TOS "," ,s ,NOS ,cr ) drop
-	"lea ebp,[SYSFRAME+" ,s ,TOS "*4]" ,ln
-	;
-
-:,PX+!	| s --
-	"lea ebp,[ebp+" ,s ,TOS "*4]" ,ln
-	;
-
-:,PX!+	| rgb --
-	"mov dword [ebp]," ,s ,TOS ,cr
-	"add ebp,4" ,ln
-	;
-
-:,PX@	| -- rgb
-	"mov " ,s ,>TOS ",dword [ebp]" ,ln ;
 
 :,XYMOUSE | -- x y
 	"mov " ,s ,>TOS ",[SYSXYM]" ,ln
@@ -611,10 +572,7 @@
 :,TIME		1 ,callsys "SYSTIME" ,ln 3 vpila2v ;
 :,DATE		1 ,callsys "SYSDATE" ,ln 3 vpila2v ;
 :,RUN		1 ,callsys "SYSRUN" ,ln ;
-:,CLS		0 ,callsys "SYSCLS" ,ln ;
 :,REDRAW	0 ,callsys "SYSREDRAW" ,ln ;
-:,>XFB  	0 ,callsys "SYSTOXFB" ,ln ;
-:,XFB>  	0 ,callsys "SYSXFBTO" ,ln ;
 :,SYSTEM	1 ,callsys "SYSYSTEM" ,ln ; | "sys" -- ret
 
 #acompila 0
@@ -629,13 +587,17 @@
 |,dup 0 ,over ,pick2 ,pick3 ,pick4 0 0
 |0 ,2dup 0 0 0 ,2over 0
 
-,>R ,R> ,R ,R+ ,R@+ ,R!+ ,RDROP					|--- pila direcciones 52
-,AND ,OR ,XOR ,NOT  								|--- logicas        56
+,>R ,R> ,R@ 									|--- pila direcciones 52
+,AND ,OR ,XOR ,NOT  							|--- logicas        56
 ,+ ,- ,* ,/ ,*/ ,*>> ,/MOD ,MOD ,ABS  			|--- aritmeticas | 65
-,SQRT ,CLZ ,<</ ,NEG ,1+ ,4+ ,1- ,2/ ,2* ,<< ,>> | 76
+,SQRT ,CLZ ,<</ ,NEG ,1+ ,4+ ,1- ,2/ ,2* ,<< ,>> ,0>> | 76
 ,@ ,C@ ,W@ ,! ,C! ,W! ,+! ,C+! ,W+!  			|--- memoria 85
 ,@+ ,!+ ,C@+ ,C!+ ,W@+ ,W!+	| 91
-,MOVE ,MOVE> ,CMOVE ,CMOVE> | 95
+
+,>A	,A> ,A@ ,A! ,A+ ,A@+ ,A!+
+,>B	,B> ,B@ ,B! ,B+ ,B@+ ,B!+
+
+,MOVE ,MOVE> ,FILL ,CMOVE ,CMOVE> ,CFILL | 95
 ,MEM ,FFIRST ,FNEXT
 ,LOAD ,SAVE ,APPEND		|--- memoria bloques 102
 ,UPDATE
@@ -643,10 +605,9 @@
 ,KEY! ,KEY
 ,CNTJOY ,GETJOY 							| 109
 ,MSEC ,TIME ,DATE ,END ,RUN 				|--- sistema 114
-,SW ,SH ,CLS ,REDRAW ,FRAMEV  						|--- pantalla
-,SETXY ,PX+! ,PX!+ ,PX@
-,XFB ,>XFB ,XFB>
-,PAPER ,INK ,INK@ ,ALPHA							|--- color
+,SW ,SH ,REDRAW ,FRAMEV  						|--- pantalla
+
+,INK ,INK@ ,ALPHA							|--- color
 ,OP ,LINE ,CURVE ,CURVE3 ,PLINE ,PCURVE ,PCURVE3 ,POLI		|--- dibujo
 ,FCOL ,FCEN ,FMAT ,SFILL ,LFILL ,RFILL ,TFILL
 ,SLOAD ,SPLAY ,SINFO ,SSET					|--- Sonido

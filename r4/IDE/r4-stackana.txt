@@ -93,10 +93,10 @@
 :,4drop ,drop
 :,3drop ,drop
 :,2drop ,drop ,drop ;
-:,swap	dstack> 8 - >r r@+ r@+ r> 8 - !+ ! ;
+:,swap	dstack> 8 - >a a@+ a@+ a> 8 - !+ ! ;
 :,nip	,swap ,drop ;
-:,rot	dstack> 12 - >r r@+ r@+ r@+ swap r> 12 - !+ !+ ! ;
-:,2swap	dstack> 16 - >r r@+ r@+ swap r@+ r@+ swap r> 16 - !+ !+ !+ ! ;
+:,rot	dstack> 12 - >a a@+ a@+ a@+ swap a> 12 - !+ !+ ! ;
+:,2swap	dstack> 16 - >a a@+ a@+ swap a@+ a@+ swap a> 16 - !+ !+ !+ ! ;
 
 :,dup	d.TOS regR newreg dpush ;
 :,over	d.NOS regR newreg dpush ;
@@ -148,11 +148,12 @@
 
 :pushvar
 	ssc> dup sst!
-	>r
-	'dstack ( dstack> <? )( @+ r!+ ) drop
-	-1 r!+
-	'rstack ( rstack> <? )( @+ r!+ ) drop
-	-1 r> !+ 'ssc> !
+	>a
+	'dstack ( dstack> <? )( @+ a!+ ) drop
+	-1 a!+
+	'rstack ( rstack> <? )( @+ a!+ ) drop
+	-1 a!+ 
+	a> 'ssc> !
 	;
 
 :popvar
@@ -269,13 +270,12 @@
 
 :,>r	dpop rpush ;
 :,r>	rpop dpush ;
-:,r		rcnt 0? ( drop newreg dpush ; ) drop	| show consume R, no dR for now!
+:,r@	rcnt 0? ( drop newreg dpush ; ) drop	| show consume R, no dR for now!
 		r.TOS regR newreg dpush ;			|R		-- a R: a -- a
 :,r+	r.TOS regW ,drop ;				|R+		a -- R: b -- c
 :,r@+	r.TOS dup regM regW newreg dpush ;	|R@+	-- a R: b -- c
 :,r!+	r.TOS dup regM regW ,drop ;			|R!+	a -- R: b -- c
 :,rdrop	rpop drop ;
-
 
 |--- aritmeticas y logicas
 :op1a1	d.TOS regW ; | neg not 1+ 4+ 1- 2/ ..
@@ -299,6 +299,13 @@
 :2+!	| +! c+! w+!
 	d.TOS dup regM regR ,drop d.TOS regR ,drop ;
 
+:,>a	dpop drop ;
+:,a>	newreg dpush ;
+:,a@    newreg dpush ;
+:,a!	dpop drop ;
+:,a+	dpop drop ;
+:,a@+	newreg dpush ;
+:,a!+	dpop drop ;
 |----------------------------------------
 #usostack 0
 0 0 0 0 0 0 |,: ,:: ,# ,#: ,| ,^
@@ -310,7 +317,7 @@
 ,dup ,drop ,over ,pk2 ,pk3 ,pk4
 ,swap ,nip ,rot ,2dup ,2drop ,3drop ,4drop
 ,2over ,2swap
-,>r ,r> ,r ,r+ ,r@+ ,r!+ ,rdrop
+,>r ,r> ,r@
 op2a1 op2a1 op2a1 op1a1 |,and ,or ,xor ,not
 op2a1 op2a1	|,+ ,-
 op2a1 op2a1 |,* ,/
@@ -320,15 +327,19 @@ op3a1 vop3a1 |,*/ ,*>>
 op2a2 vop2a1 |,/mod ,mod
 vop1a1 op1a1 vop1a1 vop3a1 |,abs ,sqrt ,clz ,<</
 op1a1 op1a1 op1a1 op1a1 op1a1 op1a1 |,neg ,1+ ,4+ ,1- ,2/ ,2*
-xop2a1 xop2a1 |,<< ,>>
+xop2a1 xop2a1 xop2a1 |,<< ,>> ,0>>
 1@ 1@ 1@        |,@ ,c@ ,w@
 1! 1! 1!	|,! ,c! ,w!
 2+! 2+!	2+!	|,+! ,c+! ,w+!
 2@ 2! 2@ 2! 2@ 2!       |,@+ ,!+ ,c@+ ,c!+ ,w@+ ,w!+
+,>a ,a> ,a@ ,a! ,a+ ,a@+ ,a!+
+,>a ,a> ,a@ ,a! ,a+ ,a@+ ,a!+
 ,uso3	|MOVE  abc --       a,b es ddat
 ,uso3	|MOVE> abc --		a,b es ddat
+,uso3	|FILL  abc --       a,b es ddat
 ,uso3	|CMOVE abc --		a,b es ddat
 ,uso3	|CMOVE> abc --		a,b es ddat
+,uso3	|CFILL  abc --       a,b es ddat
 ,1cte |MEM	-- a		a es ddat
 ,uso11	|FFIRST    a -- b
 ,1v		|FNEXT  -- a
@@ -350,19 +361,9 @@ xop2a1 xop2a1 |,<< ,>>
 ,uso1	|RUN    a --
 ,1cte	|SW      -- a
 ,1cte	|SH      -- a
-0	|CLS     --
 0	|REDRAW  --
 ,1v	|FRAMEV  -- a
-,uso2	|SETXY  ab --
-,uso1	|PX+!   a --
-,uso1	|PX!+   a --
-,1v	|PX@     -- a
 
-,1cte	|XFB     -- a
-0	|>XFB    --
-0	|XFB>    --
-
-,uso1	|PAPER  a --
 ,uso1	|INK    a --
 ,1v		|INK@    -- a
 ,uso1	|ALPHA  a --
@@ -445,11 +446,11 @@ xop2a1 xop2a1 |,<< ,>>
 	;
 
 ::stackadump
-	'reg >r
+	'reg
 	"   R  W  OIBAPXM" print cr
-	0 ( nreg <? )(
-		r@+ printstat cr allowchome
-		1+ ) drop rdrop
+	0 ( nreg <? )( swap
+		@+ printstat cr allowchome
+		swap 1+ ) 2drop
 	;
 
 :.reg | nro --
@@ -570,13 +571,13 @@ xop2a1 xop2a1 |,<< ,>>
 	;
 
 ::setREG | val r reg --
-	2 << dup >r 'regt + ! r 'regv + ! 0 r> 'regs + ! ;
+	2 << dup >r 'regt + ! r@ 'regv + ! 0 r> 'regs + ! ;
 
 ::set+	| suma reg --
 	2 << 'regs + +! ;
 ::set*	| value reg --
 	2 << 'reg + >r
-	5 << r @ or r> ! ;
+	5 << r@ @ or r> ! ;
 
 
 ::dumpstk | lin --
@@ -609,17 +610,17 @@ xop2a1 xop2a1 |,<< ,>>
 	;
 
 :dumpregs
-	'reg >r
+	'reg
 	";--- Nro: R  W  OIBAPXM" ,s ,cr
 	0 ( nreg <? )(
-		"; " ,s dup 65 + ,c " : " ,s r@+
-		printstat
+		"; " ,s dup 65 + ,c " : " ,s
+		swap @+ printstat swap
 		" | " ,s
 |		dup ,cell |
 |		dup 2 << 'regt + @ "%h " ,print
 |		dup 2 << 'regv + @ "%h " ,print
 		,cr
-		1+ ) drop rdrop ;
+		1+ ) 2drop ;
 
 ::stackanalisis | end ini --
 	2dup getusedstack neg
