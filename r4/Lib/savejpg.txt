@@ -100,10 +100,10 @@
 		( 1? )( 1-
 			pick4 pick3 2 << + @	| codevalue posintable k j std
 			pick4 pick3 16 << or	| codevalue posintable k j std cvK
-			swap 2 << r + ! | HT	| codevalue posintable k j
+			swap 2 << r@ + ! | HT	| codevalue posintable k j
 			>r rot 1+ rot 1+ rot r> ) drop
 		rot 2* rot rot 1+ )
-	nip 4drop rdrop ;
+	nip 4drop r> drop ;
 
 #std_dc_lumi_nrcodes 0 0 1 5 1 1 1 1 1 1 0 0 0 0 0 0 0
 #std_dc_lumi_values 0 1 2 3 4 5 6 7 8 9 10 11
@@ -146,13 +146,13 @@ $f9 $fa
 		|--- Positive numbers
 		pick2 ( pick2 <? )(
             32767 over + 2 << >r | lo up cat nr r:pos
-			over 'category r + !
+			over 'category r@ + !
 			over 16 << over or 'bitcode r> + !
 			1+ ) drop
 		|--- Negative numbers
 		over 1- neg ( pick3 neg <=? )(	| lo up cat nr
             32767 over + 2 << >r 		| lo up cat nr r:pos
-			over 'category r + !
+			over 'category r@ + !
 			over 16 << pick3 1- pick2 + or
 			'bitcode r> + !
 			1+ ) drop
@@ -183,13 +183,13 @@ $f9 $fa
 #t10 #t11 #t12 #t13
 
 :@datacol | adrdata --
-	'd0 >r @+ r!+ @+ r!+ @+ r!+ @+ r!+ @+ r!+ @+ r!+ @+ r!+ @ r> ! ;
+	'd0 >a @+ a!+ @+ a!+ @+ a!+ @+ a!+ @+ a!+ @+ a!+ @+ a!+ @ a! ;
 :!datacol | adrdata --
-	>r 'd0 @+ r!+ @+ r!+ @+ r!+ @+ r!+ @+ r!+ @+ r!+ @+ r!+ @ r> ! ;
+	>a 'd0 @+ a!+ @+ a!+ @+ a!+ @+ a!+ @+ a!+ @+ a!+ @+ a!+ @ a! ;
 :@datarow | adrdata --
-	'd0 >r @+ r!+ 28 + @+ r!+ 28 + @+ r!+ 28 + @+ r!+ 28 + @+ r!+ 28 + @+ r!+ 28 + @+ r!+ 28 + @ r> ! ;
+	'd0 >a @+ a!+ 28 + @+ a!+ 28 + @+ a!+ 28 + @+ a!+ 28 + @+ a!+ 28 + @+ a!+ 28 + @+ a!+ 28 + @ a! ;
 :!datarow | adrdata --
-	>r 'd0 @+ r!+ 28 r+ @+ r!+ 28 r+ @+ r!+ 28 r+ @+ r!+ 28 r+ @+ r!+ 28 r+ @+ r!+ 28 r+ @+ r!+ 28 r+ @ r> ! ;
+	>a 'd0 @+ a!+ 28 a+ @+ a!+ 28 a+ @+ a!+ 28 a+ @+ a!+ 28 a+ @+ a!+ 28 a+ @+ a!+ 28 a+ @+ a!+ 28 a+ @ a! ;
 
 :dtc
 	d0 d7 2dup + 't0 ! - 't7 !
@@ -220,9 +220,10 @@ $f9 $fa
 	over 0 ( 8 <? )( swap
 		dup @datarow dtc dup !datarow
 		4+ swap 1+ ) 2drop
-	64 ( 1? )( 1- >r >r		| Quantize/descale the coefficients
-		@+ r@+ * +? ( 0.5 + )( 0.5 - ) 16 >>
-		rot !+ swap r> r> ) 4drop  ;
+	>a 
+	64 ( 1? )( 1- >r		| Quantize/descale the coefficients
+		@+ a@+ * +? ( 0.5 + )( 0.5 - ) 16 >>
+		rot !+ swap r> ) 3drop ;
 
 | Chunk writing
 :writeAPP0
@@ -291,11 +292,10 @@ $f9 $fa
 
 :preDU | CDU fdtbl --
 	'DU_DCT rot rot fDCTQuant
-	'DU_DCT 'ZigZag >r
+	'DU_DCT 'ZigZag >a
 	64 ( 1? )( 1- swap
-		@+ r@+ 2 << 'DU + !
-		swap ) 2drop
-	rdrop ;
+		@+ a@+ 2 << 'DU + !
+		swap ) 2drop ;
 
 :encodeDC | HTDC HTAC diff -- HTAC
 	0? ( drop swap @ writeBits ; )
@@ -344,18 +344,18 @@ $f9 $fa
 :(rgb2yuv) | y x col -- yuv
 	pick2 3 << pick2 + 2 << >r
 	dup 16 >> $ff and over 8 >> $ff and rot $ff and | r g b
-	pick2 0.299 * pick2 0.587 * pick2 0.114 * + + 16 >> $80 - r 'YDU + !
-	pick2 -0.1687 * pick2 -0.3313 * pick2 0.5 * + + 16 >> r 'UDU + !
+	pick2 0.299 * pick2 0.587 * pick2 0.114 * + + 16 >> $80 - r@ 'YDU + !
+	pick2 -0.1687 * pick2 -0.3313 * pick2 0.5 * + + 16 >> r@ 'UDU + !
 	rot 0.5 * rot -0.4187 * rot -0.0813 * + + 16 >> r> 'VDU + ! ;
 
 :RGB2YUV | y x -- (img:BitmapData, xpos:int, ypos:int):void
-	2dup swap sw * + 2 << framev + >r
+	2dup swap sw * + 2 << framev + >a
 	0 ( 8 <? )(
 		0 ( 8 <? )(
-			r@+ (rgb2yuv)
+			a@+ (rgb2yuv)
 			1+ ) drop
-		sw 8 - 2 << r+
-		1+ ) drop rdrop ;
+		sw 8 - 2 << a+
+		1+ ) drop ;
 
 
 :macroblock | x y -- x y
