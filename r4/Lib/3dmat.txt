@@ -34,7 +34,7 @@
 	pick2 a> 48 + @ *. a@ + a!+
 	pick2 a> 48 + @ *. a@ + a!+
 	pick2 a> 48 + @ *. a@ + a!+
-	rot  a@ + a!+
+	rot a@ + a!+
 	over a> 32 + @ *. a@ + a!+
 	over a> 32 + @ *. a@ + a!+
 	over a> 32 + @ *. a@ + a!+
@@ -84,7 +84,6 @@
 	mat> 4+ >a
 	dup sin swap cos
 	a@ a> 4+ @ | s c b c
-|	a> @+ swap @
 	pick2 pick2 *. pick4 neg pick2 *. + a!+ | s c b c
 	pick2 *. >r pick2 *. r> + a!+ 8 a+
 	a@ a> 4+ @ | s c f g
@@ -102,8 +101,8 @@
 	mat> >a
 	dup sin swap cos
 	a@ a> 32 + @ pick2 pick2 *. pick4 pick2 *. + a!+
-	pick2 *. >r pick2 neg *. r> + a> 28 + ! 
-	a@ a> 32 + @	pick2 pick2 *. pick4 pick2 *. + a!+
+	pick2 *. >r pick2 neg *. r> + a> 28 + !
+	a@ a> 32 + @ pick2 pick2 *. pick4 pick2 *. + a!+
 	pick2 *. >r pick2 neg *. r> + a> 28 + !
 	a@ a> 32 + @ pick2 pick2 *. pick4 pick2 *. + a!+
 	pick2 *. >r pick2 neg *. r> + a> 28 + !
@@ -159,6 +158,7 @@
 	pick2 pick2 *. pick4 neg pick2 *. + a!+
 	rot *. >r *. r> + a! ;
 
+
 |-----------------------------
 :invierte
 	over @ over @ swap rot ! swap ! ;
@@ -181,7 +181,7 @@
 ::transformr | x y z -- x y z
 	mat> >a pick2 a@+ *. pick2 a@+ *. + over a@+ *. + 4 a+
 	>r pick2 a@+ *. pick2 a@+ *. + over a@+ *. + 4 a+
-	>r rot a@+ *. rot a@+ *. + swap a@+ *. +
+	>r rot a@+ *. rot a@+ *. + swap a@ *. +
 	r> r> swap rot ;
 
 ::ztransform | x y z -- z
@@ -192,8 +192,7 @@
 	mat> 44 + @ ;
 
 ::oxyztransform | -- x y z
-	mat> >a a> 12 + @ a> 28 + @ a> 44 + @ ;
-
+	mat> dup 12 + @ over 28 + @ rot 44 + @ ;
 
 |-----------------------------
 ::2dmode | --
@@ -207,7 +206,6 @@
 	sh 2/ 'oy !
 	matini
 	;
-
 
 |----------------------------
 ::Omode | --
@@ -278,7 +276,7 @@
 	transform
 	0? ( 3drop 0 0 ; )
 	>r
-	yf r@ */	swap
+	yf r@ */ swap
 	xf r> */ swap ;
 
 ::project | x y z -- u v
@@ -345,8 +343,7 @@
 	@+ dup *. swap @+ dup *. swap @ dup *. + + sqrt. ;
 
 ::v3nor | v1 --
-	dup @+ dup *. swap @+ dup *. swap @ dup *. + + sqrt. 
-	1? ( 1.0 swap /. ) swap >a
+	dup v3len 1? ( 1.0 swap /. ) swap >a
 	a@ over *. a!+ a@ over *. a!+ a@ *. a! ;
 
 ::v3ddot | v1 v2 -- r ; r=v1.v2
@@ -365,7 +362,8 @@
 	>a dup @ a@+ + swap !+ dup @ a@+ + swap !+ dup @ a@ + swap ! ;
 
 ::v3* | v1 s -- ; v1=v1*s
-	>a dup @ a> *. swap !+ dup @ a> *. swap !+ dup @ a> *. swap ! ;
+	swap >a a@ over *. a!+ a@ over *. a!+ a@ *. a! ;
+
 ::v3= | v1 v2 --
 	3 move ;
 
@@ -390,6 +388,68 @@
 	over coz *. over siz *. +	|  x'' y' z' y''
 	rot siz *. rot coz *. -		| x'' y'' z''
 	;
+
+#m11 #m12 #m13
+#m21 #m22 #m23
+#m31 #m32 #m33
+
+::calcvrot | rx ry rz --
+	sincos 'coz ! 'siz !
+	sincos 'coy ! 'siy !
+	sincos 'cox ! 'six !
+    coz coy *. 'm11 !
+    cox siz *. coy *. six siy *. + 'm12 !
+    six siz *. coy *. cox siy *. - 'm13 !
+	siz neg 'm21 !
+    cox coz *. 'm22 !
+    six coz *. 'm23 !
+    coz siy *. 'm31 !
+    cox siz *. siy *. six coy *. - 'm32 !
+    six siz *. siy *. cox coy *. + 'm33 !
+	;
+
+::mrotxyz | x y z --
+ 	calcvrot
+	mat> >a
+	a@+ a@+ a@+ -12 a+
+	pick2 m11 *. pick2 m21 *. + over m31 *. + a!+
+	pick2 m12 *. pick2 m22 *. + over m32 *. + a!+
+	rot m13 *. rot m23 *. + swap m33 *. + a!+ 4 a+
+	a@+ a@+ a@+ -12 a+
+	pick2 m11 *. pick2 m21 *. + over m31 *. + a!+
+	pick2 m12 *. pick2 m22 *. + over m32 *. + a!+
+	rot m13 *. rot m23 *. + swap m33 *. + a!+ 4 a+
+	a@+ a@+ a@+ -12 a+
+	pick2 m11 *. pick2 m21 *. + over m31 *. + a!+
+	pick2 m12 *. pick2 m22 *. + over m32 *. + a!+
+	rot m13 *. rot m23 *. + swap m33 *. + a! 4 a+
+	a@+ a@+ a@+ -12 a+
+	pick2 m11 *. pick2 m21 *. + over m31 *. + a!+
+	pick2 m12 *. pick2 m22 *. + over m32 *. + a!+
+	rot m13 *. rot m23 *. + swap m33 *. + a! 4 a+
+	;
+
+::mrotxyzi | x y z --
+ 	calcrot
+	mat> >a
+	a@ a> 16 + @ a> 32 + @
+	pick2 m11 *. pick2 m12 *. + over m13 *. + a! 16 a+
+	pick2 m21 *. pick2 m22 *. + over m23 *. + a! 16 a+
+	rot m31 *. rot m32 *. + swap m33 *. + a! -28 a+
+	a@ a> 16 + @ a> 32 + @
+	pick2 m11 *. pick2 m12 *. + over m13 *. + a! 16 a+
+	pick2 m21 *. pick2 m22 *. + over m23 *. + a! 16 a+
+	rot m31 *. rot m32 *. + swap m33 *. + a! -28 a+
+   	a@ a> 16 + @ a> 32 + @
+	pick2 m11 *. pick2 m12 *. + over m13 *. + a! 16 a+
+	pick2 m21 *. pick2 m22 *. + over m23 *. + a! 16 a+
+	rot m31 *. rot m32 *. + swap m33 *. + a! -28 a+
+   	a@ a> 16 + @ a> 32 + @
+	pick2 m11 *. pick2 m12 *. + over m13 *. + a! 16 a+
+	pick2 m21 *. pick2 m22 *. + over m23 *. + a! 16 a+
+	rot m31 *. rot m32 *. + swap m33 *. + a!
+	;
+
 
 #oh #ow
 ::3dnorm | w h xc yc --

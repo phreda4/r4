@@ -465,22 +465,52 @@
 :,C@+
 	"movsx " ,s ,TOS ",byte [" ,s ,NOS "]" ,ln
 	"add " ,s ,NOS ",1" ,ln ;
-:,>A	
-:,A> 
-:,A@ 
-:,A! 
-:,A+ 
-:,A@+ 
-:,A!+
-:,>B	
-:,B> 
-:,B@ 
-:,B! 
-:,B+ 
-:,B@+ 
-:,B!+	
+:,>A
+	"mov esi," ,s ,TOS ,cr
 	;
-
+:,A>
+	"mov " ,s ,>TOS ",esi" ,s ,cr
+	;
+:,A@
+	"mov " ,s ,>TOS ",dword [esi]" ,s ,cr
+	;
+:,A!
+	"mov dword [esi]," ,s ,TOS ,cr
+	;
+:,A+
+	"add esi," ,s ,TOS ,cr
+	;
+:,A@+
+	"mov " ,s ,>TOS ",dword [esi]" ,s ,cr
+	"add esi,4" ,ln
+	;
+:,A!+
+	"mov dword [esi]," ,s ,TOS ,cr
+	"add esi,4" ,ln
+	;
+:,>B
+	"mov edi," ,s ,TOS ,cr
+	;
+:,B>
+	"mov " ,s ,>TOS ",edi" ,s ,cr
+	;
+:,B@
+	"mov " ,s ,>TOS ",dword [edi]" ,s ,cr
+	;
+:,B!
+	"mov dword [edi]," ,s ,TOS ,cr
+	;
+:,B+
+	"add edi," ,s ,TOS ,cr
+	;
+:,B@+
+	"mov " ,s ,>TOS ",dword [edi]" ,s ,cr
+	"add edi,4" ,ln
+	;
+:,B!+
+	"mov dword [edi]," ,s ,TOS ,cr
+	"add edi,4" ,ln
+	;
 |--------- Sistema
 |#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "XFB" | [] | "SYSPAPER" "SYSXYM" "SYSBM" "SYSKEY"
 
@@ -547,11 +577,46 @@
 :,DOCSIZE	| "tt" -- w h
 	;
 
+:,MOVE
+	"cld" ,ln
+	"rep movsd" ,ln
+	;
+:,MOVE>
+	"cld" ,ln
+	"rep movsd" ,ln
+	;
+:,CMOVE
+	"std" ,ln
+	"lea edi,[edi+ecx-1]", ln
+	"lea esi,[esi+ecx-1]", ln
+	"rep movsd" ,ln
+	;
+:,CMOVE>
+	"std" ,ln
+	"lea edi,[edi+ecx-1]", ln
+	"lea esi,[esi+ecx-1]", ln
+	"rep movsd" ,ln
+	;
+
 :,FILL
-	"rep smovd" ,ln
+	"cld" ,ln
+	"rep stosd" ,ln
 	;
 :,CFILL
-	"rep smovc" ,ln
+	"cld" ,ln
+|	"rep stosd" ,ln
+
+	"mov ah,al" ,ln			| eax=(al<<24)|(al<<16)|(al<<8)|al
+	"movzs ebx,ax" ,ln
+	"shl eax,16" ,ln
+	"or eax,ebx" ,ln
+
+	"mov ebx,ecx" ,ln
+	"shr ecx,2" ,ln
+	"rep stosd" ,ln
+	"mov ecx,ebx" ,ln
+	"and ecx,3" ,ln
+	"rep stosb" ,ln
 	;
 
 |----------- en asmbase.txt
@@ -635,7 +700,7 @@
 	0 'nroi !
 	;
 
-::,code | w --
+:,code | w --
 	codeini
 	inputcells
 	dup dic>tok @ swap dic>len@
@@ -644,12 +709,42 @@
 		9 ,c nroi ,stackm ,cr
 
 		,cadatoken swap
-
 		"r4/compiler/code.asm" savemem | DEBUG
+
 		1 'nroi +!
 		) 2drop ;
 
-::inicodegen
+::iniCODE
 	here dup 'regIO !
 	cntwords 4 <<	| 16 bytes por word
 	+ 'here ! ;
+
+:compilacode | w --
+	"; **" ,s
+	dup dic>mov @ ,printmovword
+	" ** " ,s
+	dup dic>inf @ ,printinfowor
+	" ** len:" ,s dup dic>len@ ,d
+	" ** calls:" ,s dup dic>call@ ,d
+	,cr
+
+	dup cellana
+	cell2reg
+
+	"; ** vreg:" ,s cntvreg 1- ,d ,cr
+
+	cellinfo
+|	blockinfo
+|	tokeninfo
+
+	dup ,code
+	drop
+
+|	"r4/compiler/code.asm" savemem | DEBUG
+
+	;
+
+::,generateCODE
+	0 ( cntwords <? )(
+		dup dic>inf @ 1 nand? ( over compilacode )
+		drop 1+ ) drop ;

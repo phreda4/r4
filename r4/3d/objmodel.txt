@@ -1,0 +1,149 @@
+| Obj Model
+| PHREDA 2017
+|-----------------------------------
+^r4/lib/gui.txt
+^r4/lib/parse.txt
+^r4/lib/btn.txt
+^r4/lib/trace.txt
+
+#iniobj | textparse
+#verl	| vertices
+#nver
+#nface
+
+:vert	| vertices (x,y,z[,w=1])
+	1 'nver +!
+	2 + trim
+	getfenro ,
+	getfenro ,
+	getfenro ,
+	dup c@ 32 <? ( drop 1.0 , ; ) drop
+	getfenro ,
+	;
+:texc	| textcoor (u, v [,w])
+	3 + trim
+	getfenro ,
+	getfenro ,
+	getfenro ,
+	;
+:norm	| normales (x,y,z)
+	3 + trim
+	getfenro ,
+	getfenro ,
+	getfenro ,
+	;
+:pspa	| param space ( u [,v] [,w] )
+	3 + trim
+	getfenro ,
+	getfenro ,
+	getfenro ,
+	;
+
+#nv #nt #nn
+:uface
+	?sint 'nv ! dup 1- c@ 32 <? ( drop 1- ; ) 33 <? ( drop ; ) drop
+	?sint 'nt ! dup 1- c@ 32 <? ( drop 1- ; ) 33 <? ( drop ; ) drop
+	?sint 'nn ! dup 1- c@ 32 <? ( drop 1- ; ) 33 <? ( drop ; ) drop
+	;
+
+:face	| face nvert( v/t/n  v//n v/t  v)??
+	2 + trim
+	here >r
+	0 ,
+	( dup c@ $ff and 13 >? )( drop
+		uface
+		nv ,
+		nt 16 << nn or ,
+		1 r@ +!
+		) drop
+	r> drop
+	1 'nface +!
+	;
+:smoo	| 1/off
+	2 + trim
+	;
+:onam	| o [object name]
+	2 + trim
+	;
+:gman	| g [group name]
+	2 + trim
+	;
+:mtli	| mtllib [external .mtl file name]
+	6 + trim
+	;
+:usmt	| usemtl [material name]
+	6 + trim
+	;
+
+:parseline
+	"v " =pre 1? ( drop vert ; ) drop	| vertices (x,y,z[,w=1])
+	"vt	" =pre 1? ( drop texc ; ) drop	| textcoor (u, v [,w])
+	"vn " =pre 1? ( drop norm ; ) drop	| normales (x,y,z)
+	"vp " =pre 1? ( drop pspa ; ) drop	| param space ( u [,v] [,w] )
+	"f " =pre 1? ( drop face ; ) drop	| face nvert( v/t/n  v//n v/t  v)??
+	"s " =pre 1? ( drop smoo ; ) drop	| 1/off
+	"o " =pre 1? ( drop onam ; ) drop	| o [object name]
+	"g " =pre 1? ( drop gman ; ) drop	| g [group name]
+	"mtllib" =pre 1? ( drop mtli ; ) drop	| mtllib [external .mtl file name]
+	"usemtl" =pre 1? ( drop usmt ; ) drop	| usemtl [material name]
+	;
+
+::>>cr | adr -- adr'/0	; proxima linea/0
+	( c@+ $ff and 13 >? )( drop ) 0? ( nip ; ) drop ;
+
+:parseobj | adr --
+	0 'nver !
+	0 'nface !
+	( trim parseline >>cr 0? ) 2drop ;
+
+:loadobj | "" -- mem
+	mark
+	here dup 'iniobj !
+	swap load over =? ( 2drop 0 ; ) 0 swap !+
+	dup 'here ! 'verl !
+	iniobj parseobj
+	empty
+	here ;
+
+:objwireframe | mem --
+	drop
+	;
+#xcam 0 #ycam 0 #zcam 20.0
+#xr 0.20 #yr 0.25
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg
+	swap 0 mrotxyz
+|	mrotx mroty
+;
+
+#model
+
+:main
+	"media/obj/PoliceCar/PoliceCar.obj" loadobj 'model !
+	4 fonti
+	show clrscr
+		cr sp
+		'exit dup >esc< rojo " X " btnt sp
+
+		dup ":r%d " blanco print
+		"Load Obj" verde print cr cr
+		nver " %d vertices" print cr
+    	nface " %d caras" print cr
+
+		omode
+		freelook
+		xcam ycam zcam mtrans
+        model objwireframe
+
+		[ 0.1 'zcam +! ; ] <up>
+		[ -0.1 'zcam +! ; ] <dn>
+		'exit >esc<
+		cminiflecha ;
+
+		;
+
+: mark 0 'paper ! 33 main ;
