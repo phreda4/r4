@@ -1,6 +1,8 @@
 | PHREDA 2016
+| 2017 idea uno negativo
+|--------------------------
 ^r4/lib/gui.txt
-
+^r4/lib/trace.txt
 #v0x #v0y
 #v1x #v1y
 #v2x #v2y
@@ -73,12 +75,170 @@
 		) 2drop
 	;
 
+
+|------------------------------------------
+:inloop2
+	maxx
+	( w0 w1 or w2 or -? )( drop 1-
+		0? ( drop trace ; ) | siempre dibuja..se puede quitar
+		A12 'w0 +! A20 'w1 +! A01 'w2 +! ) drop
+	maxx over - 2 << a+
+	( 1? )( 1-
+		ink@ a!+ A12 'w0 +! A20 'w1 +! A01 'w2 +!
+		w0 w1 or w2 or -? ( 2drop ; ) drop
+		) drop ;
+
+|	a12 $1ff and 20 <<
+|	a20 $1ff and 10 << or
+|	a01 $1ff and or
+|	w0 20 << w1 10 << or w2 or
+
+:getval | sum val --
+	a12 +? ( drop a20 $7fff and 16 << a01 $7fff and or w1 16 << w2 or ; ) drop
+	a20 +? ( drop a12 $7fff and 16 << a01 $7fff and or w0 16 << w2 or ; ) drop
+	a12 $7fff and 16 << a20 $7fff and or w0 16 << w1 or ;
+
+:getval | -- sa sb a b
+	a12 +? ( drop a20 a01 w1 w2 ; ) drop
+	a20 +? ( drop a12 a01 w0 w2 ; ) drop
+	a12 a20 w0 w1 ;
+
+:inloop2
+	( w0 -? )( drop A12 'w0 +! A20 'w1 +! A01 'w2 +! 4 a+ ) drop
+	( w1 -? )( drop A12 'w0 +! A20 'w1 +! A01 'w2 +! 4 a+ ) drop
+	( w2 -? )( drop A12 'w0 +! A20 'w1 +! A01 'w2 +! 4 a+ ) drop
+	getval
+	( ink@ a!+ 2dup or +? )( drop pick2 + swap pick3 + swap ) drop
+	4drop
+	;
+|		w0_row 'w0 !
+|		w1_row 'w1 !
+|		w2_row 'w2 !
+|     	inloop2
+|		sw 2 << b+ b> >a
+|		B12 'w0_row +!
+|		B20 'w1_row +!
+|		B01 'w2_row +!
+
+|-------------------------
+:getval | w0 w1 w2 -- sa sb a b
+	a01 +? ( 2drop a12 a20 2swap ; ) drop rot | w1 w2 w0
+	a12 +? ( 2drop a20 a01 2swap ; ) drop
+	rot drop a01 a12 2swap ;
+
+|:inloop2 | w0 w1 w2 --
+|	( -? )( rot a12 + rot a20 + rot a01 + 4 a+ ) rot | w1 w2 w0
+|	( -? )( rot a20 + rot a01 + rot a12 + 4 a+ ) rot | w2 w0 w1
+|	( -? )( rot a01 + rot a12 + rot a20 + 4 a+ ) rot
+|	pick2 pick2 pick2 and and -? ( 4drop ; ) drop
+|	getval
+|	( ink@ a!+ 2dup or +? )( drop pick2 + swap pick3 + swap ) drop
+|	4drop ;
+
+:inloop2 | w0 w1 w2 --
+	maxx
+	( pick3 pick3 pick3 or or -? )( drop >r
+		rot a12 + rot a20 + rot a01 +
+		r> 1- 0? ( 4drop ; ) ) drop
+	maxx swap - 2 << b+
+	getval
+	( ink@ b!+ 2dup or +? )( drop pick2 + swap pick3 + swap ) drop
+	4drop ;
+
+#ordeny
+:drawtri2
+	dup 'maxy ! dup 'miny ! 'v0y ! 0 'ordeny !
+	dup 'maxx ! dup 'minx ! 'v0x !
+	2over 2over o2d +? ( drop 2swap )( drop )	| clockwise test
+|	2over 2over o2d +? ( drop 4drop ; )( drop )	| clockwise test
+	maxy >? ( dup 'maxy ! ) miny <? ( dup 'miny ! 1 'ordeny ! ) 'v1y !
+	maxx >? ( dup 'maxx ! ) minx <? ( dup 'minx ! ) 'v1x !
+	maxy >? ( dup 'maxy ! ) miny <? ( dup 'miny ! 2 'ordeny ! ) 'v2y !
+	maxx >? ( dup 'maxx ! ) minx <? ( dup 'minx ! ) 'v2x !
+
+	v0y v1y - 'a01 !
+	v1x v0x - 'b01 !
+	v1y v2y - 'a12 !
+	v2x v1x - 'b12 !
+	v2y v0y - 'a20 !
+	v0x v2x - 'b20 !
+
+	v1x v1y v2x v2y o2d 'w0_row !
+	v2x v2y v0x v0y o2d 'w1_row !
+	v0x v0y v1x v1y o2d 'w2_row !
+
+	minx neg 1+ 'maxx +!
+	miny neg 1+ 'maxy +!
+
+	minx miny setxy
+	maxy
+	( 1? )( 1-
+		w0_row
+		w1_row
+		w2_row
+		a> >b
+     	inloop2
+		sw 2 << a+
+		B12 'w0_row +!
+		B20 'w1_row +!
+		B01 'w2_row +!
+		) drop
+	;
+
+:dump
+	cr
+	miny maxy minx maxx "maxx:%d minx:%d maxy:%d miny:%d " print cr
+	a01 a12 a20 "a20:%d a12:%d a01:%d " print cr
+	b01 b12 b20 "b20:%d b12:%d b01:%d " print cr
+	w0_row w1_row w2_row "2:%d 1:%d 0:%d" print cr
+	ordeny "miny: %d" print
+
+	;
+|------------------------------------------
+| a<=0 sa>0
+:inloop1 | sb b sa a --
+	( -? )( over + 2swap over + 2swap 4 a+ ) 2drop
+	( +? )( over + ink@ a!+ ) 2drop ;
+
+:inloop1b | sb sa b a --
+	( -? )( pick2 + swap pick3 + swap 4 a+ ) drop nip
+	( +? )( over + ink@ a!+ ) 2drop ;
+
+:drawtri
+	| encontrar quien es 1y2 y 3y4
+
+	v0y v1y - 'a01 ! v1x v0x - 'b01 !
+	v1y v2y - 'a12 ! v2x v1x - 'b12 !
+	v2y v0y - 'a20 ! v0x v2x - 'b20 !
+
+	v1x v1y v2x v2y o2d 'w0_row !
+	v2x v2y v0x v0y o2d 'w1_row !
+	v0x v0y v1x v1y o2d 'w2_row !
+
+	minx neg 1+ 'maxx +!
+	miny neg 1+ 'maxy +!
+
+    minx miny setxy
+|	1y2
+	( 1? )( 1-
+		a12 w0_row a20 w1_row inloop1
+		sw 2 << b+ b> >a
+		B12 'w0_row +! B20 'w1_row +! B01 'w2_row +!
+		) drop
+|	3y4
+	( 1? )( 1-
+		a20 w1_row a12 w0_row inloop1
+		sw 2 << b+ b> >a
+		B12 'w0_row +! B20 'w1_row +! B01 'w2_row +!
+		) drop
+	;
+
 |------------------------------------------
 :inloop3 | w0 w1 w2 --
 	pick2 pick2 pick2
 	maxx
 	( pick3 pick3 pick3 or or -? )( drop 1-
-		0? ( 4drop maxx 2 << a+ ; )
+		0? ( 4drop maxx ( 1? )( 1- $ff a!+ ) drop ; )
 		>r rot a12 + rot a20 + rot a01 + r> ) drop
 	maxx over - 2 << a+
 	( 1? )( 1- >r
@@ -312,14 +472,15 @@
 :main
 	33
 	show clrscr
-		dup "%d" print
-
+		dup "%d" print cr
+		dump
 |		100 70 30 200 90 300 deftri azul drawtri
 |		50 60 100 380 xymouse deftri verde drawtri
-|		50 60 100 380 xymouse violeta drawtrio
 
-|        200 40 120 160 400 200 xymouse defcua cyan drawcua
-        200 40 120 160 400 200 xymouse drawquado
+		50 60 100 180 xymouse violeta drawtri2
+
+|       200 40 120 160 400 200 xymouse defcua cyan drawcua
+|        200 40 120 160 400 200 xymouse drawquado
 
 |		cyan minx miny op maxx miny line maxx maxy line minx maxy line minx miny line
 |		rojo 50 60 op 100 380 line xymouse line 50 60 line

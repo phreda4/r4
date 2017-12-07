@@ -1,4 +1,6 @@
-| Obj Model
+| Obj Model Loader
+| - faltan indices negativos
+| - faltan lineas en desorden
 | PHREDA 2017
 |-----------------------------------
 ^r4/lib/gui.txt
@@ -9,10 +11,15 @@
 #iniobj | textparse
 #verl	| vertices
 #nver
+#facel	| faces
 #nface
+#norml	| normal
+#nnorm
+#texl	| text
+#ntex
 
 :vert	| vertices (x,y,z[,w=1])
-	1 'nver +!
+	nver 0? ( here 'verl ! ) 1+ 'nver !
 	2 + trim
 	getfenro ,
 	getfenro ,
@@ -21,12 +28,14 @@
 	getfenro ,
 	;
 :texc	| textcoor (u, v [,w])
+	ntex 0? ( here 'texl ! ) 1+ 'ntex !
 	3 + trim
 	getfenro ,
 	getfenro ,
 	getfenro ,
 	;
 :norm	| normales (x,y,z)
+	nnorm 0? ( here 'norml ! ) 1+ 'nnorm !
 	3 + trim
 	getfenro ,
 	getfenro ,
@@ -41,12 +50,16 @@
 
 #nv #nt #nn
 :uface
-	?sint 'nv ! dup 1- c@ 32 <? ( drop 1- ; ) 33 <? ( drop ; ) drop
-	?sint 'nt ! dup 1- c@ 32 <? ( drop 1- ; ) 33 <? ( drop ; ) drop
-	?sint 'nn ! dup 1- c@ 32 <? ( drop 1- ; ) 33 <? ( drop ; ) drop
+	?sint 'nv ! dup 1- c@ 
+	32 <? ( drop 1- ; ) 33 <? ( drop ; ) drop
+	?sint 'nt ! dup 1- c@
+	32 <? ( drop 1- ; ) 33 <? ( drop ; ) drop
+	?sint 'nn ! dup 1- c@
+	32 <? ( drop 1- ; ) drop
 	;
 
 :face	| face nvert( v/t/n  v//n v/t  v)??
+	nface 0? ( here 'facel ! ) 1+ 'nface !
 	2 + trim
 	here >r
 	0 ,
@@ -57,7 +70,6 @@
 		1 r@ +!
 		) drop
 	r> drop
-	1 'nface +!
 	;
 :smoo	| 1/off
 	2 + trim
@@ -94,36 +106,71 @@
 :parseobj | adr --
 	0 'nver !
 	0 'nface !
+	0 'nnorm !
+	0 'ntex !
 	( trim parseline >>cr 0? ) 2drop ;
 
+
 :loadobj | "" -- mem
-	mark
 	here dup 'iniobj !
 	swap load over =? ( 2drop 0 ; ) 0 swap !+
 	dup 'here ! 'verl !
 	iniobj parseobj
-	empty
-	here ;
 
+	here
+	;
+
+|-------------
+#v2d
+
+:objtest
+	mark
+	here 'v2d !
+	verl >b
+	nver ( 1? )( 1-
+		b@+ b@+ b@+ 4 b+ project3d
+		xy>d , ) drop
+	facel >b
+	nface 200 - ( 1? )( 1-
+		b@+ 1-
+		b@+ 1- 2 << v2d + @ dup d>xy op
+		4 b+
+		swap ( 1? )( 1-
+			b@+ 1- 2 << v2d + @ d>xy line
+			4 b+
+			) drop
+		d>xy line
+|		b> 4 - @ ink poli
+		) drop
+	empty
+	;
+
+|-------------
 :objwireframe | mem --
 	drop
 	;
-#xcam 0 #ycam 0 #zcam 20.0
-#xr 0.20 #yr 0.25
+
+|-----------------------------------
+#xcam 0 #ycam 0 #zcam -5.0
+#xr #yr
 
 :freelook
 	xymouse
 	sh 2/ - 7 << swap
 	sw 2/ - neg 7 << swap
 	neg
-	swap 0 mrotxyz
-|	mrotx mroty
+|	swap 0 mrotxyz
+	mrotx mroty
 ;
 
 #model
 
 :main
-	"media/obj/PoliceCar/PoliceCar.obj" loadobj 'model !
+|	"media/obj/PoliceCar/PoliceCar.obj"
+	"media/obj/dragon.obj"
+|	"media/obj/monkey.obj"
+|	"media/obj/diablo3_pose/diablo3_pose.obj"
+	loadobj 'model !
 	4 fonti
 	show clrscr
 		cr sp
@@ -137,7 +184,9 @@
 		omode
 		freelook
 		xcam ycam zcam mtrans
-        model objwireframe
+
+|        model objwireframe
+		objtest
 
 		[ 0.1 'zcam +! ; ] <up>
 		[ -0.1 'zcam +! ; ] <dn>
