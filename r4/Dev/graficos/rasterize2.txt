@@ -1,0 +1,177 @@
+| PHREDA 2016
+| 2017 idea uno negativo
+|--------------------------
+^r4/lib/gui.txt
+^r4/lib/trace.txt
+
+#minx #maxx
+#miny #maxy
+
+#v0x #v0y
+#v1x #v1y
+#v2x #v2y
+
+#b12 #a12 #w0_row
+#b20 #a20 #w1_row
+#b01 #a01 #w2_row
+
+#ttop 'a12 'a20
+#tbot 'a01 'a20
+
+#resy
+
+|("b.x-a.x)*("miny-a.y) - ("b.y-a.y)*("minx-a.x);
+:o2d | ax ay bx by -- a
+	pick2 - minx pick4 - * >r rot - miny rot - * r> - ;
+
+|-------------------------
+:getval | w0 w1 w2 -- sa sb a b
+	a01 +? ( 2drop a12 a20 2swap ; ) drop rot | w1 w2 w0
+	a12 +? ( 2drop a20 a01 2swap ; ) drop
+	rot drop a01 a12 2swap ;
+
+:inloop2 | w0 w1 w2 --
+	maxx
+	( pick3 pick3 pick3 or or -? )( drop >r
+		rot a12 + rot a20 + rot a01 +
+		r> 1- 0? ( 4drop ; ) ) drop
+	maxx swap - 2 << b+
+	getval
+	( ink@ b!+ 2dup or +? )( drop pick2 + swap pick3 + swap ) drop
+	4drop ;
+
+#ordeny
+:drawtri2
+	dup 'maxy ! dup 'miny ! 'v0y ! 0 'ordeny !
+	dup 'maxx ! dup 'minx ! 'v0x !
+
+	2over 2over o2d +? ( drop 2swap )( drop )	| clockwise test
+|	2over 2over o2d +? ( drop 4drop ; )( drop )	| clockwise test
+
+	maxy >? ( dup 'maxy ! ) miny <? ( dup 'miny ! 1 'ordeny ! ) 'v1y !
+	maxx >? ( dup 'maxx ! ) minx <? ( dup 'minx ! ) 'v1x !
+	maxy >? ( dup 'maxy ! ) miny <? ( dup 'miny ! 2 'ordeny ! ) 'v2y !
+	maxx >? ( dup 'maxx ! ) minx <? ( dup 'minx ! ) 'v2x !
+
+	v0y v1y - 'a01 ! v1x v0x - 'b01 !
+	v1y v2y - 'a12 ! v2x v1x - 'b12 !
+	v2y v0y - 'a20 ! v0x v2x - 'b20 !
+
+	v1x v1y v2x v2y o2d 'w0_row !
+	v2x v2y v0x v0y o2d 'w1_row !
+	v0x v0y v1x v1y o2d 'w2_row !
+
+	minx neg 1+ 'maxx +!
+	miny neg 1+ 'maxy +!
+
+	minx miny setxy
+	maxy
+	( 1? )( 1-
+		w0_row w1_row w2_row
+		a> >b inloop2 sw 2 << a+
+		B12 'w0_row +! B20 'w1_row +! B01 'w2_row +!
+		) drop ;
+:seg?
+	'a12 =? ( "a12" print )
+	'a20 =? ( "a20" print )
+	'a01 =? ( "a01" print )
+	drop "*" print
+	;
+
+:dump
+	cr
+	miny maxy minx maxx "maxx:%d minx:%d maxy:%d miny:%d " print cr
+	a01 a12 a20 "a20:%d a12:%d a01:%d " print cr
+	b01 b12 b20 "b20:%d b12:%d b01:%d " print cr
+	w0_row w1_row w2_row "2:%d 1:%d 0:%d" print cr
+	ordeny "miny: %d" print cr
+	"ttop: " print 'ttop @+ seg? "," print @ seg? cr
+	"tbot: " print 'tbot @+ seg? "," print @ seg? cr
+
+	;
+|------------------------------------------
+| a<=0 sa>0
+:inloop | sb b sa a --
+	( -? )( over + 2swap over + 2swap 4 b+ ) 2drop
+	( +? )( over + ink@ b!+ ) 2drop ;
+
+:0up
+	a20 -? ( 'a01 'a20 )( 'a20 'a01 ) 'ttop !+ ! drop
+	v1y v2y <? ( 'resy ! )( drop v2y 'resy ! )
+	'a12 dup @ -? ( drop 'ttop 4+ @ swap )( drop ttop ) 'tbot !+ !
+	;
+:1up
+	a12 -? ( 'a01 'a12 )( 'a12 'a01 ) 'ttop !+ ! drop
+	v0y v2y <? ( 'resy ! )( drop v2y 'resy ! )
+	'a20 dup @ -? ( drop 'ttop 4+ @ swap )( drop ttop ) 'tbot !+ ! ;
+	;
+
+:2up
+	a12 -? ( 'a20 'a12 )( 'a12 'a20 ) 'ttop !+ ! drop
+	v0y v1y <? ( 'resy ! )( drop v1y 'resy ! )
+	'a01 dup @ -? ( drop 'ttop 4+ @ swap )( drop ttop ) 'tbot !+ ! ;
+	;
+
+:drawtri3
+	'0up 'ordeny !
+	dup 'maxy ! dup 'miny ! 'v0y !
+	dup 'maxx ! dup 'minx ! 'v0x !
+
+	2over 2over o2d +? ( drop 2swap )( drop )	| clockwise test
+|	2over 2over o2d +? ( drop 4drop ; )( drop )	| clockwise test
+
+	maxy >? ( dup 'maxy ! ) miny <? ( dup 'miny ! '1up 'ordeny ! ) 'v1y !
+	maxx >? ( dup 'maxx ! ) minx <? ( dup 'minx ! ) 'v1x !
+	maxy >? ( dup 'maxy ! ) miny <? ( dup 'miny ! '2up 'ordeny ! ) 'v2y !
+	maxx >? ( dup 'maxx ! ) minx <? ( dup 'minx ! ) 'v2x !
+
+	v0y v1y - 'a01 ! v1x v0x - 'b01 !
+	v1y v2y - 'a12 ! v2x v1x - 'b12 !
+	v2y v0y - 'a20 ! v0x v2x - 'b20 !
+
+	v1x v1y v2x v2y o2d 'w0_row !
+	v2x v2y v0x v0y o2d 'w1_row !
+	v0x v0y v1x v1y o2d 'w2_row !
+
+	minx neg 1+ 'maxx +!
+
+    minx miny setxy
+    ordeny exec
+
+	'ttop @+ @+ swap rot @ @+ swap
+	resy miny - 1+
+	( 1? )( 1-
+		pick4 pick4 @ pick4 pick4 @
+		a> >b inloop sw 2 << a+
+		B12 'w0_row +! B20 'w1_row +! B01 'w2_row +!
+		) nip 4drop
+
+	'tbot @+ @+ swap rot @ @+ swap
+	maxy resy -
+	( 1? )( 1-
+		pick4 pick4 @ pick4 pick4 @
+		a> >b inloop sw 2 << a+
+		B12 'w0_row +! B20 'w1_row +! B01 'w2_row +!
+		) nip 4drop ;
+
+
+|-------------------------
+:main
+	33
+	show clrscr
+		dup "%d" print cr
+		dump
+
+		rojo
+		150 560 100 180 xymouse drawtri3
+
+		azul
+		300 100 400 200 200 300 drawtri3
+		amarillo
+|		300 100 400 200 200 300 drawtri2
+
+
+		'exit >esc<
+		cminiflecha
+		;
+: main ;
