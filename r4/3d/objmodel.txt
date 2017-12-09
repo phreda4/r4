@@ -18,6 +18,8 @@
 #texl	| text
 #ntex
 
+#mtlfile )( 1024
+
 :vert	| vertices (x,y,z[,w=1])
 	nver 0? ( here 'verl ! ) 1+ 'nver !
 	2 + trim
@@ -50,7 +52,7 @@
 
 #nv #nt #nn
 :uface
-	?sint 'nv ! dup 1- c@ 
+	?sint 'nv ! dup 1- c@
 	32 <? ( drop 1- ; ) 33 <? ( drop ; ) drop
 	?sint 'nt ! dup 1- c@
 	32 <? ( drop 1- ; ) 33 <? ( drop ; ) drop
@@ -80,8 +82,14 @@
 :gman	| g [group name]
 	2 + trim
 	;
+
+:addmtl | str --
+
+	;
+
 :mtli	| mtllib [external .mtl file name]
 	6 + trim
+	addmtl
 	;
 :usmt	| usemtl [material name]
 	6 + trim
@@ -109,6 +117,47 @@
 	0 'nnorm !
 	0 'ntex !
 	( trim parseline >>cr 0? ) 2drop ;
+
+
+#xmin #ymin #zmin #xmax #ymax #zmax
+
+:objminmax | --
+	verl >b
+	b@+ dup 'xmin ! 'xmax !
+	b@+ dup 'ymin ! 'ymax !
+	b@+ dup 'zmin ! 'zmax !
+	4 b+
+	nver 1- ( 1? )( 1-
+		b@+ xmin <? ( dup 'xmin ! ) xmax >? ( dup 'xmax ! ) drop
+		b@+ ymin <? ( dup 'ymin ! ) ymax >? ( dup 'ymax ! ) drop
+		b@+ zmin <? ( dup 'zmin ! ) zmax >? ( dup 'zmax ! ) drop
+		4 b+
+		) drop ;
+
+:objmove | x y z --
+	verl >b
+	nver ( 1? )( 1-
+		b@ pick4 + b!+
+		b@ pick3 + b!+
+		b@ pick2 + b!+
+		4 b+
+		) 4drop ;
+
+:objcentra
+	xmax xmin + 2/ neg
+	ymax ymin + 2/ neg
+	zmax zmin + 2/ neg
+	objmove
+	;
+
+:objescala | por div --
+	verl >b
+	nver ( 1? )( 1-
+		b@ pick3 pick3 */ b!+
+		b@ pick3 pick3 */ b!+
+		b@ pick3 pick3 */ b!+
+		4 b+
+		) 4drop ;
 
 
 :loadobj | "" -- mem
@@ -153,7 +202,7 @@
 	;
 
 |-----------------------------------
-#xcam 0 #ycam 0 #zcam -5.0
+#xcam 0 #ycam 0 #zcam -50.0
 #xr #yr
 
 :freelook
@@ -170,6 +219,7 @@
 :main
 |	"media/obj/PoliceCar/PoliceCar.obj"
 	"media/obj/dragon.obj"
+	"media/obj/mario/mario.obj"
 |	"media/obj/monkey.obj"
 |	"media/obj/diablo3_pose/diablo3_pose.obj"
 	loadobj 'model !
@@ -192,6 +242,7 @@
 
 		[ 0.1 'zcam +! ; ] <up>
 		[ -0.1 'zcam +! ; ] <dn>
+		[ objminmax objcentra ; ] <f1>
 		'exit >esc<
 		cminiflecha ;
 
