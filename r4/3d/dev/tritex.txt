@@ -3,20 +3,22 @@
 |--------------------------
 ^r4/lib/gui.txt
 ^r4/lib/loadpng.txt
+^r4/lib/loadtga.txt
 ^r4/lib/trace.txt
 
 | x y z uv
 #vertex
-100 50 40 $00000000
-200 100 120 $ffff0000
-60 160 100 $0000ffff
+189 183 40 $01000100
+200 100 120 $ff000100
+60 160 100 $010ff00
 
+#xx 8
 #texture 0
 
 #minx #maxx #miny #maxy
 #va0 #va1 #va2
 #vb0 #vb1 #vb2
-#bc0 #bc1 #bc2
+#bc0 #bc1
 #inv_p0z #inv_p1z #inv_p2z
 #inv_p0u #inv_p1u #inv_p2u
 #inv_p0v #inv_p1v #inv_p2v
@@ -30,11 +32,22 @@
 	pick2 pick2 - 'vb2 !
 	va1 vb2 * va2 vb1 * - 'bc0 !
 	va2 vb0 * va0 vb2 * - 'bc1 !
-	1.0 bc0 bc1 + oiz * - 'o0 !
+
 	bc1 oiz * 'o1 !
 	bc0 oiz * 'o2 !
-	o0 o1 or o2 or -? ( drop 4 a+ ; ) drop
-	inv_p0z o0 *. inv_p1z o1 *. + inv_p2z o2 *. +
+|   1.0 bc0 bc1 + oiz * - 'o0 !
+	1.0 o1 o2 + - 'o0 !
+
+	o0 -? ( drop $ff a!+ ; ) |4 a+ ; )
+	o1 -? ( 2drop $ff00 a!+ ; ) |4 a+ ; )
+	o2 -? ( 3drop $ff0000 a!+ ; ) |4 a+ ; )
+	inv_p2z *. swap
+	inv_p1z *. + swap
+	inv_p0z *. +
+
+|	o0 o1 or o2 or -? ( drop 4 a+ ; ) drop
+|	inv_p0z o0 *. inv_p1z o1 *. + inv_p2z o2 *. +
+
 	'inv_Pz !
 
 |      // Buffer offset on the screen and z-buffer
@@ -50,14 +63,15 @@
 
 	inv_p0v o0 *. inv_p1v o1 *. + inv_p2v o2 *. +
 	inv_Pz /. 'v !
+
 |        u = ( (inv_Pu / inv_Pz) * texmaxu );
 |        v = ( (inv_Pv / inv_Pz) * texmaxv );
 
     |---- incorrect
 |        u = (u0 * o0 + u1 * o1 + u2 * o2) * texmaxu;
 |        v = (v0 * o0 + v1 * o1 + v2 * o2) * texmaxv;
-	v 16 >> $ff and 8 <<
-	u 16 >> $ff and or
+	v 16 >> xx >> $1ff and 9 << | 512x512
+	u 16 >> xx >> $1ff and or
 
 	2 << 4+
 	texture + @
@@ -83,19 +97,19 @@
 	|clip&reject..
 
 	va0 vb1 * va1 vb0 * - 0? ( 2drop ; )
-	1.0 over / 'oiz !
-	'bc2 !
-	1.0 over 8 + @ 0? ( 1+ ) /
+	1.0 swap / 'oiz !
+
+	1.0 over 8 + @ /
 	over 12 + @ dup >r
 	16 0>> over * 'inv_p0u !
 	r> $ffff and over * 'inv_p0v !
 	'inv_p0z !
-	1.0 over 24 + @ 0? ( 1+ ) /
+	1.0 over 24 + @ /
 	over 28 + @ dup >r
 	16 0>> over * 'inv_p1u !
 	r> $ffff and over * 'inv_p1v !
 	'inv_p1z !
-	1.0 over 40 + @ 0? ( 1+ ) /
+	1.0 over 40 + @ /
 	over 44 + @ dup >r
 	16 0>> over * 'inv_p2u !
 	r> $ffff and over * 'inv_p2v !
@@ -113,21 +127,22 @@
 :main
 	33
 	mark
-	"media/obj/Mario/Mario_body.png" loadpng 'texture !
+	"media/obj/dragon.tga" loadtga 'texture !
 	show clrscr
 		dup "%d" print cr
 
-|		xymouse swap 'vertex !+ !
+		'vertex @+ "%d " print
+		@+ "%d " print
+		@ "%d " print
 
+		xymouse swap 'vertex !+ !
 		'vertex tritex
 
 		blanco
-		'vertex >b
-		b@+ b@+ 2dup op
-		8 b+
-		b@+ b@+ line
-		8 b+
-		b@+ b@ line line
+|		'vertex >b b@+ b@+ 2dup op 8 b+ b@+ b@+ line 8 b+ b@+ b@ line line
+
+		[ 1 'xx +! ; ] <up>
+		[ -1 'xx +! ; ] <dn>
 
 		'exit >esc<
 		cminiflecha
