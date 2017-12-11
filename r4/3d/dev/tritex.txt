@@ -1,90 +1,62 @@
 | PHREDA 2016
 | 2017 idea uno negativo
+| referencia con 12.20 punto fijo
 |--------------------------
 ^r4/lib/gui.txt
 ^r4/lib/loadpng.txt
 ^r4/lib/loadtga.txt
+^r4/lib/loadpng.txt
 ^r4/lib/trace.txt
 
-| x y z uv
-#vertex
-189 183 40 $01000100
-200 100 120 $ff000100
-60 160 100 $010ff00
+#:tritexture 0
+#:zbuffer 0
 
-#xx 8
-#texture 0
-
-#minx #maxx #miny #maxy
-#va0 #va1 #va2
-#vb0 #vb1 #vb2
-#bc0 #bc1
+#minx #maxx
+#miny #maxy
+#va0 #va1
+#vb0 #vb1
 #inv_p0z #inv_p1z #inv_p2z
 #inv_p0u #inv_p1u #inv_p2u
 #inv_p0v #inv_p1v #inv_p2v
-
-#inv_Pz #inv_Pu #inv_Pv
+#inv_Pz
 #oiz #o0 #o1 #o2
-#u #v
 
 :loop | xv0 yv0 y x -- xv0 yv0 y x
-	pick3 over - 'va2 !
-	pick2 pick2 - 'vb2 !
-	va1 vb2 * va2 vb1 * - 'bc0 !
-	va2 vb0 * va0 vb2 * - 'bc1 !
+	pick3 over -	| va2
+	pick3 pick3 -	| vb2
 
-	bc1 oiz * 'o1 !
-	bc0 oiz * 'o2 !
-|   1.0 bc0 bc1 + oiz * - 'o0 !
-	1.0 o1 o2 + - 'o0 !
+	va1 over * pick2 vb1 * -
+	oiz * -? ( 3drop 4 a+ ; )
+    'o2 !
+	swap vb0 * swap va0 * -
+	oiz * -? ( drop 4 a+ ; )
+	'o1 !
+	$1000000 o1 o2 + -
+	-? ( drop 4 a+ ; )
+	'o0 !
 
-	o0 -? ( drop $ff a!+ ; ) |4 a+ ; )
-	o1 -? ( 2drop $ff00 a!+ ; ) |4 a+ ; )
-	o2 -? ( 3drop $ff0000 a!+ ; ) |4 a+ ; )
-	inv_p2z *. swap
-	inv_p1z *. + swap
-	inv_p0z *. +
+	o2 inv_p2z 20 *>>
+	o1 inv_p1z 20 *>> +
+	o0 inv_p0z 20 *>> +
 
-|	o0 o1 or o2 or -? ( drop 4 a+ ; ) drop
-|	inv_p0z o0 *. inv_p1z o1 *. + inv_p2z o2 *. +
+	a> zbuffer + @ <? ( drop 4 a+ ; )
+	dup	a> zbuffer + !
 
 	'inv_Pz !
-
-|      // Buffer offset on the screen and z-buffer
-|      bo = y * buffer_width + x;
-
- |     // Z-buffer test rejection, updating
- |     if (heap_zbuffer_ptr[bo] > inv_Pz) continue;
-|      heap_zbuffer_ptr[bo] = inv_Pz;
-
 	|---- correct
-	inv_p0u o0 *. inv_p1u o1 *. + inv_p2u o2 *. +
-	inv_Pz /. 'u !
-
-	inv_p0v o0 *. inv_p1v o1 *. + inv_p2v o2 *. +
-	inv_Pz /. 'v !
-
-|        u = ( (inv_Pu / inv_Pz) * texmaxu );
-|        v = ( (inv_Pv / inv_Pz) * texmaxv );
-
-    |---- incorrect
-|        u = (u0 * o0 + u1 * o1 + u2 * o2) * texmaxu;
-|        v = (v0 * o0 + v1 * o1 + v2 * o2) * texmaxv;
-	v 16 >> xx >> $1ff and 9 << | 512x512
-	u 16 >> xx >> $1ff and or
-
+	inv_p0u o0 20 *>> inv_p1u o1 20 *>> + inv_p2u o2 20 *>> +
+	inv_Pz 20 <</
+	inv_p0v o0 20 *>> inv_p1v o1 20 *>> + inv_p2v o2 20 *>> +
+	inv_Pz 20 <</
+	| u v
+	20 >> $ff and 8 << | 256x256
+	swap 20 >> $ff and or
 	2 << 4+
-	texture + @
-|	drop $ff
+	tritexture + @
 	a!+
-
-|      to = ((int)v * texwid << BIT_SHIFT_PER_PIXEL) + ((int)u << BIT_SHIFT_PER_PIXEL);
-|      r = Math_min( 255, (int)(((float)texels[ to + 0 ]) * light) );
-|      g = Math_min( 255, (int)(((float)texels[ to + 1 ]) * light) );
-|     b = Math_min( 255, (int)(((float)texels[ to + 2 ]) * light) );
 	;
 
-:tritex | ad
+::tritex | vert --
 	dup @ over 16 + @ pick2 32 + @ | x0 x1 x2
 	dup pick3 - 'va0 ! over pick3 - 'va1 !
 	pick2 pick2 pick2
@@ -97,22 +69,22 @@
 	|clip&reject..
 
 	va0 vb1 * va1 vb0 * - 0? ( 2drop ; )
-	1.0 swap / 'oiz !
+	$1000000 swap / 'oiz !
 
-	1.0 over 8 + @ /
+	$1000000 over 8 + @ /
 	over 12 + @ dup >r
-	16 0>> over * 'inv_p0u !
-	r> $ffff and over * 'inv_p0v !
+	16 0>> 1+ over * 'inv_p0u !
+	r> $ffff and 1+ over * 'inv_p0v !
 	'inv_p0z !
-	1.0 over 24 + @ /
+	$1000000 over 24 + @ /
 	over 28 + @ dup >r
-	16 0>> over * 'inv_p1u !
-	r> $ffff and over * 'inv_p1v !
+	16 0>> 1+ over * 'inv_p1u !
+	r> $ffff and 1+ over * 'inv_p1v !
 	'inv_p1z !
-	1.0 over 40 + @ /
+	$1000000 over 40 + @ /
 	over 44 + @ dup >r
-	16 0>> over * 'inv_p2u !
-	r> $ffff and over * 'inv_p2v !
+	16 0>> 1+ over * 'inv_p2u !
+	r> $ffff and 1+ over * 'inv_p2v !
 	'inv_p2z !
 	@+ swap @	| vx0 vy0
 	minx miny setxy
@@ -124,25 +96,22 @@
 		1+ ) 3drop ;
 
 |-------------------------
+| x y z uv
+#vertex
+189 183 40 $00000000
+200 100 120 $ff0000
+60 160 100 $000000ff
+
 :main
 	33
 	mark
-	"media/obj/dragon.tga" loadtga 'texture !
+|	"media/obj/dragon.tga" loadtga 'texture !
+	"media/obj/mario/Mario_body.png" loadpng 'tritexture !
 	show clrscr
 		dup "%d" print cr
 
-		'vertex @+ "%d " print
-		@+ "%d " print
-		@ "%d " print
-
 		xymouse swap 'vertex !+ !
 		'vertex tritex
-
-		blanco
-|		'vertex >b b@+ b@+ 2dup op 8 b+ b@+ b@+ line 8 b+ b@+ b@ line line
-
-		[ 1 'xx +! ; ] <up>
-		[ -1 'xx +! ; ] <dn>
 
 		'exit >esc<
 		cminiflecha

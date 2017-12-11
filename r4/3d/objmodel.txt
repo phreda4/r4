@@ -1,53 +1,85 @@
 | Obj Model Loader
 | - faltan indices negativos
-| - faltan lineas en desorden
 | PHREDA 2017
 |-----------------------------------
 ^r4/lib/gui.txt
 ^r4/lib/parse.txt
+^r4/lib/loadimg.txt
+
 ^r4/lib/btn.txt
 ^r4/lib/trace.txt
 
-#iniobj | textparse
+#textobj | textparse
+#textmtl
+
 #verl	| vertices
+#verl>
 #nver
+
 #facel	| faces
+#facel>
 #nface
+
 #norml	| normal
+#norml>
 #nnorm
+
 #texl	| text
+#texl>
 #ntex
 
-#mtlfile )( 1024
+#paral	| parametros
+#paral>
+#npara
 
+#ncolor	| colores
+#colorl
+#colorl>
+
+|-----------------------------
+#:path )( 1024
+
+::getpath | str -- str
+	'path
+	over ( c@+ $ff and 32 >=? )( rot c!+ swap ) 2drop
+	1- ( dup c@ $2f <>? )( drop
+		1- 'path <=? ( 0 'path ! drop ; )
+		) drop
+	0 swap 1+ c! ;
+
+|-----------------------------
 :vert	| vertices (x,y,z[,w=1])
-	nver 0? ( here 'verl ! ) 1+ 'nver !
 	2 + trim
-	getfenro ,
-	getfenro ,
-	getfenro ,
-	dup c@ 32 <? ( drop 1.0 , ; ) drop
-	getfenro ,
+	verl> >b
+	getfenro b!+
+	getfenro b!+
+	getfenro b!+
+	dup c@ 32 <? ( drop 1.0 )( drop getfenro )
+	b!+ b> 'verl> !
 	;
 :texc	| textcoor (u, v [,w])
-	ntex 0? ( here 'texl ! ) 1+ 'ntex !
+	texl> >b
 	3 + trim
-	getfenro ,
-	getfenro ,
-	getfenro ,
+	getfenro b!+
+	getfenro b!+
+	getfenro b!+
+	b> 'texl> !
 	;
 :norm	| normales (x,y,z)
-	nnorm 0? ( here 'norml ! ) 1+ 'nnorm !
+	norml> >b
 	3 + trim
-	getfenro ,
-	getfenro ,
-	getfenro ,
+	getfenro b!+
+	getfenro b!+
+	getfenro b!+
+	b> 'norml> !
 	;
 :pspa	| param space ( u [,v] [,w] )
+	paral> >b
 	3 + trim
-	getfenro ,
-	getfenro ,
-	getfenro ,
+	getfenro b!+
+	getfenro b!+
+	getfenro b!+
+	b> 'paral> !
 	;
 
 #nv #nt #nn
@@ -61,17 +93,20 @@
 	;
 
 :face	| face nvert( v/t/n  v//n v/t  v)??
-	nface 0? ( here 'facel ! ) 1+ 'nface !
 	2 + trim
-	here >r
-	0 ,
-	( dup c@ $ff and 13 >? )( drop
-		uface
-		nv ,
-		nt 16 << nn or ,
-		1 r@ +!
-		) drop
-	r> drop
+	facel> >b
+	| solo tres
+	uface
+	nv b!+ nt 16 << nn or b!+
+	uface
+	nv b!+ nt 16 << nn or b!+
+   	uface
+	nv b!+ nt 16 << nn or b!+
+
+	| manejar aca si hay cuatro
+	dup c@ $ff and 13 >? ( trace ) drop
+
+	b> 'facel> !
 	;
 :smoo	| 1/off
 	2 + trim
@@ -83,14 +118,6 @@
 	2 + trim
 	;
 
-:addmtl | str --
-
-	;
-
-:mtli	| mtllib [external .mtl file name]
-	6 + trim
-	addmtl
-	;
 :usmt	| usemtl [material name]
 	6 + trim
 	;
@@ -104,21 +131,110 @@
 	"s " =pre 1? ( drop smoo ; ) drop	| 1/off
 	"o " =pre 1? ( drop onam ; ) drop	| o [object name]
 	"g " =pre 1? ( drop gman ; ) drop	| g [group name]
-	"mtllib" =pre 1? ( drop mtli ; ) drop	| mtllib [external .mtl file name]
+	"mtllib" =pre 1? ( drop ; ) drop	| mtllib [external .mtl file name]
 	"usemtl" =pre 1? ( drop usmt ; ) drop	| usemtl [material name]
 	;
 
 ::>>cr | adr -- adr'/0	; proxima linea/0
 	( c@+ $ff and 13 >? )( drop ) 0? ( nip ; ) drop ;
 
-:parseobj | adr --
+:parseobj | text --
+	( trim parseline >>cr 0? ) 2drop ;
+
+|0. Color on and Ambient off
+|1. Color on and Ambient on
+|2. Highlight on
+|3. Reflection on and Ray trace on
+|4. Transparency: Glass on, Reflection: Ray trace on
+|5. Reflection: Fresnel on and Ray trace on
+|6. Transparency: Refraction on, Reflection: Fresnel off and Ray trace on
+|7. Transparency: Refraction on, Reflection: Fresnel on and Ray trace on
+|8. Reflection on and Ray trace off
+|9. Transparency: Glass on, Reflection: Ray trace off
+|10. Casts shadows onto invisible surfaces
+:illum
+	;
+
+|--------------------
+:parselinem
+	"newmtl " =pre 1? ( drop ; ) drop
+	"Ns " =pre 1? ( drop ; ) drop
+	"Ka " =pre 1? ( drop ; ) drop
+	"Kd " =pre 1? ( drop ; ) drop
+	"Ks " =pre 1? ( drop ; ) drop
+	"Ke " =pre 1? ( drop ; ) drop
+	"Ni " =pre 1? ( drop ; ) drop
+	"d " =pre 1? ( drop ; ) drop
+	"Tr " =pre 1? ( drop ; ) drop | 1-d
+	"illum " =pre 1? ( drop illum ; ) drop
+	"map_Kd " =pre 1? ( drop ; ) drop
+	"map_Ka " =pre 1? ( drop ; ) drop
+	"map_Ks " =pre 1? ( drop ; ) drop
+	"map_Ns " =pre 1? ( drop ; ) drop
+	"map_d " =pre 1? ( drop ; ) drop
+	"map_bump " =pre 1? ( drop ; ) drop
+	"bump " =pre 1? ( drop ; ) drop
+	"disp " =pre 1? ( drop ; ) drop
+	"decal " =pre 1? ( drop ; ) drop
+	;
+
+:parsemtl | text --
+	( trim parselinem >>cr 0? ) 2drop ;
+
+|--------- contar elementos y cargar mtl
+:mtli	| mtllib [external .mtl file name]
+	6 + trim
+	dup 'path "%s%l" mprint
+	here dup 'textmtl !
+	swap load 0 swap !+ 'here !
+	;
+
+:parsecount
+	"v " =pre 1? ( drop 1 'nver +! ; ) drop	| vertices (x,y,z[,w=1])
+	"vt	" =pre 1? ( drop 1 'ntex +! ; ) drop	| textcoor (u, v [,w])
+	"vn " =pre 1? ( drop 1 'nnorm +! ; ) drop	| normales (x,y,z)
+	"vp " =pre 1? ( drop 1 'npara +! ; ) drop	| param space ( u [,v] [,w] )
+	"f " =pre 1? ( drop 1 'nface +! ; ) drop	| face nvert( v/t/n  v//n v/t  v)??
+	"s " =pre 1? ( drop ; ) drop	| 1/off
+	"o " =pre 1? ( drop ; ) drop	| o [object name]
+	"g " =pre 1? ( drop ; ) drop	| g [group name]
+	"mtllib" =pre 1? ( drop mtli ; ) drop	| mtllib [external .mtl file name]
+	"usemtl" =pre 1? ( drop 1 'ncolor +! ; ) drop	| usemtl [material name]
+	;
+
+:preparse | adr --
+	( trim parsecount >>cr 0? ) 2drop ;
+
+:loadobj | "" -- mem
+	getpath
+	here dup 'textobj !
+	swap load over =? ( 2drop 0 ; ) 0 swap !+
+	'here !
 	0 'nver !
 	0 'nface !
 	0 'nnorm !
 	0 'ntex !
-	( trim parseline >>cr 0? ) 2drop ;
+	0 'npara !
+	0 'textmtl !
+	textobj preparse
+	here
+	dup dup 'verl ! 'verl> !
+	nver 4 << +
+	dup dup 'texl ! 'texl> !
+	ntex 12 * +
+    dup dup 'norml ! 'norml> !
+	nnorm 12 * +
+	dup dup 'facel ! 'facel> !
+	nface 24 * +
+    dup dup 'paral ! 'paral> !
+	npara 12 * +
+	'here !
+	textobj parseobj
+    textmtl 1? ( parsemtl )( drop )
+	here
+	;
 
-
+|------------------------------------------
 #xmin #ymin #zmin #xmax #ymax #zmax
 
 :objminmax | --
@@ -159,18 +275,21 @@
 		4 b+
 		) 4drop ;
 
-
-:loadobj | "" -- mem
-	here dup 'iniobj !
-	swap load over =? ( 2drop 0 ; ) 0 swap !+
-	dup 'here ! 'verl !
-	iniobj parseobj
-
-	here
-	;
-
 |-------------
 #v2d
+
+:drawtri | x y x y x y --
+	2dup op
+	2swap line
+	2swap line
+	line ;
+
+:drawtrif | x y x y x y --
+	2dup op
+	2swap pline
+	2swap pline
+	pline
+	poli ;
 
 :objtest
 	mark
@@ -181,17 +300,10 @@
 		xy>d , ) drop
 	facel >b
 	nface ( 1? )( 1-
-		b@+ 1-
-
-		b@+ 1- 2 << v2d + @ dup d>xy op
-		4 b+
-		swap ( 1? )( 1-
-			b@+ 1- 2 << v2d + @ d>xy line
-			4 b+
-			) drop
-		d>xy line
-
-|		b> 4 - @ ink poli
+		b@+ 4 b+ 1- 2 << v2d + @ d>xy
+		b@+ 4 b+ 1- 2 << v2d + @ d>xy
+		b@+ 4 b+ 1- 2 << v2d + @ d>xy
+		drawtri
 		) drop
 	empty
 	;
@@ -218,8 +330,9 @@
 
 :main
 |	"media/obj/PoliceCar/PoliceCar.obj"
-	"media/obj/dragon.obj"
+|	"media/obj/dragon.obj"
 	"media/obj/mario/mario.obj"
+|	"media/obj/boggie/body.obj"
 |	"media/obj/monkey.obj"
 |	"media/obj/diablo3_pose/diablo3_pose.obj"
 	loadobj 'model !
@@ -240,8 +353,8 @@
 |        model objwireframe
 		objtest
 
-		[ 0.1 'zcam +! ; ] <up>
-		[ -0.1 'zcam +! ; ] <dn>
+		[ 1.0 'zcam +! ; ] <up>
+		[ -1.0 'zcam +! ; ] <dn>
 		[ objminmax objcentra ; ] <f1>
 		'exit >esc<
 		cminiflecha ;
