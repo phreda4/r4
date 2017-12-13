@@ -1,6 +1,6 @@
 | PHREDA 2016
 | 2017 idea uno negativo
-| referencia con 12.20 punto fijo
+| referencia con 10.22 punto fijo
 |--------------------------
 ^r4/lib/gui.txt
 ^r4/lib/loadpng.txt
@@ -31,28 +31,32 @@
 	swap vb0 * swap va0 * -
 	oiz * -? ( drop 4 a+ ; )
 	'o1 !
-	$1000000 o1 o2 + -
+	$4000000 o1 o2 + -
 	-? ( drop 4 a+ ; )
 	'o0 !
 
-	o2 inv_p2z 20 *>>
-	o1 inv_p1z 20 *>> +
-	o0 inv_p0z 20 *>> +
-
+	o2 inv_p2z 22 *>>
+	o1 inv_p1z 22 *>> +
+	o0 inv_p0z 22 *>> +
 	a> trizbuffer + @ <? ( drop 4 a+ ; )
 	dup	a> trizbuffer + !
 
 	'inv_Pz !
 	|---- correct
-	inv_p0u o0 20 *>> inv_p1u o1 20 *>> + inv_p2u o2 20 *>> +
-	inv_Pz 20 <</
-	inv_p0v o0 20 *>> inv_p1v o1 20 *>> + inv_p2v o2 20 *>> +
-	inv_Pz 20 <</
+	inv_p0u o0 22 *>>
+	inv_p1u o1 22 *>> +
+	inv_p2u o2 22 *>> +
+	inv_Pz / $3ff and
+	inv_p0v o0 22 *>>
+	inv_p1v o1 22 *>> +
+	inv_p2v o2 22 *>> +
+	inv_Pz / $3ff and
+
 	| u v
-	20 >> $fff and 8 << | 256x256
-	swap 20 >> $fff and or
-	2 << 4+
-	tritexture + @
+|	8 << | 256x256
+	tritexture @ $ffff and *
+	or
+	1+ 2 << tritexture + @
 	a!+
 	;
 
@@ -60,31 +64,39 @@
 	dup @ over 16 + @ pick2 32 + @ | x0 x1 x2
 	dup pick3 - 'va0 ! over pick3 - 'va1 !
 	pick2 pick2 pick2
-	min min 'minx ! max max 'maxx !
+	min min
+	sw >=? ( 4drop drop ; )
+	clamp0 'minx !
+	max max
+	-? ( 2drop ; )
+	sw clampMax 'maxx !
 	dup 4+ @ over 20 + @ pick2 36 + @ | y0 y1 y2
 	dup pick3 - 'vb0 ! over pick3 - 'vb1 !
 	pick2 pick2 pick2
-	min min 'miny ! max max 'maxy !
-
-	|clip&reject..
+	min min
+	sh >=? ( 4drop drop ; )
+	clamp0 'miny !
+	max max
+	-? ( 2drop ; )
+	sh clampMax 'maxy !
 
 	va0 vb1 * va1 vb0 * - 0? ( 2drop ; )
-	$1000000 swap / 'oiz !
+	$4000000 swap / 'oiz !
 
-	$1000000 over 8 + @ /
+	$4000000 over 8 + @ /
 	over 12 + @ dup >r
-	16 0>> 1+ over * 'inv_p0u !
-	r> $ffff and 1+ over * 'inv_p0v !
+	16 0>> over * 'inv_p0u !
+	r> $ffff and over * 'inv_p0v !
 	'inv_p0z !
-	$1000000 over 24 + @ /
+	$4000000 over 24 + @ /
 	over 28 + @ dup >r
-	16 0>> 1+ over * 'inv_p1u !
-	r> $ffff and 1+ over * 'inv_p1v !
+	16 0>> over * 'inv_p1u !
+	r> $ffff and over * 'inv_p1v !
 	'inv_p1z !
-	$1000000 over 40 + @ /
+	$4000000 over 40 + @ /
 	over 44 + @ dup >r
-	16 0>> 1+ over * 'inv_p2u !
-	r> $ffff and 1+ over * 'inv_p2v !
+	16 0>> over * 'inv_p2u !
+	r> $ffff and over * 'inv_p2v !
 	'inv_p2z !
 	@+ swap @	| vx0 vy0
 	minx miny setxy
@@ -98,19 +110,20 @@
 |-------------------------
 | x y z uv
 #vertex
-189 183 40 $00000000
-200 100 120 $ff0000
-60 160 100 $000000ff
+189 183 40 $ff00ff
+200 100 10020 $00ff
+60 160 1030 $0000
 
 :main
 	33
 	mark
 |	"media/obj/dragon.tga" loadtga 'texture !
-	"media/obj/mario/Mario_body.png" loadpng 'tritexture !
+	"media/obj/cube.png" loadpng 'tritexture !
 	show clrscr
 		dup "%d" print cr
 
 		xymouse swap 'vertex !+ !
+
 		'vertex tritex
 
 		'exit >esc<
