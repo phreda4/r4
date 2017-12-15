@@ -50,24 +50,6 @@ start:
 
 	invoke AdjustWindowRect,rec,DWSTYLE,0
 
-	;hWnd=CreateWindowEx( dwExStyle,wc.lpszClassName, wc.lpszClassName,dwStyle,
-    ; (GetSystemMetrics(SM_CXSCREEN)-rec.right+rec.left)>>1,(GetSystemMetrics(SM_CYSCREEN)-rec.bottom+rec.top)>>1,
-    ; rec.right-rec.left, rec.bottom-rec.top,0,0,wc.hInstance,0);
-
-;mov ebx,[XRES]
-;sub ebx,[rec.right]
-;add ebx,[rec.left]
-;shr ebx,1
-;mov ecx,[YRES]
-;sub ecx,[rec.bottom]
-;add ebx,[rec.top]
-;shr ecx,1
-;mov edx,[rec.right]
-;sub edx,[rec.left]
-;mov eax,[rec.bottom]
-;sub eax,[rec.top]
-;	invoke	CreateWindowEx,DWEXSTYLE,_title,_title,DWSTYLE,ebx,ecx,edx,eax,0,0,[hinstance],0
-
 	invoke	CreateWindowEx,DWEXSTYLE,_title,_title,DWSTYLE,0,0,[rec.right],[rec.bottom],0,0,[hinstance],0
 
 	mov	[hwnd],eax
@@ -92,7 +74,7 @@ start:
 
 ;---------- INICIO
 restart:
-	mov esi,Dpila
+	mov ebp,Dpila
 	xor eax,eax
 	call inicio
 	jmp SYSEND
@@ -172,7 +154,7 @@ endp
 
 ; OS inteface
 ; stack............
-; [esi+4] [esi] eax       ( [esi+4] [esi] eax --
+; [ebp+4] [ebp] eax       ( [ebp+4] [ebp] eax --
 ;===============================================
 align 16
 SYSUPDATE: ; ( -- )
@@ -205,7 +187,8 @@ SYSEND: ; ( -- )
 ;===============================================
 align 16
 SYSRUN: ; ( "nombre" -- )
-	lodsd
+	mov eax,[ebp]
+	lea ebp,[ebp+4]
 	ret
 
 ;===============================================
@@ -218,44 +201,33 @@ SYSREDRAW: ; ( -- )
 	ret
 
 ;===============================================
-align 16
-SYSCLS: 	; ( -- )
-	push eax edi ecx
-	mov eax,[SYSPAPER]
-	lea edi,[SYSFRAME]
-	mov ecx,[SCREENS]
-	rep stosd
-	pop ecx edi eax
-	ret
-
-;===============================================
 SYSMSEC: ;  ( -- msec )
-	lea esi,[esi-4]
-	mov [esi], eax
+	lea ebp,[ebp-4]
+	mov [ebp], eax
 	invoke GetTickCount
 	ret
 
 ;===============================================
 SYSTIME: ;  ( -- s m h )
-	lea esi,[esi-12]
-	mov [esi+8],eax
+	lea ebp,[ebp-12]
+	mov [ebp+8],eax
 	invoke GetLocalTime,SysTime
 	movzx eax,word [SysTime.wSecond]
-	mov [esi+4],eax
+	mov [ebp+4],eax
 	movzx eax,word [SysTime.wMinute]
-	mov [esi],eax
+	mov [ebp],eax
 	movzx eax,word [SysTime.wHour]
 	ret
 
 ;===============================================
 SYSDATE: ;  ( -- y m d )
-	lea esi,[esi-12]
-	mov [esi+8],eax
+	lea ebp,[ebp-12]
+	mov [ebp+8],eax
 	invoke GetLocalTime,SysTime
 	movzx eax,word [SysTime.wYear]
-	mov [esi+4],eax
+	mov [ebp+4],eax
 	movzx eax,word [SysTime.wMonth]
-	mov [esi],eax
+	mov [ebp],eax
 	movzx eax,word [SysTime.wDay]
 	ret
 
@@ -287,8 +259,8 @@ SYSFFIRST: ; ( "path" -- fdd )
 
 ;===============================================
 SYSFNEXT: ; ( -- fdd/0)
-	lea esi,[esi-4]
-	mov [esi], eax
+	lea ebp,[ebp-4]
+	mov [ebp], eax
 	push ebx ecx edx edi esi
 	invoke FindNextFile,[hfind],fdd
 	or eax,eax
@@ -303,31 +275,11 @@ SYSFNEXT: ; ( -- fdd/0)
 	ret
 
 ;===============================================
-SYSTOXFB:
-	push eax edi esi ecx
-	lea esi,[SYSFRAME]
-	lea edi,[XFB]
-	mov ecx,[SCREENS]
-	rep movsd
-	pop ecx esi edi eax
-	ret
-
-;===============================================
-SYSXFBTO:
-	push eax edi esi ecx
-	lea esi,[XFB]
-	lea edi,[SYSFRAME]
-	mov ecx,[SCREENS]
-	rep movsd
-	pop ecx esi edi eax
-	ret
-
-;===============================================
 SYSLOAD: ; ( 'from "filename" -- 'to )
 	invoke CreateFile,eax,GENERIC_READ,FILE_SHARE_READ,0,OPEN_EXISTING,FILE_FLAG_SEQUENTIAL_SCAN,0
 	mov [hdir],eax
 	or eax,eax
-	mov eax,[esi]
+	mov eax,[ebp]
 	jz .end
 	mov [afile],eax
 .again:
@@ -339,7 +291,7 @@ SYSLOAD: ; ( 'from "filename" -- 'to )
 	invoke CloseHandle,[hdir]
 	mov eax,[afile]
 .end:
-	lea esi,[esi+4]
+	lea ebp,[ebp+4]
 	ret
 
 ;===============================================
@@ -348,8 +300,8 @@ SYSSAVE: ; ( 'from cnt "filename" -- )
 	mov [hdir],eax
 	or eax,eax
 	jz .end
-	mov edx,[esi+4]
-	mov ecx,[esi]
+	mov edx,[ebp+4]
+	mov ecx,[ebp]
     invoke WriteFile,[hdir],edx,ecx,cntr,0
     cmp [cntr],ecx
     je	.end
@@ -357,8 +309,9 @@ SYSSAVE: ; ( 'from cnt "filename" -- )
     jz	.end
     invoke CloseHandle,[hdir]
 .end:
-	lea esi,[esi+8]
-	lodsd
+	lea ebp,[ebp+8]
+	mov eax,[ebp]
+	lea ebp,[ebp+4]
 	ret
 
 ;===============================================
@@ -368,8 +321,8 @@ SYSAPPEND: ; ( 'from cnt "filename" -- )
 	mov [hdir],eax
 	or eax,eax
 	jz .end
-	mov edx,[esi+4]
-	mov ecx,[esi]
+	mov edx,[ebp+4]
+	mov ecx,[ebp]
     invoke WriteFile,[hdir],edx,ecx,cntr,0
     cmp [cntr],ecx
     je	.end
@@ -377,8 +330,9 @@ SYSAPPEND: ; ( 'from cnt "filename" -- )
     jz	.end
     invoke CloseHandle,[hdir]
 .end:
-	lea esi,[esi+8]
-	lodsd
+	lea ebp,[ebp+8]
+	mov eax,[ebp]
+	lea ebp,[ebp+4]
 	ret
 
 ;===============================================
@@ -404,10 +358,7 @@ SYSYSTEM:
 	jz .end
 	invoke WaitForSingleObject,[ProcessInfo.hProcess],0
 	cmp eax,WAIT_TIMEOUT
-	je .ze
-	mov eax,-1
-	ret
-.ze:
+	jne .termp
 	xor eax,eax
 	ret
 .non:
@@ -416,8 +367,8 @@ SYSYSTEM:
 	push ecx
 	xor eax,eax
 	mov edi,StartupInfo
-	mov ecx,17*4
-	rep stosb
+	mov ecx,17
+	rep stosd
 ;	invoke ZeroMemory,StartupInfo,StartupInfo.size
 	mov eax,17*4
 	mov [StartupInfo.cb],eax

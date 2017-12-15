@@ -21,37 +21,6 @@ YRES equ 600
 ;XRES equ 1280
 ;YRES equ 800
 
-;               "if XRES=640" ,ln
-;       "mov ebx,eax" ,ln
-;       "shl eax,7" ,ln
-;       "shl ebx,9" ,ln
-;       "add eax,[esi]" ,ln
-;       "lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
-;               "else if XRES=800" ,ln
-;       "mov ebx,eax" ,ln
-;       "shl eax,5" ,ln
-;       "shl ebx,8" ,ln
-;       "add eax,ebx" ,ln
-;       "shl ebx,1" ,ln
-;       "add eax,[esi]" ,ln
-;       "lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
-;               "else if XRES=1024" ,ln
-;       "shl eax,10" ,ln
-;       "add eax,[esi]" ,ln
-;       "lea ebp,[SYSFRAME+eax*4]" ,ln
-;               "else if XRES=1280" ,ln
-;;      "mov ebx,eax" ,ln
-;       "shl eax,8" ,ln
-;       "shl ebx,10" ,ln
-;       "add eax,[esi]" ,ln
-;;      "lea ebp,[SYSFRAME+ebx+eax*4]" ,ln
-;               "else" ,ln
-;       "cdq" ,ln
-;       "imul dword [SYSW]" ,ln
-;       "add eax,[esi]" ,ln
-;       "lea ebp,[SYSFRAME+eax*4]" ,ln
-;               "end if" ,ln
-
 include 'include\win32a.inc'
 
 section '.code' code readable executable
@@ -86,15 +55,6 @@ start:
 	mov [rec.left],eax
 	mov [rec.top],eax
 
-	;hWnd=CreateWindowEx( dwExStyle,wc.lpszClassName, wc.lpszClassName,dwStyle,
-    ; (GetSystemMetrics(SM_CXSCREEN)-rec.right+rec.left)>>1,(GetSystemMetrics(SM_CYSCREEN)-rec.bottom+rec.top)>>1,
-    ; rec.right-rec.left, rec.bottom-rec.top,0,0,wc.hInstance,0);
-
-;       invoke GetSystemMetrics,SM_CXSCREEN
-;       mov [WSCR],eax
-;       invoke GetSystemMetrics,SM_CYSCREEN
-;       mov [HSCR],eax
-
 	invoke	CreateWindowEx,DWEXSTYLE,_title,_title,DWSTYLE,0,0,[rec.right],[rec.bottom],0,0,[hinstance],0
 	mov	[hwnd],eax
 	invoke GetDC,[hwnd]
@@ -115,12 +75,12 @@ start:
 
 ;---------- INICIO
 restart:
-	mov esi,Dpila
+	mov ebp,Dpila
 	xor eax,eax
 	call inicio
 	jmp SYSEND
 ;----- CODE -----
-include 'cod.asm'
+include 'code.asm'
 ;----- CODE -----
 
 ;--------------------------------------
@@ -169,25 +129,15 @@ proc WindowProc hwnd,wmsg,wparam,lparam
   wmkeyup:
 	mov eax,[lparam]
 	shr eax,16
-	test eax,$100
-	jz @f
-	and eax,$7f
-	mov al,[mapex+eax]
-  @@:
-	and eax,$7f
-	or eax,$80
+	and eax,$ff
+	or eax,$100
 	mov [SYSKEY],eax
 	xor eax,eax
 	ret
   wmkeydown:			; cmp [wparam],VK_ESCAPE ; je wmdestroy
 	mov eax,[lparam]
 	shr eax,16
-	test eax,$100
-	jz @f
-	and eax,$7f
-	mov al,[mapex+eax]
-  @@:
-	and eax,$7f
+	and eax,$ff
 	mov [SYSKEY],eax
 	xor eax,eax
 	ret
@@ -195,11 +145,11 @@ endp
 
 ; OS inteface
 ; stack............
-; [esi+4] [esi] eax       ( [esi+4] [esi] eax --
+; [ebp+4] [ebp] eax       ( [ebp+4] [ebp] eax --
 ;===============================================
 align 16
 SYSUPDATE: ; ( -- )
-	push eax ebx edx ; falta guardar ecx!! y esi,edi!!
+	pusha
 	invoke Sleep,eax
 	xor eax,eax
 	mov [SYSKEY],eax
@@ -212,10 +162,10 @@ SYSUPDATE: ; ( -- )
 ;       invoke  TranslateMessage,msg
 	invoke	DispatchMessage,msg
 .end:
-	pop edx ebx eax
+	popa
 	ret
 .endstop:
-	pop edx ebx eax
+	popa
 ;===============================================
 align 16
 SYSEND: ; ( -- )
@@ -228,7 +178,8 @@ SYSEND: ; ( -- )
 ;===============================================
 align 16
 SYSRUN: ; ( "nombre" -- )
-	lodsd
+	lea ebp,[ebp+4]
+	mov eax,[ebp]
 	ret
 
 ;===============================================
@@ -241,44 +192,33 @@ SYSREDRAW: ; ( -- )
 	ret
 
 ;===============================================
-align 16
-SYSCLS: 	; ( -- )
-	push eax edi ecx
-	mov eax,[SYSPAPER]
-	lea edi,[SYSFRAME]
-	mov ecx,XRES*YRES
-	rep stosd
-	pop ecx edi eax
-	ret
-
-;===============================================
 SYSMSEC: ;  ( -- msec )
-	lea esi,[esi-4]
-	mov [esi], eax
+	lea ebp,[ebp-4]
+	mov [ebp], eax
 	invoke GetTickCount
 	ret
 
 ;===============================================
 SYSTIME: ;  ( -- s m h )
-	lea esi,[esi-12]
-	mov [esi+8],eax
+	lea ebp,[ebp-12]
+	mov [ebp+8],eax
 	invoke GetLocalTime,SysTime
 	movzx eax,word [SysTime.wSecond]
-	mov [esi+4],eax
+	mov [ebp+4],eax
 	movzx eax,word [SysTime.wMinute]
-	mov [esi],eax
+	mov [ebp],eax
 	movzx eax,word [SysTime.wHour]
 	ret
 
 ;===============================================
 SYSDATE: ;  ( -- y m d )
-	lea esi,[esi-12]
-	mov [esi+8],eax
+	lea ebp,[ebp-12]
+	mov [ebp+8],eax
 	invoke GetLocalTime,SysTime
 	movzx eax,word [SysTime.wYear]
-	mov [esi+4],eax
+	mov [ebp+4],eax
 	movzx eax,word [SysTime.wMonth]
-	mov [esi],eax
+	mov [ebp],eax
 	movzx eax,word [SysTime.wDay]
 	ret
 
@@ -310,8 +250,8 @@ SYSFFIRST: ; ( "path" -- fdd )
 
 ;===============================================
 SYSFNEXT: ; ( -- fdd/0)
-	lea esi,[esi-4]
-	mov [esi], eax
+	lea ebp,[ebp-4]
+	mov [ebp], eax
 	push ebx ecx edx edi esi
 	invoke FindNextFile,[hfind],fdd
 	or eax,eax
@@ -326,31 +266,11 @@ SYSFNEXT: ; ( -- fdd/0)
 	ret
 
 ;===============================================
-SYSTOXFB:
-	push eax edi esi ecx
-	lea esi,[SYSFRAME]
-	lea edi,[XFB]
-	mov ecx,XRES*YRES
-	rep movsd
-	pop ecx esi edi eax
-	ret
-
-;===============================================
-SYSXFBTO:
-	push eax edi esi ecx
-	lea esi,[XFB]
-	lea edi,[SYSFRAME]
-	mov ecx,XRES*YRES
-	rep movsd
-	pop ecx esi edi eax
-	ret
-
-;===============================================
 SYSLOAD: ; ( 'from "filename" -- 'to )
 	invoke CreateFile,eax,GENERIC_READ,FILE_SHARE_READ,0,OPEN_EXISTING,FILE_FLAG_SEQUENTIAL_SCAN,0
 	mov [hdir],eax
 	or eax,eax
-	mov eax,[esi]
+	mov eax,[ebp]
 	jz .end
 	mov [afile],eax
 .again:
@@ -362,7 +282,7 @@ SYSLOAD: ; ( 'from "filename" -- 'to )
 	invoke CloseHandle,[hdir]
 	mov eax,[afile]
 .end:
-	lea esi,[esi+4]
+	lea ebp,[ebp+4]
 	ret
 
 ;===============================================
@@ -371,8 +291,8 @@ SYSSAVE: ; ( 'from cnt "filename" -- )
 	mov [hdir],eax
 	or eax,eax
 	jz .end
-	mov edx,[esi+4]
-	mov ecx,[esi]
+	mov edx,[ebp+4]
+	mov ecx,[ebp]
     invoke WriteFile,[hdir],edx,ecx,cntr,0
     cmp [cntr],ecx
     je	.end
@@ -380,8 +300,8 @@ SYSSAVE: ; ( 'from cnt "filename" -- )
     jz	.end
     invoke CloseHandle,[hdir]
 .end:
-	lea esi,[esi+8]
-	lodsd
+	lea ebp,[ebp+12]
+	mov eax,[ebp-4]
 	ret
 
 ;===============================================
@@ -391,8 +311,8 @@ SYSAPPEND: ; ( 'from cnt "filename" -- )
 	mov [hdir],eax
 	or eax,eax
 	jz .end
-	mov edx,[esi+4]
-	mov ecx,[esi]
+	mov edx,[ebp+4]
+	mov ecx,[ebp]
     invoke WriteFile,[hdir],edx,ecx,cntr,0
     cmp [cntr],ecx
     je	.end
@@ -400,8 +320,8 @@ SYSAPPEND: ; ( 'from cnt "filename" -- )
     jz	.end
     invoke CloseHandle,[hdir]
 .end:
-	lea esi,[esi+8]
-	lodsd
+	lea ebp,[ebp+8]
+	mov eax,[ebp-4]
 	ret
 
 ;===============================================
@@ -427,10 +347,7 @@ SYSYSTEM:
 	jz .end
 	invoke WaitForSingleObject,[ProcessInfo.hProcess],0
 	cmp eax,WAIT_TIMEOUT
-	je .ze
-	mov eax,-1
-	ret
-.ze:
+	jne .termp
 	xor eax,eax
 	ret
 .non:
@@ -439,8 +356,8 @@ SYSYSTEM:
 	push ecx
 	xor eax,eax
 	mov edi,StartupInfo
-	mov ecx,17*4
-	rep stosb
+	mov ecx,17
+	rep stosd
 ;	invoke ZeroMemory,StartupInfo,StartupInfo.size
 	mov eax,17*4
 	mov [StartupInfo.cb],eax
@@ -507,14 +424,6 @@ include 'rsrc.rc'
 
 section '.data' data readable writeable
 
-	mapex	db    0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15
-			db	 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31
-			db	 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47
-			db	 48, 49, 50, 51, 52, 69, 70, 71, 56, 73, 74, 75, 76, 77, 78, 79
-			db	 80, 81, 82, 83, 84, 85, 86,103,104, 89, 90, 91, 92, 93, 94, 95
-			db	 96, 97, 98, 99, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95
-			db	 96, 97, 98, 99,100,101,102,103,104,105,106,107,108,109,110,111
-			db	112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127
 	_title	db ':r4',0
 	_dir	rb 1024
 
@@ -547,13 +456,12 @@ align 4
 ;       SYSH    dd YRES
 ;*** optimizable
 align 16
-	include 'dat.asm'
+	include 'data.asm'
 
 align 16
 	SYSFRAME	rd XRES*YRES
 	DATASTK 	rd 1023
 	Dpila		rd 0
-	XFB			rd XRES*YRES
 ;       FREE_MEM        rd 1024*1024*16 ; 16M(32bits) 64MB(8bits)
 
 

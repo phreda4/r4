@@ -88,19 +88,24 @@ start:
 	invoke ShowWindow,[hWnd],SW_NORMAL
 	invoke UpdateWindow,[hWnd]
 
+;	invoke VirtualAlloc,0,MAXMEM,MEM_COMMIT+MEM_RESERVE,PAGE_READWRITE ;
+	or rax,rax
+;	jz SYSEND
+	mov [FREE_MEM],rax
+
 ;---------- INICIO
 restart:
-	mov esi,Dpila
-	xor eax,eax
+	mov rbp,Dpila
+	xor rax,rax
 	call inicio
 	jmp SYSEND
 ;----- CODE -----
-include 'cod.asm'
+include 'code64.asm'
 ;----- CODE -----
 
 ; OS inteface
 ; stack............
-; [esi+4] [esi] eax       ( [esi+4] [esi] eax --
+; [rbp+8] [rbp] rax       ( [rbp+8] [rbp] rax --
 ;===============================================
 
 align 16
@@ -129,23 +134,10 @@ SYSEND: ; ( -- )
 	pop rdi rsi
 	ret
 
-
 ;===============================================
 align 16
 SYSREDRAW: ; ( -- )
-       invoke SetDIBitsToDevice,[hDC],0,0,XRES,YRES,0,0,0,YRES,SYSFRAME,bmi,0
-       ret
-
-;===============================================
-align 16
-SYSCLS: 	; ( -- )
-	mov rax,[SYSPAPER]
-	mov rcx,rax
-	shl rcx,32
-	or rax,rcx
-	lea rdi,[SYSFRAME]
-	mov rcx,(XRES*YRES)/2
-	rep stosq
+	invoke SetDIBitsToDevice,[hDC],0,0,XRES,YRES,0,0,0,YRES,SYSFRAME,bmi,0
 	ret
 
 ;===============================================
@@ -170,12 +162,12 @@ SYSTIME: ;  ( -- s m h )
 ;===============================================
 SYSDATE: ;  ( -- y m d )
 	lea rsi,[rsi-24]
-	mov [esi+16],rax
+	mov [rbp+16],rax
 	invoke GetLocalTime,SysTime
 	movzx rax,[SysTime.wYear]
-	mov [esi+8],rax
+	mov [rbp+8],rax
 	movzx rax,[SysTime.wMonth]
-	mov [esi],rax
+	mov [rbp],rax
 	movzx rax, [SysTime.wDay]
 	ret
 
@@ -293,7 +285,7 @@ align 16
 	msg	MSG
 
 	hWnd	dq ?
-	hDC	dq ?
+	hDC		dq ?
 
 	rec	RECT
 	bmi	BITMAPINFOHEADER
@@ -302,17 +294,17 @@ align 16
 	CLASSNAME TCHAR 'FASM64',0
 
 align 16
-	include 'dat.asm'
+	include 'data64.asm'
 
 align 16
-	hdir		dq 0
-	afile		dq 0
-	cntr		dq 0
+	hdir		dq ?
+	afile		dq ?
+	cntr		dq ?
 
-	SYSXYM	dq 0
-	SYSBM	dq 0
-	SYSPAPER dq 0
-	SYSKEY	dq 0
+	SYSXYM		dq ?
+	SYSBM		dq ?
+	SYSKEY		dq ?
+	FREE_MEM	dq ?
 
 align 16
 	Dpila	rq 1024 ; Pila Auxiliar

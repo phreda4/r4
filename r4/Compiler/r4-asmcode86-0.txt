@@ -1,0 +1,593 @@
+| R4i86.txt - PHREDA 2009,2017
+| Generacion de codigo para i86-FASM
+| Version conversion directa
+|
+| .. [esp] - pila R
+| .. [ebp] eax - pila D
+|
+|--------------------------------------------
+
+^r4/lib/gui.txt
+^r4/lib/parse.txt
+|^r4/lib/trace.txt
+
+|----- nro de str y label
+#nstr | nro de string
+#nlabel | nro de etiqueta
+
+::ini.compila
+	0 'nstr ! 0 'nlabel ! ;
+
+|----- pila de compilador
+#pilac )( 256	#pilac> 'pilac
+
+:>pilac pilac> ! 4 'pilac> +! ;
+:<pilac -4 'pilac> +! pilac> @ ;
+:-pilac 'pilac 'pilac> ! ;
+
+|--- asm plano
+:label	"_" ,s ,h 	;
+:jmp,	"jmp " ,s label ,cr ;
+
+:,DUP
+	"lea ebp,[ebp-4]" ,ln
+	"mov [ebp],eax" ,ln ;
+:,DROP
+	"mov eax,[ebp]" ,ln
+	"lea ebp,[ebp+4]" ,ln ;
+:,NIP
+	"lea ebp,[ebp+4]" ,ln ;
+:,2DROP
+	"mov eax,[ebp+4]" ,ln
+	"lea ebp,[ebp+8]" ,ln ;
+:,3DROP
+	"mov eax,[ebp+8]" ,ln
+	"lea ebp,[ebp+12]" ,ln ;
+:,4DROP
+	"mov eax,[ebp+12]" ,ln
+	"lea ebp,[ebp+16]" ,ln ;
+
+:,OVER
+	,DUP "mov eax,[ebp+4]" ,ln ;
+:,PICK2
+	,DUP "mov eax,[ebp+4*2]" ,ln ;
+:,PICK3
+	,DUP "mov eax,[ebp+4*3]" ,ln ;
+:,PICK4
+	,DUP "mov eax,[ebp+4*4]" ,ln ;
+:,SWAP
+	"xchg eax,[ebp]" ,ln ;
+:,ROT
+	"mov edx,[ebp]" ,ln
+	"mov [ebp],eax" ,ln
+	"mov eax,[ebp+4]" ,ln
+	"mov [ebp+4],edx" ,ln ;
+:,2DUP
+	"mov edx,[ebp]" ,ln
+	"mov [ebp-4],eax" ,ln
+	"mov [ebp-8],edx" ,ln
+	"lea ebp,[ebp-8]" ,ln ;
+:,2OVER
+	"mov [ebp-4],eax" ,ln
+	"lea ebp,[ebp-8]" ,ln
+	"pushd [ebp+16]" ,ln
+	"popd [ebp]" ,ln
+	"mov eax,[ebp+12]" ,ln ;
+:,2SWAP
+	"pushd [ebp+4]" ,ln
+	"mov [ebp+4],eax" ,ln
+	"pushd [ebp+8]" ,ln
+	"mov eax,[ebp]" ,ln
+	"mov [ebp+8],eax" ,ln
+	"popd [ebp]" ,ln
+	"pop eax" ,ln ;
+
+:,EXEC
+	"mov ecx,eax" ,ln
+	,DROP
+	"call ecx" ,ln ;
+
+:,>R
+	"push eax" ,ln ,DROP ;
+:,R>
+	,DUP "pop eax" ,ln ;
+:,R@
+	,DUP "mov eax,[esp]" ,ln ;
+
+:,AND
+	"and eax,[ebp]" ,ln ,NIP ;
+:,OR
+	"or eax,[ebp]" ,ln ,NIP ;
+:,XOR
+	"xor eax,[ebp]" ,ln ,NIP ;
+:,NOT
+	"not eax" ,ln ;
+
+:,+
+	"add eax,[ebp]" ,ln
+	,NIP ;
+:,-
+	"neg eax" ,ln
+	"add eax,[ebp]" ,ln
+	,NIP ;
+:,*
+	"imul eax,dword [ebp]" ,ln
+	,NIP ;
+:,/
+	"mov ecx,eax" ,ln
+	,DROP
+	"cdq" ,ln
+	"idiv ecx" ,ln ;
+:,*/
+	"mov ecx,eax" ,ln
+	,DROP
+	"cdq" ,ln
+	"imul dword [ebp]" ,ln
+	"idiv ecx" ,ln
+	,NIP ;
+:,*>>
+	"mov ecx,eax" ,ln
+	,DROP
+	"cdq" ,ln
+	"imul dword [ebp]" ,ln
+	"shrd eax,edx,cl" ,ln
+|	"shr edx,cl" ,ln | no usa dx!
+	,NIP ;
+:,<</
+	"mov ecx,eax" ,ln
+	"mov ebx,[ebp]" ,ln
+	,2DROP
+	"cdq" ,ln
+    "shld edx,eax,cl" ,ln
+	"shl eax,cl" ,ln
+	"idiv ebx" ,ln ;
+:,/MOD
+	"mov ecx,eax" ,ln
+	"mov eax,[ebp]" ,ln
+	"cdq" ,ln
+	"idiv ecx" ,ln
+	"mov [ebp],eax" ,ln
+	"mov eax,edx" ,ln ;
+:,MOD
+	"mov ecx,eax" ,ln
+	,DROP
+	"cdq" ,ln
+	"idiv ecx" ,ln
+	"mov eax,edx" ,ln ;
+:,<<
+	"mov ecx,eax" ,ln ,DROP
+	"sal eax,cl" ,ln ;
+:,>>
+	"mov ecx,eax" ,ln ,DROP
+	"sar eax,cl" ,ln ;
+:,0>>
+	"mov ecx,eax" ,ln ,DROP
+	"shr eax,cl" ,ln ;
+:,ABS
+	"cdq" ,ln
+	"add eax,edx" ,ln
+	"xor eax,edx" ,ln ;
+:,CLZ
+	"bsr eax,eax" ,ln
+	"xor eax,31" ,ln ;
+:,NEG
+	"neg eax" ,ln ;
+:,1+
+	"inc eax" ,ln ;
+:,4+
+	"add eax,4" ,ln ;
+:,1-
+	"dec eax" ,ln ;
+:,2/
+	"sar eax,1" ,ln ;
+:,2*
+	"sal eax,1" ,ln ; | "add eax,eax" ,ln
+
+:,@
+	"mov eax,dword [eax]" ,ln ;
+:,C@
+	"movsx eax,byte [eax]" ,ln ;
+:,W@
+	"movsx eax,word [eax]" ,ln ;
+:,!
+	"mov ecx,[ebp]" ,ln
+	"mov [eax],ecx" ,ln
+	,2DROP ;
+:,C!
+	"mov ecx,[ebp]" ,ln
+	"mov byte [eax],cl" ,ln
+	,2DROP ;
+:,W!
+	"mov ecx,[ebp]" ,ln
+	"mov word [eax],cx" ,ln
+	,2DROP ;
+:,+!
+	"mov ecx,[ebp]" ,ln
+	"add [eax],ecx" ,ln
+	,2DROP ;
+:,W+!
+	"mov ecx,[ebp]" ,ln
+	"add word [eax],cx" ,ln
+	,2DROP ;
+:,C+!
+	"mov ecx,[ebp]" ,ln
+	"add byte [eax],cl" ,ln
+	,2DROP ;
+:,!+
+	"mov ecx,[ebp]" ,ln
+	"mov [eax],ecx" ,ln
+	"add eax,4" ,ln
+	,NIP ;
+:,W!+
+	"movsx ecx,word [ebp]" ,ln
+	"mov [eax],cx" ,ln
+	"add eax,2" ,ln
+	,NIP ;
+:,C!+
+	"movsx ecx,byte [ebp]" ,ln
+	"mov [eax],cl" ,ln
+	"inc eax" ,ln
+	,NIP ;
+:,@+
+	"mov ecx,[eax]" ,ln
+	"add eax,4" ,ln
+	"mov [ebp-4],eax" ,ln
+	"mov eax,ecx" ,ln
+	"lea ebp,[ebp-4]" ,ln ;
+:,W@+
+	"movsx ecx,word [eax]" ,ln
+	"add eax,2" ,ln
+	"mov [ebp-4],eax" ,ln
+	"mov eax,ecx" ,ln
+	"lea ebp,[ebp-4]" ,ln ;
+:,C@+
+	"movsx ecx,byte [eax]" ,ln
+	"inc eax" ,ln
+	"mov [ebp-4],eax" ,ln
+	"mov eax,ecx" ,ln
+	"lea ebp,[ebp-4]" ,ln ;
+
+:,>A
+	"mov esi,eax" ,ln
+	,DROP ;
+:,A>
+	,DUP
+	"mov eax,esi" ,ln ;
+:,A@
+	,DUP
+	"mov eax,dword [esi]" ,ln ;
+:,A!
+	"mov dword [esi],eax" ,ln
+	,DROP ;
+:,A+
+	"add esi,eax" ,ln
+	,DROP ;
+:,A@+
+	,DUP
+	"mov eax,dword [esi]" ,ln
+	"add esi,4" ,ln ;
+:,A!+
+	"mov dword [esi],eax" ,ln
+	"add esi,4" ,ln
+	,DROP ;
+:,>B
+	"mov edi,eax" ,ln
+	,DROP ;
+:,B>
+	,DUP
+	"mov eax,edi" ,ln ;
+:,B@
+	,DUP
+	"mov eax,dword [edi]" ,ln ;
+:,B!
+	"mov dword [edi],eax" ,ln
+	,DROP ;
+:,B+
+	"add edi,eax" ,ln
+	,DROP ;
+:,B@+
+	,DUP
+	"mov eax,dword [edi]" ,ln
+	"add edi,4" ,ln ;
+:,B!+
+	"mov dword [edi],eax" ,ln
+	"add edi,4" ,ln
+	,DROP ;
+
+:,MOVE
+	"push edi esi" ,ln
+	"cld" ,ln
+	"mov ecx,eax" ,ln
+	"mov esi,dword[ebp]" ,ln
+	"mov edi,dword[ebp+4]" ,ln
+	"rep movsd" ,ln
+	"pop si edi" ,ln
+	,3DROP ;
+:,MOVE>
+	"push edi esi" ,ln
+	"std" ,ln
+	"mov ecx,eax" ,ln
+	"mov esi,dword[ebp]" ,ln
+	"mov edi,dword[ebp+4]" ,ln
+	"lea esi,[esi+ecx-1]" ,ln
+	"lea edi,[edi+ecx-1]" ,ln
+	"rep movsd" ,ln
+	"pop si edi" ,ln
+	,3DROP ;
+:,FILL
+	"push edi" ,ln
+	"cld" ,ln
+	"mov ecx,eax" ,ln
+	"mov edi,dword[ebp]" ,ln
+	"mov eax,dword[ebp+4]" ,ln
+	"rep stosd" ,ln
+	"pop edi" ,ln
+	,3DROP ;
+
+:,CMOVE
+	"push edi esi" ,ln
+	"cld" ,ln
+	"mov ecx,eax" ,ln
+	"mov esi,dword[ebp]" ,ln
+	"mov edi,dword[ebp+4]" ,ln
+	"rep movsb" ,ln
+	"pop si edi" ,ln
+	,3DROP ;
+:,CMOVE>
+	"push edi esi" ,ln
+	"std" ,ln
+	"mov ecx,eax" ,ln
+	"mov esi,dword[ebp]" ,ln
+	"mov edi,dword[ebp+4]" ,ln
+	"lea esi,[esi+ecx-1]" ,ln
+	"lea edi,[edi+ecx-1]" ,ln
+	"rep movsb" ,ln
+	"pop si edi" ,ln
+	,3DROP ;
+:,CFILL
+	"push edi" ,ln
+	"cld" ,ln
+	"mov ecx,eax" ,ln
+	"mov edi,dword[ebp]" ,ln
+	"mov eax,dword[ebp+4]" ,ln
+	"rep stosb" ,ln
+	"pop edi" ,ln
+	,3DROP ;
+
+:,0?
+	"or eax,eax" ,ln
+	"jnz " ,s ;
+:,+?
+	"or eax,eax" ,ln
+	"js " ,s ;
+:,-?
+	"or eax,eax" ,ln
+	"jns " ,s ;
+:,1?
+	"or eax,eax" ,ln
+	"jz " ,s ;
+
+:,=?
+	"mov ecx,eax" ,ln ,DROP
+	"cmp eax,ecx" ,ln
+	"jnz " ,s ;
+:,<?
+	"mov ecx,eax" ,ln ,DROP
+	"cmp eax,ecx" ,ln
+	"jge " ,s ;
+:,>?
+	"mov ecx,eax" ,ln ,DROP
+	"cmp eax,ecx" ,ln
+	"jle " ,s ;
+:,<=?
+	"mov ecx,eax" ,ln ,DROP
+	"cmp eax,ecx" ,ln
+	"jg " ,s ;
+:,>=?
+	"mov ecx,eax" ,ln ,DROP
+	"cmp eax,ecx" ,ln
+	"jl " ,s ;
+:,<>?
+	"mov ecx,eax" ,ln ,DROP
+	"cmp eax,ecx" ,ln
+	"jz " ,s ;
+:,and?
+	"mov ecx,eax" ,ln ,DROP
+	"test eax,ecx" ,ln
+	"jz " ,s ;
+:,nand?
+	"mov ecx,eax" ,ln ,DROP
+	"test eax,ecx" ,ln
+	"jnz " ,s ;
+
+|--------- Sistema
+:,END		"jmp SYSEND" ,ln ;
+
+:,FFIRST	"call SYSFFIRST" ,ln ;
+:,FNEXT  	"call SYSFNEXT" ,ln ;
+
+:,LOAD		"call SYSLOAD" ,ln ;
+:,SAVE		"call SYSSAVE" ,ln ;
+:,APPEND	"call SYSAPPEND" ,ln ;
+
+:,UPDATE	"call SYSUPDATE" ,ln ;
+:,REDRAW	"call SYSREDRAW" ,ln ;
+
+:,MSEC		"call SYSMSEC" ,ln ;
+:,TIME		"call SYSTIME" ,ln ;
+:,DATE		"call SYSDATE" ,ln ;
+:,RUN		"call SYSRUN" ,ln ;
+:,SYSTEM	"call SYSYSTEM" ,ln ;
+
+:,SW		,DUP "mov eax,XRES" ,ln ;
+:,SH		,DUP "mov eax,YRES" ,ln ;
+:,MEM		,DUP "mov eax,[FREE_MEM]" ,ln ;
+:,FRAMEV	,DUP "mov eax,SYSFRAME" ,ln ;
+
+:,XYMOUSE | -- x y
+	,DUP
+	"lea ebp,[ebp-4]" ,ln
+	"mov eax,[SYSXYM]" ,ln
+	"mov ecx,eax" ,ln
+	"and ecx,$ffff" ,ln
+	"shr eax,16" ,ln
+	"mov [ebp],ecx" ,ln ;
+:,BMOUSE | -- c
+	,DUP "mov eax,[SYSBM]" ,ln ;
+
+:,KEY! | v --
+	"mov [SYSKEY],eax" ,ln ,DROP ;
+:,KEY	| -- c
+	,DUP "mov eax,[SYSKEY]" ,ln ;
+
+|---- no implementadas
+:,CNTJOY
+	,DUP "xor eax,eax" ,ln ;
+:,GETJOY ;
+:,SLOAD ;
+:,SPLAY  ,DROP ;
+:,SINFO ;
+:,SSET  ,nip ,nip ,nip ,DROP ;
+
+|----------- en asmbase.txt
+:,SQRT
+:,INK :,INK@ :,ALPHA
+:,OP :,LINE :,CURVE :,CURVE3 :,PLINE :,PCURVE :,PCURVE3 :,POLI
+:,FCOL :,FCEN :,FMAT :,SFILL :,LFILL :,RFILL :,TFILL
+:,OPENURL
+:,DOCINI :,DOCEND :,DOCAT :,DOCLINE :,DOCTEXT :,DOCFONT :,DOCBIT :,DOCRES :,DOCSIZE
+	;
+
+|------------ compila CODIGO
+|:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
+:nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
+
+:+etiqueta	| -- nueva   // y agrega a pila
+	nlabel 1+ dup 'nlabel ! dup >pilac ;
+
+:cpycad | adr --
+	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop ; ) ) ,c ) 2drop ;
+
+:salto? | adr++ xx xx -- adr++ xx xx 0/1
+	pick2 8 - @ $ff and
+	23 >=? ( 34 <=? ( 1 nip ; ) ) 0 nip ;
+
+:,defw
+    over 4 - @ 8 >> "w%h:" ,print ,cr ;
+
+:,defv ;
+
+:,lit	dup tok>cte ,DUP "mov eax," ,s ,d ,cr ;
+:,lits	,DUP "mov eax,str" ,s nstr ,h ,cr 1 'nstr +! ;
+:,wor	dup nro>dicn "call " ,s ,s ,cr ;
+:,var   dup nro>dicn ,DUP "mov eax,dword [" ,s ,s "]" ,s ,cr ;
+:,dwo   dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+:,dva   dup nro>dicn ,DUP "mov eax," ,s ,s ,cr ;
+
+:,;
+	"ret" ,ln ;
+:,(
+	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
+:,)(
+	<pilac salto? 0? ( drop
+			1 =? ( <pilac +etiqueta jmp, label ":" ,ln 1 >pilac drop ; )
+			)( drop
+			2 =? ( <pilac +etiqueta label ,cr >pilac 3 >pilac drop ; ) )
+	drop ;
+:,)
+	<pilac salto? 0? ( drop
+			1 =? ( <pilac label ":" ,ln drop ; )
+			2 =? ( <pilac jmp, drop ; )
+			3 =? ( <pilac jmp, <pilac label ":" ,ln drop ; )
+		)( drop
+			2 =? ( <pilac label ,cr drop ; ) )
+	drop ;
+:,[
+	,DUP +etiqueta +etiqueta "mov eax," ,s label ,cr jmp, <pilac label ":" ,ln ;
+:,]
+	<pilac label ":" ,ln ;
+
+:,0 ;
+
+|---- nivel 0 - sin desordenar la pila
+#nivel0 ,0
+,defw ,defw ,defv ,defv 0 0
+,lit ,lit ,lit ,lit ,lits
+,wor ,var ,dwo ,dva
+,; ,( ,)( ,) ,[ ,] ,EXEC
+,0? ,+? ,-? ,1? ,=? ,<? ,>? ,<=? ,>=? ,<>? ,AND? ,NAND? | 23-34
+,DUP ,DROP ,OVER ,PICK2 ,PICK3 ,PICK4 ,SWAP ,NIP	|--- pila
+,ROT ,2DUP ,2DROP ,3DROP ,4DROP ,2OVER ,2SWAP
+,>R ,R> ,R@ 					|--- pila direcciones
+,AND ,OR ,XOR ,NOT  								|--- logicas
+,+ ,- ,* ,/ ,*/ ,*>> ,/MOD ,MOD ,ABS  			|--- aritmeticas | 65
+,SQRT ,CLZ ,<</ ,NEG ,1+ ,4+ ,1- ,2/ ,2* ,<< ,>> ,0>>
+,@ ,C@ ,W@ ,! ,C! ,W! ,+! ,C+! ,W+!  			|--- memoria
+,@+ ,!+ ,C@+ ,C!+ ,W@+ ,W!+
+,>A	,A> ,A@ ,A! ,A+ ,A@+ ,A!+
+,>B	,B> ,B@ ,B! ,B+ ,B@+ ,B!+
+,MOVE ,MOVE> ,FILL ,CMOVE ,CMOVE> ,CFILL
+,MEM
+,FFIRST ,FNEXT
+,LOAD ,SAVE ,APPEND			|--- memoria bloques
+,UPDATE
+,XYMOUSE ,BMOUSE
+,KEY! ,KEY
+,CNTJOY ,GETJOY
+,MSEC ,TIME ,DATE ,END ,RUN 				|--- sistema
+,SW ,SH ,REDRAW ,FRAMEV  						|--- pantalla
+,INK ,INK@ ,ALPHA							|--- color
+,OP ,LINE ,CURVE ,CURVE3 ,PLINE ,PCURVE ,PCURVE3 ,POLI		|--- dibujo
+,FCOL ,FCEN ,FMAT ,SFILL ,LFILL ,RFILL ,TFILL
+,SLOAD ,SPLAY ,SINFO ,SSET					|--- Sonido
+,OPENURL
+,DOCINI ,DOCEND ,DOCAT ,DOCLINE ,DOCTEXT ,DOCFONT ,DOCBIT ,DOCRES ,DOCSIZE  |-- impresora
+,SYSTEM
+
+
+| compila nivel 0 de palabras
+::,token0 | a -- a.
+	dup
+	$ff and 2 << 'nivel0 + @
+	exec drop ;
+
+:,code | w --
+	dup dic>tok @ swap dic>len@
+	( 1? )( 1- swap @+
+		"; " ,s dup tokenstr ,print ,cr
+|		9 ,c nroi ,stackm ,cr
+		,token0 swap
+|		"r4/compiler/code.asm" savemem | DEBUG
+		) 2drop ;
+
+:compilacode | w --
+	dup 1- dic>inf @ 1 nand? ( $80 and? ( 2drop ; ) ) drop
+	"; " ,s
+	dup dic>str @ "%w" ,print
+	" (" ,s
+	dup dic>mov @ ,printmovword
+	") " ,s
+	dup dic>inf @ ,printinfowor
+	" len:" ,s dup dic>len@ ,d
+	" calls:" ,s dup dic>call@ ,d
+	,cr
+	cntwords 1- =? ( "inicio:" ,ln )
+|	dup cellana
+|	cell2reg
+|	"; ** vreg:" ,s cntvreg 1- ,d ,cr
+|	cellinfo
+|	blockinfo
+|	tokeninfo
+
+	,code
+
+|	"r4/compiler/code.asm" savemem | DEBUG
+	;
+
+::iniCODE ;
+
+::,generateCODE
+	0 ( cntwords <? )(
+		dup dic>inf @
+		1 nand? ( over compilacode )	| codigo
+		drop 1+ ) drop ;

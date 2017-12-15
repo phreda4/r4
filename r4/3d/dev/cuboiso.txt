@@ -1,0 +1,152 @@
+| cubo iso
+| PHREDA 2017
+
+^r4/lib/gui.txt
+
+#xcam 0 #ycam 0 #zcam 50.0
+
+#ymin #nymin
+#xmin #nxmin
+#zmin #nzmin
+
+#ymax #nymax
+#xmax #nxmax
+#zmax
+
+#ozmin
+#ozmax
+
+#mask
+
+#x0 #y0 #z0
+#x1 #y1 #z1
+#x2 #y2 #z2
+#x4 #y4 #z4
+
+#x7 #y7 #z7	| centro del cubo
+
+
+#octvert )( 128
+#octvert> 'octvert
+#verc )( 128
+
+:fillstart | --
+	'octvert >b
+	0.5 0.5 0.5 transform
+	dup 'x0 ! b!+ dup 'y0 ! b!+ dup 'z0 ! b!+ | 111
+	0.5 0.5 -0.5 transform
+	dup 'x1 ! b!+ dup 'y1 ! b!+ dup 'z1 ! b!+ | 110
+	0.5 -0.5 0.5 transform
+	dup 'x2 ! b!+ dup 'y2 ! b!+ dup 'z2 ! b!+ | 101
+	0.5 -0.5 -0.5 transform
+	b!+ b!+ b!+ | 100
+	-0.5 0.5 0.5 transform
+	dup 'x4 ! b!+ dup 'y4 ! b!+ dup 'z4 ! b!+ | 011
+	-0.5 0.5 -0.5 transform
+	b!+ b!+ b!+ | 010
+	-0.5 -0.5 0.5 transform
+	b!+ b!+ b!+ | 001
+	-0.5 -0.5 -0.5 transform
+	dup x0 + 2/ 'x7 ! b!+ dup y0 + 2/ 'y7 ! b!+ dup z0 + 2/ 'z7 ! b!+ | 000
+	b> 'octvert> ! ;
+
+:getnn
+	3 << 'verc + @+ swap @ ;
+
+:cara1
+	dup getnn op
+	dup 2 xor getnn line
+	dup 3 xor getnn line
+	dup 1 xor getnn line
+	;
+
+:cara2
+	dup getnn op
+	dup 4 xor getnn line
+	dup 6 xor getnn line
+	dup 2 xor getnn line
+	;
+
+:cara3
+	dup getnn op
+	dup 1 xor getnn line
+	dup 5 xor getnn line
+	dup 4 xor getnn line
+	;
+
+:drawq3
+	'verc >b
+	'octvert >a
+	8 ( 1? )(
+		a@+ a@+ a@+ p3d swap b!+ b!+
+		1- ) drop
+	cara1
+	cara2
+	cara3 drop ;
+
+|----- modo 1
+:forma1
+	x0 x1 - x7 *
+	y0 y1 - y7 * +
+	z0 z1 - z7 * +
+	+? ( 1 )( 0 ) >a drop
+	x0 x2 - x7 *
+	y0 y2 - y7 * +
+	z0 z2 - z7 * +
+	+? ( 2 a+ ) drop
+	x0 x4 - x7 *
+	y0 y4 - y7 * +
+	z0 z4 - z7 * +
+	+? ( 4 a+ ) drop
+	a> 'mask !
+	;
+
+:3dop 3dproject op ;
+:3dline 3dproject line ;
+
+:drawcube
+	verde
+	z0 y0 x0 "x0 %f %f %f " print cr
+	z7 y7 x7 "x7 %f %f %f " print cr
+	mask "%d " print cr
+
+	cyan 0 getn 1 box
+	blanco mask getn 5 box
+	verde mask getn 3 box
+	rojo mask getn 7 box
+	;
+
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx mroty ;
+
+:main
+	33
+	mark
+	show clrscr blanco
+		dup "%d" print cr
+
+		omode
+		freelook
+		xcam ycam zcam mtrans
+
+		fillstart
+		forma1
+
+        drawcube
+		verde
+	   	mask drawq3
+
+		[ -0.01 'zcam +! ; ] <up>
+		[ 0.01 'zcam +! ; ] <dn>
+		[ -0.01 'xcam +! ; ] <le>
+		[ 0.01 'xcam +! ; ] <ri>
+		[ -0.01 'ycam +! ; ] <pgup>
+		[ 0.01 'ycam +! ; ] <pgdn>
+
+		'exit >esc< cminiflecha ;
+
+: main ;
