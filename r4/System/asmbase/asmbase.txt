@@ -69,8 +69,8 @@
 
 |---------- GRAFICOS ------------
 :setxy | x y -- >a
-|	10 << + 2 << framev + >a ;
-	sw * + 2 << framev + >a ;
+	10 << + 2 << framev + >a ;
+|	sw * + 2 << framev + >a ;
 
 |----- mexcla de colores
 :acpx!+ | alpha col --
@@ -113,8 +113,8 @@
 	<? ( swap rot )		| x1 y x2
 	-? ( 3drop ; ) sw clampmax
 	rot sw >=? ( 3drop ; ) clamp0	| y x2 x1
-	swap over - swap rot setxy
-	1+ ( 1? )( 1- col a!+ ) drop ;
+	swap over - swap rot 
+	setxy 1+ ( 1? )( 1- col a!+ ) drop ;
 
 |------- clipline
 :clip1 | y1 x1 y2 x2 c1 -- y1 x1 y2 x2 c1
@@ -149,12 +149,12 @@
 	2swap 0 ;
 
 :clipline | x2 y2 x1 y1 -- y1 x1 y2 x2 in
-	sh 1- >=? ( $8 )( -? ( $4 )( 0 ) ) >a	| y1
-	swap sw >=? ( $2 a+ )( -? ( $1 a+ ) )	| x1
+	sh 1- >=? ( $8 )( -? ( $4 )( 0 ) ) >r			| y1
+	swap sw >=? ( $2 )( -? ( $1 )( 0 ) ) r> + >r	| x1
 	2swap | y1 x1 x2 y2
-	sh 1- >=? ( $8 )( -? ( $4 )( 0 ) ) >b  | y2
-	swap sw >=? ( $2 b+ )( -? ( $1 b+ ) )	| x2
-	b> a>	| y1 x1 y2 x2 c2 c1
+	sh 1- >=? ( $8 )( -? ( $4 )( 0 ) ) >r  			| y2
+	swap sw >=? ( $2 )( -? ( $1 )( 0 ) ) 			| x2
+	r> + r> 						| y1 x1 y2 x2 c2 c1
 	2dup and 1? ( drop or ; ) drop
 	2dup or 0? ( drop or ; ) drop
 	>r 12 and? ( clip2 ) r> swap >r 12 and? ( clip1 ) r>
@@ -181,13 +181,12 @@
 	pick2 <? ( 2swap )
 	-? ( 4drop ; ) 				| y1 x1 x2 y2 ; termina en y neg..
 	2swap sh 1- >=? ( 4drop ; )	| x2 y2 x1 y1 ; termina en y>h
-	clipline 1? ( 4drop drop ; ) drop	| y1 x1 y2 x2
+	clipline 1? ( nip 4drop ; ) drop	| y1 x1 y2 x2
 	pick2 - swap pick3 -		| y1 x1 dx dy
 	0? ( 4drop ; )
 	2swap					| dx dy y1 x1
-	swap setxy col a! 	| dx dy
-	swap -? ( neg -1 )( 1 )		| dy dx sx
-	rot rot					| sx dy dx
+	swap setxy col a! 		| dx dy
+	swap sign rot rot abs	| sx dy dx
 	over <? ( nline21 ; )
 	swap 16 << over / 		| sx dx ea
 	0 rot 					| sx ea ec dx
@@ -241,7 +240,7 @@
 | PINTADO DE POLIGONOS
 |-------------------------------------------------
 | pos(12) | len(11) | cover(9) |
-:getpos 20 >> $fff and ;
+:getpos 20 0>> ;
 :getlen 9 >> $7ff and ;
 :getval $1ff and ;
 :setpos 20 << ;
@@ -331,7 +330,7 @@
 	'runlenscan
 	( @+ 1? )(
 		dup getlen swap getval
-		QFULL =? ( drop Texfill )( 1? ( Texalpha )( drop dup a+ dup ma * 'mex +! mb * 'mey +! ) )
+		QFULL =? ( drop Texfill )( 1? ( Texalpha )( drop dup 2 << a+ dup ma * 'mex +! mb * 'mey +! ) )
 		) 2drop
 	-4 a+ ;
 
@@ -402,93 +401,92 @@
 	r> swap !+ 'segs> !
 	;
 
+|------------------------------------
 :clearscan
 	0 sw 1+ setlen 'runlenscan !+ ! ;
 
-:searchscan | valor adr -- valor adr'
-	( @+ 1? )(
-		getpos pick2 >? ( drop 8 - ; )
+:searchscan | valor -- valor
+	( b@+ 1? )(
+		getpos over >? ( drop -8 b+ ; )
 		drop ) drop
-	8 - ;
+	-8 b+ ;
 
-:inserta1 | adr --
-	>a a@+
-	( a@ 1? )( swap a!+ )
-	swap a!+ a! ;
+:inserta1 | --
+	b> >r
+	b@+
+	( b@ 1? )( swap b!+ )
+	swap b!+ b!
+	r> >b ;
 
-:inserta2 | adr --
-	>a a@+ dup | j k
-	( a@ 1? )(	rot a!+ )
-	rot a!+ swap a!+ a! ;
+:inserta2 | --
+	b> >r
+	b@+ dup | j k
+	( b@ 1? )( rot b!+ )
+	rot b!+ swap b!+ b!
+	r> >b ;
 
-:add.1 | val pos rl -- rl
-	dup >b
-	@ dup getlen	| val pos v len
-	1 =? ( drop nip + b!+ b> ; )
+:add.1 | val pos --
+	b@ dup getlen	| val pos v len
+	1 =? ( drop nip + b!+ ; )
 	drop swap over getpos | val v pos posv
-	=? ( b> inserta1
+	=? ( inserta1
 		drop swap 	| v val
 		over $fff001ff and + $200 or b!+
-		$100000 + $200 - b! b> ; )
+		$100000 + $200 - b! ; )
 	b> 4+ @ getpos 1- | val v pos posf
-	=? ( b> inserta1 | val v pos
+	=? ( inserta1 | val v pos
 		over $200 - b!+
-		setpos $200 or swap getval rot + or b!+ b> ; )
-	b> inserta2 | val v pos
+		setpos $200 or swap getval rot + or b!+ ; )
+	inserta2 | val v pos
 	over $fff001ff and over pick3 getpos - setlen or b!+
 	rot | v pos val
 	pick2 getval + $200 or over setpos or b!+
 	1+ | v pos+1
 	b@ dup getpos swap getlen +
 	over - setlen swap setpos or
-	swap getval or b! b> ;
+	swap getval or b! ;
 
-
-:add.len | pos len rl -- rl
-	>b
-	1 =? ( drop VALUES swap b> add.1 ; )
+:add.len | pos len --
+	1 =? ( drop VALUES swap add.1 ; )
 	b@ getlen
 	over >? (	| pos len lenv
-		b> inserta1
+		inserta1
 		pick2 setpos pick2 setlen or b@ getval VALUES + or b!+
 		over - setlen rot rot + setpos or b@ getval or
-		b! b> ; )
+		b! ; )
 	over <? ( 	| pos len lenv
 		b@ VALUES + b!+
 		rot over + rot rot -
-		b> add.len ; )
-	3drop b@ VALUES + b!+
-	b> ;
+		add.len ; )
+	3drop b@ VALUES + b!+ ;
 
-:coverpixels | xb xa adr -- adr
-	>b
-    over BPP >> -? ( 3drop b> ; )
-	over BPP >> sw >=? ( 4drop b> ; )
-	b> searchscan >b
+:coverpixels | xb xa --
+    over BPP >> -? ( 3drop ; )
+	over BPP >> sw >=? ( 4drop ; )
+	searchscan
 	| xb xa x1 x0
 	over =? ( nip rot MASK and rot MASK and -
-			1? ( swap b> add.1 ; )
-			2drop b> ; )
+			1? ( swap add.1 ; )
+			2drop ; )
 	| xb xa x1 x0
 	+? ( rot MASK and VALUES swap -
-			over b> add.1 >b
-			1+ sw >=? ( 3drop b> ; )
+			over add.1
+			1+ sw >=? ( 3drop ; )
 		)( drop nip 0 'runlenscan >b )
 	| xb x1 x0
 	swap sw >? ( sw pick2 - )( dup pick2 - ) | xb x0 x1 largo
-	0 >? ( rot swap b> add.len >b )( drop nip ) | xb x1
+	0 >? ( rot swap add.len )( drop nip ) | xb x1
 	sw <? ( swap MASK and
-			1? ( swap b> add.1 ; )
+			1? ( swap add.1 ; )
 			)
-	2drop b> ;
+	2drop ;
 
 :fillcover
-	'runlenscan >r
+	'runlenscan >b
 	'activos ( activos> 4 - <? )(
 		@+ 4+ @ FBASE >> swap @+ 4+ @ FBASE >> rot
-		r> coverpixels >r
-		) drop
-	 r> drop ;
+		coverpixels
+		) drop ;
 
 |-----------------------------
 :-activos	| --
@@ -544,6 +542,7 @@
 	sh BPP << >? ( sh BPP << 'ymax ! ) drop
 	-activos
 	heapseg 16 >> dup | newy ymin
+	b> >r
 	0 over BPP >> setxy
 	( ymax <? )(
         clearscan
@@ -558,6 +557,7 @@
 			r> ) drop
 		runlencover exec
 		) 2drop
+	r> >b
 	endpoli	;
 
 

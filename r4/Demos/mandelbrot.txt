@@ -1,47 +1,34 @@
-| simple mandelbrot viewer
-| PHREDA 2010
-|---------------------------------
-^r4/lib/btn.txt
+| Fractal como prueba de rendimiento
+| Programa original de Markus Hoffman (2007) para la maquina virtual X11-basic
+| Adaptacion de Galileo (2016)
 
-#xmax #ymax #xmin #ymin
+^r4/lib/gui.txt
 
-:calc | p q cx cy -- p q cx cy xn yn r
-	over dup *. over dup *. - pick4 + | xn
-	pick2 pick2 *. 2* pick4 +		| xn yn
-	over dup *. over dup *. +			| xn yn r
-	;
+#bx 0 | Ubicacion
+#by 0
+#bw 512 | Dimensiones de la ventana
+#bh 480
+#sx -1.5 | Desplazamiento de la imagen
+#sy -1.0
+#tw 2.0 | Escala
+#th 2.0
 
-:mandel | x y -- x y v
-	over xmax xmin - sw */ xmin +	| x y p
-	over ymax ymin - sh */ ymin +	| x y p q
-	0 0 0 | cx cy it
-	( 255 <? )( >r 	| x y p q cx cy
-		calc		| x y p q cx cy xn yn r
-		4.0 >? ( 4drop 3drop r> ; )
-		drop rot drop rot drop
-		r> 1+ )
-	nip nip nip nip
-	;
+:color | c --
+  dup dup 3 << $ff and rot 2 << $ff and rot 2* $ff and 8 << or 8 << or ink ;
 
-:scrman
-	0 ( sh <? )(
-		0 over setxy
-		0 ( sw <? )(
-			swap
-			mandel dup 8 << or dup 8 << or a!+
-			swap
-			1+ ) drop
-		1+ ) drop
-	;
+:calcula | x y gx gy -- zx zy c
+  2dup 0 ( 256 <? )( 1+ >r
+    over dup *. over dup *. - pick4 + | zx
+    rot 2* rot *. pick2 +            | zy
+    over dup *. over dup *. + 4.0 >? ( drop r> ; )
+  drop r> ) ;
 
-:main
-	2.0 'xmax ! 2.0 'ymax !
-	-3.0 'xmin ! -2.0 'ymin !
-	scrman
-	blanco scr home " Mandelbrot" print
-	show
-		'exit >esc<
-		;
+:mandel "Se esta dibujando un fractal. Paciencia ..." print redraw
+  0 0 ( bh <? )( dup
+    by - bh /. th *. sy + pick2 | gx
+    bx - bw /. tw *. sx + swap  | gy
+    calcula >r 4drop r>
+    color 2dup pix! swap 1+ bw =? ( drop 1+ 0 ) swap
+  ) 2drop ;
 
-: main ;
-
+: msec clrscr mandel msec swap - blanco "Se ha tardado %d ms" print show 'exit >esc< ;
