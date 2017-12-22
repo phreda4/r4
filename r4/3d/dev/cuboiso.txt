@@ -1,9 +1,15 @@
-| cubo iso
+| cubo isometrico
 | PHREDA 2017
-
 ^r4/lib/gui.txt
 
-#xcam 0 #ycam 0 #zcam 50.0
+|------------------------------
+#xcam 0 #ycam 0 #zcam 5.0
+
+#octvert )( 3072 	| 32 niveles de 3 valores*8 vert
+#octvert> 'octvert
+
+#rotsum )( 2048		| 32 niveles de 2 valores*8 vert
+#rotsum> 'rotsum
 
 #ymin #nymin
 #xmin #nxmin
@@ -13,9 +19,6 @@
 #xmax #nxmax
 #zmax
 
-#ozmin
-#ozmax
-
 #mask
 
 #x0 #y0 #z0
@@ -24,97 +27,102 @@
 #x4 #y4 #z4
 
 #x7 #y7 #z7	| centro del cubo
+#n1 #n2 #n3
 
-
-#octvert )( 128
-#octvert> 'octvert
-#verc )( 128
+|---------------
+:id3d3 | id --
+	transform swap rot ;
 
 :fillstart | --
 	'octvert >b
-	0.5 0.5 0.5 transform
-	dup 'x0 ! b!+ dup 'y0 ! b!+ dup 'z0 ! b!+ | 111
-	0.5 0.5 -0.5 transform
-	dup 'x1 ! b!+ dup 'y1 ! b!+ dup 'z1 ! b!+ | 110
-	0.5 -0.5 0.5 transform
-	dup 'x2 ! b!+ dup 'y2 ! b!+ dup 'z2 ! b!+ | 101
-	0.5 -0.5 -0.5 transform
-	b!+ b!+ b!+ | 100
-	-0.5 0.5 0.5 transform
-	dup 'x4 ! b!+ dup 'y4 ! b!+ dup 'z4 ! b!+ | 011
-	-0.5 0.5 -0.5 transform
-	b!+ b!+ b!+ | 010
-	-0.5 -0.5 0.5 transform
-	b!+ b!+ b!+ | 001
-	-0.5 -0.5 -0.5 transform
-	dup x0 + 2/ 'x7 ! b!+ dup y0 + 2/ 'y7 ! b!+ dup z0 + 2/ 'z7 ! b!+ | 000
-	b> 'octvert> ! ;
-
-:getnn
-	3 << 'verc + @+ swap @ ;
-
-:cara1
-	dup getnn op
-	dup 2 xor getnn line
-	dup 3 xor getnn line
-	dup 1 xor getnn line
+	0.5 0.5 0.5 id3d3 b!+ b!+ b!+ | 111
+	0.5 0.5 -0.5 id3d3 b!+ b!+ b!+ | 110
+	0.5 -0.5 0.5 id3d3 b!+ b!+ b!+ | 101
+	0.5 -0.5 -0.5 id3d3 b!+ b!+ b!+ | 100
+	-0.5 0.5 0.5 id3d3 b!+ b!+ b!+ | 011
+	-0.5 0.5 -0.5 id3d3 b!+ b!+ b!+ | 010
+	-0.5 -0.5 0.5 id3d3 b!+ b!+ b!+ | 001
+	-0.5 -0.5 -0.5 id3d3 b!+ b!+ b!+ | 000
+	b>
+	'octvert> !
+	$ff $ff $ff id3d3 'x0 ! 'y0 ! 'z0 !
+	$ff $ff -$ff id3d3 'x1 ! 'y1 ! 'z1 !
+	$ff -$ff $ff id3d3 'x2 ! 'y2 ! 'z2 !
+	-$ff $ff $ff id3d3 'x4 ! 'y4 ! 'z4 !
+	-$ff -$ff -$ff id3d3
+	x0 + 2/ 'x7 ! 
+	y0 + 2/ 'y7 ! 
+	z0 + 2/ 'z7 !
 	;
 
-:cara2
-	dup getnn op
-	dup 4 xor getnn line
-	dup 6 xor getnn line
-	dup 2 xor getnn line
+| PERSPECTIVA
+:id3d | x y z -- u v
+	p3d ;
+
+| ISOMETRICO
+:id3d
+	pick2 over - 0.02 / ox + >r
+	rot + 2/ + 0.02 / oy 2/ + r> swap ;
+
+:fillveciso | --
+	octvert> 96 - >b
+	'rotsum
+	b@+ b@+ b@+ id3d rot !+ !+
+	b@+ b@+ b@+ id3d rot !+ !+
+	b@+ b@+ b@+ id3d rot !+ !+
+	b@+ b@+ b@+ id3d rot !+ !+
+	b@+ b@+ b@+ id3d rot !+ !+
+	b@+ b@+ b@+ id3d rot !+ !+
+	b@+ b@+ b@+ id3d rot !+ !+
+	b@+ b@+ b@ id3d rot !+ !+
+	'rotsum> ! ;
+
+:getn | n --
+	3 << 'rotsum + @+ swap @ swap ;
+
+:drawire
+	azul
+	0 getn op 1 getn line 3 getn line 2 getn line 0 getn line
+	4 getn op 5 getn line 7 getn line 6 getn line 4 getn line
+	0 getn op 4 getn line
+	1 getn op 5 getn line
+	2 getn op 6 getn line
+	3 getn op 7 getn line
 	;
 
-:cara3
-	dup getnn op
-	dup 1 xor getnn line
-	dup 5 xor getnn line
-	dup 4 xor getnn line
-	;
-
-:drawq3
-	'verc >b
-	'octvert >a
-	8 ( 1? )(
-		a@+ a@+ a@+ p3d swap b!+ b!+
-		1- ) drop
-	mask
-	cara1
-	cara2
-	cara3 drop ;
-
-|----- modo 1
-:forma1
+:calco
 	x0 x1 - x7 *
 	y0 y1 - y7 * +
 	z0 z1 - z7 * +
-	+? ( 1 )( 0 ) >a drop
+	dup 'n1 !
+	31 >> $1 and
 	x0 x2 - x7 *
 	y0 y2 - y7 * +
 	z0 z2 - z7 * +
-	+? ( 2 a+ ) drop
+	dup 'n2 !
+	31 >> $2 and or
 	x0 x4 - x7 *
 	y0 y4 - y7 * +
 	z0 z4 - z7 * +
-	+? ( 4 a+ ) drop
-	a> 'mask !
+	dup 'n3 !
+	31 >> $4 and or
+	$7 xor 'mask !
 	;
 
-:3dop 3dproject op ;
-:3dline 3dproject line ;
-
-:drawcube
+:dumpvar
 	verde
 	z0 y0 x0 "x0 %f %f %f " print cr
 	z7 y7 x7 "x7 %f %f %f " print cr
 	mask "%d " print cr
-	'octvert >a
-	a@+ a@+ a@+ p3d op
-	a@+ a@+ a@+ p3d line	
-	;
+	n3 n2 n1 "%d %d %d" print cr
 
+	cyan 0 getn 1 box
+	blanco mask getn 3 box
+	'rotsum >b
+	8 ( 1? )( 1-
+		b@+ b@+ "%d %d " print cr
+		) drop
+	;
 
 :freelook
 	xymouse
@@ -128,18 +136,16 @@
 	show clrscr blanco
 		dup "%d" print cr
 
-		omode
+		Omode
 		freelook
 		xcam ycam zcam mtrans
 
 		fillstart
-		forma1
+		fillveciso
+		calco
 
-		blanco
-        drawcube
-
-		verde
-|	   	drawq3
+		dumpvar
+		drawire
 
 		[ -0.01 'zcam +! ; ] <up>
 		[ 0.01 'zcam +! ; ] <dn>
