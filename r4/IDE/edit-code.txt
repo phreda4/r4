@@ -5,6 +5,7 @@
 ^r4/lib/btn.txt
 ^r4/lib/input.txt
 ^r4/lib/parse.txt
+^r4/lib/system.txt
 ^r4/lib/codecolor.txt
 
 ^r4/system/mem-ed.txt
@@ -171,7 +172,9 @@
 
 :loadtxt | -- cargar texto
 	mark
-	here 'ed.nombre load 0 swap c!
+	here 'ed.nombre
+	getpath
+	load 0 swap c!
 
 	|-- queda solo cr al fin de linea
 	fuente dup 'pantaini> !
@@ -231,22 +234,29 @@
 		drop )
 	nip ;
 
+:editvalid | adr -- adr 1/0
+    "ico" =pre 1? ( ; ) drop
+    "bmr" =pre 1? ( ; ) drop
+    "vsp" =pre 1? ( ; ) drop
+    "spr" =pre
+	;
+
 :controle
 	ed.save
 	savetxt
 	fuente> ( dup 1- c@ $ff and 32 >? )( drop 1- ) drop | busca comienzo
 	dup c@
-|	$23 <>? ( 2drop ; ) | no es #
 	$5E <>? ( 2drop ; ) | no es ^
 	drop
 	dup fuente - 'ed.ncar !
-	dup posfijo? 0? ( 2drop ; )
-
-	dup "mem/inc-%w.mem" mprint
-	pick2 1+ dup ( c@+ $ff and 32 >? )( drop ) drop | ini fin
-	1- over -
-	rot save
-
+	dup 2 + posfijo? 0? ( 2drop ; )
+	editvalid 0? ( 3drop ; ) drop
+	swap 1+ | ext name
+	mark
+	dup c@ 46 =? ( drop 2 + 'path "%s%w" )( drop "%w" )
+	,print
+	dup "mem/inc-%w.mem" mprint savemem
+	empty
 	"r4/system/inc-%w.txt" mprint run ;
 
 |-------------
@@ -463,9 +473,12 @@
 	;
 
 :nowcompile
-|	mkasm
-|	mkasmf
-	mknewc
+| opciones de compilador
+| fullscreen,ventana wxh
+| win
+| optimizacion 0
+
+	"r4/compiler/r4-com4.txt" run
 	;
 
 |---------- manejo de teclado
