@@ -322,6 +322,7 @@
 :controlf | -- ;find
 	findmode 1 xor 'findmode !
 	0 'findpad !
+	0 update drop
 	refreshfoco
 	;
 
@@ -353,6 +354,7 @@
 
 :drawcode
 	pantaini>
+	sw 'tx2 !
 	0 ( cntlinea <? )(
         gris
 		dup prilinea + "%d" print
@@ -383,27 +385,6 @@
 :controlon	1 'panelcontrol ! ;
 :controloff 0 'panelcontrol ! ;
 
-:drawpanelcontrol
-	panelcontrol 0? ( drop ; ) drop
-	blanco
-	'controle 18 ?key " E-Edit" print | ctrl-E dit
-|	'controlh 35 ?key " H-Help" print  | ctrl-H elp
-	'controlz 44 ?key " Z-Undo" print
-
-	'controlx 45 ?key " X-Cut" print
-	'controlc 46 ?key " C-Copy" print
-	'controlv 47 ?key " V-Paste" print
-
-	'controld 32 ?key " D-Def" print
-
-	'controln 49 ?key " N-New" print
-|	'controlm 50 ?key " M-Mode" print
-	'controlf 33 ?key " F-Find" print
-
-	'controla <up>
-	'controls <dn>
-	;
-
 :showclip
 	cr
  	clipboard> clipboard <>? (
@@ -412,7 +393,6 @@
 		cr
 		) drop
 	;
-
 
 |--- sobre pantalla
 :mmemit | adr x xa -- adr x xa
@@ -446,60 +426,63 @@
 	'finsel ! 'inisel ! ;
 
 |----------------------------
-:directrun
-	savetxt 'ed.nombre run  ;
-
+:directrun	savetxt 'ed.nombre run  ;
 :profiler	savetxt	"r4/IDE/profiler-code.txt" run ;
 :debugrun	savetxt	"r4/IDE/debug-code.txt" run ;
 
 :mkplain	savetxt	"r4/system/r4plain.txt" run ;
 
 |----------------------------
-:mkasm		savetxt
-|	"r4/system/r4fasm.txt" run
-	"r4/system/r4fasmo.txt" run
-|	"r4/system/r4fasmo2.txt" run
-	;
-:mkasmf		savetxt
-	"r4/system/r4fasmof.txt" run
-	;
-
-:mknewc		savetxt
-	"r4/ide/r4-i86opt.txt" run
-	;
-
-:mknewc		savetxt
-	"r4/compiler/r4-com4.txt" run
-	;
-
 :nowcompile
 | opciones de compilador
 | fullscreen,ventana wxh
 | win
 | optimizacion 0
-
 	"r4/compiler/r4-com4.txt" run
 	;
+
+:testcompile
+	"r4/compiler/r4-com4o.txt" run
+	;
+
 
 |---------- manejo de teclado
 :buscapad
 	fuente 'findpad findstri
 	0? ( drop ; )
-	'fuente> !
-	;
+	'fuente> ! ;
 
 :findmodekey
-	0 'panelcontrol !
+	$0 ink 1 linesfill
+	" > " $37b0000 fprint
+    'controlf dup <enter> >esc<
 	blanco
-	"?" print
-    'controlf <enter>
-	'exit >esc<
 	'buscapad 'findpad 31 inputexec
 	;
 
-:teclado
-	panelcontrol 1? ( drop 'controloff >ctrl< ; ) drop
+:controlkey
+	$337ab7 ink 1 linesfill
+	blanco
+	'controle 18 ?key " E-Edit" print | ctrl-E dit
+|	'controlh 35 ?key " H-Help" print  | ctrl-H elp
+	'controlz 44 ?key " Z-Undo" print
 
+	'controlx 45 ?key " X-Cut" print
+	'controlc 46 ?key " C-Copy" print
+	'controlv 47 ?key " V-Paste" print
+
+|	'controld 32 ?key " D-Def" print
+
+|	'controln 49 ?key " N-New" print
+|	'controlm 50 ?key " M-Mode" print
+	'controlf 33 ?key " F-Find" print
+
+	'controla <up>
+	'controls <dn>
+	'controloff >ctrl<
+	;
+
+:teclado
 	[ key toasc modo exec ; ] <visible>
 	'kback	<back>		'kdel	<del>
 	'karriba <up>		'kabajo	<dn>
@@ -509,14 +492,16 @@
 	[ modo 'lins =? ( 'lover )( 'lins ) 'modo ! drop  ; ] <ins>
 	[ 13 modo exec ; ] <enter>
 	[ 9 modo exec ; ] <tab>
-
 	'exit >esc<
 	'controlon <ctrl>
 	;
 
 :barraestado
-	drawpanelcontrol
+	panelcontrol 1? ( drop controlkey ; ) drop
 	findmode 1? ( drop findmodekey ; ) drop
+	$666666 ink 1 linesfill
+	blanco 'ed.nombre sp printx sp
+	teclado
 	;
 
 :barv
@@ -526,17 +511,16 @@
 
 :editor
 	$111111 'paper !
-|	'fontdroidsans13 fontm
-	fonti
+	'fontdroidsans13 fontm
+|	fonti
 	clrscr
 	rows 2 - 'cntlinea !
 	show clrscr
 		'dns 'mos 'ups guiMap |------ mouse
 
 		barv
+
 		0 rows 1- gotoxy
-		$666666 ink 1 linesfill
-		blanco 'ed.nombre sp printx sp
 		barraestado
 
 		0 0 gotoxy
@@ -545,15 +529,13 @@
 		blanco "eDIT " printx
 
 |------------------------------
-		teclado
 		'directrun dup <f1> "1Run" $fff37b flink sp
 		'debugrun dup <f2> "2Debug" $fff37b flink sp
 		'profiler dup <f3> "3Profile" $fff37b flink sp
 		'mkplain dup <f4> "4Plain" $fff37b flink sp
 		'nowcompile dup <f5> "5Compile" $fff37b flink sp
 
-
-|		'mknewc dup <f10> "10devcomp" $0f0777 flink sp
+		'testcompile <f10> 
 |------------------------------
 		cr chome!
 		drawcode
