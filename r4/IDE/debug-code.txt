@@ -6,7 +6,6 @@
 ^r4/lib/input.txt
 ^r4/lib/xfb.txt
 ^r4/lib/system.txt
-
 ^r4/lib/parse.txt
 
 |^r4/lib/fontm.txt
@@ -18,7 +17,7 @@
 
 ^r4/ide/r4-tokenrun.txt
 ^r4/ide/r4-stackana.txt
-|^r4/ide/r4-info.txt
+
 ^r4/compiler/r4-tokenprint.txt
 
 ^r4/lib/codecolor.txt
@@ -41,6 +40,15 @@
 #initok>
 #nowtok>
 #cnttok
+
+#varlist )( $fff
+#varlistc
+#varows
+
+#memstart
+#memtype
+#rowmem
+#colmem
 
 |--------------------------------------------------------------------
 :drawline | nro tok -- nro tok'
@@ -147,12 +155,6 @@
 	$ffffff ink
 	printcur drop ;
 
-:barv
-	$333333 ink
-	0 0 op 0 sh pline
-	ccw 2 << 0 op ccw 2 << sh pline
-	poli ;
-
 :viewscreen
 	xfb> show 'exit dup <f5> >esc< ;
 
@@ -214,10 +216,7 @@
 	>>0
 	'wnow ! ;
 
-#varlist )( $fff
-#varlistc
-#varows
-
+|---------------------------------------------
 :prevars
 	'varlist >a
 	indicepal< ( indicepal> <? )(
@@ -234,6 +233,12 @@
 		cr
 		1+ ) drop
 	;
+
+:barv
+	$333333 ink
+	0 cch op 0 cntlinea 1+ cch * pline
+	ccw 2 << cch op ccw 2 << cntlinea 1+ cch * pline
+	poli ;
 
 :drawcode
 	barv
@@ -301,23 +306,102 @@
 	"|      D       |      R         " printr
 	;
 
+|------------------------------------------------
+:em4 $f and "%h" print ;
+
+:emit4byte | dword --
+	dup 4 >> em4 dup em4
+	dup 12 >> em4 dup 8 >> em4
+	dup 20 >> em4 dup 16 >> em4
+	dup 28 >> em4 24 >> em4 ;
+
+:bytemem
+	blanco 0 rows 9 - gotoxy
+	memstart >b
+	rowmem ( 1? )(
+		b> "%h: " print
+		8 ( 1? )( 1- b@+ emit4byte ) drop
+		cr
+		1- ) drop ;
+
+:emit2word
+	dup 12 >> em4 dup 8 >> em4 dup 4 >> em4 dup em4
+	dup 28 >> em4 dup 24 >> em4 dup 20 >> em4 16 >> em4 ;
+
+:wordmem
+	memstart >b
+	rowmem ( 1? )(
+		b> "%h: " print
+		8 ( 1? )( 1- b@+ emit2word ) drop
+		cr
+		1- ) drop ;
+
+:emitdword
+	dup 28 >> em4 dup 24 >> em4 dup 20 >> em4 dup 16 >> em4
+	dup 12 >> em4 dup 8 >> em4 dup 4 >> em4 em4 ;
+
+:dwordmem
+	memstart >b
+	rowmem ( 1? )(
+		b> "%h: " print
+		8 ( 1? )( 1- b@+ emitdword ) drop
+		cr
+		1- ) drop ;
+
+:stringmem
+:fixmem
+	blanco 0 rows 9 - gotoxy
+	memstart >b
+	rowmem ( 1? )(
+		b> "%h: " print
+		8 ( 1? )( 1- b@+ "%f " print ) drop
+		cr
+		1- ) drop ;
+
+:bitmem
+:colmem
+	;
+
+#memt bytemem wordmem dwordmem stringmem fixmem bitmem colmem
+
+:panelmem
+	trace
+	bytemem
+	memstart
+	0? ( drop ; ) drop
+	blanco 0 rows 9 - gotoxy
+	memtype 2 << 'memt + @ exec ;
+
+|------------------------------------------------
+| code | var
+| mem  | stack
 :debugcode
-	0 'paper !
 	resetvm
 	prevars
 
 |	'fontdroidsans13 fontm
 	fonti
+
 	clrscr
-	rows 2 - dup 'cntlinea !
-	10 - 'varows !
+	rows 10 - 'cntlinea !
+	rows 10 - 'varows !
+
+	freemem 'memstart !
+	0 'memtype !
+	8 'rowmem !
+	cols 20 - 'colmem !
+
 	4
 |	gotosrc
 	show clrscr
+
+		panelmem
 		drawcode
     	drawstatus
+
 		'exit >esc<
 		'insideword <enter>
+
 		cminiflecha ;
 
 |-----------------------------
@@ -371,6 +455,7 @@
 	;
 
 :main
+	0 'paper !
 	ram
 	loadtxt
 	fuente tokeniza 1? ( errortok ; ) drop
