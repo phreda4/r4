@@ -50,6 +50,8 @@
 #rowmem
 #colmem
 
+#mode 0
+
 |--------------------------------------------------------------------
 :drawline | nro tok -- nro tok'
 	tokencolor sp
@@ -231,19 +233,26 @@
 		dup dic>str @ "%w = " violeta print
 		nro>mem @ "%d" blanco print
 		cr
-		1+ ) drop
+		1+ ) drop ;
+
+:panelvar
+	sw ccw 5 << - 'tx1 !
+	sw 'tx2 !
+	0 1 gotoxy
+	showvars
 	;
 
+|---------------------------------------------
 :barv
 	$333333 ink
 	0 cch op 0 cntlinea 1+ cch * pline
 	ccw 2 << cch op ccw 2 << cntlinea 1+ cch * pline
 	poli ;
 
-:drawcode
+:panelcode
 	barv
 	0 1 gotoxy
-	sw ccw 5 << - 'tx2 !
+	sw ccw 1+ 5 << - 'tx2 !
 	pantaini>
 	inwlist
 	0 ( cntlinea <? )(
@@ -261,17 +270,15 @@
 	( pantafin> >? )( scrolldw )
 	( pantaini> <? )( scrollup )
 	drop
-
-	sw 'tx2 !
-	showvstack
-
-	sw ccw 5 << - 'tx1 !
-	0 1 gotoxy
-	showvars
-
 	'karriba <up>	'kabajo <dn>
 	'kder <ri>		'kizq	<le>
 	'kpgup <pgup>	'kpgdn	<pgdn>
+	;
+
+|---------------------------------------------
+:panelstack
+	scr
+	showvstack
 	;
 
 :botonera
@@ -291,10 +298,11 @@
 |	dumpvstack cr
 	verde dup ":R%d" print
 	blanco "dEBUG " printx
+
 	botonera
 |	<<ip 1? ( @ ) "%h " print
 
-	0 rows 1- gotoxy
+	0 cntlinea 1+ gotoxy
 	$666666 ink 1 linesfill blanco
 	'ed.nombre " %s " print
 	cyan
@@ -302,6 +310,9 @@
 |	cntwords "%d Words | " print
 	cntuwords "%d Used Words | " print
 	cntuvars  "%d Used Vars" print
+
+	0 rows 1- gotoxy
+	$666666 ink 1 linesfill blanco
 	amarillo
 	"|      D       |      R         " printr
 	;
@@ -310,67 +321,79 @@
 :em4 $f and "%h" print ;
 
 :emit4byte | dword --
-	dup 4 >> em4 dup em4
-	dup 12 >> em4 dup 8 >> em4
-	dup 20 >> em4 dup 16 >> em4
-	dup 28 >> em4 24 >> em4 ;
+	blanco dup 4 >> em4 dup em4
+	gris dup 12 >> em4 dup 8 >> em4
+	blanco dup 20 >> em4 dup 16 >> em4
+	gris dup 28 >> em4 24 >> em4
+	;
 
 :bytemem
-	blanco 0 rows 9 - gotoxy
 	memstart >b
 	rowmem ( 1? )(
-		b> "%h: " print
+		cyan b> "%h: " print
 		8 ( 1? )( 1- b@+ emit4byte ) drop
-		cr
-		1- ) drop ;
+		cr 1- ) drop ;
 
 :emit2word
-	dup 12 >> em4 dup 8 >> em4 dup 4 >> em4 dup em4
-	dup 28 >> em4 dup 24 >> em4 dup 20 >> em4 16 >> em4 ;
+	blanco dup 12 >> em4 dup 8 >> em4 dup 4 >> em4 dup em4
+	gris dup 28 >> em4 dup 24 >> em4 dup 20 >> em4 16 >> em4 ;
 
 :wordmem
 	memstart >b
 	rowmem ( 1? )(
-		b> "%h: " print
+		cyan b> "%h: " print
 		8 ( 1? )( 1- b@+ emit2word ) drop
-		cr
-		1- ) drop ;
+		cr 1- ) drop ;
 
 :emitdword
+	b> $4 and? ( blanco )( gris ) drop
 	dup 28 >> em4 dup 24 >> em4 dup 20 >> em4 dup 16 >> em4
 	dup 12 >> em4 dup 8 >> em4 dup 4 >> em4 em4 ;
 
 :dwordmem
 	memstart >b
 	rowmem ( 1? )(
-		b> "%h: " print
+		cyan b> "%h: " print
 		8 ( 1? )( 1- b@+ emitdword ) drop
-		cr
-		1- ) drop ;
+		cr 1- ) drop ;
+
+:ch8
+	$ff and 32 <? ( 46 nip ) "%k" print ;
+
+:emitchar
+	blanco
+	dup ch8 dup 8 >> ch8 dup 16 >> ch8 24 >> ch8 ;
 
 :stringmem
-:fixmem
-	blanco 0 rows 9 - gotoxy
 	memstart >b
 	rowmem ( 1? )(
-		b> "%h: " print
+		cyan b> "%h: " print
+		8 ( 1? )( 1- b@+ emitchar ) drop
+		cr 1- ) drop ;
+
+:fixmem
+	memstart >b
+	rowmem ( 1? )(
+		cyan b> "%h: " print
+		blanco
 		8 ( 1? )( 1- b@+ "%f " print ) drop
-		cr
-		1- ) drop ;
+		cr 1- ) drop ;
 
 :bitmem
-:colmem
+:32mem
 	;
 
-#memt bytemem wordmem dwordmem stringmem fixmem bitmem colmem
+#memt bytemem wordmem dwordmem stringmem fixmem bitmem 32mem 32mem
 
-:panelmem
-	trace
-	bytemem
+:paneldump
 	memstart
 	0? ( drop ; ) drop
 	blanco 0 rows 9 - gotoxy
-	memtype 2 << 'memt + @ exec ;
+	memtype 2 << 'memt + @ exec
+
+	[ d.TOS 'memstart ! ; ] <f10>
+	[ memtype 1+ $7 and 'memtype ! ; ] <f11>
+	;
 
 |------------------------------------------------
 | code | var
@@ -383,8 +406,8 @@
 	fonti
 
 	clrscr
-	rows 10 - 'cntlinea !
-	rows 10 - 'varows !
+	rows 11 - 'cntlinea !
+	rows 11 - 'varows !
 
 	freemem 'memstart !
 	0 'memtype !
@@ -395,8 +418,13 @@
 |	gotosrc
 	show clrscr
 
-		panelmem
-		drawcode
+|		panelmem
+
+		panelcode
+        paneldump
+		panelvar
+		panelstack
+
     	drawstatus
 
 		'exit >esc<
@@ -451,7 +479,7 @@
 	errormsg ,s
 	nroerror 3 <? ( poserror " '%w'" ,print ) drop
 	"debug.err" savemem
-	empty
+	trace
 	;
 
 :main
