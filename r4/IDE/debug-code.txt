@@ -53,82 +53,6 @@
 #mode 0
 
 |--------------------------------------------------------------------
-:drawline | nro tok -- nro tok'
-	tokencolor sp
-	tokenstr print sp
-	20 col
-	over initok> initok - 2 >> + printstack
-	cr ;
-
-:drawword | --
-	initok>
-	0 ( cntlinea <? )(
-		cnttok >=? ( 2drop ; ) -? ( 2drop ; )
-		swap
-		nowtok> =? ( blanco ">>" )( "  " ) print
-		@+ drawline
-		swap 1+ ) 2drop ;
-
-:searchw | adr -- pal
-	1+ indicepal<
-	( indicepal> <? )(	| adr ind
-		swap over @ <? ( drop 16 - ; )
-		swap 16 + ) nip
-	16 - ;
-
-:setword | --
-	fuente> searchw
-	dup 4+ @		| token
-	dup 'initok ! dup 'initok> ! dup 'nowtok> !
-	swap
-	| no analiza dato!
-	dup 8 + @ 1 and? ( drop 12 + @ 20 >> $fff and 'cnttok ! drop ; ) drop
-	12 + @ 20 >> $fff and dup 'cnttok !
-	2 << over +	| token+len
-	swap stackanalisisa
-	;
-
-:nowtok>+!
-	nowtok> +
-	initok <? ( 4+ )
-	dup initok - 2 >> cnttok >=? ( drop 4 - )( drop )
-	'nowtok> !
-
-	nowtok>
-	( initok> <? )( -4 'initok> +! )
-	cntlinea 1- 2 << -
-	( initok> >? )( 4 'initok> +! )
-	drop
-	;
-
-|------------- INFOCODE
-:insideword
-	setword
-	show clrscr
-		$6600 ink 1 linesfill blanco
-		'ed.nombre " %s " print
-		cyan
-
-		0 rows 1- gotoxy
-		$2200 ink 1 linesfill blanco
-		verde dup ":R%d" print
-		blanco "dEBUG " printx
-		" |ESC-exit " print
-
-		0 1 gotoxy chome!
-	    drawword
-		30 0 gotoxy chome!
-		verde
-		stackadump
-
-		[ -4 nowtok>+! ; ] <up>
-		[ 4 nowtok>+! ; ] <dn>
-
-		'exit >esc<
-		cminiflecha
-		;
-
-|---------------------------------
 :<<13 | a -- a
 	( fuente >=? )( dup c@
 		13 =? ( drop ; )
@@ -176,6 +100,9 @@
 :kizq fuente> fuente >? ( 1- 'fuente> ! ; ) drop ;
 :kpgup  20 ( 1? )( 1- karriba ) drop ;
 :kpgdn	20 ( 1? )( 1- kabajo ) drop	;
+:khome	fuente> 1- <<13 1+ 'fuente> ! ;
+:kend	fuente> >>13  1+ 'fuente> ! ;
+
 
 |------------- DRAWCODE
 :gotosrc
@@ -242,6 +169,9 @@
 	showvars
 	;
 
+:teclavar
+	;
+
 |---------------------------------------------
 :barv
 	$333333 ink
@@ -259,7 +189,7 @@
 		gris dup prilinea + "%d" print
        	ccw 2 << dup 'tx1 ! 'ccx !
 		swap
-		drawcur lf
+		mode 0? ( drop drawcur lf )( drop )
 		>>lineacolor0
 		wnow @ >? ( wline )
 		0 'tx1 !
@@ -270,9 +200,13 @@
 	( pantafin> >? )( scrolldw )
 	( pantaini> <? )( scrollup )
 	drop
+	;
+
+:teclacode
 	'karriba <up>	'kabajo <dn>
-	'kder <ri>		'kizq	<le>
-	'kpgup <pgup>	'kpgdn	<pgdn>
+	'kder	<ri>	'kizq	<le>
+	'kpgup	<pgup>	'kpgdn	<pgdn>
+	'khome	<home>	'kend	<end>
 	;
 
 |---------------------------------------------
@@ -281,40 +215,7 @@
 	showvstack
 	;
 
-:botonera
-	[ fuente> breakpoint playvm gotosrc ; ] dup <f1> "F1-play2c" $fff37b flink sp
-	[ stepvm gotosrc ; ] dup <f2> "F2-step" $fff37b flink sp
-	[ stepvmn gotosrc ; ] dup <f3> "F3-stepn" $fff37b flink sp
-|	[ fuente> breakpoint ; ] dup <f4> "F4-Break" $fff37b flink sp
-	[ resetvm gotosrc ; ] dup <f5> "F5-reset" $fff37b flink sp
-	[ viewscreen ; ] dup <f6> "F6-view" $fff37b flink sp
-	;
-
-|------------------------------------------------
-:drawstatus
-	home
-	$666666 ink 1 linesfill blanco
-|	blanco "> " print 'pad 255 inputcr 'compila&run <enter> cr
-|	dumpvstack cr
-	verde dup ":R%d" print
-	blanco "dEBUG " printx
-
-	botonera
-|	<<ip 1? ( @ ) "%h " print
-
-	0 cntlinea 1+ gotoxy
-	$666666 ink 1 linesfill blanco
-	'ed.nombre " %s " print
-	cyan
-	indiceinc> 'indiceinc - 3 >> "| %d Includes | " print
-|	cntwords "%d Words | " print
-	cntuwords "%d Used Words | " print
-	cntuvars  "%d Used Vars" print
-
-	0 rows 1- gotoxy
-	$666666 ink 1 linesfill blanco
-	amarillo
-	"|      D       |      R         " printr
+:teclastack
 	;
 
 |------------------------------------------------
@@ -368,7 +269,7 @@
 	memstart >b
 	rowmem ( 1? )(
 		cyan b> "%h: " print
-		8 ( 1? )( 1- b@+ emitchar ) drop
+		16 ( 1? )( 1- b@+ emitchar ) drop
 		cr 1- ) drop ;
 
 :fixmem
@@ -379,21 +280,81 @@
 		8 ( 1? )( 1- b@+ "%f " print ) drop
 		cr 1- ) drop ;
 
+:bitpix
+	$80000000 ( 1? )(
+		2dup and 1? ( $ffffff nip )
+		a!+ 1 0>> ) 2drop ;
 :bitmem
+	memstart >b
+	ccx ccy setxy
+	rowmem ( 1? )(
+		16 ( 1? )( b@+ bitpix 1- ) drop
+		sw 16 3 << - 2 << a+
+		1- ) drop ;
+
 :32mem
-	;
+	memstart >b
+	ccx ccy setxy
+	rowmem 12 * ( 1? )(
+		16 3 << ( 1? )( b@+ a!+ 1- ) drop
+		sw 16 3 << - 2 << a+
+		1- ) drop ;
 
 #memt bytemem wordmem dwordmem stringmem fixmem bitmem 32mem 32mem
 
 :paneldump
-	memstart
-	0? ( drop ; ) drop
+	memstart 0? ( drop ; ) drop
 	blanco 0 rows 9 - gotoxy
-	memtype 2 << 'memt + @ exec
+	memtype 2 << 'memt + @ exec ;
 
+:teclamem
 	[ d.TOS 'memstart ! ; ] <f10>
 	[ memtype 1+ $7 and 'memtype ! ; ] <f11>
 	;
+
+#vecmode 'teclacode 'teclavar 'teclamem 'teclastack
+#strmode "COD" "VAR" "MEM" "STK"
+:teclado
+	mode 2 << 'strmode + sp " %s " $0f0 fprint sp
+	[ fuente> breakpoint playvm gotosrc ; ] dup <f1> "F1-play2c" $fff37a flink sp
+	[ stepvm gotosrc ; ] dup <f2> "F2-step" $fff37a flink sp
+	[ stepvmn gotosrc ; ] dup <f3> "F3-stepn" $fff37a flink sp
+|	[ fuente> breakpoint ; ] dup <f4> "F4-Break" $fff37a flink sp
+	[ resetvm gotosrc ; ] dup <f5> "F5-reset" $fff37a flink sp
+	[ viewscreen ; ] dup <f6> "F6-view" $fff37a flink sp
+	[ mode 1+ $3 and 'mode ! ; ] <tab>
+	'exit >esc<
+	mode $3 and 2 << 'vecmode + @ exec
+	;
+
+|------------------------------------------------
+:drawstatus
+	home
+	$666666 ink 1 linesfill blanco
+|	blanco "> " print 'pad 255 inputcr 'compila&run <enter> cr
+|	dumpvstack cr
+	verde dup ":R%d" print
+	blanco "dEBUG | " printx
+	'ed.nombre printx
+
+	indiceinc> 'indiceinc - 3 >> " | %d Inc | " print
+|	cntwords "%d Words | " print
+	cntuwords "%d Used W | " print
+	cntuvars  "%d Used V" print
+
+|	<<ip 1? ( @ ) "%h " print
+
+	0 cntlinea 1+ gotoxy
+	$666666 ink 1 linesfill blanco
+
+
+	0 rows 1- gotoxy
+	$666666 ink 1 linesfill blanco
+	teclado
+	amarillo
+	"|      D       |      R         " printr
+	;
+
 
 |------------------------------------------------
 | code | var
@@ -414,22 +375,15 @@
 	8 'rowmem !
 	cols 20 - 'colmem !
 
+	0 'mode !
 	4
 |	gotosrc
 	show clrscr
-
-|		panelmem
-
 		panelcode
         paneldump
 		panelvar
 		panelstack
-
     	drawstatus
-
-		'exit >esc<
-		'insideword <enter>
-
 		cminiflecha ;
 
 |-----------------------------
