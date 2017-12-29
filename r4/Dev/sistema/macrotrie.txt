@@ -42,9 +42,10 @@
 #trie )( 1024
 #level )( 1024
 #level> 'level
-#nl
+#info )( 1024
 
-:makelevel | adr car --
+
+:makecar
 	'ordenlist >b
 	nlist ( 1? )( 1-
 		b@+	c@
@@ -52,13 +53,20 @@
 		4 b+
 		) drop	;
 
+
+:makelevel | lev str --
+	a> level> !+ 'level> !
+	( c@+ 1? )( $ff and
+		makecar
+		) 2drop ;
+
+
 :maketrie
 	nlist 'ordenlist sortstr
-	0 'nl !
 	'level 'level> !
 	'trie >a
 	a> level> !+ 'level> !
-	1 'nl +!
+
 	'ordenlist >b
 	nlist ( 1? )( 1-
 		b@+	c@
@@ -66,11 +74,10 @@
 		4 b+
 		) drop
 	0 a!+
-	a> level> !+ 'level> !
-	level
-	( c@+ 1? )( $ff and
-		makelevel
-		) 2drop
+
+|	1				| nivel
+|	level> 8 - @	| str
+|	makelevel
 	;
 
 
@@ -83,6 +90,48 @@
 	empty
 	;
 
+|----------------- TEST --------------------
+| AB 1,AC 2,B 3,C 4
+|
+#t0 "ABC"
+#t1	"BC"
+#t2 ""
+
+#ttrie
+$103 't0
+$302 't1
+$300000 't2
+$400000 't2
+$100000 't2
+$200000 't2
+
+|--------------------------------------------
+:searchc | car str -- dir/0
+	( c@+ 1? )( pick2 =? ( drop nip 1- ; ) drop )
+	nip nip ;
+
+:check | str trie -- nro/0 no esta
+	( dup @ $fff00000 nand? )(		| str trie val
+		pick2 c@ toupp pick2 4+ @ 	| 	..car str
+		searchc 0? ( nip nip nip ; )	| str trie val dir
+		pick2 4+ @ - 					| str trie val npos
+		swap 8 >> $fff and +			| str trie narrray
+		3 << + swap 1+ swap )
+	rot c@ 1? ( 3drop 0 ; )				| $ff and 32 >? ( ..
+	drop nip 20 0>> ;
+
+:checksp | str trie -- nro/0 no esta ; delimitado por espacio
+	( dup @ $fff00000 nand? )(		| str trie val
+		pick2 c@ toupp pick2 4+ @ 	| 	..car str
+		searchc 0? ( nip nip nip ; )	| str trie val dir
+		pick2 4+ @ - 					| str trie val npos
+		swap 8 >> $fff and +			| str trie narrray
+		3 << + swap 1+ swap )
+	rot c@ $ff and 32 >? ( 3drop 0 ; )
+	drop nip 20 0>> ;
+
+|--------------------------------------------
+
 :main
 	mark
 	fonti
@@ -91,6 +140,7 @@
 	show clrscr
 		nlist "%d " print cr cr
 
+        "ab " 'ttrie check "%d " print cr
 |		macrolist
 		dumplist
 		'trie print
