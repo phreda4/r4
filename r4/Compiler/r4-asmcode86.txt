@@ -22,7 +22,6 @@
 
 :stkrtos c@+ + c@+ + c@ $ff and ;
 
-
 :,VALUE	nroi 2 << tokenini + @ tokencte ,print ;
 :,STRM	nroi 2 << tokenini + @ 8 >> "str%h" ,print ;
 
@@ -45,11 +44,26 @@
 :,>NOS		stknex stknos emitcell ;
 
 |------------
+| tipo de celda que necesito
+:cellEAX
+:cellECXCTE
+:cellREG
+:cellREGMEM
+	;
+:usoEDX
+	;
+
+
+:DTOS	stknow stktos ;
+:DNOS	stknow stknos ;
+:DPK2	stknow stknos2 ;
+
+|------------
 | in out used (16 bytes)
 :rsetI
 	stknow
 	c@+ ( 1? )( 1-
-		swap c@+ 
+		swap c@+
 		drop |*** asignar
 		swap ) 2drop ;
 
@@ -248,7 +262,6 @@
 |------- PILAD
 :,dup
     >TOSreg? 0? ( drop ; ) drop
-
     "mov " ,s ,>TOS "," ,s ,TOS ,cr
 	;
 :,over
@@ -296,12 +309,15 @@
 
 |----------------------
 :,AND
+	dnos cellREG
 	"and " ,s ,NOS "," ,s ,TOS ,cr
 	;
 :,OR
+	dnos cellREG
 	"or " ,s ,NOS "," ,s ,TOS ,cr
 	;
 :,XOR
+	dnos cellREG
 	"xor " ,s ,NOS "," ,s ,TOS ,cr
 	;
 :,+
@@ -312,16 +328,19 @@
 	;
 :,*
 	| si d.tos es pow2..
+	dnos cellREG
 	"imul " ,s ,NOS "," ,s ,TOS ,cr
 	;
 :,/
 	| si d.tos es pow2..
+	dnos cellEAX dtos cellREGMEM usoEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 |	freeEDX
 	;
 :,/MOD
 	| si d.tos es pow2..
+	dnos cellEAX dtos cellREGMEM usoEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 |	d.nos setEAX
@@ -330,6 +349,7 @@
 
 :,MOD
 	| si d.tos es pow2..
+	dnos cellEAX dtos cellREGMEM usoEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 |	d.tos setEDX
@@ -337,6 +357,7 @@
 	;
 
 :,*/
+	dpk2 cellEAX dtos cellREGMEM dnos cellREGMEM usoEDX
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
@@ -346,10 +367,8 @@
 
 :,*>>
 	| si d.nos es pow2..
-|	d.pk2 needEAX
-|	usoEDX
-|	d.nos needREGorMEM
-|	d.tos cteorECX
+	dpk2 cellEAX dnos cellREGMEM dtos cellECXCTE usoEDX
+
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
@@ -358,10 +377,11 @@
 	;
 
 :,<</
-|	d.pk2 needEAX
-|	usoEDX
-|	d.nos needREGorMEM
-|	d.tos cteorECX
+	dpk2 cellEAX
+	dnos cellREGMEM
+	dtos cellECXCTE
+	usoEDX
+
 	"cdq" ,ln
     "shld edx,eax," ,s ,TOSb ,cr
 	"shl eax," ,s ,TOSb ,cr
@@ -371,25 +391,30 @@
 	;
 
 :,<<
-|	d.tos cteorECX
+	dnos cellREG
+	dtos cellECXCTE
 	"sal " ,s ,NOS "," ,s ,TOSb ,cr
 	;
 
 :,>>
-|	d.tos cteorECX
+	dnos cellREG
+	dtos cellECXCTE
 	"sar " ,s ,NOS "," ,s ,TOSb ,cr
 	;
 
 :,0>>
-|	d.tos cteorECX
+	dnos cellREG
+	dtos cellECXCTE
 	"shr " ,s ,NOS "," ,s ,TOSb ,cr
 	;
 
 :,ABS
+	dtos cellREG
 |	usoEDX
 |	d.tos cellREG? 0? ( | EAX
 |		"cdq" ,ln
 |		)(
+		usoEDX
 		"mov edx," ,s ,TOS ,cr
 		"sar edx,31" ,ln
 |		) drop
@@ -399,11 +424,14 @@
 	;
 
 :,CLZ
+	dtos cellREG
 	"bsr " ,s ,TOS  "," ,s ,TOS ,cr
 	"xor " ,s ,TOS ",31" ,ln ;
 :,NOT
+	dtos cellREG
 	"not " ,s ,TOS ,cr ;
 :,NEG
+	dtos cellREG
 	"neg " ,s ,TOS ,cr ;
 :,1+
 	"add " ,s ,TOS ",1" ,ln ;
