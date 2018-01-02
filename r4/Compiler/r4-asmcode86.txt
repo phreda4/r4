@@ -85,8 +85,22 @@
 :nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
 :toknow		dup 4 - @ ;
 
+:dumpinfoword
+	"; " ,s
+	dup dic>str @ "%w" ,print
+	" | " ,s
+	dup dic>mov @ ,printmovword
+	" | " ,s
+	dup dic>inf @ ,printinfowor
+	" | len:" ,s dup dic>len@ ,d
+	" | calls:" ,s dup dic>call@ ,d
+	,cr
+	;
+
 :,defw
-    dup 4 - @ 8 >> "w%h:" ,print ;
+    dup 4 - @ 8 >>
+    dumpinfoword
+	"w%h:" ,print ;
 
 :,defv ; | no hay definiciones en optimizado
 :,[ :,] ; | no hay anonimas en optimizado
@@ -258,38 +272,6 @@
 |	d.tos cellVAR -? ( 2drop ,EXECPP ; ) 2drop
 	"mov ecx," ,s ,TOS ,cr
 	,execr ;
-
-|------- PILAD
-:,dup
-    >TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS "," ,s ,TOS ,cr
-	;
-:,over
-    >TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS "," ,s ,NOS ,cr
-	;
-:,pick2
-    >TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS "," ,s ,PK2 ,cr
-	;
-:,pick3
-    >TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS "," ,s ,PK3 ,cr
-	;
-:,pick4
-    >TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS "," ,s ,PK4 ,cr
-	;
-:,2dup
-	>TOSreg? 1? ( "mov " ,s ,>TOS "," ,s ,TOS ,cr ) drop
-	>NOSreg? 0? ( drop ; ) drop
-	"mov " ,s ,>NOS "," ,s ,NOS ,cr
-	;
-:,2over
-	>TOSreg? 1? ( "mov " ,s ,>TOS "," ,s ,PK2 ,cr ) drop
-	>NOSreg? 0? ( drop ; ) drop
-	"mov " ,s ,>NOS "," ,s ,PK3 ,cr
-	;
 
 |------- PILAR
 :,>R
@@ -683,8 +665,6 @@
 
 0 0 0 0 0 0 0 0
 0 0 0 0 0 0 0
-|,dup 0 ,over ,pick2 ,pick3 ,pick4 0 0
-|0 ,2dup 0 0 0 ,2over 0
 
 ,>R ,R> ,R@ 									|--- pila direcciones 52
 ,AND ,OR ,XOR ,NOT  							|--- logicas        56
@@ -747,15 +727,9 @@
 	+ 'here ! ;
 
 :compilacode | w --
-	"; " ,s
-	dup dic>str @ "%w" ,print
-	" | " ,s
-	dup dic>mov @ ,printmovword
-	" | " ,s
-	dup dic>inf @ ,printinfowor
-	" | len:" ,s dup dic>len@ ,d
-	" | calls:" ,s dup dic>call@ ,d
-	,cr
+	dup 1- dic>inf @
+	$81 and $80 =? ( 2drop ; )
+	drop
 
 	dup cellana
 	cell2reg
@@ -766,14 +740,15 @@
 	blockinfo
 	tokeninfo
 
-	dup ,code
+|	dup ,code
 	drop
 
-|	"r4/compiler/code.asm" savemem | DEBUG
+	"r4/compiler/code.asm" savemem | DEBUG
 
 	;
 
 ::,generateCODE
 	0 ( cntwords <? )(
-		dup dic>inf @ 1 nand? ( over compilacode )
+		dup dic>inf @
+		1 nand? ( over compilacode )
 		drop 1+ ) drop ;
