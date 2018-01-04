@@ -16,14 +16,26 @@
 
 :stktos c@+ 1- + c@ $ff and ;
 :stknos c@+ 2 - + c@ $ff and ;
-:stknos2 c@+ 3 - + c@ $ff and ;
-:stknos3 c@+ 4 - + c@ $ff and ;
-:stknos4 c@+ 5 - + c@ $ff and ;
+:stkpk2 c@+ 3 - + c@ $ff and ;
+:stkpk3 c@+ 4 - + c@ $ff and ;
+:stkpk4 c@+ 5 - + c@ $ff and ;
 
 :stkrtos c@+ + c@+ + c@ $ff and ;
 
-:,VALUE	nroi 2 << tokenini + @ tokencte ,print ;
-:,STRM	nroi 2 << tokenini + @ 8 >> "str%h" ,print ;
+:value	nroi 2 << tokenini + @ tokencte ;
+:strm	nroi 2 << tokenini + @ 8 >> ;
+
+:>DTOS	stknex stktos ;
+
+:DTOS	stknow stktos ;
+:DNOS	stknow stknos ;
+:DPK2	stknow stkpk2 ;
+:NDTOS	stknex stktos ;
+:NDNOS	stknex stknos ;
+
+|-----------
+:,VALUE	value ,print ;
+:,STRM	strm "str%h" ,print ;
 
 :,TOS	stknow stktos emitcell ;
 :,TOSb	stknow stktos emitcell ;
@@ -32,9 +44,9 @@
 :,NOSb	stknow stknos emitcell ;
 :,NOSw	stknow stknos emitcell ;
 
-:,PK2	stknow stknos2 emitcell ;
-:,PK3	stknow stknos3 emitcell ;
-:,PK4	stknow stknos4 emitcell ;
+:,PK2	stknow stkpk2 emitcell ;
+:,PK3	stknow stkpk3 emitcell ;
+:,PK4	stknow stkpk4 emitcell ;
 
 :,RTOS	stknow stkrtos emitcell ;
 
@@ -52,11 +64,8 @@
 	;
 :usoEDX
 	;
-
-
-:DTOS	stknow stktos ;
-:DNOS	stknow stknos ;
-:DPK2	stknow stknos2 ;
+:setEAX		0 swap cell.reg! ;
+:setEDX		3 swap cell.reg! ;
 
 |------------
 | in out used (16 bytes)
@@ -80,27 +89,22 @@
 	,cr
 	;
 
+
 |------------ compila CODIGO
-|:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
 :nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
 :toknow		dup 4 - @ ;
 
 :dumpinfoword
-	"; " ,s
-	dup dic>str @ "%w" ,print
-	" | " ,s
-	dup dic>mov @ ,printmovword
-	" | " ,s
-	dup dic>inf @ ,printinfowor
+	"; " ,s	dup dic>str @ "%w" ,print
+	" | " ,s dup dic>mov @ ,printmovword
+	" | " ,s dup dic>inf @ ,printinfowor
 	" | len:" ,s dup dic>len@ ,d
 	" | calls:" ,s dup dic>call@ ,d
 	,cr
 	;
 
 :,defw
-    dup 4 - @ 8 >>
-    dumpinfoword
-	"w%h:" ,print ;
+    dup 4 - @ 8 >> dumpinfoword "w" ,s ,h ;
 
 :,defv ; | no hay definiciones en optimizado
 :,[ :,] ; | no hay anonimas en optimizado
@@ -124,40 +128,22 @@
 
 :,;
 	dup 8 - @ $ff and | word ;
-	12 =? ( drop ; ) drop
+	16 =? ( drop ; ) drop
 	buildstack
 	"ret" ,ln ;
 
-:,lit
-|    >TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS "," ,s ,VALUE ,cr
-	;
-:,lits
-	toknow tok>mem strusestack
-	'strpending ! drop
-	1 'nstr +!
-	>TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS "," ,s ,STRM ,cr
-	;
-:,dwo
-    >TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS "," ,s ,VALUE ,cr
-	;
-:,dva
-    >TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS "," ,s ,VALUE ,cr
-	;
-:,var
-    >TOSreg? 0? ( drop ; ) drop
-    "mov " ,s ,>TOS ",[" ,s ,VALUE "]" ,s ,cr
-	;
+|---------- ASIGNACIONES
+:,lit	VALUE >DTOS cell.Val! ;
+:,lits	STRM >DTOS cell.Str! ;
+:,dwo	STRM >DTOS cell.wor! ;
+:,dva	STRM >DTOS cell.wor! ;
+:,var	STRM >DTOS cell.wor! >DTOS cell.mem ;
 
 
 |-------- CONDICIONALES
 #jmpstr 0
 
-:,simple?
-	'jmpstr !
+:simple
 |	d.cnt 0? ( vpila2normal ) drop
 |	d.tos needWrite
 |	d.tos cellADR? 1? ( drop
@@ -165,14 +151,9 @@
 	"or " ,s ,TOS "," ,s ,TOS ,cr
 	;
 
-:,0? "jnz " ,simple? ;
-:,+? "js "  ,simple? ;
-:,-? "jns " ,simple? ;
-:,1? "jz "  ,simple? ;
-
-:,doble?
-	'jmpstr !
+:doble
 |	d.nos needWrite
+
 |	d.tos cellADR? 1? ( drop
 |		d.nos cellADR? 1? ( drop
 |			newReg 6 >? ( drop freelastreg newReg )
@@ -181,17 +162,9 @@
 |			d.drop ;
 |			)( drop ) )( drop )
     "cmp " ,s ,NOS "," ,s ,TOS ,cr
-	d.drop ;
+	;
 
-:,=? "jnz " ,doble?	;
-:,<? "jge " ,doble?	;
-:,>? "jle " ,doble?	;
-:,<=? "jg " ,doble?	;
-:,>=? "jl " ,doble?	;
-:,<>? "jz " ,doble?	;
-
-:,bit?
-	'jmpstr !
+:bit
 |	d.nos needWrite
 |	d.tos cellADR? 1? ( drop
 |		d.nos cellADR? 1? ( drop
@@ -201,7 +174,27 @@
 |			 ;
 |			) )( drop )
     "test " ,s ,NOS "," ,s ,TOS ,cr
-	d.drop ;
+	;
+
+#jmpmode 'simple
+
+:,simple?	'jmpstr ! 'simple 'jmpmode ! ;
+
+:,0? "jnz " ,simple? ;
+:,+? "js "  ,simple? ;
+:,-? "jns " ,simple? ;
+:,1? "jz "  ,simple? ;
+
+:,doble?	'jmpstr ! 'doble 'jmpmode ! ;
+
+:,=? "jnz " ,doble?	;
+:,<? "jge " ,doble?	;
+:,>? "jle " ,doble?	;
+:,<=? "jg " ,doble?	;
+:,>=? "jl " ,doble?	;
+:,<>? "jz " ,doble?	;
+
+:,bit?	'jmpstr ! 'bit 'jmpmode ! ;
 
 :,and?  "jz " ,bit?	;
 :,nand? "jnz " ,bit? ;
@@ -210,7 +203,7 @@
 :label		"_" ,s ,h ;
 :jmp,		"jmp " ,s label ,cr ;
 :,etiqueta	label ": " ,s ;
-:,jmpcond   jmpstr ,s label ,cr ;
+:,jmpcond   jmpmode exec jmpstr ,s label ,cr ;
 
 :+etiqueta	| -- nueva   // y agrega a pila
 	nlabel 1+ dup 'nlabel ! dup c.push ;
@@ -302,31 +295,89 @@
 	dnos cellREG
 	"xor " ,s ,NOS "," ,s ,TOS ,cr
 	;
+
+:,+val
+	dnos cell.add? 1? ( dnos cellflat ) drop
+	dtos cell.value dnos cell.add ;
+
 :,+
+	dtos cell.val? 0? ( drop ,+val ; ) drop
 	"add " ,s ,NOS "," ,s ,TOS ,cr
 	;
+
+:,-val
+	dnos cell.add? 1? ( dnos cellflat ) drop
+	dtos cell.value neg dnos cell.add ;
 :,-
+	dtos cell.val? 0? ( drop ,-val ; ) drop
 	"sub " ,s ,NOS "," ,s ,TOS ,cr
 	;
-:,*
-	| si d.tos es pow2..
-	dnos cellREG
+
+|------ mult
+:,pow*
+	32 swap clz - | pot
+	"shl " ,s ,NOS "," ,s ,d ,cr
+	;
+
+:,cte*
+	dtos cell.value
+	dup 1- nand? ( ,pow* ; ) | si dtos es pow2..
 	"imul " ,s ,NOS "," ,s ,TOS ,cr
 	;
+
+:,*
+	dnos cellREG
+	| dtos cell.val? 0? ( drop ,cte* ; ) drop 	| si dtos es cte
+	"imul " ,s ,NOS "," ,s ,TOS ,cr
+	;
+
+|----- division by constant
+| http://www.flounder.com/multiplicative_inverse.htm
+
+#divm
+#divs
+
+| val dup 1- and 0? ( pow2)
+:,pow/ | val -- | 0 1 2 4 8 16 32 ...
+	32 swap clz - | pot
+	"cdq" ,ln
+	"and edx,$" ,s dup 1- ,h ,cr
+	"and eax,edx" ,ln
+	"shr eax," ,s ,d ,cr
+	;
+
+:,cte/
+	dtos cell.value
+	dup 1- nand? ( ,pow/ ; ) | si dtos es pow2..
+	calcmagic
+
+	"mov ebx,eax" ,ln
+	"cdq" ,ln
+	"imul $" ,s divm ,h ,cr
+	"shr edx," ,s divs ,d ,cr
+	"shr ebx,31" ,ln
+	"mov eax,edx" ,ln
+	"sub eax,ebx" ,ln
+	;
+
 :,/
-	| si d.tos es pow2..
-	dnos cellEAX dtos cellREGMEM usoEDX
+	dnos cellEAX
+	usoEDX
+
+	| dtos cell.val? 0? ( drop ,cte/ ; ) drop 	| si dtos es cte
+
+	dtos cellREGMEM
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-|	freeEDX
+	ndtos setEAX
 	;
 :,/MOD
 	| si d.tos es pow2..
 	dnos cellEAX dtos cellREGMEM usoEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-|	d.nos setEAX
-|	d.tos setEDX
+	ndnos setEAX
+	ndtos setEDX
 	;
 
 :,MOD
@@ -334,8 +385,7 @@
 	dnos cellEAX dtos cellREGMEM usoEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-|	d.tos setEDX
-|	freeEAX
+	ndtos setEDX
 	;
 
 :,*/
@@ -343,9 +393,8 @@
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
-|	d.tos setEAX
-|	freeEDX
-;
+	ndtos setEAX
+	;
 
 :,*>>
 	| si d.nos es pow2..
@@ -355,7 +404,7 @@
 	"imul " ,s ,NOS ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
 |	"shr edx," ,s ,TOSb ,cr | no hace falta!!
-|	freeEDX
+	ndtos setEAX
 	;
 
 :,<</
@@ -368,8 +417,7 @@
     "shld edx,eax," ,s ,TOSb ,cr
 	"shl eax," ,s ,TOSb ,cr
 	"idiv " ,s ,NOS ,cr
-|	d.tos setEAX
-|	freeEDX
+	ndtos setEAX
 	;
 
 :,<<
@@ -392,7 +440,7 @@
 
 :,ABS
 	dtos cellREG
-|	usoEDX
+	usoEDX
 |	d.tos cellREG? 0? ( | EAX
 |		"cdq" ,ln
 |		)(
@@ -402,7 +450,6 @@
 |		) drop
 	"add " ,s ,TOS ",edx" ,ln
 	"xor " ,s ,TOS ",edx" ,ln
-|	freeEDX
 	;
 
 :,CLZ
@@ -415,16 +462,28 @@
 :,NEG
 	dtos cellREG
 	"neg " ,s ,TOS ,cr ;
+
 :,1+
-	"add " ,s ,TOS ",1" ,ln ;
+	dtos cell.add? 1? ( dtos cellflat ) drop
+	1 dtos cell.add ;
+
 :,4+
-	"add " ,s ,TOS ",4" ,ln ;
+	dtos cell.add? 1? ( dtos cellflat ) drop
+	4 dtos cell.add ;
+
 :,1-
-	"sub " ,s ,TOS ",1" ,ln ;
+	dtos cell.add? 1? ( dtos cellflat ) drop
+	-1 dtos cell.add ;
+
 :,2/
+	cellflat
 	"sar " ,s ,TOS ",1" ,ln ;
+
 :,2*
-	"sal " ,s ,TOS ",1" ,ln ;
+	dtos cell.shf? 1? ( drop cellflat ) drop
+	2 dtos cell.shf ;
+
+|	"sal " ,s ,TOS ",1" ,ln ;
 
     |------ MEMORIA
 :,@
@@ -713,7 +772,7 @@
 	dup dic>tok @ swap dic>len@
 	( 1? )( 1- swap @+
 		9 ,c "; " ,s dup tokenstr ,print
-		9 ,c nroi ,stackm ,cr
+		9 ,c "|" ,s nroi ,stackm ,cr
 
 		,cadatoken swap
 		"r4/compiler/code.asm" savemem | DEBUG
@@ -738,7 +797,7 @@
 
 	cellinfo
 	blockinfo
-	tokeninfo
+|	tokeninfo
 
 	dup ,code
 	drop

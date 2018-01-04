@@ -96,12 +96,12 @@
 	swap over 'cellv + !
 	0 swap 'cella + ! ;
 
-:cell.val! 0 swap cell.t ;
-:cell.cte! 1 swap cell.t ;
-:cell.str! 2 swap cell.t ;
-:cell.wor! 3 swap cell.t ;
-:cell.reg! 5 swap cell.t ;
-:cell.stk! 6 swap cell.t ;
+::cell.val! 0 swap cell.t ;
+::cell.cte! 1 swap cell.t ;
+::cell.str! 2 swap cell.t ;
+::cell.wor! 3 swap cell.t ;
+::cell.reg! 5 swap cell.t ;
+::cell.stk! 6 swap cell.t ;
 
 |-----------------
 :cellt? | nro -- cellt
@@ -119,28 +119,34 @@
 	dup cellt? 1? ( ; ) drop
 	dup 2 << 'cellv + @ ;
 
-:cellm? | nro -- nro 1/0
+
+::cellm? | nro -- nro 1/0
 	dup cellt? $10 and ;
 
-:cell.add? | nro -- nro 1/0=se puede
+::cell.add? | nro -- nro 1/0=se puede
 	dup 2 << 'cellt + @ $f0 and ;
 
-:cell.shf? | nro -- nro 1/0=se puede
+::cell.shf? | nro -- nro 1/0=se puede
 	dup 2 << 'cellt + @ $1f0 and ;
 
+::cell.val?	| nro -- nro 1/0=es valor
+	dup 2 << 'cellt + @ ;
 
-:cell.add | val nro --
+
+::cell.add | val nro --
 	2 << swap over 'cella + +!
 	'cellt + dup @ $100 or swap ! ;
 
-:cell.shf | val nro -- ; 2,4,8
+::cell.shf | val nro -- ; 2,4,8
 	2 << 'cellt + dup
 	@ rot 4 << or swap ! ;
 
-:cell.mem | nro --
+::cell.mem | nro --
 	2 << 'cellt + dup
 	@ $10 or swap ! ;
 
+::cell.value | nro -- valor
+	2 << 'cellv + @ ;
 |--------------------------
 #registros	| registros usados
 
@@ -157,8 +163,7 @@
 :newReg | -- reg | busca un registro libre
 	0 registros
 	( 1? )( 1 nand? ( drop ; ) | libre?
-		2/ $7fffffff and
-		swap 1+ swap )
+		1 0>> swap 1+ swap )
 	drop ;
 
 |-----------------
@@ -196,6 +201,9 @@
 	"lea " ,s over ,reg ",[" ,s ,cell "]" ,s ,cr
 	cell.reg! ;
 
+::cellflat | nro --
+	dup cellregu? -? ( drop newReg )
+	swap cell2reg ;
 
 |-----------------
 :needreg | nro --
@@ -339,8 +347,14 @@
 		dup "%d - " print
 		cntvreg "%d cells" print
 		cr cr verde
-		log print
+|		log print cr
+
+		blanco
+		dumpcel
+
 		'exit >esc<
+		[ 2 0 cell.val! ; ] <f1>
+		[ 3 1 cell.reg! ; ] <f2>
 		cminiflecha ;
 
 : main ;
