@@ -67,6 +67,7 @@
 :setEAX		0 swap cell.reg! ;
 :setEDX		3 swap cell.reg! ;
 
+
 |------------
 | in out used (16 bytes)
 :rsetI
@@ -89,6 +90,15 @@
 	,cr
 	;
 
+
+:cellplain
+	"; --- plain stack ---" ,ln
+	stknow
+	c@+ ( 1? )( 1-
+		swap c@+ ,sp ,d
+		swap ) 2drop
+	,cr
+	;
 
 |------------ compila CODIGO
 :nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
@@ -144,6 +154,7 @@
 #jmpstr 0
 
 :simple
+	cellplain
 |	d.cnt 0? ( vpila2normal ) drop
 |	d.tos needWrite
 |	d.tos cellADR? 1? ( drop
@@ -203,7 +214,8 @@
 :label		"_" ,s ,h ;
 :jmp,		"jmp " ,s label ,cr ;
 :,etiqueta	label ": " ,s ;
-:,jmpcond   jmpmode exec jmpstr ,s label ,cr ;
+:,jmpcond
+	jmpmode exec jmpstr ,s label ,cr ;
 
 :+etiqueta	| -- nueva   // y agrega a pila
 	nlabel 1+ dup 'nlabel ! dup c.push ;
@@ -417,7 +429,17 @@
 	dtos cell.value
 	dup 1- nand? ( ,pow/MOD ; ) | si dtos es pow2..
 	calcmagic
+	"mov ebx,eax" ,ln
 
+	"cdq" ,ln
+	"imul $" ,s divm ,h ,cr
+	"shr edx," ,s divs ,d ,cr
+	"mov eax,edx" ,ln
+	"shr edx,31" ,ln
+	"sub eax,edx" ,ln
+
+	"imul edx,eax," ,s dtos cell.value ,cr
+	"sub edx,ebx" ,ln
 	;
 
 :,/MOD
@@ -512,13 +534,12 @@
 :,ABS
 	dtos cellREG
 	usoEDX
-|	d.tos cellREG? 0? ( | EAX
-|		"cdq" ,ln
-|		)(
-		usoEDX
+	dtos cellREG? 0? ( | EAX
+		"cdq" ,ln
+		)(
 		"mov edx," ,s ,TOS ,cr
 		"sar edx,31" ,ln
-|		) drop
+		) drop
 	"add " ,s ,TOS ",edx" ,ln
 	"xor " ,s ,TOS ",edx" ,ln
 	;
@@ -834,7 +855,7 @@
 
 :,code | w --
 	codeini
-|	inputcells
+	inputcells
 	dup dic>tok @ swap dic>len@
 	( 1? )( 1- swap @+
 		9 ,c "; " ,s dup tokenstr ,print
