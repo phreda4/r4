@@ -4,6 +4,7 @@
 ^r4/compiler/r4-cellana.txt
 ^r4/compiler/r4-regx86.txt
 
+#nword		| nro palabra
 #nlabel		| nro label
 #nstr		| nro string
 #strpending	| for str stack
@@ -82,20 +83,61 @@
 :rsetU	| ;usados
 	;
 
-:buildstack
-	stknow
-	c@+ ( 1? )( 1-
-		swap c@+ ,sp ,d
+|-----------------
+:needreg | nro --
+	dup cellflag
+	$4 and? ( drop ; )	| entrada palabra
+	$8 and? ( drop ; )	| salida palabra
+	$1000 and? ( drop ; )	| eax
+	$2000 and? ( drop ; )	| ecx
+	drop ;
+
+:inputcells | w --
+	|..... inicializa todas las celdas
+	1 ( cntvreg <? )(
+		dup 1- dup cell.reg!
+		1+ ) drop
+
+|	cntvreg ( 1? )( 1- needreg ) drop
+
+	| save inputcells
+
+   	nword 4 << regIO + >a
+	stknow c@+
+	dup a> c!+ >a
+	"; IN: " ,s
+	( 1? )( 1-
+		swap c@+
+		,cell ,sp
+		a> c!+ >a
+		swap ) 2drop
+	-1 a> c! | marca sin final por ahora
+	,cr
+	;
+
+:outputcells
+	nword 4 << regIO +
+	c@+ +
+	dup c@ +? ( 2drop ; ) | ya marcado (ajustar?)
+	drop >a
+	stknow c@+
+	dup a> c!+ >a
+	"; OUT: " ,s
+	( 1? )( 1-
+		swap c@+
+		,cell ,sp
+		a> c!+ >a
 		swap ) 2drop
 	,cr
 	;
+
 
 
 :cellplain
 	"; --- plain stack ---" ,ln
 	stknow
 	c@+ ( 1? )( 1-
-		swap c@+ ,sp ,d
+		swap c@+ cellflat
 		swap ) 2drop
 	,cr
 	;
@@ -111,6 +153,7 @@
 	" | len:" ,s dup dic>len@ ,d
 	" | calls:" ,s dup dic>call@ ,d
 	,cr
+	inputcells
 	;
 
 :,defw
@@ -139,7 +182,7 @@
 :,;
 	dup 8 - @ $ff and | word ;
 	16 =? ( drop ; ) drop
-	buildstack
+	outputcells
 	"ret" ,ln ;
 
 |---------- ASIGNACIONES
@@ -846,6 +889,7 @@
 
 |--------
 :codeini | w -- w
+	dup 'nword !
 	'pilac 'pilac> !
 	'pilab 'pilab> !
 	0 'nblock !
@@ -855,7 +899,6 @@
 
 :,code | w --
 	codeini
-	inputcells
 	dup dic>tok @ swap dic>len@
 	( 1? )( 1- swap @+
 		9 ,c "; " ,s dup tokenstr ,print
@@ -867,6 +910,9 @@
 		1 'nroi +!
 		) 2drop ;
 
+| regIO  word -> 0 0 0 0
+| bytes.. cntIn i0 i1 i2 i3 cntO o0 o1 o2 o3
+|
 ::iniCODE
 	here dup 'regIO !
 	cntwords 4 <<	| 16 bytes por word
@@ -882,12 +928,11 @@
 
 	"; vreg:" ,s cntvreg 1- ,d ,cr
 
-	cellinfo
-	blockinfo
+|	cellinfo
+|	blockinfo
 |	tokeninfo
 
-	dup ,code
-	drop
+	,code
 
 	"r4/compiler/code.asm" savemem | DEBUG
 
