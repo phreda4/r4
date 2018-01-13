@@ -1,0 +1,164 @@
+| triangle to quadtree
+| PHREDA 2018
+^r4/lib/gui.txt
+^r4/lib/loadimg.txt
+^r4/lib/trace.txt
+
+#:tritexture 0
+
+|----------------------------------
+#ox #oy
+:3dini
+	512 sw - 2/ neg 'ox !
+	512 sh - 2/ neg 'oy !
+	matini ;
+
+:c9 | x z -- x'
+	2/ 0 swap over | x 0 z 0  | x dx z cx
+	pick3 >? ( over - rot )( over + rot 256 + ) rot 2/ rot
+		| cx>x --> cx-=z : cx+=z dx+=256 ; z=z/2
+	pick3 >? ( over - rot )( over + rot 128 + ) rot 2/ rot
+		| cx>x --> cx-=z : cx+=z dx+=128 ; z=z/2
+	pick3 >? ( over - rot )( over + rot 64 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 32 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 16 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 8 + ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 4+ ) rot 2/ rot
+	pick3 >? ( over - rot )( over + rot 2 + ) rot 2/ rot
+	pick3 >? ( 2drop )( 2drop 1+ )
+	nip ;
+
+| bitrick..sin saltos
+
+| pick3 over - 31 >> 	| x dx z cx sign
+| dup 256 and >r
+| pick2 over neg xor +	| x dx z cx z+
+| +						| x dx z cx+-z
+| rot r> +				| x z cx+-z dx+lev
+| rot 2/ rot			| x dx' z' cx'
+
+:3dpro | x y z -- x y
+	rot over c9 ox + rot rot c9 oy + ;
+|----------------------------------
+
+:viewire | 'vertex --
+ 	>b
+ 	b@+ b@+ b@+ 3dpro 2dup op 4 b+
+ 	b@+ b@+ b@+ 3dpro line 4 b+
+ 	b@+ b@+ b@+ 3dpro line
+	line
+	;
+
+|------------------------
+#stackv
+#stackv>
+|--
+| x cx y cy z dxy col ccol
+| 0 4 8 12 16 20  24  28
+
+:drawp | adr --
+	20 + @+
+	dup 9 >> $1ff and oy +
+	swap $1ff and ox +
+	setxy
+	@ a!+ ;
+
+:samecuadrant | adr -- adr 1/0
+	dup >a
+	a@+ a@+ - a@+ a@+ - | (x<cx -) (y<cy -)
+	16 a+		| xs ys
+	a@+ a@+ -	| xs ys x2s
+	rot xor	$80000000 and? ( 2drop 0 ; ) | ys x2s
+	a@+ a@+ -	| ys x2s y2s
+	rot xor	$80000000 and? ( 2drop 0 ; ) | x2s y2s
+	16 a+		| xs ys
+	a@+ a@+ -	| xs ys x2s
+	rot xor $80000000 and? ( 2drop 0 ; ) | ys x2s
+	a@+ a@+ -	| ys x2s y2s
+	rot xor	$80000000 and? ( 2drop 0 ; ) | x2s y2s
+	2drop 1 ;
+
+:advancecuadrant | adr -- adr
+	dup >a
+	a@+ a@+
+
+	;
+
+:cpyvert | --	a:o b:d
+	a@+ b!+ a@+ b!+ a@+ b!+ a@+ b!+ 
+	a@+ b!+ a@+ b!+ a@+ b!+ a@+ b!+
+	;
+
+:avgvert | o1 --	a:o2 b:d
+	@+ a@+ + 2/ b!+ @+ a@+ + 2/ b!+
+	@+ a@+ + 2/ b!+ @+ a@+ + 2/ b!+
+	@+ a@+ + 2/ b!+ @+ a@+ + 2/ b!+
+	@+ a@+ + 2/ b!+ @+ a@+ + 2/ b!+
+	;
+
+:recurseview | stackv level --
+	( swap samecuadrant 1? )( drop
+		advancecuadrant
+		swap 1- 0? ( drop drawp ; )
+		) drop
+	| stackv level
+
+	| t1
+	over >a
+	over 96 + dup >b
+	| stackv level stackv+
+	cpyvert pick2 avgvert pick2 avgvert
+	over recurseview
+
+	| t2
+	over >a
+	over 96 + dup >b
+	| stackv level stackv+
+	cpyvert pick2 avgvert pick2 avgvert |*** NO
+	over recurseview
+
+	| t3
+	over >a
+	over 96 + dup >b
+	| stackv level stackv+
+	cpyvert pick2 avgvert pick2 avgvert |*** NO
+	over recurseview
+
+	| t4
+	over >a
+	over 96 + dup >b
+	| stackv level stackv+
+	cpyvert pick2 avgvert pick2 avgvert |*** NO
+	over recurseview
+
+	2drop 1- ;
+
+:viewqua | 'vertex --
+	>b stackv >a
+	b@+ a!+ 0 a!+ b@+ a!+ 0 a!+ b@+ 2/ a!+ 0 a!+ b@+ a!+ 0 a!+
+	b@+ a!+ 0 a!+ b@+ a!+ 0 a!+ b@+ 2/ a!+ 0 a!+ b@+ a!+ 0 a!+
+	b@+ a!+ 0 a!+ b@+ a!+ 0 a!+ b@+ 2/ a!+ 0 a!+ b@+ a!+ 0 a!+
+|	a> 'stackv> !
+
+	stackv 8 recurseview
+	;
+
+#vertex
+756 32 80 $ff0000
+10400 -520 1520 $ff
+600 160 1000 $ff00ff
+
+:main
+	mark
+	"media/obj/cube.png" loadimg 'tritexture !
+	here dup 'stackv ! 'stackv !
+	33
+	show clrscr
+		3dini
+		dup "%d" print cr
+
+|		xymouse swap 'vertex !+ !
+
+		'vertex viewire
+		'exit >esc< ;
+: main ;
