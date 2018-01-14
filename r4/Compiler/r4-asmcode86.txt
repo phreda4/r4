@@ -38,7 +38,7 @@
 :,VALUE	value ,print ;
 :,STRM	strm "str%h" ,print ;
 
-:,TOS	stknow stktos emitcell ;
+:,TOS	stknow stktos ,cell drop ;
 :,TOSb	stknow stktos emitcell ;
 
 :,NOS	stknow stknos emitcell ;
@@ -69,20 +69,6 @@
 :setEDX		3 swap cell.reg! ;
 
 
-|------------
-| in out used (16 bytes)
-:rsetI
-	stknow
-	c@+ ( 1? )( 1-
-		swap c@+
-		drop |*** asignar
-		swap ) 2drop ;
-
-:rsetO	| ;salida
-	;
-:rsetU	| ;usados
-	;
-
 |-----------------
 :needreg | nro --
 	dup cellflag
@@ -92,13 +78,20 @@
 	$2000 and? ( drop ; )	| ecx
 	drop ;
 
-:inputcells | w --
-	|..... inicializa todas las celdas
-	1 ( cntvreg <? )(
-		dup 1- dup cell.reg!
-		1+ ) drop
 
-|	cntvreg ( 1? )( 1- needreg ) drop
+:cellin | ncel flag -- ncel flag
+|	$1000 and? ( ) | eax
+|	$2000 and? ( ) | ecx
+	newReg pick2 cell.reg! ;
+
+:inputcells | w --
+	emptyReg
+
+	| init cells -1 (no asignada)
+	0 ( ncell <? )( dup cell.ini 1+ ) drop
+	0 ( ncell <? )(
+		dup cellflag $1 and? ( cellin ) drop
+		1+ ) drop
 
 	| save inputcells
 
@@ -113,6 +106,9 @@
 		swap ) 2drop
 	-1 a> c! | marca sin final por ahora
 	,cr
+	;
+
+:multientry
 	;
 
 :outputcells
@@ -153,11 +149,11 @@
 	" | len:" ,s dup dic>len@ ,d
 	" | calls:" ,s dup dic>call@ ,d
 	,cr
-	inputcells
 	;
 
 :,defw
-    dup 4 - @ 8 >> dumpinfoword "w" ,s ,h ;
+	multientry
+    dup 4 - @ 8 >> dumpinfoword "w" ,s ,h ":" ,s ,cr ;
 
 :,defv ; | no hay definiciones en optimizado
 :,[ :,] ; | no hay anonimas en optimizado
@@ -258,7 +254,8 @@
 :jmp,		"jmp " ,s label ,cr ;
 :,etiqueta	label ": " ,s ;
 :,jmpcond
-	jmpmode exec jmpstr ,s label ,cr ;
+	jmpmode exec
+	jmpstr ,s label ,cr ;
 
 :+etiqueta	| -- nueva   // y agrega a pila
 	nlabel 1+ dup 'nlabel ! dup c.push ;
@@ -899,6 +896,7 @@
 
 :,code | w --
 	codeini
+	inputcells
 	dup dic>tok @ swap dic>len@
 	( 1? )( 1- swap @+
 		9 ,c "; " ,s dup tokenstr ,print
@@ -928,7 +926,7 @@
 
 	"; vreg:" ,s cntvreg 1- ,d ,cr
 
-|	cellinfo
+	cellinfo
 |	blockinfo
 |	tokeninfo
 
