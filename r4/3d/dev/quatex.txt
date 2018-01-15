@@ -51,13 +51,13 @@
 
 |------------------------
 #stackv
-#stackv>
+
 |--
 | x cx y cy z dxy col ccol
 | 0 4 8 12 16 20  24  28
 
-:drawp | adr --
-	20 + @+
+:drawp | adr -- adr
+	dup 20 + @+
 	dup 9 >> $1ff and oy +
 	swap $1ff and ox +
 	setxy
@@ -78,14 +78,21 @@
 	rot xor	$80000000 and? ( 2drop 0 ; ) | x2s y2s
 	2drop 1 ;
 
+:advvert
+	a@+ a@+ | x cx
+	over >? ( a> 8 + @ neg a> 4 - +! )( a> 8 + @ a> 4 - +! pick3 a> 12 + +! )
+	2drop
+	a@+ a@+ | y cy
+	over >? ( a@ neg a> 4 - +! )( a@ a> 4 - +! pick3 9 << a> 4+ +! )
+	2drop
+	16 a+ ;
+
 :advancecuadrant | adr -- adr
 	dup >a
-	a@+ a@+
-
-	;
+	advvert advvert advvert ;
 
 :cpyvert | --	a:o b:d
-	a@+ b!+ a@+ b!+ a@+ b!+ a@+ b!+ 
+	a@+ b!+ a@+ b!+ a@+ b!+ a@+ b!+
 	a@+ b!+ a@+ b!+ a@+ b!+ a@+ b!+
 	;
 
@@ -94,53 +101,51 @@
 	@+ a@+ + 2/ b!+ @+ a@+ + 2/ b!+
 	@+ a@+ + 2/ b!+ @+ a@+ + 2/ b!+
 	@+ a@+ + 2/ b!+ @+ a@+ + 2/ b!+
+	drop
 	;
 
-:recurseview | stackv level --
+:recurseview | stackv level -- stackv level
 	( swap samecuadrant 1? )( drop
 		advancecuadrant
-		swap 1- 0? ( drop drawp ; )
-		) drop
+		swap 2/ 0? ( 1+ swap drawp 96 - swap ; )
+		) drop swap
 	| stackv level
 
 	| t1
 	over >a
-	over 96 + dup >b
-	| stackv level stackv+
-	cpyvert pick2 avgvert pick2 avgvert
-	over recurseview
+	over 96 + >b
+	cpyvert over avgvert over avgvert
+	swap 96 + swap recurseview
 
 	| t2
 	over >a
-	over 96 + dup >b
-	| stackv level stackv+
-	cpyvert pick2 avgvert pick2 avgvert |*** NO
-	over recurseview
+	over 96 + >b
+	over 32 + avgvert cpyvert over 32 + avgvert
+	swap 96 + swap recurseview
 
 	| t3
 	over >a
-	over 96 + dup >b
-	| stackv level stackv+
-	cpyvert pick2 avgvert pick2 avgvert |*** NO
-	over recurseview
+	over 96 + >b
+	over 64 + avgvert over 64 + avgvert cpyvert
+	swap 96 + swap recurseview
 
 	| t4
 	over >a
-	over 96 + dup >b
-	| stackv level stackv+
-	cpyvert pick2 avgvert pick2 avgvert |*** NO
-	over recurseview
+	over 96 + >b
+	over 32 + avgvert over 64 + avgvert over avgvert
+	swap 96 + swap recurseview
 
-	2drop 1- ;
+	swap 96 - swap 2/ ;
 
 :viewqua | 'vertex --
 	>b stackv >a
 	b@+ a!+ 0 a!+ b@+ a!+ 0 a!+ b@+ 2/ a!+ 0 a!+ b@+ a!+ 0 a!+
 	b@+ a!+ 0 a!+ b@+ a!+ 0 a!+ b@+ 2/ a!+ 0 a!+ b@+ a!+ 0 a!+
 	b@+ a!+ 0 a!+ b@+ a!+ 0 a!+ b@+ 2/ a!+ 0 a!+ b@+ a!+ 0 a!+
-|	a> 'stackv> !
 
-	stackv 8 recurseview
+	stackv 256
+	recurseview
+	2drop
 	;
 
 #vertex
@@ -151,7 +156,7 @@
 :main
 	mark
 	"media/obj/cube.png" loadimg 'tritexture !
-	here dup 'stackv ! 'stackv !
+	here 'stackv !
 	33
 	show clrscr
 		3dini
@@ -160,5 +165,7 @@
 |		xymouse swap 'vertex !+ !
 
 		'vertex viewire
+		'vertex viewqua
+
 		'exit >esc< ;
 : main ;
