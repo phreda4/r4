@@ -30,12 +30,53 @@
 
 | bitrick..sin saltos
 
-| pick3 over - 31 >> 	| x dx z cx sign
+| dup pick4 - 31 >> 	| x dx z cx sign
 | dup 256 and >r
 | pick2 over neg xor +	| x dx z cx z+
 | +						| x dx z cx+-z
 | rot r> +				| x z cx+-z dx+lev
 | rot 2/ rot			| x dx' z' cx'
+
+:c9b |x z -- x'
+	2/ 0 swap over | x 0 z 0  | x dx z cx
+
+	dup pick4 - 31 >> dup
+	256 and >r pick2 over neg xor +
+	+ rot r> + rot 2/ rot
+
+	dup pick4 - 31 >> dup
+	128 and >r pick2 over neg xor +
+	+ rot r> + rot 2/ rot
+
+	dup pick4 - 31 >> dup
+	64 and >r pick2 over neg xor +
+	+ rot r> + rot 2/ rot
+
+	dup pick4 - 31 >> dup
+	32 and >r pick2 over neg xor +
+	+ rot r> + rot 2/ rot
+
+	dup pick4 - 31 >> dup
+	16 and >r pick2 over neg xor +
+	+ rot r> + rot 2/ rot
+
+	dup pick4 - 31 >> dup
+	8 and >r pick2 over neg xor +
+	+ rot r> + rot 2/ rot
+
+   	dup pick4 - 31 >> dup
+	4 and >r pick2 over neg xor +
+	+ rot r> + rot 2/ rot
+
+	dup pick4 - 31 >> dup
+	2 and >r pick2 over neg xor +
+	+ rot r> + rot 2/ rot
+
+	dup pick4 - 31 >> dup
+	1 and >r pick2 over neg xor +
+	+ rot r> + rot 2/ rot
+	2drop nip
+	;
 
 :3dpro | x y z -- x y
 	rot over c9 ox + rot rot c9 oy + ;
@@ -58,8 +99,8 @@
 
 :drawp | adr -- adr
 	dup 20 + @+
-	dup 9 >> $1ff and oy +
-	swap $1ff and ox +
+	dup 9 >> $1ff and oy + sh clamp0max
+	swap $1ff and ox + sw clamp0max
 	setxy
 	@ a!+ ;
 
@@ -104,7 +145,30 @@
 	drop
 	;
 
+:printv
+	@+ "x:%d " print
+	@+ "xc:%d " print
+	@+ "y:%d " print
+	@+ "yc:%d " print
+	@+ "z:%d " print
+	@+ "dxy:%h " print
+	@+ "col:%h " print
+	@+ "dcol:%h " print
+	cr
+	;
+
+:dump | stakc level --
+	clrscr
+	stackv ( pick2 <? )(
+		printv
+		printv
+		printv
+		) drop
+	show 'exit >esc< ;
+
 :recurseview | stackv level -- stackv level
+|	dump
+
 	( swap samecuadrant 1? )( drop
 		advancecuadrant
 		swap 2/ 0? ( 1+ swap drawp 96 - swap ; )
@@ -135,7 +199,8 @@
 	over 32 + avgvert over 64 + avgvert over avgvert
 	swap 96 + swap recurseview
 
-	swap 96 - swap 2/ ;
+	swap 96 - swap 2* ;
+
 
 :viewqua | 'vertex --
 	>b stackv >a
@@ -162,9 +227,9 @@
 		3dini
 		dup "%d" print cr
 
-|		xymouse swap 'vertex !+ !
+		xymouse swap 'vertex !+ !
 
-		'vertex viewire
+|		'vertex viewire
 		'vertex viewqua
 
 		'exit >esc< ;
