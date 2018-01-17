@@ -6,6 +6,16 @@
 
 #:tritexture 0
 
+#vertex
+756 32 80 $ff0000
+10400 -520 1520 $ff
+600 160 1000 $ff00ff
+
+#vertex
+756 32 80 $ff0000
+5578 -244 800 $ff
+678 96 540 $ff00ff
+
 |----------------------------------
 #ox #oy
 :3dini
@@ -119,13 +129,15 @@
 	rot xor	$80000000 and? ( 2drop 0 ; ) | x2s y2s
 	2drop 1 ;
 
+| x cx y cy z dxy col ccol
+| 0 4 8 12 16 20  24  28
+| cx>x --> cx-=z : cx+=z dx+=256 ; z=z/2
 :advvert
-	a@+ a@+ | x cx
-	over >? ( a> 8 + @ neg a> 4 - +! )( a> 8 + @ a> 4 - +! pick3 a> 12 + +! )
-	2drop
-	a@+ a@+ | y cy
-	over >? ( a@ neg a> 4 - +! )( a@ a> 4 - +! pick3 9 << a> 4+ +! )
-	2drop
+	a> 16 + @	| z
+	a@+ a@ swap | cx x
+	>? ( over - a!+ )( over + a!+ pick2 a> 12 + +! )
+	a@+ a@ swap
+	>? ( swap - a!+ )( swap + a!+ over a> 4+ +! )
 	16 a+ ;
 
 :advancecuadrant | adr -- adr
@@ -140,10 +152,14 @@
 :avgvert | o1 --	a:o2 b:d
 	@+ a@+ + 2/ b!+ @+ a@+ + 2/ b!+
 	@+ a@+ + 2/ b!+ @+ a@+ + 2/ b!+
-	@+ a@+ + 2/ b!+ @+ a@+ + 2/ b!+
+	@+ a@+ + 2/ b!+ @+ a@+ nip |+ 2/
+	b!+
 	@+ a@+ + 2/ b!+ @+ a@+ + 2/ b!+
 	drop
 	;
+
+:verxy
+	@+ swap 4+ @+ swap 4+ @ 2* 3dpro ;
 
 :printv
 	@+ "x:%d " print
@@ -153,15 +169,21 @@
 	@+ "z:%d " print
 	@+ "dxy:%h " print
 	@+ "col:%h " print
-	@+ "dcol:%h " print
+	@+ drop |"dcol:%h " print
 	cr
+	allowchome
 	;
 
 :dump | stakc level --
 	clrscr
+	dup "%d " print cr
 	stackv ( pick2 <? )(
+		rand ink
+    	dup verxy >r >r
 		printv
+		dup verxy >r >r
 		printv
+		dup verxy 2dup op r> r> line r> r> line line
 		printv
 		) drop
 	show 'exit >esc< ;
@@ -202,21 +224,59 @@
 	swap 96 - swap 2* ;
 
 
+|---------
+:dotp | adr --
+	20 + @+
+	dup 9 >> $1ff and oy + |sh clamp0max
+	swap $1ff and ox + |sw clamp0max
+	swap setxy
+	@ a!+ ;
+
+:quaview | stackv level --
+	dump
+
+	( swap samecuadrant 1? )( drop
+		advancecuadrant
+		swap 2/ 0? ( drop dotp  ; )
+		) drop swap
+	| stackv level
+
+	| t1
+	over >a
+	over 96 + >b
+	cpyvert over avgvert over avgvert
+	over 96 + over quaview
+
+	| t2
+	over >a
+	over 96 + >b
+	over 32 + avgvert cpyvert over 32 + avgvert
+	over 96 + over quaview
+
+	| t3
+	over >a
+	over 96 + >b
+	over 64 + avgvert over 64 + avgvert cpyvert
+	over 96 + over quaview
+
+	| t4
+	over >a
+	over 96 + >b
+	over 32 + avgvert over 64 + avgvert over avgvert
+	swap 96 + swap quaview
+
+	2drop ;
+
+
 :viewqua | 'vertex --
 	>b stackv >a
 	b@+ a!+ 0 a!+ b@+ a!+ 0 a!+ b@+ 2/ a!+ 0 a!+ b@+ a!+ 0 a!+
 	b@+ a!+ 0 a!+ b@+ a!+ 0 a!+ b@+ 2/ a!+ 0 a!+ b@+ a!+ 0 a!+
 	b@+ a!+ 0 a!+ b@+ a!+ 0 a!+ b@+ 2/ a!+ 0 a!+ b@+ a!+ 0 a!+
 
-	stackv 256
-	recurseview
-	2drop
+	stackv 256 quaview
 	;
 
-#vertex
-756 32 80 $ff0000
-10400 -520 1520 $ff
-600 160 1000 $ff00ff
 
 :main
 	mark
@@ -227,8 +287,7 @@
 		3dini
 		dup "%d" print cr
 
-		xymouse swap 'vertex !+ !
-
+|		xymouse swap 'vertex !+ !
 |		'vertex viewire
 		'vertex viewqua
 
