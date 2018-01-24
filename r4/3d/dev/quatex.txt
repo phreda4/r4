@@ -91,9 +91,6 @@
 :3dpro | x y z -- x y
 	rot over c9 ox + rot rot c9 oy + ;
 
-:2/1 | o1 o2 -- om ;
-	over - dup 31 >> - 2/ + ;
-
 |----------------------------------
 :viewire | 'vertex --
  	>b
@@ -110,20 +107,14 @@
 | x cx y cy z dxy col ccol
 | 0 4 8 12 16 20  24  28
 
-:samecuadrant | adr -- adr 1/0
+:samecuadrant | adr -- adr 1/0-si
 	dup >a
-	a@+ a@+ - a@+ a@+ - | (x<cx -) (y<cy -)
-	16 a+		| xs ys
-	a@+ a@+ -	| xs ys x2s
-	pick2 xor $80000000 and? ( 3drop 0 ; ) drop
-	a@+ a@+ -
-	over xor $80000000 and? ( 3drop 0 ; ) drop
-	16 a+		| xs ys
-	a@+ a@+ -	| xs ys x2s
-	rot xor $80000000 and? ( 2drop 0 ; ) | ys x2s
-	a@+ a@+ -	| ys x2s y2s
-	rot xor	$80000000 and? ( 2drop 0 ; ) | x2s y2s
-	2drop 1 ;
+	a@+ a@+ - $80000000 and a@+ a@+ - 2/ $40000000 and or 16 a+
+	a@+ a@+ - $80000000 and a@+ a@+ - 2/ $40000000 and or 16 a+
+	<>? ( drop 1 ; )
+	a@+ a@+ - $80000000 and a@+ a@+ - 2/ $40000000 and or
+	- ;
+
 
 | x cx y cy z dxy col ccol
 | 0 4 8 12 16 20  24  28
@@ -145,14 +136,20 @@
 	a@+ b!+ a@+ b!+ a@+ b!+ a@+ b!+
 	;
 
+:2/1 | o1 o2 -- om ;
+	over - dup 31 >> - 2/ + ;
+
 :avgvert | o1 --	a:o2 b:d
-	@+ a@+ + 2/ b!+ @+ a@+ + 2/ b!+
-	@+ a@+ + 2/ b!+ @+ a@+ + 2/ b!+
-	@+ a@+ + 2/ b!+ @+ a@+ nip |+ 2/
+	@+ a@+ 2/1 b!+ @+ a@+ 2/1 b!+
+	@+ a@+ 2/1 b!+ @+ a@+ 2/1 b!+
+	@+ a@+ 2/1 b!+ @+ a@+ nip |+ 2/
 	b!+
-	@+ a@+ + 2/ b!+ @+ a@+ + 2/ b!+
+	@+ a@+ 2/1 b!+ @+ a@+ 2/1 b!+
 	drop
 	;
+
+:avglev | o1 --
+	dup avgvert dup avgvert avgvert ;
 
 :verxy
 	@+ swap 4+ @+ swap 4+ @
@@ -221,7 +218,7 @@
 :quaview | stackv level --
 	dump
 
-	( swap samecuadrant 1? )( drop
+	( swap samecuadrant 0? )( drop
 		advancecuadrant
 		swap 2/ 0? ( drop dotp  ; )
 		) drop swap
@@ -230,19 +227,19 @@
 	| t1
 	over >a
 	over 96 + >b
-	cpyvert over avgvert over avgvert
+	over avglev
 	over 96 + over quaview
 
 	| t2
 	over >a
 	over 96 + >b
-	over 32 + avgvert cpyvert over 32 + avgvert
+	over 32 + avglev
 	over 96 + over quaview
 
 	| t3
 	over >a
 	over 96 + >b
-	over 64 + avgvert over 64 + avgvert cpyvert
+	over 64 + avglev
 	over 96 + over quaview
 
 	| t4
@@ -251,7 +248,7 @@
 	over 32 + avgvert over 64 + avgvert over avgvert
 	swap 96 + swap quaview
 
-	2drop ;
+	trace ;
 
 
 :viewqua | 'vertex --
@@ -268,7 +265,6 @@
 	mark
 	"media/obj/cube.png" loadimg 'tritexture !
 	here 'stackv !
-	$ffff 'here +!
 	33
 	show clrscr
 
@@ -280,4 +276,5 @@
 |		'vertex viewire
 		'vertex viewqua
 		'exit >esc< ;
+
 : main ;
