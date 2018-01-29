@@ -6,15 +6,22 @@ Started in 2005 along with my study of the Forth language.
 
 :r4 is a Forth but simpler although not less powerful.
 
+r4.exe is a fort virtual machine, with a bytecode compiler and a bytecode interpreter (very very fast).
+
+One apps is a compiler, this generate asm for x86 in FASM syntax, see in r4asm folder.
+You can code in any editor, put the .txt file in r4/ folder and this is show in main, 
+
 ## some screenshots
 
  ![main menu](screenshot/main.png)
 
-The main menu, but all is make in r4, this can be other or start the app.
+The main menu, but all is make in r4, this can be other source or start the any app.
+push f1 and exec, when you have bugs, some help in internal editor (made in r4 too) show this or the app crash.
 
- ![debug](screenshot/debug.png)
+ ![debug](screenshot/debug.png) 
 
-The editor and the debuger, a compiler can generate a standalone exacutable.
+The debuger, with step by step play, memory dump, variable dump and stack view.
+in the internal editor hit f2 and run in debugger.
 
  ![Memory game](screenshot/memory-game.png)![debug](screenshot/viewlorenz3d.png)
 
@@ -26,9 +33,17 @@ Many game and examples, in continuos growing.
  ![Voxel](screenshot/voxeled.png)
 
 Some editors, with original file format, can import from many sources and generate the code inside the exe
-
+hit ctrl-E in internal editor in the include word, the extension call the apropiate editor.
+.ico for icons 
+.bmr for bitmaps
+.vsp for vector graphics
 
 ## Quick overview
+
+First, learn stack manipulation, every forth lang use this, use "Starting forth" or "Thinking forth".
+Only stack manipulation, ColorForth and r4 avoid some forth construction.
+
+In r4 there are two definitions things #DATA and :CODE
 
 The behavior of the language is guided by prefixes :
 
