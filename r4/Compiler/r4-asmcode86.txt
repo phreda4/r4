@@ -21,7 +21,7 @@
 :stkpk3 c@+ 4 - + c@ $ff and ;
 :stkpk4 c@+ 5 - + c@ $ff and ;
 
-:stkrtos c@+ + c@+ + c@ $ff and ;
+:stkrtos c@+ + c@+ + 1- c@ $ff and ;
 
 :value	nroi 2 << tokenini + @ tok>cte ;
 :strm	nroi 2 << tokenini + @ tok>mem ;
@@ -34,6 +34,8 @@
 :DPK2	stknow stkpk2 ;
 :DPK3	stknow stkpk3 ;
 :DPK4	stknow stkpk4 ;
+
+:RTOS	stknow stkrtos ;
 
 |-----------
 :,VALUE	value "$%h" ,print ;
@@ -63,8 +65,7 @@
 	stknow
 	c@+ ( 1? )( 1-
 		swap c@+ fillReg
-		swap ) 2drop
-	;
+		swap ) 2drop ;
 
 |------------
 | tipo de celda que necesito
@@ -86,26 +87,42 @@
 
 
 |-----------------
-:needreg | nro --
-	dup cellflag
-	$4 and? ( drop ; )	| entrada palabra
-	$8 and? ( drop ; )	| salida palabra
-	$1000 and? ( drop ; )	| eax
-	$2000 and? ( drop ; )	| ecx
-	drop ;
+|:needreg | nro --
+|	dup cellflag
+|	$4 and? ( drop ; )	| entrada palabra
+|	$8 and? ( drop ; )	| salida palabra
+|	$1000 and? ( drop ; )	| eax
+|	$2000 and? ( drop ; )	| ecx
+|	drop ;
 
+:marknoc | cell -- cell
+	dup clivei 2 << 'stki + @
+	c@+ ( 1? )( 1-
+		swap c@+ cellfl dup @ $4000 or swap ! | mark no C
+		swap ) 2drop ;
+
+:cellstart
+	dup cell.ini
+	cellflag
+	$ff0000 nand? ( drop ; )	| cte?
+	$2000 nand? ( drop ; )		| need ecx?
+	drop
+	marknoc | ecx->marca no
+	;
 
 :cellin | ncel flag -- ncel flag
 |	$1000 and? ( ) | eax
+|	$4000 and? ( ) | no ecx
 |	$2000 and? ( ) | ecx
-	newReg dup reg!
+	newReg
+	dup reg!
 	pick2 cell.reg! ;
 
 :inputcells | w --
 	emptyReg
 
 	| init cells -1 (no asignada)
-	0 ( ncell <? )( dup cell.ini 1+ ) drop
+	0 ( ncell <? )( dup cellstart 1+ ) drop
 	0 ( ncell <? )(
 		dup cellflag $1 and? ( cellin ) drop
 		1+ ) drop
@@ -128,10 +145,20 @@
 :multientry
 	;
 
+:outputadjust | adr
+	1+ >a | salto cantidad
+	stknow c@+
+	"; ADJ: " ,ln
+	( 1? )( 1-
+		swap c@+
+		a> c@+ swap >a
+		swap cellresolve
+		swap ) 2drop ;
+
 :outputcells
 	nword 4 << regIO +
 	c@+ +
-	dup c@ +? ( 2drop ; ) | ya marcado (ajustar?)
+	dup c@ +? ( drop outputadjust ; ) | ya marcado ajustar
 	drop >a
 	stknow c@+
 	dup a> c!+ >a
@@ -143,7 +170,6 @@
 		swap ) 2drop
 	,cr
 	;
-
 
 
 :cellplain
@@ -197,13 +223,20 @@
 	outputcells
 	"ret" ,ln ;
 
-|---------- ASIGNACIONES
+|--
 
+:eligeReg
+	regused
+	>DTOS cellflag $4000 and? ( 2 reg! ) drop  | ECX
+    newreg >DTOS cell.reg! ;
+
+	
+
+|---------- ASIGNACIONES
 :,lit
     >TOSreg? 0? ( drop VALUE >DTOS cell.Val! ; ) drop
-    regused
-    newreg >DTOS cell.reg!
-    "mov " ,s ,>TOS "," ,s ,VALUE ,cr
+	eligeReg
+	"mov " ,s ,>TOS "," ,s ,VALUE ,cr
 	;
 
 :,lits
@@ -211,18 +244,22 @@
 	'strpending ! drop
 	1 'nstr +!
 	>TOSreg? 0? ( drop STRM >DTOS cell.Str! ; ) drop
+	eligeReg
     "mov " ,s ,>TOS "," ,s ,STRM ,cr
 	;
 :,dwo
     >TOSreg? 0? ( drop VALUE >DTOS cell.wor! ; ) drop
+    eligeReg
     "mov " ,s ,>TOS "," ,s ,VALUE ,cr
 	;
 :,dva
     >TOSreg? 0? ( drop VALUE >DTOS cell.wor! ; ) drop
+    eligeReg
     "mov " ,s ,>TOS "," ,s ,VALUE ,cr
 	;
 :,var
     >TOSreg? 0? ( drop VALUE >DTOS cell.wor! >DTOS cell.mem ; ) drop
+    eligeReg
     "mov " ,s ,>TOS ",[" ,s ,VALUE "]" ,s ,cr
 	;
 
@@ -346,39 +383,33 @@
 
 |------------------------------ pila
 :,dup
-    >TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
-    regused
-    newreg >DTOS cell.reg!
+	>TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
+	eligeReg
     "mov " ,s ,>TOS "," ,s ,TOS ,cr
 	;
 :,over
-    >TOSreg? 0? ( drop DNOS >DTOS cell.cpy ; ) drop
-    regused
-    newreg >DTOS cell.reg!
-    "mov " ,s ,>TOS "," ,s ,NOS ,cr
+	>TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
+	eligeReg
+	"mov " ,s ,>TOS "," ,s ,NOS ,cr
 	;
 :,pick2
-    >TOSreg? 0? ( drop DPK2 >DTOS cell.cpy ; ) drop
-    regused
-    newreg >DTOS cell.reg!
+	>TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
+	eligeReg
     "mov " ,s ,>TOS "," ,s ,PK2 ,cr
 	;
 :,pick3
-    >TOSreg? 0? ( drop DPK3 >DTOS cell.cpy ; ) drop
-    regused
-    newreg >DTOS cell.reg!
+	>TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
+	eligeReg
     "mov " ,s ,>TOS "," ,s ,PK3 ,cr
 	;
 :,pick4
-    >TOSreg? 0? ( drop DPK4 >DTOS cell.cpy ; ) drop
-    regused
-    newreg >DTOS cell.reg!
+	>TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
+	eligeReg
     "mov " ,s ,>TOS "," ,s ,PK4 ,cr
 	;
 :,2dup
 	>TOSreg? 1? (
-	    regused
-		newreg >DTOS cell.reg!
+	    eligeReg
 		"mov " ,s ,>TOS "," ,s ,TOS ,cr ) drop
 	>NOSreg? 0? ( drop ; ) drop
     regused
@@ -387,8 +418,7 @@
 	;
 :,2over
 	>TOSreg? 1? (
-	    regused
-		newreg >DTOS cell.reg!
+	    eligeReg
 		"mov " ,s ,>TOS "," ,s ,PK2 ,cr ) drop
 	>NOSreg? 0? ( drop ; ) drop
     regused
@@ -419,8 +449,9 @@
 	;
 
 :,R@
-|    >TOSreg? 0? ( drop ; ) drop
-|    "mov " ,s ,>TOS "," ,s ,RTOS ,cr
+	>TOSreg? 0? ( drop RTOS >DTOS cell.cpy ; ) drop
+	eligeReg
+    "mov " ,s ,>TOS "," ,s ,RTOS ,cr
 	;
 
 |----------------------
@@ -730,8 +761,8 @@
 	"mov " ,s ,>TOS ",esi" ,s ,cr
 	;
 :,A@
-    regused
-    newreg >DTOS cell.reg!
+	>TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
+	eligeReg
 	"mov " ,s ,>TOS ",dword [esi]" ,s ,cr
 	;
 :,A!
@@ -741,8 +772,8 @@
 	"add esi," ,s ,TOS ,cr
 	;
 :,A@+
-    regused
-    newreg >DTOS cell.reg!
+	>TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
+	eligeReg
 	"mov " ,s ,>TOS ",dword [esi]" ,s ,cr
 	"add esi,4" ,ln
 	;
@@ -758,8 +789,8 @@
 	"mov " ,s ,>TOS ",edi" ,s ,cr
 	;
 :,B@
-    regused
-    newreg >DTOS cell.reg!
+	>TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
+	eligeReg
 	"mov " ,s ,>TOS ",dword [edi]" ,s ,cr
 	;
 :,B!
@@ -769,8 +800,8 @@
 	"add edi," ,s ,TOS ,cr
 	;
 :,B@+
-    regused
-    newreg >DTOS cell.reg!
+	>TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
+	eligeReg
 	"mov " ,s ,>TOS ",dword [edi]" ,s ,cr
 	"add edi,4" ,ln
 	;
@@ -961,11 +992,14 @@
 :,code | w --
 	codeini
 	inputcells
+
+	cellinfo
+
 	dup dic>tok @ dup 'tokenini !
 	swap dic>len@
 	( 1? )( 1- swap @+
 		9 ,c "; " ,s dup tokenstr ,print
-		9 ,c "|" ,s nroi ,stackm ,cr
+		9 ,c "|" ,s nroi ,stackm " |" ,s nroi ,stackmc 	,cr
 
 		,cadatoken swap
 		"r4/compiler/code.asm" savemem | DEBUG
@@ -991,7 +1025,6 @@
 
 	"; vreg:" ,s cntvreg 1- ,d ,cr
 
-	cellinfo
 |	blockinfo
 |	tokeninfo
 
