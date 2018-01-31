@@ -27,12 +27,13 @@
 :strm	nroi 2 << tokenini + @ tok>mem ;
 
 :>DTOS	stknex stktos ;
+:>DNOS	stknex stknos ;
 
 :DTOS	stknow stktos ;
 :DNOS	stknow stknos ;
 :DPK2	stknow stkpk2 ;
-:NDTOS	stknex stktos ;
-:NDNOS	stknex stknos ;
+:DPK3	stknow stkpk3 ;
+:DPK4	stknow stkpk4 ;
 
 |-----------
 :,VALUE	value "$%h" ,print ;
@@ -68,7 +69,13 @@
 |------------
 | tipo de celda que necesito
 :cellEAX
-:cellECXCTE
+	drop
+	;
+:cellECXCTE | cell --
+|	cellreg? 2 =? ( 2drop ; )
+	drop
+	;
+
 :cellREG
 :cellREGMEM
 	;
@@ -91,7 +98,8 @@
 :cellin | ncel flag -- ncel flag
 |	$1000 and? ( ) | eax
 |	$2000 and? ( ) | ecx
-	newReg pick2 cell.reg! ;
+	newReg dup reg!
+	pick2 cell.reg! ;
 
 :inputcells | w --
 	emptyReg
@@ -315,7 +323,7 @@
 	block.new
 	block.type
 	%1 and? ( +etiqueta ,jmpcond	| IF ELSE
-		)( +etiqueta ,etiqueta )
+		)(  +etiqueta ,etiqueta )
 	drop
 	;
 
@@ -338,31 +346,31 @@
 
 |------------------------------ pila
 :,dup
-    >TOSreg? 0? ( drop ; ) drop
+    >TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
     regused
     newreg >DTOS cell.reg!
     "mov " ,s ,>TOS "," ,s ,TOS ,cr
 	;
 :,over
-    >TOSreg? 0? ( drop ; ) drop
+    >TOSreg? 0? ( drop DNOS >DTOS cell.cpy ; ) drop
     regused
     newreg >DTOS cell.reg!
     "mov " ,s ,>TOS "," ,s ,NOS ,cr
 	;
 :,pick2
-    >TOSreg? 0? ( drop ; ) drop
+    >TOSreg? 0? ( drop DPK2 >DTOS cell.cpy ; ) drop
     regused
     newreg >DTOS cell.reg!
     "mov " ,s ,>TOS "," ,s ,PK2 ,cr
 	;
 :,pick3
-    >TOSreg? 0? ( drop ; ) drop
+    >TOSreg? 0? ( drop DPK3 >DTOS cell.cpy ; ) drop
     regused
     newreg >DTOS cell.reg!
     "mov " ,s ,>TOS "," ,s ,PK3 ,cr
 	;
 :,pick4
-    >TOSreg? 0? ( drop ; ) drop
+    >TOSreg? 0? ( drop DPK4 >DTOS cell.cpy ; ) drop
     regused
     newreg >DTOS cell.reg!
     "mov " ,s ,>TOS "," ,s ,PK4 ,cr
@@ -417,15 +425,15 @@
 
 |----------------------
 :,AND
-	dnos cellREG
+|	dnos cellREG
 	"and " ,s ,NOS "," ,s ,TOS ,cr
 	;
 :,OR
-	dnos cellREG
+|	dnos cellREG
 	"or " ,s ,NOS "," ,s ,TOS ,cr
 	;
 :,XOR
-	dnos cellREG
+|	dnos cellREG
 	"xor " ,s ,NOS "," ,s ,TOS ,cr
 	;
 
@@ -434,7 +442,7 @@
 	dtos cell.value dnos cell.add ;
 
 :,+
-	dtos cell.val? 0? ( drop ,+val ; ) drop
+|	dtos cell.val? 0? ( drop ,+val ; ) drop
 	"add " ,s ,NOS "," ,s ,TOS ,cr
 	;
 
@@ -442,13 +450,13 @@
 	dnos cell.add? 1? ( dnos cellflat ) drop
 	dtos cell.value neg dnos cell.add ;
 :,-
-	dtos cell.val? 0? ( drop ,-val ; ) drop
+|	dtos cell.val? 0? ( drop ,-val ; ) drop
 	"sub " ,s ,NOS "," ,s ,TOS ,cr
 	;
 
 |------ mult
 :,*
-	dnos cellREG
+|	dnos cellREG
 	"imul " ,s ,NOS "," ,s ,TOS ,cr
 	;
 
@@ -510,7 +518,7 @@
 	dtos cellREGMEM
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-	ndtos setEAX
+	>dtos setEAX
 	;
 
 |----------------
@@ -535,8 +543,8 @@
 	dnos cellEAX dtos cellREGMEM usoEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-	ndnos setEAX
-	ndtos setEDX
+	>dnos setEAX
+	>dtos setEDX
 	;
 
 |----------------
@@ -551,7 +559,7 @@
 	dnos cellEAX dtos cellREGMEM usoEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-	ndtos setEDX
+	>dtos setEDX
 	;
 
 |----------------
@@ -560,7 +568,7 @@
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
-	ndtos setEAX
+	>dtos setEAX
 	;
 
 |----------------
@@ -571,7 +579,7 @@
 	"imul " ,s ,NOS ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
 |	"shr edx," ,s ,TOSb ,cr | no hace falta!!
-	ndtos setEAX
+	>dtos setEAX
 	;
 
 |----------------
@@ -585,25 +593,25 @@
     "shld edx,eax," ,s ,TOSb ,cr
 	"shl eax," ,s ,TOSb ,cr
 	"idiv " ,s ,NOS ,cr
-	ndtos setEAX
+	>dtos setEAX
 	;
 
 |----------------
 :,<<
-	dnos cellREG
+|	dnos cellREG
 	dtos cellECXCTE
 	"sal " ,s ,NOS "," ,s ,TOSb ,cr
 	;
 
 :,>>
 	| dtos=31 & dnos=eax --> "cdq" dtos=edx
-	dnos cellREG
+|	dnos cellREG
 	dtos cellECXCTE
 	"sar " ,s ,NOS "," ,s ,TOSb ,cr
 	;
 
 :,0>>
-	dnos cellREG
+|	dnos cellREG
 	dtos cellECXCTE
 	"shr " ,s ,NOS "," ,s ,TOSb ,cr
 	;
@@ -655,7 +663,7 @@
 	-1 dtos cell.add ;
 
 :,2/
-	cellflat
+|	cellflat
 	"sar " ,s ,TOS ",1" ,ln ;
 
 :,2*
@@ -722,6 +730,8 @@
 	"mov " ,s ,>TOS ",esi" ,s ,cr
 	;
 :,A@
+    regused
+    newreg >DTOS cell.reg!
 	"mov " ,s ,>TOS ",dword [esi]" ,s ,cr
 	;
 :,A!
@@ -731,6 +741,8 @@
 	"add esi," ,s ,TOS ,cr
 	;
 :,A@+
+    regused
+    newreg >DTOS cell.reg!
 	"mov " ,s ,>TOS ",dword [esi]" ,s ,cr
 	"add esi,4" ,ln
 	;
@@ -746,6 +758,8 @@
 	"mov " ,s ,>TOS ",edi" ,s ,cr
 	;
 :,B@
+    regused
+    newreg >DTOS cell.reg!
 	"mov " ,s ,>TOS ",dword [edi]" ,s ,cr
 	;
 :,B!
@@ -755,6 +769,8 @@
 	"add edi," ,s ,TOS ,cr
 	;
 :,B@+
+    regused
+    newreg >DTOS cell.reg!
 	"mov " ,s ,>TOS ",dword [edi]" ,s ,cr
 	"add edi,4" ,ln
 	;
