@@ -110,30 +110,25 @@
 |-------------------------
 | http://www.hugi.scene.org/online/coding/hugi%2017%20-%20cotriang.htm
 
-#dXdY_V1V3
-#dUdY_V1V3
-#dVdY_V1V3
-#dZdY_V1V3
-#dXdY_V2V3
-#dUdY_V2V3
-#dVdY_V2V3
-#dZdY_V2V3
-#dXdY_V1V2
-#dUdY_V1V2
-#dVdY_V1V2
-#dZdY_V1V2
-
-#Left_dXdY #Right_dXdY #LeftX #RightX
-#Left_dUdY #LeftU
-#Left_dVdY #LeftV
-#Left_dZdY #LeftZ
-#PK_dudx #PK_dvdx #PK_dzdx
-#PK_dudx_ #PK_dvdx_ #PK_dzdx_
 #wtexture
 #mtexture
 
-#u_a #v_a #z_a #u_b #v_b #z_b #u_c #v_c #z_c
+#Right_dXdY #RightX
+#Left_dXdY #LeftX
+#Left_dUdY #LeftU
+#Left_dVdY #LeftV
+#Left_dZdY #LeftZ
+
+#u_a #v_a #z_a
+#u_b #v_b #z_b
+#u_c #v_c #z_c
+
+#dLeftz
+#dLeftu
+#dLeftv
+
 #v1 #v2 #v3
+#y31 #y32 #y21
 
 :drawtex | du dv u v xcount --
 	( 1? )( >r
@@ -157,14 +152,11 @@
 	drawsubspan4
 	r> r> ;
 
-#dLeftz
-#dLeftu
-#dLeftv
 
 :texture!+ | u v --
-	16 0>> $ff and
-	wtexture * swap 
-	16 0>> $ff and
+	16 0>> |$ff and
+	wtexture * swap
+	16 0>> |$ff and
 	or
 	1+ 2 << mtexture + @ a!+ ;
 
@@ -177,16 +169,11 @@
 	rot dLeftv + ;
 
 :linesegment
+	LeftZ LeftU LeftV
 	RightX ceil
-	LeftX 16 0>>  		| x1
+	LeftX 16 >>  		| x1
 	dup 2 << b> + >a
-	- 1+ | width
-	LeftZ dup pick2 / 'dLeftz !
-	swap
-	LeftU dup pick2 / 'dLeftu !
-	swap
-	LeftV dup pick2 / 'dLeftv !
-	swap
+	- 1+
 	( 1? )( 1- >r
 		drawfull
 		r> ) 4drop ;
@@ -213,119 +200,104 @@
 	v2 >y v3 >y >? ( v2 v3 'v2 ! 'v3 ! ) drop
 	;
 
-#y1i #y2i #y3i
-
+|--- LEFT
 :1-2
-	dUdY_V1V2 'Left_dUdY !
-	dVdY_V1V2 'Left_dVdY !
-	dZdY_V1V2 'Left_dZdY !
-	dXdY_V1V2 'Left_dXdY !
-	u_a 16 << 'LeftU !
-	v_a 16 << 'LeftV !
-	z_a 16 << 'LeftZ !
+	y21
+	v2 @ v1 @ - over 16 <</ 'Left_dXdY !
+	u_b u_a - over / 'Left_dUdY !
+	v_b v_a - over / 'Left_dVdY !
+	z_b z_a - swap / 'Left_dZdY !
+
+	u_a 'LeftU !
+	v_a 'LeftV !
+	z_a 'LeftZ !
 	v1 >x 16 << 'LeftX !
-	y2i y1i - drawsegment ;
+
+	drawsegment ;
 
 :2-3
-	dUdY_V2V3 'Left_dUdY !
-	dVdY_V2V3 'Left_dVdY !
-	dZdY_V2V3 'Left_dZdY !
-	dXdY_V2V3 'Left_dXdY !
-	u_b 16 << 'LeftU !
-	v_b 16 << 'LeftV !
-	z_b 16 << 'LeftZ !
+	y32
+	v3 @ v2 @ - over 16 <</ 'Left_dXdY !
+	u_c u_b - over / 'Left_dUdY !
+	v_c v_b - over / 'Left_dVdY !
+	z_c z_b - swap / 'Left_dZdY !
+
+	u_b 'LeftU !
+	v_b 'LeftV !
+	z_b 'LeftZ !
 	v2 >x 16 << 'LeftX !
-	y3i y2i - drawsegment ;
+
+	drawsegment ;
 
 :leftside
-    dXdY_V1V3 'Right_dXdY !
+	v3 @ v1 @ - y31 16 <</ 'Right_dXdY !
 	v1 >x 16 << 'RightX !
-	y1i y2i <? ( 1-2 ) drop
-	y2i y3i <? ( 2-3 ) drop
+
+    y21 1? ( 1-2 )( drop )
+    y32 1? ( 2-3 )( drop )
 	;
 
+|--- RIGHT
 :1-2
-	y2i y1i - drawsegment ;
+	drawsegment ;
 
 :2-3
-	dXdY_V2V3 'Right_dXdY !
+	v3 @ v2 @ - y32 16 <</ 'Right_dXdY !
 	v2 >x 16 << 'RightX !
-	y3i y2i - drawsegment ;
+	drawsegment ;
 
-:rigthside
-	dXdY_V1V3 'Left_dXdY !
-	dUdY_V1V3 'Left_dUdY !
-	dVdY_V1V3 'Left_dVdY !
-	dZdY_V1V3 'Left_dZdY !
-	u_a 16 << 'LeftU !
-	v_a 16 << 'LeftV !
-	z_a 16 << 'LeftZ !
-	v1 >x 16 << 'LeftX !
-	dXdY_V1V2 'Right_dXdY !
+:rightside
+	v2 @ v1 @ - y21 16 <</ 'Right_dXdY !
+
+	y31
+	v3 @ v1 @ - over 16 <</ 'Left_dXdY !
+	u_c u_a - over / 'Left_dUdY !
+	v_c v_a - over / 'Left_dVdY !
+	z_c z_a - swap / 'Left_dZdY !
+
+	u_a 'LeftU !
+	v_a 'LeftV !
+	z_a 'LeftZ !
+    v1 >x 16 << 'LeftX !
 	v1 >x 16 << 'RightX !
-	y1i y2i <? ( 1-2 ) drop
-	y2i y3i <? ( 2-3 ) drop
+
+	y21 1? ( 1-2 )( drop )
+	y32 1? ( 2-3 )( drop )
 	;
 
 :tritex2 | 'vert --
 	dup 'v1 ! 16 + dup 'v2 ! 16 + 'v3 !
 	sortv
-	v1 >y 'y1i !
-	v2 >y 'y2i !
-	v3 >y 'y3i !
+	v2 >y
+	v1 >y dup >b
+	v3 >y
+	dup pick2 - 'y31 !
+	pick2 - 'y32 !
+	- 'y21 !
 
-	y1i y3i =? ( drop ; ) drop
+	y31 0? ( drop ; ) drop
 
 	1.0 v1 >z / 'z_a !
 	1.0 v2 >z / 'z_b !
 	1.0 v3 >z / 'z_c !
-	v1 >uv dup $ffff and z_a * 'u_a ! 16 0>> z_a * 'v_a !
-	v2 >uv dup $ffff and z_b * 'u_b ! 16 0>> z_b * 'v_b !
-	v3 >uv dup $ffff and z_c * 'u_c ! 16 0>> z_c * 'v_c !
 
-	v3 >y v1 >y - 1? ( | v3y-v1y
-	v3 @ v1 @ - over 16 <</ 'dXdY_V1V3 !
-	u_c u_a - over / 'dUdY_V1V3 !
-	v_c v_a - over / 'dVdY_V1V3 !
-	z_c z_a - swap / 'dZdY_V1V3 !
-	)
+	v1 >uv dup 16 0>> z_a * 'u_a ! $ffff and z_a * 'v_a !
+	v2 >uv dup 16 0>> z_b * 'u_b ! $ffff and z_b * 'v_b !
+	v3 >uv dup 16 0>> z_c * 'u_c ! $ffff and z_c * 'v_c !
 
-	v3 >y v2 >y - 1? ( | v3y-v2y
-	v3 @ v2 @ - over 16 <</ 'dXdY_V2V3 !
-	u_c u_b - over / 'dUdY_V2V3 !
-	v_c v_b - over / 'dVdY_V2V3 !
-	z_c z_b - swap / 'dZdY_V2V3 !
-	)
-
-	v2 >y v1 >y - 1? ( | v2y-v1y
-	v2 @ v1 @ - over 16 <</ 'dXdY_V1V2 !
-	u_b u_a - over / 'dUdY_V1V2 !
-	v_b v_a - over / 'dVdY_V1V2 !
-	z_b z_a - swap / 'dZdY_V1V2 !
-	)
-
-	v3 >x v1 >x - v2 >y v1 >y - *
-	v2 >x v1 >x - v3 >y v1 >y - * -
+	v3 >x v1 >x - y21 *
+	v2 >x v1 >x - y31 * -
 	0? ( drop ; )
-	1.0 swap /		| denom
-	u_c u_a - v2 >y v1 >y - *
-	u_b u_a - v3 >y v1 >y - * - over *.
-	'dLeftU !
-|	4 << 'PK_dudx !
-	v_c v_a - v2 >y v1 >y - *
-	v_b v_a - v3 >y v1 >y - * - over *.
-	'dLeftV !
-|	4 << 'PK_dvdx !
-	z_c z_a - v2 >y v1 >y - *
-	z_b z_a - v3 >y v1 >y - * - over *.
-	'dLeftZ !
-|	4 << 'PK_dzdx !
-	drop
+	u_c u_a - y21 * u_b u_a - y31 *
+	- over / 'dLeftU !
+	v_c v_a - y21 * v_b v_a - y31 *
+	- over / 'dLeftV !
+	z_c z_a - y21 * z_b z_a - y31 *
+	- over / 'dLeftZ !
 
-	y1i sw * 2 << framev + >b
-	dXdY_V1V3 dXdY_V1V2 | <? v2 leftside
-	>? ( drop leftside ; )
-	drop rigthside ;
+ 	b> sw * 2 << framev + >b
+	+? ( drop leftside ; )
+	drop rightside ;
 
 |-------------------------
 | x y z uv
