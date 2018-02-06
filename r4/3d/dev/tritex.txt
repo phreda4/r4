@@ -129,17 +129,25 @@
 #v1 #v2 #v3
 #y31 #y32 #y21
 
+
 :texture!+ | u v --
-	21 0>> |$ff and
+	21 0>> $3ff and
 	wtexture * swap
-	21 0>> |$ff and
+	21 0>> $3ff and
 	or
 	1+ 2 << tritexture + @ a!+ ;
 
 :drawfull | z u v -- z u v
-|	$200000 pick3 21 <</ |z?
-	over pick3 21 <</
-	over pick4 21 <</
+
+	$200000 pick3 1? ( 21 <</ )( drop ) |z?
+	a> trizbuffer + @ <? ( drop 4 a+ ; )
+	dup	a> trizbuffer + !
+	pick2 over 21 *>>
+	pick2 rot 21 *>>
+
+|	over pick3 21 <</
+|	over pick4 21 <</
+
 	texture!+
 	rot dLeftz +
 	rot dLeftu +
@@ -150,7 +158,7 @@
 	RightX ceil
 	LeftX 16 >>  		| x1
 	dup 2 << b> + >a
-	- 1+
+	- 0? ( 4drop ; )
 	( 1? )( 1- >r
 		drawfull
 		r> ) 4drop ;
@@ -179,11 +187,10 @@
 
 |--- LEFT
 :1-2
-	y21
 	v2 @ v1 @ - over 16 <</ 'Left_dXdY !
 	u_b u_a - over / 'Left_dUdY !
 	v_b v_a - over / 'Left_dVdY !
-	z_b z_a - swap / 'Left_dZdY !
+	z_b z_a - over / 'Left_dZdY !
 
 	u_a 'LeftU !
 	v_a 'LeftV !
@@ -193,11 +200,10 @@
 	drawsegment ;
 
 :2-3
-	y32
 	v3 @ v2 @ - over 16 <</ 'Left_dXdY !
 	u_c u_b - over / 'Left_dUdY !
 	v_c v_b - over / 'Left_dVdY !
-	z_c z_b - swap / 'Left_dZdY !
+	z_c z_b - over / 'Left_dZdY !
 
 	u_b 'LeftU !
 	v_b 'LeftV !
@@ -216,16 +222,16 @@
 
 |--- RIGHT
 :1-2
+	v2 @ v1 @ - over 16 <</ 'Right_dXdY !
+	v1 >x 16 << 'RightX !
 	drawsegment ;
 
 :2-3
-	v3 @ v2 @ - y32 16 <</ 'Right_dXdY !
+	v3 @ v2 @ - over 16 <</ 'Right_dXdY !
 	v2 >x 16 << 'RightX !
 	drawsegment ;
 
 :rightside
-	v2 @ v1 @ - y21 16 <</ 'Right_dXdY !
-
 	y31
 	v3 @ v1 @ - over 16 <</ 'Left_dXdY !
 	u_c u_a - over / 'Left_dUdY !
@@ -236,7 +242,6 @@
 	v_a 'LeftV !
 	z_a 'LeftZ !
     v1 >x 16 << 'LeftX !
-	v1 >x 16 << 'RightX !
 
 	y21 1? ( 1-2 )( drop )
 	y32 1? ( 2-3 )( drop )
@@ -248,11 +253,9 @@
 	v2 >y
 	v1 >y dup >b
 	v3 >y
-	dup pick2 - 'y31 !
+	dup pick2 - 0? ( 4drop ; ) 'y31 !
 	pick2 - 'y32 !
 	- 'y21 !
-
-	y31 0? ( drop ; ) drop
 
 	$200000 v1 >z / 'z_a !
 	$200000 v2 >z / 'z_b !
@@ -265,12 +268,9 @@
 	v3 >x v1 >x - y21 *
 	v2 >x v1 >x - y31 * -
 	0? ( drop ; )
-	u_c u_a - y21 * u_b u_a - y31 *
-	- over / 'dLeftU !
-	v_c v_a - y21 * v_b v_a - y31 *
-	- over / 'dLeftV !
-	z_c z_a - y21 * z_b z_a - y31 *
-	- over / 'dLeftZ !
+	u_c u_a - y21 * u_b u_a - y31 * - over / 'dLeftU !
+	v_c v_a - y21 * v_b v_a - y31 * - over / 'dLeftV !
+	z_c z_a - y21 * z_b z_a - y31 * - over / 'dLeftZ !
 
 	tritexture @ $ffff and 'wtexture !
  	b> sw * 2 << framev + >b
@@ -279,15 +279,31 @@
 
 |-------------------------
 | x y z uv
-#vertex
+#vertex2
 189 183 40 $ff0000
 200 100 120 $ff
 60 160 100 $ff00ff
 
-#vertex2
-189 183 40 $ff0000
-200 100 120 $ff
-360 260 200 $00
+
+#vertex
+549 424 3223281 $ff0000
+156 232 3176603 $ff
+365 226 3169984 $00
+
+:dumpl
+	@+ "x:%d " print
+	@+ "y:%d " print
+	@+ "z:%d " print
+	@+ "c:%h " print
+	cr
+	;
+:dump
+	dumpl dumpl dumpl drop ;
+
+:movz | cnt vert --
+	8 + >a dup a> +!
+	16 a+ dup a> +!
+	a> 16 + +! ;
 
 :main
 	33
@@ -298,13 +314,17 @@
 	show clrscr
 		dup "%d" print cr
 
-		xymouse swap 'vertex !+ !
-		'vertex tritex2
+|		xymouse swap 'vertex !+ !
+
+		'vertex2 dump
 
 		xymouse swap 'vertex2 !+ !
-		'vertex2 tritex
+		'vertex2 tritex2
 
 		'exit >esc<
+		[ 10 'vertex2 movz ; ] <up>
+		[ -10 'vertex2 movz ; ] <dn>
+
 		cminiflecha
 		;
 
