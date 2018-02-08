@@ -23,6 +23,7 @@
 
 :stkrtos c@+ + c@+ + 1- c@ $ff and ;
 
+:valw	nroi 2 << tokenini + @ 8 >> ;
 :value	nroi 2 << tokenini + @ tok>cte ;
 :strm	nroi 2 << tokenini + @ tok>mem ;
 
@@ -38,6 +39,7 @@
 :RTOS	stknow stkrtos ;
 
 |-----------
+:,VALW	valw "w%h" ,print ;
 :,VALUE	value "$%h" ,print ;
 :,STRM	strm "str%h" ,print ;
 
@@ -254,19 +256,19 @@
     "mov " ,s ,>TOS "," ,s ,STRM ,cr
 	;
 :,dwo
-    >TOSreg? 0? ( drop VALUE >DTOS cell.wor! ; ) drop
+    >TOSreg? 0? ( drop valw >DTOS cell.wor! ; ) drop
     eligeReg
-    "mov " ,s ,>TOS "," ,s ,VALUE ,cr
+    "mov " ,s ,>TOS "," ,s ,VALW ,cr
 	;
 :,dva
-    >TOSreg? 0? ( drop VALUE >DTOS cell.wor! ; ) drop
+    >TOSreg? 0? ( drop valw >DTOS cell.wor! ; ) drop
     eligeReg
-    "mov " ,s ,>TOS "," ,s ,VALUE ,cr
+    "mov " ,s ,>TOS "," ,s ,VALW ,cr
 	;
 :,var
-    >TOSreg? 0? ( drop VALUE >DTOS cell.wor! >DTOS cell.mem ; ) drop
+    >TOSreg? 0? ( drop valw >DTOS cell.wor! >DTOS cell.mem ; ) drop
     eligeReg
-    "mov " ,s ,>TOS ",[" ,s ,VALUE "]" ,s ,cr
+    "mov " ,s ,>TOS ",[" ,s ,VALW "]" ,s ,cr
 	;
 
 
@@ -497,55 +499,6 @@
 	"imul " ,s ,NOS "," ,s ,TOS ,cr
 	;
 
-|----- division by constant
-| http://www.flounder.com/multiplicative_inverse.htm
-
-#ad		| d absoluto
-#t #anc #p
-#q1 #r1
-#q2 #r2
-
-#divm	| magic mult
-#divs   | shift mult
-
-:calcstep
-	1 'p +!
-	q1 2* 'q1 ! r1 2* 'r1 !
-	r1 anc >=? ( 1 'q1 +! anc neg 'r1 +! ) drop
-	q2 2* 'q2 ! r2 2* 'r2 !
-	r2 ad >=? ( 1 'q2 +! ad neg 'r2 +! ) drop
-	;
-
-:calcmagic | d --
-	dup abs 'ad !
-    $80000000 over 31 0>> + 't !
-    t dup 1- swap ad mod - 'anc !
-    31 'p !
-    $80000000 anc / abs 'q1 !
-    $80000000 q1 anc * - abs 'r1 !
-	$80000000 ad / abs 'q2 !
-	$80000000 q2 ad * - abs 'r2 !
-	( calcstep
-		ad r2 -	| delta
-		q1 =? ( r1 0? ( swap 1+ swap ) drop )
-		q1 >? )( drop ) drop
-	q2 1+
-	swap -? ( drop neg )( drop )
-	'divm ! p 32 - 'divs ! ;
-
-
-:,cte/
-	dtos cell.value
-	calcmagic
-
-	"cdq" ,ln
-	"imul $" ,s divm ,h ,cr
-	"shr edx," ,s divs ,d ,cr
-	"mov eax,edx" ,ln
-	"cdq" ,ln |"shr edx,31" ,ln
-	"sub eax,edx" ,ln
-	;
-
 :,/
 	dnos cellEAX
 	usoEDX
@@ -559,22 +512,6 @@
 	;
 
 |----------------
-:,cte/MOD
-	dtos cell.value
-	calcmagic
-	"mov ebx,eax" ,ln
-
-	"cdq" ,ln
-	"imul $" ,s divm ,h ,cr
-	"shr edx," ,s divs ,d ,cr
-	"mov eax,edx" ,ln
-	"cdq" ,ln |"shr edx,31" ,ln
-	"sub eax,edx" ,ln
-
-	"imul edx,eax," ,s dtos cell.value ,cr
-	"sub edx,ebx" ,ln
-	;
-
 :,/MOD
 	| dtos cell.val? 0? ( drop ,cte/MOD ; ) drop 	| si dtos es cte
 	dnos cellEAX dtos cellREGMEM usoEDX
@@ -585,12 +522,6 @@
 	;
 
 |----------------
-:,cteMOD
-	dtos cell.value
-	calcmagic
-	|**
-	;
-
 :,MOD
 	| dtos cell.val? 0? ( drop ,cteMOD ; ) drop 	| si dtos es cte
 	dnos cellEAX dtos cellREGMEM usoEDX
@@ -617,6 +548,9 @@
 	"shrd eax,edx," ,s ,TOSb ,cr
 |	"shr edx," ,s ,TOSb ,cr | no hace falta!!
 	>dtos setEAX
+
+	| tosb>32
+	| shr edx, tosb-32 >dtos setEDX
 	;
 
 |----------------
