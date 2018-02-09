@@ -163,7 +163,7 @@
 	swap dup >aa genCTE pick2 8 - !
 	dup >aa genCTE over 4 - ! ;
 
-| adr+ val -- adr+
+
 :oAND	| ab -- c
 	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ AND aa1! ;
 :oOR    | ab -- c
@@ -177,9 +177,14 @@
 :o-     | ab -- c
 	aa# 2 <? ( 2drop -aa ; ) 2drop aa2@ - aa1! ;
 
-:cteop! | adr+ op num -- adr+
-	pick2 8 - !+ ! -aa
-	;
+:cteop! | adr+ v2 v1 -- adr+
+	pick2 8 - !+ ! -aa ;
+
+:buff!+ | val adr -- adr+
+	dup 4+ over buffaux> over - 2 >> move>
+	!+
+	4 'buffaux> +! ;
+
 
 | 8 * --> 3 <<
 :*pot
@@ -228,22 +233,29 @@
 		q1 >? )( drop ) drop
 	q2 1+
 	swap -? ( drop neg )( drop )
-	'divm ! p 32 - 'divs ! ;
+	'divm ! p 'divs ! ;
 
-
-|	cte / --> divm divs *>> dup 31 >> -
-:/cte
-	calcmagic
-	| generate
-
+:signadj!+ | adr -- adr+
+	$23 swap buff!+ 		| dup
+	31 genCTE swap buff!+ 	| 31
+	$4c swap buff!+ 		| >>
+	$3a swap buff!+ 		| -
 	;
 
-| 8 / --> 3 >> dup 31 >> -
+|---- cte / --> divm divs *>> dup 31 >> -
+:/cte
+	calcmagic
+	divs genCTE divm genCTE cteop! | sobreescribe
+	$3e swap buff!+ 		| *>>
+	signadj!+ ;
+
+|----  8 / --> 3 >> dup 31 >> -
 :/pot
-	aa> dup 1- and? ( drop ; )
+	aa> dup 1- and? ( /cte ; )
 	$4c | >>
 	31 rot clz - genCTE
-	cteop! | falta ..dup 31 >> -
+	cteop!
+	signadj!+
 	;
 
 :o/     | ab -- c
@@ -262,7 +274,7 @@
 	2 >? ( 2drop aa3@ *>> aa1! ; )
 	2drop -aa ;
 
-| 8 /mod --> dup 3 >> dup 31 >> - swap 7 and ****
+|----  8 /mod --> dup 3 >> dup 31 >> - swap 7 and ****
 :/modpot
 	aa> dup 1- and? ( drop ; )
 	drop
@@ -274,7 +286,7 @@
 	1 =? ( 2drop /modpot -aa ; )
 	2drop -aa ;
 
-| 8 mod --> $7 and
+|----  8 mod --> $7 and
 :modpot
 	aa> dup 1- and? ( drop ; )
 	$35 swap 1- genCTE	| and MASK
