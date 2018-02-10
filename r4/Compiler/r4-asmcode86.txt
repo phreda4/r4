@@ -85,17 +85,14 @@
 	drop
 	;
 
-:cellREGMEM
-	;
-:usoEDX
-	;
+:cellREGMEM  ;
+:usoEDX      ;
 :setEAX		0 swap cell.reg! ;
 :setEDX		3 swap cell.reg! ;
 
 
 :cellflat | cell --
-	drop ;
-:a	cell.reg?
+	cell.reg?
 	+? ( 2drop ; ) drop
 	newReg swap
 	cell2reg
@@ -167,7 +164,7 @@
 :multientry
 	;
 
-:outputadjust | adr
+:outputadjust | adr --
 	1+ >a | salto cantidad
 	stknow c@+
 	"; ADJ: " ,ln
@@ -196,6 +193,16 @@
 	,cr
 	;
 
+:convertcells | word --
+	4 << regIO + 1+ >a | salto cantidad
+	stknow c@+
+	"; CONVERT: " ,ln
+	( 1? )( 1-
+		swap c@+
+		a> c@+ swap >a
+		swap cellresolve
+		swap ) 2drop ;
+
 |------------ compila CODIGO
 :nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
 :toknow		dup 4 - @ ;
@@ -216,18 +223,20 @@
 :,defv ; | no hay definiciones en optimizado
 :,[ :,] ; | no hay anonimas en optimizado
 
-:vpila2v
+:vpila2v | stk --
 	drop ;
 
 :,wor
+    toknow 8 >> convertcells
+
 	dup @ $ff and 			| word ;
 	16 =? ( "jmp " )( "call " ) nip ,s
 	toknow nro>dicn ,s
 
-|	toknow 8 >> vpila2callV
 |	strpending neg
 |	1? ( "; strpending:" ,s dup ,d ,cr )
 |	pila2v
+
 	0 'strpending !
 
 	toknow tok>name " ; %w" ,print ,cr
@@ -239,8 +248,7 @@
 	outputcells
 	"ret" ,ln ;
 
-|--
-
+|-------
 :eligeReg
 	regused
 	>DTOS cellflag $4000 and? ( 2 reg! ) drop  | ECX
@@ -513,8 +521,6 @@
 	dnos cellEAX
 	usoEDX
 
-	| dtos cell.val? 0? ( drop ,cte/ ; ) drop 	| si dtos es cte
-
 	dtos cellREGMEM
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
@@ -618,10 +624,6 @@
 
 :,CLZ
 |	dtos cellREG
-
-|	trace
-
-
 	"bsr " ,s ,TOS  "," ,s ,TOS ,cr
 	"xor " ,s ,TOS ",31" ,ln ;
 :,NOT
