@@ -204,7 +204,6 @@
 		swap ) 2drop ;
 
 |------------ compila CODIGO
-:nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
 :toknow		dup 4 - @ ;
 
 :dumpinfoword
@@ -218,7 +217,9 @@
 
 :,defw
 	multientry
-    dup 4 - @ 8 >> dumpinfoword "w" ,s ,h ":" ,s ,cr ;
+    dup 4 - @ 8 >> 
+	dumpinfoword
+	"w" ,s ,h ": " ,s ,cr ;
 
 :,defv ; | no hay definiciones en optimizado
 :,[ :,] ; | no hay anonimas en optimizado
@@ -231,7 +232,7 @@
 
 	dup @ $ff and 			| word ;
 	16 =? ( "jmp " )( "call " ) nip ,s
-	toknow nro>dicn ,s
+	toknow 8 >> "w" ,s ,h
 
 |	strpending neg
 |	1? ( "; strpending:" ,s dup ,d ,cr )
@@ -240,11 +241,11 @@
 	0 'strpending !
 
 	toknow tok>name " ; %w" ,print ,cr
-	,cr ;
+	;
 
 :,;
 	dup 8 - @ $ff and | word ;
-	16 =? ( drop ; ) drop
+	12 =? (  drop ; ) drop
 	outputcells
 	"ret" ,ln ;
 
@@ -495,100 +496,106 @@
 	;
 
 :,+val
-	dnos cell.add? 1? ( dnos cellflat ) drop
-	dtos cell.value dnos cell.add ;
+	dtos cell.add? 1? ( over cellflat ) 2drop
+	dtos cell.value dtos cell.add ;
 
 :,+
 |	dtos cell.val? 0? ( drop ,+val ; ) drop
 	"add " ,s ,NOS "," ,s ,TOS ,cr
 	;
 
+
 :,-val
-	dnos cell.add? 1? ( dnos cellflat ) drop
-	dtos cell.value neg dnos cell.add ;
+	dtos cell.add? 1? ( over cellflat ) 2drop
+	dtos cell.value dtos cell.add ;
+
 :,-
 |	dtos cell.val? 0? ( drop ,-val ; ) drop
 	"sub " ,s ,NOS "," ,s ,TOS ,cr
 	;
 
-|------ mult
 :,*
 |	dnos cellREG
 	"imul " ,s ,NOS "," ,s ,TOS ,cr
 	;
 
 :,/
-	dnos cellEAX
-	usoEDX
+|	dnos cellEAX
+|	usoEDX
+|	dtos cellREGMEM
 
-	dtos cellREGMEM
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-	>dtos setEAX
+
+|	>dtos setEAX
 	;
 
-|----------------
 :,/MOD
-	| dtos cell.val? 0? ( drop ,cte/MOD ; ) drop 	| si dtos es cte
-	dnos cellEAX dtos cellREGMEM usoEDX
+|	dnos cellEAX dtos cellREGMEM usoEDX
+
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-	>dnos setEAX
-	>dtos setEDX
+
+|	>dnos setEAX
+|	>dtos setEDX
 	;
 
-|----------------
 :,MOD
-	| dtos cell.val? 0? ( drop ,cteMOD ; ) drop 	| si dtos es cte
-	dnos cellEAX dtos cellREGMEM usoEDX
+|	dnos cellEAX dtos cellREGMEM usoEDX
+
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-	>dtos setEDX
+
+|	>dtos setEDX
 	;
 
-|----------------
 :,*/
-	dpk2 cellEAX dtos cellREGMEM dnos cellREGMEM usoEDX
+|	dpk2 cellEAX dtos cellREGMEM dnos cellREGMEM usoEDX
+
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
-	>dtos setEAX
+
+|	>dtos setEAX
 	;
 
-|----------------
+:,cte*>>
+	"cdq" ,ln
+	"imul " ,s ,NOS ,cr
+	cell.value
+	32 <? ( "shrd eax,edx," ,s ,d ,cr ; ) | es ax
+	32 >? ( "sar edx," ,s 32 - ,d ,cr )( drop )
+	| es dx
+	;
+
 :,*>>
-	dpk2 cellEAX dnos cellREGMEM dtos cellECXCTE usoEDX
+	dtos cell.val? 0? ( drop ,cte*>> ; ) 2drop
+
+|	dpk2 cellEAX dnos cellREGMEM dtos cellECXCTE usoEDX
 
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
+	"sar edx," ,s ,TOSb ,cr
+	"test " ,s ,TOSb ",32" ,ln
+	"cmovne eax,edx" ,ln
 
-    | si es cl o cte>32
-	"sar edx,cl" ,ln
-	"test cl,32" ,ln
-	"cmovne	eax,edx" ,ln
-
-	>dtos setEAX
-
-	| tosb>32
-	| shr edx, tosb-32 >dtos setEDX
+|	>dtos setEAX
 	;
 
-|----------------
 :,<</
-	dpk2 cellEAX
-	dnos cellREGMEM
-	dtos cellECXCTE
-	usoEDX
+|	dpk2 cellEAX
+|	dnos cellREGMEM
+|	dtos cellECXCTE
+|	usoEDX
 
 	"cdq" ,ln
     "shld edx,eax," ,s ,TOSb ,cr
 	"shl eax," ,s ,TOSb ,cr
 	"idiv " ,s ,NOS ,cr
-	>dtos setEAX
+|	>dtos setEAX
 	;
 
-|----------------
 :,<<
 |	dnos cellREG
 	dtos cellECXCTE
@@ -615,8 +622,8 @@
 	;
 
 :,ABS
-	dtos cellREG
-	usoEDX
+|	dtos cellREG
+|	usoEDX
 	dtos cellREG? 0? ( | EAX
 		"cdq" ,ln
 		)(
@@ -632,22 +639,22 @@
 	"bsr " ,s ,TOS  "," ,s ,TOS ,cr
 	"xor " ,s ,TOS ",31" ,ln ;
 :,NOT
-	dtos cellREG
+|	dtos cellREG
 	"not " ,s ,TOS ,cr ;
 :,NEG
-	dtos cellREG
+|	dtos cellREG
 	"neg " ,s ,TOS ,cr ;
 
 :,1+
-	dtos cell.add? 1? ( dtos cellflat ) drop
+	dtos cell.add? 1? ( over cellflat ) 2drop
 	1 dtos cell.add ;
 
 :,4+
-	dtos cell.add? 1? ( dtos cellflat ) drop
+	dtos cell.add? 1? ( over cellflat ) 2drop
 	4 dtos cell.add ;
 
 :,1-
-	dtos cell.add? 1? ( dtos cellflat ) drop
+	dtos cell.add? 1? ( over cellflat ) 2drop
 	-1 dtos cell.add ;
 
 :,2/
@@ -655,7 +662,7 @@
 	"sar " ,s ,TOS ",1" ,ln ;
 
 :,2*
-	dtos cell.shf? 1? ( drop cellflat ) drop
+	dtos cell.shf? 1? ( over cellflat ) 2drop
 	2 dtos cell.shf ;
 
 |	"sal " ,s ,TOS ",1" ,ln ;
@@ -770,27 +777,27 @@
 |#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "SYSXYM" "SYSBM" "SYSKEY"
 
 :,SW
-	0 VALUE >DTOS cell.Cte!
+	0 >DTOS cell.Cte!
 |fullscreen 1? ( >DTOS cell.mem  ) drop
 	;
 :,SH
-	1 VALUE >DTOS cell.Cte!
+	1 >DTOS cell.Cte!
 |fullscreen 1? ( >DTOS cell.mem  ) drop
 	;
 
 :,MEM
-	2 VALUE >DTOS cell.Cte!
+	2 >DTOS cell.Cte!
 	>DTOS cell.mem ;
 
 :,FRAMEV
-	3 VALUE >DTOS cell.Cte!	;
+	3 >DTOS cell.Cte!	;
 
 :,BMOUSE
-	5 VALUE >DTOS cell.Cte!
+	5 >DTOS cell.Cte!
 	>DTOS cell.mem ;
 
 :,KEY
-	6 VALUE >DTOS cell.Cte!
+	6 >DTOS cell.Cte!
 	>DTOS cell.mem ;
 
 :,KEY! | v --
@@ -956,7 +963,8 @@
 	swap dic>len@
 	( 1? )( 1- swap @+
 		9 ,c "; " ,s dup tokenstr ,print
-		9 ,c "|" ,s nroi ,stackm " |" ,s nroi ,stackmc 	,cr
+		9 ,c "|" ,s nroi ,stackm " |" ,s nroi ,stackmc
+		,cr
 
 		,cadatoken swap
 		"r4/compiler/code.asm" savemem | DEBUG
@@ -978,15 +986,13 @@
 	drop
 
 	dup cellana
-
 	"; vreg:" ,s cntvreg 1- ,d ,cr
 
 |	blockinfo
 |	tokeninfo
 
 	,code
-
-	"r4/compiler/code.asm" savemem | DEBUG
+|	"r4/compiler/code.asm" savemem | DEBUG
 
 	;
 
