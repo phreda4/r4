@@ -235,6 +235,7 @@
 	swap -? ( drop neg )( drop )
 	'divm ! p 'divs ! ;
 
+|--- ajuste por signo
 :signadj!+ | adr -- adr+
 	$23 swap buff!+ 		| dup
 	31 genCTE swap buff!+ 	| 31
@@ -249,13 +250,27 @@
 	$3e swap buff!+ 		| *>>
 	signadj!+ ;
 
-|----  8 / --> 3 >> dup 31 >> -
+|----  2 / --> dup 31 >> + 2/
+:/cte2
+	drop
+	31 genCTE $23 cteop! | dup 31
+	$4d swap buff!+ | 0>>
+	$39	swap buff!+	| +
+	$49	swap buff!+	| 2/
+	;
+
+|----  4 / --> dup 31 >> 30 0>> + 2 >>
 :/pot
 	aa> dup 1- and? ( /cte ; )
-	$4c | >>
-	31 rot clz - genCTE
-	cteop!
-	signadj!+
+	2 =? ( /cte2 ; )
+	swap
+	31 genCTE $23 cteop!
+	$4c swap buff!+ | >>
+	33 32 pick3 clz - - genCTE swap buff!+ |30
+	$4d swap buff!+ | 0>>
+	$39	swap buff!+	| +
+	31 rot clz - genCTE swap buff!+	| 2
+	$4c swap buff!+ | >>
 	;
 
 :o/     | ab -- c
@@ -274,17 +289,31 @@
 	2 >? ( 2drop aa3@ *>> aa1! ; )
 	2drop -aa ;
 
-|----  8 /mod --> dup 3 >> dup 31 >> - swap 7 and ****
+|----  8 /mod --> dup / swap mod
 :/modpot
 	aa> dup 1- and? ( drop ; )
-	31 over clz - genCTE
 	swap
-	$23 cteop! | dup 3
-	$4c buff!+ | >>
-	signadj!+
-	$29 buff!+ | swap
-	swap 1- genCTE buff!+ | MASK
-    $35 buff!+ | and
+    $23 $23 cteop!
+    31 genCTE swap buff!+ | 31
+	$4c swap buff!+ | >>
+	33 32 pick3 clz - - genCTE swap buff!+ |30
+	$4d swap buff!+ | 0>>
+	$39	swap buff!+	| +
+	31 pick2 clz - genCTE swap buff!+	| 2
+	$4c swap buff!+ | >>
+	$29	swap buff!+	| swap
+	$23 swap buff!+ | dup
+	31 genCTE swap buff!+ |31
+	$4c swap buff!+ | >>
+	33 32 pick3 clz - - genCTE swap buff!+
+	$4d swap buff!+	| 0>>
+	$29	swap buff!+	| swap
+	$25	swap buff!+	| over
+	$39	swap buff!+	| +
+	swap 1- genCTE swap buff!+ | mask
+	$35 swap buff!+	| AND
+	$29	swap buff!+	| swap
+	$3A	swap buff!+	| -
 	;
 
 :o/MOD  | ab -- cd
@@ -298,17 +327,17 @@
 
 :modpot
 	aa> dup 1- and? ( drop ; )
-	31 genCTE $23 cteop!
-	swap $4c buff!+ | >>
-	33 31 pick3 clz - - genCTE buff!+
-	$4e buff!+	| 0>>
-	$29	buff!+	| swap
-	$25	buff!+	| over
-	$39	buff!+	| +
-	swap 1- genCTE buff!+ | mask
-	$35 buff!+	| AND
-	$29	buff!+	| swap
-	$3A	buff!+	| -
+	swap 31 genCTE $23 cteop! | dup 31
+	$4c swap buff!+ | >>
+	33 32 pick3 clz - - genCTE swap buff!+
+	$4d swap buff!+	| 0>>
+	$29	swap buff!+	| swap
+	$25	swap buff!+	| over
+	$39	swap buff!+	| +
+	swap 1- genCTE swap buff!+ | mask
+	$35 swap buff!+	| AND
+	$29	swap buff!+	| swap
+	$3A	swap buff!+	| -
 	;
 
 :oMOD   | ab -- c
