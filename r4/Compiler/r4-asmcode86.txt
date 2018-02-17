@@ -25,7 +25,6 @@
 
 :valw	nroi 2 << tokenini + @ 8 >> ;
 :value	nroi 2 << tokenini + @ tok>cte ;
-:strm	nroi 2 << tokenini + @ tok>mem ;
 
 :>DTOS	stknex stktos ;
 :>DNOS	stknex stknos ;
@@ -41,7 +40,6 @@
 |-----------
 :,VALW	valw "w%h" ,print ;
 :,VALUE	value "$%h" ,print ;
-:,STRM	strm "str%h" ,print ;
 
 :,TOS	stknow stktos ,cell drop ;
 :,TOSb	stknow stktos ,cellb drop ;
@@ -75,20 +73,22 @@
 		swap c@+ fillReg
 		swap ) 2drop ;
 
-|------------
-| tipo de celda que necesito
-:cellEAX
-	drop
-	;
+|---- donde queda el resultado
+:cellEAX | cell ---
+	0 swap cell.reg! ;
+
+:cellEDX | cell ---
+	3 swap cell.reg! ;
+
+|---- tipo de celda que necesito
 :cellECXCTE | cell --
 |	cellreg? 2 =? ( 2drop ; )
-	drop
-	;
+	drop ;
 
-:cellREGMEM  ;
-:usoEDX      ;
-:setEAX		0 swap cell.reg! ;
-:setEDX		3 swap cell.reg! ;
+:cellREGMEM | cell --
+	drop ;
+:usoEDX      
+	;
 
 
 :cellflat | cell --
@@ -137,6 +137,7 @@
 	dup reg!
 	pick2 cell.reg! ;
 
+|---- tratar de encontrar una forma de pila para entrada y salida
 :inputcells | w --
 	emptyReg
 
@@ -159,6 +160,8 @@
 		swap ) 2drop
 	-1 a> c! | marca sin final por ahora
 	,cr
+	
+
 	;
 
 :multientry
@@ -260,6 +263,7 @@
 :,lit
     >TOSreg? 0? ( drop VALUE >DTOS cell.Val! ; ) drop
 	eligeReg
+	VALUE 0? ( drop "xor " ,s ,>TOS "," ,s ,>TOS ,cr ; ) drop
 	"mov " ,s ,>TOS "," ,s ,VALUE ,cr
 	;
 
@@ -267,9 +271,9 @@
 	toknow tok>mem strusestack
 	'strpending ! drop
 	1 'nstr +!
-	>TOSreg? 0? ( drop STRM >DTOS cell.Str! ; ) drop
+	>TOSreg? 0? ( drop nstr 1- >DTOS cell.Str! ; ) drop
 	eligeReg
-    "mov " ,s ,>TOS "," ,s ,STRM ,cr
+    "mov " ,s ,>TOS ",str" ,s nstr 1- ,h ,cr
 	;
 :,dwo
     >TOSreg? 0? ( drop valw >DTOS cell.wor! ; ) drop
@@ -528,8 +532,7 @@
 
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-
-|	>dtos setEAX
+	>dtos cellEAX
 	;
 
 :,/MOD
@@ -537,9 +540,8 @@
 
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-
-|	>dnos setEAX
-|	>dtos setEDX
+	>dnos cellEAX
+	>dtos cellEDX
 	;
 
 :,MOD
@@ -547,8 +549,7 @@
 
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
-
-|	>dtos setEDX
+	>dtos cellEDX
 	;
 
 :,*/
@@ -557,17 +558,16 @@
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
-
-|	>dtos setEAX
+	>dtos cellEAX
 	;
 
 :,cte*>>
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	cell.value
-	32 <? ( "shrd eax,edx," ,s ,d ,cr ; ) | es ax
+	32 <? ( "shrd eax,edx," ,s ,d ,cr >dtos cellEAX ; ) | es ax
 	32 >? ( "sar edx," ,s 32 - ,d ,cr )( drop )
-	| es dx
+	>dtos cellEDX
 	;
 
 :,*>>
@@ -581,8 +581,7 @@
 	"sar edx," ,s ,TOSb ,cr
 	"test " ,s ,TOSb ",32" ,ln
 	"cmovne eax,edx" ,ln
-
-|	>dtos setEAX
+	>dtos cellEAX
 	;
 
 :,<</
@@ -595,7 +594,7 @@
     "shld edx,eax," ,s ,TOSb ,cr
 	"shl eax," ,s ,TOSb ,cr
 	"idiv " ,s ,NOS ,cr
-|	>dtos setEAX
+	>dtos cellEAX
 	;
 
 :,<<
@@ -964,6 +963,7 @@
 	dup dic>tok @ dup 'tokenini !
 	swap dic>len@
 	( 1? )( 1- swap @+
+
 		9 ,c "; " ,s dup tokenstr ,print
 		9 ,c "|" ,s nroi ,stackm " |" ,s nroi ,stackmc
 		,cr
