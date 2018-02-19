@@ -1,3 +1,14 @@
+| makeplain
+| PHREDA 2017
+| convert token code to code with optimice things
+|
+| * remove dead code and data
+| * variable to constant transformation
+| * constant folding
+| * division to multiply inverse
+| * power of 2 transformation
+|--------------------------
+^r4/lib/morton.txt | popcnt
 
 |-- nombre a nro
 |:tok>dicn 8 >> "w%h" mprint ;							| w<nro palabra>
@@ -186,11 +197,29 @@
 	4 'buffaux> +! ;
 
 
-|----- multiplicacion a shift (menos de 4 "1")
+:buscar1 | nro -- nro bit
+	0 ( swap 1 nand? )( 2/ swap 1+ )
+	2/ swap ;
+
+|----- multiplicacion a shift (menos de 5 "1")
+| 5 * --> 101 0 << dup 2 << +	| dup 2 << +
+| 7 * --> 111 0 << dup 1 << dup 1 << +	+ | dup 2* dup 2* + + | dup 3 << swap -
+| 12 * --> 1100 2 << dup 1 << + | 2 << dup 2* +
+| no tan simple!!
+
 :*cte
-	2drop ;
-|	dup cntpop 3 >? ( 2drop ; )
-|	( 0? )( ) drop ;
+	drop ;
+:a
+	dup popcnt 4 >? ( 2drop ; ) drop
+	buscar1
+	$4b swap genCTE cteop! | puede generar 0 <<, quitarlo despues!
+	( 0? )(
+		buscar1 |****
+		$23 swap buff!+ | dup
+|****
+		$39	swap buff!+	| +
+		) drop ;
+
 
 | 8 * --> 3 <<
 :*pot
@@ -299,11 +328,24 @@
 
 |-----------------------------
 :/modcte
+	dup >r
+	calcmagic
+	divm genCTE $23 cteop!
+	divs genCTE swap buff!+
+	$3e swap buff!+ 		| *>>
+	signadj!+
+
+	$29	swap buff!+	| swap
+	$25	swap buff!+	| over
+
+	r> genCTE swap buff!+	| NRO
+	$3B	swap buff!+	| *
+	$3A	swap buff!+	| -
 	;
 
 |----  8 /mod --> dup / swap mod
 :/modpot
-	aa> dup 1- and? ( drop ; )
+	aa> dup 1- and? ( /modcte ; )
 	swap
     $23 $23 cteop!
     31 genCTE swap buff!+ | 31
@@ -468,13 +510,15 @@
 
 	|-- genera principal
 	'niv totoken 0 copynivr
+
 	;
 
 :gencodigo | nro --
 	dup dic>call@ 0? ( drop ; ) drop
 	dup dic>inf @
 	1 and? ( drop esvariable ; )
-	drop escodigo ;
+	drop escodigo
+	;
 
 |------------------------------------
 ::makeplain
