@@ -55,7 +55,7 @@
 
 :,RTOS	stknow stkrtos ,cell drop ;
 
-#stkcon
+#stkcon	| stack in consitional
 
 :,TOSC	stkcon stktos ,cell drop ;
 :,NOSC	stkcon stknos ,cell drop ;
@@ -81,16 +81,34 @@
 	3 swap cell.reg! ;
 
 |---- tipo de celda que necesito
-:cellECXCTE | cell --
-|	cellreg? 2 =? ( 2drop ; )
-	drop ;
-
 :cellREGMEM | cell --
 	drop ;
-:usoEDX      
+
+:needEAX | cell --
+	cell.reg? 0 =? ( 2drop ; ) drop
+	|** liberar eax
+	0 cell2reg
 	;
 
+|---- ecx or cte or free ecx and assign to
+:needECXCTE | cell --
+	cell.reg? 3 =? ( 2drop ; ) drop
+	cell.val? 0? ( 2drop ; ) drop
+	|** liberar ecx
+	drop
+	;
+|---- search and free edx
+:edxcellfree | cell --
+	cell.reg? 4 <>? ( 2drop ; ) drop
+	newreg swap cell2reg ;
 
+:freeEDX
+	stknow
+	c@+ ( 1? )( 1-
+		swap c@+ edxcellfree
+		swap ) 2drop ;
+
+|-----
 :cellflat | cell --
 	cell.reg?
 	+? ( 2drop ; ) drop
@@ -165,7 +183,6 @@
 		swap ) 2drop
 	-1 a> c! | marca sin final por ahora
 	,cr
-
 	;
 
 :multientry
@@ -203,12 +220,37 @@
 :convertcells | word --
 	4 << regIO + 1+ >a | salto cantidad
 	stknow c@+
-	"; CONVERT: " ,ln
+	"; IN CELLS: " ,ln
 	( 1? )( 1-
 		swap c@+
 		a> c@+ swap >a
 		swap cellresolve
 		swap ) 2drop ;
+
+:convertoutcells | word --
+	4 << regIO + c@+ + >a | salto in, tomo out
+	stknex c@+
+	"; OUT CELLS: " ,ln
+	( 1? )( 1-
+		swap c@+
+		a> c@+ swap >a
+		swap cellresolve
+		swap ) 2drop ;
+
+:stackio | word --
+	" (" ,s
+	4 << regIO +
+	c@+ ( 1? )( 1-
+		swap c@+
+        ,sp ,reg
+		swap ) drop
+	" --" ,s
+	c@+ ( 1? )( 1-
+		swap c@+
+        ,sp ,reg
+		swap ) 2drop
+	" )" ,s
+	;
 
 |------------ compila CODIGO
 :toknow		dup 4 - @ ;
@@ -244,10 +286,14 @@
 |	strpending neg
 |	1? ( "; strpending:" ,s dup ,d ,cr )
 |	pila2v
-
 	0 'strpending !
 
-	toknow tok>name " ; %w" ,print ,cr
+	toknow tok>name " ; %w" ,print
+	toknow 8 >> stackio
+
+	,cr
+
+    toknow 8 >> convertoutcells
 	;
 
 :,;
@@ -262,7 +308,6 @@
 	>DTOS cellflag $4000 and? ( 2 reg! ) drop  | ECX
     newreg >DTOS cell.reg! ;
 
-
 |---------- ASIGNACIONES
 :,lit
     >TOSreg? 0? ( drop VALUE >DTOS cell.Val! ; ) drop
@@ -274,10 +319,9 @@
 :,lits
 	toknow tok>mem strusestack
 	'strpending ! drop
-	1 'nstr +!
-	>TOSreg? 0? ( drop nstr 1- >DTOS cell.Str! ; ) drop
+	>TOSreg? 0? ( drop valw >DTOS cell.Str! ; ) drop
 	eligeReg
-    "mov " ,s ,>TOS ",str" ,s nstr 1- ,h ,cr
+    "mov " ,s ,>TOS ",str" ,s valw ,h ,cr
 	;
 :,dwo
     >TOSreg? 0? ( drop valw >DTOS cell.wor! ; ) drop
@@ -530,18 +574,18 @@
 	;
 
 :,/
-|	dnos cellEAX
-|	usoEDX
+	dnos needEAX
 |	dtos cellREGMEM
-
+	freeEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 	>dtos cellEAX
 	;
 
 :,/MOD
-|	dnos cellEAX dtos cellREGMEM usoEDX
-
+	dnos needEAX
+|	dtos cellREGMEM
+	freeEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 	>dnos cellEAX
@@ -549,16 +593,19 @@
 	;
 
 :,MOD
-|	dnos cellEAX dtos cellREGMEM usoEDX
+	dnos needEAX
+|	dtos cellREGMEM
 
+	freeEDX
 	"cdq" ,ln
 	"idiv " ,s ,TOS ,cr
 	>dtos cellEDX
 	;
 
 :,*/
-|	dpk2 cellEAX dtos cellREGMEM dnos cellREGMEM usoEDX
-
+	dpk2 needEAX
+|	dnos cellREGME
+	freeEDX
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"idiv " ,s ,TOS ,cr
@@ -566,6 +613,8 @@
 	;
 
 :,cte*>>
+	dpk2 needEAX
+	freeEDX
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	cell.value
@@ -577,8 +626,10 @@
 :,*>>
 	dtos cell.val? 0? ( drop ,cte*>> ; ) 2drop
 
-|	dpk2 cellEAX dnos cellREGMEM dtos cellECXCTE usoEDX
-
+|	dnos cellREGMEM
+	dpk2 needEAX
+	dtos needECXCTE
+	freeEDX
 	"cdq" ,ln
 	"imul " ,s ,NOS ,cr
 	"shrd eax,edx," ,s ,TOSb ,cr
@@ -589,11 +640,10 @@
 	;
 
 :,<</
-|	dpk2 cellEAX
+	dpk2 needEAX
 |	dnos cellREGMEM
-|	dtos cellECXCTE
-|	usoEDX
-
+	dtos needECXCTE
+	freeEDX
 	"cdq" ,ln
     "shld edx,eax," ,s ,TOSb ,cr
 	"shl eax," ,s ,TOSb ,cr
@@ -603,32 +653,37 @@
 
 :,<<
 |	dnos cellREG
-	dtos cellECXCTE
+
+	dtos needECXCTE
 	"sal " ,s ,NOS "," ,s ,TOSb ,cr
 	;
 
 :,>>
 	| dtos=31 & dnos=eax --> "cdq" dtos=edx
 |	dnos cellREG
-	dtos cellECXCTE
+
+	dtos needECXCTE
 	"sar " ,s ,NOS "," ,s ,TOSb ,cr
 	;
 
 :,0>>
 |	dnos cellREG
-	dtos cellECXCTE
+
+	dtos needECXCTE
 	"shr " ,s ,NOS "," ,s ,TOSb ,cr
 	;
 
 :,R>>	| no implementada
 	dnos cellREG
-	dtos cellECXCTE
+
+	dtos needECXCTE
 	"ror " ,s ,NOS "," ,s ,TOSb ,cr
 	;
 
 :,ABS
 |	dtos cellREG
-|	usoEDX
+
+	freeEDX
 	dtos cellREG? 0? ( | EAX
 		"cdq" ,ln
 		)(
@@ -973,6 +1028,7 @@
 		,cr
 
 		,cadatoken swap
+
 		"r4/compiler/code.asm" savemem | DEBUG
 
 		1 'nroi +!
