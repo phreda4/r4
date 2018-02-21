@@ -90,6 +90,12 @@
 	0 cell2reg
 	;
 
+:needECX | cell --
+	cell.reg? 2 =? ( 2drop ; ) drop
+	|** liberar ecx
+	2 cell2reg
+	;
+
 |---- ecx or cte or free ecx and assign to
 :needECXCTE | cell --
 	cell.reg? 3 =? ( 2drop ; ) drop
@@ -97,7 +103,7 @@
 	|** liberar ecx
 	drop
 	;
-|---- search and free edx
+|---- search and free
 :edxcellfree | cell --
 	cell.reg? 4 <>? ( 2drop ; ) drop
 	newreg swap cell2reg ;
@@ -108,6 +114,30 @@
 		swap c@+ edxcellfree
 		swap ) 2drop ;
 
+:eaxcellfree | cell --
+	cell.reg? 1? ( 2drop ; ) drop
+	newreg swap cell2reg ;
+
+:freeEAX
+	stknow
+	c@+ ( 1? )( 1-
+		swap c@+ eaxcellfree
+		swap ) 2drop ;
+
+|---------------
+| ediesiecxeax
+:copycells
+	| esi
+	| edi
+	ntos needECX
+	freeEAX
+	;
+| esiecxeax
+:fillcells
+	| edi
+	nnos needECX
+	ntos needEAX
+	;
 |-----
 :cellflat | cell --
 	cell.reg?
@@ -118,6 +148,7 @@
 
 :cellplain
 	"; --- plain stack ---" ,ln
+	regused
 	stknow
 	c@+ ( 1? )( 1-
 		swap c@+ cellflat
@@ -293,7 +324,9 @@
 
 	,cr
 
-    toknow 8 >> convertoutcells
+	dup @ $ff and 			| word ;
+	16 <>? ( toknow 8 >> convertoutcells )
+	drop
 	;
 
 :,;
@@ -651,13 +684,6 @@
 	>dtos cellEAX
 	;
 
-:,<<
-|	dnos cellREG
-
-	dtos needECXCTE
-	"sal " ,s ,NOS "," ,s ,TOSb ,cr
-	;
-
 :,>>
 	| dtos=31 & dnos=eax --> "cdq" dtos=edx
 |	dnos cellREG
@@ -724,8 +750,26 @@
 :,2*
 	dtos cell.shf? 1? ( over cellflat ) 2drop
 	2 dtos cell.shf ;
-
 |	"sal " ,s ,TOS ",1" ,ln ;
+
+;,cte<<
+	VALUE
+	2 =? ( dtos cell.shf ; )
+	4 =? ( dtos cell.shf ; )
+	8 =? ( dtos cell.shf ; )
+	drop
+|	dnos cellREG
+	dtos needECXCTE
+	"sal " ,s ,NOS "," ,s ,TOSb ,cr
+	;
+
+:,<<
+|	dnos cell.shf? 1? ( over cellflat ) 2drop
+|    dtos cell.val? 0? ( 2drop ,cte<< ; ) 2drop
+|	dnos cellREG
+	dtos needECXCTE
+	"sal " ,s ,NOS "," ,s ,TOSb ,cr
+	;
 
     |------ MEMORIA
 :,@
@@ -838,11 +882,11 @@
 
 :,SW
 	0 >DTOS cell.Cte!
-|fullscreen 1? ( >DTOS cell.mem  ) drop
+|	fullscreen 1? ( >DTOS cell.mem  ) drop
 	;
 :,SH
 	1 >DTOS cell.Cte!
-|fullscreen 1? ( >DTOS cell.mem  ) drop
+|	fullscreen 1? ( >DTOS cell.mem  ) drop
 	;
 
 :,MEM
@@ -850,7 +894,7 @@
 	>DTOS cell.mem ;
 
 :,FRAMEV
-	3 >DTOS cell.Cte!	;
+	3 >DTOS cell.Cte! ;
 
 :,BMOUSE
 	5 >DTOS cell.Cte!
@@ -894,9 +938,11 @@
 	;
 
 :,MOVE
+	| ediesiecxeax
 	"rep movsd" ,ln
 	;
 :,MOVE>
+	| ediesiecxeax
 	"lea esi,[esi+ecx*4-4]" ,ln
 	"lea edi,[edi+ecx*4-4]" ,ln
 	"std" ,ln
@@ -904,13 +950,16 @@
 	"cld" ,ln
 	;
 :,FILL
+	| esiecxeax
 	"rep stosd" ,ln
 	;
 
 :,CMOVE
+	| ediesiecxeax
 	"rep movsb" ,ln
 	;
 :,CMOVE>
+	| ediesiecxeax
 	"lea esi,[esi+ecx-1]" ,ln
 	"lea edi,[edi+ecx-1]" ,ln
 	"std" ,ln
@@ -918,24 +967,12 @@
 	"cld" ,ln
 	;
 :,CFILL
+	| esiecxeax
 	"rep stosb" ,ln
-
-|	"mov ah,al" ,ln			| eax=(al<<24)|(al<<16)|(al<<8)|al
-|	"movzs ebx,ax" ,ln
-|	"shl eax,16" ,ln
-|	"or eax,ebx" ,ln
-
-|	"mov ebx,ecx" ,ln
-|	"shr ecx,2" ,ln
-|	"rep stosd" ,ln
-|	"mov ecx,ebx" ,ln
-|	"and ecx,3" ,ln
-|	"rep stosb" ,ln
 	;
 
 |----------- en asmbase.txt
 :,SQRT
-:,MOVE :,MOVE> :,CMOVE :,CMOVE>
 :,INK :,INK@ :,ALPHA
 :,OP :,LINE :,CURVE :,CURVE3 :,PLINE :,PCURVE :,PCURVE3 :,POLI
 :,FCOL :,FCEN :,FMAT :,SFILL :,LFILL :,RFILL :,TFILL ;
@@ -1047,6 +1084,7 @@
 	$81 and $80 =? ( 2drop ; )
 	drop
 
+    "; --------------------------------" ,ln
 	dup cellana
 	"; vreg:" ,s cntvreg 1- ,d ,cr
 
