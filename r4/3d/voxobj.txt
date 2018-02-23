@@ -1,0 +1,279 @@
+| Voxel Editor
+| PHREDA 2015
+|---------------------
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+^r4/lib/sort.txt
+^r4/lib/bsearch.txt
+^r4/lib/morton.txt
+^r4/lib/dlg.txt
+^r4/lib/dlgfile.txt
+
+^r4/3d/octree/iso_13_2.txt
+
+^r4/3d/buildoctree.txt
+^r4/3d/wirelib.txt
+
+^r4/lib/trace.txt
+
+^r4/3d/loadobj.txt
+
+#realfreemem
+#model
+
+#filename )( 1024
+#qand $ff
+#cache
+
+|------ vista
+#xcam 0 #ycam 0 #zcam 1.6
+#rx #ry
+
+|------ ajustes
+:drawvoxel
+	$inifile 0? ( drop ; )
+	dup @ 16 >> $3d00 <>? ( 2drop ; ) drop
+	bb.clear
+	drawoctree ;
+
+|----------------
+:clearvox
+	memvox 'memvox> ! ;
+
+:vox-cnt-mem | -- cnt mem
+	memvox memvox> over - 3 >> 1+ swap ;
+
+:vox! | c x y z --
+	mortonlut not
+
+	cache =? ( 2drop ; )
+	dup 'cache !
+
+:mvox! | c m --
+	memvox> !+ !+ 'memvox> ! ;
+
+:vox@ | x y z -- c
+	memvox> memvox - 0? ( 4drop -1 ; ) drop
+	mortonlut not vox-cnt-mem binsearch
+	0? ( -1 nip ; ) 4+ @ ;
+
+:vox@a | x y z -- a
+	memvox> memvox - 0? ( 4drop -1 ; ) drop
+	mortonlut not vox-cnt-mem binsearch
+	0? ( -1 nip ; ) 4+ ;
+
+:vox- | x y z --
+	memvox> memvox - 0? ( 4drop ; ) drop
+	mortonlut not vox-cnt-mem binsearch
+	0? ( drop ; ) | adr
+	dup 8 +   | dest src
+	memvox> over - 2 >> move
+	-8 'memvox> +! ;
+
+
+|------------- save/load import
+:saveoctree
+	"media/3do" dlgfilesave 0? ( drop ; )
+	'filename strcpy
+	'filename ".3do" =pos
+	0? ( ".3do" pick2 strcat ) drop
+	$inifile $end over - rot save ;
+
+:saveoctreeopt
+	"media/3do" dlgfilesave 0? ( drop ; )
+	'filename strcpy
+	'filename ".3do" =pos
+	0? ( ".3do" pick2 strcat ) drop
+	optoctree
+	$inifile $end over - rot save ;
+
+|---------------------------
+#txres
+#tyres
+#tritexture
+
+#vertex )( $fffff
+
+:setvox
+	dup >a
+	dup 12 + @
+	dup $ffff and 2 >> txres *
+	swap 16 0>> $ffff and 2 >> +
+	1+ 2 << tritexture + @
+	a@+ a@+ a@+
+	vox!
+	;
+
+| x y z uv
+:samep | adr --
+	dup @ over 16 + @ <>? ( drop 0 ; ) over 32 + @ <>? ( drop 0 ; ) drop
+	dup 4+ @ over 20 + @ <>? ( drop 0 ; ) over 36 + @ <>? ( drop 0 ; ) drop
+	dup 8 + @ over 24 + @ <>? ( drop 0 ; ) over 40 + @ <>? ( drop 0 ; ) drop
+	1 ;
+
+| siempre converge a o2
+:2/1 | o2 o1 -- om ;
+	over - dup 31 >> - 2/ + ;
+
+:2/uv | a b -- v
+	+ 2/ $7fff7fff and ;
+
+:maketri | adr --		b:src a:des
+	dup	@+ b@+ 2/1 a!+ @+ b@+ 2/1 a!+ @+ b@+ 2/1 a!+ @ b@+ 2/uv a!+
+	dup @+ b@+ 2/1 a!+ @+ b@+ 2/1 a!+ @+ b@+ 2/1 a!+ @ b@+ 2/uv a!+
+	@+ b@+ 2/1 a!+ @+ b@+ 2/1 a!+ @+ b@+ 2/1 a!+ @ b@+ 2/uv a!+ ;
+
+:rectri | adr -- adr
+	samep 1? ( drop setvox 48 - ; ) drop
+	dup 48 + >a dup >b dup maketri
+    48 + rectri
+	dup 48 + >a dup >b dup 16 + maketri
+    48 + rectri
+	dup 48 + >a dup >b dup 32 + maketri
+    48 + rectri
+	dup 48 + >a dup >b
+	b> 32 + @ b@+ + 2/ a!+ b> 32 + @ b@+ + 2/ a!+ b> 32 + @ b@+ + 2/ a!+ b> 32 + @ b@+ 2/uv a!+
+	b> 16 - @ b@+ + 2/ a!+ b> 16 - @ b@+ + 2/ a!+ b> 16 - @ b@+ + 2/ a!+ b> 16 - @ b@+ 2/uv a!+
+	b> 16 - @ b@+ + 2/ a!+ b> 16 - @ b@+ + 2/ a!+ b> 16 - @ b@+ + 2/ a!+ b> 16 - @ b@+ 2/uv a!+
+    48 + rectri
+    48 -
+	;
+
+:filltri | --
+	-1 'cache !
+	'vertex rectri drop
+	;
+
+| * agrega 2 bits de precision 2 << y luego 2 + para centrar
+:setv
+    b@+ 1- 4 << verl +
+	@+ qand 2/ + qand and a!+
+	@+ qand 2/ + qand and a!+
+	@ qand 2/ + qand and a!+
+
+	b@+ 16 0>> 1- 12 * texl +
+	@+ txres 2 << 1.0 */ 2 + $ffff and 16 <<		| *
+	swap @ 1.0 - abs tyres 2 << 1.0 */ 2 + $ffff and
+	or a!+
+	;
+
+:setcolor
+	4 << colorl + 12 + @
+	dup @
+	dup $ffff and 'txres !
+	16 0>> 'tyres !
+	'tritexture ! ;
+
+:fillobj
+	mark
+	facel >b
+	nface ( 1? )( 1-
+		'vertex	>a
+		b> 6 2 << + @ setcolor
+		setv setv setv
+		4 b+
+		b> filltri >b
+		) drop
+	empty
+	;
+
+:fileloadobj
+	realfreemem 'here !
+
+	scr home fonti verde cr cr cr
+	"cargando..." print cr redraw
+
+|	"media/obj/mario/mario.obj"
+	"media/obj/yumi.obj"
+|	"media/obj/cube.obj"
+
+	loadobj 'model !
+
+	"ajuste..." print cr redraw
+	objminmax
+	objcentra
+	qand objcube
+
+	here 'memvox !
+	clearvox
+
+	"relleno..." print cr redraw
+	fillobj		| rellena
+
+	memvox> memvox - 3 >> " %d voxels" print cr
+	"repetidos..." print cr redraw
+	repetidos	| repetidos
+
+    memvox> '$inifile !
+	buildoctree
+	;
+
+|------ rotar
+#xm #ym
+
+:dnlook
+	xymouse 'ym ! 'xm ! ;
+
+:movelook
+	xymouse
+	ym over 'ym ! - 7 << 'rx +!
+	xm over 'xm ! - neg 7 << neg 'ry +! ;
+
+
+|------- vista
+:modview
+	'dnlook 'movelook guiDnMove ;
+
+
+|-----------------
+:main
+	8 octreedeep
+	$ff 'qand !
+	clearvox
+	buildoctree
+	$f0f0f 'paper !
+	4 show clrscr
+		fonti
+		verde oscuro 2 linesfill blanco
+		dup ":r%d Obj2Voxel " print
+		octre> octre - 2 >> memvox> memvox - 3 >>
+		"[ %d Pnts %d Nods ]" print cr
+		'filename sp print
+		'fileloadobj <f1>
+		'exit >esc<
+
+		|------
+		matini
+		rx mrotx ry mroty
+		xcam ycam zcam mtrans
+		draw3dgrid
+
+		drawvoxel
+		modview
+
+|		objwire
+
+		|------
+		1 rows 4 - gotoxy azul
+		azul
+
+		|------ key vista
+		[ zcam 0.1 >? ( 0.1 - ) 'zcam ! ; ] <up>
+		[ zcam 1.8 <? ( 0.1 + ) 'zcam ! ; ] <dn>
+		[ 0.01 'ry +! ; ] <le>
+		[ -0.01 'ry +! ; ] <ri>
+
+		cminiflecha ;
+
+|--------------------------
+:memory
+	mark
+
+	sw sh ini3do
+|	3dini maskb.ini
+
+	here 'realfreemem !
+	0 '$inifile !
+	;
+
+: memory main ;
