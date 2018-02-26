@@ -1,5 +1,4 @@
 | Obj Model Loader
-| - faltan indices negativos
 | PHREDA 2017
 |-----------------------------------
 ^r4/lib/parse.txt
@@ -78,12 +77,29 @@
 		pick2 =pre 1? ( 2drop nip ; )
 		2drop 1+ ) 2drop -1 ;
 
+	here
+	dup dup 'verl ! 'verl> !
+	nver 0? ( nip ; )
+	4 << +
+	dup dup 'texl ! 'texl> !
+	ntex 12 * +
+	dup dup 'facel ! 'facel> ! | falta contar 4 vertices
+	nface 7 2 << * +
+    dup dup 'norml ! 'norml> !
+	nnorm 12 * +
+
 :uface
-	?sint 'nv ! dup 1- c@
+	?sint
+	-? ( verl> verl - 4 >> 1+ + )
+	'nv ! dup 1- c@
 	32 <? ( drop 1- ; ) 33 <? ( drop ; ) drop
-	?sint 'nt ! dup 1- c@
+	?sint
+	-? ( texl> texl - 12 / 1+ + )
+	'nt ! dup 1- c@
 	32 <? ( drop 1- ; ) 33 <? ( drop ; ) drop
-	?sint 'nn ! dup 1- c@
+	?sint
+	-? ( norml> norml - 12 / 1+ + )
+	'nn ! dup 1- c@
 	32 <? ( drop 1- ; ) drop
 	;
 
@@ -99,9 +115,13 @@
 	nv b!+ nt 16 << nn or b!+
 	colornow b!+
 	| manejar aca si hay cuatro
-	dup c@ $ff and 13 >? (
-		drop uface dup		| falta construir el otro triangulo
-		) drop
+	dup c@ $ff and 13 >? ( drop
+		uface
+		nv b!+ nt 16 << nn or b!+
+		b> 36 - @+ b!+ @+ b!+		| vert 0
+		8 + @+ b!+ @+ b!+           | vert 2
+		colornow b!+
+		)( drop )
 
 	b> 'facel> !
 	;
@@ -212,12 +232,24 @@
 	load 0 swap !+ 'here !
 	;
 
+::cnt/
+	0 swap
+	( c@+ 13 >? )(
+		$2f =? ( rot 1+ rot rot )
+		drop
+		) 2drop ;
+
+| contar 2 caras para 4 vertices
+:facecnt
+	dup 2 + trim	| 3 y 6 -->1  4 y 8 -->2
+	cnt/ 2/ not 1 and 1+ ;
+
 :parsecount
 	"vt" =pre 1? ( drop 1 'ntex +! ; ) drop	| textcoor (u, v [,w])
 	"vn" =pre 1? ( drop 1 'nnorm +! ; ) drop	| normales (x,y,z)
 	"vp" =pre 1? ( drop 1 'npara +! ; ) drop	| param space ( u [,v] [,w] )
 	"v" =pre 1? ( drop 1 'nver +! ; ) drop	| vertices (x,y,z[,w=1])
-	"f" =pre 1? ( drop 1 'nface +! ; ) drop	| face nvert( v/t/n  v//n v/t  v)??
+	"f" =pre 1? ( drop facecnt 'nface +! ; ) drop	| face nvert( v/t/n  v//n v/t
 	"s" =pre 1? ( drop ; ) drop	| 1/off
 	"o" =pre 1? ( drop ; ) drop	| o [object name]
 	"g" =pre 1? ( drop ; ) drop	| g [group name]
@@ -246,10 +278,10 @@
 	4 << +
 	dup dup 'texl ! 'texl> !
 	ntex 12 * +
+	dup dup 'facel ! 'facel> ! | falta contar 4 vertices
+	nface 7 2 << * +
     dup dup 'norml ! 'norml> !
 	nnorm 12 * +
-	dup dup 'facel ! 'facel> !
-	nface 7 2 << * +
     dup dup 'paral ! 'paral> !
 	npara 12 * +
 	dup dup 'colorl ! 'colorl> !
@@ -343,4 +375,7 @@
 	;
 
 
-: mark "media/obj/ldhorse/LD_HorseRtime02.obj" loadobj ;
+: mark 
+	"media/obj/elephant/elephant.obj"
+	|"media/obj/ldhorse/LD_HorseRtime02.obj"
+	loadobj ;
