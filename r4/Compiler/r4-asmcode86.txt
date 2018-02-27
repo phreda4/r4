@@ -82,11 +82,12 @@
 
 |---- tipo de celda que necesito
 :cellREG | cell --
-	cell.reg? +? ( drop ; ) drop
+	cell.reg? +? ( 2drop ; ) drop
 	newreg swap cell2reg ;
 
 :cellREGMEM | cell --
-	cell.reg? +? ( drop ; ) drop
+	cell.reg? +? ( 2drop ; ) drop
+	cellm? 0? ( 2drop ; ) drop
 	newreg swap cell2reg ;
 
 :needEAX | cell --
@@ -292,6 +293,7 @@
 :stackcellpre
 	dic>inf @
 	dic>mov @
+	|*********
 	;
 
 |------------ compila CODIGO
@@ -475,6 +477,30 @@
 :block.type | -- type
 	block.now 2 << 'blocki + @ ;
 
+:blockst(
+	"; >>" ,s
+
+	block.now 2 << 'blocks + @
+	$3ff and ,stackmc
+	" >> " ,s
+	nroi ,stackmc
+	,cr
+
+	block.now 2 << 'blocks + @ $3ff and nroi stack2stack
+
+	,cr
+|	dup $3ff and " (%d" ,print
+|	dup 10 >> $3ff and 0? ( drop ":" ,s )( ":%d:" ,print )
+|	20 >> $3ff and "%d)" ,print
+
+	;
+
+|------ ajuste de pila
+:ajuste
+	"; ajuste" ,ln
+	blockst(
+	;
+
 :,(
 	cellplain
 
@@ -499,7 +525,7 @@
 
 	block.type 7 and	| FALTA ;)
 	0? ( c.pop jmp, )					| REP
-	1 =? ( c.pop ,etiqueta )			| IF
+	1 =? ( ajuste c.pop ,etiqueta )			| IF
 	2 =? ( c.pop jmp, c.pop ,etiqueta )	| WHILE
 	3 =? ( c.pop ,etiqueta )			| ELSE
 	4 =? ( c.pop ,jmpcond )				| UNTIL
@@ -789,43 +815,43 @@
 	"movsx " ,s ,TOS ",word [" ,s ,TOS "]" ,ln ;
 
 :,!
-	dtos cellREG
+	dtos cellREGMEM
 	"mov dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	;
 :,C!
-	dtos cellREG
+	dtos cellREGMEM
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	;
 :,W!
-	dtos cellREG
+	dtos cellREGMEM
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	;
 
 :,+!
-	dtos cellREG
+	dtos cellREGMEM
 	"add dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	;
 :,W+!
-	dtos cellREG
+	dtos cellREGMEM
 	"add word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	;
 :,C+!
-	dtos cellREG
+	dtos cellREGMEM
 	"add byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	;
 
 :,!+
-	dtos cellREG
+	dtos cellREGMEM
 	"mov dword [" ,s ,TOS "]," ,s ,NOS ,cr
 	"add " ,s ,TOS ",4" ,ln
 	;
 :,W!+
-	dtos cellREG
+	dtos cellREGMEM
 	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
 	"add " ,s ,TOS ",2" ,ln
 	;
 :,C!+
-	dtos cellREG
+	dtos cellREGMEM
 	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
 	"add " ,s ,TOS ",1" ,ln
 	;
@@ -1111,7 +1137,6 @@
 	dup dic>tok @ dup 'tokenini !
 	swap dic>len@
 	( 1? )( 1- swap @+
-
 		9 ,c "; " ,s dup tokenstr ,print
 		9 ,c "|" ,s nroi ,stackm " |" ,s nroi ,stackmc
 		,cr
