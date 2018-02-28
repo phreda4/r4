@@ -197,20 +197,23 @@
 	4 'buffaux> +! ;
 
 
-:buscar1 | nro -- nro bit
-	0 ( swap 1 nand? )( 2/ swap 1+ )
-	2/ swap ;
-
 |----- multiplicacion a shift (menos de 5 "1")
 | 5 * --> 101 0 << dup 2 << +	| dup 2 << +
 | 7 * --> 111 0 << dup 1 << dup 1 << +	+ | dup 2* dup 2* + + | dup 3 << swap -
 | 12 * --> 1100 2 << dup 1 << + | 2 << dup 2* +
 | no tan simple!!
 
-:*cte
+:buscar1 | nro -- nro bit
+	0
+:buscarn | nro bit -- nro bit
+	( swap 1 nand? )( 2/ swap 1+ )
+	2/ swap ;
+
+:*pop
 	drop ;
 :a
 	dup popcnt 4 >? ( 2drop ; ) drop
+|	swap aa1@ drop swap
 	buscar1
 	1? (
 		genCte swap buff!+
@@ -232,15 +235,29 @@
 
 | 8 * --> 3 <<
 :*pot
-	aa> dup 1- and? ( *cte ; )
 	$4b | <<
 	31 rot clz - genCTE
 	cteop! ;
 
+| 7 * --> dup 3 << swap -
+:*pot-1
+	32 swap clz - genCTE
+	$23 cteop!
+	$4b	swap buff!+	| <<
+	$29	swap buff!+	| swap
+	$3a swap buff!+ | -
+	;
+
+:*cte
+	aa> dup 1- nand? ( *pot ; )
+	dup 1+ nand? ( *pot-1 ; )
+	*pop ;
+
+
 :o*     | ab -- c
 	aa#
 	1 >? ( 2drop aa2@ * aa1! ; )
-	1 =? ( 2drop *pot -aa ; )
+	1 =? ( 2drop *cte -aa ; )
 	2drop -aa ;
 
 |----- division by constant
