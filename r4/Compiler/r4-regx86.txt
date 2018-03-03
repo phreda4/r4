@@ -108,6 +108,16 @@
 	dup 'cellv + @ pick2 'cellv + !
 	'cella + @ swap 'cella + ! ;
 
+:swapmem | m1 m2 --
+	dup @ pick2 @ rot ! swap ! ;
+
+:cell.swp | to to --
+	2 << swap 2 <<
+	over 'cellt + over 'cellt + swapmem
+	over 'cellv + over 'cellv + swapmem
+	'cella + swap 'cella + swapmem
+	;
+	
 |-----------------
 :cellt? | nro -- cellt
 	2 << 'cellt + @ ;
@@ -297,20 +307,34 @@
 |		,cr
 		swap ) 2drop ;
 
-:a@c >a c@+ swap >a ;
-:b@c >b c@+ swap >b ;
+|-------------------------------------
+:cellxchg
+	"xchg " ,s ,cell >r "," ,s ,cell ,cr
+	r> cell.swp
+	;
 
-#ca
-#cb
+:usado? | cell -- cell 1/0
+	1
+	;
+
+:cellresolve | a b  ---
+	over =? ( 2drop ; )
+	usado? 1? ( drop cellxchg ; ) drop
+	"mov " ,s ,cell drop "," ,s ,cell drop ,cr
+	;
 
 ::stack2stack | stk1 stk2 --  ; 1 >> 2
-	2 << 'stki + @ >b
-	2 << 'stki + @ >a
-	a@c dup 'ca !
-	b@c dup 'cb !
+	2 << 'stki + @ c@+
+	0? ( 3drop ; ) | no necesita conversion
+	rot 2 << 'stki + @
+	c@+ pick2 - + >a
+	( 1? )( 1- swap
+		c@+ a> c@+ swap >a
+		|"%d -> %d " ,print
+		cellresolve
+		swap ) 2drop
+	,cr ;
 
-
-	;
 
 |------------------------------------
 :,impcell
