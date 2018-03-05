@@ -117,7 +117,7 @@
 	over 'cellv + over 'cellv + swapmem
 	'cella + swap 'cella + swapmem
 	;
-	
+
 |-----------------
 :cellt? | nro -- cellt
 	2 << 'cellt + @ ;
@@ -146,6 +146,11 @@
 
 ::cell.val?	| nro -- nro 1/0=es valor
 	dup 2 << 'cellt + @ ;
+
+::cell.stk? | nro -- nro pos/0=no
+	cellregu? -? ( 1+ ; )
+	6 <>? ( drop 0 ; ) drop	| ebp
+	cell.add? 2 >> 1+ ;
 
 
 ::cell.add | val nro --
@@ -308,7 +313,15 @@
 		swap ) 2drop ;
 
 |-------------------------------------
-:cellxchg
+#stackto )( 128
+
+:stack2fix | cell -- reg/stk
+	cell.reg? +? ( nip ; ) drop
+	cell.stk?
+	nip
+	;
+
+:cellxchg | a b --
 	"xchg " ,s ,cell >r "," ,s ,cell ,cr
 	r> cell.swp
 	;
@@ -318,21 +331,32 @@
 	;
 
 :cellresolve | a b  ---
-	over =? ( 2drop ; )
+	cell.reg? | ra b rb
+	pick2 =? ( 3drop ; ) drop
 	usado? 1? ( drop cellxchg ; ) drop
 	"mov " ,s ,cell drop "," ,s ,cell drop ,cr
 	;
 
+
 ::stack2stack | stk1 stk2 --  ; 1 >> 2
 	2 << 'stki + @ c@+
 	0? ( 3drop ; ) | no necesita conversion
+
+	'stackto >a
+	dup a!+
+	( 1? )( 1- swap
+		c@+ stack2fix a!+
+		swap ) 2drop
+	'stackto @+
 	rot 2 << 'stki + @
 	c@+ pick2 - + >a
+	trace
 	( 1? )( 1- swap
-		c@+ a> c@+ swap >a
+		@+ a> c@+ swap >a
 		|"%d -> %d " ,print
 		cellresolve
 		swap ) 2drop
+	trace
 	,cr ;
 
 
