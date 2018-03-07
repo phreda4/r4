@@ -126,7 +126,7 @@
 	dup cellt? 5 <>? ( drop -1 ; ) drop
 	dup 2 << 'cellv + @ ;
 
-:cellregu? | nro -- nro reg/-1
+::cell.regu? | nro -- nro reg/-1
 	dup cellt? $f and 5 <>? ( drop -1 ; ) drop
 	dup 2 << 'cellv + @ ;
 
@@ -148,7 +148,7 @@
 	dup 2 << 'cellt + @ ;
 
 ::cell.stk? | nro -- nro pos/0=no
-	cellregu? -? ( 1+ ; )
+	cell.regu? -? ( 1+ ; )
 	6 <>? ( drop 0 ; ) drop	| ebp
 	cell.add? 2 >> 1+ ;
 
@@ -180,6 +180,9 @@
 ::reg!! | nro --
 	1 swap << not registros and 'registros ! ;
 
+:reg? | nro -- 0/1=esta
+	1 swap << and ;
+
 ::newReg | -- reg | busca un registro libre
 	0 registros
 	( 1? )( 1 nand? ( drop ; ) | libre?
@@ -187,7 +190,7 @@
 	drop ;
 
 ::fillReg | cell --
-	cellregu? -? ( 2drop ; )
+	cell.regu? -? ( 2drop ; )
 	reg! drop ;
 
 |-----------------
@@ -195,7 +198,7 @@
 	"mov [ebp" ,s over 1? ( 2 << +? ( "+" ,s ) ,d )( drop ) "]," ,s ,cell ,cr
     cell.stk! ;
 
-:cell2stk | nro reg --
+::cell2stk | nro reg --
 	1+ |-1=0
 	swap
 	cell.shf? 0? ( drop cell2stkp ; ) drop
@@ -271,7 +274,7 @@
 ::,dumpcel
 	0 ( cntvreg <? )(
 		dup ,d ,sp ,cell
-		dup cellregu? " %d" ,print
+		dup cell.regu? " %d" ,print
 		,cr
 		1+ ) drop ;
 
@@ -287,18 +290,20 @@
 	;
 
 |------------------------------------
-::cellresolve
+::cellresolve | reg/stk cell --
 	swap -? ( cell2stk ; ) swap
 	cell2reg ;
 
+|------------------------------------
+
 :cellregmark | cell --
 	-? ( drop ; )
-	cellregu? -? ( 2drop ; )
+	cell.regu? -? ( 2drop ; )
 	reg!
 	drop
 	;
 
-:markregused | mask --
+::markregused | mask --
 	emptyReg
 	c@+ ( 1? )( 1- swap c@+
 		cellregmark
@@ -323,7 +328,7 @@
 	nip
 	;
 
-:cellxchg | a b --
+::cellxchg | a b --
 	"xchg " ,s ,cell >r "," ,s ,cell ,cr
 	r> cell.swp
 	;
