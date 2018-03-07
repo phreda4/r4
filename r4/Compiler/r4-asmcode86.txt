@@ -130,20 +130,6 @@
 		swap c@+ eaxcellfree
 		swap ) 2drop ;
 
-|---------------
-| ediesiecxeax
-:copycells
-	| esi
-	| edi
-	dnos needECX
-	freeEAX
-	;
-| esiecxeax
-:fillcells
-	| edi
-	dnos needECX
-	dtos needEAX
-	;
 |-----
 :cellflat | cell --
 	cell.reg?
@@ -203,9 +189,7 @@
 	dup a> c!+ >a
 	( 1? )( 1-
 		swap c@+
-
 		,cell ,sp
-
 		cellinstack a> c!+ >a
 		swap ) 2drop ;
 
@@ -221,7 +205,7 @@
 
 :resolvecell | memd cell reg/stk  -- memd
 	-? ( cell2stk ; )
-	incell +? ( nip cellxchg ; )  
+	incell +? ( nip cellxchg ; )
 	drop
 	swap cell2reg ;
 
@@ -351,8 +335,6 @@
 :,defv ; | no hay definiciones en optimizado
 :,[ :,] ; | no hay anonimas en optimizado
 
-:vpila2v | stk --
-	drop ;
 
 :,wor
     toknow 8 >> convertcells
@@ -514,11 +496,10 @@
 #stackblock )( 1024
 
 :cpystack
-	pilab> 'pilab - 2 >>
+	pilab> 'pilab - 2 >> 1-
 	"; cpy: " ,s dup ,d " >> " ,s
 	4 << 'stackblock + stack2mem
 	,cr ;
-
 
 :fitstack
 	pilab> 'pilab - 2 >> 1-
@@ -528,9 +509,8 @@
 |------ ajuste de pila
 :,(
 	cellplain
-	cpystack
-
 	block.new
+	cpystack
 	block.type
 	%1 and? ( +etiqueta ,jmpcond 	| IF ELSE
 		)(  +etiqueta ,etiqueta )	| WHILE UNTIL REP
@@ -539,7 +519,6 @@
 
 :,)(
 	cellplain
-
 	block.type
 	%1 and? ( c.pop +etiqueta jmp, ,etiqueta cpystack | ELSE
 		)( c.pop +etiqueta ,jmpcond c.push )	| WHILE
@@ -548,8 +527,9 @@
 
 :,)
 	cellplain
-	fitstack
-	block.type 7 and	| FALTA ;)
+	block.type
+	8 nand? ( fitstack ) | ;
+	7 and
 	0? ( c.pop jmp, )					| REP
 	1 =? ( c.pop ,etiqueta )			| IF
 	2 =? ( c.pop jmp, c.pop ,etiqueta )	| WHILE
@@ -632,16 +612,22 @@
 	;
 
 |----------------------
-:,AND
+:oper21
+	dnos cell.REG? +? ( 2drop ; ) 2drop
+	dtos cell.REG? +? ( drop dnos cell.swp ; ) 2drop
 	dnos cellREG
+	;
+
+:,AND
+	oper21
 	"and " ,s ,NOS "," ,s ,TOS ,cr
 	;
 :,OR
-	dnos cellREG
+	oper21
 	"or " ,s ,NOS "," ,s ,TOS ,cr
 	;
 :,XOR
-	dnos cellREG
+	oper21
 	"xor " ,s ,NOS "," ,s ,TOS ,cr
 	;
 
@@ -651,6 +637,7 @@
 
 :,+
 	dtos cell.val? 0? ( 2drop ,+val ; ) 2drop
+	oper21
 	"add " ,s ,NOS "," ,s ,TOS ,cr
 	;
 
@@ -665,7 +652,7 @@
 	;
 
 :,*
-	dnos cellREG
+	oper21
 	"imul " ,s ,NOS "," ,s ,TOS ,cr
 	;
 
@@ -983,6 +970,8 @@
 	;
 
 :,XYMOUSE | -- x y
+	dtos cellREG
+	dnos cellREG
 	"mov " ,s ,>TOS ",[SYSXYM]" ,ln
 	"mov " ,s ,>NOS "," ,s ,>TOS ,cr
 	"and " ,s ,>NOS ",$ffff" ,ln
@@ -1011,7 +1000,7 @@
 	;
 
 
-#stackmove ( 4 2 1 0 )
+#stackmove ( 3 2 1 0 )
 
 :,MOVE
 	'stackmove mem2stack
@@ -1066,6 +1055,9 @@
 	dup @ $ff and | word ;
 	16 =? ( "jmp " )( "call " ) nip
 	,s ;
+
+:vpila2v | stk --
+	drop ;
 
 :,END
 	"jmp SYSEND" ,ln ;
