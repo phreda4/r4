@@ -11,6 +11,8 @@
 #nroi		| nro token
 #regIO 		| dicc de IO 16 bytes
 
+#fullscreen 0 
+
 |------ acceso a celdas
 :stknow	nroi 2 << 'stki + @ ;
 :stknex nroi 1+ 2 << 'stki + @ ;
@@ -132,11 +134,9 @@
 
 |-----
 :cellflat | cell --
-	cell.reg?
-	+? ( 2drop ; ) drop
-	newReg swap
-	cell2reg
-	;
+	cell.reg? +? ( 2drop ; ) drop
+	cell.regu? +? ( swap cell2reg ; ) drop
+	newReg swap cell2reg ;
 
 :cellplain
 	"; --- plain stack ---" ,ln
@@ -364,10 +364,14 @@
 	outputcells
 	"ret" ,ln ;
 
-|-------
+|------- Elige registro para copia en tos
 :eligeReg
 	regused
-	>DTOS cellflag $4000 and? ( 2 reg! ) drop  | ECX
+	>DTOS cellflag
+|	$1000 and? ( 0 reg--- )	| EAX
+|	$2000 and? ( 0 reg--- )	| ECX
+	$4000 and? ( 2 reg! )	| no ECX
+	drop
     newreg >DTOS cell.reg! ;
 
 |---------- ASIGNACIONES
@@ -636,7 +640,7 @@
 
 :,+cte
 |	dnos cell.add? 1? ( over cellflat ) 2drop
-	dtos cell.value dnos trace cell.addcte
+	dtos cell.value dnos cell.addcte
 	;
 
 :,+
@@ -952,11 +956,11 @@
 
 :,SW
 	0 >DTOS cell.Cte!
-|	fullscreen 1? ( >DTOS cell.mem  ) drop
+	fullscreen 1? ( >DTOS cell.mem  ) drop
 	;
 :,SH
 	1 >DTOS cell.Cte!
-|	fullscreen 1? ( >DTOS cell.mem  ) drop
+	fullscreen 1? ( >DTOS cell.mem  ) drop
 	;
 
 :,MEM
@@ -1206,3 +1210,6 @@
 		dup dic>inf @
 		1 nand? ( over compilacode )
 		drop 1+ ) drop ;
+		
+::compilafull
+	1 'fullscreen ! ;
