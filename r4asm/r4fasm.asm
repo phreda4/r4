@@ -431,7 +431,6 @@ align 4
 	SYSXYM	dd 0
 	SYSBM	dd 0
 	SYSKEY	dd 0
-	SYSPAPER dd 0
 	FREE_MEM dd 0
 	hinstance	dd 0
 	hwnd		dd 0
