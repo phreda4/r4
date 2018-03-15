@@ -170,6 +170,7 @@
 | 4 ( ?)	UNT
 #:blocki )( 1024	| tipo+info
 #:blocks )( 1024	| inicio-medio-fin
+#:blockn )( 1024 	|  vreg|in|out
 
 |----- pila para bloques
 #:pilab )( 256	#:pilab> 'pilab
@@ -540,6 +541,34 @@ vuso4	|SSET  a --
 		1+ ) drop ;
 
 |------------------------------------------
+:inlife | end ini nro -- end ini nro 1/0
+	dup 2 << 'cells + @ 16 >> $ff and 0? ( ; ) | no es cte
+	drop
+	dup 2 << 'cellv + @	| end ini nro val
+	dup $3ff and pick4 >? ( 2drop 0 ; ) drop	|empieza despues
+	10 >> $3ff and pick2 <? ( drop 0 ; ) drop
+	1
+	;
+
+| cuenta variables en bloque
+:blinfo | nro -- nro
+	dup 2 << 'blocks + @
+	dup 20 >> $3ff and	| end
+	swap $3ff and		| ini
+	0 >a
+	0 ( ncell <? )( inlife a+ 1+ ) drop
+	2 << 'stki + @ c@
+	swap 2 << 'stki + @ c@ -
+	16 << a> or
+	over 2 << 'blockn + !
+	;
+
+:calcblock
+	0 ( nblock <? )(
+    	blinfo
+    	1+ ) drop ;
+
+|------------------------------------------
 :init | word -- word
 	0 'itok !
 	'dpila 'dpila> !
@@ -575,8 +604,10 @@ vuso4	|SSET  a --
 
 		swap
 		1 'itok +!
-		) 2drop 
-	calcvreg ;
+		) 2drop
+	calcvreg
+	calcblock
+	;
 
 |------------------------ info
 | flags........
@@ -631,6 +662,7 @@ vuso4	|SSET  a --
 	;
 
 ::cellinfo
+	"; ---- cells ----" ,s ,cr
 	'cells 0
 	( ncell <? )( swap
 		"; " ,s
@@ -639,6 +671,7 @@ vuso4	|SSET  a --
 		over cellvida
 		,cr
 		swap 1+ ) 2drop ;
+
 
 #bloq "REP" "IF " "WHI" "IFE" "UNT"
 
@@ -650,19 +683,19 @@ vuso4	|SSET  a --
 	dup 'blocks + @
 	dup $3ff and " (%d" ,print
 	dup 10 >> $3ff and 0? ( drop ":" ,s )( ":%d:" ,print )
-	20 >> $3ff and "%d)" ,print
-	drop
+	20 >> $3ff and "%d) " ,print
+	'blockn + @
+	dup 16 >> ,d ,sp $ffff and ,d
 	;
 
 ::blockinfo
 	nblock 0? ( drop ; ) drop
-	"; blocks----" ,s ,cr
+	"; ---- blocks ----" ,s ,cr
 	0 ( nblock <? )(
 		"; " ,s
     	dup blinfo
     	,cr
     	1+ ) drop
-	"; blocks----" ,s ,cr
 	;
 
 |-------------------------
