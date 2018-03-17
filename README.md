@@ -9,34 +9,39 @@ Started in 2005 along with my study of the Forth language.
 r4.exe is a fort virtual machine, with a bytecode compiler and a bytecode interpreter (very very fast).
 
 One apps is a compiler, this generate asm for x86 in FASM syntax, see in r4asm folder.
-You can code in any editor, put the .txt file in r4/ folder and this is show in main, 
+You can code in any editor, put the .txt file in r4/ folder and this is show in main,
 
 ## some screenshots
 
  ![main menu](screenshot/main.png)
 
-The main menu, but all is make in r4, this can be other source or start the any app.
-push f1 and exec, when you have bugs, some help in internal editor (made in r4 too) show this or the app crash.
+The main menu, all is make in r4, this can be other source or start the any app.
+hit f1 to exec, when you have bugs, some help in internal editor (made in r4 too) show this or the app crash.
+hit f2 to edit
 
- ![debug](screenshot/debug.png) 
+ ![debug](screenshot/debug.png)
 
 The debuger, with step by step play, memory dump, variable dump and stack view.
 in the internal editor hit f2 and run in debugger.
+There are a simple profiler with f3 key in editor and a simple compiler with f5 key.
+The big optimice compiler are in developing (version 4), hit f10 in editor ans see the compiler folder
 
- ![Memory game](screenshot/memory-game.png)![debug](screenshot/viewlorenz3d.png)
-
-Many game and examples, in continuos growing.
-
- ![Bitmap Sprite](screenshot/bitmap-spr-ed.png)
- ![Vector Sprite](screenshot/vector-spr-ed.png)
- ![Icon](screenshot/icon-ed.png)
- ![Voxel](screenshot/voxeled.png)
-
-Some editors, with original file format, can import from many sources and generate the code inside the exe
 hit ctrl-E in internal editor in the include word, the extension call the apropiate editor.
-.ico for icons 
+.ico for icons
+ ![debug](screenshot/edit-ico.png)
+
 .bmr for bitmaps
+ ![debug](screenshot/edit-bmr.png)
+
 .vsp for vector graphics
+ ![debug](screenshot/edit-ves.png)
+
+Some games and demos
+
+ ![Memory game](screenshot/memory.png)![plataform game](screenshot/tilegame.png)
+ ![bvh files](screenshot/bvhload.png)![comanche vox](screenshot/comanchevox.png)
+ ![dolar algo](screenshot/gestoset.png)![obj to voxel](screenshot/obj2vox.png)
+ ![vectorial cards](screenshot/cartas2.png)
 
 ## Quick overview
 
@@ -62,14 +67,14 @@ example
 #x 2
 #y 3
 
-:cuad | a -- a^2 
-  dup * ;  
-  
+:cuad | a -- a^2
+  dup * ;
+
 :dist | -- d^2   distance to x y
   x cuad y cuad + ;
 
 : dist ;
-```  
+```
 
 The conditionals:<br/>
 0?, 1?, +?, -? are simple conditionals, they test but do not destroy the top of stack (TOS), 0? tests if the TOS=0.. and so on.<br/>
@@ -89,8 +94,8 @@ example
   10 ( 1? )( 1-     | while TOS are diferent from 0
     dup "%d" print cr
     ) drop ;
-    
-```  
+
+```
 
 # Actual development
 
