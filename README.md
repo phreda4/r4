@@ -28,12 +28,15 @@ The big optimice compiler are in developing (version 4), hit f10 in editor ans s
 
 hit ctrl-E in internal editor in the include word, the extension call the apropiate editor.
 .ico for icons
+
  ![debug](screenshot/edit-ico.png)
 
 .bmr for bitmaps
+
  ![debug](screenshot/edit-bmr.png)
 
 .vsp for vector graphics
+
  ![debug](screenshot/edit-ves.png)
 
 Some games and demos
@@ -76,10 +79,6 @@ example
 : dist ;
 ```
 
-The conditionals:<br/>
-0?, 1?, +?, -? are simple conditionals, they test but do not destroy the top of stack (TOS), 0? tests if the TOS=0.. and so on.<br/>
-=?, <? .. and? .. are conditionals that compare two values, they destroy the TOS.
-
 Flow control is different than other forths, there are built in, with blocks of code construction.
 ```
 ?? ( .. ) are IF
@@ -87,6 +86,10 @@ Flow control is different than other forths, there are built in, with blocks of 
 ( ..?? )( .. ) are WHILE
 ( ..?? ) are UNTIL
 ```
+
+The conditionals:<br/>
+0?, 1?, +?, -? are simple conditionals, they test but do not destroy the top of stack (TOS), 0? tests if the TOS=0.. and so on.<br/>
+=?, <? .. and? .. are conditionals that compare two values, they destroy the TOS.
 
 example
 ```
