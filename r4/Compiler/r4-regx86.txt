@@ -383,6 +383,75 @@
 	trace
 	,cr ;
 
+|--------------------------------------------------
+| pila virtual
+|
+
+:inivpila | deep --
+|	nlin getstkcnt
+	dup 'stackdeep !
+	0? ( drop ; )
+
+	1- ( 1? )( 1- swap
+		c@+ $ff and | nro adr reg
+		5 $15 pick2 setREG
+		pick2 2 << swap set+	| [esi+..
+		swap ) drop
+	c@ $ff and
+	0 5 rot setREG | eax
+	;
+
+:reg-new | cell --
+	nlin getregmask maskregfree
+	5 rot setREG ;
+
+:reg-flat | cell --
+	dup regR? -? ( 2drop ; )
+	"lea " ,s
+	,REG ",[" ,s
+	dup ,cell
+	"]" ,s ,cr
+	reg.cl ;
+
+:reg+val | suma cell --
+	dup regM? 1? ( over reg-flat ) drop
+	dup reg*? 1? ( over reg-flat ) drop
+	set+ ;
+
+:reg*val | mul cell --
+	dup regM? 1? ( over reg-flat ) drop
+	dup reg+? 1? ( over reg-flat ) drop
+	swap
+	2 =? ( 1 nip )
+	4 =? ( 2 nip )
+	8 =? ( 3 nip )
+	swap set* ;
+
+:vpilaflat | --
+	"; >> FLAT <<" ,ln
+	nlin 2 << 'stkidx + @
+	dup $3ff and 'stkmem +
+	over 10 >> $3f and
+	( 1? )( 1- swap c@+ reg-flat swap ) drop
+	swap 16 >> $3f and
+	( 1? )( 1- swap c@+ reg-flat swap )
+	2drop ;
+
+:vpilabloque | ; ajusta pila para bloque
+	"; >> BLOQUE <<" ,ln
+|	"; " ,s nlin dumpstk "**" ,ln
+|	"; .INI:" ,s blINI dup "%d " ,print dumpstk ,cr
+|	"; .MID:" ,s blMID dup "%d " ,print dumpstk ,cr
+|	"; .END:" ,s blEND dup "%d " ,print dumpstk ,cr
+
+	blINI deepreg
+	;
+
+:vpila2v | deep --
+	"; >>2v " ,ln
+	drop
+	inivpila
+	; | reacomoda vpila salida
 
 |------------------------------------
 :,impcell
