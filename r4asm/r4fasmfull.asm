@@ -37,8 +37,6 @@ start:
     mov [XRES],eax
     invoke GetSystemMetrics,SM_CYSCREEN
     mov [YRES],eax
-    imul eax,[XRES]
-	mov [SCREENS],eax
 
 	xor eax,eax
 	mov [rec.left],eax
@@ -432,7 +430,6 @@ section '.data' data readable writeable
 align 4
 	XRES    dd 0
 	YRES    dd 0
-	SCREENS	dd 0
 	SYSXYM	dd 0
 	SYSBM	dd 0
 	SYSKEY	dd 0
