@@ -1,7 +1,5 @@
 # :r4
 
-[Web Site](https://phreda4.github.io)
-
 Computer Programming Language based on ColorForth ideas
 
 Started in 2005 along with my study of the Forth language.
@@ -83,20 +81,20 @@ example
 
 Flow control is different than other forths, there are built in, with blocks of code construction.
 ```
-?? ( .. ) are IF
-?? ( .. )( .. ) are IF-ELSE
-( ..?? )( .. ) are WHILE
-( ..?? ) are UNTIL
+?? ( .. )	are IF
+?? ( .. )( .. )	are IF-ELSE
+( ..?? )( .. )	are WHILE
+( ..?? )	are UNTIL
 ```
 
 The conditionals:<br/>
 
 simple conditionals, they test but do not destroy the top of stack (TOS)
 ```
-0? 	| --		0 el tope de la pila ?
-+? 	| --		positivo el tope de la pila ?
--?	| --		negativo el tope de la pila ?
-1? 	| --		distinto a 0 el tope de la pila ?
+0? 	| --		is TopOfStack 0?
++? 	| --		is TOS positive ?
+-?	| --		is TOS negative ?
+1? 	| --		if TOS not 0?
 ```
 
 Double conditionals that compare two values, they destroy the TOS.
@@ -284,7 +282,7 @@ XYMOUSE | -- x y 	mouse coord
 BMOUSE	| -- b		mouse button
 ```
 
-Teclado
+Keyboard
 ```
 KEY		| -- s		scancode from keyboard
 ```
