@@ -22,66 +22,64 @@
 	$1f and -1 swap << ;
 
 :filline | x1 y1 x2 y2 a --
-	2 << pick3 7 << + maskb + >r
+	2 << pick3 7 << + maskb + >a
 	rot - | x1 x2 cnt
 	rot gmask2 rot gmask1 and not
 	swap 1+
 	( 1? )( 1-
-		r @ pick2 and r !
-		128 r+
+		a@ pick2 and a!
+		512 a+
 		) 2drop
-	rdrop ;
+	;
 
 ::maskb.rset | x1 y1 x2 y2 --
 	pick3 5 >>
 	pick2 5 >> =? ( filline ; )
-	2 << pick3 7 << + maskb + >r
+	2 << pick3 7 << + maskb + >a
 	rot - 							| x1 x2 cnty
 	over 5 >> pick3 5 >> - 1- swap	| x1 x2 cntx cnty
 	2swap gmask1 not swap gmask2 not
 	2swap 1+						| maska maskb cntx cnty
-	( 1? )( 1- r @
-		pick3 and r !+ 				| maska maskb cntx cnty adr
+	( 1? )( 1- a@
+		pick3 and a> !+ 				| maska maskb cntx cnty adr
 		pick2 ( 1? )( 1- 0 rot !+ swap ) drop
 		pick4 over @ and swap !
-		128 r+
+		512 a+
 		) 4drop
-	rdrop ;
+	;
 
 
 :rgetline | x1 y1 x2 y2 a -- b
-	2 << pick3 7 << + maskb + >r
+	2 << pick3 7 << + maskb + >a
 	rot - | x1 x2 cnt
 	rot gmask2 rot gmask1 and
 	swap 1+	| mask cnt
 	( 1? )( 1-
-		r @ pick2 and? ( 3drop rdrop 1 ; ) drop
-		128 r+
+		a@ pick2 and? ( 3drop 1 ; ) drop
+		512 a+
 		) 2drop
-	rdrop 0 ;
+	0 ;
 
 ::maskb.rget | x1 y1 x2 y2 -- b
 	pick3 5 >>
 	pick2 5 >> =? ( rgetline ; )
-	2 << pick3 7 << + maskb + >r
+	2 << pick3 7 << + maskb + >a
 	rot - 							| x1 x2 cnty
 	over 5 >> pick3 5 >> - 1- swap	| x1 x2 cntx cnty
 	2swap gmask1 swap gmask2
 	2swap 1+						| maska maskb cntx cnty
-	( 1? )( 1- r @+
-		pick4 and? ( 4drop 2drop rdrop 1 ; ) drop	| maska maskb cntx cnty adr
+	( 1? )( 1- a> @+
+		pick4 and? ( 4drop 2drop 1 ; ) drop	| maska maskb cntx cnty adr
 		pick2 ( 1? )( 1- swap
-			@+ -1 <>? ( 4drop 3drop rdrop 1 ; ) drop
+			@+ -1 <>? ( 4drop 3drop 1 ; ) drop
 			swap ) drop
-		@ pick4 and? ( 4drop drop rdrop 1 ; ) drop
-		128 r+
+		@ pick4 and? ( 4drop drop 1 ; ) drop
+		512 a+
 		) 4drop
-	rdrop 0 ;
+	0 ;
 
 ::maskb.clear
-	maskb >a
-	sh 5 << ( 1? )( -1 a!+ 1- ) drop
-	;
+	-1 maskb sh 3 << FILL ;
 
 ::maskb.ini
 	here dup 'maskb !
@@ -94,65 +92,65 @@
 	2dup mask.adr swap over @
 	nand? ( nip 4drop ; )
 	not over @ and swap !
-	setxy px!+ ;
+	setxy a!+ ;
 
 :proc8 | mask -- mask
-	$ff nand? ( 8 px+! ; )	| todos 0
-	$01 and? ( ink@ px!+ )( 1 px+! )
-	$02 and? ( ink@ px!+ )( 1 px+! )
-	$04 and? ( ink@ px!+ )( 1 px+! )
-	$08 and? ( ink@ px!+ )( 1 px+! )
-	$10 and? ( ink@ px!+ )( 1 px+! )
-	$20 and? ( ink@ px!+ )( 1 px+! )
-	$40 and? ( ink@ px!+ )( 1 px+! )
-	$80 and? ( ink@ px!+ )( 1 px+! )
+	$ff nand? ( 8 a+ ; )	| todos 0
+	$01 and? ( ink@ a!+ )( 4 a+ )
+	$02 and? ( ink@ a!+ )( 4 a+ )
+	$04 and? ( ink@ a!+ )( 4 a+ )
+	$08 and? ( ink@ a!+ )( 4 a+ )
+	$10 and? ( ink@ a!+ )( 4 a+ )
+	$20 and? ( ink@ a!+ )( 4 a+ )
+	$40 and? ( ink@ a!+ )( 4 a+ )
+	$80 and? ( ink@ a!+ )( 4 a+ )
 	;
 
 :oneword | nro --
-	0? ( 32 px+! drop ; )
-	-1 =? ( 32 ( 1? )( ink@ px!+ 1- ) 2drop ; )
+	0? ( 512 a+ drop ; )
+	-1 =? ( 32 ( 1? )( ink@ a!+ 1- ) 2drop ; )
 	proc8 8 >> proc8 8 >> proc8 8 >> proc8 drop ;
 
 :maskfpxl | x1 y x2 --
 	pick2 $ffffffe0 and pick2 setxy 		| x y x2
-	pick2 5 >> 2 << rot 7 << + maskb + >r	| x x2
+	pick2 5 >> 2 << rot 7 << + maskb + >a	| x x2
 	gmask1 swap gmask2 and
-	r @ 2dup and oneword swap not and r> ! ;
+	a@ 2dup and oneword swap not and a! ;
 
 ::maskfpx | x y x --
 	dup 5 >> pick3 5 >> -
 	0? ( drop maskfpxl ; ) 1- >r				| x1 y x2 r:cntx
 	pick2 $ffffffe0 and pick2 setxy 		| x y x2   r:cntx
 	pick2 5 >> 2 << rot 7 << + maskb + 		| x1 x2 adr
-	r> swap >r                              | x1 x2 cntx
-	rot gmask2 r @ 2dup and oneword swap not and r!+			| x2 cntx
-	( 1? )( r @ oneword 0 r!+ 1- ) drop
-	gmask1 r @ 2dup and oneword swap not and r> !
+	r> swap >b                              | x1 x2 cntx
+	rot gmask2 b@ 2dup and oneword swap not and b!+			| x2 cntx
+	( 1? )( b@ oneword 0 b!+ 1- ) drop
+	gmask1 b@ 2dup and oneword swap not and b!
 	;
 
 
 ::maskfpy | x y1 y2 --
 	pick2 pick2 setxy 		| x y1 y2
-	pick2 5 >> 2 << pick2 7 << + maskb + >r	| x y1 y2
+	pick2 5 >> 2 << pick2 7 << + maskb + >b	| x y1 y2
 	swap - 1 rot $1f and << | cnty mask
 	swap 1+
 	( 1? )( 1- | mask cnty
-		r @ pick2 and? ( ink@ px!+ )( 1 px+! )
-		pick2 not and r!+
-		sw 1- px+! 124 r+
-		) 2drop rdrop ;
+		b@ pick2 and? ( ink@ a!+ )( 4 a+ )
+		pick2 not and b!
+		sw 1- 2 << a+ 512 b+
+		) 2drop ;
 
 
 :maskfpxyl | x1 y1 x2 y2 --
 	pick3 $ffffffe0 and pick3 setxy
-	pick3 5 >> 2 << pick3 7 << + maskb + >r
+	pick3 5 >> 2 << pick3 7 << + maskb + >b
 	rot - 						| x1 x2 cnty
 	rot gmask2 rot gmask1 and	| cntx mask
 	swap 1+ ( 1? )(
-		r @ pick2 over and oneword pick2 not and r!+
-		sw 32 - px+!
-		124 r+
-		1- ) 2drop rdrop ;
+		b@ pick2 over and oneword pick2 not and b!
+		sw 32 - 2 << a+
+		512 b+
+		1- ) 2drop ;
 
 ::maskfpxy | x1 y1 x2 y2 --
 	over 5 >> pick4 5 >> -
@@ -163,14 +161,14 @@
 	rot -							| x1 x2 cnty
 	rot gmask2 rot gmask1 			| cnty m1 m2
 	swap rot
-	r> swap	1+			| m2 m1 cntx cnty
+	r> r> >b swap	1+			| m2 m1 cntx cnty
 	( 1? )(
-		pick2 r @ 2dup and oneword swap not and r!+			| x2 cntx
-		over ( 1? )( r @ oneword 0 r!+ 1- ) drop
-		pick3 r @ 2dup and oneword swap not and r!+			| x2 cntx
-		32 pick2 2 + - 2 << r+
-		sw pick2 2 + 5 << - px+!
-		1- ) 4drop rdrop ;
+		pick2 b@ 2dup and oneword swap not and b!+			| x2 cntx
+		over ( 1? )( b@ oneword 0 b!+ 1- ) drop
+		pick3 b@ 2dup and oneword swap not and b!+			| x2 cntx
+		32 pick2 2 + - 2 << b+
+		sw pick2 2 + 5 << - 2 << a+
+		1- ) 4drop ;
 
 
 |-------------test mask
@@ -185,7 +183,7 @@
 				swap ) 2drop
 			) drop
 		) drop
-	rdrop ;
+	;
 
 :dbox | x1 y1 x2 y2 --
 	2over op
