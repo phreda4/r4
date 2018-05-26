@@ -101,14 +101,14 @@ simple conditionals, they test but do not destroy the top of stack (TOS)
 
 Double conditionals that compare two values, they destroy the TOS.
 ```
-=?	| a b -- a		a = b ?
-<?	| a b -- a		a < b ?
->?	| a b -- a		a > b ?
-<=?	| a b -- a		a <= b ?
->=?	| a b -- a		a >= b ?
-<>?	| a b -- a		a <> b ?
-AND?	| a b -- a		a and b ?
-NAND?	| a b -- a		a nand b ?
+=?	| a b -- a	a = b ?
+<?	| a b -- a	a < b ?
+>?	| a b -- a	a > b ?
+<=?	| a b -- a	a <= b ?
+>=?	| a b -- a	a >= b ?
+<>?	| a b -- a	a <> b ?
+AND?	| a b -- a	a and b ?
+NAND?	| a b -- a	a nand b ?
 ```
 
 example
@@ -156,40 +156,40 @@ NOT  	| a b -- c     c = a NOT b
 
 Arithmetic
 ```
-+ 	| a b -- c		c=a+b
-- 	| a b -- c		c=a-b
-* 	| a b -- c		c=a*b
-/ 	| a b -- c		c=a/b
++ 	| a b -- c	c=a+b
+- 	| a b -- c	c=a-b
+* 	| a b -- c	c=a*b
+/ 	| a b -- c	c=a/b
 */ 	| a b c -- d	d=a*b/c, not bit lost,64 bits
 *>>	| a b c -- d	d=(a*b)>>c, not bit lost,64 bits
 <</	| a b c -- d	d(a<<c)/b,not bit lost,64 bits
 /MOD 	| a b -- c d	c=a/b  d=a mod b
-MOD 	| a b -- c		c=a mod b
-ABS	| a -- b		b=|a|
-NEG 	| a -- b		b=-a
-CLZ	| a -- b		count leanding zeros
-SQRT	| a -- b		square root
-1+ 	| a -- b		b=a+1
-4+	| a -- b		b=a+4
-1- 	| a -- b		b=a-1
-2/ 	| a -- b		b=a/2
-2* 	| a -- b		b=a*2
-<< 	| a b -- c		c=a<<b
->> 	| a b -- c		b=a>>b (sign)
-0>>	| a b -- c		b=a0>>b (zero)
+MOD 	| a b -- c	c=a mod b
+ABS	| a -- b	b=|a|
+NEG 	| a -- b	b=-a
+CLZ	| a -- b	count leanding zeros
+SQRT	| a -- b	square root
+1+ 	| a -- b	b=a+1
+4+	| a -- b	b=a+4
+1- 	| a -- b	b=a-1
+2/ 	| a -- b	b=a/2
+2* 	| a -- b	b=a*2
+<< 	| a b -- c	c=a<<b
+>> 	| a b -- c	b=a>>b (sign)
+0>>	| a b -- c	b=a0>>b (zero)
 ```
 
 Access to Data Memory, the power of abstraction is here
 ```
-@ 	| a -- b		b=32(a)
-C@ 	| a -- b		b=8 (a)
-W@	| a -- b		b=16(a)
-!	| v d --		32(d) = v
-C!	| v d --		8(d) = v
-W! 	| v d --		16(d) = v
-+! 	| v d --		32(d)=32(d)+v
-C+!	| v d --		8(d)=8(d)+v
-W+!	| v d --		16(d)=16(d)+v
+@ 	| a -- b	b=32(a)
+C@ 	| a -- b	b=8 (a)
+W@	| a -- b	b=16(a)
+!	| v d --	32(d) = v
+C!	| v d --	8(d) = v
+W! 	| v d --	16(d) = v
++! 	| v d --	32(d)=32(d)+v
+C+!	| v d --	8(d)=8(d)+v
+W+!	| v d --	16(d)=16(d)+v
 @+	| d -- d+4	dword
 !+	| v d -- d+4
 C@+	| d -- d+1	byte
@@ -228,11 +228,11 @@ CFILL	| v sr cnt --	Fill CNT bytes with V in DE
 
 Memory and Files
 ```
-MEM	| -- dir 			Start Free memory
+MEM	| -- dir 		Start Free memory
 LOAD	| d "filename" -- e	Load file in memory
 SAVE	| d n "filename" -	Save memory in file
 FFIRST  | "path" -- fdd/0	Fist file in folder
-FNEXT 	| -- fdd/0			Next file in folder
+FNEXT 	| -- fdd/0		Next file in folder
 ```
 
 System interface
@@ -255,38 +255,38 @@ FRAMEV	| -- m	Memory frame adress
 
 Color
 ```
-INK		| a --	ink color
+INK	| a --	ink color
 INK@	| -- a	get ink color
 ALPHA 	| a --	alpha chanel
 ```
 
 Draw antialised lines, curves and polygons.
 ```
-OP 	| x y --		origin point
-LINE 	| x y --		to Line
+OP 	| x y --	origin point
+LINE 	| x y --	to Line
 CURVE 	| x y x y --	to curve
 CURVE3 	| x y x y x y --	to curve3
-PLINE 	| x y --		to fill Line
+PLINE 	| x y --	to fill Line
 PCURVE 	| x y x y --	to fill curve
 PCURVE3 | x y x y x y --	to fill curve3
-POLI	| --			fill polyon
+POLI	| --	fill polyon
 FCOL	| col1 col2 --	set two colors
-FCEN	| x y --		set center
-FMAT	| a b --		set marix
-SFILL	| --		set fill solid color
-LFILL	| --		set fill linear degrade color
-RFILL	| --		set fill radial(fast) degrade color
+FCEN	| x y --	set center
+FMAT	| a b --	set marix
+SFILL	| --	set fill solid color
+LFILL	| --	set fill linear degrade color
+RFILL	| --	set fill radial(fast) degrade color
 ```
 
 Mouse
 ```
-XYMOUSE | -- x y 	mouse coord
-BMOUSE	| -- b		mouse button
+XYMOUSE | -- x y	mouse coord
+BMOUSE	| -- b	mouse button
 ```
 
 Keyboard
 ```
-KEY		| -- s		scancode from keyboard
+KEY		| -- s	scancode from keyboard
 ```
 
 Joystick
@@ -298,9 +298,9 @@ GETJOY	| j -- a	joy info
 Sound trow FMOD dll
 ```
 SLOAD	| "" -- pp	load sound .mp3,.ogg
-SPLAY	| pp -- 	play sound
+SPLAY	| pp --	play sound
 MLOAD	| "" -- mm	load music .xm
-MPLAY	| mm --		play music
+MPLAY	| mm --	play music
 ```
 
 Experimental Internet access
@@ -310,20 +310,20 @@ OPENURL	| url header buff -- buff/0		get page from URL
 
 Experimental Printer access
 ```
-DOCINI	| --                    printer start
-DOCEND	| --                    printer print
-DOCMOVE	| x y --				move cursor
-DOCLINE	| x y --				to line
-DOCTEXT	| "tt" --				print text
-DOCSIZE	| "tt" -- w h			set text size
-DOCFONT	| size angle "font" --  set text font
-DOCBIT	| "file.bmp" x y --		print bitmap
-DOCRES	| -- xmax ymax     		get printer size
+DOCINI	| --	printer start
+DOCEND	| --	printer print
+DOCMOVE	| x y --	move cursor
+DOCLINE	| x y --	to line
+DOCTEXT	| "tt" --	print text
+DOCSIZE	| "tt" -- w h	set text size
+DOCFONT	| size angle "font" --	set text font
+DOCBIT	| "file.bmp" x y --	print bitmap
+DOCRES	| -- xmax ymax	get printer size
 ```
 
 Call to system exec
 ```
-SYSTEM	| "cmd" -- st			call os with cmd
+SYSTEM	| "cmd" -- st	call os with cmd
 ```
 
 # Actual development
