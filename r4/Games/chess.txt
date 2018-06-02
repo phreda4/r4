@@ -7,15 +7,14 @@
 ^./chess.vsp
 
 #i | current piece code
-#y | current player: 0 - white, 8 - black
+#player | current player: 0 - white, 8 - black
 #u | position of pawn after two-square move, 0 after any other move
 
-#B | source position of the move
-#b | target position of the move
+#sB | source position of the move
+#tb | target position of the move
 
 #G 120
 #x 10 | just ten ;)
-#z 15 | just fifteen ;)
 #M 10000
 #rowsCosts ( -1 0 1 2 2 1 0 -1 ) | cost of the rows/columns
 
@@ -40,6 +39,11 @@
 
 #board )( 120
 
+:]board	'board + c@ ;
+
+#cursori
+#cursore
+
 #bgcolor $666666 $999999
 #piezas
 
@@ -53,6 +57,11 @@
 		pick2 =? ( $c pick2 4 - ! )
 		drop ) 3drop ;
 
+:drawcursor
+	blink 1? ( rojo )( verde ) drop
+	over 6 << 32 + pick3 6 << 32 + 63 dup 2swap rect
+	;
+
 :cellbox | b y x -- b y x
 	2dup + 1 and 2 << 'bgcolor + @ ink
 	over 6 << 32 +
@@ -61,6 +70,7 @@
 	32 + swap 32 + swap pos
 	64 qdim
 	rot
+	cursori =? ( drawcursor )
 	c@+
 	$8 and? ( $ffffff )( $101010 ) swap
 	$7 and 2 << 'piecesDraw + @ 1? ( cvesprite )( 2drop )
@@ -76,23 +86,68 @@
 		swap 2 + swap
 		1+ ) 2drop ;
 
-:click
-	xymouse 
-	32 - 6 >> -? ( 2drop ; ) 7 >? ( 2drop ; )
-	swap 32 - 6 >> -? ( 2drop ; ) 7 >? ( 2drop ; )
-	10 * + 21 +
+|-----------------------------
+#mbpawn ( 9 11 10 20 9 0 )
+#mking ( -1 1 -10 10 -11 -9 9 11 0 )
+#mknight ( -21 -19 -12 -8 8 12 19 21 0 )
+#mbishop ( -11 -9 9 11 0 )
+#mrook ( -1 1 -10 10 0 )
+#mqueen ( -1 1 -10 10 -11 -9 9 11 0 )
+#mwpawn ( -9 -11 -10 -20 0 )
 
+#moves 'mbpawn 'mking 'mknight 'mbishop 'mrook 'mqueen
+
+:moveforpiece | piece -- list
+	dup
+	$f and 9 =? ( 2drop 'mwpawn ; ) drop
+	$7 and 1- 2 << 'moves + @ ;
+
+
+:execmove
+	;
+
+:undomove
+	;
+
+|-----------------------------
+:enmouse | -- board
+	xymouse
+	32 - 6 >> -? ( 2drop ; ) 7 >? ( 2drop ; ) swap
+	32 - 6 >> -? ( 2drop ; ) 7 >? ( 2drop ; ) swap
+	10 * + 21 +
+	'board + ;
+
+
+:click
+	enmouse
+	dup ]board
+	player xor $f and
+	8 >? ( drop 'cursori ! ; )
+	cursori 0? ( 3drop ; ) drop
+	8 >? ( 2drop ; )
+	drop 'cursore !
+	cursori ]board $f and
+	drop
 	;
 
 :iniboard
 	'board 'inichess 30 move ;
 
+:dump
+	verde
+	dup "%d" print cr
+	cursori "%h " print cr
+	cursore "%h " print cr
+	;
+
 :main
 	iniboard
+	33
 	show clrscr
 		drawboard
 		scr
 		'click guiBtn
+		dump
 		'exit >esc<
 		cminiflecha
 		;
