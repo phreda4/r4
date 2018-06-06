@@ -112,3 +112,48 @@
 	( @+ 1? )( "%h " allowcr print ) 2drop
 	cr
 	;
+
+|----------- interpolar 2 sprites
+:lerp | t a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - rot 16 *>> + ;
+
+:inod | n s1 s2 v2 -- n s1 s2 n
+	>r | n s1 s2
+	swap @+ r>  | n s2 s1 v1 v2
+	pick4 >r
+	r@ pick2 d>x pick2 d>x lerp | n s2 s1 v1 v2 xx
+	r> pick3 d>y pick3 d>y lerp xy>d
+	nip swap $f and or | n s2 s1 v
+	;
+
+:inod2
+	inod a!+ swap
+	@+ inod ;
+
+:inod3
+	inod a!+ swap
+	@+ inod a!+ swap
+	@+ inod ;
+
+:icol | n s1 s2 v2 -- c
+	>r swap @+ 8 >> | n s2 s1 v1
+	pick3 1? ( 1- 8 >> ) swap r@ 8 >>
+	lerpcol
+	8 << r> $f and or
+	;
+
+#jint 0 icol inod2 inod2 inod inod inod2 inod3 inod inod inod2 inod3 icol icol icol 0
+
+| n 0.0 .. 1.0
+| s1 sprite fuente 1
+| s2 sprite fuente 2
+| s3 sprite destino
+|----------------------------------
+::vespriteInter | n s1 s2 s3 --
+	>a
+	( @+ 1? )(
+		dup $f and
+		2 << 'jint + 1? ( @ exec )( drop )
+		a!+	swap )
+	a!
+	3drop ;
