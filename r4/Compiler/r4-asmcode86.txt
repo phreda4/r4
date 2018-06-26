@@ -187,59 +187,6 @@
 	cell.reg? nip
 	;
 
-|----------------------------------
-:stack2mem | mem --
-	>a
-	stknow c@+
-	dup a> c!+ >a
-	( 1? )( 1-
-		swap c@+
-		,cell ,sp
-		cellinstack a> c!+ >a
-		swap ) drop
-	c@+	| r stack
-	dup a> c!+ >a
-	1? ( "r: " ,s )
-	( 1? )( 1-
-		swap c@+
-		,cell ,sp
-		cellinstack a> c!+ >a
-		swap ) 2drop
-		;
-
-|----------------------------------
-
-:incell | cnt memd cell reg -- cnt memd cell reg cell/-1
-	pick3 pick3 swap | memd cnt
-	( 1? )( 1-
-		swap c@+	| reg cnt memd c
-		cell.reg? pick4 =? ( drop nip nip ; )
-		2drop
-		swap ) 2drop -1 ;
-
-:resolvecell | memd cell reg/stk  -- memd
-	-? ( cell2stk ; )
-	incell +? ( nip cellxchg ; )
-	drop
-	swap cell2reg ;
-
-:mem2stack | mem --
-	1+ >a
-	stknow
-	c@+
-	|	rot c@+ pick2 - + >a	| saltar diferencia
-	( 1? )( 1-
-		swap c@+
-		a> c@+ swap >a
-		resolvecell
-		swap ) drop
-	c@+              			| pila r
-	( 1? )( 1-
-		swap c@+
-		a> c@+ swap >a
-		resolvecell
-		swap ) 2drop ;
-
 
 |---- tratar de encontrar una forma de pila para entrada y salida
 :inputcells | w --
@@ -540,13 +487,13 @@
 :cpystack
 	pilab> 'pilab - 2 >> 1-
 	"; cpy: " ,s dup ,d " >> " ,s
-	4 << 'stackblock + stack2mem
+	4 << 'stackblock + stackconvert
 	,cr ;
 
 :fitstack
 	pilab> 'pilab - 2 >> 1-
 	"; fit: " ,s dup ,d ,cr
-	4 << 'stackblock + mem2stack ;
+	4 << 'stackblock + stackconvert ;
 
 |------ ajuste de pila
 :,(
@@ -1056,12 +1003,12 @@
 #stackmove ( 3 2 1 0 )
 
 :,MOVE
-	'stackmove mem2stack
+	'stackmove stackconvert
 	freeEAX
 	"rep movsd" ,ln
 	;
 :,MOVE>
-	'stackmove mem2stack
+	'stackmove stackconvert
 	freeEAX
 	"lea esi,[esi+ecx*4-4]" ,ln
 	"lea edi,[edi+ecx*4-4]" ,ln
@@ -1070,12 +1017,12 @@
 	"cld" ,ln
 	;
 :,CMOVE
-	'stackmove mem2stack
+	'stackmove stackconvert
 	freeEAX
 	"rep movsb" ,ln
 	;
 :,CMOVE>
-	'stackmove mem2stack
+	'stackmove stackconvert
 	freeEAX
 	"lea esi,[esi+ecx-1]" ,ln
 	"lea edi,[edi+ecx-1]" ,ln
@@ -1087,12 +1034,12 @@
 #stackfill ( 3 2 1 0 )
 
 :,FILL
-	'stackfill mem2stack
+	'stackfill stackconvert
 	"rep stosd" ,ln
 	;
 
 :,CFILL
-	'stackfill mem2stack
+	'stackfill stackconvert
 	"rep stosb" ,ln
 	;
 
@@ -1130,7 +1077,7 @@
 #stackeax ( 0 )
 
 :,UPDATE
-	'stackeax mem2stack
+	'stackeax stackconvert
 	,callsys "SYSUPDATE" ,ln ;
 
 :,MSEC
@@ -1146,14 +1093,14 @@
 	3 vpila2v ;
 
 :,RUN
-	'stackeax mem2stack
+	'stackeax stackconvert
 	,callsys "SYSRUN" ,ln ;
 
 :,REDRAW
 	,callsys "SYSREDRAW" ,ln ;
 
 :,SYSTEM	| "sys" -- ret
-	'stackeax mem2stack
+	'stackeax stackconvert
 	,callsys "SYSYSTEM" ,ln ;
 
 #acompila 0
