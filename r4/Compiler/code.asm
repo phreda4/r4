@@ -1,0 +1,1 @@
+;---:r4 compiler code.asm; --------------------------------; vreg:0; IN: 0 | 1 | 2 |  -97 r: 03 |  r: 0; ---- cells ----	; 0 | :menosr_98	| |; menosr_98 | -- R:a-- | rm | len:4 | calls:1w1: 	; 1 | R>	| |pop $0	; 2 | DROP	| -97 r: 0 | -97 r: $0
