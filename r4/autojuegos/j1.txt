@@ -1,0 +1,405 @@
+| 2017 PHEDA
+|-----------------
+^r4/lib/gui.txt
+^r4/lib/part16.txt
+^r4/lib/plqlib.txt
+^r4/lib/vesprite.txt
+
+^./fx.spr
+^./fx1.vsp
+
+#ti 0 0
+#fx 0 0
+#objs 0 0
+#movs 0 0
+
+|-------------------------------------------
+:2color dup $f0f0f0 and dup 4 >> or swap $f0f0f and dup 4 << or ;
+:to3d 0 project3d ;
+:bfill
+	tx1 ty1 to3d 2dup op
+	tx2 ty1 to3d pline
+	tx2 ty2 to3d pline
+	tx1 ty2 to3d pline pline
+	poli ;
+
+:f1	ink bfill ;			| solido
+:f2	ink bfill ;			| imagen?
+:f3 2color fcol tx1 ty2 to3d fcen 1.0 tx2 tx1 to3d - 1 max / 0 fmat lfill bfill sfill ;
+:f4 2color fcol tx1 ty2 to3d fcen 0 1.0 ty2 ty1 to3d - 1 max / fmat lfill bfill sfill ;
+:f5 2color fcol tx1 ty1 to3d fcen 0.5 tx2 tx1 to3d - 1 max / 0.5 ty2 ty1 to3d - 1 max / neg fmat lfill bfill sfill ;
+:f6 2color fcol tx1 ty2 to3d fcen 0.5 tx2 tx1 to3d - 1 max / 0.5 ty2 ty1 to3d - 1 max / fmat lfill bfill sfill ;
+:f0 drop ;	| auxiliar
+
+#lbfill f0 f1 f2 f3 f4 f5 f6 f0
+
+:3dfillbox | nro --
+	dup 28 >> 7 and 2 << 'lbfill + @ exec ;
+
+
+:tcar | adr --
+	dup @ 1- 0? ( nip ; )
+	|dup 2* alpha
+	swap !+ >b
+	b@+ b@+ pos
+	b@+ b@+ dim home
+	b@+ 3dfillbox
+	b@+ dup 16 << 16 >> swap 16 >> boxpad
+	b@+ b@+ setfont3d
+	b@+ b@+ dup ink 24 >> boxprintn
+	;
+
+
+:+cartel | "" w h x y  --
+	'tcar 'fx p!+ >a
+	128 a!+ | vida
+	swap a!+ a!+ swap a!+ a!+
+
+	0 a!+ | fondo
+	0 a!+ | pad
+	9 a!+ | font
+	0.4 a!+ | size
+	a!+
+	$600ff00 a!+
+	;
+
+|-----------------------------
+:tletra
+	>b
+	b@+ b@+ pos 0.8 qdim home
+	0 0.05 boxpad
+	1 0.5 setfont3d
+	blanco
+	b@+ 64 + "%k" mprint 6 boxprintn
+	;
+
+:+letra | nro x y --
+	'tletra 'fx p!+ >a
+	swap a!+ a!+
+	a!+
+	;
+
+|-----------------------------
+:stsprite
+	dup 7 2 << + @ 0? ( 2drop ; ) drop
+	>b
+	mpush
+	b@+ b@+ 0 mtransi
+	b@+ mrotxi
+	b@+ mrotyi
+	b@+ mrotzi
+	b@+ dup dup mscalei
+	b@+ 3dnsprite
+	mpop
+	;
+
+:+sprite | 'spr size x y --
+	'stsprite 'objs p!+ >a
+	swap a!+ a!+		| x y
+	0 0 0 a!+ a!+ a!+	| rx ry rz
+	a!+					| s
+	a!+					| sprite
+	1 a!+				| estado
+	;
+
+:sprite.n | nro -- spr
+	6 << 'objs 4+ @ + ;
+
+:nxy.sprite | x y nro --
+	sprite.n 4+ >a swap a!+ a! ;
+
+:ns.sprite | s nro --
+	sprite.n 24 + ! ;
+
+:e.sprite | e nro --
+	sprite.n 8 2 << + ! ;
+
+:xy.sprite | x y obj --
+	4+ >a swap a!+ a! ;
+
+
+|---------- animadores
+#deltat
+#prevt
+#t0
+
+:itime
+	msec 'prevt ! 0 'deltat ! ;
+
+:dtime
+	msec dup prevt - 'deltat ! 'prevt ! ;
+
+:llerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 16 *>> + ;
+:clerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 cos abs 16 *>> + ;
+:slerp | a b -- r | a + t * (b - a) | t 0.0 .. 1.0
+	over - t0 sin abs 16 *>> + ;
+
+|-------------------
+:movlinea
+	>a
+	a@+ deltat + dup a> 4 - !
+	16 << a@+ / 1.0 min 't0 !
+	a@+
+	4+ a@+ a@+ llerp over !	| x
+	4+ a@+ a@+ llerp swap !	| y
+	t0 1.0 - 1? ( drop ; )
+	;
+
+:+linea | xf yf obj time --
+	'movlinea 'movs p!+ >a
+	0 a!+ 1000 *. a!+	| 0 tmax
+	dup a!+		| obj
+	| xf yf obj
+	4+ dup @ a!+ rot a!+
+	4+ @ a!+ a!
+	;
+
+:movlin
+	>a
+	a@+ deltat + dup a> 4 - !
+	16 << a@+ / 0.25 min 't0 !
+	a@+
+	4+ a@+ a@+ slerp over !	| x
+	4+ a@+ a@+ slerp swap !	| y
+	t0 0.25 - 1? ( drop ; )
+	;
+
+:+lin | xf yf obj time --
+	'movlin 'movs p!+ >a
+	0 a!+ 1000 *. a!+	| 0 tmax
+	dup a!+		| obj
+	| xf yf obj
+	4+ dup @ a!+ rot a!+
+	4+ @ a!+ a!
+	;
+
+:movcircle
+	>a
+	a@+ deltat + dup a> 4 - !
+	16 << a@+ 2* / 0.5 min 't0 !
+
+	t0 a@+ -? ( - neg )( + ) sincos
+	a@+ rot over *. >r *. r> swap
+	a@+ rot + a@+ rot + | x y
+	a@+ xy.sprite
+	t0 0.5 - 1? ( drop ; )
+	;
+
+:+swap	| v1 v2 suma tiempo --
+	'movcircle 'movs p!+ >a
+	0 a!+ a!+	| 0 tmax
+	a!+			| suma
+
+	over 4+ @ over 4+ @
+	2dup - abs 2/ a!+	| ancho
+	+ 2/ a!+ 		| centro x
+	over 8 + @ over 8 + @
+	+ 2/ a!+ 		| centro y
+	a!+			| v1
+	a!+			| v2
+	;
+
+:timex
+	>a
+	a@+ deltat + dup a> 4 - !
+	a@+ >=? ( drop a@ exec 0 ; )
+	drop ;
+
+:+time | 'exec tiempo --
+	'timex 'ti p!+ >a
+	0 a!+ a!+ a! ;
+
+|--------------
+#xcam #ycam #zcam 2.0
+
+:freelook
+	xymouse
+	sh 2/ - 7 << swap
+	sw 2/ - neg 7 << swap
+	neg mrotx
+	mroty ;
+
+#solucion
+#nivel
+#veces
+#velocidad
+
+#levx1 -0.7 0.0 0.7
+#levx2 -0.9 -0.3 0.3 0.9
+#levx3 -0.8 -0.4 0.0 0.4 0.8
+
+#levell levx1 levx2 levx3
+#levelc 3 4 5
+#levels 0.4 0.4 0.3
+
+#levx
+#levc
+
+:setlevel | velocidad veces vasos --
+	dup 'nivel !
+	2 << dup dup
+	'levelc + @ 'levc !
+	'levell + @ 'levx !
+	'levels + @
+	0 ( levc <? )( 1+
+    	2dup ns.sprite ) 2drop
+    'veces !
+    1000 *. 'velocidad !
+	;
+
+:randv | -- v
+	rand 14 >> levc mod abs ;
+
+:setv
+	levx
+	0 ( levc <? )( 1+ swap
+		@+ 0.0 pick3 nxy.sprite
+		1 pick2 e.sprite
+		swap ) nip
+	( 5 <? )( 1+
+		0 over e.sprite
+		) drop
+	0 0 e.sprite ;
+
+:showv
+	'fx p.clear
+	levx
+	0 ( levc <? )( 1+ swap
+		@+ pick2 swap 0.4 +letra
+		swap ) 2drop ;
+
+:upv
+	setv
+	1 0 e.sprite
+	levx
+	0 ( levc <? )( 1+ swap
+		@+ | nro adr x
+		-0.4 pick3 sprite.n 1.0
+		+lin | xf yf obj time --
+		swap ) 2drop ;
+
+:dnv
+	'fx p.clear
+	levx
+	0 ( levc <? )( 1+ swap
+		@+ | nro adr x
+		0.0 pick3 sprite.n 1.0
+		+lin | xf yf obj time --
+		swap ) 2drop ;
+
+
+:startlevel
+	setv
+	upv
+	randv 'solucion !
+:ss
+	solucion 2 << levx + @ 0.0 0 nxy.sprite
+	;
+
+:swapv
+	setv
+	randv ( randv over =? )( drop ) | v1 v2
+	over 1+ sprite.n
+	over 1+ sprite.n
+	rand $1000 and? ( drop
+		2dup 0.25 velocidad +swap
+		swap 0.75 velocidad +swap
+		)( drop
+		2dup -0.25 velocidad +swap
+		swap -0.75 velocidad +swap
+		)
+
+	solucion =? ( drop 'solucion ! ss ; )
+	swap solucion =? ( drop 'solucion ! ss ; )
+	2drop
+	ss
+	;
+
+:domovs
+	velocidad veces ( 1? )( 1-
+		'swapv pick2 +time
+		swap velocidad + 30 +
+		swap ) 2drop ;
+
+:start
+	'ti p.clear
+	'objs p.clear
+	'movs p.clear
+	'fx p.clear
+
+	'bola 0.2 0 0 +sprite
+	'vaso 0.4 -1.2 -0.1 +sprite
+	'vaso 0.4 -1.2 -0.2 +sprite
+	'vaso 0.4 -1.2 -0.3 +sprite
+	'vaso 0.4 -1.2 -0.4 +sprite
+	'vaso 0.4 -1.2 -0.5 +sprite
+
+	0.5 6 0 setlevel
+	;
+
+:juego
+	startlevel
+	1000
+	'dnv over +time
+	500 +
+	'domovs over +time
+	velocidad veces 4+ * +
+	'showv over +time
+	1500 +
+    'upv over +time
+	1500 +
+	'dnv over +time
+    drop
+	;
+
+:main
+	start
+	33
+	itime
+	show clrscr
+		fonti
+		dup "%d" print
+		omode
+|		freelook
+|		msec 4 << mroty
+		xcam ycam zcam mtrans
+
+		7 0.5 setfont3d
+		0 0 pos 3.0 2.0 dim home
+		violeta
+		"Recuerda el lugar" printc
+|		solucion " %d " print
+
+		dtime
+		'ti p.draw
+
+		'movs p.draw
+		'objs p.draw
+		'fx p.draw
+
+		'juego <f1>
+
+|		'domovs <f1>
+|		'showv <f2>
+|		'upv <f3>
+|		'dnv <f4>
+
+		[ 0.3 8 nivel 1+ 3 mod setlevel startlevel ; ] <f5>
+
+		'exit >esc<
+		xymouse pos 128 qdim
+		'svg3 vesprite ;
+
+
+
+:memoria
+	mark
+	256 'ti p.ini
+	256 'objs p.ini
+	256 'movs p.ini
+	1024 'fx p.ini
+	;
+
+: memoria main ;
