@@ -44,69 +44,33 @@
 |------ floodfill
 #cf
 #cc
-
-:filltoh | x y -- x y y2
-	2dup
-	( 1+ bmrhh <? )( | x y x yn
-		2dup bmr@ cf <>? ( drop nip ; ) drop
-		cc pick2 pick2 bmr!
-		) nip ;
-
-:fillto0 | x y -- x y y1
-	2dup
-	( 1- +? )( | x y x yn
-		2dup bmr@ cf <>? ( drop nip ; ) drop
-		cc pick2 pick2 bmr!
-		) nip ;
-
-:fillcolorline | x y --
-	2dup bmr@ cf <>? ( 3drop ; ) drop
-	cc pick2 pick2 bmr!
-	fillto0 1+ rot rot | y1 x y
-	filltoh 1- nip rot | x y2 y1
-	( over <? )( | x y2 yn
-		pick2 1+ bmrww <? ( over fillcolorline )( drop )
-		pick2 1- -1 >? ( over fillcolorline )( drop )
-		1+ ) 3drop ;
-
-
-:bmrfill! | c x y --
-	2dup whin 0? ( 4drop ; ) drop | no dibuja afuera
-	yi - zoom >> -? ( 3drop ; )
-	swap xi - zoom >> -? ( 3drop ; )
-	swap 2dup bmr@ pick3 =? ( 4drop ; )
-	'cf ! rot 'cc !
-	fillcolorline ;
-
-
-|------ floodfill 2
 #herel
 #sa #sb
 
 :firstx | y x -- y x
 	( +? )(
-		2dup swap bmr@ cf <>? ( 1+ ; )
-		1- ) 1+ ;
+		2dup swap bmr@ cf <>? ( drop 1+ ; )
+		drop 1- ) 1+ ;
 
 :spanabove | adr y x -- adr y x
 	sa 0? ( drop
-		2dup swap 1- bmr@ cf <>? ( drop ; ) drop
-		rot >a
-		2dup swap 1- -? ( 2drop a> rot rot ; )
-		a!+ a!+ a> rot rot
+		2dup swap 1- -? ( 2drop ; )
+		bmr@ cf <>? ( drop ; ) drop
+		rot >a 2dup swap 1- a!+ a!+ a> rot rot
 		1 'sa ! ; ) drop
-	2dup swap 1- bmr@ cf =? ( drop ; ) drop
+	2dup swap 1- -? ( 2drop ; )
+	bmr@ cf =? ( drop ; ) drop
 	0 'sa !
 	;
 
 :spanbelow | adr y x -- adr y x
 	sb 0? ( drop
-		2dup swap 1+ bmr@ cf <>? ( drop ; ) drop
-		rot >a
-		2dup swap 1+ -? ( 2drop a> rot rot ; )
-		a!+ a!+ a> rot rot
+		2dup swap 1+ bmrhh >=? ( 2drop ; )
+		bmr@ cf <>? ( drop ; ) drop
+		rot >a 2dup swap 1+ a!+ a!+ a> rot rot
 		1 'sb ! ; ) drop
-	2dup swap 1+ bmr@ cf =? ( drop ; ) drop
+	2dup swap 1+ bmrhh >=? ( 2drop ; )
+	bmr@ cf =? ( drop ; ) drop
 	0 'sb !
 	;
 
@@ -117,7 +81,6 @@
 		cc over pick3 bmr! | adr y x
 		spanabove
 		spanbelow
-		2drop
 		1+ ) 2drop ;
 
 :fillcolor | adr --
@@ -132,7 +95,6 @@
 	swap xi - zoom >> -? ( 3drop ; )
 	swap 2dup bmr@ pick3 =? ( 4drop ; )
 	'cf ! rot 'cc !
-	cc cf =? ( 3drop ; ) drop
 	here dup 'herel !
 	!+ !+	| x y
 	fillcolor
