@@ -75,10 +75,70 @@
 	yi - zoom >> -? ( 3drop ; )
 	swap xi - zoom >> -? ( 3drop ; )
 	swap 2dup bmr@ pick3 =? ( 4drop ; )
-	'cf ! rot 'cc ! 
+	'cf ! rot 'cc !
 	fillcolorline ;
 
- 
+
+|------ floodfill 2
+#herel
+#sa #sb
+
+:firstx | y x -- y x
+	( +? )(
+		2dup swap bmr@ cf <>? ( 1+ ; )
+		1- ) 1+ ;
+
+:spanabove | adr y x -- adr y x
+	sa 0? ( drop
+		2dup swap 1- bmr@ cf <>? ( drop ; ) drop
+		rot >a
+		2dup swap 1- -? ( 2drop a> rot rot ; )
+		a!+ a!+ a> rot rot
+		1 'sa ! ; ) drop
+	2dup swap 1- bmr@ cf =? ( drop ; ) drop
+	0 'sa !
+	;
+
+:spanbelow | adr y x -- adr y x
+	sb 0? ( drop
+		2dup swap 1+ bmr@ cf <>? ( drop ; ) drop
+		rot >a
+		2dup swap 1+ -? ( 2drop a> rot rot ; )
+		a!+ a!+ a> rot rot
+		1 'sb ! ; ) drop
+	2dup swap 1+ bmr@ cf =? ( drop ; ) drop
+	0 'sb !
+	;
+
+:fillline | adr y x1 -- adr'
+	0 'sa ! 0 'sb !
+	( bmrww <? )(
+		2dup swap bmr@ cf <>? ( 3drop ; ) drop
+		cc over pick3 bmr! | adr y x
+		spanabove
+		spanbelow
+		2drop
+		1+ ) 2drop ;
+
+:fillcolor | adr --
+ 	( herel >? )( 8 - dup @+ swap @	| adr y x
+ 		firstx	| adr y x1
+		fillline
+ 		) drop ;
+
+:bmrfill! | c x y --
+	2dup whin 0? ( 4drop ; ) drop | no dibuja afuera
+	yi - zoom >> -? ( 3drop ; )
+	swap xi - zoom >> -? ( 3drop ; )
+	swap 2dup bmr@ pick3 =? ( 4drop ; )
+	'cf ! rot 'cc !
+	cc cf =? ( 3drop ; ) drop
+	here dup 'herel !
+	!+ !+	| x y
+	fillcolor
+	;
+
+
 |*******************************
 :ajusta
 	bmr.wh@
