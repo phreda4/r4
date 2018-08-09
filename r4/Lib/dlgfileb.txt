@@ -1,0 +1,335 @@
+| FileBrowser
+| PHREDA 2018
+|----------------
+^r4/lib/gui.txt
+^r4/lib/btn.txt
+
+
+#:namefile )( 1024
+#:pathfile )( 1024
+
+#nfiles
+#files )( 8192
+#files> 'files
+#files< 'files
+
+#filen )( $3fff
+#filen> 'filen
+
+#linesv 20
+#nivel 0
+
+#pagina 0
+#actual 0
+
+|------------------- OS DEp ---------------------
+:FNAME | adr -- adrname
+|WIN|	44 +
+|AND|	19 +
+	;
+
+:FDIR? | adr -- 1/0
+|WIN|	@ $10
+|AND|	18 + c@ 4
+	=? ( 1 )( 0 ) nip ;
+
+|-------------------------------------------------
+:FINFO | adr -- adr info
+	dup FDIR? 1? ( 0 nip ; ) drop
+	dup FNAME
+	".txt" =pos 1? ( 2drop 1 ; ) drop
+	".bmr" =pos 1? ( 2drop 2 ; ) drop
+	".inc" =pos 1? ( 2drop 3 ; ) drop
+	".rmt" =pos 1? ( 2drop 4 ; ) drop
+	".spr" =pos 1? ( 2drop 5 ; ) drop
+	".vsp" =pos 1? ( 2drop 6 ; ) drop
+|	".ico" =pos 1? ( 2drop 7 ; ) drop
+	7 nip ;
+
+:files.clear
+	0 'nfiles !
+	'filen 'filen> !
+	'files dup 'files> ! 'files< !
+	;
+
+:files!+
+	files> ( files< >? )(
+		4 - dup @+ swap !
+		) drop
+	files< !+ 'files< !
+	4 'files> +!
+	;
+
+:files.free
+	0 'files ( files> <? )(
+		@+ pick2 >? ( swap rot )
+		drop ) drop
+	8 >> 'filen +
+	( c@+ 1? )( drop ) drop
+	'filen> !
+	;
+
+:files.getpath
+	'pathfile
+	ffirst drop | quita .
+	fnext drop
+	( fnext 1? )(
+		FINFO nivel 8 << or filen> 'filen - 16 << or
+		files!+
+		FNAME filen> strcpyl 'filen> !
+		) drop
+	files> 'files - 2 >> 'nfiles !
+	;
+
+:getname | nro -- ""
+	2 << 'files + @ 16 >> 'filen + ;
+
+:getinfo | nro -- info
+	2 << 'files + @ $ff and ;
+
+:getlvl | nro -- info
+	2 << 'files + @ 8 >> $ff and ;
+
+:chginfo | nro --
+	2 << 'files + dup @ $80 xor swap ! ;
+
+:rebuild
+	files.clear
+	0 'pagina !
+	0 'nivel !
+	files.getpath
+	;
+
+|-----------------------------
+:makepath | actual nivel --
+	0? ( drop getname "r4/%s" mprint 'pathfile strcpy ; )
+	over 1-
+	( dup getlvl pick2 >=? )( drop 1- ) drop
+	over 1- makepath drop
+	"/" 'pathfile strcat
+	getname 'pathfile strcat
+	;
+
+:expande
+	0 'namefile !
+	actual
+	dup getlvl makepath
+
+   	actual chginfo
+	actual getlvl 1+ 'nivel !
+    actual 1+ 2 << 'files + 'files< !
+	files.getpath
+	;
+
+:remfiles
+	actual chginfo
+	actual getlvl 1+
+	actual 1+
+	( dup getlvl pick2 >=? )( drop 1+ ) drop
+	nip
+	actual 1+
+	( swap nfiles <? )(
+		dup 2 << 'files + @
+		pick2 2 << 'files + !
+		1+ swap 1+ ) drop
+	2 << 'files + 'files> !
+	files> 'files - 2 >> 'nfiles !
+	files.free
+	;
+
+:contrae
+	0 'namefile !
+	'pathfile ( c@+ 1? )( drop ) drop 1-
+	( 'pathfile >? )(
+		dup c@ $2f =? ( drop 0 swap c! remfiles ; )
+		drop 1- ) drop
+	remfiles ;
+
+|--------------------------
+:remlastpath
+	'pathfile ( c@+ 1? )( drop ) drop 1-
+	( dup c@ $2f <>? )( drop 1- ) drop
+	0 swap c! ;
+
+:setactual
+	actual dup getlvl makepath
+	actual getinfo $7f and 1? ( remlastpath ) drop
+	actual getname 'namefile strcpy
+	;
+
+:loadfile
+	actual getinfo 6 >? ( drop ; ) drop
+|	source 'name 'path "%s/%s" mprint load 0 swap ! 
+;
+
+
+|-----------------------------
+:boton | nrp 'vector nombre --
+	swap  flatbtn
+	;
+:aa	|0 source !
+	dup getinfo
+	0? ( drop expande ; )
+	$80 =? ( drop contrae ; )
+	drop
+	setactual
+	loadfile
+	;
+
+
+:inka
+	over actual =? ( 2drop $444444 ink linefill $ffffff ink ; ) drop ink ;
+
+:ta | nro -- nro
+	$9FA5B5 inka
+	dup getlvl 2* 1+ nsp
+	dup getname print
+	;
+
+:t0 | nro -- nro
+	$9FA5B5 inka
+	dup getlvl 2* nsp " + " print
+	dup getname print "/" print
+|	verde [ dup 'actual ! enter ; ] boton
+	;
+
+:t8 | nro -- nro
+	$E4C189 inka
+	dup getlvl 2* nsp " - " print
+	dup getname print "/" print
+|	cyan [ dup 'actual ! enter ; ] boton
+	;
+
+#info 't0 'ta 'ta 'ta 'ta 'ta 'ta 'ta 't8
+
+:drawl
+|	actual =? ( ">>" printx )
+	dup getinfo $f and 2 << 'info + @ exec ;
+
+:clicktree |
+	dup 'actual !
+	setactual
+	actual getinfo
+	0? ( drop expande ; )
+	$80 =? ( drop contrae ; )
+	drop
+	loadfile
+	;
+
+:next/ | adr -- adr'
+	( c@+ 1? )(
+		$2f =? ( drop 0 swap 1- c!+ ; )
+		drop ) nip ;
+
+:getactual | adr actual --
+	( nfiles <? )(
+		dup getname pick2 =s 1? ( drop nip ; )
+		drop 1+ ) nip ;
+
+
+
+:dlgmem
+	mark
+	;
+
+
+::dlgPath | path --
+	'pathfile strcpy
+	dlgmem
+	;
+
+|----------------------
+:fdn
+	actual nfiles 1- >=? ( drop ; )
+	1+ pagina linesv + 1- >=? ( dup linesv - 1+ 'pagina ! )
+	'actual !
+	setactual
+	loadfile
+	;
+
+:fpgdn
+	actual nfiles 1- >=? ( drop ; )
+	20 + nfiles >? ( nfiles 1- 'actual ! drop )( 'actual ! )
+	actual pagina linesv + 1- >=? ( dup linesv - 1+ 'pagina ! ) drop
+	setactual
+	loadfile
+	;
+
+:fend
+	actual nfiles 1- >=? ( drop ; ) drop
+	nfiles 1- 'actual !
+       	actual 1+ pagina linesv + 1- >=? ( dup linesv - 1+ 'pagina ! ) drop
+	setactual
+	loadfile
+	;
+
+:fup	actual 0? ( drop ; )
+	1- pagina <? ( dup 'pagina ! )
+	'actual !
+	setactual
+	loadfile
+	;
+
+:fpgup
+	actual 0? ( drop ; )
+	20 - 0 <? ( drop 0 )
+	pagina <? ( dup 'pagina ! )
+	'actual !
+	setactual
+	loadfile
+	;
+
+:fhome	actual 0? ( drop ; ) drop
+	0 'actual !
+	0 'pagina !
+	setactual
+	loadfile
+	;
+
+:dlgkey
+	'fdn <dn>
+	'fpgdn <pgdn>
+	'fend <end>
+    'fup <up>
+	'fpgup <pgup>
+	'fhome <home>
+	;
+
+::dlgLoad | -- "name"/0
+	dlgkey
+	0 ( linesv <? )(
+		dup pagina +
+		nfiles >=? ( 2drop ; )
+		'clicktree onLineClick
+    	drawl drop
+		cr 1+ ) drop
+
+		;
+
+::dlgSave | -- "name"/0
+	dlgkey
+	;
+
+::dlgIni
+	clrscr
+	rows 2 - 'linesv !
+
+	0 'actual !
+	'pathfile next/ 0? ( drop ; )
+	( dup next/ swap | sig act
+		actual getactual 'actual !
+		expande
+		0? ) drop
+
+	;
+|------------------------------------
+:main
+	"r4" dlgPath
+	dlgIni
+	rebuild
+	show clrscr
+		dlgLoad
+		'exit >esc<
+		cminiflecha ;
+
+: mark main ;
