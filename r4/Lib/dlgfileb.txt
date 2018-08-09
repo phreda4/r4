@@ -13,10 +13,11 @@
 #files> 'files
 #files< 'files
 
-#filen )( $3fff
+#filen )( $ffff
 #filen> 'filen
 
-#linesv 20
+#rowdlgfile 20
+#coldlgfile 20
 #nivel 0
 
 #pagina 0
@@ -34,6 +35,21 @@
 	=? ( 1 )( 0 ) nip ;
 
 |-------------------------------------------------
+#fileext 
+"txt" "bmr" "inc" "rmt" "spr" "vsp" "ico"
+"jpg" "peg" "gif" "bmp" "png"
+"avi" "mp4" "mkv" "mov"
+"mp3" "wav"
+"exe" 0
+
+:searchext | adr -- nro
+	>>0 4 - @
+	'fileext
+	( @+ 1? )(
+		pick2 =? ( drop nip 'fileext - 2 >> ; )
+		drop ) 3drop
+	$7f ;
+
 :FINFO | adr -- adr info
 	dup FDIR? 1? ( 0 nip ; ) drop
 	dup FNAME
@@ -43,9 +59,52 @@
 	".rmt" =pos 1? ( 2drop 4 ; ) drop
 	".spr" =pos 1? ( 2drop 5 ; ) drop
 	".vsp" =pos 1? ( 2drop 6 ; ) drop
-|	".ico" =pos 1? ( 2drop 7 ; ) drop
-	7 nip ;
+	".ico" =pos 1? ( 2drop 7 ; ) drop
+	8 nip ;
 
+:getname | nro -- ""
+	2 << 'files + @ 16 0>> 'filen + ;
+
+:getinfo | nro -- info
+	2 << 'files + @ $ff and ;
+
+:getlvl | nro -- info
+	2 << 'files + @ 8 >> $ff and ;
+
+:chginfo | nro --
+	2 << 'files + dup @ $80 xor swap ! ;
+
+:inka
+	over actual =? ( 2drop $444444 ink linefill $ffffff ink ; ) drop ink ;
+
+:ta | nro -- nro
+	$9FA5B5 inka
+	dup getlvl 2* 1+ nsp
+	dup getname print
+	;
+
+:t0 | nro -- nro
+	$9FA5B5 inka
+	dup getlvl 2* nsp " + " print
+	dup getname print "/" print
+|	verde [ dup 'actual ! enter ; ] boton
+	;
+
+:t8 | nro -- nro
+	$E4C189 inka
+	dup getlvl 2* nsp " - " print
+	dup getname print "/" print
+|	cyan [ dup 'actual ! enter ; ] boton
+	;
+
+#info 't0 'ta 'ta 'ta 'ta 'ta 'ta 'ta 't8
+
+:drawl
+|	actual =? ( ">>" printx )
+	dup getinfo $f and 2 << 'info + @ exec ;
+
+
+|-------------------------------
 :files.clear
 	0 'nfiles !
 	'filen 'filen> !
@@ -80,18 +139,6 @@
 		) drop
 	files> 'files - 2 >> 'nfiles !
 	;
-
-:getname | nro -- ""
-	2 << 'files + @ 16 >> 'filen + ;
-
-:getinfo | nro -- info
-	2 << 'files + @ $ff and ;
-
-:getlvl | nro -- info
-	2 << 'files + @ 8 >> $ff and ;
-
-:chginfo | nro --
-	2 << 'files + dup @ $80 xor swap ! ;
 
 :rebuild
 	files.clear
@@ -159,7 +206,7 @@
 
 :loadfile
 	actual getinfo 6 >? ( drop ; ) drop
-|	source 'name 'path "%s/%s" mprint load 0 swap ! 
+|	source 'name 'path "%s/%s" mprint load 0 swap !
 ;
 
 
@@ -177,34 +224,6 @@
 	;
 
 
-:inka
-	over actual =? ( 2drop $444444 ink linefill $ffffff ink ; ) drop ink ;
-
-:ta | nro -- nro
-	$9FA5B5 inka
-	dup getlvl 2* 1+ nsp
-	dup getname print
-	;
-
-:t0 | nro -- nro
-	$9FA5B5 inka
-	dup getlvl 2* nsp " + " print
-	dup getname print "/" print
-|	verde [ dup 'actual ! enter ; ] boton
-	;
-
-:t8 | nro -- nro
-	$E4C189 inka
-	dup getlvl 2* nsp " - " print
-	dup getname print "/" print
-|	cyan [ dup 'actual ! enter ; ] boton
-	;
-
-#info 't0 'ta 'ta 'ta 'ta 'ta 'ta 'ta 't8
-
-:drawl
-|	actual =? ( ">>" printx )
-	dup getinfo $f and 2 << 'info + @ exec ;
 
 :clicktree |
 	dup 'actual !
@@ -216,6 +235,16 @@
 	loadfile
 	;
 
+:enter
+	actual getinfo
+	0? ( drop expande ; )
+	$80 =? ( drop contrae ; )
+	drop
+|	setactual savem
+|	runedit
+	;
+
+|----------------------------
 :next/ | adr -- adr'
 	( c@+ 1? )(
 		$2f =? ( drop 0 swap 1- c!+ ; )
@@ -226,8 +255,7 @@
 		dup getname pick2 =s 1? ( drop nip ; )
 		drop 1+ ) nip ;
 
-
-
+|----------------------------
 :dlgmem
 	mark
 	;
@@ -241,7 +269,7 @@
 |----------------------
 :fdn
 	actual nfiles 1- >=? ( drop ; )
-	1+ pagina linesv + 1- >=? ( dup linesv - 1+ 'pagina ! )
+	1+ pagina rowdlgfile + 1- >=? ( dup rowdlgfile - 1+ 'pagina ! )
 	'actual !
 	setactual
 	loadfile
@@ -250,7 +278,7 @@
 :fpgdn
 	actual nfiles 1- >=? ( drop ; )
 	20 + nfiles >? ( nfiles 1- 'actual ! drop )( 'actual ! )
-	actual pagina linesv + 1- >=? ( dup linesv - 1+ 'pagina ! ) drop
+	actual pagina rowdlgfile + 1- >=? ( dup rowdlgfile - 1+ 'pagina ! ) drop
 	setactual
 	loadfile
 	;
@@ -258,7 +286,7 @@
 :fend
 	actual nfiles 1- >=? ( drop ; ) drop
 	nfiles 1- 'actual !
-       	actual 1+ pagina linesv + 1- >=? ( dup linesv - 1+ 'pagina ! ) drop
+       	actual 1+ pagina rowdlgfile + 1- >=? ( dup rowdlgfile - 1+ 'pagina ! ) drop
 	setactual
 	loadfile
 	;
@@ -287,17 +315,15 @@
 	;
 
 :dlgkey
-	'fdn <dn>
-	'fpgdn <pgdn>
-	'fend <end>
-    'fup <up>
-	'fpgup <pgup>
-	'fhome <home>
+	'fdn <dn> 'fup <up>
+	'fpgdn <pgdn> 'fpgup <pgup>
+	'fend <end> 'fhome <home>
+	'enter <enter>
 	;
 
 ::dlgLoad | -- "name"/0
 	dlgkey
-	0 ( linesv <? )(
+	0 ( rowdlgfile <? )(
 		dup pagina +
 		nfiles >=? ( 2drop ; )
 		'clicktree onLineClick
@@ -312,7 +338,6 @@
 
 ::dlgIni
 	clrscr
-	rows 2 - 'linesv !
 
 	0 'actual !
 	'pathfile next/ 0? ( drop ; )
