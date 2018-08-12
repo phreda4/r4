@@ -5,10 +5,10 @@
 ^r4/lib/btn.txt
 ^r4/lib/trace.txt
 
-#:namefile )( 1024
-#:pathfile )( 1024
+#pathfile )( 1024
 
 #nfiles
+
 #files )( 8192
 #files> 'files
 #files< 'files
@@ -17,9 +17,9 @@
 #filen> 'filen
 
 #rowdlgfile 20
-#coldlgfile 20
-#nivel 0
+#coldlgfile 30
 
+#nivel 0
 #pagina 0
 #actual 0
 
@@ -49,7 +49,6 @@
 		pick2
 		=? ( drop nip 'fileext - 2 >> ; )
 		drop ) 3drop
-	trace
 	$7f ;
 
 :FINFO | adr -- adr info
@@ -67,38 +66,6 @@
 
 :chginfo | nro --
 	2 << 'files + dup @ $80 xor swap ! ;
-
-
-:inka
-	over actual =? ( 2drop $444444 ink linefill $ffffff ink ; ) drop ink ;
-
-:printfile | nro -- nro
-	$9FA5B5 inka
-	dup getlvl 2* 1+ nsp
-	dup getname print
-	;
-
-:printfolderc | nro -- nro
-	$9FA5B5 inka
-	dup getlvl 2* nsp " + " print
-	dup getname print "/" print
-|	verde [ dup 'actual ! enter ; ] boton
-	;
-
-:printfoldero | nro -- nro
-	$E4C189 inka
-	dup getlvl 2* nsp " - " print
-	dup getname print "/" print
-|	cyan [ dup 'actual ! enter ; ] boton
-	;
-
-
-:drawl
-|	actual =? ( ">>" printx )
-	dup getinfo
-	0? ( drop printfolderc ; )
-	$80 =? ( drop printfoldero ; )
-	drop printfile ;
 
 
 |-------------------------------
@@ -155,7 +122,6 @@
 	;
 
 :expande
-	0 'namefile !
 	actual
 	dup getlvl makepath
 
@@ -182,7 +148,6 @@
 	;
 
 :contrae
-	0 'namefile !
 	'pathfile ( c@+ 1? )( drop ) drop 1-
 	( 'pathfile >? )(
 		dup c@ $2f =? ( drop 0 swap c! remfiles ; )
@@ -195,10 +160,10 @@
 	( dup c@ $2f <>? )( drop 1- ) drop
 	0 swap c! ;
 
-:setactual
-	actual dup getlvl makepath
-	actual getinfo $7f and 1? ( remlastpath ) drop
-	actual getname 'namefile strcpy
+:actual! | actual --
+	dup dup getlvl makepath
+	dup getinfo $7f and 1? ( remlastpath ) drop
+	'actual !
 	;
 
 :loadfile
@@ -216,16 +181,13 @@
 	0? ( drop expande ; )
 	$80 =? ( drop contrae ; )
 	drop
-	setactual
+	actual actual!
 	loadfile
 	;
 
-
-
-:clicktree |
-	dup 'actual !
-	setactual
-	actual getinfo
+:clicktree | actual --
+	dup actual!
+	getinfo
 	0? ( drop expande ; )
 	$80 =? ( drop contrae ; )
 	drop
@@ -237,8 +199,62 @@
 	0? ( drop expande ; )
 	$80 =? ( drop contrae ; )
 	drop
-|	setactual savem
-|	runedit
+	loadfile
+	;
+
+|----------------------
+:fdn
+	actual
+	nfiles 1- >=? ( drop ; )
+	1+ pagina rowdlgfile + 1- >=? ( dup rowdlgfile - 1+ 'pagina ! )
+	actual!
+	loadfile
+	;
+
+:fpgdn
+	actual rowdlgfile +
+	nfiles >=? ( nfiles 1- nip )
+	dup pagina rowdlgfile + 1- >=? ( dup rowdlgfile - 1+ 'pagina ! ) drop
+	actual!
+	loadfile
+	;
+
+:fend
+	actual
+	nfiles 1- >=? ( drop ; )
+	nfiles 1- nip
+    dup 1+ pagina rowdlgfile + 1- >=? ( dup rowdlgfile - 1+ 'pagina ! ) drop
+	actual!
+	loadfile
+	;
+
+:fup
+	actual 0? ( drop ; )
+	1- pagina <? ( dup 'pagina ! )
+	actual!
+	loadfile
+	;
+
+:fpgup
+	actual 0? ( drop ; )
+	rowdlgfile - -? ( drop 0 )
+	pagina <? ( dup 'pagina ! )
+	actual!
+	loadfile
+	;
+
+:fhome
+	actual 0? ( drop ; )
+	0 'pagina !
+	0 actual!
+	loadfile
+	;
+
+:dlgkey
+	'fdn <dn> 'fup <up>
+	'fpgdn <pgdn> 'fpgup <pgup>
+	'fend <end> 'fhome <home>
+	'enter <enter>
 	;
 
 |----------------------------
@@ -252,108 +268,82 @@
 		dup getname pick2 =s 1? ( drop nip ; )
 		drop 1+ ) nip ;
 
-|----------------------------
-:dlgmem
-	mark
-	;
-
-
-::dlgPath | path --
-	'pathfile strcpy
-	dlgmem
-	;
-
-|----------------------
-:fdn
-	actual nfiles 1- >=? ( drop ; )
-	1+ pagina rowdlgfile + 1- >=? ( dup rowdlgfile - 1+ 'pagina ! )
-	'actual !
-	setactual
-	loadfile
-	;
-
-:fpgdn
-	actual nfiles 1- >=? ( drop ; )
-	20 + nfiles >? ( nfiles 1- 'actual ! drop )( 'actual ! )
-	actual pagina rowdlgfile + 1- >=? ( dup rowdlgfile - 1+ 'pagina ! ) drop
-	setactual
-	loadfile
-	;
-
-:fend
-	actual nfiles 1- >=? ( drop ; ) drop
-	nfiles 1- 'actual !
-       	actual 1+ pagina rowdlgfile + 1- >=? ( dup rowdlgfile - 1+ 'pagina ! ) drop
-	setactual
-	loadfile
-	;
-
-:fup	actual 0? ( drop ; )
-	1- pagina <? ( dup 'pagina ! )
-	'actual !
-	setactual
-	loadfile
-	;
-
-:fpgup
-	actual 0? ( drop ; )
-	20 - 0 <? ( drop 0 )
-	pagina <? ( dup 'pagina ! )
-	'actual !
-	setactual
-	loadfile
-	;
-
-:fhome	actual 0? ( drop ; ) drop
-	0 'actual !
-	0 'pagina !
-	setactual
-	loadfile
-	;
-
-:dlgkey
-	'fdn <dn> 'fup <up>
-	'fpgdn <pgdn> 'fpgup <pgup>
-	'fend <end> 'fhome <home>
-	'enter <enter>
-	;
-
-::dlgLoad | -- "name"/0
-	dlgkey
-	0 ( rowdlgfile <? )(
-		dup pagina +
-		nfiles >=? ( 2drop ; )
-		'clicktree onLineClick
-    	drawl drop
-		cr 1+ ) drop
-
-		;
-
-::dlgSave | -- "name"/0
-	dlgkey
-	;
 
 ::dlgIni
-	clrscr
-
 	0 'actual !
 	'pathfile next/ 0? ( drop ; )
 	( dup next/ swap | sig act
 		actual getactual 'actual !
 		expande
-		0? ) drop
+		0? ) drop ;
 
+|------------------------------------------
+:inka | nro ink -- nro
+	over actual <>? ( drop ink ; )
+	2drop $444444 ink
+	coldlgfile fillcnt
+	$ffffff ink ;
+
+:printfile | nro -- nro
+	$9FA5B5 inka
+	dup getlvl 2* 1+ nsp
+	dup getname coldlgfile cntprint
 	;
-|------------------------------------
-:main
-	"r4" dlgPath
+
+:printfolderc | nro -- nro
+	$9FA5B5 inka
+	dup getlvl 2* nsp "+ " print
+	dup getname print "/" print
+|	verde [ dup 'actual ! enter ; ] boton
+	;
+
+:printfoldero | nro -- nro
+	$E4C189 inka
+	dup getlvl 2* nsp "- " print
+	dup getname print "/" print
+|	cyan [ dup 'actual ! enter ; ] boton
+	;
+
+:drawline
+	dup getinfo
+	0? ( drop printfolderc ; )
+	$80 =? ( drop printfoldero ; )
+	drop
+	printfile ;
+
+
+:showfiles
+	0 ( rowdlgfile <? )(
+		dup pagina +
+		nfiles >=? ( 2drop ; )
+		'clicktree onLineClick
+    	drawline cr
+		drop 1+ ) drop ;
+
+|----------------------------
+
+::dlgload | 'fn -- 0/'fn
+
+	clrscr
+	rows 3 - 'rowdlgfile !
+
+	'pathfile strcpy
+
 	dlgIni
 	rebuild
+
+|	oscurecetodo
+|	>xfb
 	33
-	show clrscr
+	show |xfb>scr
+		clrscr
+
 		dup "%d)" print cr cr
-		dlgLoad
+		dlgkey
+		showfiles
 		'exit >esc<
 		cminiflecha ;
 
-: mark main ;
+|------------------------------------
+
+: mark "r4" dlgload  ;
