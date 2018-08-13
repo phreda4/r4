@@ -9,12 +9,12 @@
 
 #nfiles
 
-#files )( 8192
-#files> 'files
-#files< 'files
+#files 0
+#files> 0
+#files< 0
 
-#filen )( $ffff
-#filen> 'filen
+#filen 0
+#filen> 0
 
 #rowdlgfile 20
 #coldlgfile 30
@@ -56,25 +56,19 @@
 	dup FNAME searchext ;
 
 :getname | nro -- ""
-	2 << 'files + @ 16 0>> 'filen + ;
+	2 << files + @ 16 0>> filen + ;
 
 :getinfo | nro -- info
-	2 << 'files + @ $ff and ;
+	2 << files + @ $ff and ;
 
 :getlvl | nro -- info
-	2 << 'files + @ 8 >> $ff and ;
+	2 << files + @ 8 >> $ff and ;
 
 :chginfo | nro --
-	2 << 'files + dup @ $80 xor swap ! ;
+	2 << files + dup @ $80 xor swap ! ;
 
 
 |-------------------------------
-:files.clear
-	0 'nfiles !
-	'filen 'filen> !
-	'files dup 'files> ! 'files< !
-	;
-
 :files!+
 	files> ( files< >? )(
 		4 - dup @+ swap !
@@ -84,10 +78,10 @@
 	;
 
 :files.free
-	0 'files ( files> <? )(
+	0 files ( files> <? )(
 		@+ pick2 >? ( swap rot )
 		drop ) drop
-	8 >> 'filen +
+	16 >> filen +
 	( c@+ 1? )( drop ) drop
 	'filen> !
 	;
@@ -97,19 +91,13 @@
 	ffirst drop | quita .
 	fnext drop
 	( fnext 1? )(
-		FINFO nivel 8 << or filen> 'filen - 16 << or
+		FINFO nivel 8 << or filen> filen - 16 << or
 		files!+
 		FNAME filen> strcpyl 'filen> !
 		) drop
-	files> 'files - 2 >> 'nfiles !
+	files> files - 2 >> 'nfiles !
 	;
 
-:rebuild
-	files.clear
-	0 'pagina !
-	0 'nivel !
-	files.getpath
-	;
 
 |-----------------------------
 :makepath | actual nivel --
@@ -127,7 +115,7 @@
 
    	actual chginfo
 	actual getlvl 1+ 'nivel !
-    actual 1+ 2 << 'files + 'files< !
+    actual 1+ 2 << files + 'files< !
 	files.getpath
 	;
 
@@ -139,11 +127,11 @@
 	nip
 	actual 1+
 	( swap nfiles <? )(
-		dup 2 << 'files + @
-		pick2 2 << 'files + !
+		dup 2 << files + @
+		pick2 2 << files + !
 		1+ swap 1+ ) drop
-	2 << 'files + 'files> !
-	files> 'files - 2 >> 'nfiles !
+	2 << files + 'files> !
+	files> files - 2 >> 'nfiles !
 	files.free
 	;
 
@@ -268,8 +256,8 @@
 		dup getname pick2 =s 1? ( drop nip ; )
 		drop 1+ ) nip ;
 
-
-::dlgIni
+::dlgrebuild | str --
+	'pathfile strcpy
 	0 'actual !
 	'pathfile next/ 0? ( drop ; )
 	( dup next/ swap | sig act
@@ -311,7 +299,6 @@
 	drop
 	printfile ;
 
-
 :showfiles
 	0 ( rowdlgfile <? )(
 		dup pagina +
@@ -321,16 +308,41 @@
 		drop 1+ ) drop ;
 
 |----------------------------
+:dlgini
+	mark
+	here
+	dup 'files !
+	dup 'files> !
+	dup 'files< !
+	$3fff +
+	dup 'filen !
+	dup 'filen> !
+	$ffff +
+	'here !
+	;
+
+:dlgend
+	empty
+	;
+
+:dumpfilen
+	filen >a
+	30 ( 1? )( 1-
+		80 ( 1? )( 1-
+		a> c@+ 0? ( 33 + ) "%k" print >a
+		) drop cr
+	) drop
+	;
 
 ::dlgload | 'fn -- 0/'fn
+	0 'nfiles !
+	0 'pagina !
+	0 'nivel !
+	dlgrebuild
+	files.getpath
 
 	clrscr
 	rows 3 - 'rowdlgfile !
-
-	'pathfile strcpy
-
-	dlgIni
-	rebuild
 
 |	oscurecetodo
 |	>xfb
@@ -338,12 +350,19 @@
 	show |xfb>scr
 		clrscr
 
-		dup "%d)" print cr cr
+		dup "%d)" print cr
+|		filen> filen - "%d " print
+|		files> files - "%d " print
+		cr
 		dlgkey
 		showfiles
+
+		chome
+|		dumpfilen
 		'exit >esc<
 		cminiflecha ;
 
+
 |------------------------------------
 
-: mark "r4" dlgload  ;
+: dlgini "r4" dlgload dlgend ;
