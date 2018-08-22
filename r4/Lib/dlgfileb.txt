@@ -251,24 +251,61 @@
 		$2f =? ( drop 0 swap 1- c!+ ; )
 		drop ) nip ;
 
-:getactual | adr actual --
+:getactual | adr actual -- actual
 	( nfiles <? )(
 		dup getname pick2 =s 1? ( drop nip ; )
 		drop 1+ ) nip ;
 
 #pathaux )( 1024
 
+:fitview
+	actual
+	pagina rowdf + 1- >=? ( dup rowdf - 1+ 'pagina ! )
+	drop |'actual !
+	;
+
 :dlgrebuild | file --
 	0 'nfiles !
 	0 'pagina !
 	0 'nivel !
-	0 'actual !
+
+	clrscr
+
+	dup 'pathfile strcpy
+
+    0 'actual !
+	files 'files> !
+
+	'pathfile
+	( dup next/ 1? )(
+		over "%s " print
+		dup "__> %s" print
+		cr
+
+		waitkey
+
+		files> 'files< !
+		swap files.getpath
+		actual getactual 'actual !
+		) drop
+
+	actual getactual 'actual !
+
+	dup "Last %s " print cr
+	files.getpath
+
+	'pathfile strcpy
+	fitview
+	;
+
+:a
 	dup 'pathfile strcpy
 	'pathfile next/ drop
 |	"r4" 'pathfile strcpy
 
     |--- debug
-    'pathfile print
+    "carga 1:" print
+    'pathfile print cr
     |--- debug
 
 	'pathfile files.getpath
@@ -280,10 +317,8 @@
 		actual getactual 'actual !
 		expande
 		0? ) drop
-	actual
-	pagina rowdf + 1- >=? ( dup rowdf - 1+ 'pagina ! )
-	drop |'actual !
-	;
+	fitview ;
+
 
 |------------------------------------------
 :inka | nro ink -- nro
@@ -365,7 +400,11 @@
 	;
 
 ::dlgload | 'fn --
+
+	clrscr
+	"recarga" print cr
 	dlgrebuild
+	waitkey
 
 	oscurecetodo
 	sizedlg
