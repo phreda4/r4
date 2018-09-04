@@ -1,4 +1,7 @@
 Lenguaje R3
+-----------
+
+Basic colorforth derived lang form 64 bits.
 
 LIT
 TOS=DATA
@@ -19,55 +22,84 @@ mov TOS,[esp]
 
 0? 	| --		Es 0 el tope de la pila ?
 or TOS,TOS
-
-+? 	| --		Es positivo el tope de la pila ?
-or TOS,TOS
-
--?	| --		Es negativo el tope de la pila ?
-or TOS,TOS
+jnz la
 
 1? 	| --		Es distinto a 0 el tope de la pila ?
 or TOS,TOS
+jz la
+
++? 	| --		Es positivo el tope de la pila ?
+or TOS,TOS
+js la
+
+-?	| --		Es negativo el tope de la pila ?
+or TOS,TOS
+jns la
 
 =?	| a b -- a	a = b ?
 cmp NOS,TOS
+jne la
 
 <?	| a b -- a	a < b ?
 cmp NOS,TOS
+jge la
 
 >?	| a b -- a	a > b ?
 cmp NOS,TOS
+jle la
 
 <=?	| a b -- a	a <= b ?
 cmp NOS,TOS
+jg la
 
 >=?	| a b -- a	a >= b ?
 cmp NOS,TOS
+jl la
 
 <>?	| a b -- a	a <> b ?
 cmp NOS,TOS
+je la
 
 AND?	| a b -- a	a and b ?
 test NOS,TOS
+je la
 
 NAND?	| a b -- a	a nand b ?
 test NOS,TOS
+jne la
 
 BTWN?	| a b c -- a<=b<=c?
 
+------------------
+"?? ("
+
+")"
+label2:
+
+------------------
+"??"
+
+"("
+label1:
+
+")"
+jmp label1
+label2:
+
+------------------
 
 condicional
 
 ?? ( bloque )
 
-
 repeticion
 
-( .. ?? .. )
+( .. ?? .. ?? .. )
 
-
+------------------
 
 ?? busca bloque mismo nivel y salta si negativo
+
 
 -------------------------------------
 -------------------------------------
@@ -105,6 +137,50 @@ jxx .s
 .n:
 	A
 jxx .n
+-------------------------------------
+conversion
+
+:drawms nrows ( +? )( ncols ( +? )( 2dup drawmspt 1- ) drop 1- ) drop ;
+
+pasa a ser:
+
+:drawms nrows ( +? ncols ( +? 2dup drawmspt 1- ) drop 1- ) drop ;
+
+-------------------------------------
+-------------------------------------
+-------------------------------------
+
+?? ( A ) 		| IF
+jxx .n || ?? (
+	A
+.n:    || )
+
+
+(  A ??   B ) 	| WHILE
+.n:		|| (
+	A
+jxx .s  || ??
+	B
+jmp .n  || )
+.s:
+
+///////////////// puede transformarse en
+jmp .n
+.s:     || )
+	B
+.n:		|| (
+	A
+jxx .s  || ??
+/////////////////
+
+(  A ?? B ??  C ) 	| WHILE MUL
+.n:         || (
+	A
+	jxx .s	|| ??
+	B
+	jxx .s	|| ??
+	C
+	jmp .n	|| )
 
 -------------------------------------
 -------------------------------------
@@ -113,10 +189,10 @@ jxx .n
 [	; ]			| Inicio y Fin de definicion Anonima
 ----- no existe
 
-EXEC  	| vector --  Llama al codigo del vector
+EX  	| vector --  Llama al codigo del vector
 call TOS
 
-NTH@	| nro listavector --	nro*4+listavector @
+NT@		| nro listavector --	nro*4+listavector @
 mov eax,[eax*4+CTE]
 ;lea eax,[eax*4+ebx+CTE]
 
@@ -230,7 +306,7 @@ mov TOS,[TOS]
 C@ 		| a -- b		b=8 (a)
 movsx TOS,byte [TOS]
 
-W@		| a -- b		b=16(a)
+D@		| a -- b		b=16(a)
 movsx TOS,word [TOS]
 
 !		| v d --		32(d) = v
@@ -239,7 +315,7 @@ mov [TOS],NOS
 C!		| v d --		8(d) = v
 mov byte [TOS],NOSb
 
-W! 		| v d --		16(d) = v
+D! 		| v d --		16(d) = v
 mov word [TOS],NOSw
 
 +! 		| v d --		32(d)=32(d)+v
@@ -248,7 +324,7 @@ add [TOS],NOS
 C+!		| v d --		8(d)=8(d)+v
 add byte [TOS],NOSb
 
-W+!  	| v d --		16(d)=16(d)+v
+D+!  	| v d --		16(d)=16(d)+v
 add word [TOS],NOSw
 
 @+		| d -- d+4 v	dword (32bits)
@@ -257,7 +333,7 @@ mov nTOS,[TOS];add TOS,4
 C@+		| d -- d+1 v	byte (8bits)
 movzs nTOS,byte [TOS];add TOS,1
 
-W@+		| d -- d+2 v	word (16bits)
+D@+		| d -- d+2 v	word (16bits)
 movzs nTOS,word [TOS];add TOS,2
 
 !+		| v d -- d+4
@@ -266,7 +342,7 @@ mov [TOS],NOS;add TOS,4
 C!+		| v d -- d+1
 mov byte [TOS],NOSb;add TOS,1
 
-W!+		| v d -- d+2
+D!+		| v d -- d+2
 mov word [TOS],NOSw;add TOS,2
 
 >A		| a --      S=a
