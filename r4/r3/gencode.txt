@@ -4,50 +4,218 @@
 
 | Token representation
 
-";" "(" ")" "[" "]" "EX" "0?" "1?" "+?" "-?"
-"<?" ">?" "=?" ">=?" "<=?" "<>?" "A?" "N?" "B?"
-"DUP" "DROP" "OVER" "PICK2" "PICK3" "PICK4" "SWAP" "NIP"
-"ROT" "2DUP" "2DROP" "3DROP" "4DROP" "2OVER" "2SWAP"
-">R" "R>" "R@"
-"AND" "OR" "XOR" "NOT" "NEG"
-"+" "-" "*" "/" "*/"
-"/MOD" "MOD" "ABS" "SQRT" "CLZ"
-"<<" ">>" "0>>" "*>>" "<</"
-"2/" "2*"
-"@" "C@" "D@" "@+" "C@+" "D@+"
-"!" "C!" "D!" "!+" "C!+" "D!+"
-"+!" "C+!" "D+!"
-">A" "A>" "A@" "A!" "A+" "A@+" "A!+"
-">B" "B>" "B@" "B!" "B+" "B@+" "B!+"
-"MOVE" "MOVE>" "FILL"
-"CMOVE" "CMOVE>" "CFILL"
-"DMOVE" "DMOVE>" "DFILL"
-"MSEC" "TIME" "DATE"
-"MEM" "UPDATE" "REDRAW"
-"SW" "SH" "FRAMEV"
-"LOAD" "SAVE" "APPEND"
-"FFIRST" "FNEXT"
-"PEN" "KEY" "NET" "CAM" "MIC" "SPK" "IO"
+:iLIT		| 1 $1 %1 1.0
+:iSTR		| "oo"
+:iDDAT		| 'var
+:iDWOR		| 'cod
+:iDAT		| var
+:iWOR		| cod
+	;
 
-| :		Definicion (Nom)
-| #		Variable	(Nom)
-| (
-| )
-| ;
-| '		Direccion	('adr)      "str"  'var
-| X		Direccion code          'code
-| N		(nro)					1 $2 %101 1.0
-| W		(word)					call w
-| V		([var])					['var]
-| ?		condicional				0? 1? +1? -? <? >? =? >=? <=? <>? a? n? b?
-| E		exec					exec
-| D		data stack				DUP DROP OVER PICK2 PICK3 PICK4 SWAP NIP ROT 2DUP 2DROP 3DROP 4DROP 2OVER 2SWAP
-| +     op 2-1					+ - * / mod >> << 0>> and or xor
-| -		op 1-1                  abs sqrt clz 2/ 2* neg not
-| *		op 3-1					*/ *>> <</
-| /		op 2-2					/mod
-| @								@ c@ d@
-| !								! c! d!
-| M		macro
-| <		carga
-| >		descarga
+#niv )( 1024
+#niv> 'niv
+#nniv 0
+
+:level+
+	nniv niv> !+ 'niv> ! 1 'nniv +! ;
+:level-
+	-4 'niv> +! ;
+:nlevel	| -- nl
+	niv> 4 - @ $ffffff and 	;
+:wlevel	| -- wl
+	niv> 4 - @ 24 >> ;
+
+:next(
+	;
+
+:i;
+	"ret" ,ln
+	;
+:i(
+	level+
+	nlevel "_li%h:" ,ln
+	;
+:i)
+	wlevel 1? ( nlevel "jmp _li%h" ,ln ) drop
+	nlevel "_lo%h:" ,ln
+	level-
+	;
+:i[
+:i]
+:iEX
+	;
+:i0?
+	next(
+	"or " ,s TOS, "," ,s TOS, ,cr
+	nlevel "jnz _lo%h" ,ln
+	;
+:i1?
+	next(
+	"or " ,s TOS, "," ,s TOS, ,cr
+	nlevel "jz _lo%h" ,ln
+	;
+:i+?
+	next(
+	"or " ,s TOS, "," ,s TOS, ,cr
+	nlevel "js _lo%h" ,ln
+	;
+:i-?
+	next(
+	"or " ,s TOS, "," ,s TOS, ,cr
+	nlevel "jns _lo%h" ,ln
+	;
+:i<?
+	next(
+	"cmp " ,s NOS, "," ,s TOS, ,cr
+	nlevel "jge _lo%h" ,ln
+	;
+:i>?
+	next(
+	"cmp " ,s NOS, "," ,s TOS, ,cr
+	nlevel "jle _lo%h" ,ln
+	;
+
+:i=?
+	next(
+	"cmp " ,s NOS, "," ,s TOS, ,cr
+	nlevel "jne _lo%h" ,ln
+	;
+
+:i>=?
+	next(
+	"cmp " ,s NOS, "," ,s TOS, ,cr
+	nlevel "jl _lo%h" ,ln
+	;
+
+:i<=?
+	next(
+	"cmp " ,s NOS, "," ,s TOS, ,cr
+	nlevel "jg _lo%h" ,ln
+	;
+
+:i<>?
+	next(
+	"cmp " ,s NOS, "," ,s TOS, ,cr
+	nlevel "je _lo%h" ,ln
+	;
+
+:iA?
+	next(
+	"test " ,s NOS, "," ,s TOS, ,cr
+	nlevel "jnz _lo%h" ,ln
+	;
+
+:iN?
+	next(
+	"test " ,s NOS, "," ,s TOS, ,cr
+	nlevel "jz _lo%h" ,ln
+	;
+
+:iB?
+	next(
+	| sub nos2,nos
+	| cmp nos,tos-nos
+	"cmp " ,s NOS, "," ,s TOS, ,cr
+	nlevel "jge _lo%h" ,ln
+	;
+
+:iDUP
+:iDROP
+:iOVER
+:iPICK2
+:iPICK3
+:iPICK4
+:iSWAP
+:iNIP
+:iROT
+:i2DUP
+:i2DROP
+:i3DROP
+:i4DROP
+:i2OVER
+:i2SWAP
+:i>R
+:iR>
+:iR@
+:iAND
+:iOR
+:iXOR
+:iNOT
+:iNEG
+:i+
+:i-
+:i*
+:i/
+:i*/
+:i/MOD
+:iMOD
+:iABS
+:iSQRT
+:iCLZ
+:i<<
+:i>>
+:i0>>
+:i*>>
+:i<</
+:i2/
+:i2*
+:i@
+:iC@
+:iD@
+:i@+
+:iC@+
+:iD@+
+:i!
+:iC!
+:iD!
+:i!+
+:iC!+
+:iD!+
+:i+!
+:iC+!
+:iD+!
+:i>A
+:iA>
+:iA@
+:iA!
+:iA:i
+:iA@+
+:iA!+
+:i>B
+:iB>
+:iB@
+:iB!
+:iB+
+:iB@+
+:iB!+
+:iMOVE
+:iMOVE>
+:iFILL
+:iCMOVE
+:iCMOVE>
+:iCFILL
+:iDMOVE
+:iDMOVE>
+:iDFILL
+:iMSEC
+:iTIME
+:iDATE
+:iMEM
+:iUPDATE
+:iREDRAW
+:iSW
+:iSH
+:iFRAMEV
+:iLOAD
+:iSAVE
+:iAPPEND
+:iFFIRST
+:iFNEXT
+:iPEN
+:iKEY
+:iNET
+:iCAM
+:iMIC
+:iSPK
+:iIO
+	;
