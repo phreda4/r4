@@ -1,0 +1,1177 @@
+| generador de codigo para 386
+| PHREDA 2017
+|----------------------------------
+^r4/compiler/r4-cellana.txt
+^r4/compiler/r4-regx86.txt
+
+#nword		| nro palabra
+#nlabel		| nro label
+#nstr		| nro string
+#strpending	| for str stack
+#nroi		| nro token
+#regIO 		| dicc de IO 16 bytes
+
+#stackdeep		| actual stack deep
+
+#fullscreen 0
+
+|------ acceso a celdas
+:stknow	nroi 2 << 'stki + @ ;
+:stknex nroi 1+ 2 << 'stki + @ ;
+
+:stktos c@+ 1- + c@ $ff and ;
+:stknos c@+ 2 - + c@ $ff and ;
+:stkpk2 c@+ 3 - + c@ $ff and ;
+:stkpk3 c@+ 4 - + c@ $ff and ;
+:stkpk4 c@+ 5 - + c@ $ff and ;
+
+:stkrtos c@+ + c@+ + 1- c@ $ff and ;
+
+:valw	nroi 2 << tokenini + @ 8 >> ;
+:value	nroi 2 << tokenini + @ tok>cte ;
+
+:>DTOS	stknex stktos ;
+:>DNOS	stknex stknos ;
+
+:DTOS	stknow stktos ;
+:DNOS	stknow stknos ;
+:DPK2	stknow stkpk2 ;
+:DPK3	stknow stkpk3 ;
+:DPK4	stknow stkpk4 ;
+
+:RTOS	stknow stkrtos ;
+
+|-----------
+:,VALW	valw "w%h" ,print ;
+:,VALUE	value "$%h" ,print ;
+
+:,TOS	stknow stktos ,cell drop ;
+:,TOSb	stknow stktos ,cellb drop ;
+:,TOSw	stknow stktos ,cellw drop ;
+
+:,NOS	stknow stknos ,cell drop ;
+:,NOSb	stknow stknos ,cellb drop ;
+:,NOSw	stknow stknos ,cellw drop ;
+
+:,PK2	stknow stkpk2 ,cell drop ;
+:,PK3	stknow stkpk3 ,cell drop ;
+:,PK4	stknow stkpk4 ,cell drop ;
+
+:,RTOS	stknow stkrtos ,cell drop ;
+
+#stkcon	| stack in consitional
+
+:,TOSC	stkcon stktos ,cell drop ;
+:,NOSC	stkcon stknos ,cell drop ;
+
+
+:>TOSreg?	stknex stktos cellreg? ;
+:,>TOS		stknex stktos ,cell drop ;
+:>NOSreg?	stknex stknos cellreg? ;
+:,>NOS		stknex stknos ,cell drop ;
+
+:regused
+	emptyReg
+	stknow
+	c@+ ( 1? )( 1-
+		swap c@+ fillReg
+		swap ) drop
+	c@+ ( 1? )( 1-
+		swap c@+ fillReg
+		swap ) 2drop ;
+
+|---- donde queda el resultado
+:cellEAX | cell ---
+	0 swap cell.reg! ;
+
+:cellEDX | cell ---
+	3 swap cell.reg! ;
+
+|---- tipo de celda que necesito
+:cellREG | cell --
+	cell.reg? +? ( 2drop ; ) drop
+	newreg swap cell2reg ;
+
+:cellREGMEM | cell --
+	cell.reg? +? ( 2drop ; ) drop
+	cellm? 0? ( 2drop ; ) drop
+	newreg swap cell2reg ;
+
+:needEAX | cell --
+	cell.reg? 0 =? ( 2drop ; ) drop
+	|** liberar eax
+	0 cell2reg
+	;
+
+:needECX | cell --
+	cell.reg? 2 =? ( 2drop ; ) drop
+	|** liberar ecx
+	2 cell2reg
+	;
+
+|---- ecx or cte or free ecx and assign to
+:needECXCTE | cell --
+	cell.reg? 3 =? ( 2drop ; ) drop
+	cell.val? 0? ( 2drop ; ) drop
+	|** liberar ecx
+	drop
+	;
+|---- search and free
+:edxcellfree | cell --
+	cell.reg? 4 <>? ( 2drop ; ) drop
+	newreg swap cell2reg ;
+
+:freeEDX
+	stknow
+	c@+ ( 1? )( 1-
+		swap c@+ edxcellfree
+		swap ) 2drop ;
+
+:eaxcellfree | cell --
+	cell.reg? 1? ( 2drop ; ) drop
+	newreg swap cell2reg ;
+
+:freeEAX
+	stknow
+	c@+ ( 1? )( 1-
+		swap c@+ eaxcellfree
+		swap ) 2drop ;
+
+|-----
+:cellflat | cell --
+	cell.reg? +? ( 2drop ; ) drop
+	cell.regu? +? ( swap cell2reg ; ) drop
+	newReg swap cell2reg ;
+
+:cellplain
+	"; --- plain stack ---" ,ln
+	regused
+	stknow
+	c@+ ( 1? )( 1-
+		swap c@+ cellflat
+		swap ) 2drop ;
+
+|-----------------
+|:needreg | nro --
+|	dup cellflag
+|	$4 and? ( drop ; )	| entrada palabra
+|	$8 and? ( drop ; )	| salida palabra
+|	$1000 and? ( drop ; )	| eax
+|	$2000 and? ( drop ; )	| ecx
+|	drop ;
+
+:marknoc | cell -- cell
+	dup clivei 2 << 'stki + @
+	c@+ ( 1? )( 1-
+		swap c@+ cellfl dup @ $4000 or swap ! | mark no C
+		swap ) 2drop ;
+
+:cellstart
+	dup cell.ini
+	cellflag
+	$ff0000 nand? ( drop ; )	| cte?
+	$2000 nand? ( drop ; )		| need ecx?
+	drop
+	marknoc | ecx->marca no
+	;
+
+:cellin | ncel flag -- ncel flag
+|	$1000 and? ( ) | eax
+|	$4000 and? ( ) | no ecx
+|	$2000 and? ( ) | ecx
+	newReg
+	dup reg!
+	pick2 cell.reg! ;
+
+:cellinstack
+	cell.reg? nip
+	;
+
+
+|---- tratar de encontrar una forma de pila para entrada y salida
+:inputcells | w --
+	emptyReg
+
+	| init cells -1 (no asignada)
+	0 ( ncell <? )( dup cellstart
+		1+ ) drop
+	0 ( ncell <? )(
+		dup cellflag $1 and? ( cellin ) drop
+		1+ ) drop
+
+	| save inputcells
+
+   	nword 4 << regIO + >a
+	stknow c@+
+	dup a> c!+ >a
+	"; IN: " ,s
+	( 1? )( 1-
+		swap c@+
+		,cell ,sp
+		cellinstack a> c!+ >a
+		swap ) 2drop
+	-1 a> c! | marca sin final por ahora
+	,cr
+	;
+
+:multientry
+	;
+
+:outputadjust | adr --
+	1+ >a | salto cantidad
+	stknow c@+
+	"; ADJ: " ,ln
+	( 1? )( 1-
+		swap c@+
+		a> c@+ swap >a
+		swap cellresolve
+		swap ) 2drop ;
+
+:outputcells
+	nword 4 << regIO +
+	c@+ +
+	dup c@ +? ( drop outputadjust ; ) | ya marcado ajustar
+
+	cellplain
+
+	drop >a
+	stknow c@+
+	dup a> c!+ >a
+	"; OUT: " ,s
+	( 1? )( 1-
+		swap c@+
+		,cell ,sp
+		cellinstack a> c!+ >a
+		swap ) 2drop
+	,cr
+	;
+
+:convertcells | word --
+	4 << regIO + 1+ >a | salto cantidad
+	stknow c@+
+	"; IN CELLS: " ,ln
+	( 1? )( 1-
+		swap c@+
+		a> c@+ swap >a
+		swap cellresolve
+		swap ) 2drop ;
+
+:convertoutcells | word --
+	4 << regIO + c@+ + >a | salto in, tomo out
+	stknex c@+
+	"; OUT CELLS: " ,ln
+	( 1? )( 1-
+		swap c@+
+		a> c@+ swap >a
+		swap cellresolve
+		swap ) 2drop ;
+
+:stackio | word --
+	" (" ,s
+	4 << regIO +
+	c@+ ( 1? )( 1-
+		swap c@+
+        ,sp ,reg
+		swap ) drop
+	" --" ,s
+	c@+ ( 1? )( 1-
+		swap c@+
+        ,sp ,reg
+		swap ) 2drop
+	" )" ,s
+	;
+
+|------------ compila CODIGO
+:toknow		dup 4 - @ ;
+
+:dumpinfoword
+	"; " ,s	dup dic>str @ "%w" ,print
+	" | " ,s dup dic>mov @ ,printmovword
+	" | " ,s dup dic>inf @ ,printinfowor
+	" | len:" ,s dup dic>len@ ,d
+	" | calls:" ,s dup dic>call@ ,d
+	,cr
+	;
+
+:,defw
+	multientry
+    dup 4 - @ 8 >>
+	dumpinfoword
+	"w" ,s ,h ": " ,s ,cr ;
+
+:,defv ; | no hay definiciones en optimizado
+:,[ :,] ; | no hay anonimas en optimizado
+
+
+:,wor
+
+    toknow 8 >> convertcells
+
+
+	dup @ $ff and 			| word ;
+	16 =? ( "jmp " )( "call " ) nip ,s
+	toknow 8 >> "w" ,s ,h
+
+|	strpending neg
+|	1? ( "; strpending:" ,s dup ,d ,cr )
+|	pila2v
+	0 'strpending !
+
+	toknow tok>name " ; %w" ,print
+
+	,cr
+
+	dup @ $ff and 			| word ;
+	16 =? ( drop ; ) drop
+	toknow 8 >> convertoutcells
+	;
+
+:,;
+	dup 8 - @ $ff and | word ;
+	12 =? (  drop ; ) drop
+	outputcells
+	"ret" ,ln ;
+
+|------- Elige registro para copia en tos
+
+:stolenlast
+	;
+
+:choose
+	;
+
+:free?
+	;
+
+:spill | -- newReg
+	regused
+	free? ( choose ; )
+	stolenlast
+	choose ;
+
+
+:eligeReg | --
+	regused
+	>DTOS cellflag
+|	$1000 and? ( 0 reg--- )	| EAX
+|	$2000 and? ( 0 reg--- )	| ECX
+	$4000 and? ( 2 reg! )	| no ECX
+	drop
+    newreg >DTOS cell.reg! ;
+
+
+|---------- ASIGNACIONES
+:,lit
+    >TOSreg? 0? ( drop VALUE >DTOS cell.Val! ; ) drop
+	eligeReg
+	VALUE 0? ( drop "xor " ,s ,>TOS "," ,s ,>TOS ,cr ; ) drop
+	"mov " ,s ,>TOS "," ,s ,VALUE ,cr
+	;
+
+:,lits
+	toknow tok>mem strusestack
+	'strpending ! drop
+	>TOSreg? 0? ( drop valw >DTOS cell.Str! ; ) drop
+	eligeReg
+    "mov " ,s ,>TOS ",str" ,s valw ,h ,cr
+	;
+:,dwo
+    >TOSreg? 0? ( drop valw >DTOS cell.wor! ; ) drop
+    eligeReg
+    "mov " ,s ,>TOS "," ,s ,VALW ,cr
+	;
+:,dva
+    >TOSreg? 0? ( drop valw >DTOS cell.wor! ; ) drop
+    eligeReg
+    "mov " ,s ,>TOS "," ,s ,VALW ,cr
+	;
+:,var
+    >TOSreg? 0? ( drop valw >DTOS cell.wor! >DTOS cell.mem ; ) drop
+    eligeReg
+    "mov " ,s ,>TOS ",[" ,s ,VALW "]" ,s ,cr
+	;
+
+
+|-------- CONDICIONALES
+#jmpstr 0
+
+:simple
+|	d.cnt 0? ( vpila2normal ) drop
+|	d.tos needWrite
+|	d.tos cellADR? 1? ( drop
+|		"cmp " ,s ,TOS ",0" ,ln ; ) drop
+	"or " ,s ,TOSC "," ,s ,TOSC ,cr
+	;
+
+:doble
+|	d.nos needWrite
+|	d.tos cellADR? 1? ( drop
+|		d.nos cellADR? 1? ( drop
+|			newReg 6 >? ( drop freelastreg newReg )
+|			"mov " ,s dup ,REG "," ,s ,TOS ,cr
+|			"cmp " ,s ,NOS "," ,s ,REG ,cr
+|			d.drop ;
+|			)( drop ) )( drop )
+
+    "cmp " ,s ,NOSC "," ,s ,TOSC ,cr
+	;
+
+:bit
+|	d.nos needWrite
+|	d.tos cellADR? 1? ( drop
+|		d.nos cellADR? 1? ( drop
+|			newReg 6 >? ( drop freelastreg newReg )
+|			"mov " ,s dup ,REG "," ,s ,TOS ,cr
+|			"test " ,s ,NOS "," ,s ,REG ,cr
+|			 ;
+|			) )( drop )
+    "test " ,s ,NOSC "," ,s ,TOSC ,cr
+	;
+
+#jmpmode 'simple
+
+:,simple?	'jmpstr ! 'simple 'jmpmode ! stknow 'stkcon ! ;
+
+:,0? "jnz " ,simple? ;
+:,+? "js "  ,simple? ;
+:,-? "jns " ,simple? ;
+:,1? "jz "  ,simple? ;
+
+:,doble?	'jmpstr ! 'doble 'jmpmode ! stknow 'stkcon ! ;
+
+:,=? "jnz " ,doble?	;
+:,<? "jge " ,doble?	;
+:,>? "jle " ,doble?	;
+:,<=? "jg " ,doble?	;
+:,>=? "jl " ,doble?	;
+:,<>? "jz " ,doble?	;
+
+:,bit?	'jmpstr ! 'bit 'jmpmode ! stknow 'stkcon ! ;
+
+:,and?  "jz " ,bit?	;
+:,nand? "jnz " ,bit? ;
+
+|----- auxiliares bloques
+:label		"_" ,s ,h ;
+:jmp,		"jmp " ,s label ,cr ;
+:,etiqueta	label ": " ,s ;
+:,jmpcond
+	jmpmode exec
+	jmpstr ,s label ,cr ;
+
+:+etiqueta	| -- nueva   // y agrega a pila
+	nlabel 1+ dup 'nlabel ! dup c.push ;
+
+|----- BLOQUES
+#nblock 0
+
+:block.new
+	nblock pilab> !+ 'pilab> !
+	1 'nblock +! ;
+:block.end
+	-4 'pilab> +! ;
+:block.now
+	pilab> |'pilab =? ( drop 0 ; )
+	4 - @ ; | -- nblo
+
+| 0 ( )		REP
+| 1 ?( )	IF
+| 2 ( ?)( ) WHI
+| 3 ?( )( )	IFE
+| 4 ( ?)	UNT
+| or $8 ;
+:block.type | -- type
+	block.now 2 << 'blocki + @ ;
+
+#stackblock )( 1024
+
+:cpystack
+	pilab> 'pilab - 2 >> 1-
+	"; cpy: " ,s dup ,d " >> " ,s
+	4 << 'stackblock + stackconvert
+	,cr ;
+
+:fitstack
+	pilab> 'pilab - 2 >> 1-
+	"; fit: " ,s dup ,d ,cr
+	4 << 'stackblock + stackconvert ;
+
+|------ ajuste de pila
+:,(
+	cellplain
+	block.new
+	cpystack
+	block.type
+	%1 and? ( +etiqueta ,jmpcond 	| IF ELSE
+		)(  +etiqueta ,etiqueta )	| WHILE UNTIL REP
+	drop
+	;
+
+:,)(
+	cellplain
+	block.type
+	%1 and? ( c.pop +etiqueta jmp, ,etiqueta cpystack | ELSE
+		)( c.pop +etiqueta ,jmpcond c.push )	| WHILE
+	drop
+	;
+
+:,)
+	block.type
+	8 nand? ( fitstack )( cellplain ) | ;
+	7 and
+	0? ( c.pop jmp, )					| REP
+	1 =? ( c.pop ,etiqueta )			| IF
+	2 =? ( c.pop jmp, c.pop ,etiqueta )	| WHILE
+	3 =? ( c.pop ,etiqueta )			| ELSE
+	4 =? ( c.pop ,jmpcond )				| UNTIL
+	drop
+	block.end ;
+
+
+|------- EXEC
+:,execr
+	dup @ $ff and 			| word ;
+	16 =? ( "jmp ecx" )( "call ecx" ) nip
+	,s ,cr
+	;
+
+:,EXEC | v --
+|	d.tos cellVAR -? ( 2drop ,EXECPP ; ) 2drop
+	"mov ecx," ,s ,TOS ,cr
+	,execr ;
+
+|------- PILAR
+:,>R
+|	toknow 8 >> 1? ( drop d.pop r.push ; ) drop
+	"push " ,s ,TOS ,cr
+	;
+
+:,R>
+|	toknow 8 >> 1? ( drop r.pop d.push ; ) drop
+|	>dtos needReg
+	"pop " ,s ,>TOS ,cr
+	;
+
+:,R@
+|	>TOSreg? 0? ( drop RTOS >DTOS cell.cpy ; ) drop
+	eligeReg
+    "mov " ,s ,>TOS "," ,s ,RTOS ,cr
+	;
+
+|----------------------
+:oper21
+	dnos cell.REG? +? ( 2drop ; ) 2drop
+	dtos cell.REG? +? ( drop dnos cell.swp ; ) 2drop
+	dnos cellREG
+	;
+
+:,AND
+	oper21
+	"and " ,s ,NOS "," ,s ,TOS ,cr
+	;
+:,OR
+	oper21
+	"or " ,s ,NOS "," ,s ,TOS ,cr
+	;
+:,XOR
+	oper21
+	"xor " ,s ,NOS "," ,s ,TOS ,cr
+	;
+
+:,+val
+	dnos cell.add? 1? ( over cellflat ) 2drop
+	dtos cell.value dnos cell.add ;
+
+:,+cte
+|	dnos cell.add? 1? ( over cellflat ) 2drop
+	dtos cell.value dnos cell.addcte
+	;
+
+:,+
+	dtos
+	cell.val? 0? ( 2drop ,+val ; ) drop
+	cell.cte? 0? ( 2drop ,+cte ; ) 2drop
+	oper21
+	"add " ,s ,NOS "," ,s ,TOS ,cr
+	;
+
+
+:,-val
+	dnos cell.add? 1? ( over cellflat ) 2drop
+	dtos cell.value neg dnos cell.add ;
+
+:,-
+	dtos cell.val? 0? ( 2drop ,-val ; ) 2drop
+	"sub " ,s ,NOS "," ,s ,TOS ,cr
+	;
+
+:,*
+	oper21
+	"imul " ,s ,NOS "," ,s ,TOS ,cr
+	;
+
+:,/
+	dnos needEAX
+	dtos cellREGMEM
+	freeEDX
+	"cdq" ,ln
+	"idiv " ,s ,TOS ,cr
+	>dtos cellEAX
+	;
+
+:,/MOD
+	dnos needEAX
+	dtos cellREGMEM
+	freeEDX
+	"cdq" ,ln
+	"idiv " ,s ,TOS ,cr
+	>dnos cellEAX
+	>dtos cellEDX
+	;
+
+:,MOD
+	dnos needEAX
+	dtos cellREGMEM
+	freeEDX
+	"cdq" ,ln
+	"idiv " ,s ,TOS ,cr
+	>dtos cellEDX
+	;
+
+:,*/
+	dpk2 needEAX
+	dnos cellREGMEM
+	freeEDX
+	"cdq" ,ln
+	"imul " ,s ,NOS ,cr
+	"idiv " ,s ,TOS ,cr
+	>dtos cellEAX
+	;
+
+:,cte*>>
+	dpk2 needEAX
+	freeEDX
+	"cdq" ,ln
+	"imul " ,s ,NOS ,cr
+	cell.value
+	32 <? ( "shrd eax,edx," ,s ,d ,cr >dtos cellEAX ; ) | es ax
+	32 >? ( "sar edx," ,s 32 - ,d ,cr )( drop )
+	>dtos cellEDX
+	;
+
+:,*>>
+	dtos cell.val? 0? ( drop ,cte*>> ; ) 2drop
+
+	dnos cellREGMEM
+	dpk2 needEAX
+	dtos needECXCTE
+	freeEDX
+	"cdq" ,ln
+	"imul " ,s ,NOS ,cr
+	"shrd eax,edx," ,s ,TOSb ,cr
+	"sar edx," ,s ,TOSb ,cr
+	"test " ,s ,TOSb ",32" ,ln
+	"cmovne eax,edx" ,ln
+	>dtos cellEAX
+	;
+
+:,<</
+	dpk2 needEAX
+	dnos cellREGMEM
+	dtos needECXCTE
+	freeEDX
+	"cdq" ,ln
+    "shld edx,eax," ,s ,TOSb ,cr
+	"shl eax," ,s ,TOSb ,cr
+	"idiv " ,s ,NOS ,cr
+	>dtos cellEAX
+	;
+
+:,>>
+	| dtos=31 & dnos=eax --> "cdq" dtos=edx
+	dnos cellREG
+	dtos needECXCTE
+	"sar " ,s ,NOS "," ,s ,TOSb ,cr
+	;
+
+:,0>>
+	dnos cellREG
+	dtos needECXCTE
+	"shr " ,s ,NOS "," ,s ,TOSb ,cr
+	;
+
+:,R>>	| no implementada
+	dnos cellREG
+	dtos needECXCTE
+	"ror " ,s ,NOS "," ,s ,TOSb ,cr
+	;
+
+:,ABS
+	dtos cellREG
+	freeEDX
+	dtos cellREG? 0? ( | EAX
+		"cdq" ,ln
+		)(
+		"mov edx," ,s ,TOS ,cr
+		"sar edx,31" ,ln
+		) drop
+	"add " ,s ,TOS ",edx" ,ln
+	"xor " ,s ,TOS ",edx" ,ln
+	;
+
+:,CLZ
+	dtos cellREG
+	"bsr " ,s ,TOS  "," ,s ,TOS ,cr
+	"xor " ,s ,TOS ",31" ,ln ;
+:,NOT
+	dtos cellREG
+	"not " ,s ,TOS ,cr ;
+:,NEG
+	dtos cellREG
+	"neg " ,s ,TOS ,cr ;
+
+:,1+
+	dtos cell.add? 1? ( over cellflat ) 2drop
+	1 dtos cell.add ;
+
+:,4+
+	dtos cell.add? 1? ( over cellflat ) 2drop
+	4 dtos cell.add ;
+
+:,1-
+	dtos cell.add? 1? ( over cellflat ) 2drop
+	-1 dtos cell.add ;
+
+:,2/
+|	cellflat
+	"sar " ,s ,TOS ",1" ,ln ;
+
+:,2*
+	dtos cell.shf? 1? ( over cellflat ) 2drop
+	2 dtos cell.shf ;
+|	"sal " ,s ,TOS ",1" ,ln ;
+
+:,cte<<
+	dtos cell.value
+	2 =? ( dnos cell.shf ; )
+	4 =? ( dnos cell.shf ; )
+	8 =? ( dnos cell.shf ; )
+	drop
+	dnos cellREG
+	dtos needECXCTE
+	"sal " ,s ,NOS "," ,s ,TOSb ,cr
+	;
+
+:,<<
+	dnos cell.shf? 1? ( over cellflat ) 2drop
+	dtos cell.val? 0? ( 2drop ,cte<< ; ) 2drop
+	dnos cellREG
+	dtos needECXCTE
+	"sal " ,s ,NOS "," ,s ,TOSb ,cr
+	;
+
+    |------ MEMORIA
+:,@
+	dtos cellREG
+	"mov " ,s ,TOS ",dword [" ,s ,TOS "]" ,ln ;
+:,C@
+	dtos cellREG
+	"movsx " ,s ,TOS ",byte [" ,s ,TOS "]" ,ln ;
+:,W@
+	dtos cellREG
+	"movsx " ,s ,TOS ",word [" ,s ,TOS "]" ,ln ;
+
+:,!
+	dtos cellREGMEM
+	"mov dword [" ,s ,TOS "]," ,s ,NOS ,cr
+	;
+:,C!
+	dtos cellREGMEM
+	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
+	;
+:,W!
+	dtos cellREGMEM
+	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
+	;
+
+:,+!
+	dtos cellREGMEM
+	"add dword [" ,s ,TOS "]," ,s ,NOS ,cr
+	;
+:,W+!
+	dtos cellREGMEM
+	"add word [" ,s ,TOS "]," ,s ,NOSw ,cr
+	;
+:,C+!
+	dtos cellREGMEM
+	"add byte [" ,s ,TOS "]," ,s ,NOSb ,cr
+	;
+
+:,!+
+	dtos cellREGMEM
+	"mov dword [" ,s ,TOS "]," ,s ,NOS ,cr
+	"add " ,s ,TOS ",4" ,ln
+	;
+:,W!+
+	dtos cellREGMEM
+	"mov word [" ,s ,TOS "]," ,s ,NOSw ,cr
+	"add " ,s ,TOS ",2" ,ln
+	;
+:,C!+
+	dtos cellREGMEM
+	"mov byte [" ,s ,TOS "]," ,s ,NOSb ,cr
+	"add " ,s ,TOS ",1" ,ln
+	;
+
+:,@+
+	dnos cellREG
+	"mov " ,s ,TOS ",dword [" ,s ,NOS "]" ,ln
+	"add " ,s ,NOS ",4" ,ln ;
+:,W@+
+	dnos cellREG
+	"movsx " ,s ,TOS ",word [" ,s ,NOS "]" ,ln
+	"add " ,s ,NOS ",2" ,ln ;
+:,C@+
+	dnos cellREG
+	"movsx " ,s ,TOS ",byte [" ,s ,NOS "]" ,ln
+	"add " ,s ,NOS ",1" ,ln ;
+
+:,>A
+	"mov esi," ,s ,TOS ,cr
+	;
+:,A>
+	"mov " ,s ,>TOS ",esi" ,s ,cr
+	;
+:,A@
+	>TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
+	eligeReg
+	"mov " ,s ,>TOS ",dword [esi]" ,s ,cr
+	;
+:,A!
+	dtos cellREG
+	"mov dword [esi]," ,s ,TOS ,cr
+	;
+:,A+
+	"add esi," ,s ,TOS ,cr
+	;
+:,A@+
+	>TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
+	eligeReg
+	"mov " ,s ,>TOS ",dword [esi]" ,s ,cr
+	"add esi,4" ,ln
+	;
+:,A!+
+	dtos cellREG
+	"mov dword [esi]," ,s ,TOS ,cr
+	"add esi,4" ,ln
+	;
+
+:,>B
+	"mov edi," ,s ,TOS ,cr
+	;
+:,B>
+	"mov " ,s ,>TOS ",edi" ,s ,cr
+	;
+:,B@
+	>TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
+	eligeReg
+	"mov " ,s ,>TOS ",dword [edi]" ,s ,cr
+	;
+:,B!
+	dtos cellREG
+	"mov dword [edi]," ,s ,TOS ,cr
+	;
+:,B+
+	"add edi," ,s ,TOS ,cr
+	;
+:,B@+
+	>TOSreg? 0? ( drop DTOS >DTOS cell.cpy ; ) drop
+	eligeReg
+	"mov " ,s ,>TOS ",dword [edi]" ,s ,cr
+	"add edi,4" ,ln
+	;
+:,B!+
+	dtos cellREG
+	"mov dword [edi]," ,s ,TOS ,cr
+	"add edi,4" ,ln
+	;
+|--------- Sistema
+|#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "SYSXYM" "SYSBM" "SYSKEY"
+
+:,SW
+	0 >DTOS cell.Cte!
+	fullscreen 1? ( >DTOS cell.mem  ) drop
+	;
+:,SH
+	1 >DTOS cell.Cte!
+	fullscreen 1? ( >DTOS cell.mem  ) drop
+	;
+
+:,MEM
+	2 >DTOS cell.Cte!
+	>DTOS cell.mem ;
+
+:,FRAMEV
+	3 >DTOS cell.Cte! ;
+
+:,BMOUSE
+	5 >DTOS cell.Cte!
+	>DTOS cell.mem ;
+
+:,KEY
+	6 >DTOS cell.Cte!
+	>DTOS cell.mem ;
+
+:,KEY! | v --
+|	d.tos needReadM | no memoria []
+	"mov [SYSKEY]," ,s ,TOS ,cr
+	;
+
+:,XYMOUSE | -- x y
+	dtos cellREG
+	dnos cellREG
+	"mov " ,s ,>TOS ",[SYSXYM]" ,ln
+	"mov " ,s ,>NOS "," ,s ,>TOS ,cr
+	"and " ,s ,>NOS ",$ffff" ,ln
+	"shr " ,s ,>TOS ",16" ,ln
+	;
+
+:,CNTJOY
+|	"xor eax,eax" ,ln
+;
+:,GETJOY
+:,SLOAD
+:,SPLAY
+:,SINFO
+:,SSET  ;
+
+:,DOCINI
+:,DOCEND
+:,OPENURL	| url header buff -- buff/0
+:,DOCAT     | x y --
+:,DOCLINE	| x y --
+:,DOCTEXT	| "tt" --
+:,DOCFONT	| size angle "font" --
+:,DOCBIT	| bitmap x y --
+:,DOCRES	| -- xmax ymax
+:,DOCSIZE	| "tt" -- w h
+	;
+
+
+#stackmove ( 3 2 1 0 )
+
+:,MOVE
+	'stackmove stackconvert
+	freeEAX
+	"rep movsd" ,ln
+	;
+:,MOVE>
+	'stackmove stackconvert
+	freeEAX
+	"lea esi,[esi+ecx*4-4]" ,ln
+	"lea edi,[edi+ecx*4-4]" ,ln
+	"std" ,ln
+	"rep movsd" ,ln
+	"cld" ,ln
+	;
+:,CMOVE
+	'stackmove stackconvert
+	freeEAX
+	"rep movsb" ,ln
+	;
+:,CMOVE>
+	'stackmove stackconvert
+	freeEAX
+	"lea esi,[esi+ecx-1]" ,ln
+	"lea edi,[edi+ecx-1]" ,ln
+	"std" ,ln
+	"rep movsb" ,ln
+	"cld" ,ln
+	;
+
+#stackfill ( 3 2 1 0 )
+
+:,FILL
+	'stackfill stackconvert
+	"rep stosd" ,ln
+	;
+
+:,CFILL
+	'stackfill stackconvert
+	"rep stosb" ,ln
+	;
+
+|----------- en asmbase.txt
+:,SQRT
+:,INK :,INK@ :,ALPHA
+:,OP :,LINE :,CURVE :,CURVE3 :,PLINE :,PCURVE :,PCURVE3 :,POLI
+:,FCOL :,FCEN :,FMAT :,SFILL :,LFILL :,RFILL :,TFILL ;
+
+:,callsys | --
+	dup @ $ff and | word ;
+	16 =? ( "jmp " )( "call " ) nip
+	,s ;
+
+:vpila2v | stk --
+	drop ;
+
+:,END
+	"jmp SYSEND" ,ln ;
+:,FFIRST
+	,callsys "SYSFFIRST" ,ln ;
+:,FNEXT
+	,callsys "SYSFNEXT" ,ln
+	1 vpila2v ;
+:,LOAD
+	,callsys "SYSLOAD" ,ln
+	-1 vpila2v ;
+:,SAVE
+	,callsys "SYSSAVE" ,ln
+	-3 vpila2v ;
+:,APPEND
+	,callsys "SYSAPPEND" ,ln
+	-3 vpila2v ;
+
+#stackeax ( 0 )
+
+:,UPDATE
+	'stackeax stackconvert
+	,callsys "SYSUPDATE" ,ln ;
+
+:,MSEC
+	,callsys "SYSMSEC" ,ln
+	1 vpila2v ;
+
+:,TIME
+	,callsys "SYSTIME" ,ln
+	3 vpila2v ;
+
+:,DATE
+	,callsys "SYSDATE" ,ln
+	3 vpila2v ;
+
+:,RUN
+	'stackeax stackconvert
+	,callsys "SYSRUN" ,ln ;
+
+:,REDRAW
+	,callsys "SYSREDRAW" ,ln ;
+
+:,SYSTEM	| "sys" -- ret
+	'stackeax stackconvert
+	,callsys "SYSYSTEM" ,ln ;
+
+#acompila 0
+,defw ,defw ,defv ,defv 0 0
+,lit ,lit ,lit ,lit ,lits
+,wor ,var ,dwo ,dva
+,; ,( ,)( ,) ,[ ,] ,EXEC
+,0? ,+? ,-? ,1? ,=? ,<? ,>? ,<=? ,>=? ,<>? ,AND? ,NAND? | 30
+
+0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0
+
+,>R ,R> ,R@ 									|--- pila direcciones 52
+,AND ,OR ,XOR ,NOT  							|--- logicas        56
+,+ ,- ,* ,/ ,*/ ,*>> ,/MOD ,MOD ,ABS  			|--- aritmeticas | 65
+,SQRT ,CLZ ,<</ ,NEG ,1+ ,4+ ,1- ,2/ ,2* ,<< ,>> ,0>> | 76
+,@ ,C@ ,W@ ,! ,C! ,W! ,+! ,C+! ,W+!  			|--- memoria 85
+,@+ ,!+ ,C@+ ,C!+ ,W@+ ,W!+	| 91
+
+,>A	,A> ,A@ ,A! ,A+ ,A@+ ,A!+
+,>B	,B> ,B@ ,B! ,B+ ,B@+ ,B!+
+
+,MOVE ,MOVE> ,FILL ,CMOVE ,CMOVE> ,CFILL | 95
+,MEM ,FFIRST ,FNEXT
+,LOAD ,SAVE ,APPEND		|--- memoria bloques 102
+,UPDATE
+,XYMOUSE ,BMOUSE
+,KEY! ,KEY
+,CNTJOY ,GETJOY 							| 109
+,MSEC ,TIME ,DATE ,END ,RUN 				|--- sistema 114
+,SW ,SH ,REDRAW ,FRAMEV  						|--- pantalla
+
+,INK ,INK@ ,ALPHA							|--- color
+,OP ,LINE ,CURVE ,CURVE3 ,PLINE ,PCURVE ,PCURVE3 ,POLI		|--- dibujo
+,FCOL ,FCEN ,FMAT ,SFILL ,LFILL ,RFILL ,TFILL
+,SLOAD ,SPLAY ,SINFO ,SSET					|--- Sonido
+,OPENURL
+,DOCINI ,DOCEND ,DOCAT ,DOCLINE ,DOCTEXT ,DOCFONT ,DOCBIT ,DOCRES ,DOCSIZE  |-- impresora
+,SYSTEM
+
+:,cadatoken | adr+ t -- adr+
+	$ff and 2 << 'acompila + @ 0? ( drop ; )
+	exec ;
+
+|--------
+:codeini | w -- w
+	dup 'nword !
+	'pilac 'pilac> !
+	'pilab 'pilab> !
+	0 'nblock !
+	0 'strpending !
+	0 'nroi !
+	;
+
+| regIO  word -> 0 0 0 0
+| bytes.. cntIn i0 i1 i2 i3 cntO o0 o1 o2 o3
+|
+| tipo 0
+| [ebp+12] [ebp+8] [ebp+4] [ebp]
+| tipo 1
+| [ebp+8] [ebp+4] [ebp] eax
+| tipo 2
+| [ebp+4] [ebp] ebx eax
+| tipo 3
+| [ebp] ecx ebx eax
+| tipo 4
+| edx ecx ebx eax
+
+::iniCODE
+	here dup 'regIO !
+	cntwords 4 <<	| 16 bytes por word
+	+ 'here ! ;
+
+:compilacode | w --
+	dup 1- dic>inf @
+	$81 and $80 =? ( 2drop ; )
+	drop
+
+    "; --------------------------------" ,ln
+	dup cellana
+	"; vreg:" ,s cntvreg 1- ,d ,cr
+
+	codeini
+	inputcells
+
+	tokeninfo	| ** DEBUG
+	blockinfo	| ** DEBUG
+	cellinfo	| ** DEBUG
+
+	cntwords 1- =? ( "inicio:" ,ln )
+
+	dup dic>tok @ dup 'tokenini !
+	swap dic>len@
+	( 1? )( 1- swap @+
+		9 ,c "; " ,s nroi ,d " | " ,s dup tokenstr ,print
+		9 ,c "|" ,s nroi ,stackm " |" ,s nroi ,stackmc
+		,cr
+
+		,cadatoken swap
+
+		"r4/compiler/code.asm" savemem | DEBUG
+
+		1 'nroi +!
+		) 2drop
+
+|	"r4/compiler/code.asm" savemem | DEBUG
+	;
+
+::,generateCODE
+	0 ( cntwords <? )(
+		dup dic>inf @
+		1 nand? ( over compilacode )
+		drop 1+ ) drop ;
+
+::compilafull
+	1 'fullscreen ! ;
