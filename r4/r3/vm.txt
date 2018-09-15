@@ -1,33 +1,73 @@
 | VM r3
 | PHREDA 2018
 |-------------
+^./vstack.txt
 
-:i0	|00
-:i:	|01
-:i::	|02
-:i#	|03
-:i:	|04
-:i|	|05
-:i^	|06
-:idec	|07
-:ihex	|08
-:ibin	|09
-:ifix	|0A
-:istr	|0B
-:iwor	|0C
-:ivar	|0D
-:idwor	|0E
-:idvar	|0F
+:i0 :i: :i:: :i# :i: :i| :i^	;
+:g0 :g: :g:: :g# :g: :g| :g^    ;
+
+:idec								|07	| 8 bits
+	8 >> dup 24 << 24 >> pushD ;
+:gdec
+	8 >> dup 24 << 24 >> pushD ;
+
+:ihex								|08 | rest bits
+	8 >> pushD 0 ;
+:ghex
+	8 >> pushD 0 ;
+
+:ibin								|09	| const 8
+	8 >> getcte pushD 0 ;
+:gbin
+	8 >> getcte pushD 0 ;
+
+:ifix								|0A | rest bits const
+	8 >> $ff000000 and pushD 0 ;
+:gfix
+	8 >> $ff000000 and pushD 0 ;
+
+:istr								|0B	| nstr
+	8 >> $ffffff and strmem + pushD 0 ;
+:gistr
+	8 >> $ffffff and pushS 0 ;
+
+:iwor	|0C	| nwor
+:ivar	|0D | nwor
+:idwor	|0E | 'nword
+:idvar	|0F | 'space
+	;
+
 :i;	|10
 :i(	|11
 :i)	|12
 :i[	|13
 :i]	|14
+
 :iEX	|15
+:gEX
+	"call #0" ,asm
+	;
+
 :i0?	|16
+:g0?
+	"or #0,#0;jnz @b" ,asm
+	;
+
 :i1?	|17
+:g1?
+	"or #0,#0;jz @b" ,asm
+	;
+
 :i+?	|18
+:g+?
+	"or #0,#0;js @b" ,asm
+	;
+
 :i-?	|19
+:g-?
+	"or #0,#0;jns @b" ,asm
+	;
+
 :i<?	|1a
 :i>?	|1b
 :i=?	|1c
@@ -37,6 +77,8 @@
 :iA?	|20
 :iN?	|21
 :iB?	|22
+	;
+
 :iDUP	|23
 :iDROP	|24
 :iOVER	|25
@@ -52,53 +94,204 @@
 :i4DROP	|30
 :i2OVER	|31
 :i2SWAP	|32
+
 :i>R	|33
+:gr>
+	"push #0" ,asm ;
+
 :iR>	|34
+:gr>
+	"pop #0" ,asm ;
+
 :iR@	|35
+:gr@
+	"mov #0,[rSP]" ,asm ;
+
 :iAND	|36
+:gAND
+	"and #1,#0" ,asm ;
+
 :iOR	|37
+:gOR
+	"or #1,#0" ,asm ;
+
 :iXOR	|38
+:gXOR
+	"xor #1,#0" ,asm ;
+
 :iNOT	|39
+:gNOT
+	"not #0" ,asm ;
+
 :iNEG	|3a
-:i+	|3b
-:i-	|3c
-:i*	|3d
+:gNEG
+	"neg #0" ,asm ;
+
+:i+
+	.NOS@ .TOS@ + .TOS! .NIP ;
+:g+
+	"add #1,#0" ,asm ;
+
+:i-
+	.NOS@ .TOS@ - .TOS! .NIP ;
+:g-
+	"sub #1,#0" ,asm ;
+
+:i*
+	.NOS@ .TOS@ * .TOS! .NIP ;
+:g*
+	"imul #1,#0" ,asm ;
+
 :i/	|3e
+:g/
+	"cdq;idiv #1,#0" ,asm ;
+
 :i*/	|3f
+:g*/
+	"imul NOS,PK2;idiv NOS,TOS" ,asm
+	;
+
 :i/MOD	|40
 :iMOD	|41
 :iABS	|42
 :iSQRT	|43
 :iCLZ	|44
+
 :i<<	|45
+:g<<
+	"shl #1,#0" ,asm ;
+
 :i>>	|46
+:g>>
+	"sar #1,#0" ,asm ;
+
 :i0>>	|47
+:g0>>
+	"shr #1,#0" ,asm ;
+
+
 :i*>>	|48
 :i<</	|49
-:i2/	|4A
-:i2*	|4B
-:i@	|4C
-:iC@	|4D
-:iD@	|4E
-:i@+	|4F
-:iC@+	|50
-:iD@+	|51
-:i!	|52
-:iC!	|53
+
+
+:i@
+	d.pop @ d.push ;
+:g@
+	"mov #0,[#0]" ,asm
+	;
+
+:iC@
+	d.pop c@ d.push ;
+:gC@
+	"movsx #0,byte [#0]" ,asm
+	;
+
+:iD@
+	d.pop w@ d.push ;
+:gD@
+	"movsx #0,dword [#0]" ,asm
+	;
+
+:i@+	d.pop @+ swap d.push d.push ;
+:g@+
+	"mov #0,[#1];add #1,8" ,asm
+	;
+
+:iC@+	d.pop c@+ swap d.push d.push ;
+:gC@+
+	"movsx #0,byte [#1];add #1,1" ,asm
+	;
+
+:iD@+	d.pop w@+ swap d.push d.push ;
+:gD@+
+	"movsx #0,dword [#1];add #1,4" ,asm
+	;
+
+:i!     d.pop2 ! ;
+:g!
+	"mov [#0],#1" ,asm
+	;
+
+:iC!    d.pop2 c! ;
+:gC!
+	"mov byte [#0],#1" ,asm
+	;
+
 :iD!	|54
-:i!+	|55
-:iC!+	|56
-:iD!+	|57
-:i+!	|58
-:iC+!	|59
-:iD+!	|5a
+:gD!
+	"mov dword [#0],#1" ,asm
+	;
+
+
+
+
+
+
+:i!+	d.pop2 !+ d.push ;
+:g!+
+	"mov [#0],#1;add #0,8" ,asm
+	;
+
+:iC!+	d.pop2 c!+ d.push ;
+:gC!+
+	"mov byte [#0],#1;add #0,1" ,asm
+	;
+
+:iD!+	d.pop2 w!+ d.push ;
+:gD!+
+	"mov dword [#0],#1;add #0,4" ,asm
+	;
+
+:i+!	d.pop2 +! ;
+:g+!
+	"add [#0],#1" ,asm
+	;
+
+:iC+!	d.pop2 c+! ;
+:gC+!
+	"add byte [#0],#1" ,asm
+	;
+
+:iD+!	d.pop2 +! ;
+:gD+!
+	"add dword [#0],#1" ,asm
+	;
+
 :i>A	|5b
+:g>A
+	"mov rsi,#0" ,asm
+	;
+
 :iA>	|5c
+:gA>
+	"mov #0,rsi" ,asm
+	;
+
 :iA@	|5d
+:gA@
+	"mov #0,[rsi]" ,asm
+	;
+
 :iA!	|5e
+:gA!
+	"mov [rsi],#0" ,asm
+	;
+
 :iA+	|5f
+:gA+
+	"add rsi,#0" ,asm
+	;
+
 :iA@+	|60
+:gA@+
+	"mov #0,[rsi];add rsi,8" ,asm
+	;
+
 :iA!+	|61
+:gA!+
+	"mov [rsi],#0;add rsi,8" ,asm
+	;
+
 :i>B	|62
 :iB>	|63
 :iB@	|64
@@ -106,6 +299,7 @@
 :iB+	|66
 :iB@+	|67
 :iB!+	|68
+
 :iMOVE	|69
 :iMOVE>	|6a
 :iFILL	|6b
@@ -115,29 +309,13 @@
 :iDMOVE	|6f
 :iDMOVE>	|70
 :iDFILL	|71
-:iMSEC	|72
-:iTIME	|73
-:iDATE	|74
-:iMEM	|75
-:iUPDATE	|76
-:iREDRAW	|77
-:iSW	|78
-:iSH	|79
-:iFRAMEV	|7a
-:iLOAD	|7b
-:iSAVE	|7c
-:iAPPEND	|7d
-:iFFIRST	|7e
-:iFNEXT	|7f
-:iPEN	|80
-:iKEY	|81
-:iNET	|82
-:iCAM	|83
-:iMIC	|84
-:iSPK	|85
-:iIO	|86
 
-#tablai	| tabla de saltos de instrucciones
+:iSYSCALL
+:iSYSMEM
+	;
+
+
+#vml
 i0 i: i:: i# i: i| i^		| 0 1 2 3 4 5 6
 idec ihex ibin ifix istr    | 7 8 9 a b
 iwor ivar idwor idvar		| c d e f
@@ -159,15 +337,37 @@ i>B iB> iB@ iB! iB+ iB@+ iB!+
 iMOVE iMOVE> iFILL
 iCMOVE iCMOVE> iCFILL
 iDMOVE iDMOVE> iDFILL
-iMSEC iTIME iDATE
-iMEM iUPDATE iREDRAW
-iSW iSH iFRAMEV
-iLOAD iSAVE iAPPEND
-iFFIRST	iFNEXT
-iPEN iKEY iNET iCAM iMIC iSPK iIO
+iSYSCALL iSYSMEM
 
 
 :vmstep
-	@+ $ff and 2 << 'vml + @ exec
-	;
+	$ff and 2 << 'vml + @ exec ;
 
+:vmrun | adr -- adr'
+	( @+ 1? )(
+		( dup vmstep 8 0>> 0? ) drop
+		) drop ;
+
+#vmc
+g0 g: g:: g# g: g| g^		| 0 1 2 3 4 5 6
+gdec ghex gbgn gfgx gstr    | 7 8 9 a b
+gwor gvar gdwor gdvar		| c d e f
+g; g( g) g[ g] gEX
+g0? g1? g+? g-? g<? g>? g=? g>=? g<=? g<>? gA? gN? gB?
+gDUP gDROP gOVER gPICK2 gPICK3 gPICK4 gSWAP gNIP
+gROT g2DUP g2DROP g3DROP g4DROP g2OVER g2SWAP
+g>R gR> gR@
+gAND gOR gXOR gNOT gNEG
+g+ g- g* g/ g*/
+g/MOD gMOD gABS gSQRT gCLZ
+g<< g>> g0>> g*>> g<</
+g2/ g2*
+g@ gC@ gD@ g@+ gC@+ gD@+
+g! gC! gD! g!+ gC!+ gD!+
+g+! gC+! gD+!
+g>A gA> gA@ gA! gA+ gA@+ gA!+
+g>B gB> gB@ gB! gB+ gB@+ gB!+
+gMOVE gMOVE> gFILL
+gCMOVE gCMOVE> gCFILL
+gDMOVE gDMOVE> gDFILL
+gSYSCALL gSYSMEM
