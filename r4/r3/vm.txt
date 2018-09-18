@@ -17,6 +17,12 @@
 :wlevel	| -- wl
 	niv> 4 - @ 24 >> ;
 
+:getcte
+	;
+:strmem
+	0
+	;
+
 |----------------------
 
 :i0 :i: :i:: :i# :i: :i| :i^	;
@@ -25,38 +31,53 @@
 :idec								|07	| 8 bits
 	8 >> dup 24 << 24 >> .PUSHD ;
 :gdec
-	8 >> dup 24 << 24 >> pushD ;
+	8 >> dup 24 << 24 >> .PUSHD ;
 
 :ihex								|08 | rest bits
 	8 >> .PUSHD 0 ;
 :ghex
-	8 >> pushD 0 ;
+	8 >> .PUSHD 0 ;
 
 :ibin								|09	| const 8
 	8 >> getcte .PUSHD 0 ;
 :gbin
-	8 >> getcte pushD 0 ;
+	8 >> getcte .PUSHD 0 ;
 
 :ifix								|0A | rest bits neg
 	8 >> $ff000000 or .PUSHD 0 ;
 :gfix
-	8 >> $ff000000 or pushD 0 ;
+	8 >> $ff000000 or .PUSHD 0 ;
 
 :istr								|0B	| nstr
 	8 >> $ffffff and strmem + .PUSHD 0 ;
-:gistr
+:gstr
 	8 >> $ffffff and .PUSHD 0 ;
 
 :iwor
 	.PUSHD
 	;
+:gwor
+	.PUSHD
+	;
+
 :ivar
 	.PUSHD
 	;
+:gvar
+	.PUSHD
+	;
+
 :idwor
 	.PUSHD
 	;
+:gdwor
+	.PUSHD
+	;
+
 :idvar
+	.PUSHD
+	;
+:gdvar
 	.PUSHD
 	;
 
@@ -64,20 +85,27 @@
 :next(
 	;
 
-:i;
+:i;	;
+:g;
 	"ret" ,ln
 	;
+
 :i(
+:g(
 	level+
 	nlevel "_li%h:" ,ln
 	;
+
 :i)
+:g)
 	wlevel 1? ( nlevel "jmp _li%h" ,ln ) drop
 	nlevel "_lo%h:" ,ln
 	level-
 	;
 :i[
+:g[
 :i]
+:g]
 	;
 
 :iEX
@@ -115,74 +143,84 @@
 	nlevel "jns _lo%h" ,ln
 	;
 
-
 :i<?
+:g<?
 	next(
 	"cmp #1,#0" ,asm
 	nlevel "jge _lo%h" ,ln
 	;
+
 :i>?
+:g>?
 	next(
 	"cmp #1,#0" ,asm
 	nlevel "jle _lo%h" ,ln
 	;
 
 :i=?
+:g=?
 	next(
 	"cmp #1,#0" ,asm
 	nlevel "jne _lo%h" ,ln
 	;
 
 :i>=?
+:g>=?
 	next(
 	"cmp #1,#0" ,asm
 	nlevel "jl _lo%h" ,ln
 	;
 
 :i<=?
+:g<=?
 	next(
 	"cmp #1,#0" ,asm
 	nlevel "jg _lo%h" ,ln
 	;
 
 :i<>?
+:g<>?
 	next(
 	"cmp #1,#0" ,asm
 	nlevel "je _lo%h" ,ln
 	;
 
 :iA?
+:gA?
 	next(
 	"test #1,#0" ,asm
 	nlevel "jnz _lo%h" ,ln
 	;
 
 :iN?
+:gN?
 	next(
 	"test #1,#0" ,asm
 	nlevel "jz _lo%h" ,ln
 	;
 
 :iB?
+:gB?
 	next(
 	| sub nos2,nos
 	| cmp nos,tos-nos
-	"cmp " ,s ,NOS "," ,s ,TOS ,cr
+	"cmp #2,#1" ,asm
 	nlevel "jge _lo%h" ,ln
 	;
 
 
 :i>R	|33
-:gr>
+:g>R
 	"push #0" ,asm ;
 
 :iR>	|34
-:gr>
+:gR>
 	"pop #0" ,asm ;
 
 :iR@	|35
-:gr@
+:gR@
 	"mov #0,[rSP]" ,asm ;
+
 
 :iAND	|36
 	.AND ;
@@ -236,14 +274,23 @@
 	;
 
 :i/MOD
+:g/MOD
 	./MOD ;
+
 :iMOD
+:gMOD
 	.MOD ;
+
 :iABS
+:gABS
 	.ABS ;
+
 :iSQRT
+:gSQRT
 	.SQRT ;
+
 :iCLZ
+:gCLZ
 	.CLZ ;
 
 :i<<
@@ -256,17 +303,20 @@
 :g>>
 	"sar #1,#0" ,asm ;
 
-:i0>>	
+:i0>>
 	.0>> ;
 :g0>>
 	"shr #1,#0" ,asm ;
 
 
-:i*>>	
+:i*>>
+:g*>>
 	.*>> ;
+
 :i<</
 	.<</ ;
-
+:g<</
+	;
 
 :i@
 	;
@@ -275,74 +325,86 @@
 	;
 
 :iC@
-	d.pop c@ d.push ;
+	;
 :gC@
 	"movsx #0,byte [#0]" ,asm
 	;
 
 :iD@
-	d.pop w@ d.push ;
+	;
 :gD@
 	"movsx #0,dword [#0]" ,asm
 	;
 
-:i@+	d.pop @+ swap d.push d.push ;
+:i@+
+	;
 :g@+
 	"mov #0,[#1];add #1,8" ,asm
 	;
 
-:iC@+	d.pop c@+ swap d.push d.push ;
+:iC@+
+	;
 :gC@+
 	"movsx #0,byte [#1];add #1,1" ,asm
 	;
 
-:iD@+	d.pop w@+ swap d.push d.push ;
+:iD@+
+	;
 :gD@+
 	"movsx #0,dword [#1];add #1,4" ,asm
 	;
 
-:i!     d.pop2 ! ;
+:i!	
+	;
 :g!
 	"mov [#0],#1" ,asm
 	;
 
-:iC!    d.pop2 c! ;
+:iC!
+	;
 :gC!
 	"mov byte [#0],#1" ,asm
 	;
 
-:iD!	|54
+:iD!
+	;
 :gD!
 	"mov dword [#0],#1" ,asm
 	;
 
 
-:i!+	d.pop2 !+ d.push ;
+:i!+
+	;
 :g!+
 	"mov [#0],#1;add #0,8" ,asm
 	;
 
-:iC!+	d.pop2 c!+ d.push ;
+:iC!+
+	;
 :gC!+
 	"mov byte [#0],#1;add #0,1" ,asm
 	;
 
-:iD!+	d.pop2 w!+ d.push ;
+:iD!+
+	;
 :gD!+
 	"mov dword [#0],#1;add #0,4" ,asm
 	;
 
-:i+!	d.pop2 +! ;
+:i+!
+	;
 :g+!
 	"add [#0],#1" ,asm
 	;
 
-:iC+!	d.pop2 c+! ;
+:iC+!
+	;
 :gC+!
 	"add byte [#0],#1" ,asm
 	;
 
-:iD+!	d.pop2 +! ;
+:iD+!
+	;
 :gD+!
 	"add dword [#0],#1" ,asm
 	;
@@ -434,17 +496,33 @@
 
 
 :iMOVE
+:gMOVE
+
 :iMOVE>
+:gMOVE>
 :iFILL
+:gFILL
 :iCMOVE
+:gCMOVE
 :iCMOVE>
+:gCMOVE>
 :iCFILL
+:gCFILL
+
 :iDMOVE
+:gDMOVE
+
 :iDMOVE>
+:gDMOVE>
+
 :iDFILL
+:gDFILL
 
 :iSYSCALL
+:gSYSCALL
+
 :iSYSMEM
+:gSYSMEM
 	;
 
 
@@ -482,12 +560,12 @@ iSYSCALL iSYSMEM
 
 #vmc
 g0 g: g:: g# g: g| g^		| 0 1 2 3 4 5 6
-gdec ghex gbgn gfgx gstr    | 7 8 9 a b
+gdec ghex gbin gfix gstr    | 7 8 9 a b
 gwor gvar gdwor gdvar		| c d e f
 g; g( g) g[ g] gEX
 g0? g1? g+? g-? g<? g>? g=? g>=? g<=? g<>? gA? gN? gB?
-gDUP gDROP gOVER gPICK2 gPICK3 gPICK4 gSWAP gNIP
-gROT g2DUP g2DROP g3DROP g4DROP g2OVER g2SWAP
+.DUP .DROP .OVER .PICK2 .PICK3 .PICK4 .SWAP .NIP
+.ROT .2DUP .2DROP .3DROP .4DROP .2OVER .2SWAP
 g>R gR> gR@
 gAND gOR gXOR gNOT gNEG
 g+ g- g* g/ g*/
@@ -505,3 +583,7 @@ gSYSCALL gSYSMEM
 
 ::cgstep
 	$ff and 2 << 'vmc + @ exec ;
+
+|----------------
+#tok $107 0
+: 'tok vmrun ;
