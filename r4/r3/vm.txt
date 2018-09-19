@@ -28,34 +28,29 @@
 :i0 :i: :i:: :i# :i: :i| :i^	;
 :g0 :g: :g:: :g# :g: :g| :g^    ;
 
-:idec								|07	| 8 bits
-	8 >> dup 24 << 24 >> .PUSHD ;
+:idec								|07
 :gdec
-	8 >> dup 24 << 24 >> .PUSHD ;
+	dup 16 << 23 >> .PUSHD 8 0>> ;
 
 :ihex								|08 | rest bits
-	8 >> .PUSHD 0 ;
 :ghex
-	8 >> .PUSHD 0 ;
+	7 0>> .PUSHD 0 ;
 
-:ibin								|09	| const 8
-	8 >> getcte .PUSHD 0 ;
+:ibin								|09 | rest bits neg
 :gbin
-	8 >> getcte .PUSHD 0 ;
+	7 0>> neg .PUSHD 0 ;
 
-:ifix								|0A | rest bits neg
-	8 >> $ff000000 or .PUSHD 0 ;
+:ifix								|0A | cte
 :gfix
-	8 >> $ff000000 or .PUSHD 0 ;
+	7 0>> getcte .PUSHD 0 ;
 
 :istr								|0B	| nstr
-	8 >> $ffffff and strmem + .PUSHD 0 ;
+	7 0>> strmem + .PUSHD 0 ;
 :gstr
-	8 >> $ffffff and .PUSHD 0 ;
+	7 0>> .PUSHD 0 ;
 
 :iwor
-	.PUSHD
-	;
+	7 0>> .PUSHD 0 ;
 :gwor
 	.PUSHD
 	;
@@ -68,15 +63,13 @@
 	;
 
 :idwor
-	.PUSHD
-	;
+	7 0>> .PUSHD 0 ;
 :gdwor
 	.PUSHD
 	;
 
 :idvar
-	.PUSHD
-	;
+	7 0>> .PUSHD 0 ;
 :gdvar
 	.PUSHD
 	;
@@ -270,28 +263,39 @@
 :i*/
 	.*/ ;
 :g*/
-	"imul #2,#1;idiv #0" ,asm
+	"cdq;imul #1;idiv #0" ,asm
 	;
 
 :i/MOD
-:g/MOD
 	./MOD ;
+:g/MOD
+	"cdq;idiv #0" ,asm
+	;
 
 :iMOD
-:gMOD
 	.MOD ;
+:gMOD
+	"cdq;idiv #0" ,asm
+	;
+
 
 :iABS
-:gABS
 	.ABS ;
+:gABS
+	"mov rdx,#0;sar rdx,63;add #0,rdx;xor #0,rdx" ,asm
+	;
+
 
 :iSQRT
-:gSQRT
 	.SQRT ;
+:gSQRT
+	;
 
 :iCLZ
-:gCLZ
 	.CLZ ;
+:gCLZ
+	"bsr #0,#0;xor #0,63" ,asm
+	;
 
 :i<<
 	.<< ;
@@ -310,12 +314,15 @@
 
 
 :i*>>
-:g*>>
 	.*>> ;
+:g*>>
+	"cdq;imul #1;shrd rax,rdx,#b0;sar rdx,#b0;test #b0,64;cmovne rax,rdx" ,asm
+	;
 
 :i<</
 	.<</ ;
 :g<</
+	"cdq;shld rdx,rax,#b0;shl rax,#b0;idiv #1" ,asm
 	;
 
 :i@
@@ -354,7 +361,7 @@
 	"movsx #0,dword [#1];add #1,4" ,asm
 	;
 
-:i!	
+:i!
 	;
 :g!
 	"mov [#0],#1" ,asm
@@ -497,26 +504,47 @@
 
 :iMOVE
 :gMOVE
+	"rep movsq" ,asm
+	;
 
 :iMOVE>
 :gMOVE>
+	"lea rsi,[rsi+rcx*8-8];lea rdi,[rdi+rcx*8-8];std;rep movsq;cld" ,asm
+	;
 :iFILL
 :gFILL
+	"rep stosq" ,asm
+	;
+
 :iCMOVE
 :gCMOVE
+	"rep movsb" ,asm
+	;
+
 :iCMOVE>
 :gCMOVE>
+	"lea rsi,[rsi+rcx-1];lea rdi,[rdi+rcx-1];std;rep movsb;cld" ,asm
+	;
+
 :iCFILL
 :gCFILL
+	"rep stosb" ,asm
+	;
 
 :iDMOVE
 :gDMOVE
+	"rep movsd" ,asm
+	;
 
 :iDMOVE>
 :gDMOVE>
+	"lea rsi,[rsi+rcx*4-4];lea rdi,[rdi+rcx*4-4];std;rep movsd;cld" ,asm
+	;
 
 :iDFILL
 :gDFILL
+	"rep stosd" ,asm
+	;
 
 :iSYSCALL
 :gSYSCALL
@@ -551,12 +579,12 @@ iSYSCALL iSYSMEM
 
 
 :vmstep
-	$ff and 2 << 'vml + @ exec ;
+	$7f and 2 << 'vml + @ exec ;
 
 ::vmrun | adr -- adr'
 	( @+ 1? )(
 		( dup vmstep 8 0>> 0? ) drop
-		) drop ;
+		) 2drop ;
 
 #vmc
 g0 g: g:: g# g: g| g^		| 0 1 2 3 4 5 6
@@ -582,7 +610,7 @@ gDMOVE gDMOVE> gDFILL
 gSYSCALL gSYSMEM
 
 ::cgstep
-	$ff and 2 << 'vmc + @ exec ;
+	$7f and 2 << 'vmc + @ exec ;
 
 |----------------
 #tok $107 0
