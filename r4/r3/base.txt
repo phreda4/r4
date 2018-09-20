@@ -29,38 +29,75 @@
 	'r3base swap
 	( 1? )( 1- swap >>0 swap ) drop ;
 
+:?mac | adr -- nro/-1
+	0 'r3base
+	( 1? )(
+		pick2 over =s 1? ( 3drop ; ) drop
+		>>0 swap 1+ swap ) 2drop
+	-1 ;
+
 |----------------------------------------------------
+
+#token>
+#slot
+#bit
+
+:,slot | bits nro --
+	bit << 'slot +!
+	bit +
+	32 =? ( slot token> !+ 'token> ! 0 'slot ! 0 )
+	'bit ! ;
+
+
+:iniTOK | adr --
+	'token> ! 
+	0 'slot ! 0 'bit ! ;
+
+:,lit8 | nro --
+	7 << $ff70 and
+	$7 or
+	16 swap ,slot
+	;
+
+:,litr
+	;
+:,litn
+	;
+
+:pMAC | mac --
+	$10 +
+	8 swap ,slot
+	;
 
 :pINC
 :pCOM
 :pCOD
 :pVAR
 :pSTR
-:pMAC
 :pWOR
 :pADR
-:pNUM
 	;
 
 
-:?mac
+| $1ffffff
+| $1ffff
+| $1ff
+:pNUM | adr -- adr'
+	str>nro
+	-256 >=? ( 255 <=? ( ,lit8 ; ) )
+	0 >=? ( $1ffffff <=? ( ,litr ; ) )
+	-$1ffffff =? ( 0 <=? ( ,litn ; ) )
+
 	;
 
-:?num
-| $ hex
-| % bin
 
-	;
-|		dup ?fnum 1? ( drop rot drop -1 'basen ! pNUM ; ) drop	| numero
 
-:?fnum
-	;
 
 :?wor
 	;
 
 |----------------------------------------------------
-::r3token | str -- 'str tok/- error
+::r3token | str -- 'str tok/-error
 	( dup c@ $ff and 33 <? )( 0? ( nip ; ) drop 1+ )	| quitar espacios
 	$5e =? ( drop pINC ; )		| $5e ^  Include
 	$7c =? ( drop pCOM ; )		| $7c |	 Comentario
@@ -71,7 +108,7 @@
 		?wor 1? ( nip pADR ; ) 2drop
 		-1 ; )
 	drop
-	dup ?num 1? ( pNUM ; ) drop	| numero
+	dup isNro 1? ( drop pNUM ; ) drop	| numero
 	dup ?mac 1? ( pMAC ; ) drop	| macro
 	?wor 1? ( pWOR ; ) drop		| palabra
  	-1 ;
@@ -84,6 +121,6 @@
 
 :r3includeprecalc
 	;
-	
+
 ::r3gen | str -- tokens
 	;
