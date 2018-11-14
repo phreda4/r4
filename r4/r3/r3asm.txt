@@ -1,0 +1,553 @@
+| VM r3
+| PHREDA 2018
+|-------------
+^./vstack.txt
+^./asm.txt
+
+#niv )( 1024
+#niv> 'niv
+#nniv 0
+
+:level+
+	nniv niv> !+ 'niv> ! 1 'nniv +! ;
+:level-
+	-4 'niv> +! ;
+:nlevel	| -- nl
+	niv> 4 - @ $ffffff and 	;
+:wlevel	| -- wl
+	niv> 4 - @ 24 >> ;
+
+:getcte
+	;
+:strmem
+	0
+	;
+
+|----------------------
+
+:g0 :g: :g:: :g# :g: :g| :g^    ;
+
+:idec								|07
+:gdec
+	dup 16 << 23 >> .PUSHD 8 0>> ;
+
+:ihex								|08 | rest bits
+:ghex
+	7 0>> .PUSHD 0 ;
+
+:ibin								|09 | rest bits neg
+:gbin
+	7 0>> neg .PUSHD 0 ;
+
+:ifix								|0A | cte
+:gfix
+	7 0>> getcte .PUSHD 0 ;
+
+:istr								|0B	| nstr
+	7 0>> strmem + .PUSHD 0 ;
+:gstr
+	7 0>> .PUSHD 0 ;
+
+:iwor								|c
+	7 0>> .PUSHD 0 ;
+:gwor
+	.PUSHD
+	;
+
+:ivar								|d
+	.PUSHD
+	;
+:gvar
+	.PUSHD
+	;
+
+:idwor								|e
+	7 0>> .PUSHD 0 ;
+:gdwor
+	"call #w" ,asm
+	;
+
+:idvar								|f
+	7 0>> .PUSHD 0 ;
+:gdvar
+	.PUSHD
+	;
+
+
+:next(
+	;
+
+:i; 							| 10
+	2drop .popIP 0 ;
+
+:g;
+	"ret" ,ln
+	;
+
+|--- IF
+:i(				| 11
+:g(
+	level+
+	nlevel "_li%h:" ,ln
+	;
+
+:i)				| 12
+:g)
+	wlevel 1? ( nlevel "jmp _li%h" ,ln ) drop
+	nlevel "_lo%h:" ,ln
+	level-
+	;
+|--- REP
+:i[				| 13
+:g[
+:i]             | 14
+:g]
+	;
+
+:iEX			| 15
+	.EX ;
+:gEX
+	"call #0" ,asm
+|	"jmp #0" ,asm
+	;
+
+:i0?
+:g0?
+	next(
+	"or #0,#0" ,asm
+	nlevel "jnz _lo%h" ,ln
+	;
+
+:i1?
+:g1?
+	next(
+	"or #0,#0" ,asm
+	nlevel "jz _lo%h" ,ln
+	;
+
+:i+?
+:g+?
+	next(
+	"or #0,#0" ,asm
+	nlevel "js _lo%h" ,ln
+	;
+
+:i-?
+:g-?
+	next(
+	"or #0,#0" ,asm
+	nlevel "jns _lo%h" ,ln
+	;
+
+:i<?
+:g<?
+	next(
+	"cmp #1,#0" ,asm
+	nlevel "jge _lo%h" ,ln
+	;
+
+:i>?
+:g>?
+	next(
+	"cmp #1,#0" ,asm
+	nlevel "jle _lo%h" ,ln
+	;
+
+:i=?
+:g=?
+	next(
+	"cmp #1,#0" ,asm
+	nlevel "jne _lo%h" ,ln
+	;
+
+:i>=?
+:g>=?
+	next(
+	"cmp #1,#0" ,asm
+	nlevel "jl _lo%h" ,ln
+	;
+
+:i<=?	| 18
+:g<=?
+	next(
+	"cmp #1,#0" ,asm
+	nlevel "jg _lo%h" ,ln
+	;
+
+:i<>?	| 19
+:g<>?
+	next(
+	"cmp #1,#0" ,asm
+	nlevel "je _lo%h" ,ln
+	;
+
+:iA?	| 20
+:gA?
+	next(
+	"test #1,#0" ,asm
+	nlevel "jnz _lo%h" ,ln
+	;
+
+:iN?	| 21
+:gN?
+	next(
+	"test #1,#0" ,asm
+	nlevel "jz _lo%h" ,ln
+	;
+
+:iB?    | 22
+:gB?
+	next(
+	| sub nos2,nos
+	| cmp nos,tos-nos
+	"cmp #2,#1" ,asm
+	nlevel "jge _lo%h" ,ln
+	;
+
+
+:g>R
+	"push #0" ,asm ;
+
+:gR>
+	"pop #0" ,asm ;
+
+:gR@
+	"mov #0,[rSP]" ,asm ;
+
+
+:gAND	|35
+	"and #1,#0" ,asm ;
+
+:gOR	|36
+	"or #1,#0" ,asm ;
+
+:gXOR
+	"xor #1,#0" ,asm ;
+
+:gNOT
+	"not #0" ,asm ;
+
+:gNEG
+	"neg #0" ,asm ;
+
+:g+
+	"add #1,#0" ,asm ;
+
+:g-
+	"sub #1,#0" ,asm ;
+
+:g*
+	"imul #1,#0" ,asm ;
+
+:g/
+	"cdq;idiv #1,#0" ,asm ;
+
+:g*/
+	"cdq;imul #1;idiv #0" ,asm ;
+
+:g/MOD
+	"cdq;idiv #0" ,asm ;
+
+:gMOD
+	"cdq;idiv #0" ,asm
+	;
+
+
+:gABS
+	"mov rdx,#0;sar rdx,63;add #0,rdx;xor #0,rdx" ,asm
+	;
+
+
+:gSQRT
+	;
+
+:gCLZ
+	"bsr #0,#0;xor #0,63" ,asm
+	;
+
+:g<<
+	"shl #1,#0" ,asm ;
+
+:g>>
+	"sar #1,#0" ,asm ;
+
+:g0>>
+	"shr #1,#0" ,asm ;
+
+
+:g*>>
+	"cdq;imul #1;shrd rax,rdx,#b0;sar rdx,#b0;test #b0,64;cmovne rax,rdx" ,asm
+	;
+
+:g<</
+	"cdq;shld rdx,rax,#b0;shl rax,#b0;idiv #1" ,asm
+	;
+
+:i@
+	;
+:g@
+	"movsx #0,dword [#0]" ,asm
+	;
+
+:iC@
+	;
+:gC@
+	"movsx #0,byte [#0]" ,asm
+	;
+
+:iQ@
+	;
+:gQ@
+	"mov #0,[#0]" ,asm
+	;
+
+:i@+
+	;
+:g@+
+	"movsx #0,dword [#1];add #1,4" ,asm
+	;
+
+:iC@+
+	;
+:gC@+
+	"movsx #0,byte [#1];add #1,1" ,asm
+	;
+
+:iQ@+
+	;
+:gQ@+
+	"mov #0,[#1];add #1,8" ,asm
+	;
+
+:i!
+	;
+:g!
+	"mov [#0],#1" ,asm
+	;
+
+:iC!
+	;
+:gC!
+	"mov byte [#0],#1" ,asm
+	;
+
+:iD!
+	;
+:gD!
+	"mov dword [#0],#1" ,asm
+	;
+
+
+:i!+
+	;
+:g!+
+	"mov dword [#0],#1;add #0,4" ,asm
+	;
+
+:iC!+
+	;
+:gC!+
+	"mov byte [#0],#1;add #0,1" ,asm
+	;
+
+:iQ!+
+	;
+:gQ!+
+	"mov [#0],#1;add #0,8" ,asm
+	;
+
+:i+!
+	;
+:g+!
+	"add dword [#0],#1" ,asm
+	;
+
+:iC+!
+	;
+:gC+!
+	"add byte [#0],#1" ,asm
+	;
+
+:iQ+!
+	;
+:gQ+!
+	"add [#0],#1" ,asm
+	;
+
+:g>A
+	"mov rsi,#0" ,asm
+	;
+
+:gA>
+	"mov #0,rsi" ,asm
+	;
+
+:gA@
+	"mov #0,[rsi]" ,asm
+	;
+
+:gA!
+	"mov [rsi],#0" ,asm
+	;
+
+:gA+
+	"add rsi,#0" ,asm
+	;
+
+:gA@+
+	"mov #0,[rsi];add rsi,8" ,asm
+	;
+
+:gA!+
+	"mov [rsi],#0;add rsi,8" ,asm
+	;
+
+
+:g>B
+	"mov rdi,#0" ,asm
+	;
+
+:gB>
+	"mov #0,rdi" ,asm
+	;
+
+:gB@
+	"mov #0,[rdi]" ,asm
+	;
+
+:gB!
+	"mov [rdi],#0" ,asm
+	;
+
+:gB+
+	"add rdi,#0" ,asm
+	;
+
+:gB@+
+	"mov #0,[rdi];add rdi,8" ,asm
+	;
+
+:gB!+
+	"mov [rdi],#0;add rdi,8" ,asm
+	;
+
+
+:iMOVE
+:gMOVE
+	"rep movsq" ,asm
+	;
+
+:iMOVE>
+:gMOVE>
+	"lea rsi,[rsi+rcx*8-8];lea rdi,[rdi+rcx*8-8];std;rep movsq;cld" ,asm
+	;
+:iFILL
+:gFILL
+	"rep stosq" ,asm
+	;
+
+:iCMOVE
+:gCMOVE
+	"rep movsb" ,asm
+	;
+
+:iCMOVE>
+:gCMOVE>
+	"lea rsi,[rsi+rcx-1];lea rdi,[rdi+rcx-1];std;rep movsb;cld" ,asm
+	;
+
+:iCFILL
+:gCFILL
+	"rep stosb" ,asm
+	;
+
+:iDMOVE
+:gDMOVE
+	"rep movsd" ,asm
+	;
+
+:iDMOVE>
+:gDMOVE>
+	"lea rsi,[rsi+rcx*4-4];lea rdi,[rdi+rcx*4-4];std;rep movsd;cld" ,asm
+	;
+
+:iDFILL
+:gDFILL
+	"rep stosd" ,asm
+	;
+
+:iSYSCALL
+:gSYSCALL
+
+:iSYSMEM
+:gSYSMEM
+	;
+
+
+#vml
+i0 i: i:: i# i: i| i^		| 0 1 2 3 4 5 6
+idec ihex ibin ifix istr    | 7 8 9 a b
+iwor ivar idwor idvar		| c d e f
+i; i( i) i[ i] iEX
+i0? i1? i+? i-? i<? i>? i=? i>=? i<=? i<>? iA? iN? iB?
+.DUP .DROP .OVER .PICK2 .PICK3 .PICK4 .SWAP .NIP
+.ROT .2DUP .2DROP .3DROP .4DROP .2OVER .2SWAP
+.>R .R> .R@
+.AND .OR .XOR .NOT .NEG
+.+ .- .* ./ .*/
+./MOD .MOD .ABS .SQRT .CLZ
+.<< .>> .0>> .*>> .<</
+i@ iC@ iQ@ i@+ iC@+ iQ@+
+i! iC! iQ! i!+ iC!+ iQ!+
+i+! iC+! iQ+!
+.>A .A> .A@ .A! .A+ .A@+ .A!+
+.>B .B> .B@ .B! .B+ .B@+ .B!+
+iMOVE iMOVE> iFILL
+iCMOVE iCMOVE> iCFILL
+iDMOVE iDMOVE> iDFILL
+iSYSCALL iSYSMEM
+
+
+:vmstep
+	$7f and 2 << 'vml + @ exec ;
+
+::vmrun | adr --
+	( @+ 1? )(
+		( dup vmstep 8 0>> 0? ) drop
+		0? ( drop ; )
+		) 2drop ;
+
+#vmc
+g0 g: g:: g# g: g| g^		| 0 1 2 3 4 5 6
+gdec ghex gbin gfix gstr    | 7 8 9 a b
+gwor gvar gdwor gdvar		| c d e f
+g; g( g) g[ g] gEX			| 10..15
+g0? g1? g+? g-? g<? g>? g=? g>=? g<=? g<>? gA? gN? gB?	| 16..22
+.DUP .DROP .OVER .PICK2 .PICK3 .PICK4 .SWAP .NIP		| 23..2A
+.ROT .2DUP .2DROP .3DROP .4DROP .2OVER .2SWAP			| 2B..31
+g>R gR> gR@                                             | 32..34
+gAND gOR gXOR gNOT gNEG									| 35..39
+g+ g- g* g/ g*/                                         | 3A..3E
+g/MOD gMOD gABS gSQRT gCLZ
+g<< g>> g0>> g*>> g<</
+g@ gC@ gD@ g@+ gC@+ gD@+
+g! gC! gD! g!+ gC!+ gD!+
+g+! gC+! gD+!
+g>A gA> gA@ gA! gA+ gA@+ gA!+
+g>B gB> gB@ gB! gB+ gB@+ gB!+
+gMOVE gMOVE> gFILL
+gCMOVE gCMOVE> gCFILL
+gDMOVE gDMOVE> gDFILL
+gSYSCALL gSYSMEM
+
+::cgstep
+	$7f and 2 << 'vmc + @ exec ;
+
+|----------------
+#tok
+$2070107		| lit 2 lit 4
+$7fffff88       | lit ffff
+$103b3a         | + - ;
+0
+
+: 'tok vmrun ;
