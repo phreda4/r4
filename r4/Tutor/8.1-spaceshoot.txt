@@ -3,12 +3,16 @@
 ^r4/lib/bmr.txt
 ^./draws.bmr
 
-#xn
-#xa
-#yn
+#xn #yn
+#xa #ya
+#pnts #lives
+
 #stars 0 0
 #shoots 0 0
+#aliens 0 0
+#explot 0 0
 
+|--------------------
 :*stars | adr --
 	>a a@+ a@+ a@+ + 				| x y+s
 	sh fixed >=? ( 0 nip )          | x 0
@@ -28,46 +32,108 @@
         a!+
 		) drop ;
 
+|--------------------
+:*expl | adr --
+	>a a@+ a@+ a@
+	1+
+	20 >? ( 3drop 0 ; )
+	dup a!
+	circle ;
+
+:expl | x y --
+	'*expl 'explot arr8!+ >a
+	swap int a!+ int a!+ 0 a! ;
+
+|--------------------
 :*bullet | adr --
 	@+ int over @ int 'bullet bmr.draw
-	dup @ 3.0 -
-	-? ( drop 0 ; )
-|	sh fixed >=? ( 2drop 0 ; )
-	swap ! 
-	;
+	dup @ 4.0 -
+	-? ( 2drop 0 ; )
+	swap ! ;
 
 :fire
 	'*bullet 'shoots arr8!+ >a
 	xn a!+ yn a!+ ;
 
+|--------------------
+:*aliens | adr --
+	dup @+ int swap @ int
+	msec
+	$80 and? ( 'alien1 )( 'alien2 ) nip
+	bmr.draw
+	>a
+	a@ msec 6 <<
+	a> 8 + @ $10 and? ( drop neg )( drop )
+	sin 1 << + a!+
+	a@ msec 5 << cos 1 << + 1.1 + a!+
+	;
+
+:+alien | x -- x
+	'*aliens 'aliens arr8!+ >a
+	dup fixed a!+
+	over 5 << fixed neg a!+
+	rand a!+
+	;
+
+:oleada
+	sw 4 >>
+	16 ( 1? )( 1- swap
+		+alien
+		sw 4 >> +
+		swap ) 2drop ;
+
+
+|--------------------
 :player
-	xn int yn int 'ship1 bmr.draw
+	xn int yn int
+	msec
+	$10 and? ( 'ship1 )( 'ship2 ) nip
+	bmr.draw
 	[ -1.0 'xa ! ; ] <le>
 	[ 1.0 'xa ! ; ] <ri>
 	[ 0 'xa ! ; ] dup >le< >ri<
-	'fire >spc<
+	[ -1.0 'ya ! ; ] <up>
+	[ 1.0 'ya ! ; ] <dn>
+	[ 0 'ya ! ; ] dup >up< >dn<
+	'oleada <f1>
+	'+alien <f2>
+	[ xn yn expl ; ] >spc<
+	'fire >ctrl<
 	xa 'xn +!
+	ya 'yn +!
 	;
 
+|--------------------
 :main
-	33
+	oleada
+	33 fonti2
 	show clrscr
-		blanco dup "%d" print
+|		blanco dup "%d" print
+		blanco cr
+		pnts " %d"print
+		lives "%d " printr
 
 		'stars arr8.exec
+		'explot arr8.exec
 		'shoots arr8.exec
+		'aliens arr8.exec
 		player
 
 		'exit >esc<
 		;
 
+|--------------------
 :memory
 	0 'paper !
 	mark
-	1000 'shoots arr8.ini
 	makestars
+	200 'shoots arr8.ini
+	100 'aliens arr8.ini
+	200 'explot arr8.ini
 	sw 2/ fixed 'xn !
 	sh dup 2 >> - fixed 'yn !
+	5 'lives !
+	0 'pnts !
 	;
 
 : memory main ;
