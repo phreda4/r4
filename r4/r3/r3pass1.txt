@@ -1,0 +1,111 @@
+| r3 compiler
+| PHREDA 2018
+|----------------
+
+#r3machine
+"nop" ":" "::" "#" "##" "|" "^" 	// 6
+"" "" "" "" "str" 		// 11
+"call" "var" "dcode" "ddata" 		// 15
+";" "jmp" "jmpw" "[" "]"
+#r3base
+";" "(" ")" "[" "]" "EX" "0?" "1?" "+?" "-?" 				// 10
+"<?" ">?" "=?" ">=?" "<=?" "<>?" "AN?" "NA?" "BTW?" 		// 19
+"DUP" "DROP" "OVER" "PICK2" "PICK3" "PICK4" "SWAP" "NIP" 	// 27
+"ROT" "2DUP" "2DROP" "3DROP" "4DROP" "2OVER" "2SWAP" 		// 34
+">R" "R>" "R@" 												// 37
+"AND" "OR" "XOR" "NOT" "NEG" 								// 42
+"+" "-" "*" "/" "*/" 										// 47
+"/MOD" "MOD" "ABS" "SQRT" "CLZ" 							// 52
+"<<" ">>" ">>>" "*>>" "<</" 								// 57
+"@" "C@" "Q@" "@+" "C@+" "Q@+"  							// 65
+"!" "C!" "Q!" "!+" "C!+" "Q!+"  							// 71
+"+!" "C+!" "Q+!"  											// 74
+">A" "A>" "A@" "A!" "A+" "A@+" "A!+" 						// 81
+">B" "B>" "B@" "B!" "B+" "B@+" "B!+" 						// 88
+"MOVE" "MOVE>" "FILL" 										// 91
+"CMOVE" "CMOVE>" "CFILL" 									// 94
+"DMOVE" "DMOVE>" "DFILL" 									// 97
+"SYSCALL" "SYSMEM" 											// 99
+0
+
+|---- includes
+| 'string|'mem
+|  0      4
+
+#indiceinc )( $7ff		| 256 includes
+#indiceinc> 'indiceinc
+
+#cnttokens
+
+:>>cr
+	( c@+ 1? )( 10 =? ( drop 1- ; ) 13 =? ( drop 1- ; ) drop ) drop 1- ;
+:>>sp
+	( c@+ 1? )( $ff and 33 <? ( drop 1- ; ) drop ) drop 1- ;
+
+:escad
+	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( drop 1- ; ) ) drop ) drop 1- ;
+
+:setgraf
+	>>cr ;
+
+:escom
+	"|WIN|" =pre 1? ( drop 5 + ; ) drop | Compila para WINDOWS
+	"||G" =pre 1? ( setgraf ; ) drop | Graphics ("f"/w h)x2 x3 x4
+    >>cr ;
+
+|----------- includes
+::include? | str -- adr/0
+	'indiceinc ( indiceinc> <? )(
+		@+ pick2 =s 1? ( drop nip 4 - ; ) drop
+		4+ ) 2drop 0 ;
+
+:esinc 	| a -- a' ; incluye codigo
+	dup include? 1? ( drop ; ) drop
+    here over
+	"." =pre 1? ( drop 2 + 'path "%s%w" mprint )( drop "%w" mprint )
+	load
+	here =? ( 2 'nroerror ! drop 0 ; )
+	here pick2 indiceinc> !+ !+ 'indiceinc> !
+	0 swap c!+ 'here !
+	pasapal ;
+
+:includepal | str -- str'
+	( c@+ $ff and 33 <? )( 0? ( swap 1- swap ; ) drop ) | quitar espacios
+	$7c =? ( drop escom ; )		| $7c |	 Comentario
+	$5e =? ( drop esinc ; )		| $5e ^  Include
+	1 'cnttokens +!
+	$22 =? ( drop escad ; )		| $22 "	 Cadena
+	$3A =? ( drop esdef ; )		| $3a :  Definicion
+	$23 =? ( drop esvar ; )		| $23 #  Variable
+	drop >>sp ;
+
+
+::r3-stage-1 | str -- err/0
+	0 'cnttokens !
+	( includepal 0? ) drop 'poserror !
+
+	nroerror 1? ( ; )
+	( drop indiceinc>
+		'indiceinc ( indiceinc> <? )(
+			4+ @+
+			( includepal 0? ) drop 'poserror !
+			nroerror 1? ( nip nip ; ) drop
+			) drop
+		indiceinc> =? )
+	drop 0 ;
+
+||
+||
+||
+||
+		if(str[now]==="^") {					// include
+			ini=++now;
+			while (str.charCodeAt(now)>32) { now++; }
+			var name=str.slice(ini,now);
+			if (includes.indexOf(name)==-1) {
+				//if (sessionStorage.getItem(name)=null) return;
+				r3includes(sessionStorage.getItem(name));
+				includes.push(name);
+				}
+			continue;
+			}
