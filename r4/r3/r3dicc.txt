@@ -1,30 +1,9 @@
 | memoria + diccionario r3
 | PHREDA 2018
 |----------------------------------
-
-|-----------------  inisrc
-| codigo...
-|-----------------  here
-| includes...
-|-----------------   data
-| constantes...		 data>
-|----------------- 	 code
-|					<<boot
-| programa...		 code>
-
-#:inisrc
-#:data
-#:data>
-#:code
-#:code>
-#:<<boot
+^./r3parse.txt
 
 
-|---- diccionario
-| str|token|info|mov  	16 bytes por palabra
-| 0      4     8   12
-| >str		->inisrc
-| >>token	->tokencod
 | >>>info
 | bit  significado
 | $1	0 accion 1 dato
@@ -51,6 +30,7 @@
 | 2     dU (-128..127)
 | 3/    dR ( -8..7 )
 | /4	largo en tokens (12 bits)
+
 |-----------------
 |--- info de variables
 | valor               0
@@ -63,55 +43,17 @@
 | lista strings       7
 | estructura multiple 8
 |--------------------
-#:indicepal )( $3ffff	| 16k palabras
-#:indicepal> 'indicepal
-#:indicepal< 'indicepal
 
-#:cntwords
 
-::dic>str	4 << 'indicepal + ;
-::dic>tok	4 << 'indicepal + 4+ ;
-::dic>inf	4 << 'indicepal + 8 + ;
-::dic>mov	4 << 'indicepal + 12 + ;
-
-::dic>len@	dic>mov @ 20 >> $fff and ;
-::dic>call@	dic>inf @ 12 >> $fff and ;
-
-::dic>DATAU dic>mov @ 16 << 24 >> neg ;
-::dic>DATAD dic>mov @ 24 << 24 >> ;
-
-::tok>mem	8 >> data + ;		| tok -- adr
-::tok>cte	8 >> data + @ ;		| tok -- nro
-::tok>name	8 >> dic>str @ ;
-
-::adr>dic
-	'indicepal - 4 >> ;
-
-::?palabra | str -- str dir / str 0
-	indicepal> 16 -	|---largo
-	( 'indicepal >=? )(
-		dup @						| str ind pal
-		pick2
-		=s 0? ( drop )( drop
-			dup 8 + @
-			%10 and? ( drop ; )( drop indicepal< >=? ( ; ) )
-			)
-		16 - ) drop
-	0 ;
-
-::include? | str -- adr/0
-	'indiceinc ( indiceinc> <? )(
-		@+ pick2 =s 1? ( drop nip 4 - ; ) drop
-		4+ ) 2drop 0 ;
 
 ::word+! | tipo --
-	indicepal> >a
+	dicc> >a
 |	data>
 	over a!+	| str del nombre
 	code> a!+	| token de comienzo
 	a!+				| info de palabra
 	0 a!+			| mem?
-	0 a! a> 'indicepal> ! ;
+	0 a! a> 'dicc> ! ;
 
 |---- Compila programa
 ::,, | n --
@@ -131,21 +73,9 @@
 ::,str | a -- a' d
 	data> swap realstr swap data - ;
 
-:realcom
-	( 1+ dup c@ 1? )(
-		10 =? ( drop 0 rstr ; )
-		13 =? ( drop 0 rstr ; )
-		rstr ) rstr ;
-
-::,com | a -- a' d
-	data> swap realcom swap data - ;
-
-:pasapal
-	( c@+ 1? )( $ff and 33 <? ( drop ; ) drop ) drop  ;
-
 ::,word | a -- a' nro
 	pasapal
-	indicepal> 'indicepal - 4 >> 1-
+	dicc> 'dicc - 4 >> 1-
 	;
 
 |--- dibuja movimiento pilas
@@ -264,14 +194,9 @@
 	@ ,printmovword ;
 
 |----------- DEBUG ---------------
-::dumpinc
-	'indiceinc ( indiceinc> <? )(
-		@+ "%w " print
-		@+ "%h " print
-		cr allowchome ) drop ;
 
 ::dumpdic
-	'indicepal ( indicepal>  <? )(
+	'dicc ( dicc>  <? )(
 		@+ "%w " print
 		@+ "%h " print
 		@+ "%h " print
@@ -279,7 +204,7 @@
 		cr allowchome ) drop ;
 
 ::dumpdicu
-	'indicepal ( indicepal>  <? )(
+	'dicc ( dicc>  <? )(
 	    dup 8 + @ 12 >> $fff and 1? ( drop
 		@+ "%w " print
 		@+ "%h " print

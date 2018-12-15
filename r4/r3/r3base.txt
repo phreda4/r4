@@ -1,6 +1,41 @@
 | r3 base words
 | PHREDA 1018
 |-------------
+^./r3parse.txt
+^./r3stack.txt
+
+#:path )( 256
+
+#:cnttokens
+#:cntdef
+
+#:error
+#:modo
+
+|---- includes
+| 'string|'mem
+#:inc )( $fff
+#:inc> 'inc
+
+|---------	code
+| code...	<<boot
+| ...		code>
+|---------	data
+| data...	data>
+
+#:code
+#:code>
+#:data
+#:data>
+#:<<boot
+
+|---- dicc
+| str|token|info|mov  	16 bytes por palabra
+| 0      4     8   12
+
+#:dicc
+#:dicc>
+#:dicc<
 
 #r3machine
 "nop" ":" "::" "#" "##" "|" "^" 	| 6
@@ -34,9 +69,36 @@
 	'r3base swap
 	( 0 <>? )( 1- swap >>0 swap ) drop ;
 
-:?base | adr -- nro/-1
+::?base | adr -- nro/-1
 	0 'r3base			| adr 0 'r3base
 	( 1? )(
 		pick2 over =s 1? ( 3drop ; ) drop
 		>>0 swap 1+ swap ) 2drop
 	-1 ;
+
+
+::allocdic | cnt --
+	4 << here
+	dup 'dicc ! dup 'dicc> ! dup 'dicc< !
+	+ 'here ! ;
+
+::adr>dic | adr -- nro
+	dicc - 4 >> ;
+
+::dic>adr | nro -- adr
+	4 << dicc + ;
+
+::?word | str -- str dir / str 0
+	dicc> 16 -	|---largo
+	( dicc >=? )(
+		dup @						| str ind pal
+		pick2
+		=s 0? ( drop )( drop
+			dup 8 + @
+			%10 and? ( drop ; )( drop dicc< >=? ( ; ) )
+			)
+		16 - ) drop
+	0 ;
+
+::word!+ |
+	;
