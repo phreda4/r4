@@ -37,7 +37,7 @@
     >>sp ;
 
 :.str
-	modo 1 >? ( drop >>" ; ) drop
+	1+ modo 1 >? ( drop >>" ; ) drop
 	src over - 8 << 11 or ,,
 	>>" ;
 
@@ -48,25 +48,25 @@
 
 :.basedata
 	44 =? ( 3 'modo ! ; )
-	1 =? ( 3 'modo ! ; )
+	1 =? ( 4 'modo ! ; )
 	2 =? ( 2 'modo ! ; )
 	3 =? ( 5 'modo ! ; )
 	4 =? ( 2 'modo ! ; )
 	;
 
 :.base | nro --
-	modo 1 >? ( .basedata drop >>sp ; ) drop
+	modo 1 >? ( drop .basedata drop >>sp ; ) drop
 	16 + ,,
 	>>sp ;
 
 :.word | adrwor --
-	modo 1 >? ( drop >>sp ; ) drop
+	modo 1 >? ( 2drop >>sp ; ) drop
 	dup 8 + @ 1 and 12 + | 12 call 13 var
 	swap adr>dic 8 << or ,,
 	>>sp ;
 
 :.adr | adrwor --
-	modo 1 >? ( drop >>sp ; ) drop
+	modo 1 >? ( 2drop >>sp ; ) drop
 	dup 8 + @ 1 and 14 + | 14 dcode 15 ddata
 	swap adr>dic 8 << or ,,
 	>>sp ;
@@ -74,22 +74,25 @@
 :wrd2token | str -- str'
 	( dup c@ $ff and 33 <? )(
 		0? ( nip ; ) drop 1+ )	| trim0
-|	over "%w" slog
+|	over "%w" slog | debug
 	$5e =? ( drop >>cr ; )	| $5e ^  Include
 	$7c =? ( drop .com ; )	| $7c |	 Comentario
 	$3A =? ( drop .def ; )	| $3a :  Definicion
 	$23 =? ( drop .var ; )	| $23 #  Variable
 	$22 =? ( drop .str ; )	| $22 "	 Cadena
 	$27 =? ( drop 1+ 		| $27 ' Direccion
-|		dup ?base 0 >=? ( drop 7 'error ! dup xor ; ) drop
+|		dup ?base 0 >=? ( drop 7 'error ! drop 0 ; ) drop
 		?word 1? ( .adr ; ) 2drop
-		1 'error ! dup xor ; )
+		1 'error !
+		"error1d" slog ;
+		drop 0 ; )
 	drop
 	dup isNro 1? ( drop .nro ; ) drop		| numero
 	dup ?base 0 >=? ( .base ; ) drop		| macro
 	?word 1? ( .word ; ) drop		| palabra
  	1 'error !
-	dup xor ;
+	dup "error1 %w" slog
+	drop 0 ;
 
 :str2token | str --
 	( wrd2token 0? ) drop ;
@@ -103,7 +106,7 @@
 		dup @ "%w" slog
 		4+ @+
 		str2token
-|		error 1? ( nip ; ) drop
+		error 1? ( nip ; ) drop
 		dicc> 'dicc< !
 		) drop
 	0 ;
