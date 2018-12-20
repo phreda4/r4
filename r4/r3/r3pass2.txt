@@ -4,6 +4,8 @@
 |----------------
 ^./r3base.txt
 
+#flag
+
 ::,, | n --
 	code> !+ 'code> ! ;
 
@@ -12,63 +14,85 @@
 	>>cr
 	;
 
-:.def
-	c@+
-|	$3A =? ( ) |::
-	33 <? ( code> '<<boot ! )
-	1 'modo !
+:closedef
+|	c.cnt 1? ( 9 'error ! 0 ; ) drop
+|	calclen
 	;
+
+:.def
+	0 'flag !
+	1 'modo !
+	1+ dup c@
+	33 <? ( code> '<<boot ! )
+	$3A =? ( drop 1+ 2 'flag ! )( drop )  |::
+	0 flag code> pick3 word!+
+    >>sp ;
 
 :.var
-	c@+
-|	$23 =? ( ) | ##
+	1 'flag !
 	2 'modo !
-	;
+	1+ dup c@
+	$23 =? ( drop 1+ 3 'flag ! )( drop ) | ##
+	0 flag data> pick3 word!+
+    >>sp ;
 
 :.str
-	;
-
-:.adr
-	;
+	modo 1 >? ( drop >>" ; ) drop
+	src over - 8 << 11 or ,,
+	>>" ;
 
 :.nro
+	modo 1 >? ( drop >>sp ; ) drop
+	src over - 8 << 7 or ,,
+	>>sp ;
+
+:.basedata
+	44 =? ( 3 'modo ! ; )
+	1 =? ( 3 'modo ! ; )
+	2 =? ( 2 'modo ! ; )
+	3 =? ( 5 'modo ! ; )
+	4 =? ( 2 'modo ! ; )
 	;
 
 :.base | nro --
-	modo 1 >? ( drop ; ) drop
-
+	modo 1 >? ( .basedata drop >>sp ; ) drop
 	16 + ,,
-	;
+	>>sp ;
 
-:.word
-	;
+:.word | adrwor --
+	modo 1 >? ( drop >>sp ; ) drop
+	dup 8 + @ 1 and 12 + | 12 call 13 var
+	swap adr>dic 8 << or ,,
+	>>sp ;
 
-|-----------
-:?nro
-	;
-
+:.adr | adrwor --
+	modo 1 >? ( drop >>sp ; ) drop
+	dup 8 + @ 1 and 14 + | 14 dcode 15 ddata
+	swap adr>dic 8 << or ,,
+	>>sp ;
 
 :wrd2token | str -- str'
 	( dup c@ $ff and 33 <? )(
 		0? ( nip ; ) drop 1+ )	| trim0
+|	over "%w" slog
 	$5e =? ( drop >>cr ; )	| $5e ^  Include
 	$7c =? ( drop .com ; )	| $7c |	 Comentario
 	$3A =? ( drop .def ; )	| $3a :  Definicion
 	$23 =? ( drop .var ; )	| $23 #  Variable
 	$22 =? ( drop .str ; )	| $22 "	 Cadena
-	$27 =? ( drop 1+ dup dup	| $27 ' Direccion
-		?base 1? ( drop 7 'error ! dup xor ; ) drop
-		?word 1? ( nip .adr ; ) 2drop
+	$27 =? ( drop 1+ 		| $27 ' Direccion
+|		dup ?base 0 >=? ( drop 7 'error ! dup xor ; ) drop
+		?word 1? ( .adr ; ) 2drop
 		1 'error ! dup xor ; )
 	drop
-	dup ?nro 1? ( drop .nro ; ) drop		| numero
-	dup ?base 1? ( .base ; ) drop			| macro
-	?word 1? ( .word ; ) drop				| palabra
+	dup isNro 1? ( drop .nro ; ) drop		| numero
+	dup ?base 0 >=? ( .base ; ) drop		| macro
+	?word 1? ( .word ; ) drop		| palabra
  	1 'error !
 	dup xor ;
 
-:str2token | str -- end
-	( compilatoken 0? ) drop ;
+:str2token | str --
+	( wrd2token 0? ) drop ;
 
 ::r3-stage-2 | -- err/0
 	cntdef allocdic
@@ -76,7 +100,11 @@
 	here dup 'code ! 'code> !
 	cnttokens 2 << 'here +!
 	'inc ( inc> <? )(
-		4+ @+ str2token
-		drop
-		) drop ;
+		dup @ "%w" slog
+		4+ @+
+		str2token
+|		error 1? ( nip ; ) drop
+		dicc> 'dicc< !
+		) drop
+	0 ;
 
