@@ -4,6 +4,17 @@
 ^./r3base.txt
 ^./r3asm.txt
 
+|----- string
+:datasteps
+	dup $ff and 11 <>? ( 2drop ; ) drop
+	"%d " ,print
+	;
+:gendatastr
+	dup 8 + @ 1 and? ( 2drop ; ) drop
+	@+ swap @ 20 >> $fff and	| tok len
+	( 1? )( 1- >r
+		@+ datasteps
+		r> ) 2drop ;
 
 |----- data
 :datastep
@@ -11,9 +22,7 @@
 	;
 
 :gendata | adr --
-	dup 8 + @
-	1 nand? ( 2drop ; )
-	drop
+	dup 8 + @ 1 nand? ( 2drop ; ) drop
 	@+ "#%w" slog
 	@+ swap @ 20 >> $fff and	| tok len
 	( 1? )( 1- >r
@@ -23,9 +32,19 @@
 ::r3-gendata
 	mark
 	";---r3 compiler data.asm" ,ln
+	0 'nstr !
+	"; *** STRINGS ***" ,s ,cr
+
+	dicc ( dicc> <? )(
+		dup gendatastr
+		16 + ) drop
+
+	"; *** VARS ***" ,s ,cr
+	"align 16 " ,s ,cr
 	dicc ( dicc> <? )(
 		dup gendata
 		16 + ) drop
+
 	0 ,c
 	"r4asm/data.asm"
 	savemem
