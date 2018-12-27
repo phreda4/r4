@@ -5,12 +5,17 @@
 ^./r3asm.txt
 
 |----- string
+#nstr
 :datasteps
 	dup $ff and 11 <>? ( 2drop ; ) drop
 	"%d " ,print
 	;
+
 :gendatastr
-	dup 8 + @ 1 and? ( 2drop ; ) drop
+	dup 8 + @ 1 and? ( 2drop ; )	 | code
+	12 >> $fff and 0? ( 2drop ; )	 | no calls
+	drop
+
 	@+ swap @ 20 >> $fff and	| tok len
 	( 1? )( 1- >r
 		@+ datasteps
@@ -22,8 +27,11 @@
 	;
 
 :gendata | adr --
-	dup 8 + @ 1 nand? ( 2drop ; ) drop
-	@+ "#%w" slog
+	dup 8 + @ 1 nand? ( 2drop ; )	| data
+	12 >> $fff and 0? ( 2drop ; )	| no calls
+	drop
+
+	@+ "; #%w" ,print ,cr
 	@+ swap @ 20 >> $fff and	| tok len
 	( 1? )( 1- >r
 		@+ datastep
@@ -52,11 +60,10 @@
 
 |----- code
 :gencode | adr --
-	dup 8 + @
-	1 and? ( 2drop ; )
-	12 >> $fff and
-	0? ( 2drop ; ) drop | no hay llamadas
-	@+ ":%w" slog
+	dup 8 + @ 1 and? ( 2drop ; )	| code
+	12 >> $fff and 0? ( 2drop ; )	| no calls
+	drop
+	@+ "; :%w" ,print ,cr
 	@+ swap @ 20 >> $fff and	| tok len
 	( 1? )( 1- >r
 		@+ cgstep
@@ -67,7 +74,7 @@
 	";---r3 compiler code.asm" ,ln
 	dicc ( dicc> <? )(
 		dup gencode
-		16 + ) drop 
+		16 + ) drop
 	0 ,c
 	"r4asm/code.asm"
 	savemem
