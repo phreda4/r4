@@ -59,15 +59,47 @@
 	empty ;
 
 |----- code
+:tok>dicn | nro -- adr
+	8 >> 4 << dicc + @ "%w" mprint ;
+
+:tok>cte |
+	8 >> "%d" mprint ;
+
+:tok>str
+	8 >> "%d" mprint ;
+
+:coldefw ":" ,s tok>dicn dup c@ $3a =? ( 2drop ; ) drop ,s ;
+:coldefv "#" ,s tok>dicn ,s ;
+:colit	tok>cte "$%h" ,print ;
+:colits	34 ,c tok>str 34 ,c ;
+
+:colwor
+:colvar
+	tok>dicn ,s ;
+:coldwo
+:coldva
+	"'" ,s tok>dicn ,s ;
+
+#codei 0 coldefw coldefw coldefv coldefv 0 0 colit colit colit colit colits colwor colvar coldwo coldva
+
+:codestep
+|	cgstep
+	dup $7f and
+	16 <? ( 2 << 'codei + @ exec ; ) nip
+	16 - r3basename ,s
+	;
+
 :gencode | adr --
 	dup 8 + @ 1 and? ( 2drop ; )	| code
 	12 >> $fff and 0? ( 2drop ; )	| no calls
 	drop
 	@+ "; :%w" ,print ,cr
-	@+ swap @ 20 >> $fff and	| tok len
+	@+ swap 4+ @ 20 >> $fff and	| tok len
+	2dup "%d %d" slog
 	( 1? )( 1- >r
-		@+ cgstep
-		r> ) 2drop ;
+		@+ codestep ,sp
+		r> ) 2drop
+	,cr ;
 
 ::r3-gencode
 	mark
