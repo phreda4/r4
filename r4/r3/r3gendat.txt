@@ -12,20 +12,124 @@
 
 :tok>cte | tok -- nro
 	8 0>> src + "%w" mprint
-
 	;
 
 :tok>str | tok -- str
-	8 >> "%d" mprint ;
+	8 0>> src + ;
+
+|------------ compila DATO
+#d1 "dd "
+#d2 "dw "
+#d3	"db "
+#d4 "rb "
+#dtipo 'd1
+#dini 0
+#dcnt 0
+#instr 0
+
+
+:pasoinstr	| cuando hay un string en otro tipo
+	,cr dtipo ,s 0 'dini ! 0 'instr ! ;
+
+:stringdd | cuando hay string dentro de otro tipo
+	dtipo 'd3 =? ( drop "," ,s ; ) drop
+	,cr "db " ,s 1 'instr ! ;
+
+:dfin
+	instr 1? ( drop pasoinstr ; ) drop
+	dini 1? ( dtipo )( "," ) ,s drop 0 'dini ! ;
+:dfins
+	dini 1? ( "db " )( drop stringdd ; ) ,s drop 0 'dini ! ;
+:dfind
+	instr 1? ( drop pasoinstr ; ) drop
+	dini 1? ( "dd " )( "," ) ,s drop 0 'dini ! ;
+
+:dtipoch
+	dini 1? ( drop ; ) drop
+	,cr 1 'dini ! ;
+
+:cpycad | adr --
+	( c@+ 1? )( 34 =? ( dup ,c ) ,c ) 2drop ;
+
+:cpycadsrc | adr --
+	( c@+ 1? )( 34 =? ( drop c@+ 34 <>? ( 2drop ; )
+		"""," ,s 34 ,c ",""" ,s
+		) ,c ) 2drop ;
+
+:stringwith0
+	34 ,c here swap cpycadsrc here - 34 ,c drop ",0" ,s ;
+
+:,ddefw
+:,ddefv drop ;
+
+:,dlit  1 'dcnt +!
+		dfin tok>cte ,s ;
+		|"$" ,s ,h ;
+
+:,dlits	1 'dcnt +! dfins
+		tok>str stringwith0 ;
+:,dwor	1 'dcnt +! dfind
+		tok>dicn
+		,s ;
+
+:,d;	drop ;
+
+:,d(	drop 'd3 'dtipo ! dtipoch ;
+:,d)	drop 'd1 'dtipo ! dtipoch ;
+:,d[	drop 'd2 'dtipo ! dtipoch ;
+:,d]	drop 'd1 'dtipo ! dtipoch ;
+
+:,d*	'd4 'dtipo ! dtipoch ;
+
+#coded 0
+,ddefw ,ddefw ,ddefv ,ddefv 0 0 ,dlit ,dlit ,dlit ,dlit ,dlits ,dwor ,dwor ,dwor ,dwor
+,d; ,d( ,d) ,d[ ,d]
+
+|----- data
+:datastep
+	dup $ff and
+
+|	2dup "%h %h" slog
+
+	21 <? ( 2 << 'coded + @ exec ; )
+	$3c =? ( ,d* )
+	2drop  | vacio
+	;
+
+:gendata | adr --
+	dup 8 + @ 1 nand? ( 2drop ; )	| data
+	12 >> $fff and 0? ( 2drop ; )	| no calls
+	drop
+
+	'd1 'dtipo !
+	1 'dini ! 0 'dcnt !
+	0 'instr !
+
+	@+
+
+	dup "#%w" slog
+
+	"; #%w" ,print ,cr
+	adr>toklen
+
+	2dup "%d %h" slog
+
+	( 1? )( 1- >r
+		@+ datastep
+		r> ) 2drop
+	dini 0? ( drop ,cr ; ) drop
+	dcnt 1? ( drop ,cr ; ) drop
+	dtipo ,s 0 ,d ,cr
+	spause ;
+
 
 |----- string
 #nstr
 
 :otrostr
-	over
 	1 'dini !
 	nstr "str%h " ,print
-	,dlits
+	over ,dlits
 	1 'nstr +!
 	,cr ;
 
@@ -40,24 +144,7 @@
 		11 =? ( otrostr ) 2drop
 		r> ) 2drop ;
 
-|----- data
-:datastep
 
-	"%h " ,print
-	;
-
-:gendata | adr --
-	dup 8 + @ 1 nand? ( 2drop ; )	| data
-	12 >> $fff and 0? ( 2drop ; )	| no calls
-	drop
-
-	@+ "; #%w" ,print ,cr
-	adr>toklen
-|	2dup "%d %h" slog
-	( 1? )( 1- >r
-		@+ datastep
-		r> ) 2drop
-	,cr ;
 
 ::r3-gendata
 	mark
