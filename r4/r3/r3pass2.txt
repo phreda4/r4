@@ -15,6 +15,13 @@
 	;
 
 #codeini
+
+|-----
+#sst )( 1024 | pila de pilas
+#sst> 'sst
+:sst!	sst> !+ 'sst> ! ;
+:sst@   -4 'sst> +! sst> @ ;
+
 #nivel
 
 :callen
@@ -52,9 +59,41 @@
 	dup src - 8 << 7 or ,,
 	>>sp ;
 
+|---------------------------------
+:blockIn
+	memc sst!
+	1 'nivel +!
+	;
+
+:cond | from to adr+ cod tok --
+	22 <? ( 2drop ; )
+	36 >? ( 2drop ; )
+	swap 8 >> 1? ( 2drop ; ) 2drop
+	dup 4 - dup @
+	pick2 memc - 2 >>	| dest
+	8 << or swap !
+	1 'iswhile !
+	;
+
+#iswhile
+
+:blockOut | tok -- tok
+	0 'iswhile !
+	sst@ memc | from to
+	over
+	( over <? )(
+		@+ dup $ff and
+		cond
+		) drop | from to
+	drop memc over - 2 >> 8 << | from dist
+	iswhile 0? ( swap 4 - +! ; ) drop	| if
+	$100 + neg 18 or
+	nip
+	;
+
 :blocks
-	1 =? ( 1 'nivel +! ; )	| (
-	2 =? ( -1 'nivel +! ; )	| )
+	1 =? ( blockIn ; )	| (
+	2 =? ( blockOut ; )	| )
 	3 =? ( 1 'nivel +! ; )	| [
 	4 =? ( -1 'nivel +! ; )	| ]
 	;
