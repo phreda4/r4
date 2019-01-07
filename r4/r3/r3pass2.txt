@@ -17,13 +17,11 @@
 #codeini
 
 |-----
-#sst )( 1024 | pila de pilas
+#sst )( 1024 	| stack of blocks
 #sst> 'sst
 :sst!	sst> !+ 'sst> ! ;
 :sst@   -4 'sst> +! sst> @ ;
 :nivel 	sst> sst xor ;
-
-#nbloques 0
 
 :callen
 	code> codeini - 2 >> | code_length
@@ -61,32 +59,37 @@
 	>>sp ;
 
 |---------------------------------
+
+#iswhile
+#nbloques 0
+
 :blockIn
-	memc sst!
 	1 'nbloques +!
+	code>
+	nbloques dup sst!
+	3 << blok + !
+
+	nbloques "%d" slog
+
 	;
 
-:cond | from to adr+ cod tok --
+:cond | from to adr+ --
+	dup $ff and
 	22 <? ( 2drop ; )
 	36 >? ( 2drop ; )
 	swap 8 >> 1? ( 2drop ; ) 2drop
 	dup 4 - dup @
-|	pick2 memc - 2 >>	| dest
+|	pick2 code - 2 >>	| dest
 	nbloques
 	8 << or swap !
 	1 'iswhile !
 	;
 
-#iswhile
-
 :blockOut | tok -- tok
 	0 'iswhile !
-	sst@ memc | from to
-	over
-	( over <? )(
-		@+ dup $ff and
-		cond
-		) drop | from to
+	sst@ dup 3 << blok + @
+	code> | bl from to
+	over ( over <? )( @+ cond ) drop | bl from to
 |	memc over - 2 >> | from dist
 	nbloques
 	8 <<
@@ -152,14 +155,17 @@
 ::r3-stage-2 | -- err/0
 	cntdef allocdic
 	here dup 'code ! 'code> !
-	0 'codeini !
 	cnttokens 2 << 'here +!
+	here 'blok !
+	0 'nbloques !
+	0 'codeini !
 	'inc ( inc> <? )(
-|		dup @ "%w" slog
+		dup @ "%w" slog
 		4+ @+
 		str2token
 		error 1? ( nip ; ) drop
 		dicc> 'dicc< !
 		) drop
 	callen
+	nbloques 3 << 'here +!
 	0 ;
