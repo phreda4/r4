@@ -61,7 +61,7 @@
 2 -1 0 0	|20 <>? ab -- a
 2 -1 0 0	|AN?  ab -- a
 2 -1 0 0	|NA? ab -- a
-3 -2 0 0	|BTW? ab -- a
+3 -2 0 0	|BTW? abc -- a
 1  1 0 0	|DUP    a -- aa
 1 -1 0 0	|DROP  a --
 2 1 0 0		|OVER   ab -- aba
@@ -193,13 +193,15 @@
 
 |---- Anonimas
 :es[
-	pushvar
-	1 'pano +! 1 'cano +! ;
+|	pushvar
+|	1 'pano +! 1 'cano +!
+	;
 
 :es]
-	popvar
-    -1 'pano +!
-	1 'deltad +! ; | deja direccion en pila
+|	popvar
+|    -1 'pano +!
+|	1 'deltad +!
+	; | deja direccion en pila
 
 :es(
 :es)
@@ -259,10 +261,13 @@
 :usoB   flags $a00 or 'flags ! ;
 :usomem flags $200 or 'flags ! ;
 
-#acct v0 esPal es( 0 es) es[ es] esFin v0 esStr esExe esWordV
+#acct v0 esPal es( v0 es) es[ es] esFin v0 esStr esExe esWordV
 inA usoA inB usoB usomem
 
 :prosstoken | t --
+
+|	dup r3tokenname slog
+
 	2 << 'deltainternos +
 	c@+ usoDcalc
 	c@+ 'deltaD +!
@@ -314,12 +319,12 @@ inA usoA inB usoB usomem
 |----------------------------
 :analisiscode | nro -- nro
 	resetvars
-	dup dic>tok @
-	over dic>len@
-	( 1? )( 1- >r
+	dup dic>toklen
+	( 1? )( 1- swap
 		@+ $ff and prosstoken
-		r> ) 2drop
-	setvars ;
+		swap ) 2drop
+	setvars
+	;
 
 |----------------------------
 |----- analiza variable
@@ -363,15 +368,13 @@ inA usoA inB usoB usomem
 	0? ( drop 3 <? ( 2 ; ) 6 ; ) drop | direccion de codigo
 	3 <? ( 1 )( 5 ) ;                 | direccion de dato
 
-:analisisvar |  nro -- nro
-	0 dup 'deltaS !
-	dup 'cntdv ! dup 'cntdc ! dup 'cnts !
-	'cntn0 !
-	dup dic>tok @ over dic>len@
-	( 1? )( 1- >r
-		@+ $ff and sumavars
-		r> ) 2drop
+:resetvers
+	0 'deltaS !
+	0 'cntdv ! 0 'cntdc !
+	0 'cnts ! 0 'cntn0 !
+	;
 
+:setvars
 	dup dic>len@
 	decodeinfov 6 <<
 	nivel 24 << or
@@ -384,16 +387,28 @@ inA usoA inB usoB usomem
 	deltaS over dic>mov !
 	;
 
+:analisisvar |  nro -- nro
+	resetvars
+	dup dic>toklen
+	( 1? )( 1- swap
+		@+ $ff and sumavars
+		swap ) 2drop
+	setvars ;
 
-:adr>toklen | adr --tok len
-	4+ @+ swap 4+ @ 12 0>> ;
+|--------------------
+:everyword | n -- n
+	dup dic>call@ 0? ( drop ; ) drop
 
+	dup dic>adr @ "::%w" slog
+
+	dup dic>inf @ 1 and? ( drop 1 'cntuvars +! analisisvar ; )
+	drop 1 'cntuwords +!
+	analisiscode
+	;
 
 ::r3-stage-4
 	0 'cntuwords !
 	0 'cntuvars !
 	0 ( cntdef <? )(
-		dup dic>call@ 1? ( drop
-			dup dic>inf @ 1 and? ( drop 1 'cntuvars +! analisisvar )( drop 1 'cntuwords +! analisiscode )
-			)( drop )
+		everyword
 		1+ ) drop ;
