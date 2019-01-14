@@ -66,7 +66,7 @@
 
 #r3machine
 "nop" ":" "::" "#" "##" "|" "^" 	| 6
-"" "" "" "" "str" 					| 11
+"N" "N" "N" "N" "str" 					| 11
 "call" "var" "dcode" "ddata" 		| 15
 |";" "jmp" "jmpw" "[" "]"
 
@@ -164,14 +164,35 @@
 ::wordnow | -- now
 	dicc> dicc - 4 >> ;
 
+|--- dibuja movimiento pilas
+| mov
+| $1ff - movs delta -16..15 uso:0..15
 
-::diccinfo | nro --
+:,ncar | n car -- car
+	( swap 1? )( 1- swap dup ,c 1+ ) drop ;
+
+:,mov | mov --
+	97 >r	| 'a'
+	dup $f and
+	dup r> ,ncar >r
+	" -- " ,s
+	swap 23 << 27 >> + | deltaD
+	r> ,ncar drop
+	,sp ;
+
+:,mov | mov --
+	dup $f and "U:%d " ,print
+	23 << 27 >> "D:%d " ,print
+	;
+
+
+::,codeinfo | nro --
 	"; " ,s
 	dic>adr
-	@+ "%w " ,print
+	@+ ":%w " ,print
 	@+ code - 2 >> "(%h) " ,print
 	@+
-	$1 and? ( ":" )( "#" ) ,s	| data/code
+|	$1 and? ( ":" )( "#" ) ,s	| data/code
 	$2 and? ( "e" )( "l" ) ,s	| export/local
 	$4 and? ( "'" )( "" ) ,s	| /adress used
 	$8 and? ( "r" )( "" ) ,s	| /rstack mod
@@ -180,6 +201,22 @@
 	$40 and? ( "[" )( "" ) ,s	| /anon
 	$80 and? ( "." )( "" ) ,s	| /no ;
 	$100 and? ( ">" )( "" ) ,s	| /inline
+
+	dup 12 >> $fff and " <%d> " ,print
+	24 >> $ff and " nivel:%d " ,print
+	@ dup 12 0>> "len:%d " ,print
+	,mov
+|	$fff and " %h " ,print
+	;
+
+::,datainfo | nro --
+	"; " ,s
+	dic>adr
+	@+ "#%w " ,print
+	@+ code - 2 >> "(%h) " ,print
+	@+
+	$2 and? ( "e" )( "l" ) ,s	| export/local
+	$4 and? ( "'" )( "" ) ,s	| /adress used
 
 	dup 12 >> $fff and " <%d> " ,print
 	24 >> $ff and " nivel:%d " ,print
