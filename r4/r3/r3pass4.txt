@@ -45,19 +45,19 @@
 0 0 0 5		| [
 0 1 0 6		| ]
 1 -1 0 10	| EX  x/0 --
-1 0 0 0		|0? a -- a
-1 0 0 0		|1? a -- a
-1 0 0 0		|+? a -- a
-1 0 0 0		|-? a -- a
-2 -1 0 0	|<?  ab -- a
-2 -1 0 0	|>?  ab -- a
-2 -1 0 0	|=?  ab -- a
-2 -1 0 0	|>=? ab -- a
-2 -1 0 0	|<=? ab -- a
-2 -1 0 0	|<>? ab -- a
-2 -1 0 0	|AN?  ab -- a
-2 -1 0 0	|NA? ab -- a
-3 -2 0 0	|BTW? abc -- a
+1 0 0 3		|0? a -- a
+1 0 0 3		|1? a -- a
+1 0 0 3		|+? a -- a
+1 0 0 3		|-? a -- a
+2 -1 0 3	|<?  ab -- a
+2 -1 0 3	|>?  ab -- a
+2 -1 0 3	|=?  ab -- a
+2 -1 0 3	|>=? ab -- a
+2 -1 0 3	|<=? ab -- a
+2 -1 0 3	|<>? ab -- a
+2 -1 0 3	|AN?  ab -- a
+2 -1 0 3	|NA? ab -- a
+3 -2 0 3	|BTW? abc -- a
 
 1  1 0 0	|DUP    a -- aa
 1 -1 0 0	|DROP  a --
@@ -142,8 +142,9 @@
 3 -3 0 16	|QMOVE> abc --
 3 -3 0 16	|QFILL abc --
 
-| syscall
-| sysmem
+2 -2 0 0	|syscall ab --
+1 0 0 0		|sysmem  a -- b
+
 
 0 1 0 0		|MEM	-- a
 1 0 1 0		|FFIRST   a -- b
@@ -190,14 +191,14 @@
 
 |---- Anonimas
 :es[
-|	pushvar
-|	1 'pano +! 1 'cano +!
+	pushvar
+	1 'pano +! 1 'cano +!
 	;
 
 :es]
-|	popvar
-|    -1 'pano +!
-|	1 'deltad +!
+	popvar
+    -1 'pano +!
+	1 'deltad +!
 	; | deja direccion en pila
 
 :es(
@@ -205,6 +206,14 @@
 	;
 :es)
 	popvar
+	;
+
+:es??
+	dup 4 - @
+	8 >> 3 << blok + @
+	$10000000 nand? ( drop ; ) drop
+	dropvar
+	pushvar
 	;
 |----------------------
 :esFin
@@ -226,7 +235,7 @@
 	dic>mov @
 |	dup 12 << 28 >> 'deltaR +! | no se propaga, es flujo de ejecucion
 
-	dup $f and | 16 << 24 >> neg
+	dup $f and neg | 16 << 24 >> neg
 
 	usoDcalc | calculado es negativo!!
 
@@ -254,7 +263,7 @@
 |	dup 12 << 28 >> 'deltaR +! | no se propaga, es flujo de ejecucion
 
 	dup |16 << 24 >> neg
-	$f and 
+	$f and neg
 
 	usoDcalc
 
@@ -276,12 +285,12 @@
 :usoB   flags $a00 or 'flags ! ;
 :usomem flags $200 or 'flags ! ;
 
-#acct v0 esPal es( v0 es) es[ es] esFin v0 esStr esExe esWordV
+#acct v0 esPal es( es?? es) es[ es] esFin v0 esStr esExe esWordV
 inA usoA inB usoB usomem
 
 :prosstoken | t --
 
-	dup r3tokenname slog
+|	dup r3tokenname slog
 
 	2 << 'deltainternos +
 	c@+ usoDcalc
@@ -290,7 +299,7 @@ inA usoA inB usoB usomem
 	c@+ 'deltaR +!
 	c@ 2 << 'acct + @ exec
 
-	deltaD usoD "U:%d D:%d" slog
+|	deltaD usoD "U:%d D:%d" slog
 	;
 
 ::getuso | nro -- uso delta
@@ -330,7 +339,8 @@ inA usoA inB usoB usomem
 
 |	cntfin 0? ( deltaD )( deltaD1fin ) nip
 	deltaD $1f and 4 <<
-	usoD $f and or
+	usoD neg $f and
+	or
 	over dic>mov dup @ rot or swap !
 	;
 
@@ -340,7 +350,7 @@ inA usoA inB usoB usomem
 :analisiscode | nro -- nro
 	resetvars
 
-	dup dic>adr @ ":%w" slog
+|	dup dic>adr @ ":%w" slog
 
 	dup dic>toklen
 	( 1? )( 1- swap
@@ -349,7 +359,7 @@ inA usoA inB usoB usomem
 		swap ) 2drop
 	setvars
 
-|	spause end
+|	spause
 	;
 
 |----------------------------
@@ -418,7 +428,7 @@ inA usoA inB usoB usomem
 :everyword | n -- n
 	dup dic>call@ 0? ( drop ; ) drop
 
-	dup dic>adr @ "::%w" slog
+|	dup dic>adr @ "::%w" slog
 
 	dup dic>inf @ 1 and? ( drop analisisvar ; ) drop
 	analisiscode
