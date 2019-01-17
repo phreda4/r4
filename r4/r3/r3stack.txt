@@ -11,6 +11,55 @@
 #RSP )( 1024
 #RTOS 'RSP
 
+| format cell
+| type-- $0000000f
+| $0 nro	33
+| $1 cte    FREEMEM
+| $2 str    s01
+| $3 cod    w32
+| $4 dat	v33
+| $5 reg	eax ebx
+| $6 stk	[ebp] [ebp+4] ...
+
+#nrovalue )( 128
+
+|-------- constantes del sistema
+#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "SYSXYM" "SYSBM" "SYSKEY"
+
+#sysregs "eax" "ebx" "ecx" "edx" "edi" "esi" "r8d" "r9d" "r10d" "r11d" "r12d" "r13d" "r14d" "r15d"
+#sysregw  "ax"  "bx"  "cx"  "dx"  "di"  "si" "r8w" "r9w" "r10w" "r11w" "r12w" "r13w" "r14w" "r15w"
+#sysregb  "al"  "bl"  "cl"  "dl" "dil" "sil" "r8b" "r9b" "r10b" "r11b" "r12b" "r13b" "r14b" "r15b"
+
+:list2str | nro 'list -- str
+	swap ( 1? )( 1- swap >>0 swap ) drop ;
+
+|---- imprime celda
+
+:mt0 value "$%h" ,print ;			|--	0 nro 	33
+:mt1 value 'syscons list2str ,s ;	|--	1 cte	XRES
+:mt2 value "str%h" ,print ;			|--	2 str   "hola"
+:mt3 value "w%h" ,print ;			|--	3 cod  'func		4 dat  'var
+
+:mt5 value 'sysregs list2str ,s ;	|-- 5 reg 	eax
+:mt5b value 'sysregb list2str ,s ;	|-- 5 regb 	al
+:mt5w value 'sysregw list2str ,s ;	|-- 5 regw 	ax
+
+:mt6 value 2 << "dword[ebp" ,s 1? ( +? ( "+" ,s ) ,d )( drop ) "]" ,s ; |-- 6 stack
+
+#tiposrm mt0 mt1 mt2 mt3 mt3 mt5 mt6 mt0 mt0
+#tiposrmb mt0 mt1 mt2 mt3 mt3 mt5b mt6 mt0 mt0
+#tiposrmw mt0 mt1 mt2 mt3 mt3 mt5w mt6 mt0 mt0
+
+::,cell | val -- str
+	dup $f and 2 << 'tiposrm + @ exec ;
+
+::,cellb | nro -- nro
+	dup $f and 2 << 'tiposrmb + @ exec ;
+
+::,cellw | nro -- nro
+	dup $f and 2 << 'tiposrmw + @ exec ;
+
+
 |--Pila
 ::.DUP		4 'NOS +! TOS NOS ! ;
 ::.DROP		NOS @ 'TOS !	|...
@@ -125,8 +174,19 @@
 	0? ( drop TOS ; )
 	1- 2 << NOS - @ ;
 
-::.PUSHD	| val --
+::PUSH.NRO	| nro --
 	.DUP 'TOS ! ;
+::PUSH.CTE	| ncte --
+	.DUP 'TOS ! ;
+::PUSH.STR	| vstr --
+	.DUP 'TOS ! ;
+::PUSH.WRD	| vwor --
+	.DUP 'TOS ! ;
+::PUSH.REG	| reg --
+	.DUP 'TOS ! ;
+::PUSH.STK	| stk --
+	.DUP 'TOS ! ;
+
 
 ::.popIP	| -- val
 	RTOS dup @ swap 4 - RSP max 'RTOS ! ;
