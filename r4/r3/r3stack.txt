@@ -1,6 +1,7 @@
 | r3STACK 2018
 | PHREDA
 |--------------------
+^r4/lib/gui.txt
 
 |--- Pilas
 #REGA
@@ -21,6 +22,7 @@
 | $5 reg	eax ebx
 | $6 stk	[ebp] [ebp+4] ...
 
+#nromask 0
 #nrovalue )( 128
 
 |-------- constantes del sistema
@@ -34,6 +36,7 @@
 	swap ( 1? )( 1- swap >>0 swap ) drop ;
 
 |---- imprime celda
+:value 8 >> ;
 
 :mt0 value "$%h" ,print ;			|--	0 nro 	33
 :mt1 value 'syscons list2str ,s ;	|--	1 cte	XRES
@@ -62,20 +65,22 @@
 
 |--Pila
 ::.DUP		4 'NOS +! TOS NOS ! ;
-::.DROP		NOS @ 'TOS !	|...
-::.NIP      -4 'NOS +! ;
-::.2NIP      -8 'NOS +! ;
-::.2DROP    NOS 4 - @ 'TOS ! -8 'NOS +! ;
-::.3DROP    NOS 8 - @ 'TOS ! -12 'NOS +! ;
-::.4DROP    NOS 12 - @ 'TOS ! -16 'NOS +! ;
-::.SWAP     NOS @ TOS NOS ! 'TOS ! ;
-::.ROT      TOS NOS 4 - @ 'TOS ! NOS @ NOS 4 - !+ ! ;
 ::.OVER     .DUP NOS 4 - @ 'TOS ! ;
 ::.PICK2    .DUP NOS 8 - @ 'TOS ! ;
 ::.PICK3    .DUP NOS 12 - @ 'TOS ! ;
 ::.PICK4    .DUP NOS 16 - @ 'TOS ! ;
 ::.2DUP     .OVER .OVER ;
 ::.2OVER    .PICK3 .PICK3 ;
+
+::.DROP		NOS @ 'TOS !	|...
+::.NIP      -4 'NOS +! ;
+::.2NIP      -8 'NOS +! ;
+::.2DROP    NOS 4 - @ 'TOS ! -8 'NOS +! ;
+::.3DROP    NOS 8 - @ 'TOS ! -12 'NOS +! ;
+::.4DROP    NOS 12 - @ 'TOS ! -16 'NOS +! ;
+
+::.SWAP     NOS @ TOS NOS ! 'TOS ! ;
+::.ROT      TOS NOS 4 - @ 'TOS ! NOS @ NOS 4 - !+ ! ;
 ::.2SWAP    TOS NOS @ NOS 4 - dup 4 - @ NOS ! @ 'TOS !  NOS 8 - !+ ! ;
 
 |-- Internas
@@ -85,6 +90,9 @@
 ::.;		RTOS @ nip -4 'RTOS +! ;
 ::.CALL		4 'RTOS +! dup 4+ RTOS ! @ ;
 ::.JMP		@ ;
+
+|-- exec
+::.EX		TOS .DROP 4 'RTOS +! swap RTOS ! ;
 
 |-- condicionales
 ::.0?		TOS 1? ( drop @ )( drop 4+ ) ;
@@ -102,9 +110,6 @@
 ::.N?		NOS @ TOS and? ( drop @ )( drop 4+ ) .DROP ;
 
 ::.B?		NOS @ TOS and? ( drop @ )( drop 4+ ) .DROP ;
-
-|-- exec
-::.EX		TOS .DROP 4 'RTOS +! swap RTOS ! ;
 
 ::.>R		4 'RTOS +! TOS RTOS ! .DROP ;
 ::.R>		.DUP RTOS dup @ 'TOS ! 4 - 'RTOS ! ;
@@ -174,20 +179,115 @@
 	0? ( drop TOS ; )
 	1- 2 << NOS - @ ;
 
-::PUSH.NRO	| nro --
-	.DUP 'TOS ! ;
-::PUSH.CTE	| ncte --
-	.DUP 'TOS ! ;
-::PUSH.STR	| vstr --
-	.DUP 'TOS ! ;
-::PUSH.WRD	| vwor --
-	.DUP 'TOS ! ;
-::PUSH.REG	| reg --
-	.DUP 'TOS ! ;
-::PUSH.STK	| stk --
-	.DUP 'TOS ! ;
 
+:inval
+	$f and? ( drop ; )
+	1 swap 8 >> <<
+	nromask or 'nromask !
+	;
+
+:mask2nro | -- newval
+	0 nromask
+	( 1 and? )( 1 0>>
+		swap 1+ swap ) drop ;
+
+:newval | -- newval
+	0 'nromask !
+	'PSP 8 + ( NOS <=? )( @+ inval ) drop
+	'PSP NOS =? ( drop mask2nro ; ) drop
+	TOS inval mask2nro ;
+
+
+::PUSH.NRO	| nro --
+	.DUP
+	newval
+	dup 8 << 0 or 'TOS !
+	2 << 'nrovalue + !
+	;
+::PUSH.CTE	| ncte --
+	.DUP
+	8 << 1 or
+	'TOS ! ;
+::PUSH.STR	| vstr --
+	.DUP
+	8 << 2 or
+	'TOS ! ;
+::PUSH.WRD	| vwor --
+	.DUP
+	8 << 3 or
+	'TOS ! ;
+::PUSH.REG	| reg --
+	.DUP
+	8 << 5 or
+	'TOS ! ;
+::PUSH.STK	| stk --
+	.DUP
+	8 << 6 or
+	'TOS ! ;
 
 ::.popIP	| -- val
 	RTOS dup @ swap 4 - RSP max 'RTOS ! ;
 
+|-----------------
+:printcell
+	"%h " print
+	;
+:mt0 value
+	2 << 'nrovalue + @ "%d" print ;			|--	0 nro 	33
+
+:mt1 value 'syscons list2str print ;	|--	1 cte	XRES
+:mt2 value "str%h" print ;			|--	2 str   "hola"
+:mt3 value "w%h" print ;			|--	3 cod  'func		4 dat  'var
+
+:mt5 value 'sysregs list2str print ;	|-- 5 reg 	eax
+:mt5b value 'sysregb list2str print ;	|-- 5 regb 	al
+:mt5w value 'sysregw list2str print ;	|-- 5 regw 	ax
+
+:mt6 value 2 << "dword[ebp" print 1? ( +? ( "+" print ) "%d" print )( drop ) "]" print ; |-- 6 stack
+
+#tiposrm mt0 mt1 mt2 mt3 mt3 mt5 mt6 mt0 mt0
+#tiposrmb mt0 mt1 mt2 mt3 mt3 mt5b mt6 mt0 mt0
+#tiposrmw mt0 mt1 mt2 mt3 mt3 mt5w mt6 mt0 mt0
+
+:cell | val -- str
+	dup $f and 2 << 'tiposrm + @ exec ;
+
+:cellb | nro -- nro
+	dup $f and 2 << 'tiposrmb + @ exec ;
+
+:cellw | nro -- nro
+	dup $f and 2 << 'tiposrmw + @ exec ;
+
+
+:printstsck
+	'PSP 8 + ( NOS <=? )( @+ cell " " print ) drop
+	'PSP NOS =? ( drop ; ) drop
+	TOS cell
+	;
+
+:accion
+	[ rand $f and 8 - push.nro ; ] <f1>
+	[ rand $3 and PUSH.CTE ; ] <f2>
+	[ rand $ff and PUSH.STR ; ] <f3>
+	[ rand $ff and PUSH.WRD ; ] <f4>
+	[ rand $f and PUSH.REG ; ] <f5>
+	[ rand $f and PUSH.STK ; ] <f6>
+	[ .drop ; ] <f7>
+	[ .swap ; ] <f8>
+	[ .rot ; ] <f9>
+	;
+
+:main
+	33
+	show clrscr
+		dup "%d" print cr
+		cr
+		printstsck
+		cr
+		accion
+
+		cr
+		cminiflecha
+		'exit >esc< ;
+
+: main ;
