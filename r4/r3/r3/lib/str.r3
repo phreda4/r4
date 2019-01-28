@@ -3,10 +3,10 @@
 
 #mbuff * 48
 
-:mbuffi |-- adr
+:mbuffi | -- adr
   'mbuff 47 + 0 over c! 1 - ;
-  
-:sign | sign --
+
+:sign | adr sign -- adr'
   -? ( drop $2d over c! ; ) drop 1 + ;
  
 ::.d | val -- str

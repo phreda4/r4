@@ -4,6 +4,8 @@
 ^./r3base.txt
 ^./r3asm.txt
 
+|--------------------------------------------
+|--------------------------------------------
 :adr>toklen | adr+4 -- adr len
 	@+ swap 4+ @ 12 0>> ;
 
@@ -16,7 +18,6 @@
 
 :tok>str | tok -- str
 	8 >> "%d" mprint ;
-
 
 :coldefw ":" ,s tok>dicn dup c@ $3a =? ( 2drop ; ) drop ,s ;
 :coldefv "#" ,s tok>dicn ,s ,cr ;
@@ -34,12 +35,14 @@
 
 #codei 0 coldefw coldefw coldefv coldefv 0 0 colit colit colit colit colits colwor colvar coldwo coldva
 
-:codestep
+:codestep2
 	dup $ff and
 |	dup getuso "%d %d * " ,print
 	16 <? ( 2 << 'codei + @ exec ; ) nip
 	16 - r3basename ,s ,cr
 	;
+|--------------------------------------------
+|--------------------------------------------
 
 :gencode | adr --
 	dup 8 + @ 1 and? ( 2drop ; )	| code
@@ -48,11 +51,21 @@
 
     "--------------------------" ,s ,cr
 	dup dicc - 4 >> ,codeinfo ,cr
+	dup 12 + @	| mov
+	$f and 		| uso
+	DeepStack
+	,printstk
 
 	dup adr>dicname ,s ":" ,s ,cr
 	4+ adr>toklen
 	( 1? )( 1- >r
-		@+ codestep ,sp
+		@+
+		dup $ff and r3tokenname "; %s " ,print
+		,printstk
+
+		codestep
+|		"r4asm/code.asm" savemem | debug
+
 		r> ) 2drop
 	,cr ;
 

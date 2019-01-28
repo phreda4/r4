@@ -25,44 +25,6 @@
 #nromask 0
 #nrovalue )( 128
 
-|-------- constantes del sistema
-#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "SYSXYM" "SYSBM" "SYSKEY"
-
-#sysregs "eax" "ebx" "ecx" "edx" "edi" "esi" "r8d" "r9d" "r10d" "r11d" "r12d" "r13d" "r14d" "r15d"
-#sysregw  "ax"  "bx"  "cx"  "dx"  "di"  "si" "r8w" "r9w" "r10w" "r11w" "r12w" "r13w" "r14w" "r15w"
-#sysregb  "al"  "bl"  "cl"  "dl" "dil" "sil" "r8b" "r9b" "r10b" "r11b" "r12b" "r13b" "r14b" "r15b"
-
-:list2str | nro 'list -- str
-	swap ( 1? )( 1- swap >>0 swap ) drop ;
-
-|---- imprime celda
-:value 8 >> ;
-
-:mt0 value "$%h" ,print ;			|--	0 nro 	33
-:mt1 value 'syscons list2str ,s ;	|--	1 cte	XRES
-:mt2 value "str%h" ,print ;			|--	2 str   "hola"
-:mt3 value "w%h" ,print ;			|--	3 cod  'func		4 dat  'var
-
-:mt5 value 'sysregs list2str ,s ;	|-- 5 reg 	eax
-:mt5b value 'sysregb list2str ,s ;	|-- 5 regb 	al
-:mt5w value 'sysregw list2str ,s ;	|-- 5 regw 	ax
-
-:mt6 value 2 << "dword[ebp" ,s 1? ( +? ( "+" ,s ) ,d )( drop ) "]" ,s ; |-- 6 stack
-
-#tiposrm mt0 mt1 mt2 mt3 mt3 mt5 mt6 mt0 mt0
-#tiposrmb mt0 mt1 mt2 mt3 mt3 mt5b mt6 mt0 mt0
-#tiposrmw mt0 mt1 mt2 mt3 mt3 mt5w mt6 mt0 mt0
-
-::,cell | val -- str
-	dup $f and 2 << 'tiposrm + @ exec ;
-
-::,cellb | nro -- nro
-	dup $f and 2 << 'tiposrmb + @ exec ;
-
-::,cellw | nro -- nro
-	dup $f and 2 << 'tiposrmw + @ exec ;
-
-
 |--Pila
 ::.DUP		4 'NOS +! TOS NOS ! ;
 ::.OVER     .DUP NOS 4 - @ 'TOS ! ;
@@ -94,64 +56,10 @@
 |-- exec
 ::.EX		TOS .DROP 4 'RTOS +! swap RTOS ! ;
 
+::.popIP	| -- val
+	RTOS dup @ swap 4 - RSP max 'RTOS ! ;
+
 |-- condicionales
-::.0?		TOS 1? ( drop @ )( drop 4+ ) ;
-::.1?		TOS 0?  ( drop @ )( drop 4+ ) ;
-::.+?		TOS -?  ( drop @ )( drop 4+ ) ;
-::.-?		TOS 1+ +? ( drop @ )( drop 4+ ) ;
-
-::.=?		NOS @ TOS <>? ( drop @ )( drop 4+ ) .DROP ;
-::.<?		NOS @ TOS >=? ( drop @ )( drop 4+ ) .DROP ;
-::.>?		NOS @ TOS <=? ( drop @ )( drop 4+ ) .DROP ;
-::.<=?		NOS @ TOS >? ( drop @ )( drop 4+ ) .DROP ;
-::.>=?		NOS @ TOS <? ( drop @ )( drop 4+ ) .DROP ;
-::.<>?		NOS @ TOS =? ( drop @ )( drop 4+ ) .DROP ;
-::.A?		NOS @ TOS nand? ( drop @ )( drop 4+ ) .DROP ;
-::.N?		NOS @ TOS and? ( drop @ )( drop 4+ ) .DROP ;
-
-::.B?		NOS @ TOS and? ( drop @ )( drop 4+ ) .DROP ;
-
-::.>R		4 'RTOS +! TOS RTOS ! .DROP ;
-::.R>		.DUP RTOS dup @ 'TOS ! 4 - 'RTOS ! ;
-::.R@		.DUP RTOS @ 'TOS ! ;
-
-::.AND		NOS @ TOS and 'TOS ! .NIP ;
-::.OR		NOS @ TOS or 'TOS ! .NIP ;
-::.XOR		NOS @ TOS xor 'TOS ! .NIP ;
-::.NOT		TOS not 'TOS ! ;
-::.+		NOS @ TOS + 'TOS ! .NIP ;
-::.-		NOS @ TOS - 'TOS ! .NIP ;
-::.*		NOS @ TOS * 'TOS ! .NIP ;
-::./		NOS @ TOS / 'TOS ! .NIP ;
-::.*/		NOS 4 - @ NOS @ TOS */ 'TOS ! .2NIP ;
-::.*>>		NOS 4 - @ NOS @ TOS *>> 'TOS ! .2NIP ;
-::.<</		NOS 4 - @ NOS @ TOS <</ 'TOS ! .2NIP ;
-::./MOD		NOS @ TOS /mod 'TOS ! NOS ! ;
-::.MOD		NOS @ TOS mod 'TOS ! .NIP ;
-::.ABS		TOS abs 'TOS ! ;
-::.NEG		TOS neg 'TOS ! ;
-::.CLZ		TOS clz 'TOS ! ;
-::.SQRT		TOS sqrt 'TOS ! ;
-::.<<		NOS @ TOS << 'TOS ! .NIP ;
-::.>>		NOS @ TOS >> 'TOS ! .NIP ;
-::.>>>		NOS @ TOS 0>> 'TOS ! .NIP ;
-
-::.>A		TOS 'REGA ! .DROP ;
-::.A>		.DUP REGA 'TOS ! ;
-::.A@		.DUP REGA @ 'TOS ! ;
-::.A!		TOS REGA ! .DROP ;
-::.A+       TOS 'REGA +! .DROP ;
-::.A@+		.DUP REGA dup 4+ 'REGA ! @ 'TOS ! ;
-::.A!+		TOS REGA dup 4+ 'REGA ! ! .DROP ;
-
-::.>B		TOS 'REGB ! .DROP ;
-::.B>		.DUP REGB 'TOS ! ;
-::.B@		.DUP REGB @ 'TOS ! ;
-::.B!		TOS REGB ! .DROP ;
-::.B+       TOS 'REGB +! .DROP ;
-::.B@+		.DUP REGB dup 4+ 'REGB ! @ 'TOS ! ;
-::.B!+		TOS REGB dup 4+ 'REGB ! ! .DROP ;
-
 
 :i@			TOS @ 'TOS ! ;
 :iC@		TOS c@ 'TOS ! ;
@@ -170,16 +78,6 @@
 :iD!+		NOS @ TOS w! .NIP 2 'TOS +! ;
 
 |-------------------------------
-::IniSTACK
-	'PSP 4 - 'NOS !
-	'RSP 'RTOS !
-	;
-
-::GETDSTACK | nro -- value
-	0? ( drop TOS ; )
-	1- 2 << NOS - @ ;
-
-
 :inval
 	$f and? ( drop ; )
 	1 swap 8 >> <<
@@ -225,13 +123,154 @@
 	8 << 6 or
 	'TOS ! ;
 
-::.popIP	| -- val
-	RTOS dup @ swap 4 - RSP max 'RTOS ! ;
+::IniStack
+	'PSP 'NOS !
+	'RSP 'RTOS !
+	;
+
+::DeepStack | deep --
+	IniSTACK
+	( 1? )( 1-
+		dup PUSH.REG
+		) drop ;
+
+
+:vTOS	TOS 8 >> 2 << 'nrovalue + @ ;
+:vNOS   NOS @ 8 >> 2 << 'nrovalue + @ ;
+:vPK2   NOS 4 - @ 8 >> 2 << 'nrovalue + @ ;
+
+
+::.0?		TOS 1? ( drop @ )( drop 4+ ) ;
+::.1?		TOS 0?  ( drop @ )( drop 4+ ) ;
+::.+?		TOS -?  ( drop @ )( drop 4+ ) ;
+::.-?		TOS 1+ +? ( drop @ )( drop 4+ ) ;
+
+::.=?		NOS @ TOS <>? ( drop @ )( drop 4+ ) .DROP ;
+::.<?		NOS @ TOS >=? ( drop @ )( drop 4+ ) .DROP ;
+::.>?		NOS @ TOS <=? ( drop @ )( drop 4+ ) .DROP ;
+::.<=?		NOS @ TOS >? ( drop @ )( drop 4+ ) .DROP ;
+::.>=?		NOS @ TOS <? ( drop @ )( drop 4+ ) .DROP ;
+::.<>?		NOS @ TOS =? ( drop @ )( drop 4+ ) .DROP ;
+::.A?		NOS @ TOS nand? ( drop @ )( drop 4+ ) .DROP ;
+::.N?		NOS @ TOS and? ( drop @ )( drop 4+ ) .DROP ;
+
+::.B?		NOS @ TOS and? ( drop @ )( drop 4+ ) .DROP ;
+
+::.>R		4 'RTOS +! TOS RTOS ! .DROP ;
+::.R>		.DUP RTOS dup @ 'TOS ! 4 - 'RTOS ! ;
+::.R@		.DUP RTOS @ 'TOS ! ;
+
+::.AND		vNOS vTOS and .2DROP PUSH.NRO ;
+::.OR		vNOS vTOS or .2DROP PUSH.NRO ;
+::.XOR		vNOS vTOS xor .2DROP PUSH.NRO ;
+::.NOT		vTOS not .DROP PUSH.NRO ;
+::.+		vNOS vTOS + .2DROP PUSH.NRO ;
+::.-		vNOS vTOS - .2DROP PUSH.NRO ;
+::.*		vNOS vTOS * .2DROP PUSH.NRO ;
+::./		vNOS vTOS / .2DROP PUSH.NRO ;
+::.*/		vPK2 vNOS vTOS */ .3DROP PUSH.NRO ;
+::.*>>		vPK2 vNOS vTOS *>> .3DROP PUSH.NRO ;
+::.<</		vPK2 vNOS vTOS <</ .3DROP PUSH.NRO ;
+::./MOD		vNOS vTOS /mod swap .2DROP PUSH.NRO PUSH.NRO ;
+::.MOD		vNOS vTOS mod .2DROP PUSH.NRO ;
+::.ABS		vTOS abs .DROP PUSH.NRO ;
+::.NEG		vTOS neg .DROP PUSH.NRO ;
+::.CLZ		vTOS clz .DROP PUSH.NRO ;
+::.SQRT		vTOS sqrt .DROP PUSH.NRO ;
+::.<<		vNOS vTOS << .2DROP PUSH.NRO ;
+::.>>		vNOS vTOS >> .2DROP PUSH.NRO ;
+::.>>>		vNOS vTOS 0>> .2DROP PUSH.NRO ;
+
+::.>A		TOS 'REGA ! .DROP ;
+::.A>		.DUP REGA 'TOS ! ;
+::.A@		.DUP REGA @ 'TOS ! ;
+::.A!		TOS REGA ! .DROP ;
+::.A+       TOS 'REGA +! .DROP ;
+::.A@+		.DUP REGA dup 4+ 'REGA ! @ 'TOS ! ;
+::.A!+		TOS REGA dup 4+ 'REGA ! ! .DROP ;
+
+::.>B		TOS 'REGB ! .DROP ;
+::.B>		.DUP REGB 'TOS ! ;
+::.B@		.DUP REGB @ 'TOS ! ;
+::.B!		TOS REGB ! .DROP ;
+::.B+       TOS 'REGB +! .DROP ;
+::.B@+		.DUP REGB dup 4+ 'REGB ! @ 'TOS ! ;
+::.B!+		TOS REGB dup 4+ 'REGB ! ! .DROP ;
+
+
+|-- 0 is nro x tops of stack
+::nro1stk | --1/0 ok
+	TOS $f and ;
+::nro2stk | --1/0 ok
+	NOS @ $f and
+	TOS $f and or ;
+::nro3stk | --1/0
+	NOS 4 - @ $f and
+	NOS @ $f and or
+	TOS $f and or ;
+
+|-------- constantes del sistema
+#syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "SYSXYM" "SYSBM" "SYSKEY"
+
+#sysregs "eax" "ebx" "ecx" "edx" "edi" "esi" "r8d" "r9d" "r10d" "r11d" "r12d" "r13d" "r14d" "r15d"
+#sysregw  "ax"  "bx"  "cx"  "dx"  "di"  "si" "r8w" "r9w" "r10w" "r11w" "r12w" "r13w" "r14w" "r15w"
+#sysregb  "al"  "bl"  "cl"  "dl" "dil" "sil" "r8b" "r9b" "r10b" "r11b" "r12b" "r13b" "r14b" "r15b"
+
+:list2str | nro 'list -- str
+	swap ( 1? )( 1- swap >>0 swap ) drop ;
+
+|---- imprime celda
+:value 8 >> ;
+
+:mt0 value 2 << 'nrovalue + @ "$%h" ,print ;	|--	0 nro 	33
+
+:mt1 value 'syscons list2str ,s ;	|--	1 cte	XRES
+:mt2 value "str%h" ,print ;			|--	2 str   "hola"
+:mt3 value "w%h" ,print ;			|--	3 cod  'func		4 dat  'var
+
+:mt5 value 'sysregs list2str ,s ;	|-- 5 reg 	eax
+:mt5b value 'sysregb list2str ,s ;	|-- 5 regb 	al
+:mt5w value 'sysregw list2str ,s ;	|-- 5 regw 	ax
+
+:mt6 value 2 << "dword[ebp" ,s 1? ( +? ( "+" ,s ) ,d )( drop ) "]" ,s ; |-- 6 stack
+
+#tiposrm mt0 mt1 mt2 mt3 mt3 mt5 mt6 mt0 mt0
+#tiposrmb mt0 mt1 mt2 mt3 mt3 mt5b mt6 mt0 mt0
+#tiposrmw mt0 mt1 mt2 mt3 mt3 mt5w mt6 mt0 mt0
+
+::,cell | val --
+	dup $f and 2 << 'tiposrm + @ exec ;
+
+::,cellb | nro --
+	dup $f and 2 << 'tiposrmb + @ exec ;
+
+::,cellw | nro --
+	dup $f and 2 << 'tiposrmw + @ exec ;
+
+::,printstk
+	";   S: " ,s
+	'PSP 8 + ( NOS <=? )( @+ ,cell ,sp ) drop
+	'PSP NOS <? ( TOS ,cell ) drop
+	,cr
+	;
+
+:,cellstack | nro --
+	0? ( drop TOS ,cell ; )
+	1- 2 << NOS swap - @ ,cell ;
+
+:,cstack | adr -- adr
+	c@+ $30 -
+	,cellstack ;
+
+::,asm | str --
+	( c@+ 1? )(
+		$23 <>? ( ,c )( drop ,cstack )
+		) 2drop
+	,cr
+	;
+
 
 |-----------------
-:printcell
-	"%h " print
-	;
 :mt0 value
 	2 << 'nrovalue + @ "%d" print ;			|--	0 nro 	33
 
@@ -259,22 +298,23 @@
 	dup $f and 2 << 'tiposrmw + @ exec ;
 
 
-:printstsck
+:printstk
 	'PSP 8 + ( NOS <=? )( @+ cell " " print ) drop
-	'PSP NOS =? ( drop ; ) drop
-	TOS cell
+	'PSP NOS <? ( TOS cell ) drop
 	;
+
 
 :accion
 	[ rand $f and 8 - push.nro ; ] <f1>
-	[ rand $3 and PUSH.CTE ; ] <f2>
-	[ rand $ff and PUSH.STR ; ] <f3>
-	[ rand $ff and PUSH.WRD ; ] <f4>
-	[ rand $f and PUSH.REG ; ] <f5>
-	[ rand $f and PUSH.STK ; ] <f6>
-	[ .drop ; ] <f7>
-	[ .swap ; ] <f8>
-	[ .rot ; ] <f9>
+|	[ rand $3 and PUSH.CTE ; ] <f2>
+|	[ rand $ff and PUSH.STR ; ] <f3>
+|	[ rand $ff and PUSH.WRD ; ] <f4>
+|	[ rand $f and PUSH.REG ; ] <f5>
+|	[ rand $f and PUSH.STK ; ] <f6>
+	[ 3 deepstack ; ] <f2>
+|	[ .swap ; ] <f8>
+|	[ .rot ; ] <f9>
+
 	;
 
 :main
@@ -282,7 +322,7 @@
 	show clrscr
 		dup "%d" print cr
 		cr
-		printstsck
+		printstk
 		cr
 		accion
 

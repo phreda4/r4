@@ -2,24 +2,7 @@
 | PHREDA 2018
 |-------------
 ^./r3base.txt
-
-#lab
-
-:,cell
-	"(%d)" ,print ;
-
-:,stack | adr --
-	c@+ $30 -
-	GETDSTACK
-	,cell
-	;
-
-::,asm | str --
-	( c@+ 1? )(
-		$23 <>? ( ,c )( drop ,stack )
-		) 2drop
-	,cr
-	;
+^./r3stack.txt
 
 |----------------------------------------
 #niv )( 1024
@@ -35,10 +18,16 @@
 :wlevel	| -- wl
 	niv> 4 - @ 24 >> ;
 
-:getcte
-	;
-:strmem
-	0
+|--- @@
+:getval | -- v
+	dup 4 - @ 8 0>> ;
+
+:getcte | -- v
+	dup 4 - @ 8 0>> src +
+
+	dup ?numero 1? ( drop nip nip ; ) drop
+	?fnumero 1? ( drop nip ; ) drop
+	"error" slog
 	;
 
 |----------------------
@@ -46,42 +35,37 @@
 :g0 :g: :g:: :g# :g: :g| :g^    ;
 
 :gdec
-	dup 16 << 23 >> .PUSHD 8 0>> ;
+	getcte push.nro ;
 
 :ghex
-	7 0>> .PUSHD 0 ;
+	getcte push.nro ;
 
 :gbin
-	7 0>> neg .PUSHD 0 ;
+	getcte neg push.nro ;
 
 :gfix
-	7 0>> getcte .PUSHD 0 ;
+	getcte getcte push.nro ;
 
 :gstr
-	7 0>> .PUSHD 0 ;
+	getval push.str ;
 
 :gwor
-	.PUSHD
+	getval
+	"call w%h" ,print ,cr
 	;
 
 :gvar
-	.PUSHD
-	;
+	getval push.wrd ;
 
 :gdwor
-	"call #w" ,asm
-	;
+	getval push.wrd	;
 
 :gdvar
-	.PUSHD
-	;
+	getval push.wrd	;
 
-
-:next(
-	;
 
 :i; 							| 10
-	2drop .popIP 0 ;
+	2drop .popIP ;
 
 :g;
 	"ret" ,ln
@@ -90,12 +74,12 @@
 |--- IF
 :g(
 	level+
-	nlevel "_li%h:" ,ln
+	nlevel "_li%h:" ,print ,cr
 	;
 
 :g)
-	wlevel 1? ( nlevel "jmp _li%h" ,ln ) drop
-	nlevel "_lo%h:" ,ln
+	wlevel 1? ( nlevel "jmp _li%h" ,print ,cr ) drop
+	nlevel "_lo%h:" ,print ,cr
 	level-
 	;
 |--- REP
@@ -109,88 +93,75 @@
 	;
 
 :g0?
-	next(
 	"or #0,#0" ,asm
-	nlevel "jnz _lo%h" ,ln
+	nlevel "jnz _lo%h" ,print ,cr
 	;
 
 :g1?
-	next(
 	"or #0,#0" ,asm
-	nlevel "jz _lo%h" ,ln
+	nlevel "jz _lo%h" ,print ,cr
 	;
 
 :g+?
-	next(
 	"or #0,#0" ,asm
-	nlevel "js _lo%h" ,ln
+	nlevel "js _lo%h" ,print ,cr
 	;
 
 :g-?
-	next(
 	"or #0,#0" ,asm
-	nlevel "jns _lo%h" ,ln
+	nlevel "jns _lo%h" ,print ,cr
 	;
 
 :g<?
-	next(
 	"cmp #1,#0" ,asm
-	nlevel "jge _lo%h" ,ln
+	nlevel "jge _lo%h" ,print ,cr
 	;
 
 :g>?
-	next(
 	"cmp #1,#0" ,asm
-	nlevel "jle _lo%h" ,ln
+	nlevel "jle _lo%h" ,print ,cr
 	;
 
 :g=?
-	next(
 	"cmp #1,#0" ,asm
-	nlevel "jne _lo%h" ,ln
+	nlevel "jne _lo%h" ,print ,cr
 	;
 
 :g>=?
-	next(
 	"cmp #1,#0" ,asm
-	nlevel "jl _lo%h" ,ln
+	nlevel "jl _lo%h" ,print ,cr
 	;
 
 :g<=?
-	next(
 	"cmp #1,#0" ,asm
-	nlevel "jg _lo%h" ,ln
+	nlevel "jg _lo%h" ,print ,cr
 	;
 
 :g<>?
-	next(
 	"cmp #1,#0" ,asm
-	nlevel "je _lo%h" ,ln
+	nlevel "je _lo%h" ,print ,cr
 	;
 
 :gA?
-	next(
 	"test #1,#0" ,asm
-	nlevel "jnz _lo%h" ,ln
+	nlevel "jnz _lo%h" ,print ,cr
 	;
 
 :gN?
-	next(
 	"test #1,#0" ,asm
-	nlevel "jz _lo%h" ,ln
+	nlevel "jz _lo%h" ,print ,cr
 	;
 
 :gB?
-	next(
 	| sub nos2,nos
 	| cmp nos,tos-nos
 	"cmp #2,#1" ,asm
-	nlevel "jge _lo%h" ,ln
+	nlevel "jge _lo%h" ,print ,cr
 	;
 
 
 :g>R
-	"push #0" ,asm 
+	"push #0" ,asm
 	.drop ;
 :gR>
 	.dup
@@ -198,60 +169,83 @@
 :gR@
 	.dup
 	"mov #0,[rSP]" ,asm ;
+
 :gAND
+	nro2stk 0? ( drop .AND ; ) drop
 	"and #1,#0" ,asm
 	.drop ;
 :gOR
+	nro2stk 0? ( drop .OR ; ) drop
 	"or #1,#0" ,asm
 	.drop ;
 :gXOR
+	nro2stk 0? ( drop .XOR ; ) drop
 	"xor #1,#0" ,asm
 	.drop ;
 :gNOT
+	nro1stk 0? ( drop .NOT ; ) drop
 	"not #0" ,asm ;
 :gNEG
+	nro1stk 0? ( drop .NEG ; ) drop
 	"neg #0" ,asm ;
 :g+
+	nro2stk 0? ( drop .+ ; ) drop
 	"add #1,#0" ,asm
 	.drop ;
 :g-
+	nro2stk 0? ( drop .- ; ) drop
 	"sub #1,#0" ,asm
 	.drop ;
 :g*
+	nro2stk 0? ( drop .* ; ) drop
 	"imul #1,#0" ,asm
 	.drop ;
 :g/
+	nro2stk 0? ( drop ./ ; ) drop
 	"cdq;idiv #1,#0" ,asm
 	.drop ;
 :g*/
+	nro3stk 0? ( drop .*/ ; ) drop
 	"cdq;imul #1;idiv #0" ,asm
 	.2drop ;
 :g/MOD
+	nro2stk 0? ( drop ./MOD ; ) drop
 	"cdq;idiv #0" ,asm ;
 :gMOD
+	nro2stk 0? ( drop .MOD ; ) drop
 	"cdq;idiv #0" ,asm
 	.drop ;
 :gABS
+	nro1stk 0? ( drop .ABS ; ) drop
 	"mov rdx,#0;sar rdx,63;add #0,rdx;xor #0,rdx" ,asm ;
 :gSQRT
+	nro1stk 0? ( drop .SQRT ; ) drop
+	"call sqrt" ,asm
 	;
 :gCLZ
+	nro1stk 0? ( drop .CLZ ; ) drop
 	"bsr #0,#0;xor #0,63" ,asm ;
 :g<<
+	nro2stk 0? ( drop .<< ; ) drop
 	"shl #1,#0" ,asm
 	.drop ;
 :g>>
+	nro2stk 0? ( drop .>> ; ) drop
 	"sar #1,#0" ,asm
 	.drop ;
 :g>>>
+	nro2stk 0? ( drop .>>> ; ) drop
 	"shr #1,#0" ,asm
 	.drop ;
 :g*>>
+	nro3stk 0? ( drop .*>> ; ) drop
 	"cdq;imul #1;shrd rax,rdx,#b0;sar rdx,#b0;test #b0,64;cmovne rax,rdx" ,asm
 	.2drop ;
 :g<</
+	nro3stk 0? ( drop .<</ ; ) drop
 	"cdq;shld rdx,rax,#b0;shl rax,#b0;idiv #1" ,asm
 	.2drop ;
+
 :g@
 	.dup
 	"movsx #0,dword [#0]" ,asm ;
@@ -379,6 +373,8 @@ gCMOVE gCMOVE> gCFILL
 gDMOVE gDMOVE> gDFILL
 gSYSCALL gSYSMEM
 
-::cgstep
-	$7f and 2 << 'vmc + @ exec ;
+::codestep | token --
+	$ff and
+	dup r3tokenname slog
+	2 << 'vmc + @ exec ;
 
