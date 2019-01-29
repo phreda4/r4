@@ -4,20 +4,6 @@
 ^./r3base.txt
 ^./r3stack.txt
 
-|----------------------------------------
-#niv )( 1024
-#niv> 'niv
-#nniv 0
-
-:level+
-	nniv niv> !+ 'niv> ! 1 'nniv +! ;
-:level-
-	-4 'niv> +! ;
-:nlevel	| -- nl
-	niv> 4 - @ $ffffff and 	;
-:wlevel	| -- wl
-	niv> 4 - @ 24 >> ;
-
 |--- @@
 :getval | -- v
 	dup 4 - @ 8 0>> ;
@@ -31,7 +17,6 @@
 	;
 
 |----------------------
-
 :g0 :g: :g:: :g# :g: :g| :g^    ;
 
 :gdec
@@ -44,15 +29,10 @@
 	getcte neg push.nro ;
 
 :gfix
-	getcte getcte push.nro ;
+	getcte push.nro ;
 
 :gstr
 	getval push.str ;
-
-:gwor
-	getval
-	"call w%h" ,print ,cr
-	;
 
 :gvar
 	getval push.wrd ;
@@ -63,25 +43,28 @@
 :gdvar
 	getval push.wrd	;
 
+:gwor
+	getval "call w%h" ,print ,cr
+	| "jmp w%h" ,print ,cr	| tail call
+	;
 
-:i; 							| 10
-	2drop .popIP ;
 
 :g;
+	| tail call
 	"ret" ,ln
 	;
 
 |--- IF
 :g(
-	level+
-	nlevel "_li%h:" ,print ,cr
+	getval "_i%h:" ,print ,cr
 	;
 
 :g)
-	wlevel 1? ( nlevel "jmp _li%h" ,print ,cr ) drop
-	nlevel "_lo%h:" ,print ,cr
-	level-
+	getval
+	dup 3 << blok + @ $10000000 and? ( over "jmp _i%h" ,print ,cr ) drop
+	"_o%h:" ,print ,cr
 	;
+
 |--- REP
 :g[
 :g]
@@ -94,69 +77,69 @@
 
 :g0?
 	"or #0,#0" ,asm
-	nlevel "jnz _lo%h" ,print ,cr
+	getval "jnz _o%h" ,print ,cr
 	;
 
 :g1?
 	"or #0,#0" ,asm
-	nlevel "jz _lo%h" ,print ,cr
+	getval "jz _o%h" ,print ,cr
 	;
 
 :g+?
 	"or #0,#0" ,asm
-	nlevel "js _lo%h" ,print ,cr
+	getval "js _o%h" ,print ,cr
 	;
 
 :g-?
 	"or #0,#0" ,asm
-	nlevel "jns _lo%h" ,print ,cr
+	getval "jns _o%h" ,print ,cr
 	;
 
 :g<?
 	"cmp #1,#0" ,asm
-	nlevel "jge _lo%h" ,print ,cr
+	getval "jge _o%h" ,print ,cr
 	;
 
 :g>?
 	"cmp #1,#0" ,asm
-	nlevel "jle _lo%h" ,print ,cr
+	getval "jle _o%h" ,print ,cr
 	;
 
 :g=?
 	"cmp #1,#0" ,asm
-	nlevel "jne _lo%h" ,print ,cr
+	getval "jne _o%h" ,print ,cr
 	;
 
 :g>=?
 	"cmp #1,#0" ,asm
-	nlevel "jl _lo%h" ,print ,cr
+	getval "jl _o%h" ,print ,cr
 	;
 
 :g<=?
 	"cmp #1,#0" ,asm
-	nlevel "jg _lo%h" ,print ,cr
+	getval "jg _o%h" ,print ,cr
 	;
 
 :g<>?
 	"cmp #1,#0" ,asm
-	nlevel "je _lo%h" ,print ,cr
+	getval "je _o%h" ,print ,cr
 	;
 
 :gA?
 	"test #1,#0" ,asm
-	nlevel "jnz _lo%h" ,print ,cr
+	getval "jnz _o%h" ,print ,cr
 	;
 
 :gN?
 	"test #1,#0" ,asm
-	nlevel "jz _lo%h" ,print ,cr
+	getval "jz _o%h" ,print ,cr
 	;
 
 :gB?
 	| sub nos2,nos
 	| cmp nos,tos-nos
 	"cmp #2,#1" ,asm
-	nlevel "jge _lo%h" ,print ,cr
+	getval "jge _o%h" ,print ,cr
 	;
 
 
@@ -217,7 +200,7 @@
 	.drop ;
 :gABS
 	nro1stk 0? ( drop .ABS ; ) drop
-	"mov rdx,#0;sar rdx,63;add #0,rdx;xor #0,rdx" ,asm ;
+	"mov edx,#0;sar edx,63;add #0,edx;xor #0,edx" ,asm ;
 :gSQRT
 	nro1stk 0? ( drop .SQRT ; ) drop
 	"call sqrt" ,asm
@@ -239,22 +222,20 @@
 	.drop ;
 :g*>>
 	nro3stk 0? ( drop .*>> ; ) drop
-	"cdq;imul #1;shrd rax,rdx,#b0;sar rdx,#b0;test #b0,64;cmovne rax,rdx" ,asm
+	"cdq;imul #1;shrd eax,edx,$0;sar edx,$0;test $0,32;cmovne eax,edx" ,asm
 	.2drop ;
 :g<</
 	nro3stk 0? ( drop .<</ ; ) drop
-	"cdq;shld rdx,rax,#b0;shl rax,#b0;idiv #1" ,asm
+	"cdq;shld edx,eax,$0;shl eax,$0;idiv #1" ,asm
 	.2drop ;
 
 :g@
-	.dup
 	"movsx #0,dword [#0]" ,asm ;
 :gC@
-	.dup
 	"movsx #0,byte [#0]" ,asm ;
 :gD@
-	.dup
 	"mov #0,[#0]" ,asm ;
+
 :g@+
 	.dup
 	"movsx #0,dword [#1];add #1,4" ,asm ;
@@ -264,6 +245,7 @@
 :gD@+
 	.dup
 	"mov #0,[#1];add #1,8" ,asm	;
+
 :g!
 	"mov [#0],#1" ,asm
 	.2drop ;
@@ -273,6 +255,7 @@
 :gD!
 	"mov dword [#0],#1" ,asm
 	.2drop ;
+
 :g!+
 	"mov dword [#0],#1;add #0,4" ,asm
 	.drop ;
@@ -282,73 +265,94 @@
 :gD!+
 	"mov [#0],#1;add #0,8" ,asm
 	.drop ;
+
 :g+!
 	"add dword [#0],#1" ,asm
-	.drop ;
+	.2drop ;
 :gC+!
 	"add byte [#0],#1" ,asm
-	.drop ;
+	.2drop ;
 :gD+!
 	"add [#0],#1" ,asm
-	.drop ;
+	.2drop ;
+
 :g>A
-	"mov rsi,#0" ,asm
+	"mov esi,#0" ,asm
 	.drop ;
 :gA>
-	"mov #0,rsi" ,asm ;
+	"mov #0,esi" ,asm ;
 :gA@
-	"mov #0,[rsi]" ,asm	;
+	"mov #0,[esi]" ,asm	;
 :gA!
-	"mov [rsi],#0" ,asm
+	"mov [esi],#0" ,asm
 	.drop ;
 :gA+
-	"add rsi,#0" ,asm
+	"add esi,#0" ,asm
 	.drop ;
 :gA@+
-	"mov #0,[rsi];add rsi,8" ,asm ;
+	"mov #0,[esi];add esi,4" ,asm ;
 :gA!+
-	"mov [rsi],#0;add rsi,8" ,asm
+	"mov [esi],#0;add esi,4" ,asm
 	.drop ;
+
 :g>B
-	"mov rdi,#0" ,asm
+	"mov edi,#0" ,asm
 	.drop ;
 :gB>
-	"mov #0,rdi" ,asm ;
+	"mov #0,edi" ,asm ;
 :gB@
-	"mov #0,[rdi]" ,asm ;
+	"mov #0,[edi]" ,asm ;
 :gB!
-	"mov [rdi],#0" ,asm
+	"mov [edi],#0" ,asm
 	.drop ;
 :gB+
-	"add rdi,#0" ,asm
+	"add edi,#0" ,asm
 	.drop ;
 :gB@+
-	"mov #0,[rdi];add rdi,8" ,asm ;
+	"mov #0,[edi];add edi,4" ,asm ;
 :gB!+
-	"mov [rdi],#0;add rdi,8" ,asm
+	"mov [edi],#0;add edi,4" ,asm
 	.drop ;
+
 :gMOVE
 	"rep movsq" ,asm ;
 :gMOVE>
-	"lea rsi,[rsi+rcx*8-8];lea rdi,[rdi+rcx*8-8];std;rep movsq;cld" ,asm ;
+	"lea esi,[esi+ecx*4-4];lea edi,[edi+ecx*4-4];std;rep movsd;cld" ,asm ;
 :gFILL
 	"rep stosq" ,asm ;
 :gCMOVE
 	"rep movsb" ,asm ;
 :gCMOVE>
-	"lea rsi,[rsi+rcx-1];lea rdi,[rdi+rcx-1];std;rep movsb;cld" ,asm ;
+	"lea esi,[esi+ecx-1];lea edi,[edi+ecx-1];std;rep movsb;cld" ,asm ;
 :gCFILL
 	"rep stosb" ,asm ;
 :gDMOVE
 	"rep movsd" ,asm ;
 :gDMOVE>
-	"lea rsi,[rsi+rcx*4-4];lea rdi,[rdi+rcx*4-4];std;rep movsd;cld" ,asm ;
+	"lea rsi,[esi+ecx*4-4];lea edi,[edi+ecx*4-4];std;rep movsd;cld" ,asm ;
 :gDFILL
 	"rep stosd" ,asm ;
+
 :gSYSCALL
 	;
 :gSYSMEM
 	;
+
+|---- opt instruction
+:g@* | *248 reg -- val
+	"mov #0,dword [#0*#1]" ,asm ;
+	.drop
+	;
+:g@*+ | val *248 reg -- val
+	"mov #0,dword [#0*#1+#2]" ,asm ;
+	.2drop
+	;
+:g*+ | val *248 reg -- val
+	"lea #0,dword [#0*#1+#2]" ,asm ;
+	.2drop
+	;
+
+|----
 
 #vmc
 g0 g: g:: g# g: g| g^		| 0 1 2 3 4 5 6
