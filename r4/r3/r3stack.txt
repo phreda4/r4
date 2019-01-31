@@ -22,9 +22,6 @@
 | $5 reg	eax ebx
 | $6 stk	[ebp] [ebp+4] ...
 
-#nromask 0
-#nrovalue )( 128
-
 |--Pila
 ::.DUP		4 'NOS +! TOS NOS ! ;
 ::.OVER     .DUP NOS 4 - @ 'TOS ! ;
@@ -78,29 +75,21 @@
 :iD!+		NOS @ TOS w! .NIP 2 'TOS +! ;
 
 |-------------------------------
-:inval
-	$f and? ( drop ; )
-	1 swap 8 >> <<
-	nromask or 'nromask !
-	;
-
-:mask2nro | -- newval
-	0 nromask
-	( 1 and? )( 1 0>>
-		swap 1+ swap ) drop ;
+| store value in stack
+#stkvalue )( 1024
+#stkvalue# 0
 
 :newval | -- newval
-	0 'nromask !
-	'PSP 8 + ( NOS <=? )( @+ inval ) drop
-	'PSP NOS =? ( drop mask2nro ; ) drop
-	TOS inval mask2nro ;
+	stkvalue#
+	dup 1+ 'stkvalue# !
+	;
 
 
 ::PUSH.NRO	| nro --
 	.DUP
 	newval
 	dup 8 << 0 or 'TOS !
-	2 << 'nrovalue + !
+	2 << 'stkvalue + !
 	;
 ::PUSH.CTE	| ncte --
 	.DUP
@@ -123,21 +112,11 @@
 	8 << 6 or
 	'TOS ! ;
 
-::IniStack
-	'PSP 'NOS !
-	'RSP 'RTOS !
-	;
-
-::DeepStack | deep --
-	IniSTACK
-	( 1? )( 1-
-		dup PUSH.REG
-		) drop ;
 
 
-:vTOS	TOS 8 >> 2 << 'nrovalue + @ ;
-:vNOS   NOS @ 8 >> 2 << 'nrovalue + @ ;
-:vPK2   NOS 4 - @ 8 >> 2 << 'nrovalue + @ ;
+:vTOS	TOS 8 >> 2 << 'stkvalue + @ ;
+:vNOS   NOS @ 8 >> 2 << 'stkvalue + @ ;
+:vPK2   NOS 4 - @ 8 >> 2 << 'stkvalue + @ ;
 
 
 ::.0?		TOS 1? ( drop @ )( drop 4+ ) ;
@@ -154,7 +133,7 @@
 ::.A?		NOS @ TOS nand? ( drop @ )( drop 4+ ) .DROP ;
 ::.N?		NOS @ TOS and? ( drop @ )( drop 4+ ) .DROP ;
 
-::.B?		NOS @ TOS and? ( drop @ )( drop 4+ ) .DROP ;
+::.B?		NOS @ TOS and? ( drop @ )( drop 4+ ) .DROP ; |****
 
 ::.>R		4 'RTOS +! TOS RTOS ! .DROP ;
 ::.R>		.DUP RTOS dup @ 'TOS ! 4 - 'RTOS ! ;
@@ -209,6 +188,51 @@
 	NOS @ $f and or
 	TOS $f and or ;
 
+#stks )( 256 		| stack of stack 64 levels
+#stks> 'stks
+
+#memstk )( $fff	| stack memory
+#memstk> 'memstk
+
+::IniStack
+	'PSP 'NOS !
+	'RSP 'RTOS !
+	0 'stkvalue# !
+	'stks 'stks> !
+	'memstk 'memstk> !
+	;
+
+::DeepStack | deep --
+	IniStack
+	( 1? )( 1-
+		dup PUSH.REG
+		) drop ;
+
+::stk.push
+	memstk> dup stks> !+ 'stks> !
+	>a
+	NOS 'PSP - a!+
+	'PSP 8 + ( NOS <=? )( @+ a!+ ) drop
+	'PSP NOS <? ( TOS a!+ ) drop
+	;
+
+::stk.pop
+	-4 'stks> +! stks> @
+	dup 'memstk> !
+	>a
+	a@+ 'PSP + 'NOS !
+	'PSP 8 + ( NOS <=? )( a@+ swap !+ ) drop
+	'PSP NOS <? ( a@+ 'TOS ! ) drop
+	;
+
+::stk.drop
+	-4 'stks> +! stks> @
+	'memstk> !
+	;
+
+::stk.normal | deep --
+	;
+
 |-------- constantes del sistema
 #syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "SYSXYM" "SYSBM" "SYSKEY"
 
@@ -222,7 +246,7 @@
 |---- imprime celda
 :value 8 >> ;
 
-:mt0 value 2 << 'nrovalue + @ "$%h" ,print ;	|--	0 nro 	33
+:mt0 value 2 << 'stkvalue + @ "$%h" ,print ;	|--	0 nro 	33
 
 :mt1 value 'syscons list2str ,s ;	|--	1 cte	XRES
 :mt2 value "str%h" ,print ;			|--	2 str   "hola"
@@ -238,22 +262,14 @@
 #tiposrmb mt0 mt1 mt2 mt3 mt3 mt5b mt6 mt0 mt0
 #tiposrmw mt0 mt1 mt2 mt3 mt3 mt5w mt6 mt0 mt0
 
-::,cell | val --
+:,cell | val --
 	dup $f and 2 << 'tiposrm + @ exec ;
 
-::,cellb | nro --
+:,cellb | nro --
 	dup $f and 2 << 'tiposrmb + @ exec ;
 
-::,cellw | nro --
+:,cellw | nro --
 	dup $f and 2 << 'tiposrmw + @ exec ;
-
-::,printstk
-	"; [ " ,s
-	'PSP 8 + ( NOS <=? )( @+ ,cell ,sp ) drop
-	'PSP NOS <? ( TOS ,cell ) drop
-	" ]" ,s
-	,cr
-	;
 
 :,cstack | adr -- adr
 	c@+ $30 -
@@ -276,9 +292,17 @@
 	,cr ;
 
 
+::,printstk
+	"; [ " ,s
+	'PSP 8 + ( NOS <=? )( @+ ,cell ,sp ) drop
+	'PSP NOS <? ( TOS ,cell ) drop
+	" ]" ,s
+	,cr
+	;
+
 |-----------------
 :mt0 value
-	2 << 'nrovalue + @ "%d" print ;			|--	0 nro 	33
+	2 << 'stkvalue + @ "%d" print ;			|--	0 nro 	33
 
 :mt1 value 'syscons list2str print ;	|--	1 cte	XRES
 :mt2 value "str%h" print ;			|--	2 str   "hola"
@@ -303,7 +327,6 @@
 :cellw | nro -- nro
 	dup $f and 2 << 'tiposrmw + @ exec ;
 
-
 :printstk
 	'PSP 8 + ( NOS <=? )( @+ cell " " print ) drop
 	'PSP NOS <? ( TOS cell ) drop
@@ -312,14 +335,14 @@
 
 :accion
 	[ rand $f and 8 - push.nro ; ] <f1>
-|	[ rand $3 and PUSH.CTE ; ] <f2>
-|	[ rand $ff and PUSH.STR ; ] <f3>
+	[ rand $3 and PUSH.CTE ; ] <f2>
+	[ rand $ff and PUSH.STR ; ] <f3>
 |	[ rand $ff and PUSH.WRD ; ] <f4>
 |	[ rand $f and PUSH.REG ; ] <f5>
 |	[ rand $f and PUSH.STK ; ] <f6>
-	[ 3 deepstack ; ] <f2>
-|	[ .swap ; ] <f8>
-|	[ .rot ; ] <f9>
+	[ .drop ; ] <f4>
+	[ stk.push ; ] <f5>
+	[ stk.pop ; ] <f6>
 
 	;
 
