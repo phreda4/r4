@@ -5,19 +5,22 @@
 ^./r3stack.txt
 
 |--- @@
-:getval | -- v
+:getval | a -- a v
 	dup 4 - @ 8 0>> ;
 
 :getiw | v -- v iw
     dup 3 << blok + @ $10000000 and ;
 
-:getcte | -- v
+:getcte | a -- a v
 	dup 4 - @ 8 0>> src +
 
 	dup ?numero 1? ( drop nip nip ; ) drop
 	?fnumero 1? ( drop nip ; ) drop
 	"error" slog
 	;
+
+:getcte2 | a -- a v
+	dup 4 - @ 8 0>> ctecode + @	;
 
 |----------------------
 :g0 :g: :g:: :g# :g: :g| :g^    ;
@@ -26,7 +29,7 @@
 	getcte push.nro ;
 
 :ghex
-	getcte push.nro ;
+	getcte2 push.nro ;
 
 :gbin
 	getcte neg push.nro ;
@@ -47,18 +50,27 @@
 	getval push.wrd	;
 
 :gwor
-	getval "call w%h" ,print ,cr
-	| "jmp w%h" ,print ,cr	| tail call
+	getval
+	dup dic>du
+	"; u:%d d:%d" ,print ,cr
+
+	over @ $ff and
+	16 <>? ( "call w%h" )( "jmp w%h" ) | call..ret?
+	nip
+	,print ,cr
 	;
 
 
 :g;
-	| tail call
+	dup 8 - @ $ff and
+	12 =? ( drop ; ) | tail call  call..ret?
+	drop
 	"ret" ,ln
 	;
 
 |--- IF
 :g(
+	stk.push
 	getval
 	getiw 0? ( 2drop ; ) drop
 	"_i%h:" ,print ,cr ;		| while
@@ -67,6 +79,7 @@
 	getval
 	getiw 1? ( over "jmp _i%h" ,print ,cr ) drop	| while
 	"_o%h:" ,print ,cr
+	stk.pop
 	;
 
 |--- REP
@@ -75,8 +88,10 @@
 	;
 
 :gEX
+
 	"call #0" ,asm
 |	"jmp #0" ,asm
+
 	;
 
 :g0?
@@ -101,41 +116,49 @@
 
 :g<?
 	"cmp #1,#0" ,asm
+	.drop
 	getval "jge _o%h" ,print ,cr
 	;
 
 :g>?
 	"cmp #1,#0" ,asm
+	.drop
 	getval "jle _o%h" ,print ,cr
 	;
 
 :g=?
 	"cmp #1,#0" ,asm
+	.drop
 	getval "jne _o%h" ,print ,cr
 	;
 
 :g>=?
 	"cmp #1,#0" ,asm
+	.drop
 	getval "jl _o%h" ,print ,cr
 	;
 
 :g<=?
 	"cmp #1,#0" ,asm
+	.drop
 	getval "jg _o%h" ,print ,cr
 	;
 
 :g<>?
 	"cmp #1,#0" ,asm
+	.drop
 	getval "je _o%h" ,print ,cr
 	;
 
 :gA?
 	"test #1,#0" ,asm
+	.drop
 	getval "jnz _o%h" ,print ,cr
 	;
 
 :gN?
 	"test #1,#0" ,asm
+	.drop
 	getval "jz _o%h" ,print ,cr
 	;
 
@@ -143,6 +166,7 @@
 	| sub nos2,nos
 	| cmp nos,tos-nos
 	"cmp #2,#1" ,asm
+	.2drop
 	getval "jge _o%h" ,print ,cr
 	;
 
@@ -155,7 +179,7 @@
 	"pop #0" ,asm ;
 :gR@
 	.dup
-	"mov #0,[rSP]" ,asm ;
+	"mov #0,[esp]" ,asm ;
 
 :gAND
 	nro2stk 0? ( drop .AND ; ) drop
