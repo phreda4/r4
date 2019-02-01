@@ -4,30 +4,46 @@
 ^./r3base.txt
 ^./r3asm.txt
 
-#ctecode )( 8192
-#ctecode> 'ctecode
-|-- buffer code
-#bcode )( 8192
-#bcode> 'bcode
 
-:codeini
-	'bcode 'bcode> !
-	'ctecode 'ctecode> !
+#:ncell 0	| cnt cells
+| Info de celdas
+| RR WW FFFF
+| R cnt de lecturas
+| W cnt de escrituras
+| flags........
+|  $1 in W		| word
+|  $2 out W
+|  $4 in C		| call
+|  $8 out C
+| $10 var
+| $20 dir var
+| $40 dir code
+| $80 copia de A en cellt
+| $100 celda exec
+| $800 celda ya asignada (para vreg)
+| $1000 celda AD	x86
+| $2000 celda C		x86
+| $4000 no usar C
+#:cells )( 1024
+#:cellt )( 1024 | token de origen o celda
+#:cellv )( 1024 | vida de celda | ff iii fff
+
+:newcell | -- nro
+	ncell
+	0 over 2 << 'cells + !
+	0 over 2 << 'cellt + !
+	ncode over 2 << 'cellv + ! | inicio de vida
+	dup 1+ 'ncell !
 	;
 
-:code!+ | tok --
-	bcode> !+ 'bcode> ! ;
+:setcell | nro -- nro
+	0 over 2 << 'cells + !
+	0 over 2 << 'cellt + !
+	ncode over 2 << 'cellv + ! | inicio de vida
+	;
 
-:cte!+ | val --
-	ctecode>
-	dup 'ctecode - 8 << 8 or | token hex are generated
-	code!+
-	!+ 'ctecode> ! ;
-
-
-:tocode
-	code!+ ;
-
+:endlive | nro --
+	ncode 10 << swap 2 << 'cellv + +!  ;
 
 |----- division by constant
 | http://www.flounder.com/multiplicative_inverse.htm
@@ -96,13 +112,14 @@
 	aa> dup 1- and? ( /cte ; )
 	2 =? ( /cte2 ; )
 	swap
-	31 genCTE $23 cteop!
-	$4c swap code!+ | >>
-	33 32 pick3 clz - - genCTE swap code!+ |30
-	$4d swap code!+ | 0>>
-	$39	swap code!+	| +
-	31 rot clz - genCTE swap code!+	| 2
-	$4c swap code!+ | >>
+	31 cte!+ 
+	$23 code!+
+	$4c code!+ | >>
+	33 32 pick3 clz - - cte!+ |30
+	$4d code!+ | 0>>
+	$39	code!+	| +
+	31 rot clz - cte!+ | 2
+	$4c code!+ | >>
 	;
 
 :o/     | ab -- c
@@ -116,44 +133,46 @@
 :/modcte
 	dup >r
 	calcmagic
-	divm genCTE $23 cteop!
-	divs genCTE swap code!+
-	$3e swap code!+ 		| *>>
+	divm cte!+
+	$23 code!+
+	divs cte!+
+	$3e  code!+ 		| *>>
 	signadj!+
 
-	$29	swap code!+	| swap
-	$25	swap code!+	| over
+	$29	code!+	| swap
+	$25	code!+	| over
 
-	r> genCTE swap code!+	| NRO
-	$3B	swap code!+	| *
-	$3A	swap code!+	| -
+	r> cte!+	| NRO
+	$3B	code!+	| *
+	$3A	code!+	| -
 	;
 
 |----  8 /mod --> dup / swap mod
 :/modpot
 	aa> dup 1- and? ( /modcte ; )
 	swap
-    $23 $23 cteop!
-    31 genCTE swap code!+ | 31
-	$4c swap code!+ | >>
-	33 32 pick3 clz - - genCTE swap code!+ |30
-	$4d swap code!+ | 0>>
-	$39	swap code!+	| +
-	31 pick2 clz - genCTE swap code!+	| 2
-	$4c swap code!+ | >>
-	$29	swap code!+	| swap
-	$23 swap code!+ | dup
-	31 genCTE swap code!+ |31
-	$4c swap code!+ | >>
-	33 32 pick3 clz - - genCTE swap code!+
-	$4d swap code!+	| 0>>
-	$29	swap code!+	| swap
-	$25	swap code!+	| over
-	$39	swap code!+	| +
-	swap 1- genCTE swap code!+ | mask
-	$35 swap code!+	| AND
-	$29	swap code!+	| swap
-	$3A	swap code!+	| -
+    $23 code!+
+	$23 code!+
+    31 cte!+ | 31
+	$4c code!+ | >>
+	33 32 pick3 clz - - cte!+ |30
+	$4d code!+ | 0>>
+	$39	code!+	| +
+	31 pick2 clz - cte!+ 	| 2
+	$4c code!+ | >>
+	$29	code!+	| swap
+	$23 code!+ | dup
+	31 cte!+ |31
+	$4c code!+ | >>
+	33 32 pick3 clz - - cte!+
+	$4d code!+	| 0>>
+	$29	code!+	| swap
+	$25	code!+	| over
+	$39	code!+	| +
+	1- cte!+  | mask
+	$35 code!+	| AND
+	$29	code!+	| swap
+	$3A	code!+	| -
 	;
 
 :o/MOD  | ab -- cd
@@ -166,30 +185,32 @@
 :modcte
 	dup >r
 	calcmagic
-	divm genCTE $23 cteop!
-	divs genCTE swap code!+
-	$3e swap code!+ 		| *>>
+	divm cte!+
+	$23 code!+
+	divs cte!+
+	$3e code!+ 		| *>>
 	signadj!+
-	r> genCTE swap code!+	| NRO
-	$3B	swap code!+	| *
-	$3A	swap code!+	| -
+	r> cte!+	| NRO
+	$3B	code!+	| *
+	$3A	code!+	| -
 	;
 
 |----  8 mod --> $7 and
 |	dup 31 >> (33-4)29 0>> swap over + 7 and swap -
 :modpot
 	aa> dup 1- and? ( modcte ; )
-	swap 31 genCTE $23 cteop! | dup 31
-	$4c swap code!+ | >>
-	33 32 pick3 clz - - genCTE swap code!+
-	$4d swap code!+	| 0>>
-	$29	swap code!+	| swap
-	$25	swap code!+	| over
-	$39	swap code!+	| +
-	swap 1- genCTE swap code!+ | mask
-	$35 swap code!+	| AND
-	$29	swap code!+	| swap
-	$3A	swap code!+	| -
+	31 cte!+
+	$23 code!+ | dup 31
+	$4c code!+ | >>
+	33 32 pick3 clz - - cte!+
+	$4d code!+	| 0>>
+	$29	code!+	| swap
+	$25	code!+	| over
+	$39	code!+	| +
+	1- cte!+ | mask
+	$35 code!+	| AND
+	$29	code!+	| swap
+	$3A	code!+	| -
 	;
 
 :oMOD   | ab -- c
@@ -198,8 +219,146 @@
 	1 =? ( 2drop modpot -aa ; )
 	2drop -aa ;
 
-|-----------------------------
+|-----------------------------------
 
+:idec | --
+	newcell PUSH.REG ;
+:istr | --
+	newcell PUSH.REG ;
+:ivar | --
+	newcell PUSH.REG ;
+:idwor	| --
+	newcell PUSH.REG ;
+:idvar	| --
+	newcell PUSH.REG ;
+
+:iwor
+	dup 4 - @ 8 >>
+
+	dup dic>DATAU
+	dup ( 1? )( 1- tosoutC d.dropv ) drop
+	swap dic>DATAD +
+	( 1? )( 1- newcell d.push tosinC ) drop
+	;
+
+:iex
+	tosExe
+    tos+1r d.dropv
+	lastdircode
+	dup dic>DATAU
+	dup ( 1? )( 1- tosoutC d.dropv ) drop
+	swap dic>DATAD +
+	( 1? )( 1- newcell d.push tosinC ) drop
+	;
+
+#vmc
+0 0 0 0 0 0 0		| 0 1 2 3 4 5 6
+
+idec idec idec idec istr    | 7 8 9 a b
+iwor ivar idwor idvar		| c d e f
+
+i; i( i) i[ i] iEX			| 10..15
+
+i0? i1? i+? i-? i<? i>? i=? i>=? i<=? i<>? iA? iN? iB?	| 16..22
+
+.DUP .DROP .OVER .PICK2 .PICK3 .PICK4 .SWAP .NIP		| 23..2A
+.ROT .2DUP .2DROP .3DROP .4DROP .2OVER .2SWAP			| 2B..31
+
+i>R iR> iR@                                             | 32..34
+
+iAND iOR iXOR iNOT iNEi									| 35..39
+i+ i- i* i/ i*/                                         | 3A..3E
+i/MOD iMOD iABS iSQRT iCLZ
+i<< i>> i>>> i*>> i<</
+
+i@ iC@ iD@ i@+ iC@+ iD@+
+i! iC! iD! i!+ iC!+ iD!+
+i+! iC+! iD+!
+
+i>A iA> iA@ iA! iA+ iA@+ iA!+
+i>B iB> iB@ iB! iB+ iB@+ iB!+
+
+iMOVE iMOVE> iFILL
+iCMOVE iCMOVE> iCFILL
+iDMOVE iDMOVE> iDFILL
+iSYSCALL iSYSMEM
+
+|------------------------------------------
+
+w;		| ; | fin de palabra
+w( w) 0 0						| [ ]
+exexec					|EXEC  x/0 --    TOS es dcod
+c0 c0 c0 c0				| 0?	a -- a
+c1 c1 c1 c1 c1 c1 c1 c1	c1 | =?	ab -- a
+
+
+r.push	|>R		a -- R: -- a
+r.pop	|R>		-- a R: a --
+r.r@	|R		-- a R: a -- a
+
+op2a1	|AND	ab -- c
+op2a1	|OR		ab -- c
+op2a1	|XOR	ab -- c
+op1a1	|NOT	a -- b
+op2a1	|+		ab -- c
+op2a1	|-		ab -- c
+op2a1	|*		ab -- c
+vop2a1	|/		ab -- c		; AD
+op3a1	|*/		abc -- d	; AD
+vop3a1	|*>>	abc -- d	; ADC
+op2a2	|/MOD	ab -- cd	; AD
+vop2a1	|MOD	ab -- c		; AD
+vop1a1	|ABS	a -- b
+op1a1	|SQRT	a -- b
+vop1a1	|CLZ	a -- b
+vop3a1	|<</	abc -- d	; ADC
+op1a1	|NEG	a -- b
+op1a1	|1+		a -- b
+op1a1	|4+		a -- b
+op1a1	|1-		a -- b
+op1a1	|2/		a -- b
+op1a1	|2*		a -- b
+xop2a1	|<<		ab -- c		; C
+xop2a1	|>>		ab -- c		; C
+xop2a1	|0>>	ab -- c		; C
+
+1@	|@      a -- b     tos es ddat
+1@	|C@     a -- b		tos es ddat
+1@	|W@     a -- b      tos es ddat
+1!	|!     ab --        tos es ddat
+1!	|C!    ab --        tos es ddat
+1!	|W!    ab --        tos es ddat
+2+!	|+!    ab --        tos es ddat
+2+!	|C+!   ab --        tos es ddat
+2+!	|W+!   ab --        tos es ddat
+2@	|@+     a -- bc     tos es ddat
+2!	|!+    ab -- c      tos es ddat
+2@	|C@+    a -- bc     tos es ddat
+2!	|C!+   ab -- c      tos es ddat
+2@	|W@+    a -- bc     tos es ddat
+2!	|W!+   ab -- c      tos es ddat
+
+v>a va> va@ va! va+ va@+ va!+
+v>b vb> vb@ vb! vb+ vb@+ vb!+
+
+vuso3	|MOVE  abc --       a,b es ddat
+vuso3	|MOVE> abc --		a,b es ddat
+vuso3	|FILL abc --		a,b es ddat
+vuso3	|CMOVE abc --		a,b es ddat
+vuso3	|CMOVE> abc --		a,b es ddat
+vuso3	|CFILL abc --		a,b es ddat
+v1cte	|MEM	-- a		a es ddat
+
+:codestep | token --
+	$ff and
+	2 << 'vmc + @ exec ;
+
+
+:tocode
+
+	code!+ ;
+
+|-----------------------------
 :gencode2 | adr --
 	dup 8 + @
 	1 and? ( 2drop ; )	| code
@@ -227,9 +386,7 @@
 		dup $ff and r3tokenname "; %s " ,print
 		dup 8 >> 1? ( "%h " ,print )( drop )
 		,printstk
-
 		codestep
-
 		) drop
 
 	;
