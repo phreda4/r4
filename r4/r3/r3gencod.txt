@@ -4,7 +4,6 @@
 ^./r3base.txt
 ^./r3asm.txt
 
-
 #:ncell 0	| cnt cells
 | Info de celdas
 | RR WW FFFF
@@ -89,7 +88,126 @@
 	$3a code!+ 	| -
 	;
 
-|-----------------------------
+|-----------------------------------
+:idec | --
+	getcte push.nro ;
+
+:istr
+	getval push.str ;
+
+:ivar
+	getval
+	| inline?
+
+	push.wrd
+	;
+
+:idwor
+	getval push.wrd	;
+
+:idvar
+	getval push.wrd	;
+
+
+:iwor
+	getval
+	dup dic>du
+|	dup ( 1? )( 1- tosoutC d.dropv ) drop
+|	+ ( 1? )( 1- newcell d.push tosinC ) drop
+	3drop
+	;
+
+:i;
+:i( 
+:i) 
+:i[ 
+:i]
+	;
+
+:iex
+|	lastdircode
+|	dup ( 1? )( 1- tosoutC d.dropv ) drop
+|	+ ( 1? )( 1- newcell d.push tosinC ) drop
+	;
+
+:i0? 
+:i1? 
+:i+? 
+:i-? 
+:i<? 
+:i>? 
+:i=? 
+:i>=? 
+:i<=? 
+:i<>? 
+:iA? 
+:iN? 
+:iB?
+	;
+
+:i>R 
+:iR> 
+:iR@
+	;
+
+:iAND
+	nro2stk 0? ( drop .AND ; ) drop
+
+	.drop ;
+:iOR
+	nro2stk 0? ( drop .OR ; ) drop
+
+	.drop ;
+:iXOR
+	nro2stk 0? ( drop .XOR ; ) drop
+
+	.drop ;
+:iNOT
+	nro1stk 0? ( drop .NOT ; ) drop
+
+	;
+:iNEG
+	nro1stk 0? ( drop .NEG ; ) drop
+
+	;
+:i+
+	nro2stk 0? ( drop .+ ; ) drop
+
+	.drop ;
+:i-
+	nro2stk 0? ( drop .- ; ) drop
+
+	.drop ;
+
+|---------------- *
+| 8 * --> 3 <<
+:*pot
+	31 swap clz - cte!+
+	$4b code!+
+	;
+
+| 7 * --> dup 3 << swap -
+:*pot-1
+	$23 code!+	| dup
+	32 swap clz - cte!+
+	$4b	code!+	| <<
+	$29	code!+	| swap
+	$3a code!+ | -
+	;
+
+:*nro
+
+	dup 1- nand? ( *pot ; )
+	dup 1+ nand? ( *pot-1 ; )
+	drop
+	;
+
+:i*
+	nro2stk 0? ( drop .* ; ) drop
+	nro1stk 0? ( drop *nro ; ) drop
+
+	.drop ;
+
 |---- cte / --> divm divs *>> dup 31 >> -
 :/cte
 	calcmagic
@@ -108,11 +226,12 @@
 	;
 
 |----  4 / --> dup 31 >> 30 0>> + 2 >>
-:/pot
-	aa> dup 1- and? ( /cte ; )
+:/nro
+
+	dup 1- and? ( /cte ; )
 	2 =? ( /cte2 ; )
 	swap
-	31 cte!+ 
+	31 cte!+
 	$23 code!+
 	$4c code!+ | >>
 	33 32 pick3 clz - - cte!+ |30
@@ -122,14 +241,20 @@
 	$4c code!+ | >>
 	;
 
-:o/     | ab -- c
-	aa#
-	1 >? ( 2drop aa2@ / aa1! ; )
-	1 =? ( 2drop /pot -aa ; )
-	2drop -aa ;
+:i/
+	nro2stk 0? ( drop ./ ; ) drop
+	nro1stk 0? ( drop /nro ; ) drop
+
+	.drop ;
 
 
-|-----------------------------
+:i*/
+	nro3stk 0? ( drop .*/ ; ) drop
+
+	.2drop ;
+
+
+|---------------- /MOD
 :/modcte
 	dup >r
 	calcmagic
@@ -148,8 +273,9 @@
 	;
 
 |----  8 /mod --> dup / swap mod
-:/modpot
-	aa> dup 1- and? ( /modcte ; )
+:/MODnro
+	
+	dup 1- and? ( /modcte ; )
 	swap
     $23 code!+
 	$23 code!+
@@ -175,13 +301,14 @@
 	$3A	code!+	| -
 	;
 
-:o/MOD  | ab -- cd
-	aa#
-	1 >? ( 2drop aa2@! /MOD aa2! ; )
-	1 =? ( 2drop /modpot -aa ; )
-	2drop -aa ;
 
-|------- MOD
+:i/MOD
+	nro2stk 0? ( drop ./MOD ; ) drop
+	nro1stk 0? ( drop /MODnro ; ) drop
+
+	;
+
+|---------------- MOD
 :modcte
 	dup >r
 	calcmagic
@@ -197,8 +324,9 @@
 
 |----  8 mod --> $7 and
 |	dup 31 >> (33-4)29 0>> swap over + 7 and swap -
-:modpot
-	aa> dup 1- and? ( modcte ; )
+:modnro
+	
+	dup 1- and? ( modcte ; )
 	31 cte!+
 	$23 code!+ | dup 31
 	$4c code!+ | >>
@@ -213,42 +341,91 @@
 	$3A	code!+	| -
 	;
 
-:oMOD   | ab -- c
-	aa#
-	1 >? ( 2drop aa2@ MOD aa1! ; )
-	1 =? ( 2drop modpot -aa ; )
-	2drop -aa ;
 
-|-----------------------------------
+:iMOD
+	nro2stk 0? ( drop .MOD ; ) drop
+	nro1stk 0? ( drop MODnro ; ) drop
+	.drop ;
 
-:idec | --
-	newcell PUSH.REG ;
-:istr | --
-	newcell PUSH.REG ;
-:ivar | --
-	newcell PUSH.REG ;
-:idwor	| --
-	newcell PUSH.REG ;
-:idvar	| --
-	newcell PUSH.REG ;
 
-:iwor
-	dup 4 - @ 8 >>
+:iABS
+	nro1stk 0? ( drop .ABS ; ) drop
 
-	dup dic>DATAU
-	dup ( 1? )( 1- tosoutC d.dropv ) drop
-	swap dic>DATAD +
-	( 1? )( 1- newcell d.push tosinC ) drop
+	;
+:iSQRT
+	nro1stk 0? ( drop .SQRT ; ) drop
+
+	;
+:iCLZ
+	nro1stk 0? ( drop .CLZ ; ) drop
+
+	;
+:i<<
+	nro2stk 0? ( drop .<< ; ) drop
+
+	.drop ;
+:i>>
+	nro2stk 0? ( drop .>> ; ) drop
+
+	.drop ;
+:i>>>
+	nro2stk 0? ( drop .>>> ; ) drop
+
+	.drop ;
+:i*>>
+	nro3stk 0? ( drop .*>> ; ) drop
+
+	.2drop ;
+:i<</
+	nro3stk 0? ( drop .<</ ; ) drop
+
+	.2drop ;
+
+
+:i@ 
+:iC@
+:iD@ 
+:i@+ 
+:iC@+ 
+:iD@+
+:i! 
+:iC! 
+:iD! 
+:i!+
+:iC!+
+:iD!+
+:i+!
+:iC+!
+:iD+!
 	;
 
-:iex
-	tosExe
-    tos+1r d.dropv
-	lastdircode
-	dup dic>DATAU
-	dup ( 1? )( 1- tosoutC d.dropv ) drop
-	swap dic>DATAD +
-	( 1? )( 1- newcell d.push tosinC ) drop
+:i>A 
+:iA> 
+:iA@ 
+:iA! 
+:iA+ 
+:iA@+ 
+:iA!+
+:i>B 
+:iB> 
+:iB@ 
+:iB! 
+:iB+ 
+:iB@+ 
+:iB!+
+	;
+
+:iMOVE 
+:iMOVE> 
+:iFILL
+:iCMOVE 
+:iCMOVE> 
+:iCFILL
+:iDMOVE 
+:iDMOVE> 
+:iDFILL
+:iSYSCALL 
+:iSYSMEM
 	;
 
 #vmc
@@ -266,7 +443,7 @@ i0? i1? i+? i-? i<? i>? i=? i>=? i<=? i<>? iA? iN? iB?	| 16..22
 
 i>R iR> iR@                                             | 32..34
 
-iAND iOR iXOR iNOT iNEi									| 35..39
+iAND iOR iXOR iNOT iNEG									| 35..39
 i+ i- i* i/ i*/                                         | 3A..3E
 i/MOD iMOD iABS iSQRT iCLZ
 i<< i>> i>>> i*>> i<</
@@ -284,79 +461,9 @@ iDMOVE iDMOVE> iDFILL
 iSYSCALL iSYSMEM
 
 |------------------------------------------
+:tocode | adr token -- adr
+	$ff and 2 << 'vmc + @ exec ;
 
-w;		| ; | fin de palabra
-w( w) 0 0						| [ ]
-exexec					|EXEC  x/0 --    TOS es dcod
-c0 c0 c0 c0				| 0?	a -- a
-c1 c1 c1 c1 c1 c1 c1 c1	c1 | =?	ab -- a
-
-
-r.push	|>R		a -- R: -- a
-r.pop	|R>		-- a R: a --
-r.r@	|R		-- a R: a -- a
-
-op2a1	|AND	ab -- c
-op2a1	|OR		ab -- c
-op2a1	|XOR	ab -- c
-op1a1	|NOT	a -- b
-op2a1	|+		ab -- c
-op2a1	|-		ab -- c
-op2a1	|*		ab -- c
-vop2a1	|/		ab -- c		; AD
-op3a1	|*/		abc -- d	; AD
-vop3a1	|*>>	abc -- d	; ADC
-op2a2	|/MOD	ab -- cd	; AD
-vop2a1	|MOD	ab -- c		; AD
-vop1a1	|ABS	a -- b
-op1a1	|SQRT	a -- b
-vop1a1	|CLZ	a -- b
-vop3a1	|<</	abc -- d	; ADC
-op1a1	|NEG	a -- b
-op1a1	|1+		a -- b
-op1a1	|4+		a -- b
-op1a1	|1-		a -- b
-op1a1	|2/		a -- b
-op1a1	|2*		a -- b
-xop2a1	|<<		ab -- c		; C
-xop2a1	|>>		ab -- c		; C
-xop2a1	|0>>	ab -- c		; C
-
-1@	|@      a -- b     tos es ddat
-1@	|C@     a -- b		tos es ddat
-1@	|W@     a -- b      tos es ddat
-1!	|!     ab --        tos es ddat
-1!	|C!    ab --        tos es ddat
-1!	|W!    ab --        tos es ddat
-2+!	|+!    ab --        tos es ddat
-2+!	|C+!   ab --        tos es ddat
-2+!	|W+!   ab --        tos es ddat
-2@	|@+     a -- bc     tos es ddat
-2!	|!+    ab -- c      tos es ddat
-2@	|C@+    a -- bc     tos es ddat
-2!	|C!+   ab -- c      tos es ddat
-2@	|W@+    a -- bc     tos es ddat
-2!	|W!+   ab -- c      tos es ddat
-
-v>a va> va@ va! va+ va@+ va!+
-v>b vb> vb@ vb! vb+ vb@+ vb!+
-
-vuso3	|MOVE  abc --       a,b es ddat
-vuso3	|MOVE> abc --		a,b es ddat
-vuso3	|FILL abc --		a,b es ddat
-vuso3	|CMOVE abc --		a,b es ddat
-vuso3	|CMOVE> abc --		a,b es ddat
-vuso3	|CFILL abc --		a,b es ddat
-v1cte	|MEM	-- a		a es ddat
-
-:codestep | token --
-	$ff and
-	2 << 'vmc + @ exec ;
-
-
-:tocode
-
-	code!+ ;
 
 |-----------------------------
 :gencode2 | adr --
