@@ -84,29 +84,42 @@
 :signadj!+ | --
 	$23 code!+ 	| dup
 	31 cte!+ 	| 31
-	$4c code!+ 	| >>
-	$3a code!+ 	| -
+	$45 code!+ 	| >>
+	$3b code!+ 	| -
 	;
+
+|---
+:2code!+
+	dup 4 - @ code!+ ;
 
 |-----------------------------------
 :idec | --
-	getcte push.nro ;
+	getcte push.nro
+	2code!+ ;
+
+:ihex | --
+	getcte2 push.nro
+	2code!+ ;
 
 :istr
-	getval push.str ;
+	getval push.str 
+	2code!+ ;
 
 :ivar
 	getval
 	| inline?
 
 	push.wrd
+	2code!+
 	;
 
 :idwor
-	getval push.wrd	;
+	getval push.wrd
+	2code!+ ;
 
 :idvar
-	getval push.wrd	;
+	getval push.wrd	
+	2code!+ ;
 
 
 :iwor
@@ -115,12 +128,21 @@
 |	dup ( 1? )( 1- tosoutC d.dropv ) drop
 |	+ ( 1? )( 1- newcell d.push tosinC ) drop
 	3drop
+	2code!+
 	;
 
 :i;
-:i( 
-:i) 
-:i[ 
+	2code!+	;
+
+:i(
+	2code!+
+	stk.push ;
+
+:i)
+	2code!+
+	stk.pop	;
+
+:i[
 :i]
 	;
 
@@ -128,55 +150,69 @@
 |	lastdircode
 |	dup ( 1? )( 1- tosoutC d.dropv ) drop
 |	+ ( 1? )( 1- newcell d.push tosinC ) drop
+	2code!+
 	;
 
-:i0? 
-:i1? 
-:i+? 
-:i-? 
-:i<? 
-:i>? 
-:i=? 
-:i>=? 
-:i<=? 
-:i<>? 
-:iA? 
-:iN? 
+:gwhilejmp
+	getval getiw
+	1? ( stk.drop stk.push ) | while
+	2drop
+	;
+
+:i0?
+:i1?
+:i+?
+:i-?
+	2code!+
+	gwhilejmp
+	;
+:i<?
+:i>?
+:i=?
+:i>=?
+:i<=?
+:i<>?
+:iA?
+:iN?
+	2code!+
+	.drop
+	gwhilejmp ;
 :iB?
-	;
+	2code!+
+	.2drop
+	gwhilejmp ;
 
-:i>R 
-:iR> 
-:iR@
-	;
+:i>R .drop 2code!+ ;
+:iR> .dup 2code!+ ;
+:iR@ .dup 2code!+ ;
 
 :iAND
 	nro2stk 0? ( drop .AND ; ) drop
-
+	2code!+
 	.drop ;
 :iOR
 	nro2stk 0? ( drop .OR ; ) drop
-
+	2code!+
 	.drop ;
 :iXOR
 	nro2stk 0? ( drop .XOR ; ) drop
-
+	2code!+
 	.drop ;
 :iNOT
 	nro1stk 0? ( drop .NOT ; ) drop
-
+	2code!+
 	;
 :iNEG
 	nro1stk 0? ( drop .NEG ; ) drop
-
+	2code!+
 	;
 :i+
 	nro2stk 0? ( drop .+ ; ) drop
-
+	2code!+
 	.drop ;
 :i-
 	nro2stk 0? ( drop .- ; ) drop
-
+	2code!+
 	.drop ;
 
 |---------------- *
@@ -196,7 +232,8 @@
 	;
 
 :*nro
-
+	code<<
+	vTOS
 	dup 1- nand? ( *pot ; )
 	dup 1+ nand? ( *pot-1 ; )
 	drop
@@ -205,7 +242,7 @@
 :i*
 	nro2stk 0? ( drop .* ; ) drop
 	nro1stk 0? ( drop *nro ; ) drop
-
+	2code!+
 	.drop ;
 
 |---- cte / --> divm divs *>> dup 31 >> -
@@ -227,70 +264,72 @@
 
 |----  4 / --> dup 31 >> 30 0>> + 2 >>
 :/nro
-
+	code<<
+	vTOS
 	dup 1- and? ( /cte ; )
 	2 =? ( /cte2 ; )
 	swap
 	31 cte!+
 	$23 code!+
 	$4c code!+ | >>
-	33 32 pick3 clz - - cte!+ |30
+	33 32 pick2 clz - - cte!+ |30
 	$4d code!+ | 0>>
 	$39	code!+	| +
-	31 rot clz - cte!+ | 2
+	31 swap clz - cte!+ | 2
 	$4c code!+ | >>
 	;
 
 :i/
 	nro2stk 0? ( drop ./ ; ) drop
 	nro1stk 0? ( drop /nro ; ) drop
-
+	2code!+
 	.drop ;
 
 
 :i*/
 	nro3stk 0? ( drop .*/ ; ) drop
-
+	2code!+
 	.2drop ;
 
 
 |---------------- /MOD
 :/modcte
-	dup >r
+	dup
 	calcmagic
+	$23 code!+		| dup
 	divm cte!+
-	$23 code!+
 	divs cte!+
-	$3e  code!+ 		| *>>
+	$47 code!+ 		| *>>
 	signadj!+
 
 	$29	code!+	| swap
 	$25	code!+	| over
 
-	r> cte!+	| NRO
+	cte!+		| NRO
 	$3B	code!+	| *
 	$3A	code!+	| -
 	;
 
 |----  8 /mod --> dup / swap mod
 :/MODnro
-	
+	code<<
+	vTOS
 	dup 1- and? ( /modcte ; )
 	swap
     $23 code!+
 	$23 code!+
     31 cte!+ | 31
 	$4c code!+ | >>
-	33 32 pick3 clz - - cte!+ |30
+	33 32 pick2 clz - - cte!+ |30
 	$4d code!+ | 0>>
 	$39	code!+	| +
-	31 pick2 clz - cte!+ 	| 2
+	31 over clz - cte!+ 	| 2
 	$4c code!+ | >>
 	$29	code!+	| swap
 	$23 code!+ | dup
 	31 cte!+ |31
 	$4c code!+ | >>
-	33 32 pick3 clz - - cte!+
+	33 32 pick2 clz - - cte!+
 	$4d code!+	| 0>>
 	$29	code!+	| swap
 	$25	code!+	| over
@@ -305,19 +344,20 @@
 :i/MOD
 	nro2stk 0? ( drop ./MOD ; ) drop
 	nro1stk 0? ( drop /MODnro ; ) drop
-
+	2code!+
 	;
+
 
 |---------------- MOD
 :modcte
-	dup >r
+	dup
 	calcmagic
 	divm cte!+
 	$23 code!+
 	divs cte!+
 	$3e code!+ 		| *>>
 	signadj!+
-	r> cte!+	| NRO
+	cte!+	| NRO
 	$3B	code!+	| *
 	$3A	code!+	| -
 	;
@@ -325,12 +365,12 @@
 |----  8 mod --> $7 and
 |	dup 31 >> (33-4)29 0>> swap over + 7 and swap -
 :modnro
-	
+    code<<
 	dup 1- and? ( modcte ; )
 	31 cte!+
 	$23 code!+ | dup 31
 	$4c code!+ | >>
-	33 32 pick3 clz - - cte!+
+	33 32 pick2 clz - - cte!+
 	$4d code!+	| 0>>
 	$29	code!+	| swap
 	$25	code!+	| over
@@ -345,93 +385,113 @@
 :iMOD
 	nro2stk 0? ( drop .MOD ; ) drop
 	nro1stk 0? ( drop MODnro ; ) drop
+	2code!+
 	.drop ;
 
 
 :iABS
 	nro1stk 0? ( drop .ABS ; ) drop
-
+	2code!+
 	;
 :iSQRT
 	nro1stk 0? ( drop .SQRT ; ) drop
-
+	2code!+
 	;
 :iCLZ
 	nro1stk 0? ( drop .CLZ ; ) drop
-
+	2code!+
 	;
 :i<<
 	nro2stk 0? ( drop .<< ; ) drop
-
+	2code!+
 	.drop ;
 :i>>
 	nro2stk 0? ( drop .>> ; ) drop
-
+	2code!+
 	.drop ;
 :i>>>
 	nro2stk 0? ( drop .>>> ; ) drop
-
+	2code!+
 	.drop ;
 :i*>>
 	nro3stk 0? ( drop .*>> ; ) drop
-
+	2code!+
 	.2drop ;
 :i<</
 	nro3stk 0? ( drop .<</ ; ) drop
-
+	2code!+
 	.2drop ;
 
 
-:i@ 
+:i@
 :iC@
-:iD@ 
-:i@+ 
-:iC@+ 
+:iD@
+	2code!+
+	;
+:i@+
+:iC@+
 :iD@+
-:i! 
-:iC! 
-:iD! 
+	2code!+
+	.dup
+	;
+:i!
+:iC!
+:iD!
+	2code!+
+	.2drop
+	;
 :i!+
 :iC!+
 :iD!+
+	2code!+
+	.drop
+	;
 :i+!
 :iC+!
 :iD+!
+	2code!+
+	.2drop
 	;
 
-:i>A 
-:iA> 
-:iA@ 
-:iA! 
-:iA+ 
-:iA@+ 
-:iA!+
-:i>B 
-:iB> 
-:iB@ 
-:iB! 
-:iB+ 
-:iB@+ 
-:iB!+
-	;
+:i>A	2code!+ .drop ;
+:iA>	2code!+ .dup ;
+:iA@	2code!+ .dup ;
+:iA!	2code!+ .drop ;
+:iA+    2code!+ .drop ;
+:iA@+   2code!+ .dup ;
+:iA!+   2code!+ .drop ;
 
-:iMOVE 
-:iMOVE> 
+:i>B    2code!+ .drop ;
+:iB>    2code!+ .dup ;
+:iB@    2code!+ .dup ;
+:iB!    2code!+ .drop ;
+:iB+    2code!+ .drop ;
+:iB@+   2code!+ .dup ;
+:iB!+   2code!+ .drop ;
+
+:iMOVE
+:iMOVE>
 :iFILL
-:iCMOVE 
-:iCMOVE> 
+:iCMOVE
+:iCMOVE>
 :iCFILL
-:iDMOVE 
-:iDMOVE> 
+:iDMOVE
+:iDMOVE>
 :iDFILL
-:iSYSCALL 
+	2code!+
+	.3drop ;
+:iSYSCALL
+	2code!+
+	;
 :iSYSMEM
+	2code!+
+	.drop
 	;
 
 #vmc
 0 0 0 0 0 0 0		| 0 1 2 3 4 5 6
 
-idec idec idec idec istr    | 7 8 9 a b
+idec ihex idec idec istr    | 7 8 9 a b
 iwor ivar idwor idvar		| c d e f
 
 i; i( i) i[ i] iEX			| 10..15
@@ -462,8 +522,12 @@ iSYSCALL iSYSMEM
 
 |------------------------------------------
 :tocode | adr token -- adr
-	$ff and 2 << 'vmc + @ exec ;
+	$ff and
+|	printstk cr
+	dup r3tokenname slog
+	2 << 'vmc + @ exec
 
+	;
 
 |-----------------------------
 :gencode2 | adr --
@@ -494,6 +558,7 @@ iSYSCALL iSYSMEM
 		dup 8 >> 1? ( "%h " ,print )( drop )
 		,printstk
 		codestep
+		"r4asm/code.asm" savemem | debug
 		) drop
 
 	;
