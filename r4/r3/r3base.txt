@@ -45,7 +45,7 @@
 | $2 - loc/ext
 
 | $4	1 es usado con direccion
-| $8	1 r esta desbalanceada
+| $8	1 r esta desbalanceada		| var cte
 | $10	0 un ; 1 varios ;
 | $20	1 si es recursiva
 | $40	1 si tiene anonimas
@@ -53,7 +53,7 @@
 | $100	1 inline
 
 |   $fff000 - calls
-| $ff000000 - level
+| $ff000000 - level/data type
 
 | mov
 | $fffff000 -- 20 bits token len
@@ -118,7 +118,7 @@
 ::dic>adr | nro -- adr
 	4 << dicc + ;
 
-::dic>tok | nro -- 'inf
+::dic>tok | nro -- 'tok
 	dic>adr 4 + ;
 
 ::dic>inf | nro -- 'inf
@@ -136,9 +136,10 @@
 	dic>adr 12 + @ 12 0>> ;
 
 ::adr>dicname | adr -- nadr
-	adr>dic
+	adr>dic "W%h" mprint ;
+
 ::tok>dicname | nro -- nadr
-	"W%h" mprint ;
+	8 0>> "W%h" mprint ;
 
 ::dic>toklen | nro -- adr len
 	dic>adr 4+ @+ swap 4+ @ 12 0>> ;
@@ -217,6 +218,11 @@
 |	$fff and " %h " ,print
 	;
 
+#datastr "val" "ddata" "dcode" "str" "lval" "lddata" "ldcode" "lstr" "multi" "buff"
+
+:datatype | nro -- str
+	'datastr swap ( 0 <>? )( 1- swap >>0 swap ) drop ;
+
 ::,datainfo | nro --
 	"; " ,s
 	dic>adr
@@ -225,10 +231,13 @@
 	@+
 	$2 and? ( "e" )( "l" ) ,s	| export/local
 	$4 and? ( "'" )( "" ) ,s	| /adress used
+	$8 and? ( "c" )( "" ) ,s	| cte
 
 	dup 12 >> $fff and " <%d> " ,print
-	24 >> $ff and " nivel:%d " ,print
-	@ dup 12 0>> "len:%d " ,print
+	" tipo:" ,s
+	24 >> $f and datatype ,s
+
+	@ dup 12 0>> " len:%d " ,print
 	$fff and " %h " ,print
 	;
 

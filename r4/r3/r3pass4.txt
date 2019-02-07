@@ -374,6 +374,7 @@ inA usoA inB usoB usomem
 	$b =? ( 1 'cnts +! )												| string
 	$c =? ( 1 'cntdc +! copydeltaS ) $e =? ( 1 'cntdc +! copydeltaS )	| word y dir word
 	$d =? ( 1 'cntdv +! ) $f =? ( 1 'cntdv +! )							| var y dir var
+	$3c =? (  1 'flags ! )	| *
 	drop ;
 
 |--- info de variables
@@ -386,8 +387,10 @@ inA usoA inB usoB usomem
 | lista dir codigos   6
 | lista strings       7
 | estructura multiple 8
+| buffer			  9
 |--------------------
-:decodeinfov | -- iv
+:decodeinfov | len -- len iv
+	flags 1? ( drop 9 ; ) drop
 	cntdv cntdc or cnts or
 	0? ( drop 3 <? ( 0 ; ) 4 ; ) drop | todos numeros
 	cntdv cntdc or
@@ -396,15 +399,20 @@ inA usoA inB usoB usomem
 	0? ( drop 3 <? ( 2 ; ) 6 ; ) drop | direccion de codigo
 	3 <? ( 1 )( 5 ) ;                 | direccion de dato
 
-:resetvers
+:resetvars
 	0 'deltaS !
 	0 'cntdv ! 0 'cntdc !
 	0 'cnts ! 0 'cntn0 !
+	0 'flags !
 	;
 
 :setvars | nro -- nro
-	decodeinfov 24 <<
-	over dic>inf dup @ rot or swap !
+	dup dic>len@ decodeinfov nip
+	24 << over dic>inf dup @ rot or
+|	$f000004 nand? ( $8 or )	| solo nros??
+	$4 nand? ( $8 or )
+	swap !
+
 	deltaS over dic>mov dup @ rot or swap !	| stack mov of vectors in var
 	;
 

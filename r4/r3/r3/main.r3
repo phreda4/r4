@@ -2,6 +2,7 @@
 ^lib/print.r3
 ^lib/gr.r3
 
+#cte 33
 #v 0
 
 :main
@@ -10,7 +11,7 @@
  keychar .d print
  cr
  v .h print
- 1 'v +!
+ cte 'v +!
  ;
 
 :
