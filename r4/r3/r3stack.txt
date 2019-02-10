@@ -17,7 +17,7 @@
 
 ::code!+ | tok --
 	bcode> !+ 'bcode> ! ;
-	
+
 ::code<< | --
 	-4 'bcode> +! ;
 
@@ -107,43 +107,27 @@
 #stkvalue# 0
 
 :newval | -- newval
-	stkvalue#
-	dup 1+ 'stkvalue# !
-	;
+	stkvalue# dup 1+ 'stkvalue# ! ;
 
 ::PUSH.NRO	| nro --
 	.DUP
-	newval
-	dup 8 << 0 or 'TOS !
-	2 << 'stkvalue + !
-	;
+	newval dup 8 << 0 or 'TOS !
+	2 << 'stkvalue + ! ;
+
 ::PUSH.CTE	| ncte --
-	.DUP
-	8 << 1 or
-	'TOS ! ;
+	.DUP 8 << 1 or 'TOS ! ;
 ::PUSH.STR	| vstr --
-	.DUP
-	8 << 2 or
-	'TOS ! ;
+	.DUP 8 << 2 or 'TOS ! ;
 ::PUSH.WRD	| vwor --
-	.DUP
-	8 << 3 or
-	'TOS ! ;
+	.DUP 8 << 3 or 'TOS ! ;
 ::PUSH.REG	| reg --
-	.DUP
-	8 << 5 or
-	'TOS ! ;
+	.DUP 8 << 5 or 'TOS ! ;
 ::PUSH.STK	| stk --
-	.DUP
-	8 << 6 or
-	'TOS ! ;
-
-
+	.DUP 8 << 6 or 'TOS ! ;
 
 ::vTOS	TOS 8 >> 2 << 'stkvalue + @ ;
 ::vNOS   NOS @ 8 >> 2 << 'stkvalue + @ ;
 ::vPK2   NOS 4 - @ 8 >> 2 << 'stkvalue + @ ;
-
 
 ::.0?		TOS 1? ( drop @ )( drop 4+ ) ;
 ::.1?		TOS 0?  ( drop @ )( drop 4+ ) ;
@@ -227,6 +211,9 @@
 	'stks 'stks> !
 	'memstk 'memstk> !
 	;
+
+::stack.cnt | -- cnt
+	NOS 'PSP - 2 >> ;
 
 ::DeepStack | deep --
 	IniStack
@@ -326,6 +313,117 @@
 	,cr
 	;
 
+::stackmap | vector --
+	'PSP 8 + ( NOS <=? )( @ dup >r pick2 exec r> 4+ ) drop
+	'PSP NOS <? ( 'TOS pick2 exec ) drop ;
+
+|----------------- set cell
+
+:cell.REG | reg 'cell --
+	"mov " ,s
+	over 'sysregs list2str ,s
+	"," ,s
+	dup @ ,cell
+	swap 8 << 5 or swap ! ;
+
+:cell.STK | stk 'cell --
+	"mov [ebp" ,s
+	over 2 << +? ( "+" ,s )
+	,d "]," ,s
+	dup @ ,cell
+	swap 8 << 6 or swap ! ;
+
+|----------------- Nomal mode
+#stacknow
+
+:cellEBP | deltap 'cell -- deltap
+	dup @ $f and 6 <>? ( 2drop ; ) drop | STK?
+	over 8 << swap +! ;
+
+:shiftEBP | deltap --	; corre ebp a nuevo lugar
+	0? ( drop ; )
+	"lea ebp,[ebp" ,s dup +? ( "+" ,s ) 2 << ,d "]" ,ln
+    'cellEBP stackmap
+	drop ;
+
+|-----------
+|--- mueve los que son registros
+:movereg
+	d.cnt 1- 'dpila
+	( dpila> 4 - <? )( swap 1- swap @+
+		dup cellREG? 0 >=? ( drop nip mov2stack 1 ; ) 2drop
+		) 2drop 0 ;
+
+|--- mueve constantes iguales !!!! optimizacion !!!!
+:movecte
+	'dpila
+	( dpila> <? )(
+		@+ cellNRO? drop |*******
+		) drop ;
+
+|--- mueve los que quedan
+:resolveADR | cnt adr cell xx -- cnt adr cell xx
+	newReg pick2 over ,cell2REG
+	|--- cnt adr cell xx reg
+	pick2 cellSTACK 2 >> pick3 pick2 changeREG | dest cell reg
+	2drop
+	5 pick3 cell!
+	;
+
+:realmove | cnt adr cell -- cnt adr x x
+	dup cellADR? 1? ( resolveADR ) drop
+	| cnt adr cell
+	pick2 swap mov2stack | dest cell
+	2dup
+	;
+
+:movecell
+	d.cnt 1- 'dpila
+	( dpila> 4 - <? )( swap 1- swap @+
+		dup cellSTACK pick3 2 <<
+		<>? ( drop realmove ) 2drop
+		) 2drop ;
+
+|----
+:usado | nro XX cell -- nro XX
+	dup cellSTACK pick3 2 << <>? ( 1 swap 2 >> 'regused + c! drop ; )
+	2drop ;
+
+:fillstackuse
+	'regused d.cnt
+	( 1? )( 1- 0 rot c!+ swap ) 2drop
+	d.cnt 1- 'dpila
+	( dpila> <? )( swap 1- swap @+
+		usado ) 2drop ;
+
+:vplast
+	stacknow 0? ( drop ; ) drop
+	"mov eax,dword [esi-4]" ,ln
+	0 5 d.tos cell! ;
+
+:copyStack | -- ; copia los registros/ctes en pila
+	stack.cnt 0? ( drop vplast ; ) drop
+	fillstackuse
+	( movereg 1? )( drop ) drop
+	movecte
+	movecell
+	d.tos
+	dup cellREG? 0? ( 2drop ; ) drop	| ya es eax!
+	dup 0 ,cell2REG
+	0 5 rot cell!
+	;
+
+|-------
+::stack2normal | -- ; [ebp+4] [ebp] eax
+	stacknow stack.cnt - shiftEBP	| corre ebp a nuevo lugar
+	copyStack						| copia los registros/ctes en vpila
+	stack.cnt 'stacknow !			| ahora vpila tiene...
+	;
+
+
+
+|-----------------
+| DEBUG
 |-----------------
 :mt0 value
 	2 << 'stkvalue + @ "%d" print ;			|--	0 nro 	33
@@ -353,7 +451,7 @@
 :cellw | nro -- nro
 	dup $f and 2 << 'tiposrmw + @ exec ;
 
-::printstk
+:printstk
 	'PSP 8 + ( NOS <=? )( @+ cell " " print ) drop
 	'PSP NOS <? ( TOS cell ) drop
 	;
