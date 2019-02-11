@@ -2,6 +2,7 @@
 | PHREDA
 |--------------------
 ^r4/lib/gui.txt
+^r4/lib/trace.txt
 
 |-- buffer code
 #:bcode )( 8192
@@ -269,7 +270,9 @@
 :mt5b value 'sysregb list2str ,s ;	|-- 5 regb 	al
 :mt5w value 'sysregw list2str ,s ;	|-- 5 regw 	ax
 
-:mt6 value 2 << "dword[ebp" ,s 1? ( +? ( "+" ,s ) ,d )( drop ) "]" ,s ; |-- 6 stack
+:mt6 value 2 << "dword[ebp" ,s 
+	1? ( +? ( "+" ,s ) ,d )( drop ) 
+	"]" ,s ; 						|-- 6 stack
 
 #tiposrm mt0 mt1 mt2 mt3 mt3 mt5 mt6 mt0 mt0
 #tiposrmb mt0 mt1 mt2 mt3 mt3 mt5b mt6 mt0 mt0
@@ -313,25 +316,81 @@
 	,cr
 	;
 
-::stackmap | vector --
-	'PSP 8 + ( NOS <=? )( @ dup >r pick2 exec r> 4+ ) drop
-	'PSP NOS <? ( 'TOS pick2 exec ) drop ;
+::stackmap | xx vector -- xx
+	>a
+	'PSP 8 + ( NOS <=? )( dup >r	| xx 'cell
+		a> exec
+		r> 4+ ) drop
+	'PSP NOS >=? ( drop ; ) drop
+	'TOS a> exec ;
 
-|----------------- set cell
+::stackmap-1 | xx vector -- xx
+	>a
+	'PSP 8 + ( NOS <=? )( dup >r	| xx 'cell
+		a> exec
+		r> 4+ ) 2drop
+	;
 
+
+|----------------- registers used
+#maskreg 0
+
+:usereg | 'cell --
+	dup @ $f and
+	5 <>? ( 2drop ; ) drop
+	8 >> 1 swap <<
+	maskreg or 'maskreg !
+	;
+
+:cell.fillreg
+	0 'maskreg !
+	'usereg stackmap
+	;
+
+|---- set cell
 :cell.REG | reg 'cell --
 	"mov " ,s
 	over 'sysregs list2str ,s
 	"," ,s
 	dup @ ,cell
-	swap 8 << 5 or swap ! ;
+	swap 8 << 5 or swap !
+	,cr ;
 
 :cell.STK | stk 'cell --
 	"mov [ebp" ,s
-	over 2 << +? ( "+" ,s )
-	,d "]," ,s
+	over
+	1? ( 2 << +? ( "+" ,s ) ,d )( drop )
+	"]," ,s
 	dup @ ,cell
-	swap 8 << 6 or swap ! ;
+	swap 8 << 6 or swap !
+	,cr ;
+
+|---- set cell if need
+:cell.REG? | reg 'cell --
+	over 8 << 5 or
+	over @ =? ( 3drop ; ) drop
+	cell.REG
+	;
+
+|-----
+::setEAX | 'cell --
+	0 8 << 5 or swap ! ;
+::setEDX | 'cell --
+	3 8 << 5 or swap ! ;
+
+::setSTK | 'cell --
+	NOS over swap - 1- 2 >>
+	swap cell.STK ;
+
+:freeforedx | 'cell --
+	dup @
+	3 8 << 5 or | reg EDX
+	<>? ( 2drop ; ) drop
+	setSTK ;
+
+::freeEDX
+	'freeforedx stackmap ;
+
 
 |----------------- Nomal mode
 #stacknow
@@ -346,72 +405,17 @@
     'cellEBP stackmap
 	drop ;
 
-|-----------
-|--- mueve los que son registros
-:movereg
-	d.cnt 1- 'dpila
-	( dpila> 4 - <? )( swap 1- swap @+
-		dup cellREG? 0 >=? ( drop nip mov2stack 1 ; ) 2drop
-		) 2drop 0 ;
-
-|--- mueve constantes iguales !!!! optimizacion !!!!
-:movecte
-	'dpila
-	( dpila> <? )(
-		@+ cellNRO? drop |*******
-		) drop ;
-
-|--- mueve los que quedan
-:resolveADR | cnt adr cell xx -- cnt adr cell xx
-	newReg pick2 over ,cell2REG
-	|--- cnt adr cell xx reg
-	pick2 cellSTACK 2 >> pick3 pick2 changeREG | dest cell reg
-	2drop
-	5 pick3 cell!
-	;
-
-:realmove | cnt adr cell -- cnt adr x x
-	dup cellADR? 1? ( resolveADR ) drop
-	| cnt adr cell
-	pick2 swap mov2stack | dest cell
-	2dup
-	;
-
-:movecell
-	d.cnt 1- 'dpila
-	( dpila> 4 - <? )( swap 1- swap @+
-		dup cellSTACK pick3 2 <<
-		<>? ( drop realmove ) 2drop
-		) 2drop ;
-
 |----
-:usado | nro XX cell -- nro XX
-	dup cellSTACK pick3 2 << <>? ( 1 swap 2 >> 'regused + c! drop ; )
-	2drop ;
-
-:fillstackuse
-	'regused d.cnt
-	( 1? )( 1- 0 rot c!+ swap ) 2drop
-	d.cnt 1- 'dpila
-	( dpila> <? )( swap 1- swap @+
-		usado ) 2drop ;
-
-:vplast
+:stklast
 	stacknow 0? ( drop ; ) drop
-	"mov eax,dword [esi-4]" ,ln
-	0 5 d.tos cell! ;
+	"mov eax,dword [ebp-4]" ,ln
+	5 'TOS ! ; | TOS -> eax
 
 :copyStack | -- ; copia los registros/ctes en pila
-	stack.cnt 0? ( drop vplast ; ) drop
-	fillstackuse
-	( movereg 1? )( drop ) drop
-	movecte
-	movecell
-	d.tos
-	dup cellREG? 0? ( 2drop ; ) drop	| ya es eax!
-	dup 0 ,cell2REG
-	0 5 rot cell!
-	;
+	stack.cnt 0? ( drop stklast ; ) drop
+	cell.fillreg | reg used?
+    'setSTK stackmap-1
+	0 'TOS cell.REG? ;
 
 |-------
 ::stack2normal | -- ; [ebp+4] [ebp] eax
@@ -419,8 +423,6 @@
 	copyStack						| copia los registros/ctes en vpila
 	stack.cnt 'stacknow !			| ahora vpila tiene...
 	;
-
-
 
 |-----------------
 | DEBUG
@@ -461,25 +463,30 @@
 	[ rand $f and 8 - push.nro ; ] <f1>
 	[ rand $3 and PUSH.CTE ; ] <f2>
 	[ rand $ff and PUSH.STR ; ] <f3>
-|	[ rand $ff and PUSH.WRD ; ] <f4>
-|	[ rand $f and PUSH.REG ; ] <f5>
-|	[ rand $f and PUSH.STK ; ] <f6>
-	[ .drop ; ] <f4>
-	[ stk.push ; ] <f5>
-	[ stk.pop ; ] <f6>
-
+	[ rand $ff and PUSH.WRD ; ] <f4>
+	[ rand $f and PUSH.REG ; ] <f5>
+	[ rand $f and PUSH.STK ; ] <f6>
+	[ .drop ; ] <f7>
+|	[ stk.push ; ] <f5>
+|	[ stk.pop ; ] <f6>
+	'stack2normal <f10>
 	;
+
+#memp
 
 :main
 	33
+	mark
+	here 0 over !
+	'memp !
 	show clrscr
 		dup "%d" print cr
 		cr
 		printstk
 		cr
 		accion
-
 		cr
+		memp print
 		cminiflecha
 		'exit >esc< ;
 
