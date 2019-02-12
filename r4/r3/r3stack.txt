@@ -40,6 +40,8 @@
 #RSP )( 1024
 #RTOS 'RSP
 
+:NOS2 NOS 4 - ;
+
 | format cell
 | type-- $0000000f
 | $0 nro	33
@@ -244,8 +246,6 @@
 	'memstk> !
 	;
 
-::stk.normal | deep --
-	;
 
 |-------- constantes del sistema
 #syscons "XRES" "YRES" "FREE_MEM" "SYSFRAME" "SYSXYM" "SYSBM" "SYSKEY"
@@ -270,7 +270,7 @@
 :mt5b value 'sysregb list2str ,s ;	|-- 5 regb 	al
 :mt5w value 'sysregw list2str ,s ;	|-- 5 regw 	ax
 
-:mt6 value 2 << "dword[ebp" ,s 
+:mt6 value 2 << "dword[ebp" ,s
 	1? ( +? ( "+" ,s ) ,d )( drop ) 
 	"]" ,s ; 						|-- 6 stack
 
@@ -331,7 +331,6 @@
 		r> 4+ ) 2drop
 	;
 
-
 |----------------- registers used
 #maskreg 0
 
@@ -380,6 +379,8 @@
 
 ::setSTK | 'cell --
 	NOS over swap - 1- 2 >>
+	dup 8 << 6 or
+	pick2 @ =? ( 3drop ; ) drop | ya esta en orden
 	swap cell.STK ;
 
 :freeforedx | 'cell --
@@ -391,6 +392,13 @@
 ::freeEDX
 	'freeforedx stackmap ;
 
+::isEAX | 'cell --
+	drop
+	;
+
+::isECXcte | 'cell --
+	drop
+	;
 
 |----------------- Nomal mode
 #stacknow
@@ -423,6 +431,33 @@
 	copyStack						| copia los registros/ctes en vpila
 	stack.cnt 'stacknow !			| ahora vpila tiene...
 	;
+
+|-------
+| 'copy--> cnt<<2 last .. tos
+::stack2copy | 'copy --
+
+	TOS 'NOS 4+ ! | in PSP
+
+	@+ 2 >>
+|	NOS 'PSP - <>? ( ; )
+	'PSP 8 + >a
+	( 1? )(
+		swap @+ a@+   | to from
+
+		swap 1- ) 2drop ;
+
+::stk.conv | --
+	stks> 4 - @
+	stack2copy
+	;
+
+:debugstk
+	stks> 4 -
+	'stks <? ( drop ; )
+	@ @+ 2 >>
+	( 1? )(
+		swap @+ "%h " print
+		swap 1- ) 2drop ;
 
 |-----------------
 | DEBUG
@@ -467,9 +502,12 @@
 	[ rand $f and PUSH.REG ; ] <f5>
 	[ rand $f and PUSH.STK ; ] <f6>
 	[ .drop ; ] <f7>
-|	[ stk.push ; ] <f5>
-|	[ stk.pop ; ] <f6>
-	'stack2normal <f10>
+	[ .swap ; ] <f8>
+
+	[ stk.push ; ] <f9>
+	[ stk.pop ; ] <f10>
+
+	[ stack2normal 0 here ! ; ] <f11>
 	;
 
 #memp
@@ -481,12 +519,17 @@
 	'memp !
 	show clrscr
 		dup "%d" print cr
+		'memp "%h " print
+		here "%h" print cr
 		cr
 		printstk
 		cr
 		accion
 		cr
 		memp print
+		cr cr
+		debugstk
+
 		cminiflecha
 		'exit >esc< ;
 

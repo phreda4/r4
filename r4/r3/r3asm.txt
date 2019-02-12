@@ -234,12 +234,14 @@
 :g/
 	nro2stk 0? ( drop ./ ; ) drop
 	freeEDX
-	"cdq;idiv #1,#0" ,asm
+
+	"cdq;idiv #0" ,asm
 	.drop
 	'TOS setEAX
 	;
 :g*/
 	nro3stk 0? ( drop .*/ ; ) drop
+	NOS2 isEAX
 	freeEDX
 	"cdq;imul #1;idiv #0" ,asm
 	.2drop
@@ -247,6 +249,7 @@
 	;
 :g/MOD
 	nro2stk 0? ( drop ./MOD ; ) drop
+	NOS isEAX
 	freeEDX
 	"cdq;idiv #0" ,asm
 	NOS setEAX
@@ -254,6 +257,7 @@
 	;
 :gMOD
 	nro2stk 0? ( drop .MOD ; ) drop
+	NOS isEAX
 	freeEDX
 	"cdq;idiv #0" ,asm
 	.drop
@@ -272,18 +276,22 @@
 	"bsr #0,#0;xor #0,31" ,asm ;
 :g<<
 	nro2stk 0? ( drop .<< ; ) drop
+	'TOS isECXcte
 	"shl #1,#0" ,asm
 	.drop ;
 :g>>
 	nro2stk 0? ( drop .>> ; ) drop
+	'TOS isECXcte
 	"sar #1,#0" ,asm
 	.drop ;
 :g>>>
 	nro2stk 0? ( drop .>>> ; ) drop
+	'TOS isECXcte
 	"shr #1,#0" ,asm
 	.drop ;
 
 :cte*>>
+	NOS2 isEAX
 	freeEDX
 	vTOS
 	32 <? ( drop "cdq;imul #1;shrd eax,edx,$0" ,asm .2drop 'TOS setEAX ; )
@@ -296,6 +304,7 @@
 :g*>>
 	nro3stk 0? ( drop .*>> ; ) drop
 	nro1stk 0? ( drop cte*>> ; ) drop
+	NOS2 isEAX
 	freeEDX
 	"cdq;imul #1;shrd eax,edx,$0;sar edx,$0;test $0,32;cmovne eax,edx" ,asm
 	.2drop
@@ -304,10 +313,12 @@
 
 :g<</
 	nro3stk 0? ( drop .<</ ; ) drop
+	NOS2 isEAX
+	TOS isECXcte
 	freeEDX
 	"cdq;shld edx,eax,$0;shl eax,$0;idiv #1" ,asm
-	.2drop 
-	'TOS setEAX 
+	.2drop
+	'TOS setEAX
 	;
 
 :g@
@@ -431,6 +442,11 @@
 :g*+ | val *248 reg -- val
 	"lea #0,dword [#0*#1+#2]" ,asm ;
 	.2drop
+	;
+:g*+call
+	| ...adjust stack
+	"call [#0*#1+#2]" ,asm
+	.3drop
 	;
 
 |----
