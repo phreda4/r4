@@ -335,9 +335,9 @@
 #maskreg 0
 
 :usereg | 'cell --
-	dup @ $f and
+	@ dup $f and
 	5 <>? ( 2drop ; ) drop
-	8 >> 1 swap <<
+	1 swap 8 >> <<
 	maskreg or 'maskreg !
 	;
 
@@ -428,28 +428,43 @@
 |-------
 ::stack2normal | -- ; [ebp+4] [ebp] eax
 	stacknow stack.cnt - shiftEBP	| corre ebp a nuevo lugar
-	copyStack						| copia los registros/ctes en vpila
+|	copyStack						| copia los registros/ctes en vpila
 	stack.cnt 'stacknow !			| ahora vpila tiene...
 	;
 
 |-------
+
+:cellchg | cnt adr to from -- cnt adr
+	a> pick4 | adr cnt
+	( 1? )( swap	| t f cnt adr
+		@+ pick4	| t f cnt adr c
+		=? ( pick3 pick2 4 - ! )	| set reg
+		drop swap 1- ) 2drop
+	"xchg " ,s ,cell "," ,s ,cell ,cr
+	;
+
+:cellcpy | to from --
+	over =? ( 2drop ; ) | is done
+	1 pick2 8 >> <<		| actual reg
+	maskreg and
+	1? ( drop cellchg ; ) drop	| is in stack
+	swap
+	"mov " ,s ,cell "," ,s ,cell ,cr
+	;
+
 | 'copy--> cnt<<2 last .. tos
 ::stack2copy | 'copy --
-
-	TOS 'NOS 4+ ! | in PSP
-
+	cell.fillreg
+	TOS NOS 4+ ! | TOS in PSP
 	@+ 2 >>
-|	NOS 'PSP - <>? ( ; )
+|	NOS 'PSP - <>? ( ; )	| diferent size
 	'PSP 8 + >a
-	( 1? )(
-		swap @+ a@+   | to from
-
+	( 1? )( swap
+		@+ a@+ cellcpy 		| to from
 		swap 1- ) 2drop ;
 
 ::stk.conv | --
-	stks> 4 - @
-	stack2copy
-	;
+	stks> 4 - @ stack2copy ;
 
 :debugstk
 	stks> 4 -
@@ -494,8 +509,24 @@
 	;
 
 
+:test
+
+	0 PUSH.REG
+	1 PUSH.REG
+	2 PUSH.REG
+
+	stk.push
+	.rot
+	stk.conv 0 here !
+
+	stk.pop
+	stack2normal 0 here !
+	;
+
 :accion
-	[ rand $f and 8 - push.nro ; ] <f1>
+	'test <f1>
+
+|	[ rand $f and 8 - push.nro ; ] <f1>
 	[ rand $3 and PUSH.CTE ; ] <f2>
 	[ rand $ff and PUSH.STR ; ] <f3>
 	[ rand $ff and PUSH.WRD ; ] <f4>
@@ -508,6 +539,7 @@
 	[ stk.pop ; ] <f10>
 
 	[ stack2normal 0 here ! ; ] <f11>
+	[ stk.conv 0 here ! ; ] <f12>
 	;
 
 #memp
