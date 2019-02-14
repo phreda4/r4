@@ -40,14 +40,14 @@
 :gstr
 	getval push.str ;
 
-:gvar
-	getval push.wrd ;
-
 :gdwor
 	getval push.wrd	;
 
 :gdvar
-	getval push.wrd	;
+	getval push.wrd ;
+
+:gvar
+	getval push.var ;
 
 :gwor
 	getval
@@ -203,6 +203,7 @@
 
 :gAND
 	nro2stk 0? ( drop .AND ; ) drop
+	NOS needREG
 	"and #1,#0" ,asm
 	.drop ;
 :gOR
@@ -221,44 +222,48 @@
 	"neg #0" ,asm ;
 :g+
 	nro2stk 0? ( drop .+ ; ) drop
+	NOS needREG
 	"add #1,#0" ,asm
 	.drop ;
 :g-
 	nro2stk 0? ( drop .- ; ) drop
+	NOS needREG
 	"sub #1,#0" ,asm
 	.drop ;
 :g*
 	nro2stk 0? ( drop .* ; ) drop
+	NOS needREG
 	"imul #1,#0" ,asm
 	.drop ;
 :g/
 	nro2stk 0? ( drop ./ ; ) drop
 	freeEDX
-
+	NOS needREG-EDX
 	"cdq;idiv #0" ,asm
 	.drop
 	'TOS setEAX
 	;
 :g*/
 	nro3stk 0? ( drop .*/ ; ) drop
-	NOS2 isEAX
 	freeEDX
+	NOS2 needEAX
+	NOS needREG-EDX
 	"cdq;imul #1;idiv #0" ,asm
 	.2drop
 	'TOS setEAX
 	;
 :g/MOD
 	nro2stk 0? ( drop ./MOD ; ) drop
-	NOS isEAX
 	freeEDX
+	NOS needEAX
 	"cdq;idiv #0" ,asm
 	NOS setEAX
 	'TOS setEDX
 	;
 :gMOD
 	nro2stk 0? ( drop .MOD ; ) drop
-	NOS isEAX
 	freeEDX
+	NOS needEAX
 	"cdq;idiv #0" ,asm
 	.drop
 	'TOS setEDX
@@ -266,6 +271,7 @@
 :gABS
 	nro1stk 0? ( drop .ABS ; ) drop
 	freeEDX
+	'TOS needREG-EDX
 	"mov edx,#0;sar edx,31;add #0,edx;xor #0,edx" ,asm ;
 :gSQRT
 	nro1stk 0? ( drop .SQRT ; ) drop
@@ -276,22 +282,22 @@
 	"bsr #0,#0;xor #0,31" ,asm ;
 :g<<
 	nro2stk 0? ( drop .<< ; ) drop
-	'TOS isECXcte
+	'TOS needECXcte
 	"shl #1,#0" ,asm
 	.drop ;
 :g>>
 	nro2stk 0? ( drop .>> ; ) drop
-	'TOS isECXcte
+	'TOS needECXcte
 	"sar #1,#0" ,asm
 	.drop ;
 :g>>>
 	nro2stk 0? ( drop .>>> ; ) drop
-	'TOS isECXcte
+	'TOS needECXcte
 	"shr #1,#0" ,asm
 	.drop ;
 
 :cte*>>
-	NOS2 isEAX
+	NOS2 needEAX
 	freeEDX
 	vTOS
 	32 <? ( drop "cdq;imul #1;shrd eax,edx,$0" ,asm .2drop 'TOS setEAX ; )
@@ -304,7 +310,7 @@
 :g*>>
 	nro3stk 0? ( drop .*>> ; ) drop
 	nro1stk 0? ( drop cte*>> ; ) drop
-	NOS2 isEAX
+	NOS2 needEAX
 	freeEDX
 	"cdq;imul #1;shrd eax,edx,$0;sar edx,$0;test $0,32;cmovne eax,edx" ,asm
 	.2drop
@@ -313,8 +319,8 @@
 
 :g<</
 	nro3stk 0? ( drop .<</ ; ) drop
-	NOS2 isEAX
-	TOS isECXcte
+	NOS2 needEAX
+	'TOS needECXcte
 	freeEDX
 	"cdq;shld edx,eax,$0;shl eax,$0;idiv #1" ,asm
 	.2drop

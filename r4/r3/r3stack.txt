@@ -34,21 +34,21 @@
 |--- Pilas
 #REGA
 #REGB
-#TOS 0
+#:TOS 0
 #PSP )( 1024
-#NOS 'PSP
+#:NOS 'PSP
 #RSP )( 1024
-#RTOS 'RSP
+#:RTOS 'RSP
 
-:NOS2 NOS 4 - ;
+::NOS2 NOS 4 - ;
 
 | format cell
 | type-- $0000000f
 | $0 nro	33
 | $1 cte    FREEMEM
 | $2 str    s01
-| $3 cod    w32
-| $4 dat	v33
+| $3 wrd    w32
+| $4 [wrd]	[w33]
 | $5 reg	eax ebx
 | $6 stk	[ebp] [ebp+4] ...
 
@@ -123,6 +123,8 @@
 	.DUP 8 << 2 or 'TOS ! ;
 ::PUSH.WRD	| vwor --
 	.DUP 8 << 3 or 'TOS ! ;
+::PUSH.VAR	| vwor --
+	.DUP 8 << 4 or 'TOS ! ;
 ::PUSH.REG	| reg --
 	.DUP 8 << 5 or 'TOS ! ;
 ::PUSH.STK	| stk --
@@ -264,19 +266,19 @@
 
 :mt1 value 'syscons list2str ,s ;	|--	1 cte	XRES
 :mt2 value "str%h" ,print ;			|--	2 str   "hola"
-:mt3 value "w%h" ,print ;			|--	3 cod  'func		4 dat  'var
-
+:mt3 value "w%h" ,print ;			|--	3 word  'word
+:mt4 value "dword[w%h]" ,print ;	|--	4 var   [var]
 :mt5 value 'sysregs list2str ,s ;	|-- 5 reg 	eax
 :mt5b value 'sysregb list2str ,s ;	|-- 5 regb 	al
 :mt5w value 'sysregw list2str ,s ;	|-- 5 regw 	ax
 
 :mt6 value 2 << "dword[ebp" ,s
-	1? ( +? ( "+" ,s ) ,d )( drop ) 
+	1? ( +? ( "+" ,s ) ,d )( drop )
 	"]" ,s ; 						|-- 6 stack
 
-#tiposrm mt0 mt1 mt2 mt3 mt3 mt5 mt6 mt0 mt0
-#tiposrmb mt0 mt1 mt2 mt3 mt3 mt5b mt6 mt0 mt0
-#tiposrmw mt0 mt1 mt2 mt3 mt3 mt5w mt6 mt0 mt0
+#tiposrm mt0 mt1 mt2 mt3 mt4 mt5 mt6 mt0 mt0
+#tiposrmb mt0 mt1 mt2 mt3 mt4 mt5b mt6 mt0 mt0
+#tiposrmw mt0 mt1 mt2 mt3 mt4 mt5w mt6 mt0 mt0
 
 :,cell | val --
 	dup $f and 2 << 'tiposrm + @ exec ;
@@ -312,8 +314,7 @@
 	"; [ " ,s
 	'PSP 8 + ( NOS <=? )( @+ ,cell ,sp ) drop
 	'PSP NOS <? ( TOS ,cell ) drop
-	" ]" ,s
-	,cr
+	" ] " ,s
 	;
 
 ::stackmap | xx vector -- xx
@@ -344,6 +345,11 @@
 :cell.fillreg
 	0 'maskreg !
 	'usereg stackmap
+	;
+
+:newreg | -- reg
+	0 maskreg
+	( 1 and? )( 2/ swap 1+ swap ) drop
 	;
 
 |---- set cell
@@ -392,11 +398,53 @@
 ::freeEDX
 	'freeforedx stackmap ;
 
-::isEAX | 'cell --
-	drop
+|--------------------------------
+| $0 nro	33
+| $1 cte    FREEMEM
+| $2 str    s01
+| $3 wrd    w32
+| $4 [wrd]	[w33]
+| $5 reg	eax ebx
+| $6 stk	[ebp] [ebp+4] ...
+
+::needEAX | 'cell --
+	dup @ 5 =? ( 2drop ; )
+	"mov eax," ,s ,cell ,cr
+	5 swap !
 	;
 
-::isECXcte | 'cell --
+::needECXcte | 'cell --
+	dup @
+	2 8 << 5 or =? ( 2drop ; )
+	$f nand? ( 2drop ; )
+	"mov ecx," ,s ,cell ,cr
+	2 8 << 5 or swap !
+	;
+
+::needREG | 'cell --
+	dup @ $f and
+	5 =? ( 2drop ; ) | reg
+	drop
+	newreg 8 << 5 or
+	"mov " ,s dup ,cell "," ,s over @ ,cell ,cr
+	swap !
+	;
+
+::needREG-EDX
+	dup @ $f and
+	5 =? ( 2drop ; ) | reg
+	drop
+	newreg 8 << 5 or
+	"mov " ,s dup ,cell "," ,s over @ ,cell ,cr
+	swap !
+	;
+
+::needMEMREG
+	dup @ $f and
+	2 =? ( 2drop ; ) | str
+	3 =? ( 2drop ; ) | wrd
+	5 =? ( 2drop ; ) | reg
+	drop
 	drop
 	;
 
