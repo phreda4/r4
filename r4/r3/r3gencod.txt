@@ -2,49 +2,8 @@
 | PHREDA 2018
 |
 ^./r3base.txt
+^./r3cellana.txt
 ^./r3asm.txt
-
-#:ncell 0	| cnt cells
-
-| Info de celdas
-| RR WW FFFF
-| R cnt de lecturas
-| W cnt de escrituras
-| flags........
-|  $1 in W		| word
-|  $2 out W
-|  $4 in C		| call
-|  $8 out C
-| $10 var
-| $20 dir var
-| $40 dir code
-| $80 copia de A en cellt
-| $100 celda exec
-| $800 celda ya asignada (para vreg)
-| $1000 celda AD	x86
-| $2000 celda C		x86
-| $4000 no usar C
-
-#:cells )( 1024
-#:cellt )( 1024 | token de origen o celda
-#:cellv )( 1024 | vida de celda | ff iii fff
-
-:newcell | -- nro
-	ncell
-	0 over 2 << 'cells + !
-	0 over 2 << 'cellt + !
-	ncode over 2 << 'cellv + ! | inicio de vida
-	dup 1+ 'ncell !
-	;
-
-:setcell | nro -- nro
-	0 over 2 << 'cells + !
-	0 over 2 << 'cellt + !
-	ncode over 2 << 'cellv + ! | inicio de vida
-	;
-
-:endlive | nro --
-	ncode 10 << swap 2 << 'cellv + +!  ;
 
 :2code!+
 	dup 4 - @ code!+ ;
@@ -567,23 +526,37 @@ iSYSCALL iSYSMEM
 
     "--------------------------" ,s ,cr
 	dup dicc - 4 >> ,codeinfo ,cr
-	dup 12 + @	| mov
-	$f and 		| uso
+	dup 12 + @ $f and 	| uso
 	DeepStack
 	,printstk ,cr
 
 	dup adr>dicname ,s ":" ,s ,cr
 
+    ";---------OPT" ,ln |----- generate buffer
 	dup adr>toklen
 	( 1? )( 1- swap
 		@+ tocode
 		swap ) 2drop
 
+    ";---------ANA" ,ln |----- cell analisys
+	dup 12 + @ $f and 	| uso
+	analisysDeepStack
+	'bcode ( bcode> <? )(
+		@+
 
-	12 + @	| mov
-	$f and 	| uso
+|        ,printstk
+|		dup $ff and r3tokenname "; %s " ,print
+|		dup 8 >> 1? ( "%h " ,print )( drop )
+|		,cr
+
+		analisysstep
+
+|		"r4asm/code.asm" savemem | debug
+		) drop
+
+    ";---------GEN" ,ln |----- generate code
+	12 + @ $f and 		| uso
 	DeepStack
-
 	'bcode ( bcode> <? )(
 		@+
 
@@ -593,10 +566,9 @@ iSYSCALL iSYSMEM
 		,cr
 
 		codestep
-|		"r4asm/code.asm" savemem | debug
-		) drop
 
-	;
+|		"r4asm/code.asm" savemem | debug
+		) drop ;
 
 :gencode | adr --
 	dup 8 + @
@@ -625,6 +597,7 @@ iSYSCALL iSYSMEM
 		r> ) 2drop
 	,cr ;
 
+|----------------------------
 :debugblok
 	";---- bloques ----" ,s
 	blok >a
@@ -633,6 +606,7 @@ iSYSCALL iSYSMEM
 		nbloques over - "; %d. " ,print
 		a@+ a@+ "%d %d " ,print ,cr
 		) drop ;
+|----------------------------
 
 ::r3-gencode
 	mark
