@@ -1,11 +1,15 @@
-| Cell analisis
-| PHREDA 2017
+| analisis, detect static cell
+| PHREDA 2019
 |-------------------------
-^r4/compiler/r4-tokenprint.txt
+^./r3stack.txt
 
-#:tokenini	| ini tokens
-#:ncell 0	| cnt cells
 #itok 0
+
+#lastdircode 0 | ultima direccion de codigo
+
+#:ncell 0	| cnt cells
+#:cellf )( 4096	| flags
+#:cellv )( 4096 | vida de celda | ff iii fff
 
 | Info de celdas
 | RR WW FFFF
@@ -25,488 +29,224 @@
 | $1000 celda AD	x86
 | $2000 celda C		x86
 | $4000 no usar C
-#:cells )( 1024
-#:cellt )( 1024 | token de origen o celda
-#:cellv )( 1024 | vida de celda | ff iii fff
 
-::cellflag
-	2 << 'cells + @ ;
+:cellnew | -- nro
+	ncell
+	0 over 2 << 'cellf + !
+	itok over 2 << 'cellv + ! | inicio de vida
+	dup 1+ 'ncell !
+	;
 
-::cellfl | cell -- adr
-	2 << 'cells + ;
+:cellend | nro ---
+	itok 10 <<
+	swap 2 << 'cellv + +!  ;
 
-::cellreg? | nro -- n/0
-	2 << 'cells + @ 16 >> $ff and ;
 
-::celltok | nro -- token
-	2 << 'cellt + @ ;
+|------ from TOS
+:cellr | --
+	$1000000 TOS 8 >> 2 << 'cellf + +! ;
 
-::cellreg | nro -- vreg
-	2 << 'cellv + @ 24 >> ;
+:cellw | --
+	$10000 TOS 8 >> 2 << 'cellf + +! ;
 
-::cellreg! | vr nro --
-	2 << 'cellv + dup @ $ffffff and rot 24 << or swap ! ;
+:cellf | -- adr flg
+	TOS 8 >> 2 << 'cellf + dup @ ;
+|------
+
+:valtok	dup 4 - @ 8 >> ;
+
+:codtok	valtok 'lastdircode ! ;
+
+:newREG	cellnew push.CTE ;
+
+:endREG .POP cellend ;
+
+::analisysDeepStack | deep --
+	IniStack
+	0 'itok !
+	0 'ncell !
+	( 1? )( 1- newREG ) drop ;
+
+|------------------------------------------
+
+:idec
+	newREG ;
+:istr
+	newREG ;
+:iwor
+	valtok
+	dic>du
+	( 1? )( 1- endREG ) drop
+	( 1? )( 1- newREG ) drop
+	;
+:ivar
+	codtok newREG ;
+:idwor
+	codtok newREG ;
+:idvar
+	codtok newREG ;
+:i;
+:i(
+:i)
+:i[
+:i]
+	;
+:iEX
+	.drop
+	lastdircode dic>du
+	( 1? )( 1- endREG ) drop
+	( 1? )( 1- newREG ) drop
+	;
+
+|---- pila
+:iDUP 	cellR newreg ;
+:iOVER  newreg ; | nos cellr
+:iPICK2 newreg ; | nos cellr
+:iPICK3 newreg ; | nos cellr
+:iPICK4 newreg ; | nos cellr
+:i2OVER	ipick2 ipick2 ;
+
+:iSWAP	.swap ;
+:iNIP   .nip ;
+:iROT   .rot
+:i2DUP  iover iover ;
+:i2SWAP .2swap ;
+
+:iDROP  endreg ;
+:i4DROP idrop
+:i3DROP idrop
+:i2DROP	idrop idrop ;
+
+
+:i>R
+:iR>    ;
+:iR@	newreg ;
+
+:iop2a1	cellR endREG cellW ; | + - * and or xor
+:iop1a1	cellW ; | neg not
+
+:i/
+	cellR endREG
+:i*/
+	cellR endREG cellR endREG cellW ;
+:i/MOD
+	cellR ;
+:iMOD
+	cellR endREG ;
+:iABS
+	cellW ;
+:iSQRT
+	cellW ;
+:iCLZ
+	cellW ;
+:i<<
+:i>>
+:i>>>
+	cellR endREG ;
+:i*>>
+:i<</
+	cellR endREG cellR endREG cellW ;
+
+:i@
+:iC@
+:iD@
+	cellW ;
+:i@+
+:iC@+
+:iD@+
+	cellW newreg ;
+:i!
+:iC!
+:iD!
+	endREG endREG ;
+:i!+
+:iC!+
+:iD!+
+	endREG ;
+:i+!
+:iC+!
+:iD+!
+	endREG endREG ;
+:i>A
+:iA>
+:iA@
+:iA!
+:iA+
+:iA@+
+:iA!+
+:i>B
+:iB>
+:iB@
+:iB!
+:iB+
+:iB@+
+:iB!+
+:iMOVE
+:iMOVE>
+:iFILL
+:iCMOVE
+:iCMOVE>
+:iCFILL
+:iDMOVE
+:iDMOVE>
+:iDFILL
+:iSYSCALL
+:iSYSMEM
+	;
+
+:i0? cellr ;
+:i1? cellr endREG cellr ;
+:i2? cellr endREG cellr endREG cellr ;
+
+#vmc
+0 0 0 0 0 0 0 		| 0 1 2 3 4 5 6
+idec idec idec idec istr    | 7 8 9 a b
+iwor ivar idwor idvar		| c d e f
+i; i( i) i[ i] iEX			| 10..15
+i0? i0? i0? i0? i1? i1? i1? i1? i1? i1? i1? i1? i2?	| 16..22
+iDUP iDROP iOVER iPICK2 iPICK3 iPICK4 iSWAP iNIP	| 23..2A
+iROT i2DUP i2DROP i3DROP i4DROP i2OVER i2SWAP		| 2B..31
+i>R iR> iR@											| 32..34
+iop2a1 iop2a1 iop2a1 iop1a1 iop1a1					| 35..39
+iop2a1 iop2a1 iop2a1 i/ i*/							| 3A..3E
+i/MOD iMOD iABS iSQRT iCLZ							| 3F..43
+i<< i>> i>>> i*>> i<</								| 44..48
+i@ iC@ iD@ i@+ iC@+ iD@+							| 49..4e
+i! iC! iD! i!+ iC!+ iD!+							| 4f..54
+i+! iC+! iD+!										| 55..57
+i>A iA> iA@ iA! iA+ iA@+ iA!+
+i>B iB> iB@ iB! iB+ iB@+ iB!+
+iMOVE iMOVE> iFILL
+iCMOVE iCMOVE> iCFILL
+iDMOVE iDMOVE> iDFILL
+iSYSCALL iSYSMEM
+
+::analisysstep | tok --
+	$ff and 2 << 'vmc + @
+	1? ( exec )( drop )
+	1 'itok +!
+	;
+
+|------------------------------------------
+#:cntvreg 1
 
 :cused | nro -- used
-	2 << 'cells + @ $800 and ;
+	2 << 'cellf + @ $800 and ;
 
-::clivei | nro -- live
+:clivei | nro -- live
 	2 << 'cellv + @ $3ff and ;
 
 :clivee | nro -- live
 	2 << 'cellv + @ 10 >> $3ff and ;
 
-|--- PILA DATO
-#dpila )( 1024
-#dpila> 'dpila
+:cellreg | nro -- vreg
+	2 << 'cellv + @ 24 >> ;
 
-|--- PILA RETORNO
-#rpila )( 512
-#rpila> 'rpila
+:cellreg! | vr nro --
+	2 << 'cellv + dup @ $ffffff and rot 24 << or swap ! ;
 
-|---------------
-:newcell | -- nro
-	ncell
-	0 over 2 << 'cells + !
-	0 over 2 << 'cellt + !
-	itok over 2 << 'cellv + ! | inicio de vida
-	dup 1+ 'ncell !
-	;
-:setcell | nro -- nro
-	0 over 2 << 'cells + !
-	0 over 2 << 'cellt + !
-	itok over 2 << 'cellv + ! | inicio de vida
-	;
-
-:endlive
-	itok 10 << swap 2 << 'cellv + +!  ;
-
-:d.pop		-4 'dpila> +! dpila> @ ;
-:d.push		dpila> !+ 'dpila> ! ;
-:d.TOS		dpila> 4 - @ ;
-:d.NOS 	dpila> 8 - @ ;
-:d.PK2 	dpila> 12 - @ ;
-:d.PK3 	dpila> 16 - @ ;
-:d.PK4 	dpila> 20 - @ ;
-
-::d.drop	-4 'dpila> +! ;
-::d.swap	dpila> 8 - >a a@+ a@+ a> 8 - !+ ! ;
-::d.rot		dpila> 12 - >a a@+ a@+ a@+ swap a> 12 - !+ !+ ! ;
-::d.2swap	dpila> 16 - >a a@+ a@+ swap a@+ a@+ swap a> 16 - !+ !+ !+ ! ;
-
-::r.pop		-4 'rpila> +! rpila> @ d.push ;
-::r.push	d.pop rpila> !+ 'rpila> ! ;
-::r.tos		rpila> 4 - @ ;
-::r.drop	-4 'rpila> +! ;
-
-:d.dropv	d.pop endlive ; | fin de vida
-:r.dropv	-4 'rpila> +! rpila> @ endlive ;
-
-:tosinW		d.TOS 2 << 'cells + dup @ $1 or swap ! ;
-:tosoutW    d.TOS 2 << 'cells + dup @ $2 or swap ! ;
-:tosinC     d.TOS 2 << 'cells + dup @ $4 or swap ! ;
-:tosoutC    d.TOS 2 << 'cells + dup @ $8 or swap ! ;
-:tosVar     d.TOS 2 << 'cells + dup @ $10 or swap ! ;
-:tosAV      d.TOS 2 << 'cells + dup @ $20 or swap ! ;
-:tosAW      d.TOS 2 << 'cells + dup @ $40 or swap ! ;
-:tosExe 	d.TOS 2 << 'cells + dup @ $100 or swap ! ;
-|--- only x86
-:tosAD		d.TOS 2 << 'cells + dup @ $1000 or swap ! ;
-:tosC		d.TOS 2 << 'cells + dup @ $2000 or swap ! ;
-
-:tosCPY | nro --
-			d.TOS 2 << dup >r 'cellt + !
-			r> 'cells + dup @ $80 or swap ! ;
-
-:tos+1r		d.TOS
-:+1r 		2 << 'cells + $1000000 swap +! ;
-:tos+1w     d.TOS
-:+1w 		2 << 'cells + $10000 swap +! ;
-
-:tosTok		dup 4 - d.TOS 2 << 'cellt + ! ;
-
-#lastdircode 0 | ultima direccion de codigo
-
-:tosCode
-	dup 4 - @ 8 >> 'lastdircode ! ;
-
-:litn | --
-	newcell d.push tosTok ;
-:lits | --
-	newcell d.push tosTok ;
-:litv | --
-	newcell d.push tosVar tosTok tosCode ;
-:litAW	| -- ;dw dir word
-	newcell d.push tosAW tosTok tosCode ;
-:litAV	| -- ;dv dir var
-	newcell d.push tosAV tosTok tosCode ;
-
-:callW
-	dup 4 - @ 8 >>
-	dup dic>DATAU
-	dup ( 1? )( 1- tosoutC d.dropv ) drop
-	swap dic>DATAD +
-	( 1? )( 1- newcell d.push tosinC ) drop
-	;
-
-:exexec
-	tosExe
-    tos+1r d.dropv
-	lastdircode
-	dup dic>DATAU
-	dup ( 1? )( 1- tosoutC d.dropv ) drop
-	swap dic>DATAD +
-	( 1? )( 1- newcell d.push tosinC ) drop
-	;
-
-|------ bloques de codigo
-#nblock 0
-
-| $1 ?( | $2 ?)( | $2 )( | $4 ?)
-| 0 ( )		REP
-| 1 ?( )	IF
-| 2 ( ?)( ) WHI
-| 3 ?( )( )	IFE
-| 4 ( ?)	UNT
-#:blocki )( 1024	| tipo+info
-#:blocks )( 1024	| inicio-medio-fin
-#:blockn )( 1024 	|  vreg|in|out
-
-|----- pila para bloques
-#:pilab )( 256	#:pilab> 'pilab
-
-:bl.new
-	nblock
-	0 over 2 << 'blocks + !
-	pilab> !+ 'pilab> !
-	1 'nblock +! ;
-:bl.end
-	-4 'pilab> +! ;
-:bl.now
-	pilab> |'pilab =? ( drop 0 ; )
-	4 - @ ; | -- nblo
-
-:bl.cond? | -- 0/cond
-	dup 8 - @ $ff and
-	23 <? ( drop 0 ; )
-	34 >? ( drop 0 ; )
-	drop 1 ;
-
-|---- bloques
-:exestack
-	rpila> 'rpila =? ( drop ; )
-	4 - @
-	2 << 'cells + dup @ $100 or swap !
-	;
-
-:w;		| ; | fin de palabra
-	exestack
-	dpila> 'dpila - 2 >>
-	( 1? )( tosoutW d.dropv 1- ) drop
-	pilab> 'pilab =? ( drop ; ) drop
-	8 bl.now 2 << 'blocki + +!
-	;
-
-|------------------------------------
-#:stki )( $fff		| stack of tokens
-#memstk )( $ffff	| stack memory
-#memstk> 'memstk
-
-:stack!
-	memstk>
-	dup itok 2 << 'stki + !
-	dpila> 'dpila - 2 >> swap c!+
-	'dpila ( dpila> <? )( @+ rot c!+ swap ) drop
-	rpila> 'rpila - 2 >> swap c!+
-	'rpila ( rpila> <? )( @+ rot c!+ swap ) drop
-	'memstk> ! ;
-
-:stack@ | itok --
-	2 << 'stki + @
-	'dpila >a
-	c@+ ( 1? )( 1- swap c@+ a!+ swap ) drop
-	a> 'dpila> !
-	'rpila >a
-	c@+ ( 1? )( 1- swap c@+ a!+ swap ) 2drop
-	a> 'rpila> ! ;
-
-|----------------------------
-:w(
-	bl.new
-	bl.now 2 << >r
-	itok r@ 'blocks + !
-	bl.cond? r> 'blocki + !
-	;
-
-:w)(
-	bl.now 2 << >r
-	itok 10 << r@ 'blocks + +!
-	bl.cond? 0? ( r@ 'blocks + @ $3ff and stack@ ) drop	| ELSE copia pila de IF
-	$2 r> 'blocki + +!
-	;
-
-:w)
-	bl.now 2 << >r
-	itok 20 << r@ 'blocks + +!
-	bl.cond? 2 << r@ 'blocki + +!
-	r> 'blocki + @ $7 and
-	2 =? ( bl.now 2 << 'blocks + @ 10 >> $3ff and stack@ )	| WHILE
-	1 =? ( bl.now 2 << 'blocks + @ $3ff and stack@ )	| IF
-	drop
-	bl.end ;
-
-|---- condicionales
-:c0	tos+1r ;
-:c1 tos+1r d.dropv tos+1r ;
-
-|---- pila
-
-:d.dup		d.tos dup +1r newcell d.push tosCpy ;
-:d.over		d.NOS dup +1r newcell d.push tosCpy ;
-:d.pick2	d.PK2 dup +1r newcell d.push tosCpy ;
-:d.pick3	d.PK3 dup +1r newcell d.push tosCpy ;
-:d.pick4	d.PK4 dup +1r newcell d.push tosCpy ;
-:d.2dup		d.over d.over ;
-:d.2over	d.pick3 d.pick3 ;
-:d.nip		d.swap d.dropv ;
-:d.4DROP	d.dropv
-:d.3DROP	d.dropv
-:d.2DROP	d.dropv d.dropv ;
-
-:r.r@		|r.tos +1r
-			newcell d.push
-			|r.tos tosCpy
-			;
-
-:op1a1		tos+1w ; | neg not 1+ 4+ 1- 2/ ..
-:vop1a1 	tos+1w ; | abs  clz  ..
-:op2a1		tos+1r d.dropv tos+1w ; | + - * and or xor ..
-:vop2a1 	tos+1r d.dropv tos+1w tosAD ; | / mod (AD)
-:xop2a1		tos+1r tosC d.dropv tos+1w ; | << >> (C)
-:op3a1		tos+1r tosAD d.dropv tos+1r d.dropv tos+1w ; | */	(AD)
-:vop3a1		tos+1r tosC d.dropv tos+1r tosAD d.dropv tos+1w ; | *>> /<<	(ADC)
-:op2a2		tos+1w tosAD d.swap tos+1w d.swap ; | mod/	(AD)
-
-| @ c@ w@
-:1@		tosVar tos+1w ;
-| ! c! w!
-:1!		tosVar tos+1r d.dropv tos+1r d.dropv ;
-| @+ c@+ w@+
-:2@		tosVar tos+1w newcell d.push tos+1w ;
-| !+ c!+ w!+
-:2!		d.swap tos+1r d.swap tosVar tos+1w d.nip ;
-| +! c+! w+!
-:2+!	tosVar tos+1r d.dropv tos+1r d.dropv ;
-
-:v>a	tos+1r d.dropv ;
-:va>	newcell d.push tos+1w ;
-:va@    newcell d.push tos+1w ;
-:va!	tos+1r d.dropv ;
-:va+	tos+1r d.dropv ;
-:va@+	newcell d.push tos+1w ;
-:va!+	tos+1r d.dropv ;
-
-:v>b	tos+1r d.dropv ;
-:vb>	newcell d.push tos+1w ;
-:vb@    newcell d.push tos+1w ;
-:vb!	tos+1r d.dropv ;
-:vb+	tos+1r d.dropv ;
-:vb@+	newcell d.push tos+1w ;
-:vb!+	tos+1r d.dropv ;
-
-:vuso6	tos+1r d.dropv tos+1r d.dropv
-:vuso4	tos+1r d.dropv
-:vuso3	tos+1r d.dropv
-:vuso2	tos+1r d.dropv
-:vuso1	tos+1r d.dropv ;
-:vuso11	tos+1r ;
-:vuso21	tos+1r d.dropv tos+1r ;
-
-:v1cte	newcell d.push tosoutC ;
-:v3v	newcell d.push tosoutC
-:v2v	newcell d.push tosoutC
-:v1v	newcell d.push tosoutC ;
-
-|------------------------
-#cellexec
-0		|0
-0		|1 :  | --  define codigo
-0		|2 :: | --  define codigo
-0		|3 #  | --  define variable
-0		|4 #: | --  define variable
-0		|5 |  | -- comentario
-0		|6 ^  | -- include
-litN
-litN
-litN
-litN	| -- n numero
-litS	| -- s string
-callW	| ..--..  word <---- debe ser calculado
-litV	| -- v var
-litAW	| -- dw dir word
-litAV	| -- dv dir var
-
-w;		| ; | fin de palabra
-w(
-w)(
-w)
-0 0						| [ ]
-exexec					|EXEC  x/0 --    TOS es dcod
-c0 c0 c0 c0				| 0?	a -- a
-c1 c1 c1 c1 c1 c1 c1 c1	| =?	ab -- a
-d.dup
-d.dropv
-d.over
-d.pick2
-d.pick3
-d.pick4
-d.swap
-d.nip
-d.rot
-d.2dup
-d.2drop
-d.3drop
-d.4drop
-d.2over
-d.2swap
-
-r.push	|>R		a -- R: -- a
-r.pop	|R>		-- a R: a --
-r.r@	|R		-- a R: a -- a
-
-op2a1	|AND	ab -- c
-op2a1	|OR		ab -- c
-op2a1	|XOR	ab -- c
-op1a1	|NOT	a -- b
-op2a1	|+		ab -- c
-op2a1	|-		ab -- c
-op2a1	|*		ab -- c
-vop2a1	|/		ab -- c		; AD
-op3a1	|*/		abc -- d	; AD
-vop3a1	|*>>	abc -- d	; ADC
-op2a2	|/MOD	ab -- cd	; AD
-vop2a1	|MOD	ab -- c		; AD
-vop1a1	|ABS	a -- b
-op1a1	|SQRT	a -- b
-vop1a1	|CLZ	a -- b
-vop3a1	|<</	abc -- d	; ADC
-op1a1	|NEG	a -- b
-op1a1	|1+		a -- b
-op1a1	|4+		a -- b
-op1a1	|1-		a -- b
-op1a1	|2/		a -- b
-op1a1	|2*		a -- b
-xop2a1	|<<		ab -- c		; C
-xop2a1	|>>		ab -- c		; C
-xop2a1	|0>>	ab -- c		; C
-
-1@	|@      a -- b     tos es ddat
-1@	|C@     a -- b		tos es ddat
-1@	|W@     a -- b      tos es ddat
-1!	|!     ab --        tos es ddat
-1!	|C!    ab --        tos es ddat
-1!	|W!    ab --        tos es ddat
-2+!	|+!    ab --        tos es ddat
-2+!	|C+!   ab --        tos es ddat
-2+!	|W+!   ab --        tos es ddat
-2@	|@+     a -- bc     tos es ddat
-2!	|!+    ab -- c      tos es ddat
-2@	|C@+    a -- bc     tos es ddat
-2!	|C!+   ab -- c      tos es ddat
-2@	|W@+    a -- bc     tos es ddat
-2!	|W!+   ab -- c      tos es ddat
-
-v>a
-va>
-va@
-va!
-va+
-va@+
-va!+
-
-v>b
-vb>
-vb@
-vb!
-vb+
-vb@+
-vb!+
-
-vuso3	|MOVE  abc --       a,b es ddat
-vuso3	|MOVE> abc --		a,b es ddat
-vuso3	|FILL abc --		a,b es ddat
-vuso3	|CMOVE abc --		a,b es ddat
-vuso3	|CMOVE> abc --		a,b es ddat
-vuso3	|CFILL abc --		a,b es ddat
-v1cte	|MEM	-- a		a es ddat
-
-vuso11	|FFIRST    a -- b
-v1v		|FNEXT  -- a
-vuso21	|LOAD   ab -- c
-vuso3	|SAVE   abc --
-vuso3	|APPEND   abc --
-
-vuso11	|UPDATE  a -- a
-v2v		|XYMOUSE -- ab
-v1v		|BMOUSE  -- a
-vuso1	|IKEY!  a --
-v1v		|KEY     -- a
-
-v1v		|CNTJOY  -- a
-v1v		|GETJOY  -- a
-
-v1v	|MSEC    -- a
-v3v	|TIME    -- abc
-v3v	|DATE    -- abc
-0	|END     --
-vuso1	|RUN    a --
-v1cte	|SW      -- a
-v1cte	|SH      -- a
-0	|REDRAW  --
-v1v	|FRAMEV  -- a
-
-vuso1	|INK    a --
-v1v		|INK@    -- a
-vuso1	|ALPHA  a --
-vuso2	|OP     ab --
-vuso2	|LINE   ab --
-vuso4	|CURVE  abcd --
-vuso6	|CURVE3  abcdef --
-vuso2	|PLINE  ab --
-vuso4	|PCURVE abcd --
-vuso6	|PCURVE3 abcdef --
-0		|POLI    --
-vuso2	|FCOL   ab --
-vuso2	|FCEN   ab --
-vuso2	|FMAT   ab --
-0 0 0	|SFILL LFILL RFILL  --
-vuso1	|TFILL  a --
-vuso11	|SLOAD   a -- a
-vuso1	|SPLAY  a --
-vuso11	|SINFO   a -- a
-vuso4	|SSET  a --
-|---- falta
-0	|OPENURL
-0	|DOCINI
-0	|DOCEND
-0	|DOCAT
-0	|DOCLINE
-0	|DOCTEXT
-0	|DOCFONT
-0	|DOCBIT
-0	|DOCRES
-0	|DOCSIZE
-0	|SYSTEM
-
-:,stack
-	'dpila
-	( dpila> <? )( @+ "%d " ,print ) drop
-	'rpila rpila> <>? ( " : " ,s )
-	( rpila> <? )( @+ "%d " ,print ) drop
-	;
-
-|.......
-#:cntvreg 1
+:cellreg? | nro -- n/0
+	2 << 'cellf + @ 16 >> $ff and ;
 
 :reuse? | ini act -- ini act vreg/0
 	dup cused 1? ( drop 0 ; ) drop
@@ -519,7 +259,7 @@ vuso4	|SSET  a --
 		) 2drop 0 ;
 
 :marcau
-	$800 over 2 << 'cells + +! ;
+	$800 over 2 << 'cellf + +! ;
 
 :reusa | n reu -- n
 	1- marcau
@@ -542,84 +282,12 @@ vuso4	|SSET  a --
 
 |------------------------------------------
 :inlife | end ini nro -- end ini nro 1/0
-	dup 2 << 'cells + @ 16 >> $ff and 0? ( ; ) | no es cte
+	dup 2 << 'cellf + @ 16 >> $ff and 0? ( ; ) | no es cte
 	drop
 	dup 2 << 'cellv + @	| end ini nro val
 	dup $3ff and pick4 >? ( 2drop 0 ; ) drop	|empieza despues
 	10 >> $3ff and pick2 <? ( drop 0 ; ) drop
 	1
-	;
-
-| cuenta variables en bloque
-:blinfo | nro -- nro
-	dup 2 << 'blocks + @
-	dup 20 >> $3ff and	| end
-	swap $3ff and		| ini
-	0 >a
-	0 ( ncell <? )( inlife a+ 1+ ) drop
-	2 << 'stki + @ c@
-	swap 2 << 'stki + @ c@ -
-	16 << a> or
-	over 2 << 'blockn + !
-	;
-
-:calcblock
-	0 ( nblock <? )(
-    	blinfo
-    	1+ ) drop ;
-
-|------------------------------------------
-|------------------------------------------
-::analisysDeepStack
-	drop
-
-	;
-
-::analisysstep
-	drop
-	;
-
-|------------------------------------------
-|------------------------------------------
-:init | word -- word
-	0 'itok !
-	'dpila 'dpila> !
-	'rpila 'rpila> !
-	0 'nblock !
-	'pilab 'pilab> !
-	'memstk 'memstk> !
-
-	dup dic>tok @ 'tokenini !
-	dup dic>DATAU | usados
-
-	dup 'ncell !	| celdas de inicio
-	( 1? )( 1-
-		dup setcell	 | tos es 0..
-		d.push tosinW tos+1w
-		) drop ;
-
-:cadatoken
-	$ff and 2 << 'cellexec + @
-	0? ( drop ; )
-	exec ;
-
-
-::cellana | word --
-	init
-	dup dic>tok @ swap dic>len@
-	( 1? )( 1-
-		stack!
-		swap @+
-|		"; " ,s dup tokenstr ,print
-		cadatoken
-|		9 ,c "; ",s ,stack ,cr
-|	"r4/compiler/code.asm" savemem | DEBUG
-
-		swap
-		1 'itok +!
-		) 2drop
-	calcvreg
-	calcblock
 	;
 
 |------------------------ info
@@ -652,14 +320,15 @@ vuso4	|SSET  a --
 	9 ,c " CTE" ,s
 	" R:" ,s dup 24 >> $ff and ,d
 	cflags
-	over 2 << 'cellt + @
+	over 2 << 'cellf + @
 	0? ( drop ; )
 	256 <? ( ,sp ,d ; )
-	@ tokenstrA ,sp ,print
+	@ "%h" ,sp ,print
 	;
 
 
 :celli | nro --
+	2 << 'cellf + @
 	dup 16 >> $ff and
 	0? ( drop cconst ; ) drop
 	" R:" ,s dup 24 >> $ff and ,d
@@ -667,7 +336,7 @@ vuso4	|SSET  a --
 	cflags
 	;
 
-:cellvida | nro
+:cellvida | nro --
 	2 << 'cellv + @
 	dup 10 >> $3ff and over $3ff and
 	" (%d:%d)" ,print
@@ -676,12 +345,9 @@ vuso4	|SSET  a --
 
 ::cellinfo
 	"; ---- cells ----" ,s ,cr
-	'cells 0
-	( ncell <? )( swap
-		"; " ,s
-		over ,d
-		@+ celli
-		over cellvida
+	0 ( ncell <? )(
+		"; " ,s dup ,d
+		dup celli
+		dup cellvida
 		,cr
-		swap 1+ ) 2drop ;
-
+		1+ ) drop ;
