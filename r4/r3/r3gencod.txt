@@ -5,6 +5,8 @@
 ^./r3cellana.txt
 ^./r3asm.txt
 
+#lastdircode
+
 :2code!+
 	dup 4 - @ code!+ ;
 
@@ -98,8 +100,8 @@
 :iwor
 	getval
 	dic>du
-	( 1? )( 1- d.drop ) drop
-	( 1? )( 1- dup push.reg ) drop
+	dup ( 1? )( 1- .drop ) drop
+	+ ( 1? )( 1- dup push.reg ) drop
 	2code!+
 	;
 
@@ -120,8 +122,8 @@
 
 :iex
 	lastdircode dic>du
-	( 1? )( 1- d.drop ) drop
-	( 1? )( 1- dup push.reg ) drop
+	dup ( 1? )( 1- .drop ) drop
+	+ ( 1? )( 1- dup push.reg ) drop
 	2code!+
 	;
 
@@ -131,21 +133,11 @@
 	2drop
 	;
 
-:i0?
-:i1?
-:i+?
-:i-?
+:i0? :i1? :i+? :i-?
 	2code!+
 	gwhilejmp
 	;
-:i<?
-:i>?
-:i=?
-:i>=?
-:i<=?
-:i<>?
-:iA?
-:iN?
+:i<? :i>? :i=? :i>=? :i<=? :i<>? :iA? :iN?
 	2code!+
 	.drop
 	gwhilejmp ;
@@ -475,31 +467,22 @@
 
 #vmc
 0 0 0 0 0 0 0		| 0 1 2 3 4 5 6
-
 idec ihex idec idec istr    | 7 8 9 a b
 iwor ivar idwor idvar		| c d e f
-
 i; i( i) i[ i] iEX			| 10..15
-
 i0? i1? i+? i-? i<? i>? i=? i>=? i<=? i<>? iA? iN? iB?	| 16..22
-
 iDUP iDROP iOVER iPICK2 iPICK3 iPICK4 iSWAP iNIP		| 23..2A
 iROT i2DUP i2DROP i3DROP i4DROP i2OVER i2SWAP			| 2B..31
-
 i>R iR> iR@                                             | 32..34
-
 iAND iOR iXOR iNOT iNEG									| 35..39
 i+ i- i* i/ i*/                                         | 3A..3E
 i/MOD iMOD iABS iSQRT iCLZ								| 3F..43
 i<< i>> i>>> i*>> i<</									| 44..48
-
 i@ iC@ iD@ i@+ iC@+ iD@+								| 49..4e
 i! iC! iD! i!+ iC!+ iD!+								| 4f..54
 i+! iC+! iD+!											| 55..57
-
 i>A iA> iA@ iA! iA+ iA@+ iA!+
 i>B iB> iB@ iB! iB+ iB@+ iB!+
-
 iMOVE iMOVE> iFILL
 iCMOVE iCMOVE> iCFILL
 iDMOVE iDMOVE> iDFILL
@@ -511,8 +494,13 @@ iSYSCALL iSYSMEM
 |	printstk cr
 |	dup r3tokenname slog
 	2 << 'vmc + @ exec
-
 	;
+
+:,header | adr -- adr
+    "--------------------------" ,s ,cr
+	dup dicc - 4 >> ,codeinfo ,cr
+	dicc> 16 - =? ( "INICIO:" ,s ,cr ; )
+	dup adr>dicname ,s ":" ,s ,cr ;
 
 |-----------------------------
 :gencode2 | adr --
@@ -523,46 +511,39 @@ iSYSCALL iSYSMEM
 
 	codeini
 
-    "--------------------------" ,s ,cr
-	dup dicc - 4 >> ,codeinfo ,cr
-	dup 12 + @ $f and 	| uso
-	DeepStack
-	,printstk ,cr
+	,header
 
-	dup adr>dicname ,s ":" ,s ,cr
-
-    ";---------OPT" ,ln |----- generate buffer
+	dup 12 + @ $f and DeepStack
+|    ";---------OPT" ,ln |----- generate buffer
 	dup adr>toklen
 	( 1? )( 1- swap
 		@+ tocode
 		swap ) 2drop
 
     ";---------ANA" ,ln |----- cell analisys
-	dup 12 + @ $f and 	| uso
-	analisysDeepStack
+	dup 12 + @ $f and anaDeepStack
 	'bcode ( bcode> <? )(
 		@+
 
 		,printstka
-		over ";%h " ,print
-		dup $ff and r3tokenname "; %s " ,print
+|		over ";%h " ,print
+		dup $ff and r3tokenname " %s " ,print
 |		dup 8 >> 1? ( "%h " ,print )( drop )
 		,cr
 		"r4asm/code.asm" savemem | debug
 
-		analisysstep
+		anastep
 
 		) drop
-
+    anaend
 	cellinfo
     ";---------GEN" ,ln |----- generate code
-	12 + @ $f and 		| uso
-	DeepStack
+	12 + @ $f and DeepStack
 	'bcode ( bcode> <? )(
 		@+
 
         ,printstk
-		dup $ff and r3tokenname "; %s " ,print
+		dup $ff and r3tokenname " %s " ,print
 		dup 8 >> 1? ( "%h " ,print )( drop )
 		,cr
 
@@ -577,18 +558,13 @@ iSYSCALL iSYSMEM
 	12 >> $fff and 0? ( 2drop ; )	| no calls
 	drop
 
-    "--------------------------" ,s ,cr
-	dup dicc - 4 >> ,codeinfo ,cr
-	dup 12 + @	| mov
-	$f and 		| uso
-	DeepStack
-	,printstk ,cr
-	dup adr>dicname ,s ":" ,s ,cr
+	,header
+
 	adr>toklen
 	( 1? )( 1- >r
 		@+
 		,printstk
-		dup $ff and r3tokenname "; %s " ,print
+		dup $ff and r3tokenname " %s " ,print
 		dup 8 >> 1? ( "%h " ,print )( drop )
 		,cr
 

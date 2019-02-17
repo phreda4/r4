@@ -41,7 +41,6 @@
 	itok 10 <<
 	swap 2 << 'cellv + +!  ;
 
-
 |------ from TOS
 :cellr | --
 	$1000000 TOS 8 >> 2 << 'cellf + +! ;
@@ -49,7 +48,7 @@
 :cellw | --
 	$10000 TOS 8 >> 2 << 'cellf + +! ;
 
-:cellf | -- adr flg
+:cellfl | -- adr flg
 	TOS 8 >> 2 << 'cellf + dup @ ;
 |------
 
@@ -59,9 +58,9 @@
 
 :newREG	cellnew push.CTE ;
 
-:endREG .POP cellend ;
+:endREG .pop 8 >> cellend ;
 
-::analisysDeepStack | deep --
+::anaDeepStack | deep --
 	IniStack
 	0 'itok !
 	0 'ncell !
@@ -76,8 +75,8 @@
 :iwor
 	valtok
 	dic>du
-	( 1? )( 1- endREG ) drop
-	( 1? )( 1- newREG ) drop
+	dup ( 1? )( 1- endREG ) drop
+	+ ( 1? )( 1- newREG ) drop
 	;
 :ivar
 	codtok newREG ;
@@ -86,16 +85,26 @@
 :idvar
 	codtok newREG ;
 :i;
+	;
 :i(
+	stk.push ;
 :i)
+	stk.pop	;
+
+:gwhilejmp
+	valtok 3 << blok + @ $10000000 and
+	1? ( stk.drop stk.push ) | while
+	drop
+	;
+
 :i[
 :i]
 	;
 :iEX
 	.drop
 	lastdircode dic>du
-	( 1? )( 1- endREG ) drop
-	( 1? )( 1- newREG ) drop
+	dup ( 1? )( 1- endREG ) drop
+	+ ( 1? )( 1- newREG ) drop
 	;
 
 |---- pila
@@ -116,7 +125,6 @@
 :i4DROP idrop
 :i3DROP idrop
 :i2DROP	idrop idrop ;
-
 
 :i>R
 :iR>    ;
@@ -194,9 +202,9 @@
 :iSYSMEM
 	;
 
-:i0? cellr ;
-:i1? cellr endREG cellr ;
-:i2? cellr endREG cellr endREG cellr ;
+:i0? cellr gwhilejmp ;
+:i1? cellr endREG cellr gwhilejmp ;
+:i2? cellr endREG cellr endREG cellr gwhilejmp ;
 
 #vmc
 0 0 0 0 0 0 0 		| 0 1 2 3 4 5 6
@@ -221,11 +229,12 @@ iCMOVE iCMOVE> iCFILL
 iDMOVE iDMOVE> iDFILL
 iSYSCALL iSYSMEM
 
-::analisysstep | tok --
+::anastep | tok --
 	$ff and 2 << 'vmc + @
 	1? ( exec )( drop )
 	1 'itok +!
 	;
+
 
 |------------------------------------------
 #:cntvreg 1
@@ -280,6 +289,11 @@ iSYSCALL iSYSMEM
 		needreg
 		1+ ) drop ;
 
+::anaend
+    ( NOS 'PSP >? )( drop
+		endREG ) drop
+	calcvreg ;
+
 |------------------------------------------
 :inlife | end ini nro -- end ini nro 1/0
 	dup 2 << 'cellf + @ 16 >> $ff and 0? ( ; ) | no es cte
@@ -329,8 +343,8 @@ iSYSCALL iSYSMEM
 
 :celli | nro --
 	2 << 'cellf + @
-	dup 16 >> $ff and
-	0? ( drop cconst ; ) drop
+|	dup 16 >> $ff and
+|	0? ( drop cconst ; ) drop
 	" R:" ,s dup 24 >> $ff and ,d
 	" W:" ,s dup 16 >> $ff and ,d
 	cflags
@@ -338,7 +352,8 @@ iSYSCALL iSYSMEM
 
 :cellvida | nro --
 	2 << 'cellv + @
-	dup 10 >> $3ff and over $3ff and
+	dup 10 >> $3ff and 
+	over $3ff and
 	" (%d:%d)" ,print
 	24 >> $ff and " %d" ,print
 	;
