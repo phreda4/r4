@@ -4,6 +4,8 @@
 ^./r3base.txt
 ^./r3stack.txt
 
+#lastdircode 0 | ultima direccion de codigo
+
 |--- @@
 ::getval | a -- a v
 	dup 4 - @ 8 0>> ;
@@ -41,7 +43,9 @@
 	getval push.str ;
 
 :gdwor
-	getval push.wrd	;
+	getval
+	dup 'lastdircode !
+	push.wrd ;
 
 :gdvar
 	getval push.wrd ;
@@ -52,7 +56,9 @@
 :gwor
 	getval
 	dup dic>du
-	"; u:%d d:%d" ,print ,cr
+|	"; u:%d d:%d" ,print ,cr
+	dup ( 1? )( 1- .drop ) drop
+	+ ( 1? )( 1- dup push.reg ) drop
 
 	over @ $ff and
 	16 <>? ( "call w%h" )( "jmp w%h" ) | call..ret?
@@ -94,6 +100,11 @@
 	;
 
 :gEX
+
+	lastdircode dic>du
+|	"; u:%d d:%d" ,print ,cr
+	dup ( 1? )( 1- .drop ) drop
+	+ ( 1? )( 1- dup push.reg ) drop
 
 	over @ $ff and
 	16 <>? ( "call #0" )( "jmp #0" ) | call..ret?
@@ -465,9 +476,24 @@
 	"rep stosd" ,asm ;
 
 
-:gSYSCALL
+:gSYSCALLc
+	vTOS 2 <<
+	"call [SYSCALL+%d]" ,print ,cr
 	;
+
+:gSYSCALL
+	nro1stk 0? ( drop gSYSCALLc ; ) drop
+	"call [SYSCALL+#0*4]" ,asm
+	;
+
+:gSYSMEMc
+	vTOS 2 <<
+	"mov eax,[SYSMEM+%d]" ,print ,cr
+	;
+
 :gSYSMEM
+	nro1stk 0? ( drop gSYSMEMc ; ) drop
+	"mov eax,[#0]" ,asm
 	;
 
 |---- opt instruction
