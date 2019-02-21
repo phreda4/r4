@@ -328,7 +328,7 @@
 	;
 
 ::stackmap | xx vector -- xx
-	>a 'PSP 8 + 
+	>a 'PSP 8 +
 	( NOS <=? )( dup >r	| xx 'cell
 		a> exec
 		r> 4+ ) drop
@@ -462,8 +462,34 @@
 ::needEDIECXEAX
 	;
 
-|----------------- Nomal mode
 #stacknow
+
+|------- convert to normal ; xxx --> ... [ebp-4] eax
+
+:resCell | 'stk+1 cell -- 'stk+1
+	NOS pick2 swap - 2 - 2 >>
+	dup 8 << 6 or	| s c nr
+	pick2 =? ( 3drop ; ) drop | ya esta en orden
+	swap cell.STK ;
+
+:resStack
+	'PSP 8 +
+	( NOS <=? )(
+		@+ resCell
+		) drop ;
+
+:stklast
+	stacknow 0? ( drop ; ) drop
+	"mov eax,dword [ebp-4]" ,ln
+	5 'TOS ! ; | TOS -> eax
+
+:copyStack | -- ; copia los registros/ctes en pila
+	stack.cnt 0? ( drop stklast ; ) drop
+	cell.fillreg | reg used?
+    'setSTK stackmap-1
+|	resStack
+
+	0 'TOS cell.REG? ;
 
 :cellEBP | deltap 'cell -- deltap
 	dup @ $f and 6 <>? ( 2drop ; ) drop | STK?
@@ -475,34 +501,21 @@
     'cellEBP stackmap
 	drop ;
 
-|----
-:stklast
-	stacknow 0? ( drop ; ) drop
-	"mov eax,dword [ebp-4]" ,ln
-	5 'TOS ! ; | TOS -> eax
-
-:copyStack | -- ; copia los registros/ctes en pila
-	stack.cnt 0? ( drop stklast ; ) drop
-	cell.fillreg | reg used?
-    'setSTK stackmap-1
-	0 'TOS cell.REG? ;
-
-
-::stack2normal | -- ; [ebp+4] [ebp] eax
+::stack2normal | --
 	stacknow stack.cnt - shiftEBP	| corre ebp a nuevo lugar
 	copyStack						| copia los registros/ctes en vpila
 	stack.cnt 'stacknow !			| ahora vpila tiene...
 	;
 
-|-------
+|------- ini stack in ; ... [ebp-4] eax
 ::stack2ini | deep --
 	IniStack
 	dup 'stacknow !
-	( 1? )(
-		dup push.stk
+	0? ( drop ; )
+	1- ( 1? )(
+		dup neg push.stk
 		1- )
-	push.reg
-	;
+	push.reg ;
 
 
 |-------
@@ -538,6 +551,29 @@
 ::stk.conv | --
 	stks> 4 - @ stack2copy ;
 
+#stacknormal )( 256
+
+:fillnormal | deep --  deep
+	'stacknormal >a
+	dup 2 << a!+
+	0? ( ; )
+	1- ( 1? )(
+		dup neg 8 << 6 or a!+
+		1- )
+	5 or a!+ ;
+
+::stk.norm
+	stacknow stack.cnt - shiftEBP	| corre ebp a nuevo lugar
+	stack.cnt fillnormal
+	'stacknormal stack2copy
+	stack.cnt 'stacknow !			| ahora vpila tiene...
+	stack.cnt stack2ini
+	;
+
+|-----------------
+| DEBUG
+|-----------------
+
 :debugstk
 	stks> 4 -
 	'stks <? ( drop ; )
@@ -546,9 +582,6 @@
 		swap @+ "%h " print
 		swap 1- ) 2drop ;
 
-|-----------------
-| DEBUG
-|-----------------
 :mt0 value
 	2 << 'stkvalue + @ "%d" print ;			|--	0 nro 	33
 
@@ -583,23 +616,37 @@
 
 :test
 
+
 	0 PUSH.REG
 	1 PUSH.REG
 	2 PUSH.REG
 
 	stk.push
 	.rot
-	stk.conv 0 here !
-
+	stk.conv
 	stk.pop
 	stack2normal 0 here !
 	;
 
+:test2
+	3 stack2ini
+	,printstk ,cr
+|	.dup
+|	.rot
+	33 push.nro
+	,printstk ,cr
+|	stack2normal
+	stk.norm
+    ,printstk ,cr
+	0 'here !
+	;
+
 :accion
 	'test <f1>
+	'test2 <f2>
 
 |	[ rand $f and 8 - push.nro ; ] <f1>
-	[ rand $3 and PUSH.CTE ; ] <f2>
+|	[ rand $3 and PUSH.CTE ; ] <f2>
 	[ rand $ff and PUSH.STR ; ] <f3>
 	[ rand $ff and PUSH.WRD ; ] <f4>
 	[ rand $f and PUSH.REG ; ] <f5>
