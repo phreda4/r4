@@ -571,6 +571,105 @@
 	;
 
 |-----------------
+|; convert to normal
+|-----------------
+|:inchange | reg dest cnt 'dpila cell sum
+|	drop pick4 5 rot cell! 2dup ;
+
+|:changeREG | dest cell reg -- dest cell
+|	pick2 d.cnt 1- 'dpila | dest cell reg dest cnt 'dpila
+|	( dpila> <? )( swap 1- swap @+
+|		dup cellSTACK
+|		-? ( 2d	rop )( pick3 2 << <>? ( pick4 2 << =? ( inchange ) ) 2drop )
+|		) 4drop ;
+
+|:noregchg | dest cell -- ; celda no es reg!!
+| 	newReg
+|	"mov " ,s dup ,REG ",dword [esi" ,s pick2 2 << 1? ( +? ( "+" ,s ) ,d )( drop ) "]" ,s ,cr
+|	"mov dword [esi" ,s pick2 2 << 1? ( +? ( "+" ,s ) ,d )( drop ) "]," ,s over ,CELL ,cr
+|	changeReg
+|	5 $15 pick2 cell! swap 2 << swap cell+!
+|	;
+
+|:chg2stack | dest cell --
+|	dup cellREG? -? ( drop noregchg ; ) drop
+|	"xchg dword [esi" ,s
+|	over 2 << 1? ( +? ( "+" ,s ) ,d )( drop )
+|	"]," ,s dup ,CELL ,cr
+|	dup cellREG? changeREG | dest cell reg
+|	5 $15 pick2 cell! swap 2 << swap cell+! ;
+
+|:mov2stack | dest cell --
+|	over ";(%d )" ,print "; " ,s printddvtack
+
+|	over 'regused + c@ 1? ( drop chg2stack ; ) drop
+|	"mov dword [esi" ,s
+|	over 2 << 1? ( +? ( "+" ,s ) ,d )( drop )
+|	"]," ,s dup ,CELL ,cr
+
+|	5 $15 pick2 cell! swap 2 << swap cell+! ;
+
+|:resolveADR | cnt adr cell xx -- cnt adr cell xx
+|	newReg pick2 over ,cell2REG
+|	|--- cnt adr cell xx reg
+|	pick2 cellSTACK 2 >> pick3 pick2 changeREG | dest cell reg
+|	2drop
+|	5 pick3 cell! ;
+
+|:realmove | cnt adr cell -- cnt adr x x
+|	dup cellADR? 1? ( resolveADR ) drop
+	| cnt adr cell
+|	pick2 swap mov2stack | dest cell
+|	2dup	;
+
+|:movecell
+|	d.cnt 1- 'dpila
+|	( dpila> 4 - <? )( swap 1- swap @+
+|		dup cellSTACK pick3 2 <<
+|		<>? ( drop realmove ) 2drop
+|		) 2drop ;
+
+|-----
+:scanuse |
+	a>
+	( NOS <=? )( @+
+
+		) drop ;
+
+:cellreg | toREG from --
+
+	;
+
+:cellstk | toSTK from --
+	;
+
+:cellcpy | to from --
+	over =? ( 2drop ; )	| ya esta
+	over $f and
+    5 =? ( drop cellreg ; )
+    6 =? ( drop cellstk ; )
+    3drop
+    "; error stk dest reg/stk!!" ,ln
+	;
+
+:stk.cnv | 'adr --
+	TOS NOS 4+ ! | TOS in PSP
+	@+ 2 >>
+|	NOS 'PSP - <>? ( ; )	| diferent size
+	'PSP 8 + >a
+	( 1? )( swap
+		@+ a@+ cellcpy 		| to from
+		swap 1- ) 2drop ;
+
+::stk.normal | --
+	stacknow stack.cnt - shiftEBP	| corre ebp a nuevo lugar
+	stack.cnt fillnormal
+	'stacknormal stk.cnv
+	stack.cnt 'stacknow !			| ahora vpila tiene...
+	stack.cnt stack2ini
+	;
+
+|-----------------
 | DEBUG
 |-----------------
 
