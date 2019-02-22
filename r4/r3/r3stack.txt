@@ -361,6 +361,9 @@
 	( 1 and? )( 2/ swap 1+ swap ) drop
 	;
 
+:setreg | reg --
+	1 swap << maskreg or 'maskreg ! ;
+
 |---- set cell
 :cell.REG | reg 'cell --
 	"mov " ,s
@@ -518,39 +521,6 @@
 	push.reg ;
 
 
-|-------
-:cellchg | cnt adr to from -- cnt adr
-	a> pick4 | adr cnt
-	( 1? )( swap	| t f cnt adr
-		@+ pick4	| t f cnt adr c
-		=? ( pick3 pick2 4 - ! )	| set reg
-		drop swap 1- ) 2drop
-	"xchg " ,s ,cell "," ,s ,cell ,cr
-	;
-
-:cellcpy | to from --
-	over =? ( 2drop ; ) | is done
-	1 pick2 8 >> <<		| actual reg
-	maskreg and
-	1? ( drop cellchg ; ) drop	| is in stack
-	swap
-	"mov " ,s ,cell "," ,s ,cell ,cr
-	;
-
-| 'copy--> cnt<<2 last .. tos
-::stack2copy | 'copy --
-	cell.fillreg
-	TOS NOS 4+ ! | TOS in PSP
-	@+ 2 >>
-|	NOS 'PSP - <>? ( ; )	| diferent size
-	'PSP 8 + >a
-	( 1? )( swap
-		@+ a@+ cellcpy 		| to from
-		swap 1- ) 2drop ;
-
-::stk.conv | --
-	stks> 4 - @ stack2copy ;
-
 #stacknormal )( 256
 
 :fillnormal | deep --  deep
@@ -562,85 +532,47 @@
 		1- )
 	5 or a!+ ;
 
-::stk.norm
-	stacknow stack.cnt - shiftEBP	| corre ebp a nuevo lugar
-	stack.cnt fillnormal
-	'stacknormal stack2copy
-	stack.cnt 'stacknow !			| ahora vpila tiene...
-	stack.cnt stack2ini
-	;
-
 |-----------------
 |; convert to normal
 |-----------------
-|:inchange | reg dest cnt 'dpila cell sum
-|	drop pick4 5 rot cell! 2dup ;
+:scanuse | to from -- to from here
+	a> ( NOS 4+ <=? )( @+ | t f 'a c
+		pick3 =? ( drop 4 - ; ) drop
+		) drop 0 ;
 
-|:changeREG | dest cell reg -- dest cell
-|	pick2 d.cnt 1- 'dpila | dest cell reg dest cnt 'dpila
-|	( dpila> <? )( swap 1- swap @+
-|		dup cellSTACK
-|		-? ( 2d	rop )( pick3 2 << <>? ( pick4 2 << =? ( inchange ) ) 2drop )
-|		) 4drop ;
+:resolveADR | from -- from'
+	dup $f and
+	drop
+	;
 
-|:noregchg | dest cell -- ; celda no es reg!!
-| 	newReg
-|	"mov " ,s dup ,REG ",dword [esi" ,s pick2 2 << 1? ( +? ( "+" ,s ) ,d )( drop ) "]" ,s ,cr
-|	"mov dword [esi" ,s pick2 2 << 1? ( +? ( "+" ,s ) ,d )( drop ) "]," ,s over ,CELL ,cr
-|	changeReg
-|	5 $15 pick2 cell! swap 2 << swap cell+!
-|	;
-
-|:chg2stack | dest cell --
-|	dup cellREG? -? ( drop noregchg ; ) drop
-|	"xchg dword [esi" ,s
-|	over 2 << 1? ( +? ( "+" ,s ) ,d )( drop )
-|	"]," ,s dup ,CELL ,cr
-|	dup cellREG? changeREG | dest cell reg
-|	5 $15 pick2 cell! swap 2 << swap cell+! ;
-
-|:mov2stack | dest cell --
-|	over ";(%d )" ,print "; " ,s printddvtack
-
-|	over 'regused + c@ 1? ( drop chg2stack ; ) drop
-|	"mov dword [esi" ,s
-|	over 2 << 1? ( +? ( "+" ,s ) ,d )( drop )
-|	"]," ,s dup ,CELL ,cr
-
-|	5 $15 pick2 cell! swap 2 << swap cell+! ;
-
-|:resolveADR | cnt adr cell xx -- cnt adr cell xx
-|	newReg pick2 over ,cell2REG
-|	|--- cnt adr cell xx reg
-|	pick2 cellSTACK 2 >> pick3 pick2 changeREG | dest cell reg
-|	2drop
-|	5 pick3 cell! ;
-
-|:realmove | cnt adr cell -- cnt adr x x
-|	dup cellADR? 1? ( resolveADR ) drop
-	| cnt adr cell
-|	pick2 swap mov2stack | dest cell
-|	2dup	;
-
-|:movecell
-|	d.cnt 1- 'dpila
-|	( dpila> 4 - <? )( swap 1- swap @+
-|		dup cellSTACK pick3 2 <<
-|		<>? ( drop realmove ) 2drop
-|		) 2drop ;
-
-|-----
-:scanuse |
-	a>
-	( NOS <=? )( @+
-
-		) drop ;
+:cellreguse | to from here --
+	over swap !
+	"xchg " ,s ,cell "," ,s ,cell ,cr
+	;
 
 :cellreg | toREG from --
+	scanuse 1? ( cellreguse ; ) drop
+	swap
+	"mov " ,s ,cell "," ,s ,cell ,cr
+	;
 
+:cellstkuse | to from here --
+	over $f and
+	5 =? ( drop cellreguse ; )
+	drop
+	newreg dup setreg
+	8 << 5 or dup
+	rot !	| to from reg
+	dup
+	"mov " ,s ,cell "," ,s swap ,cell ,cr
+	"xchg " ,s ,cell "," ,s ,cell ,cr
 	;
 
 :cellstk | toSTK from --
+	scanuse 1? ( cellstkuse ; ) drop
+	resolveADR
+	swap
+	"mov " ,s ,cell "," ,s ,cell ,cr
 	;
 
 :cellcpy | to from --
@@ -653,6 +585,7 @@
 	;
 
 :stk.cnv | 'adr --
+	cell.fillreg
 	TOS NOS 4+ ! | TOS in PSP
 	@+ 2 >>
 |	NOS 'PSP - <>? ( ; )	| diferent size
@@ -667,6 +600,10 @@
 	'stacknormal stk.cnv
 	stack.cnt 'stacknow !			| ahora vpila tiene...
 	stack.cnt stack2ini
+	;
+
+::stk.conv | --
+	stks> 4 - @ stk.cnv
 	;
 
 |-----------------
@@ -715,27 +652,31 @@
 
 :test
 
-
 	0 PUSH.REG
 	1 PUSH.REG
 	2 PUSH.REG
-
+	,printstk ,cr
 	stk.push
 	.rot
+	,printstk ,cr
 	stk.conv
 	stk.pop
+	
+	,printstk ,cr	
 	stack2normal 0 here !
 	;
 
 :test2
 	3 stack2ini
-	,printstk ,cr
-|	.dup
-|	.rot
 	33 push.nro
 	,printstk ,cr
+
+|	.swap
+	.2swap
+
+	,printstk ,cr
 |	stack2normal
-	stk.norm
+	stk.normal
     ,printstk ,cr
 	0 'here !
 	;
