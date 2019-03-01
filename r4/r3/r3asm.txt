@@ -28,7 +28,7 @@
 ::checkvreg
 	cellnewg |dup "[%d]" ,print
 	0? ( drop ; )
-	.dup 'TOS cell.REG ;
+	'TOS cell.REG ;
 
 |----------------------
 :g0 :g: :g:: :g# :g: :g| :g^    ;
@@ -64,7 +64,7 @@
 	checkvreg ;
 
 :gvar
-	getval push.var 
+	getval push.var
 	checkvreg ;
 
 :gwor
@@ -88,6 +88,7 @@
 	dup 8 - @ $ff and
 	12 =? ( drop ; ) | tail call  call..ret?
 	drop
+	stk.normal
 	"ret" ,ln
 	;
 
@@ -99,6 +100,7 @@
 	"_i%h:" ,print ,cr ;		| while
 
 :g)
+	stk.conv
 	getval
 	getiw 1? ( over "jmp _i%h" ,print ,cr ) drop	| while
 	"_o%h:" ,print ,cr
@@ -257,11 +259,11 @@
 	.drop ;
 :gR>
 	cellnewg ">%d< " ,print
-	.dup
+	.dup checkvreg
 	"pop #0" ,asm ;
 :gR@
 	cellnewg ">%d< " ,print
-	.dup
+	.dup  checkvreg
 	"mov #0,[esp]" ,asm ;
 
 :gAND
@@ -401,17 +403,17 @@
 	"mov #0,[#0]" ,asm ;
 
 :g@+
-	.dup
+	.dup checkvreg
 	'TOS needREG
 	NOS needREG
 	"movsx #0,dword [#1];add #1,4" ,asm ;
 :gC@+
-	.dup
+	.dup checkvreg
 	'TOS needREG
 	NOS needREG
 	"movsx #0,byte [#1];add #1,1" ,asm  ;
 :gD@+
-	.dup
+	.dup checkvreg
 	'TOS needREG
 	NOS needREG
 	"mov #0,[#1];add #1,8" ,asm	;
@@ -595,8 +597,27 @@ gCMOVE gCMOVE> gCFILL
 gDMOVE gDMOVE> gDFILL
 gSYSCALL gSYSMEM
 
-::codestep | token --
+:codestep | token --
 	$ff and
 |	dup r3tokenname slog
 	2 << 'vmc + @ exec ;
 
+
+::genasmcode | duse --
+	cellinfo
+    ";---------GEN" ,ln |----- generate code
+
+	dup cellinig
+	0? ( 1+ ) stack2ini
+	'bcode ( bcode> <? )(
+		@+
+
+        ,printstk
+		dup $ff and r3tokenname " %s " ,print
+|		dup 8 >> 1? ( "%h " ,print )( drop )
+		,cr
+
+		codestep
+
+		"r4asm/code.asm" savemem | debug
+		) drop ;

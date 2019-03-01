@@ -212,22 +212,9 @@
 #memstk )( $fff	| stack memory
 #memstk> 'memstk
 
-::IniStack
-	'PSP 'NOS !
-	'RSP 'RTOS !
-	0 'stkvalue# !
-	'stks 'stks> !
-	'memstk 'memstk> !
-	;
 
 ::stack.cnt | -- cnt
 	NOS 'PSP - 2 >> ;
-
-::DeepStack | deep --
-	IniStack
-	( 1? )( 1-
-		dup PUSH.REG
-		) drop ;
 
 ::stk.push
 	memstk> dup stks> !+ 'stks> !
@@ -468,59 +455,6 @@
 #stacknow
 
 |------- convert to normal ; xxx --> ... [ebp-4] eax
-
-:resCell | 'stk+1 cell -- 'stk+1
-	NOS pick2 swap - 2 - 2 >>
-	dup 8 << 6 or	| s c nr
-	pick2 =? ( 3drop ; ) drop | ya esta en orden
-	swap cell.STK ;
-
-:resStack
-	'PSP 8 +
-	( NOS <=? )(
-		@+ resCell
-		) drop ;
-
-:stklast
-	stacknow 0? ( drop ; ) drop
-	"mov eax,dword [ebp-4]" ,ln
-	5 'TOS ! ; | TOS -> eax
-
-:copyStack | -- ; copia los registros/ctes en pila
-	stack.cnt 0? ( drop stklast ; ) drop
-	cell.fillreg | reg used?
-    'setSTK stackmap-1
-|	resStack
-
-	0 'TOS cell.REG? ;
-
-:cellEBP | deltap 'cell -- deltap
-	dup @ $f and 6 <>? ( 2drop ; ) drop | STK?
-	over 8 << swap +! ;
-
-:shiftEBP | deltap --	; corre ebp a nuevo lugar
-	0? ( drop ; )
-	"lea ebp,[ebp" ,s dup +? ( "+" ,s ) 2 << ,d "]" ,ln
-    'cellEBP stackmap
-	drop ;
-
-::stack2normal | --
-	stacknow stack.cnt - shiftEBP	| corre ebp a nuevo lugar
-	copyStack						| copia los registros/ctes en vpila
-	stack.cnt 'stacknow !			| ahora vpila tiene...
-	;
-
-|------- ini stack in ; ... [ebp-4] eax
-::stack2ini | deep --
-	IniStack
-	dup 'stacknow !
-	0? ( drop ; )
-	1- ( 1? )(
-		dup neg push.stk
-		1- )
-	push.reg ;
-
-
 #stacknormal )( 256
 
 :fillnormal | deep --  deep
@@ -532,9 +466,22 @@
 		1- )
 	5 or a!+ ;
 
+
 |-----------------
 |; convert to normal
 |-----------------
+
+:cellEBP | deltap 'cell -- deltap
+	dup @ $f and 6 <>? ( 2drop ; ) drop | STK?
+	over 8 << swap +! ;
+
+:shiftEBP | deltap --	; corre ebp a nuevo lugar
+	0? ( drop ; )
+	dup neg
+	"lea ebp,[ebp" ,s +? ( "+" ,s ) 2 << ,d "]" ,ln
+    'cellEBP stackmap
+	drop ;
+
 :scanuse | to from -- to from here
 	a> ( NOS 4+ <=? )( @+ | t f 'a c
 		pick3 =? ( drop 4 - ; ) drop
@@ -592,18 +539,45 @@
 	'PSP 8 + >a
 	( 1? )( swap
 		@+ a@+ cellcpy 		| to from
-		swap 1- ) 2drop ;
+		swap 1- ) 2drop
+
+	NOS 4+ @ 'TOS !
+	;
+
+::stk.conv | --
+	stks> 4 - @ stk.cnv
+	;
+
+::IniStack
+	'PSP 'NOS !
+	'RSP 'RTOS !
+	0 'stkvalue# !
+	'stks 'stks> !
+	'memstk 'memstk> !
+	;
+
+::DeepStack | deep --
+	IniStack
+	( 1? )( 1-
+		dup PUSH.REG
+		) drop ;
+
+|------- ini stack in ; ... [ebp-4] eax
+::stack2ini | deep --
+	IniStack
+	dup 'stacknow !
+	0? ( drop ; )
+	1- ( 1? )(
+		dup neg push.stk
+		1- )
+	push.reg ;
 
 ::stk.normal | --
 	stacknow stack.cnt - shiftEBP	| corre ebp a nuevo lugar
 	stack.cnt fillnormal
 	'stacknormal stk.cnv
-	stack.cnt 'stacknow !			| ahora vpila tiene...
-	stack.cnt stack2ini
-	;
-
-::stk.conv | --
-	stks> 4 - @ stk.cnv
+|	stack.cnt 'stacknow !			| ahora vpila tiene...
+|	stack.cnt stack2ini
 	;
 
 |-----------------
@@ -661,18 +635,20 @@
 	,printstk ,cr
 	stk.conv
 	stk.pop
-	
+
 	,printstk ,cr
-	stack2normal 0 here !
+	stk.normal
+	0 here !
 	;
 
 :test2
 	3 stack2ini
-	33 push.nro
+|	33 push.nro
 	,printstk ,cr
 
 |	.swap
-	.2swap
+|	.2swap
+	.dup
 
 	,printstk ,cr
 |	stack2normal
@@ -697,7 +673,7 @@
 	[ stk.push ; ] <f9>
 	[ stk.pop ; ] <f10>
 
-	[ stack2normal 0 here ! ; ] <f11>
+	[ stk.normal 0 here ! ; ] <f11>
 	[ stk.conv 0 here ! ; ] <f12>
 	;
 
