@@ -563,20 +563,28 @@
 		) drop ;
 
 |------- spill reg
-:ishere? | regcell cnt -- regcell cnt
-	dup 2 + 2 << 'PSP + @ | regcell cnt cell
-	pick2 <>? ( drop ; )	| no es el registro
+
+:spillhere | cellreg 'stk --
+		| ** usado??
+
+	4 - | cell
+	NOS over - 2 >> 1-
+	stacknow stack.cnt - -
+	over
+	cell.STK
+
+	2drop
 	;
 
 ::spill | reg --
-	dup 8 << 5 or | reg cellr
-	stack.cnt
-	( 1? )(
-		ishere?
-		1- ) drop
-
-	drop
-	;
+	8 << 5 or | cellr
+	TOS NOS 4+ ! | TOS in PSP
+	'PSP 8 +
+	( NOS 4+ <=? )(
+		@+ dup "%h" ,print ,cr
+		pick2 =? ( drop spillhere ; )
+		drop )
+	2drop ;
 
 |------- ini stack in ; ... [ebp-4] eax
 ::stack2ini | deep --
@@ -666,27 +674,52 @@
 	.dup
 
 	,printstk ,cr
-|	stack2normal
+
 	stk.normal
     ,printstk ,cr
 	0 'here !
 	;
 
 :test3
-	4 stack2ini
-	,printstk ,cr
-	0 spill
+	2 stack2ini
 	,printstk ,cr
 
-	| .swap
-	| 0 spillreg |< use ebp-4 then preserve!!
+|	.swap
+	33 push.nro
+|	.swap
+|	31 push.nro
+	,printstk ,cr
+
+	0 spill		,printstk ,cr
+
+|	stk.normal	,printstk ,cr
+
+	0 'here !
+	;
+
+:test4
+	2 stack2ini
+	,printstk ,cr
+
+|	.swap
+	33 push.nro
+	.swap
+	31 push.nro
+	,printstk ,cr
+
+	0 spill	,printstk ,cr
+
+|	stk.normal	,printstk ,cr
+
 	0 'here !
 	;
 
 :accion
 	'test <f1>
 	'test2 <f2>
+
 	'test3 <f3>
+	'test4 <f4>
 
 |	[ rand $f and 8 - push.nro ; ] <f1>
 |	[ rand $3 and PUSH.CTE ; ] <f2>
