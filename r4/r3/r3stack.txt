@@ -565,15 +565,17 @@
 |------- spill reg
 
 :spillhere | cellreg 'stk --
-		| ** usado??
-
 	4 - | cell
-	NOS over - 2 >> 1-
-	stacknow stack.cnt - -
+	NOS over - 2 >> 1+
+	stacknow stack.cnt - +
+	neg | <- where in stack
+
 	over
 	cell.STK
 
 	2drop
+
+	NOS 4+ @ 'TOS !
 	;
 
 ::spill | reg --
@@ -581,8 +583,7 @@
 	TOS NOS 4+ ! | TOS in PSP
 	'PSP 8 +
 	( NOS 4+ <=? )(
-		@+ dup "%h" ,print ,cr
-		pick2 =? ( drop spillhere ; )
+		@+ pick2 =? ( drop spillhere ; )
 		drop )
 	2drop ;
 
@@ -597,12 +598,22 @@
 	push.reg ;
 
 ::stk.normal | --
-	stacknow stack.cnt - shiftEBP	| corre ebp a nuevo lugar
+	stacknow 0? ( drop ; )
+	stack.cnt - shiftEBP	| corre ebp a nuevo lugar
 	stack.cnt fillnormal
 	'stacknormal stk.cnv
 |	stack.cnt 'stacknow !			| ahora vpila tiene...
 |	stack.cnt stack2ini
 	;
+
+::stk.gennormal | d u --
+	dup ( 1? )( 1- .drop ) drop
+	+
+	0? ( drop ; )
+	1- ( 1? )(
+		dup neg push.stk
+		1- )
+	push.reg ;
 
 |-----------------
 | DEBUG
@@ -679,36 +690,35 @@
     ,printstk ,cr
 	0 'here !
 	;
-
+:test2
+	0 stack2ini
+	stk.normal
+	;
 :test3
-	2 stack2ini
+	4 stack2ini
 	,printstk ,cr
 
 |	.swap
-	33 push.nro
+|	33 push.nro
 |	.swap
 |	31 push.nro
 	,printstk ,cr
-
 	0 spill		,printstk ,cr
-
 |	stk.normal	,printstk ,cr
 
 	0 'here !
 	;
 
 :test4
-	2 stack2ini
+	3 stack2ini
 	,printstk ,cr
 
-|	.swap
-	33 push.nro
 	.swap
-	31 push.nro
+|	33 push.nro
+|	.swap
+|	31 push.nro
 	,printstk ,cr
-
-	0 spill	,printstk ,cr
-
+	0 spill		,printstk ,cr
 |	stk.normal	,printstk ,cr
 
 	0 'here !
@@ -725,8 +735,9 @@
 |	[ rand $3 and PUSH.CTE ; ] <f2>
 |	[ rand $ff and PUSH.STR ; ] <f3>
 |	[ rand $ff and PUSH.WRD ; ] <f4>
-|	[ rand $f and PUSH.REG ; ] <f5>
+	[ rand $7 and PUSH.REG ; ] <f5>
 |	[ rand $f and PUSH.STK ; ] <f6>
+
 	[ .drop ; ] <f7>
 	[ .swap ; ] <f8>
 
@@ -746,8 +757,6 @@
 	'memp !
 	show clrscr
 		dup "%d" print cr
-		'memp "%h " print
-		here "%h" print cr
 		cr
 		printstk
 		cr
