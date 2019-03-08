@@ -457,10 +457,13 @@
 |------- convert to normal ; xxx --> ... [ebp-4] eax
 #stacknormal )( 256
 
-:fillnormal | deep --  deep
+:fillnormal | deep --
+
+	-? ( trace )
+
 	'stacknormal >a
 	dup 2 << a!+
-	0? ( ; )
+	0? ( drop ; )
 	1- ( 1? )(
 		dup neg 8 << 6 or a!+
 		1- )
@@ -597,12 +600,22 @@
 		1- )
 	push.reg ;
 
+:stk.setnormal | deep --
+	'PSP 'NOS !
+	'RSP 'RTOS !
+	dup 'stacknow !
+	0? ( drop ; )
+	1- ( 1? )(
+		dup neg push.stk
+		1- )
+	push.reg ;
+
 ::stk.normal | --
-	stacknow stack.cnt - shiftEBP	| corre ebp a nuevo lugar
+	stacknow stack.cnt - shiftEBP 	| corre ebp a nuevo lugar
 	stack.cnt fillnormal
 	'stacknormal stk.cnv
-|	stack.cnt 'stacknow !			| ahora vpila tiene...
-|	stack.cnt stk.start
+
+	stack.cnt stk.setnormal
 	;
 
 ::stk.gennormal | d u --
@@ -612,7 +625,9 @@
 	1- ( 1? )(
 		dup neg push.stk
 		1- )
-	push.reg ;
+	push.reg
+	stack.cnt stk.setnormal
+	;
 
 |-----------------
 | DEBUG
