@@ -1,36 +1,22 @@
-| SYS IO
-| PHREDA 2018
-
-::vframe | -- video.buffer.memory
- 0 sysmem ;
-::sw | -- screen.width
- 1 sysmem ;
-::sh | -- screen.heigth
- 2 sysmem ;
-::msec | -- system.miliseconds
- 3 sysmem ;
-::time | -- hhmmss
- 4 sysmem ;
-::date | -- yyyymmdd
- 5 sysmem ;
+| SYSTEM
+| PHREDA 2019
+|----------------
 
 ::xymouse | -- xmouse ymouse
- 8 sysmem dup $ffff and swap 16 >> ;
-::bmouse | -- mouse.button
- 9 sysmem ;
+	xypen dup $ffff and swap 16 >> ;
 
-::keycode | -- kcode
- 6 sysmem ;
-::keychar | -- kchar
- 7 sysmem ;
+#.exit 0
 
-::mem | -- start.free.memory
- 10 sysmem ;
+::onshow | 'word --
+	0 '.exit !
+	0 ( drop
+		10 update drop
+		dup ex
+		redraw
+		.exit 1? )
+	2drop
+	0 '.exit !
+	;
 
-::echo | "" --    ; echo to dom
- 0 syscall ;
-::ondom | 'word --  ; when change the dom
- 1 syscall ;
-
-::onshow | 'word -- ; call every 30fps
- 2 syscall ;
+::exit
+	1 '.exit ! ;

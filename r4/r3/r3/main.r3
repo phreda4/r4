@@ -8,7 +8,7 @@
 :main
  cls home
  "key " print
- keychar .d print
+ key .d print
  cr
  v .h print
  cte 'v +!
