@@ -26,6 +26,92 @@
 ::getcte2 | a -- a v
 	dup 4 - @ 8 0>> 'ctecode + @	;
 
+
+|--------------------------------
+| $0 nro	33
+| $1 cte    FREEMEM
+| $2 str    s01
+| $3 wrd    w32
+| $4 [wrd]	[w33]
+| $5 reg	eax ebx
+| $6 stk	[ebp] [ebp+4] ...
+
+::needEAX | 'cell --
+	dup @ 5 =? ( 2drop ; )
+	"mov eax," ,s ,cell ,cr
+	5 swap !
+	;
+
+::needECXcte | 'cell --
+	dup @
+	2 8 << 5 or =? ( 2drop ; )
+	$f nand? ( 2drop ; )
+	"mov ecx," ,s ,cell ,cr
+	2 8 << 5 or swap !
+	;
+
+::needREG | 'cell --
+	dup @ $f and
+	5 =? ( 2drop ; ) | reg
+	drop
+	newreg 8 << 5 or
+	"mov " ,s dup ,cell "," ,s over @ ,cell ,cr
+	swap !
+	;
+
+::needREG-EDX
+	dup @ $f and
+	5 =? ( 2drop ; ) | reg
+	drop
+	newreg 8 << 5 or
+	"mov " ,s dup ,cell "," ,s over @ ,cell ,cr
+	swap !
+	;
+
+
+::needESIEDIECX
+|	2 spill | free ecx
+	NOS 4 - @
+	$405 <>? ( 4 NOS 4 - cell.REG ) drop
+	NOS @
+	$505 <>? ( 5 NOS cell.REG ) drop
+	TOS
+	$205 =? ( drop ; ) drop
+	2 'TOS cell.REG
+	;
+
+::needEDIECXEAX
+|	0 spill | free eax
+|	2 spill | free ecx
+	NOS 4 - @
+	$005 <>? ( 0 NOS 4 - cell.REG ) drop
+	NOS @
+	$405 <>? ( 4 NOS cell.REG ) drop
+	TOS
+	$205 =? ( drop ; ) drop
+	2 'TOS cell.REG
+	;
+
+:needMEMREG
+	dup @ $f and
+	2 =? ( 2drop ; ) | str
+	3 =? ( 2drop ; ) | wrd
+	5 =? ( 2drop ; ) | reg
+	drop
+	drop
+	;
+
+:need1REGno | 1 reg sin orden
+	NOS @ $f and 5 =? ( drop ; ) drop
+	TOS $f and 5 =? ( drop .swap ; ) drop
+	NOS needREG
+	;
+
+:need1REG | 1 reg con orden
+	NOS @ $f and 5 =? ( drop ; ) drop
+	NOS needREG
+	;
+
 |----------------------
 :g0 :g: :g:: :g# :g: :g| :g^    ;
 
@@ -205,7 +291,6 @@
 	getval "jge _o%h" ,print ,cr
 	;
 
-
 :g>R
 	"push #0" ,asm
 	.drop ;
@@ -215,14 +300,6 @@
 :gR@
 	.dup
 	"mov #0,[esp]" ,asm ;
-
-:need1REGno | 1 reg sin orden
-	NOS needREG
-	;
-
-:need1REG | 1 reg con orden
-	NOS needREG
-	;
 
 :gAND
 	nro2stk 0? ( drop .AND ; ) drop
@@ -302,8 +379,8 @@
 	"mov edx,#0;sar edx,31;add #0,edx;xor #0,edx" ,asm ;
 :gSQRT
 	nro1stk 0? ( drop .SQRT ; ) drop
-	"call sqrt" ,asm
-	;
+   "cvtsi2sd xmm0,#0;sqrtsd xmm0,xmm0;cvtsd2si #0,xmm0" ,asm ;
+   
 :gCLZ
 	nro1stk 0? ( drop .CLZ ; ) drop
 	'TOS needREG
@@ -470,7 +547,7 @@
 	.3drop ;
 :gMOVE>
 	needESIEDIECX
-	"lea esi,[esi+ecx*4-4];lea edi,[edi+ecx*4-4];std;rep movsd;cld" ,asm 
+	"lea esi,[esi+ecx*4-4];lea edi,[edi+ecx*4-4];std;rep movsd;cld" ,asm
 	.3drop ;
 :gFILL
 	needEDIECXEAX
@@ -486,7 +563,7 @@
 	.3drop ;
 :gCFILL
 	needEDIECXEAX
-	"rep stosb" ,asm 
+	"rep stosb" ,asm
 	.3drop ;
 :gDMOVE
 	needESIEDIECX
@@ -511,11 +588,11 @@
 
 :,callsys | "" --
 	stk.normal
-	dup @ $ff and | word ;
+	over @ $ff and | word ;
 	$10 =? ( "jmp " )( "call " ) nip
-	,s ,cr ;
+	,s ,s ,cr ;
 
-:vstack | delta --
+:vstack+ | delta --
 	drop
 	;
 
@@ -610,7 +687,7 @@ gSYSCALL gSYSMEM
 
 
 ::genasmcode | duse --
-	cellinfo
+
 |	dup cellinig
 	stk.start
 
@@ -619,13 +696,9 @@ gSYSCALL gSYSMEM
 	'bcode ( bcode> <? )(
 		@+
 
-        ,printstk
-		dup $ff and r3tokenname " %s " ,print
-|		dup 8 >> 1? ( "%h " ,print )( drop )
-		,cr
+        ,printstk	dup $ff and r3tokenname " %s " ,print ,cr
 
 		codestep
-
-		"r4asm/code.asm" savemem | debug
+|		"r4asm/code.asm" savemem | debug
 
 		) drop ;
