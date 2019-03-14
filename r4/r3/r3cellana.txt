@@ -26,9 +26,10 @@
 | $80 copia de A en cellt
 | $100 celda exec
 | $800 celda ya asignada (para vreg)
-| $1000 celda AD	x86
-| $2000 celda C		x86
-| $4000 no usar C
+| $1000 celda A
+| $2000 celda C
+| $4000 celda SI
+| $8000 celda DI
 
 :cellnew | -- nro
 	ncell
@@ -79,11 +80,15 @@
 :cellfl | -- adr flg
 	TOS 8 >> 2 << 'cellf + dup @ ;
 
-:cellEAX
+:cellA
 	cellfl $1000 or swap ! ;
-
-:cellECX
+:cellC
 	cellfl $2000 or swap ! ;
+:cellSI
+	cellfl $4000 or swap ! ;
+:cellDI
+	cellfl $8000 or swap ! ;
+
 |------
 
 :valtok	dup 4 - @ 8 >> ;
@@ -119,6 +124,7 @@
 :idvar
 	codtok newREG ;
 :i;
+	cellA
 	;
 :i(
 	stk.push ;
@@ -168,9 +174,9 @@
 :iop1a1	cellW ; | neg not
 
 :i/
-	cellR cellEAX endREG ;
+	cellR cellA endREG ;
 :i*/
-	cellR cellEAX endREG cellR endREG cellW ;
+	cellR cellA endREG cellR endREG cellW ;
 :i/MOD
 	cellR ;
 :iMOD
@@ -184,10 +190,10 @@
 :i<<
 :i>>
 :i>>>
-	cellR cellECX endREG ;
+	cellR cellC endREG ;
 :i*>>
 :i<</
-	cellR cellEAX endREG cellR endREG cellW cellECX ;
+	cellR cellC endREG cellR endREG cellW cellA ;
 
 :i@
 :iC@
@@ -204,70 +210,49 @@
 :i!+
 :iC!+
 :iD!+
-	endREG ;
+	cellW endREG ;
 :i+!
 :iC+!
 :iD+!
 	endREG endREG ;
-:i>A
-	endReg ;
-:iA>
-	newReg ;
-:iA@
-	newReg ;
-:iA!
-	endReg ;
-:iA+
-	endReg ;
-:iA@+
-	newReg ;
-:iA!+
-	endReg ;
-:i>B
-	endReg ;
-:iB>
-	newReg ;
-:iB@
-	newReg ;
-:iB!
-	endReg ;
-:iB+
-	endReg ;
-:iB@+
-	newReg ;
-:iB!+
-	endReg ;
+:i>A	endReg ;
+:iA>    newReg ;
+:iA@    newReg ;
+:iA!    endReg ;
+:iA+    endReg ;
+:iA@+   newReg ;
+:iA!+   endReg ;
+:i>B    endReg ;
+:iB>    newReg ;
+:iB@    newReg ;
+:iB!    endReg ;
+:iB+    endReg ;
+:iB@+   newReg ;
+:iB!+   endReg ;
 
-:iMOVE
-:iMOVE>
-:iFILL
-	endReg endReg endReg ;
-:iCMOVE
-:iCMOVE>
-:iCFILL
-	endReg endReg endReg ;
-:iDMOVE
-:iDMOVE>
-:iDFILL
-	endReg endReg endReg ;
+:iMOVE :iMOVE>
+:iCMOVE :iCMOVE>
+:iDMOVE :iDMOVE>
+	cellA endReg cellC endReg cellDI endReg ;
+:iFILL :iCFILL :iDFILL
+	cellC endReg cellDI endReg cellSI endReg ;
 
-:iUPDATE
-:iREDRAW
+:iUPDATE :iREDRAW
+	;
 :iMEM
-:iSW
-:iSH
-:iFRAMEV
-:iXYPEN
-:iBPEN
-:iKEY
-:iMSEC
-:iTIME
-:iDATE
+:iSW :iSH :iFRAMEV
+:iXYPEN :iBPEN :iKEY
+:iMSEC :iTIME :iDATE
+	newReg ;
 :iLOAD
+	endReg ;
 :iSAVE
 :iAPPEND
+	endReg endReg endReg ;
 :iFFIRST
+	;
 :iFNEXT
+	newReg ;
 
 :iSYSCALL
 :iSYSMEM
@@ -404,9 +389,11 @@ iSYSCALL iSYSMEM
 	$80 and? ( " CPY" ,s )
 	$100 and? ( " EXE" ,s )
 	$800 and? ( " U" ,s )
-	$1000 and? ( " AD" ,s )
+
+	$1000 and? ( " A" ,s )
 	$2000 and? ( " C" ,s )
-	$4000 and? ( " noC" ,s )
+	$4000 and? ( " SI" ,s )
+	$8000 and? ( " DI" ,s )
 	drop ;
 
 :cconst
