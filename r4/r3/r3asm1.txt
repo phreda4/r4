@@ -36,6 +36,13 @@
 | $5 reg	eax ebx
 | $6 stk	[ebp] [ebp+4] ...
 
+:change | cell@ reg 'cell -- 'cell reg
+	pick2 over @ <>? ( 2drop ; ) drop
+	over swap ! ;
+
+:changecellall | cell@ reg -- cell@ reg
+	'change stackmap ;
+
 ::needEAX | 'cell --
 	dup @ 5 =? ( 2drop ; )
 	"mov eax," ,s ,cell ,cr
@@ -54,8 +61,10 @@
 	dup @ $f and
 	5 =? ( 2drop ; ) | reg
 	drop
+	dup @
 	newreg 8 << 5 or
-	"mov " ,s dup ,cell "," ,s over @ ,cell ,cr
+	"mov " ,s dup ,cell "," ,s over ,cell ,cr
+	changecellall nip
 	swap !
 	;
 
@@ -198,24 +207,28 @@
 	;
 
 :g0?
+	'TOS needREG
 	gwhilejmp
 	"or #0,#0" ,asm
 	getval "jnz _o%h" ,print ,cr
 	;
 
 :g1?
+	'TOS needREG
 	gwhilejmp
 	"or #0,#0" ,asm
 	getval "jz _o%h" ,print ,cr
 	;
 
 :g+?
+	'TOS needREG
 	gwhilejmp
 	"or #0,#0" ,asm
 	getval "js _o%h" ,print ,cr
 	;
 
 :g-?
+	'TOS needREG
 	gwhilejmp
 	"or #0,#0" ,asm
 	getval "jns _o%h" ,print ,cr
@@ -392,16 +405,19 @@
 	"bsr #0,#0;xor #0,31" ,asm ;
 :g<<
 	nro2stk 0? ( drop .<< ; ) drop
+	NOS needREG
 	'TOS needECXcte
 	"shl #1,#0" ,asm
 	.drop ;
 :g>>
 	nro2stk 0? ( drop .>> ; ) drop
+	NOS needREG
 	'TOS needECXcte
 	"sar #1,#0" ,asm
 	.drop ;
 :g>>>
 	nro2stk 0? ( drop .>>> ; ) drop
+	NOS needREG
 	'TOS needECXcte
 	"shr #1,#0" ,asm
 	.drop ;
