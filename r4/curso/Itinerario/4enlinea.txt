@@ -2,6 +2,7 @@
 ^./fichas.bmr
 ^r4/lib/bmr.txt
 ^r4/lib/miniscr.txt
+^r4/lib/trace.txt
 
 #tablero
 0 0 0 0 0 0 0
@@ -33,16 +34,86 @@
 #columna 0
 #turno 1
 
-:caerficha
-	4 * 'tablero +
-	( dup @ 0? )( drop 7 4 * + ) drop
-	7 4 * - ;
+:xy-tab | x y -- ad
+	7 * + 2 << 'tablero + ;
+
+|------- horizontal
+:primeroizq | x y -- x y
+	( swap 1- -? ( 1+ swap ; ) swap
+		2dup xy-tab @ turno =? )( drop ) drop
+	swap 1+ swap ;
+
+:iguales  | x y -- x
+	( 2dup xy-tab @ turno =? )( drop swap 1+ swap )
+	2drop 1- ;
+
+:ganah? | x y -- neg=no
+	primeroizq
+	over swap | x x y
+	iguales | x xu
+	swap - 3 - ;
+
+|------- diagonal
+:primerod1 | x y -- xi yi
+	(   1- -? ( 1+ ; ) swap
+		1- -? ( 1+ swap 1+ ; ) swap
+		2dup xy-tab @ turno =? )( drop ) drop
+	swap 1+	swap 1+ ;
+
+:igualesd1  | x y -- x
+	( 2dup xy-tab @ turno =? )( drop
+		1+ swap 1+ swap )
+	2drop 1- ;
+
+:ganad1? | x y --
+	primerod1
+	over swap
+	igualesd1
+	swap - 3 - ;
+
+:primerod2 | x y -- xi yi
+	(   1+ swap
+		1- -? ( 1+ swap 1- ; )
+		swap
+		2dup xy-tab @ turno =? )( drop ) drop
+	swap 1+ swap 1- ;
+
+:igualesd2  | x y -- x
+	( 2dup xy-tab @ turno =? )( drop
+		1- swap 1+ swap )
+	2drop 1- ;
+
+:ganad2? | x y --
+	primerod2
+	over swap
+	igualesd2
+	swap - 3 - ;
+
+|------- vertical
+:ganav? | x y -- neg=no
+	swap over
+	( 1+ 2dup xy-tab @ turno =? )( drop ) drop
+	nip swap - 4 - ;
+
+:gana? | x y -- x y g
+	2dup ganah? 0? ( nip nip ; ) drop
+	2dup ganav? 0? ( nip nip ; ) drop
+	2dup ganad1? 0? ( nip nip ; ) drop
+	ganad2? ;
+
+:caerficha | -- x y
+	columna 0 ( 2dup xy-tab @ 0? )( drop 1+ ) drop 1- ;
 
 :poneficha
-	columna caerficha
-	turno swap !
+	caerficha
+	-? ( 2drop ; )
+
+	2dup xy-tab turno swap ! | pone ficha
+	gana? 0? ( drop trace ; ) drop
+
 	turno
-	1 =? ( 2 )( 1 ) nip
+	3 xor | bit trick
+|	1 =? ( 2 )( 1 ) nip
 	'turno !
 	;
 
