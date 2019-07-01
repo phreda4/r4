@@ -47,11 +47,8 @@
 	( 2dup xy-tab @ turno =? )( drop swap 1+ swap )
 	2drop 1- ;
 
-:ganah? | x y -- neg=no
-	primeroizq
-	over swap | x x y
-	iguales | x xu
-	swap - 3 - ;
+:ganah? | x y -- score
+	primeroizq over swap iguales swap - ;
 
 |------- diagonal
 :primerod1 | x y -- xi yi
@@ -65,11 +62,8 @@
 		1+ swap 1+ swap )
 	2drop 1- ;
 
-:ganad1? | x y --
-	primerod1
-	over swap
-	igualesd1
-	swap - 3 - ;
+:ganad1? | x y -- score
+	primerod1 over swap igualesd1 swap - ;
 
 :primerod2 | x y -- xi yi
 	(   1+ swap
@@ -83,33 +77,52 @@
 		1- swap 1+ swap )
 	2drop 1- ;
 
-:ganad2? | x y --
-	primerod2
-	over swap
-	igualesd2
-	swap - 3 - ;
+:ganad2? | x y -- score
+	primerod2 over swap igualesd2 swap - ;
 
 |------- vertical
-:ganav? | x y -- neg=no
+:ganav? | x y -- score
 	swap over
 	( 1+ 2dup xy-tab @ turno =? )( drop ) drop
-	nip swap - 4 - ;
+	nip 1- swap - ;
 
 :gana? | x y -- x y g
-	2dup ganah? 0? ( nip nip ; ) drop
-	2dup ganav? 0? ( nip nip ; ) drop
-	2dup ganad1? 0? ( nip nip ; ) drop
+	2dup ganah? 2 >? ( nip nip ; ) drop
+	2dup ganav? 2 >? ( nip nip ; ) drop
+	2dup ganad1? 2 >? ( nip nip ; ) drop
 	ganad2? ;
 
-:caerficha | -- x y
-	columna 0 ( 2dup xy-tab @ 0? )( drop 1+ ) drop 1- ;
+:caerficha | c -- x y
+	0 ( 2dup xy-tab @ 0? )( drop 1+ ) drop 1- ;
+
+#scorecol 0 0 0 0 0 0 0
+#maxscore 0
+
+:maxscore | x y -- score
+	0 >a
+	2dup ganah? a+
+	2dup ganav? a+
+	2dup ganad1? a+
+	ganad2? a> + ;
+
+:scorecol
+	blanco
+	0 ( 7 <? )(
+		dup caerficha
+		maxscore
+		|over 2 << 'scorecol !
+		over 16 * 56 +
+		192 4 / 32 - atxy
+		"%d" print
+		1+ ) drop ;
+
 
 :poneficha
-	caerficha
+	columna caerficha
 	-? ( 2drop ; )
 
 	2dup xy-tab turno swap ! | pone ficha
-	gana? 0? ( drop trace ; ) drop
+	gana? 2 >? ( drop trace ; ) drop
 
 	turno
 	3 xor | bit trick
@@ -135,10 +148,13 @@
 	224 192 miniscreen
 	33
 	show clrscr
-|	dup "%d" print
+	dup "%d" print
 		fichausuario
 		dibujatablero
+		scorecol
+
 		teclado
+
 		minidraw
 		'exit >esc<
 		cminiflecha ;
