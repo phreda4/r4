@@ -85,7 +85,8 @@
 :,EXEC
 	"mov ecx,eax" ,ln
 	,DROP
-	"call ecx" ,ln ;
+	over @ $ff and 			| word ;
+	16 =? ( "jmp ecx" )( "call ecx" ) nip ,ln ;
 
 :,>R
 	"push eax" ,ln ,DROP ;
@@ -458,6 +459,190 @@
 :,DOCINI :,DOCEND :,DOCAT :,DOCLINE :,DOCTEXT :,DOCFONT :,DOCBIT :,DOCRES :,DOCSIZE
 	;
 
+|------------ Optimizados
+#strtos )( 32
+
+:,TOS 'strtos ,s ;
+
+:o,=?
+	"cmp eax," ,s ,TOS ,cr
+	"jnz " ,s ;
+:o,<?
+	"cmp eax," ,s ,TOS ,cr
+	"jge " ,s ;
+:o,>?
+	"cmp eax," ,s ,TOS ,cr
+	"jle " ,s ;
+:o,<=?
+	"cmp eax," ,s ,TOS ,cr
+	"jg " ,s ;
+:o,>=?
+	"cmp eax," ,s ,TOS ,cr
+	"jl " ,s ;
+:o,<>?
+	"cmp eax," ,s ,TOS ,cr
+	"jz " ,s ;
+:o,and?
+	"test eax," ,s ,TOS ,cr
+	"jz " ,s ;
+:o,nand?
+	"test eax," ,s ,TOS ,cr
+	"jnz " ,s ;
+:o,EXEC
+	"mov ecx," ,s ,TOS ,cr
+	over @ $ff and 			| word ;
+	16 =? ( "jmp ecx" )( "call ecx" ) nip ,ln ;
+
+:o,AND
+	"and eax," ,s ,TOS ,cr ;
+:o,OR
+	"or eax," ,s ,TOS ,cr ;
+:o,XOR
+	"xor eax," ,s ,TOS ,cr ;
+:o,+
+	"add eax," ,s ,TOS ,cr ;
+:o,-
+	"sub eax," ,s ,TOS ,cr ;
+:o,*
+	"imul eax," ,s ,TOS ,cr ;
+:o,/
+	"mov ecx," ,s ,TOS ,cr
+	"cdq" ,ln
+	"idiv ecx" ,ln ;
+:o,*/
+	"mov ecx," ,s ,TOS ,cr
+	"cdq" ,ln
+	"imul dword [ebp]" ,ln
+	"idiv ecx" ,ln
+	,NIP ;
+:o,*>>
+	"cdq" ,ln
+	"imul dword [ebp]" ,ln
+	,nip
+	dup tok>cte
+	32 <? ( "shrd eax,edx," ,s ,d ,cr ; )
+	32 >? ( "sar edx," ,s dup 32 - ,d ,cr )
+	drop
+	"mov eax,edx" ,ln ;
+:o,<</
+	"mov ebx,eax" ,ln
+	,DROP
+	"cdq" ,ln
+    "shld edx,eax," ,s ,TOS ,cr
+	"shl eax," ,s ,TOS ,cr
+	"idiv ebx" ,ln ;
+:o,/MOD
+	"mov ebx," ,s ,TOS ,cr
+	"cdq" ,ln
+	"idiv ebx" ,ln
+	"mov [ebp],eax" ,ln
+	"mov eax,edx" ,ln ;
+:o,MOD
+	"mov ecx," ,s ,TOS ,cr
+	"cdq" ,ln
+	"idiv ecx" ,ln
+	"mov eax,edx" ,ln ;
+:o,<<
+	"sal eax," ,s ,TOS ,cr ;
+:o,>>
+	"sar eax," ,s ,TOS ,cr ;
+:o,0>>
+	"shr eax," ,s ,TOS ,cr ;
+
+:o,@
+	"mov eax,dword[", ,s ,TOS "]" ,ln ;
+:o,C@
+	"movsx eax,byte[", ,s ,TOS "]" ,ln ;
+:o,W@
+	"movsx eax,word[", ,s ,TOS "]" ,ln ;
+:o,!
+	"mov dword[" ,s ,TOS "],eax" ,ln ,DROP ;
+:o,C!
+	"mov byte[" ,s ,TOS "],ax" ,ln ,DROP ;
+:o,W!
+	"mov word[" ,s ,TOS "],al" ,ln ,DROP ;
+:o,+!
+	"add dword[" ,s ,TOS "],eax" ,ln ,DROP ;
+:o,W+!
+	"add word[" ,s ,TOS "],ax" ,ln ,DROP ;
+:o,C+!
+	"add byte[" ,s ,TOS "],al" ,ln ,DROP ;
+
+:o,!+
+	"mov ecx," ,s ,TOS ,cr
+	"mov dword[ecx],eax" ,ln
+	"add ecx,4" ,ln
+	"mov eax,ecx" ,ln ;
+:o,W!+
+	"mov ecx," ,s ,TOS ,cr
+	"mov word[ecx],ax" ,ln
+	"add ecx,2" ,ln
+	"mov eax,ecx" ,ln ;
+:o,C!+
+	"mov ecx," ,s ,TOS ,cr
+	"mov byte[ecx],al" ,ln
+	"add ecx,1" ,ln
+	"mov eax,ecx" ,ln ;
+
+:o,@+
+	,DUP
+	"mov ebx," ,s ,TOS ,cr
+	"mov eax,dword[ebx]" ,ln
+	"add ebx,4" ,ln
+	"lea ebp,[ebp-4]" ,ln
+	"mov [ebp],ebx" ,ln ;
+:o,W@+
+	,DUP
+	"mov ebx," ,s ,TOS ,cr
+	"movsx eax,word[ebx]" ,ln
+	"add ebx,2" ,ln
+	"lea ebp,[ebp-4]" ,ln
+	"mov [ebp],ebx" ,ln ;
+:o,C@+
+	,DUP
+	"mov ebx," ,s ,TOS ,cr
+	"movsx eax,byte[ebx]" ,ln
+	"add ebx,1" ,ln
+	"lea ebp,[ebp-4]" ,ln
+	"mov [ebp],ebx" ,ln ;
+
+:o>A
+	"mov esi," ,s ,TOS ,cr ;
+:oA!
+	"mov dword[esi]," ,s ,TOS ,cr ;
+:oA+
+	"add esi," ,s ,TOS ,cr ;
+:oA!+
+	"mov dword[esi]," ,s ,TOS ,cr
+	"add esi,4" ,ln ;
+:o>B
+	"mov edi," ,s ,TOS ,cr ;
+:oB!
+	"mov dword[edi]," ,s ,TOS ,cr ;
+:oB+
+	"add edi," ,s ,TOS ,cr ;
+:oB!+
+	"mov dword[edi]," ,s ,TOS ,cr
+	"add edi,4" ,ln ;
+
+#nivel1
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 o,exec
+0 0 0 0 o,=? o,<? o,>? o,<=? o,>=? o,<>? o,AND? o,NAND? | 23-34
+0 0 0 0 0 0 0 0	0 0 0 0 0 0 0 0 0 0 	|--- pilas
+o,AND o,OR o,XOR 0  					|--- logicas
+o,+ o,- o,* o,/ o,*/ o,*>> o,/MOD o,MOD 0  		|--- aritmeticas | 65
+0 0 o,<</ 0 0 0 0 0 0 o,<< o,>> o,0>>
+o,@ o,C@ o,W@ o,! o,C! o,W! o,+! o,C+! o,W+!  			|--- memoria
+o,@+ o,!+ o,C@+ o,C!+ o,W@+ o,W!+
+o>A 0 0 oA! oA+ 0 oA!+ | A
+o>B 0 0 oB! oB+ 0 oB!+ | B
+0 0 0 0 0 0 | Memory
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+
+,>A	,A> ,A@ ,A! ,A+ ,A@+ ,A!+
+
 |------------ compila CODIGO
 |:nro>dicn2   8 >> 5 << 'indicepal + @ ; | nombre
 :nro>dicn   8 >> "w%h" mprint ;			| numero de palabra
@@ -477,18 +662,66 @@
 
 :,defv ;
 
-:,lit	dup tok>cte ,DUP "mov eax," ,s ,d ,cr ;
-:,lits	,DUP "mov eax,str" ,s nstr ,h ,cr 1 'nstr +! ;
-:,wor	dup nro>dicn "call " ,s ,s
-		dup tok>name " ; %w" ,print ,cr ;
-:,var   dup nro>dicn ,DUP "mov eax,dword [" ,s ,s "]" ,s
-		dup tok>name " ; %w" ,print ,cr ;
-:,dwo   dup nro>dicn ,DUP "mov eax," ,s ,s
-		dup tok>name " ; '%w" ,print ,cr ;
-:,dva   dup nro>dicn ,DUP "mov eax," ,s ,s
-		dup tok>name " ; '%w" ,print ,cr ;
+:,lits
+	,DUP "mov eax,str" ,s nstr ,h ,cr 1 'nstr +! ;
+
+:,wor
+	over @ $ff and 			| word ;
+	16 =? ( "jmp " )( "call " ) nip ,s
+	dup nro>dicn ,s
+	dup tok>name " ; %w" ,print ,cr ;
+
+|.... proximo token optimizado
+:dumpopt
+	dup "; OPT " ,s ,s pick3 @ $ff and 16 - macroname " " ,s ,s ,cr ;
+
+:litopt
+	over tok>cte "%d" mprint
+	'strtos strcpy
+	exec
+	rot 1- rot 4+ rot ;
+
+:,lit
+	over @ $ff and 2 << 'nivel1 + @ 1? ( litopt ; ) drop
+	dup tok>cte ,DUP "mov eax," ,s ,d ,cr ;
+
+:varopt
+	"dword[" 'strtos strcpy
+	over nro>dicn 'strtos strcat
+	"]" 'strtos strcat
+	exec
+	rot 1- rot 4+ rot ;
+
+:,var
+|	over @ $ff and 2 << 'nivel1 + @ 1? ( varopt ; ) drop
+	dup nro>dicn ,DUP "mov eax,dword [" ,s ,s "]" ,s
+	dup tok>name " ; %w" ,print ,cr ;
+
+:dwoopt
+	over nro>dicn 'strtos strcpy
+	exec
+	rot 1- rot 4+ rot ;
+
+:,dwo
+	over @ $ff and 2 << 'nivel1 + @ 1? ( dwoopt ; ) drop
+	dup nro>dicn ,DUP "mov eax," ,s ,s
+	dup tok>name " ; '%w" ,print ,cr ;
+
+:dvaopt
+	over nro>dicn 'strtos strcpy
+	exec
+	rot 1- rot 4+ rot ;
+
+:,dva
+	over @ $ff and 2 << 'nivel1 + @ 1? ( dvaopt ; ) drop
+	dup nro>dicn ,DUP "mov eax," ,s ,s
+	dup tok>name " ; '%w" ,print ,cr ;
 
 :,;
+	over 8 - @ $ff and
+	12 =? ( drop ; ) | call
+	22 =? ( drop ; ) | exec
+	drop
 	"ret" ,ln ;
 :,(
 	+etiqueta salto? 1? ( swap label ,cr 1 )( swap label ":" ,ln 2 ) >pilac drop ;
@@ -568,7 +801,7 @@
 	dup 1- dic>inf @
 	$81 and $80 =? ( 2drop ; )
 	drop
-	
+
 	"; " ,s
 	dup dic>str @ "%w" ,print
 	" | " ,s
