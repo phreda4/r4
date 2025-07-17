@@ -1,4 +1,5 @@
 # :r4
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/phreda4/r4)
 
 Computer Programming Language based on ColorForth ideas
 
